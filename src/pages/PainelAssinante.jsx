@@ -1,0 +1,354 @@
+import React, { useState } from 'react';
+import { Loader2, Lock, LogOut, Menu, X, Store, Package, Receipt, Users, Settings, BarChart3, FileText, MapPin, Tag, Palette, CreditCard, Printer, MessageSquare, DollarSign } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
+import { base44 } from '@/api/base44Client';
+import { Link } from 'react-router-dom';
+import { createPageUrl } from '@/utils';
+import { usePermission } from '../components/permissions/usePermission';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
+import DashboardTab from '../components/admin/DashboardTab';
+import DishesTab from '../components/admin/DishesTab';
+import CategoriesTab from '../components/admin/CategoriesTab';
+import ComplementsTab from '../components/admin/ComplementsTab';
+import OrdersTab from '../components/admin/OrdersTab';
+import OrderHistoryTab from '../components/admin/OrderHistoryTab';
+import ClientsTab from '../components/admin/ClientsTab';
+import FinancialTab from '../components/admin/FinancialTab';
+import DeliveryZonesTab from '../components/admin/DeliveryZonesTab';
+import CouponsTab from '../components/admin/CouponsTab';
+import PromotionsTab from '../components/admin/PromotionsTab';
+import ThemeTab from '../components/admin/ThemeTab';
+import StoreTab from '../components/admin/StoreTab';
+import PaymentMethodsTab from '../components/admin/PaymentMethodsTab';
+import PrinterConfig from '../components/gestor/PrinterConfig';
+import CaixaTab from '../components/admin/CaixaTab';
+import WhatsAppTab from '../components/admin/WhatsAppTab';
+
+function AccessDenied() {
+  return (
+    <div className="flex items-center justify-center h-96">
+      <div className="bg-white p-8 rounded-xl shadow text-center">
+        <Lock className="w-10 h-10 text-red-500 mx-auto mb-3" />
+        <h2 className="text-lg font-semibold">Acesso não permitido</h2>
+        <p className="text-sm text-gray-500 mt-2">
+          Esta funcionalidade não está disponível no seu plano atual.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function WhatsAppToggle({ subscriberData }) {
+  const queryClient = useQueryClient();
+  const [localValue, setLocalValue] = useState(subscriberData?.send_whatsapp_commands !== false);
+  
+  const updateMutation = useMutation({
+    mutationFn: async (enabled) => {
+      return await base44.entities.Subscriber.update(subscriberData.id, {
+        send_whatsapp_commands: enabled
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['subscriber']);
+      queryClient.invalidateQueries(['permissions']);
+      toast.success(localValue ? 'Comandas WhatsApp ativadas!' : 'Comandas WhatsApp desativadas!');
+    },
+    onError: () => {
+      setLocalValue(!localValue);
+      toast.error('Erro ao atualizar');
+    }
+  });
+
+  const handleChange = (checked) => {
+    setLocalValue(checked);
+    updateMutation.mutate(checked);
+  };
+
+  return (
+    <div className="flex items-center gap-2 bg-white/10 px-3 py-2 rounded-lg">
+      <div className="flex-1">
+        <p className="text-xs font-medium text-white">Comanda WhatsApp</p>
+        <p className="text-[10px] text-orange-100">Enviar pedidos via WhatsApp</p>
+      </div>
+      <Switch
+        checked={localValue}
+        onCheckedChange={handleChange}
+        disabled={updateMutation.isPending}
+      />
+    </div>
+  );
+}
+
+export default function PainelAssinante() {
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [showMobileSidebar, setShowMobileSidebar] = useState(false);
+  
+  const { loading, permissions, isMaster, hasModuleAccess, user, subscriberData } = usePermission();
+
+  const handleLogout = () => {
+    base44.auth.logout();
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+      </div>
+    );
+  }
+
+  // Master pode acessar, mas assinantes precisam de assinatura ativa
+  if (!isMaster && (!subscriberData || subscriberData.status !== 'active')) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md text-center">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Lock className="w-8 h-8 text-red-600" />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">Assinatura Inativa</h2>
+          <p className="text-gray-600 mb-6">
+            Sua assinatura está inativa. Entre em contato para renovar.
+          </p>
+          <div className="space-y-3">
+            <a 
+              href="https://wa.me/5586988196114" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="block"
+            >
+              <Button className="w-full bg-green-600 hover:bg-green-700">
+                Falar no WhatsApp
+              </Button>
+            </a>
+            <Link to={createPageUrl('Cardapio')} className="block">
+              <Button variant="outline" className="w-full">
+                Ver Cardápio
+              </Button>
+            </Link>
+            <Button variant="ghost" onClick={handleLogout} className="w-full text-gray-500">
+              <LogOut className="w-4 h-4 mr-2" />
+              Sair
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const MENU_ITEMS = [
+    { id: 'dashboard', label: 'Dashboard', icon: BarChart3, module: 'dashboard' },
+    { id: 'pdv', label: 'PDV', icon: Package, module: 'pdv', link: 'PDV' },
+    { id: 'caixa', label: 'Caixa', icon: DollarSign, module: 'caixa' },
+    { id: 'orders', label: 'Pedidos', icon: Receipt, module: 'orders' },
+    { id: 'history', label: 'Histórico', icon: FileText, module: 'history' },
+    { id: 'clients', label: 'Clientes', icon: Users, module: 'clients' },
+    { id: 'financial', label: 'Financeiro', icon: DollarSign, module: 'financial' },
+    { id: 'dishes', label: 'Pratos', icon: Package, module: 'dishes' },
+    { id: 'categories', label: 'Categorias', icon: Tag, module: 'dishes' },
+    { id: 'complements', label: 'Complementos', icon: Package, module: 'dishes' },
+    { id: 'delivery_zones', label: 'Zonas', icon: MapPin, module: 'delivery_zones' },
+    { id: 'coupons', label: 'Cupons', icon: Tag, module: 'coupons' },
+    { id: 'promotions', label: 'Promoções', icon: Tag, module: 'promotions' },
+    { id: 'theme', label: 'Tema', icon: Palette, module: 'theme' },
+    { id: 'store', label: 'Loja', icon: Store, module: 'store' },
+    { id: 'payments', label: 'Pagamentos', icon: CreditCard, module: 'payments' },
+    { id: 'printer', label: 'Impressora', icon: Printer, module: 'printer' },
+    { id: 'whatsapp', label: 'WhatsApp', icon: MessageSquare, module: 'whatsapp' },
+  ];
+
+  const availableMenuItems = MENU_ITEMS.filter(item => 
+    !item.link && (isMaster || hasModuleAccess(item.module))
+  );
+
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'dashboard':
+        return <DashboardTab user={user} subscriberData={subscriberData} />;
+      case 'pdv':
+        return hasModuleAccess('pdv') ? <div className="p-8 text-center">Use o botão PDV no header</div> : <AccessDenied />;
+      case 'caixa':
+        return hasModuleAccess('caixa') ? <CaixaTab /> : <AccessDenied />;
+      case 'orders':
+        return hasModuleAccess('orders') ? <OrdersTab /> : <AccessDenied />;
+      case 'history':
+        return hasModuleAccess('history') ? <OrderHistoryTab /> : <AccessDenied />;
+      case 'clients':
+        return hasModuleAccess('clients') ? <ClientsTab /> : <AccessDenied />;
+      case 'financial':
+        return hasModuleAccess('financial') ? <FinancialTab /> : <AccessDenied />;
+      case 'dishes':
+        return hasModuleAccess('dishes') ? <DishesTab /> : <AccessDenied />;
+      case 'categories':
+        return hasModuleAccess('dishes') ? <CategoriesTab /> : <AccessDenied />;
+      case 'complements':
+        return hasModuleAccess('dishes') ? <ComplementsTab /> : <AccessDenied />;
+      case 'delivery_zones':
+        return hasModuleAccess('delivery_zones') ? <DeliveryZonesTab /> : <AccessDenied />;
+      case 'coupons':
+        return hasModuleAccess('coupons') ? <CouponsTab /> : <AccessDenied />;
+      case 'promotions':
+        return hasModuleAccess('promotions') ? <PromotionsTab /> : <AccessDenied />;
+      case 'theme':
+        return hasModuleAccess('theme') ? <ThemeTab /> : <AccessDenied />;
+      case 'store':
+        return hasModuleAccess('store') ? <StoreTab /> : <AccessDenied />;
+      case 'payments':
+        return hasModuleAccess('payments') ? <PaymentMethodsTab /> : <AccessDenied />;
+      case 'printer':
+        return hasModuleAccess('printer') ? <PrinterConfig /> : <AccessDenied />;
+      case 'whatsapp':
+        return hasModuleAccess('whatsapp') ? <WhatsAppTab /> : <AccessDenied />;
+      default:
+        return <DashboardTab user={user} subscriberData={subscriberData} />;
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-100 flex flex-col">
+      {/* Header */}
+      <header className="bg-gradient-to-r from-orange-600 to-orange-500 text-white flex-shrink-0 sticky top-0 z-50 shadow-lg">
+        <div className="px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowMobileSidebar(true)}
+              className="lg:hidden p-2 hover:bg-white/10 rounded-lg transition"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            <Store className="w-6 h-6" />
+            <div>
+              <h1 className="font-bold text-lg">Meu Painel</h1>
+              <p className="text-xs text-orange-100">
+                {subscriberData?.plan && `Plano ${subscriberData.plan.charAt(0).toUpperCase() + subscriberData.plan.slice(1)}`}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            {hasModuleAccess('pdv') && (
+              <Link to={createPageUrl('PDV')}>
+                <Button size="sm" className="bg-white text-orange-600 hover:bg-orange-50">
+                  <Package className="w-4 h-4 mr-2" />
+                  PDV
+                </Button>
+              </Link>
+            )}
+            {hasModuleAccess('gestor_pedidos') ? (
+              <Link to={createPageUrl('GestorPedidos')}>
+                <Button size="sm" className="bg-white text-orange-600 hover:bg-orange-50">
+                  <Receipt className="w-4 h-4 mr-2" />
+                  Gestor
+                </Button>
+              </Link>
+            ) : (
+              <Button 
+                size="sm" 
+                className="bg-white/50 text-orange-400 cursor-not-allowed" 
+                disabled
+                title="Não disponível no seu plano"
+              >
+                <Receipt className="w-4 h-4 mr-2" />
+                Gestor
+              </Button>
+            )}
+            <WhatsAppToggle subscriberData={subscriberData} />
+            <Link to={createPageUrl('Cardapio')} className="hidden sm:block">
+              <Button size="sm" variant="ghost" className="text-white hover:bg-white/10">
+                Ver Cardápio
+              </Button>
+            </Link>
+            <Button size="sm" variant="ghost" onClick={handleLogout} className="text-white hover:bg-white/10 hidden sm:flex">
+              <LogOut className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      {/* Mobile Sidebar Overlay */}
+      {showMobileSidebar && (
+        <div
+          className="lg:hidden fixed inset-0 bg-black/50 z-40"
+          onClick={() => setShowMobileSidebar(false)}
+        />
+      )}
+
+      {/* Main Layout */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Sidebar */}
+        <aside
+          className={`
+            fixed lg:static inset-y-0 left-0 z-40 w-64 bg-white border-r
+            transform transition-transform duration-300 ease-in-out
+            ${showMobileSidebar ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+          `}
+        >
+          <div className="h-full overflow-y-auto p-4">
+            <div className="lg:hidden flex items-center justify-between mb-4">
+              <h2 className="font-bold text-gray-900">Menu</h2>
+              <button
+                onClick={() => setShowMobileSidebar(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <nav className="space-y-1">
+              {availableMenuItems.map(item => {
+                const Icon = item.icon;
+                const isActive = activeTab === item.id;
+                
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      setActiveTab(item.id);
+                      setShowMobileSidebar(false);
+                    }}
+                    className={`
+                      w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all
+                      ${isActive 
+                        ? 'bg-orange-500 text-white shadow-md' 
+                        : 'text-gray-700 hover:bg-gray-100'
+                      }
+                    `}
+                  >
+                    <Icon className="w-5 h-5" />
+                    <span className="font-medium">{item.label}</span>
+                  </button>
+                );
+              })}
+            </nav>
+
+            {/* Plan Info */}
+            <div className="mt-6 p-4 bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg border border-orange-200">
+              <p className="text-xs text-gray-600 mb-1">Seu Plano</p>
+              <p className="font-bold text-orange-700 capitalize">
+                {subscriberData?.plan || 'Basic'}
+              </p>
+              {subscriberData?.expires_at && (
+                <p className="text-xs text-gray-600 mt-2">
+                  Renovação: {(() => {
+                    const date = new Date(subscriberData.expires_at);
+                    const day = String(date.getDate()).padStart(2, '0');
+                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                    const year = date.getFullYear();
+                    return `${day}/${month}/${year}`;
+                  })()}
+                </p>
+              )}
+            </div>
+          </div>
+        </aside>
+
+        {/* Content */}
+        <main className="flex-1 overflow-y-auto bg-gray-50">
+          <div className="p-4 lg:p-6">
+            {renderContent()}
+          </div>
+        </main>
+      </div>
+    </div>
+  );
+}

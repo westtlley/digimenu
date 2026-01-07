@@ -1,0 +1,874 @@
+import React, { useState, useMemo, useEffect } from 'react';
+import { base44 } from '@/api/base44Client';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { ShoppingCart, Search, Clock, Star } from 'lucide-react';
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { motion } from 'framer-motion';
+import toast, { Toaster } from 'react-hot-toast';
+
+// Components
+import NewDishModal from '../components/menu/NewDishModal';
+import PizzaBuilder from '../components/pizza/PizzaBuilder';
+import CartModal from '../components/menu/CartModal';
+import CheckoutView from '../components/menu/CheckoutView';
+import OrderHistoryModal from '../components/menu/OrderHistoryModal';
+import UpsellModal from '../components/menu/UpsellModal';
+import DishSkeleton from '../components/menu/DishSkeleton';
+import PromotionBanner from '../components/menu/PromotionBanner';
+import RecentOrders from '../components/menu/RecentOrders';
+import AdvancedFilters from '../components/menu/AdvancedFilters';
+import UserAuthButton from '../components/atoms/UserAuthButton';
+import StoreClosedOverlay from '../components/menu/StoreClosedOverlay';
+import ThemeToggle from '../components/ui/ThemeToggle';
+
+// Hooks
+import { useCart } from '@/components/hooks/useCart';
+import { useStoreStatus } from '@/components/hooks/useStoreStatus';
+import { useUpsell } from '@/components/hooks/useUpsell';
+import { useCoupons } from '@/components/hooks/useCoupons';
+import { useCustomer } from '@/components/hooks/useCustomer';
+
+// Services & Utils
+import { orderService } from '@/components/services/orderService';
+import { whatsappService } from '@/components/services/whatsappService';
+import { stockUtils } from '@/components/utils/stockUtils';
+import { formatCurrency } from '@/components/utils/formatters';
+
+export default function Cardapio() {
+  const [selectedDish, setSelectedDish] = useState(null);
+  const [selectedPizza, setSelectedPizza] = useState(null);
+  const [editingCartItem, setEditingCartItem] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [showCartModal, setShowCartModal] = useState(false);
+  const [currentView, setCurrentView] = useState('menu');
+  const [showOrderHistory, setShowOrderHistory] = useState(false);
+  const [advancedFilters, setAdvancedFilters] = useState({ priceRange: null, tags: [] });
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  // Custom Hooks
+  const { cart, addItem, updateItem, removeItem, updateQuantity, clearCart, cartTotal, cartItemsCount } = useCart();
+  const { customer, setCustomer, clearCustomer } = useCustomer();
+
+  // Data Fetching
+  const { data: dishes = [], isLoading: dishesLoading } = useQuery({
+    queryKey: ['dishes'],
+    queryFn: () => base44.entities.Dish.list('order'),
+    refetchInterval: 5000, // Atualiza a cada 5 segundos
+    staleTime: 0 // Sempre considera os dados como desatualizados
+  });
+
+  const { data: categories = [] } = useQuery({
+    queryKey: ['categories'],
+    queryFn: () => base44.entities.Category.list('order')
+  });
+
+  const { data: complementGroups = [] } = useQuery({
+    queryKey: ['complementGroups'],
+    queryFn: () => base44.entities.ComplementGroup.list('order')
+  });
+
+  const { data: pizzaSizes = [] } = useQuery({
+    queryKey: ['pizzaSizes'],
+    queryFn: () => base44.entities.PizzaSize.list('order')
+  });
+
+  const { data: pizzaFlavors = [] } = useQuery({
+    queryKey: ['pizzaFlavors'],
+    queryFn: () => base44.entities.PizzaFlavor.list('order')
+  });
+
+  const { data: pizzaEdges = [] } = useQuery({
+    queryKey: ['pizzaEdges'],
+    queryFn: () => base44.entities.PizzaEdge.list('order')
+  });
+
+  const { data: pizzaExtras = [] } = useQuery({
+    queryKey: ['pizzaExtras'],
+    queryFn: () => base44.entities.PizzaExtra.list('order')
+  });
+
+  const { data: stores = [] } = useQuery({
+    queryKey: ['store'],
+    queryFn: () => base44.entities.Store.list()
+  });
+
+  const { data: coupons = [] } = useQuery({
+    queryKey: ['coupons'],
+    queryFn: () => base44.entities.Coupon.list()
+  });
+
+  const { data: deliveryZones = [] } = useQuery({
+    queryKey: ['deliveryZones'],
+    queryFn: () => base44.entities.DeliveryZone.list()
+  });
+
+  const { data: promotions = [] } = useQuery({
+    queryKey: ['promotions'],
+    queryFn: () => base44.entities.Promotion.list()
+  });
+
+  const createOrderMutation = useMutation({
+    mutationFn: (data) => base44.entities.Order.create(data)
+  });
+
+  const updateCouponMutation = useMutation({
+    mutationFn: ({ id, data }) => base44.entities.Coupon.update(id, data)
+  });
+
+  // Store data
+  const store = stores[0] || { name: 'Sabor do Dia', is_open: true };
+  const primaryColor = store.theme_primary_color || '#f97316';
+  const headerBg = store.theme_header_bg || '#ffffff';
+  const headerText = store.theme_header_text || '#000000';
+
+  // Store Status
+  const { isStoreUnavailable, isStoreClosed, isStorePaused, isAutoModeClosed, getNextOpenTime, getStatusDisplay } = useStoreStatus(store);
+
+  // Coupons
+  const { couponCode, setCouponCode, appliedCoupon, couponError, validateAndApply, removeCoupon, calculateDiscount } = useCoupons(coupons, cartTotal);
+
+  // Upsell
+  const { showUpsellModal, upsellPromotions, checkUpsell, resetUpsell, closeUpsell } = useUpsell(promotions, cartTotal);
+
+  // Memoized calculations
+  const activeDishes = useMemo(() => {
+    // Filtra apenas pratos ativos E que tenham nome e preço definidos
+    return dishes.filter((d) => {
+      if (d.is_active === false) return false;
+      if (!d.name || d.name.trim() === '') return false;
+      
+      // Para pizzas, verificar se tem tamanhos e sabores configurados
+      if (d.product_type === 'pizza') {
+        if (pizzaSizes.length === 0 || pizzaFlavors.length === 0) return false;
+      } else {
+        // Para outros produtos, verificar se tem preço
+        if (d.price === null || d.price === undefined) return false;
+      }
+      
+      return true;
+    });
+  }, [dishes, pizzaSizes, pizzaFlavors]);
+  const highlightDishes = useMemo(() => activeDishes.filter((d) => d.is_highlight), [activeDishes]);
+  const activePromotions = useMemo(() => promotions.filter(p => p.is_active), [promotions]);
+
+  const filteredDishes = useMemo(() => {
+    return activeDishes.filter((dish) => {
+      const matchesSearch = !searchTerm || dish.name?.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesCategory = selectedCategory === 'all' || dish.category_id === selectedCategory;
+      
+      const matchesPrice = !advancedFilters.priceRange || 
+        (dish.price >= advancedFilters.priceRange.min && dish.price <= advancedFilters.priceRange.max);
+      
+      const matchesTags = !advancedFilters.tags?.length || 
+        advancedFilters.tags.every(tag => dish.tags?.includes(tag));
+      
+      return matchesSearch && matchesCategory && matchesPrice && matchesTags;
+    });
+  }, [activeDishes, searchTerm, selectedCategory, advancedFilters]);
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const isAuth = await base44.auth.isAuthenticated();
+      setIsAuthenticated(isAuth);
+    };
+    checkAuth();
+  }, []);
+
+  const handleAddToCart = async (item, isEditing = false) => {
+    const dish = item.dish || item;
+    
+    if (!stockUtils.canAddToCart(dish)) {
+      toast.error('Este produto está esgotado');
+      return;
+    }
+
+    if (isEditing || editingCartItem) {
+      updateItem(editingCartItem?.id || item.id, item);
+      setEditingCartItem(null);
+      setSelectedDish(null);
+      setSelectedPizza(null);
+      toast.success('Item atualizado no carrinho');
+      return;
+    }
+    
+    addItem(item);
+    setSelectedDish(null);
+    setSelectedPizza(null);
+    
+    // Rastrear combinação de pizza
+    if (dish.product_type === 'pizza' && item.selections?.flavors) {
+      try {
+        const flavorIds = item.selections.flavors.map(f => f.id);
+        await base44.functions.invoke('trackPizzaCombination', {
+          pizza_id: dish.id,
+          flavor_ids: flavorIds
+        });
+      } catch (e) {
+        console.log('Erro ao rastrear combinação:', e);
+      }
+    }
+    
+    toast.success(
+      <div className="flex items-center gap-2">
+        <span>✅</span>
+        <span>Adicionado ao carrinho!</span>
+      </div>,
+      { duration: 2000 }
+    );
+    
+    // Verificar upsell
+    const newCartTotal = cartTotal + item.totalPrice;
+    checkUpsell(newCartTotal);
+  };
+
+  const handleDishClick = (dish) => {
+    if (dish.product_type === 'pizza') {
+      setSelectedPizza(dish);
+    } else {
+      setSelectedDish(dish);
+    }
+  };
+
+  const handleRemoveFromCart = (itemId) => {
+    removeItem(itemId);
+    toast.success('Item removido do carrinho');
+    
+    if (cart.length === 1) {
+      resetUpsell();
+    }
+  };
+
+  const handleUpdateQuantity = (itemId, delta) => {
+    updateQuantity(itemId, delta);
+  };
+
+  const handleApplyCoupon = () => {
+    const success = validateAndApply();
+    if (success) {
+      const discount = calculateDiscount();
+      toast.success(
+        <div>
+          <p className="font-bold">🎉 Cupom aplicado!</p>
+          <p className="text-sm">Você economizou {formatCurrency(discount)}</p>
+        </div>
+      );
+    } else {
+      toast.error(couponError);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    removeCoupon();
+    toast.success('Cupom removido');
+  };
+
+  const handleEditCartItem = (item) => {
+    setEditingCartItem(item);
+    if (item.dish?.product_type === 'pizza') {
+      setSelectedPizza(item.dish);
+    } else {
+      setSelectedDish(item.dish);
+    }
+    setShowCartModal(false);
+  };
+
+  const handleEditPizza = (item) => {
+    setEditingCartItem(item);
+    setSelectedPizza(item.dish);
+    setShowCartModal(false);
+  };
+
+  const handleUpsellAccept = (promotion) => {
+    if (!promotion) return;
+    
+    const promoDish = dishes.find(d => d.id === promotion.offer_dish_id);
+    if (!promoDish) {
+      closeUpsell();
+      return;
+    }
+    
+    if (promotion.type === 'replace') {
+      clearCart();
+    }
+    
+    const promoItem = {
+      ...promoDish,
+      price: promotion.offer_price,
+      original_price: promotion.original_price,
+      _isPromo: true
+    };
+    
+    handleDishClick(promoItem);
+    closeUpsell();
+  };
+
+  const handleSendWhatsApp = async () => {
+    const orderCode = orderService.generateOrderCode();
+    const fullAddress = orderService.formatFullAddress(customer);
+    
+    if (customer.deliveryMethod === 'delivery' && !customer.neighborhood) {
+      toast.error('Por favor, informe o bairro para calcular a taxa de entrega');
+      return;
+    }
+    
+    const calculatedDeliveryFee = orderService.calculateDeliveryFee(
+      customer.deliveryMethod, 
+      customer.neighborhood, 
+      deliveryZones
+    );
+    
+    const discount = calculateDiscount();
+    const { total } = orderService.calculateTotals(cartTotal, discount, calculatedDeliveryFee);
+
+    const orderData = {
+      order_code: orderCode,
+      customer_name: customer.name,
+      customer_phone: customer.phone,
+      customer_email: isAuthenticated ? (await base44.auth.me()).email : undefined,
+      customer_latitude: customer.latitude || null,
+      customer_longitude: customer.longitude || null,
+      delivery_method: customer.deliveryMethod,
+      address_street: customer.address_street,
+      address_number: customer.address_number,
+      address_complement: customer.address_complement,
+      address: fullAddress,
+      neighborhood: customer.neighborhood,
+      payment_method: customer.paymentMethod,
+      needs_change: customer.needs_change || false,
+      change_amount: customer.change_amount ? parseFloat(customer.change_amount) : null,
+      scheduled_date: customer.scheduled_date || null,
+      scheduled_time: customer.scheduled_time || null,
+      items: cart,
+      subtotal: cartTotal,
+      delivery_fee: calculatedDeliveryFee,
+      discount: discount,
+      coupon_code: appliedCoupon?.code,
+      total: total,
+      status: 'new'
+    };
+
+    const order = await orderService.createOrder(orderData, createOrderMutation);
+    await orderService.updateCouponUsage(appliedCoupon, updateCouponMutation);
+
+    const shouldSend = await whatsappService.shouldSendWhatsApp();
+
+    if (shouldSend) {
+      const message = whatsappService.formatOrderMessage(
+        order, 
+        cart, 
+        complementGroups, 
+        formatCurrency
+      );
+
+      whatsappService.sendToWhatsApp(store.whatsapp, message);
+    }
+
+    // Limpar tudo
+    clearCart();
+    removeCoupon();
+    clearCustomer();
+    setCurrentView('menu');
+    resetUpsell();
+    
+    toast.success(
+      <div className="text-center">
+        <p className="font-bold mb-1">✅ Pedido enviado com sucesso!</p>
+        <p className="text-sm">Pedido #{orderCode}</p>
+        <button
+          onClick={() => setShowOrderHistory(true)}
+          className="mt-2 text-blue-600 font-medium text-sm underline"
+        >
+          Acompanhar pedido
+        </button>
+      </div>,
+      { duration: 5000 }
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-background">
+      <Toaster position="top-center" />
+      
+      {/* Store Closed Overlay */}
+      {isStoreUnavailable && (
+        <StoreClosedOverlay
+          isStoreClosed={isStoreClosed}
+          isAutoModeClosed={isAutoModeClosed}
+          isStorePaused={isStorePaused}
+          getNextOpenTime={getNextOpenTime}
+          store={store}
+        />
+      )}
+
+      {/* Header */}
+      <header className="border-b border-border sticky top-0 z-40 md:pb-2 pb-4 bg-card">
+        <div className="max-w-7xl mx-auto px-4 md:pt-3 pt-6">
+          <div className="flex items-center justify-between md:mb-3 mb-6">
+            <div className="flex items-center gap-3">
+              {store.logo ? (
+                <img src={store.logo} alt={store.name} className="w-12 h-12 rounded-lg object-cover" />
+              ) : (
+                <div className="w-12 h-12 rounded-lg flex items-center justify-center text-2xl" style={{ backgroundColor: primaryColor }}>
+                  🍽️
+                </div>
+              )}
+              <div>
+               <h1 className="font-bold text-lg text-foreground">{store.name}</h1>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <ThemeToggle className="text-muted-foreground hover:text-foreground hover:bg-muted" />
+              <UserAuthButton />
+              <button 
+                className="p-2 rounded-lg relative transition-colors text-muted-foreground hover:text-foreground hover:bg-muted" 
+                onClick={() => setShowCartModal(true)}
+              >
+                <ShoppingCart className="w-5 h-5" />
+                {cart.length > 0 && (
+                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">
+                    {cartItemsCount}
+                  </span>
+                )}
+              </button>
+              <button 
+                className="p-2 rounded-lg transition-colors text-muted-foreground hover:text-foreground hover:bg-muted" 
+                onClick={() => setShowOrderHistory(true)}
+              >
+                <Clock className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Search */}
+          <div className="relative max-w-2xl mx-auto md:mb-2 mb-3">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+            <Input
+              placeholder="O que você procura hoje?"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 md:h-10 h-12 text-base"
+            />
+          </div>
+
+          {/* Status */}
+          <div className="text-center">
+            <span className={`text-xs font-medium ${getStatusDisplay.color}`}>
+              ● {getStatusDisplay.text}
+            </span>
+          </div>
+        </div>
+      </header>
+
+      {/* Category Tabs */}
+      <div className="bg-card border-b border-border sticky md:top-[120px] top-[165px] z-30">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="flex items-center justify-between gap-3 md:py-2 py-3">
+            <div className="flex gap-1 overflow-x-auto scrollbar-hide flex-1">
+              <button
+                onClick={() => setSelectedCategory('all')}
+                className={`px-6 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+                  selectedCategory === 'all' 
+                    ? 'text-white' 
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                }`}
+                style={selectedCategory === 'all' ? { backgroundColor: primaryColor, color: 'white' } : {}}
+              >
+                Todos
+              </button>
+              {categories.map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => setSelectedCategory(cat.id)}
+                  className={`px-6 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+                    selectedCategory === cat.id
+                      ? 'text-white'
+                      : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                  }`}
+                  style={selectedCategory === cat.id ? { backgroundColor: primaryColor, color: 'white' } : {}}
+                >
+                  {cat.name}
+                </button>
+              ))}
+            </div>
+            <AdvancedFilters 
+              filters={advancedFilters}
+              onFiltersChange={setAdvancedFilters}
+              primaryColor={primaryColor}
+              availableTags={store.available_tags}
+              tagLabels={store.tag_labels}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 py-6 pb-24">
+        {/* Promotions Banner */}
+        <PromotionBanner
+          promotions={activePromotions}
+          dishes={dishes}
+          primaryColor={primaryColor}
+          onSelectPromotion={setSelectedDish}
+        />
+
+        {/* Recent Orders */}
+        <RecentOrders
+          dishes={activeDishes}
+          onSelectDish={setSelectedDish}
+          primaryColor={primaryColor}
+        />
+
+        {/* Highlights */}
+        {highlightDishes.length > 0 && (
+          <section className="mb-8">
+            <div className="flex items-center gap-2 mb-4">
+              <Star className="w-5 h-5 fill-yellow-400 text-yellow-400" />
+              <h2 className="font-bold text-lg text-foreground">Pratos do Dia</h2>
+            </div>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {highlightDishes.map((dish) => (
+                <motion.div
+                  key={dish.id}
+                  whileHover={{ y: -4 }}
+                  className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm cursor-pointer relative"
+                  onClick={() => handleDishClick(dish)}
+                >
+                  <Badge className="absolute top-3 left-3 z-10 bg-yellow-400 text-black">
+                    ⭐ Destaque
+                  </Badge>
+                  <div className="relative h-48 bg-gray-100 dark:bg-gray-800">
+                    {dish.image ? (
+                      <img src={dish.image} alt={dish.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-4xl">
+                        🍽️
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-4">
+                    <h3 className="font-bold text-base mb-1 text-foreground">{dish.name}</h3>
+                    <p className="text-sm text-muted-foreground line-clamp-2 mb-3">{dish.description}</p>
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-lg" style={{ color: primaryColor }}>
+                        {dish.product_type === 'pizza' 
+                          ? `A partir de ${formatCurrency(pizzaSizes[0]?.price_tradicional || 0)}`
+                          : formatCurrency(dish.price)
+                        }
+                      </span>
+                      <button
+                        className="px-4 py-2 rounded-lg text-white text-sm font-medium"
+                        style={{ backgroundColor: primaryColor }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDishClick(dish);
+                        }}
+                      >
+                        Adicionar
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* All Dishes */}
+        <section>
+          <h2 className="font-bold text-lg mb-4 text-foreground">
+            {selectedCategory === 'all' 
+              ? 'Cardápio Completo' 
+              : categories.find(c => c.id === selectedCategory)?.name || 'Pratos'}
+          </h2>
+          {dishesLoading ? (
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <DishSkeleton key={i} />
+              ))}
+            </div>
+          ) : (
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredDishes.map((dish) => {
+                const isOutOfStock = stockUtils.isOutOfStock(dish.stock);
+                const isLowStock = stockUtils.isLowStock(dish.stock);
+
+                return (
+                  <motion.div
+                    key={dish.id}
+                    whileHover={{ y: isOutOfStock ? 0 : -4 }}
+                    className={`bg-card border border-border rounded-2xl overflow-hidden shadow-sm ${
+                      isOutOfStock ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'
+                    }`}
+                    onClick={() => !isOutOfStock && handleDishClick(dish)}
+                  >
+                    <div className="relative h-48 bg-gray-100 dark:bg-gray-800">
+                      {dish.image ? (
+                        <img 
+                          src={dish.image} 
+                          alt={dish.name} 
+                          className={`w-full h-full object-cover ${isOutOfStock ? 'grayscale' : ''}`}
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-4xl">
+                          🍽️
+                        </div>
+                      )}
+                      <div className="absolute top-3 right-3 flex flex-col gap-1">
+                        {isOutOfStock && (
+                          <Badge className="bg-gray-600 dark:bg-gray-800 text-white">
+                            Esgotado
+                          </Badge>
+                        )}
+                        {isLowStock && !isOutOfStock && (
+                          <Badge className="bg-orange-500 text-white">
+                            Últimas unidades
+                          </Badge>
+                        )}
+                        {dish.original_price && dish.original_price > dish.price && (
+                          <Badge className="bg-red-500 text-white">
+                            Oferta
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="absolute top-3 left-3 flex flex-col gap-1">
+                        {dish.is_new && (
+                          <Badge className="bg-green-500 text-white">
+                            ✨ Novo
+                          </Badge>
+                        )}
+                        {dish.is_popular && (
+                          <Badge className="bg-purple-500 text-white">
+                            🔥 Mais Vendido
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                    <div className="p-4">
+                      <h3 className="font-bold text-base mb-1 text-foreground">{dish.name}</h3>
+                      <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{dish.description}</p>
+                      {dish.prep_time && (
+                        <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          Preparo: ~{dish.prep_time} min
+                        </p>
+                      )}
+                      <div className="flex items-center justify-between">
+                       <div>
+                         {dish.original_price && dish.original_price > dish.price && (
+                           <span className="text-xs text-muted-foreground line-through block">
+                             {formatCurrency(dish.original_price)}
+                           </span>
+                         )}
+                         <span className="font-bold text-lg" style={{ color: primaryColor }}>
+                           {dish.product_type === 'pizza' 
+                             ? `A partir de ${formatCurrency(pizzaSizes[0]?.price_tradicional || 0)}`
+                             : formatCurrency(dish.price)
+                           }
+                         </span>
+                       </div>
+                        <button
+                          disabled={isOutOfStock}
+                          className={`px-4 py-2 rounded-lg text-white text-sm font-medium ${
+                            isOutOfStock ? 'bg-gray-400 cursor-not-allowed' : ''
+                          }`}
+                          style={!isOutOfStock ? { backgroundColor: primaryColor } : {}}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (!isOutOfStock) handleDishClick(dish);
+                          }}
+                        >
+                          {isOutOfStock ? 'Esgotado' : 'Adicionar'}
+                        </button>
+                      </div>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        {!dishesLoading && filteredDishes.length === 0 && (
+          <div className="text-center py-16">
+            <p className="text-muted-foreground">Nenhum prato encontrado</p>
+          </div>
+        )}
+      </main>
+
+      {/* Footer */}
+      <footer className="bg-card border-t border-border text-foreground mt-12">
+        <div className="max-w-7xl mx-auto px-4 py-12">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div>
+              {store.logo && (
+                <img src={store.logo} alt={store.name} className="w-16 h-16 rounded-lg object-cover mb-4" />
+              )}
+              <h3 className="font-bold text-lg mb-2">{store.name}</h3>
+              {store.slogan && (
+                <p className="text-muted-foreground text-sm italic mb-4">"{store.slogan}"</p>
+              )}
+              {store.address && (
+                <p className="text-muted-foreground text-sm mb-2">📍 {store.address}</p>
+              )}
+              {store.whatsapp && (
+                <p className="text-muted-foreground text-sm mb-2">📱 {store.whatsapp}</p>
+              )}
+            </div>
+
+            <div>
+              <h3 className="font-bold text-lg mb-4">Redes Sociais</h3>
+              <div className="space-y-2">
+                {store.instagram && (
+                  <a 
+                    href={store.instagram.startsWith('http') ? store.instagram : `https://instagram.com/${store.instagram}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <span>📷</span>
+                    <span className="text-sm">Instagram</span>
+                  </a>
+                )}
+                {store.facebook && (
+                  <a 
+                    href={store.facebook.startsWith('http') ? store.facebook : `https://facebook.com/${store.facebook}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <span>👥</span>
+                    <span className="text-sm">Facebook</span>
+                  </a>
+                )}
+                {store.whatsapp && (
+                  <a 
+                    href={`https://wa.me/55${store.whatsapp.replace(/\D/g, '')}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <span>💬</span>
+                    <span className="text-sm">WhatsApp</span>
+                  </a>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <h3 className="font-bold text-lg mb-4">Horário</h3>
+              {store.opening_time && store.closing_time && (
+                <p className="text-muted-foreground text-sm mb-4">
+                  🕒 {store.opening_time} - {store.closing_time}
+                </p>
+              )}
+
+              {store.payment_methods && store.payment_methods.length > 0 && (
+                <div className="mt-6">
+                  <h3 className="font-bold text-sm mb-3">Formas de Pagamento</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {store.payment_methods.map((method, idx) => (
+                      <div key={idx} className="bg-background border border-border rounded p-2">
+                        {method.image ? (
+                          <img src={method.image} alt={method.name} className="h-6 object-contain" />
+                        ) : (
+                          <span className="text-xs text-foreground">{method.name}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="border-t border-border mt-8 pt-8 text-center text-sm text-muted-foreground">
+            © 2025 {store.name}. Todos os direitos reservados.
+          </div>
+        </div>
+      </footer>
+
+      {/* Modals */}
+      <CartModal
+        isOpen={showCartModal}
+        onClose={() => setShowCartModal(false)}
+        cart={cart}
+        onUpdateQuantity={handleUpdateQuantity}
+        onRemoveItem={handleRemoveFromCart}
+        onEditItem={handleEditCartItem}
+        onEditPizza={handleEditPizza}
+        onCheckout={() => {
+          setShowCartModal(false);
+          setCurrentView('checkout');
+        }}
+        primaryColor={primaryColor}
+      />
+
+      <NewDishModal
+        isOpen={!!selectedDish}
+        onClose={() => {
+          setSelectedDish(null);
+          setEditingCartItem(null);
+        }}
+        dish={selectedDish}
+        complementGroups={complementGroups}
+        onAddToCart={handleAddToCart}
+        editingItem={editingCartItem}
+        primaryColor={primaryColor}
+      />
+
+      {selectedPizza && (
+        <PizzaBuilder
+          dish={selectedPizza}
+          sizes={pizzaSizes}
+          flavors={pizzaFlavors}
+          edges={pizzaEdges}
+          extras={pizzaExtras}
+          onAddToCart={handleAddToCart}
+          onClose={() => {
+            setSelectedPizza(null);
+            setEditingCartItem(null);
+          }}
+          primaryColor={primaryColor}
+          editingItem={editingCartItem}
+        />
+      )}
+
+      <OrderHistoryModal
+        isOpen={showOrderHistory}
+        onClose={() => setShowOrderHistory(false)}
+        primaryColor={primaryColor}
+      />
+
+      <UpsellModal
+        isOpen={showUpsellModal}
+        onClose={closeUpsell}
+        promotions={upsellPromotions}
+        dishes={dishes}
+        onAccept={handleUpsellAccept}
+        onDecline={closeUpsell}
+        primaryColor={primaryColor}
+      />
+
+      {currentView === 'checkout' && (
+        <CheckoutView
+          cart={cart}
+          customer={customer}
+          setCustomer={setCustomer}
+          onBack={() => setCurrentView('menu')}
+          onSendWhatsApp={handleSendWhatsApp}
+          couponCode={couponCode}
+          setCouponCode={setCouponCode}
+          appliedCoupon={appliedCoupon}
+          couponError={couponError}
+          onApplyCoupon={handleApplyCoupon}
+          onRemoveCoupon={handleRemoveCoupon}
+          deliveryZones={deliveryZones}
+          store={store}
+          primaryColor={primaryColor}
+        />
+      )}
+    </div>
+  );
+}

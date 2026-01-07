@@ -1,0 +1,218 @@
+import React, { useState } from 'react';
+import { base44 } from '@/api/base44Client';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Plus, Trash2, MapPin } from 'lucide-react';
+import EmptyState from '@/components/ui/EmptyState';
+
+export default function DeliveryZonesTab() {
+  const [showModal, setShowModal] = useState(false);
+  const [formData, setFormData] = useState({
+    neighborhood: '',
+    fee: '',
+    is_active: true,
+  });
+
+  const queryClient = useQueryClient();
+
+  const { data: zones = [] } = useQuery({
+    queryKey: ['deliveryZones'],
+    queryFn: () => base44.entities.DeliveryZone.list('neighborhood'),
+  });
+
+  const createMutation = useMutation({
+    mutationFn: (data) => base44.entities.DeliveryZone.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['deliveryZones'] });
+      closeModal();
+      const toast = document.createElement('div');
+      toast.className = 'fixed top-4 right-4 z-[9999] bg-green-600 text-white px-6 py-4 rounded-xl shadow-2xl';
+      toast.innerHTML = '✅ Zona criada!';
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 2000);
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }) => base44.entities.DeliveryZone.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['deliveryZones'] });
+      const toast = document.createElement('div');
+      toast.className = 'fixed bottom-4 right-4 z-[9999] bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg text-sm';
+      toast.innerHTML = '✅ Salvo!';
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 2000);
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id) => base44.entities.DeliveryZone.delete(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['deliveryZones'] }),
+  });
+
+  const closeModal = () => {
+    setShowModal(false);
+    setFormData({ neighborhood: '', fee: '', is_active: true });
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    createMutation.mutate({
+      ...formData,
+      fee: parseFloat(formData.fee) || 0,
+    });
+  };
+
+  const formatCurrency = (value) => {
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
+  };
+
+  return (
+    <div className="p-4 sm:p-6">
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h2 className="text-lg font-bold">Zonas de Entrega</h2>
+          <p className="text-sm text-gray-500">Defina taxas de entrega por bairro</p>
+        </div>
+        <Button onClick={() => setShowModal(true)} className="bg-orange-500 hover:bg-orange-600">
+          <Plus className="w-4 h-4 mr-2" />
+          Nova Zona
+        </Button>
+      </div>
+
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {zones.length === 0 ? (
+          <div className="col-span-full">
+            <EmptyState
+              icon={MapPin}
+              title="Defina as zonas de entrega para calcular taxas corretamente"
+              description="Configure taxas por bairro para cobrar valores justos e transparentes"
+              actionLabel="Criar zona de entrega"
+              onAction={() => setShowModal(true)}
+            />
+          </div>
+        ) : (
+          zones.map(zone => (
+            <div key={zone.id} className="bg-white rounded-xl p-4 shadow-sm border">
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center gap-3 flex-1">
+                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <MapPin className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <input
+                      type="text"
+                      value={zone.neighborhood}
+                      onChange={(e) => updateMutation.mutate({
+                        id: zone.id,
+                        data: { ...zone, neighborhood: e.target.value }
+                      })}
+                      className="font-semibold text-base bg-transparent border-b border-transparent hover:border-gray-300 focus:border-orange-500 focus:outline-none w-full"
+                    />
+                  </div>
+                </div>
+                <Switch
+                  checked={zone.is_active}
+                  onCheckedChange={(checked) => updateMutation.mutate({
+                    id: zone.id,
+                    data: { ...zone, is_active: checked }
+                  })}
+                />
+              </div>
+
+              <div className="mb-3">
+                <Label className="text-xs text-gray-500">Taxa de Entrega</Label>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-sm text-gray-400">R$</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={zone.fee}
+                    onChange={(e) => updateMutation.mutate({
+                      id: zone.id,
+                      data: { ...zone, fee: parseFloat(e.target.value) || 0 }
+                    })}
+                    className="flex-1 px-2 py-1 border rounded text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-between items-center pt-3 border-t">
+                <span className="text-lg font-bold text-green-600">{formatCurrency(zone.fee)}</span>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8 text-red-500 hover:text-red-700"
+                  onClick={() => {
+                    if (confirm('Excluir esta zona?')) {
+                      deleteMutation.mutate(zone.id);
+                    }
+                  }}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Modal */}
+      <Dialog open={showModal} onOpenChange={setShowModal}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MapPin className="w-5 h-5" />
+              Nova Zona de Entrega
+            </DialogTitle>
+          </DialogHeader>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <Label>Nome do Bairro</Label>
+              <Input
+                value={formData.neighborhood}
+                onChange={(e) => setFormData(prev => ({ ...prev, neighborhood: e.target.value }))}
+                placeholder="Ex: Centro, Jardins..."
+                required
+              />
+            </div>
+
+            <div>
+              <Label>Taxa de Entrega (R$)</Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={formData.fee}
+                onChange={(e) => setFormData(prev => ({ ...prev, fee: e.target.value }))}
+                placeholder="0.00"
+                required
+              />
+            </div>
+
+            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <Label>Zona ativa</Label>
+              <Switch
+                checked={formData.is_active}
+                onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_active: checked }))}
+              />
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <Button type="button" variant="outline" onClick={closeModal} className="flex-1">
+                Cancelar
+              </Button>
+              <Button type="submit" className="flex-1 bg-orange-500 hover:bg-orange-600">
+                Criar
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

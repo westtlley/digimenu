@@ -1,0 +1,292 @@
+import React, { useState, useRef } from 'react';
+import { base44 } from '@/api/base44Client';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { Phone, MapPin, CreditCard, Trash2, Printer, Calendar, Filter, ShoppingCart } from 'lucide-react';
+import jsPDF from 'jspdf';
+import EmptyState from '@/components/ui/EmptyState';
+import { Link } from 'react-router-dom';
+import { createPageUrl } from '@/utils';
+import OrdersSkeleton from '../skeletons/OrdersSkeleton';
+
+const STATUS_CONFIG = {
+  new: { label: 'Novo', color: 'bg-red-100 text-red-800' },
+  accepted: { label: 'Aceito', color: 'bg-yellow-100 text-yellow-800' },
+  preparing: { label: 'Preparando', color: 'bg-purple-100 text-purple-800' },
+  ready: { label: 'Pronto', color: 'bg-green-100 text-green-800' },
+  out_for_delivery: { label: 'Em Entrega', color: 'bg-blue-100 text-blue-800' },
+  delivered: { label: 'Entregue', color: 'bg-gray-100 text-gray-800' },
+  cancelled: { label: 'Cancelado', color: 'bg-gray-300 text-gray-600' },
+};
+
+const PAYMENT_LABELS = {
+  pix: 'PIX',
+  dinheiro: 'Dinheiro',
+  cartao_credito: 'Cartão de Crédito',
+  cartao_debito: 'Cartão de Débito',
+};
+
+export default function OrdersTab({ isMaster }) {
+  const [dateFilter, setDateFilter] = useState('');
+  const queryClient = useQueryClient();
+
+  const { data: orders = [], isLoading } = useQuery({
+    queryKey: ['orders'],
+    queryFn: () => base44.entities.Order.list('-created_date'),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }) => base44.entities.Order.update(id, data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['orders'] }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id) => base44.entities.Order.delete(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['orders'] }),
+  });
+
+  const formatCurrency = (value) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(value || 0);
+  };
+
+  const printOrder = (order) => {
+    const pdf = new jsPDF({
+      unit: 'mm',
+      format: [80, 200]
+    });
+    
+    let y = 10;
+    pdf.setFontSize(12);
+    pdf.setFont('courier', 'bold');
+    pdf.text('COMANDA', 40, y, { align: 'center' });
+    y += 8;
+    
+    pdf.setFontSize(10);
+    pdf.setFont('courier', 'normal');
+    pdf.text(`Pedido: #${order.order_code || order.id.slice(-6).toUpperCase()}`, 5, y);
+    y += 5;
+    pdf.text(`Data: ${format(new Date(order.created_date + 'Z'), "dd/MM/yyyy HH:mm")}`, 5, y);
+    y += 8;
+    
+    pdf.text(`Cliente: ${order.customer_name}`, 5, y);
+    y += 5;
+    pdf.text(`Tel: ${order.customer_phone}`, 5, y);
+    y += 5;
+    
+    if (order.delivery_method === 'delivery') {
+      pdf.text(`Entrega: ${order.address}`, 5, y);
+      y += 5;
+    } else {
+      pdf.text('Retirada no local', 5, y);
+      y += 5;
+    }
+    
+    pdf.text(`Pagamento: ${PAYMENT_LABELS[order.payment_method] || order.payment_method}`, 5, y);
+    y += 8;
+    
+    pdf.text('--------------------------------', 5, y);
+    y += 5;
+    
+    (order.items || []).forEach((item, idx) => {
+      pdf.text(`${idx + 1}. ${item.dish?.name || 'Item'}`, 5, y);
+      y += 4;
+      pdf.text(`   ${formatCurrency(item.totalPrice)}`, 5, y);
+      y += 5;
+    });
+    
+    pdf.text('--------------------------------', 5, y);
+    y += 5;
+    
+    pdf.text(`Subtotal: ${formatCurrency(order.subtotal)}`, 5, y);
+    y += 5;
+    if (order.delivery_fee > 0) {
+      pdf.text(`Entrega: ${formatCurrency(order.delivery_fee)}`, 5, y);
+      y += 5;
+    }
+    pdf.setFont('courier', 'bold');
+    pdf.text(`TOTAL: ${formatCurrency(order.total)}`, 5, y);
+    
+    pdf.save(`comanda-${order.order_code || order.id.slice(-6)}.pdf`);
+  };
+
+  // Filter orders by date
+  const filteredOrders = orders.filter(order => {
+    if (!dateFilter) return true;
+    const orderDate = format(new Date(order.created_date + 'Z'), 'yyyy-MM-dd');
+    return orderDate === dateFilter;
+  });
+
+  if (isLoading) {
+    return <OrdersSkeleton />;
+  }
+
+  if (orders.length === 0) {
+    return (
+      <div className="p-6">
+        <EmptyState
+          icon={ShoppingCart}
+          title="Você ainda não possui pedidos"
+          description="Os pedidos feitos pelos clientes aparecerão aqui automaticamente"
+          actionLabel="Ir para o Cardápio"
+          action={() => window.open(createPageUrl('Cardapio'), '_blank')}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-4 sm:p-6">
+      {/* Filter */}
+      <div className="mb-4 sm:mb-6 flex flex-wrap items-center gap-2 sm:gap-4 bg-white p-3 sm:p-4 rounded-xl shadow-sm">
+        <div className="flex items-center gap-2">
+          <Filter className="w-4 h-4 text-gray-500" />
+          <span className="text-xs sm:text-sm text-gray-600">Data:</span>
+        </div>
+        <Input
+          type="date"
+          value={dateFilter}
+          onChange={(e) => setDateFilter(e.target.value)}
+          className="w-auto text-sm"
+        />
+        {dateFilter && (
+          <Button variant="ghost" size="sm" onClick={() => setDateFilter('')} className="text-xs">
+            Limpar
+          </Button>
+        )}
+        <span className="text-xs sm:text-sm text-gray-400 ml-auto">
+          {filteredOrders.length} pedido(s)
+        </span>
+      </div>
+
+      <div className="space-y-3 sm:space-y-4">
+        {filteredOrders.map((order) => (
+          <div key={order.id} className="bg-white rounded-xl p-3 sm:p-5 shadow-sm border">
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between mb-3 sm:mb-4 gap-2">
+              <div>
+                <div className="flex flex-wrap items-center gap-2 mb-1">
+                  <span className="text-xs font-mono bg-gray-100 px-2 py-1 rounded">
+                    #{order.order_code || order.id.slice(-6).toUpperCase()}
+                  </span>
+                  <Badge className={(STATUS_CONFIG[order.status] || STATUS_CONFIG.new).color + " text-xs"}>
+                    {(STATUS_CONFIG[order.status] || STATUS_CONFIG.new).label}
+                  </Badge>
+                </div>
+                <h3 className="font-bold text-base sm:text-lg">{order.customer_name}</h3>
+                <p className="text-xs sm:text-sm text-gray-500">
+                  {order.created_date && format(new Date(order.created_date + 'Z'), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                </p>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button
+                  size="icon"
+                  variant="outline"
+                  onClick={() => printOrder(order)}
+                  title="Imprimir Comanda"
+                >
+                  <Printer className="w-4 h-4" />
+                </Button>
+                <Select
+                  value={STATUS_CONFIG[order.status] ? order.status : 'new'}
+                  onValueChange={(value) => updateMutation.mutate({
+                    id: order.id,
+                    data: { ...order, status: value },
+                  })}
+                >
+                  <SelectTrigger className="w-28 sm:w-36 text-xs sm:text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(STATUS_CONFIG).map(([key, { label }]) => (
+                      <SelectItem key={key} value={key}>{label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="text-red-500 hover:text-red-700"
+                  onClick={() => {
+                    if (confirm('Excluir este pedido?')) {
+                      deleteMutation.mutate(order.id);
+                    }
+                  }}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Info do cliente */}
+            <div className="grid md:grid-cols-3 gap-3 mb-4 text-sm">
+              <div className="flex items-center gap-2 text-gray-600">
+                <Phone className="w-4 h-4" />
+                <span>{order.customer_phone}</span>
+              </div>
+              {order.address && (
+                <div className="flex items-center gap-2 text-gray-600">
+                  <MapPin className="w-4 h-4" />
+                  <span>{order.address}</span>
+                </div>
+              )}
+              <div className="flex items-center gap-2 text-gray-600">
+                <CreditCard className="w-4 h-4" />
+                <span>{PAYMENT_LABELS[order.payment_method] || order.payment_method}</span>
+              </div>
+            </div>
+
+            {/* Itens */}
+            <div className="bg-gray-50 rounded-lg p-3 mb-4">
+              <h4 className="font-medium text-sm mb-2 text-gray-700">Itens do Pedido:</h4>
+              {(order.items || []).map((item, idx) => (
+                <div key={idx} className="text-sm py-2 border-b border-gray-100 last:border-0 border-l-2 border-gray-300 pl-3">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium">{item.dish?.name || 'Item'}</span>
+                    <span className="text-gray-500">
+                      {item.quantity > 1 && <span className="text-gray-400 mr-2">x{item.quantity}</span>}
+                      {formatCurrency(item.totalPrice * (item.quantity || 1))}
+                    </span>
+                  </div>
+                  {item.selections && Object.keys(item.selections).length > 0 && (
+                    <div className="text-xs text-gray-600 ml-3 mt-1 space-y-0.5">
+                      {Object.entries(item.selections).map(([gId, sel]) => {
+                        if (Array.isArray(sel)) {
+                          return sel.map((s, i) => <p key={i}>• {s.name}</p>);
+                        } else if (sel) {
+                          return <p key={gId}>• {sel.name}</p>;
+                        }
+                        return null;
+                      })}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Totais */}
+            <div className="flex justify-end gap-6 text-sm">
+              <div className="text-gray-500">
+                Subtotal: {formatCurrency(order.subtotal)}
+              </div>
+              {order.delivery_fee > 0 && (
+                <div className="text-gray-500">
+                  Entrega: {formatCurrency(order.delivery_fee)}
+                </div>
+              )}
+              <div className="font-bold text-green-600">
+                Total: {formatCurrency(order.total)}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
