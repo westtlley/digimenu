@@ -3,7 +3,9 @@
  * Configure a URL da sua API no arquivo .env ou diretamente aqui
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ||
+  'https://digimenu-backend-3m6t.onrender.com/api';
 
 class ApiClient {
   constructor(baseURL = API_BASE_URL) {
