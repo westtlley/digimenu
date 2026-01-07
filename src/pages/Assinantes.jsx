@@ -56,7 +56,7 @@ import { comparePermissions, getPlanPermissions } from '../components/permission
 import { formatBrazilianDate } from '../components/utils/dateUtils';
 import toast from 'react-hot-toast';
 import StatCard from '../components/ui/StatCard';
-import { Skeleton, SkeletonCard, SkeletonStats } from '../components/ui/Skeleton';
+import { Skeleton, SkeletonCard, SkeletonStats } from '../components/ui/skeleton';
 import EmptyState from '../components/ui/EmptyState';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';

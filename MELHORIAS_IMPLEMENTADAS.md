@@ -30,7 +30,7 @@
   - Sistema de cores semântico
 
 ##### Skeleton Loaders
-- **Arquivo:** `src/components/ui/Skeleton.jsx`
+- **Arquivo:** `src/components/ui/skeleton.jsx`
 - **Components:**
   - `Skeleton` - Base component
   - `SkeletonCard` - Para listas
@@ -176,7 +176,7 @@ import StatCard from '@/components/ui/StatCard';
 
 ### Skeleton
 ```jsx
-import { SkeletonStats } from '@/components/ui/Skeleton';
+import { SkeletonStats } from '@/components/ui/skeleton';
 
 {loading ? <SkeletonStats count={4} /> : <Stats />}
 ```

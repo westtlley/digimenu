@@ -137,7 +137,7 @@ Aplicar todas as melhorias visuais sugeridas em todas as páginas do sistema, co
 2. `src/index.css` - Variáveis CSS e overrides
 3. `src/components/ui/StatCard.jsx` - Suporte dark mode
 4. `src/components/ui/EmptyState.jsx` - Suporte dark mode
-5. `src/components/ui/Skeleton.jsx` - Variáveis CSS
+5. `src/components/ui/skeleton.jsx` - Variáveis CSS
 6. `src/components/admin/DashboardTab.jsx` - StatCard aplicado
 7. `src/components/admin/OrdersTab.jsx` - EmptyState novo
 8. `src/components/admin/DishesTab.jsx` - EmptyState novo

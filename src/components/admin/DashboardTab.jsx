@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import moment from 'moment';
 import StatCard from '@/components/ui/StatCard';
-import { SkeletonStats } from '@/components/ui/Skeleton';
+import { SkeletonStats } from '@/components/ui/skeleton';
 
 export default function DashboardTab({ user, subscriberData }) {
   const [copiedLink, setCopiedLink] = useState(false);
