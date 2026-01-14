@@ -278,6 +278,191 @@ app.post('/api/upload-image', upload.single('image'), async (req, res) => {
 });
 
 // =======================
+// 📦 ENTITIES (CRUD GENÉRICO)
+// =======================
+// Listar entidades
+app.get('/api/entities/:entity', authenticate, (req, res) => {
+  try {
+    const { entity } = req.params;
+    const { order_by, ...filters } = req.query;
+    
+    let items = db.entities[entity] || [];
+    
+    // Aplicar filtros
+    if (Object.keys(filters).length > 0) {
+      items = items.filter(item => {
+        return Object.entries(filters).every(([key, value]) => {
+          if (value === 'null' || value === null) {
+            return item[key] === null || item[key] === undefined;
+          }
+          return item[key] == value;
+        });
+      });
+    }
+    
+    // Ordenar
+    if (order_by) {
+      items.sort((a, b) => {
+        const aVal = a[order_by];
+        const bVal = b[order_by];
+        if (aVal < bVal) return -1;
+        if (aVal > bVal) return 1;
+        return 0;
+      });
+    }
+    
+    res.json(items);
+  } catch (error) {
+    console.error('Erro ao listar entidades:', error);
+    res.status(500).json({ error: 'Erro interno no servidor' });
+  }
+});
+
+// Obter entidade por ID
+app.get('/api/entities/:entity/:id', authenticate, (req, res) => {
+  try {
+    const { entity, id } = req.params;
+    const items = db.entities[entity] || [];
+    const item = items.find(i => i.id === id);
+    
+    if (!item) {
+      return res.status(404).json({ error: 'Entidade não encontrada' });
+    }
+    
+    res.json(item);
+  } catch (error) {
+    console.error('Erro ao obter entidade:', error);
+    res.status(500).json({ error: 'Erro interno no servidor' });
+  }
+});
+
+// Criar entidade
+app.post('/api/entities/:entity', authenticate, (req, res) => {
+  try {
+    const { entity } = req.params;
+    const data = req.body;
+    
+    if (!db.entities[entity]) {
+      db.entities[entity] = [];
+    }
+    
+    const newItem = {
+      id: Date.now().toString(),
+      ...data,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    
+    db.entities[entity].push(newItem);
+    
+    console.log(`✅ [${entity}] Item criado:`, newItem.id);
+    res.status(201).json(newItem);
+  } catch (error) {
+    console.error('Erro ao criar entidade:', error);
+    res.status(500).json({ error: 'Erro interno no servidor' });
+  }
+});
+
+// Atualizar entidade
+app.put('/api/entities/:entity/:id', authenticate, (req, res) => {
+  try {
+    const { entity, id } = req.params;
+    const data = req.body;
+    const items = db.entities[entity] || [];
+    const index = items.findIndex(i => i.id === id);
+    
+    if (index === -1) {
+      return res.status(404).json({ error: 'Entidade não encontrada' });
+    }
+    
+    items[index] = {
+      ...items[index],
+      ...data,
+      id,
+      updated_at: new Date().toISOString()
+    };
+    
+    console.log(`✅ [${entity}] Item atualizado:`, id);
+    res.json(items[index]);
+  } catch (error) {
+    console.error('Erro ao atualizar entidade:', error);
+    res.status(500).json({ error: 'Erro interno no servidor' });
+  }
+});
+
+// Deletar entidade
+app.delete('/api/entities/:entity/:id', authenticate, (req, res) => {
+  try {
+    const { entity, id } = req.params;
+    const items = db.entities[entity] || [];
+    const index = items.findIndex(i => i.id === id);
+    
+    if (index === -1) {
+      return res.status(404).json({ error: 'Entidade não encontrada' });
+    }
+    
+    items.splice(index, 1);
+    
+    console.log(`✅ [${entity}] Item deletado:`, id);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Erro ao deletar entidade:', error);
+    res.status(500).json({ error: 'Erro interno no servidor' });
+  }
+});
+
+// Criar múltiplas entidades
+app.post('/api/entities/:entity/bulk', authenticate, (req, res) => {
+  try {
+    const { entity } = req.params;
+    const { items: itemsToCreate } = req.body;
+    
+    if (!db.entities[entity]) {
+      db.entities[entity] = [];
+    }
+    
+    const newItems = itemsToCreate.map(data => ({
+      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+      ...data,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }));
+    
+    db.entities[entity].push(...newItems);
+    
+    console.log(`✅ [${entity}] ${newItems.length} itens criados`);
+    res.status(201).json(newItems);
+  } catch (error) {
+    console.error('Erro ao criar entidades em bulk:', error);
+    res.status(500).json({ error: 'Erro interno no servidor' });
+  }
+});
+
+// =======================
+// 🔧 FUNCTIONS (FUNÇÕES CUSTOMIZADAS)
+// =======================
+app.post('/api/functions/:name', authenticate, async (req, res) => {
+  try {
+    const { name } = req.params;
+    const data = req.body;
+    
+    console.log(`🔧 Função chamada: ${name}`, data);
+    
+    // Aqui você pode implementar funções específicas
+    // Por enquanto, retorna um mock
+    res.json({ 
+      success: true, 
+      function: name,
+      data: data,
+      message: `Função ${name} executada com sucesso`
+    });
+  } catch (error) {
+    console.error('Erro ao executar função:', error);
+    res.status(500).json({ error: 'Erro interno no servidor' });
+  }
+});
+
+// =======================
 // 🧪 HEALTH CHECK
 // =======================
 app.get('/api/health', (req, res) => {
