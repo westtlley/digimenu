@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { base44 } from '@/api/base44Client';
+import { apiClient } from '@/api/apiClient';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,7 +39,7 @@ export default function PizzaConfigTab() {
   React.useEffect(() => {
     const loadUser = async () => {
       try {
-        const userData = await base44.auth.me();
+        const userData = await apiClient.auth.me();
         setUser(userData);
       } catch (e) {
         console.error('Error loading user:', e);
@@ -51,27 +51,27 @@ export default function PizzaConfigTab() {
   // Queries
   const { data: sizes = [] } = useQuery({
     queryKey: ['pizzaSizes'],
-    queryFn: () => base44.entities.PizzaSize.list('order'),
+    queryFn: () => apiClient.entities.PizzaSize.list('order'),
   });
 
   const { data: flavors = [] } = useQuery({
     queryKey: ['pizzaFlavors'],
-    queryFn: () => base44.entities.PizzaFlavor.list('order'),
+    queryFn: () => apiClient.entities.PizzaFlavor.list('order'),
   });
 
   const { data: edges = [] } = useQuery({
     queryKey: ['pizzaEdges'],
-    queryFn: () => base44.entities.PizzaEdge.list('order'),
+    queryFn: () => apiClient.entities.PizzaEdge.list('order'),
   });
 
   const { data: extras = [] } = useQuery({
     queryKey: ['pizzaExtras'],
-    queryFn: () => base44.entities.PizzaExtra.list('order'),
+    queryFn: () => apiClient.entities.PizzaExtra.list('order'),
   });
 
   // Mutations - Sizes
   const createSizeMutation = useMutation({
-    mutationFn: (data) => base44.entities.PizzaSize.create({
+    mutationFn: (data) => apiClient.entities.PizzaSize.create({
       ...data,
       subscriber_email: user?.subscriber_email || user?.email
     }),
@@ -84,7 +84,7 @@ export default function PizzaConfigTab() {
   });
 
   const updateSizeMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.PizzaSize.update(id, data),
+    mutationFn: ({ id, data }) => apiClient.entities.PizzaSize.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzaSizes'] });
       toast.success('Tamanho atualizado!');
@@ -94,7 +94,7 @@ export default function PizzaConfigTab() {
   });
 
   const deleteSizeMutation = useMutation({
-    mutationFn: (id) => base44.entities.PizzaSize.delete(id),
+    mutationFn: (id) => apiClient.entities.PizzaSize.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzaSizes'] });
       toast.success('Tamanho excluído!');
@@ -103,7 +103,7 @@ export default function PizzaConfigTab() {
 
   // Mutations - Flavors
   const createFlavorMutation = useMutation({
-    mutationFn: (data) => base44.entities.PizzaFlavor.create({
+    mutationFn: (data) => apiClient.entities.PizzaFlavor.create({
       ...data,
       subscriber_email: user?.subscriber_email || user?.email
     }),
@@ -116,7 +116,7 @@ export default function PizzaConfigTab() {
   });
 
   const updateFlavorMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.PizzaFlavor.update(id, data),
+    mutationFn: ({ id, data }) => apiClient.entities.PizzaFlavor.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzaFlavors'] });
       toast.success('Sabor atualizado!');
@@ -126,7 +126,7 @@ export default function PizzaConfigTab() {
   });
 
   const deleteFlavorMutation = useMutation({
-    mutationFn: (id) => base44.entities.PizzaFlavor.delete(id),
+    mutationFn: (id) => apiClient.entities.PizzaFlavor.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzaFlavors'] });
       toast.success('Sabor excluído!');
@@ -135,7 +135,7 @@ export default function PizzaConfigTab() {
 
   // Mutations - Edges
   const createEdgeMutation = useMutation({
-    mutationFn: (data) => base44.entities.PizzaEdge.create({
+    mutationFn: (data) => apiClient.entities.PizzaEdge.create({
       ...data,
       subscriber_email: user?.subscriber_email || user?.email
     }),
@@ -148,7 +148,7 @@ export default function PizzaConfigTab() {
   });
 
   const updateEdgeMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.PizzaEdge.update(id, data),
+    mutationFn: ({ id, data }) => apiClient.entities.PizzaEdge.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzaEdges'] });
       toast.success('Borda atualizada!');
@@ -158,7 +158,7 @@ export default function PizzaConfigTab() {
   });
 
   const deleteEdgeMutation = useMutation({
-    mutationFn: (id) => base44.entities.PizzaEdge.delete(id),
+    mutationFn: (id) => apiClient.entities.PizzaEdge.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzaEdges'] });
       toast.success('Borda excluída!');
@@ -167,7 +167,7 @@ export default function PizzaConfigTab() {
 
   // Mutations - Extras
   const createExtraMutation = useMutation({
-    mutationFn: (data) => base44.entities.PizzaExtra.create({
+    mutationFn: (data) => apiClient.entities.PizzaExtra.create({
       ...data,
       subscriber_email: user?.subscriber_email || user?.email
     }),
@@ -180,7 +180,7 @@ export default function PizzaConfigTab() {
   });
 
   const updateExtraMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.PizzaExtra.update(id, data),
+    mutationFn: ({ id, data }) => apiClient.entities.PizzaExtra.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzaExtras'] });
       toast.success('Extra atualizado!');
@@ -190,7 +190,7 @@ export default function PizzaConfigTab() {
   });
 
   const deleteExtraMutation = useMutation({
-    mutationFn: (id) => base44.entities.PizzaExtra.delete(id),
+    mutationFn: (id) => apiClient.entities.PizzaExtra.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzaExtras'] });
       toast.success('Extra excluído!');
@@ -711,8 +711,14 @@ function FlavorModal({ isOpen, onClose, onSubmit, flavor }) {
   const handleImageUpload = async (e) => {
     const file = e.target.files?.[0];
     if (file) {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
-      setFormData(prev => ({ ...prev, image: file_url }));
+      try {
+        const { uploadToCloudinary } = await import('@/utils/cloudinaryUpload');
+        const url = await uploadToCloudinary(file, 'pizza-config');
+        setFormData(prev => ({ ...prev, image: url }));
+      } catch (error) {
+        console.error('Erro ao fazer upload:', error);
+        alert('Erro ao fazer upload da imagem');
+      }
     }
   };
 
@@ -840,8 +846,14 @@ function EdgeModal({ isOpen, onClose, onSubmit, edge }) {
   const handleImageUpload = async (e) => {
     const file = e.target.files?.[0];
     if (file) {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
-      setFormData(prev => ({ ...prev, image: file_url }));
+      try {
+        const { uploadToCloudinary } = await import('@/utils/cloudinaryUpload');
+        const url = await uploadToCloudinary(file, 'pizza-config');
+        setFormData(prev => ({ ...prev, image: url }));
+      } catch (error) {
+        console.error('Erro ao fazer upload:', error);
+        alert('Erro ao fazer upload da imagem');
+      }
     }
   };
 
@@ -934,8 +946,14 @@ function ExtraModal({ isOpen, onClose, onSubmit, extra }) {
   const handleImageUpload = async (e) => {
     const file = e.target.files?.[0];
     if (file) {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
-      setFormData(prev => ({ ...prev, image: file_url }));
+      try {
+        const { uploadToCloudinary } = await import('@/utils/cloudinaryUpload');
+        const url = await uploadToCloudinary(file, 'pizza-config');
+        setFormData(prev => ({ ...prev, image: url }));
+      } catch (error) {
+        console.error('Erro ao fazer upload:', error);
+        alert('Erro ao fazer upload da imagem');
+      }
     }
   };
 

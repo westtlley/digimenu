@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { base44 } from '@/api/base44Client';
+import { apiClient } from '@/api/apiClient';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,7 +26,7 @@ export default function MyPizzasTab() {
   React.useEffect(() => {
     const loadUser = async () => {
       try {
-        const userData = await base44.auth.me();
+        const userData = await apiClient.auth.me();
         setUser(userData);
       } catch (e) {
         console.error('Error loading user:', e);
@@ -39,39 +39,39 @@ export default function MyPizzasTab() {
   const { data: pizzas = [] } = useQuery({
     queryKey: ['pizzas'],
     queryFn: async () => {
-      const dishes = await base44.entities.Dish.list();
+      const dishes = await apiClient.entities.Dish.list();
       return dishes.filter(d => d.product_type === 'pizza');
     },
   });
 
   const { data: sizes = [] } = useQuery({
     queryKey: ['pizzaSizes'],
-    queryFn: () => base44.entities.PizzaSize.list('order'),
+    queryFn: () => apiClient.entities.PizzaSize.list('order'),
   });
 
   const { data: flavors = [] } = useQuery({
     queryKey: ['pizzaFlavors'],
-    queryFn: () => base44.entities.PizzaFlavor.list('order'),
+    queryFn: () => apiClient.entities.PizzaFlavor.list('order'),
   });
 
   const { data: edges = [] } = useQuery({
     queryKey: ['pizzaEdges'],
-    queryFn: () => base44.entities.PizzaEdge.list('order'),
+    queryFn: () => apiClient.entities.PizzaEdge.list('order'),
   });
 
   const { data: extras = [] } = useQuery({
     queryKey: ['pizzaExtras'],
-    queryFn: () => base44.entities.PizzaExtra.list('order'),
+    queryFn: () => apiClient.entities.PizzaExtra.list('order'),
   });
 
   const { data: categories = [] } = useQuery({
     queryKey: ['categories'],
-    queryFn: () => base44.entities.Category.list('order'),
+    queryFn: () => apiClient.entities.Category.list('order'),
   });
 
   // Mutations
   const createPizzaMutation = useMutation({
-    mutationFn: (data) => base44.entities.Dish.create({
+    mutationFn: (data) => apiClient.entities.Dish.create({
       ...data,
       product_type: 'pizza',
       subscriber_email: user?.subscriber_email || user?.email
@@ -86,7 +86,7 @@ export default function MyPizzasTab() {
   });
 
   const updatePizzaMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.Dish.update(id, data),
+    mutationFn: ({ id, data }) => apiClient.entities.Dish.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzas'] });
       queryClient.invalidateQueries({ queryKey: ['dishes'] });
@@ -97,7 +97,7 @@ export default function MyPizzasTab() {
   });
 
   const deletePizzaMutation = useMutation({
-    mutationFn: (id) => base44.entities.Dish.delete(id),
+    mutationFn: (id) => apiClient.entities.Dish.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzas'] });
       queryClient.invalidateQueries({ queryKey: ['dishes'] });
@@ -339,11 +339,24 @@ function PizzaModal({ isOpen, onClose, onSubmit, pizza, sizes, flavors, edges, e
 
   const handleImageUpload = async (e) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
-      setFormData(prev => ({ ...prev, image: file_url }));
+    if (!file) return;
+    
+    try {
+      const { uploadToCloudinary } = await import('@/utils/cloudinaryUpload');
+      const url = await uploadToCloudinary(file, 'dishes');
+
+    if (!url) {
+      toast.error('Erro ao obter URL da imagem');
+      return;
     }
-  };
+
+    setFormData(prev => ({ ...prev, image: url }));
+  } catch (err) {
+    console.error(err);
+    toast.error('Falha ao enviar imagem');
+  }
+};
+
 
   const handleSubmit = (e) => {
     e.preventDefault();

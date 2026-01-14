@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { LogIn, LogOut, User } from 'lucide-react';
 import { Button } from "@/components/ui/button";
-import { base44 } from '@/api/base44Client';
+import { apiClient as base44 } from '@/api/apiClient';
 
 export default function UserAuthButton({ className = '' }) {
   const [user, setUser] = useState(null);

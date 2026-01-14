@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { base44 } from '@/api/base44Client';
+import { apiClient as base44 } from '@/api/apiClient';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -97,8 +97,10 @@ export default function LoyaltyTab() {
   const handleImageUpload = async (e) => {
     const file = e.target.files?.[0];
     if (file) {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
-      setRewardForm(prev => ({ ...prev, image: file_url }));
+      try {
+        const { uploadToCloudinary } = await import('@/utils/cloudinaryUpload');
+        const url = await uploadToCloudinary(file, 'loyalty');
+      setRewardForm(prev => ({ ...prev, image: url }));
     }
   };
 

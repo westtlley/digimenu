@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { X, Camera, Upload, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { base44 } from '@/api/base44Client';
+import { apiClient as base44 } from '@/api/apiClient';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 export default function DeliveryProofModal({ order, entregador, onClose, onConfirm, darkMode }) {
@@ -28,8 +28,9 @@ export default function DeliveryProofModal({ order, entregador, onClose, onConfi
 
     setUploading(true);
     try {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
-      setPhotoUrl(file_url);
+      const { uploadToCloudinary } = await import('@/utils/cloudinaryUpload');
+      const url = await uploadToCloudinary(file, 'delivery-proofs');
+      setPhotoUrl(url);
     } catch (error) {
       alert('Erro ao fazer upload da foto');
     } finally {

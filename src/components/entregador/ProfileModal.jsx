@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { base44 } from '@/api/base44Client';
+import { apiClient as base44 } from '@/api/apiClient';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 export default function ProfileModal({ entregador, onClose, darkMode }) {
@@ -35,8 +35,9 @@ export default function ProfileModal({ entregador, onClose, darkMode }) {
 
     setUploading(true);
     try {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
-      setFormData({ ...formData, photo: file_url });
+      const { uploadToCloudinary } = await import('@/utils/cloudinaryUpload');
+      const url = await uploadToCloudinary(file, 'profiles');
+      setFormData({ ...formData, photo: url });
     } catch (error) {
       alert('Erro ao fazer upload da foto');
     } finally {

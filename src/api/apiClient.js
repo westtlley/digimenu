@@ -3,9 +3,26 @@
  * Configure a URL da sua API no arquivo .env ou diretamente aqui
  */
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ||
-  'https://digimenu-backend-3m6t.onrender.com/api';
+// Normalizar a URL da API - garantir que termine com /api
+const getApiBaseUrl = () => {
+  const envUrl = import.meta.env.VITE_API_BASE_URL;
+  
+  // Se não houver URL no .env, usar padrão
+  if (!envUrl) {
+    return 'https://digimenu-backend-3m6t.onrender.com/api';
+  }
+  
+  // Se a URL não terminar com /api, adicionar
+  if (!envUrl.endsWith('/api')) {
+    return envUrl.endsWith('/') ? `${envUrl}api` : `${envUrl}/api`;
+  }
+  
+  return envUrl;
+};
+
+const API_BASE_URL = getApiBaseUrl();
+
+console.log('🔗 API Base URL configurada:', API_BASE_URL);
 
 class ApiClient {
   constructor(baseURL = API_BASE_URL) {
@@ -107,10 +124,19 @@ class ApiClient {
   /**
    * POST request
    */
-  async post(endpoint, data = {}) {
+  async post(endpoint, data = {}, options = {}) {
+    // Suporta FormData diretamente (para uploads)
+    if (typeof FormData !== 'undefined' && data instanceof FormData) {
+      return this.request(endpoint, {
+        method: 'POST',
+        body: data,
+        headers: options.headers || {}, // permitir sobrescrever headers, mas normalmente vazio
+      });
+    }
+
     // Garantir que data seja um objeto válido
     const cleanData = data || {};
-    
+
     // Remover valores undefined
     const sanitizedData = Object.keys(cleanData).reduce((acc, key) => {
       if (cleanData[key] !== undefined) {
@@ -118,10 +144,11 @@ class ApiClient {
       }
       return acc;
     }, {});
-    
+
     return this.request(endpoint, {
       method: 'POST',
       body: sanitizedData, // Será convertido para JSON no request()
+      headers: options.headers || {},
     });
   }
 
@@ -303,6 +330,65 @@ class ApiClient {
   };
 
   /**
+   * Upload de imagem para Cloudinary
+   * @param {File} file - Arquivo de imagem
+   * @param {string} folder - Pasta no Cloudinary (opcional, padrão: 'dishes')
+   * @returns {Promise<{url: string}>} URL da imagem no Cloudinary
+   */
+  async uploadImageToCloudinary(file, folder = 'dishes') {
+    if (!file) {
+      throw new Error('Nenhum arquivo fornecido');
+    }
+    
+    if (!(file instanceof File)) {
+      throw new Error('O arquivo deve ser uma instância de File');
+    }
+    
+    if (!file.type || !file.type.startsWith('image/')) {
+      throw new Error('O arquivo deve ser uma imagem');
+    }
+    
+    const formData = new FormData();
+    formData.append('image', file);
+    
+    // Enviar para a rota do backend que faz upload no Cloudinary
+    const queryString = folder ? `?folder=${encodeURIComponent(folder)}` : '';
+    const endpoint = `/upload-image${queryString}`;
+    
+    console.log('📤 Enviando upload para Cloudinary:', `${this.baseURL}${endpoint}`, {
+      fileName: file.name,
+      fileSize: file.size,
+      fileType: file.type,
+      folder
+    });
+    
+    try {
+      const response = await this.request(endpoint, {
+        method: 'POST',
+        body: formData,
+        headers: {}, // Remove Content-Type para FormData
+      });
+      
+      if (!response || !response.url) {
+        console.error('❌ Resposta inválida do servidor:', response);
+        throw new Error('Resposta inválida do servidor. Verifique se o backend tem a rota /api/upload-image configurada e as credenciais do Cloudinary.');
+      }
+      
+      console.log('✅ Upload concluído:', response.url);
+      return response;
+    } catch (error) {
+      console.error('❌ Erro no upload para Cloudinary:', error);
+      if (error.message.includes('404')) {
+        throw new Error('Rota de upload não encontrada. Verifique se o backend tem /api/upload-image configurada.');
+      }
+      if (error.message.includes('500')) {
+        throw new Error('Erro no servidor. Verifique se as credenciais do Cloudinary estão configuradas no Render.');
+      }
+      throw error;
+    }
+  }
+
+  /**
    * Módulo de integrações (opcional)
    */
   get integrations() {
@@ -312,7 +398,60 @@ class ApiClient {
         SendEmail: async (data) => {
           return self.post('/integrations/email/send', data);
         },
-        UploadFile: async (file) => {
+        UploadFile: async (fileOrObject) => {
+          // Extrair o arquivo se for um objeto
+          let file = fileOrObject;
+          
+          // Se for um objeto com propriedade 'file', extrair
+          if (fileOrObject && typeof fileOrObject === 'object' && !(fileOrObject instanceof File)) {
+            file = fileOrObject.file || fileOrObject;
+          }
+          
+          if (!file) {
+            throw new Error('Nenhum arquivo fornecido');
+          }
+          
+          // Verificar se é uma instância de File
+          if (!(file instanceof File)) {
+            console.warn('⚠️ Arquivo não é instância de File:', typeof file, file);
+            throw new Error('O arquivo deve ser uma instância de File');
+          }
+          
+          // Verificar se é imagem pelo tipo MIME
+          const isImage = file.type && file.type.startsWith('image/');
+          
+          // Verificar também pela extensão do arquivo (fallback)
+          const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.bmp'];
+          const fileName = file.name?.toLowerCase() || '';
+          const hasImageExtension = imageExtensions.some(ext => fileName.endsWith(ext));
+          
+          if (isImage || hasImageExtension) {
+            console.log('🖼️ Detectada imagem, usando Cloudinary:', {
+              name: file.name,
+              type: file.type,
+              size: file.size,
+              isImageByType: isImage,
+              isImageByExtension: hasImageExtension
+            });
+            
+            try {
+              const result = await self.uploadImageToCloudinary(file);
+              // Retornar no formato esperado (com url e file_url para compatibilidade)
+              return {
+                url: result.url,
+                file_url: result.url
+              };
+            } catch (error) {
+              console.error('❌ Erro no upload para Cloudinary:', error);
+              throw error;
+            }
+          }
+          
+          // Para outros tipos de arquivo (áudio, etc), usar o método antigo
+          console.log('📄 Arquivo não é imagem, usando rota antiga:', {
+            name: file.name,
+            type: file.type
+          });
           const formData = new FormData();
           formData.append('file', file);
           return self.request('/integrations/file/upload', {
@@ -349,6 +488,9 @@ class ApiClient {
 
 // Instância singleton do cliente
 export const apiClient = new ApiClient();
+
+// Compatibilidade: export named `api` usado em alguns componentes
+export const api = apiClient;
 
 // Exporta a classe para uso avançado
 export default ApiClient;

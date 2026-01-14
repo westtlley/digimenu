@@ -91,8 +91,14 @@ export default function FlavorForm({ isOpen, onClose, onSubmit, flavor = null, c
   const handleImageUpload = async (e) => {
     const file = e.target.files?.[0];
     if (file) {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
-      setFormData(prev => ({ ...prev, image: file_url }));
+      try {
+        const { uploadToCloudinary } = await import('@/utils/cloudinaryUpload');
+        const url = await uploadToCloudinary(file, 'flavors');
+        setFormData(prev => ({ ...prev, image: url }));
+      } catch (error) {
+        console.error('Erro ao fazer upload:', error);
+        toast.error('Erro ao fazer upload da imagem');
+      }
     }
   };
 

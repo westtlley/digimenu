@@ -195,8 +195,14 @@ export default function StoreTab() {
   const handleLogoUpload = async (e) => {
     const file = e.target.files?.[0];
     if (file) {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
-      setFormData(prev => ({ ...prev, logo: file_url }));
+      try {
+        const { uploadToCloudinary } = await import('@/utils/cloudinaryUpload');
+        const url = await uploadToCloudinary(file, 'store');
+        setFormData(prev => ({ ...prev, logo: url }));
+      } catch (error) {
+        console.error('Erro ao fazer upload:', error);
+        alert('Erro ao fazer upload do logotipo');
+      }
     }
   };
 
@@ -599,8 +605,14 @@ export default function StoreTab() {
                         onChange={async (e) => {
                           const file = e.target.files?.[0];
                           if (file) {
-                            const { file_url } = await base44.integrations.Core.UploadFile({ file });
-                            setNewPaymentMethod(prev => ({ ...prev, image: file_url }));
+                            try {
+                              const { uploadToCloudinary } = await import('@/utils/cloudinaryUpload');
+                              const url = await uploadToCloudinary(file, 'payment-methods');
+                              setNewPaymentMethod(prev => ({ ...prev, image: url }));
+                            } catch (error) {
+                              console.error('Erro ao fazer upload:', error);
+                              alert('Erro ao fazer upload da imagem');
+                            }
                           }
                         }}
                       />

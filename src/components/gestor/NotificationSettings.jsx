@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
-import { base44 } from '@/api/base44Client';
+import { apiClient as base44 } from '@/api/apiClient';
 
 const SOUND_OPTIONS = [
   { 
@@ -101,10 +101,17 @@ export default function NotificationSettings() {
     }
     
     setUploading(true);
-    const { file_url } = await base44.integrations.Core.UploadFile({ file });
-    const newSettings = { ...settings, customSoundUrl: file_url, selectedSound: 'custom' };
-    saveSettings(newSettings);
-    setUploading(false);
+    try {
+      const { uploadToCloudinary } = await import('@/utils/cloudinaryUpload');
+      const url = await uploadToCloudinary(file, 'notifications');
+      const newSettings = { ...settings, customSoundUrl: url, selectedSound: 'custom' };
+      saveSettings(newSettings);
+    } catch (error) {
+      console.error('Erro ao fazer upload:', error);
+      alert('Erro ao fazer upload do arquivo de áudio');
+    } finally {
+      setUploading(false);
+    }
   };
 
   const removeCustomSound = () => {

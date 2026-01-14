@@ -21,10 +21,12 @@ export default function CategoryForm({ isOpen, onClose, onSubmit, category = nul
     if (file) {
       setUploading(true);
       try {
-        const { file_url } = await base44.integrations.Core.UploadFile({ file });
-        setFormData(prev => ({ ...prev, image: file_url }));
+        const { uploadToCloudinary } = await import('@/utils/cloudinaryUpload');
+        const url = await uploadToCloudinary(file, 'categories');
+        setFormData(prev => ({ ...prev, image: url }));
       } catch (error) {
         console.error('Erro ao fazer upload:', error);
+        alert('Erro ao fazer upload da imagem');
       } finally {
         setUploading(false);
       }

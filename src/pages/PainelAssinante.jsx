@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Loader2, Lock, LogOut, Menu, X, Store, Package, Receipt, Users, Settings, BarChart3, FileText, MapPin, Tag, Palette, CreditCard, Printer, MessageSquare, DollarSign } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { base44 } from '@/api/base44Client';
+import { apiClient as base44 } from '@/api/apiClient';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { usePermission } from '../components/permissions/usePermission';

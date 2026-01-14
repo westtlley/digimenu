@@ -3,7 +3,7 @@ import { Settings, LogOut, LogIn, Loader2, Package, Users, Lock, Menu, UtensilsC
 import { Button } from "@/components/ui/button";
 import { useTheme } from '../components/theme/ThemeProvider';
 import ThemeToggle from '../components/ui/ThemeToggle';
-import { base44 } from '@/api/base44Client';
+import { apiClient as base44 } from '@/api/apiClient';
 import AdminSidebar from '../components/admin/AdminSidebar';
 import DashboardTab from '../components/admin/DashboardTab';
 import UserAuthButton from '../components/atoms/UserAuthButton';

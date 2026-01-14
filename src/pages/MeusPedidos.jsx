@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { History, LogOut, Loader2, ShoppingBag } from 'lucide-react';
 import { Button } from "@/components/ui/button";
-import { base44 } from '@/api/base44Client';
+import { apiClient as base44 } from '@/api/apiClient';
 import CustomerOrdersHistory from '../components/customer/CustomerOrdersHistory';
 import UserAuthButton from '../components/atoms/UserAuthButton';
 import { Link } from 'react-router-dom';
