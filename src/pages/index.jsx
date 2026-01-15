@@ -90,7 +90,7 @@ function PagesContent() {
         <Layout currentPageName={currentPage}>
             <Routes>            
                 
-                    <Route path="/" element={<Assinantes />} />
+                    <Route path="/" element={<Cardapio />} />
                 
                 
                 <Route path="/Assinantes" element={<Assinantes />} />
