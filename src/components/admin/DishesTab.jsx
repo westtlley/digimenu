@@ -99,25 +99,49 @@ export default function DishesTab({ onNavigateToPizzas }) {
   const queryClient = useQueryClient();
 
   // ========= BUSCAR DADOS =========
-  const { data: dishes = [], isLoading: dishesLoading } = useQuery({
+  const { data: dishes = [], isLoading: dishesLoading, error: dishesError } = useQuery({
     queryKey: ['dishes'],
-    queryFn: () => base44.entities.Dish.list(),
-    initialData: [],
-  });
-
-  const { data: categories = [], isLoading: categoriesLoading } = useQuery({
-    queryKey: ['categories'],
-    queryFn: () => base44.entities.Category.list('order'),
-    initialData: [],
-  });
-
-  const { data: complementGroups = [], isLoading: groupsLoading } = useQuery({
-    queryKey: ['complementGroups'],
     queryFn: async () => {
-      const groups = await base44.entities.ComplementGroup.list('order');
-      return groups;
+      try {
+        const result = await base44.entities.Dish.list();
+        return Array.isArray(result) ? result : [];
+      } catch (error) {
+        console.error('Erro ao buscar pratos:', error);
+        return [];
+      }
     },
     initialData: [],
+    retry: 1,
+  });
+
+  const { data: categories = [], isLoading: categoriesLoading, error: categoriesError } = useQuery({
+    queryKey: ['categories'],
+    queryFn: async () => {
+      try {
+        const result = await base44.entities.Category.list('order');
+        return Array.isArray(result) ? result : [];
+      } catch (error) {
+        console.error('Erro ao buscar categorias:', error);
+        return [];
+      }
+    },
+    initialData: [],
+    retry: 1,
+  });
+
+  const { data: complementGroups = [], isLoading: groupsLoading, error: groupsError } = useQuery({
+    queryKey: ['complementGroups'],
+    queryFn: async () => {
+      try {
+        const groups = await base44.entities.ComplementGroup.list('order');
+        return Array.isArray(groups) ? groups : [];
+      } catch (error) {
+        console.error('Erro ao buscar grupos de complementos:', error);
+        return [];
+      }
+    },
+    initialData: [],
+    retry: 1,
   });
 
   const { data: combos = [] } = useQuery({
@@ -315,7 +339,7 @@ export default function DishesTab({ onNavigateToPizzas }) {
     let finalComplementGroups = dishFormData.complement_groups;
     
     if (!editingDish && complementMode === 'copy' && copyFromDishId) {
-      const copyFromDish = dishes.find(d => d.id === copyFromDishId);
+      const copyFromDish = safeDishes.find(d => d.id === copyFromDishId);
       if (copyFromDish?.complement_groups) {
         finalComplementGroups = copyFromDish.complement_groups;
       }
@@ -356,7 +380,7 @@ export default function DishesTab({ onNavigateToPizzas }) {
     try {
       const imageUrl = await uploadToCloudinary(file, 'complements');
 
-      const group = complementGroups.find(g => g.id === groupId);
+      const group = safeComplementGroups.find(g => g.id === groupId);
       if (!group) return;
 
       const updatedOptions = (group.options || []).map(opt =>
@@ -384,7 +408,7 @@ export default function DishesTab({ onNavigateToPizzas }) {
   };
 
   const toggleComplementOption = (groupId, optionId, currentValue) => {
-    const group = complementGroups.find(g => g.id === groupId);
+    const group = safeComplementGroups.find(g => g.id === groupId);
     if (!group) return;
 
     const newOptions = (group.options || []).map(opt =>
@@ -398,7 +422,7 @@ export default function DishesTab({ onNavigateToPizzas }) {
   };
 
   const updateComplementOptionName = (groupId, optionId, newName) => {
-    const group = complementGroups.find(g => g.id === groupId);
+    const group = safeComplementGroups.find(g => g.id === groupId);
     if (!group) return;
 
     const newOptions = (group.options || []).map(opt =>
@@ -417,7 +441,7 @@ export default function DishesTab({ onNavigateToPizzas }) {
     const priceStr = prompt('Preço adicional (deixe em branco para R$ 0,00):', '0');
     const price = parseFloat(priceStr) || 0;
     
-    const group = complementGroups.find(g => g.id === groupId);
+    const group = safeComplementGroups.find(g => g.id === groupId);
     if (!group) return;
 
     const newOption = {
@@ -440,7 +464,7 @@ export default function DishesTab({ onNavigateToPizzas }) {
   const updateComplementOptionImage = async (groupId, optionId, file) => {
     try {
       const imageUrl = await uploadToCloudinary(file, 'complements');
-      const group = complementGroups.find(g => g.id === groupId);
+      const group = safeComplementGroups.find(g => g.id === groupId);
       if (!group) return;
 
       const newOptions = (group.options || []).map(opt =>
@@ -459,7 +483,7 @@ export default function DishesTab({ onNavigateToPizzas }) {
   };
 
   const updateComplementOptionPrice = (groupId, optionId, newPrice) => {
-    const group = complementGroups.find(g => g.id === groupId);
+    const group = safeComplementGroups.find(g => g.id === groupId);
     if (!group) return;
 
     const newOptions = (group.options || []).map(opt =>
@@ -473,7 +497,7 @@ export default function DishesTab({ onNavigateToPizzas }) {
   };
 
   const getGroupUsageInfo = (groupId) => {
-    const dishesUsingGroup = dishes.filter(d => 
+    const dishesUsingGroup = safeDishes.filter(d => 
       d.complement_groups?.some(cg => cg.group_id === groupId)
     );
     
@@ -499,13 +523,13 @@ export default function DishesTab({ onNavigateToPizzas }) {
       is_required: false,
       max_selection: 1,
       options: [],
-      order: complementGroups.length
+      order: safeComplementGroups.length
     };
 
     const createdGroup = await createComplementGroupMutation.mutateAsync(newGroup);
     
     setTimeout(() => {
-      const dish = dishes.find(d => d.id === dishId);
+      const dish = safeDishes.find(d => d.id === dishId);
       if (dish && createdGroup) {
         const updatedGroups = [
           ...(dish.complement_groups || []),
@@ -520,7 +544,7 @@ export default function DishesTab({ onNavigateToPizzas }) {
   };
 
   const reuseComplementGroupToDish = (dishId, groupId) => {
-    const dish = dishes.find(d => d.id === dishId);
+    const dish = safeDishes.find(d => d.id === dishId);
     if (!dish) return;
     
     const alreadyLinked = dish.complement_groups?.some(cg => cg.group_id === groupId);
@@ -542,7 +566,7 @@ export default function DishesTab({ onNavigateToPizzas }) {
   const removeGroupFromDish = (dishId, groupId) => {
     if (!confirm('Remover este grupo de complementos?')) return;
     
-    const dish = dishes.find(d => d.id === dishId);
+    const dish = safeDishes.find(d => d.id === dishId);
     if (!dish) return;
 
     const updatedGroups = (dish.complement_groups || []).filter(cg => cg.group_id !== groupId);
@@ -555,7 +579,7 @@ export default function DishesTab({ onNavigateToPizzas }) {
   const removeComplementOption = (groupId, optionId) => {
     if (!confirm('Remover este complemento?')) return;
     
-    const group = complementGroups.find(g => g.id === groupId);
+    const group = safeComplementGroups.find(g => g.id === groupId);
     if (!group) return;
 
     const newOptions = (group.options || []).filter(opt => opt.id !== optionId);
@@ -584,7 +608,7 @@ export default function DishesTab({ onNavigateToPizzas }) {
     });
     
     if (editingGroup.dishId) {
-      const dish = dishes.find(d => d.id === editingGroup.dishId);
+      const dish = safeDishes.find(d => d.id === editingGroup.dishId);
       if (dish) {
         const updatedGroups = (dish.complement_groups || []).map(cg =>
           cg.group_id === editingGroup.id 
@@ -617,7 +641,7 @@ export default function DishesTab({ onNavigateToPizzas }) {
   const duplicateCategory = async (category) => {
     createCategoryMutation.mutate({
       name: `${category.name} (Cópia)`,
-      order: categories.length,
+      order: safeCategories.length,
       subscriber_email: user?.subscriber_email || user?.email
     });
   };
@@ -639,7 +663,7 @@ export default function DishesTab({ onNavigateToPizzas }) {
   };
 
   // ========= FILTROS E BUSCA =========
-  const filteredDishes = dishes.filter(dish => {
+  const filteredDishes = safeDishes.filter(dish => {
     const matchesSearch = !searchTerm || 
       dish.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       dish.description?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -659,14 +683,14 @@ export default function DishesTab({ onNavigateToPizzas }) {
   });
 
   const dishesByCategory = {};
-  categories.forEach(cat => {
+  safeCategories.forEach(cat => {
     dishesByCategory[cat.id] = filteredDishes.filter(d => d.category_id === cat.id);
   });
 
   const handleBulkStatusChange = (status) => {
     if (selectedDishes.length === 0) return;
     selectedDishes.forEach(dishId => {
-      const dish = dishes.find(d => d.id === dishId);
+      const dish = safeDishes.find(d => d.id === dishId);
       if (dish) {
         updateDishMutation.mutate({ id: dishId, data: { ...dish, is_active: status } });
       }
@@ -702,7 +726,7 @@ export default function DishesTab({ onNavigateToPizzas }) {
     const filters = [];
     if (searchTerm) filters.push({ key: 'search', label: `"${searchTerm}"` });
     if (filterCategory !== 'all') {
-      const cat = categories.find(c => c.id === filterCategory);
+      const cat = safeCategories.find(c => c.id === filterCategory);
       if (cat) filters.push({ key: 'category', label: cat.name });
     }
     if (filterStatus !== 'all') {
@@ -733,28 +757,49 @@ export default function DishesTab({ onNavigateToPizzas }) {
 
   const moveCategoryUp = (index) => {
     if (index === 0) return;
-    const cat1 = categories[index];
-    const cat2 = categories[index - 1];
-    updateCategoryMutation.mutate({ id: cat1.id, data: { ...cat1, order: index - 1 } });
-    updateCategoryMutation.mutate({ id: cat2.id, data: { ...cat2, order: index } });
+    const cat1 = safeCategories[index];
+    const cat2 = safeCategories[index - 1];
+    if (cat1 && cat2) {
+      updateCategoryMutation.mutate({ id: cat1.id, data: { ...cat1, order: index - 1 } });
+      updateCategoryMutation.mutate({ id: cat2.id, data: { ...cat2, order: index } });
+    }
   };
 
   const moveCategoryDown = (index) => {
-    if (index === categories.length - 1) return;
-    const cat1 = categories[index];
-    const cat2 = categories[index + 1];
-    updateCategoryMutation.mutate({ id: cat1.id, data: { ...cat1, order: index + 1 } });
-    updateCategoryMutation.mutate({ id: cat2.id, data: { ...cat2, order: index } });
+    if (index === safeCategories.length - 1) return;
+    const cat1 = safeCategories[index];
+    const cat2 = safeCategories[index + 1];
+    if (cat1 && cat2) {
+      updateCategoryMutation.mutate({ id: cat1.id, data: { ...cat1, order: index + 1 } });
+      updateCategoryMutation.mutate({ id: cat2.id, data: { ...cat2, order: index } });
+    }
   };
 
   const activeFilters = getActiveFilters();
   
   const isLoading = dishesLoading || categoriesLoading || groupsLoading;
+  const hasError = dishesError || categoriesError || groupsError;
+
+  // Validações de segurança
+  const safeDishes = Array.isArray(dishes) ? dishes : [];
+  const safeCategories = Array.isArray(categories) ? categories : [];
+  const safeComplementGroups = Array.isArray(complementGroups) ? complementGroups : [];
 
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50">
         <DishesSkeleton />
+      </div>
+    );
+  }
+
+  if (hasError) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-8">
+        <div className="text-center">
+          <p className="text-red-500 mb-4">Erro ao carregar dados</p>
+          <Button onClick={() => window.location.reload()}>Recarregar página</Button>
+        </div>
       </div>
     );
   }
@@ -836,9 +881,9 @@ export default function DishesTab({ onNavigateToPizzas }) {
               <SelectTrigger>
                 <SelectValue placeholder="Todas categorias" />
               </SelectTrigger>
-              <SelectContent>
+                <SelectContent>
                 <SelectItem value="all">Todas categorias</SelectItem>
-                {categories.map(cat => (
+                {safeCategories.map(cat => (
                   <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
                 ))}
               </SelectContent>
@@ -913,7 +958,7 @@ export default function DishesTab({ onNavigateToPizzas }) {
 
       {/* Mobile Lista por Categoria */}
       <div className="lg:hidden px-4 pb-24 space-y-3">
-        {categories.map((category) => {
+        {safeCategories.map((category) => {
           const categoryDishes = dishesByCategory[category.id] || [];
           const isExpanded = expandedCategories[category.id] !== false;
 
@@ -997,7 +1042,7 @@ export default function DishesTab({ onNavigateToPizzas }) {
 
       {/* Desktop Lista por Categoria */}
       <div className="hidden lg:block px-6 pb-6 space-y-4">
-        {categories.map((category, categoryIndex) => {
+        {safeCategories.map((category, categoryIndex) => {
           const categoryDishes = dishesByCategory[category.id] || [];
           const isExpanded = expandedCategories[category.id] !== false;
 
@@ -1010,7 +1055,7 @@ export default function DishesTab({ onNavigateToPizzas }) {
                       <button onClick={(e) => { e.stopPropagation(); moveCategoryUp(categoryIndex); }} disabled={categoryIndex === 0} className="p-0.5 hover:bg-gray-200 rounded disabled:opacity-30">
                         <ChevronUp className="w-4 h-4" />
                       </button>
-                      <button onClick={(e) => { e.stopPropagation(); moveCategoryDown(categoryIndex); }} disabled={categoryIndex === categories.length - 1} className="p-0.5 hover:bg-gray-200 rounded disabled:opacity-30">
+                      <button onClick={(e) => { e.stopPropagation(); moveCategoryDown(categoryIndex); }} disabled={categoryIndex === safeCategories.length - 1} className="p-0.5 hover:bg-gray-200 rounded disabled:opacity-30">
                         <ChevronDown className="w-4 h-4" />
                       </button>
                     </div>
@@ -1094,7 +1139,7 @@ export default function DishesTab({ onNavigateToPizzas }) {
                       dish={dish}
                       isSelected={selectedDishes.includes(dish.id)}
                       onToggleSelection={() => toggleDishSelection(dish.id)} 
-                      complementGroups={complementGroups}
+                      complementGroups={safeComplementGroups}
                       expanded={expandedDishes[dish.id]}
                       onToggleExpand={() => toggleDishExpansion(dish.id)}
                       onEdit={() => openDishModal(dish)}
@@ -1114,8 +1159,8 @@ export default function DishesTab({ onNavigateToPizzas }) {
                         setCurrentDishForReuse(dish.id);
                         setShowReuseGroupModal(true);
                       }}
-                      allComplementGroups={complementGroups}
-                      allDishes={dishes}
+                      allComplementGroups={safeComplementGroups}
+                      allDishes={safeDishes}
                       onEditGroup={(group) => {
                         const linked = dish.complement_groups?.find(cg => cg.group_id === group.id);
                         openGroupSettings({ ...group, is_required: linked?.is_required || false }, dish.id);
@@ -1164,7 +1209,7 @@ export default function DishesTab({ onNavigateToPizzas }) {
       {canCreate('dishes') && (
         <div className="lg:hidden">
           <MobileFloatingActions
-            onAddDish={() => handleOpenProductTypeModal(categories[0]?.id || '')}
+            onAddDish={() => handleOpenProductTypeModal(safeCategories[0]?.id || '')}
             onAddCategory={() => setShowCategoryModal(true)}
             onAddCombo={() => setShowComboModal(true)}
           />
@@ -1177,7 +1222,7 @@ export default function DishesTab({ onNavigateToPizzas }) {
         onClose={() => setShowProductTypeModal(false)}
         onSelectType={handleSelectProductType}
         categoryId={selectedCategoryForNewDish}
-        categoryDishes={dishesByCategory[selectedCategoryForNewDish] || []}
+        categoryDishes={Array.isArray(dishesByCategory[selectedCategoryForNewDish]) ? dishesByCategory[selectedCategoryForNewDish] : []}
         onRedirectToPizzas={handleRedirectToPizzas}
       />
 
@@ -1186,7 +1231,7 @@ export default function DishesTab({ onNavigateToPizzas }) {
         isOpen={!!mobileComplementsDish}
         onClose={() => setMobileComplementsDish(null)}
         dish={mobileComplementsDish}
-        complementGroups={complementGroups}
+        complementGroups={safeComplementGroups}
         onAddOption={addNewComplementOption}
         onToggleOption={toggleComplementOption}
         onRemoveOption={removeComplementOption}
@@ -1214,14 +1259,14 @@ export default function DishesTab({ onNavigateToPizzas }) {
         }}
         onCopyGroups={async (groupIds) => {
           for (const groupId of groupIds) {
-            const originalGroup = complementGroups.find(g => g.id === groupId);
+            const originalGroup = safeComplementGroups.find(g => g.id === groupId);
             if (originalGroup) {
               const newGroup = {
                 name: `${originalGroup.name} (Cópia)`,
                 is_required: originalGroup.is_required,
                 max_selection: originalGroup.max_selection,
                 options: originalGroup.options || [],
-                order: complementGroups.length
+                order: safeComplementGroups.length
               };
               const createdGroup = await createComplementGroupMutation.mutateAsync(newGroup);
               if (createdGroup && mobileComplementsDish) {
@@ -1265,9 +1310,9 @@ export default function DishesTab({ onNavigateToPizzas }) {
               <SelectTrigger>
                 <SelectValue placeholder="Todas categorias" />
               </SelectTrigger>
-              <SelectContent>
+                <SelectContent>
                 <SelectItem value="all">Todas categorias</SelectItem>
-                {categories.map(cat => (
+                {safeCategories.map(cat => (
                   <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
                 ))}
               </SelectContent>
@@ -1335,7 +1380,7 @@ export default function DishesTab({ onNavigateToPizzas }) {
         }}
         onSubmit={handleCategorySubmit}
         category={editingCategory}
-        categoriesCount={categories.length}
+        categoriesCount={safeCategories.length}
       />
 
       {/* Modal Adicionar/Editar Prato */}
@@ -1357,9 +1402,9 @@ export default function DishesTab({ onNavigateToPizzas }) {
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione" />
                   </SelectTrigger>
-                  <SelectContent>
-                    {categories.map(cat => <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>)}
-                  </SelectContent>
+                <SelectContent>
+                  {safeCategories.map(cat => <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>)}
+                </SelectContent>
                 </Select>
               </div>
             </div>
@@ -1532,7 +1577,7 @@ export default function DishesTab({ onNavigateToPizzas }) {
           }
         }}
         combo={editingCombo}
-        dishes={dishes}
+        dishes={safeDishes}
       />
 
       {/* Modal Reutilizar Grupo */}
@@ -1547,8 +1592,8 @@ export default function DishesTab({ onNavigateToPizzas }) {
             reuseComplementGroupToDish(currentDishForReuse, groupId);
           }
         }}
-        availableGroups={complementGroups}
-        allDishes={dishes}
+        availableGroups={safeComplementGroups}
+        allDishes={safeDishes}
       />
 
       {/* Modal Configurações do Grupo */}
@@ -1588,9 +1633,9 @@ export default function DishesTab({ onNavigateToPizzas }) {
       <ReorderModal
         isOpen={showReorderModal}
         onClose={() => setShowReorderModal(false)}
-        categories={categories}
-        dishes={dishes}
-        complementGroups={complementGroups}
+        categories={safeCategories}
+        dishes={safeDishes}
+        complementGroups={safeComplementGroups}
         onSave={(updates) => {
           updates.categories.forEach(cat => {
             updateCategoryMutation.mutate({ id: cat.id, data: cat });
@@ -1602,7 +1647,7 @@ export default function DishesTab({ onNavigateToPizzas }) {
             updateComplementGroupMutation.mutate({ id: group.id, data: group });
           });
           Object.entries(updates.groupOptions).forEach(([groupId, options]) => {
-            const group = complementGroups.find(g => g.id === groupId);
+            const group = safeComplementGroups.find(g => g.id === groupId);
             if (group) {
               updateComplementGroupMutation.mutate({ 
                 id: groupId, 
@@ -1656,8 +1701,9 @@ function DishRow({ dish, complementGroups, expanded, onToggleExpand, onEdit, onD
   const [tempPrice, setTempPrice] = useState('');
   const [tempStock, setTempStock] = useState('');
 
+  const safeComplementGroupsProp = Array.isArray(complementGroups) ? complementGroups : [];
   const linkedGroups = (dish.complement_groups || [])
-    .map(cg => complementGroups.find(g => g.id === cg.group_id))
+    .map(cg => safeComplementGroupsProp.find(g => g.id === cg.group_id))
     .filter(Boolean);
 
   const isOutOfStock = dish.stock !== null && dish.stock !== undefined && dish.stock !== '' && dish.stock <= 0;
@@ -2166,177 +2212,6 @@ function DishRow({ dish, complementGroups, expanded, onToggleExpand, onEdit, onD
             </DropdownMenu>
           )}
         </div>
-      )}
-    </div>
-  );
-}
-        const dishGroups = safeGroups.filter(group => {
-          if (!dish.complement_groups || !Array.isArray(dish.complement_groups)) {
-            return false;
-          }
-          return dish.complement_groups.some(cg => cg && cg.group_id === group.id);
-        });
-
-        return (
-          <div key={dish.id} className="border rounded-lg p-3 bg-white dark:bg-gray-800">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                {dish.image && (
-                  <img 
-                    src={dish.image} 
-                    alt={dish.name}
-                    className="w-12 h-12 rounded-lg object-cover"
-                  />
-                )}
-                <div>
-                  <h3 className="font-semibold text-gray-900 dark:text-gray-100">{dish.name}</h3>
-                  {dishGroups.length > 0 && (
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {dishGroups.length} grupo{dishGroups.length !== 1 ? 's' : ''} de complementos
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() =>
-                  setExpandedDishId(expandedDishId === dish.id ? null : dish.id)
-                }
-              >
-                {expandedDishId === dish.id ? (
-                  <>
-                    <ChevronUp className="w-4 h-4 mr-1" />
-                    Ocultar
-                  </>
-                ) : (
-                  <>
-                    <ChevronDown className="w-4 h-4 mr-1" />
-                    Complementos
-                  </>
-                )}
-              </Button>
-            </div>
-
-            {expandedDishId === dish.id && (
-              <div className="mt-3 space-y-2">
-                {dishGroups.length === 0 ? (
-                  <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
-                    Este prato não possui grupos de complementos configurados
-                  </p>
-                ) : (
-                  dishGroups.map(group => {
-                    const groupOptions = Array.isArray(group.options) ? group.options : [];
-                    
-                    return (
-                      <div key={group.id} className="border p-3 rounded-lg bg-gray-50 dark:bg-gray-900/50">
-                        <div className="font-medium mb-2 text-gray-900 dark:text-gray-100">
-                          {group.name}
-                        </div>
-
-                        {groupOptions.length === 0 ? (
-                          <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-2">
-                            Nenhuma opção cadastrada
-                          </p>
-                        ) : (
-                          groupOptions.map(opt => (
-                            <div
-                              key={opt.id}
-                              className="flex items-center gap-3 p-2 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700 mb-2"
-                            >
-                              <label className="cursor-pointer">
-                                {opt.image ? (
-                                  <img
-                                    src={opt.image}
-                                    className="w-12 h-12 object-cover rounded"
-                                    alt={opt.name}
-                                  />
-                                ) : (
-                                  <div className="w-12 h-12 bg-gray-200 dark:bg-gray-700 rounded flex items-center justify-center text-xs text-gray-400">
-                                    +
-                                  </div>
-                                )}
-
-                                <input
-                                  type="file"
-                                  accept="image/*"
-                                  className="hidden"
-                                  onChange={e => {
-                                    const file = e.target.files?.[0];
-                                    if (file)
-                                      handleOptionImageUpload(group.id, opt.id, file);
-                                  }}
-                                />
-                              </label>
-
-                              <span className="flex-1 text-sm text-gray-900 dark:text-gray-100">
-                                {opt.name}
-                              </span>
-                              <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">
-                                {formatCurrency(opt.price || 0)}
-                              </span>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            )}
-          </div>
-        );
-      })}
-
-      {safeDishes.length === 0 && (
-        <div className="p-8 text-center">
-          <p className="text-gray-500 dark:text-gray-400">Nenhum prato cadastrado ainda.</p>
-          {onNavigateToPizzas && (
-            <Button 
-              onClick={onNavigateToPizzas} 
-              className="mt-4"
-              variant="outline"
-            >
-              Configurar Pizzas
-            </Button>
-          )}
-        </div>
-      )}
-
-      {/* Modais (mantidos para compatibilidade futura) */}
-      {showReuseGroupModal && (
-        <ReuseGroupModal
-          isOpen={showReuseGroupModal}
-          onClose={() => setShowReuseGroupModal(false)}
-          dish={currentDishForReuse}
-          complementGroups={safeGroups}
-        />
-      )}
-
-      {showTemplatesModal && (
-        <ComplementTemplates
-          isOpen={showTemplatesModal}
-          onClose={() => setShowTemplatesModal(false)}
-        />
-      )}
-
-      {showReorderModal && (
-        <ReorderModal
-          isOpen={showReorderModal}
-          onClose={() => setShowReorderModal(false)}
-        />
-      )}
-
-      {showBulkEditModal && bulkEditGroup && (
-        <BulkEditOptions
-          isOpen={showBulkEditModal}
-          onClose={() => {
-            setShowBulkEditModal(false);
-            setBulkEditGroup(null);
-          }}
-          group={bulkEditGroup}
-        />
       )}
     </div>
   );
