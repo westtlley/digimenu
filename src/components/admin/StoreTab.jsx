@@ -113,19 +113,33 @@ export default function StoreTab() {
     mutationFn: async (data) => {
       console.log('Criando loja:', data);
       
+      // Limpar dados: remover valores undefined
+      const cleanData = Object.keys(data).reduce((acc, key) => {
+        const value = data[key];
+        if (value === undefined) return acc;
+        if (Array.isArray(value)) {
+          acc[key] = value.filter(item => item !== undefined && item !== null);
+        } else {
+          acc[key] = value;
+        }
+        return acc;
+      }, {});
+      
       const storeData = {
-        ...data,
+        ...cleanData,
         owner_email: user?.subscriber_email || user?.email
       };
       
+      console.log('Dados limpos a serem criados:', storeData);
+      
       try {
-        const result = await base44.functions.updateStoreSettings({ data: storeData });
-        console.log('Resultado:', result);
-        return result;
-      } catch (backendError) {
-        console.log('Função backend não disponível, usando SDK direto');
         const created = await base44.entities.Store.create(storeData);
+        console.log('Loja criada:', created);
         return { success: true, store: created };
+      } catch (error) {
+        console.error('Erro ao criar loja:', error);
+        console.error('Stack:', error.stack);
+        throw error;
       }
     },
     onSuccess: () => {
@@ -153,25 +167,47 @@ export default function StoreTab() {
     mutationFn: async ({ data }) => {
       console.log('Salvando dados da loja:', data);
       
+      // Limpar dados: remover valores undefined e garantir que arrays sejam válidos
+      const cleanData = Object.keys(data).reduce((acc, key) => {
+        const value = data[key];
+        // Ignorar undefined
+        if (value === undefined) return acc;
+        // Garantir que arrays sejam arrays válidos
+        if (Array.isArray(value)) {
+          acc[key] = value.filter(item => item !== undefined && item !== null);
+        } else {
+          acc[key] = value;
+        }
+        return acc;
+      }, {});
+      
       const storeData = {
-        ...data,
+        ...cleanData,
         owner_email: user?.subscriber_email || user?.email
       };
       
+      console.log('Dados limpos a serem salvos:', storeData);
+      
+      // Sempre usar o método direto de update/create para garantir que funcione
       try {
-        const result = await base44.functions.updateStoreSettings({ data: storeData });
-        console.log('Resultado via backend:', result);
-        return result;
-      } catch (backendError) {
-        console.log('Função backend não disponível, usando SDK direto:', backendError);
-        
         const stores = await base44.entities.Store.list();
+        console.log('Lojas encontradas:', stores.length);
+        
         if (stores.length === 0) {
+          console.log('Criando nova loja...');
           const created = await base44.entities.Store.create(storeData);
+          console.log('Loja criada:', created);
           return { success: true, store: created };
+        } else {
+          console.log('Atualizando loja existente (ID:', stores[0].id, ')...');
+          const updated = await base44.entities.Store.update(stores[0].id, storeData);
+          console.log('Loja atualizada:', updated);
+          return { success: true, store: updated };
         }
-        const updated = await base44.entities.Store.update(stores[0].id, storeData);
-        return { success: true, store: updated };
+      } catch (error) {
+        console.error('Erro ao salvar loja:', error);
+        console.error('Stack:', error.stack);
+        throw error;
       }
     },
     onSuccess: (result) => {

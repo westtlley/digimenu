@@ -187,9 +187,18 @@ class ApiClient {
    * PUT request
    */
   async put(endpoint, data = {}) {
+    // Remover valores undefined e garantir que data seja um objeto válido
+    const cleanData = data || {};
+    const sanitizedData = Object.keys(cleanData).reduce((acc, key) => {
+      if (cleanData[key] !== undefined) {
+        acc[key] = cleanData[key];
+      }
+      return acc;
+    }, {});
+
     return this.request(endpoint, {
       method: 'PUT',
-      body: JSON.stringify(data),
+      body: sanitizedData, // Será convertido para JSON no request()
     });
   }
 
