@@ -265,7 +265,9 @@ export default function DishesTab({ onNavigateToPizzas }) {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['combos'] }),
   });
 
-  // ========= FUNÇÕES PRINCIPAIS =========
+  // Validações de segurança - DECLARADAS AQUI PARA ESTAREM DISPONÍVEIS EM TODAS AS FUNÇÕES
+  // Nota: safeDishes, safeCategories, safeComplementGroups já foram declarados acima, após as queries
+ // ========= FUNÇÕES PRINCIPAIS =========
   const openDishModal = (dish = null, categoryId = '', productType = 'preparado') => {
     if (dish) {
       setEditingDish(dish);
@@ -778,12 +780,7 @@ export default function DishesTab({ onNavigateToPizzas }) {
   const activeFilters = getActiveFilters();
   
   const isLoading = dishesLoading || categoriesLoading || groupsLoading;
-  const hasError = dishesError || categoriesError || groupsError;
-
-  // Validações de segurança
-  const safeDishes = Array.isArray(dishes) ? dishes : [];
-  const safeCategories = Array.isArray(categories) ? categories : [];
-  const safeComplementGroups = Array.isArray(complementGroups) ? complementGroups : [];
+  const hasError = dishesError || categoriesError || groupsError;  // Nota: safeDishes, safeCategories, safeComplementGroups já foram declarados acima, após as queries
 
   if (isLoading) {
     return (
