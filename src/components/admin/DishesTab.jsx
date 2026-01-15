@@ -266,7 +266,10 @@ export default function DishesTab({ onNavigateToPizzas }) {
   });
 
   // Validações de segurança - DECLARADAS AQUI PARA ESTAREM DISPONÍVEIS EM TODAS AS FUNÇÕES
-  // Nota: safeDishes, safeCategories, safeComplementGroups já foram declarados acima, após as queries
+  const safeDishes = Array.isArray(dishes) ? dishes : [];
+  const safeCategories = Array.isArray(categories) ? categories : [];
+  const safeComplementGroups = Array.isArray(complementGroups) ? complementGroups : [];
+
  // ========= FUNÇÕES PRINCIPAIS =========
   const openDishModal = (dish = null, categoryId = '', productType = 'preparado') => {
     if (dish) {
