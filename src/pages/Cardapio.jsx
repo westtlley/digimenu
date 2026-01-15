@@ -544,19 +544,22 @@ export default function Cardapio() {
         </div>
       </header>
 
-      {/* Category Tabs */}
+      {/* Category Tabs - Melhoradas */}
       <div className={`bg-card border-b border-border sticky z-30 ${store.banner_image || highlightDishes.length > 0 ? 'md:top-0 top-0' : 'md:top-[120px] top-[165px]'}`}>
         <div className="max-w-7xl mx-auto px-4">
-          <div className="flex items-center justify-between gap-3 md:py-2 py-3">
-            <div className="flex gap-1 overflow-x-auto scrollbar-hide flex-1">
+          <div className="flex items-center justify-between gap-3 md:py-3 py-4">
+            <div className="flex gap-2 overflow-x-auto scrollbar-hide flex-1">
               <button
                 onClick={() => setSelectedCategory('all')}
-                className={`px-6 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+                className={`relative px-6 md:px-8 py-2.5 md:py-3 rounded-full text-sm md:text-base font-semibold whitespace-nowrap transition-all duration-200 ${
                   selectedCategory === 'all' 
-                    ? 'text-white' 
+                    ? 'text-white shadow-lg scale-105' 
                     : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                 }`}
-                style={selectedCategory === 'all' ? { backgroundColor: primaryColor, color: 'white' } : {}}
+                style={selectedCategory === 'all' ? { 
+                  backgroundColor: primaryColor, 
+                  color: 'white'
+                } : {}}
               >
                 Todos
               </button>
@@ -564,12 +567,15 @@ export default function Cardapio() {
                 <button
                   key={cat.id}
                   onClick={() => setSelectedCategory(cat.id)}
-                  className={`px-6 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+                  className={`relative px-6 md:px-8 py-2.5 md:py-3 rounded-full text-sm md:text-base font-semibold whitespace-nowrap transition-all duration-200 ${
                     selectedCategory === cat.id
-                      ? 'text-white'
+                      ? 'text-white shadow-lg scale-105'
                       : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                   }`}
-                  style={selectedCategory === cat.id ? { backgroundColor: primaryColor, color: 'white' } : {}}
+                  style={selectedCategory === cat.id ? { 
+                    backgroundColor: primaryColor, 
+                    color: 'white'
+                  } : {}}
                 >
                   {cat.name}
                 </button>
@@ -617,44 +623,62 @@ export default function Cardapio() {
               {highlightDishes.map((dish) => (
                 <motion.div
                   key={dish.id}
-                  whileHover={{ y: -4 }}
-                  className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm cursor-pointer relative"
+                  whileHover={{ y: -6, scale: 1.02 }}
+                  className="bg-card border border-border rounded-2xl overflow-hidden shadow-md hover:shadow-xl cursor-pointer relative transition-all duration-300"
                   onClick={() => handleDishClick(dish)}
                 >
-                  <Badge className="absolute top-3 left-3 z-10 bg-yellow-400 text-black">
+                  <Badge className="absolute top-3 left-3 z-10 bg-gradient-to-r from-yellow-400 to-yellow-500 text-black font-bold shadow-lg">
                     ⭐ Destaque
                   </Badge>
-                  <div className="relative h-40 bg-gray-100 dark:bg-gray-800">
+                  <div className="relative h-40 bg-gray-100 dark:bg-gray-800 overflow-hidden">
                     {dish.image ? (
-                      <img src={dish.image} alt={dish.name} className="w-full h-full object-cover" />
+                      <>
+                        <div className="absolute inset-0 bg-gray-200 dark:bg-gray-700 animate-pulse" />
+                        <img 
+                          src={dish.image} 
+                          alt={dish.name} 
+                          className="w-full h-full object-cover transition-transform duration-300 hover:scale-110"
+                          loading="lazy"
+                          onLoad={(e) => {
+                            e.target.previousSibling.style.display = 'none';
+                          }}
+                        />
+                      </>
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-4xl">
                         🍽️
                       </div>
                     )}
                   </div>
-                  <div className="p-4">
-                    <h3 className="font-bold text-base mb-1 text-foreground">{dish.name}</h3>
-                    <p className="text-sm text-muted-foreground line-clamp-2 mb-3">{dish.description}</p>
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-lg" style={{ color: primaryColor }}>
-                        {dish.product_type === 'pizza' 
-                          ? `A partir de ${formatCurrency(pizzaSizes[0]?.price_tradicional || 0)}`
-                          : formatCurrency(dish.price)
-                        }
-                      </span>
-                      <button
-                        className="px-4 py-2 rounded-lg text-white text-sm font-medium"
-                        style={{ backgroundColor: primaryColor }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDishClick(dish);
-                        }}
-                      >
-                        Adicionar
-                      </button>
+                    <div className="p-4">
+                      <h3 className="font-bold text-base mb-1 text-foreground">{dish.name}</h3>
+                      <p className="text-sm text-muted-foreground line-clamp-2 mb-3">{dish.description}</p>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          {dish.original_price && dish.original_price > dish.price && (
+                            <span className="text-xs text-muted-foreground line-through block mb-0.5">
+                              {formatCurrency(dish.original_price)}
+                            </span>
+                          )}
+                          <span className="font-bold text-lg md:text-xl block truncate" style={{ color: primaryColor }}>
+                            {dish.product_type === 'pizza' 
+                              ? `A partir de ${formatCurrency(pizzaSizes[0]?.price_tradicional || 0)}`
+                              : formatCurrency(dish.price)
+                            }
+                          </span>
+                        </div>
+                        <button
+                          className="px-4 py-2 rounded-lg text-white text-sm font-semibold shadow-md hover:shadow-lg transition-all flex-shrink-0"
+                          style={{ backgroundColor: primaryColor }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDishClick(dish);
+                          }}
+                        >
+                          Adicionar
+                        </button>
+                      </div>
                     </div>
-                  </div>
                 </motion.div>
               ))}
             </div>
@@ -683,50 +707,58 @@ export default function Cardapio() {
                 return (
                   <motion.div
                     key={dish.id}
-                    whileHover={{ y: isOutOfStock ? 0 : -4 }}
-                    className={`bg-card border border-border rounded-2xl overflow-hidden shadow-sm ${
+                    whileHover={{ y: isOutOfStock ? 0 : -6, scale: isOutOfStock ? 1 : 1.02 }}
+                    className={`bg-card border border-border rounded-2xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 ${
                       isOutOfStock ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'
                     }`}
                     onClick={() => !isOutOfStock && handleDishClick(dish)}
                   >
-                    <div className="relative h-40 bg-gray-100 dark:bg-gray-800">
+                    <div className="relative h-40 bg-gray-100 dark:bg-gray-800 overflow-hidden">
                       {dish.image ? (
-                        <img 
-                          src={dish.image} 
-                          alt={dish.name} 
-                          className={`w-full h-full object-cover ${isOutOfStock ? 'grayscale' : ''}`}
-                          loading="lazy"
-                        />
+                        <>
+                          <div className="absolute inset-0 bg-gray-200 dark:bg-gray-700 animate-pulse" />
+                          <img 
+                            src={dish.image} 
+                            alt={dish.name} 
+                            className={`w-full h-full object-cover transition-transform duration-300 hover:scale-110 ${isOutOfStock ? 'grayscale' : ''}`}
+                            loading="lazy"
+                            onLoad={(e) => {
+                              if (e.target.previousSibling) {
+                                e.target.previousSibling.style.display = 'none';
+                              }
+                            }}
+                          />
+                        </>
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-4xl">
                           🍽️
                         </div>
                       )}
-                      <div className="absolute top-3 right-3 flex flex-col gap-1">
+                      <div className="absolute top-3 right-3 flex flex-col gap-1.5">
                         {isOutOfStock && (
-                          <Badge className="bg-gray-600 dark:bg-gray-800 text-white">
+                          <Badge className="bg-gray-600 dark:bg-gray-800 text-white font-semibold shadow-lg">
                             Esgotado
                           </Badge>
                         )}
                         {isLowStock && !isOutOfStock && (
-                          <Badge className="bg-orange-500 text-white">
+                          <Badge className="bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold shadow-lg">
                             Últimas unidades
                           </Badge>
                         )}
                         {dish.original_price && dish.original_price > dish.price && (
-                          <Badge className="bg-red-500 text-white">
-                            Oferta
+                          <Badge className="bg-gradient-to-r from-red-500 to-red-600 text-white font-bold shadow-lg">
+                            🔥 Oferta
                           </Badge>
                         )}
                       </div>
-                      <div className="absolute top-3 left-3 flex flex-col gap-1">
+                      <div className="absolute top-3 left-3 flex flex-col gap-1.5">
                         {dish.is_new && (
-                          <Badge className="bg-green-500 text-white">
+                          <Badge className="bg-gradient-to-r from-green-500 to-green-600 text-white font-semibold shadow-lg">
                             ✨ Novo
                           </Badge>
                         )}
                         {dish.is_popular && (
-                          <Badge className="bg-purple-500 text-white">
+                          <Badge className="bg-gradient-to-r from-purple-500 to-purple-600 text-white font-bold shadow-lg">
                             🔥 Mais Vendido
                           </Badge>
                         )}
@@ -744,11 +776,11 @@ export default function Cardapio() {
                       <div className="flex items-center justify-between gap-2">
                        <div className="flex-1 min-w-0">
                          {dish.original_price && dish.original_price > dish.price && (
-                           <span className="text-[10px] md:text-xs text-muted-foreground line-through block">
+                           <span className="text-xs md:text-sm text-muted-foreground line-through block mb-0.5 font-medium">
                              {formatCurrency(dish.original_price)}
                            </span>
                          )}
-                         <span className="font-bold text-base md:text-lg block truncate" style={{ color: primaryColor }}>
+                         <span className="font-bold text-lg md:text-xl block truncate" style={{ color: primaryColor }}>
                            {dish.product_type === 'pizza' 
                              ? `A partir de ${formatCurrency(pizzaSizes[0]?.price_tradicional || 0)}`
                              : formatCurrency(dish.price)
@@ -757,7 +789,7 @@ export default function Cardapio() {
                        </div>
                         <button
                           disabled={isOutOfStock}
-                          className={`px-3 md:px-4 py-1.5 md:py-2 rounded-lg text-white text-xs md:text-sm font-medium flex-shrink-0 ${
+                          className={`px-3 md:px-4 py-1.5 md:py-2 rounded-lg text-white text-xs md:text-sm font-semibold flex-shrink-0 shadow-md hover:shadow-lg transition-all ${
                             isOutOfStock ? 'bg-gray-400 cursor-not-allowed' : ''
                           }`}
                           style={!isOutOfStock ? { backgroundColor: primaryColor } : {}}
