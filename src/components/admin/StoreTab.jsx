@@ -26,6 +26,8 @@ export default function StoreTab() {
   const [formData, setFormData] = useState({
     name: '',
     logo: '',
+    banner_image: '',
+    banners: [],
     whatsapp: '',
     address: '',
     slogan: '',
@@ -77,6 +79,8 @@ export default function StoreTab() {
       setFormData({
         name: store.name || '',
         logo: store.logo || '',
+        banner_image: store.banner_image || '',
+        banners: store.banners || [],
         whatsapp: store.whatsapp || '',
         address: store.address || '',
         slogan: store.slogan || '',
@@ -206,6 +210,61 @@ export default function StoreTab() {
     }
   };
 
+  const handleBannerUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      try {
+        const { uploadToCloudinary } = await import('@/utils/cloudinaryUpload');
+        const url = await uploadToCloudinary(file, 'store');
+        setFormData(prev => ({ ...prev, banner_image: url }));
+      } catch (error) {
+        console.error('Erro ao fazer upload:', error);
+        alert('Erro ao fazer upload da foto de capa');
+      }
+    }
+  };
+
+  const handleBannerItemUpload = async (e, index) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      try {
+        const { uploadToCloudinary } = await import('@/utils/cloudinaryUpload');
+        const url = await uploadToCloudinary(file, 'store');
+        setFormData(prev => {
+          const newBanners = [...(prev.banners || [])];
+          newBanners[index] = { ...newBanners[index], image: url };
+          return { ...prev, banners: newBanners };
+        });
+      } catch (error) {
+        console.error('Erro ao fazer upload:', error);
+        alert('Erro ao fazer upload do banner');
+      }
+    }
+  };
+
+  const addBanner = () => {
+    setFormData(prev => ({
+      ...prev,
+      banners: [...(prev.banners || []), { image: '', title: '', subtitle: '', link: '', active: true }]
+    }));
+  };
+
+  const removeBanner = (index) => {
+    setFormData(prev => {
+      const newBanners = [...(prev.banners || [])];
+      newBanners.splice(index, 1);
+      return { ...prev, banners: newBanners };
+    });
+  };
+
+  const updateBanner = (index, field, value) => {
+    setFormData(prev => {
+      const newBanners = [...(prev.banners || [])];
+      newBanners[index] = { ...newBanners[index], [field]: value };
+      return { ...prev, banners: newBanners };
+    });
+  };
+
   const toggleDay = (dayValue) => {
     setFormData(prev => {
       const days = prev.working_days || [];
@@ -274,6 +333,32 @@ export default function StoreTab() {
                   Alterar Logotipo
                 </label>
                 <span className="text-xs text-gray-500 mt-1">Recomendado: 500x500px</span>
+              </div>
+
+              {/* Foto de Capa */}
+              <div className="flex flex-col">
+                <Label className="mb-2">Foto de Capa (Banner Superior)</Label>
+                <div className="w-full h-48 bg-gray-100 rounded-xl flex items-center justify-center mb-3 overflow-hidden border-2 border-dashed border-gray-300 hover:border-orange-400 transition-colors">
+                  {formData.banner_image ? (
+                    <img src={formData.banner_image} alt="Banner" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="text-center text-gray-400">
+                      <ImageIcon className="w-12 h-12 mx-auto mb-2" />
+                      <p className="text-sm">Nenhuma foto de capa</p>
+                    </div>
+                  )}
+                </div>
+                <label className="text-sm text-orange-600 cursor-pointer hover:text-orange-700 font-medium flex items-center gap-2">
+                  <ImageIcon className="w-4 h-4" />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleBannerUpload}
+                    className="hidden"
+                  />
+                  {formData.banner_image ? 'Alterar Foto de Capa' : 'Adicionar Foto de Capa'}
+                </label>
+                <span className="text-xs text-gray-500 mt-1">Recomendado: 1200x400px (largura x altura)</span>
               </div>
 
               <Separator />
@@ -716,6 +801,92 @@ export default function StoreTab() {
                   Adicionar Tag
                 </Button>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Seção: Banners Promocionais */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ImageIcon className="w-5 h-5 text-orange-500" />
+                Banners Promocionais
+              </CardTitle>
+              <CardDescription>Adicione banners promocionais que aparecerão no cardápio</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {(formData.banners || []).map((banner, index) => (
+                <div key={index} className="p-4 border rounded-lg space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label>Banner {index + 1}</Label>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeBanner(index)}
+                      className="text-red-600 hover:text-red-700"
+                    >
+                      Remover
+                    </Button>
+                  </div>
+                  
+                  <div className="w-full h-32 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden border-2 border-dashed border-gray-300">
+                    {banner.image ? (
+                      <img src={banner.image} alt={`Banner ${index + 1}`} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="text-center text-gray-400">
+                        <ImageIcon className="w-8 h-8 mx-auto mb-1" />
+                        <p className="text-xs">Sem imagem</p>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <label className="text-sm text-orange-600 cursor-pointer hover:text-orange-700 font-medium flex items-center gap-2">
+                    <ImageIcon className="w-4 h-4" />
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleBannerItemUpload(e, index)}
+                      className="hidden"
+                    />
+                    {banner.image ? 'Alterar Imagem' : 'Adicionar Imagem'}
+                  </label>
+                  
+                  <Input
+                    placeholder="Título do banner (opcional)"
+                    value={banner.title || ''}
+                    onChange={(e) => updateBanner(index, 'title', e.target.value)}
+                  />
+                  
+                  <Input
+                    placeholder="Subtítulo do banner (opcional)"
+                    value={banner.subtitle || ''}
+                    onChange={(e) => updateBanner(index, 'subtitle', e.target.value)}
+                  />
+                  
+                  <Input
+                    placeholder="Link (opcional)"
+                    value={banner.link || ''}
+                    onChange={(e) => updateBanner(index, 'link', e.target.value)}
+                  />
+                  
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={banner.active !== false}
+                      onCheckedChange={(checked) => updateBanner(index, 'active', checked)}
+                    />
+                    <Label>Banner ativo</Label>
+                  </div>
+                </div>
+              ))}
+              
+              <Button
+                type="button"
+                variant="outline"
+                onClick={addBanner}
+                className="w-full"
+              >
+                + Adicionar Banner
+              </Button>
             </CardContent>
           </Card>
 

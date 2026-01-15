@@ -429,6 +429,19 @@ export default function Cardapio() {
             />
           ) : null}
           
+          {/* Logo como Ícone sobre o Banner */}
+          {store.logo && (
+            <div className="absolute top-4 left-4 z-20">
+              <div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-white/90 backdrop-blur-sm p-1 shadow-lg">
+                <img 
+                  src={store.logo} 
+                  alt={store.name} 
+                  className="w-full h-full rounded-full object-cover"
+                />
+              </div>
+            </div>
+          )}
+          
           {/* Overlay Gradient */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent"></div>
           
@@ -594,6 +607,43 @@ export default function Cardapio() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-6 pb-24 md:pb-12">
+        {/* Banners Configuráveis */}
+        {store.banners && store.banners.filter(b => b.active !== false && b.image).length > 0 && (
+          <div className="mb-6 space-y-3">
+            {store.banners.filter(b => b.active !== false && b.image).map((banner, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="relative w-full h-32 md:h-40 rounded-2xl overflow-hidden cursor-pointer"
+                onClick={() => {
+                  if (banner.link) {
+                    window.open(banner.link, '_blank');
+                  }
+                }}
+              >
+                <img 
+                  src={banner.image} 
+                  alt={banner.title || 'Banner promocional'} 
+                  className="w-full h-full object-cover"
+                />
+                {(banner.title || banner.subtitle) && (
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-4">
+                    <div className="text-white">
+                      {banner.title && (
+                        <h3 className="font-bold text-lg md:text-xl mb-1">{banner.title}</h3>
+                      )}
+                      {banner.subtitle && (
+                        <p className="text-sm md:text-base opacity-90">{banner.subtitle}</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </motion.div>
+            ))}
+          </div>
+        )}
+
         {/* Promotions Banner */}
         <div data-section="promotions">
           <PromotionBanner
@@ -619,7 +669,7 @@ export default function Cardapio() {
               <Star className="w-5 h-5 fill-yellow-400 text-yellow-400" />
               <h2 className="font-bold text-lg text-foreground">Pratos do Dia</h2>
             </div>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               {highlightDishes.map((dish) => (
                 <motion.div
                   key={dish.id}
@@ -693,7 +743,7 @@ export default function Cardapio() {
               : categories.find(c => c.id === selectedCategory)?.name || 'Pratos'}
           </h2>
           {dishesLoading ? (
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               {[1, 2, 3, 4, 5, 6].map((i) => (
                 <DishSkeleton key={i} />
               ))}
