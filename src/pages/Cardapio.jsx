@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { apiClient as base44 } from '@/api/apiClient';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { ShoppingCart, Search, Clock, Star } from 'lucide-react';
+import { ShoppingCart, Search, Clock, Star, Share2, MapPin, Info, Home, Receipt, Gift } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { motion } from 'framer-motion';
@@ -411,30 +411,103 @@ export default function Cardapio() {
         />
       )}
 
+      {/* Hero Banner - Banner Superior Grande */}
+      {store.banner_image || highlightDishes.length > 0 ? (
+        <div className="relative w-full h-[200px] md:h-[300px] overflow-hidden">
+          {/* Background Image */}
+          {store.banner_image ? (
+            <img 
+              src={store.banner_image} 
+              alt={store.name}
+              className="w-full h-full object-cover"
+            />
+          ) : highlightDishes[0]?.image ? (
+            <img 
+              src={highlightDishes[0].image} 
+              alt="Destaque"
+              className="w-full h-full object-cover"
+            />
+          ) : null}
+          
+          {/* Overlay Gradient */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent"></div>
+          
+          {/* Content */}
+          <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 text-white">
+            <div className="max-w-7xl mx-auto">
+              <h1 className="text-2xl md:text-4xl font-bold mb-2 drop-shadow-lg">{store.name}</h1>
+              <div className="flex flex-wrap items-center gap-3 md:gap-4 text-sm md:text-base">
+                <div className="flex items-center gap-2">
+                  <span className={`w-2 h-2 rounded-full ${isStoreOpen ? 'bg-green-400' : 'bg-red-400'}`}></span>
+                  <span className="font-medium">{getStatusDisplay.text}</span>
+                </div>
+                {store.min_order_value > 0 && (
+                  <div className="flex items-center gap-2">
+                    <span className="opacity-80">Pedido mín.</span>
+                    <span className="font-bold">{formatCurrency(store.min_order_value)}</span>
+                  </div>
+                )}
+                <button 
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-colors text-sm"
+                  onClick={() => {
+                    // TODO: Implementar modal de perfil da loja
+                    toast.success('Perfil da loja em breve!');
+                  }}
+                >
+                  <Info className="w-4 h-4" />
+                  Perfil da loja
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {/* Header */}
       <header className="border-b border-border sticky top-0 z-40 md:pb-2 pb-4 bg-card">
         <div className="max-w-7xl mx-auto px-4 md:pt-3 pt-6">
           <div className="flex items-center justify-between md:mb-3 mb-6">
             <div className="flex items-center gap-3">
               {store.logo ? (
-                <img src={store.logo} alt={store.name} className="w-12 h-12 rounded-lg object-cover" />
+                <img src={store.logo} alt={store.name} className="w-16 h-16 md:w-20 md:h-20 rounded-xl object-cover shadow-md" />
               ) : (
-                <div className="w-12 h-12 rounded-lg flex items-center justify-center text-2xl" style={{ backgroundColor: primaryColor }}>
+                <div className="w-16 h-16 md:w-20 md:h-20 rounded-xl flex items-center justify-center text-3xl md:text-4xl shadow-md" style={{ backgroundColor: primaryColor }}>
                   🍽️
                 </div>
               )}
-              <div>
-               <h1 className="font-bold text-lg text-foreground">{store.name}</h1>
+              <div className="hidden md:block">
+                <h1 className="font-bold text-xl md:text-2xl text-foreground">{store.name}</h1>
+                {store.min_order_value > 0 && (
+                  <p className="text-xs text-muted-foreground">Pedido mín. {formatCurrency(store.min_order_value)}</p>
+                )}
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 md:gap-2">
+              <button 
+                className="p-2 rounded-lg transition-colors text-muted-foreground hover:text-foreground hover:bg-muted hidden md:flex" 
+                onClick={() => {
+                  if (navigator.share) {
+                    navigator.share({
+                      title: store.name,
+                      text: `Confira o cardápio de ${store.name}`,
+                      url: window.location.href
+                    }).catch(() => {});
+                  } else {
+                    navigator.clipboard.writeText(window.location.href);
+                    toast.success('Link copiado!');
+                  }
+                }}
+                title="Compartilhar"
+              >
+                <Share2 className="w-5 h-5" />
+              </button>
               <ThemeToggle className="text-muted-foreground hover:text-foreground hover:bg-muted" />
               <UserAuthButton />
               <button 
                 className="p-2 rounded-lg relative transition-colors text-muted-foreground hover:text-foreground hover:bg-muted" 
                 onClick={() => setShowCartModal(true)}
               >
-                <ShoppingCart className="w-5 h-5" />
+                <ShoppingCart className="w-5 h-5 md:w-6 md:h-6" />
                 {cart.length > 0 && (
                   <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">
                     {cartItemsCount}
@@ -442,10 +515,11 @@ export default function Cardapio() {
                 )}
               </button>
               <button 
-                className="p-2 rounded-lg transition-colors text-muted-foreground hover:text-foreground hover:bg-muted" 
+                className="p-2 rounded-lg transition-colors text-muted-foreground hover:text-foreground hover:bg-muted hidden md:flex" 
                 onClick={() => setShowOrderHistory(true)}
+                title="Meus Pedidos"
               >
-                <Clock className="w-5 h-5" />
+                <Clock className="w-5 h-5 md:w-6 md:h-6" />
               </button>
             </div>
           </div>
@@ -471,7 +545,7 @@ export default function Cardapio() {
       </header>
 
       {/* Category Tabs */}
-      <div className="bg-card border-b border-border sticky md:top-[120px] top-[165px] z-30">
+      <div className={`bg-card border-b border-border sticky z-30 ${store.banner_image || highlightDishes.length > 0 ? 'md:top-0 top-0' : 'md:top-[120px] top-[165px]'}`}>
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex items-center justify-between gap-3 md:py-2 py-3">
             <div className="flex gap-1 overflow-x-auto scrollbar-hide flex-1">
@@ -513,14 +587,17 @@ export default function Cardapio() {
       </div>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 py-6 pb-24">
+      <main className="max-w-7xl mx-auto px-4 py-6 pb-24 md:pb-12">
         {/* Promotions Banner */}
-        <PromotionBanner
-          promotions={activePromotions}
-          dishes={dishes}
-          primaryColor={primaryColor}
-          onSelectPromotion={setSelectedDish}
-        />
+        <div data-section="promotions">
+          <PromotionBanner
+            promotions={activePromotions}
+            dishes={dishes}
+            primaryColor={primaryColor}
+            onSelectPromotion={setSelectedDish}
+            store={store}
+          />
+        </div>
 
         {/* Recent Orders */}
         <RecentOrders
@@ -536,7 +613,7 @@ export default function Cardapio() {
               <Star className="w-5 h-5 fill-yellow-400 text-yellow-400" />
               <h2 className="font-bold text-lg text-foreground">Pratos do Dia</h2>
             </div>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {highlightDishes.map((dish) => (
                 <motion.div
                   key={dish.id}
@@ -547,7 +624,7 @@ export default function Cardapio() {
                   <Badge className="absolute top-3 left-3 z-10 bg-yellow-400 text-black">
                     ⭐ Destaque
                   </Badge>
-                  <div className="relative h-48 bg-gray-100 dark:bg-gray-800">
+                  <div className="relative h-40 bg-gray-100 dark:bg-gray-800">
                     {dish.image ? (
                       <img src={dish.image} alt={dish.name} className="w-full h-full object-cover" />
                     ) : (
@@ -598,7 +675,7 @@ export default function Cardapio() {
               ))}
             </div>
           ) : (
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {filteredDishes.map((dish) => {
                 const isOutOfStock = stockUtils.isOutOfStock(dish.stock);
                 const isLowStock = stockUtils.isLowStock(dish.stock);
@@ -612,12 +689,13 @@ export default function Cardapio() {
                     }`}
                     onClick={() => !isOutOfStock && handleDishClick(dish)}
                   >
-                    <div className="relative h-48 bg-gray-100 dark:bg-gray-800">
+                    <div className="relative h-40 bg-gray-100 dark:bg-gray-800">
                       {dish.image ? (
                         <img 
                           src={dish.image} 
                           alt={dish.name} 
                           className={`w-full h-full object-cover ${isOutOfStock ? 'grayscale' : ''}`}
+                          loading="lazy"
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-4xl">
@@ -654,23 +732,23 @@ export default function Cardapio() {
                         )}
                       </div>
                     </div>
-                    <div className="p-4">
-                      <h3 className="font-bold text-base mb-1 text-foreground">{dish.name}</h3>
-                      <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{dish.description}</p>
+                    <div className="p-3">
+                      <h3 className="font-bold text-sm md:text-base mb-1 text-foreground line-clamp-1">{dish.name}</h3>
+                      <p className="text-xs md:text-sm text-muted-foreground line-clamp-2 mb-2">{dish.description}</p>
                       {dish.prep_time && (
-                        <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
+                        <p className="text-[10px] md:text-xs text-muted-foreground mb-2 flex items-center gap-1">
                           <Clock className="w-3 h-3" />
-                          Preparo: ~{dish.prep_time} min
+                          ~{dish.prep_time} min
                         </p>
                       )}
-                      <div className="flex items-center justify-between">
-                       <div>
+                      <div className="flex items-center justify-between gap-2">
+                       <div className="flex-1 min-w-0">
                          {dish.original_price && dish.original_price > dish.price && (
-                           <span className="text-xs text-muted-foreground line-through block">
+                           <span className="text-[10px] md:text-xs text-muted-foreground line-through block">
                              {formatCurrency(dish.original_price)}
                            </span>
                          )}
-                         <span className="font-bold text-lg" style={{ color: primaryColor }}>
+                         <span className="font-bold text-base md:text-lg block truncate" style={{ color: primaryColor }}>
                            {dish.product_type === 'pizza' 
                              ? `A partir de ${formatCurrency(pizzaSizes[0]?.price_tradicional || 0)}`
                              : formatCurrency(dish.price)
@@ -679,7 +757,7 @@ export default function Cardapio() {
                        </div>
                         <button
                           disabled={isOutOfStock}
-                          className={`px-4 py-2 rounded-lg text-white text-sm font-medium ${
+                          className={`px-3 md:px-4 py-1.5 md:py-2 rounded-lg text-white text-xs md:text-sm font-medium flex-shrink-0 ${
                             isOutOfStock ? 'bg-gray-400 cursor-not-allowed' : ''
                           }`}
                           style={!isOutOfStock ? { backgroundColor: primaryColor } : {}}
@@ -705,6 +783,56 @@ export default function Cardapio() {
           </div>
         )}
       </main>
+
+      {/* Bottom Navigation Bar - Barra de Navegação Inferior */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border z-50 md:hidden">
+        <div className="flex items-center justify-around h-16 px-2">
+          <button
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+            className="flex flex-col items-center justify-center gap-1 flex-1 h-full text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <Home className="w-5 h-5" />
+            <span className="text-[10px] font-medium">Início</span>
+          </button>
+          
+          <button
+            onClick={() => setShowOrderHistory(true)}
+            className="flex flex-col items-center justify-center gap-1 flex-1 h-full text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <Receipt className="w-5 h-5" />
+            <span className="text-[10px] font-medium">Pedidos</span>
+          </button>
+          
+          <button
+            onClick={() => {
+              const promotionsSection = document.querySelector('[data-section="promotions"]');
+              if (promotionsSection) {
+                promotionsSection.scrollIntoView({ behavior: 'smooth' });
+              } else {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }
+            }}
+            className="flex flex-col items-center justify-center gap-1 flex-1 h-full text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <Gift className="w-5 h-5" />
+            <span className="text-[10px] font-medium">Promos</span>
+          </button>
+          
+          <button
+            onClick={() => setShowCartModal(true)}
+            className="flex flex-col items-center justify-center gap-1 flex-1 h-full relative transition-colors"
+            style={{ color: cart.length > 0 ? primaryColor : 'hsl(var(--muted-foreground))' }}
+          >
+            <ShoppingCart className="w-5 h-5" />
+            {cart.length > 0 && (
+              <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">
+                {cartItemsCount}
+              </span>
+            )}
+            <span className="text-[10px] font-medium">Carrinho</span>
+          </button>
+        </div>
+      </nav>
 
       {/* Footer */}
       <footer className="bg-card border-t border-border text-foreground mt-12">

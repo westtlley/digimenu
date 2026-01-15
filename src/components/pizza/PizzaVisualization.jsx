@@ -1,11 +1,32 @@
-import React from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Sparkles, Star } from 'lucide-react';
 
-export default function PizzaVisualization({ selectedSize, selectedFlavors, selectedEdge, selectedExtras }) {
+export default function PizzaVisualization({ selectedSize, selectedFlavors, selectedEdge, selectedExtras, showBackground = false }) {
   const totalSlices = selectedFlavors.length;
+  
+  // Estado para dimensões da janela
+  const [windowSize, setWindowSize] = useState({
+    width: typeof window !== 'undefined' ? window.innerWidth : 1024,
+    height: typeof window !== 'undefined' ? window.innerHeight : 768
+  });
+
+  // Listener para redimensionamento
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    const handleResize = () => {
+      setWindowSize({
+        width: window.innerWidth,
+        height: window.innerHeight
+      });
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const { data: savedConfigs = [] } = useQuery({
     queryKey: ['pizzaVisualizationConfig'],
@@ -37,56 +58,85 @@ export default function PizzaVisualization({ selectedSize, selectedFlavors, sele
   const hasPremiumFlavor = selectedFlavors.some(f => f.category === 'premium');
 
   // Calcular tamanho responsivo baseado na tela
-  const getResponsiveSize = () => {
-    if (typeof window === 'undefined') return { container: 'min-h-[400px]', svg: 'max-w-[280px]' };
+  const responsive = useMemo(() => {
+    const width = windowSize.width;
+    const height = windowSize.height;
+    const minDimension = Math.min(width, height);
     
-    const width = window.innerWidth;
     if (width < 640) {
-      return { container: 'min-h-[300px]', svg: 'max-w-[220px]', info: 'mt-4' };
+      // Mobile
+      const svgSize = Math.min(minDimension * 0.55, 240);
+      return { 
+        container: 'min-h-[280px]', 
+        svgSize,
+        info: 'mt-3',
+        padding: 'p-2'
+      };
     } else if (width < 1024) {
-      return { container: 'min-h-[400px]', svg: 'max-w-[320px]', info: 'mt-6' };
+      // Tablet
+      const svgSize = Math.min(minDimension * 0.5, 320);
+      return { 
+        container: 'min-h-[350px]', 
+        svgSize,
+        info: 'mt-4',
+        padding: 'p-3'
+      };
     }
-    return { container: 'min-h-[450px]', svg: 'max-w-[380px]', info: 'mt-8' };
-  };
-
-  const responsive = getResponsiveSize();
+    // Desktop
+    const svgSize = Math.min(minDimension * 0.45, 400);
+    return { 
+      container: 'min-h-[400px]', 
+      svgSize,
+      info: 'mt-6',
+      padding: 'p-4'
+    };
+  }, [windowSize]);
 
   return (
-    <div className={`w-full ${responsive.container} flex flex-col items-center justify-center relative px-2 sm:px-4 py-4`}>
-      {/* Background com animação melhorada */}
-      <motion.div 
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.5 }}
-        className="absolute inset-0 rounded-2xl overflow-hidden"
-        style={{
-          backgroundImage: `url(${backgroundImage})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-        }}
-      >
-        <div 
-          className="absolute inset-0 bg-black rounded-2xl"
-          style={{ 
-            filter: `blur(${backgroundBlur}px)`,
-            opacity: backgroundOpacity / 100,
+    <div className={`w-full ${showBackground ? responsive.container : 'h-full'} flex flex-col items-center justify-center relative ${showBackground ? responsive.padding : ''}`}>
+      {/* Background com animação melhorada - apenas se showBackground for true */}
+      {showBackground && (
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5 }}
+          className="absolute inset-0 rounded-2xl overflow-hidden"
+          style={{
             backgroundImage: `url(${backgroundImage})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
           }}
-        ></div>
-        <div className="absolute inset-0 bg-gradient-to-br from-orange-900/20 via-transparent to-yellow-900/20"></div>
-      </motion.div>
+        >
+          <div 
+            className="absolute inset-0 bg-black rounded-2xl"
+            style={{ 
+              filter: `blur(${backgroundBlur}px)`,
+              opacity: backgroundOpacity / 100,
+              backgroundImage: `url(${backgroundImage})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+            }}
+          ></div>
+          <div className="absolute inset-0 bg-gradient-to-br from-orange-900/20 via-transparent to-yellow-900/20"></div>
+        </motion.div>
+      )}
 
       {/* Container principal - melhorado para responsividade */}
       <div 
-        className="relative z-10 w-full flex-1 flex flex-col items-center justify-center"
+        className={`relative ${showBackground ? 'z-10' : ''} w-full ${showBackground ? 'flex-1' : 'h-full'} flex flex-col items-center justify-center`}
         style={{
           transform: `translate(${globalOffsetX}px, ${globalOffsetY}px)`
         }}
       >
-        {/* Container da pizza e tábua - centralizado */}
-        <div className="relative flex items-center justify-center" style={{ width: '100%', maxWidth: '450px', aspectRatio: '1' }}>
+        {/* Container da pizza e tábua - centralizado e responsivo */}
+        <div 
+          className="relative flex items-center justify-center w-full"
+          style={{ 
+            maxWidth: `${responsive.svgSize}px`,
+            aspectRatio: '1',
+            height: 'auto'
+          }}
+        >
           {/* Tábua - posicionada atrás da pizza */}
           <motion.div 
             initial={{ scale: 0.7, opacity: 0, rotate: -5 }}
@@ -95,7 +145,9 @@ export default function PizzaVisualization({ selectedSize, selectedFlavors, sele
             className="absolute inset-0 flex items-center justify-center pointer-events-none"
             style={{
               transform: `translate(${boardOffsetX}px, ${boardOffsetY}px) scale(${boardScale / 100})`,
-              zIndex: 1
+              zIndex: 1,
+              width: '100%',
+              height: '100%'
             }}
           >
             <img 
@@ -113,20 +165,22 @@ export default function PizzaVisualization({ selectedSize, selectedFlavors, sele
 
           {/* Pizza SVG - posicionada sobre a tábua */}
           <div 
-            className="relative z-10 flex items-center justify-center"
+            className="relative z-10 flex items-center justify-center w-full h-full"
             style={{
-              width: '100%',
-              height: '100%',
-              maxWidth: responsive.svg,
-              maxHeight: responsive.svg,
-              transform: `translate(${pizzaOffsetX}px, ${pizzaOffsetY}px) scale(${pizzaScale / 100}) rotate(${pizzaRotation}deg)`
+              transform: `translate(${pizzaOffsetX}px, ${pizzaOffsetY}px) scale(${pizzaScale / 100}) rotate(${pizzaRotation}deg)`,
+              maxWidth: '100%',
+              maxHeight: '100%'
             }}
           >
             <svg 
               viewBox="0 0 100 100" 
               className="w-full h-full drop-shadow-2xl"
               preserveAspectRatio="xMidYMid meet"
-              style={{ filter: `drop-shadow(0 8px 16px rgba(0,0,0,${shadowIntensity / 100}))` }}
+              style={{ 
+                filter: `drop-shadow(0 8px 16px rgba(0,0,0,${shadowIntensity / 100}))`,
+                maxWidth: '100%',
+                maxHeight: '100%'
+              }}
             >
               {totalSlices > 0 && (
                 <>
@@ -308,45 +362,45 @@ export default function PizzaVisualization({ selectedSize, selectedFlavors, sele
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.6 }}
-            className={`relative z-20 w-full max-w-md ${responsive.info} text-center space-y-2 px-2`}
+            className={`relative z-20 w-full max-w-md ${responsive.info} text-center space-y-1.5 sm:space-y-2 px-2`}
           >
-            <div className="bg-gradient-to-r from-gray-900/95 to-gray-800/95 backdrop-blur-md rounded-xl p-3 sm:p-4 border border-gray-700/50 shadow-xl">
-              <p className="font-bold text-base sm:text-lg md:text-xl text-white drop-shadow-lg mb-2">
+            <div className="bg-gradient-to-r from-gray-900/95 to-gray-800/95 backdrop-blur-md rounded-xl p-2.5 sm:p-3 md:p-4 border border-gray-700/50 shadow-xl">
+              <p className="font-bold text-sm sm:text-base md:text-lg text-white drop-shadow-lg mb-1.5 sm:mb-2">
                 {selectedSize.name}
               </p>
               {totalSlices > 0 ? (
-                <div className="text-xs sm:text-sm text-gray-300 space-y-1">
+                <div className="text-[10px] sm:text-xs md:text-sm text-gray-300 space-y-0.5 sm:space-y-1">
                   {Object.entries(
                     selectedFlavors.reduce((acc, f) => {
                       acc[f.name] = (acc[f.name] || 0) + 1;
                       return acc;
                     }, {})
                   ).map(([name, count]) => (
-                    <div key={name} className="flex items-center justify-center gap-2 flex-wrap">
-                      <span className="font-semibold text-white">
+                    <div key={name} className="flex items-center justify-center gap-1.5 sm:gap-2 flex-wrap">
+                      <span className="font-semibold text-white text-[10px] sm:text-xs">
                         {count}/{totalSlices}
                       </span>
-                      <span className="text-gray-300">{name}</span>
+                      <span className="text-gray-300 text-[10px] sm:text-xs truncate max-w-[120px] sm:max-w-none">{name}</span>
                       {selectedFlavors.find(f => f.name === name)?.category === 'premium' && (
-                        <Sparkles className="w-3 h-3 text-yellow-400 fill-current flex-shrink-0" />
+                        <Sparkles className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-yellow-400 fill-current flex-shrink-0" />
                       )}
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-gray-400">Selecione os sabores</p>
+                <p className="text-[10px] sm:text-xs text-gray-400">Selecione os sabores</p>
               )}
               {selectedEdge && (
-                <div className="mt-2 pt-2 border-t border-gray-700/50">
-                  <p className="text-xs sm:text-sm text-yellow-400 drop-shadow flex items-center justify-center gap-1">
+                <div className="mt-1.5 sm:mt-2 pt-1.5 sm:pt-2 border-t border-gray-700/50">
+                  <p className="text-[10px] sm:text-xs text-yellow-400 drop-shadow flex items-center justify-center gap-1">
                     <span>🧀</span>
-                    Borda: {selectedEdge.name}
+                    <span className="truncate">Borda: {selectedEdge.name}</span>
                   </p>
                 </div>
               )}
               {selectedExtras && selectedExtras.length > 0 && (
-                <div className="mt-2 pt-2 border-t border-gray-700/50">
-                  <p className="text-xs sm:text-sm text-orange-400 drop-shadow flex items-center justify-center gap-1">
+                <div className="mt-1.5 sm:mt-2 pt-1.5 sm:pt-2 border-t border-gray-700/50">
+                  <p className="text-[10px] sm:text-xs text-orange-400 drop-shadow flex items-center justify-center gap-1">
                     <span>✨</span>
                     {selectedExtras.length} extra{selectedExtras.length > 1 ? 's' : ''}
                   </p>

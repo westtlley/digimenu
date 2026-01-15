@@ -39,43 +39,74 @@ export default function RecentOrders({ dishes = [], onSelectDish, primaryColor }
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
   };
 
+  // Agrupar pratos por pedido para mostrar quantidade
+  const getDishQuantity = (dishId) => {
+    let total = 0;
+    orders.forEach(order => {
+      order.items?.forEach(item => {
+        if (item.dish?.id === dishId) {
+          total += item.quantity || 1;
+        }
+      });
+    });
+    return total;
+  };
+
   return (
     <section className="mb-8">
       <div className="flex items-center gap-2 mb-4">
         <Clock className="w-5 h-5" style={{ color: primaryColor }} />
-        <h2 className="font-bold text-lg">Peça Novamente</h2>
+        <h2 className="font-bold text-lg">Peça de Novo</h2>
       </div>
       <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-2">
-        {recentDishes.map((dish) => (
-          <motion.div
-            key={dish.id}
-            whileHover={{ y: -4 }}
-            className="flex-shrink-0 w-36 bg-white rounded-xl overflow-hidden shadow-sm border cursor-pointer"
-            onClick={() => onSelectDish(dish)}
-          >
-            <div className="relative h-32 bg-gray-100">
-              {dish.image ? (
-                <img src={dish.image} alt={dish.name} className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-2xl">🍽️</div>
-              )}
-            </div>
-            <div className="p-3">
-              <h3 className="font-medium text-sm mb-1 line-clamp-1">{dish.name}</h3>
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-sm" style={{ color: primaryColor }}>
-                  {formatCurrency(dish.price)}
-                </span>
+        {recentDishes.map((dish) => {
+          const quantity = getDishQuantity(dish.id);
+          return (
+            <motion.div
+              key={dish.id}
+              whileHover={{ y: -4, scale: 1.05 }}
+              className="flex-shrink-0 w-36 bg-card rounded-2xl overflow-hidden shadow-md border border-border cursor-pointer"
+              onClick={() => onSelectDish(dish)}
+            >
+              {/* Thumbnail Circular */}
+              <div className="relative h-32 bg-gray-100 dark:bg-gray-800">
+                {dish.image ? (
+                  <img 
+                    src={dish.image} 
+                    alt={dish.name} 
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-2xl">🍽️</div>
+                )}
+                {/* Badge de quantidade */}
+                {quantity > 1 && (
+                  <div className="absolute top-2 left-2 bg-black/60 text-white text-xs font-bold px-2 py-0.5 rounded-full backdrop-blur-sm">
+                    {quantity}x
+                  </div>
+                )}
+              </div>
+              <div className="p-3">
+                <h3 className="font-medium text-sm mb-2 line-clamp-2 min-h-[2.5rem] text-foreground">{dish.name}</h3>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-bold text-sm" style={{ color: primaryColor }}>
+                    {formatCurrency(dish.price)}
+                  </span>
+                </div>
                 <button 
-                  className="w-6 h-6 rounded-full flex items-center justify-center text-white"
+                  className="w-full py-2 rounded-lg text-white text-xs font-semibold transition-colors hover:opacity-90"
                   style={{ backgroundColor: primaryColor }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSelectDish(dish);
+                  }}
                 >
-                  <Plus className="w-4 h-4" />
+                  Adicionar ao carrinho
                 </button>
               </div>
-            </div>
-          </motion.div>
-        ))}
+            </motion.div>
+          );
+        })}
       </div>
     </section>
   );

@@ -291,6 +291,7 @@ export default function PizzaBuilder({
                   selectedFlavors={selectedFlavors}
                   selectedEdge={selectedEdge}
                   selectedExtras={selectedExtras}
+                  showBackground={false}
                 />
               </div>
               {!selectedSize && (

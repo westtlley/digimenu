@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, Star } from 'lucide-react';
 
@@ -13,16 +13,46 @@ export default function PizzaVisualizer({
   // Calcular ângulo por sabor
   const anglePerFlavor = selectedFlavors.length > 0 ? 360 / selectedFlavors.length : 0;
   
-  // Tamanho do SVG baseado no tamanho selecionado - melhorado para responsividade
-  const sizeMap = {
-    4: 200,  // Pequena
-    6: 240,  // Média
-    8: 280,  // Grande
-    12: 320  // Gigante
-  };
+  // Estado para dimensões da janela
+  const [windowSize, setWindowSize] = useState({
+    width: typeof window !== 'undefined' ? window.innerWidth : 1024,
+    height: typeof window !== 'undefined' ? window.innerHeight : 768
+  });
+
+  // Listener para redimensionamento
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    const handleResize = () => {
+      setWindowSize({
+        width: window.innerWidth,
+        height: window.innerHeight
+      });
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
   
-  const svgSize = sizeMap[slices] || 240;
-  const radius = svgSize / 2 - 25;
+  // Tamanho responsivo baseado na viewport
+  const svgSize = useMemo(() => {
+    const width = windowSize.width;
+    const height = windowSize.height;
+    const minDimension = Math.min(width, height);
+    
+    // Mobile: usar 60% da menor dimensão
+    if (width < 640) {
+      return Math.min(minDimension * 0.6, 240);
+    }
+    // Tablet: usar 50% da menor dimensão
+    if (width < 1024) {
+      return Math.min(minDimension * 0.5, 320);
+    }
+    // Desktop: usar 40% da menor dimensão
+    return Math.min(minDimension * 0.4, 400);
+  }, [windowSize]);
+  
+  const radius = svgSize / 2 - 20;
   const centerX = svgSize / 2;
   const centerY = svgSize / 2;
 
@@ -42,9 +72,9 @@ export default function PizzaVisualizer({
   };
 
   return (
-    <div className="relative flex flex-col items-center justify-center w-full py-4 sm:py-6 min-h-[280px] sm:min-h-[320px]">
+    <div className="relative flex flex-col items-center justify-center w-full h-full">
       {/* Container principal da pizza */}
-      <div className="relative flex items-center justify-center mb-4 sm:mb-6">
+      <div className="relative flex items-center justify-center w-full h-full" style={{ maxWidth: '100%', aspectRatio: '1' }}>
         <motion.div
           initial={animationsEnabled ? { scale: 0.8, opacity: 0, rotate: -10 } : {}}
           animate={{ scale: 1, opacity: 1, rotate: 0 }}
@@ -54,8 +84,13 @@ export default function PizzaVisualizer({
             stiffness: 150,
             duration: 0.6
           }}
-          className="relative"
-          style={{ width: svgSize, height: svgSize, maxWidth: '100%' }}
+          className="relative w-full h-full max-w-full max-h-full"
+          style={{ 
+            width: '100%', 
+            height: '100%',
+            maxWidth: `${svgSize}px`,
+            maxHeight: `${svgSize}px`
+          }}
         >
           {/* Glow effect */}
           <motion.div
@@ -66,11 +101,12 @@ export default function PizzaVisualizer({
           />
 
           <svg 
-            width={svgSize} 
-            height={svgSize} 
-            className="relative z-10 filter drop-shadow-2xl w-full h-full"
+            width="100%" 
+            height="100%" 
+            className="relative z-10 filter drop-shadow-2xl"
             viewBox={`0 0 ${svgSize} ${svgSize}`}
             preserveAspectRatio="xMidYMid meet"
+            style={{ maxWidth: '100%', maxHeight: '100%' }}
           >
             <defs>
               <radialGradient id="cheeseGradient-visualizer">
@@ -213,17 +249,17 @@ export default function PizzaVisualizer({
       </div>
 
       {/* Info abaixo da pizza - não sobrepondo */}
-      <div className="w-full max-w-md space-y-3">
+      <div className="w-full max-w-md space-y-2 sm:space-y-3 mt-2 sm:mt-3 px-2">
         {/* Badge de tamanho */}
         {size && (
           <motion.div
             initial={animationsEnabled ? { opacity: 0, y: 10 } : {}}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.7 }}
-            className="bg-gradient-to-r from-gray-900/90 to-gray-800/90 dark:from-gray-800/90 dark:to-gray-700/90 backdrop-blur-md px-3 sm:px-4 py-2 rounded-xl border border-gray-700/50 dark:border-gray-600/50 shadow-lg mx-auto text-center"
+            className="bg-gradient-to-r from-gray-900/90 to-gray-800/90 dark:from-gray-800/90 dark:to-gray-700/90 backdrop-blur-md px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl border border-gray-700/50 dark:border-gray-600/50 shadow-lg mx-auto text-center"
           >
-            <p className="text-sm font-bold text-white dark:text-gray-100">{size.name}</p>
-            <p className="text-xs text-gray-400 dark:text-gray-300">{slices} fatias</p>
+            <p className="text-xs sm:text-sm font-bold text-white dark:text-gray-100">{size.name}</p>
+            <p className="text-[10px] sm:text-xs text-gray-400 dark:text-gray-300">{slices} fatias</p>
           </motion.div>
         )}
         
@@ -233,7 +269,7 @@ export default function PizzaVisualizer({
             initial={animationsEnabled ? { opacity: 0, y: 10 } : {}}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.8 }}
-            className="flex flex-wrap gap-2 justify-center px-2"
+            className="flex flex-wrap gap-1.5 sm:gap-2 justify-center"
           >
             {selectedFlavors.map((flavor, index) => (
               <motion.div
@@ -241,15 +277,15 @@ export default function PizzaVisualizer({
                 initial={animationsEnabled ? { opacity: 0, y: -10, scale: 0.8 } : {}}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 transition={{ delay: animationsEnabled ? index * 0.1 + 0.8 : 0, type: 'spring' }}
-                className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-semibold bg-gradient-to-r from-gray-800/90 to-gray-900/90 dark:from-gray-700/90 dark:to-gray-800/90 backdrop-blur-sm shadow-lg border border-gray-700/50 dark:border-gray-600/50 text-white"
+                className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[9px] sm:text-[10px] md:text-xs font-semibold bg-gradient-to-r from-gray-800/90 to-gray-900/90 dark:from-gray-700/90 dark:to-gray-800/90 backdrop-blur-sm shadow-lg border border-gray-700/50 dark:border-gray-600/50 text-white"
               >
                 <span 
-                  className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full shadow-sm flex-shrink-0"
+                  className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full shadow-sm flex-shrink-0"
                   style={{ backgroundColor: flavor.color || '#e67e22' }}
                 ></span>
-                <span className="truncate max-w-[100px] sm:max-w-none">{flavor.name}</span>
+                <span className="truncate max-w-[80px] sm:max-w-[120px] md:max-w-none">{flavor.name}</span>
                 {flavor.category === 'premium' && (
-                  <Star className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-yellow-400 fill-current flex-shrink-0" />
+                  <Star className="w-2 h-2 sm:w-2.5 sm:h-2.5 text-yellow-400 fill-current flex-shrink-0" />
                 )}
               </motion.div>
             ))}

@@ -349,22 +349,40 @@ export default function PizzaModal({ isOpen, onClose, pizza, onAddToCart, primar
                   {selectedFlavors.length}/{maxFlavors} selecionados
                 </p>
 
-                {/* Visualização da Pizza - Melhorada */}
-                <div className="bg-gradient-to-br from-orange-50 to-yellow-50 dark:from-orange-900/20 dark:to-yellow-900/20 rounded-2xl p-4 sm:p-6 mb-4 sm:mb-6 min-h-[300px] sm:min-h-[400px] flex items-center justify-center">
-                  {selectedEdge ? (
-                    <PizzaVisualization
-                      selectedSize={currentSize}
-                      selectedFlavors={selectedFlavorObjects}
-                      selectedEdge={edges.find(e => e.id === selectedEdge)}
-                      selectedExtras={selectedExtras.map(id => extras.find(e => e.id === id))}
-                    />
-                  ) : (
-                    <PizzaVisualizer
-                      size={currentSize}
-                      selectedFlavors={selectedFlavorObjects}
-                      animationsEnabled={animationsEnabled}
-                    />
-                  )}
+                {/* Visualização da Pizza - Estilo igual à montagem dos pratos */}
+                <div 
+                  className="relative rounded-2xl flex items-center justify-center overflow-hidden backdrop-blur-xl border-2 shadow-2xl mb-4 sm:mb-6 h-[320px] sm:h-[400px] md:h-[450px]"
+                  style={{
+                    background: `linear-gradient(to bottom right, ${primaryColor}30, ${primaryColor}20, ${primaryColor}15)`,
+                    borderColor: `${primaryColor}30`
+                  }}
+                >
+                  {/* Fundo desfocado igual à montagem dos pratos */}
+                  <div 
+                    className="absolute inset-0 bg-cover bg-center opacity-[0.08] blur-xl"
+                    style={{
+                      backgroundImage: `url(https://images.unsplash.com/photo-1513104890138-7c749659a591?w=800&q=80)`
+                    }}
+                  ></div>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent"></div>
+                  
+                  {/* Conteúdo da pizza */}
+                  <div className="relative z-10 w-full h-full flex items-center justify-center p-2 sm:p-4">
+                    {selectedEdge ? (
+                      <PizzaVisualization
+                        selectedSize={currentSize}
+                        selectedFlavors={selectedFlavorObjects}
+                        selectedEdge={edges.find(e => e.id === selectedEdge)}
+                        selectedExtras={selectedExtras.map(id => extras.find(e => e.id === id))}
+                      />
+                    ) : (
+                      <PizzaVisualizer
+                        size={currentSize}
+                        selectedFlavors={selectedFlavorObjects}
+                        animationsEnabled={animationsEnabled}
+                      />
+                    )}
+                  </div>
                 </div>
 
                 {/* Alerta de preço premium */}
@@ -549,15 +567,33 @@ export default function PizzaModal({ isOpen, onClose, pizza, onAddToCart, primar
                 exit={animationsEnabled ? { x: -20, opacity: 0 } : {}}
                 className="space-y-4 sm:space-y-6"
               >
-                {/* Visualização da Pizza com Borda */}
+                {/* Visualização da Pizza com Borda - Estilo igual à montagem dos pratos */}
                 {edges.length > 0 && (
-                  <div className="bg-gradient-to-br from-orange-50 to-yellow-50 dark:from-orange-900/20 dark:to-yellow-900/20 rounded-2xl p-4 sm:p-6 mb-4 sm:mb-6 min-h-[280px] sm:min-h-[350px] flex items-center justify-center">
-                    <PizzaVisualization
-                      selectedSize={currentSize}
-                      selectedFlavors={selectedFlavorObjects}
-                      selectedEdge={selectedEdge ? edges.find(e => e.id === selectedEdge) : null}
-                      selectedExtras={selectedExtras.map(id => extras.find(e => e.id === id))}
-                    />
+                  <div 
+                    className="relative rounded-2xl flex items-center justify-center overflow-hidden backdrop-blur-xl border-2 shadow-2xl mb-4 sm:mb-6 h-[320px] sm:h-[400px] md:h-[450px]"
+                    style={{
+                      background: `linear-gradient(to bottom right, ${primaryColor}30, ${primaryColor}20, ${primaryColor}15)`,
+                      borderColor: `${primaryColor}30`
+                    }}
+                  >
+                    {/* Fundo desfocado igual à montagem dos pratos */}
+                    <div 
+                      className="absolute inset-0 bg-cover bg-center opacity-[0.08] blur-xl"
+                      style={{
+                        backgroundImage: `url(https://images.unsplash.com/photo-1513104890138-7c749659a591?w=800&q=80)`
+                      }}
+                    ></div>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent"></div>
+                    
+                    {/* Conteúdo da pizza */}
+                    <div className="relative z-10 w-full h-full flex items-center justify-center p-2 sm:p-4">
+                      <PizzaVisualization
+                        selectedSize={currentSize}
+                        selectedFlavors={selectedFlavorObjects}
+                        selectedEdge={selectedEdge ? edges.find(e => e.id === selectedEdge) : null}
+                        selectedExtras={selectedExtras.map(id => extras.find(e => e.id === id))}
+                      />
+                    </div>
                   </div>
                 )}
 
@@ -673,14 +709,32 @@ export default function PizzaModal({ isOpen, onClose, pizza, onAddToCart, primar
               >
                 <h3 className="text-xl font-bold mb-4">Resumo do Pedido</h3>
                 
-                {/* Visualização Final - Melhorada */}
-                <div className="bg-gradient-to-br from-orange-50 to-yellow-50 dark:from-orange-900/20 dark:to-yellow-900/20 rounded-2xl p-4 sm:p-6 mb-4 sm:mb-6 min-h-[300px] sm:min-h-[400px] flex items-center justify-center">
-                  <PizzaVisualization
-                    selectedSize={currentSize}
-                    selectedFlavors={selectedFlavorObjects}
-                    selectedEdge={selectedEdge ? edges.find(e => e.id === selectedEdge) : null}
-                    selectedExtras={selectedExtras.map(id => extras.find(e => e.id === id))}
-                  />
+                {/* Visualização Final - Estilo igual à montagem dos pratos */}
+                <div 
+                  className="relative rounded-2xl flex items-center justify-center overflow-hidden backdrop-blur-xl border-2 shadow-2xl mb-4 sm:mb-6 h-[320px] sm:h-[400px] md:h-[450px]"
+                  style={{
+                    background: `linear-gradient(to bottom right, ${primaryColor}30, ${primaryColor}20, ${primaryColor}15)`,
+                    borderColor: `${primaryColor}30`
+                  }}
+                >
+                  {/* Fundo desfocado igual à montagem dos pratos */}
+                  <div 
+                    className="absolute inset-0 bg-cover bg-center opacity-[0.08] blur-xl"
+                    style={{
+                      backgroundImage: `url(https://images.unsplash.com/photo-1513104890138-7c749659a591?w=800&q=80)`
+                    }}
+                  ></div>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent"></div>
+                  
+                  {/* Conteúdo da pizza */}
+                  <div className="relative z-10 w-full h-full flex items-center justify-center p-2 sm:p-4">
+                    <PizzaVisualization
+                      selectedSize={currentSize}
+                      selectedFlavors={selectedFlavorObjects}
+                      selectedEdge={selectedEdge ? edges.find(e => e.id === selectedEdge) : null}
+                      selectedExtras={selectedExtras.map(id => extras.find(e => e.id === id))}
+                    />
+                  </div>
                 </div>
 
                 <div className="space-y-4">
