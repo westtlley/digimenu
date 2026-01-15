@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { motion, AnimatePresence } from 'framer-motion';
 import { base44 } from '@/api/base44Client';
 import PizzaVisualizer from './PizzaVisualizer';
+import PizzaVisualization from '@/components/pizza/PizzaVisualization';
 import PizzaCustomization from './PizzaCustomization';
 import PopularCombinations from './PopularCombinations';
 
@@ -236,34 +237,34 @@ export default function PizzaModal({ isOpen, onClose, pizza, onAddToCart, primar
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-2 sm:p-4">
       <motion.div
         initial={animationsEnabled ? { scale: 0.9, opacity: 0 } : {}}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
-        className="bg-white rounded-3xl max-w-4xl w-full max-h-[95vh] overflow-hidden shadow-2xl flex flex-col"
+        className="bg-white dark:bg-gray-900 rounded-2xl sm:rounded-3xl max-w-5xl w-full max-h-[98vh] sm:max-h-[95vh] overflow-hidden shadow-2xl flex flex-col"
       >
         {/* Header */}
-        <div className="p-6 border-b bg-gradient-to-r from-orange-50 to-yellow-50">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-2xl font-bold">{pizza?.name}</h2>
-              <p className="text-sm text-gray-600">{pizza?.description}</p>
+        <div className="p-4 sm:p-6 border-b bg-gradient-to-r from-orange-50 to-yellow-50 dark:from-orange-900/20 dark:to-yellow-900/20 dark:border-gray-700">
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
+            <div className="flex-1 min-w-0 pr-2">
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white truncate">{pizza?.name}</h2>
+              <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 line-clamp-1">{pizza?.description}</p>
             </div>
-            <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
-              <X className="w-6 h-6" />
+            <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors flex-shrink-0">
+              <X className="w-5 h-5 sm:w-6 sm:h-6" />
             </button>
           </div>
           
           {/* Progress Indicator */}
-          <div className="flex gap-2">
+          <div className="flex gap-1 sm:gap-2">
             {['Tamanho', 'Sabores', 'Extras', 'Revisar'].map((label, index) => (
-              <div key={label} className="flex-1">
-                <div className={`h-2 rounded-full transition-all ${
-                  index <= currentStep ? 'bg-orange-500' : 'bg-gray-200'
+              <div key={label} className="flex-1 min-w-0">
+                <div className={`h-1.5 sm:h-2 rounded-full transition-all ${
+                  index <= currentStep ? 'bg-orange-500' : 'bg-gray-200 dark:bg-gray-700'
                 }`} />
-                <p className={`text-xs mt-1 font-medium ${
-                  index === currentStep ? 'text-orange-600' : 'text-gray-400'
+                <p className={`text-[10px] sm:text-xs mt-1 font-medium truncate ${
+                  index === currentStep ? 'text-orange-600 dark:text-orange-400' : 'text-gray-400 dark:text-gray-500'
                 }`}>
                   {label}
                 </p>
@@ -273,7 +274,7 @@ export default function PizzaModal({ isOpen, onClose, pizza, onAddToCart, primar
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6">
           <AnimatePresence mode="wait">
             {/* Step 1: Tamanho */}
             {currentStep === 0 && (
@@ -348,13 +349,22 @@ export default function PizzaModal({ isOpen, onClose, pizza, onAddToCart, primar
                   {selectedFlavors.length}/{maxFlavors} selecionados
                 </p>
 
-                {/* Visualização da Pizza */}
-                <div className="bg-gradient-to-br from-orange-50 to-yellow-50 rounded-2xl p-6 mb-6">
-                  <PizzaVisualizer
-                    size={currentSize}
-                    selectedFlavors={selectedFlavorObjects}
-                    animationsEnabled={animationsEnabled}
-                  />
+                {/* Visualização da Pizza - Melhorada */}
+                <div className="bg-gradient-to-br from-orange-50 to-yellow-50 dark:from-orange-900/20 dark:to-yellow-900/20 rounded-2xl p-4 sm:p-6 mb-4 sm:mb-6 min-h-[300px] sm:min-h-[400px] flex items-center justify-center">
+                  {selectedEdge ? (
+                    <PizzaVisualization
+                      selectedSize={currentSize}
+                      selectedFlavors={selectedFlavorObjects}
+                      selectedEdge={edges.find(e => e.id === selectedEdge)}
+                      selectedExtras={selectedExtras.map(id => extras.find(e => e.id === id))}
+                    />
+                  ) : (
+                    <PizzaVisualizer
+                      size={currentSize}
+                      selectedFlavors={selectedFlavorObjects}
+                      animationsEnabled={animationsEnabled}
+                    />
+                  )}
                 </div>
 
                 {/* Alerta de preço premium */}
@@ -537,12 +547,27 @@ export default function PizzaModal({ isOpen, onClose, pizza, onAddToCart, primar
                 initial={animationsEnabled ? { x: 20, opacity: 0 } : {}}
                 animate={{ x: 0, opacity: 1 }}
                 exit={animationsEnabled ? { x: -20, opacity: 0 } : {}}
-                className="space-y-6"
+                className="space-y-4 sm:space-y-6"
               >
+                {/* Visualização da Pizza com Borda */}
+                {edges.length > 0 && (
+                  <div className="bg-gradient-to-br from-orange-50 to-yellow-50 dark:from-orange-900/20 dark:to-yellow-900/20 rounded-2xl p-4 sm:p-6 mb-4 sm:mb-6 min-h-[280px] sm:min-h-[350px] flex items-center justify-center">
+                    <PizzaVisualization
+                      selectedSize={currentSize}
+                      selectedFlavors={selectedFlavorObjects}
+                      selectedEdge={selectedEdge ? edges.find(e => e.id === selectedEdge) : null}
+                      selectedExtras={selectedExtras.map(id => extras.find(e => e.id === id))}
+                    />
+                  </div>
+                )}
+
                 {/* Bordas */}
                 {edges.length > 0 && (
                   <div>
-                    <h3 className="text-lg font-bold mb-3">Borda Recheada</h3>
+                    <h3 className="text-lg font-bold mb-3 flex items-center gap-2">
+                      <span>🧀</span>
+                      Borda Recheada
+                    </h3>
                     <div className="space-y-2">
                       <button
                         onClick={() => setSelectedEdge(null)}
@@ -580,7 +605,13 @@ export default function PizzaModal({ isOpen, onClose, pizza, onAddToCart, primar
                 {/* Adicionais */}
                 {extras.length > 0 && (
                   <div>
-                    <h3 className="text-lg font-bold mb-3">Adicionais</h3>
+                    <h3 className="text-lg font-bold mb-3 flex items-center gap-2">
+                      <Sparkles className="w-5 h-5" />
+                      Adicionais (opcional)
+                    </h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                      Personalize sua pizza com extras deliciosos
+                    </p>
                     <div className="space-y-2">
                       {extras.map((extra) => {
                         const isSelected = selectedExtras.includes(extra.id);
@@ -642,12 +673,13 @@ export default function PizzaModal({ isOpen, onClose, pizza, onAddToCart, primar
               >
                 <h3 className="text-xl font-bold mb-4">Resumo do Pedido</h3>
                 
-                {/* Visualização Final */}
-                <div className="bg-gradient-to-br from-orange-50 to-yellow-50 rounded-2xl p-6 mb-6">
-                  <PizzaVisualizer
-                    size={currentSize}
+                {/* Visualização Final - Melhorada */}
+                <div className="bg-gradient-to-br from-orange-50 to-yellow-50 dark:from-orange-900/20 dark:to-yellow-900/20 rounded-2xl p-4 sm:p-6 mb-4 sm:mb-6 min-h-[300px] sm:min-h-[400px] flex items-center justify-center">
+                  <PizzaVisualization
+                    selectedSize={currentSize}
                     selectedFlavors={selectedFlavorObjects}
-                    animationsEnabled={animationsEnabled}
+                    selectedEdge={selectedEdge ? edges.find(e => e.id === selectedEdge) : null}
+                    selectedExtras={selectedExtras.map(id => extras.find(e => e.id === id))}
                   />
                 </div>
 
@@ -745,30 +777,30 @@ export default function PizzaModal({ isOpen, onClose, pizza, onAddToCart, primar
 
         {/* Footer */}
         <motion.div 
-          className="border-t p-6 bg-white"
+          className="border-t p-4 sm:p-6 bg-white dark:bg-gray-900 dark:border-gray-700"
           initial={animationsEnabled ? { y: 20, opacity: 0 } : {}}
           animate={{ y: 0, opacity: 1 }}
         >
           {/* Total Price */}
           <motion.div 
-            className="flex items-center justify-between mb-4 p-4 bg-gradient-to-r from-orange-100 to-yellow-100 rounded-xl"
+            className="flex items-center justify-between mb-3 sm:mb-4 p-3 sm:p-4 bg-gradient-to-r from-orange-100 to-yellow-100 dark:from-orange-900/30 dark:to-yellow-900/30 rounded-xl"
             animate={animationsEnabled ? { scale: [1, 1.02, 1] } : {}}
             transition={{ duration: 0.3 }}
             key={totalPrice}
           >
             <div>
-              <p className="text-sm text-gray-600">Total</p>
+              <p className="text-sm text-gray-600 dark:text-gray-300">Total</p>
               {hasPremiumFlavor && (
-                <p className="text-xs text-orange-600 font-medium">★ Preço Premium</p>
+                <p className="text-xs text-orange-600 dark:text-orange-400 font-medium">★ Preço Premium</p>
               )}
             </div>
-            <p className="text-3xl font-bold text-orange-600">
+            <p className="text-2xl sm:text-3xl font-bold text-orange-600 dark:text-orange-400">
               {formatCurrency(totalPrice)}
             </p>
           </motion.div>
 
           {/* Navigation */}
-          <div className="flex gap-3">
+          <div className="flex gap-2 sm:gap-3">
             {currentStep > 0 && (
               <Button
                 onClick={handleBack}
