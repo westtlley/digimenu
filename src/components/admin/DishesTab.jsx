@@ -2175,7 +2175,7 @@ function DishRow({ dish, complementGroups, expanded, onToggleExpand, onEdit, onD
                       </div>
                     )}
                   </Droppable>
-                            </DragDropContext>
+                </DragDropContext>
                           </div>
                         )}
                       </Draggable>
