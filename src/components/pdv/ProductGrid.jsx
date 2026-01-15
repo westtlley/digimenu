@@ -3,10 +3,11 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { motion } from 'framer-motion';
 
-export default function ProductGrid({ dishes, onDishClick, formatCurrency }) {
+export default function ProductGrid({ dishes = [], onDishClick, formatCurrency }) {
+  const safeDishes = Array.isArray(dishes) ? dishes : [];
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3">
-      {dishes.map((dish, index) => {
+      {safeDishes.map((dish, index) => {
         const isOutOfStock = dish.stock !== null && dish.stock !== undefined && dish.stock <= 0;
         
         return (

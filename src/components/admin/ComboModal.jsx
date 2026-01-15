@@ -9,7 +9,8 @@ import { Switch } from "@/components/ui/switch";
 import { Plus, X } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
 
-export default function ComboModal({ isOpen, onClose, onSubmit, combo, dishes }) {
+export default function ComboModal({ isOpen, onClose, onSubmit, combo, dishes = [] }) {
+  const safeDishes = Array.isArray(dishes) ? dishes : [];
   const [formData, setFormData] = useState(combo || {
     name: '',
     description: '',
@@ -33,7 +34,7 @@ export default function ComboModal({ isOpen, onClose, onSubmit, combo, dishes })
   };
 
   const addDishToCombo = (dishId) => {
-    const dish = dishes.find(d => d.id === dishId);
+    const dish = safeDishes.find(d => d.id === dishId);
     if (!dish) return;
     
     const alreadyAdded = formData.dishes.find(d => d.dish_id === dishId);
@@ -67,7 +68,7 @@ export default function ComboModal({ isOpen, onClose, onSubmit, combo, dishes })
       : comboDishes;
 
     const totalPrice = dishesToCalc.reduce((sum, cd) => {
-      const dish = dishes.find(d => d.id === cd.dish_id);
+      const dish = safeDishes.find(d => d.id === cd.dish_id);
       return sum + (dish?.price || 0) * cd.quantity;
     }, 0);
 
@@ -140,7 +141,7 @@ export default function ComboModal({ isOpen, onClose, onSubmit, combo, dishes })
                 <SelectValue placeholder="Adicionar prato ao combo" />
               </SelectTrigger>
               <SelectContent>
-                {dishes.filter(d => d.is_active !== false).map(dish => (
+                {safeDishes.filter(d => d.is_active !== false).map(dish => (
                   <SelectItem key={dish.id} value={dish.id}>
                     {dish.name} - {formatCurrency(dish.price)}
                   </SelectItem>
@@ -150,7 +151,7 @@ export default function ComboModal({ isOpen, onClose, onSubmit, combo, dishes })
 
             <div className="mt-3 space-y-2">
               {formData.dishes.map((cd) => {
-                const dish = dishes.find(d => d.id === cd.dish_id);
+                const dish = safeDishes.find(d => d.id === cd.dish_id);
                 if (!dish) return null;
                 return (
                   <div key={cd.dish_id} className="flex items-center justify-between bg-white p-2 rounded border">

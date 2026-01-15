@@ -90,7 +90,8 @@ export default function PromotionsTab() {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
   };
 
-  const getDishName = (id) => dishes.find(d => d.id === id)?.name || 'Prato não encontrado';
+  const safeDishes = Array.isArray(dishes) ? dishes : [];
+  const getDishName = (id) => safeDishes.find(d => d.id === id)?.name || 'Prato não encontrado';
 
   return (
     <div className="p-4 sm:p-6">
@@ -196,7 +197,7 @@ export default function PromotionsTab() {
             <div>
               <Label>Prato Oferecido</Label>
               <Select value={formData.offer_dish_id} onValueChange={(value) => {
-                const dish = dishes.find(d => d.id === value);
+                const dish = safeDishes.find(d => d.id === value);
                 setFormData(prev => ({ 
                   ...prev, 
                   offer_dish_id: value,
@@ -207,7 +208,7 @@ export default function PromotionsTab() {
                   <SelectValue placeholder="Selecione um prato" />
                 </SelectTrigger>
                 <SelectContent>
-                  {dishes.filter(d => d.is_active !== false).map(dish => (
+                  {(Array.isArray(dishes) ? dishes : []).filter(d => d.is_active !== false).map(dish => (
                     <SelectItem key={dish.id} value={dish.id}>{dish.name} - {formatCurrency(dish.price)}</SelectItem>
                   ))}
                 </SelectContent>

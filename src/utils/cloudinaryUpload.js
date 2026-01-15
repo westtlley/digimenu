@@ -7,41 +7,56 @@ import { apiClient } from '@/api/apiClient';
  * @returns {Promise<string>} URL da imagem no Cloudinary
  */
 export async function uploadToCloudinary(file, folder = 'dishes') {
+  // ⚠️ VALIDAÇÃO RIGOROSA DO ARQUIVO
+  console.log('🔍 [uploadToCloudinary] Recebido:', {
+    file,
+    isFile: file instanceof File,
+    type: typeof file,
+    fileName: file?.name,
+    fileSize: file?.size,
+    fileType: file?.type,
+    folder
+  });
+
   if (!file) {
+    console.error('❌ [uploadToCloudinary] Nenhum arquivo fornecido');
     throw new Error('Nenhum arquivo fornecido');
   }
 
   if (!(file instanceof File)) {
+    console.error('❌ [uploadToCloudinary] Arquivo não é instância de File:', typeof file, file);
     throw new Error('O arquivo deve ser uma instância de File');
   }
 
-  if (!file.type.startsWith('image/')) {
+  if (!file.type || !file.type.startsWith('image/')) {
+    console.error('❌ [uploadToCloudinary] Arquivo não é imagem:', file.type);
     throw new Error('O arquivo deve ser uma imagem');
   }
 
   try {
-    console.log('📤 Iniciando upload para Cloudinary...', { 
+    console.log('📤 [uploadToCloudinary] Iniciando upload...', { 
       fileName: file.name, 
       fileSize: file.size, 
       fileType: file.type,
       folder 
     });
     
+    // ⚠️ GARANTIR QUE O ARQUIVO CHEGUE ATÉ A FUNÇÃO
     const response = await apiClient.uploadImageToCloudinary(file, folder);
     
     if (!response || !response.url) {
-      console.error('Resposta inválida do servidor:', response);
+      console.error('❌ [uploadToCloudinary] Resposta inválida do servidor:', response);
       throw new Error('Resposta inválida do servidor. Verifique se o backend está rodando e configurado corretamente.');
     }
     
-    console.log('✅ Upload concluído:', response.url);
+    console.log('✅ [uploadToCloudinary] Upload concluído:', response.url);
     return response.url;
   } catch (error) {
-    console.error('❌ Erro ao fazer upload para Cloudinary:', error);
+    console.error('❌ [uploadToCloudinary] Erro ao fazer upload:', error);
     
     // Mensagens de erro mais específicas
     if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-      throw new Error('Não foi possível conectar ao servidor. Verifique se o backend está rodando em http://localhost:3000');
+      throw new Error('Não foi possível conectar ao servidor. Verifique se o backend está rodando.');
     }
     
     if (error.message.includes('404')) {
@@ -49,7 +64,7 @@ export async function uploadToCloudinary(file, folder = 'dishes') {
     }
     
     if (error.message.includes('500')) {
-      throw new Error('Erro no servidor. Verifique se as credenciais do Cloudinary estão configuradas no arquivo .env do backend.');
+      throw new Error('Erro no servidor. Verifique se as credenciais do Cloudinary estão configuradas.');
     }
     
     throw new Error(error.message || 'Erro ao fazer upload da imagem. Verifique o console para mais detalhes.');

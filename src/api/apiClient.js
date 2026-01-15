@@ -28,6 +28,7 @@ class ApiClient {
   constructor(baseURL = API_BASE_URL) {
     this.baseURL = baseURL;
     this.token = localStorage.getItem('auth_token');
+    this.isLoggingOut = false; // Flag para bloquear chamadas após logout
   }
 
   /**
@@ -37,6 +38,7 @@ class ApiClient {
     this.token = token;
     if (token) {
       localStorage.setItem('auth_token', token);
+      this.isLoggingOut = false; // Resetar flag quando novo token é definido
     } else {
       localStorage.removeItem('auth_token');
     }
@@ -54,6 +56,11 @@ class ApiClient {
    * Faz uma requisição HTTP
    */
   async request(endpoint, options = {}) {
+    // Bloquear requisições se já estamos fazendo logout
+    if (this.isLoggingOut) {
+      throw new Error('Sessão expirada. Redirecionando...');
+    }
+
     const url = `${this.baseURL}${endpoint}`;
     const isFormData = options.body instanceof FormData;
     
@@ -99,15 +106,39 @@ class ApiClient {
       }
 
       if (!response.ok) {
+        // Tratamento de erro 401 (não autorizado) - redirecionar para login
+        if (response.status === 401) {
+          if (!this.isLoggingOut) {
+            this.isLoggingOut = true;
+
+            console.warn('🔒 Sessão expirada. Redirecionando para login...');
+            this.removeToken();
+            localStorage.removeItem('user');
+
+            // Usar setTimeout para dar tempo das outras requisições terminarem
+            // antes de redirecionar, evitando estados inconsistentes
+            setTimeout(() => {
+              if (!window.location.pathname.includes('/login')) {
+                window.location.href = '/login';
+              }
+            }, 50);
+          }
+
+          throw new Error('Sessão expirada. Por favor, faça login novamente.');
+        }
+        
         const errorMessage = data?.message || data?.error || data || `HTTP error! status: ${response.status}`;
         throw new Error(errorMessage);
       }
 
       return data;
     } catch (error) {
-      console.error('API Request Error:', error);
-      console.error('URL:', url);
-      console.error('Body:', body);
+      // Se já estamos fazendo logout, não logar erro (evita poluição)
+      if (!this.isLoggingOut) {
+        console.error('API Request Error:', error);
+        console.error('URL:', url);
+        console.error('Body:', body);
+      }
       throw error;
     }
   }
@@ -336,48 +367,112 @@ class ApiClient {
    * @returns {Promise<{url: string}>} URL da imagem no Cloudinary
    */
   async uploadImageToCloudinary(file, folder = 'dishes') {
+    // ⚠️ VALIDAÇÃO RIGOROSA
+    console.log('🔍 [apiClient.uploadImageToCloudinary] Recebido:', {
+      file,
+      isFile: file instanceof File,
+      type: typeof file,
+      fileName: file?.name,
+      fileSize: file?.size,
+      fileType: file?.type,
+      folder
+    });
+
     if (!file) {
+      console.error('❌ [apiClient] Nenhum arquivo fornecido');
       throw new Error('Nenhum arquivo fornecido');
     }
     
     if (!(file instanceof File)) {
+      console.error('❌ [apiClient] Arquivo não é instância de File:', typeof file, file);
       throw new Error('O arquivo deve ser uma instância de File');
     }
     
     if (!file.type || !file.type.startsWith('image/')) {
+      console.error('❌ [apiClient] Arquivo não é imagem:', file.type);
       throw new Error('O arquivo deve ser uma imagem');
     }
     
+    // ⚠️ CORREÇÃO DEFINITIVA: Criar FormData e adicionar o arquivo
     const formData = new FormData();
+    
+    // ⚠️ VALIDAR ANTES DE ADICIONAR
+    console.log('📦 [apiClient] Criando FormData com arquivo:', {
+      fileName: file.name,
+      fileSize: file.size,
+      fileType: file.type
+    });
+    
     formData.append('image', file);
     
-    // Enviar para a rota do backend que faz upload no Cloudinary
-    const queryString = folder ? `?folder=${encodeURIComponent(folder)}` : '';
-    const endpoint = `/upload-image${queryString}`;
-    
-    console.log('📤 Enviando upload para Cloudinary:', `${this.baseURL}${endpoint}`, {
+    // ⚠️ VALIDAR QUE FOI ADICIONADO
+    const hasFile = formData.has('image');
+    console.log('📦 [apiClient] FormData criado:', {
+      hasFile: hasFile,
       fileName: file.name,
       fileSize: file.size,
       fileType: file.type,
       folder
     });
+
+    if (!hasFile) {
+      console.error('❌ [apiClient] ERRO CRÍTICO: Arquivo não foi adicionado ao FormData!');
+      throw new Error('Erro ao adicionar arquivo ao FormData');
+    }
+    
+    // Enviar para a rota do backend que faz upload no Cloudinary
+    const queryString = folder ? `?folder=${encodeURIComponent(folder)}` : '';
+    const endpoint = `/upload-image${queryString}`;
+    const url = `${this.baseURL}${endpoint}`;
+    
+    console.log('📤 [apiClient] Enviando upload para:', url);
     
     try {
-      const response = await this.request(endpoint, {
+      // ⚠️ CORREÇÃO: Usar fetch DIRETO, não passar pelo método request
+      const headers = {};
+      
+      // Adicionar token se existir
+      if (this.token) {
+        headers.Authorization = `Bearer ${this.token}`;
+      }
+      
+      // ⚠️ NÃO adicionar Content-Type - o browser define automaticamente para FormData
+      console.log('📤 [apiClient] Fazendo fetch com:', {
         method: 'POST',
-        body: formData,
-        headers: {}, // Remove Content-Type para FormData
+        url: url,
+        hasFormData: formData instanceof FormData,
+        hasFileInFormData: formData.has('image')
       });
       
-      if (!response || !response.url) {
-        console.error('❌ Resposta inválida do servidor:', response);
+      const response = await fetch(url, {
+        method: 'POST',
+        body: formData,
+        headers: headers
+      });
+      
+      console.log('📥 [apiClient] Resposta recebida:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ [apiClient] Erro na resposta:', response.status, errorText);
+        throw new Error(errorText || `Erro ${response.status} ao fazer upload`);
+      }
+      
+      const data = await response.json();
+      
+      if (!data || !data.url) {
+        console.error('❌ [apiClient] Resposta inválida do servidor:', data);
         throw new Error('Resposta inválida do servidor. Verifique se o backend tem a rota /api/upload-image configurada e as credenciais do Cloudinary.');
       }
       
-      console.log('✅ Upload concluído:', response.url);
-      return response;
+      console.log('✅ [apiClient] Upload concluído:', data.url);
+      return data;
     } catch (error) {
-      console.error('❌ Erro no upload para Cloudinary:', error);
+      console.error('❌ [apiClient] Erro no upload para Cloudinary:', error);
       if (error.message.includes('404')) {
         throw new Error('Rota de upload não encontrada. Verifique se o backend tem /api/upload-image configurada.');
       }

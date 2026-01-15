@@ -10,6 +10,8 @@ const queryClient = new QueryClient({
     queries: {
       refetchOnWindowFocus: false,
       retry: 1,
+      staleTime: 0, // Sempre considera os dados como desatualizados
+      gcTime: 0, // Remove do cache imediatamente (antigo cacheTime)
     },
   },
 })

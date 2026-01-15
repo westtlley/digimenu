@@ -110,7 +110,8 @@ export default function PDV() {
     },
   });
 
-  const activeDishes = dishes.filter(d => d.is_active !== false);
+  const safeDishes = Array.isArray(dishes) ? dishes : [];
+  const activeDishes = safeDishes.filter(d => d.is_active !== false);
   const filteredDishes = activeDishes.filter(d => {
     const matchesSearch = !searchTerm || d.name?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = selectedCategory === 'all' || d.category_id === selectedCategory;

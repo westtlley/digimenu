@@ -24,6 +24,7 @@ import PaymentMethodsTab from '../components/admin/PaymentMethodsTab';
 import PrinterConfig from '../components/gestor/PrinterConfig';
 import FinancialTab from '../components/admin/FinancialTab';
 import OrderHistoryTab from '../components/admin/OrderHistoryTab';
+import ErrorBoundary from '../components/ErrorBoundary';
 import { Link, useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { usePermission } from '../components/permissions/usePermission';
@@ -61,8 +62,11 @@ export default function Admin() {
     console.log('  - user:', user);
     console.log('  - user?.is_master:', user?.is_master);
     console.log('  - permissions:', permissions);
+    console.log('  - permissions type:', typeof permissions);
+    console.log('  - permissions is object:', typeof permissions === 'object');
+    console.log('  - hasModuleAccess("dishes"):', hasModuleAccess('dishes'));
     console.log('  - subscriberData:', subscriberData);
-  }, [loading, isMaster, user, permissions, subscriberData]);
+  }, [loading, isMaster, user, permissions, subscriberData, hasModuleAccess]);
 
   // Verificação de Acesso - APENAS master pode acessar Admin
   // Assinantes devem usar PainelAssinante
@@ -182,7 +186,28 @@ export default function Admin() {
       case 'clients':
         return hasModuleAccess('clients') ? <ClientsTab /> : <AccessDenied />;
       case 'dishes':
-        return hasModuleAccess('dishes') ? <DishesTab onNavigateToPizzas={() => setActiveTab('pizza_config')} /> : <AccessDenied />;
+        // ✅ Master sempre tem acesso, mesmo se hasModuleAccess falhar temporariamente
+        const hasDishesAccess = isMaster || hasModuleAccess('dishes');
+        console.log('🍽️ [Admin] Renderizando DishesTab:', {
+          activeTab,
+          isMaster,
+          hasModuleAccess: hasModuleAccess('dishes'),
+          hasDishesAccess,
+          permissions,
+          permissionsType: typeof permissions
+        });
+        return hasDishesAccess ? (
+          <ErrorBoundary>
+            <DishesTab onNavigateToPizzas={() => setActiveTab('pizza_config')} />
+          </ErrorBoundary>
+        ) : (
+          <div className="p-8 text-center">
+            <p className="text-red-500 mb-2">Acesso negado ao módulo de pratos</p>
+            <p className="text-sm text-gray-400">
+              isMaster: {String(isMaster)} | hasModuleAccess: {String(hasModuleAccess('dishes'))}
+            </p>
+          </div>
+        );
       case 'categories':
         return hasModuleAccess('categories') ? <CategoriesTab /> : <AccessDenied />;
       case 'complements':

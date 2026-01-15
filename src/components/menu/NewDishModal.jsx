@@ -13,9 +13,11 @@ export default function NewDishModal({
   const [currentTotal, setCurrentTotal] = useState(0);
 
   // Filtra apenas os grupos vinculados ao prato
-  const dishComplementGroups = complementGroups.filter(group => {
-    if (!dish?.complement_groups) return false;
-    return dish.complement_groups.some(cg => cg.group_id === group.id);
+  // VALIDAÇÃO CRÍTICA: garantir que complementGroups seja array
+  const safeComplementGroups = Array.isArray(complementGroups) ? complementGroups : [];
+  const dishComplementGroups = safeComplementGroups.filter(group => {
+    if (!dish?.complement_groups || !Array.isArray(dish.complement_groups)) return false;
+    return dish.complement_groups.some(cg => cg && cg.group_id === group.id);
   }).sort((a, b) => (a.order || 0) - (b.order || 0));
 
   useEffect(() => {

@@ -112,10 +112,13 @@ export default function AdminSidebar({ activeTab, setActiveTab, isMaster = false
     sistema: true
   });
 
+  // ✅ CORREÇÃO: Blindado com Array.isArray
   const hasModuleAccess = (module) => {
     if (isMaster) return true;
-    if (!permissions || !permissions[module]) return false;
-    return permissions[module].length > 0;
+    if (!permissions || typeof permissions !== 'object') return false;
+    
+    const modulePerms = permissions[module];
+    return Array.isArray(modulePerms) && modulePerms.length > 0;
   };
 
 

@@ -16,12 +16,15 @@ export default function ReorderModal({ isOpen, onClose, categories, dishes, comp
 
   useEffect(() => {
     if (isOpen) {
-      setLocalCategories([...categories].sort((a, b) => (a.order || 0) - (b.order || 0)));
-      setLocalDishes([...dishes]);
-      setLocalGroups([...complementGroups].sort((a, b) => (a.order || 0) - (b.order || 0)));
+      const safeCategories = Array.isArray(categories) ? categories : [];
+      const safeDishes = Array.isArray(dishes) ? dishes : [];
+      const safeGroups = Array.isArray(complementGroups) ? complementGroups : [];
+      setLocalCategories([...safeCategories].sort((a, b) => (a.order || 0) - (b.order || 0)));
+      setLocalDishes([...safeDishes]);
+      setLocalGroups([...safeGroups].sort((a, b) => (a.order || 0) - (b.order || 0)));
       
       const optionsMap = {};
-      complementGroups.forEach(group => {
+      safeGroups.forEach(group => {
         if (group.options) {
           optionsMap[group.id] = [...group.options];
         }
@@ -46,8 +49,9 @@ export default function ReorderModal({ isOpen, onClose, categories, dishes, comp
       items.splice(destination.index, 0, reordered);
       setLocalCategories(items);
     } else if (type === 'dish') {
-      const categoryDishes = localDishes.filter(d => d.category_id === selectedCategory);
-      const otherDishes = localDishes.filter(d => d.category_id !== selectedCategory);
+      const safeLocalDishes = Array.isArray(localDishes) ? localDishes : [];
+      const categoryDishes = safeLocalDishes.filter(d => d.category_id === selectedCategory);
+      const otherDishes = safeLocalDishes.filter(d => d.category_id !== selectedCategory);
       const items = Array.from(categoryDishes);
       const [reordered] = items.splice(source.index, 1);
       items.splice(destination.index, 0, reordered);
@@ -95,8 +99,9 @@ export default function ReorderModal({ isOpen, onClose, categories, dishes, comp
     onSave(updates);
   };
 
+  const safeLocalDishes = Array.isArray(localDishes) ? localDishes : [];
   const categoryDishes = selectedCategory 
-    ? localDishes.filter(d => d.category_id === selectedCategory)
+    ? safeLocalDishes.filter(d => d.category_id === selectedCategory)
     : [];
 
   const groupOptions = selectedGroup 

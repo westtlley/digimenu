@@ -4,100 +4,107 @@ import { base44 } from '@/api/base44Client';
 /**
  * Hook para verificar permissões do usuário atual
  * Retorna as permissões e funções para verificar acesso a módulos/ações
+ * 
+ * ⚠️ CRÍTICO: permissions SEMPRE é um objeto {}, nunca string
  */
 export function usePermission() {
-  const [permissions, setPermissions] = useState(null);
+  // ✅ Estado inicial sempre objeto
+  const [permissions, setPermissions] = useState({});
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
   const [subscriberData, setSubscriberData] = useState(null);
 
-const loadPermissions = async () => {
-  try {
-    console.log('🔄 [usePermission] Carregando permissões...');
-    const currentUser = await base44.auth.me();
-    console.log('👤 [usePermission] Usuário recebido:', currentUser);
-    console.log('👤 [usePermission] is_master:', currentUser?.is_master);
+  const loadPermissions = async () => {
+    try {
+      console.log('🔄 [usePermission] Carregando permissões...');
+      const currentUser = await base44.auth.me();
+      console.log('👤 [usePermission] Usuário recebido:', currentUser);
+      console.log('👤 [usePermission] is_master:', currentUser?.is_master);
 
-    if (!currentUser) {
-      console.log('⚠️ [usePermission] Usuário não encontrado');
-      setPermissions({});
-      setUser(null);
-      setSubscriberData(null);
-      setLoading(false);
-      return;
-    }
-    
-    console.log('👤 [usePermission] Usuário recebido:', currentUser);
-    console.log('👤 [usePermission] is_master:', currentUser?.is_master);
+      if (!currentUser) {
+        console.log('⚠️ [usePermission] Usuário não encontrado');
+        setPermissions({});
+        setUser(null);
+        setSubscriberData(null);
+        setLoading(false);
+        return;
+      }
+      
+      console.log('👤 [usePermission] Usuário recebido:', currentUser);
+      console.log('👤 [usePermission] is_master:', currentUser?.is_master);
 
-    setUser(currentUser);
+      setUser(currentUser);
 
-    if (currentUser.is_master === true) {
-      console.log('✅ [usePermission] Usuário é master - concedendo FULL_ACCESS');
-      setPermissions('FULL_ACCESS');
-      setSubscriberData({
-        email: currentUser.email,
-        plan: 'premium',
-        status: 'active',
-        permissions: {}
+      // ✅ CORREÇÃO DEFINITIVA: NUNCA mais usar 'FULL_ACCESS'
+      if (currentUser.is_master === true) {
+        console.log('✅ [usePermission] Usuário é master - concedendo acesso total');
+        setPermissions({}); // sempre objeto
+        setSubscriberData({
+          email: currentUser.email,
+          plan: 'master', // ✅ CORRIGIDO: era 'premium'
+          status: 'active',
+          permissions: {}
+        });
+        setLoading(false);
+        return;
+      }
+      
+      console.log('📋 [usePermission] Usuário não é master - verificando assinatura...');
+
+      const result = await base44.functions.invoke('checkSubscriptionStatus', {
+        user_email: currentUser.email
       });
-      setLoading(false);
-      return;
-    }
-    
-    console.log('📋 [usePermission] Usuário não é master - verificando assinatura...');
 
-    const result = await base44.functions.invoke('checkSubscriptionStatus', {
-      user_email: currentUser.email
-    });
+      // Verificar se encontrou assinante ativo
+      if (result.data?.status === 'success' && result.data?.subscriber) {
+        const subscriber = result.data.subscriber;
+        setPermissions(subscriber.permissions || {});
+        setSubscriberData(subscriber);
+      } else {
+        setPermissions({});
+        setSubscriberData(result.data?.subscriber || null);
+      }
 
-    // Verificar se encontrou assinante ativo
-    if (result.data?.status === 'success' && result.data?.subscriber) {
-      const subscriber = result.data.subscriber;
-      setPermissions(subscriber.permissions || {});
-      setSubscriberData(subscriber);
-    } else {
+    } catch (e) {
+      console.error('Error loading permissions:', e);
       setPermissions({});
-      setSubscriberData(result.data?.subscriber || null);
+      setSubscriberData(null);
+    } finally {
+      setLoading(false);
     }
+  };
 
-  } catch (e) {
-    console.error('Error loading permissions:', e);
-    setPermissions({});
-    setSubscriberData(null);
-  } finally {
-    setLoading(false);
-  }
-};
+  useEffect(() => {
+    loadPermissions();
+    const interval = setInterval(loadPermissions, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
-useEffect(() => {
-  loadPermissions();
-  const interval = setInterval(loadPermissions, 30000);
-  return () => clearInterval(interval);
-}, []);
+  // ✅ isMaster baseado APENAS em user.is_master (definido ANTES das funções que o usam)
+  const isMaster = user?.is_master === true;
 
   /**
    * Verifica se o usuário tem acesso a um módulo
+   * ✅ CORREÇÃO: Blindado com Array.isArray
    */
   const hasModuleAccess = (module) => {
-    if (permissions === 'FULL_ACCESS') return true;
-    if (!permissions) return false;
+    if (isMaster) return true;
+    if (!permissions || typeof permissions !== 'object') return false;
     
     const modulePerms = permissions[module];
-    return modulePerms && modulePerms.length > 0;
+    return Array.isArray(modulePerms) && modulePerms.length > 0;
   };
 
   /**
    * Verifica se o usuário tem uma ação específica em um módulo
+   * ✅ CORREÇÃO: Blindado com Array.isArray
    */
   const hasPermission = (module, action) => {
-    if (permissions === 'FULL_ACCESS') return true;
-    if (!permissions) return false;
+    if (isMaster) return true;
+    if (!permissions || typeof permissions !== 'object') return false;
     
     const modulePerms = permissions[module];
-    if (!modulePerms) return false;
-    
-    return modulePerms.includes(action);
+    return Array.isArray(modulePerms) && modulePerms.includes(action);
   };
 
   /**
@@ -127,9 +134,6 @@ useEffect(() => {
     setLoading(true);
     loadPermissions();
   };
-
-  // isMaster deve ser baseado no user.is_master, não apenas nas permissões
-  const isMaster = user?.is_master === true || permissions === 'FULL_ACCESS';
   
   return {
     permissions,

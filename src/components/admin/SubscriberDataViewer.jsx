@@ -131,7 +131,7 @@ export default function SubscriberDataViewer({ subscriber, onBack }) {
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {data.dishes.map((dish) => (
+                {(Array.isArray(data?.dishes) ? data.dishes : []).map((dish) => (
                   <tr key={dish.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 text-sm">{dish.name}</td>
                     <td className="px-4 py-3 text-sm text-gray-500">

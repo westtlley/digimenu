@@ -709,16 +709,44 @@ function FlavorModal({ isOpen, onClose, onSubmit, flavor }) {
   }, [flavor, isOpen]);
 
   const handleImageUpload = async (e) => {
+    console.log('🖼️ [PizzaConfigTab] handleImageUpload chamado:', {
+      event: e,
+      target: e.target,
+      files: e.target.files,
+      filesLength: e.target.files?.length
+    });
+
     const file = e.target.files?.[0];
-    if (file) {
-      try {
-        const { uploadToCloudinary } = await import('@/utils/cloudinaryUpload');
-        const url = await uploadToCloudinary(file, 'pizza-config');
-        setFormData(prev => ({ ...prev, image: url }));
-      } catch (error) {
-        console.error('Erro ao fazer upload:', error);
-        alert('Erro ao fazer upload da imagem');
-      }
+    
+    console.log('🖼️ [PizzaConfigTab] Arquivo extraído:', {
+      file,
+      isFile: file instanceof File,
+      fileName: file?.name,
+      fileSize: file?.size,
+      fileType: file?.type
+    });
+
+    if (!file) {
+      console.error('❌ [PizzaConfigTab] Nenhum arquivo encontrado no evento');
+      alert('Nenhum arquivo selecionado');
+      return;
+    }
+
+    if (!(file instanceof File)) {
+      console.error('❌ [PizzaConfigTab] Arquivo não é instância de File:', typeof file);
+      alert('Arquivo inválido');
+      return;
+    }
+
+    try {
+      console.log('📤 [PizzaConfigTab] Iniciando upload...');
+      const { uploadToCloudinary } = await import('@/utils/cloudinaryUpload');
+      const url = await uploadToCloudinary(file, 'pizza-config');
+      console.log('✅ [PizzaConfigTab] Upload concluído, URL:', url);
+      setFormData(prev => ({ ...prev, image: url }));
+    } catch (error) {
+      console.error('❌ [PizzaConfigTab] Erro ao fazer upload:', error);
+      alert('Erro ao fazer upload da imagem: ' + error.message);
     }
   };
 
@@ -844,16 +872,44 @@ function EdgeModal({ isOpen, onClose, onSubmit, edge }) {
   }, [edge, isOpen]);
 
   const handleImageUpload = async (e) => {
+    console.log('🖼️ [PizzaConfigTab] handleImageUpload chamado:', {
+      event: e,
+      target: e.target,
+      files: e.target.files,
+      filesLength: e.target.files?.length
+    });
+
     const file = e.target.files?.[0];
-    if (file) {
-      try {
-        const { uploadToCloudinary } = await import('@/utils/cloudinaryUpload');
-        const url = await uploadToCloudinary(file, 'pizza-config');
-        setFormData(prev => ({ ...prev, image: url }));
-      } catch (error) {
-        console.error('Erro ao fazer upload:', error);
-        alert('Erro ao fazer upload da imagem');
-      }
+    
+    console.log('🖼️ [PizzaConfigTab] Arquivo extraído:', {
+      file,
+      isFile: file instanceof File,
+      fileName: file?.name,
+      fileSize: file?.size,
+      fileType: file?.type
+    });
+
+    if (!file) {
+      console.error('❌ [PizzaConfigTab] Nenhum arquivo encontrado no evento');
+      alert('Nenhum arquivo selecionado');
+      return;
+    }
+
+    if (!(file instanceof File)) {
+      console.error('❌ [PizzaConfigTab] Arquivo não é instância de File:', typeof file);
+      alert('Arquivo inválido');
+      return;
+    }
+
+    try {
+      console.log('📤 [PizzaConfigTab] Iniciando upload...');
+      const { uploadToCloudinary } = await import('@/utils/cloudinaryUpload');
+      const url = await uploadToCloudinary(file, 'pizza-config');
+      console.log('✅ [PizzaConfigTab] Upload concluído, URL:', url);
+      setFormData(prev => ({ ...prev, image: url }));
+    } catch (error) {
+      console.error('❌ [PizzaConfigTab] Erro ao fazer upload:', error);
+      alert('Erro ao fazer upload da imagem: ' + error.message);
     }
   };
 
@@ -944,16 +1000,44 @@ function ExtraModal({ isOpen, onClose, onSubmit, extra }) {
   }, [extra, isOpen]);
 
   const handleImageUpload = async (e) => {
+    console.log('🖼️ [PizzaConfigTab] handleImageUpload chamado:', {
+      event: e,
+      target: e.target,
+      files: e.target.files,
+      filesLength: e.target.files?.length
+    });
+
     const file = e.target.files?.[0];
-    if (file) {
-      try {
-        const { uploadToCloudinary } = await import('@/utils/cloudinaryUpload');
-        const url = await uploadToCloudinary(file, 'pizza-config');
-        setFormData(prev => ({ ...prev, image: url }));
-      } catch (error) {
-        console.error('Erro ao fazer upload:', error);
-        alert('Erro ao fazer upload da imagem');
-      }
+    
+    console.log('🖼️ [PizzaConfigTab] Arquivo extraído:', {
+      file,
+      isFile: file instanceof File,
+      fileName: file?.name,
+      fileSize: file?.size,
+      fileType: file?.type
+    });
+
+    if (!file) {
+      console.error('❌ [PizzaConfigTab] Nenhum arquivo encontrado no evento');
+      alert('Nenhum arquivo selecionado');
+      return;
+    }
+
+    if (!(file instanceof File)) {
+      console.error('❌ [PizzaConfigTab] Arquivo não é instância de File:', typeof file);
+      alert('Arquivo inválido');
+      return;
+    }
+
+    try {
+      console.log('📤 [PizzaConfigTab] Iniciando upload...');
+      const { uploadToCloudinary } = await import('@/utils/cloudinaryUpload');
+      const url = await uploadToCloudinary(file, 'pizza-config');
+      console.log('✅ [PizzaConfigTab] Upload concluído, URL:', url);
+      setFormData(prev => ({ ...prev, image: url }));
+    } catch (error) {
+      console.error('❌ [PizzaConfigTab] Erro ao fazer upload:', error);
+      alert('Erro ao fazer upload da imagem: ' + error.message);
     }
   };
 

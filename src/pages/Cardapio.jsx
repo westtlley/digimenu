@@ -56,7 +56,10 @@ export default function Cardapio() {
     queryKey: ['dishes'],
     queryFn: () => base44.entities.Dish.list('order'),
     refetchInterval: 5000, // Atualiza a cada 5 segundos
-    staleTime: 0 // Sempre considera os dados como desatualizados
+    staleTime: 0, // Sempre considera os dados como desatualizados
+    initialData: [], // 👈 ESSENCIAL: garante que dishes nunca seja undefined
+    gcTime: 0, // Remove do cache imediatamente
+    refetchOnMount: true // Sempre refaz a requisição ao montar
   });
 
   const { data: categories = [] } = useQuery({
@@ -134,8 +137,10 @@ export default function Cardapio() {
 
   // Memoized calculations
   const activeDishes = useMemo(() => {
+    // Garantir que dishes seja um array
+    const safeDishes = Array.isArray(dishes) ? dishes : [];
     // Filtra apenas pratos ativos E que tenham nome e preço definidos
-    return dishes.filter((d) => {
+    return safeDishes.filter((d) => {
       if (d.is_active === false) return false;
       if (!d.name || d.name.trim() === '') return false;
       
@@ -150,11 +155,15 @@ export default function Cardapio() {
       return true;
     });
   }, [dishes, pizzaSizes, pizzaFlavors]);
-  const highlightDishes = useMemo(() => activeDishes.filter((d) => d.is_highlight), [activeDishes]);
+  const highlightDishes = useMemo(() => {
+    const safeActiveDishes = Array.isArray(activeDishes) ? activeDishes : [];
+    return safeActiveDishes.filter((d) => d.is_highlight);
+  }, [activeDishes]);
   const activePromotions = useMemo(() => promotions.filter(p => p.is_active), [promotions]);
 
   const filteredDishes = useMemo(() => {
-    return activeDishes.filter((dish) => {
+    const safeActiveDishes = Array.isArray(activeDishes) ? activeDishes : [];
+    return safeActiveDishes.filter((dish) => {
       const matchesSearch = !searchTerm || dish.name?.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesCategory = selectedCategory === 'all' || dish.category_id === selectedCategory;
       

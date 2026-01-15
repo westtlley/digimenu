@@ -30,7 +30,8 @@ export default function RecentOrders({ dishes = [], onSelectDish, primaryColor }
     });
   });
 
-  const recentDishes = dishes.filter(d => recentDishIds.has(d.id)).slice(0, 4);
+  const safeDishes = Array.isArray(dishes) ? dishes : [];
+  const recentDishes = safeDishes.filter(d => recentDishIds.has(d.id)).slice(0, 4);
 
   if (recentDishes.length === 0) return null;
 
