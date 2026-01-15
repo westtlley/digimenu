@@ -35,6 +35,7 @@ export default function StoreTab() {
     facebook: '',
     payment_methods: [],
     delivery_fee: 0,
+    min_order_value: 0,
     is_open: null,
     accepting_orders: true,
     pause_message: '',
@@ -76,7 +77,8 @@ export default function StoreTab() {
 
   useEffect(() => {
     if (store) {
-      setFormData({
+      setFormData(prev => ({
+        ...prev,
         name: store.name || '',
         logo: store.logo || '',
         banner_image: store.banner_image || '',
@@ -88,6 +90,7 @@ export default function StoreTab() {
         facebook: store.facebook || '',
         payment_methods: store.payment_methods || [],
         delivery_fee: store.delivery_fee || 0,
+        min_order_value: store.min_order_value || store.min_order_price || 0,
         is_open: store.is_open === null || store.is_open === undefined ? null : store.is_open,
         accepting_orders: store.accepting_orders === false ? false : true,
         pause_message: store.pause_message || '',
@@ -102,7 +105,7 @@ export default function StoreTab() {
           picante: '🌶️ Picante',
           fit: '💪 Fit'
         },
-      });
+      }));
     }
   }, [store]);
 
@@ -127,10 +130,15 @@ export default function StoreTab() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['store'] });
+      queryClient.invalidateQueries({ queryKey: ['stores'] });
+      queryClient.refetchQueries({ queryKey: ['store'] });
       toast.success('✅ Loja criada com sucesso!', {
         duration: 3000,
         position: 'top-center'
       });
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
     },
     onError: (error) => {
       console.error('Erro ao criar:', error);
@@ -168,11 +176,19 @@ export default function StoreTab() {
     },
     onSuccess: (result) => {
       console.log('Sucesso ao salvar:', result);
+      // Invalidar todas as queries relacionadas à loja
       queryClient.invalidateQueries({ queryKey: ['store'] });
+      queryClient.invalidateQueries({ queryKey: ['stores'] });
+      // Forçar refetch imediato
+      queryClient.refetchQueries({ queryKey: ['store'] });
       toast.success('✅ Configurações da loja salvas com sucesso!', {
         duration: 3000,
         position: 'top-center'
       });
+      // Recarregar página após 1 segundo para garantir que tudo seja atualizado
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
     },
     onError: (error) => {
       console.error('Erro ao salvar:', error);
@@ -634,6 +650,23 @@ export default function StoreTab() {
                   onChange={(e) => setFormData(prev => ({ ...prev, delivery_fee: parseFloat(e.target.value) || 0 }))}
                   placeholder="0,00"
                 />
+              </div>
+
+              <div>
+                <Label htmlFor="min-order-value" className="flex items-center gap-2 mb-2">
+                  <DollarSign className="w-4 h-4 text-gray-500" />
+                  Pedido Mínimo (R$)
+                </Label>
+                <Input
+                  id="min-order-value"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.min_order_value || 0}
+                  onChange={(e) => setFormData(prev => ({ ...prev, min_order_value: parseFloat(e.target.value) || 0 }))}
+                  placeholder="0,00"
+                />
+                <p className="text-xs text-gray-500 mt-1">Valor mínimo necessário para realizar um pedido</p>
               </div>
 
               <Separator />
