@@ -11,9 +11,22 @@ const STATUS_CONFIG = {
   accepted: { label: 'Aceito', color: 'bg-purple-100 text-purple-800' },
   preparing: { label: 'Preparando', color: 'bg-yellow-100 text-yellow-800' },
   ready: { label: 'Pronto', color: 'bg-green-100 text-green-800' },
+  going_to_store: { label: 'Entregador a caminho', color: 'bg-blue-100 text-blue-800' },
+  arrived_at_store: { label: 'Entregador no restaurante', color: 'bg-blue-100 text-blue-800' },
+  picked_up: { label: 'Pedido coletado', color: 'bg-green-100 text-green-800' },
   out_for_delivery: { label: 'Saiu p/ Entrega', color: 'bg-blue-100 text-blue-800' },
+  arrived_at_customer: { label: 'Entregador chegou', color: 'bg-green-100 text-green-800' },
   delivered: { label: 'Entregue', color: 'bg-gray-100 text-gray-800' },
   cancelled: { label: 'Cancelado', color: 'bg-red-100 text-red-800' },
+};
+
+const getStatusConfig = (status) => {
+  if (STATUS_CONFIG[status]) return STATUS_CONFIG[status];
+  if (!status) return STATUS_CONFIG.new;
+  return {
+    label: String(status).replace(/_/g, ' '),
+    color: 'bg-gray-100 text-gray-800',
+  };
 };
 
 const PAYMENT_LABELS = {
@@ -61,7 +74,9 @@ export default function CustomerOrdersHistory({ userEmail }) {
       <div className="space-y-4">
         <h2 className="text-xl font-bold text-gray-800 mb-4">Meus Pedidos</h2>
         
-        {orders.map((order) => (
+        {orders.map((order) => {
+          const statusConfig = getStatusConfig(order.status);
+          return (
           <div 
             key={order.id} 
             className="bg-white rounded-xl p-4 shadow-sm border cursor-pointer hover:shadow-md transition-shadow"
@@ -73,8 +88,8 @@ export default function CustomerOrdersHistory({ userEmail }) {
                   <span className="text-xs font-mono bg-gray-100 px-2 py-1 rounded">
                     #{order.order_code || order.id.slice(-6).toUpperCase()}
                   </span>
-                  <Badge className={STATUS_CONFIG[order.status || 'new'].color}>
-                    {STATUS_CONFIG[order.status || 'new'].label}
+                  <Badge className={statusConfig.color}>
+                    {statusConfig.label}
                   </Badge>
                 </div>
                 <p className="text-sm text-gray-500">
@@ -90,7 +105,8 @@ export default function CustomerOrdersHistory({ userEmail }) {
               {order.address && <p className="text-xs mt-1">📍 {order.address}</p>}
             </div>
           </div>
-        ))}
+        );
+        })}
       </div>
 
       {/* Order Detail Modal */}
