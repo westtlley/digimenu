@@ -24,6 +24,29 @@ export async function migrate() {
     // Executar schema
     await query(schemaSQL);
     
+    // Adicionar colunas do Google OAuth se não existirem
+    try {
+      await query(`
+        DO $$ 
+        BEGIN
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                        WHERE table_name='users' AND column_name='google_id') THEN
+            ALTER TABLE users ADD COLUMN google_id VARCHAR(255);
+            RAISE NOTICE 'Coluna google_id adicionada';
+          END IF;
+          
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                        WHERE table_name='users' AND column_name='google_photo') THEN
+            ALTER TABLE users ADD COLUMN google_photo TEXT;
+            RAISE NOTICE 'Coluna google_photo adicionada';
+          END IF;
+        END $$;
+      `);
+      console.log('✅ Migração de colunas Google OAuth concluída.');
+    } catch (error) {
+      console.warn('⚠️ Aviso ao adicionar colunas Google OAuth (pode já existir):', error.message);
+    }
+    
     console.log('✅ Migração concluída com sucesso!');
     return true;
   } catch (error) {
