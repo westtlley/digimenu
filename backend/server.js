@@ -401,6 +401,7 @@ app.put('/api/entities/:entity/:id', authenticate, (req, res) => {
       id,
       updated_at: new Date().toISOString()
     };
+    saveDatabaseDebounced(db); // Salvar após atualizar
     
     console.log(`✅ [${entity}] Item atualizado:`, id);
     res.json(items[index]);
