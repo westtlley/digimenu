@@ -12,10 +12,9 @@ export const PLANS = {
 };
 
 /**
- * Permissões por plano
+ * Permissões base do plano Básico
  */
-export const PLAN_PERMISSIONS = {
-  [PLANS.BASIC]: {
+const BASIC_PERMISSIONS = {
     // Cardápio Digital
     menu_digital: true,
     menu_view: true,
@@ -57,7 +56,7 @@ export const PLAN_PERMISSIONS = {
   
   [PLANS.PREMIUM]: {
     // Tudo do Básico
-    ...PLAN_PERMISSIONS[PLANS.BASIC],
+    ...BASIC_PERMISSIONS,
     
     // Gestor de Pedidos Avançado
     orders_advanced: true,
@@ -92,11 +91,14 @@ export const PLAN_PERMISSIONS = {
     admin_subscribers: false,
     admin_settings: false,
     admin_master: false
-  },
-  
-  [PLANS.PRO]: {
+  };
+
+/**
+ * Permissões do plano Pro
+ */
+const PRO_PERMISSIONS = {
     // Tudo do Premium
-    ...PLAN_PERMISSIONS[PLANS.PREMIUM],
+    ...PREMIUM_PERMISSIONS,
     
     // Integrações Avançadas
     integrations_advanced: true,
@@ -119,11 +121,14 @@ export const PLAN_PERMISSIONS = {
     admin_subscribers: false, // Não pode gerenciar outros assinantes
     admin_settings: true, // Pode alterar configurações da própria conta
     admin_master: false // NUNCA tem acesso master
-  },
-  
-  [PLANS.ADMIN]: {
+  };
+
+/**
+ * Permissões do plano Admin
+ */
+const ADMIN_PERMISSIONS = {
     // Acesso total - todas as permissões
-    ...PLAN_PERMISSIONS[PLANS.PRO],
+    ...PRO_PERMISSIONS,
     
     // Funções Admin Master
     admin_users: true,
