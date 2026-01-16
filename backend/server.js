@@ -64,7 +64,7 @@ if (!usePostgreSQL) {
   saveDatabaseDebounced = persistence.saveDatabaseDebounced;
   
   // Garantir que o usuário admin sempre existe
-  if (!db.users.find(u => u.email === 'admin@digimenu.com')) {
+  if (db && db.users && !db.users.find(u => u.email === 'admin@digimenu.com')) {
     db.users.push({
       id: '1',
       email: 'admin@digimenu.com',
