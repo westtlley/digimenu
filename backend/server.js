@@ -800,6 +800,7 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
             const newSub = {
               id: Date.now().toString(),
               ...data,
+              whatsapp_auto_enabled: data.whatsapp_auto_enabled !== undefined ? data.whatsapp_auto_enabled : true,
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString()
             };
