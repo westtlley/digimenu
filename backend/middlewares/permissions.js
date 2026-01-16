@@ -8,6 +8,32 @@ import { hasPermission, hasAccess, PLAN_PERMISSIONS, PLANS } from '../utils/plan
 import * as repo from '../db/repository.js';
 
 /**
+ * Verifica se uma permissão customizada está presente
+ * Formato: { "dashboard": ["view"], "orders": ["view", "create"] }
+ */
+function checkCustomPermission(customPerms, permission) {
+  if (!customPerms || typeof customPerms !== 'object') {
+    return false;
+  }
+  
+  // Dividir permissão em módulo e ação (ex: "dashboard_view" -> ["dashboard", "view"])
+  const parts = permission.split('_');
+  if (parts.length < 2) {
+    return false;
+  }
+  
+  const module = parts[0];
+  const action = parts.slice(1).join('_');
+  
+  // Verificar se o módulo existe e tem a ação
+  if (customPerms[module] && Array.isArray(customPerms[module])) {
+    return customPerms[module].includes(action);
+  }
+  
+  return false;
+}
+
+/**
  * Obtém o plano do usuário atual
  */
 async function getUserPlan(user, usePostgreSQL, db) {
