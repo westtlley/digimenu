@@ -165,8 +165,10 @@ const authenticate = async (req, res, next) => {
       if (!user) {
         user = await repo.getUserByEmail('admin@digimenu.com');
       }
-    } else {
+    } else if (db && db.users) {
       user = db.users.find(u => u.email === decoded.email) || db.users[0];
+    } else {
+      return res.status(401).json({ error: 'Banco de dados não inicializado' });
     }
     req.user = user;
     return next();
@@ -180,8 +182,10 @@ const authenticate = async (req, res, next) => {
         if (!user) {
           user = await repo.getUserByEmail('admin@digimenu.com');
         }
-      } else {
+      } else if (db && db.users) {
         user = db.users.find(u => u.email === email) || db.users[0];
+      } else {
+        return res.status(401).json({ error: 'Banco de dados não inicializado' });
       }
       req.user = user;
       return next();
@@ -219,8 +223,10 @@ app.post('/api/auth/login', async (req, res) => {
     let user;
     if (usePostgreSQL) {
       user = await repo.getUserByEmail(email.toLowerCase());
-    } else {
+    } else if (db && db.users) {
       user = db.users.find(u => u.email === email.toLowerCase());
+    } else {
+      return res.status(401).json({ error: 'Banco de dados não inicializado' });
     }
 
     if (!user) {
@@ -362,34 +368,39 @@ app.post('/api/upload-image', upload.single('image'), async (req, res) => {
 // 📦 ENTITIES (CRUD GENÉRICO)
 // =======================
 // Listar entidades
-app.get('/api/entities/:entity', authenticate, (req, res) => {
+app.get('/api/entities/:entity', authenticate, async (req, res) => {
   try {
     const { entity } = req.params;
     const { order_by, ...filters } = req.query;
     
-    let items = db.entities[entity] || [];
-    
-    // Aplicar filtros
-    if (Object.keys(filters).length > 0) {
-      items = items.filter(item => {
-        return Object.entries(filters).every(([key, value]) => {
-          if (value === 'null' || value === null) {
-            return item[key] === null || item[key] === undefined;
-          }
-          return item[key] == value;
+    let items;
+    if (usePostgreSQL) {
+      items = await repo.listEntities(entity, filters, order_by, req.user);
+    } else {
+      items = db.entities[entity] || [];
+      
+      // Aplicar filtros
+      if (Object.keys(filters).length > 0) {
+        items = items.filter(item => {
+          return Object.entries(filters).every(([key, value]) => {
+            if (value === 'null' || value === null) {
+              return item[key] === null || item[key] === undefined;
+            }
+            return item[key] == value;
+          });
         });
-      });
-    }
-    
-    // Ordenar
-    if (order_by) {
-      items.sort((a, b) => {
-        const aVal = a[order_by];
-        const bVal = b[order_by];
-        if (aVal < bVal) return -1;
-        if (aVal > bVal) return 1;
-        return 0;
-      });
+      }
+      
+      // Ordenar
+      if (order_by) {
+        items.sort((a, b) => {
+          const aVal = a[order_by];
+          const bVal = b[order_by];
+          if (aVal < bVal) return -1;
+          if (aVal > bVal) return 1;
+          return 0;
+        });
+      }
     }
     
     res.json(items);
@@ -432,7 +443,7 @@ app.post('/api/entities/:entity', authenticate, async (req, res) => {
     let newItem;
     if (usePostgreSQL) {
       newItem = await repo.createEntity(entity, data, req.user);
-    } else {
+    } else if (db && db.entities) {
       if (!db.entities[entity]) {
         db.entities[entity] = [];
       }
@@ -445,9 +456,11 @@ app.post('/api/entities/:entity', authenticate, async (req, res) => {
       };
       
       db.entities[entity].push(newItem);
-      if (typeof saveDatabaseDebounced === 'function') {
+      if (saveDatabaseDebounced) {
         saveDatabaseDebounced(db);
       }
+    } else {
+      return res.status(500).json({ error: 'Banco de dados não inicializado' });
     }
     
     console.log(`✅ [${entity}] Item criado:`, newItem.id);
@@ -470,7 +483,7 @@ app.put('/api/entities/:entity/:id', authenticate, async (req, res) => {
       if (!updatedItem) {
         return res.status(404).json({ error: 'Entidade não encontrada' });
       }
-    } else {
+    } else if (db && db.entities) {
       const items = db.entities[entity] || [];
       const index = items.findIndex(i => i.id === id);
       
@@ -486,9 +499,11 @@ app.put('/api/entities/:entity/:id', authenticate, async (req, res) => {
       };
       
       items[index] = updatedItem;
-      if (typeof saveDatabaseDebounced === 'function') {
+      if (saveDatabaseDebounced) {
         saveDatabaseDebounced(db);
       }
+    } else {
+      return res.status(500).json({ error: 'Banco de dados não inicializado' });
     }
     
     console.log(`✅ [${entity}] Item atualizado:`, id);
@@ -507,7 +522,7 @@ app.delete('/api/entities/:entity/:id', authenticate, async (req, res) => {
     let deleted = false;
     if (usePostgreSQL) {
       deleted = await repo.deleteEntity(entity, id, req.user);
-    } else {
+    } else if (db && db.entities) {
       const items = db.entities[entity] || [];
       const index = items.findIndex(i => i.id === id);
       
@@ -517,9 +532,11 @@ app.delete('/api/entities/:entity/:id', authenticate, async (req, res) => {
       
       items.splice(index, 1);
       deleted = true;
-      if (typeof saveDatabaseDebounced === 'function') {
+      if (saveDatabaseDebounced) {
         saveDatabaseDebounced(db);
       }
+    } else {
+      return res.status(500).json({ error: 'Banco de dados não inicializado' });
     }
     
     if (!deleted) {
@@ -543,7 +560,7 @@ app.post('/api/entities/:entity/bulk', authenticate, async (req, res) => {
     let newItems;
     if (usePostgreSQL) {
       newItems = await repo.createEntitiesBulk(entity, itemsToCreate, req.user);
-    } else {
+    } else if (db && db.entities) {
       if (!db.entities[entity]) {
         db.entities[entity] = [];
       }
@@ -559,6 +576,8 @@ app.post('/api/entities/:entity/bulk', authenticate, async (req, res) => {
       if (saveDatabaseDebounced) {
         saveDatabaseDebounced(db);
       }
+    } else {
+      return res.status(500).json({ error: 'Banco de dados não inicializado' });
     }
     
     console.log(`✅ [${entity}] ${newItems.length} itens criados`);
@@ -609,7 +628,9 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
       const subscriber = usePostgreSQL
         ? await repo.updateSubscriber(data.email, data)
         : (() => {
-            if (!db.subscribers) db.subscribers = [];
+            if (!db || !db.subscribers) {
+              throw new Error('Banco de dados não inicializado');
+            }
             const index = db.subscribers.findIndex(s => s.email === data.email);
             if (index === -1) return null;
             db.subscribers[index] = { ...db.subscribers[index], ...data, updated_at: new Date().toISOString() };
@@ -623,7 +644,9 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
       const subscriber = usePostgreSQL
         ? await repo.deleteSubscriber(data.email)
         : (() => {
-            if (!db.subscribers) db.subscribers = [];
+            if (!db || !db.subscribers) {
+              throw new Error('Banco de dados não inicializado');
+            }
             const index = db.subscribers.findIndex(s => s.email === data.email);
             if (index === -1) return null;
             const deleted = db.subscribers.splice(index, 1)[0];
@@ -636,7 +659,7 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
     if (name === 'checkSubscriptionStatus') {
       const subscriber = usePostgreSQL
         ? await repo.getSubscriberByEmail(data.user_email)
-        : (db?.subscribers || []).find(s => s.email === data.user_email);
+        : (db && db.subscribers ? db.subscribers.find(s => s.email === data.user_email) : null);
       
       return res.json({
         data: {
