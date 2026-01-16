@@ -374,6 +374,13 @@ export async function getSubscriberByEmail(email) {
 
 export async function createSubscriber(subscriberData) {
   try {
+    console.log('📝 [REPOSITORY] createSubscriber chamado com:', {
+      email: subscriberData.email,
+      name: subscriberData.name,
+      plan: subscriberData.plan,
+      hasPermissions: !!subscriberData.permissions
+    });
+    
     // Garantir que permissions seja um objeto válido
     let permissions = subscriberData.permissions || {};
     if (typeof permissions === 'string') {
@@ -385,23 +392,42 @@ export async function createSubscriber(subscriberData) {
       }
     }
     
+    // Preparar valores
+    const values = [
+      subscriberData.email,
+      subscriberData.name,
+      subscriberData.plan || 'basic',
+      subscriberData.status || 'active',
+      subscriberData.expires_at || null,
+      JSON.stringify(permissions),
+      subscriberData.whatsapp_auto_enabled !== undefined ? subscriberData.whatsapp_auto_enabled : true
+    ];
+    
+    console.log('📝 [REPOSITORY] Valores preparados:', {
+      email: values[0],
+      name: values[1],
+      plan: values[2],
+      status: values[3],
+      expires_at: values[4],
+      permissions: values[5],
+      whatsapp_auto_enabled: values[6]
+    });
+    
     const result = await query(
       `INSERT INTO subscribers (email, name, plan, status, expires_at, permissions, whatsapp_auto_enabled)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING *`,
-      [
-        subscriberData.email,
-        subscriberData.name,
-        subscriberData.plan || 'basic',
-        subscriberData.status || 'active',
-        subscriberData.expires_at || null,
-        JSON.stringify(permissions),
-        subscriberData.whatsapp_auto_enabled !== undefined ? subscriberData.whatsapp_auto_enabled : true
-      ]
+      values
     );
+    
+    console.log('✅ [REPOSITORY] Assinante criado com sucesso:', result.rows[0]?.id || result.rows[0]?.email);
     return result.rows[0];
   } catch (error) {
-    console.error('❌ Erro em createSubscriber (repository):', error);
+    console.error('❌ [REPOSITORY] Erro em createSubscriber:', error);
+    console.error('❌ [REPOSITORY] Código do erro:', error.code);
+    console.error('❌ [REPOSITORY] Mensagem do erro:', error.message);
+    console.error('❌ [REPOSITORY] Detalhes do erro:', error.detail);
+    console.error('❌ [REPOSITORY] Stack trace:', error.stack);
     throw error;
   }
 }
