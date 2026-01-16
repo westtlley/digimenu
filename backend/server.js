@@ -380,7 +380,7 @@ app.get('/api/entities/:entity', authenticate, async (req, res) => {
     let items;
     if (usePostgreSQL) {
       items = await repo.listEntities(entity, filters, order_by, req.user);
-    } else {
+    } else if (db && db.entities) {
       items = db.entities[entity] || [];
       
       // Aplicar filtros
@@ -405,6 +405,8 @@ app.get('/api/entities/:entity', authenticate, async (req, res) => {
           return 0;
         });
       }
+    } else {
+      return res.status(500).json({ error: 'Banco de dados não inicializado' });
     }
     
     res.json(items);
