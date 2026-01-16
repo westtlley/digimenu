@@ -416,7 +416,7 @@ export default function Cardapio() {
 
       {/* Hero Banner - Banner Superior Grande */}
       {store.banner_image ? (
-        <div className="relative w-full h-[180px] md:h-[220px] overflow-hidden">
+        <div className="relative w-full h-[200px] md:h-[240px] overflow-hidden">
           {/* Background Image */}
           <img 
             src={store.banner_image} 
@@ -427,18 +427,35 @@ export default function Cardapio() {
           {/* Overlay Gradient */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/30"></div>
           
-          {/* Logo como Ícone sobre o Banner - Posição Superior Esquerda */}
-          {store.logo && (
-            <div className="absolute top-4 left-4 z-30">
-              <div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-white/95 backdrop-blur-sm p-1 shadow-2xl border-2 border-white/50">
+          {/* Logo e Nome do Restaurante - Topo Esquerdo (lado a lado) */}
+          <div className="absolute top-4 left-4 z-30 flex items-center gap-3">
+            {store.logo && (
+              <div className="w-12 h-12 md:w-16 md:h-16 rounded-full bg-white/95 backdrop-blur-sm p-1 shadow-2xl border-2 border-white/50 flex-shrink-0">
                 <img 
                   src={store.logo} 
                   alt={store.name} 
                   className="w-full h-full rounded-full object-cover"
                 />
               </div>
+            )}
+            <div className="text-white">
+              <h1 className="text-lg md:text-2xl font-bold drop-shadow-lg leading-tight">{store.name}</h1>
+              <div className="flex items-center gap-3 mt-1">
+                <div className="flex items-center gap-1.5">
+                  <span className={`w-1.5 h-1.5 rounded-full ${isStoreOpen ? 'bg-green-400' : 'bg-red-400'}`}></span>
+                  <span className="text-xs md:text-sm font-medium">{getStatusDisplay.text}</span>
+                </div>
+                {store.min_order_value > 0 && (
+                  <>
+                    <span className="text-white/60">•</span>
+                    <span className="text-xs md:text-sm opacity-90">
+                      Pedido mín. <span className="font-semibold">{formatCurrency(store.min_order_value)}</span>
+                    </span>
+                  </>
+                )}
+              </div>
             </div>
-          )}
+          </div>
           
           {/* Controles Superiores Direitos - Sobre o Banner */}
           <div className="absolute top-4 right-4 z-30 flex items-center gap-2">
@@ -495,8 +512,8 @@ export default function Cardapio() {
             </button>
           </div>
 
-          {/* Campo de Pesquisa - Sobre o Banner */}
-          <div className="absolute top-16 md:top-20 left-4 right-4 z-30">
+          {/* Campo de Pesquisa - Centralizado no Banner */}
+          <div className="absolute top-20 md:top-24 left-4 right-4 z-30">
             <div className="relative max-w-2xl mx-auto">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/80" />
               <Input
@@ -508,37 +525,25 @@ export default function Cardapio() {
             </div>
           </div>
 
-          {/* Status Aberto - Centralizado abaixo da pesquisa */}
-          <div className="absolute top-28 md:top-32 left-0 right-0 z-30 flex justify-center">
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/20 backdrop-blur-sm">
+          {/* Status Aberto abaixo da pesquisa */}
+          <div className="absolute top-36 md:top-40 left-0 right-0 z-30 flex justify-center">
+            <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-900/70 backdrop-blur-sm border border-gray-700/50">
               <span className={`w-2 h-2 rounded-full ${isStoreOpen ? 'bg-green-400' : 'bg-red-400'}`}></span>
               <span className="font-medium text-white text-sm md:text-base">{getStatusDisplay.text}</span>
             </div>
           </div>
           
-          {/* Informações da Loja - Parte Inferior do Banner */}
-          <div className="absolute bottom-0 left-0 right-0 p-3 md:p-4 text-white z-20">
-            <div className="max-w-7xl mx-auto flex items-end justify-between">
-              <div>
-                <h1 className="text-xl md:text-3xl font-bold mb-1 drop-shadow-lg">{store.name}</h1>
-                {store.min_order_value > 0 && (
-                  <div className="flex items-center gap-2 text-xs md:text-sm opacity-90">
-                    <span>Pedido mín.</span>
-                    <span className="font-bold">{formatCurrency(store.min_order_value)}</span>
-                  </div>
-                )}
-              </div>
-              {/* Perfil da Loja - Canto Direito Inferior */}
-              <button 
-                className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-colors text-xs md:text-sm"
-                onClick={() => {
-                  toast.success('Perfil da loja em breve!');
-                }}
-              >
-                <Info className="w-3 h-3 md:w-4 md:h-4" />
-                <span className="hidden sm:inline">Perfil da loja</span>
-              </button>
-            </div>
+          {/* Perfil da Loja - Canto Direito Inferior */}
+          <div className="absolute bottom-4 right-4 z-30">
+            <button 
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-colors text-white text-xs md:text-sm font-medium"
+              onClick={() => {
+                toast.success('Perfil da loja em breve!');
+              }}
+            >
+              <Info className="w-4 h-4" />
+              <span>Perfil da loja</span>
+            </button>
           </div>
         </div>
       ) : (
@@ -638,7 +643,7 @@ export default function Cardapio() {
       )}
 
       {/* Category Tabs - Melhoradas */}
-      <div className={`bg-card border-b border-border sticky z-30 ${store.banner_image ? 'md:top-0 top-0' : 'md:top-[120px] top-[165px]'}`}>
+      <div className={`bg-card border-b border-border sticky z-30 ${store.banner_image ? 'top-0' : 'md:top-[120px] top-[165px]'}`}>
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex items-center justify-between gap-3 md:py-3 py-4">
             <div className="flex gap-2 overflow-x-auto scrollbar-hide flex-1">
