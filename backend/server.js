@@ -19,6 +19,8 @@ import express from 'express';
 import cors from 'cors';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import passport from 'passport';
+import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 
 import cloudinary from './config/cloudinary.js';
 import { upload } from './middlewares/upload.js';
@@ -32,16 +34,23 @@ import * as repo from './db/repository.js';
 const app = express();
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
+const BACKEND_URL = process.env.BACKEND_URL || `http://localhost:${PORT}`;
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 
 // =======================
 // 🧱 MIDDLEWARES
 // =======================
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: FRONTEND_URL,
   credentials: true
 }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Inicializar Passport
+app.use(passport.initialize());
 
 // =======================
 // 🗃️ DATABASE (POSTGRESQL COM FALLBACK)
@@ -126,7 +135,9 @@ const getToken = req =>
 const publicRoutes = [
   '/api/health',
   '/api/upload-image',
-  '/api/auth/login'
+  '/api/auth/login',
+  '/api/auth/google',
+  '/api/auth/google/callback'
 ];
 
 const isPublicRoute = (path) => {
@@ -211,6 +222,152 @@ const authenticate = async (req, res, next) => {
     return res.status(401).json({ error: 'Token inválido ou expirado' });
   }
 };
+
+// =======================
+// 🔐 GOOGLE OAUTH CONFIGURATION
+// =======================
+if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET) {
+  // Configurar estratégia Google OAuth
+  passport.use(new GoogleStrategy({
+    clientID: GOOGLE_CLIENT_ID,
+    clientSecret: GOOGLE_CLIENT_SECRET,
+    callbackURL: `${BACKEND_URL}/api/auth/google/callback`
+  },
+  async (accessToken, refreshToken, profile, done) => {
+    try {
+      const email = profile.emails?.[0]?.value;
+      const name = profile.displayName || profile.name?.givenName || 'Usuário';
+      const googleId = profile.id;
+      const photo = profile.photos?.[0]?.value;
+
+      if (!email) {
+        return done(new Error('Email não fornecido pelo Google'), null);
+      }
+
+      // Buscar ou criar usuário
+      let user;
+      if (usePostgreSQL) {
+        user = await repo.getUserByEmail(email);
+        
+        if (!user) {
+          // Criar novo usuário
+          user = await repo.createUser({
+            email: email.toLowerCase(),
+            full_name: name,
+            role: 'user',
+            is_master: false,
+            google_id: googleId,
+            google_photo: photo
+          });
+        } else if (!user.google_id) {
+          // Atualizar usuário existente com dados do Google
+          user = await repo.updateUser(user.id, {
+            google_id: googleId,
+            google_photo: photo
+          });
+        }
+      } else if (db && db.users) {
+        user = db.users.find(u => u.email === email.toLowerCase());
+        
+        if (!user) {
+          // Criar novo usuário
+          const newUser = {
+            id: Date.now().toString(),
+            email: email.toLowerCase(),
+            full_name: name,
+            role: 'user',
+            is_master: false,
+            google_id: googleId,
+            google_photo: photo,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          };
+          db.users.push(newUser);
+          if (saveDatabaseDebounced) {
+            saveDatabaseDebounced(db);
+          }
+          user = newUser;
+        } else if (!user.google_id) {
+          // Atualizar usuário existente
+          user.google_id = googleId;
+          user.google_photo = photo;
+          user.updated_at = new Date().toISOString();
+          if (saveDatabaseDebounced) {
+            saveDatabaseDebounced(db);
+          }
+        }
+      }
+
+      return done(null, user);
+    } catch (error) {
+      console.error('Erro ao processar login Google:', error);
+      return done(error, null);
+    }
+  }));
+
+  // Serializar usuário para sessão (não usado, mas necessário)
+  passport.serializeUser((user, done) => {
+    done(null, user.id);
+  });
+
+  passport.deserializeUser(async (id, done) => {
+    try {
+      let user;
+      if (usePostgreSQL) {
+        user = await repo.getUserById(id);
+      } else if (db && db.users) {
+        user = db.users.find(u => u.id === id);
+      }
+      done(null, user || null);
+    } catch (error) {
+      done(error, null);
+    }
+  });
+
+  // Rota para iniciar autenticação Google
+  app.get('/api/auth/google',
+    passport.authenticate('google', { scope: ['profile', 'email'] })
+  );
+
+  // Callback do Google OAuth
+  app.get('/api/auth/google/callback',
+    passport.authenticate('google', { session: false, failureRedirect: `${FRONTEND_URL}/login?error=google_auth_failed` }),
+    async (req, res) => {
+      try {
+        const user = req.user;
+
+        if (!user) {
+          return res.redirect(`${FRONTEND_URL}/login?error=user_not_found`);
+        }
+
+        // Gerar token JWT
+        const token = jwt.sign(
+          {
+            id: user.id,
+            email: user.email,
+            role: user.role,
+            is_master: user.is_master
+          },
+          JWT_SECRET,
+          { expiresIn: '7d' }
+        );
+
+        // Armazenar token ativo
+        activeTokens[token] = user.email;
+
+        // Redirecionar para frontend com token
+        res.redirect(`${FRONTEND_URL}/auth/callback?token=${token}&email=${encodeURIComponent(user.email)}&name=${encodeURIComponent(user.full_name || '')}`);
+      } catch (error) {
+        console.error('Erro no callback Google:', error);
+        res.redirect(`${FRONTEND_URL}/login?error=callback_error`);
+      }
+    }
+  );
+
+  console.log('✅ Google OAuth configurado');
+} else {
+  console.log('⚠️ Google OAuth não configurado (GOOGLE_CLIENT_ID ou GOOGLE_CLIENT_SECRET não definidos)');
+}
 
 // =======================
 // 🔐 AUTHENTICATION

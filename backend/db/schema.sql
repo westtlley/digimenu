@@ -10,6 +10,8 @@ CREATE TABLE IF NOT EXISTS users (
   is_master BOOLEAN DEFAULT FALSE,
   role VARCHAR(50) DEFAULT 'user',
   subscriber_email VARCHAR(255),
+  google_id VARCHAR(255),
+  google_photo TEXT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

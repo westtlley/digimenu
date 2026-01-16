@@ -280,21 +280,79 @@ export async function getUserByEmail(email) {
   return result.rows[0] || null;
 }
 
+export async function getUserById(id) {
+  const result = await query(
+    'SELECT * FROM users WHERE id = $1',
+    [id]
+  );
+  return result.rows[0] || null;
+}
+
 export async function createUser(userData) {
   const result = await query(
-    `INSERT INTO users (email, full_name, password, is_master, role, subscriber_email)
-     VALUES ($1, $2, $3, $4, $5, $6)
+    `INSERT INTO users (email, full_name, password, is_master, role, subscriber_email, google_id, google_photo)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
      RETURNING *`,
     [
       userData.email,
       userData.full_name,
-      userData.password,
+      userData.password || null,
       userData.is_master || false,
       userData.role || 'user',
-      userData.subscriber_email
+      userData.subscriber_email || null,
+      userData.google_id || null,
+      userData.google_photo || null
     ]
   );
   return result.rows[0];
+}
+
+export async function updateUser(id, userData) {
+  const updates = [];
+  const values = [];
+  let paramIndex = 1;
+
+  if (userData.email !== undefined) {
+    updates.push(`email = $${paramIndex++}`);
+    values.push(userData.email);
+  }
+  if (userData.full_name !== undefined) {
+    updates.push(`full_name = $${paramIndex++}`);
+    values.push(userData.full_name);
+  }
+  if (userData.password !== undefined) {
+    updates.push(`password = $${paramIndex++}`);
+    values.push(userData.password);
+  }
+  if (userData.role !== undefined) {
+    updates.push(`role = $${paramIndex++}`);
+    values.push(userData.role);
+  }
+  if (userData.google_id !== undefined) {
+    updates.push(`google_id = $${paramIndex++}`);
+    values.push(userData.google_id);
+  }
+  if (userData.google_photo !== undefined) {
+    updates.push(`google_photo = $${paramIndex++}`);
+    values.push(userData.google_photo);
+  }
+
+  if (updates.length === 0) {
+    return await getUserById(id);
+  }
+
+  updates.push(`updated_at = CURRENT_TIMESTAMP`);
+  values.push(id);
+
+  const sql = `
+    UPDATE users
+    SET ${updates.join(', ')}
+    WHERE id = $${paramIndex}
+    RETURNING *
+  `;
+
+  const result = await query(sql, values);
+  return result.rows[0] || null;
 }
 
 // =======================
