@@ -21,10 +21,11 @@ CREATE TABLE IF NOT EXISTS subscribers (
   id SERIAL PRIMARY KEY,
   email VARCHAR(255) UNIQUE NOT NULL,
   name VARCHAR(255),
-  plan VARCHAR(50) DEFAULT 'basic',
-  status VARCHAR(50) DEFAULT 'active',
+  plan VARCHAR(50) DEFAULT 'basic', -- 'basic', 'premium', 'pro', 'admin'
+  status VARCHAR(50) DEFAULT 'active', -- 'active', 'inactive', 'suspended', 'expired'
   expires_at TIMESTAMP,
-  permissions JSONB DEFAULT '{}',
+  permissions JSONB DEFAULT '{}', -- Permissões customizadas (opcional, sobrescreve padrão do plano)
+  whatsapp_auto_enabled BOOLEAN DEFAULT true, -- Comanda automática WhatsApp (pode desativar)
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

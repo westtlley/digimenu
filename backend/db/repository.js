@@ -374,8 +374,8 @@ export async function getSubscriberByEmail(email) {
 
 export async function createSubscriber(subscriberData) {
   const result = await query(
-    `INSERT INTO subscribers (email, name, plan, status, expires_at, permissions)
-     VALUES ($1, $2, $3, $4, $5, $6)
+    `INSERT INTO subscribers (email, name, plan, status, expires_at, permissions, whatsapp_auto_enabled)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
      RETURNING *`,
     [
       subscriberData.email,
@@ -383,27 +383,58 @@ export async function createSubscriber(subscriberData) {
       subscriberData.plan || 'basic',
       subscriberData.status || 'active',
       subscriberData.expires_at || null,
-      JSON.stringify(subscriberData.permissions || {})
+      JSON.stringify(subscriberData.permissions || {}),
+      subscriberData.whatsapp_auto_enabled !== undefined ? subscriberData.whatsapp_auto_enabled : true
     ]
   );
   return result.rows[0];
 }
 
 export async function updateSubscriber(email, subscriberData) {
-  const result = await query(
-    `UPDATE subscribers
-     SET name = $1, plan = $2, status = $3, expires_at = $4, permissions = $5, updated_at = CURRENT_TIMESTAMP
-     WHERE email = $6
-     RETURNING *`,
-    [
-      subscriberData.name,
-      subscriberData.plan,
-      subscriberData.status,
-      subscriberData.expires_at || null,
-      JSON.stringify(subscriberData.permissions || {}),
-      email
-    ]
-  );
+  const updates = [];
+  const values = [];
+  let paramIndex = 1;
+
+  if (subscriberData.name !== undefined) {
+    updates.push(`name = $${paramIndex++}`);
+    values.push(subscriberData.name);
+  }
+  if (subscriberData.plan !== undefined) {
+    updates.push(`plan = $${paramIndex++}`);
+    values.push(subscriberData.plan);
+  }
+  if (subscriberData.status !== undefined) {
+    updates.push(`status = $${paramIndex++}`);
+    values.push(subscriberData.status);
+  }
+  if (subscriberData.expires_at !== undefined) {
+    updates.push(`expires_at = $${paramIndex++}`);
+    values.push(subscriberData.expires_at);
+  }
+  if (subscriberData.permissions !== undefined) {
+    updates.push(`permissions = $${paramIndex++}`);
+    values.push(JSON.stringify(subscriberData.permissions));
+  }
+  if (subscriberData.whatsapp_auto_enabled !== undefined) {
+    updates.push(`whatsapp_auto_enabled = $${paramIndex++}`);
+    values.push(subscriberData.whatsapp_auto_enabled);
+  }
+
+  if (updates.length === 0) {
+    return await getSubscriberByEmail(email);
+  }
+
+  updates.push(`updated_at = CURRENT_TIMESTAMP`);
+  values.push(email);
+
+  const sql = `
+    UPDATE subscribers
+    SET ${updates.join(', ')}
+    WHERE email = $${paramIndex}
+    RETURNING *
+  `;
+
+  const result = await query(sql, values);
   return result.rows[0] || null;
 }
 
