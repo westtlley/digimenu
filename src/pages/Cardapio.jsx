@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { apiClient as base44 } from '@/api/apiClient';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { ShoppingCart, Search, Clock, Star, Share2, MapPin, Info, Home, Receipt, Gift, User } from 'lucide-react';
+import { ShoppingCart, Search, Clock, Star, Share2, MapPin, Info, Home, Receipt, Gift, User, MessageSquare } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { motion } from 'framer-motion';
@@ -17,7 +17,6 @@ import UpsellModal from '../components/menu/UpsellModal';
 import DishSkeleton from '../components/menu/DishSkeleton';
 import PromotionBanner from '../components/menu/PromotionBanner';
 import RecentOrders from '../components/menu/RecentOrders';
-import AdvancedFilters from '../components/menu/AdvancedFilters';
 import UserAuthButton from '../components/atoms/UserAuthButton';
 import CustomerProfileModal from '../components/customer/CustomerProfileModal';
 import StoreClosedOverlay from '../components/menu/StoreClosedOverlay';
@@ -46,7 +45,6 @@ export default function Cardapio() {
   const [currentView, setCurrentView] = useState('menu');
   const [showOrderHistory, setShowOrderHistory] = useState(false);
   const [showCustomerProfile, setShowCustomerProfile] = useState(false);
-  const [advancedFilters, setAdvancedFilters] = useState({ priceRange: null, tags: [] });
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   // Custom Hooks
@@ -170,15 +168,10 @@ export default function Cardapio() {
       const matchesSearch = !searchTerm || dish.name?.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesCategory = selectedCategory === 'all' || dish.category_id === selectedCategory;
       
-      const matchesPrice = !advancedFilters.priceRange || 
-        (dish.price >= advancedFilters.priceRange.min && dish.price <= advancedFilters.priceRange.max);
-      
-      const matchesTags = !advancedFilters.tags?.length || 
-        advancedFilters.tags.every(tag => dish.tags?.includes(tag));
       
       return matchesSearch && matchesCategory && matchesPrice && matchesTags;
     });
-  }, [activeDishes, searchTerm, selectedCategory, advancedFilters]);
+  }, [activeDishes, searchTerm, selectedCategory]);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -525,14 +518,6 @@ export default function Cardapio() {
             </div>
           </div>
 
-          {/* Status Aberto abaixo da pesquisa */}
-          <div className="absolute top-36 md:top-40 left-0 right-0 z-30 flex justify-center">
-            <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-900/70 backdrop-blur-sm border border-gray-700/50">
-              <span className={`w-2 h-2 rounded-full ${isStoreOpen ? 'bg-green-400' : 'bg-red-400'}`}></span>
-              <span className="font-medium text-white text-sm md:text-base">{getStatusDisplay.text}</span>
-            </div>
-          </div>
-          
           {/* Perfil da Loja - Canto Direito Inferior */}
           <div className="absolute bottom-4 right-4 z-30">
             <button 
@@ -679,13 +664,6 @@ export default function Cardapio() {
                 </button>
               ))}
             </div>
-            <AdvancedFilters 
-              filters={advancedFilters}
-              onFiltersChange={setAdvancedFilters}
-              primaryColor={primaryColor}
-              availableTags={store.available_tags}
-              tagLabels={store.tag_labels}
-            />
           </div>
         </div>
       </div>
@@ -962,13 +940,17 @@ export default function Cardapio() {
             <span className="text-[10px] font-medium">Início</span>
           </button>
           
-          <button
-            onClick={() => setShowOrderHistory(true)}
-            className="flex flex-col items-center justify-center gap-1 flex-1 h-full text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <Receipt className="w-5 h-5" />
-            <span className="text-[10px] font-medium">Pedidos</span>
-          </button>
+          {store.whatsapp && (
+            <a
+              href={`https://wa.me/55${store.whatsapp.replace(/\D/g, '')}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex flex-col items-center justify-center gap-1 flex-1 h-full text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <MessageSquare className="w-5 h-5" />
+              <span className="text-[10px] font-medium">WhatsApp</span>
+            </a>
+          )}
           
           <button
             onClick={() => {
@@ -1002,9 +984,9 @@ export default function Cardapio() {
       </nav>
 
       {/* Footer */}
-      <footer className="bg-card border-t border-border text-foreground mt-12">
-        <div className="max-w-7xl mx-auto px-4 py-12">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <footer className="bg-card border-t border-border text-foreground mt-8">
+        <div className="max-w-7xl mx-auto px-4 py-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               {store.logo && (
                 <img src={store.logo} alt={store.name} className="w-16 h-16 rounded-lg object-cover mb-4" />
@@ -1087,7 +1069,7 @@ export default function Cardapio() {
             </div>
           </div>
 
-          <div className="border-t border-border mt-8 pt-8 text-center text-sm text-muted-foreground">
+          <div className="border-t border-border mt-4 pt-4 text-center text-xs text-muted-foreground">
             © 2025 {store.name}. Todos os direitos reservados.
           </div>
         </div>

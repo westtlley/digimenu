@@ -42,17 +42,8 @@ export default function StoreTab() {
     opening_time: '08:00',
     closing_time: '18:00',
     working_days: [1, 2, 3, 4, 5],
-    available_tags: ['vegetariano', 'vegano', 'sem_gluten', 'picante', 'fit'],
-    tag_labels: {
-      vegetariano: '🥗 Vegetariano',
-      vegano: '🌱 Vegano',
-      sem_gluten: '🌾 Sem Glúten',
-      picante: '🌶️ Picante',
-      fit: '💪 Fit'
-    },
   });
   const [newPaymentMethod, setNewPaymentMethod] = useState({ name: '', image: '' });
-  const [newTag, setNewTag] = useState({ key: '', label: '' });
 
   const queryClient = useQueryClient();
 
@@ -97,14 +88,6 @@ export default function StoreTab() {
         opening_time: store.opening_time || '08:00',
         closing_time: store.closing_time || '18:00',
         working_days: store.working_days || [1, 2, 3, 4, 5],
-        available_tags: store.available_tags || ['vegetariano', 'vegano', 'sem_gluten', 'picante', 'fit'],
-        tag_labels: store.tag_labels || {
-          vegetariano: '🥗 Vegetariano',
-          vegano: '🌱 Vegano',
-          sem_gluten: '🌾 Sem Glúten',
-          picante: '🌶️ Picante',
-          fit: '💪 Fit'
-        },
       }));
     }
   }, [store]);
@@ -803,84 +786,6 @@ export default function StoreTab() {
                     Adicionar Forma de Pagamento
                   </Button>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Seção: Preferências */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Tag className="w-5 h-5 text-orange-500" />
-                Preferências Alimentares
-              </CardTitle>
-              <CardDescription>Tags disponíveis para filtro no cardápio</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {formData.available_tags?.length > 0 && (
-                <div className="space-y-2">
-                  {formData.available_tags.map((tagKey, idx) => (
-                    <div key={idx} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border">
-                      <span className="text-sm font-medium text-gray-700 w-32">{tagKey}</span>
-                      <Input
-                        value={formData.tag_labels?.[tagKey] || ''}
-                        onChange={(e) => setFormData(prev => ({
-                          ...prev,
-                          tag_labels: { ...prev.tag_labels, [tagKey]: e.target.value }
-                        }))}
-                        placeholder="Ex: 🥗 Vegetariano"
-                        className="flex-1"
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setFormData(prev => {
-                          const newTags = [...prev.available_tags];
-                          newTags.splice(idx, 1);
-                          const newLabels = { ...prev.tag_labels };
-                          delete newLabels[tagKey];
-                          return { ...prev, available_tags: newTags, tag_labels: newLabels };
-                        })}
-                        className="text-red-600 hover:text-red-700"
-                      >
-                        Remover
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <div className="space-y-3 p-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-                <Input
-                  placeholder="ID da tag (ex: vegetariano, vegano)"
-                  value={newTag.key}
-                  onChange={(e) => setNewTag(prev => ({ ...prev, key: e.target.value.toLowerCase().replace(/\s+/g, '_') }))}
-                />
-                <Input
-                  placeholder="Label com emoji (ex: 🥗 Vegetariano)"
-                  value={newTag.label}
-                  onChange={(e) => setNewTag(prev => ({ ...prev, label: e.target.value }))}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    if (newTag.key && newTag.label) {
-                      setFormData(prev => ({
-                        ...prev,
-                        available_tags: [...(prev.available_tags || []), newTag.key],
-                        tag_labels: { ...(prev.tag_labels || {}), [newTag.key]: newTag.label }
-                      }));
-                      setNewTag({ key: '', label: '' });
-                      toast.success('Tag adicionada');
-                    }
-                  }}
-                  className="w-full"
-                >
-                  Adicionar Tag
-                </Button>
               </div>
             </CardContent>
           </Card>
