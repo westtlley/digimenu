@@ -197,8 +197,10 @@ const authenticate = async (req, res, next) => {
       console.warn('⚠️ JWT inválido, usando usuário padrão (dev mode)');
       if (usePostgreSQL) {
         req.user = await repo.getUserByEmail('admin@digimenu.com');
-      } else {
+      } else if (db && db.users && db.users.length > 0) {
         req.user = db.users[0];
+      } else {
+        return res.status(401).json({ error: 'Usuário padrão não encontrado' });
       }
       return next();
     }
@@ -602,7 +604,7 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
     if (name === 'getSubscribers') {
       const subscribers = usePostgreSQL 
         ? await repo.listSubscribers()
-        : (db?.subscribers || []);
+        : (db && db.subscribers ? db.subscribers : []);
       return res.json({ data: subscribers });
     }
     
