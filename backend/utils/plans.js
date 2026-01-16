@@ -52,9 +52,12 @@ const BASIC_PERMISSIONS = {
     admin_subscribers: false,
     admin_settings: false,
     admin_master: false
-  },
-  
-  [PLANS.PREMIUM]: {
+  };
+
+/**
+ * Permissões do plano Premium
+ */
+const PREMIUM_PERMISSIONS = {
     // Tudo do Básico
     ...BASIC_PERMISSIONS,
     
