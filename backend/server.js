@@ -875,19 +875,39 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
       }
       
       try {
+        console.log('📝 Atualizando assinante:', { 
+          email: data.email, 
+          id: data.id,
+          plan: data.plan 
+        });
+        
         const subscriber = usePostgreSQL
           ? await repo.updateSubscriber(data.email || data.id, data)
-        : (() => {
-            if (!db || !db.subscribers) {
-              throw new Error('Banco de dados não inicializado');
-            }
-            const index = db.subscribers.findIndex(s => s.email === data.email);
-            if (index === -1) return null;
-            db.subscribers[index] = { ...db.subscribers[index], ...data, updated_at: new Date().toISOString() };
-            if (saveDatabaseDebounced) saveDatabaseDebounced(db);
-            return db.subscribers[index];
-          })();
-      return res.json({ data: subscriber });
+          : (() => {
+              if (!db || !db.subscribers) {
+                throw new Error('Banco de dados não inicializado');
+              }
+              const index = db.subscribers.findIndex(s => s.email === data.email || s.id === data.id);
+              if (index === -1) return null;
+              db.subscribers[index] = { ...db.subscribers[index], ...data, updated_at: new Date().toISOString() };
+              if (saveDatabaseDebounced) saveDatabaseDebounced(db);
+              return db.subscribers[index];
+            })();
+        
+        if (!subscriber) {
+          return res.status(404).json({ error: 'Assinante não encontrado' });
+        }
+        
+        console.log('✅ Assinante atualizado com sucesso:', subscriber.id || subscriber.email);
+        return res.json({ data: { subscriber } });
+      } catch (error) {
+        console.error('❌ Erro ao atualizar assinante:', error);
+        console.error('❌ Stack trace:', error.stack);
+        return res.status(500).json({ 
+          error: 'Erro ao atualizar assinante',
+          details: error.message 
+        });
+      }
     }
     
     if (name === 'deleteSubscriber') {
@@ -896,19 +916,39 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
         return res.status(403).json({ error: 'Acesso negado' });
       }
       
-      const subscriber = usePostgreSQL
-        ? await repo.deleteSubscriber(data.email)
-        : (() => {
-            if (!db || !db.subscribers) {
-              throw new Error('Banco de dados não inicializado');
-            }
-            const index = db.subscribers.findIndex(s => s.email === data.email);
-            if (index === -1) return null;
-            const deleted = db.subscribers.splice(index, 1)[0];
-            if (saveDatabaseDebounced) saveDatabaseDebounced(db);
-            return deleted;
-          })();
-      return res.json({ data: subscriber });
+      try {
+        console.log('🗑️ Deletando assinante:', { 
+          email: data.email, 
+          id: data.id 
+        });
+        
+        const subscriber = usePostgreSQL
+          ? await repo.deleteSubscriber(data.email || data.id)
+          : (() => {
+              if (!db || !db.subscribers) {
+                throw new Error('Banco de dados não inicializado');
+              }
+              const index = db.subscribers.findIndex(s => s.email === data.email || s.id === data.id);
+              if (index === -1) return null;
+              const deleted = db.subscribers.splice(index, 1)[0];
+              if (saveDatabaseDebounced) saveDatabaseDebounced(db);
+              return deleted;
+            })();
+        
+        if (!subscriber) {
+          return res.status(404).json({ error: 'Assinante não encontrado' });
+        }
+        
+        console.log('✅ Assinante deletado com sucesso:', subscriber.id || subscriber.email);
+        return res.json({ data: { subscriber } });
+      } catch (error) {
+        console.error('❌ Erro ao deletar assinante:', error);
+        console.error('❌ Stack trace:', error.stack);
+        return res.status(500).json({ 
+          error: 'Erro ao deletar assinante',
+          details: error.message 
+        });
+      }
     }
     
     if (name === 'checkSubscriptionStatus') {

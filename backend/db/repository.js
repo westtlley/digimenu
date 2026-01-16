@@ -454,11 +454,21 @@ export async function updateSubscriber(email, subscriberData) {
   return result.rows[0] || null;
 }
 
-export async function deleteSubscriber(email) {
-  const result = await query(
+export async function deleteSubscriber(emailOrId) {
+  // Tentar deletar por email primeiro, depois por id
+  let result = await query(
     'DELETE FROM subscribers WHERE email = $1 RETURNING *',
-    [email]
+    [emailOrId]
   );
+  
+  if (result.rows.length === 0) {
+    // Se não encontrou por email, tentar por id
+    result = await query(
+      'DELETE FROM subscribers WHERE id = $1 RETURNING *',
+      [emailOrId]
+    );
+  }
+  
   return result.rows[0] || null;
 }
 
