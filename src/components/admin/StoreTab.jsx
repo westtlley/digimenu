@@ -165,7 +165,7 @@ export default function StoreTab() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ data }) => {
-      console.log('Salvando dados da loja:', data);
+      console.log('💾 [StoreTab] Salvando dados da loja:', data);
       
       // Limpar dados: remover valores undefined e garantir que arrays sejam válidos
       const cleanData = Object.keys(data).reduce((acc, key) => {
@@ -186,27 +186,33 @@ export default function StoreTab() {
         owner_email: user?.subscriber_email || user?.email
       };
       
-      console.log('Dados limpos a serem salvos:', storeData);
+      console.log('✅ [StoreTab] Dados limpos a serem salvos:', JSON.stringify(storeData, null, 2));
       
       // Sempre usar o método direto de update/create para garantir que funcione
       try {
         const stores = await base44.entities.Store.list();
-        console.log('Lojas encontradas:', stores.length);
+        console.log('📋 [StoreTab] Lojas encontradas:', stores.length, stores);
         
         if (stores.length === 0) {
-          console.log('Criando nova loja...');
+          console.log('➕ [StoreTab] Criando nova loja...');
           const created = await base44.entities.Store.create(storeData);
-          console.log('Loja criada:', created);
+          console.log('✅ [StoreTab] Loja criada com sucesso:', created);
           return { success: true, store: created };
         } else {
-          console.log('Atualizando loja existente (ID:', stores[0].id, ')...');
+          console.log('🔄 [StoreTab] Atualizando loja existente (ID:', stores[0].id, ')...');
+          console.log('📤 [StoreTab] Enviando dados:', JSON.stringify(storeData, null, 2));
           const updated = await base44.entities.Store.update(stores[0].id, storeData);
-          console.log('Loja atualizada:', updated);
+          console.log('✅ [StoreTab] Loja atualizada com sucesso:', updated);
           return { success: true, store: updated };
         }
       } catch (error) {
-        console.error('Erro ao salvar loja:', error);
-        console.error('Stack:', error.stack);
+        console.error('❌ [StoreTab] Erro ao salvar loja:', error);
+        console.error('❌ [StoreTab] Detalhes do erro:', {
+          message: error.message,
+          stack: error.stack,
+          response: error.response,
+          data: error.data
+        });
         throw error;
       }
     },
@@ -227,8 +233,14 @@ export default function StoreTab() {
       }, 1000);
     },
     onError: (error) => {
-      console.error('Erro ao salvar:', error);
-      const errorMessage = error?.message || error?.toString() || 'Erro desconhecido';
+      console.error('❌ Erro ao salvar loja:', error);
+      console.error('❌ Erro detalhado:', {
+        message: error?.message,
+        stack: error?.stack,
+        response: error?.response,
+        data: error?.data
+      });
+      const errorMessage = error?.message || error?.response?.data?.message || error?.toString() || 'Erro desconhecido';
       toast.error('❌ Erro ao salvar as configurações da loja. ' + errorMessage, {
         duration: 5000,
         position: 'top-center'
