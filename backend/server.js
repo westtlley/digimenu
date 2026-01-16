@@ -41,24 +41,43 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // =======================
-// 🗃️ DATABASE (MEMÓRIA)
+// 🗃️ DATABASE (PERSISTENTE)
 // =======================
-const db = {
-  users: [
-    {
-      id: '1',
-      email: 'admin@digimenu.com',
-      full_name: 'Administrador',
-      is_master: true,
-      role: 'admin',
-      password: 'admin123'
-    }
-  ],
-  customers: [],
-  entities: {},
-  subscribers: [],
-  passwordTokens: {}
-};
+import { loadDatabase, saveDatabase, saveDatabaseDebounced } from './db/persistence.js';
+
+// Carregar dados do arquivo ao iniciar
+const db = loadDatabase();
+
+// Garantir que o usuário admin sempre existe
+if (!db.users.find(u => u.email === 'admin@digimenu.com')) {
+  db.users.push({
+    id: '1',
+    email: 'admin@digimenu.com',
+    full_name: 'Administrador',
+    is_master: true,
+    role: 'admin',
+    password: 'admin123'
+  });
+  saveDatabase(db);
+}
+
+// Salvar dados periodicamente (a cada 30 segundos) e ao encerrar
+setInterval(() => {
+  saveDatabase(db);
+}, 30000);
+
+// Salvar ao encerrar o processo
+process.on('SIGTERM', () => {
+  console.log('💾 Salvando banco de dados antes de encerrar...');
+  saveDatabase(db);
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  console.log('💾 Salvando banco de dados antes de encerrar...');
+  saveDatabase(db);
+  process.exit(0);
+});
 
 const activeTokens = {};
 
@@ -354,6 +373,7 @@ app.post('/api/entities/:entity', authenticate, (req, res) => {
     };
     
     db.entities[entity].push(newItem);
+    saveDatabaseDebounced(db); // Salvar após criar
     
     console.log(`✅ [${entity}] Item criado:`, newItem.id);
     res.status(201).json(newItem);
@@ -402,6 +422,7 @@ app.delete('/api/entities/:entity/:id', authenticate, (req, res) => {
     }
     
     items.splice(index, 1);
+    saveDatabaseDebounced(db); // Salvar após deletar
     
     console.log(`✅ [${entity}] Item deletado:`, id);
     res.json({ success: true });
@@ -429,6 +450,7 @@ app.post('/api/entities/:entity/bulk', authenticate, (req, res) => {
     }));
     
     db.entities[entity].push(...newItems);
+    saveDatabaseDebounced(db); // Salvar após criar em bulk
     
     console.log(`✅ [${entity}] ${newItems.length} itens criados`);
     res.status(201).json(newItems);
