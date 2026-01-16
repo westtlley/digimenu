@@ -8,7 +8,8 @@ export const PLANS = {
   BASIC: 'basic',
   PREMIUM: 'premium',
   PRO: 'pro',
-  ADMIN: 'admin'
+  ADMIN: 'admin',
+  CUSTOM: 'custom' // Plano personalizado com permissões customizadas
 };
 
 /**

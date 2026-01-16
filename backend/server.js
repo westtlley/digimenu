@@ -794,22 +794,46 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
       if (!req.user?.is_master) {
         return res.status(403).json({ error: 'Acesso negado' });
       }
-      const subscriber = usePostgreSQL
-        ? await repo.createSubscriber(data)
-        : (() => {
-            const newSub = {
-              id: Date.now().toString(),
-              ...data,
-              whatsapp_auto_enabled: data.whatsapp_auto_enabled !== undefined ? data.whatsapp_auto_enabled : true,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            };
-            if (!db.subscribers) db.subscribers = [];
-            db.subscribers.push(newSub);
-            if (saveDatabaseDebounced) saveDatabaseDebounced(db);
-            return newSub;
-          })();
-      return res.json({ data: subscriber });
+      
+      // Validar plano
+      const validPlans = ['basic', 'premium', 'pro', 'admin', 'custom'];
+      if (data.plan && !validPlans.includes(data.plan)) {
+        return res.status(400).json({ 
+          error: `Plano inválido: ${data.plan}. Planos válidos: ${validPlans.join(', ')}` 
+        });
+      }
+      
+      // Se for plano custom, garantir que tem permissões definidas
+      if (data.plan === 'custom' && (!data.permissions || Object.keys(data.permissions).length === 0)) {
+        return res.status(400).json({ 
+          error: 'Plano custom requer permissões definidas' 
+        });
+      }
+      
+      try {
+        const subscriber = usePostgreSQL
+          ? await repo.createSubscriber(data)
+          : (() => {
+              const newSub = {
+                id: Date.now().toString(),
+                ...data,
+                whatsapp_auto_enabled: data.whatsapp_auto_enabled !== undefined ? data.whatsapp_auto_enabled : true,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              };
+              if (!db.subscribers) db.subscribers = [];
+              db.subscribers.push(newSub);
+              if (saveDatabaseDebounced) saveDatabaseDebounced(db);
+              return newSub;
+            })();
+        return res.json({ data: subscriber });
+      } catch (error) {
+        console.error('Erro ao criar assinante:', error);
+        return res.status(500).json({ 
+          error: 'Erro ao criar assinante',
+          details: error.message 
+        });
+      }
     }
     
     if (name === 'updateSubscriber') {
@@ -818,8 +842,26 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
         return res.status(403).json({ error: 'Acesso negado' });
       }
       
-      const subscriber = usePostgreSQL
-        ? await repo.updateSubscriber(data.email, data)
+      // Validar plano se estiver sendo atualizado
+      if (data.plan) {
+        const validPlans = ['basic', 'premium', 'pro', 'admin', 'custom'];
+        if (!validPlans.includes(data.plan)) {
+          return res.status(400).json({ 
+            error: `Plano inválido: ${data.plan}. Planos válidos: ${validPlans.join(', ')}` 
+          });
+        }
+        
+        // Se for plano custom, garantir que tem permissões definidas
+        if (data.plan === 'custom' && (!data.permissions || Object.keys(data.permissions).length === 0)) {
+          return res.status(400).json({ 
+            error: 'Plano custom requer permissões definidas' 
+          });
+        }
+      }
+      
+      try {
+        const subscriber = usePostgreSQL
+          ? await repo.updateSubscriber(data.email || data.id, data)
         : (() => {
             if (!db || !db.subscribers) {
               throw new Error('Banco de dados não inicializado');

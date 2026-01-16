@@ -42,7 +42,14 @@ async function getUserPlan(user, usePostgreSQL, db) {
     return null;
   }
   
-  return subscriber.plan || PLANS.BASIC;
+  const plan = subscriber.plan || PLANS.BASIC;
+  
+  // Se for plano custom, retornar 'custom' (permissões vêm do campo permissions)
+  if (plan === 'custom') {
+    return 'custom';
+  }
+  
+  return plan;
 }
 
 /**
