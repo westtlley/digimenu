@@ -413,27 +413,22 @@ export default function Cardapio() {
       )}
 
       {/* Hero Banner - Banner Superior Grande */}
-      {store.banner_image || highlightDishes.length > 0 ? (
-        <div className="relative w-full h-[200px] md:h-[300px] overflow-hidden">
+      {store.banner_image ? (
+        <div className="relative w-full h-[250px] md:h-[350px] overflow-hidden">
           {/* Background Image */}
-          {store.banner_image ? (
-            <img 
-              src={store.banner_image} 
-              alt={store.name}
-              className="w-full h-full object-cover"
-            />
-          ) : highlightDishes[0]?.image ? (
-            <img 
-              src={highlightDishes[0].image} 
-              alt="Destaque"
-              className="w-full h-full object-cover"
-            />
-          ) : null}
+          <img 
+            src={store.banner_image} 
+            alt={store.name}
+            className="w-full h-full object-cover"
+          />
           
-          {/* Logo como Ícone sobre o Banner */}
+          {/* Overlay Gradient */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/30"></div>
+          
+          {/* Logo como Ícone sobre o Banner - Posição Superior Esquerda */}
           {store.logo && (
-            <div className="absolute top-4 left-4 z-20">
-              <div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-white/90 backdrop-blur-sm p-1 shadow-lg">
+            <div className="absolute top-4 left-4 z-30">
+              <div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-white/95 backdrop-blur-sm p-1 shadow-2xl border-2 border-white/50">
                 <img 
                   src={store.logo} 
                   alt={store.name} 
@@ -443,11 +438,63 @@ export default function Cardapio() {
             </div>
           )}
           
-          {/* Overlay Gradient */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent"></div>
+          {/* Controles Superiores Direitos - Sobre o Banner */}
+          <div className="absolute top-4 right-4 z-30 flex items-center gap-2">
+            <button 
+              className="p-2 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-colors text-white" 
+              onClick={() => {
+                if (navigator.share) {
+                  navigator.share({
+                    title: store.name,
+                    text: `Confira o cardápio de ${store.name}`,
+                    url: window.location.href
+                  }).catch(() => {});
+                } else {
+                  navigator.clipboard.writeText(window.location.href);
+                  toast.success('Link copiado!');
+                }
+              }}
+              title="Compartilhar"
+            >
+              <Share2 className="w-5 h-5" />
+            </button>
+            <ThemeToggle className="text-white hover:bg-white/20" />
+            <UserAuthButton />
+            <button 
+              className="p-2 rounded-full relative bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-colors text-white" 
+              onClick={() => setShowCartModal(true)}
+            >
+              <ShoppingCart className="w-5 h-5" />
+              {cart.length > 0 && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">
+                  {cartItemsCount}
+                </span>
+              )}
+            </button>
+            <button 
+              className="p-2 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-colors text-white hidden md:flex" 
+              onClick={() => setShowOrderHistory(true)}
+              title="Meus Pedidos"
+            >
+              <Clock className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Campo de Pesquisa - Sobre o Banner */}
+          <div className="absolute top-20 md:top-24 left-4 right-4 z-30">
+            <div className="relative max-w-2xl mx-auto">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/80" />
+              <Input
+                placeholder="O que você procura hoje?"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 h-12 text-base bg-white/90 backdrop-blur-sm border-white/30 text-foreground placeholder:text-muted-foreground"
+              />
+            </div>
+          </div>
           
-          {/* Content */}
-          <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 text-white">
+          {/* Informações da Loja - Parte Inferior do Banner */}
+          <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 text-white z-20">
             <div className="max-w-7xl mx-auto">
               <h1 className="text-2xl md:text-4xl font-bold mb-2 drop-shadow-lg">{store.name}</h1>
               <div className="flex flex-wrap items-center gap-3 md:gap-4 text-sm md:text-base">
@@ -457,14 +504,13 @@ export default function Cardapio() {
                 </div>
                 {store.min_order_value > 0 && (
                   <div className="flex items-center gap-2">
-                    <span className="opacity-80">Pedido mín.</span>
+                    <span className="opacity-90">Pedido mín.</span>
                     <span className="font-bold">{formatCurrency(store.min_order_value)}</span>
                   </div>
                 )}
                 <button 
                   className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-colors text-sm"
                   onClick={() => {
-                    // TODO: Implementar modal de perfil da loja
                     toast.success('Perfil da loja em breve!');
                   }}
                 >
@@ -475,91 +521,91 @@ export default function Cardapio() {
             </div>
           </div>
         </div>
-      ) : null}
-
-      {/* Header */}
-      <header className="border-b border-border sticky top-0 z-40 md:pb-2 pb-4 bg-card">
-        <div className="max-w-7xl mx-auto px-4 md:pt-3 pt-6">
-          <div className="flex items-center justify-between md:mb-3 mb-6">
-            <div className="flex items-center gap-3">
-              {store.logo ? (
-                <img src={store.logo} alt={store.name} className="w-16 h-16 md:w-20 md:h-20 rounded-xl object-cover shadow-md" />
-              ) : (
-                <div className="w-16 h-16 md:w-20 md:h-20 rounded-xl flex items-center justify-center text-3xl md:text-4xl shadow-md" style={{ backgroundColor: primaryColor }}>
-                  🍽️
-                </div>
-              )}
-              <div className="hidden md:block">
-                <h1 className="font-bold text-xl md:text-2xl text-foreground">{store.name}</h1>
-                {store.min_order_value > 0 && (
-                  <p className="text-xs text-muted-foreground">Pedido mín. {formatCurrency(store.min_order_value)}</p>
+      ) : (
+        /* Header - Apenas quando NÃO tem banner */
+        <header className="border-b border-border sticky top-0 z-40 md:pb-2 pb-4 bg-card">
+          <div className="max-w-7xl mx-auto px-4 md:pt-3 pt-6">
+            <div className="flex items-center justify-between md:mb-3 mb-6">
+              <div className="flex items-center gap-3">
+                {store.logo ? (
+                  <img src={store.logo} alt={store.name} className="w-16 h-16 md:w-20 md:h-20 rounded-xl object-cover shadow-md" />
+                ) : (
+                  <div className="w-16 h-16 md:w-20 md:h-20 rounded-xl flex items-center justify-center text-3xl md:text-4xl shadow-md" style={{ backgroundColor: primaryColor }}>
+                    🍽️
+                  </div>
                 )}
+                <div className="hidden md:block">
+                  <h1 className="font-bold text-xl md:text-2xl text-foreground">{store.name}</h1>
+                  {store.min_order_value > 0 && (
+                    <p className="text-xs text-muted-foreground">Pedido mín. {formatCurrency(store.min_order_value)}</p>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-1 md:gap-2">
+                <button 
+                  className="p-2 rounded-lg transition-colors text-muted-foreground hover:text-foreground hover:bg-muted hidden md:flex" 
+                  onClick={() => {
+                    if (navigator.share) {
+                      navigator.share({
+                        title: store.name,
+                        text: `Confira o cardápio de ${store.name}`,
+                        url: window.location.href
+                      }).catch(() => {});
+                    } else {
+                      navigator.clipboard.writeText(window.location.href);
+                      toast.success('Link copiado!');
+                    }
+                  }}
+                  title="Compartilhar"
+                >
+                  <Share2 className="w-5 h-5" />
+                </button>
+                <ThemeToggle className="text-muted-foreground hover:text-foreground hover:bg-muted" />
+                <UserAuthButton />
+                <button 
+                  className="p-2 rounded-lg relative transition-colors text-muted-foreground hover:text-foreground hover:bg-muted" 
+                  onClick={() => setShowCartModal(true)}
+                >
+                  <ShoppingCart className="w-5 h-5 md:w-6 md:h-6" />
+                  {cart.length > 0 && (
+                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">
+                      {cartItemsCount}
+                    </span>
+                  )}
+                </button>
+                <button 
+                  className="p-2 rounded-lg transition-colors text-muted-foreground hover:text-foreground hover:bg-muted hidden md:flex" 
+                  onClick={() => setShowOrderHistory(true)}
+                  title="Meus Pedidos"
+                >
+                  <Clock className="w-5 h-5 md:w-6 md:h-6" />
+                </button>
               </div>
             </div>
-            <div className="flex items-center gap-1 md:gap-2">
-              <button 
-                className="p-2 rounded-lg transition-colors text-muted-foreground hover:text-foreground hover:bg-muted hidden md:flex" 
-                onClick={() => {
-                  if (navigator.share) {
-                    navigator.share({
-                      title: store.name,
-                      text: `Confira o cardápio de ${store.name}`,
-                      url: window.location.href
-                    }).catch(() => {});
-                  } else {
-                    navigator.clipboard.writeText(window.location.href);
-                    toast.success('Link copiado!');
-                  }
-                }}
-                title="Compartilhar"
-              >
-                <Share2 className="w-5 h-5" />
-              </button>
-              <ThemeToggle className="text-muted-foreground hover:text-foreground hover:bg-muted" />
-              <UserAuthButton />
-              <button 
-                className="p-2 rounded-lg relative transition-colors text-muted-foreground hover:text-foreground hover:bg-muted" 
-                onClick={() => setShowCartModal(true)}
-              >
-                <ShoppingCart className="w-5 h-5 md:w-6 md:h-6" />
-                {cart.length > 0 && (
-                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">
-                    {cartItemsCount}
-                  </span>
-                )}
-              </button>
-              <button 
-                className="p-2 rounded-lg transition-colors text-muted-foreground hover:text-foreground hover:bg-muted hidden md:flex" 
-                onClick={() => setShowOrderHistory(true)}
-                title="Meus Pedidos"
-              >
-                <Clock className="w-5 h-5 md:w-6 md:h-6" />
-              </button>
+
+            {/* Search */}
+            <div className="relative max-w-2xl mx-auto md:mb-2 mb-3">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+              <Input
+                placeholder="O que você procura hoje?"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 md:h-10 h-12 text-base"
+              />
+            </div>
+
+            {/* Status */}
+            <div className="text-center">
+              <span className={`text-xs font-medium ${getStatusDisplay.color}`}>
+                ● {getStatusDisplay.text}
+              </span>
             </div>
           </div>
-
-          {/* Search */}
-          <div className="relative max-w-2xl mx-auto md:mb-2 mb-3">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-            <Input
-              placeholder="O que você procura hoje?"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 md:h-10 h-12 text-base"
-            />
-          </div>
-
-          {/* Status */}
-          <div className="text-center">
-            <span className={`text-xs font-medium ${getStatusDisplay.color}`}>
-              ● {getStatusDisplay.text}
-            </span>
-          </div>
-        </div>
-      </header>
+        </header>
+      )}
 
       {/* Category Tabs - Melhoradas */}
-      <div className={`bg-card border-b border-border sticky z-30 ${store.banner_image || highlightDishes.length > 0 ? 'md:top-0 top-0' : 'md:top-[120px] top-[165px]'}`}>
+      <div className={`bg-card border-b border-border sticky z-30 ${store.banner_image ? 'md:top-0 top-0' : 'md:top-[120px] top-[165px]'}`}>
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex items-center justify-between gap-3 md:py-3 py-4">
             <div className="flex gap-2 overflow-x-auto scrollbar-hide flex-1">
