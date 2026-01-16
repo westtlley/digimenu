@@ -22,6 +22,7 @@ import jwt from 'jsonwebtoken';
 
 import cloudinary from './config/cloudinary.js';
 import { upload } from './middlewares/upload.js';
+import { loadDatabase, saveDatabase, saveDatabaseDebounced } from './db/persistence.js';
 
 // =======================
 // ⚙️ APP SETUP
@@ -43,7 +44,6 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // =======================
 // 🗃️ DATABASE (PERSISTENTE)
 // =======================
-import { loadDatabase, saveDatabase, saveDatabaseDebounced } from './db/persistence.js';
 
 // Carregar dados do arquivo ao iniciar
 const db = loadDatabase();
