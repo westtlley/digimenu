@@ -75,17 +75,33 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
-CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+-- USERS
+DROP TRIGGER IF EXISTS update_users_updated_at ON users;
+CREATE TRIGGER update_users_updated_at
+  BEFORE UPDATE ON users
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_subscribers_updated_at BEFORE UPDATE ON subscribers
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+-- SUBSCRIBERS
+DROP TRIGGER IF EXISTS update_subscribers_updated_at ON subscribers;
+CREATE TRIGGER update_subscribers_updated_at
+  BEFORE UPDATE ON subscribers
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_customers_updated_at BEFORE UPDATE ON customers
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+-- CUSTOMERS
+DROP TRIGGER IF EXISTS update_customers_updated_at ON customers;
+CREATE TRIGGER update_customers_updated_at
+  BEFORE UPDATE ON customers
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_entities_updated_at BEFORE UPDATE ON entities
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+-- ENTITIES
+DROP TRIGGER IF EXISTS update_entities_updated_at ON entities;
+CREATE TRIGGER update_entities_updated_at
+  BEFORE UPDATE ON entities
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
 
 -- Inserir usuário admin padrão
 INSERT INTO users (email, full_name, is_master, role, password)
