@@ -838,8 +838,8 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
               return newSub;
             })();
         
-        console.log('✅ Assinante criado com sucesso:', subscriber.id);
-        return res.json({ data: subscriber });
+        console.log('✅ Assinante criado com sucesso:', subscriber.id || subscriber.email);
+        return res.json({ data: { subscriber } });
       } catch (error) {
         console.error('❌ Erro ao criar assinante:', error);
         console.error('❌ Stack trace:', error.stack);
