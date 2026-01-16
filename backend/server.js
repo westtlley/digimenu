@@ -21,6 +21,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
+import crypto from 'crypto';
 
 import cloudinary from './config/cloudinary.js';
 import { upload } from './middlewares/upload.js';
@@ -124,6 +125,43 @@ if (!usePostgreSQL) {
 }
 
 const activeTokens = {};
+
+// =======================
+// 🔐 PASSWORD TOKEN HELPERS
+// =======================
+// Armazenar tokens de senha (em produção, usar Redis ou banco)
+const passwordTokens = {};
+
+// Função para gerar token de senha para assinante
+function generatePasswordTokenForSubscriber(subscriberEmail, subscriberId = null) {
+  // Gerar token único
+  const token = crypto.randomBytes(32).toString('hex');
+  
+  // Expira em 7 dias
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + 7);
+  
+  // Armazenar token
+  const key = subscriberId || subscriberEmail;
+  passwordTokens[key] = {
+    token,
+    email: subscriberEmail,
+    expires_at: expiresAt.toISOString(),
+    created_at: new Date().toISOString()
+  };
+  
+  // Gerar URL de setup
+  const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
+  const setup_url = `${FRONTEND_URL}/setup-password?token=${token}&email=${encodeURIComponent(subscriberEmail)}`;
+  
+  console.log('🔑 Token de senha gerado para:', subscriberEmail);
+  
+  return {
+    token,
+    setup_url,
+    expires_at: expiresAt.toISOString()
+  };
+}
 
 // =======================
 // 🔐 AUTH HELPERS
@@ -853,8 +891,37 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
               return newSub;
             })();
         
+        // Gerar token de senha automaticamente para novos assinantes
+        let passwordTokenData = null;
+        try {
+          // Verificar se é um novo assinante (não atualização)
+          const isNewSubscriber = !data.id; // Se não tem ID, é novo
+          
+          if (isNewSubscriber) {
+            passwordTokenData = generatePasswordTokenForSubscriber(
+              subscriber.email,
+              subscriber.id || subscriber.email
+            );
+            console.log('🔑 Token de senha gerado automaticamente para:', subscriber.email);
+          }
+        } catch (tokenError) {
+          console.warn('⚠️ Erro ao gerar token de senha (não crítico):', tokenError.message);
+          // Não falhar a criação do assinante se o token falhar
+        }
+        
         console.log('✅ Assinante criado com sucesso:', subscriber.id || subscriber.email);
-        return res.json({ data: { subscriber } });
+        
+        // Retornar assinante com token de senha (se gerado)
+        return res.json({ 
+          data: { 
+            subscriber,
+            ...(passwordTokenData && {
+              password_token: passwordTokenData.token,
+              setup_url: passwordTokenData.setup_url,
+              token_expires_at: passwordTokenData.expires_at
+            })
+          } 
+        });
       } catch (error) {
         console.error('❌ Erro ao criar assinante:', error);
         console.error('❌ Stack trace:', error.stack);
