@@ -24,28 +24,45 @@ export async function migrate() {
     // Executar schema
     await query(schemaSQL);
     
-    // Adicionar colunas do Google OAuth se não existirem
-    try {
-      await query(`
-        DO $$ 
-        BEGIN
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
-                        WHERE table_name='users' AND column_name='google_id') THEN
-            ALTER TABLE users ADD COLUMN google_id VARCHAR(255);
-            RAISE NOTICE 'Coluna google_id adicionada';
-          END IF;
-          
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
-                        WHERE table_name='users' AND column_name='google_photo') THEN
-            ALTER TABLE users ADD COLUMN google_photo TEXT;
-            RAISE NOTICE 'Coluna google_photo adicionada';
-          END IF;
-        END $$;
-      `);
-      console.log('✅ Migração de colunas Google OAuth concluída.');
-    } catch (error) {
-      console.warn('⚠️ Aviso ao adicionar colunas Google OAuth (pode já existir):', error.message);
-    }
+        // Adicionar colunas do Google OAuth se não existirem
+        try {
+          await query(`
+            DO $$ 
+            BEGIN
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                            WHERE table_name='users' AND column_name='google_id') THEN
+                ALTER TABLE users ADD COLUMN google_id VARCHAR(255);
+                RAISE NOTICE 'Coluna google_id adicionada';
+              END IF;
+              
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                            WHERE table_name='users' AND column_name='google_photo') THEN
+                ALTER TABLE users ADD COLUMN google_photo TEXT;
+                RAISE NOTICE 'Coluna google_photo adicionada';
+              END IF;
+            END $$;
+          `);
+          console.log('✅ Migração de colunas Google OAuth concluída.');
+        } catch (error) {
+          console.warn('⚠️ Aviso ao adicionar colunas Google OAuth (pode já existir):', error.message);
+        }
+        
+        // Adicionar coluna whatsapp_auto_enabled em subscribers se não existir
+        try {
+          await query(`
+            DO $$ 
+            BEGIN
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                            WHERE table_name='subscribers' AND column_name='whatsapp_auto_enabled') THEN
+                ALTER TABLE subscribers ADD COLUMN whatsapp_auto_enabled BOOLEAN DEFAULT true;
+                RAISE NOTICE 'Coluna whatsapp_auto_enabled adicionada';
+              END IF;
+            END $$;
+          `);
+          console.log('✅ Migração de coluna whatsapp_auto_enabled concluída.');
+        } catch (error) {
+          console.warn('⚠️ Aviso ao adicionar coluna whatsapp_auto_enabled (pode já existir):', error.message);
+        }
     
     console.log('✅ Migração concluída com sucesso!');
     return true;

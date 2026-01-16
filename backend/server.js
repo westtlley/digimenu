@@ -765,13 +765,35 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
     
     // Funções de assinantes
     if (name === 'getSubscribers') {
+      // Apenas master pode ver todos os assinantes
+      if (!req.user?.is_master) {
+        return res.status(403).json({ error: 'Acesso negado' });
+      }
+      
       const subscribers = usePostgreSQL 
         ? await repo.listSubscribers()
         : (db && db.subscribers ? db.subscribers : []);
       return res.json({ data: subscribers });
     }
     
+    if (name === 'getPlanInfo') {
+      const { plan } = data;
+      const planInfo = getPlanInfo(plan);
+      return res.json({ data: planInfo });
+    }
+    
+    if (name === 'getAvailablePlans') {
+      const { getAvailablePlans } = await import('./utils/plans.js');
+      const plans = getAvailablePlans();
+      const plansInfo = plans.map(plan => getPlanInfo(plan));
+      return res.json({ data: plansInfo });
+    }
+    
     if (name === 'createSubscriber') {
+      // Apenas master pode criar assinantes
+      if (!req.user?.is_master) {
+        return res.status(403).json({ error: 'Acesso negado' });
+      }
       const subscriber = usePostgreSQL
         ? await repo.createSubscriber(data)
         : (() => {
@@ -790,6 +812,11 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
     }
     
     if (name === 'updateSubscriber') {
+      // Apenas master pode atualizar assinantes
+      if (!req.user?.is_master) {
+        return res.status(403).json({ error: 'Acesso negado' });
+      }
+      
       const subscriber = usePostgreSQL
         ? await repo.updateSubscriber(data.email, data)
         : (() => {
@@ -806,6 +833,11 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
     }
     
     if (name === 'deleteSubscriber') {
+      // Apenas master pode deletar assinantes
+      if (!req.user?.is_master) {
+        return res.status(403).json({ error: 'Acesso negado' });
+      }
+      
       const subscriber = usePostgreSQL
         ? await repo.deleteSubscriber(data.email)
         : (() => {
