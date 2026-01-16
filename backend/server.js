@@ -147,8 +147,10 @@ const authenticate = async (req, res, next) => {
       // Em desenvolvimento, permitir sem token
       if (usePostgreSQL) {
         req.user = await repo.getUserByEmail('admin@digimenu.com');
-      } else {
+      } else if (db && db.users && db.users.length > 0) {
         req.user = db.users[0];
+      } else {
+        return res.status(401).json({ error: 'Usuário padrão não encontrado' });
       }
       return next();
     }
