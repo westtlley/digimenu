@@ -1,0 +1,419 @@
+import { query } from './postgres.js';
+
+/**
+ * Repositório genérico para entidades
+ * Suporta multi-tenancy com isolamento por subscriber_email
+ */
+
+// Obter subscriber_email do usuário atual
+function getSubscriberEmail(user) {
+  if (user?.is_master) {
+    return null; // Master vê todos os dados
+  }
+  return user?.subscriber_email || user?.email;
+}
+
+// Listar entidades
+export async function listEntities(entityType, filters = {}, orderBy = null, user = null) {
+  try {
+    const subscriberEmail = getSubscriberEmail(user);
+    
+    let sql = `
+      SELECT id, data, created_at, updated_at
+      FROM entities
+      WHERE entity_type = $1
+    `;
+    const params = [entityType];
+    
+    // Filtro por assinante (multi-tenancy)
+    if (subscriberEmail) {
+      sql += ` AND subscriber_email = $${params.length + 1}`;
+      params.push(subscriberEmail);
+    } else if (user?.is_master) {
+      // Master vê todos, sem filtro
+    } else {
+      // Se não tem subscriber_email, não retorna nada
+      sql += ` AND subscriber_email IS NULL`;
+    }
+    
+    // Aplicar filtros do JSONB
+    if (Object.keys(filters).length > 0) {
+      Object.entries(filters).forEach(([key, value], index) => {
+        if (value === 'null' || value === null) {
+          sql += ` AND (data->>$${params.length + 1} IS NULL OR data->>$${params.length + 1} = 'null')`;
+          params.push(key);
+        } else {
+          sql += ` AND data->>$${params.length + 1} = $${params.length + 2}`;
+          params.push(key, String(value));
+        }
+      });
+    }
+    
+    // Ordenação
+    if (orderBy) {
+      const direction = orderBy.startsWith('-') ? 'DESC' : 'ASC';
+      const field = orderBy.replace(/^-/, '');
+      sql += ` ORDER BY data->>$${params.length + 1} ${direction}`;
+      params.push(field);
+    } else {
+      sql += ` ORDER BY created_at DESC`;
+    }
+    
+    const result = await query(sql, params);
+    
+    // Converter JSONB para objetos normais
+    return result.rows.map(row => ({
+      id: row.id.toString(),
+      ...row.data,
+      created_at: row.created_at,
+      updated_at: row.updated_at
+    }));
+  } catch (error) {
+    console.error(`Erro ao listar ${entityType}:`, error);
+    throw error;
+  }
+}
+
+// Obter entidade por ID
+export async function getEntityById(entityType, id, user = null) {
+  try {
+    const subscriberEmail = getSubscriberEmail(user);
+    
+    let sql = `
+      SELECT id, data, created_at, updated_at
+      FROM entities
+      WHERE entity_type = $1 AND id = $2
+    `;
+    const params = [entityType, parseInt(id)];
+    
+    if (subscriberEmail) {
+      sql += ` AND subscriber_email = $${params.length + 1}`;
+      params.push(subscriberEmail);
+    } else if (!user?.is_master) {
+      sql += ` AND subscriber_email IS NULL`;
+    }
+    
+    const result = await query(sql, params);
+    
+    if (result.rows.length === 0) {
+      return null;
+    }
+    
+    const row = result.rows[0];
+    return {
+      id: row.id.toString(),
+      ...row.data,
+      created_at: row.created_at,
+      updated_at: row.updated_at
+    };
+  } catch (error) {
+    console.error(`Erro ao obter ${entityType} ${id}:`, error);
+    throw error;
+  }
+}
+
+// Criar entidade
+export async function createEntity(entityType, data, user = null) {
+  try {
+    const subscriberEmail = getSubscriberEmail(user);
+    
+    const sql = `
+      INSERT INTO entities (entity_type, data, subscriber_email)
+      VALUES ($1, $2, $3)
+      RETURNING id, data, created_at, updated_at
+    `;
+    
+    const result = await query(sql, [
+      entityType,
+      JSON.stringify(data),
+      subscriberEmail
+    ]);
+    
+    const row = result.rows[0];
+    return {
+      id: row.id.toString(),
+      ...data,
+      created_at: row.created_at,
+      updated_at: row.updated_at
+    };
+  } catch (error) {
+    console.error(`Erro ao criar ${entityType}:`, error);
+    throw error;
+  }
+}
+
+// Atualizar entidade
+export async function updateEntity(entityType, id, data, user = null) {
+  try {
+    const subscriberEmail = getSubscriberEmail(user);
+    
+    // Buscar entidade existente
+    const existing = await getEntityById(entityType, id, user);
+    if (!existing) {
+      throw new Error('Entidade não encontrada');
+    }
+    
+    // Mesclar dados
+    const updatedData = {
+      ...existing,
+      ...data,
+      id: existing.id // Manter ID original
+    };
+    delete updatedData.created_at;
+    delete updatedData.updated_at;
+    
+    const sql = `
+      UPDATE entities
+      SET data = $1, updated_at = CURRENT_TIMESTAMP
+      WHERE entity_type = $2 AND id = $3
+      ${subscriberEmail ? `AND subscriber_email = $4` : 'AND (subscriber_email = $4 OR subscriber_email IS NULL)'}
+      RETURNING id, data, created_at, updated_at
+    `;
+    
+    const params = [
+      JSON.stringify(updatedData),
+      entityType,
+      parseInt(id)
+    ];
+    
+    if (subscriberEmail) {
+      params.push(subscriberEmail);
+    } else {
+      params.push(null);
+    }
+    
+    const result = await query(sql, params);
+    
+    if (result.rows.length === 0) {
+      throw new Error('Entidade não encontrada ou sem permissão');
+    }
+    
+    const row = result.rows[0];
+    return {
+      id: row.id.toString(),
+      ...row.data,
+      created_at: row.created_at,
+      updated_at: row.updated_at
+    };
+  } catch (error) {
+    console.error(`Erro ao atualizar ${entityType} ${id}:`, error);
+    throw error;
+  }
+}
+
+// Deletar entidade
+export async function deleteEntity(entityType, id, user = null) {
+  try {
+    const subscriberEmail = getSubscriberEmail(user);
+    
+    let sql = `
+      DELETE FROM entities
+      WHERE entity_type = $1 AND id = $2
+    `;
+    const params = [entityType, parseInt(id)];
+    
+    if (subscriberEmail) {
+      sql += ` AND subscriber_email = $3`;
+      params.push(subscriberEmail);
+    } else if (!user?.is_master) {
+      sql += ` AND subscriber_email IS NULL`;
+      params.push(null);
+    }
+    
+    const result = await query(sql, params);
+    
+    return result.rowCount > 0;
+  } catch (error) {
+    console.error(`Erro ao deletar ${entityType} ${id}:`, error);
+    throw error;
+  }
+}
+
+// Criar múltiplas entidades
+export async function createEntitiesBulk(entityType, items, user = null) {
+  try {
+    const subscriberEmail = getSubscriberEmail(user);
+    
+    if (items.length === 0) {
+      return [];
+    }
+    
+    const values = items.map((item, index) => {
+      const baseIndex = index * 3;
+      return `($1, $${baseIndex + 2}, $${baseIndex + 3})`;
+    }).join(', ');
+    
+    const params = [entityType];
+    items.forEach(item => {
+      params.push(JSON.stringify(item), subscriberEmail);
+    });
+    
+    const sql = `
+      INSERT INTO entities (entity_type, data, subscriber_email)
+      VALUES ${values}
+      RETURNING id, data, created_at, updated_at
+    `;
+    
+    const result = await query(sql, params);
+    
+    return result.rows.map(row => ({
+      id: row.id.toString(),
+      ...row.data,
+      created_at: row.created_at,
+      updated_at: row.updated_at
+    }));
+  } catch (error) {
+    console.error(`Erro ao criar ${entityType} em bulk:`, error);
+    throw error;
+  }
+}
+
+// =======================
+// USERS
+// =======================
+
+export async function getUserByEmail(email) {
+  const result = await query(
+    'SELECT * FROM users WHERE email = $1',
+    [email]
+  );
+  return result.rows[0] || null;
+}
+
+export async function createUser(userData) {
+  const result = await query(
+    `INSERT INTO users (email, full_name, password, is_master, role, subscriber_email)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     RETURNING *`,
+    [
+      userData.email,
+      userData.full_name,
+      userData.password,
+      userData.is_master || false,
+      userData.role || 'user',
+      userData.subscriber_email
+    ]
+  );
+  return result.rows[0];
+}
+
+// =======================
+// SUBSCRIBERS
+// =======================
+
+export async function listSubscribers() {
+  const result = await query('SELECT * FROM subscribers ORDER BY created_at DESC');
+  return result.rows;
+}
+
+export async function getSubscriberByEmail(email) {
+  const result = await query(
+    'SELECT * FROM subscribers WHERE email = $1',
+    [email]
+  );
+  return result.rows[0] || null;
+}
+
+export async function createSubscriber(subscriberData) {
+  const result = await query(
+    `INSERT INTO subscribers (email, name, plan, status, expires_at, permissions)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     RETURNING *`,
+    [
+      subscriberData.email,
+      subscriberData.name,
+      subscriberData.plan || 'basic',
+      subscriberData.status || 'active',
+      subscriberData.expires_at || null,
+      JSON.stringify(subscriberData.permissions || {})
+    ]
+  );
+  return result.rows[0];
+}
+
+export async function updateSubscriber(email, subscriberData) {
+  const result = await query(
+    `UPDATE subscribers
+     SET name = $1, plan = $2, status = $3, expires_at = $4, permissions = $5, updated_at = CURRENT_TIMESTAMP
+     WHERE email = $6
+     RETURNING *`,
+    [
+      subscriberData.name,
+      subscriberData.plan,
+      subscriberData.status,
+      subscriberData.expires_at || null,
+      JSON.stringify(subscriberData.permissions || {}),
+      email
+    ]
+  );
+  return result.rows[0] || null;
+}
+
+export async function deleteSubscriber(email) {
+  const result = await query(
+    'DELETE FROM subscribers WHERE email = $1 RETURNING *',
+    [email]
+  );
+  return result.rows[0] || null;
+}
+
+// =======================
+// CUSTOMERS
+// =======================
+
+export async function listCustomers(subscriberEmail = null) {
+  let sql = 'SELECT * FROM customers';
+  const params = [];
+  
+  if (subscriberEmail) {
+    sql += ' WHERE subscriber_email = $1';
+    params.push(subscriberEmail);
+  }
+  
+  sql += ' ORDER BY created_at DESC';
+  
+  const result = await query(sql, params);
+  return result.rows;
+}
+
+export async function createCustomer(customerData, subscriberEmail = null) {
+  const result = await query(
+    `INSERT INTO customers (email, name, phone, address, complement, neighborhood, city, zipcode, subscriber_email)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+     RETURNING *`,
+    [
+      customerData.email,
+      customerData.name,
+      customerData.phone,
+      customerData.address,
+      customerData.complement,
+      customerData.neighborhood,
+      customerData.city,
+      customerData.zipcode,
+      subscriberEmail
+    ]
+  );
+  return result.rows[0];
+}
+
+export async function updateCustomer(id, customerData) {
+  const result = await query(
+    `UPDATE customers
+     SET email = $1, name = $2, phone = $3, address = $4, complement = $5, 
+         neighborhood = $6, city = $7, zipcode = $8, updated_at = CURRENT_TIMESTAMP
+     WHERE id = $9
+     RETURNING *`,
+    [
+      customerData.email,
+      customerData.name,
+      customerData.phone,
+      customerData.address,
+      customerData.complement,
+      customerData.neighborhood,
+      customerData.city,
+      customerData.zipcode,
+      id
+    ]
+  );
+  return result.rows[0] || null;
+}

@@ -22,7 +22,9 @@ import jwt from 'jsonwebtoken';
 
 import cloudinary from './config/cloudinary.js';
 import { upload } from './middlewares/upload.js';
-import { loadDatabase, saveDatabase, saveDatabaseDebounced } from './db/persistence.js';
+import { testConnection } from './db/postgres.js';
+import { migrate } from './db/migrate.js';
+import * as repo from './db/repository.js';
 
 // =======================
 // ⚙️ APP SETUP
@@ -42,42 +44,69 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // =======================
-// 🗃️ DATABASE (PERSISTENTE)
+// 🗃️ DATABASE (POSTGRESQL COM FALLBACK)
 // =======================
+// Verificar se DATABASE_URL está configurado
+const usePostgreSQL = !!process.env.DATABASE_URL;
 
-// Carregar dados do arquivo ao iniciar
-const db = loadDatabase();
+// Fallback: sistema de arquivos (apenas se não usar PostgreSQL)
+let db = null;
+let saveDatabaseDebounced = null;
 
-// Garantir que o usuário admin sempre existe
-if (!db.users.find(u => u.email === 'admin@digimenu.com')) {
-  db.users.push({
-    id: '1',
-    email: 'admin@digimenu.com',
-    full_name: 'Administrador',
-    is_master: true,
-    role: 'admin',
-    password: 'admin123'
+if (!usePostgreSQL) {
+  console.log('⚠️ DATABASE_URL não configurado, usando fallback em memória');
+  const persistence = await import('./db/persistence.js');
+  db = persistence.loadDatabase();
+  saveDatabaseDebounced = persistence.saveDatabaseDebounced;
+  
+  // Garantir que o usuário admin sempre existe
+  if (!db.users.find(u => u.email === 'admin@digimenu.com')) {
+    db.users.push({
+      id: '1',
+      email: 'admin@digimenu.com',
+      full_name: 'Administrador',
+      is_master: true,
+      role: 'admin',
+      password: 'admin123'
+    });
+    persistence.saveDatabase(db);
+  }
+  
+  // Salvar dados periodicamente
+  setInterval(() => {
+    persistence.saveDatabase(db);
+  }, 30000);
+  
+  // Salvar ao encerrar
+  process.on('SIGTERM', () => {
+    console.log('💾 Salvando banco de dados antes de encerrar...');
+    persistence.saveDatabase(db);
+    process.exit(0);
   });
-  saveDatabase(db);
+  
+  process.on('SIGINT', () => {
+    console.log('💾 Salvando banco de dados antes de encerrar...');
+    persistence.saveDatabase(db);
+    process.exit(0);
+  });
+} else {
+  console.log('🗄️ Usando PostgreSQL como banco de dados');
+  
+  // Testar conexão e executar migração
+  (async () => {
+    try {
+      const connected = await testConnection();
+      if (connected) {
+        await migrate();
+        console.log('✅ Banco de dados PostgreSQL pronto!');
+      } else {
+        console.warn('⚠️ PostgreSQL não disponível');
+      }
+    } catch (error) {
+      console.error('❌ Erro ao configurar PostgreSQL:', error.message);
+    }
+  })();
 }
-
-// Salvar dados periodicamente (a cada 30 segundos) e ao encerrar
-setInterval(() => {
-  saveDatabase(db);
-}, 30000);
-
-// Salvar ao encerrar o processo
-process.on('SIGTERM', () => {
-  console.log('💾 Salvando banco de dados antes de encerrar...');
-  saveDatabase(db);
-  process.exit(0);
-});
-
-process.on('SIGINT', () => {
-  console.log('💾 Salvando banco de dados antes de encerrar...');
-  saveDatabase(db);
-  process.exit(0);
-});
 
 const activeTokens = {};
 
@@ -100,7 +129,7 @@ const isPublicRoute = (path) => {
   return publicRoutes.some(route => path.startsWith(route));
 };
 
-const authenticate = (req, res, next) => {
+const authenticate = async (req, res, next) => {
   // Rotas públicas não precisam de autenticação
   if (isPublicRoute(req.path)) {
     return next();
@@ -112,7 +141,11 @@ const authenticate = (req, res, next) => {
   if (!token) {
     if (process.env.NODE_ENV !== 'production') {
       // Em desenvolvimento, permitir sem token
-      req.user = db.users[0];
+      if (usePostgreSQL) {
+        req.user = await repo.getUserByEmail('admin@digimenu.com');
+      } else {
+        req.user = db.users[0];
+      }
       return next();
     }
     // Em produção, retornar erro se não tiver token
@@ -122,14 +155,30 @@ const authenticate = (req, res, next) => {
   // Tentar validar JWT
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    const user = db.users.find(u => u.email === decoded.email) || db.users[0];
+    let user;
+    if (usePostgreSQL) {
+      user = await repo.getUserByEmail(decoded.email);
+      if (!user) {
+        user = await repo.getUserByEmail('admin@digimenu.com');
+      }
+    } else {
+      user = db.users.find(u => u.email === decoded.email) || db.users[0];
+    }
     req.user = user;
     return next();
   } catch (error) {
     // JWT inválido - tentar método alternativo (buscar em activeTokens)
     const email = activeTokens[token];
     if (email) {
-      const user = db.users.find(u => u.email === email) || db.users[0];
+      let user;
+      if (usePostgreSQL) {
+        user = await repo.getUserByEmail(email);
+        if (!user) {
+          user = await repo.getUserByEmail('admin@digimenu.com');
+        }
+      } else {
+        user = db.users.find(u => u.email === email) || db.users[0];
+      }
       req.user = user;
       return next();
     }
@@ -138,7 +187,11 @@ const authenticate = (req, res, next) => {
     if (process.env.NODE_ENV !== 'production') {
       // Apenas logar em desenvolvimento
       console.warn('⚠️ JWT inválido, usando usuário padrão (dev mode)');
-      req.user = db.users[0];
+      if (usePostgreSQL) {
+        req.user = await repo.getUserByEmail('admin@digimenu.com');
+      } else {
+        req.user = db.users[0];
+      }
       return next();
     }
     
@@ -159,7 +212,12 @@ app.post('/api/auth/login', async (req, res) => {
     }
 
     // Buscar usuário no banco
-    const user = db.users.find(u => u.email === email.toLowerCase());
+    let user;
+    if (usePostgreSQL) {
+      user = await repo.getUserByEmail(email.toLowerCase());
+    } else {
+      user = db.users.find(u => u.email === email.toLowerCase());
+    }
 
     if (!user) {
       return res.status(401).json({ error: 'Credenciais inválidas' });
@@ -338,11 +396,17 @@ app.get('/api/entities/:entity', authenticate, (req, res) => {
 });
 
 // Obter entidade por ID
-app.get('/api/entities/:entity/:id', authenticate, (req, res) => {
+app.get('/api/entities/:entity/:id', authenticate, async (req, res) => {
   try {
     const { entity, id } = req.params;
-    const items = db.entities[entity] || [];
-    const item = items.find(i => i.id === id);
+    
+    let item;
+    if (usePostgreSQL) {
+      item = await repo.getEntityById(entity, id, req.user);
+    } else {
+      const items = db.entities[entity] || [];
+      item = items.find(i => i.id === id);
+    }
     
     if (!item) {
       return res.status(404).json({ error: 'Entidade não encontrada' });
@@ -356,24 +420,31 @@ app.get('/api/entities/:entity/:id', authenticate, (req, res) => {
 });
 
 // Criar entidade
-app.post('/api/entities/:entity', authenticate, (req, res) => {
+app.post('/api/entities/:entity', authenticate, async (req, res) => {
   try {
     const { entity } = req.params;
     const data = req.body;
     
-    if (!db.entities[entity]) {
-      db.entities[entity] = [];
+    let newItem;
+    if (usePostgreSQL) {
+      newItem = await repo.createEntity(entity, data, req.user);
+    } else {
+      if (!db.entities[entity]) {
+        db.entities[entity] = [];
+      }
+      
+      newItem = {
+        id: Date.now().toString(),
+        ...data,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      
+      db.entities[entity].push(newItem);
+      if (typeof saveDatabaseDebounced === 'function') {
+        saveDatabaseDebounced(db);
+      }
     }
-    
-    const newItem = {
-      id: Date.now().toString(),
-      ...data,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    };
-    
-    db.entities[entity].push(newItem);
-    saveDatabaseDebounced(db); // Salvar após criar
     
     console.log(`✅ [${entity}] Item criado:`, newItem.id);
     res.status(201).json(newItem);
@@ -384,27 +455,40 @@ app.post('/api/entities/:entity', authenticate, (req, res) => {
 });
 
 // Atualizar entidade
-app.put('/api/entities/:entity/:id', authenticate, (req, res) => {
+app.put('/api/entities/:entity/:id', authenticate, async (req, res) => {
   try {
     const { entity, id } = req.params;
     const data = req.body;
-    const items = db.entities[entity] || [];
-    const index = items.findIndex(i => i.id === id);
     
-    if (index === -1) {
-      return res.status(404).json({ error: 'Entidade não encontrada' });
+    let updatedItem;
+    if (usePostgreSQL) {
+      updatedItem = await repo.updateEntity(entity, id, data, req.user);
+      if (!updatedItem) {
+        return res.status(404).json({ error: 'Entidade não encontrada' });
+      }
+    } else {
+      const items = db.entities[entity] || [];
+      const index = items.findIndex(i => i.id === id);
+      
+      if (index === -1) {
+        return res.status(404).json({ error: 'Entidade não encontrada' });
+      }
+      
+      updatedItem = {
+        ...items[index],
+        ...data,
+        id,
+        updated_at: new Date().toISOString()
+      };
+      
+      items[index] = updatedItem;
+      if (typeof saveDatabaseDebounced === 'function') {
+        saveDatabaseDebounced(db);
+      }
     }
     
-    items[index] = {
-      ...items[index],
-      ...data,
-      id,
-      updated_at: new Date().toISOString()
-    };
-    saveDatabaseDebounced(db); // Salvar após atualizar
-    
     console.log(`✅ [${entity}] Item atualizado:`, id);
-    res.json(items[index]);
+    res.json(updatedItem);
   } catch (error) {
     console.error('Erro ao atualizar entidade:', error);
     res.status(500).json({ error: 'Erro interno no servidor' });
@@ -412,18 +496,31 @@ app.put('/api/entities/:entity/:id', authenticate, (req, res) => {
 });
 
 // Deletar entidade
-app.delete('/api/entities/:entity/:id', authenticate, (req, res) => {
+app.delete('/api/entities/:entity/:id', authenticate, async (req, res) => {
   try {
     const { entity, id } = req.params;
-    const items = db.entities[entity] || [];
-    const index = items.findIndex(i => i.id === id);
     
-    if (index === -1) {
-      return res.status(404).json({ error: 'Entidade não encontrada' });
+    let deleted = false;
+    if (usePostgreSQL) {
+      deleted = await repo.deleteEntity(entity, id, req.user);
+    } else {
+      const items = db.entities[entity] || [];
+      const index = items.findIndex(i => i.id === id);
+      
+      if (index === -1) {
+        return res.status(404).json({ error: 'Entidade não encontrada' });
+      }
+      
+      items.splice(index, 1);
+      deleted = true;
+      if (typeof saveDatabaseDebounced === 'function') {
+        saveDatabaseDebounced(db);
+      }
     }
     
-    items.splice(index, 1);
-    saveDatabaseDebounced(db); // Salvar após deletar
+    if (!deleted) {
+      return res.status(404).json({ error: 'Entidade não encontrada' });
+    }
     
     console.log(`✅ [${entity}] Item deletado:`, id);
     res.json({ success: true });
@@ -434,24 +531,31 @@ app.delete('/api/entities/:entity/:id', authenticate, (req, res) => {
 });
 
 // Criar múltiplas entidades
-app.post('/api/entities/:entity/bulk', authenticate, (req, res) => {
+app.post('/api/entities/:entity/bulk', authenticate, async (req, res) => {
   try {
     const { entity } = req.params;
     const { items: itemsToCreate } = req.body;
     
-    if (!db.entities[entity]) {
-      db.entities[entity] = [];
+    let newItems;
+    if (usePostgreSQL) {
+      newItems = await repo.createEntitiesBulk(entity, itemsToCreate, req.user);
+    } else {
+      if (!db.entities[entity]) {
+        db.entities[entity] = [];
+      }
+      
+      newItems = itemsToCreate.map(data => ({
+        id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+        ...data,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }));
+      
+      db.entities[entity].push(...newItems);
+      if (saveDatabaseDebounced) {
+        saveDatabaseDebounced(db);
+      }
     }
-    
-    const newItems = itemsToCreate.map(data => ({
-      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-      ...data,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    }));
-    
-    db.entities[entity].push(...newItems);
-    saveDatabaseDebounced(db); // Salvar após criar em bulk
     
     console.log(`✅ [${entity}] ${newItems.length} itens criados`);
     res.status(201).json(newItems);
