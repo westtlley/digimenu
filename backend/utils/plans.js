@@ -140,7 +140,16 @@ const ADMIN_PERMISSIONS = {
     admin_master: true,
     admin_all_data: true,
     admin_system_config: true
-  }
+  };
+
+/**
+ * Permissões por plano (exportado)
+ */
+export const PLAN_PERMISSIONS = {
+  [PLANS.BASIC]: BASIC_PERMISSIONS,
+  [PLANS.PREMIUM]: PREMIUM_PERMISSIONS,
+  [PLANS.PRO]: PRO_PERMISSIONS,
+  [PLANS.ADMIN]: ADMIN_PERMISSIONS
 };
 
 /**
