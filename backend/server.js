@@ -820,8 +820,16 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
         const subscriber = usePostgreSQL
           ? await repo.createSubscriber(data)
           : (() => {
+              // Fallback JSON - apenas para desenvolvimento
+              if (!db || !db.subscribers) {
+                throw new Error('Banco de dados não inicializado');
+              }
+              
+              // Verificar se já existe
+              const existingIndex = db.subscribers.findIndex(s => s.email === data.email);
+              
               const newSub = {
-                id: Date.now().toString(),
+                id: existingIndex >= 0 ? db.subscribers[existingIndex].id : Date.now().toString(),
                 email: data.email,
                 name: data.name,
                 plan: data.plan || 'basic',
@@ -829,11 +837,18 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
                 expires_at: data.expires_at || null,
                 permissions: data.permissions || {},
                 whatsapp_auto_enabled: data.whatsapp_auto_enabled !== undefined ? data.whatsapp_auto_enabled : true,
-                created_at: new Date().toISOString(),
+                created_at: existingIndex >= 0 ? db.subscribers[existingIndex].created_at : new Date().toISOString(),
                 updated_at: new Date().toISOString()
               };
-              if (!db.subscribers) db.subscribers = [];
-              db.subscribers.push(newSub);
+              
+              if (existingIndex >= 0) {
+                // Atualizar existente
+                db.subscribers[existingIndex] = newSub;
+              } else {
+                // Criar novo
+                db.subscribers.push(newSub);
+              }
+              
               if (saveDatabaseDebounced) saveDatabaseDebounced(db);
               return newSub;
             })();

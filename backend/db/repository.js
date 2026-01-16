@@ -393,31 +393,46 @@ export async function createSubscriber(subscriberData) {
     }
     
     // Preparar valores
-    const values = [
-      subscriberData.email,
-      subscriberData.name,
-      subscriberData.plan || 'basic',
-      subscriberData.status || 'active',
-      subscriberData.expires_at || null,
-      JSON.stringify(permissions),
-      subscriberData.whatsapp_auto_enabled !== undefined ? subscriberData.whatsapp_auto_enabled : true
-    ];
+    const email = subscriberData.email;
+    const name = subscriberData.name;
+    const plan = subscriberData.plan || 'basic';
+    const status = subscriberData.status || 'active';
+    const expires_at = subscriberData.expires_at || null;
+    const permissionsJson = JSON.stringify(permissions);
+    const whatsapp_auto_enabled = subscriberData.whatsapp_auto_enabled !== undefined ? subscriberData.whatsapp_auto_enabled : true;
     
     console.log('📝 [REPOSITORY] Valores preparados:', {
-      email: values[0],
-      name: values[1],
-      plan: values[2],
-      status: values[3],
-      expires_at: values[4],
-      permissions: values[5],
-      whatsapp_auto_enabled: values[6]
+      email,
+      name,
+      plan,
+      status,
+      expires_at,
+      permissions: permissionsJson,
+      whatsapp_auto_enabled
     });
     
+    // Usar ON CONFLICT para lidar com emails duplicados (upsert)
     const result = await query(
       `INSERT INTO subscribers (email, name, plan, status, expires_at, permissions, whatsapp_auto_enabled)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
+       ON CONFLICT (email) DO UPDATE SET
+         name = EXCLUDED.name,
+         plan = EXCLUDED.plan,
+         status = EXCLUDED.status,
+         expires_at = EXCLUDED.expires_at,
+         permissions = EXCLUDED.permissions,
+         whatsapp_auto_enabled = EXCLUDED.whatsapp_auto_enabled,
+         updated_at = CURRENT_TIMESTAMP
        RETURNING *`,
-      values
+      [
+        email,
+        name,
+        plan,
+        status,
+        expires_at,
+        permissionsJson, // JÁ CONVERTIDO PARA JSON
+        whatsapp_auto_enabled
+      ]
     );
     
     console.log('✅ [REPOSITORY] Assinante criado com sucesso:', result.rows[0]?.id || result.rows[0]?.email);
