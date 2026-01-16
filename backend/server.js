@@ -575,8 +575,74 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
     
     console.log(`🔧 Função chamada: ${name}`, data);
     
-    // Aqui você pode implementar funções específicas
-    // Por enquanto, retorna um mock
+    // Funções de assinantes
+    if (name === 'getSubscribers') {
+      const subscribers = usePostgreSQL 
+        ? await repo.listSubscribers()
+        : (db?.subscribers || []);
+      return res.json({ data: subscribers });
+    }
+    
+    if (name === 'createSubscriber') {
+      const subscriber = usePostgreSQL
+        ? await repo.createSubscriber(data)
+        : (() => {
+            const newSub = {
+              id: Date.now().toString(),
+              ...data,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            };
+            if (!db.subscribers) db.subscribers = [];
+            db.subscribers.push(newSub);
+            if (saveDatabaseDebounced) saveDatabaseDebounced(db);
+            return newSub;
+          })();
+      return res.json({ data: subscriber });
+    }
+    
+    if (name === 'updateSubscriber') {
+      const subscriber = usePostgreSQL
+        ? await repo.updateSubscriber(data.email, data)
+        : (() => {
+            if (!db.subscribers) db.subscribers = [];
+            const index = db.subscribers.findIndex(s => s.email === data.email);
+            if (index === -1) return null;
+            db.subscribers[index] = { ...db.subscribers[index], ...data, updated_at: new Date().toISOString() };
+            if (saveDatabaseDebounced) saveDatabaseDebounced(db);
+            return db.subscribers[index];
+          })();
+      return res.json({ data: subscriber });
+    }
+    
+    if (name === 'deleteSubscriber') {
+      const subscriber = usePostgreSQL
+        ? await repo.deleteSubscriber(data.email)
+        : (() => {
+            if (!db.subscribers) db.subscribers = [];
+            const index = db.subscribers.findIndex(s => s.email === data.email);
+            if (index === -1) return null;
+            const deleted = db.subscribers.splice(index, 1)[0];
+            if (saveDatabaseDebounced) saveDatabaseDebounced(db);
+            return deleted;
+          })();
+      return res.json({ data: subscriber });
+    }
+    
+    if (name === 'checkSubscriptionStatus') {
+      const subscriber = usePostgreSQL
+        ? await repo.getSubscriberByEmail(data.user_email)
+        : (db?.subscribers || []).find(s => s.email === data.user_email);
+      
+      return res.json({
+        data: {
+          is_active: subscriber?.status === 'active',
+          subscriber: subscriber || null
+        }
+      });
+    }
+    
+    // Função padrão (mock)
     res.json({ 
       success: true, 
       function: name,
