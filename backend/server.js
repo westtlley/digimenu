@@ -1008,7 +1008,7 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
             subscriber = await repo.getSubscriberByEmail(email);
           } else if (subscriber_id) {
             // Buscar todos e filtrar por ID (temporário até ter getSubscriberById)
-            const allSubscribers = await repo.getSubscribers();
+            const allSubscribers = await repo.listSubscribers();
             subscriber = allSubscribers.find(s => s.id === parseInt(subscriber_id) || s.id === subscriber_id);
           }
         } else if (db && db.subscribers) {
