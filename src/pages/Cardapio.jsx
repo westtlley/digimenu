@@ -128,6 +128,7 @@ export default function Cardapio() {
 
   // Store Status
   const { isStoreUnavailable, isStoreClosed, isStorePaused, isAutoModeClosed, getNextOpenTime, getStatusDisplay } = useStoreStatus(store);
+  const isStoreOpen = !isStoreUnavailable && !isStoreClosed && !isStorePaused;
 
   // Coupons
   const { couponCode, setCouponCode, appliedCoupon, couponError, validateAndApply, removeCoupon, calculateDiscount } = useCoupons(coupons, cartTotal);
