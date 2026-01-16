@@ -992,6 +992,55 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
       }
     }
     
+    if (name === 'generatePasswordTokenForSubscriber') {
+      // Gerar token de senha para assinante
+      const { subscriber_id, email } = req.body;
+      
+      if (!subscriber_id && !email) {
+        return res.status(400).json({ error: 'subscriber_id ou email é obrigatório' });
+      }
+      
+      try {
+        // Buscar assinante para validar
+        let subscriber = null;
+        if (usePostgreSQL) {
+          subscriber = email 
+            ? await repo.getSubscriberByEmail(email)
+            : (await repo.getSubscribers()).find(s => s.id === subscriber_id);
+        } else if (db && db.subscribers) {
+          subscriber = db.subscribers.find(s => 
+            s.email === email || s.id === subscriber_id
+          );
+        }
+        
+        if (!subscriber) {
+          return res.status(404).json({ error: 'Assinante não encontrado' });
+        }
+        
+        // Gerar token
+        const tokenData = generatePasswordTokenForSubscriber(
+          subscriber.email,
+          subscriber.id || subscriber.email
+        );
+        
+        console.log('🔑 Token de senha gerado manualmente para:', subscriber.email);
+        
+        return res.json({
+          data: {
+            token: tokenData.token,
+            setup_url: tokenData.setup_url,
+            expires_at: tokenData.expires_at
+          }
+        });
+      } catch (error) {
+        console.error('❌ Erro ao gerar token de senha:', error);
+        return res.status(500).json({ 
+          error: 'Erro ao gerar token de senha',
+          details: error.message 
+        });
+      }
+    }
+    
     if (name === 'deleteSubscriber') {
       // Apenas master pode deletar assinantes
       if (!req.user?.is_master) {
