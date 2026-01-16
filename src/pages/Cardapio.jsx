@@ -168,8 +168,7 @@ export default function Cardapio() {
       const matchesSearch = !searchTerm || dish.name?.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesCategory = selectedCategory === 'all' || dish.category_id === selectedCategory;
       
-      
-      return matchesSearch && matchesCategory && matchesPrice && matchesTags;
+      return matchesSearch && matchesCategory;
     });
   }, [activeDishes, searchTerm, selectedCategory]);
 
