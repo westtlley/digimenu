@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { apiClient as base44 } from '@/api/apiClient';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { ShoppingCart, Search, Clock, Star, Share2, MapPin, Info, Home, Receipt, Gift } from 'lucide-react';
+import { ShoppingCart, Search, Clock, Star, Share2, MapPin, Info, Home, Receipt, Gift, User } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { motion } from 'framer-motion';
@@ -19,6 +19,7 @@ import PromotionBanner from '../components/menu/PromotionBanner';
 import RecentOrders from '../components/menu/RecentOrders';
 import AdvancedFilters from '../components/menu/AdvancedFilters';
 import UserAuthButton from '../components/atoms/UserAuthButton';
+import CustomerProfileModal from '../components/customer/CustomerProfileModal';
 import StoreClosedOverlay from '../components/menu/StoreClosedOverlay';
 import ThemeToggle from '../components/ui/ThemeToggle';
 
@@ -44,6 +45,7 @@ export default function Cardapio() {
   const [showCartModal, setShowCartModal] = useState(false);
   const [currentView, setCurrentView] = useState('menu');
   const [showOrderHistory, setShowOrderHistory] = useState(false);
+  const [showCustomerProfile, setShowCustomerProfile] = useState(false);
   const [advancedFilters, setAdvancedFilters] = useState({ priceRange: null, tags: [] });
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
@@ -414,7 +416,7 @@ export default function Cardapio() {
 
       {/* Hero Banner - Banner Superior Grande */}
       {store.banner_image ? (
-        <div className="relative w-full h-[250px] md:h-[350px] overflow-hidden">
+        <div className="relative w-full h-[180px] md:h-[220px] overflow-hidden">
           {/* Background Image */}
           <img 
             src={store.banner_image} 
@@ -459,7 +461,27 @@ export default function Cardapio() {
               <Share2 className="w-5 h-5" />
             </button>
             <ThemeToggle className="text-white hover:bg-white/20" />
-            <UserAuthButton />
+            <button 
+              className="p-2 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-colors text-white" 
+              onClick={() => {
+                const checkAuth = async () => {
+                  try {
+                    const isAuth = await base44.auth.isAuthenticated();
+                    if (isAuth) {
+                      setShowCustomerProfile(true);
+                    } else {
+                      base44.auth.redirectToLogin();
+                    }
+                  } catch {
+                    base44.auth.redirectToLogin();
+                  }
+                };
+                checkAuth();
+              }}
+              title="Perfil do Cliente"
+            >
+              <User className="w-5 h-5" />
+            </button>
             <button 
               className="p-2 rounded-full relative bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-colors text-white" 
               onClick={() => setShowCartModal(true)}
@@ -471,53 +493,51 @@ export default function Cardapio() {
                 </span>
               )}
             </button>
-            <button 
-              className="p-2 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-colors text-white hidden md:flex" 
-              onClick={() => setShowOrderHistory(true)}
-              title="Meus Pedidos"
-            >
-              <Clock className="w-5 h-5" />
-            </button>
           </div>
 
           {/* Campo de Pesquisa - Sobre o Banner */}
-          <div className="absolute top-20 md:top-24 left-4 right-4 z-30">
+          <div className="absolute top-16 md:top-20 left-4 right-4 z-30">
             <div className="relative max-w-2xl mx-auto">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/80" />
               <Input
                 placeholder="O que você procura hoje?"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 h-12 text-base bg-white/90 backdrop-blur-sm border-white/30 text-foreground placeholder:text-muted-foreground"
+                className="pl-10 h-11 md:h-12 text-base bg-white/90 backdrop-blur-sm border-white/30 text-foreground placeholder:text-muted-foreground"
               />
+            </div>
+          </div>
+
+          {/* Status Aberto - Centralizado abaixo da pesquisa */}
+          <div className="absolute top-28 md:top-32 left-0 right-0 z-30 flex justify-center">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/20 backdrop-blur-sm">
+              <span className={`w-2 h-2 rounded-full ${isStoreOpen ? 'bg-green-400' : 'bg-red-400'}`}></span>
+              <span className="font-medium text-white text-sm md:text-base">{getStatusDisplay.text}</span>
             </div>
           </div>
           
           {/* Informações da Loja - Parte Inferior do Banner */}
-          <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 text-white z-20">
-            <div className="max-w-7xl mx-auto">
-              <h1 className="text-2xl md:text-4xl font-bold mb-2 drop-shadow-lg">{store.name}</h1>
-              <div className="flex flex-wrap items-center gap-3 md:gap-4 text-sm md:text-base">
-                <div className="flex items-center gap-2">
-                  <span className={`w-2 h-2 rounded-full ${isStoreOpen ? 'bg-green-400' : 'bg-red-400'}`}></span>
-                  <span className="font-medium">{getStatusDisplay.text}</span>
-                </div>
+          <div className="absolute bottom-0 left-0 right-0 p-3 md:p-4 text-white z-20">
+            <div className="max-w-7xl mx-auto flex items-end justify-between">
+              <div>
+                <h1 className="text-xl md:text-3xl font-bold mb-1 drop-shadow-lg">{store.name}</h1>
                 {store.min_order_value > 0 && (
-                  <div className="flex items-center gap-2">
-                    <span className="opacity-90">Pedido mín.</span>
+                  <div className="flex items-center gap-2 text-xs md:text-sm opacity-90">
+                    <span>Pedido mín.</span>
                     <span className="font-bold">{formatCurrency(store.min_order_value)}</span>
                   </div>
                 )}
-                <button 
-                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-colors text-sm"
-                  onClick={() => {
-                    toast.success('Perfil da loja em breve!');
-                  }}
-                >
-                  <Info className="w-4 h-4" />
-                  Perfil da loja
-                </button>
               </div>
+              {/* Perfil da Loja - Canto Direito Inferior */}
+              <button 
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-colors text-xs md:text-sm"
+                onClick={() => {
+                  toast.success('Perfil da loja em breve!');
+                }}
+              >
+                <Info className="w-3 h-3 md:w-4 md:h-4" />
+                <span className="hidden sm:inline">Perfil da loja</span>
+              </button>
             </div>
           </div>
         </div>
@@ -561,7 +581,27 @@ export default function Cardapio() {
                   <Share2 className="w-5 h-5" />
                 </button>
                 <ThemeToggle className="text-muted-foreground hover:text-foreground hover:bg-muted" />
-                <UserAuthButton />
+                <button 
+                  className="p-2 rounded-lg transition-colors text-muted-foreground hover:text-foreground hover:bg-muted" 
+                  onClick={() => {
+                    const checkAuth = async () => {
+                      try {
+                        const isAuth = await base44.auth.isAuthenticated();
+                        if (isAuth) {
+                          setShowCustomerProfile(true);
+                        } else {
+                          base44.auth.redirectToLogin();
+                        }
+                      } catch {
+                        base44.auth.redirectToLogin();
+                      }
+                    };
+                    checkAuth();
+                  }}
+                  title="Perfil do Cliente"
+                >
+                  <User className="w-5 h-5 md:w-6 md:h-6" />
+                </button>
                 <button 
                   className="p-2 rounded-lg relative transition-colors text-muted-foreground hover:text-foreground hover:bg-muted" 
                   onClick={() => setShowCartModal(true)}
@@ -572,13 +612,6 @@ export default function Cardapio() {
                       {cartItemsCount}
                     </span>
                   )}
-                </button>
-                <button 
-                  className="p-2 rounded-lg transition-colors text-muted-foreground hover:text-foreground hover:bg-muted hidden md:flex" 
-                  onClick={() => setShowOrderHistory(true)}
-                  title="Meus Pedidos"
-                >
-                  <Clock className="w-5 h-5 md:w-6 md:h-6" />
                 </button>
               </div>
             </div>
@@ -1105,6 +1138,11 @@ export default function Cardapio() {
         isOpen={showOrderHistory}
         onClose={() => setShowOrderHistory(false)}
         primaryColor={primaryColor}
+      />
+
+      <CustomerProfileModal
+        isOpen={showCustomerProfile}
+        onClose={() => setShowCustomerProfile(false)}
       />
 
       <UpsellModal
