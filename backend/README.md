@@ -48,7 +48,17 @@ O servidor rodará na porta 3000 por padrão.
 
 ## Banco de Dados
 
-Atualmente usa banco em memória. Para produção, substitua por um banco real (PostgreSQL, MongoDB, etc.).
+### ⚠️ IMPORTANTE: Produção vs Desenvolvimento
+
+**Para produção com assinantes: PostgreSQL é OBRIGATÓRIO.**
+
+O sistema suporta:
+- ✅ **PostgreSQL** (recomendado para produção) - Configure `DATABASE_URL`
+- ⚠️ **Fallback JSON** (apenas desenvolvimento) - Usado quando `DATABASE_URL` não está configurado
+
+**NUNCA use fallback JSON em produção com assinantes ativos.**
+
+Veja `SETUP_POSTGRESQL.md` para configuração completa.
 
 ## Variáveis de Ambiente
 

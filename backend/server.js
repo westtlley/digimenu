@@ -55,6 +55,10 @@ let saveDatabaseDebounced = null;
 
 if (!usePostgreSQL) {
   console.log('⚠️ DATABASE_URL não configurado, usando fallback em memória');
+  console.warn('🚨 ATENÇÃO: Fallback JSON é apenas para desenvolvimento!');
+  console.warn('🚨 NUNCA use em produção com assinantes ativos!');
+  console.warn('🚨 Configure DATABASE_URL para usar PostgreSQL em produção.');
+  
   const persistence = await import('./db/persistence.js');
   db = persistence.loadDatabase();
   saveDatabaseDebounced = persistence.saveDatabaseDebounced;
