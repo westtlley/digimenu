@@ -373,21 +373,37 @@ export async function getSubscriberByEmail(email) {
 }
 
 export async function createSubscriber(subscriberData) {
-  const result = await query(
-    `INSERT INTO subscribers (email, name, plan, status, expires_at, permissions, whatsapp_auto_enabled)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
-     RETURNING *`,
-    [
-      subscriberData.email,
-      subscriberData.name,
-      subscriberData.plan || 'basic',
-      subscriberData.status || 'active',
-      subscriberData.expires_at || null,
-      JSON.stringify(subscriberData.permissions || {}),
-      subscriberData.whatsapp_auto_enabled !== undefined ? subscriberData.whatsapp_auto_enabled : true
-    ]
-  );
-  return result.rows[0];
+  try {
+    // Garantir que permissions seja um objeto válido
+    let permissions = subscriberData.permissions || {};
+    if (typeof permissions === 'string') {
+      try {
+        permissions = JSON.parse(permissions);
+      } catch (e) {
+        console.warn('⚠️ Permissões inválidas, usando objeto vazio:', e);
+        permissions = {};
+      }
+    }
+    
+    const result = await query(
+      `INSERT INTO subscribers (email, name, plan, status, expires_at, permissions, whatsapp_auto_enabled)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING *`,
+      [
+        subscriberData.email,
+        subscriberData.name,
+        subscriberData.plan || 'basic',
+        subscriberData.status || 'active',
+        subscriberData.expires_at || null,
+        JSON.stringify(permissions),
+        subscriberData.whatsapp_auto_enabled !== undefined ? subscriberData.whatsapp_auto_enabled : true
+      ]
+    );
+    return result.rows[0];
+  } catch (error) {
+    console.error('❌ Erro em createSubscriber (repository):', error);
+    throw error;
+  }
 }
 
 export async function updateSubscriber(email, subscriberData) {

@@ -811,12 +811,23 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
       }
       
       try {
+        console.log('📝 Criando assinante:', { 
+          email: data.email, 
+          plan: data.plan, 
+          hasPermissions: !!data.permissions 
+        });
+        
         const subscriber = usePostgreSQL
           ? await repo.createSubscriber(data)
           : (() => {
               const newSub = {
                 id: Date.now().toString(),
-                ...data,
+                email: data.email,
+                name: data.name,
+                plan: data.plan || 'basic',
+                status: data.status || 'active',
+                expires_at: data.expires_at || null,
+                permissions: data.permissions || {},
                 whatsapp_auto_enabled: data.whatsapp_auto_enabled !== undefined ? data.whatsapp_auto_enabled : true,
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString()
@@ -826,12 +837,16 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
               if (saveDatabaseDebounced) saveDatabaseDebounced(db);
               return newSub;
             })();
+        
+        console.log('✅ Assinante criado com sucesso:', subscriber.id);
         return res.json({ data: subscriber });
       } catch (error) {
-        console.error('Erro ao criar assinante:', error);
+        console.error('❌ Erro ao criar assinante:', error);
+        console.error('❌ Stack trace:', error.stack);
         return res.status(500).json({ 
           error: 'Erro ao criar assinante',
-          details: error.message 
+          details: error.message,
+          stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
       }
     }
