@@ -1004,9 +1004,13 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
         // Buscar assinante para validar
         let subscriber = null;
         if (usePostgreSQL) {
-          subscriber = email 
-            ? await repo.getSubscriberByEmail(email)
-            : (await repo.getSubscribers()).find(s => s.id === subscriber_id);
+          if (email) {
+            subscriber = await repo.getSubscriberByEmail(email);
+          } else if (subscriber_id) {
+            // Buscar todos e filtrar por ID (temporário até ter getSubscriberById)
+            const allSubscribers = await repo.getSubscribers();
+            subscriber = allSubscribers.find(s => s.id === parseInt(subscriber_id) || s.id === subscriber_id);
+          }
         } else if (db && db.subscribers) {
           subscriber = db.subscribers.find(s => 
             s.email === email || s.id === subscriber_id
