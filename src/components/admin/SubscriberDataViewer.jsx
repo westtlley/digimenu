@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   ArrowLeft, Package, ShoppingCart, DollarSign, Store, 
-  Users, Receipt, TrendingUp, Clock, Loader2
+  Users, Receipt, TrendingUp, Clock, Loader2, Download
 } from 'lucide-react';
 
 export default function SubscriberDataViewer({ subscriber, onBack }) {
@@ -47,6 +47,40 @@ export default function SubscriberDataViewer({ subscriber, onBack }) {
     }).format(value || 0);
   };
 
+  const exportBackup = () => {
+    if (!profileData) return;
+    
+    const backupData = {
+      subscriber: {
+        ...subscriber,
+        plan: subscriber.plan,
+        permissions: subscriber.permissions || {},
+        status: subscriber.status,
+        expires_at: subscriber.expires_at
+      },
+      data: {
+        dishes: data.dishes || [],
+        categories: data.categories || [],
+        orders: data.orders || [],
+        caixas: data.caixas || [],
+        store: data.store || null
+      },
+      stats: stats || {},
+      exported_at: new Date().toISOString(),
+      exported_by: 'admin'
+    };
+    
+    const json = JSON.stringify(backupData, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const dateStr = new Date().toISOString().split('T')[0];
+    a.download = `backup-${subscriber.email}-${dateStr}.json`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -58,13 +92,19 @@ export default function SubscriberDataViewer({ subscriber, onBack }) {
           <h2 className="text-2xl font-bold">{subscriber.name}</h2>
           <p className="text-gray-500">{subscriber.email}</p>
         </div>
-        <Badge className={
-          subscriber.status === 'active' ? 'bg-green-500' : 
-          subscriber.status === 'expired' ? 'bg-red-500' : 
-          'bg-yellow-500'
-        }>
-          {subscriber.status}
-        </Badge>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={exportBackup}>
+            <Download className="w-4 h-4 mr-2" />
+            Fazer Backup
+          </Button>
+          <Badge className={
+            subscriber.status === 'active' ? 'bg-green-500' : 
+            subscriber.status === 'expired' ? 'bg-red-500' : 
+            'bg-yellow-500'
+          }>
+            {subscriber.status}
+          </Badge>
+        </div>
       </div>
 
       {/* Stats Cards */}
