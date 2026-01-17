@@ -1543,6 +1543,15 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
         plan: subscriber.plan
       } : 'NENHUM');
       
+      if (!subscriber) {
+        console.warn('⚠️ [checkSubscriptionStatus] Assinante não encontrado. Assinantes disponíveis:');
+        if (db && db.subscribers) {
+          db.subscribers.forEach((sub, idx) => {
+            console.log(`  [${idx}] Email: ${sub.email}, Nome: ${sub.name}`);
+          });
+        }
+      }
+      
       return res.json({
         data: {
           status: subscriber ? 'success' : 'not_found',
@@ -1550,6 +1559,91 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
           subscriber: subscriber || null
         }
       });
+    }
+    
+    if (name === 'getFullSubscriberProfile') {
+      // Apenas master pode ver dados completos de assinantes
+      if (!req.user?.is_master) {
+        return res.status(403).json({ error: 'Acesso negado' });
+      }
+      
+      const { subscriber_email } = data;
+      if (!subscriber_email) {
+        return res.status(400).json({ error: 'subscriber_email é obrigatório' });
+      }
+      
+      console.log('📊 [getFullSubscriberProfile] Buscando perfil completo para:', subscriber_email);
+      
+      try {
+        // Buscar assinante
+        const subscriber = usePostgreSQL
+          ? await repo.getSubscriberByEmail(subscriber_email)
+          : (db && db.subscribers ? db.subscribers.find(s => s.email?.toLowerCase() === subscriber_email?.toLowerCase()) : null);
+        
+        if (!subscriber) {
+          return res.status(404).json({ error: 'Assinante não encontrado' });
+        }
+        
+        // Buscar dados do assinante (entidades filtradas por email)
+        let dishes = [];
+        let categories = [];
+        let orders = [];
+        let caixas = [];
+        let store = null;
+        
+        if (usePostgreSQL) {
+          // PostgreSQL - buscar entidades com filtro por subscriber_email
+          dishes = await repo.listEntities('Dish', { owner_email: subscriber.email }, null, req.user);
+          categories = await repo.listEntities('Category', { owner_email: subscriber.email }, null, req.user);
+          orders = await repo.listEntities('Order', { owner_email: subscriber.email }, null, req.user);
+          caixas = await repo.listEntities('Caixa', { owner_email: subscriber.email }, null, req.user);
+          const stores = await repo.listEntities('Store', { owner_email: subscriber.email }, null, req.user);
+          store = stores[0] || null;
+        } else if (db && db.entities) {
+          // JSON - buscar entidades com filtro por owner_email
+          dishes = (db.entities.Dish || []).filter(e => e.owner_email === subscriber.email || !e.owner_email);
+          categories = (db.entities.Category || []).filter(e => e.owner_email === subscriber.email || !e.owner_email);
+          orders = (db.entities.Order || []).filter(e => e.owner_email === subscriber.email || e.customer_email === subscriber.email || !e.owner_email);
+          caixas = (db.entities.Caixa || []).filter(e => e.owner_email === subscriber.email || !e.owner_email);
+          const stores = (db.entities.Store || []).filter(e => e.owner_email === subscriber.email || !e.owner_email);
+          store = stores[0] || null;
+        }
+        
+        // Calcular estatísticas
+        const stats = {
+          total_dishes: dishes.length,
+          total_orders: orders.length,
+          total_revenue: orders.reduce((sum, o) => sum + (parseFloat(o.total) || 0), 0),
+          active_caixas: caixas.filter(c => c.status === 'open').length
+        };
+        
+        console.log('✅ [getFullSubscriberProfile] Perfil completo gerado:', {
+          subscriber: subscriber.email,
+          dishes: stats.total_dishes,
+          orders: stats.total_orders,
+          revenue: stats.total_revenue
+        });
+        
+        return res.json({
+          data: {
+            subscriber,
+            data: {
+              dishes,
+              categories,
+              orders,
+              caixas,
+              store
+            },
+            stats
+          }
+        });
+      } catch (error) {
+        console.error('❌ [getFullSubscriberProfile] Erro:', error);
+        return res.status(500).json({ 
+          error: 'Erro ao buscar perfil do assinante',
+          details: error.message 
+        });
+      }
     }
     
     // Função padrão (mock)
