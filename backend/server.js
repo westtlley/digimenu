@@ -150,28 +150,46 @@ function generatePasswordTokenForSubscriber(subscriberEmail, subscriberId = null
     created_at: new Date().toISOString()
   };
   
-  // Também salvar token no assinante no banco de dados
+  console.log('🔑 [generateToken] Token gerado e armazenado em memória:', {
+    key,
+    email: subscriberEmail,
+    token: token.substring(0, 20) + '...',
+    expires_at: expiresAt.toISOString()
+  });
+  
+  // Também salvar token no assinante no banco de dados (JSON apenas, PostgreSQL é salvo depois)
   if (db && db.subscribers) {
-    const subscriberIndex = db.subscribers.findIndex(s => 
-      (subscriberId && (s.id === subscriberId || s.id === String(subscriberId))) || s.email === subscriberEmail
-    );
+    const subscriberIndex = db.subscribers.findIndex(s => {
+      if (subscriberId) {
+        return s.id === subscriberId || s.id === String(subscriberId) || String(s.id) === String(subscriberId);
+      }
+      return s.email === subscriberEmail || s.email?.toLowerCase() === subscriberEmail?.toLowerCase();
+    });
     
     if (subscriberIndex >= 0) {
       db.subscribers[subscriberIndex].password_token = token;
       db.subscribers[subscriberIndex].token_expires_at = expiresAt.toISOString();
       db.subscribers[subscriberIndex].updated_at = new Date().toISOString();
       
-      console.log('💾 [generateToken] Token salvo no assinante:', {
+      console.log('💾 [generateToken] Token salvo no assinante (JSON):', {
+        index: subscriberIndex,
         email: db.subscribers[subscriberIndex].email,
+        id: db.subscribers[subscriberIndex].id,
         token: token.substring(0, 20) + '...',
         expires_at: expiresAt.toISOString()
       });
       
+      // Salvar imediatamente (não usar debounce aqui para garantir que seja salvo)
       if (saveDatabaseDebounced) {
         saveDatabaseDebounced(db);
       }
     } else {
-      console.warn('⚠️ [generateToken] Assinante não encontrado para salvar token:', { subscriberId, subscriberEmail });
+      console.warn('⚠️ [generateToken] Assinante não encontrado para salvar token:', { 
+        subscriberId, 
+        subscriberEmail,
+        totalSubscribers: db.subscribers.length,
+        subscribers: db.subscribers.map(s => ({ id: s.id, email: s.email }))
+      });
     }
   }
   
@@ -179,7 +197,7 @@ function generatePasswordTokenForSubscriber(subscriberEmail, subscriberId = null
   const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
   const setup_url = `${FRONTEND_URL}/definir-senha?token=${token}&email=${encodeURIComponent(subscriberEmail)}`;
   
-  console.log('🔑 Token de senha gerado para:', subscriberEmail, 'Expira em:', expiresAt.toISOString());
+  console.log('🔑 [generateToken] Token de senha gerado para:', subscriberEmail, 'Expira em:', expiresAt.toISOString());
   
   return {
     token,
