@@ -922,14 +922,38 @@ app.get('/api/entities/:entity', authenticate, async (req, res) => {
   try {
     const { entity } = req.params;
     const { order_by, ...filters } = req.query;
-    
+
+    // MULTI-TENANCY: Se não for master, filtrar por owner_email automaticamente
     let items;
     if (usePostgreSQL) {
+      // Se não for master e não tiver filtro explícito de owner_email, adicionar
+      if (!req.user?.is_master && !filters.owner_email) {
+        // Buscar email do assinante associado ao usuário
+        const subscriber = await repo.getSubscriberByEmail(req.user.email);
+        if (subscriber) {
+          filters.owner_email = subscriber.email;
+        }
+      }
       items = await repo.listEntities(entity, filters, order_by, req.user);
     } else if (db && db.entities) {
       items = db.entities[entity] || [];
-      
-      // Aplicar filtros
+
+      // MULTI-TENANCY: Se não for master, filtrar por owner_email automaticamente
+      if (!req.user?.is_master) {
+        // Buscar email do assinante associado ao usuário
+        const subscriber = db.subscribers?.find(s => s.email === req.user.email);
+        if (subscriber) {
+          // Filtrar apenas itens do assinante ou sem owner_email (legados)
+          items = items.filter(item => {
+            return !item.owner_email || item.owner_email === subscriber.email;
+          });
+        } else {
+          // Se não encontrou assinante, não retornar nada para não-masters
+          items = [];
+        }
+      }
+
+      // Aplicar filtros adicionais
       if (Object.keys(filters).length > 0) {
         items = items.filter(item => {
           return Object.entries(filters).every(([key, value]) => {
@@ -940,7 +964,7 @@ app.get('/api/entities/:entity', authenticate, async (req, res) => {
           });
         });
       }
-      
+
       // Ordenar
       if (order_by) {
         items.sort((a, b) => {
@@ -990,7 +1014,23 @@ app.get('/api/entities/:entity/:id', authenticate, async (req, res) => {
 app.post('/api/entities/:entity', authenticate, async (req, res) => {
   try {
     const { entity } = req.params;
-    const data = req.body;
+    let data = req.body;
+    
+    // MULTI-TENANCY: Adicionar owner_email automaticamente para assinantes
+    if (!req.user?.is_master && !data.owner_email) {
+      // Buscar email do assinante associado ao usuário
+      if (usePostgreSQL) {
+        const subscriber = await repo.getSubscriberByEmail(req.user.email);
+        if (subscriber) {
+          data.owner_email = subscriber.email;
+        }
+      } else if (db && db.subscribers) {
+        const subscriber = db.subscribers.find(s => s.email === req.user.email);
+        if (subscriber) {
+          data.owner_email = subscriber.email;
+        }
+      }
+    }
     
     let newItem;
     if (usePostgreSQL) {
@@ -1015,7 +1055,7 @@ app.post('/api/entities/:entity', authenticate, async (req, res) => {
       return res.status(500).json({ error: 'Banco de dados não inicializado' });
     }
     
-    console.log(`✅ [${entity}] Item criado:`, newItem.id);
+    console.log(`✅ [${entity}] Item criado:`, newItem.id, req.user?.is_master ? '(master)' : `(owner: ${data.owner_email})`);
     res.status(201).json(newItem);
   } catch (error) {
     console.error('Erro ao criar entidade:', error);
@@ -1027,7 +1067,19 @@ app.post('/api/entities/:entity', authenticate, async (req, res) => {
 app.put('/api/entities/:entity/:id', authenticate, async (req, res) => {
   try {
     const { entity, id } = req.params;
-    const data = req.body;
+    let data = req.body;
+    
+    // MULTI-TENANCY: Verificar se assinante pode atualizar apenas seus próprios dados
+    if (!req.user?.is_master && db && db.entities && db.entities[entity]) {
+      const item = db.entities[entity].find(i => i.id === id);
+      if (item && item.owner_email && item.owner_email !== req.user.email) {
+        // Verificar se o usuário é o dono via assinante
+        const subscriber = db.subscribers?.find(s => s.email === req.user.email);
+        if (!subscriber || item.owner_email !== subscriber.email) {
+          return res.status(403).json({ error: 'Você não tem permissão para atualizar este item' });
+        }
+      }
+    }
     
     let updatedItem;
     if (usePostgreSQL) {
@@ -1037,16 +1089,21 @@ app.put('/api/entities/:entity/:id', authenticate, async (req, res) => {
       }
     } else if (db && db.entities) {
       const items = db.entities[entity] || [];
-      const index = items.findIndex(i => i.id === id);
+      const index = items.findIndex(i => i.id === id || i.id === String(id));
       
       if (index === -1) {
         return res.status(404).json({ error: 'Entidade não encontrada' });
       }
       
+      // Manter owner_email original se não estiver sendo alterado
+      if (!data.owner_email) {
+        data = { ...data, owner_email: items[index].owner_email };
+      }
+      
       updatedItem = {
         ...items[index],
         ...data,
-        id,
+        id: items[index].id, // Manter ID original
         updated_at: new Date().toISOString()
       };
       

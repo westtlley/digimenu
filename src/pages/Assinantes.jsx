@@ -526,6 +526,7 @@ export default function Assinantes() {
     console.log('💾 SALVANDO - editingSubscriber completo:', JSON.stringify(editingSubscriber, null, 2));
 
     const dataToUpdate = {
+      id: editingSubscriber.id, // Incluir ID no data também para garantir
       email: editingSubscriber.email,
       linked_user_email: editingSubscriber.linked_user_email || editingSubscriber.email,
       name: editingSubscriber.name || '',
@@ -536,6 +537,8 @@ export default function Assinantes() {
       notes: editingSubscriber.notes || ''
     };
 
+    console.log('💾 SALVANDO - editingSubscriber.id:', editingSubscriber.id);
+    console.log('💾 SALVANDO - originalData:', originalData);
     console.log('💾 SALVANDO - dataToUpdate completo:', JSON.stringify(dataToUpdate, null, 2));
 
     updateMutation.mutate({ 
