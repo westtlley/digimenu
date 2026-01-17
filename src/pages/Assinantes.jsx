@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { apiClient as base44 } from '@/api/apiClient';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useDebounce } from '@/hooks/useDebounce';
 import { 
   Users, 
   Plus, 
@@ -48,10 +49,18 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { HelpCircle } from 'lucide-react';
 import UserAuthButton from '../components/atoms/UserAuthButton';
 import PermissionsEditor from '../components/permissions/PermissionsEditor';
 import SubscriberDataViewer from '../components/admin/SubscriberDataViewer';
 import SubscriberDataFilter from '../components/admin/SubscriberDataFilter';
+import ExpirationProgressBar from '../components/admin/subscribers/ExpirationProgressBar';
 import { comparePermissions, getPlanPermissions } from '../components/permissions/PlanPresets';
 import { formatBrazilianDate } from '../components/utils/dateUtils';
 import toast from 'react-hot-toast';
@@ -168,6 +177,29 @@ export default function Assinantes() {
   });
 
   const createMutation = useMutation({
+    // Optimistic Update: Atualiza UI imediatamente antes da resposta do servidor
+    onMutate: async (newSubscriberData) => {
+      // Cancelar queries em andamento
+      await queryClient.cancelQueries({ queryKey: ['subscribers'] });
+      
+      // Snapshot do estado anterior
+      const previousSubscribers = queryClient.getQueryData(['subscribers']);
+      
+      // Criar assinante temporário otimista
+      const optimisticSubscriber = {
+        id: `temp-${Date.now()}`,
+        ...newSubscriberData,
+        status: newSubscriberData.status || 'active',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        _optimistic: true
+      };
+      
+      // Atualizar cache otimisticamente
+      queryClient.setQueryData(['subscribers'], (old = []) => [...old, optimisticSubscriber]);
+      
+      return { previousSubscribers };
+    },
     mutationFn: async (data) => {
       console.log('📤 [FRONTEND] Enviando dados para criar assinante:', JSON.stringify(data, null, 2));
       
@@ -308,15 +340,35 @@ export default function Assinantes() {
         }
       }, 3000);
     },
-    onError: (error) => {
+    onError: (error, newSubscriberData, context) => {
+      // Rollback: reverter para estado anterior em caso de erro
+      if (context?.previousSubscribers) {
+        queryClient.setQueryData(['subscribers'], context.previousSubscribers);
+      }
+      
       console.error('❌ Erro completo ao criar assinante:', error);
       const errorMessage = error?.message || error?.toString() || 'Erro desconhecido';
       toast.error(`Erro ao adicionar assinante: ${errorMessage}`);
-      alert(`Erro ao adicionar assinante: ${errorMessage}`);
+    },
+    onSettled: () => {
+      // Invalidar queries após sucesso ou erro para sincronizar com servidor
+      queryClient.invalidateQueries({ queryKey: ['subscribers'] });
     }
   });
 
   const updateMutation = useMutation({
+    // Optimistic Update para edição
+    onMutate: async ({ id, data }) => {
+      await queryClient.cancelQueries({ queryKey: ['subscribers'] });
+      const previousSubscribers = queryClient.getQueryData(['subscribers']);
+      
+      // Atualizar otimisticamente
+      queryClient.setQueryData(['subscribers'], (old = []) =>
+        old.map(sub => sub.id === id ? { ...sub, ...data, _optimistic: true } : sub)
+      );
+      
+      return { previousSubscribers };
+    },
     mutationFn: async ({ id, data, originalData }) => {
       const response = await base44.functions.invoke('updateSubscriber', { id, data, originalData });
       if (response.data.error) {
@@ -324,14 +376,32 @@ export default function Assinantes() {
       }
       return response.data.subscriber;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['subscribers'] }),
-    onError: (error) => {
+    onError: (error, variables, context) => {
+      // Rollback em caso de erro
+      if (context?.previousSubscribers) {
+        queryClient.setQueryData(['subscribers'], context.previousSubscribers);
+      }
       const errorMessage = error?.message || error?.toString() || 'Erro ao atualizar assinante';
-      alert(errorMessage);
+      toast.error(errorMessage);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['subscribers'] });
     }
   });
 
   const deleteMutation = useMutation({
+    // Optimistic Update para exclusão
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ['subscribers'] });
+      const previousSubscribers = queryClient.getQueryData(['subscribers']);
+      
+      // Remover otimisticamente
+      queryClient.setQueryData(['subscribers'], (old = []) =>
+        old.filter(sub => sub.id !== id)
+      );
+      
+      return { previousSubscribers };
+    },
     mutationFn: async (id) => {
       const response = await base44.functions.invoke('deleteSubscriber', { id });
       if (response.data.error) {
@@ -339,7 +409,16 @@ export default function Assinantes() {
       }
       return response.data;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['subscribers'] })
+    onError: (error, id, context) => {
+      // Rollback em caso de erro
+      if (context?.previousSubscribers) {
+        queryClient.setQueryData(['subscribers'], context.previousSubscribers);
+      }
+      toast.error('Erro ao excluir assinante');
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['subscribers'] });
+    }
   });
 
   // Mutation para gerar/regenerar token de senha
@@ -585,10 +664,18 @@ export default function Assinantes() {
 
 
 
-  const filteredSubscribers = subscribers.filter(s => 
-    s.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    s.name?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Debounce da busca para melhor performance
+  const debouncedSearchTerm = useDebounce(searchTerm, 300);
+  
+  const filteredSubscribers = useMemo(() => {
+    if (!debouncedSearchTerm) return subscribers;
+    
+    const term = debouncedSearchTerm.toLowerCase();
+    return subscribers.filter(s => 
+      s.email?.toLowerCase().includes(term) ||
+      s.name?.toLowerCase().includes(term)
+    );
+  }, [subscribers, debouncedSearchTerm]);
 
   const getPlanLabel = (slug) => {
     if (slug === 'custom') return 'Personalizado';
@@ -812,10 +899,13 @@ export default function Assinantes() {
                           </p>
                         )}
                         {subscriber.expires_at && (
-                          <p className="text-xs text-gray-400 flex items-center gap-1 mt-1">
-                            <Calendar className="w-3 h-3" />
-                            Renovação: {formatBrazilianDate(subscriber.expires_at)}
-                          </p>
+                          <div className="mt-2">
+                            <ExpirationProgressBar expiresAt={subscriber.expires_at} />
+                            <p className="text-xs text-gray-400 flex items-center gap-1 mt-1">
+                              <Calendar className="w-3 h-3" />
+                              Renovação: {formatBrazilianDate(subscriber.expires_at)}
+                            </p>
+                          </div>
                         )}
                         {/* Link de Definição de Senha */}
                         <div className="mt-2 space-y-1">
@@ -945,6 +1035,30 @@ export default function Assinantes() {
                           </DropdownMenuItem>
                           <DropdownMenuItem 
                             onClick={() => {
+                              // Duplicar assinante
+                              const duplicated = {
+                                ...subscriber,
+                                email: `${subscriber.email.split('@')[0]}_copy@${subscriber.email.split('@')[1]}`,
+                                name: `${subscriber.name} (Cópia)`,
+                                id: undefined
+                              };
+                              setNewSubscriber({
+                                email: duplicated.email,
+                                name: duplicated.name,
+                                plan: duplicated.plan,
+                                status: duplicated.status || 'active',
+                                expires_at: duplicated.expires_at || '',
+                                permissions: duplicated.permissions || getPlanPermissions('basic')
+                              });
+                              setShowAddModal(true);
+                              toast.success('Dados do assinante copiados! Revise e salve.');
+                            }}
+                          >
+                            <Copy className="w-4 h-4 mr-2" />
+                            Duplicar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={() => {
                               if (confirm('Excluir este assinante?')) {
                                 deleteMutation.mutate(subscriber.id);
                               }
@@ -975,42 +1089,73 @@ export default function Assinantes() {
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4 py-4">
-            <div>
-              <label className="text-sm font-medium text-gray-700 mb-1 block">Email da Assinatura *</label>
-              <Input
-                type="email"
-                placeholder="email@exemplo.com"
-                value={newSubscriber.email}
-                onChange={(e) => setNewSubscriber({...newSubscriber, email: e.target.value})}
-                autoFocus
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Email do titular da assinatura
-              </p>
-            </div>
-            
-            <div>
-              <label className="text-sm font-medium text-gray-700 mb-1 block">Email de Acesso (opcional)</label>
-              <Input
-                type="email"
-                placeholder="email@exemplo.com"
-                value={newSubscriber.linked_user_email || ''}
-                onChange={(e) => setNewSubscriber({...newSubscriber, linked_user_email: e.target.value})}
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Se diferente, informe o email do usuário que terá acesso ao painel
-              </p>
-            </div>
-            
-            <div>
-              <label className="text-sm font-medium text-gray-700 mb-1 block">Nome</label>
-              <Input
-                placeholder="Nome do assinante"
-                value={newSubscriber.name}
-                onChange={(e) => setNewSubscriber({...newSubscriber, name: e.target.value})}
-              />
-            </div>
+          <TooltipProvider>
+            <div className="space-y-4 py-4">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <label className="text-sm font-medium text-gray-700">Email da Assinatura *</label>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <HelpCircle className="w-4 h-4 text-gray-400 cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="max-w-xs">Email principal do titular da assinatura. Será usado para login e identificação.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+                <Input
+                  type="email"
+                  placeholder="email@exemplo.com"
+                  value={newSubscriber.email}
+                  onChange={(e) => setNewSubscriber({...newSubscriber, email: e.target.value})}
+                  autoFocus
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Email do titular da assinatura
+                </p>
+              </div>
+              
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <label className="text-sm font-medium text-gray-700">Email de Acesso (opcional)</label>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <HelpCircle className="w-4 h-4 text-gray-400 cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="max-w-xs">Se diferente do email da assinatura, informe aqui o email que terá acesso ao painel. Deixe vazio para usar o mesmo email.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+                <Input
+                  type="email"
+                  placeholder="email@exemplo.com"
+                  value={newSubscriber.linked_user_email || ''}
+                  onChange={(e) => setNewSubscriber({...newSubscriber, linked_user_email: e.target.value})}
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Se diferente, informe o email do usuário que terá acesso ao painel
+                </p>
+              </div>
+              
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <label className="text-sm font-medium text-gray-700">Nome</label>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <HelpCircle className="w-4 h-4 text-gray-400 cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Nome completo ou comercial do assinante. Será exibido no dashboard e relatórios.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+                <Input
+                  placeholder="Nome do assinante"
+                  value={newSubscriber.name}
+                  onChange={(e) => setNewSubscriber({...newSubscriber, name: e.target.value})}
+                />
+              </div>
             
             <PermissionsEditor
               permissions={newSubscriber.permissions}
@@ -1019,14 +1164,26 @@ export default function Assinantes() {
               onPlanChange={handlePlanChange}
             />
             
-            <div>
-              <label className="text-sm font-medium text-gray-700 mb-1 block">Data de Expiração</label>
-              <Input
-                type="date"
-                value={newSubscriber.expires_at}
-                onChange={(e) => setNewSubscriber({...newSubscriber, expires_at: e.target.value})}
-              />
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <label className="text-sm font-medium text-gray-700">Data de Expiração</label>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <HelpCircle className="w-4 h-4 text-gray-400 cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="max-w-xs">Data em que a assinatura expira automaticamente. Deixe vazio para assinatura sem expiração (permanente).</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+                <Input
+                  type="date"
+                  value={newSubscriber.expires_at}
+                  onChange={(e) => setNewSubscriber({...newSubscriber, expires_at: e.target.value})}
+                />
+              </div>
             </div>
+          </TooltipProvider>
             
 
           </div>
