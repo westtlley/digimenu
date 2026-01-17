@@ -219,6 +219,7 @@ const publicRoutes = [
   '/api/health',
   '/api/upload-image',
   '/api/auth/login',
+  '/api/auth/set-password',
   '/api/auth/google',
   '/api/auth/google/callback'
 ];
@@ -796,10 +797,23 @@ app.post('/api/auth/set-password', async (req, res) => {
         }
       }
       
-      // Salvar imediatamente
-      if (saveDatabaseDebounced) {
-        saveDatabaseDebounced(db);
-        console.log('💾 [set-password] Banco de dados salvo');
+      // Salvar imediatamente (forçar salvamento síncrono)
+      try {
+        if (!usePostgreSQL && db) {
+          // Importar persistence dinamicamente se necessário
+          const persistenceModule = await import('./db/persistence.js');
+          if (persistenceModule && persistenceModule.saveDatabase) {
+            persistenceModule.saveDatabase(db);
+            console.log('💾 [set-password] Banco de dados salvo (síncrono)');
+          } else if (saveDatabaseDebounced) {
+            // Fallback para debounced
+            saveDatabaseDebounced(db);
+            await new Promise(resolve => setTimeout(resolve, 200));
+            console.log('💾 [set-password] Banco de dados salvo (debounced)');
+          }
+        }
+      } catch (saveError) {
+        console.error('❌ [set-password] Erro ao salvar banco:', saveError);
       }
       
       // Verificar se a senha foi salva corretamente
@@ -807,8 +821,11 @@ app.post('/api/auth/set-password', async (req, res) => {
       if (verifyUser && verifyUser.password) {
         console.log('✅ [set-password] Verificação: Senha salva corretamente no banco');
         console.log('✅ [set-password] Hash salvo:', verifyUser.password.substring(0, 20) + '...');
+        console.log('✅ [set-password] Email do usuário:', verifyUser.email);
+        console.log('✅ [set-password] ID do usuário:', verifyUser.id);
       } else {
         console.error('❌ [set-password] ERRO: Senha não foi salva corretamente!');
+        console.error('❌ [set-password] Usuário verificado:', verifyUser);
       }
     }
 
