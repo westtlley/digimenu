@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useMemoizedPermissions } from './useMemoizedPermissions';
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
@@ -222,8 +223,11 @@ export default function PermissionsEditor({ permissions, onChange, selectedPlan 
     onChange(newPermissions);
   };
 
+  // Usar cache memoizado de permissões
+  const permissionCache = useMemoizedPermissions(permissions);
+  
   const hasPermission = (moduleId, action) => {
-    return permissions?.[moduleId]?.includes(action) || false;
+    return permissionCache.hasPermission(moduleId, action);
   };
 
   if (plansLoading) {
@@ -236,9 +240,15 @@ export default function PermissionsEditor({ permissions, onChange, selectedPlan 
 
   return (
     <div className="space-y-6">
-      {/* Seletor de Plano */}
+      {/* Seletor de Plano - Pode usar cards visuais aqui no futuro */}
       <div>
         <Label className="mb-2 block">Plano de Assinatura</Label>
+          <p className="text-xs text-gray-500 mb-3">
+            {currentPlan === 'custom' 
+              ? '🎨 Plano Personalizado: Configure as permissões manualmente abaixo'
+              : 'Selecione um plano para preencher automaticamente as permissões. Você pode ajustar manualmente depois.'
+            }
+          </p>
         <Select value={currentPlan} onValueChange={handlePlanChange}>
           <SelectTrigger className="w-full">
             <SelectValue placeholder="Selecione um plano">
