@@ -153,7 +153,7 @@ function generatePasswordTokenForSubscriber(subscriberEmail, subscriberId = null
   // Também salvar token no assinante no banco de dados
   if (db && db.subscribers) {
     const subscriberIndex = db.subscribers.findIndex(s => 
-      (subscriberId && s.id === subscriberId) || s.email === subscriberEmail
+      (subscriberId && (s.id === subscriberId || s.id === String(subscriberId))) || s.email === subscriberEmail
     );
     
     if (subscriberIndex >= 0) {
@@ -161,9 +161,17 @@ function generatePasswordTokenForSubscriber(subscriberEmail, subscriberId = null
       db.subscribers[subscriberIndex].token_expires_at = expiresAt.toISOString();
       db.subscribers[subscriberIndex].updated_at = new Date().toISOString();
       
+      console.log('💾 [generateToken] Token salvo no assinante:', {
+        email: db.subscribers[subscriberIndex].email,
+        token: token.substring(0, 20) + '...',
+        expires_at: expiresAt.toISOString()
+      });
+      
       if (saveDatabaseDebounced) {
         saveDatabaseDebounced(db);
       }
+    } else {
+      console.warn('⚠️ [generateToken] Assinante não encontrado para salvar token:', { subscriberId, subscriberEmail });
     }
   }
   
@@ -539,6 +547,9 @@ app.post('/api/auth/set-password', async (req, res) => {
   try {
     const { token, password } = req.body;
 
+    console.log('🔐 [set-password] Recebida requisição para definir senha');
+    console.log('🔐 [set-password] Token recebido:', token ? token.substring(0, 20) + '...' : 'NENHUM');
+
     if (!token || !password) {
       return res.status(400).json({ error: 'Token e senha são obrigatórios' });
     }
@@ -552,43 +563,63 @@ app.post('/api/auth/set-password', async (req, res) => {
     let tokenData = null;
 
     // Primeiro, verificar em passwordTokens (memória)
+    console.log('🔍 [set-password] Verificando em passwordTokens (memória)...', Object.keys(passwordTokens).length, 'tokens');
     for (const key in passwordTokens) {
       if (passwordTokens[key].token === token) {
         userEmail = passwordTokens[key].email;
         tokenData = {
           expires_at: passwordTokens[key].expires_at
         };
+        console.log('✅ [set-password] Token encontrado em memória para:', userEmail);
         break;
       }
     }
 
     // Se não encontrou em memória, buscar no banco
     if (!userEmail) {
+      console.log('🔍 [set-password] Token não encontrado em memória, buscando no banco...');
+      
       if (usePostgreSQL) {
         // Buscar token no banco
         const subscribers = await repo.listSubscribers();
+        console.log('🔍 [set-password] Buscando em', subscribers.length, 'assinantes no PostgreSQL');
         for (const sub of subscribers) {
           if (sub.password_token === token) {
             userEmail = sub.email;
             tokenData = {
               expires_at: sub.token_expires_at
             };
+            console.log('✅ [set-password] Token encontrado no PostgreSQL para:', userEmail);
             break;
           }
         }
       } else if (db && db.subscribers) {
         // Buscar token nos assinantes
-        const subscriber = db.subscribers.find(s => s.password_token === token);
+        console.log('🔍 [set-password] Buscando em', db.subscribers.length, 'assinantes no JSON');
+        const subscriber = db.subscribers.find(s => {
+          const match = s.password_token === token;
+          if (match) {
+            console.log('✅ [set-password] Token encontrado no JSON para:', s.email);
+          }
+          return match;
+        });
         if (subscriber) {
           userEmail = subscriber.email;
           tokenData = {
             expires_at: subscriber.token_expires_at
           };
+        } else {
+          // Log detalhado para debug
+          console.log('❌ [set-password] Token não encontrado. Tokens disponíveis:');
+          db.subscribers.forEach((sub, idx) => {
+            console.log(`  [${idx}] Email: ${sub.email}, Token: ${sub.password_token ? sub.password_token.substring(0, 20) + '...' : 'SEM TOKEN'}`);
+          });
         }
       }
     }
 
     if (!userEmail) {
+      console.log('❌ [set-password] Token não encontrado em nenhum lugar');
       return res.status(400).json({ error: 'Token inválido ou expirado' });
     }
 
@@ -1097,14 +1128,29 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
                   password_token: passwordTokenData.token,
                   token_expires_at: passwordTokenData.expires_at
                 });
+                console.log('💾 [createSubscriber] Token salvo no PostgreSQL para:', subscriber.email);
               }
             } else if (db && db.subscribers) {
-              // Já é salvo automaticamente no generatePasswordTokenForSubscriber para JSON
-              // Mas vamos garantir que o subscriber retornado tenha os campos
-              const subIndex = db.subscribers.findIndex(s => s.email === subscriber.email);
+              // Garantir que o token seja salvo no assinante
+              const subIndex = db.subscribers.findIndex(s => 
+                s.email === subscriber.email || (subscriber.id && (s.id === subscriber.id || s.id === String(subscriber.id)))
+              );
               if (subIndex >= 0) {
+                db.subscribers[subIndex].password_token = passwordTokenData.token;
+                db.subscribers[subIndex].token_expires_at = passwordTokenData.expires_at;
+                db.subscribers[subIndex].updated_at = new Date().toISOString();
+                
+                // Atualizar também o objeto subscriber retornado
                 subscriber.password_token = passwordTokenData.token;
                 subscriber.token_expires_at = passwordTokenData.expires_at;
+                
+                console.log('💾 [createSubscriber] Token salvo no JSON para:', subscriber.email);
+                
+                if (saveDatabaseDebounced) {
+                  saveDatabaseDebounced(db);
+                }
+              } else {
+                console.warn('⚠️ [createSubscriber] Assinante não encontrado após criação:', subscriber.email);
               }
             }
             
