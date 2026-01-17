@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
-import { X, Trash2, Plus, Minus, ShoppingCart, Edit, Package, Clock, ChefHat, CheckCircle, Truck, MapPin, Ban } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, Trash2, Plus, Minus, ShoppingCart, Edit, Package, Clock, ChefHat, CheckCircle, Truck, MapPin, Ban, Star } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import { motion, AnimatePresence } from 'framer-motion';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient as base44 } from '@/api/apiClient';
 import { format } from 'date-fns';
+import toast from 'react-hot-toast';
 
 const statusConfig = {
   new: { label: 'Novo', color: 'bg-blue-500', icon: Clock },
@@ -23,6 +25,12 @@ const statusConfig = {
 
 export default function CartModal({ isOpen, onClose, cart, onUpdateQuantity, onRemoveItem, onCheckout, onEditItem, onEditPizza, darkMode = false, primaryColor = '#f97316' }) {
   const [activeTab, setActiveTab] = useState('cart'); // 'cart' ou 'orders'
+  const [showRatingModal, setShowRatingModal] = useState(null);
+  const [restaurantRating, setRestaurantRating] = useState(0);
+  const [deliveryRating, setDeliveryRating] = useState(0);
+  const [comment, setComment] = useState('');
+  const prevOrdersRef = useRef([]);
+  const queryClient = useQueryClient();
 
   const formatCurrency = (value) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
@@ -30,7 +38,7 @@ export default function CartModal({ isOpen, onClose, cart, onUpdateQuantity, onR
 
   const cartTotal = cart.reduce((sum, item) => sum + item.totalPrice * (item.quantity || 1), 0);
 
-  // Buscar pedidos do cliente autenticado
+  // Buscar pedidos do cliente autenticado (incluindo entregues recentemente)
   const { data: orders = [], isLoading: ordersLoading } = useQuery({
     queryKey: ['customerOrdersInCart'],
     queryFn: async () => {
@@ -38,11 +46,17 @@ export default function CartModal({ isOpen, onClose, cart, onUpdateQuantity, onR
         const user = await base44.auth.me();
         const allOrders = await base44.entities.Order.list('-created_date');
         // Filtrar apenas pedidos do cliente que não estão finalizados ou cancelados
-        return allOrders.filter(o => 
-          (o.customer_email === user.email || o.created_by === user.email) &&
-          o.status !== 'delivered' && 
-          o.status !== 'cancelled'
-        );
+        // Mas também incluir entregues recentemente (últimas 5 horas) para avaliação
+        const fiveHoursAgo = new Date();
+        fiveHoursAgo.setHours(fiveHoursAgo.getHours() - 5);
+        
+        return allOrders.filter(o => {
+          const isCustomerOrder = o.customer_email === user.email || o.created_by === user.email;
+          const isDeliveredRecently = o.status === 'delivered' && o.delivered_at && new Date(o.delivered_at) > fiveHoursAgo && !o.restaurant_rating;
+          const isActive = o.status !== 'delivered' && o.status !== 'cancelled';
+          
+          return isCustomerOrder && (isActive || isDeliveredRecently);
+        });
       } catch {
         return [];
       }
@@ -50,6 +64,87 @@ export default function CartModal({ isOpen, onClose, cart, onUpdateQuantity, onR
     enabled: isOpen,
     refetchInterval: 3000 // Atualizar a cada 3 segundos
   });
+
+  // Detectar quando um pedido muda para "delivered" e mostrar modal de avaliação
+  useEffect(() => {
+    if (!isOpen || ordersLoading) return;
+
+    const currentDelivered = orders.filter(o => o.status === 'delivered' && !o.restaurant_rating);
+    const prevDelivered = prevOrdersRef.current.filter(o => o.status === 'delivered' && !o.restaurant_rating);
+
+    // Se há um novo pedido entregue sem avaliação
+    const newDelivered = currentDelivered.find(o => 
+      !prevDelivered.find(p => p.id === o.id)
+    );
+
+    if (newDelivered && !showRatingModal) {
+      // Aguardar um pouco antes de mostrar o modal para não ser muito intrusivo
+      setTimeout(() => {
+        setShowRatingModal(newDelivered);
+      }, 1000);
+    }
+
+    prevOrdersRef.current = orders;
+  }, [orders, ordersLoading, isOpen, showRatingModal]);
+
+  // Mutation para salvar avaliação
+  const submitRatingMutation = useMutation({
+    mutationFn: async ({ orderId, ratings }) => {
+      const order = orders.find(o => o.id === orderId);
+      
+      // Criar avaliação do entregador se houver
+      if (order.entregador_id && ratings.deliveryRating > 0) {
+        try {
+          await base44.entities.DeliveryRating.create({
+            order_id: orderId,
+            entregador_id: order.entregador_id,
+            rating: ratings.deliveryRating,
+            comment: ratings.comment,
+            rated_by: 'customer'
+          });
+        } catch (e) {
+          console.log('Erro ao criar avaliação do entregador:', e);
+        }
+      }
+      
+      // Salvar avaliação do restaurante no pedido
+      await base44.entities.Order.update(orderId, {
+        ...order,
+        restaurant_rating: ratings.restaurantRating,
+        rating_comment: ratings.comment
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['customerOrdersInCart'] });
+      queryClient.invalidateQueries({ queryKey: ['myOrders'] });
+      queryClient.invalidateQueries({ queryKey: ['customerOrders'] });
+      setShowRatingModal(null);
+      setRestaurantRating(0);
+      setDeliveryRating(0);
+      setComment('');
+      toast.success('Avaliação enviada! Obrigado pelo feedback.');
+    },
+    onError: (error) => {
+      console.error('Erro ao enviar avaliação:', error);
+      toast.error('Erro ao enviar avaliação. Tente novamente.');
+    }
+  });
+
+  const handleSubmitRating = () => {
+    if (restaurantRating === 0) {
+      toast.error('Por favor, avalie o restaurante');
+      return;
+    }
+    
+    submitRatingMutation.mutate({
+      orderId: showRatingModal.id,
+      ratings: {
+        restaurantRating,
+        deliveryRating: showRatingModal.delivery_method === 'delivery' ? deliveryRating : 0,
+        comment
+      }
+    });
+  };
 
   if (!isOpen) return null;
 
@@ -295,6 +390,33 @@ export default function CartModal({ isOpen, onClose, cart, onUpdateQuantity, onR
                           </p>
                         </div>
                       )}
+
+                      {/* Botão de Avaliação para pedidos entregues */}
+                      {order.status === 'delivered' && !order.restaurant_rating && (
+                        <div className="mt-3 pt-3 border-t" style={{ borderColor: darkMode ? '#4b5563' : '#e5e7eb' }}>
+                          <button
+                            onClick={() => setShowRatingModal(order)}
+                            className={`w-full py-2 px-4 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors`}
+                            style={{ 
+                              backgroundColor: primaryColor,
+                              color: 'white'
+                            }}
+                          >
+                            <Star className="w-4 h-4 fill-current" />
+                            Avaliar Pedido
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Mostrar avaliação já feita */}
+                      {order.status === 'delivered' && order.restaurant_rating && (
+                        <div className={`mt-3 pt-3 border-t flex items-center justify-center gap-1 ${darkMode ? 'border-gray-600' : 'border-gray-200'}`}>
+                          <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                          <span className={`text-sm font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                            Avaliado: {order.restaurant_rating}/5
+                          </span>
+                        </div>
+                      )}
                     </div>
                   );
                 })
@@ -331,6 +453,104 @@ export default function CartModal({ isOpen, onClose, cart, onUpdateQuantity, onR
           )}
         </motion.div>
       </motion.div>
+
+      {/* Modal de Avaliação */}
+      {showRatingModal && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4"
+          onClick={() => setShowRatingModal(null)}
+        >
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.9, opacity: 0 }}
+            onClick={(e) => e.stopPropagation()}
+            className={`rounded-2xl p-6 max-w-md w-full shadow-2xl ${darkMode ? 'bg-gray-800' : 'bg-white'}`}
+          >
+            <h3 className={`text-xl font-bold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+              Avalie sua experiência
+            </h3>
+            <p className={`text-sm mb-4 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+              Pedido #{showRatingModal.order_code || showRatingModal.id?.slice(-6)}
+            </p>
+            
+            {/* Restaurante */}
+            <div className="space-y-2 mb-4">
+              <label className={`font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                Restaurante *
+              </label>
+              <div className="flex gap-2">
+                {[1, 2, 3, 4, 5].map(star => (
+                  <button
+                    key={star}
+                    onClick={() => setRestaurantRating(star)}
+                    className="text-3xl transition-transform hover:scale-110"
+                  >
+                    {star <= restaurantRating ? '⭐' : '☆'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Entregador */}
+            {showRatingModal.delivery_method === 'delivery' && (
+              <div className="space-y-2 mb-4">
+                <label className={`font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                  Entregador (opcional)
+                </label>
+                <div className="flex gap-2">
+                  {[1, 2, 3, 4, 5].map(star => (
+                    <button
+                      key={star}
+                      onClick={() => setDeliveryRating(star)}
+                      className="text-3xl transition-transform hover:scale-110"
+                    >
+                      {star <= deliveryRating ? '⭐' : '☆'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Comentário */}
+            <div className="space-y-2 mb-4">
+              <label className={`font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                Comentário (opcional)
+              </label>
+              <Textarea
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                placeholder="Conte-nos sobre sua experiência..."
+                className={`w-full p-3 border rounded-lg resize-none ${darkMode ? 'bg-gray-700 border-gray-600 text-white placeholder:text-gray-400' : 'bg-white border-gray-300'}`}
+                rows={3}
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <Button
+                onClick={() => setShowRatingModal(null)}
+                variant="outline"
+                className="flex-1"
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleSubmitRating}
+                disabled={restaurantRating === 0 || submitRatingMutation.isPending}
+                className="flex-1 text-white"
+                style={{ 
+                  backgroundColor: (restaurantRating === 0 || submitRatingMutation.isPending) ? '#d1d5db' : primaryColor 
+                }}
+              >
+                {submitRatingMutation.isPending ? 'Enviando...' : 'Enviar'}
+              </Button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
     </AnimatePresence>
   );
 }

@@ -53,10 +53,10 @@ export default function RecentOrders({ dishes = [], onSelectDish, primaryColor }
   };
 
   return (
-    <section className="mb-8">
-      <div className="flex items-center gap-2 mb-4">
+    <section className="mb-6 md:mb-8">
+      <div className="flex items-center gap-2 mb-4 md:mb-4">
         <Clock className="w-5 h-5" style={{ color: primaryColor }} />
-        <h2 className="font-bold text-lg">Peça de Novo</h2>
+        <h2 className="font-bold text-base md:text-lg text-foreground">Peça de Novo</h2>
       </div>
       <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-2">
         {recentDishes.map((dish) => {
@@ -88,21 +88,12 @@ export default function RecentOrders({ dishes = [], onSelectDish, primaryColor }
               </div>
               <div className="p-3">
                 <h3 className="font-medium text-sm mb-2 line-clamp-2 min-h-[2.5rem] text-foreground">{dish.name}</h3>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-bold text-sm" style={{ color: primaryColor }}>
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-base" style={{ color: primaryColor }}>
                     {formatCurrency(dish.price)}
                   </span>
                 </div>
-                <button 
-                  className="w-full py-2 rounded-lg text-white text-xs font-semibold transition-colors hover:opacity-90"
-                  style={{ backgroundColor: primaryColor }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onSelectDish(dish);
-                  }}
-                >
-                  Adicionar ao carrinho
-                </button>
+                {/* Botão removido no mobile - card inteiro é clicável */}
               </div>
             </motion.div>
           );

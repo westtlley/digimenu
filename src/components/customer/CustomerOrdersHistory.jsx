@@ -26,8 +26,14 @@ const PAYMENT_LABELS = {
 export default function CustomerOrdersHistory({ userEmail }) {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const { data: orders = [], isLoading } = useQuery({
-    queryKey: ['myOrders', userEmail],
-    queryFn: () => base44.entities.Order.filter({ created_by: userEmail }, '-created_date'),
+    queryKey: ['customerOrders', userEmail],
+    queryFn: async () => {
+      // Buscar todos os pedidos do cliente, incluindo entregues
+      const allOrders = await base44.entities.Order.list('-created_date');
+      return allOrders.filter(o => 
+        o.customer_email === userEmail || o.created_by === userEmail
+      );
+    },
     enabled: !!userEmail,
   });
 
