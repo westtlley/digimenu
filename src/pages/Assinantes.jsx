@@ -352,24 +352,58 @@ export default function Assinantes() {
       if (response.data.error) {
         throw new Error(response.data.error);
       }
+      console.log('✅ [FRONTEND] Token gerado com sucesso:', response.data);
       return response.data;
     },
-    onSuccess: (data, variables) => {
+    onSuccess: async (data, variables) => {
+      console.log('✅ [FRONTEND] onSuccess - Token gerado:', data);
+      console.log('✅ [FRONTEND] setup_url recebido:', data.setup_url);
+      console.log('✅ [FRONTEND] token recebido:', data.token);
+      
       // Atualizar cache local
       const key = variables.subscriber_id || variables.email;
+      const tokenInfo = {
+        token: data.token || data.data?.token,
+        setup_url: data.setup_url || data.data?.setup_url,
+        expires_at: data.expires_at || data.data?.expires_at
+      };
+      
+      console.log('💾 [FRONTEND] Salvando no cache local:', { key, tokenInfo });
       setPasswordTokens(prev => ({
         ...prev,
-        [key]: {
-          token: data.token,
-          setup_url: data.setup_url,
-          expires_at: data.expires_at
-        }
+        [key]: tokenInfo
       }));
-      // Invalidar query para atualizar lista
+      
+      // Invalidar e refetch imediatamente
       queryClient.invalidateQueries({ queryKey: ['subscribers'] });
-      toast.success('Token de senha gerado com sucesso!');
+      
+      // Refetch após um pequeno delay para garantir
+      setTimeout(async () => {
+        try {
+          await refetchSubscribers();
+          console.log('🔄 Lista de assinantes atualizada após gerar token');
+        } catch (error) {
+          console.error('❌ Erro ao refetch após gerar token:', error);
+        }
+      }, 300);
+      
+      // Se tiver setup_url, copiar automaticamente e mostrar
+      const setupUrl = data.setup_url || data.data?.setup_url;
+      if (setupUrl) {
+        try {
+          await navigator.clipboard.writeText(setupUrl);
+          toast.success('Token gerado! Link copiado para a área de transferência.', {
+            duration: 5000
+          });
+        } catch (err) {
+          toast.success('Token de senha gerado com sucesso!');
+        }
+      } else {
+        toast.success('Token de senha gerado com sucesso!');
+      }
     },
     onError: (error) => {
+      console.error('❌ Erro ao gerar token:', error);
       toast.error(error.message || 'Erro ao gerar token de senha');
     }
   });
@@ -781,56 +815,85 @@ export default function Assinantes() {
                           </p>
                         )}
                         {/* Link de Definição de Senha */}
-                        <div className="mt-2 flex items-center gap-2">
-                          {subscriber.setup_url ? (
-                            <>
-                              <div className="flex items-center gap-1 bg-blue-50 border border-blue-200 rounded px-2 py-1">
-                                <Lock className="w-3 h-3 text-blue-600" />
-                                <span className="text-xs text-blue-700 font-medium">Link disponível</span>
-                              </div>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 px-2 text-xs"
-                                onClick={() => copyPasswordLink(subscriber.setup_url, subscriber.name || subscriber.email)}
-                              >
-                                <Copy className="w-3 h-3 mr-1" />
-                                Copiar Link
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 px-2 text-xs"
-                                onClick={() => regenerateToken(subscriber)}
-                                disabled={generateTokenMutation.isPending}
-                              >
-                                <RefreshCw className={`w-3 h-3 mr-1 ${generateTokenMutation.isPending ? 'animate-spin' : ''}`} />
-                                Atualizar
-                              </Button>
-                            </>
-                          ) : subscriber.has_password ? (
-                            <div className="flex items-center gap-1 bg-green-50 border border-green-200 rounded px-2 py-1">
-                              <Check className="w-3 h-3 text-green-600" />
-                              <span className="text-xs text-green-700">Senha já definida</span>
-                            </div>
-                          ) : (
-                            <>
-                              <div className="flex items-center gap-1 bg-yellow-50 border border-yellow-200 rounded px-2 py-1">
-                                <Lock className="w-3 h-3 text-yellow-600" />
-                                <span className="text-xs text-yellow-700">Sem link</span>
-                              </div>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 px-2 text-xs"
-                                onClick={() => regenerateToken(subscriber)}
-                                disabled={generateTokenMutation.isPending}
-                              >
-                                <RefreshCw className={`w-3 h-3 mr-1 ${generateTokenMutation.isPending ? 'animate-spin' : ''}`} />
-                                Gerar Link
-                              </Button>
-                            </>
-                          )}
+                        <div className="mt-2 space-y-1">
+                          {/* Verificar setup_url do subscriber ou do cache de tokens */}
+                          {(() => {
+                            const subscriberKey = subscriber.id || subscriber.email;
+                            const cachedToken = passwordTokens[subscriberKey];
+                            const setupUrl = subscriber.setup_url || cachedToken?.setup_url;
+                            
+                            if (setupUrl) {
+                              return (
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <div className="flex items-center gap-1 bg-blue-50 border border-blue-200 rounded px-2 py-1">
+                                    <Lock className="w-3 h-3 text-blue-600" />
+                                    <span className="text-xs text-blue-700 font-medium">Link disponível</span>
+                                  </div>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 px-2 text-xs bg-blue-500 text-white hover:bg-blue-600"
+                                    onClick={() => copyPasswordLink(setupUrl, subscriber.name || subscriber.email)}
+                                  >
+                                    <Copy className="w-3 h-3 mr-1" />
+                                    Copiar Link
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 px-2 text-xs"
+                                    onClick={() => regenerateToken(subscriber)}
+                                    disabled={generateTokenMutation.isPending}
+                                  >
+                                    <RefreshCw className={`w-3 h-3 mr-1 ${generateTokenMutation.isPending ? 'animate-spin' : ''}`} />
+                                    Regenerar
+                                  </Button>
+                                  {/* Mostrar link de forma legível */}
+                                  <div className="w-full mt-1 p-2 bg-gray-50 border border-gray-200 rounded text-xs font-mono break-all">
+                                    {setupUrl}
+                                  </div>
+                                </div>
+                              );
+                            } else if (subscriber.has_password) {
+                              return (
+                                <div className="flex items-center gap-2">
+                                  <div className="flex items-center gap-1 bg-green-50 border border-green-200 rounded px-2 py-1">
+                                    <Check className="w-3 h-3 text-green-600" />
+                                    <span className="text-xs text-green-700">Senha já definida</span>
+                                  </div>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 px-2 text-xs bg-orange-500 text-white hover:bg-orange-600"
+                                    onClick={() => regenerateToken(subscriber)}
+                                    disabled={generateTokenMutation.isPending}
+                                  >
+                                    <RefreshCw className={`w-3 h-3 mr-1 ${generateTokenMutation.isPending ? 'animate-spin' : ''}`} />
+                                    Gerar Novo Link
+                                  </Button>
+                                </div>
+                              );
+                            } else {
+                              return (
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <div className="flex items-center gap-1 bg-yellow-50 border border-yellow-200 rounded px-2 py-1">
+                                    <Lock className="w-3 h-3 text-yellow-600" />
+                                    <span className="text-xs text-yellow-700">Sem link</span>
+                                  </div>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 px-2 text-xs bg-orange-500 text-white hover:bg-orange-600"
+                                    onClick={() => regenerateToken(subscriber)}
+                                    disabled={generateTokenMutation.isPending}
+                                  >
+                                    <RefreshCw className={`w-3 h-3 mr-1 ${generateTokenMutation.isPending ? 'animate-spin' : ''}`} />
+                                    Gerar Link Temporário
+                                  </Button>
+                                </div>
+                              );
+                            }
+                          })()}
                         </div>
                       </div>
                     </div>
