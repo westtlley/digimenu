@@ -108,8 +108,32 @@ export default function DefinirSenha() {
     );
   }
 
+  // Se não tiver token, mostrar erro mais cedo
+  if (!token) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
+        <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md dark:bg-gray-800">
+          <div className="text-center">
+            <div className="w-16 h-16 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Lock className="w-8 h-8 text-red-500" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+              Link Inválido
+            </h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              Token não fornecido. Verifique o link de acesso.
+            </p>
+            <a href="/login" className="text-blue-600 hover:underline dark:text-blue-400">
+              Ir para login
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
+    <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900 p-4">
       <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md dark:bg-gray-800">
         <div className="text-center">
           <div className="w-16 h-16 bg-orange-100 dark:bg-orange-900/20 rounded-full flex items-center justify-center mx-auto mb-4">
