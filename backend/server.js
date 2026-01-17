@@ -459,6 +459,8 @@ app.post('/api/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
 
+    console.log('🔐 [login] Tentativa de login para:', email?.toLowerCase());
+
     if (!email || !password) {
       return res.status(400).json({ error: 'Email e senha são obrigatórios' });
     }
@@ -474,12 +476,20 @@ app.post('/api/auth/login', async (req, res) => {
     }
 
     if (!user) {
+      console.log('❌ [login] Usuário não encontrado:', email.toLowerCase());
       return res.status(401).json({ error: 'Credenciais inválidas' });
     }
+
+    console.log('✅ [login] Usuário encontrado:', {
+      email: user.email,
+      hasPassword: !!user.password,
+      hasPasswordHash: !!user.password && user.password.startsWith('$2')
+    });
 
     // Verificar senha (em produção, usar bcrypt)
     // Por enquanto, aceita qualquer senha para admin@digimenu.com
     if (user.email === 'admin@digimenu.com' && password === 'admin123') {
+      console.log('✅ [login] Login admin bem-sucedido');
       // Gerar token JWT
       const token = jwt.sign(
         {
@@ -510,37 +520,76 @@ app.post('/api/auth/login', async (req, res) => {
 
     // Para outros usuários, verificar senha com bcrypt
     if (user.password) {
-      const isValid = await bcrypt.compare(password, user.password);
-      if (isValid) {
-        const token = jwt.sign(
-          {
-            id: user.id,
-            email: user.email,
-            role: user.role,
-            is_master: user.is_master
-          },
-          JWT_SECRET,
-          { expiresIn: '7d' }
-        );
+      try {
+        const isValid = await bcrypt.compare(password, user.password);
+        console.log('🔐 [login] Comparação bcrypt:', { isValid, hasPassword: !!user.password });
+        
+        if (isValid) {
+          console.log('✅ [login] Login bem-sucedido para:', user.email);
+          const token = jwt.sign(
+            {
+              id: user.id,
+              email: user.email,
+              role: user.role,
+              is_master: user.is_master
+            },
+            JWT_SECRET,
+            { expiresIn: '7d' }
+          );
 
-        activeTokens[token] = user.email;
+          activeTokens[token] = user.email;
 
-        return res.json({
-          token,
-          user: {
-            id: user.id,
-            email: user.email,
-            full_name: user.full_name,
-            is_master: user.is_master,
-            role: user.role
-          }
-        });
+          return res.json({
+            token,
+            user: {
+              id: user.id,
+              email: user.email,
+              full_name: user.full_name,
+              is_master: user.is_master,
+              role: user.role
+            }
+          });
+        } else {
+          console.log('❌ [login] Senha incorreta para:', user.email);
+        }
+      } catch (bcryptError) {
+        console.error('❌ [login] Erro ao comparar senha com bcrypt:', bcryptError);
+        // Se houver erro no bcrypt, tentar comparação direta (para casos onde a senha não foi hasheada)
+        if (user.password === password) {
+          console.log('⚠️ [login] Senha sem hash detectada, usando comparação direta');
+          const token = jwt.sign(
+            {
+              id: user.id,
+              email: user.email,
+              role: user.role,
+              is_master: user.is_master
+            },
+            JWT_SECRET,
+            { expiresIn: '7d' }
+          );
+
+          activeTokens[token] = user.email;
+
+          return res.json({
+            token,
+            user: {
+              id: user.id,
+              email: user.email,
+              full_name: user.full_name,
+              is_master: user.is_master,
+              role: user.role
+            }
+          });
+        }
       }
+    } else {
+      console.log('❌ [login] Usuário sem senha:', user.email);
     }
 
     return res.status(401).json({ error: 'Credenciais inválidas' });
   } catch (error) {
-    console.error('Erro no login:', error);
+    console.error('❌ [login] Erro no login:', error);
+    console.error('❌ [login] Stack:', error.stack);
     return res.status(500).json({ error: 'Erro interno no servidor' });
   }
 });
