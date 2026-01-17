@@ -731,6 +731,19 @@ app.post('/api/auth/set-password', async (req, res) => {
       return res.status(400).json({ error: 'Token inválido ou expirado' });
     }
 
+    // Buscar dados do assinante para preencher full_name
+    let subscriberInfo = null;
+    if (usePostgreSQL) {
+      subscriberInfo = await repo.getSubscriberByEmail(userEmail);
+    } else if (db && db.subscribers) {
+      subscriberInfo = db.subscribers.find(s => s.email === userEmail.toLowerCase());
+    }
+    
+    console.log('📋 [set-password] Dados do assinante encontrados:', subscriberInfo ? {
+      email: subscriberInfo.email,
+      name: subscriberInfo.name
+    } : 'NENHUM');
+
     // Buscar ou criar usuário
     let user;
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -741,10 +754,11 @@ app.post('/api/auth/set-password', async (req, res) => {
       user = await repo.getUserByEmail(userEmail);
       if (!user) {
         console.log('👤 [set-password] Criando novo usuário no PostgreSQL:', userEmail);
-        // Criar usuário se não existir
+        // Criar usuário se não existir, usando nome do assinante se disponível
         user = await repo.createUser({
           email: userEmail.toLowerCase(),
           password: hashedPassword,
+          full_name: subscriberInfo?.name || userEmail.split('@')[0],
           role: 'user',
           is_master: false,
           has_password: true
@@ -752,11 +766,15 @@ app.post('/api/auth/set-password', async (req, res) => {
         console.log('✅ [set-password] Usuário criado no PostgreSQL:', user.id);
       } else {
         console.log('👤 [set-password] Atualizando senha do usuário existente no PostgreSQL:', user.id);
-        // Atualizar senha do usuário existente
-        user = await repo.updateUser(user.id, {
+        // Atualizar senha e nome do usuário existente (se não tiver nome)
+        const updateData = {
           password: hashedPassword,
           has_password: true
-        });
+        };
+        if (!user.full_name && subscriberInfo?.name) {
+          updateData.full_name = subscriberInfo.name;
+        }
+        user = await repo.updateUser(user.id, updateData);
         console.log('✅ [set-password] Senha atualizada no PostgreSQL');
       }
     } else if (db && db.users) {
@@ -764,11 +782,12 @@ app.post('/api/auth/set-password', async (req, res) => {
       
       if (!user) {
         console.log('👤 [set-password] Criando novo usuário no JSON:', userEmail);
-        // Criar usuário
+        // Criar usuário com nome do assinante se disponível
         user = {
           id: Date.now().toString(),
           email: userEmail.toLowerCase(),
           password: hashedPassword,
+          full_name: subscriberInfo?.name || userEmail.split('@')[0],
           role: 'user',
           is_master: false,
           has_password: true,
@@ -776,14 +795,17 @@ app.post('/api/auth/set-password', async (req, res) => {
           updated_at: new Date().toISOString()
         };
         db.users.push(user);
-        console.log('✅ [set-password] Usuário criado no JSON:', user.id);
+        console.log('✅ [set-password] Usuário criado no JSON:', user.id, 'Nome:', user.full_name);
       } else {
         console.log('👤 [set-password] Atualizando senha do usuário existente no JSON:', user.id);
-        // Atualizar senha
+        // Atualizar senha e nome se não tiver
         user.password = hashedPassword;
         user.has_password = true;
+        if (!user.full_name && subscriberInfo?.name) {
+          user.full_name = subscriberInfo.name;
+        }
         user.updated_at = new Date().toISOString();
-        console.log('✅ [set-password] Senha atualizada no JSON');
+        console.log('✅ [set-password] Senha atualizada no JSON, Nome:', user.full_name);
       }
       
       // Remover token do assinante após definir senha
@@ -1344,20 +1366,60 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
           plan: data.plan 
         });
         
-        const subscriber = usePostgreSQL
-          ? await repo.updateSubscriber(data.email || data.id, data)
-          : (() => {
-              if (!db || !db.subscribers) {
-                throw new Error('Banco de dados não inicializado');
-              }
-              const index = db.subscribers.findIndex(s => s.email === data.email || s.id === data.id);
-              if (index === -1) return null;
-              db.subscribers[index] = { ...db.subscribers[index], ...data, updated_at: new Date().toISOString() };
-              if (saveDatabaseDebounced) saveDatabaseDebounced(db);
-              return db.subscribers[index];
-            })();
+        console.log('🔍 [updateSubscriber] Buscando assinante com:', { id: data.id, email: data.email });
+        
+        let subscriber = null;
+        if (usePostgreSQL) {
+          subscriber = await repo.updateSubscriber(data.id || data.email, data);
+          console.log('✅ [updateSubscriber] Assinante atualizado no PostgreSQL:', subscriber?.id);
+        } else {
+          if (!db || !db.subscribers) {
+            throw new Error('Banco de dados não inicializado');
+          }
+          
+          // Buscar por ID primeiro, depois por email
+          const index = db.subscribers.findIndex(s => {
+            if (data.id) {
+              return s.id === data.id || s.id === String(data.id) || String(s.id) === String(data.id);
+            }
+            if (data.email) {
+              return s.email?.toLowerCase() === data.email?.toLowerCase();
+            }
+            return false;
+          });
+          
+          console.log('🔍 [updateSubscriber] Índice encontrado:', index);
+          
+          if (index === -1) {
+            console.error('❌ [updateSubscriber] Assinante não encontrado. Assinantes disponíveis:');
+            db.subscribers.forEach((sub, idx) => {
+              console.log(`  [${idx}] ID: ${sub.id}, Email: ${sub.email}`);
+            });
+            return res.status(404).json({ error: 'Assinante não encontrado' });
+          }
+          
+          // Atualizar mantendo campos existentes
+          const existing = db.subscribers[index];
+          subscriber = { 
+            ...existing, 
+            ...data,
+            id: existing.id, // Garantir que ID não seja alterado
+            email: data.email || existing.email, // Manter email se não for fornecido
+            updated_at: new Date().toISOString()
+          };
+          
+          db.subscribers[index] = subscriber;
+          
+          // Salvar imediatamente
+          if (saveDatabaseDebounced) {
+            saveDatabaseDebounced(db);
+          }
+          
+          console.log('✅ [updateSubscriber] Assinante atualizado no JSON:', subscriber.id);
+        }
         
         if (!subscriber) {
+          console.error('❌ [updateSubscriber] Assinante não encontrado após atualização');
           return res.status(404).json({ error: 'Assinante não encontrado' });
         }
         
@@ -1468,12 +1530,22 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
     }
     
     if (name === 'checkSubscriptionStatus') {
+      console.log('📋 [checkSubscriptionStatus] Verificando assinatura para:', data.user_email);
+      
       const subscriber = usePostgreSQL
         ? await repo.getSubscriberByEmail(data.user_email)
-        : (db && db.subscribers ? db.subscribers.find(s => s.email === data.user_email) : null);
+        : (db && db.subscribers ? db.subscribers.find(s => s.email?.toLowerCase() === data.user_email?.toLowerCase()) : null);
+      
+      console.log('📋 [checkSubscriptionStatus] Assinante encontrado:', subscriber ? {
+        email: subscriber.email,
+        name: subscriber.name,
+        status: subscriber.status,
+        plan: subscriber.plan
+      } : 'NENHUM');
       
       return res.json({
         data: {
+          status: subscriber ? 'success' : 'not_found',
           is_active: subscriber?.status === 'active',
           subscriber: subscriber || null
         }

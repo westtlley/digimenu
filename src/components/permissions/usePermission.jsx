@@ -55,14 +55,23 @@ export function usePermission() {
         user_email: currentUser.email
       });
 
-      // Verificar se encontrou assinante ativo
-      if (result.data?.status === 'success' && result.data?.subscriber) {
+      console.log('📋 [usePermission] Resultado checkSubscriptionStatus:', result);
+
+      // Verificar se encontrou assinante (mesmo que inativo, ainda tem dados)
+      if (result.data?.subscriber) {
         const subscriber = result.data.subscriber;
+        console.log('✅ [usePermission] Assinante encontrado:', {
+          email: subscriber.email,
+          name: subscriber.name,
+          status: subscriber.status,
+          plan: subscriber.plan
+        });
         setPermissions(subscriber.permissions || {});
         setSubscriberData(subscriber);
       } else {
+        console.warn('⚠️ [usePermission] Nenhum assinante encontrado para:', currentUser.email);
         setPermissions({});
-        setSubscriberData(result.data?.subscriber || null);
+        setSubscriberData(null);
       }
 
     } catch (e) {

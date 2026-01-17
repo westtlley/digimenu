@@ -76,7 +76,7 @@ export default function DashboardTab({ user, subscriberData }) {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
-            Boa {moment().hour() < 12 ? 'dia' : moment().hour() < 18 ? 'tarde' : 'noite'}, {user?.full_name?.split(' ')[0] || 'Admin'}!
+            Boa {moment().hour() < 12 ? 'dia' : moment().hour() < 18 ? 'tarde' : 'noite'}, {subscriberData?.name?.split(' ')[0] || user?.full_name?.split(' ')[0] || 'Usuário'}!
           </h2>
           <p style={{ color: 'var(--text-secondary)' }}>{store?.name || 'Sua Loja'}</p>
         </div>
