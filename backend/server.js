@@ -466,19 +466,40 @@ app.post('/api/auth/login', async (req, res) => {
     }
 
     // Buscar usuário no banco
+    const emailLower = email.toLowerCase().trim();
+    console.log('🔍 [login] Buscando usuário com email:', emailLower);
+    
     let user;
     if (usePostgreSQL) {
-      user = await repo.getUserByEmail(email.toLowerCase());
+      user = await repo.getUserByEmail(emailLower);
     } else if (db && db.users) {
-      user = db.users.find(u => u.email === email.toLowerCase());
+      // Buscar com diferentes variações do email
+      user = db.users.find(u => {
+        const userEmail = (u.email || '').toLowerCase().trim();
+        return userEmail === emailLower;
+      });
+      
+      if (!user) {
+        console.log('🔍 [login] Usuário não encontrado. Emails disponíveis no banco:');
+        db.users.forEach((u, idx) => {
+          console.log(`  [${idx}] Email: "${u.email}" (normalizado: "${(u.email || '').toLowerCase().trim()}")`);
+        });
+      }
     } else {
       return res.status(401).json({ error: 'Banco de dados não inicializado' });
     }
 
     if (!user) {
-      console.log('❌ [login] Usuário não encontrado:', email.toLowerCase());
+      console.log('❌ [login] Usuário não encontrado:', emailLower);
       return res.status(401).json({ error: 'Credenciais inválidas' });
     }
+    
+    console.log('✅ [login] Usuário encontrado:', {
+      id: user.id,
+      email: user.email,
+      hasPassword: !!user.password,
+      passwordLength: user.password ? user.password.length : 0
+    });
 
     console.log('✅ [login] Usuário encontrado:', {
       email: user.email,
