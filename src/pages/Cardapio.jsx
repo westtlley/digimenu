@@ -491,8 +491,9 @@ export default function Cardapio() {
             >
               <User className="w-5 h-5" />
             </button>
+            {/* Ícone de carrinho - oculto no mobile, visível no desktop */}
             <button 
-              className="p-2 rounded-full relative bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-colors text-white" 
+              className="hidden md:flex p-2 rounded-full relative bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-colors text-white" 
               onClick={() => setShowCartModal(true)}
             >
               <ShoppingCart className="w-5 h-5" />
@@ -591,8 +592,9 @@ export default function Cardapio() {
                 >
                   <User className="w-5 h-5 md:w-6 md:h-6" />
                 </button>
+                {/* Ícone de carrinho - oculto no mobile, visível no desktop */}
                 <button 
-                  className="p-2 rounded-lg relative transition-colors text-muted-foreground hover:text-foreground hover:bg-muted" 
+                  className="hidden md:flex p-2 rounded-lg relative transition-colors text-muted-foreground hover:text-foreground hover:bg-muted" 
                   onClick={() => setShowCartModal(true)}
                 >
                   <ShoppingCart className="w-5 h-5 md:w-6 md:h-6" />
