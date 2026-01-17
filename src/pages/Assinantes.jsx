@@ -105,30 +105,51 @@ export default function Assinantes() {
     queryKey: ['subscribers'],
     queryFn: async () => {
       console.log('🔄 Buscando assinantes...');
-      const response = await base44.functions.invoke('getSubscribers');
-      console.log('📥 Resposta getSubscribers:', JSON.stringify(response, null, 2));
-      
-      if (response.data?.error) {
-        throw new Error(response.data.error);
-      }
-      
-      const subscribersList = response.data?.subscribers || [];
-      console.log('📋 Assinantes retornados:', subscribersList.length);
-      
-      // Atualizar cache de tokens
-      const tokensMap = {};
-      subscribersList.forEach(sub => {
-        if (sub.setup_url) {
-          tokensMap[sub.id] = {
-            token: sub.password_token,
-            setup_url: sub.setup_url,
-            expires_at: sub.token_expires_at
-          };
+      try {
+        const response = await base44.functions.invoke('getSubscribers');
+        console.log('📥 Resposta getSubscribers RAW:', response);
+        console.log('📥 Resposta getSubscribers STRINGIFIED:', JSON.stringify(response, null, 2));
+        
+        // Verificar diferentes formatos de resposta
+        let subscribersList = [];
+        
+        if (response?.data?.subscribers) {
+          // Formato: { data: { subscribers: [...] } }
+          subscribersList = response.data.subscribers;
+        } else if (response?.data && Array.isArray(response.data)) {
+          // Formato: { data: [...] }
+          subscribersList = response.data;
+        } else if (Array.isArray(response)) {
+          // Formato: [...]
+          subscribersList = response;
+        } else if (response?.data?.error) {
+          throw new Error(response.data.error);
+        } else {
+          console.warn('⚠️ Formato de resposta inesperado:', response);
+          subscribersList = [];
         }
-      });
-      setPasswordTokens(tokensMap);
-      
-      return subscribersList;
+        
+        console.log('📋 Assinantes retornados:', subscribersList.length);
+        console.log('📋 IDs dos assinantes:', subscribersList.map(s => s.id || s.email));
+        
+        // Atualizar cache de tokens
+        const tokensMap = {};
+        subscribersList.forEach(sub => {
+          if (sub.setup_url || sub.password_token) {
+            tokensMap[sub.id || sub.email] = {
+              token: sub.password_token,
+              setup_url: sub.setup_url,
+              expires_at: sub.token_expires_at
+            };
+          }
+        });
+        setPasswordTokens(tokensMap);
+        
+        return subscribersList;
+      } catch (error) {
+        console.error('❌ Erro ao buscar assinantes:', error);
+        throw error;
+      }
     },
     enabled: !!user?.is_master,
     refetchOnWindowFocus: true,
@@ -254,14 +275,38 @@ export default function Assinantes() {
         alert('Assinante criado com sucesso!\n\n⚠️ Link de definição de senha não foi gerado. Verifique os logs do backend.');
       }
       
-      // Invalidar e forçar refetch
+      // Invalidar e forçar refetch imediatamente (múltiplas tentativas para garantir)
       queryClient.invalidateQueries({ queryKey: ['subscribers'] });
       
-      // Aguardar um pouco e refetch
+      // Refetch imediato
       setTimeout(async () => {
-        await refetchSubscribers();
-        console.log('🔄 Lista de assinantes atualizada');
-      }, 500);
+        try {
+          const result = await refetchSubscribers();
+          console.log('🔄 [1ª tentativa] Lista de assinantes atualizada:', result.data?.length || 0, 'assinantes');
+        } catch (error) {
+          console.error('❌ Erro no refetch (1ª tentativa):', error);
+        }
+      }, 300);
+      
+      // Refetch após 1 segundo (caso a primeira não funcione)
+      setTimeout(async () => {
+        try {
+          const result = await refetchSubscribers();
+          console.log('🔄 [2ª tentativa] Lista de assinantes atualizada:', result.data?.length || 0, 'assinantes');
+        } catch (error) {
+          console.error('❌ Erro no refetch (2ª tentativa):', error);
+        }
+      }, 1500);
+      
+      // Refetch após 3 segundos (garantia final)
+      setTimeout(async () => {
+        try {
+          await queryClient.refetchQueries({ queryKey: ['subscribers'] });
+          console.log('🔄 [3ª tentativa] Query invalidada e refetchada novamente');
+        } catch (error) {
+          console.error('❌ Erro no refetch (3ª tentativa):', error);
+        }
+      }, 3000);
     },
     onError: (error) => {
       console.error('❌ Erro completo ao criar assinante:', error);

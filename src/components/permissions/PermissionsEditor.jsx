@@ -75,8 +75,31 @@ export default function PermissionsEditor({ permissions, onChange, selectedPlan 
   const { data: plans = [], isLoading: plansLoading } = useQuery({
     queryKey: ['plans'],
     queryFn: async () => {
-      const allPlans = await base44.entities.Plan.list('order');
-      return allPlans.filter(p => p.is_active);
+      try {
+        const allPlans = await base44.entities.Plan.list('order');
+        const activePlans = allPlans.filter(p => p.is_active !== false);
+        console.log('📋 Planos carregados:', activePlans.length, activePlans);
+        
+        // Se não houver planos cadastrados, retornar planos padrão
+        if (activePlans.length === 0) {
+          console.log('⚠️ Nenhum plano cadastrado, usando planos padrão');
+          return [
+            { id: 'basic', slug: 'basic', name: 'Básico', description: 'Plano básico com funcionalidades essenciais', is_active: true, order: 1 },
+            { id: 'pro', slug: 'pro', name: 'Profissional', description: 'Plano profissional com recursos avançados', is_active: true, order: 2 },
+            { id: 'premium', slug: 'premium', name: 'Premium', description: 'Plano premium com todos os recursos', is_active: true, order: 3 }
+          ];
+        }
+        
+        return activePlans;
+      } catch (error) {
+        console.error('❌ Erro ao carregar planos:', error);
+        // Retornar planos padrão em caso de erro
+        return [
+          { id: 'basic', slug: 'basic', name: 'Básico', description: 'Plano básico com funcionalidades essenciais', is_active: true, order: 1 },
+          { id: 'pro', slug: 'pro', name: 'Profissional', description: 'Plano profissional com recursos avançados', is_active: true, order: 2 },
+          { id: 'premium', slug: 'premium', name: 'Premium', description: 'Plano premium com todos os recursos', is_active: true, order: 3 }
+        ];
+      }
     }
   });
   
@@ -223,20 +246,30 @@ export default function PermissionsEditor({ permissions, onChange, selectedPlan 
             </SelectValue>
           </SelectTrigger>
           <SelectContent>
-            {plans.map((plan) => (
-              <SelectItem key={plan.id} value={plan.slug}>
-                <div className="flex flex-col">
-                  <span className="font-medium">{plan.name}</span>
-                  <span className="text-xs text-gray-500">{plan.description}</span>
-                </div>
-              </SelectItem>
-            ))}
-            <SelectItem value="custom">
-              <div className="flex flex-col">
-                <span className="font-medium">Personalizado</span>
-                <span className="text-xs text-gray-500">Configure manualmente as permissões</span>
-              </div>
-            </SelectItem>
+            {plansLoading ? (
+              <div className="p-2 text-sm text-gray-500">Carregando planos...</div>
+            ) : plans.length === 0 ? (
+              <div className="p-2 text-sm text-gray-500">Nenhum plano disponível</div>
+            ) : (
+              <>
+                {plans.map((plan) => (
+                  <SelectItem key={plan.id || plan.slug} value={plan.slug}>
+                    <div className="flex flex-col">
+                      <span className="font-medium">{plan.name}</span>
+                      {plan.description && (
+                        <span className="text-xs text-gray-500">{plan.description}</span>
+                      )}
+                    </div>
+                  </SelectItem>
+                ))}
+                <SelectItem value="custom">
+                  <div className="flex flex-col">
+                    <span className="font-medium">Personalizado</span>
+                    <span className="text-xs text-gray-500">Configure manualmente as permissões</span>
+                  </div>
+                </SelectItem>
+              </>
+            )}
           </SelectContent>
         </Select>
         <p className="text-xs text-gray-500 mt-1">

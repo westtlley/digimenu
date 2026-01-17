@@ -808,10 +808,29 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
         return res.status(403).json({ error: 'Acesso negado' });
       }
       
-      const subscribers = usePostgreSQL 
-        ? await repo.listSubscribers()
-        : (db && db.subscribers ? db.subscribers : []);
-      return res.json({ data: subscribers });
+      try {
+        const subscribers = usePostgreSQL 
+          ? await repo.listSubscribers()
+          : (db && db.subscribers ? db.subscribers : []);
+        
+        console.log('📋 [BACKEND] getSubscribers - Retornando', subscribers.length, 'assinantes');
+        console.log('📋 [BACKEND] getSubscribers - IDs:', subscribers.map(s => s.id || s.email));
+        
+        // Garantir que todos os assinantes retornados têm setup_url se tiverem token
+        const subscribersWithTokens = subscribers.map(sub => {
+          // Se não tiver setup_url mas tiver password_token, construir
+          if (!sub.setup_url && sub.password_token) {
+            const baseUrl = FRONTEND_URL || 'http://localhost:5173';
+            sub.setup_url = `${baseUrl}/definir-senha?token=${sub.password_token}`;
+          }
+          return sub;
+        });
+        
+        return res.json({ data: { subscribers: subscribersWithTokens } });
+      } catch (error) {
+        console.error('❌ [BACKEND] Erro em getSubscribers:', error);
+        return res.status(500).json({ error: 'Erro ao buscar assinantes', details: error.message });
+      }
     }
     
     if (name === 'getPlanInfo') {
