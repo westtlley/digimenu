@@ -137,11 +137,11 @@ function generatePasswordTokenForSubscriber(subscriberEmail, subscriberId = null
   // Gerar token único
   const token = crypto.randomBytes(32).toString('hex');
   
-  // Expira em 7 dias
+  // Expira em 5 minutos
   const expiresAt = new Date();
-  expiresAt.setDate(expiresAt.getDate() + 7);
+  expiresAt.setMinutes(expiresAt.getMinutes() + 5);
   
-  // Armazenar token
+  // Armazenar token em memória
   const key = subscriberId || subscriberEmail;
   passwordTokens[key] = {
     token,
@@ -150,11 +150,28 @@ function generatePasswordTokenForSubscriber(subscriberEmail, subscriberId = null
     created_at: new Date().toISOString()
   };
   
+  // Também salvar token no assinante no banco de dados
+  if (db && db.subscribers) {
+    const subscriberIndex = db.subscribers.findIndex(s => 
+      (subscriberId && s.id === subscriberId) || s.email === subscriberEmail
+    );
+    
+    if (subscriberIndex >= 0) {
+      db.subscribers[subscriberIndex].password_token = token;
+      db.subscribers[subscriberIndex].token_expires_at = expiresAt.toISOString();
+      db.subscribers[subscriberIndex].updated_at = new Date().toISOString();
+      
+      if (saveDatabaseDebounced) {
+        saveDatabaseDebounced(db);
+      }
+    }
+  }
+  
   // Gerar URL de setup
   const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
   const setup_url = `${FRONTEND_URL}/definir-senha?token=${token}&email=${encodeURIComponent(subscriberEmail)}`;
   
-  console.log('🔑 Token de senha gerado para:', subscriberEmail);
+  console.log('🔑 Token de senha gerado para:', subscriberEmail, 'Expira em:', expiresAt.toISOString());
   
   return {
     token,
@@ -530,28 +547,44 @@ app.post('/api/auth/set-password', async (req, res) => {
       return res.status(400).json({ error: 'A senha deve ter no mínimo 6 caracteres' });
     }
 
-    // Buscar token nos password tokens armazenados
+    // Buscar token nos password tokens armazenados (memória e banco)
     let userEmail = null;
     let tokenData = null;
 
-    if (usePostgreSQL) {
-      // Buscar token no banco (se houver tabela de tokens)
-      // Por enquanto, usar lógica de verificação do token
-      const subscribers = await repo.listSubscribers();
-      for (const sub of subscribers) {
-        if (sub.password_token === token) {
-          userEmail = sub.email;
-          break;
-        }
-      }
-    } else if (db && db.subscribers) {
-      // Buscar token nos assinantes
-      const subscriber = db.subscribers.find(s => s.password_token === token);
-      if (subscriber) {
-        userEmail = subscriber.email;
+    // Primeiro, verificar em passwordTokens (memória)
+    for (const key in passwordTokens) {
+      if (passwordTokens[key].token === token) {
+        userEmail = passwordTokens[key].email;
         tokenData = {
-          expires_at: subscriber.token_expires_at
+          expires_at: passwordTokens[key].expires_at
         };
+        break;
+      }
+    }
+
+    // Se não encontrou em memória, buscar no banco
+    if (!userEmail) {
+      if (usePostgreSQL) {
+        // Buscar token no banco
+        const subscribers = await repo.listSubscribers();
+        for (const sub of subscribers) {
+          if (sub.password_token === token) {
+            userEmail = sub.email;
+            tokenData = {
+              expires_at: sub.token_expires_at
+            };
+            break;
+          }
+        }
+      } else if (db && db.subscribers) {
+        // Buscar token nos assinantes
+        const subscriber = db.subscribers.find(s => s.password_token === token);
+        if (subscriber) {
+          userEmail = subscriber.email;
+          tokenData = {
+            expires_at: subscriber.token_expires_at
+          };
+        }
       }
     }
 
@@ -559,12 +592,23 @@ app.post('/api/auth/set-password', async (req, res) => {
       return res.status(400).json({ error: 'Token inválido ou expirado' });
     }
 
-    // Verificar se token expirou (se tiver data de expiração)
-    if (tokenData?.expires_at) {
-      const expiresAt = new Date(tokenData.expires_at);
-      if (expiresAt < new Date()) {
-        return res.status(400).json({ error: 'Token expirado. Solicite um novo link.' });
+    // Verificar se token expirou (5 minutos)
+    const expiresAt = tokenData?.expires_at ? new Date(tokenData.expires_at) : null;
+    if (expiresAt) {
+      const now = new Date();
+      if (expiresAt < now) {
+        // Remover token expirado
+        for (const key in passwordTokens) {
+          if (passwordTokens[key].token === token) {
+            delete passwordTokens[key];
+            break;
+          }
+        }
+        return res.status(400).json({ error: 'Token expirado. O link é válido por apenas 5 minutos. Solicite um novo link.' });
       }
+    } else {
+      // Se não tem data de expiração, considerar expirado por segurança
+      return res.status(400).json({ error: 'Token inválido ou expirado' });
     }
 
     // Buscar ou criar usuário
@@ -1044,6 +1088,26 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
               subscriber.email,
               subscriber.id || subscriber.email
             );
+            
+            // Atualizar assinante com token (se não foi salvo automaticamente)
+            if (usePostgreSQL) {
+              // Atualizar assinante no PostgreSQL
+              if (repo.updateSubscriber) {
+                await repo.updateSubscriber(subscriber.id, {
+                  password_token: passwordTokenData.token,
+                  token_expires_at: passwordTokenData.expires_at
+                });
+              }
+            } else if (db && db.subscribers) {
+              // Já é salvo automaticamente no generatePasswordTokenForSubscriber para JSON
+              // Mas vamos garantir que o subscriber retornado tenha os campos
+              const subIndex = db.subscribers.findIndex(s => s.email === subscriber.email);
+              if (subIndex >= 0) {
+                subscriber.password_token = passwordTokenData.token;
+                subscriber.token_expires_at = passwordTokenData.expires_at;
+              }
+            }
+            
             console.log('🔑 Token de senha gerado automaticamente para:', subscriber.email);
           }
         } catch (tokenError) {

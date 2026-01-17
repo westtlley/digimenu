@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Eye, EyeOff, Lock, Loader2, CheckCircle } from 'lucide-react';
+import { Eye, EyeOff, Lock, Loader2, CheckCircle, Clock } from 'lucide-react';
 import { apiClient } from '@/api/apiClient';
 import toast from 'react-hot-toast';
 
@@ -15,14 +15,45 @@ export default function DefinirSenha() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [timeRemaining, setTimeRemaining] = useState(null);
+  const [tokenExpired, setTokenExpired] = useState(false);
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const token = searchParams.get('token');
+  const tokenCreatedAt = useRef(Date.now());
 
+  // Temporizador de 5 minutos
   useEffect(() => {
     if (!token) {
       setError('Token não fornecido. Verifique o link de acesso.');
+      return;
     }
+
+    // Calcular tempo restante (5 minutos a partir do carregamento)
+    const updateTimer = () => {
+      const now = Date.now();
+      const elapsed = now - tokenCreatedAt.current;
+      const totalTime = 5 * 60 * 1000; // 5 minutos em milissegundos
+      const remaining = Math.max(0, totalTime - elapsed);
+      
+      if (remaining === 0) {
+        setTokenExpired(true);
+        setError('Token expirado! O link é válido por apenas 5 minutos. Solicite um novo link.');
+        setTimeRemaining(null);
+      } else {
+        const minutes = Math.floor(remaining / 60000);
+        const seconds = Math.floor((remaining % 60000) / 1000);
+        setTimeRemaining({ minutes, seconds, total: remaining });
+      }
+    };
+
+    // Atualizar imediatamente
+    updateTimer();
+
+    // Atualizar a cada segundo
+    const interval = setInterval(updateTimer, 1000);
+
+    return () => clearInterval(interval);
   }, [token]);
 
   const handleSubmit = async (e) => {
@@ -142,9 +173,27 @@ export default function DefinirSenha() {
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
             Definir Senha
           </h2>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
             Defina uma senha para acessar sua conta
           </p>
+          
+          {/* Temporizador */}
+          {timeRemaining && !tokenExpired && (
+            <div className="flex items-center justify-center gap-2 p-2 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-md mb-2">
+              <Clock className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+              <span className="text-sm font-semibold text-orange-700 dark:text-orange-300">
+                Tempo restante: {String(timeRemaining.minutes).padStart(2, '0')}:{String(timeRemaining.seconds).padStart(2, '0')}
+              </span>
+            </div>
+          )}
+          
+          {tokenExpired && (
+            <div className="p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md mb-2">
+              <p className="text-xs text-red-700 dark:text-red-300 text-center">
+                ⏰ Este link expirou. Solicite um novo link de definição de senha.
+              </p>
+            </div>
+          )}
         </div>
 
         {error && (
@@ -204,11 +253,20 @@ export default function DefinirSenha() {
             </div>
           </div>
 
-          <Button type="submit" className="w-full" disabled={loading || !token}>
+          <Button 
+            type="submit" 
+            className="w-full" 
+            disabled={loading || !token || tokenExpired}
+          >
             {loading ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin mr-2" />
                 Definindo...
+              </>
+            ) : tokenExpired ? (
+              <>
+                <Lock className="w-4 h-4 mr-2" />
+                Link Expirado
               </>
             ) : (
               <>
