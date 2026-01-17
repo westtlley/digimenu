@@ -55,12 +55,17 @@ export default function DefinirSenha() {
     }
 
     try {
+      console.log('🔐 Enviando requisição para definir senha...', { token: token?.substring(0, 20) + '...' });
+      
       const response = await apiClient.post('/auth/set-password', {
         token,
         password
       });
 
-      if (response.success) {
+      console.log('📥 Resposta recebida:', response);
+
+      // Verificar diferentes formatos de resposta
+      if (response?.success || response?.data?.success) {
         setSuccess(true);
         toast.success('Senha definida com sucesso!');
         
@@ -69,11 +74,13 @@ export default function DefinirSenha() {
           navigate('/login');
         }, 2000);
       } else {
-        setError(response.error || 'Erro ao definir senha');
+        const errorMsg = response?.error || response?.data?.error || response?.message || 'Erro ao definir senha';
+        setError(errorMsg);
+        toast.error(errorMsg);
       }
     } catch (error) {
-      console.error('Erro ao definir senha:', error);
-      const errorMessage = error.message || 'Erro ao definir senha. Verifique o token.';
+      console.error('❌ Erro ao definir senha:', error);
+      const errorMessage = error?.response?.data?.error || error?.message || 'Erro ao definir senha. Verifique o token.';
       setError(errorMessage);
       toast.error(errorMessage);
     } finally {

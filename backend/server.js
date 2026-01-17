@@ -152,7 +152,7 @@ function generatePasswordTokenForSubscriber(subscriberEmail, subscriberId = null
   
   // Gerar URL de setup
   const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
-  const setup_url = `${FRONTEND_URL}/setup-password?token=${token}&email=${encodeURIComponent(subscriberEmail)}`;
+  const setup_url = `${FRONTEND_URL}/definir-senha?token=${token}&email=${encodeURIComponent(subscriberEmail)}`;
   
   console.log('🔑 Token de senha gerado para:', subscriberEmail);
   
@@ -514,6 +514,129 @@ app.get('/api/auth/me', authenticate, async (req, res) => {
   } catch (error) {
     console.error('Erro ao obter usuário:', error);
     return res.status(500).json({ error: 'Erro interno no servidor' });
+  }
+});
+
+// Rota para definir senha usando token (NÃO requer autenticação - pública)
+app.post('/api/auth/set-password', async (req, res) => {
+  try {
+    const { token, password } = req.body;
+
+    if (!token || !password) {
+      return res.status(400).json({ error: 'Token e senha são obrigatórios' });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'A senha deve ter no mínimo 6 caracteres' });
+    }
+
+    // Buscar token nos password tokens armazenados
+    let userEmail = null;
+    let tokenData = null;
+
+    if (usePostgreSQL) {
+      // Buscar token no banco (se houver tabela de tokens)
+      // Por enquanto, usar lógica de verificação do token
+      const subscribers = await repo.listSubscribers();
+      for (const sub of subscribers) {
+        if (sub.password_token === token) {
+          userEmail = sub.email;
+          break;
+        }
+      }
+    } else if (db && db.subscribers) {
+      // Buscar token nos assinantes
+      const subscriber = db.subscribers.find(s => s.password_token === token);
+      if (subscriber) {
+        userEmail = subscriber.email;
+        tokenData = {
+          expires_at: subscriber.token_expires_at
+        };
+      }
+    }
+
+    if (!userEmail) {
+      return res.status(400).json({ error: 'Token inválido ou expirado' });
+    }
+
+    // Verificar se token expirou (se tiver data de expiração)
+    if (tokenData?.expires_at) {
+      const expiresAt = new Date(tokenData.expires_at);
+      if (expiresAt < new Date()) {
+        return res.status(400).json({ error: 'Token expirado. Solicite um novo link.' });
+      }
+    }
+
+    // Buscar ou criar usuário
+    let user;
+    if (usePostgreSQL) {
+      user = await repo.getUserByEmail(userEmail);
+      if (!user) {
+        // Criar usuário se não existir
+        user = await repo.createUser({
+          email: userEmail.toLowerCase(),
+          password: await bcrypt.hash(password, 10),
+          role: 'user',
+          is_master: false
+        });
+      } else {
+        // Atualizar senha do usuário existente
+        await repo.updateUser(user.id, {
+          password: await bcrypt.hash(password, 10),
+          has_password: true
+        });
+      }
+    } else if (db && db.users) {
+      user = db.users.find(u => u.email === userEmail.toLowerCase());
+      const hashedPassword = await bcrypt.hash(password, 10);
+      
+      if (!user) {
+        // Criar usuário
+        user = {
+          id: Date.now().toString(),
+          email: userEmail.toLowerCase(),
+          password: hashedPassword,
+          role: 'user',
+          is_master: false,
+          has_password: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+        db.users.push(user);
+      } else {
+        // Atualizar senha
+        user.password = hashedPassword;
+        user.has_password = true;
+        user.updated_at = new Date().toISOString();
+      }
+      
+      // Remover token do assinante após definir senha
+      if (db.subscribers) {
+        const subscriberIndex = db.subscribers.findIndex(s => s.email === userEmail);
+        if (subscriberIndex >= 0) {
+          db.subscribers[subscriberIndex].password_token = null;
+          db.subscribers[subscriberIndex].token_expires_at = null;
+          db.subscribers[subscriberIndex].has_password = true;
+        }
+      }
+      
+      if (saveDatabaseDebounced) {
+        saveDatabaseDebounced(db);
+      }
+    }
+
+    console.log('✅ Senha definida com sucesso para:', userEmail);
+    
+    return res.json({
+      success: true,
+      message: 'Senha definida com sucesso! Você já pode fazer login.'
+    });
+  } catch (error) {
+    console.error('❌ Erro ao definir senha:', error);
+    return res.status(500).json({ 
+      error: 'Erro ao definir senha',
+      details: error.message 
+    });
   }
 });
 

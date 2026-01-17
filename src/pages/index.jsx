@@ -103,6 +103,7 @@ function PagesContent() {
                         <Route path="/login" element={<Login />} />
                         <Route path="/cadastro-cliente" element={<CadastroCliente />} />
                         <Route path="/definir-senha" element={<DefinirSenha />} />
+                        <Route path="/setup-password" element={<DefinirSenha />} />
                 <Route path="/Login" element={<Login />} />
                 
                 <Route path="/Entregador" element={<Entregador />} />
