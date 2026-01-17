@@ -711,28 +711,37 @@ app.post('/api/auth/set-password', async (req, res) => {
 
     // Buscar ou criar usuário
     let user;
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
+    console.log('💾 [set-password] Hash da senha gerado:', hashedPassword.substring(0, 20) + '...');
+    
     if (usePostgreSQL) {
       user = await repo.getUserByEmail(userEmail);
       if (!user) {
+        console.log('👤 [set-password] Criando novo usuário no PostgreSQL:', userEmail);
         // Criar usuário se não existir
         user = await repo.createUser({
           email: userEmail.toLowerCase(),
-          password: await bcrypt.hash(password, 10),
+          password: hashedPassword,
           role: 'user',
-          is_master: false
-        });
-      } else {
-        // Atualizar senha do usuário existente
-        await repo.updateUser(user.id, {
-          password: await bcrypt.hash(password, 10),
+          is_master: false,
           has_password: true
         });
+        console.log('✅ [set-password] Usuário criado no PostgreSQL:', user.id);
+      } else {
+        console.log('👤 [set-password] Atualizando senha do usuário existente no PostgreSQL:', user.id);
+        // Atualizar senha do usuário existente
+        user = await repo.updateUser(user.id, {
+          password: hashedPassword,
+          has_password: true
+        });
+        console.log('✅ [set-password] Senha atualizada no PostgreSQL');
       }
     } else if (db && db.users) {
       user = db.users.find(u => u.email === userEmail.toLowerCase());
-      const hashedPassword = await bcrypt.hash(password, 10);
       
       if (!user) {
+        console.log('👤 [set-password] Criando novo usuário no JSON:', userEmail);
         // Criar usuário
         user = {
           id: Date.now().toString(),
@@ -745,11 +754,14 @@ app.post('/api/auth/set-password', async (req, res) => {
           updated_at: new Date().toISOString()
         };
         db.users.push(user);
+        console.log('✅ [set-password] Usuário criado no JSON:', user.id);
       } else {
+        console.log('👤 [set-password] Atualizando senha do usuário existente no JSON:', user.id);
         // Atualizar senha
         user.password = hashedPassword;
         user.has_password = true;
         user.updated_at = new Date().toISOString();
+        console.log('✅ [set-password] Senha atualizada no JSON');
       }
       
       // Remover token do assinante após definir senha
@@ -759,15 +771,27 @@ app.post('/api/auth/set-password', async (req, res) => {
           db.subscribers[subscriberIndex].password_token = null;
           db.subscribers[subscriberIndex].token_expires_at = null;
           db.subscribers[subscriberIndex].has_password = true;
+          console.log('✅ [set-password] Token removido do assinante');
         }
       }
       
+      // Salvar imediatamente
       if (saveDatabaseDebounced) {
         saveDatabaseDebounced(db);
+        console.log('💾 [set-password] Banco de dados salvo');
+      }
+      
+      // Verificar se a senha foi salva corretamente
+      const verifyUser = db.users.find(u => u.email === userEmail.toLowerCase());
+      if (verifyUser && verifyUser.password) {
+        console.log('✅ [set-password] Verificação: Senha salva corretamente no banco');
+        console.log('✅ [set-password] Hash salvo:', verifyUser.password.substring(0, 20) + '...');
+      } else {
+        console.error('❌ [set-password] ERRO: Senha não foi salva corretamente!');
       }
     }
 
-    console.log('✅ Senha definida com sucesso para:', userEmail);
+    console.log('✅ [set-password] Senha definida com sucesso para:', userEmail);
     
     return res.json({
       success: true,
