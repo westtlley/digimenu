@@ -66,7 +66,12 @@ export function usePermission() {
           status: subscriber.status,
           plan: subscriber.plan
         });
-        setPermissions(subscriber.permissions || {});
+        let perms = subscriber.permissions || {};
+        // Garantir que plano basic possa adicionar/editar pratos (compat. assinantes já existentes)
+        if (subscriber.plan === 'basic' && Array.isArray(perms.dishes) && perms.dishes.includes('view') && !perms.dishes.includes('create')) {
+          perms = { ...perms, dishes: ['view', 'create', 'update', 'delete'] };
+        }
+        setPermissions(perms);
         setSubscriberData(subscriber);
       } else {
         console.warn('⚠️ [usePermission] Nenhum assinante encontrado para:', currentUser.email);

@@ -25,8 +25,8 @@ export const PLAN_PRESETS = {
       caixa: [],
       whatsapp: [],
       
-      // Cardápio Digital
-      dishes: ['view'],
+      // Cardápio Digital (create/update/delete para o assinante gerenciar seu cardápio)
+      dishes: ['view', 'create', 'update', 'delete'],
       delivery_zones: [],
       coupons: [],
       promotions: [],
