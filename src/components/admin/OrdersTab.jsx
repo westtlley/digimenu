@@ -31,8 +31,11 @@ const PAYMENT_LABELS = {
   cartao_debito: 'Cartão de Débito',
 };
 
+const isOrderPDV = (o) => !!(o?.order_code?.startsWith('PDV-') || o?.delivery_method === 'balcao');
+
 export default function OrdersTab({ isMaster }) {
   const [dateFilter, setDateFilter] = useState('');
+  const [filterType, setFilterType] = useState('all');
   const queryClient = useQueryClient();
 
   const { data: orders = [], isLoading } = useQuery({
@@ -117,11 +120,11 @@ export default function OrdersTab({ isMaster }) {
     pdf.save(`comanda-${order.order_code || order.id.slice(-6)}.pdf`);
   };
 
-  // Filter orders by date
   const filteredOrders = orders.filter(order => {
-    if (!dateFilter) return true;
-    const orderDate = format(new Date(order.created_date + 'Z'), 'yyyy-MM-dd');
-    return orderDate === dateFilter;
+    const matchDate = !dateFilter || (order.created_date && format(new Date(order.created_date + 'Z'), 'yyyy-MM-dd') === dateFilter);
+    const pdv = isOrderPDV(order);
+    const matchType = filterType === 'all' || (filterType === 'pdv' && pdv) || (filterType === 'delivery' && !pdv);
+    return matchDate && matchType;
   });
 
   if (isLoading) {
@@ -175,6 +178,9 @@ export default function OrdersTab({ isMaster }) {
                   <span className="text-xs font-mono bg-gray-100 px-2 py-1 rounded">
                     #{order.order_code || order.id.slice(-6).toUpperCase()}
                   </span>
+                  <Badge variant="outline" className={`text-xs ${isOrderPDV(order) ? 'border-orange-300 text-orange-700' : 'border-blue-300 text-blue-700'}`}>
+                    {isOrderPDV(order) ? 'PDV' : 'Delivery'}
+                  </Badge>
                   <Badge className={(STATUS_CONFIG[order.status] || STATUS_CONFIG.new).color + " text-xs"}>
                     {(STATUS_CONFIG[order.status] || STATUS_CONFIG.new).label}
                   </Badge>

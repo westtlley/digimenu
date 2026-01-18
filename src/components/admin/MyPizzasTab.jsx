@@ -128,8 +128,8 @@ export default function MyPizzasTab() {
               Para criar pizzas, você precisa cadastrar pelo menos:
             </p>
             <ul className="text-sm text-orange-700 mt-2 space-y-1">
-              {sizes.length === 0 && <li>• 1 Tamanho na aba "Tamanhos"</li>}
-              {flavors.length === 0 && <li>• 1 Sabor na aba "Sabores"</li>}
+              {sizes.length === 0 && <li>• 1 Tamanho na seção Tamanhos (à direita)</li>}
+              {flavors.length === 0 && <li>• 1 Sabor na seção Sabores (à direita)</li>}
             </ul>
           </div>
         </div>

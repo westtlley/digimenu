@@ -49,33 +49,25 @@ export default function OrderStatusBadge({ userEmail, onOrderClick }) {
   return (
     <AnimatePresence>
       <motion.div
-        initial={{ opacity: 0, y: -20, scale: 0.9 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: -20, scale: 0.9 }}
-        className="fixed bottom-4 right-4 z-50 max-w-sm"
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -20 }}
+        className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] w-[calc(100%-2rem)] max-w-md"
         onClick={() => onOrderClick?.(recentOrder)}
       >
         <motion.div
-          whileHover={{ scale: 1.02, y: -2 }}
-          className="bg-white rounded-2xl shadow-2xl border-2 border-gray-200 p-4 cursor-pointer hover:border-blue-400 transition-all"
+          whileHover={{ opacity: 0.95 }}
+          className="bg-white rounded-xl shadow-lg border border-gray-200 px-4 py-3 cursor-pointer hover:border-blue-400 transition-all flex items-center gap-3"
         >
-          <div className="flex items-center gap-3">
-            <div className={`w-12 h-12 ${statusInfo.color} rounded-xl flex items-center justify-center shadow-lg`}>
-              <StatusIcon className="w-6 h-6 text-white" />
-            </div>
-            <div className="flex-1">
-              <p className="font-bold text-sm text-gray-900 mb-1">
-                Pedido #{recentOrder.order_code}
-              </p>
-              <Badge className={`${statusInfo.color} text-white text-xs`}>
-                {statusInfo.label}
-              </Badge>
-            </div>
+          <div className={`w-10 h-10 ${statusInfo.color} rounded-lg flex items-center justify-center flex-shrink-0`}>
+            <StatusIcon className="w-5 h-5 text-white" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-sm text-gray-900">Pedido #{recentOrder.order_code}</p>
+            <Badge className={`${statusInfo.color} text-white text-xs mt-0.5`}>{statusInfo.label}</Badge>
           </div>
           {recentOrder.status === 'out_for_delivery' && (
-            <p className="text-xs text-gray-600 mt-2 text-center">
-              🚚 Entregador a caminho
-            </p>
+            <span className="text-xs text-gray-500 flex-shrink-0">🚚 A caminho</span>
           )}
         </motion.div>
       </motion.div>

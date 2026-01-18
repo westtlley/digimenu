@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, LogOut, LogIn, Loader2, Package, Users, Lock, Menu, UtensilsCrossed, Sun, Moon } from 'lucide-react';
+import { Settings, LogOut, LogIn, Loader2, Package, Users, Lock, Menu, UtensilsCrossed, Calculator, Truck } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { useTheme } from '../components/theme/ThemeProvider';
 import ThemeToggle from '../components/ui/ThemeToggle';
@@ -352,21 +352,21 @@ export default function Admin() {
               </Link>
             )}
             <Link to={createPageUrl('PDV')}>
-              <Button variant="ghost" size="icon" className="text-white bg-blue-600 hover:bg-blue-700 sm:w-auto sm:px-3">
-                <Package className="w-4 h-4 sm:mr-2" />
+              <Button variant="ghost" size="icon" className="text-white bg-blue-600 hover:bg-blue-700 sm:w-auto sm:px-3" title="PDV">
+                <Calculator className="w-4 h-4 sm:mr-2" />
                 <span className="hidden sm:inline">PDV</span>
               </Button>
             </Link>
             {hasGestorAccess && (
               <Link to={createPageUrl('GestorPedidos')}>
-                <Button variant="ghost" size="icon" className="text-white bg-orange-600 hover:bg-orange-700 sm:w-auto sm:px-3">
-                  <Package className="w-4 h-4 sm:mr-2" />
+                <Button variant="ghost" size="icon" className="text-white bg-orange-600 hover:bg-orange-700 sm:w-auto sm:px-3" title="Gestor de Pedidos">
+                  <Truck className="w-4 h-4 sm:mr-2" />
                   <span className="hidden sm:inline">Gestor</span>
                 </Button>
               </Link>
             )}
             <Link to={createPageUrl('Cardapio')}>
-              <Button variant="ghost" size="icon" className="text-white bg-green-600 hover:bg-green-700 sm:w-auto sm:px-3">
+              <Button variant="ghost" size="icon" className="text-white bg-green-600 hover:bg-green-700 sm:w-auto sm:px-3" title="Cardápio">
                 <UtensilsCrossed className="w-4 h-4 sm:mr-2" />
                 <span className="hidden sm:inline">Cardápio</span>
               </Button>

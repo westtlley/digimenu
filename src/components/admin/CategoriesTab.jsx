@@ -65,10 +65,8 @@ export default function CategoriesTab() {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!newCategoryName.trim()) return;
-    createMutation.mutate({
-      name: newCategoryName,
-      order: categories.length,
-    });
+    if (!window.confirm('Confirma criar a categoria "' + newCategoryName.trim() + '"?')) return;
+    createMutation.mutate({ name: newCategoryName.trim(), order: categories.length });
   };
 
   const moveCategory = (index, direction) => {

@@ -1,11 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { LogIn, LogOut, User } from 'lucide-react';
+import { LogIn, Power, User } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { apiClient as base44 } from '@/api/apiClient';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export default function UserAuthButton({ className = '' }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [openLogout, setOpenLogout] = useState(false);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -29,6 +41,7 @@ export default function UserAuthButton({ className = '' }) {
   };
 
   const handleLogout = () => {
+    setOpenLogout(false);
     base44.auth.logout();
   };
 
@@ -52,19 +65,28 @@ export default function UserAuthButton({ className = '' }) {
 
   return (
     <div className={`flex items-center gap-2 ${className}`}>
-      <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-lg bg-gray-100">
-        <User className="w-4 h-4 text-gray-600" />
-        <span className="text-sm text-gray-700">{user.email}</span>
+      <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-lg bg-gray-100 dark:bg-gray-800">
+        <User className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+        <span className="text-sm text-gray-700 dark:text-gray-300">{user.email}</span>
       </div>
-      <Button
-        onClick={handleLogout}
-        size="sm"
-        variant="outline"
-        className="text-red-600 hover:bg-red-50"
-      >
-        <LogOut className="w-4 h-4 sm:mr-2" />
-        <span className="hidden sm:inline">Sair</span>
-      </Button>
+      <AlertDialog open={openLogout} onOpenChange={setOpenLogout}>
+        <AlertDialogTrigger asChild>
+          <Button size="sm" variant="outline" className="text-red-600 hover:bg-red-50 dark:hover:bg-red-950" title="Sair">
+            <Power className="w-4 h-4 sm:mr-2" />
+            <span className="hidden sm:inline">Sair</span>
+          </Button>
+        </AlertDialogTrigger>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Deseja realmente sair?</AlertDialogTitle>
+            <AlertDialogDescription>Você precisará fazer login novamente para acessar o painel.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleLogout} className="bg-red-600 hover:bg-red-700">Sair</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

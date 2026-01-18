@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Card } from "@/components/ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Switch } from "@/components/ui/switch";
 import toast from 'react-hot-toast';
 
 export default function PizzaVisualizationSettings() {
@@ -50,31 +51,14 @@ export default function PizzaVisualizationSettings() {
   });
 
   const [settings, setSettings] = useState({
-    // Escala geral da pizza com borda
-    pizzaScale: 100,
-    // Posicionamento conjunto (pizza + borda + tábua)
-    globalOffsetX: 0,
-    globalOffsetY: 0,
-    // Ajustes individuais da pizza
-    pizzaOffsetX: 0,
-    pizzaOffsetY: 0,
-    pizzaRadius: 35,
-    // Ajustes da borda
-    edgeRadius: 42.5,
-    edgeStrokeWidth: 9,
-    // Tábua
-    boardOffsetX: 0,
-    boardOffsetY: 0,
-    boardScale: 90,
-    boardOpacity: 100,
-    // Rotação
-    pizzaRotation: 0,
-    // Sombras
-    shadowIntensity: 50,
-    // Background
+    pizzaScale: 100, globalOffsetX: 0, globalOffsetY: 0,
+    pizzaOffsetX: 0, pizzaOffsetY: 0, pizzaRadius: 35,
+    edgeRadius: 42.5, edgeStrokeWidth: 9,
+    boardOffsetX: 0, boardOffsetY: 0, boardScale: 90, boardOpacity: 100,
+    pizzaRotation: 0, shadowIntensity: 50,
     backgroundImage: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=800&q=80',
-    backgroundOpacity: 5,
-    backgroundBlur: 1,
+    backgroundOpacity: 5, backgroundBlur: 1,
+    semFundo: false,
     edgeImageUrl: 'https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/693428740b45fa735818cde5/625e680ac_Designsemnome.png',
     boardImageUrl: 'https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/693428740b45fa735818cde5/d32b3df38_tabua-p-pizza-34x28cm.png'
   });
@@ -87,28 +71,18 @@ export default function PizzaVisualizationSettings() {
 
   useEffect(() => {
     if (savedConfigs.length > 0) {
-      const config = savedConfigs[0];
-      setSettings({
-        pizzaScale: config.pizzaScale ?? 100,
-        globalOffsetX: config.globalOffsetX ?? 0,
-        globalOffsetY: config.globalOffsetY ?? 0,
-        pizzaOffsetX: config.pizzaOffsetX ?? 0,
-        pizzaOffsetY: config.pizzaOffsetY ?? 0,
-        pizzaRadius: config.pizzaRadius ?? 35,
-        edgeRadius: config.edgeRadius ?? 42.5,
-        edgeStrokeWidth: config.edgeStrokeWidth ?? 9,
-        boardOffsetX: config.boardOffsetX ?? 0,
-        boardOffsetY: config.boardOffsetY ?? 0,
-        boardScale: config.boardScale ?? 90,
-        boardOpacity: config.boardOpacity ?? 100,
-        pizzaRotation: config.pizzaRotation ?? 0,
-        shadowIntensity: config.shadowIntensity ?? 50,
-        backgroundImage: config.backgroundImage ?? 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=800&q=80',
-        backgroundOpacity: config.backgroundOpacity ?? 5,
-        backgroundBlur: config.backgroundBlur ?? 1,
-        edgeImageUrl: config.edgeImageUrl ?? 'https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/693428740b45fa735818cde5/625e680ac_Designsemnome.png',
-        boardImageUrl: config.boardImageUrl ?? 'https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/693428740b45fa735818cde5/d32b3df38_tabua-p-pizza-34x28cm.png'
-      });
+      const c = savedConfigs[0];
+      setSettings(s => ({
+        ...s,
+        pizzaScale: c.pizzaScale ?? 100, globalOffsetX: c.globalOffsetX ?? 0, globalOffsetY: c.globalOffsetY ?? 0,
+        pizzaOffsetX: c.pizzaOffsetX ?? 0, pizzaOffsetY: c.pizzaOffsetY ?? 0, pizzaRadius: c.pizzaRadius ?? 35,
+        edgeRadius: c.edgeRadius ?? 42.5, edgeStrokeWidth: c.edgeStrokeWidth ?? 9,
+        boardOffsetX: c.boardOffsetX ?? 0, boardOffsetY: c.boardOffsetY ?? 0, boardScale: c.boardScale ?? 90, boardOpacity: c.boardOpacity ?? 100,
+        pizzaRotation: c.pizzaRotation ?? 0, shadowIntensity: c.shadowIntensity ?? 50,
+        backgroundImage: c.backgroundImage || s.backgroundImage, backgroundOpacity: c.backgroundOpacity ?? 5, backgroundBlur: c.backgroundBlur ?? 1,
+        semFundo: c.semFundo ?? false,
+        edgeImageUrl: c.edgeImageUrl || s.edgeImageUrl, boardImageUrl: c.boardImageUrl || s.boardImageUrl
+      }));
     }
   }, [savedConfigs]);
 
@@ -176,10 +150,8 @@ export default function PizzaVisualizationSettings() {
   };
 
   const handleSaveSettings = async () => {
-    if (!user) {
-      toast.error('Você precisa estar logado');
-      return;
-    }
+    if (!user) { toast.error('Você precisa estar logado'); return; }
+    if (!window.confirm('Confirma salvar as configurações de visualização?')) return;
 
     if (savedConfigs.length > 0) {
       updateConfigMutation.mutate({
@@ -262,28 +234,17 @@ export default function PizzaVisualizationSettings() {
           <p className="text-xs text-gray-400 mb-2">💡 Clique e arraste a pizza ou tábua para reposicionar</p>
           <div 
             className="relative rounded-xl overflow-hidden aspect-square select-none"
-            style={{
-              backgroundImage: `url(${settings.backgroundImage})`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-            }}
-            onMouseMove={(e) => {
-              handleMouseMove(e);
-              handleResizeMouseMove(e);
-            }}
+            style={settings.semFundo ? { background: '#e5e7eb' } : { backgroundImage: `url(${settings.backgroundImage})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+            onMouseMove={(e) => { handleMouseMove(e); handleResizeMouseMove(e); }}
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
           >
-            <div 
-              className="absolute inset-0 bg-black"
-              style={{ 
-                filter: `blur(${settings.backgroundBlur}px)`,
-                opacity: settings.backgroundOpacity / 100,
-                backgroundImage: `url(${settings.backgroundImage})`,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-              }}
-            ></div>
+            {!settings.semFundo && (
+              <div 
+                className="absolute inset-0 bg-black"
+                style={{ filter: `blur(${settings.backgroundBlur}px)`, opacity: settings.backgroundOpacity / 100, backgroundImage: `url(${settings.backgroundImage})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+              />
+            )}
             
             <div className="relative w-full h-full flex items-center justify-center p-4">
               <div 
@@ -667,6 +628,10 @@ export default function PizzaVisualizationSettings() {
                 </AccordionTrigger>
                 <AccordionContent className="pt-2 pb-3">
               <div className="space-y-3">
+                <div className="flex items-center justify-between p-2 rounded bg-gray-100">
+                  <Label className="text-xs md:text-sm">Sem fundo (apenas pizza)</Label>
+                  <Switch checked={settings.semFundo} onCheckedChange={(c) => setSettings(prev => ({ ...prev, semFundo: c }))} />
+                </div>
                 <div>
                   <Label className="text-xs md:text-sm">URL da Imagem de Fundo</Label>
                   <Input

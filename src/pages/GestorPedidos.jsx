@@ -40,11 +40,7 @@ export default function GestorPedidos() {
   const [notificationConfig, setNotificationConfig] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredOrders, setFilteredOrders] = useState([]);
-  const [user, setUser] = useState(null);
-  const [isSubscriber, setIsSubscriber] = useState(false);
-  const [checkingSubscription, setCheckingSubscription] = useState(true);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
-  const [hasAccess, setHasAccess] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     const saved = localStorage.getItem('gestor-sidebar-collapsed');
     return saved === 'true';
@@ -53,45 +49,16 @@ export default function GestorPedidos() {
   const audioRef = useRef(null);
   const prevOrderCountRef = useRef(0);
   const queryClient = useQueryClient();
-  const { isMaster } = usePermission();
+  const { isMaster, hasModuleAccess, loading: permLoading, user } = usePermission();
   
-  // Define página de volta baseado no tipo de usuário
+  const hasAccess = isMaster || hasModuleAccess('gestor_pedidos');
   const backPage = isMaster ? 'Admin' : 'PainelAssinante';
 
   useEffect(() => {
-    const loadUser = async () => {
-      try {
-        const userData = await base44.auth.me();
-        setUser(userData);
-        
-        if (userData.is_master) {
-          setIsSubscriber(true);
-          setHasAccess(true);
-          setCheckingSubscription(false);
-        } else {
-          const subscribers = await base44.entities.Subscriber.filter({ 
-            email: userData.email, 
-            status: 'active' 
-          });
-          
-          const hasPermission = subscribers.length > 0 && 
-            subscribers[0].permissions?.gestor_pedidos?.length > 0;
-          
-          setIsSubscriber(hasPermission);
-          setHasAccess(hasPermission);
-          setCheckingSubscription(false);
-        }
-
-        // Request notification permission
-        if ('Notification' in window && Notification.permission === 'default') {
-          Notification.requestPermission();
-        }
-      } catch (e) {
-        base44.auth.redirectToLogin();
-      }
-    };
-    loadUser();
-  }, []);
+    if (user && 'Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  }, [user]);
 
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ['gestorOrders'],
@@ -284,7 +251,7 @@ export default function GestorPedidos() {
     localStorage.setItem('gestor-sidebar-collapsed', newState.toString());
   };
 
-  if (!user || checkingSubscription) {
+  if (permLoading || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <RefreshCw className="w-8 h-8 animate-spin text-red-500" />
@@ -292,7 +259,7 @@ export default function GestorPedidos() {
     );
   }
 
-  if (!hasAccess || (!isSubscriber && !user?.is_master)) {
+  if (!hasAccess) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md text-center">

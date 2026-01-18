@@ -19,10 +19,13 @@ const statusConfig = {
   cancelled: { label: 'Cancelado', color: 'bg-red-500' }
 };
 
+const isOrderPDV = (o) => !!(o?.order_code?.startsWith('PDV-') || o?.delivery_method === 'balcao');
+
 export default function OrderHistoryTab() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterPayment, setFilterPayment] = useState('all');
+  const [filterType, setFilterType] = useState('all'); // all | delivery | pdv
   const [dateFilter, setDateFilter] = useState('today');
 
   const { data: orders = [], isLoading } = useQuery({
@@ -66,8 +69,10 @@ export default function OrderHistoryTab() {
     const matchesStatus = filterStatus === 'all' || order.status === filterStatus;
     const matchesPayment = filterPayment === 'all' || order.payment_method === filterPayment;
     const matchesDate = filterByDate(order);
+    const pdv = isOrderPDV(order);
+    const matchesType = filterType === 'all' || (filterType === 'pdv' && pdv) || (filterType === 'delivery' && !pdv);
     
-    return matchesSearch && matchesStatus && matchesPayment && matchesDate;
+    return matchesSearch && matchesStatus && matchesPayment && matchesDate && matchesType;
   });
 
   const totalRevenue = filteredOrders
@@ -114,7 +119,7 @@ export default function OrderHistoryTab() {
 
       {/* Filtros */}
       <div className="bg-white rounded-xl p-4 shadow-sm border">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <div>
             <label className="text-sm font-medium mb-2 block">Buscar</label>
             <div className="relative">
@@ -173,6 +178,20 @@ export default function OrderHistoryTab() {
               </SelectContent>
             </Select>
           </div>
+
+          <div>
+            <label className="text-sm font-medium mb-2 block">Tipo</label>
+            <Select value={filterType} onValueChange={setFilterType}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="delivery">Delivery</SelectItem>
+                <SelectItem value="pdv">PDV</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
 
@@ -223,6 +242,11 @@ export default function OrderHistoryTab() {
                     </td>
                     <td className="px-4 py-3 text-sm font-medium">
                       #{order.order_code || order.id?.slice(-6)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <Badge variant="outline" className={isOrderPDV(order) ? 'border-orange-300 text-orange-700' : 'border-blue-300 text-blue-700'}>
+                        {isOrderPDV(order) ? 'PDV' : 'Delivery'}
+                      </Badge>
                     </td>
                     <td className="px-4 py-3 text-sm">{order.customer_name}</td>
                     <td className="px-4 py-3">

@@ -213,8 +213,7 @@ export default function StoreTab() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    
-    console.log('FormData antes de salvar:', formData);
+    if (!window.confirm('Confirma o salvamento das alterações?')) return;
     
     if (store) {
       updateMutation.mutate({ data: formData });

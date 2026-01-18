@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Loader2, Lock, LogOut, Menu, X, Store, Package, Receipt, Users, Settings, BarChart3, FileText, MapPin, Tag, Palette, CreditCard, Printer, MessageSquare, DollarSign } from 'lucide-react';
+import { Loader2, Lock, LogOut, Menu, X, Store, Package, Receipt, Users, Settings, BarChart3, FileText, MapPin, Tag, Palette, CreditCard, Printer, MessageSquare, DollarSign, Power, Calculator, Truck, UtensilsCrossed } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { apiClient as base44 } from '@/api/apiClient';
 import { Link, useSearchParams } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -224,7 +225,7 @@ export default function PainelAssinante() {
             {hasModuleAccess('pdv') && (
               <Link to={createPageUrl('PDV')}>
                 <Button size="sm" className="bg-white text-orange-600 hover:bg-orange-50">
-                  <Package className="w-4 h-4 mr-2" />
+                  <Calculator className="w-4 h-4 mr-2" />
                   PDV
                 </Button>
               </Link>
@@ -232,30 +233,40 @@ export default function PainelAssinante() {
             {hasModuleAccess('gestor_pedidos') ? (
               <Link to={createPageUrl('GestorPedidos')}>
                 <Button size="sm" className="bg-white text-orange-600 hover:bg-orange-50">
-                  <Receipt className="w-4 h-4 mr-2" />
+                  <Truck className="w-4 h-4 mr-2" />
                   Gestor
                 </Button>
               </Link>
             ) : (
-              <Button 
-                size="sm" 
-                className="bg-white/50 text-orange-400 cursor-not-allowed" 
-                disabled
-                title="Não disponível no seu plano"
-              >
-                <Receipt className="w-4 h-4 mr-2" />
+              <Button size="sm" className="bg-white/50 text-orange-400 cursor-not-allowed" disabled title="Não disponível no seu plano">
+                <Truck className="w-4 h-4 mr-2" />
                 Gestor
               </Button>
             )}
-            {(store?.id || subscriberData?.id) && <WhatsAppComandaToggle store={store} subscriber={subscriberData} />}
-            <Link to={createPageUrl('Cardapio')} className="hidden sm:block">
-              <Button size="sm" variant="ghost" className="text-white hover:bg-white/10">
-                Ver Cardápio
+            <Link to={createPageUrl('Cardapio')}>
+              <Button size="sm" className="bg-white text-orange-600 hover:bg-orange-50">
+                <UtensilsCrossed className="w-4 h-4 mr-2" />
+                Cardápio
               </Button>
             </Link>
-            <Button size="sm" variant="ghost" onClick={handleLogout} className="text-white hover:bg-white/10 hidden sm:flex">
-              <LogOut className="w-4 h-4" />
-            </Button>
+            {(store?.id || subscriberData?.id) && <WhatsAppComandaToggle store={store} subscriber={subscriberData} />}
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button size="sm" variant="ghost" className="text-white hover:bg-white/10 hidden sm:flex" title="Sair">
+                  <Power className="w-4 h-4" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Deseja realmente sair?</AlertDialogTitle>
+                  <AlertDialogDescription>Você precisará fazer login novamente para acessar o painel.</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleLogout} className="bg-red-600 hover:bg-red-700">Sair</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         </div>
       </header>

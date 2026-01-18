@@ -9,6 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Card } from "@/components/ui/card";
 import { Plus, Trash2, Pencil, Star, Settings } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import PizzaVisualizationSettings from './PizzaVisualizationSettings';
@@ -207,251 +209,100 @@ export default function PizzaConfigTab() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid grid-cols-6 w-full max-w-4xl">
+        <TabsList className="grid grid-cols-2 w-full max-w-xs">
           <TabsTrigger value="pizzas">Minhas Pizzas</TabsTrigger>
-          <TabsTrigger value="sizes">Tamanhos ({sizes.length})</TabsTrigger>
-          <TabsTrigger value="flavors">Sabores ({flavors.length})</TabsTrigger>
-          <TabsTrigger value="edges">Bordas ({edges.length})</TabsTrigger>
-          <TabsTrigger value="extras">Extras ({extras.length})</TabsTrigger>
-          <TabsTrigger value="visual">
-            <Settings className="w-4 h-4 mr-1" />
-            Visual
-          </TabsTrigger>
+          <TabsTrigger value="visual"><Settings className="w-4 h-4 mr-1" />Visual</TabsTrigger>
         </TabsList>
 
-        {/* Minhas Pizzas */}
-        <TabsContent value="pizzas">
-          <MyPizzasTab />
-        </TabsContent>
-
-        {/* Tamanhos */}
-        <TabsContent value="sizes" className="space-y-4">
-          <Button onClick={() => setShowSizeModal(true)} className="bg-orange-500">
-            <Plus className="w-4 h-4 mr-2" />
-            Novo Tamanho
-          </Button>
-
-          <div className="grid gap-4">
-            {sizes.map(size => (
-              <div key={size.id} className="bg-white p-4 rounded-xl border">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <h3 className="font-bold text-lg">{size.name}</h3>
-                    <p className="text-sm text-gray-600">
-                      {size.slices} fatias • Até {size.max_flavors} sabor{size.max_flavors > 1 ? 'es' : ''}
-                    </p>
-                    <div className="flex gap-4 mt-2 text-sm">
-                      <span className="text-gray-600">
-                        Tradicional: <strong className="text-green-600">{formatCurrency(size.price_tradicional)}</strong>
-                      </span>
-                      <span className="text-gray-600">
-                        Premium: <strong className="text-orange-600">{formatCurrency(size.price_premium)}</strong>
-                      </span>
+        <TabsContent value="pizzas" className="mt-4">
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-4">
+            <MyPizzasTab />
+            <Card className="p-4 h-fit">
+              <h3 className="font-semibold mb-3">Configuração</h3>
+              <p className="text-xs text-gray-500 mb-3">Tamanhos, sabores, bordas e extras</p>
+              <Accordion type="multiple" defaultValue={['sizes','flavors']} className="w-full">
+                <AccordionItem value="sizes" className="border rounded-lg px-2">
+                  <AccordionTrigger className="py-2 text-sm font-medium hover:no-underline">
+                    Tamanhos ({sizes.length})
+                  </AccordionTrigger>
+                  <AccordionContent className="pb-2">
+                    <Button size="sm" onClick={() => { setEditingSize(null); setShowSizeModal(true); }} className="mb-2 w-full"><Plus className="w-3 h-3 mr-1" />Novo</Button>
+                    <div className="space-y-1">
+                      {sizes.map(s => (
+                        <div key={s.id} className="flex items-center gap-2 p-2 rounded border text-xs">
+                          <span className="flex-1 truncate">{s.name} • {s.slices}f • {formatCurrency(s.price_tradicional)}</span>
+                          <Switch checked={s.is_active} onCheckedChange={(c)=>updateSizeMutation.mutate({id:s.id,data:{...s,is_active:c}})} className="scale-75" />
+                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={()=>{ setEditingSize(s); setShowSizeModal(true); }}><Pencil className="w-3 h-3" /></Button>
+                          <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500" onClick={()=>{ if(confirm('Excluir?')) deleteSizeMutation.mutate(s.id); }}><Trash2 className="w-3 h-3" /></Button>
+                        </div>
+                      ))}
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Switch
-                      checked={size.is_active}
-                      onCheckedChange={(checked) => 
-                        updateSizeMutation.mutate({ id: size.id, data: { is_active: checked } })
-                      }
-                    />
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => {
-                        setEditingSize(size);
-                        setShowSizeModal(true);
-                      }}
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => {
-                        if (confirm('Excluir este tamanho?')) {
-                          deleteSizeMutation.mutate(size.id);
-                        }
-                      }}
-                      className="text-red-500"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            ))}
+                  </AccordionContent>
+                </AccordionItem>
+                <AccordionItem value="flavors" className="border rounded-lg px-2">
+                  <AccordionTrigger className="py-2 text-sm font-medium hover:no-underline">
+                    Sabores ({flavors.length})
+                  </AccordionTrigger>
+                  <AccordionContent className="pb-2">
+                    <Button size="sm" onClick={() => { setEditingFlavor(null); setShowFlavorModal(true); }} className="mb-2 w-full"><Plus className="w-3 h-3 mr-1" />Novo</Button>
+                    <div className="space-y-1">
+                      {flavors.map(f => (
+                        <div key={f.id} className="flex items-center gap-2 p-2 rounded border text-xs">
+                          {f.image && <img src={f.image} alt="" className="w-8 h-8 rounded object-cover flex-shrink-0" />}
+                          <span className="flex-1 truncate">{f.name}</span>
+                          <Badge variant="outline" className="text-[10px]">{f.category==='premium'?'⭐':'🍕'}</Badge>
+                          <Switch checked={f.is_active} onCheckedChange={(c)=>updateFlavorMutation.mutate({id:f.id,data:{...f,is_active:c}})} className="scale-75" />
+                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={()=>{ setEditingFlavor(f); setShowFlavorModal(true); }}><Pencil className="w-3 h-3" /></Button>
+                          <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500" onClick={()=>{ if(confirm('Excluir?')) deleteFlavorMutation.mutate(f.id); }}><Trash2 className="w-3 h-3" /></Button>
+                        </div>
+                      ))}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+                <AccordionItem value="edges" className="border rounded-lg px-2">
+                  <AccordionTrigger className="py-2 text-sm font-medium hover:no-underline">
+                    Bordas ({edges.length})
+                  </AccordionTrigger>
+                  <AccordionContent className="pb-2">
+                    <Button size="sm" onClick={() => { setEditingEdge(null); setShowEdgeModal(true); }} className="mb-2 w-full"><Plus className="w-3 h-3 mr-1" />Nova</Button>
+                    <div className="space-y-1">
+                      {edges.map(e => (
+                        <div key={e.id} className="flex items-center gap-2 p-2 rounded border text-xs">
+                          {e.image && <img src={e.image} alt="" className="w-8 h-8 rounded object-cover flex-shrink-0" />}
+                          <span className="flex-1 truncate">{e.name} {formatCurrency(e.price)}</span>
+                          <Switch checked={e.is_active} onCheckedChange={(c)=>updateEdgeMutation.mutate({id:e.id,data:{...e,is_active:c}})} className="scale-75" />
+                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={()=>{ setEditingEdge(e); setShowEdgeModal(true); }}><Pencil className="w-3 h-3" /></Button>
+                          <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500" onClick={()=>{ if(confirm('Excluir?')) deleteEdgeMutation.mutate(e.id); }}><Trash2 className="w-3 h-3" /></Button>
+                        </div>
+                      ))}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+                <AccordionItem value="extras" className="border rounded-lg px-2">
+                  <AccordionTrigger className="py-2 text-sm font-medium hover:no-underline">
+                    Extras ({extras.length})
+                  </AccordionTrigger>
+                  <AccordionContent className="pb-2">
+                    <Button size="sm" onClick={() => { setEditingExtra(null); setShowExtraModal(true); }} className="mb-2 w-full"><Plus className="w-3 h-3 mr-1" />Novo</Button>
+                    <div className="space-y-1">
+                      {extras.map(x => (
+                        <div key={x.id} className="flex items-center gap-2 p-2 rounded border text-xs">
+                          {x.image && <img src={x.image} alt="" className="w-8 h-8 rounded object-cover flex-shrink-0" />}
+                          <span className="flex-1 truncate">{x.name} {formatCurrency(x.price)}</span>
+                          <Switch checked={x.is_active} onCheckedChange={(c)=>updateExtraMutation.mutate({id:x.id,data:{...x,is_active:c}})} className="scale-75" />
+                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={()=>{ setEditingExtra(x); setShowExtraModal(true); }}><Pencil className="w-3 h-3" /></Button>
+                          <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500" onClick={()=>{ if(confirm('Excluir?')) deleteExtraMutation.mutate(x.id); }}><Trash2 className="w-3 h-3" /></Button>
+                        </div>
+                      ))}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            </Card>
           </div>
         </TabsContent>
 
-        {/* Sabores */}
-        <TabsContent value="flavors" className="space-y-4">
-          <Button onClick={() => setShowFlavorModal(true)} className="bg-orange-500">
-            <Plus className="w-4 h-4 mr-2" />
-            Novo Sabor
-          </Button>
-
-          <div className="space-y-4">
-            <div>
-              <h3 className="font-semibold mb-3">🍕 Tradicionais</h3>
-              <div className="grid gap-3">
-                {flavors.filter(f => f.category === 'tradicional').map(flavor => (
-                  <FlavorCard
-                    key={flavor.id}
-                    flavor={flavor}
-                    onEdit={() => {
-                      setEditingFlavor(flavor);
-                      setShowFlavorModal(true);
-                    }}
-                    onDelete={() => {
-                      if (confirm('Excluir este sabor?')) {
-                        deleteFlavorMutation.mutate(flavor.id);
-                      }
-                    }}
-                    onToggleActive={(checked) => 
-                      updateFlavorMutation.mutate({ id: flavor.id, data: { is_active: checked } })
-                    }
-                  />
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <h3 className="font-semibold mb-3">⭐ Premium</h3>
-              <div className="grid gap-3">
-                {flavors.filter(f => f.category === 'premium').map(flavor => (
-                  <FlavorCard
-                    key={flavor.id}
-                    flavor={flavor}
-                    onEdit={() => {
-                      setEditingFlavor(flavor);
-                      setShowFlavorModal(true);
-                    }}
-                    onDelete={() => {
-                      if (confirm('Excluir este sabor?')) {
-                        deleteFlavorMutation.mutate(flavor.id);
-                      }
-                    }}
-                    onToggleActive={(checked) => 
-                      updateFlavorMutation.mutate({ id: flavor.id, data: { is_active: checked } })
-                    }
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
-        </TabsContent>
-
-        {/* Bordas */}
-        <TabsContent value="edges" className="space-y-4">
-          <Button onClick={() => setShowEdgeModal(true)} className="bg-orange-500">
-            <Plus className="w-4 h-4 mr-2" />
-            Nova Borda
-          </Button>
-
-          <div className="grid gap-3">
-            {edges.map(edge => (
-              <div key={edge.id} className="bg-white p-4 rounded-xl border flex items-center gap-4">
-                {edge.image && (
-                  <img src={edge.image} alt={edge.name} className="w-16 h-16 rounded-lg object-cover" />
-                )}
-                <div className="flex-1">
-                  <h3 className="font-bold">{edge.name}</h3>
-                  <p className="text-sm text-gray-600">{edge.description}</p>
-                  <p className="font-semibold text-orange-600 mt-1">{formatCurrency(edge.price)}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  {edge.is_popular && <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />}
-                  <Switch
-                    checked={edge.is_active}
-                    onCheckedChange={(checked) => 
-                      updateEdgeMutation.mutate({ id: edge.id, data: { is_active: checked } })
-                    }
-                  />
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => {
-                      setEditingEdge(edge);
-                      setShowEdgeModal(true);
-                    }}
-                  >
-                    <Pencil className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => {
-                      if (confirm('Excluir esta borda?')) {
-                        deleteEdgeMutation.mutate(edge.id);
-                      }
-                    }}
-                    className="text-red-500"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </TabsContent>
-
-        {/* Extras */}
-        <TabsContent value="extras" className="space-y-4">
-          <Button onClick={() => setShowExtraModal(true)} className="bg-orange-500">
-            <Plus className="w-4 h-4 mr-2" />
-            Novo Extra
-          </Button>
-
-          <div className="grid gap-3">
-            {extras.map(extra => (
-              <div key={extra.id} className="bg-white p-4 rounded-xl border flex items-center gap-4">
-                {extra.image && (
-                  <img src={extra.image} alt={extra.name} className="w-16 h-16 rounded-lg object-cover" />
-                )}
-                <div className="flex-1">
-                  <h3 className="font-bold">{extra.name}</h3>
-                  <p className="text-sm text-gray-600">{extra.description}</p>
-                  <p className="font-semibold text-orange-600 mt-1">{formatCurrency(extra.price)}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Switch
-                    checked={extra.is_active}
-                    onCheckedChange={(checked) => 
-                      updateExtraMutation.mutate({ id: extra.id, data: { is_active: checked } })
-                    }
-                  />
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => {
-                      setEditingExtra(extra);
-                      setShowExtraModal(true);
-                    }}
-                  >
-                    <Pencil className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => {
-                      if (confirm('Excluir este extra?')) {
-                        deleteExtraMutation.mutate(extra.id);
-                      }
-                    }}
-                    className="text-red-500"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </TabsContent>
-
-        {/* Visual Settings */}
-        <TabsContent value="visual">
+        <TabsContent value="visual" className="mt-4">
           <PizzaVisualizationSettings />
         </TabsContent>
       </Tabs>
@@ -520,38 +371,6 @@ export default function PizzaConfigTab() {
         }}
         extra={editingExtra}
       />
-    </div>
-  );
-}
-
-function FlavorCard({ flavor, onEdit, onDelete, onToggleActive }) {
-  return (
-    <div className="bg-white p-4 rounded-xl border flex items-center gap-4">
-      {flavor.image && (
-        <img src={flavor.image} alt={flavor.name} className="w-16 h-16 rounded-lg object-cover" />
-      )}
-      <div className="flex-1">
-        <div className="flex items-center gap-2 mb-1">
-          <h3 className="font-bold">{flavor.name}</h3>
-          <Badge variant={flavor.category === 'premium' ? 'default' : 'outline'} className="text-xs">
-            {flavor.category === 'premium' ? '⭐ Premium' : '🍕 Tradicional'}
-          </Badge>
-          {flavor.is_popular && <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />}
-        </div>
-        <p className="text-sm text-gray-600">{flavor.description}</p>
-        {flavor.prep_time && (
-          <p className="text-xs text-gray-500 mt-1">⏱️ {flavor.prep_time} min</p>
-        )}
-      </div>
-      <div className="flex items-center gap-2">
-        <Switch checked={flavor.is_active} onCheckedChange={onToggleActive} />
-        <Button variant="ghost" size="icon" onClick={onEdit}>
-          <Pencil className="w-4 h-4" />
-        </Button>
-        <Button variant="ghost" size="icon" onClick={onDelete} className="text-red-500">
-          <Trash2 className="w-4 h-4" />
-        </Button>
-      </div>
     </div>
   );
 }

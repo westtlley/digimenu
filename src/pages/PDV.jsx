@@ -32,6 +32,7 @@ export default function PDV() {
   const [showMobileCart, setShowMobileCart] = useState(false);
   const [showOpenCaixaModal, setShowOpenCaixaModal] = useState(false);
   const [openingAmount, setOpeningAmount] = useState('');
+  const [lockThreshold, setLockThreshold] = useState('');
 
   const queryClient = useQueryClient();
   const { isMaster } = usePermission();
@@ -54,7 +55,7 @@ export default function PDV() {
     queryFn: () => base44.entities.ComplementGroup.list('order'),
   });
 
-  const { data: caixas = [] } = useQuery({
+  const { data: caixas = [], isLoading: caixasLoading } = useQuery({
     queryKey: ['caixas'],
     queryFn: () => base44.entities.Caixa.list('-opening_date'),
     refetchInterval: 5000,
@@ -63,13 +64,10 @@ export default function PDV() {
   useEffect(() => {
     const activeCaixa = caixas.find(c => c.status === 'open');
     setOpenCaixa(activeCaixa || null);
-    
-    if (!activeCaixa) {
-      setShowOpenCaixaModal(true);
-    } else {
-      setShowOpenCaixaModal(false);
-    }
-  }, [caixas]);
+    if (caixasLoading) return;
+    if (!activeCaixa) setShowOpenCaixaModal(true);
+    else setShowOpenCaixaModal(false);
+  }, [caixas, caixasLoading]);
 
   const createPedidoMutation = useMutation({
     mutationFn: (data) => base44.entities.PedidoPDV.create(data),
@@ -106,9 +104,12 @@ export default function PDV() {
       queryClient.invalidateQueries({ queryKey: ['caixas'] });
       setShowOpenCaixaModal(false);
       setOpeningAmount('');
+      setLockThreshold('');
       toast.success('✅ Caixa aberto com sucesso!');
     },
   });
+
+  const isCaixaLocked = !!(openCaixa?.lock_threshold != null && (Number(openCaixa?.total_cash) || 0) >= (Number(openCaixa?.lock_threshold) || 0));
 
   const safeDishes = Array.isArray(dishes) ? dishes : [];
   const activeDishes = safeDishes.filter(d => d.is_active !== false);
@@ -128,6 +129,10 @@ export default function PDV() {
       setShowOpenCaixaModal(true);
       return;
     }
+    if (isCaixaLocked) {
+      toast.error('🔒 Caixa travado. Faça uma retirada em Caixa para continuar.');
+      return;
+    }
 
     if (dishGroups.length > 0) {
       setSelectedDish(dish);
@@ -140,6 +145,10 @@ export default function PDV() {
     if (!openCaixa) {
       toast.error('⚠️ Abra o caixa para iniciar as vendas');
       setShowOpenCaixaModal(true);
+      return;
+    }
+    if (isCaixaLocked) {
+      toast.error('🔒 Caixa travado. Faça uma retirada em Caixa para continuar.');
       return;
     }
     setCart([...cart, { ...item, quantity: 1, id: Date.now() }]);
@@ -180,9 +189,16 @@ export default function PDV() {
   const handleOpenCaixa = () => {
     const amount = parseFloat(openingAmount);
     if (isNaN(amount) || amount < 0) {
-      toast.error('Informe um valor válido');
+      toast.error('Informe um valor válido de abertura');
       return;
     }
+    const lock = lockThreshold ? parseFloat(lockThreshold) : null;
+    if (lockThreshold && (isNaN(lock) || lock <= 0)) {
+      toast.error('Valor limite de travamento deve ser maior que zero ou vazio');
+      return;
+    }
+    const msg = 'Confirma a abertura do caixa com valor de ' + new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(amount) + '?';
+    if (!window.confirm(msg)) return;
 
     openCaixaMutation.mutate({
       opening_amount_cash: amount,
@@ -194,7 +210,8 @@ export default function PDV() {
       total_credit: 0,
       total_other: 0,
       withdrawals: 0,
-      supplies: 0
+      supplies: 0,
+      lock_threshold: lock || null
     });
   };
 
@@ -598,7 +615,10 @@ export default function PDV() {
                   Limpar
                 </Button>
                 <Button
-                  onClick={() => setShowPaymentModal(true)}
+                  onClick={() => {
+                    if (isCaixaLocked) { toast.error('🔒 Caixa travado. Faça uma retirada em Caixa para continuar.'); return; }
+                    setShowPaymentModal(true);
+                  }}
                   disabled={cart.length === 0}
                   className="h-9 bg-green-600 hover:bg-green-700 font-bold text-sm"
                 >
@@ -685,6 +705,7 @@ export default function PDV() {
             </div>
             <Button
               onClick={() => {
+                if (isCaixaLocked) { toast.error('🔒 Caixa travado. Faça uma retirada em Caixa para continuar.'); return; }
                 setShowMobileCart(false);
                 setShowPaymentModal(true);
               }}
@@ -768,9 +789,7 @@ export default function PDV() {
             )}
 
             <div className="space-y-3">
-              <Label className="text-base font-semibold">
-                Valor Inicial em Dinheiro (R$) *
-              </Label>
+              <Label className="text-base font-semibold">Valor de Abertura em Dinheiro (R$) *</Label>
               <Input
                 type="number"
                 step="0.01"
@@ -781,9 +800,21 @@ export default function PDV() {
                 className="text-2xl font-bold h-16 text-center border-2"
                 autoFocus
               />
-              <p className="text-xs text-gray-600">
-                Informe o valor em dinheiro físico disponível no caixa
-              </p>
+              <p className="text-xs text-gray-600">Valor em dinheiro físico disponível no caixa ao abrir</p>
+            </div>
+
+            <div className="space-y-3 p-3 rounded-lg border border-amber-200 bg-amber-50/50">
+              <Label className="text-base font-semibold">Valor limite de travamento (R$) – opcional</Label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                value={lockThreshold}
+                onChange={(e) => setLockThreshold(e.target.value)}
+                placeholder="Ex: 500"
+                className="h-12 border-2 bg-white"
+              />
+              <p className="text-xs text-gray-600">Quando as vendas em dinheiro atingirem este valor, o PDV trava até ser feita uma retirada em Caixa</p>
             </div>
 
             <div className="bg-green-50 border border-green-200 rounded-lg p-3">

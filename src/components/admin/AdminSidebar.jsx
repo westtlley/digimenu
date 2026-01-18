@@ -67,7 +67,7 @@ const MENU_STRUCTURE = [
     section: 'section',
     submenu: [
       { id: 'restaurante_grp', label: 'Restaurante', icon: UtensilsCrossed, section: 'subsection', submenu: [
-        { id: 'dishes', label: 'Restaurante', icon: UtensilsCrossed, module: 'dishes' },
+        { id: 'dishes', label: 'Pratos', icon: UtensilsCrossed, module: 'dishes' },
         { id: 'categories', label: 'Categorias', icon: Layers, module: 'dishes' },
         { id: 'complements', label: 'Complementos', icon: Grid3x3, module: 'dishes' },
       ]},
@@ -173,7 +173,7 @@ export default function AdminSidebar({ activeTab, setActiveTab, isMaster = false
           </button>
           {!collapsed && isExpanded && (
             <div className="mt-1 space-y-0.5">
-              {visibleSubmenu.map(sub => renderMenuItem(sub, true))}
+              {visibleSubmenu.filter(sub => sub.id !== item.id).map(sub => renderMenuItem(sub, true))}
             </div>
           )}
           {collapsed && (
