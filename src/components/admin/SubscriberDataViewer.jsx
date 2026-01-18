@@ -14,7 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import CategoryForm from './CategoryForm';
 import { 
   ArrowLeft, Package, ShoppingCart, DollarSign, Store, 
-  Loader2, Download, Plus, Pencil, Trash2
+  Loader2, Download, Plus, Pencil, Trash2, Clock
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
