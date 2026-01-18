@@ -242,7 +242,13 @@ export default function PermissionsEditor({ permissions, onChange, selectedPlan 
 
   return (
     <div className="space-y-6">
-      {/* Seletor de Plano - Pode usar cards visuais aqui no futuro */}
+      {/* Preview de Permissões */}
+      <div className="border rounded-lg p-4 bg-gray-50">
+        <Label className="mb-3 block">Preview: O que o assinante verá</Label>
+        <PermissionPreview permissions={permissions} />
+      </div>
+
+      {/* Seletor de Plano */}
       <div>
         <Label className="mb-2 block">Plano de Assinatura</Label>
           <p className="text-xs text-gray-500 mb-3">
