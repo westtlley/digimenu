@@ -8,7 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { AlertTriangle, Info, Loader2 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
-import { validatePermissions } from './PlanPresets';
+import { validatePermissions, getPlanPermissions } from './PlanPresets';
+import PermissionPreview from '../admin/subscribers/PermissionPreview';
+import PlanComparison from '../admin/subscribers/PlanComparison';
 
 const MODULE_GROUPS = [
   {
@@ -288,6 +290,20 @@ export default function PermissionsEditor({ permissions, onChange, selectedPlan 
             : 'Selecione um plano para preencher automaticamente as permissões. Você pode ajustar manualmente depois.'
           }
         </p>
+
+        {/* Comparação de Planos (apenas se houver 2+ planos) */}
+        {plans.length >= 2 && currentPlan !== 'custom' && (
+          <div className="mt-4">
+            <PlanComparison
+              plans={plans.map(p => ({
+                ...p,
+                permissions: p.permissions || getPlanPermissions(p.slug)
+              }))}
+              currentPlan={currentPlan}
+              onSelectPlan={handlePlanChange}
+            />
+          </div>
+        )}
       </div>
 
       {/* Avisos de Conflito */}

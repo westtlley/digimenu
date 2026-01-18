@@ -67,6 +67,8 @@ import ExportCSV from '../components/admin/subscribers/ExportCSV';
 import ImportCSV from '../components/admin/subscribers/ImportCSV';
 import AdvancedFilters from '../components/admin/subscribers/AdvancedFilters';
 import BulkActions from '../components/admin/subscribers/BulkActions';
+import PlanTemplates from '../components/admin/subscribers/PlanTemplates';
+import SubscriberStats from '../components/admin/subscribers/SubscriberStats';
 import { comparePermissions, getPlanPermissions } from '../components/permissions/PlanPresets';
 import { formatBrazilianDate } from '../components/utils/dateUtils';
 import toast from 'react-hot-toast';
@@ -865,36 +867,7 @@ export default function Assinantes() {
         {subscribersLoading ? (
           <SkeletonStats count={4} />
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <StatCard
-              icon={Check}
-              value={subscribers.filter(s => s.status === 'active').length}
-              label="Ativos"
-              color="success"
-              delay={0}
-            />
-            <StatCard
-              icon={X}
-              value={subscribers.filter(s => s.status === 'inactive').length}
-              label="Inativos"
-              color="error"
-              delay={0.1}
-            />
-            <StatCard
-              icon={Crown}
-              value={subscribers.filter(s => s.plan === 'premium' || s.plan === 'enterprise').length}
-              label="Premium+"
-              color="warning"
-              delay={0.2}
-            />
-            <StatCard
-              icon={Users}
-              value={subscribers.length}
-              label="Total"
-              color="info"
-              delay={0.3}
-            />
-          </div>
+          <SubscriberStats subscribers={subscribers} />
         )}
       </div>
 
@@ -1325,6 +1298,18 @@ export default function Assinantes() {
                   onChange={(e) => setNewSubscriber({...newSubscriber, name: e.target.value})}
                 />
               </div>
+
+            {/* Templates de Planos */}
+            <PlanTemplates
+              onSelectTemplate={(template) => {
+                setNewSubscriber({
+                  ...newSubscriber,
+                  plan: 'custom',
+                  permissions: template.permissions
+                });
+                toast.success(`Template "${template.name}" aplicado!`);
+              }}
+            />
             
             <PermissionsEditor
               permissions={newSubscriber.permissions}
