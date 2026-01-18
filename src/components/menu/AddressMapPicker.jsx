@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { MapPin, Search, Navigation, X } from 'lucide-react';
+import { MapPin, Search, Navigation, X, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { motion, AnimatePresence } from 'framer-motion';
+import { buscarCEP } from '@/utils/cepService';
+import toast from 'react-hot-toast';
 import 'leaflet/dist/leaflet.css';
 
 // Fix para ícones do Leaflet
@@ -83,6 +86,8 @@ export default function AddressMapPicker({ isOpen, onClose, onConfirm, initialAd
   const [reverseGeocoding, setReverseGeocoding] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [cep, setCep] = useState('');
+  const [loadingCEP, setLoadingCEP] = useState(false);
   const searchTimeoutRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -226,11 +231,70 @@ export default function AddressMapPicker({ isOpen, onClose, onConfirm, initialAd
     return null;
   };
 
-  // Quando o usuário move o marcador, buscar o endereço
-  useEffect(() => {
-    if (position && isOpen) {
-      reverseGeocode(position.lat, position.lng);
+  // Formatar CEP
+  const formatCEP = (value) => {
+    const cleanCEP = value.replace(/\D/g, '');
+    if (cleanCEP.length <= 8) {
+      return cleanCEP.replace(/(\d{5})(\d)/, '$1-$2');
     }
+    return value;
+  };
+
+  // Buscar endereço por CEP
+  const handleCEPBlur = async () => {
+    const cleanCEP = cep.replace(/\D/g, '');
+    if (cleanCEP.length === 8) {
+      setLoadingCEP(true);
+      try {
+        const endereco = await buscarCEP(cleanCEP);
+        
+        // Buscar coordenadas do endereço encontrado
+        const searchQuery = `${endereco.logradouro}, ${endereco.bairro}, ${endereco.cidade}, ${endereco.estado}`;
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery + ', Brasil')}&limit=1&countrycodes=br`
+        );
+        const geoData = await res.json();
+        
+        if (geoData && geoData.length > 0) {
+          const newPos = {
+            lat: parseFloat(geoData[0].lat),
+            lng: parseFloat(geoData[0].lon)
+          };
+          setPosition(newPos);
+          setAddress(geoData[0].display_name);
+          setSearchQuery(geoData[0].display_name);
+          
+          // Preencher campos detalhados
+          const addressData = await reverseGeocode(newPos.lat, newPos.lng);
+          if (addressData) {
+            // Atualizar CEP formatado
+            setCep(endereco.cep || formatCEP(cleanCEP));
+            toast.success('Endereço preenchido automaticamente!');
+          }
+        } else {
+          // Se não encontrar coordenadas, preencher só os campos
+          setAddress(endereco.enderecoCompleto);
+          setCep(endereco.cep || formatCEP(cleanCEP));
+          toast.success('Endereço preenchido! Selecione no mapa para confirmar coordenadas.');
+        }
+      } catch (error) {
+        console.error('Erro ao buscar CEP:', error);
+        toast.error('CEP não encontrado. Preencha o endereço manualmente.');
+      } finally {
+        setLoadingCEP(false);
+      }
+    }
+  };
+
+  // Quando o usuário move o marcador, buscar o endereço (debounced)
+  useEffect(() => {
+    if (!position || !isOpen) return;
+    
+    const timeoutId = setTimeout(() => {
+      reverseGeocode(position.lat, position.lng);
+    }, 500); // Delay para evitar muitas chamadas
+    
+    return () => clearTimeout(timeoutId);
   }, [position, isOpen]);
 
   // Obter localização atual do usuário
@@ -255,11 +319,15 @@ export default function AddressMapPicker({ isOpen, onClose, onConfirm, initialAd
   const handleConfirm = async () => {
     const addressData = await reverseGeocode(position.lat, position.lng);
     
-    onConfirm({
+    // Incluir CEP nos dados retornados
+    const confirmData = {
       latitude: position.lat,
       longitude: position.lng,
-      addressData
-    });
+      addressData: addressData ? { ...addressData, cep: cep } : { cep: cep },
+      cep: cep
+    };
+    
+    onConfirm(confirmData);
   };
 
   return (
@@ -364,14 +432,15 @@ export default function AddressMapPicker({ isOpen, onClose, onConfirm, initialAd
             </Button>
           </div>
 
-          {/* Map */}
-          <div className="flex-1 relative min-h-[400px]">
+          {/* Map - Container fixo para não sair da tela */}
+          <div className="flex-1 relative min-h-[400px] max-h-[500px] overflow-hidden">
             <MapContainer
               center={[position.lat, position.lng]}
               zoom={16}
               style={{ height: '100%', width: '100%', zIndex: 1 }}
               zoomControl={true}
               scrollWheelZoom={true}
+              className="rounded-lg"
             >
               <FixMapResize />
               <AutoCenter center={[position.lat, position.lng]} zoom={16} />
@@ -387,9 +456,29 @@ export default function AddressMapPicker({ isOpen, onClose, onConfirm, initialAd
               <LocationMarker position={position} setPosition={setPosition} />
             </MapContainer>
 
+            {/* Campo CEP */}
+            <div className="absolute top-2 left-2 right-2 z-[1000] bg-white rounded-lg shadow-lg p-3 border-2 border-orange-200">
+              <Label className="text-xs font-semibold text-gray-900 mb-1.5 block">CEP</Label>
+              <div className="relative">
+                <Input
+                  placeholder="00000-000"
+                  value={cep}
+                  onChange={(e) => setCep(formatCEP(e.target.value))}
+                  onBlur={handleCEPBlur}
+                  maxLength={9}
+                  className="h-8 text-sm pr-8"
+                  disabled={loadingCEP}
+                />
+                {loadingCEP && (
+                  <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-orange-500" />
+                )}
+              </div>
+              <p className="text-[10px] text-gray-500 mt-1">Digite o CEP para preencher automaticamente</p>
+            </div>
+
             {/* Endereço detectado */}
             {address && (
-              <div className="absolute top-2 left-2 right-2 z-[1000] bg-white/95 backdrop-blur-sm rounded-lg shadow-lg p-2 border-2 border-orange-200">
+              <div className="absolute top-[90px] left-2 right-2 z-[1000] bg-white/95 backdrop-blur-sm rounded-lg shadow-lg p-2 border-2 border-orange-200">
                 <div className="flex items-start gap-2">
                   <MapPin className="w-4 h-4 text-orange-500 flex-shrink-0 mt-0.5" />
                   <div className="flex-1 min-w-0">
