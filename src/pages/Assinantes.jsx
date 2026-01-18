@@ -703,8 +703,6 @@ export default function Assinantes() {
   // Debounce da busca para melhor performance
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
   
-  const [filteredSubscribers, setFilteredSubscribers] = useState([]);
-
   // Busca básica (por termo)
   const searchFilteredSubscribers = useMemo(() => {
     if (!debouncedSearchTerm) return subscribers;
@@ -716,25 +714,24 @@ export default function Assinantes() {
     );
   }, [subscribers, debouncedSearchTerm]);
 
-  // Atualizar filteredSubscribers quando searchFilteredSubscribers mudar ou quando filtros avançados mudarem
-  useEffect(() => {
-    if (filteredSubscribers.length === 0 || debouncedSearchTerm) {
-      setFilteredSubscribers(searchFilteredSubscribers);
-    }
-  }, [searchFilteredSubscribers, debouncedSearchTerm]);
+  // Estado de filtros avançados
+  const [advancedFiltered, setAdvancedFiltered] = useState(null);
+
+  // Combinar busca e filtros avançados
+  const filteredSubscribers = useMemo(() => {
+    const baseList = advancedFiltered !== null ? advancedFiltered : subscribers;
+    
+    if (!debouncedSearchTerm) return baseList;
+    
+    const term = debouncedSearchTerm.toLowerCase();
+    return baseList.filter(s => 
+      s.email?.toLowerCase().includes(term) ||
+      s.name?.toLowerCase().includes(term)
+    );
+  }, [subscribers, debouncedSearchTerm, advancedFiltered]);
 
   const handleAdvancedFilterChange = (filtered) => {
-    // Aplicar busca no resultado dos filtros avançados
-    if (!debouncedSearchTerm) {
-      setFilteredSubscribers(filtered);
-    } else {
-      const term = debouncedSearchTerm.toLowerCase();
-      const searchFiltered = filtered.filter(s => 
-        s.email?.toLowerCase().includes(term) ||
-        s.name?.toLowerCase().includes(term)
-      );
-      setFilteredSubscribers(searchFiltered);
-    }
+    setAdvancedFiltered(filtered);
   };
 
   const getPlanLabel = (slug) => {
