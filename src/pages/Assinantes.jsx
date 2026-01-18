@@ -61,6 +61,9 @@ import PermissionsEditor from '../components/permissions/PermissionsEditor';
 import SubscriberDataViewer from '../components/admin/SubscriberDataViewer';
 import SubscriberDataFilter from '../components/admin/SubscriberDataFilter';
 import ExpirationProgressBar from '../components/admin/subscribers/ExpirationProgressBar';
+import ExportCSV from '../components/admin/subscribers/ExportCSV';
+import ImportCSV from '../components/admin/subscribers/ImportCSV';
+import AdvancedFilters from '../components/admin/subscribers/AdvancedFilters';
 import { comparePermissions, getPlanPermissions } from '../components/permissions/PlanPresets';
 import { formatBrazilianDate } from '../components/utils/dateUtils';
 import toast from 'react-hot-toast';
@@ -667,7 +670,10 @@ export default function Assinantes() {
   // Debounce da busca para melhor performance
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
   
-  const filteredSubscribers = useMemo(() => {
+  const [filteredSubscribers, setFilteredSubscribers] = useState([]);
+
+  // Busca básica (por termo)
+  const searchFilteredSubscribers = useMemo(() => {
     if (!debouncedSearchTerm) return subscribers;
     
     const term = debouncedSearchTerm.toLowerCase();
@@ -676,6 +682,27 @@ export default function Assinantes() {
       s.name?.toLowerCase().includes(term)
     );
   }, [subscribers, debouncedSearchTerm]);
+
+  // Atualizar filteredSubscribers quando searchFilteredSubscribers mudar ou quando filtros avançados mudarem
+  useEffect(() => {
+    if (filteredSubscribers.length === 0 || debouncedSearchTerm) {
+      setFilteredSubscribers(searchFilteredSubscribers);
+    }
+  }, [searchFilteredSubscribers, debouncedSearchTerm]);
+
+  const handleAdvancedFilterChange = (filtered) => {
+    // Aplicar busca no resultado dos filtros avançados
+    if (!debouncedSearchTerm) {
+      setFilteredSubscribers(filtered);
+    } else {
+      const term = debouncedSearchTerm.toLowerCase();
+      const searchFiltered = filtered.filter(s => 
+        s.email?.toLowerCase().includes(term) ||
+        s.name?.toLowerCase().includes(term)
+      );
+      setFilteredSubscribers(searchFiltered);
+    }
+  };
 
   const getPlanLabel = (slug) => {
     if (slug === 'custom') return 'Personalizado';
@@ -758,6 +785,31 @@ export default function Assinantes() {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <ImportCSV 
+                onImport={async (subscribers) => {
+                  // Importar múltiplos assinantes
+                  let successCount = 0;
+                  let errorCount = 0;
+                  
+                  for (const sub of subscribers) {
+                    try {
+                      await createMutation.mutateAsync(sub);
+                      successCount++;
+                    } catch (error) {
+                      console.error('Erro ao importar assinante:', sub.email, error);
+                      errorCount++;
+                    }
+                  }
+                  
+                  if (errorCount > 0) {
+                    toast.error(`${errorCount} assinante(s) não puderam ser importado(s)`);
+                  }
+                  if (successCount > 0) {
+                    toast.success(`${successCount} assinante(s) importado(s) com sucesso!`);
+                  }
+                }}
+              />
+              <ExportCSV subscribers={subscribers} />
               <motion.div
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
@@ -817,13 +869,13 @@ export default function Assinantes() {
 
       {/* Content */}
       <div className="max-w-6xl mx-auto px-4 py-6">
-        {/* Search */}
-        <div className="mb-6">
+        {/* Search e Filtros */}
+        <div className="mb-6 flex items-center gap-3 flex-wrap">
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="relative max-w-md"
+            className="relative flex-1 min-w-[250px] max-w-md"
           >
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
             <Input
@@ -833,6 +885,10 @@ export default function Assinantes() {
               className="pl-11 h-11 border-gray-300 focus:border-orange-500 focus:ring-orange-500 transition-all duration-200"
             />
           </motion.div>
+          <AdvancedFilters 
+            subscribers={subscribers} 
+            onFilterChange={handleAdvancedFilterChange}
+          />
         </div>
 
         {/* List */}

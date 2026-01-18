@@ -3,6 +3,43 @@
 ## ✅ Melhorias Já Implementadas
 
 ### 1. Performance: Debounce na Busca ✅
+- **Arquivo**: `src/hooks/useDebounce.js`, `src/pages/Assinantes.jsx`
+- **Status**: ✅ Implementado
+- **Detalhes**: Hook criado com 300ms de delay, uso de useMemo para filtrar
+
+### 2. Performance: Optimistic Updates ✅
+- **Arquivo**: `src/pages/Assinantes.jsx`
+- **Status**: ✅ Implementado
+- **Detalhes**: Aplicado em createMutation, updateMutation, deleteMutation
+
+### 3. Performance: Cache de Permissões ✅
+- **Arquivo**: `src/components/permissions/useMemoizedPermissions.js`
+- **Status**: ✅ Implementado
+- **Detalhes**: Hook para cachear cálculos de permissões
+
+### 4. UX: Tooltips Contextuais ✅
+- **Arquivo**: `src/pages/Assinantes.jsx`
+- **Status**: ✅ Implementado
+- **Detalhes**: Tooltips em todos os campos do formulário
+
+### 5. UX: Indicadores de Status e Expiração ✅
+- **Arquivo**: `src/components/admin/subscribers/ExpirationProgressBar.jsx`
+- **Status**: ✅ Implementado
+- **Detalhes**: Badges visuais e barras de progresso para expiração
+
+### 6. UX: Cards Visuais de Planos ✅
+- **Arquivo**: `src/components/admin/subscribers/PlanCard.jsx`, `PlanSelector.jsx`
+- **Status**: ✅ Implementado
+- **Detalhes**: Componentes criados e prontos para uso
+
+### 7. Funcionalidades: Duplicar Assinante ✅
+- **Arquivo**: `src/pages/Assinantes.jsx`
+- **Status**: ✅ Implementado
+- **Detalhes**: Função no menu de ações do assinante
+
+---
+
+### 1. Performance: Debounce na Busca ✅
 - **Arquivo**: `src/pages/Assinantes.jsx`
 - **Status**: ✅ Implementado
 - **Detalhes**: 
