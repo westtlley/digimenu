@@ -518,16 +518,43 @@ export default function Assinantes() {
     });
   };
 
-  const handleAddSubscriber = () => {
-    if (!newSubscriber.email) {
-      alert('Por favor, preencha o email do assinante');
-      return;
+  // Validação avançada de email
+  const validateEmail = (email) => {
+    if (!email) {
+      return { valid: false, error: 'Email é obrigatório' };
     }
 
-    // Validação de email
+    const trimmedEmail = email.trim().toLowerCase();
+    
+    // Validação básica de formato
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(newSubscriber.email)) {
-      alert('Por favor, insira um email válido');
+    if (!emailRegex.test(trimmedEmail)) {
+      return { valid: false, error: 'Formato de email inválido' };
+    }
+
+    // Verificar se email já existe
+    const emailExists = subscribers.some(
+      s => s.email?.toLowerCase() === trimmedEmail && s.id !== newSubscriber.id
+    );
+    if (emailExists) {
+      return { valid: false, error: 'Este email já está cadastrado' };
+    }
+
+    // Verificar domínio comum
+    const domain = trimmedEmail.split('@')[1];
+    const commonDomains = ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com'];
+    if (!commonDomains.includes(domain) && !domain.includes('.')) {
+      return { valid: false, error: 'Domínio de email inválido' };
+    }
+
+    return { valid: true, email: trimmedEmail };
+  };
+
+  const handleAddSubscriber = () => {
+    // Validação de email
+    const emailValidation = validateEmail(newSubscriber.email);
+    if (!emailValidation.valid) {
+      toast.error(emailValidation.error);
       return;
     }
 
@@ -543,7 +570,7 @@ export default function Assinantes() {
 
     // Limpar campos vazios e garantir tipos corretos
     const dataToCreate = {
-      email: newSubscriber.email.trim().toLowerCase(),
+      email: emailValidation.email,
       name: (newSubscriber.name || '').trim(),
       plan: finalPlan,
       status: String(newSubscriber.status || 'active'),
