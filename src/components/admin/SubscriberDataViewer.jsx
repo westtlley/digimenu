@@ -30,10 +30,10 @@ export default function SubscriberDataViewer({ subscriber, onBack }) {
   const { data: profileData, isLoading } = useQuery({
     queryKey: ['subscriberProfile', subscriber.email],
     queryFn: async () => {
-      const response = await base44.functions.invoke('getFullSubscriberProfile', {
+      const res = await base44.functions.invoke('getFullSubscriberProfile', {
         subscriber_email: subscriber.email
       });
-      return response.data;
+      return res;
     },
     enabled: !!subscriber.email
   });
@@ -54,7 +54,7 @@ export default function SubscriberDataViewer({ subscriber, onBack }) {
     );
   }
 
-  const { data, stats } = profileData;
+  const { data = {}, stats = {} } = profileData;
   const opts = { as_subscriber: subscriber.email };
 
   const refetch = () => queryClient.invalidateQueries({ queryKey: ['subscriberProfile', subscriber.email] });

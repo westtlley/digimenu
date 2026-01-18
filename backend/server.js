@@ -1015,6 +1015,7 @@ app.post('/api/entities/:entity', authenticate, async (req, res) => {
     const { entity } = req.params;
     let data = { ...req.body };
     const asSub = data.as_subscriber || req.query.as_subscriber;
+    let createOpts = {};
 
     if (req.user?.is_master && asSub) {
       req.user._contextForSubscriber = asSub;
@@ -1022,19 +1023,18 @@ app.post('/api/entities/:entity', authenticate, async (req, res) => {
       data.owner_email = asSub;
     }
 
-    if (!req.user?.is_master && !data.owner_email) {
-      if (usePostgreSQL) {
-        const subscriber = await repo.getSubscriberByEmail(req.user.email);
-        if (subscriber) data.owner_email = subscriber.email;
-      } else if (db?.subscribers) {
-        const subscriber = db.subscribers.find(s => s.email === req.user.email);
-        if (subscriber) data.owner_email = subscriber.email;
+    if (!req.user?.is_master) {
+      const subEmail = req.user?.subscriber_email || req.user?.email;
+      const subscriber = usePostgreSQL ? await repo.getSubscriberByEmail(subEmail) : db?.subscribers?.find(s => (s.email || '').toLowerCase() === (subEmail || '').toLowerCase());
+      if (subscriber) {
+        if (!data.owner_email) data.owner_email = subscriber.email;
+        createOpts.forSubscriberEmail = subscriber.email;
       }
     }
 
     let newItem;
     if (usePostgreSQL) {
-      newItem = await repo.createEntity(entity, data, req.user);
+      newItem = await repo.createEntity(entity, data, req.user, createOpts);
     } else if (db && db.entities) {
       if (!db.entities[entity]) db.entities[entity] = [];
       newItem = {
@@ -1701,7 +1701,6 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
           return res.status(404).json({ error: 'Assinante não encontrado' });
         }
         
-        // Buscar dados do assinante (entidades filtradas por email)
         let dishes = [];
         let categories = [];
         let orders = [];
@@ -1709,12 +1708,12 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
         let store = null;
         
         if (usePostgreSQL) {
-          // PostgreSQL - buscar entidades com filtro por subscriber_email
-          dishes = await repo.listEntities('Dish', { owner_email: subscriber.email }, null, req.user);
-          categories = await repo.listEntities('Category', { owner_email: subscriber.email }, null, req.user);
-          orders = await repo.listEntities('Order', { owner_email: subscriber.email }, null, req.user);
-          caixas = await repo.listEntities('Caixa', { owner_email: subscriber.email }, null, req.user);
-          const stores = await repo.listEntities('Store', { owner_email: subscriber.email }, null, req.user);
+          const se = subscriber.email;
+          dishes = await repo.listEntitiesForSubscriber('Dish', se, null);
+          categories = await repo.listEntitiesForSubscriber('Category', se, 'order');
+          orders = await repo.listEntitiesForSubscriber('Order', se, '-created_date');
+          caixas = await repo.listEntitiesForSubscriber('Caixa', se, null);
+          const stores = await repo.listEntitiesForSubscriber('Store', se, null);
           store = stores[0] || null;
         } else if (db && db.entities) {
           // JSON - buscar entidades com filtro por owner_email
@@ -1742,17 +1741,9 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
         });
         
         return res.json({
-          data: {
-            subscriber,
-            data: {
-              dishes,
-              categories,
-              orders,
-              caixas,
-              store
-            },
-            stats
-          }
+          data: { dishes, categories, orders, caixas, store },
+          stats,
+          subscriber
         });
       } catch (error) {
         console.error('❌ [getFullSubscriberProfile] Erro:', error);

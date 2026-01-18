@@ -17,6 +17,44 @@ function getSubscriberEmail(user) {
   return user?.subscriber_email || user?.email;
 }
 
+/**
+ * Listar entidades de um assinante por subscriber_email (usado em getFullSubscriberProfile).
+ * Considera: coluna subscriber_email e, se NULL, data->>'owner_email' (legado).
+ */
+export async function listEntitiesForSubscriber(entityType, subscriberEmail, orderBy = null) {
+  try {
+    let sql = `
+      SELECT id, data, created_at, updated_at
+      FROM entities
+      WHERE entity_type = $1
+        AND (
+          subscriber_email = $2
+          OR (subscriber_email IS NOT NULL AND LOWER(TRIM(subscriber_email)) = LOWER(TRIM($2)))
+          OR (subscriber_email IS NULL AND (data->>'owner_email') = $2)
+        )
+    `;
+    const params = [entityType, subscriberEmail];
+    if (orderBy) {
+      const direction = orderBy.startsWith('-') ? 'DESC' : 'ASC';
+      const field = orderBy.replace(/^-/, '');
+      sql += ` ORDER BY data->>$${params.length + 1} ${direction} NULLS LAST`;
+      params.push(field);
+    } else {
+      sql += ` ORDER BY created_at DESC`;
+    }
+    const result = await query(sql, params);
+    return result.rows.map(row => ({
+      id: row.id.toString(),
+      ...row.data,
+      created_at: row.created_at,
+      updated_at: row.updated_at
+    }));
+  } catch (error) {
+    console.error(`Erro ao listar ${entityType} para assinante:`, error);
+    throw error;
+  }
+}
+
 // Listar entidades
 export async function listEntities(entityType, filters = {}, orderBy = null, user = null) {
   try {
@@ -119,9 +157,10 @@ export async function getEntityById(entityType, id, user = null) {
 }
 
 // Criar entidade
-export async function createEntity(entityType, data, user = null) {
+// options.forSubscriberEmail: força subscriber_email na row (quando assinante e temos subscriber)
+export async function createEntity(entityType, data, user = null, options = {}) {
   try {
-    const subscriberEmail = getSubscriberEmail(user);
+    const subscriberEmail = options.forSubscriberEmail ?? getSubscriberEmail(user);
     
     const sql = `
       INSERT INTO entities (entity_type, data, subscriber_email)
