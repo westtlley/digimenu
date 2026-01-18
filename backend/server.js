@@ -1399,17 +1399,30 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
         return res.status(403).json({ error: 'Acesso negado' });
       }
       
+      // O frontend envia: { id, data: {...}, originalData: {...} }
+      // Precisamos extrair os dados corretamente
+      const subscriberId = data.id;
+      const updateData = data.data || data; // Se não tiver 'data', usar o body inteiro (compatibilidade)
+      const originalData = data.originalData;
+      
+      console.log('📝 [updateSubscriber] Recebido:', {
+        subscriberId,
+        updateDataKeys: Object.keys(updateData),
+        hasOriginalData: !!originalData
+      });
+      console.log('📝 [updateSubscriber] updateData completo:', JSON.stringify(updateData, null, 2));
+      
       // Validar plano se estiver sendo atualizado
-      if (data.plan) {
+      if (updateData.plan) {
         const validPlans = ['basic', 'premium', 'pro', 'admin', 'custom'];
-        if (!validPlans.includes(data.plan)) {
+        if (!validPlans.includes(updateData.plan)) {
           return res.status(400).json({ 
-            error: `Plano inválido: ${data.plan}. Planos válidos: ${validPlans.join(', ')}` 
+            error: `Plano inválido: ${updateData.plan}. Planos válidos: ${validPlans.join(', ')}` 
           });
         }
         
         // Se for plano custom, garantir que tem permissões definidas
-        if (data.plan === 'custom' && (!data.permissions || Object.keys(data.permissions).length === 0)) {
+        if (updateData.plan === 'custom' && (!updateData.permissions || Object.keys(updateData.permissions).length === 0)) {
           return res.status(400).json({ 
             error: 'Plano custom requer permissões definidas' 
           });
@@ -1417,22 +1430,26 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
       }
       
       try {
-        console.log('📝 Atualizando assinante:', { 
-          email: data.email, 
-          id: data.id,
-          plan: data.plan 
+        console.log('📝 [updateSubscriber] Atualizando assinante:', { 
+          email: updateData.email, 
+          id: subscriberId,
+          plan: updateData.plan 
         });
         
-        console.log('🔍 [updateSubscriber] Buscando assinante com:', { id: data.id, email: data.email });
+        // O email pode estar em updateData ou no subscriberId (se for email)
+        const subscriberEmail = updateData.email;
+        const identifier = subscriberId || subscriberEmail;
+        
+        console.log('🔍 [updateSubscriber] Buscando assinante com:', { id: subscriberId, email: subscriberEmail, identifier });
+        
+        if (!identifier) {
+          console.error('❌ [updateSubscriber] Nenhum identificador fornecido (id ou email)');
+          return res.status(400).json({ error: 'ID ou email do assinante é obrigatório' });
+        }
         
         let subscriber = null;
         if (usePostgreSQL) {
-          // Passar ID se disponível, senão email
-          const identifier = data.id || data.email;
-          if (!identifier) {
-            return res.status(400).json({ error: 'ID ou email do assinante é obrigatório' });
-          }
-          subscriber = await repo.updateSubscriber(identifier, data);
+          subscriber = await repo.updateSubscriber(identifier, updateData);
           console.log('✅ [updateSubscriber] Assinante atualizado no PostgreSQL:', subscriber?.id);
           
           if (!subscriber) {
@@ -1446,11 +1463,11 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
           
           // Buscar por ID primeiro, depois por email
           const index = db.subscribers.findIndex(s => {
-            if (data.id) {
-              return s.id === data.id || s.id === String(data.id) || String(s.id) === String(data.id);
+            if (subscriberId) {
+              return s.id === subscriberId || s.id === String(subscriberId) || String(s.id) === String(subscriberId);
             }
-            if (data.email) {
-              return s.email?.toLowerCase() === data.email?.toLowerCase();
+            if (subscriberEmail) {
+              return s.email?.toLowerCase() === subscriberEmail?.toLowerCase();
             }
             return false;
           });
@@ -1469,9 +1486,9 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
           const existing = db.subscribers[index];
           subscriber = { 
             ...existing, 
-            ...data,
+            ...updateData,
             id: existing.id, // Garantir que ID não seja alterado
-            email: data.email || existing.email, // Manter email se não for fornecido
+            email: subscriberEmail || existing.email, // Manter email se não for fornecido
             updated_at: new Date().toISOString()
           };
           
