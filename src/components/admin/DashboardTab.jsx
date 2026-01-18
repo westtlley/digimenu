@@ -11,13 +11,14 @@ import {
   Share2, DollarSign, ExternalLink, Info, CheckCircle, Clock, 
   Package, TrendingUp, ShoppingCart, Users, AlertCircle, Copy, Download
 } from 'lucide-react';
+import { formatBrazilianDateTime } from '@/components/utils/dateUtils';
 import moment from 'moment';
 import StatCard from '@/components/ui/StatCard';
 import { SkeletonStats } from '@/components/ui/skeleton';
 import DashboardMetrics from './DashboardMetrics';
 import DashboardCharts from './DashboardCharts';
 
-export default function DashboardTab({ user, subscriberData }) {
+export default function DashboardTab({ user, subscriberData, onNavigateToTab }) {
   const [copiedLink, setCopiedLink] = useState(false);
 
   const { data: store } = useQuery({
@@ -70,6 +71,28 @@ export default function DashboardTab({ user, subscriberData }) {
 
   const shareWhatsApp = () => {
     window.open(`https://wa.me/?text=Confira nosso cardápio digital: ${menuLink}`, '_blank');
+  };
+
+  const statusLabel = (s) => ({ new: 'Novo', accepted: 'Aceito', preparing: 'Preparando', ready: 'Pronto', out_for_delivery: 'Em Rota', delivered: 'Entregue', cancelled: 'Cancelado' }[s] || s);
+
+  const exportOrdersCSV = () => {
+    const headers = ['Data', 'Código', 'Cliente', 'Status', 'Pagamento', 'Total'];
+    const rows = orders.map((o) => [
+      formatBrazilianDateTime(o.created_date),
+      o.order_code || o.id?.toString().slice(-6),
+      o.customer_name || '',
+      statusLabel(o.status),
+      o.payment_method || '',
+      (o.total || 0).toFixed(2),
+    ]);
+    const csv = [headers, ...rows].map((r) => r.join(';')).join('\n');
+    const BOM = '\uFEFF';
+    const blob = new Blob([BOM + csv], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `pedidos-${moment().format('DD-MM-YYYY')}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
   };
 
   return (
@@ -154,10 +177,14 @@ export default function DashboardTab({ user, subscriberData }) {
               <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>Em Entrega</p>
             </div>
           </div>
-          <div className="mt-4">
-            <Link to={createPageUrl('GestorPedidos')}>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Link to={createPageUrl('GestorPedidos')} className="flex-1 min-w-[140px]">
               <Button className="w-full">Ver Todos os Pedidos</Button>
             </Link>
+            <Button variant="outline" onClick={exportOrdersCSV} className="flex-1 min-w-[140px]">
+              <Download className="w-4 h-4 mr-2" />
+              Exportar CSV
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -194,9 +221,13 @@ export default function DashboardTab({ user, subscriberData }) {
         </CardContent>
       </Card>
 
-      {/* Atalhos Rápidos */}
+      {/* Atalhos Rápidos - ao clicar troca a aba (dishes, history, store) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => window.location.href = createPageUrl('Admin') + '?tab=dishes'} style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+        <Card 
+          className="hover:shadow-lg transition-shadow cursor-pointer" 
+          onClick={() => onNavigateToTab ? onNavigateToTab('dishes') : (window.location.href = createPageUrl('Admin') + '?tab=dishes')} 
+          style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}
+        >
           <CardContent className="p-6 flex items-center gap-4">
             <div className="w-12 h-12 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
               <Package className="w-6 h-6 text-orange-600" />
@@ -208,7 +239,11 @@ export default function DashboardTab({ user, subscriberData }) {
           </CardContent>
         </Card>
 
-        <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => window.location.href = createPageUrl('Admin') + '?tab=orders'} style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+        <Card 
+          className="hover:shadow-lg transition-shadow cursor-pointer" 
+          onClick={() => onNavigateToTab ? onNavigateToTab('history') : (window.location.href = createPageUrl('Admin') + '?tab=history')} 
+          style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}
+        >
           <CardContent className="p-6 flex items-center gap-4">
             <div className="w-12 h-12 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
               <ShoppingCart className="w-6 h-6 text-blue-600" />
@@ -220,7 +255,11 @@ export default function DashboardTab({ user, subscriberData }) {
           </CardContent>
         </Card>
 
-        <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => window.location.href = createPageUrl('Admin') + '?tab=store'} style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+        <Card 
+          className="hover:shadow-lg transition-shadow cursor-pointer" 
+          onClick={() => onNavigateToTab ? onNavigateToTab('store') : (window.location.href = createPageUrl('Admin') + '?tab=store')} 
+          style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}
+        >
           <CardContent className="p-6 flex items-center gap-4">
             <div className="w-12 h-12 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
               <Users className="w-6 h-6 text-green-600" />

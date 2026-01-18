@@ -921,34 +921,32 @@ app.post('/api/upload-image', upload.single('image'), async (req, res) => {
 app.get('/api/entities/:entity', authenticate, async (req, res) => {
   try {
     const { entity } = req.params;
-    const { order_by, ...filters } = req.query;
+    const { order_by, as_subscriber, ...filters } = req.query;
 
-    // MULTI-TENANCY: Se não for master, filtrar por owner_email automaticamente
+    // Modo suporte: master atuando em nome de um assinante (só em Assinantes > Ver dados completos)
+    if (req.user?.is_master && as_subscriber) {
+      req.user._contextForSubscriber = as_subscriber;
+    }
+
     let items;
     if (usePostgreSQL) {
-      // Se não for master e não tiver filtro explícito de owner_email, adicionar
       if (!req.user?.is_master && !filters.owner_email) {
-        // Buscar email do assinante associado ao usuário
         const subscriber = await repo.getSubscriberByEmail(req.user.email);
-        if (subscriber) {
-          filters.owner_email = subscriber.email;
-        }
+        if (subscriber) filters.owner_email = subscriber.email;
       }
       items = await repo.listEntities(entity, filters, order_by, req.user);
     } else if (db && db.entities) {
       items = db.entities[entity] || [];
 
-      // MULTI-TENANCY: Se não for master, filtrar por owner_email automaticamente
-      if (!req.user?.is_master) {
-        // Buscar email do assinante associado ao usuário
+      if (req.user?.is_master && as_subscriber) {
+        items = items.filter(item => item.owner_email === as_subscriber);
+      } else if (req.user?.is_master) {
+        items = items.filter(item => !item.owner_email);
+      } else {
         const subscriber = db.subscribers?.find(s => s.email === req.user.email);
         if (subscriber) {
-          // Filtrar apenas itens do assinante ou sem owner_email (legados)
-          items = items.filter(item => {
-            return !item.owner_email || item.owner_email === subscriber.email;
-          });
+          items = items.filter(item => !item.owner_email || item.owner_email === subscriber.email);
         } else {
-          // Se não encontrou assinante, não retornar nada para não-masters
           items = [];
         }
       }
@@ -990,19 +988,20 @@ app.get('/api/entities/:entity', authenticate, async (req, res) => {
 app.get('/api/entities/:entity/:id', authenticate, async (req, res) => {
   try {
     const { entity, id } = req.params;
-    
+    const asSub = req.query.as_subscriber;
+    if (req.user?.is_master && asSub) req.user._contextForSubscriber = asSub;
+
     let item;
     if (usePostgreSQL) {
       item = await repo.getEntityById(entity, id, req.user);
+    } else if (db?.entities?.[entity]) {
+      const arr = db.entities[entity];
+      item = arr.find(i => (i.id === id || i.id === String(id)) && (!asSub || i.owner_email === asSub)) || null;
     } else {
-      const items = db.entities[entity] || [];
-      item = items.find(i => i.id === id);
+      item = null;
     }
-    
-    if (!item) {
-      return res.status(404).json({ error: 'Entidade não encontrada' });
-    }
-    
+
+    if (!item) return res.status(404).json({ error: 'Entidade não encontrada' });
     res.json(item);
   } catch (error) {
     console.error('Erro ao obter entidade:', error);
@@ -1014,48 +1013,43 @@ app.get('/api/entities/:entity/:id', authenticate, async (req, res) => {
 app.post('/api/entities/:entity', authenticate, async (req, res) => {
   try {
     const { entity } = req.params;
-    let data = req.body;
-    
-    // MULTI-TENANCY: Adicionar owner_email automaticamente para assinantes
+    let data = { ...req.body };
+    const asSub = data.as_subscriber || req.query.as_subscriber;
+
+    if (req.user?.is_master && asSub) {
+      req.user._contextForSubscriber = asSub;
+      delete data.as_subscriber;
+      data.owner_email = asSub;
+    }
+
     if (!req.user?.is_master && !data.owner_email) {
-      // Buscar email do assinante associado ao usuário
       if (usePostgreSQL) {
         const subscriber = await repo.getSubscriberByEmail(req.user.email);
-        if (subscriber) {
-          data.owner_email = subscriber.email;
-        }
-      } else if (db && db.subscribers) {
+        if (subscriber) data.owner_email = subscriber.email;
+      } else if (db?.subscribers) {
         const subscriber = db.subscribers.find(s => s.email === req.user.email);
-        if (subscriber) {
-          data.owner_email = subscriber.email;
-        }
+        if (subscriber) data.owner_email = subscriber.email;
       }
     }
-    
+
     let newItem;
     if (usePostgreSQL) {
       newItem = await repo.createEntity(entity, data, req.user);
     } else if (db && db.entities) {
-      if (!db.entities[entity]) {
-        db.entities[entity] = [];
-      }
-      
+      if (!db.entities[entity]) db.entities[entity] = [];
       newItem = {
-        id: Date.now().toString(),
+        id: String(Date.now()),
         ...data,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
-      
       db.entities[entity].push(newItem);
-      if (saveDatabaseDebounced) {
-        saveDatabaseDebounced(db);
-      }
+      if (typeof saveDatabaseDebounced === 'function') saveDatabaseDebounced(db);
     } else {
       return res.status(500).json({ error: 'Banco de dados não inicializado' });
     }
-    
-    console.log(`✅ [${entity}] Item criado:`, newItem.id, req.user?.is_master ? '(master)' : `(owner: ${data.owner_email})`);
+
+    console.log(`✅ [${entity}] Item criado:`, newItem.id, asSub ? `(suporte: ${asSub})` : (req.user?.is_master ? '(master)' : `(owner: ${data.owner_email})`));
     res.status(201).json(newItem);
   } catch (error) {
     console.error('Erro ao criar entidade:', error);
@@ -1068,7 +1062,39 @@ app.put('/api/entities/:entity/:id', authenticate, async (req, res) => {
   try {
     const { entity, id } = req.params;
     let data = req.body;
-    
+    const asSub = req.query.as_subscriber;
+    if (req.user?.is_master && asSub) req.user._contextForSubscriber = asSub;
+
+    // Subscriber fica na tabela subscribers, não em entities — rotear para repo.updateSubscriber
+    if (String(entity).toLowerCase() === 'subscriber') {
+      try {
+        const idVal = /^\d+$/.test(String(id)) ? parseInt(id, 10) : id;
+        let updated;
+        if (usePostgreSQL) {
+          updated = await repo.updateSubscriber(idVal, data);
+        } else if (db && db.subscribers) {
+          const idx = db.subscribers.findIndex(s => s.id == idVal || String(s.id) === String(idVal));
+          if (idx === -1) return res.status(404).json({ error: 'Assinante não encontrado' });
+          const existing = db.subscribers[idx];
+          const toMerge = { ...data };
+          if (data.send_whatsapp_commands !== undefined) toMerge.whatsapp_auto_enabled = !!data.send_whatsapp_commands;
+          const merged = { ...existing, ...toMerge, id: existing.id, updated_at: new Date().toISOString() };
+          db.subscribers[idx] = merged;
+          if (typeof saveDatabaseDebounced === 'function') saveDatabaseDebounced(db);
+          updated = merged;
+        } else {
+          return res.status(404).json({ error: 'Assinante não encontrado' });
+        }
+        if (!updated) return res.status(404).json({ error: 'Assinante não encontrado' });
+        const out = { ...updated, send_whatsapp_commands: updated.whatsapp_auto_enabled };
+        console.log('✅ [Subscriber] Assinante atualizado (PUT entities):', id);
+        return res.json(out);
+      } catch (e) {
+        console.error('Erro ao atualizar assinante (PUT entities/Subscriber):', e);
+        return res.status(500).json({ error: 'Erro interno no servidor' });
+      }
+    }
+
     // MULTI-TENANCY: Verificar se assinante pode atualizar apenas seus próprios dados
     if (!req.user?.is_master && db && db.entities && db.entities[entity]) {
       const item = db.entities[entity].find(i => i.id === id);
@@ -1089,33 +1115,16 @@ app.put('/api/entities/:entity/:id', authenticate, async (req, res) => {
       }
     } else if (db && db.entities) {
       const items = db.entities[entity] || [];
-      const index = items.findIndex(i => i.id === id || i.id === String(id));
-      
-      if (index === -1) {
-        return res.status(404).json({ error: 'Entidade não encontrada' });
-      }
-      
-      // Manter owner_email original se não estiver sendo alterado
-      if (!data.owner_email) {
-        data = { ...data, owner_email: items[index].owner_email };
-      }
-      
-      updatedItem = {
-        ...items[index],
-        ...data,
-        id: items[index].id, // Manter ID original
-        updated_at: new Date().toISOString()
-      };
-      
+      const index = items.findIndex(i => (i.id === id || i.id === String(id)) && (!asSub || i.owner_email === asSub));
+      if (index === -1) return res.status(404).json({ error: 'Entidade não encontrada' });
+      if (!data.owner_email) data = { ...data, owner_email: items[index].owner_email };
+      updatedItem = { ...items[index], ...data, id: items[index].id, updated_at: new Date().toISOString() };
       items[index] = updatedItem;
-      if (saveDatabaseDebounced) {
-        saveDatabaseDebounced(db);
-      }
+      if (typeof saveDatabaseDebounced === 'function') saveDatabaseDebounced(db);
     } else {
       return res.status(500).json({ error: 'Banco de dados não inicializado' });
     }
-    
-    console.log(`✅ [${entity}] Item atualizado:`, id);
+    console.log(`✅ [${entity}] Item atualizado:`, id, asSub ? `(suporte: ${asSub})` : '');
     res.json(updatedItem);
   } catch (error) {
     console.error('Erro ao atualizar entidade:', error);
@@ -1127,32 +1136,24 @@ app.put('/api/entities/:entity/:id', authenticate, async (req, res) => {
 app.delete('/api/entities/:entity/:id', authenticate, async (req, res) => {
   try {
     const { entity, id } = req.params;
-    
+    const asSub = req.query.as_subscriber;
+    if (req.user?.is_master && asSub) req.user._contextForSubscriber = asSub;
+
     let deleted = false;
     if (usePostgreSQL) {
       deleted = await repo.deleteEntity(entity, id, req.user);
     } else if (db && db.entities) {
       const items = db.entities[entity] || [];
-      const index = items.findIndex(i => i.id === id);
-      
-      if (index === -1) {
-        return res.status(404).json({ error: 'Entidade não encontrada' });
-      }
-      
+      const index = items.findIndex(i => (i.id === id || i.id === String(id)) && (!asSub || i.owner_email === asSub));
+      if (index === -1) return res.status(404).json({ error: 'Entidade não encontrada' });
       items.splice(index, 1);
       deleted = true;
-      if (saveDatabaseDebounced) {
-        saveDatabaseDebounced(db);
-      }
+      if (typeof saveDatabaseDebounced === 'function') saveDatabaseDebounced(db);
     } else {
       return res.status(500).json({ error: 'Banco de dados não inicializado' });
     }
-    
-    if (!deleted) {
-      return res.status(404).json({ error: 'Entidade não encontrada' });
-    }
-    
-    console.log(`✅ [${entity}] Item deletado:`, id);
+    if (!deleted) return res.status(404).json({ error: 'Entidade não encontrada' });
+    console.log(`✅ [${entity}] Item deletado:`, id, asSub ? `(suporte: ${asSub})` : '');
     res.json({ success: true });
   } catch (error) {
     console.error('Erro ao deletar entidade:', error);
@@ -1194,6 +1195,38 @@ app.post('/api/entities/:entity/bulk', authenticate, async (req, res) => {
   } catch (error) {
     console.error('Erro ao criar entidades em bulk:', error);
     res.status(500).json({ error: 'Erro interno no servidor' });
+  }
+});
+
+// Atualizar assinante por ID (PATCH parcial) — evita rota entities/Subscriber
+app.put('/api/subscribers/:id', authenticate, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const data = req.body;
+    const idVal = /^\d+$/.test(String(id)) ? parseInt(id, 10) : id;
+    let updated;
+    if (usePostgreSQL) {
+      updated = await repo.updateSubscriber(idVal, data);
+    } else if (db && db.subscribers) {
+      const idx = db.subscribers.findIndex(s => s.id == idVal || String(s.id) === String(idVal));
+      if (idx === -1) return res.status(404).json({ error: 'Assinante não encontrado' });
+      const existing = db.subscribers[idx];
+      const toMerge = { ...data };
+      if (data.send_whatsapp_commands !== undefined) toMerge.whatsapp_auto_enabled = !!data.send_whatsapp_commands;
+      const merged = { ...existing, ...toMerge, id: existing.id, updated_at: new Date().toISOString() };
+      db.subscribers[idx] = merged;
+      if (typeof saveDatabaseDebounced === 'function') saveDatabaseDebounced(db);
+      updated = merged;
+    } else {
+      return res.status(404).json({ error: 'Assinante não encontrado' });
+    }
+    if (!updated) return res.status(404).json({ error: 'Assinante não encontrado' });
+    const out = { ...updated, send_whatsapp_commands: updated.whatsapp_auto_enabled };
+    console.log('✅ [PUT /subscribers/:id] Assinante atualizado:', id);
+    return res.json(out);
+  } catch (e) {
+    console.error('Erro em PUT /api/subscribers/:id:', e);
+    return res.status(500).json({ error: 'Erro interno no servidor' });
   }
 });
 

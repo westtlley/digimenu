@@ -6,9 +6,13 @@ import { query } from './postgres.js';
  */
 
 // Obter subscriber_email do usuário atual
+// Master em modo suporte: user._contextForSubscriber = email do assinante
 function getSubscriberEmail(user) {
+  if (user?._contextForSubscriber && user?.is_master) {
+    return user._contextForSubscriber;
+  }
   if (user?.is_master) {
-    return null; // Master vê todos os dados
+    return null; // Master só vê seus próprios (subscriber_email IS NULL)
   }
   return user?.subscriber_email || user?.email;
 }
@@ -30,9 +34,9 @@ export async function listEntities(entityType, filters = {}, orderBy = null, use
       sql += ` AND subscriber_email = $${params.length + 1}`;
       params.push(subscriberEmail);
     } else if (user?.is_master) {
-      // Master vê todos, sem filtro
+      // Master: apenas seus próprios (subscriber_email IS NULL)
+      sql += ` AND subscriber_email IS NULL`;
     } else {
-      // Se não tem subscriber_email, não retorna nada
       sql += ` AND subscriber_email IS NULL`;
     }
     
@@ -89,7 +93,9 @@ export async function getEntityById(entityType, id, user = null) {
     if (subscriberEmail) {
       sql += ` AND subscriber_email = $${params.length + 1}`;
       params.push(subscriberEmail);
-    } else if (!user?.is_master) {
+    } else if (user?.is_master) {
+      sql += ` AND subscriber_email IS NULL`;
+    } else {
       sql += ` AND subscriber_email IS NULL`;
     }
     
@@ -215,9 +221,8 @@ export async function deleteEntity(entityType, id, user = null) {
     if (subscriberEmail) {
       sql += ` AND subscriber_email = $3`;
       params.push(subscriberEmail);
-    } else if (!user?.is_master) {
+    } else {
       sql += ` AND subscriber_email IS NULL`;
-      params.push(null);
     }
     
     const result = await query(sql, params);
@@ -472,7 +477,10 @@ export async function updateSubscriber(emailOrId, subscriberData) {
     updates.push(`permissions = $${paramIndex++}`);
     values.push(JSON.stringify(subscriberData.permissions));
   }
-  if (subscriberData.whatsapp_auto_enabled !== undefined) {
+  if (subscriberData.send_whatsapp_commands !== undefined) {
+    updates.push(`whatsapp_auto_enabled = $${paramIndex++}`);
+    values.push(!!subscriberData.send_whatsapp_commands);
+  } else if (subscriberData.whatsapp_auto_enabled !== undefined) {
     updates.push(`whatsapp_auto_enabled = $${paramIndex++}`);
     values.push(subscriberData.whatsapp_auto_enabled);
   }

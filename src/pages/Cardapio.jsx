@@ -371,9 +371,9 @@ export default function Cardapio() {
     const order = await orderService.createOrder(orderData, createOrderMutation);
     await orderService.updateCouponUsage(appliedCoupon, updateCouponMutation);
 
-    const shouldSend = await whatsappService.shouldSendWhatsApp();
+    const shouldSend = whatsappService.shouldSendWhatsApp(store);
 
-    if (shouldSend) {
+    if (shouldSend && store?.whatsapp) {
       const message = whatsappService.formatOrderMessage(
         order, 
         cart, 

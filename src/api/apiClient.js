@@ -283,16 +283,14 @@ class ApiClient {
       const self = this;
       return {
         /**
-         * Lista todos os registros
+         * Lista. opts.as_subscriber = email do assinante para modo suporte (master).
          */
-        list: async (orderBy = null) => {
-          const params = orderBy ? { order_by: orderBy } : {};
+        list: async (orderBy = null, opts = {}) => {
+          const params = typeof opts === 'object' && opts !== null ? { ...opts } : {};
+          if (orderBy) params.order_by = orderBy;
           return self.get(`/entities/${entityName}`, params);
         },
 
-        /**
-         * Filtra registros
-         */
         filter: async (filters = {}, orderBy = null) => {
           const params = { ...filters };
           if (orderBy) params.order_by = orderBy;
@@ -300,31 +298,35 @@ class ApiClient {
         },
 
         /**
-         * Obtém um registro por ID
+         * Obtém por ID. opts.as_subscriber para modo suporte.
          */
-        get: async (id) => {
-          return self.get(`/entities/${entityName}/${id}`);
+        get: async (id, opts = {}) => {
+          const q = opts?.as_subscriber ? `?as_subscriber=${encodeURIComponent(opts.as_subscriber)}` : '';
+          return self.get(`/entities/${entityName}/${id}${q}`);
         },
 
         /**
-         * Cria um novo registro
+         * Cria. Para modo suporte: incluir as_subscriber no data.
          */
         create: async (data) => {
           return self.post(`/entities/${entityName}`, data);
         },
 
         /**
-         * Atualiza um registro
+         * Atualiza. Subscriber usa /subscribers/:id. opts.as_subscriber para modo suporte.
          */
-        update: async (id, data) => {
-          return self.put(`/entities/${entityName}/${id}`, data);
+        update: async (id, data, opts = {}) => {
+          const q = opts?.as_subscriber ? `?as_subscriber=${encodeURIComponent(opts.as_subscriber)}` : '';
+          if (String(entityName) === 'Subscriber') return self.put(`/subscribers/${id}`, data);
+          return self.put(`/entities/${entityName}/${id}${q}`, data);
         },
 
         /**
-         * Deleta um registro
+         * Deleta. opts.as_subscriber para modo suporte.
          */
-        delete: async (id) => {
-          return self.delete(`/entities/${entityName}/${id}`);
+        delete: async (id, opts = {}) => {
+          const q = opts?.as_subscriber ? `?as_subscriber=${encodeURIComponent(opts.as_subscriber)}` : '';
+          return self.delete(`/entities/${entityName}/${id}${q}`);
         },
 
         /**

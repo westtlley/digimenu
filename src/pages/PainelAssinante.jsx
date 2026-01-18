@@ -1,16 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Loader2, Lock, LogOut, Menu, X, Store, Package, Receipt, Users, Settings, BarChart3, FileText, MapPin, Tag, Palette, CreditCard, Printer, MessageSquare, DollarSign } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { apiClient as base44 } from '@/api/apiClient';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { usePermission } from '../components/permissions/usePermission';
-import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import SharedSidebar from '../components/admin/SharedSidebar';
 import DashboardTab from '../components/admin/DashboardTab';
+import WhatsAppComandaToggle from '../components/admin/WhatsAppComandaToggle';
 import DishesTab from '../components/admin/DishesTab';
 import CategoriesTab from '../components/admin/CategoriesTab';
 import ComplementsTab from '../components/admin/ComplementsTab';
@@ -42,47 +42,6 @@ function AccessDenied() {
   );
 }
 
-function WhatsAppToggle({ subscriberData }) {
-  const queryClient = useQueryClient();
-  const [localValue, setLocalValue] = useState(subscriberData?.send_whatsapp_commands !== false);
-  
-  const updateMutation = useMutation({
-    mutationFn: async (enabled) => {
-      return await base44.entities.Subscriber.update(subscriberData.id, {
-        send_whatsapp_commands: enabled
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries(['subscriber']);
-      queryClient.invalidateQueries(['permissions']);
-      toast.success(localValue ? 'Comandas WhatsApp ativadas!' : 'Comandas WhatsApp desativadas!');
-    },
-    onError: () => {
-      setLocalValue(!localValue);
-      toast.error('Erro ao atualizar');
-    }
-  });
-
-  const handleChange = (checked) => {
-    setLocalValue(checked);
-    updateMutation.mutate(checked);
-  };
-
-  return (
-    <div className="flex items-center gap-2 bg-white/10 px-3 py-2 rounded-lg">
-      <div className="flex-1">
-        <p className="text-xs font-medium text-white">Comanda WhatsApp</p>
-        <p className="text-[10px] text-orange-100">Enviar pedidos via WhatsApp</p>
-      </div>
-      <Switch
-        checked={localValue}
-        onCheckedChange={handleChange}
-        disabled={updateMutation.isPending}
-      />
-    </div>
-  );
-}
-
 export default function PainelAssinante() {
   // ✅ TODOS OS HOOKS DEVEM VIR ANTES DE QUALQUER RETURN CONDICIONAL
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -97,6 +56,13 @@ export default function PainelAssinante() {
     queryFn: () => base44.entities.Store.list(),
   });
   const store = stores[0];
+
+  // Abrir aba via ?tab= na URL (ex: /painelassinante?tab=store)
+  const [searchParams] = useSearchParams();
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab) setActiveTab(tab);
+  }, [searchParams]);
 
   const handleLogout = () => {
     base44.auth.logout();
@@ -156,7 +122,7 @@ export default function PainelAssinante() {
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
-        return <DashboardTab user={user} subscriberData={subscriberData} />;
+        return <DashboardTab user={user} subscriberData={subscriberData} onNavigateToTab={setActiveTab} />;
       case 'pdv':
         return hasModuleAccess('pdv') ? <div className="p-8 text-center">Use o botão PDV no header</div> : <AccessDenied />;
       case 'caixa':
@@ -192,7 +158,7 @@ export default function PainelAssinante() {
       case 'whatsapp':
         return hasModuleAccess('whatsapp') ? <WhatsAppTab /> : <AccessDenied />;
       default:
-        return <DashboardTab user={user} subscriberData={subscriberData} />;
+        return <DashboardTab user={user} subscriberData={subscriberData} onNavigateToTab={setActiveTab} />;
     }
   };
 
@@ -278,7 +244,7 @@ export default function PainelAssinante() {
                 Gestor
               </Button>
             )}
-            <WhatsAppToggle subscriberData={subscriberData} />
+            {(store?.id || subscriberData?.id) && <WhatsAppComandaToggle store={store} subscriber={subscriberData} />}
             <Link to={createPageUrl('Cardapio')} className="hidden sm:block">
               <Button size="sm" variant="ghost" className="text-white hover:bg-white/10">
                 Ver Cardápio

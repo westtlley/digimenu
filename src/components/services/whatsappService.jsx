@@ -120,30 +120,14 @@ export const whatsappService = {
     }
   },
 
-  async shouldSendWhatsApp() {
-    try {
-      const { base44 } = await import('@/api/base44Client');
-      const user = await base44.auth.me();
-      
-      if (!user) return false;
-      
-      const subscribers = await base44.entities.Subscriber.list();
-      const subscriber = subscribers.find(s => 
-        s.email === user.subscriber_email || s.email === user.email
-      );
-      
-      if (!subscriber) return true;
-      
-      const hasGestorPermission = subscriber.permissions?.gestor_pedidos?.length > 0;
-      
-      if (hasGestorPermission) {
-        return subscriber.send_whatsapp_commands !== false;
-      }
-      
-      return true;
-    } catch (e) {
-      console.error('Error checking WhatsApp config:', e);
-      return true;
-    }
-  }
+  /**
+   * Se a loja (store) tem Comanda WhatsApp ativada: ao finalizar pedido,
+   * além de registrar no gestor, também envia a comanda formatada para o WhatsApp.
+   * @param {object} store - dados da loja (deve conter send_whatsapp_commands)
+   * @returns {boolean} true = envia comanda no WhatsApp; false = não envia (só gestor)
+   */
+  shouldSendWhatsApp(store) {
+    if (!store) return true;
+    return store.send_whatsapp_commands !== false;
+  },
 };

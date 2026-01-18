@@ -25,7 +25,8 @@ import PrinterConfig from '../components/gestor/PrinterConfig';
 import FinancialTab from '../components/admin/FinancialTab';
 import OrderHistoryTab from '../components/admin/OrderHistoryTab';
 import ErrorBoundary from '../components/ErrorBoundary';
-import { Link, useNavigate } from 'react-router-dom';
+import WhatsAppComandaToggle from '../components/admin/WhatsAppComandaToggle';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { usePermission } from '../components/permissions/usePermission';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
@@ -92,6 +93,13 @@ export default function Admin() {
       }
     }
   }, [loading, isMaster, subscriberData, navigate]);
+
+  // Abrir aba via ?tab= na URL (ex: /admin?tab=store)
+  const [searchParams] = useSearchParams();
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab) setActiveTab(tab);
+  }, [searchParams]);
 
   const handleLogout = () => {
     base44.auth.logout();
@@ -187,7 +195,7 @@ export default function Admin() {
   const renderTabContent = () => {
     switch (activeTab) {
       case 'dashboard':
-        return <DashboardTab user={user} subscriberData={subscriberData} />;
+        return <DashboardTab user={user} subscriberData={subscriberData} onNavigateToTab={setActiveTab} />;
       case 'caixa':
         return hasModuleAccess('caixa') ? <CaixaTab /> : <AccessDenied />;
       case 'whatsapp':
@@ -256,7 +264,7 @@ export default function Admin() {
           </div>
         ) : <AccessDenied />;
       default:
-        return <DashboardTab user={user} subscriberData={subscriberData} />;
+        return <DashboardTab user={user} subscriberData={subscriberData} onNavigateToTab={setActiveTab} />;
     }
   };
 
@@ -334,6 +342,7 @@ export default function Admin() {
           </div>
           <div className="flex items-center gap-1 sm:gap-2">
             <ThemeToggle className="text-white hover:bg-gray-700" />
+            {(store?.id || subscriberData?.id) && <WhatsAppComandaToggle store={store} subscriber={subscriberData} />}
             {isMaster && (
               <Link to={createPageUrl('Assinantes')}>
                 <Button variant="ghost" size="icon" className="text-white bg-purple-600 hover:bg-purple-700 sm:w-auto sm:px-3">
