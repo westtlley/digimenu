@@ -1,11 +1,53 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
+import L from 'leaflet';
 import { MapPin, Search, Navigation, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { motion, AnimatePresence } from 'framer-motion';
 import 'leaflet/dist/leaflet.css';
+
+// Fix para ícones do Leaflet
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
+
+// Componente para centralizar mapa quando posição muda
+function AutoCenter({ center, zoom = 16 }) {
+  const map = useMap();
+  
+  useEffect(() => {
+    if (center && map) {
+      map.setView(center, zoom, {
+        animate: true,
+        duration: 0.5
+      });
+    }
+  }, [center, zoom, map]);
+  
+  return null;
+}
+
+// Componente para ajustar tamanho do mapa
+function FixMapResize() {
+  const map = useMap();
+  
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (map) {
+        map.invalidateSize();
+      }
+    }, 100);
+    
+    return () => clearTimeout(timer);
+  }, [map]);
+  
+  return null;
+}
 
 function LocationMarker({ position, setPosition }) {
   useMapEvents({
@@ -14,7 +56,23 @@ function LocationMarker({ position, setPosition }) {
     },
   });
 
-  return position ? <Marker position={position} /> : null;
+  // Criar ícone customizado para o marcador
+  const customIcon = L.icon({
+    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+    shadowSize: [41, 41]
+  });
+
+  return position ? <Marker position={position} icon={customIcon} draggable={true} eventHandlers={{
+    dragend: (e) => {
+      const marker = e.target;
+      const position = marker.getLatLng();
+      setPosition(position);
+    }
+  }} /> : null;
 }
 
 export default function AddressMapPicker({ isOpen, onClose, onConfirm, initialAddress = '' }) {
@@ -96,6 +154,11 @@ export default function AddressMapPicker({ isOpen, onClose, onConfirm, initialAd
     setSearchQuery(suggestion.display_name);
     setShowSuggestions(false);
     setSuggestions([]);
+    
+    // Aguardar um pouco e fazer reverse geocoding para preencher campos
+    setTimeout(() => {
+      reverseGeocode(newPos.lat, newPos.lng);
+    }, 200);
   };
 
   // Buscar endereço a partir de texto (busca final)
@@ -119,6 +182,11 @@ export default function AddressMapPicker({ isOpen, onClose, onConfirm, initialAd
         setPosition(newPos);
         setAddress(bestMatch.display_name);
         setSearchQuery(bestMatch.display_name);
+        
+        // Fazer reverse geocoding para preencher campos detalhados
+        setTimeout(() => {
+          reverseGeocode(newPos.lat, newPos.lng);
+        }, 300);
       }
     } catch (e) {
       console.error('Erro ao buscar endereço:', e);
@@ -297,17 +365,25 @@ export default function AddressMapPicker({ isOpen, onClose, onConfirm, initialAd
           </div>
 
           {/* Map */}
-          <div className="flex-1 relative">
+          <div className="flex-1 relative min-h-[400px]">
             <MapContainer
               center={[position.lat, position.lng]}
-              zoom={15}
-              style={{ height: '100%', width: '100%' }}
-              key={`${position.lat}-${position.lng}`}
+              zoom={16}
+              style={{ height: '100%', width: '100%', zIndex: 1 }}
+              zoomControl={true}
+              scrollWheelZoom={true}
             >
+              <FixMapResize />
+              <AutoCenter center={[position.lat, position.lng]} zoom={16} />
+              
+              {/* TileLayer com visual melhorado */}
               <TileLayer
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                attribution='&copy; OpenStreetMap contributors'
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                maxZoom={19}
+                minZoom={3}
               />
+              
               <LocationMarker position={position} setPosition={setPosition} />
             </MapContainer>
 
