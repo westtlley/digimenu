@@ -15,6 +15,7 @@ import moment from 'moment';
 import StatCard from '@/components/ui/StatCard';
 import { SkeletonStats } from '@/components/ui/skeleton';
 import DashboardMetrics from './DashboardMetrics';
+import DashboardCharts from './DashboardCharts';
 
 export default function DashboardTab({ user, subscriberData }) {
   const [copiedLink, setCopiedLink] = useState(false);

@@ -843,7 +843,19 @@ export default function StoreTab() {
                   {/* Parâmetros de Cálculo */}
                   <div className="grid sm:grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="delivery-base-fee" className="text-sm mb-2 block">Taxa Base (R$)</Label>
+                      <Label htmlFor="delivery-base-fee" className="text-sm mb-2 flex items-center gap-2">
+                        Taxa Base (R$) *
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <HelpCircle className="w-3 h-3 text-gray-400 hover:text-gray-600 cursor-help" />
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs">
+                              <p className="text-xs">Valor fixo cobrado independente da distância. Ex: R$ 5,00 sempre serão cobrados, depois é calculado por KM</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </Label>
                       <Input
                         id="delivery-base-fee"
                         type="number"
@@ -856,7 +868,19 @@ export default function StoreTab() {
                     </div>
 
                     <div>
-                      <Label htmlFor="delivery-price-per-km" className="text-sm mb-2 block">Preço por KM (R$)</Label>
+                      <Label htmlFor="delivery-price-per-km" className="text-sm mb-2 flex items-center gap-2">
+                        Preço por KM (R$) *
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <HelpCircle className="w-3 h-3 text-gray-400 hover:text-gray-600 cursor-help" />
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs">
+                              <p className="text-xs">Valor cobrado por cada quilômetro de distância. Ex: R$ 2,50/km significa que um pedido de 5km terá R$ 12,50 adicionais à taxa base</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </Label>
                       <Input
                         id="delivery-price-per-km"
                         type="number"
