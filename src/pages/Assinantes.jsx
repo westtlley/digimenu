@@ -1209,6 +1209,7 @@ export default function Assinantes() {
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
+                    </div>
                   </div>
                   </motion.div>
                 );
