@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { motion } from 'framer-motion';
+import toast from 'react-hot-toast';
 
 import DeliveryMap from '../components/entregador/DeliveryMap';
 import EarningsReport from '../components/entregador/EarningsReport';
@@ -1025,6 +1026,37 @@ export default function Entregador() {
                       )}
                     </div>
                   </div>
+                  {/* GPS Button */}
+                  {(order.customer_latitude && order.customer_longitude) || order.address ? (
+                    <Button
+                      onClick={() => {
+                        let url = '';
+                        const address = order.address || '';
+                        const lat = order.customer_latitude;
+                        const lng = order.customer_longitude;
+                        
+                        // Tentar usar coordenadas primeiro
+                        if (lat && lng) {
+                          // Google Maps
+                          url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+                        } else if (address) {
+                          // Usar endereço se não tiver coordenadas
+                          url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`;
+                        }
+                        
+                        if (url) {
+                          // Abrir em nova aba
+                          window.open(url, '_blank');
+                        } else {
+                          toast.error('Endereço não disponível para navegação');
+                        }
+                      }}
+                      className={`w-full mt-3 bg-blue-500 hover:bg-blue-600 text-white font-semibold h-10`}
+                    >
+                      <Navigation className="w-4 h-4 mr-2" />
+                      Ir até o Cliente (Google Maps)
+                    </Button>
+                  ) : null}
                 </motion.div>
 
                 {/* Action Buttons */}

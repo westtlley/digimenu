@@ -12,6 +12,7 @@ import NewDishModal from '../components/menu/NewDishModal';
 import PizzaBuilder from '../components/pizza/PizzaBuilder';
 import CartModal from '../components/menu/CartModal';
 import CheckoutView from '../components/menu/CheckoutView';
+import OrderConfirmationModal from '../components/menu/OrderConfirmationModal';
 import OrderHistoryModal from '../components/menu/OrderHistoryModal';
 import UpsellModal from '../components/menu/UpsellModal';
 import DishSkeleton from '../components/menu/DishSkeleton';
@@ -45,6 +46,7 @@ export default function Cardapio() {
   const [currentView, setCurrentView] = useState('menu');
   const [showOrderHistory, setShowOrderHistory] = useState(false);
   const [showCustomerProfile, setShowCustomerProfile] = useState(false);
+  const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   // Custom Hooks

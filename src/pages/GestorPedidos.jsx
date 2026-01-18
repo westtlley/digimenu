@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { 
@@ -19,6 +19,7 @@ import OrderDetailModal from '../components/gestor/OrderDetailModal';
 import DeliveryPanel from '../components/gestor/DeliveryPanel';
 import GestorSettings from '../components/gestor/GestorSettings';
 import GestorStatsPanel from '../components/gestor/GestorStatsPanel';
+import AdvancedOrderFilters from '../components/gestor/AdvancedOrderFilters';
 import UserAuthButton from '../components/atoms/UserAuthButton';
 import { usePermission } from '../components/permissions/usePermission';
 
@@ -28,6 +29,7 @@ export default function GestorPedidos() {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [filteredOrders, setFilteredOrders] = useState([]);
   const [user, setUser] = useState(null);
   const [isSubscriber, setIsSubscriber] = useState(false);
   const [checkingSubscription, setCheckingSubscription] = useState(true);
@@ -161,23 +163,33 @@ export default function GestorPedidos() {
     }
   };
 
-  const filteredOrders = orders.filter(order => {
-    const matchesSearch = !searchTerm || 
-      order.order_code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.customer_name?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const isScheduled = order.scheduled_date && order.scheduled_time;
-    
-    if (activeTab === 'now') {
-      // Aba "Agora": pedidos não agendados OU pedidos agendados que já foram aceitos
-      return matchesSearch && (!isScheduled || (isScheduled && order.status !== 'new'));
-    } else if (activeTab === 'scheduled') {
-      // Aba "Agendados": apenas pedidos agendados que ainda estão pendentes
-      return matchesSearch && isScheduled && order.status === 'new';
+  // Aplicar filtros básicos (aba agora/agendados)
+  const baseFilteredOrders = useMemo(() => {
+    return orders.filter(order => {
+      const isScheduled = order.scheduled_date && order.scheduled_time;
+      
+      if (activeTab === 'now') {
+        // Aba "Agora": pedidos não agendados OU pedidos agendados que já foram aceitos
+        return !isScheduled || (isScheduled && order.status !== 'new');
+      } else if (activeTab === 'scheduled') {
+        // Aba "Agendados": apenas pedidos agendados que ainda estão pendentes
+        return isScheduled && order.status === 'new';
+      }
+      
+      return true;
+    });
+  }, [orders, activeTab]);
+
+  // Inicializar filteredOrders com baseFilteredOrders quando necessário
+  useEffect(() => {
+    if (filteredOrders.length === 0 || searchTerm === '') {
+      setFilteredOrders(baseFilteredOrders);
     }
-    
-    return matchesSearch;
-  });
+  }, [baseFilteredOrders, searchTerm]);
+
+  const handleFilterChange = (filtered) => {
+    setFilteredOrders(filtered);
+  };
 
   const handleLogout = () => base44.auth.logout();
 
@@ -256,17 +268,14 @@ export default function GestorPedidos() {
               </div>
             </div>
 
-            {/* Center - Search */}
-            <div className="flex-1 max-w-md mx-4 hidden md:block">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <Input
-                  placeholder="Buscar pedido"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
+            {/* Center - Advanced Filters */}
+            <div className="flex-1 max-w-2xl mx-4 hidden md:block">
+              <AdvancedOrderFilters
+                orders={baseFilteredOrders}
+                onFilterChange={handleFilterChange}
+                searchTerm={searchTerm}
+                onSearchChange={setSearchTerm}
+              />
             </div>
 
             {/* Right */}
@@ -294,17 +303,14 @@ export default function GestorPedidos() {
             </div>
           </div>
 
-          {/* Mobile Search */}
+          {/* Mobile Search/Filters */}
           <div className="mt-3 md:hidden">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <Input
-                placeholder="Buscar pedido"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
+            <AdvancedOrderFilters
+              orders={baseFilteredOrders}
+              onFilterChange={handleFilterChange}
+              searchTerm={searchTerm}
+              onSearchChange={setSearchTerm}
+            />
           </div>
         </div>
       </header>

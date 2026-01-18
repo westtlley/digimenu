@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { motion, AnimatePresence } from 'framer-motion';
 import AddressMapPicker from './AddressMapPicker';
+import OrderConfirmationModal from './OrderConfirmationModal';
 
 export default function CheckoutView({ 
   cart, 
@@ -27,6 +28,7 @@ export default function CheckoutView({
 }) {
   const [showSchedule, setShowSchedule] = useState(false);
   const [showMapPicker, setShowMapPicker] = useState(false);
+  const [showConfirmationModal, setShowConfirmationModal] = useState(false);
 
   const formatPhoneMask = (value) => {
     const cleaned = value.replace(/\D/g, '');
@@ -446,7 +448,11 @@ export default function CheckoutView({
             </div>
 
             <Button
-              onClick={onSendWhatsApp}
+              onClick={() => {
+                if (isFormValid()) {
+                  setShowConfirmationModal(true);
+                }
+              }}
               disabled={!isFormValid() || store?.accepting_orders === false || store?.is_open === false}
               className="w-full h-12 text-white font-bold"
               style={{ backgroundColor: (isFormValid() && store?.accepting_orders !== false && store?.is_open !== false) ? primaryColor : '#d1d5db' }}
@@ -490,6 +496,29 @@ export default function CheckoutView({
             });
             setShowMapPicker(false);
           }}
+        />
+
+        {/* Order Confirmation Modal */}
+        <OrderConfirmationModal
+          isOpen={showConfirmationModal}
+          onClose={() => setShowConfirmationModal(false)}
+          onConfirm={() => {
+            setShowConfirmationModal(false);
+            onSendWhatsApp();
+          }}
+          onEdit={() => {
+            setShowConfirmationModal(false);
+          }}
+          cart={cart}
+          customer={customer}
+          cartTotal={cartTotal}
+          discount={discount}
+          deliveryFee={deliveryFee}
+          total={total}
+          appliedCoupon={appliedCoupon}
+          scheduledDate={customer.scheduled_date}
+          scheduledTime={customer.scheduled_time}
+          primaryColor={primaryColor}
         />
       </motion.div>
     </AnimatePresence>
