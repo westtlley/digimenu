@@ -84,14 +84,28 @@ function WhatsAppToggle({ subscriberData }) {
 }
 
 export default function PainelAssinante() {
+  // ✅ TODOS OS HOOKS DEVEM VIR ANTES DE QUALQUER RETURN CONDICIONAL
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   
   const { loading, permissions, isMaster, hasModuleAccess, user, subscriberData } = usePermission();
+  
+  // Buscar dados da loja para header
+  const { data: stores = [] } = useQuery({
+    queryKey: ['store'],
+    queryFn: () => base44.entities.Store.list(),
+  });
+  const store = stores[0];
 
   const handleLogout = () => {
     base44.auth.logout();
   };
+
+  // Calcular dias restantes
+  const daysRemaining = subscriberData?.expires_at
+    ? Math.ceil((new Date(subscriberData.expires_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+    : null;
 
   if (loading) {
     return (
@@ -139,15 +153,6 @@ export default function PainelAssinante() {
     );
   }
 
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  
-  // Buscar dados da loja para header
-  const { data: stores = [] } = useQuery({
-    queryKey: ['store'],
-    queryFn: () => base44.entities.Store.list(),
-  });
-  const store = stores[0];
-
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
@@ -190,11 +195,6 @@ export default function PainelAssinante() {
         return <DashboardTab user={user} subscriberData={subscriberData} />;
     }
   };
-
-  // Calcular dias restantes
-  const daysRemaining = subscriberData?.expires_at
-    ? Math.ceil((new Date(subscriberData.expires_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
-    : null;
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex flex-col">
