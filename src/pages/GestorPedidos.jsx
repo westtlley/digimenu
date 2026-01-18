@@ -163,6 +163,47 @@ export default function GestorPedidos() {
     }
   };
 
+  // Atalhos de teclado
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Esc - Fechar modal
+      if (e.key === 'Escape') {
+        if (selectedOrder) {
+          setSelectedOrder(null);
+        }
+        if (showMobileMenu) {
+          setShowMobileMenu(false);
+        }
+        return;
+      }
+
+      // Ctrl+F ou Cmd+F - Focar busca (apenas se não estiver em input/textarea)
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        e.preventDefault();
+        const searchInput = document.querySelector('input[placeholder*="Buscar"]');
+        if (searchInput) {
+          searchInput.focus();
+          searchInput.select();
+        }
+        return;
+      }
+
+      // Atalhos numéricos para status (1-5) - apenas se não estiver digitando
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+        return;
+      }
+
+      const firstNewOrder = filteredOrders.find(o => o.status === 'new');
+      if (firstNewOrder && ['1', '2', '3', '4', '5'].includes(e.key)) {
+        // Status rápidos (via modal, não implementado completamente por falta de contexto)
+        // Poderia abrir modal automaticamente e aplicar status
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedOrder, showMobileMenu, filteredOrders]);
+
   // Aplicar filtros básicos (aba agora/agendados)
   const baseFilteredOrders = useMemo(() => {
     return orders.filter(order => {

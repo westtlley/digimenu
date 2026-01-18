@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { motion, AnimatePresence } from 'framer-motion';
 import AddressMapPicker from './AddressMapPicker';
 import OrderConfirmationModal from './OrderConfirmationModal';
+import SavedAddresses from './SavedAddresses';
 
 export default function CheckoutView({ 
   cart, 
@@ -177,6 +178,13 @@ export default function CheckoutView({
 
               {customer.deliveryMethod === 'delivery' && (
                 <div className="mt-3 space-y-2">
+                  {/* Endereços Salvos */}
+                  <SavedAddresses 
+                    customer={customer}
+                    setCustomer={setCustomer}
+                    darkMode={false}
+                  />
+                  
                   <Button
                     type="button"
                     onClick={() => setShowMapPicker(true)}

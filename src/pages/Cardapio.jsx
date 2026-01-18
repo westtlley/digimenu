@@ -20,6 +20,7 @@ import PromotionBanner from '../components/menu/PromotionBanner';
 import RecentOrders from '../components/menu/RecentOrders';
 import UserAuthButton from '../components/atoms/UserAuthButton';
 import CustomerProfileModal from '../components/customer/CustomerProfileModal';
+import OrderStatusBadge from '../components/customer/OrderStatusBadge';
 import StoreClosedOverlay from '../components/menu/StoreClosedOverlay';
 import ThemeToggle from '../components/ui/ThemeToggle';
 
@@ -48,6 +49,7 @@ export default function Cardapio() {
   const [showCustomerProfile, setShowCustomerProfile] = useState(false);
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [userEmail, setUserEmail] = useState(null);
 
   // Custom Hooks
   const { cart, addItem, updateItem, removeItem, updateQuantity, clearCart, cartTotal, cartItemsCount } = useCart();
@@ -178,6 +180,14 @@ export default function Cardapio() {
     const checkAuth = async () => {
       const isAuth = await base44.auth.isAuthenticated();
       setIsAuthenticated(isAuth);
+      if (isAuth) {
+        try {
+          const user = await base44.auth.me();
+          setUserEmail(user?.email || null);
+        } catch (e) {
+          console.log('Erro ao buscar email do usuário:', e);
+        }
+      }
     };
     checkAuth();
   }, []);
@@ -1146,6 +1156,17 @@ export default function Cardapio() {
           deliveryZones={deliveryZones}
           store={store}
           primaryColor={primaryColor}
+        />
+      )}
+
+      {/* Status Badge do Pedido Ativo */}
+      {currentView === 'menu' && (
+        <OrderStatusBadge 
+          userEmail={userEmail || customer.email}
+          onOrderClick={(order) => {
+            setShowOrderHistory(true);
+            // Opcional: scrollar para o pedido específico
+          }}
         />
       )}
     </div>
