@@ -3,9 +3,10 @@ import { useMemoizedPermissions } from './useMemoizedPermissions';
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertTriangle, Info, Loader2 } from 'lucide-react';
+import { AlertTriangle, Info, Loader2, UtensilsCrossed, Pizza, ChevronDown, ChevronUp } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { validatePermissions, getPlanPermissions } from './PlanPresets';
@@ -15,10 +16,10 @@ import PlanComparison from '../admin/subscribers/PlanComparison';
 const MODULE_GROUPS = [
   {
     id: 'ferramentas',
-    name: '🏠 Ferramentas Principais',
+    name: 'Ferramentas Principais',
     modules: [
       { id: 'dashboard', name: 'Home', actions: ['view'] },
-      { id: 'pdv', name: 'Ponto de Venda (PDV)', actions: ['view', 'create', 'update'] },
+      { id: 'pdv', name: 'PDV', actions: ['view', 'create', 'update'] },
       { id: 'gestor_pedidos', name: 'Gestor de Pedidos', actions: ['view', 'create', 'update', 'delete'] },
       { id: 'caixa', name: 'Caixa', actions: ['view', 'create', 'update'] },
       { id: 'whatsapp', name: 'WhatsApp', actions: ['view'] }
@@ -26,27 +27,22 @@ const MODULE_GROUPS = [
   },
   {
     id: 'cardapio',
-    name: '🍽️ Cardápio Digital',
+    name: 'Cardápio',
     modules: [
-      { id: 'dishes', name: 'Cardápio (Pratos)', actions: ['view', 'create', 'update', 'delete'] },
+      { id: 'dishes', name: 'Pratos', actions: ['view', 'create', 'update', 'delete'] },
+      { id: 'pizza_config', name: 'Pizzas', actions: ['view', 'create', 'update', 'delete'] },
       { id: 'delivery_zones', name: 'Zonas de Entrega', actions: ['view', 'create', 'update', 'delete'] },
       { id: 'coupons', name: 'Cupons', actions: ['view', 'create', 'update', 'delete'] },
       { id: 'promotions', name: 'Promoções', actions: ['view', 'create', 'update', 'delete'] },
-      { id: 'theme', name: 'Cores/Tema', actions: ['view', 'update'] },
-      { id: 'store', name: 'Loja', actions: ['view', 'update'] },
+      { id: 'theme', name: 'Tema', actions: ['view', 'update'] },
+      { id: 'store', name: 'Loja (todos os planos)', actions: ['view', 'update'] },
       { id: 'payments', name: 'Pagamentos', actions: ['view', 'update'] }
     ]
   },
-  {
-    id: 'graficos_section',
-    name: '📊 Gráficos',
-    modules: [
-      { id: 'graficos', name: 'Gráficos', actions: ['view'] }
-    ]
-  },
+  { id: 'graficos_section', name: 'Gráficos', modules: [{ id: 'graficos', name: 'Gráficos', actions: ['view'] }] },
   {
     id: 'gestao',
-    name: '📋 Gestão',
+    name: 'Gestão',
     modules: [
       { id: 'orders', name: 'Pedidos', actions: ['view', 'create', 'update', 'delete'] },
       { id: 'history', name: 'Histórico', actions: ['view'] },
@@ -55,13 +51,7 @@ const MODULE_GROUPS = [
       { id: 'printer', name: 'Impressora', actions: ['view', 'update'] }
     ]
   },
-  {
-    id: 'mais_funcoes',
-    name: '➕ Mais Funções',
-    modules: [
-      { id: 'mais', name: 'Mais Funções', actions: ['view'] }
-    ]
-  }
+  { id: 'mais_funcoes', name: 'Mais Funções', modules: [{ id: 'mais', name: 'Mais Funções', actions: ['view'] }] }
 ];
 
 const ACTION_LABELS = {
@@ -74,7 +64,9 @@ const ACTION_LABELS = {
 export default function PermissionsEditor({ permissions, onChange, selectedPlan = 'basic', onPlanChange }) {
   const [expandedGroups, setExpandedGroups] = useState(new Set(['ferramentas', 'cardapio', 'gestao']));
   const [expandedModules, setExpandedModules] = useState(new Set(['dashboard', 'dishes', 'orders']));
-  
+  const [showComparison, setShowComparison] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+
   const { data: plans = [], isLoading: plansLoading } = useQuery({
     queryKey: ['plans'],
     queryFn: async () => {
@@ -118,31 +110,25 @@ export default function PermissionsEditor({ permissions, onChange, selectedPlan 
     if (currentPlan === 'custom') return 'Personalizado';
     return selectedPlanData?.name || 'Básico';
   }, [currentPlan, selectedPlanData]);
-  
-  console.log('🎨 PermissionsEditor render - currentPlan:', currentPlan);
-  console.log('🎨 PermissionsEditor render - selectedPlanData:', selectedPlanData);
-  console.log('🎨 PermissionsEditor render - displayName:', displayName);
-  
+
   const warnings = validatePermissions(permissions);
+  const basicCardapioMode = (permissions?.pizza_config?.length || 0) > 0 ? 'pizzas' : 'pratos';
 
   const handlePlanChange = (planSlug) => {
-    console.log('🎨 PermissionsEditor - Plano selecionado:', planSlug);
-    console.log('🎨 PermissionsEditor - selectedPlan atual:', selectedPlan);
-    console.log('🎨 PermissionsEditor - Planos disponíveis:', plans.map(p => p.slug));
-    
-    // PRIMEIRO: Chama onPlanChange para atualizar o estado do pai
-    if (onPlanChange) {
-      onPlanChange(planSlug);
-    }
+    if (onPlanChange) onPlanChange(planSlug);
+    if (planSlug === 'custom') return;
+    const base = { ...(getPlanPermissions(planSlug) || {}), store: ['view', 'update'] };
+    onChange(base);
+  };
 
-    // SEGUNDO: Atualiza as permissões se não for custom
-    if (planSlug !== 'custom') {
-      const selectedPlanData = plans.find(p => p.slug === planSlug);
-      console.log('🎨 PermissionsEditor - Plano encontrado:', selectedPlanData?.name);
-      if (selectedPlanData && selectedPlanData.permissions) {
-        onChange(selectedPlanData.permissions);
-      }
+  const handleBasicCardapioChoice = (mode) => {
+    const next = { ...permissions, store: permissions?.store?.length ? permissions.store : ['view', 'update'] };
+    if (mode === 'pizzas') {
+      next.pizza_config = ['view', 'create', 'update', 'delete'];
+    } else {
+      next.pizza_config = [];
     }
+    onChange(next);
   };
 
 
@@ -241,104 +227,92 @@ export default function PermissionsEditor({ permissions, onChange, selectedPlan 
   }
 
   return (
-    <div className="space-y-6">
-      {/* Preview de Permissões */}
-      <div className="border rounded-lg p-4 bg-gray-50">
-        <Label className="mb-3 block">Preview: O que o assinante verá</Label>
-        <PermissionPreview permissions={permissions} />
-      </div>
-
-      {/* Seletor de Plano */}
+    <div className="space-y-4">
+      {/* 1) Plano */}
       <div>
-        <Label className="mb-2 block">Plano de Assinatura</Label>
-          <p className="text-xs text-gray-500 mb-3">
-            {currentPlan === 'custom' 
-              ? '🎨 Plano Personalizado: Configure as permissões manualmente abaixo'
-              : 'Selecione um plano para preencher automaticamente as permissões. Você pode ajustar manualmente depois.'
-            }
-          </p>
+        <Label className="mb-1 block">Plano</Label>
         <Select value={currentPlan} onValueChange={handlePlanChange}>
           <SelectTrigger className="w-full">
-            <SelectValue placeholder="Selecione um plano">
-              {displayName}
-            </SelectValue>
+            <SelectValue>{displayName}</SelectValue>
           </SelectTrigger>
           <SelectContent>
-            {plansLoading ? (
-              <div className="p-2 text-sm text-gray-500">Carregando planos...</div>
-            ) : plans.length === 0 ? (
-              <div className="p-2 text-sm text-gray-500">Nenhum plano disponível</div>
-            ) : (
-              <>
-                {plans.map((plan) => (
-                  <SelectItem key={plan.id || plan.slug} value={plan.slug}>
-                    <div className="flex flex-col">
-                      <span className="font-medium">{plan.name}</span>
-                      {plan.description && (
-                        <span className="text-xs text-gray-500">{plan.description}</span>
-                      )}
-                    </div>
-                  </SelectItem>
-                ))}
-                <SelectItem value="custom">
-                  <div className="flex flex-col">
-                    <span className="font-medium">Personalizado</span>
-                    <span className="text-xs text-gray-500">Configure manualmente as permissões</span>
-                  </div>
-                </SelectItem>
-              </>
-            )}
+            {(plans || []).map((p) => (
+              <SelectItem key={p.id || p.slug} value={p.slug}>{p.name}</SelectItem>
+            ))}
+            <SelectItem value="custom">Personalizado</SelectItem>
           </SelectContent>
         </Select>
-        <p className="text-xs text-gray-500 mt-1">
-          {currentPlan === 'custom' 
-            ? '🎨 Plano Personalizado: Configure as permissões manualmente abaixo'
-            : 'Selecione um plano para preencher automaticamente as permissões. Você pode ajustar manualmente depois.'
-          }
-        </p>
-
-        {/* Comparação de Planos (apenas se houver 2+ planos) */}
-        {plans.length >= 2 && currentPlan !== 'custom' && (
-          <div className="mt-4">
-            <PlanComparison
-              plans={plans.map(p => ({
-                ...p,
-                permissions: p.permissions || getPlanPermissions(p.slug)
-              }))}
-              currentPlan={currentPlan}
-              onSelectPlan={handlePlanChange}
-            />
-          </div>
-        )}
       </div>
 
-      {/* Avisos de Conflito */}
+      {/* 2) No Básico: Pratos ou Pizzas */}
+      {currentPlan === 'basic' && (
+        <div className="flex items-center gap-3 p-3 rounded-lg bg-amber-50 border border-amber-200">
+          <Label className="text-sm shrink-0">No Básico:</Label>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant={basicCardapioMode === 'pratos' ? 'default' : 'outline'}
+              className={basicCardapioMode === 'pratos' ? 'bg-orange-500 hover:bg-orange-600' : ''}
+              onClick={() => handleBasicCardapioChoice('pratos')}
+            >
+              <UtensilsCrossed className="w-4 h-4 mr-1" /> Pratos
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={basicCardapioMode === 'pizzas' ? 'default' : 'outline'}
+              className={basicCardapioMode === 'pizzas' ? 'bg-orange-500 hover:bg-orange-600' : ''}
+              onClick={() => handleBasicCardapioChoice('pizzas')}
+            >
+              <Pizza className="w-4 h-4 mr-1" /> Pizzas
+            </Button>
+          </div>
+          <span className="text-xs text-amber-700">Premium e Pro: Pratos e Pizzas.</span>
+        </div>
+      )}
+
+      {/* 3) Avisos */}
       {warnings.length > 0 && (
-        <Alert variant="destructive">
+        <Alert variant="destructive" className="py-2">
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription>
-            <div className="font-medium mb-2">⚠️ Atenção: Possíveis problemas operacionais</div>
-            <ul className="list-disc list-inside space-y-1 text-sm">
-              {warnings.map((warning, idx) => (
-                <li key={idx}>{warning.message}</li>
-              ))}
+            <ul className="list-disc list-inside text-sm">
+              {warnings.map((w, i) => <li key={i}>{w.message}</li>)}
             </ul>
           </AlertDescription>
         </Alert>
       )}
 
-      {/* Info */}
-      <Alert>
-        <Info className="h-4 w-4" />
-        <AlertDescription className="text-sm">
-          As permissões controlam exatamente o que o assinante pode fazer no sistema. 
-          Ações não autorizadas não aparecerão na interface ou ficarão desabilitadas.
-        </AlertDescription>
-      </Alert>
-
-      {/* Lista de Módulos Agrupados */}
-      <div className="space-y-2">
-        <Label>Permissões por Módulo</Label>
+      {/* 4) Módulos por grupo (objetivo) */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <Label>Módulos</Label>
+          <div className="flex gap-2">
+            <Button type="button" variant="ghost" size="sm" onClick={() => setShowPreview(!showPreview)}>
+              {showPreview ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />} Resumo
+            </Button>
+            {plans.length >= 2 && currentPlan !== 'custom' && (
+              <Button type="button" variant="ghost" size="sm" onClick={() => setShowComparison(!showComparison)}>
+                {showComparison ? 'Ocultar' : 'Comparar'} planos
+              </Button>
+            )}
+          </div>
+        </div>
+        {showPreview && (
+          <div className="mb-3 p-3 rounded-lg border bg-gray-50">
+            <PermissionPreview permissions={permissions} />
+          </div>
+        )}
+        {showComparison && plans.length >= 2 && currentPlan !== 'custom' && (
+          <div className="mb-3">
+            <PlanComparison
+              plans={plans.map(p => ({ ...p, permissions: p.permissions || getPlanPermissions(p.slug) }))}
+              currentPlan={currentPlan}
+              onSelectPlan={handlePlanChange}
+            />
+          </div>
+        )}
         <div className="border rounded-lg divide-y">
           {MODULE_GROUPS.map(group => {
             const isGroupExpanded = expandedGroups.has(group.id);

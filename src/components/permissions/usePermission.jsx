@@ -67,9 +67,11 @@ export function usePermission() {
           plan: subscriber.plan
         });
         let perms = subscriber.permissions || {};
-        // Garantir que plano basic possa adicionar/editar pratos (compat. assinantes já existentes)
         if (subscriber.plan === 'basic' && Array.isArray(perms.dishes) && perms.dishes.includes('view') && !perms.dishes.includes('create')) {
           perms = { ...perms, dishes: ['view', 'create', 'update', 'delete'] };
+        }
+        if (['basic', 'pro', 'premium'].includes(subscriber.plan) && (!Array.isArray(perms.store) || perms.store.length === 0)) {
+          perms = { ...perms, store: ['view', 'update'] };
         }
         setPermissions(perms);
         setSubscriberData(subscriber);

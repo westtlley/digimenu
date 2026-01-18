@@ -14,8 +14,10 @@ export default function PlanComparison({ plans = [], currentPlan, onSelectPlan }
 
   const features = [
     { id: 'dashboard', label: 'Dashboard', icon: '📊' },
-    { id: 'dishes', label: 'Gestão de Cardápio', icon: '🍽️' },
-    { id: 'orders', label: 'Gestão de Pedidos', icon: '📦' },
+    { id: 'dishes', label: 'Pratos', icon: '🍽️' },
+    { id: 'pizza_config', label: 'Pizzas', icon: '🍕' },
+    { id: 'store', label: 'Loja', icon: '🏪' },
+    { id: 'orders', label: 'Pedidos', icon: '📦' },
     { id: 'gestor_pedidos', label: 'Gestor Completo', icon: '🚚' },
     { id: 'delivery_zones', label: 'Zonas de Entrega', icon: '📍' },
     { id: 'coupons', label: 'Cupons', icon: '🎟️' },

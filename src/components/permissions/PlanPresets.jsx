@@ -16,105 +16,81 @@ export const PLAN_PRESETS = {
   },
   basic: {
     name: 'Básico',
-    description: 'Visualização de pedidos e cardápio básico',
+    description: 'Pratos ou Pizzas; Loja em todos',
     permissions: {
-      // Ferramentas Principais
       dashboard: ['view'],
       pdv: [],
       gestor_pedidos: [],
       caixa: [],
       whatsapp: [],
-      
-      // Cardápio Digital (create/update/delete para o assinante gerenciar seu cardápio)
       dishes: ['view', 'create', 'update', 'delete'],
+      pizza_config: [], // Pratos: []. Pizzas: ['view','create','update','delete'] — definido na edição
       delivery_zones: [],
       coupons: [],
       promotions: [],
       theme: [],
-      store: [],
+      store: ['view', 'update'], // Todos os planos: perfil e informações do restaurante
       payments: [],
-      
-      // Gráficos
       graficos: [],
-      
-      // Gestão
       orders: ['view'],
       history: [],
       clients: [],
       financial: [],
       printer: [],
-      
-      // Mais Funções
       mais: []
     }
   },
   
   pro: {
     name: 'Pro',
-    description: 'Gestão completa de cardápio e entregas',
+    description: 'Pratos e Pizzas; gestão completa',
     permissions: {
-      // Ferramentas Principais
       dashboard: ['view'],
       pdv: ['view', 'create', 'update'],
       gestor_pedidos: ['view', 'create', 'update', 'delete'],
       caixa: ['view', 'create', 'update'],
       whatsapp: ['view'],
-      
-      // Cardápio Digital
       dishes: ['view', 'create', 'update', 'delete'],
+      pizza_config: ['view', 'create', 'update', 'delete'],
       delivery_zones: ['view', 'create', 'update', 'delete'],
       coupons: ['view', 'create', 'update', 'delete'],
       promotions: ['view', 'create', 'update', 'delete'],
       theme: ['view', 'update'],
       store: ['view', 'update'],
       payments: ['view'],
-      
-      // Gráficos
       graficos: ['view'],
-      
-      // Gestão
       orders: ['view', 'update'],
       history: ['view'],
       clients: ['view'],
       financial: ['view'],
       printer: [],
-      
-      // Mais Funções
       mais: ['view']
     }
   },
   
   premium: {
     name: 'Premium',
-    description: 'Acesso total ao sistema',
+    description: 'Pratos e Pizzas; acesso total',
     permissions: {
-      // Ferramentas Principais
       dashboard: ['view'],
       pdv: ['view', 'create', 'update'],
       gestor_pedidos: ['view', 'create', 'update', 'delete'],
       caixa: ['view', 'create', 'update'],
       whatsapp: ['view'],
-      
-      // Cardápio Digital
       dishes: ['view', 'create', 'update', 'delete'],
+      pizza_config: ['view', 'create', 'update', 'delete'],
       delivery_zones: ['view', 'create', 'update', 'delete'],
       coupons: ['view', 'create', 'update', 'delete'],
       promotions: ['view', 'create', 'update', 'delete'],
       theme: ['view', 'update'],
       store: ['view', 'update'],
       payments: ['view', 'update'],
-      
-      // Gráficos
       graficos: ['view'],
-      
-      // Gestão
       orders: ['view', 'create', 'update', 'delete'],
       history: ['view'],
       clients: ['view', 'create', 'update', 'delete'],
       financial: ['view'],
       printer: ['view', 'update'],
-      
-      // Mais Funções
       mais: ['view']
     }
   }
@@ -137,13 +113,19 @@ export function getPlanPermissions(plan) {
 export function validatePermissions(permissions) {
   const warnings = [];
 
-  // Se pode ver pratos mas não pode criar/editar
   if (permissions.dishes?.includes('view') && 
       !permissions.dishes?.includes('create') && 
       !permissions.dishes?.includes('update')) {
     warnings.push({
       module: 'dishes',
       message: 'Pode visualizar pratos mas não pode criar ou editar. Isso limitará muito as operações.'
+    });
+  }
+
+  if (!permissions.store?.length) {
+    warnings.push({
+      module: 'store',
+      message: 'Recomendamos que todos os planos tenham acesso ao módulo Loja (perfil e informações do restaurante).'
     });
   }
 

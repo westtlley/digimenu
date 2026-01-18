@@ -14,6 +14,7 @@ import WhatsAppComandaToggle from '../components/admin/WhatsAppComandaToggle';
 import DishesTab from '../components/admin/DishesTab';
 import CategoriesTab from '../components/admin/CategoriesTab';
 import ComplementsTab from '../components/admin/ComplementsTab';
+import PizzaConfigTab from '../components/admin/PizzaConfigTab';
 import OrdersTab from '../components/admin/OrdersTab';
 import OrderHistoryTab from '../components/admin/OrderHistoryTab';
 import ClientsTab from '../components/admin/ClientsTab';
@@ -283,6 +284,7 @@ export default function PainelAssinante() {
             }}
             isMaster={isMaster}
             permissions={permissions}
+            plan={subscriberData?.plan}
             collapsed={sidebarCollapsed}
             setCollapsed={setSidebarCollapsed}
             onClose={() => setShowMobileSidebar(false)}

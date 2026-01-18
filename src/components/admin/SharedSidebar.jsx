@@ -76,7 +76,7 @@ const MENU_STRUCTURE = [
       { id: 'dishes', label: 'Pratos', icon: UtensilsCrossed, module: 'dishes' },
       { id: 'categories', label: 'Categorias', icon: Layers, module: 'dishes' },
       { id: 'complements', label: 'Complementos', icon: Grid3x3, module: 'dishes' },
-      { id: 'pizza_config', label: 'Pizzas', icon: Pizza, module: 'dishes' },
+      { id: 'pizza_config', label: 'Pizzas', icon: Pizza, module: 'pizza_config' },
       { id: 'promotions', label: 'Promoções', icon: Megaphone, module: 'promotions' },
       { id: 'coupons', label: 'Cupons', icon: Ticket, module: 'coupons' },
     ]
@@ -113,6 +113,7 @@ export default function SharedSidebar({
   setActiveTab, 
   isMaster = false, 
   permissions = {}, 
+  plan,
   collapsed, 
   setCollapsed, 
   onClose,
@@ -169,10 +170,12 @@ export default function SharedSidebar({
     if (item.section === 'section' && item.submenu) {
       const isExpanded = expandedGroups[item.id];
       
-      // Filtrar submenus baseado em permissões
-      const visibleSubmenu = item.submenu.filter(subItem => 
-        subItem.module && hasModuleAccess(subItem.module)
-      );
+      // Filtrar submenus: permissões e, no Basic com Pizzas, ocultar Pratos
+      const visibleSubmenu = item.submenu.filter(subItem => {
+        if (!subItem.module || !hasModuleAccess(subItem.module)) return false;
+        if (plan === 'basic' && subItem.id === 'dishes' && hasModuleAccess('pizza_config')) return false;
+        return true;
+      });
       
       // Se nenhum submenu visível, não mostrar o grupo
       if (visibleSubmenu.length === 0) return null;
