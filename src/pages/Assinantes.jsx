@@ -21,7 +21,9 @@ import {
   Eye,
   Lock,
   Copy,
-  RefreshCw
+  RefreshCw,
+  CheckSquare,
+  Square
 } from 'lucide-react';
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -64,6 +66,7 @@ import ExpirationProgressBar from '../components/admin/subscribers/ExpirationPro
 import ExportCSV from '../components/admin/subscribers/ExportCSV';
 import ImportCSV from '../components/admin/subscribers/ImportCSV';
 import AdvancedFilters from '../components/admin/subscribers/AdvancedFilters';
+import BulkActions from '../components/admin/subscribers/BulkActions';
 import { comparePermissions, getPlanPermissions } from '../components/permissions/PlanPresets';
 import { formatBrazilianDate } from '../components/utils/dateUtils';
 import toast from 'react-hot-toast';
@@ -92,6 +95,7 @@ export default function Assinantes() {
   const [viewingSubscriber, setViewingSubscriber] = useState(null);
   const [selectedSubscriberForData, setSelectedSubscriberForData] = useState(null);
   const [passwordTokens, setPasswordTokens] = useState({}); // Cache de tokens por assinante
+  const [selectedSubscriberIds, setSelectedSubscriberIds] = useState(new Set()); // IDs selecionados para bulk actions
 
   const queryClient = useQueryClient();
 
@@ -893,6 +897,62 @@ export default function Assinantes() {
 
         {/* List */}
         <div className="bg-white rounded-2xl shadow-md border border-gray-200 overflow-hidden">
+          {/* Bulk Actions */}
+          {!subscribersLoading && filteredSubscribers.length > 0 && (
+            <BulkActions
+              subscribers={filteredSubscribers}
+              selectedIds={Array.from(selectedSubscriberIds)}
+              onSelectionChange={(ids) => setSelectedSubscriberIds(new Set(ids))}
+              onBulkAction={async (action, selectedSubscribers) => {
+                try {
+                  switch (action) {
+                    case 'activate':
+                      await Promise.all(
+                        selectedSubscribers.map(sub => 
+                          updateMutation.mutateAsync({
+                            id: sub.id,
+                            data: { ...sub, status: 'active' },
+                            originalData: sub
+                          })
+                        )
+                      );
+                      toast.success(`${selectedSubscribers.length} assinante(s) ativado(s)!`);
+                      break;
+                    case 'deactivate':
+                      await Promise.all(
+                        selectedSubscribers.map(sub => 
+                          updateMutation.mutateAsync({
+                            id: sub.id,
+                            data: { ...sub, status: 'inactive' },
+                            originalData: sub
+                          })
+                        )
+                      );
+                      toast.success(`${selectedSubscribers.length} assinante(s) desativado(s)!`);
+                      break;
+                    case 'delete':
+                      await Promise.all(
+                        selectedSubscribers.map(sub => deleteMutation.mutateAsync(sub.id))
+                      );
+                      toast.success(`${selectedSubscribers.length} assinante(s) excluído(s)!`);
+                      break;
+                    case 'export':
+                      const { exportSubscribersToCSV, downloadCSV } = await import('@/utils/csvUtils');
+                      const csvContent = exportSubscribersToCSV(selectedSubscribers);
+                      const dateStr = new Date().toISOString().split('T')[0];
+                      downloadCSV(csvContent, `assinantes_selecionados_${dateStr}.csv`);
+                      toast.success(`${selectedSubscribers.length} assinante(s) exportado(s)!`);
+                      break;
+                  }
+                  setSelectedSubscriberIds(new Set());
+                } catch (error) {
+                  console.error('Erro na ação em lote:', error);
+                  toast.error('Erro ao executar ação em lote');
+                }
+              }}
+            />
+          )}
+
           {subscribersLoading ? (
             <div className="divide-y divide-gray-100">
               {Array.from({ length: 3 }).map((_, i) => (
@@ -912,15 +972,40 @@ export default function Assinantes() {
             />
           ) : (
             <div className="divide-y divide-gray-100">
-              {filteredSubscribers.map((subscriber, index) => (
-                <motion.div
-                  key={subscriber.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.05, duration: 0.3 }}
-                  className="p-5 hover:bg-gradient-to-r hover:from-gray-50 hover:to-white transition-all duration-200"
-                >
-                  <div className="flex items-center justify-between">
+              {filteredSubscribers.map((subscriber, index) => {
+                const isSelected = selectedSubscriberIds.has(subscriber.id);
+                return (
+                  <motion.div
+                    key={subscriber.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.05, duration: 0.3 }}
+                    className={`p-5 hover:bg-gradient-to-r hover:from-gray-50 hover:to-white transition-all duration-200 ${
+                      isSelected ? 'bg-blue-50 border-l-4 border-blue-500' : ''
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => {
+                            const newSet = new Set(selectedSubscriberIds);
+                            if (isSelected) {
+                              newSet.delete(subscriber.id);
+                            } else {
+                              newSet.add(subscriber.id);
+                            }
+                            setSelectedSubscriberIds(newSet);
+                          }}
+                        >
+                          {isSelected ? (
+                            <CheckSquare className="w-5 h-5 text-blue-600" />
+                          ) : (
+                            <Square className="w-5 h-5 text-gray-400" />
+                          )}
+                        </Button>
                     <div className="flex items-center gap-4">
                       <motion.div
                         whileHover={{ scale: 1.1 }}
@@ -1128,8 +1213,9 @@ export default function Assinantes() {
                       </DropdownMenu>
                     </div>
                   </div>
-                </motion.div>
-              ))}
+                  </motion.div>
+                );
+              })}
             </div>
           )}
         </div>
