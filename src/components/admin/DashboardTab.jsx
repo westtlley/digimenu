@@ -14,6 +14,7 @@ import {
 import moment from 'moment';
 import StatCard from '@/components/ui/StatCard';
 import { SkeletonStats } from '@/components/ui/skeleton';
+import DashboardMetrics from './DashboardMetrics';
 
 export default function DashboardTab({ user, subscriberData }) {
   const [copiedLink, setCopiedLink] = useState(false);
@@ -87,7 +88,13 @@ export default function DashboardTab({ user, subscriberData }) {
         )}
       </div>
 
-      {/* Stats Cards */}
+      {/* Métricas Avançadas */}
+      <DashboardMetrics orders={orders} dishes={dishes} />
+
+      {/* Gráficos de Vendas */}
+      {orders.length > 0 && <DashboardCharts orders={orders} />}
+
+      {/* Stats Cards Rápidos */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           icon={ShoppingCart}

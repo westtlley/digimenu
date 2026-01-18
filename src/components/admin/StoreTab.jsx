@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Store, Save, Clock, DollarSign, CreditCard, Tag, Image as ImageIcon, MapPin, Instagram, Facebook, MessageSquare, AlertCircle } from 'lucide-react';
+import { Store, Save, Clock, DollarSign, CreditCard, Tag, Image as ImageIcon, MapPin, Instagram, Facebook, MessageSquare, AlertCircle, HelpCircle } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -432,6 +433,16 @@ export default function StoreTab() {
                   <Label htmlFor="store-name" className="flex items-center gap-2 mb-2">
                     <Store className="w-4 h-4 text-gray-500" />
                     Nome da Loja *
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <HelpCircle className="w-4 h-4 text-gray-400 hover:text-gray-600 cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          <p className="text-xs">Nome que aparecerá no cardápio digital e nos pedidos dos clientes</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </Label>
                   <Input
                     id="store-name"
@@ -445,6 +456,16 @@ export default function StoreTab() {
                   <Label htmlFor="whatsapp" className="flex items-center gap-2 mb-2">
                     <MessageSquare className="w-4 h-4 text-gray-500" />
                     WhatsApp
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <HelpCircle className="w-4 h-4 text-gray-400 hover:text-gray-600 cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          <p className="text-xs">Número usado para receber pedidos via WhatsApp. Formato: DDD + número completo</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </Label>
                   <Input
                     id="whatsapp"
@@ -470,7 +491,19 @@ export default function StoreTab() {
               </div>
 
               <div>
-                <Label htmlFor="slogan" className="mb-2 block">Frase do Restaurante</Label>
+                <Label htmlFor="slogan" className="mb-2 flex items-center gap-2">
+                  Frase do Restaurante
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <HelpCircle className="w-4 h-4 text-gray-400 hover:text-gray-600 cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs">
+                        <p className="text-xs">Slogan ou frase que aparece no topo do cardápio digital para atrair clientes</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </Label>
                 <Input
                   id="slogan"
                   value={formData.slogan}
@@ -754,7 +787,19 @@ export default function StoreTab() {
                   {/* Localização da Loja */}
                   <div className="grid sm:grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="latitude" className="text-sm mb-2 block">Latitude da Loja *</Label>
+                      <Label htmlFor="latitude" className="text-sm mb-2 flex items-center gap-2">
+                        Latitude da Loja *
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <HelpCircle className="w-3 h-3 text-gray-400 hover:text-gray-600 cursor-help" />
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs">
+                              <p className="text-xs">Coordenada geográfica da sua loja. Use o Google Maps para encontrar: clique com botão direito no local e copie a latitude</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </Label>
                       <Input
                         id="latitude"
                         type="number"
@@ -768,7 +813,19 @@ export default function StoreTab() {
                     </div>
 
                     <div>
-                      <Label htmlFor="longitude" className="text-sm mb-2 block">Longitude da Loja *</Label>
+                      <Label htmlFor="longitude" className="text-sm mb-2 flex items-center gap-2">
+                        Longitude da Loja *
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <HelpCircle className="w-3 h-3 text-gray-400 hover:text-gray-600 cursor-help" />
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs">
+                              <p className="text-xs">Coordenada geográfica da sua loja. Use o Google Maps para encontrar: clique com botão direito no local e copie a longitude</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </Label>
                       <Input
                         id="longitude"
                         type="number"
