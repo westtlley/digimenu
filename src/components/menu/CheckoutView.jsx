@@ -10,6 +10,9 @@ import AddressMapPicker from './AddressMapPicker';
 import OrderConfirmationModal from './OrderConfirmationModal';
 import SavedAddresses from './SavedAddresses';
 import { orderService } from '@/components/services/orderService';
+import { buscarCEP } from '@/utils/cepService';
+import { Loader2, Search } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 export default function CheckoutView({ 
   cart, 
@@ -31,6 +34,7 @@ export default function CheckoutView({
   const [showSchedule, setShowSchedule] = useState(false);
   const [showMapPicker, setShowMapPicker] = useState(false);
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+  const [loadingCEP, setLoadingCEP] = useState(false);
 
   const formatPhoneMask = (value) => {
     const cleaned = value.replace(/\D/g, '');
@@ -209,6 +213,60 @@ export default function CheckoutView({
                       </p>
                     </div>
                   )}
+
+                  {/* Campo CEP */}
+                  <div>
+                    <Label htmlFor="cep" className="text-xs text-gray-600 flex items-center gap-1">
+                      CEP *
+                      <span className="text-[10px] text-gray-400">(Digite para preencher automaticamente)</span>
+                    </Label>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <Input
+                        id="cep"
+                        placeholder="00000-000"
+                        value={customer.cep || ''}
+                        onChange={(e) => {
+                          const cleanCEP = e.target.value.replace(/\D/g, '');
+                          const formatted = cleanCEP.length <= 8 
+                            ? cleanCEP.replace(/(\d{5})(\d)/, '$1-$2')
+                            : customer.cep || '';
+                          setCustomer({ ...customer, cep: formatted });
+                        }}
+                        onBlur={async () => {
+                          const cleanCEP = (customer.cep || '').replace(/\D/g, '');
+                          if (cleanCEP.length === 8) {
+                            setLoadingCEP(true);
+                            try {
+                              const endereco = await buscarCEP(cleanCEP);
+                              setCustomer({
+                                ...customer,
+                                cep: endereco.cep || customer.cep,
+                                address_street: endereco.logradouro || customer.address_street || '',
+                                neighborhood: endereco.bairro || customer.neighborhood || '',
+                                address_complement: endereco.complemento || customer.address_complement || '',
+                                city: endereco.cidade || customer.city || '',
+                                state: endereco.estado || customer.state || '',
+                              });
+                              toast.success('Endereço preenchido automaticamente!');
+                            } catch (error) {
+                              console.error('Erro ao buscar CEP:', error);
+                              toast.error('CEP não encontrado. Preencha o endereço manualmente.');
+                            } finally {
+                              setLoadingCEP(false);
+                            }
+                          }
+                        }}
+                        maxLength={9}
+                        className="mt-1 h-10 pl-9 pr-8"
+                        disabled={loadingCEP}
+                        required
+                      />
+                      {loadingCEP && (
+                        <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-orange-500" />
+                      )}
+                    </div>
+                  </div>
 
                   <div>
                     <Label htmlFor="address_street" className="text-xs text-gray-600">Rua/Avenida *</Label>

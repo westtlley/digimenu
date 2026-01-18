@@ -456,29 +456,9 @@ export default function AddressMapPicker({ isOpen, onClose, onConfirm, initialAd
               <LocationMarker position={position} setPosition={setPosition} />
             </MapContainer>
 
-            {/* Campo CEP */}
-            <div className="absolute top-2 left-2 right-2 z-[1000] bg-white rounded-lg shadow-lg p-3 border-2 border-orange-200">
-              <Label className="text-xs font-semibold text-gray-900 mb-1.5 block">CEP</Label>
-              <div className="relative">
-                <Input
-                  placeholder="00000-000"
-                  value={cep}
-                  onChange={(e) => setCep(formatCEP(e.target.value))}
-                  onBlur={handleCEPBlur}
-                  maxLength={9}
-                  className="h-8 text-sm pr-8"
-                  disabled={loadingCEP}
-                />
-                {loadingCEP && (
-                  <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-orange-500" />
-                )}
-              </div>
-              <p className="text-[10px] text-gray-500 mt-1">Digite o CEP para preencher automaticamente</p>
-            </div>
-
             {/* Endereço detectado */}
             {address && (
-              <div className="absolute top-[90px] left-2 right-2 z-[1000] bg-white/95 backdrop-blur-sm rounded-lg shadow-lg p-2 border-2 border-orange-200">
+              <div className="absolute top-2 left-2 right-2 z-[1000] bg-white/95 backdrop-blur-sm rounded-lg shadow-lg p-2 border-2 border-orange-200">
                 <div className="flex items-start gap-2">
                   <MapPin className="w-4 h-4 text-orange-500 flex-shrink-0 mt-0.5" />
                   <div className="flex-1 min-w-0">
