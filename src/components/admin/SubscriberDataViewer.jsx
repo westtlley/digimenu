@@ -11,10 +11,13 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import CategoryForm from './CategoryForm';
+import ReorderModal from './ReorderModal';
+import ComboModal from './ComboModal';
 import { 
   ArrowLeft, Package, ShoppingCart, DollarSign, Store, 
-  Loader2, Download, Plus, Pencil, Trash2, Clock
+  Loader2, Download, Plus, Pencil, Trash2, Clock, GripVertical, Gift
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -24,8 +27,15 @@ export default function SubscriberDataViewer({ subscriber, onBack }) {
   const [editingCategory, setEditingCategory] = useState(null);
   const [dishFormOpen, setDishFormOpen] = useState(false);
   const [editingDish, setEditingDish] = useState(null);
-  const [dishForm, setDishForm] = useState({ name: '', category_id: '', price: '', description: '', is_active: true });
+  const [dishForm, setDishForm] = useState({
+    name: '', category_id: '', price: '', original_price: '', description: '', is_active: true,
+    complement_groups: [], stock: '', portion: '', is_highlight: false, is_new: false, is_popular: false,
+    prep_time: '', internal_notes: ''
+  });
   const [saving, setSaving] = useState(false);
+  const [showReorderModal, setShowReorderModal] = useState(false);
+  const [showComboModal, setShowComboModal] = useState(false);
+  const [editingCombo, setEditingCombo] = useState(null);
   const [groupFormOpen, setGroupFormOpen] = useState(false);
   const [editingGroup, setEditingGroup] = useState(null);
   const [groupForm, setGroupForm] = useState({ name: '', is_required: false, max_selection: 1 });
@@ -103,8 +113,17 @@ export default function SubscriberDataViewer({ subscriber, onBack }) {
         name: formData.name,
         category_id: formData.category_id || null,
         price: parseFloat(formData.price) || 0,
+        original_price: formData.original_price ? parseFloat(formData.original_price) : undefined,
         description: formData.description || '',
-        is_active: formData.is_active !== false
+        is_active: formData.is_active !== false,
+        complement_groups: Array.isArray(formData.complement_groups) ? formData.complement_groups : [],
+        stock: formData.stock === '' || formData.stock == null ? undefined : formData.stock,
+        portion: formData.portion || undefined,
+        is_highlight: !!formData.is_highlight,
+        is_new: !!formData.is_new,
+        is_popular: !!formData.is_popular,
+        prep_time: formData.prep_time || undefined,
+        internal_notes: formData.internal_notes || undefined
       };
       if (editingDish) {
         await base44.entities.Dish.update(editingDish.id, payload, opts);
@@ -228,6 +247,63 @@ export default function SubscriberDataViewer({ subscriber, onBack }) {
     }
   };
 
+  const handleReorderSave = async (updates) => {
+    setSaving(true);
+    try {
+      for (const cat of updates.categories || []) {
+        await base44.entities.Category.update(cat.id, { order: cat.order }, opts);
+      }
+      for (const dish of updates.dishes || []) {
+        await base44.entities.Dish.update(dish.id, { order: dish.order }, opts);
+      }
+      for (const group of updates.groups || []) {
+        await base44.entities.ComplementGroup.update(group.id, { order: group.order }, opts);
+      }
+      for (const [groupId, options] of Object.entries(updates.groupOptions || {})) {
+        const g = (data.complement_groups || []).find(x => String(x.id) === String(groupId));
+        if (g) await base44.entities.ComplementGroup.update(groupId, { ...g, options }, opts);
+      }
+      toast.success('Ordem atualizada');
+      setShowReorderModal(false);
+      refetch();
+    } catch (e) {
+      toast.error(e?.message || 'Erro ao reordenar');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleComboSubmit = async (comboData) => {
+    setSaving(true);
+    try {
+      if (editingCombo) {
+        await base44.entities.Combo.update(editingCombo.id, comboData, opts);
+        toast.success('Combo atualizado');
+      } else {
+        await base44.entities.Combo.create({ ...comboData, as_subscriber: subscriber.email });
+        toast.success('Combo criado');
+      }
+      refetch();
+      setShowComboModal(false);
+      setEditingCombo(null);
+    } catch (e) {
+      toast.error(e?.message || 'Erro ao salvar combo');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteCombo = async (c) => {
+    if (!window.confirm(`Excluir o combo "${c.name}"?`)) return;
+    try {
+      await base44.entities.Combo.delete(c.id, opts);
+      toast.success('Combo excluído');
+      refetch();
+    } catch (e) {
+      toast.error(e?.message || 'Erro ao excluir');
+    }
+  };
+
   const formatCurrency = (value) => {
     return new Intl.NumberFormat('pt-BR', { 
       style: 'currency', 
@@ -250,6 +326,7 @@ export default function SubscriberDataViewer({ subscriber, onBack }) {
         dishes: data.dishes || [],
         categories: data.categories || [],
         complement_groups: data.complement_groups || [],
+        combos: data.combos || [],
         orders: data.orders || [],
         caixas: data.caixas || [],
         store: data.store || null
@@ -346,18 +423,31 @@ export default function SubscriberDataViewer({ subscriber, onBack }) {
           <TabsTrigger value="categories">Categorias ({(data.categories||[]).length})</TabsTrigger>
           <TabsTrigger value="groups">Grupos de Complementos ({(data.complement_groups||[]).length})</TabsTrigger>
           <TabsTrigger value="complements">Complementos ({((data.complement_groups||[]).reduce((s,g)=>s+((g.options||[]).length),0))})</TabsTrigger>
+          <TabsTrigger value="combos">Combos ({(data.combos||[]).length})</TabsTrigger>
           <TabsTrigger value="orders">Pedidos ({(data.orders||[]).length})</TabsTrigger>
           <TabsTrigger value="store">Loja</TabsTrigger>
           <TabsTrigger value="caixas">Caixas ({(data.caixas||[]).length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="dishes" className="space-y-4">
-          <div className="flex justify-end">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button variant="outline" size="sm" onClick={() => setShowReorderModal(true)}>
+              <GripVertical className="w-4 h-4 mr-2" />
+              Reordenar
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => { setEditingCombo(null); setShowComboModal(true); }}>
+              <Gift className="w-4 h-4 mr-2" />
+              Criar combo
+            </Button>
             <Button
               size="sm"
               onClick={() => {
                 setEditingDish(null);
-                setDishForm({ name: '', category_id: (data.categories && data.categories[0]?.id) || '', price: '', description: '', is_active: true });
+                setDishForm({
+                  name: '', category_id: (data.categories && data.categories[0]?.id) || '', price: '', original_price: '',
+                  description: '', is_active: true, complement_groups: [], stock: '', portion: '',
+                  is_highlight: false, is_new: false, is_popular: false, prep_time: '', internal_notes: ''
+                });
                 setDishFormOpen(true);
               }}
             >
@@ -365,13 +455,14 @@ export default function SubscriberDataViewer({ subscriber, onBack }) {
               Adicionar prato
             </Button>
           </div>
-          <div className="bg-white rounded-lg border">
+          <div className="bg-white rounded-lg border overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Nome</th>
                   <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Categoria</th>
                   <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Preço</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Complementos</th>
                   <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Status</th>
                   <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">Ações</th>
                 </tr>
@@ -384,13 +475,25 @@ export default function SubscriberDataViewer({ subscriber, onBack }) {
                       {(data.categories||[]).find(c => c.id === dish.category_id)?.name || '-'}
                     </td>
                     <td className="px-4 py-3 text-sm font-medium">{formatCurrency(dish.price)}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500">{(dish.complement_groups || []).length}</td>
                     <td className="px-4 py-3 text-sm">
                       <Badge variant={dish.is_active !== false ? 'default' : 'secondary'}>
                         {dish.is_active !== false ? 'Ativo' : 'Inativo'}
                       </Badge>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditingDish(dish); setDishForm({ name: dish.name, category_id: dish.category_id || '', price: dish.price ?? '', description: dish.description || '', is_active: dish.is_active !== false }); setDishFormOpen(true); }}>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
+                        setEditingDish(dish);
+                        setDishForm({
+                          name: dish.name, category_id: dish.category_id || '', price: dish.price ?? '', original_price: dish.original_price ?? '',
+                          description: dish.description || '', is_active: dish.is_active !== false,
+                          complement_groups: (dish.complement_groups || []).map(cg => ({ group_id: cg.group_id, is_required: !!cg.is_required })),
+                          stock: dish.stock ?? '', portion: dish.portion || '',
+                          is_highlight: !!dish.is_highlight, is_new: !!dish.is_new, is_popular: !!dish.is_popular,
+                          prep_time: dish.prep_time ?? '', internal_notes: dish.internal_notes || ''
+                        });
+                        setDishFormOpen(true);
+                      }}>
                         <Pencil className="w-4 h-4" />
                       </Button>
                       <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600" onClick={() => handleDeleteDish(dish)}>
@@ -527,6 +630,51 @@ export default function SubscriberDataViewer({ subscriber, onBack }) {
           </div>
         </TabsContent>
 
+        <TabsContent value="combos" className="space-y-4">
+          <div className="flex justify-end">
+            <Button size="sm" onClick={() => { setEditingCombo(null); setShowComboModal(true); }}>
+              <Plus className="w-4 h-4 mr-2" />
+              Adicionar combo
+            </Button>
+          </div>
+          <div className="bg-white rounded-lg border">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Nome</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Tipo</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Preço</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Status</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {(Array.isArray(data?.combos) ? data.combos : []).map((c) => (
+                  <tr key={c.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 text-sm font-medium">{c.name}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500">{c.type || '-'}</td>
+                    <td className="px-4 py-3 text-sm font-medium">{formatCurrency(c.combo_price)}</td>
+                    <td className="px-4 py-3 text-sm">
+                      <Badge variant={c.is_active !== false ? 'default' : 'secondary'}>{c.is_active !== false ? 'Ativo' : 'Inativo'}</Badge>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditingCombo(c); setShowComboModal(true); }}>
+                        <Pencil className="w-4 h-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600" onClick={() => handleDeleteCombo(c)}>
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {(data.combos || []).length === 0 && (
+              <div className="px-4 py-8 text-center text-gray-500">Nenhum combo. Use &quot;Criar combo&quot; na aba Pratos ou aqui.</div>
+            )}
+          </div>
+        </TabsContent>
+
         <TabsContent value="orders" className="space-y-4">
           <div className="bg-white rounded-lg border">
             <table className="w-full">
@@ -602,7 +750,7 @@ export default function SubscriberDataViewer({ subscriber, onBack }) {
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {data.caixas.map((caixa) => (
+                {(data.caixas || []).map((caixa) => (
                   <tr key={caixa.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 text-sm">
                       {new Date(caixa.opening_date).toLocaleString('pt-BR')}
@@ -634,37 +782,123 @@ export default function SubscriberDataViewer({ subscriber, onBack }) {
         categoriesCount={(data.categories || []).length}
       />
 
-      {/* Modal Prato (suporte) */}
+      {/* Modal Prato (suporte) - experiência completa */}
       <Dialog open={dishFormOpen} onOpenChange={(open) => { if (!open) { setDishFormOpen(false); setEditingDish(null); } }}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingDish ? 'Editar prato' : 'Novo prato'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div>
-              <Label>Nome *</Label>
-              <Input value={dishForm.name} onChange={(e) => setDishForm(f => ({ ...f, name: e.target.value }))} placeholder="Ex: Alcatra" required />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Nome *</Label>
+                <Input value={dishForm.name} onChange={(e) => setDishForm(f => ({ ...f, name: e.target.value }))} placeholder="Ex: Alcatra" required />
+              </div>
+              <div>
+                <Label>Categoria *</Label>
+                <Select value={String(dishForm.category_id || '')} onValueChange={(v) => setDishForm(f => ({ ...f, category_id: v || null }))}>
+                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>
+                    {(data.categories || []).map(c => (
+                      <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div>
-              <Label>Categoria</Label>
-              <Select value={String(dishForm.category_id || '')} onValueChange={(v) => setDishForm(f => ({ ...f, category_id: v || null }))}>
-                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                <SelectContent>
-                  {(data.categories || []).map(c => (
-                    <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Preço de (R$) — original</Label>
+                <Input type="number" step="0.01" value={dishForm.original_price} onChange={(e) => setDishForm(f => ({ ...f, original_price: e.target.value }))} placeholder="Ex: 25,00" />
+              </div>
+              <div>
+                <Label>Por (R$) *</Label>
+                <Input type="number" step="0.01" value={dishForm.price} onChange={(e) => setDishForm(f => ({ ...f, price: e.target.value }))} placeholder="0,00" required />
+              </div>
             </div>
-            <div>
-              <Label>Preço (R$) *</Label>
-              <Input type="number" step="0.01" value={dishForm.price} onChange={(e) => setDishForm(f => ({ ...f, price: e.target.value }))} placeholder="0,00" required />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Estoque (vazio = ilimitado)</Label>
+                <Input type="number" value={dishForm.stock} onChange={(e) => setDishForm(f => ({ ...f, stock: e.target.value }))} placeholder="Ex: 10" />
+              </div>
+              <div>
+                <Label>Porção</Label>
+                <Input value={dishForm.portion} onChange={(e) => setDishForm(f => ({ ...f, portion: e.target.value }))} placeholder="Ex: 180g, 500ml" />
+              </div>
             </div>
             <div>
               <Label>Descrição</Label>
               <Textarea value={dishForm.description} onChange={(e) => setDishForm(f => ({ ...f, description: e.target.value }))} rows={2} placeholder="Opcional" />
             </div>
-            <div className="flex items-center justify-between">
+            <div>
+              <Label>Tempo de preparo (min)</Label>
+              <Input type="number" value={dishForm.prep_time} onChange={(e) => setDishForm(f => ({ ...f, prep_time: e.target.value }))} placeholder="Ex: 30" />
+            </div>
+            <div>
+              <Label>Observações internas (não visíveis ao cliente)</Label>
+              <Textarea value={dishForm.internal_notes} onChange={(e) => setDishForm(f => ({ ...f, internal_notes: e.target.value }))} rows={1} placeholder="Opcional" />
+            </div>
+
+            {/* Grupos de complementos — vincular ao prato */}
+            <div className="border rounded-lg p-4 bg-gray-50">
+              <Label className="mb-3 block">Grupos de complementos no prato</Label>
+              <p className="text-xs text-gray-500 mb-3">Marque os grupos que o cliente poderá escolher ao pedir este prato. Obrigatório = cliente deve escolher.</p>
+              {(data.complement_groups || []).length === 0 ? (
+                <p className="text-sm text-gray-500">Nenhum grupo. Crie na aba &quot;Grupos de Complementos&quot;.</p>
+              ) : (
+                <div className="space-y-2">
+                  {(data.complement_groups || []).map((g) => {
+                    const cg = (dishForm.complement_groups || []).find(c => String(c.group_id) === String(g.id));
+                    const checked = !!cg;
+                    return (
+                      <div key={g.id} className="flex items-center gap-3 flex-wrap">
+                        <Checkbox
+                          checked={checked}
+                          onCheckedChange={(v) => {
+                            if (v) {
+                              setDishForm(f => ({ ...f, complement_groups: [...(f.complement_groups || []), { group_id: g.id, is_required: false }] }));
+                            } else {
+                              setDishForm(f => ({ ...f, complement_groups: (f.complement_groups || []).filter(c => String(c.group_id) !== String(g.id)) }));
+                            }
+                          }}
+                        />
+                        <span className="text-sm font-medium">{g.name}</span>
+                        {checked && (
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-gray-500">Obrigatório</span>
+                            <Switch
+                              checked={!!cg?.is_required}
+                              onCheckedChange={(v) => setDishForm(f => ({
+                                ...f,
+                                complement_groups: (f.complement_groups || []).map(c =>
+                                  String(c.group_id) === String(g.id) ? { ...c, is_required: v } : c
+                                )
+                              }))}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
+                <Label className="text-sm">⭐ Destaque</Label>
+                <Switch checked={dishForm.is_highlight} onCheckedChange={(v) => setDishForm(f => ({ ...f, is_highlight: v }))} />
+              </div>
+              <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
+                <Label className="text-sm">✨ Novo</Label>
+                <Switch checked={dishForm.is_new} onCheckedChange={(v) => setDishForm(f => ({ ...f, is_new: v }))} />
+              </div>
+              <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
+                <Label className="text-sm">🔥 Mais vendido</Label>
+                <Switch checked={dishForm.is_popular} onCheckedChange={(v) => setDishForm(f => ({ ...f, is_popular: v }))} />
+              </div>
+            </div>
+            <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
               <Label>Ativo</Label>
               <Switch checked={dishForm.is_active} onCheckedChange={(v) => setDishForm(f => ({ ...f, is_active: v }))} />
             </div>
@@ -742,6 +976,26 @@ export default function SubscriberDataViewer({ subscriber, onBack }) {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Reordenar: categorias, pratos, grupos e complementos */}
+      <ReorderModal
+        isOpen={showReorderModal}
+        onClose={() => setShowReorderModal(false)}
+        categories={data.categories || []}
+        dishes={data.dishes || []}
+        complementGroups={data.complement_groups || []}
+        onSave={handleReorderSave}
+      />
+
+      {/* Combos */}
+      <ComboModal
+        key={editingCombo?.id ?? 'new'}
+        isOpen={showComboModal}
+        onClose={() => { setShowComboModal(false); setEditingCombo(null); }}
+        onSubmit={handleComboSubmit}
+        combo={editingCombo}
+        dishes={data.dishes || []}
+      />
     </div>
   );
 }
