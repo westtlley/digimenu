@@ -2,12 +2,14 @@ import React, { useState } from 'react';
 import { Loader2, Lock, LogOut, Menu, X, Store, Package, Receipt, Users, Settings, BarChart3, FileText, MapPin, Tag, Palette, CreditCard, Printer, MessageSquare, DollarSign } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
 import { apiClient as base44 } from '@/api/apiClient';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { usePermission } from '../components/permissions/usePermission';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
+import SharedSidebar from '../components/admin/SharedSidebar';
 import DashboardTab from '../components/admin/DashboardTab';
 import DishesTab from '../components/admin/DishesTab';
 import CategoriesTab from '../components/admin/CategoriesTab';
@@ -137,30 +139,14 @@ export default function PainelAssinante() {
     );
   }
 
-  const MENU_ITEMS = [
-    { id: 'dashboard', label: 'Dashboard', icon: BarChart3, module: 'dashboard' },
-    { id: 'pdv', label: 'PDV', icon: Package, module: 'pdv', link: 'PDV' },
-    { id: 'caixa', label: 'Caixa', icon: DollarSign, module: 'caixa' },
-    { id: 'orders', label: 'Pedidos', icon: Receipt, module: 'orders' },
-    { id: 'history', label: 'Histórico', icon: FileText, module: 'history' },
-    { id: 'clients', label: 'Clientes', icon: Users, module: 'clients' },
-    { id: 'financial', label: 'Financeiro', icon: DollarSign, module: 'financial' },
-    { id: 'dishes', label: 'Pratos', icon: Package, module: 'dishes' },
-    { id: 'categories', label: 'Categorias', icon: Tag, module: 'dishes' },
-    { id: 'complements', label: 'Complementos', icon: Package, module: 'dishes' },
-    { id: 'delivery_zones', label: 'Zonas', icon: MapPin, module: 'delivery_zones' },
-    { id: 'coupons', label: 'Cupons', icon: Tag, module: 'coupons' },
-    { id: 'promotions', label: 'Promoções', icon: Tag, module: 'promotions' },
-    { id: 'theme', label: 'Tema', icon: Palette, module: 'theme' },
-    { id: 'store', label: 'Loja', icon: Store, module: 'store' },
-    { id: 'payments', label: 'Pagamentos', icon: CreditCard, module: 'payments' },
-    { id: 'printer', label: 'Impressora', icon: Printer, module: 'printer' },
-    { id: 'whatsapp', label: 'WhatsApp', icon: MessageSquare, module: 'whatsapp' },
-  ];
-
-  const availableMenuItems = MENU_ITEMS.filter(item => 
-    !item.link && (isMaster || hasModuleAccess(item.module))
-  );
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  
+  // Buscar dados da loja para header
+  const { data: stores = [] } = useQuery({
+    queryKey: ['store'],
+    queryFn: () => base44.entities.Store.list(),
+  });
+  const store = stores[0];
 
   const renderContent = () => {
     switch (activeTab) {
@@ -205,24 +191,64 @@ export default function PainelAssinante() {
     }
   };
 
+  // Calcular dias restantes
+  const daysRemaining = subscriberData?.expires_at
+    ? Math.ceil((new Date(subscriberData.expires_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+    : null;
+
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
-      {/* Header */}
-      <header className="bg-gradient-to-r from-orange-600 to-orange-500 text-white flex-shrink-0 sticky top-0 z-50 shadow-lg">
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex flex-col">
+      {/* Header Profissional com Logo */}
+      <header className="bg-gradient-to-r from-orange-600 via-orange-500 to-orange-600 text-white flex-shrink-0 sticky top-0 z-50 shadow-lg">
         <div className="px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-1 min-w-0">
             <button
               onClick={() => setShowMobileSidebar(true)}
               className="lg:hidden p-2 hover:bg-white/10 rounded-lg transition"
             >
               <Menu className="w-5 h-5" />
             </button>
-            <Store className="w-6 h-6" />
-            <div>
-              <h1 className="font-bold text-lg">Meu Painel</h1>
-              <p className="text-xs text-orange-100">
-                {subscriberData?.plan && `Plano ${subscriberData.plan.charAt(0).toUpperCase() + subscriberData.plan.slice(1)}`}
-              </p>
+            
+            {/* Logo da Loja */}
+            {store?.logo ? (
+              <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 border-2 border-white/30 shadow-md">
+                <img 
+                  src={store.logo} 
+                  alt={store.name || 'Loja'} 
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                    if (e.target.nextSibling) {
+                      e.target.nextSibling.style.display = 'flex';
+                    }
+                  }}
+                />
+                <div className="w-full h-full bg-white/20 flex items-center justify-center hidden">
+                  <Store className="w-6 h-6 text-white" />
+                </div>
+              </div>
+            ) : (
+              <div className="w-10 h-10 rounded-lg bg-white/20 flex items-center justify-center flex-shrink-0 border-2 border-white/30">
+                <Store className="w-6 h-6 text-white" />
+              </div>
+            )}
+            
+            <div className="flex-1 min-w-0">
+              <h1 className="font-bold text-lg truncate">{store?.name || 'Meu Painel'}</h1>
+              <div className="flex items-center gap-2 flex-wrap">
+                {subscriberData?.plan && (
+                  <Badge className="bg-white/20 text-white text-[10px] px-1.5 py-0.5 border-white/30">
+                    Plano {subscriberData.plan.charAt(0).toUpperCase() + subscriberData.plan.slice(1)}
+                  </Badge>
+                )}
+                {daysRemaining !== null && (
+                  <Badge className={`text-[10px] px-1.5 py-0.5 ${
+                    daysRemaining <= 7 ? 'bg-red-500/80' : 'bg-green-500/80'
+                  } text-white border-0`}>
+                    {daysRemaining > 0 ? `${daysRemaining}d restantes` : 'Expirado'}
+                  </Badge>
+                )}
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
@@ -275,72 +301,28 @@ export default function PainelAssinante() {
 
       {/* Main Layout */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar */}
-        <aside
+        {/* Sidebar Profissional Categorizado */}
+        <div
           className={`
-            fixed lg:static inset-y-0 left-0 z-40 w-64 bg-white border-r
+            fixed lg:static inset-y-0 left-0 z-40
             transform transition-transform duration-300 ease-in-out
             ${showMobileSidebar ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
           `}
         >
-          <div className="h-full overflow-y-auto p-4">
-            <div className="lg:hidden flex items-center justify-between mb-4">
-              <h2 className="font-bold text-gray-900">Menu</h2>
-              <button
-                onClick={() => setShowMobileSidebar(false)}
-                className="p-2 hover:bg-gray-100 rounded-lg"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <nav className="space-y-1">
-              {availableMenuItems.map(item => {
-                const Icon = item.icon;
-                const isActive = activeTab === item.id;
-                
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => {
-                      setActiveTab(item.id);
-                      setShowMobileSidebar(false);
-                    }}
-                    className={`
-                      w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all
-                      ${isActive 
-                        ? 'bg-orange-500 text-white shadow-md' 
-                        : 'text-gray-700 hover:bg-gray-100'
-                      }
-                    `}
-                  >
-                    <Icon className="w-5 h-5" />
-                    <span className="font-medium">{item.label}</span>
-                  </button>
-                );
-              })}
-            </nav>
-
-            {/* Plan Info */}
-            <div className="mt-6 p-4 bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg border border-orange-200">
-              <p className="text-xs text-gray-600 mb-1">Seu Plano</p>
-              <p className="font-bold text-orange-700 capitalize">
-                {subscriberData?.plan || 'Basic'}
-              </p>
-              {subscriberData?.expires_at && (
-                <p className="text-xs text-gray-600 mt-2">
-                  Renovação: {(() => {
-                    const date = new Date(subscriberData.expires_at);
-                    const day = String(date.getDate()).padStart(2, '0');
-                    const month = String(date.getMonth() + 1).padStart(2, '0');
-                    const year = date.getFullYear();
-                    return `${day}/${month}/${year}`;
-                  })()}
-                </p>
-              )}
-            </div>
-          </div>
-        </aside>
+          <SharedSidebar
+            activeTab={activeTab}
+            setActiveTab={(tab) => {
+              setActiveTab(tab);
+              setShowMobileSidebar(false);
+            }}
+            isMaster={isMaster}
+            permissions={permissions}
+            collapsed={sidebarCollapsed}
+            setCollapsed={setSidebarCollapsed}
+            onClose={() => setShowMobileSidebar(false)}
+            showStoreLogo={true}
+          />
+        </div>
 
         {/* Content */}
         <main className="flex-1 overflow-y-auto bg-gray-50">

@@ -28,6 +28,7 @@ import ErrorBoundary from '../components/ErrorBoundary';
 import { Link, useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { usePermission } from '../components/permissions/usePermission';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
 
 function AccessDenied() {
   return (
@@ -48,10 +49,18 @@ export default function Admin() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   
   // ✅ FONTE ÚNICA DE VERDADE - usePermission
   const { loading, permissions, isMaster, hasModuleAccess, user, subscriberData, canCreate, canUpdate, canDelete, canView } = usePermission();
   const { isDark, toggleTheme } = useTheme();
+  
+  // Buscar dados da loja para header
+  const { data: stores = [] } = useQuery({
+    queryKey: ['store'],
+    queryFn: () => base44.entities.Store.list(),
+  });
+  const store = stores[0];
 
   // TODOS OS HOOKS DEVEM VIR ANTES DE QUALQUER RETURN CONDICIONAL
   // Debug: Log para verificar o estado
@@ -281,19 +290,47 @@ export default function Admin() {
   try {
     return (
       <div className="min-h-screen flex flex-col bg-gray-100 dark:bg-gray-900">
-      {/* Header */}
-      <header className="text-white flex-shrink-0 sticky top-0 z-50 bg-gray-800 border-b border-gray-700">
+      {/* Header Profissional com Logo */}
+      <header className="text-white flex-shrink-0 sticky top-0 z-50 bg-gradient-to-r from-gray-800 via-gray-900 to-gray-800 border-b border-gray-700 shadow-lg">
         <div className="px-3 sm:px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3 flex-1 min-w-0">
             <button
               onClick={() => setShowMobileSidebar(true)}
-              className="lg:hidden p-1.5 rounded-lg transition-colors"
-              style={{ backgroundColor: isDark ? '#2a2a2a' : '#f3f4f6' }}
+              className="lg:hidden p-1.5 rounded-lg transition-colors hover:bg-white/10"
             >
               <Menu className="w-5 h-5" />
             </button>
-            <Settings className="w-5 h-5 hidden sm:block" />
-            <h1 className="font-semibold text-sm sm:text-base" style={{ color: 'var(--text-primary)' }}>Painel Admin</h1>
+            
+            {/* Logo da Loja */}
+            {store?.logo ? (
+              <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 border-2 border-white/20 shadow-md">
+                <img 
+                  src={store.logo} 
+                  alt={store.name || 'Loja'} 
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                    if (e.target.nextSibling) {
+                      e.target.nextSibling.style.display = 'flex';
+                    }
+                  }}
+                />
+                <div className="w-full h-full bg-white/20 flex items-center justify-center hidden">
+                  <Settings className="w-6 h-6 text-white" />
+                </div>
+              </div>
+            ) : (
+              <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0 border-2 border-white/20">
+                <Settings className="w-6 h-6 text-white" />
+              </div>
+            )}
+            
+            <div className="flex-1 min-w-0">
+              <h1 className="font-semibold text-sm sm:text-base truncate">
+                {store?.name || 'Painel Admin'}
+              </h1>
+              <p className="text-xs text-gray-300 truncate">Administração Master</p>
+            </div>
           </div>
           <div className="flex items-center gap-1 sm:gap-2">
             <ThemeToggle className="text-white hover:bg-gray-700" />

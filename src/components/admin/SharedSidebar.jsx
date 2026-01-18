@@ -1,8 +1,5 @@
 import React, { useState } from 'react';
 import { cn } from "@/lib/utils";
-import { usePermission } from '../permissions/usePermission';
-import { useQuery } from '@tanstack/react-query';
-import { apiClient as base44 } from '@/api/apiClient';
 import { 
   UtensilsCrossed, 
   Ticket, 
@@ -20,20 +17,27 @@ import {
   History,
   Home,
   Users,
-  ShoppingCart,
   Wallet,
   MessageCircle,
   Settings,
-  QrCode,
-  Clock,
   TrendingUp,
   BarChart3,
   Layers,
-  Plus,
   Grid3x3,
-  Pizza
+  Pizza,
+  Package,
+  FileText,
+  Receipt,
+  QrCode,
+  Sparkles
 } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { apiClient as base44 } from '@/api/apiClient';
 
+/**
+ * Estrutura de menu padronizada e profissional
+ * Categorias organizadas logicamente
+ */
 const MENU_STRUCTURE = [
   // 📊 GESTÃO
   {
@@ -104,7 +108,16 @@ const MENU_STRUCTURE = [
   }
 ];
 
-export default function AdminSidebar({ activeTab, setActiveTab, isMaster = false, permissions = {}, collapsed, setCollapsed, onClose }) {
+export default function SharedSidebar({ 
+  activeTab, 
+  setActiveTab, 
+  isMaster = false, 
+  permissions = {}, 
+  collapsed, 
+  setCollapsed, 
+  onClose,
+  showStoreLogo = true
+}) {
   const [expandedGroups, setExpandedGroups] = useState({
     gestao: true,
     operacao: true,
@@ -113,7 +126,15 @@ export default function AdminSidebar({ activeTab, setActiveTab, isMaster = false
     sistema: true
   });
 
-  // ✅ CORREÇÃO: Blindado com Array.isArray
+  // Buscar dados da loja para mostrar logo
+  const { data: stores = [] } = useQuery({
+    queryKey: ['store'],
+    queryFn: () => base44.entities.Store.list(),
+    enabled: showStoreLogo,
+  });
+
+  const store = stores[0];
+
   const hasModuleAccess = (module) => {
     if (isMaster) return true;
     if (!permissions || typeof permissions !== 'object') return false;
@@ -121,7 +142,6 @@ export default function AdminSidebar({ activeTab, setActiveTab, isMaster = false
     const modulePerms = permissions[module];
     return Array.isArray(modulePerms) && modulePerms.length > 0;
   };
-
 
   const toggleGroup = (groupId) => {
     setExpandedGroups(prev => ({
@@ -131,10 +151,16 @@ export default function AdminSidebar({ activeTab, setActiveTab, isMaster = false
   };
 
   const renderMenuItem = (item, isSubmenu = false) => {
-    if (item.masterOnly && !isMaster) return null;
-    
-    // Verificar acesso ao módulo baseado em permissões (submenu tem module, grupo verifica depois)
-    if (item.module && !hasModuleAccess(item.module)) return null;
+    // Verificar acesso ao módulo baseado em permissões
+    if (!item.module || !hasModuleAccess(item.module)) {
+      if (item.submenu) {
+        // Se é um grupo, verificar se algum submenu tem acesso
+        const hasAnyAccess = item.submenu.some(sub => hasModuleAccess(sub.module));
+        if (!hasAnyAccess) return null;
+      } else {
+        return null;
+      }
+    }
 
     const Icon = item.icon;
     const isActive = activeTab === item.id;
@@ -143,12 +169,10 @@ export default function AdminSidebar({ activeTab, setActiveTab, isMaster = false
     if (item.section === 'section' && item.submenu) {
       const isExpanded = expandedGroups[item.id];
       
-      // Filtrar submenus baseado em permissões (submenus têm module, não id para permissões)
-      const visibleSubmenu = item.submenu.filter(subItem => {
-        if (!subItem.module) return true; // Se não tem module definido, mostrar sempre (master only)
-        return hasModuleAccess(subItem.module);
-      });
-
+      // Filtrar submenus baseado em permissões
+      const visibleSubmenu = item.submenu.filter(subItem => 
+        subItem.module && hasModuleAccess(subItem.module)
+      );
       
       // Se nenhum submenu visível, não mostrar o grupo
       if (visibleSubmenu.length === 0) return null;
@@ -159,7 +183,7 @@ export default function AdminSidebar({ activeTab, setActiveTab, isMaster = false
             onClick={() => toggleGroup(item.id)}
             className={cn(
               "w-full flex items-center justify-between gap-2 px-2 py-2 text-xs font-bold transition-colors",
-              "text-gray-500 hover:text-gray-300 uppercase tracking-wider"
+              "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 uppercase tracking-wider"
             )}
           >
             {!collapsed && <span>{item.label}</span>}
@@ -178,7 +202,7 @@ export default function AdminSidebar({ activeTab, setActiveTab, isMaster = false
           )}
           
           {collapsed && (
-            <div className="h-px my-2 mx-2" style={{ backgroundColor: 'var(--border-color)' }} />
+            <div className="h-px my-2 mx-2 bg-gray-200 dark:bg-gray-700" />
           )}
         </div>
       );
@@ -192,44 +216,21 @@ export default function AdminSidebar({ activeTab, setActiveTab, isMaster = false
           if (onClose) onClose();
         }}
         className={cn(
-          "w-full flex items-center gap-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
-          indent
+          "w-full flex items-center gap-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
+          indent,
+          isActive 
+            ? "bg-orange-500 text-white shadow-md" 
+            : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
         )}
-        style={isActive ? { 
-          backgroundColor: '#f97316', 
-          color: '#ffffff' 
-        } : { 
-          color: 'var(--text-secondary)' 
-        }}
-        onMouseEnter={(e) => {
-          if (!isActive) {
-            e.currentTarget.style.backgroundColor = 'var(--bg-tertiary)';
-            e.currentTarget.style.color = 'var(--text-primary)';
-          }
-        }}
-        onMouseLeave={(e) => {
-          if (!isActive) {
-            e.currentTarget.style.backgroundColor = 'transparent';
-            e.currentTarget.style.color = 'var(--text-secondary)';
-          }
-        }}
       >
         <Icon className={cn(
           "w-4 h-4 flex-shrink-0",
-          isActive ? "text-white" : "text-gray-500"
+          isActive ? "text-white" : "text-gray-500 dark:text-gray-400"
         )} />
         {!collapsed && <span className="truncate">{item.label}</span>}
       </button>
     );
   };
-
-  // Buscar dados da loja para mostrar logo
-  const { data: stores = [] } = useQuery({
-    queryKey: ['store'],
-    queryFn: () => base44.entities.Store.list(),
-  });
-
-  const store = stores[0];
 
   return (
     <aside className={cn(
@@ -238,9 +239,9 @@ export default function AdminSidebar({ activeTab, setActiveTab, isMaster = false
     )}>
       {/* Header do Sidebar com Logo */}
       <div className="p-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-        {!collapsed && store?.logo && (
+        {!collapsed && showStoreLogo && store?.logo && (
           <div className="flex items-center gap-2 flex-1 min-w-0">
-            <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 border border-gray-200 dark:border-gray-700 shadow-sm">
+            <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 border border-gray-200 dark:border-gray-700">
               <img 
                 src={store.logo} 
                 alt={store.name || 'Loja'} 
@@ -261,7 +262,7 @@ export default function AdminSidebar({ activeTab, setActiveTab, isMaster = false
                 {store.name || 'Minha Loja'}
               </p>
               <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
-                Admin Master
+                Painel Admin
               </p>
             </div>
           </div>
@@ -285,9 +286,31 @@ export default function AdminSidebar({ activeTab, setActiveTab, isMaster = false
         </div>
       </div>
       
+      {/* Menu de Navegação */}
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
         {MENU_STRUCTURE.map(item => renderMenuItem(item))}
       </nav>
+
+      {/* Footer do Sidebar - Informações da Loja */}
+      {!collapsed && store && (
+        <div className="p-3 border-t border-gray-200 dark:border-gray-700">
+          <div className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 rounded-lg p-3 border border-orange-200 dark:border-orange-800">
+            <div className="flex items-center gap-2 mb-2">
+              <Sparkles className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+              <p className="text-xs font-semibold text-orange-900 dark:text-orange-200">Status da Loja</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className={cn(
+                "w-2 h-2 rounded-full",
+                store.is_open ? "bg-green-500" : "bg-red-500"
+              )} />
+              <p className="text-xs text-orange-700 dark:text-orange-300">
+                {store.is_open ? 'Aberta' : 'Fechada'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </aside>
   );
 }
