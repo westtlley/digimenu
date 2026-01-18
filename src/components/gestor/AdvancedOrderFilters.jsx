@@ -101,7 +101,7 @@ export default function AdvancedOrderFilters({
   React.useEffect(() => {
     applyFilters(filters);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orders.length, searchTerm]);
+  }, [orders.length, searchTerm, filters.status, filters.period]);
 
   return (
     <div className="flex items-center gap-2 flex-wrap">

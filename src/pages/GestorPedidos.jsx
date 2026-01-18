@@ -182,10 +182,11 @@ export default function GestorPedidos() {
 
   // Inicializar filteredOrders com baseFilteredOrders quando necessário
   useEffect(() => {
-    if (filteredOrders.length === 0 || searchTerm === '') {
+    // Apenas inicializar se não houver filtros ativos
+    if (!searchTerm && filteredOrders.length === 0) {
       setFilteredOrders(baseFilteredOrders);
     }
-  }, [baseFilteredOrders, searchTerm]);
+  }, [baseFilteredOrders]);
 
   const handleFilterChange = (filtered) => {
     setFilteredOrders(filtered);
