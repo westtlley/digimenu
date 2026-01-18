@@ -1427,8 +1427,18 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
         
         let subscriber = null;
         if (usePostgreSQL) {
-          subscriber = await repo.updateSubscriber(data.id || data.email, data);
+          // Passar ID se disponível, senão email
+          const identifier = data.id || data.email;
+          if (!identifier) {
+            return res.status(400).json({ error: 'ID ou email do assinante é obrigatório' });
+          }
+          subscriber = await repo.updateSubscriber(identifier, data);
           console.log('✅ [updateSubscriber] Assinante atualizado no PostgreSQL:', subscriber?.id);
+          
+          if (!subscriber) {
+            console.error('❌ [updateSubscriber] Assinante não encontrado no PostgreSQL com:', identifier);
+            return res.status(404).json({ error: 'Assinante não encontrado' });
+          }
         } else {
           if (!db || !db.subscribers) {
             throw new Error('Banco de dados não inicializado');

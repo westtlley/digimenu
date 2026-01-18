@@ -447,7 +447,7 @@ export async function createSubscriber(subscriberData) {
   }
 }
 
-export async function updateSubscriber(email, subscriberData) {
+export async function updateSubscriber(emailOrId, subscriberData) {
   const updates = [];
   const values = [];
   let paramIndex = 1;
@@ -478,20 +478,40 @@ export async function updateSubscriber(email, subscriberData) {
   }
 
   if (updates.length === 0) {
-    return await getSubscriberByEmail(email);
+    // Se não há updates, apenas retornar o assinante
+    // Tentar por email primeiro, depois por ID
+    const byEmail = await getSubscriberByEmail(emailOrId);
+    if (byEmail) return byEmail;
+    
+    const result = await query('SELECT * FROM subscribers WHERE id = $1', [emailOrId]);
+    return result.rows[0] || null;
   }
 
   updates.push(`updated_at = CURRENT_TIMESTAMP`);
-  values.push(email);
+  values.push(emailOrId);
 
-  const sql = `
+  // Tentar atualizar por email primeiro
+  let sql = `
     UPDATE subscribers
     SET ${updates.join(', ')}
     WHERE email = $${paramIndex}
     RETURNING *
   `;
 
-  const result = await query(sql, values);
+  let result = await query(sql, values);
+  
+  // Se não encontrou por email, tentar por ID
+  if (result.rows.length === 0) {
+    values[values.length - 1] = emailOrId; // Substituir o último valor
+    sql = `
+      UPDATE subscribers
+      SET ${updates.join(', ')}
+      WHERE id = $${paramIndex}
+      RETURNING *
+    `;
+    result = await query(sql, values);
+  }
+
   return result.rows[0] || null;
 }
 
