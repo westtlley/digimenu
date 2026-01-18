@@ -1336,9 +1336,6 @@ export default function Assinantes() {
               </div>
             </div>
           </TooltipProvider>
-            
-
-          </div>
           
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowAddModal(false)}>
