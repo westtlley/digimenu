@@ -1703,6 +1703,7 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
         
         let dishes = [];
         let categories = [];
+        let complement_groups = [];
         let orders = [];
         let caixas = [];
         let store = null;
@@ -1711,6 +1712,7 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
           const se = subscriber.email;
           dishes = await repo.listEntitiesForSubscriber('Dish', se, null);
           categories = await repo.listEntitiesForSubscriber('Category', se, 'order');
+          complement_groups = await repo.listEntitiesForSubscriber('ComplementGroup', se, 'order');
           orders = await repo.listEntitiesForSubscriber('Order', se, '-created_date');
           caixas = await repo.listEntitiesForSubscriber('Caixa', se, null);
           const stores = await repo.listEntitiesForSubscriber('Store', se, null);
@@ -1719,6 +1721,7 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
           // JSON - buscar entidades com filtro por owner_email
           dishes = (db.entities.Dish || []).filter(e => e.owner_email === subscriber.email || !e.owner_email);
           categories = (db.entities.Category || []).filter(e => e.owner_email === subscriber.email || !e.owner_email);
+          complement_groups = (db.entities.ComplementGroup || []).filter(e => e.owner_email === subscriber.email || !e.owner_email);
           orders = (db.entities.Order || []).filter(e => e.owner_email === subscriber.email || e.customer_email === subscriber.email || !e.owner_email);
           caixas = (db.entities.Caixa || []).filter(e => e.owner_email === subscriber.email || !e.owner_email);
           const stores = (db.entities.Store || []).filter(e => e.owner_email === subscriber.email || !e.owner_email);
@@ -1741,7 +1744,7 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
         });
         
         return res.json({
-          data: { dishes, categories, orders, caixas, store },
+          data: { dishes, categories, complement_groups, orders, caixas, store },
           stats,
           subscriber
         });
