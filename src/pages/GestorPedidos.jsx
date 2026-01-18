@@ -27,7 +27,17 @@ export default function GestorPedidos() {
   const [activeTab, setActiveTab] = useState('now'); // now, scheduled
   const [viewMode, setViewMode] = useState('kanban'); // kanban, delivery, settings
   const [selectedOrder, setSelectedOrder] = useState(null);
-  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [soundEnabled, setSoundEnabled] = useState(() => {
+    try {
+      const saved = localStorage.getItem('gestor_notification_config');
+      if (saved) {
+        const config = JSON.parse(saved);
+        return config.soundEnabled !== false;
+      }
+    } catch (e) {}
+    return true;
+  });
+  const [notificationConfig, setNotificationConfig] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredOrders, setFilteredOrders] = useState([]);
   const [user, setUser] = useState(null);
@@ -109,17 +119,50 @@ export default function GestorPedidos() {
     queryFn: () => base44.entities.Store.list(),
   });
 
-  // Play sound for new orders
+  // Carregar configurações de notificação
   useEffect(() => {
+    try {
+      const saved = localStorage.getItem('gestor_notification_config');
+      if (saved) {
+        const config = JSON.parse(saved);
+        setNotificationConfig(config);
+        setSoundEnabled(config.soundEnabled !== false);
+      }
+    } catch (e) {
+      console.error('Erro ao carregar configurações de notificação:', e);
+    }
+  }, []);
+
+  // Verificar mudanças de status e notificar conforme configuração
+  useEffect(() => {
+    if (!notificationConfig || orders.length === 0) return;
+
+    const statusCounts = {};
+    orders.forEach(order => {
+      statusCounts[order.status] = (statusCounts[order.status] || 0) + 1;
+    });
+
+    // Notificar apenas se configurado para o status específico
+    const shouldNotify = (status) => {
+      return notificationConfig.notifyOnStatus?.[status] !== false;
+    };
+
+    // Notificar novos pedidos
     const newOrders = orders.filter(o => o.status === 'new');
-    if (newOrders.length > prevOrderCountRef.current && soundEnabled && newOrders.length > 0) {
-      playNotificationSound();
+    if (newOrders.length > prevOrderCountRef.current && shouldNotify('new') && newOrders.length > 0) {
+      if (soundEnabled && notificationConfig.soundEnabled !== false) {
+        playNotificationSound();
+      }
+      
       // Vibrar se disponível
       if (navigator.vibrate) {
         navigator.vibrate([200, 100, 200]);
       }
+      
       // Show browser notification
-      if ('Notification' in window && Notification.permission === 'granted') {
+      if (notificationConfig.browserNotificationEnabled !== false &&
+          'Notification' in window && 
+          Notification.permission === 'granted') {
         new Notification('Novo Pedido!', {
           body: `${newOrders.length} novo(s) pedido(s) recebido(s)`,
           icon: '/favicon.ico',
@@ -128,7 +171,7 @@ export default function GestorPedidos() {
       }
     }
     prevOrderCountRef.current = newOrders.length;
-  }, [orders, soundEnabled]);
+  }, [orders, soundEnabled, notificationConfig]);
 
   // Auto-cancel late orders
   useEffect(() => {

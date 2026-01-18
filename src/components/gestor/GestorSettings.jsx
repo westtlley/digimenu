@@ -12,6 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import NotificationSettings from './NotificationSettings';
+import NotificationConfig from './NotificationConfig';
 
 export default function GestorSettings() {
   const [settings, setSettings] = useState({
@@ -200,6 +201,9 @@ export default function GestorSettings() {
             <h3 className="font-semibold text-base mb-3 flex items-center gap-2 text-gray-900">
               <Bell className="w-4 h-4" /> Notificações
             </h3>
+            <NotificationConfig darkMode={false} />
+          </div>
+          <div className="mt-4">
             <NotificationSettings />
           </div>
         </div>
