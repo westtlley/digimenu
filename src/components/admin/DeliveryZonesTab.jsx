@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
@@ -6,18 +6,50 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, Trash2, MapPin } from 'lucide-react';
 import EmptyState from '@/components/ui/EmptyState';
+import { toast } from 'sonner';
 
 export default function DeliveryZonesTab() {
   const [showModal, setShowModal] = useState(false);
-  const [formData, setFormData] = useState({
-    neighborhood: '',
-    fee: '',
-    is_active: true,
+  const [formData, setFormData] = useState({ neighborhood: '', fee: '', is_active: true });
+
+  const [deliveryConfig, setDeliveryConfig] = useState({
+    delivery_fee_mode: 'zone',
+    delivery_fee: 0,
+    min_order_value: 0,
+    latitude: null, longitude: null,
+    delivery_base_fee: 0, delivery_price_per_km: 0,
+    delivery_min_fee: 0, delivery_max_fee: null, delivery_free_distance: null,
   });
 
   const queryClient = useQueryClient();
+
+  const { data: stores = [] } = useQuery({ queryKey: ['store'], queryFn: () => base44.entities.Store.list() });
+  const store = stores[0];
+
+  useEffect(() => {
+    if (store) {
+      setDeliveryConfig({
+        delivery_fee_mode: store.delivery_fee_mode || 'zone',
+        delivery_fee: store.delivery_fee || 0,
+        min_order_value: store.min_order_value || store.min_order_price || 0,
+        latitude: store.latitude || null, longitude: store.longitude || null,
+        delivery_base_fee: store.delivery_base_fee || 0, delivery_price_per_km: store.delivery_price_per_km || 0,
+        delivery_min_fee: store.delivery_min_fee || 0, delivery_max_fee: store.delivery_max_fee ?? null, delivery_free_distance: store.delivery_free_distance ?? null,
+      });
+    }
+  }, [store]);
+
+  const updateStoreMutation = useMutation({
+    mutationFn: ({ data }) => base44.entities.Store.update(store.id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['store'] });
+      toast.success('Configuração de entrega salva');
+    },
+    onError: (e) => toast.error(e?.message || 'Erro ao salvar'),
+  });
 
   const { data: zones = [] } = useQuery({
     queryKey: ['deliveryZones'],
@@ -72,11 +104,58 @@ export default function DeliveryZonesTab() {
   };
 
   return (
-    <div className="p-4 sm:p-6">
-      <div className="flex justify-between items-center mb-6">
+    <div className="p-4 sm:p-6 space-y-6">
+      {/* Configuração de entrega (taxa, pedido mínimo, modo zona/distância) */}
+      {store && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Configuração de entrega</CardTitle>
+            <CardDescription>Modo de cálculo, taxa padrão e pedido mínimo. Taxas por bairro abaixo.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label className="mb-2 block">Modo de cálculo</Label>
+              <div className="flex gap-2">
+                <Button type="button" variant={deliveryConfig.delivery_fee_mode === 'zone' ? 'default' : 'outline'} size="sm" onClick={() => setDeliveryConfig(c=>({...c, delivery_fee_mode: 'zone'}))}>Por zona/bairro</Button>
+                <Button type="button" variant={deliveryConfig.delivery_fee_mode === 'distance' ? 'default' : 'outline'} size="sm" onClick={() => setDeliveryConfig(c=>({...c, delivery_fee_mode: 'distance'}))}>Por distância (km)</Button>
+              </div>
+            </div>
+            {deliveryConfig.delivery_fee_mode === 'zone' && (
+              <div>
+                <Label>Taxa padrão (R$)</Label>
+                <Input type="number" step="0.01" value={deliveryConfig.delivery_fee} onChange={e=>setDeliveryConfig(c=>({...c, delivery_fee: parseFloat(e.target.value)||0}))} />
+              </div>
+            )}
+            {deliveryConfig.delivery_fee_mode === 'distance' && (
+              <>
+                <div className="grid grid-cols-2 gap-2">
+                  <div><Label>Latitude</Label><Input type="number" step="0.000001" value={deliveryConfig.latitude||''} onChange={e=>setDeliveryConfig(c=>({...c, latitude: e.target.value?parseFloat(e.target.value):null}))} placeholder="-5.08" /></div>
+                  <div><Label>Longitude</Label><Input type="number" step="0.000001" value={deliveryConfig.longitude||''} onChange={e=>setDeliveryConfig(c=>({...c, longitude: e.target.value?parseFloat(e.target.value):null}))} placeholder="-42.80" /></div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div><Label>Taxa base (R$)</Label><Input type="number" step="0.01" value={deliveryConfig.delivery_base_fee} onChange={e=>setDeliveryConfig(c=>({...c, delivery_base_fee: parseFloat(e.target.value)||0}))} /></div>
+                  <div><Label>R$ por km</Label><Input type="number" step="0.01" value={deliveryConfig.delivery_price_per_km} onChange={e=>setDeliveryConfig(c=>({...c, delivery_price_per_km: parseFloat(e.target.value)||0}))} /></div>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div><Label>Taxa mín (R$)</Label><Input type="number" step="0.01" value={deliveryConfig.delivery_min_fee} onChange={e=>setDeliveryConfig(c=>({...c, delivery_min_fee: parseFloat(e.target.value)||0}))} /></div>
+                  <div><Label>Taxa máx (R$)</Label><Input type="number" step="0.01" value={deliveryConfig.delivery_max_fee??''} onChange={e=>setDeliveryConfig(c=>({...c, delivery_max_fee: e.target.value?parseFloat(e.target.value):null}))} /></div>
+                  <div><Label>Grátis até (km)</Label><Input type="number" step="0.1" value={deliveryConfig.delivery_free_distance??''} onChange={e=>setDeliveryConfig(c=>({...c, delivery_free_distance: e.target.value?parseFloat(e.target.value):null}))} /></div>
+                </div>
+              </>
+            )}
+            <div>
+              <Label>Pedido mínimo (R$)</Label>
+              <Input type="number" step="0.01" value={deliveryConfig.min_order_value} onChange={e=>setDeliveryConfig(c=>({...c, min_order_value: parseFloat(e.target.value)||0}))} />
+            </div>
+            <Button onClick={()=>updateStoreMutation.mutate({data: deliveryConfig})} disabled={updateStoreMutation.isPending}>Salvar configuração</Button>
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="flex justify-between items-center">
         <div>
           <h2 className="text-lg font-bold">Zonas de Entrega</h2>
-          <p className="text-sm text-gray-500">Defina taxas de entrega por bairro</p>
+          <p className="text-sm text-gray-500">Taxas por bairro</p>
         </div>
         <Button onClick={() => setShowModal(true)} className="bg-orange-500 hover:bg-orange-600">
           <Plus className="w-4 h-4 mr-2" />

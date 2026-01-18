@@ -254,7 +254,9 @@ export default function SubscriberDataViewer({ subscriber, onBack }) {
         await base44.entities.Category.update(cat.id, { order: cat.order }, opts);
       }
       for (const dish of updates.dishes || []) {
-        await base44.entities.Dish.update(dish.id, { order: dish.order }, opts);
+        const payload = { order: dish.order };
+        if (Array.isArray(dish.complement_groups)) payload.complement_groups = dish.complement_groups;
+        await base44.entities.Dish.update(dish.id, payload, opts);
       }
       for (const group of updates.groups || []) {
         await base44.entities.ComplementGroup.update(group.id, { order: group.order }, opts);

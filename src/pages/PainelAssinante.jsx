@@ -142,6 +142,8 @@ export default function PainelAssinante() {
         return hasModuleAccess('dishes') ? <CategoriesTab /> : <AccessDenied />;
       case 'complements':
         return hasModuleAccess('dishes') ? <ComplementsTab /> : <AccessDenied />;
+      case 'pizza_config':
+        return hasModuleAccess('pizza_config') ? <PizzaConfigTab /> : <AccessDenied />;
       case 'delivery_zones':
         return hasModuleAccess('delivery_zones') ? <DeliveryZonesTab /> : <AccessDenied />;
       case 'coupons':

@@ -226,9 +226,9 @@ export default function Admin() {
           </div>
         );
       case 'categories':
-        return hasModuleAccess('categories') ? <CategoriesTab /> : <AccessDenied />;
+        return hasModuleAccess('dishes') ? <CategoriesTab /> : <AccessDenied />;
       case 'complements':
-        return hasModuleAccess('complements') ? <ComplementsTab /> : <AccessDenied />;
+        return hasModuleAccess('dishes') ? <ComplementsTab /> : <AccessDenied />;
       case 'pizza_config':
         return hasModuleAccess('pizza_config') ? <PizzaConfigTab /> : <AccessDenied />;
       case 'delivery_zones':

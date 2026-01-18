@@ -66,16 +66,18 @@ const MENU_STRUCTURE = [
     ]
   },
 
-  // 🍔 CARDÁPIO
+  // CARDÁPIO: Restaurante (Pratos, Categorias, Complementos), Pizzas, Promoções, Cupons
   {
     id: 'cardapio',
-    label: '🍔 CARDÁPIO',
+    label: 'CARDÁPIO',
     icon: UtensilsCrossed,
     section: 'section',
     submenu: [
-      { id: 'dishes', label: 'Pratos', icon: UtensilsCrossed, module: 'dishes' },
-      { id: 'categories', label: 'Categorias', icon: Layers, module: 'dishes' },
-      { id: 'complements', label: 'Complementos', icon: Grid3x3, module: 'dishes' },
+      { id: 'restaurante_grp', label: 'Restaurante', icon: UtensilsCrossed, section: 'subsection', submenu: [
+        { id: 'dishes', label: 'Restaurante', icon: UtensilsCrossed, module: 'dishes' },
+        { id: 'categories', label: 'Categorias', icon: Layers, module: 'dishes' },
+        { id: 'complements', label: 'Complementos', icon: Grid3x3, module: 'dishes' },
+      ]},
       { id: 'pizza_config', label: 'Pizzas', icon: Pizza, module: 'pizza_config' },
       { id: 'promotions', label: 'Promoções', icon: Megaphone, module: 'promotions' },
       { id: 'coupons', label: 'Cupons', icon: Ticket, module: 'coupons' },
@@ -123,6 +125,7 @@ export default function SharedSidebar({
     gestao: true,
     operacao: true,
     cardapio: true,
+    restaurante_grp: true,
     delivery: true,
     sistema: true
   });
@@ -145,67 +148,71 @@ export default function SharedSidebar({
   };
 
   const toggleGroup = (groupId) => {
-    setExpandedGroups(prev => ({
-      ...prev,
-      [groupId]: !prev[groupId]
-    }));
+    setExpandedGroups(prev => ({ ...prev, [groupId]: !prev[groupId] }));
+  };
+
+  const hideDishesBasicPizzas = (sub) =>
+    plan === 'basic' && sub.id === 'dishes' && hasModuleAccess('pizza_config');
+
+  const getLeafItems = (it) => {
+    if (!it.submenu) return [];
+    return it.submenu.flatMap(s =>
+      s.section === 'subsection'
+        ? (s.submenu || []).filter(x => x.module && hasModuleAccess(x.module) && !hideDishesBasicPizzas(x))
+        : (s.module && hasModuleAccess(s.module) && !hideDishesBasicPizzas(s) ? [s] : [])
+    );
   };
 
   const renderMenuItem = (item, isSubmenu = false) => {
-    // Verificar acesso ao módulo baseado em permissões
-    if (!item.module || !hasModuleAccess(item.module)) {
-      if (item.submenu) {
-        // Se é um grupo, verificar se algum submenu tem acesso
-        const hasAnyAccess = item.submenu.some(sub => hasModuleAccess(sub.module));
-        if (!hasAnyAccess) return null;
-      } else {
-        return null;
-      }
-    }
+    if (item.module && !hasModuleAccess(item.module)) {
+      if (!item.submenu) return null;
+      const hasAny = item.submenu.some(s => s.section === 'subsection' ? (s.submenu || []).some(x => x.module && hasModuleAccess(x.module)) : (s.module && hasModuleAccess(s.module)));
+      if (!hasAny) return null;
+    } else if (!item.module && !item.submenu) return null;
 
     const Icon = item.icon;
     const isActive = activeTab === item.id;
     const indent = isSubmenu ? 'pl-6' : 'pl-3';
+    const isSectionOrSub = (item.section === 'section' || item.section === 'subsection') && item.submenu;
 
-    if (item.section === 'section' && item.submenu) {
+    if (isSectionOrSub) {
       const isExpanded = expandedGroups[item.id];
-      
-      // Filtrar submenus: permissões e, no Basic com Pizzas, ocultar Pratos
-      const visibleSubmenu = item.submenu.filter(subItem => {
-        if (!subItem.module || !hasModuleAccess(subItem.module)) return false;
-        if (plan === 'basic' && subItem.id === 'dishes' && hasModuleAccess('pizza_config')) return false;
-        return true;
+      const visibleSubmenu = item.submenu.filter(sub => {
+        if (sub.section === 'subsection')
+          return (sub.submenu || []).some(s => s.module && hasModuleAccess(s.module) && !hideDishesBasicPizzas(s));
+        return sub.module && hasModuleAccess(sub.module) && !hideDishesBasicPizzas(sub);
       });
-      
-      // Se nenhum submenu visível, não mostrar o grupo
       if (visibleSubmenu.length === 0) return null;
-      
+
       return (
         <div key={item.id} className="mb-4">
           <button
             onClick={() => toggleGroup(item.id)}
             className={cn(
               "w-full flex items-center justify-between gap-2 px-2 py-2 text-xs font-bold transition-colors",
-              "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 uppercase tracking-wider"
+              item.section === 'subsection' ? "text-gray-600 hover:text-gray-800 dark:text-gray-300" : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 uppercase tracking-wider"
             )}
           >
             {!collapsed && <span>{item.label}</span>}
-            {!collapsed && (
-              <ChevronDown className={cn(
-                "w-3 h-3 transition-transform",
-                isExpanded ? "transform rotate-180" : ""
-              )} />
-            )}
+            {!collapsed && <ChevronDown className={cn("w-3 h-3 transition-transform", isExpanded ? "transform rotate-180" : "")} />}
           </button>
-          
           {!collapsed && isExpanded && (
             <div className="mt-1 space-y-0.5">
-              {visibleSubmenu.map(subItem => renderMenuItem(subItem, true))}
+              {visibleSubmenu.map(sub => renderMenuItem(sub, true))}
             </div>
           )}
-          
           {collapsed && (
-            <div className="h-px my-2 mx-2 bg-gray-200 dark:bg-gray-700" />
+            <div className="flex flex-col gap-0.5">
+              {getLeafItems(item).map(leaf => {
+                const LeafIcon = leaf.icon;
+                const active = activeTab === leaf.id;
+                return (
+                  <button key={leaf.id} onClick={() => { setActiveTab(leaf.id); onClose?.(); }} className={cn("p-2 rounded-lg flex items-center justify-center", active ? "bg-orange-500 text-white" : "text-gray-500 dark:text-gray-400")} title={leaf.label}>
+                    <LeafIcon className="w-4 h-4" />
+                  </button>
+                );
+              })}
+            </div>
           )}
         </div>
       );

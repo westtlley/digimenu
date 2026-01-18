@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Plus, Trash2, Zap, ArrowUpRight, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -36,6 +37,48 @@ export default function PromotionsTab() {
     queryKey: ['dishes'],
     queryFn: () => base44.entities.Dish.list(),
   });
+
+  const { data: stores = [] } = useQuery({ queryKey: ['store'], queryFn: () => base44.entities.Store.list() });
+  const store = stores[0];
+  const storeBanners = Array.isArray(store?.banners) ? store.banners : [];
+
+  const updateStoreBannersMutation = useMutation({
+    mutationFn: (data) => base44.entities.Store.update(store.id, data),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['store'] }); toast.success('Banners salvos'); },
+    onError: (e) => toast.error(e?.message || 'Erro'),
+  });
+
+  const handleBannerImageUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const { uploadToCloudinary } = await import('@/utils/cloudinaryUpload');
+      const url = await uploadToCloudinary(file, 'store');
+      updateStoreBannersMutation.mutate({ banner_image: url });
+    } catch (err) { toast.error('Erro no upload'); }
+  };
+
+  const addBanner = () => {
+    const next = [...storeBanners, { image: '', title: '', subtitle: '', link: '', active: true }];
+    updateStoreBannersMutation.mutate({ banners: next });
+  };
+  const updateBanner = (i, field, value) => {
+    const next = storeBanners.map((b, idx) => idx === i ? { ...b, [field]: value } : b);
+    updateStoreBannersMutation.mutate({ banners: next });
+  };
+  const removeBanner = (i) => {
+    const next = storeBanners.filter((_, idx) => idx !== i);
+    updateStoreBannersMutation.mutate({ banners: next });
+  };
+  const handleBannerImgUpload = async (e, i) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const { uploadToCloudinary } = await import('@/utils/cloudinaryUpload');
+      const url = await uploadToCloudinary(file, 'store');
+      updateBanner(i, 'image', url);
+    } catch (err) { toast.error('Erro no upload'); }
+  };
 
   const createMutation = useMutation({
     mutationFn: (data) => base44.entities.Promotion.create(data),
@@ -94,8 +137,53 @@ export default function PromotionsTab() {
   const getDishName = (id) => safeDishes.find(d => d.id === id)?.name || 'Prato não encontrado';
 
   return (
-    <div className="p-4 sm:p-6">
-      <div className="flex justify-between items-center mb-6">
+    <div className="p-4 sm:p-6 space-y-6">
+      {/* Banners do cardápio (Store) */}
+      {store && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Banners do cardápio</CardTitle>
+            <CardDescription>Foto de capa e banners promocionais exibidos no cardápio</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label>Foto de capa (banner superior)</Label>
+              <div className="mt-1 w-full h-32 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden border-2 border-dashed">
+                {store.banner_image ? (
+                  <img src={store.banner_image} alt="Capa" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-gray-400 text-sm">Nenhuma</span>
+                )}
+              </div>
+              <label className="mt-2 inline-block text-sm text-orange-600 cursor-pointer">Alterar <input type="file" accept="image/*" className="hidden" onChange={handleBannerImageUpload} /></label>
+            </div>
+            <div>
+              <div className="flex justify-between items-center mb-2">
+                <Label>Banners promocionais</Label>
+                <Button type="button" size="sm" variant="outline" onClick={addBanner}>+ Adicionar</Button>
+              </div>
+              {(storeBanners || []).map((b, i) => (
+                <div key={i} className="p-3 border rounded-lg mb-2 space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-sm font-medium">Banner {i + 1}</span>
+                    <Button type="button" variant="ghost" size="sm" className="text-red-600" onClick={() => removeBanner(i)}>Remover</Button>
+                  </div>
+                  <div className="h-20 bg-gray-100 rounded flex items-center justify-center overflow-hidden">
+                    {b.image ? <img src={b.image} alt="" className="max-h-full object-contain" /> : <span className="text-gray-400 text-xs">Sem imagem</span>}
+                  </div>
+                  <label className="text-xs text-orange-600 cursor-pointer">Upload <input type="file" accept="image/*" className="hidden" onChange={e=>handleBannerImgUpload(e,i)} /></label>
+                  <Input placeholder="Título" value={b.title||''} onChange={e=>updateBanner(i,'title',e.target.value)} />
+                  <Input placeholder="Subtítulo" value={b.subtitle||''} onChange={e=>updateBanner(i,'subtitle',e.target.value)} />
+                  <Input placeholder="Link" value={b.link||''} onChange={e=>updateBanner(i,'link',e.target.value)} />
+                  <div className="flex items-center gap-2"><Switch checked={b.active!==false} onCheckedChange={v=>updateBanner(i,'active',v)} /><Label className="text-xs">Ativo</Label></div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="flex justify-between items-center">
         <div>
           <h2 className="text-lg font-bold">Promoções Upsell</h2>
           <p className="text-sm text-gray-500">Ofertas exibidas ao finalizar pedido</p>

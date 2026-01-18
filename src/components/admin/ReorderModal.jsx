@@ -13,6 +13,16 @@ export default function ReorderModal({ isOpen, onClose, categories, dishes, comp
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [selectedDish, setSelectedDish] = useState(null);
   const [selectedGroup, setSelectedGroup] = useState(null);
+  const [localDishComplementGroups, setLocalDishComplementGroups] = useState([]);
+
+  useEffect(() => {
+    if (selectedDish) {
+      const d = localDishes.find(x => String(x.id) === String(selectedDish));
+      setLocalDishComplementGroups(Array.isArray(d?.complement_groups) ? d.complement_groups : []);
+    } else {
+      setLocalDishComplementGroups([]);
+    }
+  }, [selectedDish, localDishes]);
 
   useEffect(() => {
     if (isOpen) {
@@ -61,6 +71,11 @@ export default function ReorderModal({ isOpen, onClose, categories, dishes, comp
       const [reordered] = items.splice(source.index, 1);
       items.splice(destination.index, 0, reordered);
       setLocalGroups(items);
+    } else if (type === 'dish_groups') {
+      const items = Array.from(localDishComplementGroups);
+      const [reordered] = items.splice(source.index, 1);
+      items.splice(destination.index, 0, reordered);
+      setLocalDishComplementGroups(items);
     } else if (type.startsWith('option-')) {
       const groupId = type.replace('option-', '');
       const items = Array.from(localOptions[groupId] || []);
@@ -82,21 +97,24 @@ export default function ReorderModal({ isOpen, onClose, categories, dishes, comp
     });
     
     const dishesWithOrder = [];
-    Object.entries(dishesByCategory).forEach(([categoryId, dishes]) => {
-      dishes.forEach((dish, idx) => {
-        dishesWithOrder.push({ ...dish, order: idx });
+    Object.entries(dishesByCategory).forEach(([categoryId, list]) => {
+      list.forEach((dish, idx) => {
+        const payload = { ...dish, order: idx };
+        if (String(dish.id) === String(selectedDish) && localDishComplementGroups.length) {
+          payload.complement_groups = localDishComplementGroups;
+        }
+        dishesWithOrder.push(payload);
       });
     });
-    
-    const groupsWithOrder = localGroups.map((group, idx) => ({ ...group, order: idx }));
-    
-    const updates = {
+
+    const groupsWithOrder = localGroups.map((g, idx) => ({ ...g, order: idx }));
+
+    onSave({
       categories: categoriesWithOrder,
       dishes: dishesWithOrder,
       groups: groupsWithOrder,
       groupOptions: localOptions
-    };
-    onSave(updates);
+    });
   };
 
   const safeLocalDishes = Array.isArray(localDishes) ? localDishes : [];
@@ -217,44 +235,44 @@ export default function ReorderModal({ isOpen, onClose, categories, dishes, comp
               )}
             </div>
 
-            {/* Complement Groups Column - TODOS OS GRUPOS */}
+            {/* Grupos do prato selecionado — fluxo: Prato → Grupos */}
             <div className="border-r pr-4">
               <div className="flex items-center justify-between mb-3 sticky top-0 bg-white pb-2">
                 <h3 className="font-semibold text-sm">Grupos de complementos</h3>
                 <GripVertical className="w-4 h-4 text-gray-400" />
               </div>
-              {localGroups.length === 0 ? (
-                <p className="text-xs text-gray-400 text-center py-8">
-                  Nenhum grupo de complementos
-                </p>
+              {!selectedDish ? (
+                <p className="text-xs text-gray-400 text-center py-8">Selecione um prato</p>
+              ) : localDishComplementGroups.length === 0 ? (
+                <p className="text-xs text-gray-400 text-center py-8">Nenhum grupo neste prato</p>
               ) : (
-                <Droppable droppableId="groups" type="group">
+                <Droppable droppableId="dish_groups" type="dish_groups">
                   {(provided) => (
                     <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-2">
-                      {localGroups.map((group, index) => (
-                        <Draggable key={group.id} draggableId={group.id} index={index}>
-                          {(provided, snapshot) => (
-                            <div
-                              ref={provided.innerRef}
-                              {...provided.draggableProps}
-                              {...provided.dragHandleProps}
-                              onClick={() => setSelectedGroup(group.id)}
-                              className={`p-3 rounded-lg border cursor-pointer transition-all ${
-                                snapshot.isDragging ? 'shadow-lg' : ''
-                              } ${
-                                selectedGroup === group.id 
-                                  ? 'bg-orange-50 border-orange-300' 
-                                  : 'bg-white hover:bg-gray-50'
-                              }`}
-                            >
-                              <div className="flex items-center gap-2">
-                                <GripVertical className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                                <span className="text-sm truncate">{group.name}</span>
+                      {localDishComplementGroups.map((cg, index) => {
+                        const g = (complementGroups || []).find(x => String(x.id) === String(cg.group_id));
+                        const name = g?.name || cg.group_id;
+                        return (
+                          <Draggable key={cg.group_id} draggableId={String(cg.group_id)} index={index}>
+                            {(provided, snapshot) => (
+                              <div
+                                ref={provided.innerRef}
+                                {...provided.draggableProps}
+                                {...provided.dragHandleProps}
+                                onClick={() => setSelectedGroup(cg.group_id)}
+                                className={`p-3 rounded-lg border cursor-pointer transition-all ${
+                                  snapshot.isDragging ? 'shadow-lg' : ''
+                                } ${selectedGroup === cg.group_id ? 'bg-orange-50 border-orange-300' : 'bg-white hover:bg-gray-50'}`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <GripVertical className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                                  <span className="text-sm truncate">{name}</span>
+                                </div>
                               </div>
-                            </div>
-                          )}
-                        </Draggable>
-                      ))}
+                            )}
+                          </Draggable>
+                        );
+                      })}
                       {provided.placeholder}
                     </div>
                   )}

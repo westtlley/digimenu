@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
+import { base44 } from '@/api/base44Client';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { 
-  Plus, Edit, Trash2, CreditCard, DollarSign, 
-  Wallet, Gift, Car, ShoppingBag, TrendingUp
-} from 'lucide-react';
+import { Plus, Edit, Trash2, CreditCard } from 'lucide-react';
 import EmptyState from '@/components/ui/EmptyState';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { toast } from 'sonner';
 
 const DEFAULT_PAYMENT_METHODS = [
   { id: 'dinheiro', name: 'Dinheiro', icon: '💵', type: 'presencial', active: true },
@@ -37,6 +37,28 @@ export default function PaymentMethodsTab() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showOnlineConfig, setShowOnlineConfig] = useState(false);
   const [newMethod, setNewMethod] = useState({ name: '', icon: '💳', type: 'presencial' });
+  const [storeNewPm, setStoreNewPm] = useState({ name: '', image: '' });
+
+  const qc = useQueryClient();
+  const { data: stores = [] } = useQuery({ queryKey: ['store'], queryFn: () => base44.entities.Store.list() });
+  const store = stores[0];
+  const storePaymentMethods = Array.isArray(store?.payment_methods) ? store.payment_methods : [];
+
+  const updateStorePmMutation = useMutation({
+    mutationFn: (arr) => base44.entities.Store.update(store.id, { payment_methods: arr }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['store'] }); toast.success('Formas de pagamento atualizadas'); },
+    onError: (e) => toast.error(e?.message || 'Erro'),
+  });
+
+  const addStorePm = () => {
+    if (!storeNewPm.name) return;
+    updateStorePmMutation.mutate([...storePaymentMethods, { name: storeNewPm.name, image: storeNewPm.image || '' }]);
+    setStoreNewPm({ name: '', image: '' });
+  };
+  const removeStorePm = (i) => {
+    const next = storePaymentMethods.filter((_, idx) => idx !== i);
+    updateStorePmMutation.mutate(next);
+  };
 
   const toggleMethod = (id) => {
     setPaymentMethods(methods => 
@@ -78,6 +100,30 @@ export default function PaymentMethodsTab() {
           EXTRATO PAGAMENTO ONLINE
         </button>
       </div>
+
+      {/* Formas aceitas no cardápio (Store) */}
+      {store && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Formas de pagamento aceitas (cardápio)</CardTitle>
+            <p className="text-sm text-gray-500">Exibidas no checkout. Nome e imagem da bandeira.</p>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {storePaymentMethods.map((pm, i) => (
+              <div key={i} className="flex items-center gap-3 p-2 border rounded-lg">
+                {pm.image && <img src={pm.image} alt="" className="h-8 object-contain" />}
+                <span className="flex-1 font-medium">{pm.name}</span>
+                <Button type="button" variant="ghost" size="sm" className="text-red-600" onClick={() => removeStorePm(i)}>Remover</Button>
+              </div>
+            ))}
+            <div className="p-3 border-2 border-dashed rounded-lg space-y-2">
+              <Input placeholder="Nome (ex: PIX, Visa, Mastercard)" value={storeNewPm.name} onChange={e=>setStoreNewPm(p=>({...p, name: e.target.value}))} />
+              <Input placeholder="URL da imagem da bandeira" value={storeNewPm.image} onChange={e=>setStoreNewPm(p=>({...p, image: e.target.value}))} />
+              <Button type="button" onClick={addStorePm} disabled={!storeNewPm.name || updateStorePmMutation.isPending}>Adicionar</Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Pagamento Online */}
       <Card className="bg-blue-50 border-blue-200">

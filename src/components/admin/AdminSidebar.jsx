@@ -1,8 +1,5 @@
 import React, { useState } from 'react';
 import { cn } from "@/lib/utils";
-import { usePermission } from '../permissions/usePermission';
-import { useQuery } from '@tanstack/react-query';
-import { apiClient as base44 } from '@/api/apiClient';
 import { 
   UtensilsCrossed, 
   Ticket, 
@@ -62,17 +59,19 @@ const MENU_STRUCTURE = [
     ]
   },
 
-  // 🍔 CARDÁPIO
+  // CARDÁPIO: Restaurante (Pratos, Categorias, Complementos), Pizzas, Promoções, Cupons
   {
     id: 'cardapio',
-    label: '🍔 CARDÁPIO',
+    label: 'CARDÁPIO',
     icon: UtensilsCrossed,
     section: 'section',
     submenu: [
-      { id: 'dishes', label: 'Pratos', icon: UtensilsCrossed, module: 'dishes' },
-      { id: 'categories', label: 'Categorias', icon: Layers, module: 'dishes' },
-      { id: 'complements', label: 'Complementos', icon: Grid3x3, module: 'dishes' },
-      { id: 'pizza_config', label: 'Pizzas', icon: Pizza, module: 'dishes' },
+      { id: 'restaurante_grp', label: 'Restaurante', icon: UtensilsCrossed, section: 'subsection', submenu: [
+        { id: 'dishes', label: 'Restaurante', icon: UtensilsCrossed, module: 'dishes' },
+        { id: 'categories', label: 'Categorias', icon: Layers, module: 'dishes' },
+        { id: 'complements', label: 'Complementos', icon: Grid3x3, module: 'dishes' },
+      ]},
+      { id: 'pizza_config', label: 'Pizzas', icon: Pizza, module: 'pizza_config' },
       { id: 'promotions', label: 'Promoções', icon: Megaphone, module: 'promotions' },
       { id: 'coupons', label: 'Cupons', icon: Ticket, module: 'coupons' },
     ]
@@ -109,6 +108,7 @@ export default function AdminSidebar({ activeTab, setActiveTab, isMaster = false
     gestao: true,
     operacao: true,
     cardapio: true,
+    restaurante_grp: true,
     delivery: true,
     sistema: true
   });
@@ -130,55 +130,64 @@ export default function AdminSidebar({ activeTab, setActiveTab, isMaster = false
     }));
   };
 
+  const getLeafItems = (it) => {
+    if (!it.submenu) return [];
+    return it.submenu.flatMap(s =>
+      s.section === 'subsection'
+        ? (s.submenu || []).filter(x => x.module && hasModuleAccess(x.module))
+        : (s.module && hasModuleAccess(s.module) ? [s] : [])
+    );
+  };
+
   const renderMenuItem = (item, isSubmenu = false) => {
     if (item.masterOnly && !isMaster) return null;
-    
-    // Verificar acesso ao módulo baseado em permissões (submenu tem module, grupo verifica depois)
     if (item.module && !hasModuleAccess(item.module)) return null;
 
     const Icon = item.icon;
     const isActive = activeTab === item.id;
     const indent = isSubmenu ? 'pl-6' : 'pl-3';
+    const isSectionOrSub = (item.section === 'section' || item.section === 'subsection') && item.submenu;
 
-    if (item.section === 'section' && item.submenu) {
+    if (isSectionOrSub) {
       const isExpanded = expandedGroups[item.id];
-      
-      // Filtrar submenus baseado em permissões (submenus têm module, não id para permissões)
-      const visibleSubmenu = item.submenu.filter(subItem => {
-        if (!subItem.module) return true; // Se não tem module definido, mostrar sempre (master only)
-        return hasModuleAccess(subItem.module);
+      const visibleSubmenu = item.submenu.filter(sub => {
+        if (sub.section === 'subsection')
+          return (sub.submenu || []).some(s => s.module && hasModuleAccess(s.module));
+        return sub.module && hasModuleAccess(sub.module);
       });
-
-      
-      // Se nenhum submenu visível, não mostrar o grupo
       if (visibleSubmenu.length === 0) return null;
-      
+
       return (
         <div key={item.id} className="mb-4">
           <button
             onClick={() => toggleGroup(item.id)}
             className={cn(
               "w-full flex items-center justify-between gap-2 px-2 py-2 text-xs font-bold transition-colors",
-              "text-gray-500 hover:text-gray-300 uppercase tracking-wider"
+              item.section === 'subsection' ? "text-gray-600 hover:text-gray-800" : "text-gray-500 hover:text-gray-300 uppercase tracking-wider"
             )}
           >
             {!collapsed && <span>{item.label}</span>}
             {!collapsed && (
-              <ChevronDown className={cn(
-                "w-3 h-3 transition-transform",
-                isExpanded ? "transform rotate-180" : ""
-              )} />
+              <ChevronDown className={cn("w-3 h-3 transition-transform", isExpanded ? "transform rotate-180" : "")} />
             )}
           </button>
-          
           {!collapsed && isExpanded && (
             <div className="mt-1 space-y-0.5">
-              {visibleSubmenu.map(subItem => renderMenuItem(subItem, true))}
+              {visibleSubmenu.map(sub => renderMenuItem(sub, true))}
             </div>
           )}
-          
           {collapsed && (
-            <div className="h-px my-2 mx-2" style={{ backgroundColor: 'var(--border-color)' }} />
+            <div className="flex flex-col gap-0.5">
+              {getLeafItems(item).map(leaf => {
+                const LeafIcon = leaf.icon;
+                const active = activeTab === leaf.id;
+                return (
+                  <button key={leaf.id} onClick={() => { setActiveTab(leaf.id); onClose?.(); }} className="p-2 rounded-lg flex items-center justify-center" style={{ backgroundColor: active ? '#f97316' : 'transparent', color: active ? '#fff' : 'var(--text-secondary)' }} title={leaf.label}>
+                    <LeafIcon className="w-4 h-4" />
+                  </button>
+                );
+              })}
+            </div>
           )}
         </div>
       );
@@ -223,50 +232,13 @@ export default function AdminSidebar({ activeTab, setActiveTab, isMaster = false
     );
   };
 
-  // Buscar dados da loja para mostrar logo
-  const { data: stores = [] } = useQuery({
-    queryKey: ['store'],
-    queryFn: () => base44.entities.Store.list(),
-  });
-
-  const store = stores[0];
-
   return (
     <aside className={cn(
       "border-r flex flex-col transition-all duration-300 h-full lg:relative bg-white dark:bg-gray-900",
       collapsed ? "w-16" : "w-64"
     )}>
-      {/* Header do Sidebar com Logo */}
-      <div className="p-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-        {!collapsed && store?.logo && (
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 border border-gray-200 dark:border-gray-700 shadow-sm">
-              <img 
-                src={store.logo} 
-                alt={store.name || 'Loja'} 
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  e.target.style.display = 'none';
-                  if (e.target.nextSibling) {
-                    e.target.nextSibling.style.display = 'flex';
-                  }
-                }}
-              />
-              <div className="w-full h-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center hidden">
-                <Store className="w-5 h-5 text-white" />
-              </div>
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold text-gray-900 dark:text-white truncate">
-                {store.name || 'Minha Loja'}
-              </p>
-              <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
-                Admin Master
-              </p>
-            </div>
-          </div>
-        )}
-        
+      {/* Header — só botões; logo/info só no header superior do Admin */}
+      <div className="p-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-end">
         <div className="flex items-center gap-1">
           {!collapsed && (
             <button
