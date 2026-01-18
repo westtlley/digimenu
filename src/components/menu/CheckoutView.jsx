@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import AddressMapPicker from './AddressMapPicker';
 import OrderConfirmationModal from './OrderConfirmationModal';
 import SavedAddresses from './SavedAddresses';
+import { orderService } from '@/components/services/orderService';
 
 export default function CheckoutView({ 
   cart, 
@@ -54,11 +55,16 @@ export default function CheckoutView({
 
   const getDeliveryFee = () => {
     if (customer.deliveryMethod !== 'delivery') return 0;
-    if (!customer.neighborhood) return store.delivery_fee || 0;
-    const zone = deliveryZones.find((z) =>
-      z.neighborhood.toLowerCase().trim() === customer.neighborhood.toLowerCase().trim() && z.is_active
+    
+    // Usar orderService para calcular taxa (suporta zona e distância)
+    return orderService.calculateDeliveryFee(
+      customer.deliveryMethod,
+      customer.neighborhood,
+      deliveryZones,
+      store,
+      customer.latitude,
+      customer.longitude
     );
-    return zone ? zone.fee : store.delivery_fee || 0;
   };
 
   const discount = calculateDiscount();
@@ -253,23 +259,36 @@ export default function CheckoutView({
                       className="mt-1 h-10"
                       required
                     />
-                    {customer.neighborhood && deliveryZones.length > 0 && (
+                    {customer.neighborhood && (
                       (() => {
-                        const zone = deliveryZones.find((z) =>
-                          z.neighborhood.toLowerCase().trim() === customer.neighborhood.toLowerCase().trim() && z.is_active
-                        );
-                        if (zone) {
-                          return (
-                            <p className="text-xs text-green-600 mt-1">
-                              ✓ Taxa de entrega: {formatCurrency(zone.fee)}
-                            </p>
+                        // Se for cálculo por distância e tem coordenadas
+                        if (store?.delivery_fee_mode === 'distance' && customer.latitude && customer.longitude) {
+                          const fee = getDeliveryFee();
+                          if (fee > 0) {
+                            return (
+                              <p className="text-xs text-green-600 mt-1">
+                                ✓ Taxa de entrega calculada por distância: {formatCurrency(fee)}
+                              </p>
+                            );
+                          }
+                        } else if (deliveryZones.length > 0) {
+                          // Cálculo por zona
+                          const zone = deliveryZones.find((z) =>
+                            z.neighborhood?.toLowerCase().trim() === customer.neighborhood.toLowerCase().trim() && z.is_active
                           );
-                        } else if (customer.neighborhood.length > 2) {
-                          return (
-                            <p className="text-xs text-orange-600 mt-1">
-                              ⚠️ Bairro não cadastrado. Confirmaremos a taxa via WhatsApp.
-                            </p>
-                          );
+                          if (zone) {
+                            return (
+                              <p className="text-xs text-green-600 mt-1">
+                                ✓ Taxa de entrega: {formatCurrency(zone.fee)}
+                              </p>
+                            );
+                          } else if (customer.neighborhood.length > 2) {
+                            return (
+                              <p className="text-xs text-orange-600 mt-1">
+                                ⚠️ Bairro não cadastrado. Confirmaremos a taxa via WhatsApp.
+                              </p>
+                            );
+                          }
                         }
                         return null;
                       })()
@@ -500,7 +519,11 @@ export default function CheckoutView({
               longitude,
               address_street: addressData?.street || customer.address_street || '',
               address_number: addressData?.number || customer.address_number || '',
+              address_complement: addressData?.complement || customer.address_complement || '',
               neighborhood: addressData?.neighborhood || customer.neighborhood || '',
+              city: addressData?.city || customer.city || '',
+              state: addressData?.state || customer.state || '',
+              address: addressData?.fullAddress || customer.address || '',
             });
             setShowMapPicker(false);
           }}

@@ -332,7 +332,10 @@ export default function Cardapio() {
     const calculatedDeliveryFee = orderService.calculateDeliveryFee(
       customer.deliveryMethod, 
       customer.neighborhood, 
-      deliveryZones
+      deliveryZones,
+      store,
+      customer.latitude,
+      customer.longitude
     );
     
     const discount = calculateDiscount();

@@ -1,3 +1,5 @@
+import { calculateDistance, calculateDeliveryFeeByDistance } from '@/utils/distanceUtils';
+
 export const orderService = {
   generateOrderCode() {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -8,16 +10,50 @@ export const orderService = {
     return code;
   },
 
-  calculateDeliveryFee(deliveryMethod, neighborhood, deliveryZones) {
+  /**
+   * Calcula taxa de entrega por zona ou por distância
+   * @param {string} deliveryMethod - 'delivery' ou 'pickup'
+   * @param {string} neighborhood - Bairro do cliente (para cálculo por zona)
+   * @param {Array} deliveryZones - Zonas de entrega configuradas
+   * @param {Object} store - Dados da loja (para cálculo por distância)
+   * @param {number} customerLat - Latitude do cliente
+   * @param {number} customerLng - Longitude do cliente
+   * @returns {number} Taxa de entrega calculada
+   */
+  calculateDeliveryFee(deliveryMethod, neighborhood, deliveryZones, store = null, customerLat = null, customerLng = null) {
     if (deliveryMethod !== 'delivery') return 0;
-    
-    if (!neighborhood) return 0;
-    
-    const zone = deliveryZones.find((z) =>
-      z.neighborhood.toLowerCase().trim() === neighborhood.toLowerCase().trim() && z.is_active
+
+    // Modo: Cálculo por Distância (M/KM)
+    if (store?.delivery_fee_mode === 'distance' && customerLat && customerLng) {
+      // Verificar se a loja tem coordenadas
+      if (store.latitude && store.longitude) {
+        const distanceKm = calculateDistance(
+          store.latitude,
+          store.longitude,
+          customerLat,
+          customerLng
+        );
+
+        const config = {
+          baseFee: store.delivery_base_fee || 0,
+          pricePerKm: store.delivery_price_per_km || 0,
+          minFee: store.delivery_min_fee || 0,
+          maxFee: store.delivery_max_fee || null,
+          freeDeliveryDistance: store.delivery_free_distance || null,
+        };
+
+        return calculateDeliveryFeeByDistance(distanceKm, config);
+      }
+    }
+
+    // Modo: Cálculo por Zona (padrão)
+    if (!neighborhood) return store?.delivery_fee || 0;
+
+    const zone = deliveryZones?.find((z) =>
+      z.neighborhood?.toLowerCase().trim() === neighborhood.toLowerCase().trim() && z.is_active
     );
-    
-    return zone ? zone.fee : 0;
+
+    return zone ? zone.fee : (store?.delivery_fee || 0);
   },
 
   formatFullAddress(customer) {
