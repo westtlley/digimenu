@@ -36,6 +36,14 @@ export default function StoreTab() {
     payment_methods: [],
     delivery_fee: 0,
     min_order_value: 0,
+    delivery_fee_mode: 'zone', // 'zone' ou 'distance'
+    latitude: null,
+    longitude: null,
+    delivery_base_fee: 0,
+    delivery_price_per_km: 0,
+    delivery_min_fee: 0,
+    delivery_max_fee: null,
+    delivery_free_distance: null,
     is_open: null,
     accepting_orders: true,
     pause_message: '',
@@ -82,6 +90,14 @@ export default function StoreTab() {
         payment_methods: store.payment_methods || [],
         delivery_fee: store.delivery_fee || 0,
         min_order_value: store.min_order_value || store.min_order_price || 0,
+        delivery_fee_mode: store.delivery_fee_mode || 'zone',
+        latitude: store.latitude || null,
+        longitude: store.longitude || null,
+        delivery_base_fee: store.delivery_base_fee || 0,
+        delivery_price_per_km: store.delivery_price_per_km || 0,
+        delivery_min_fee: store.delivery_min_fee || 0,
+        delivery_max_fee: store.delivery_max_fee || null,
+        delivery_free_distance: store.delivery_free_distance || null,
         is_open: store.is_open === null || store.is_open === undefined ? null : store.is_open,
         accepting_orders: store.accepting_orders === false ? false : true,
         pause_message: store.pause_message || '',
@@ -668,20 +684,183 @@ export default function StoreTab() {
               <CardDescription>Formas de pagamento e taxa de entrega</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              {/* Modo de Cálculo de Taxa */}
               <div>
-                <Label htmlFor="delivery-fee" className="flex items-center gap-2 mb-2">
-                  <DollarSign className="w-4 h-4 text-gray-500" />
-                  Taxa de Entrega (R$)
-                </Label>
-                <Input
-                  id="delivery-fee"
-                  type="number"
-                  step="0.01"
-                  value={formData.delivery_fee}
-                  onChange={(e) => setFormData(prev => ({ ...prev, delivery_fee: parseFloat(e.target.value) || 0 }))}
-                  placeholder="0,00"
-                />
+                <Label className="mb-3 block font-semibold">Modo de Cálculo de Taxa de Entrega</Label>
+                <div className="grid sm:grid-cols-2 gap-3 mb-4">
+                  <button
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, delivery_fee_mode: 'zone' }))}
+                    className={`p-4 rounded-xl border-2 transition-all text-left ${
+                      formData.delivery_fee_mode === 'zone'
+                        ? 'border-orange-500 bg-orange-50'
+                        : 'border-gray-200 hover:border-gray-300 bg-white'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className={`w-3 h-3 rounded-full ${formData.delivery_fee_mode === 'zone' ? 'bg-orange-500' : 'bg-gray-300'}`} />
+                      <span className="font-semibold text-sm">📍 Por Zona/Bairro</span>
+                    </div>
+                    <p className="text-xs text-gray-600">Taxa fixa por bairro (atual)</p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, delivery_fee_mode: 'distance' }))}
+                    className={`p-4 rounded-xl border-2 transition-all text-left ${
+                      formData.delivery_fee_mode === 'distance'
+                        ? 'border-orange-500 bg-orange-50'
+                        : 'border-gray-200 hover:border-gray-300 bg-white'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className={`w-3 h-3 rounded-full ${formData.delivery_fee_mode === 'distance' ? 'bg-orange-500' : 'bg-gray-300'}`} />
+                      <span className="font-semibold text-sm">📏 Por Distância (M/KM)</span>
+                    </div>
+                    <p className="text-xs text-gray-600">Cálculo baseado na distância</p>
+                  </button>
+                </div>
               </div>
+
+              {/* Configuração por Zona */}
+              {formData.delivery_fee_mode === 'zone' && (
+                <div>
+                  <Label htmlFor="delivery-fee" className="flex items-center gap-2 mb-2">
+                    <DollarSign className="w-4 h-4 text-gray-500" />
+                    Taxa de Entrega Padrão (R$)
+                  </Label>
+                  <Input
+                    id="delivery-fee"
+                    type="number"
+                    step="0.01"
+                    value={formData.delivery_fee}
+                    onChange={(e) => setFormData(prev => ({ ...prev, delivery_fee: parseFloat(e.target.value) || 0 }))}
+                    placeholder="0,00"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Taxa padrão. Configure taxas específicas por bairro na aba "Zonas de Entrega"
+                  </p>
+                </div>
+              )}
+
+              {/* Configuração por Distância */}
+              {formData.delivery_fee_mode === 'distance' && (
+                <div className="space-y-4 p-4 bg-orange-50 rounded-xl border border-orange-200">
+                  <div className="flex items-center gap-2 mb-3">
+                    <MapPin className="w-5 h-5 text-orange-600" />
+                    <Label className="font-semibold text-orange-900">Configuração de Cálculo por Distância</Label>
+                  </div>
+
+                  {/* Localização da Loja */}
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="latitude" className="text-sm mb-2 block">Latitude da Loja *</Label>
+                      <Input
+                        id="latitude"
+                        type="number"
+                        step="0.000001"
+                        value={formData.latitude || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, latitude: parseFloat(e.target.value) || null }))}
+                        placeholder="-5.0892"
+                        required={formData.delivery_fee_mode === 'distance'}
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Use o mapa para obter as coordenadas</p>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="longitude" className="text-sm mb-2 block">Longitude da Loja *</Label>
+                      <Input
+                        id="longitude"
+                        type="number"
+                        step="0.000001"
+                        value={formData.longitude || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, longitude: parseFloat(e.target.value) || null }))}
+                        placeholder="-42.8019"
+                        required={formData.delivery_fee_mode === 'distance'}
+                      />
+                    </div>
+                  </div>
+
+                  <Separator className="bg-orange-200" />
+
+                  {/* Parâmetros de Cálculo */}
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="delivery-base-fee" className="text-sm mb-2 block">Taxa Base (R$)</Label>
+                      <Input
+                        id="delivery-base-fee"
+                        type="number"
+                        step="0.01"
+                        value={formData.delivery_base_fee || 0}
+                        onChange={(e) => setFormData(prev => ({ ...prev, delivery_base_fee: parseFloat(e.target.value) || 0 }))}
+                        placeholder="5,00"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Valor fixo inicial</p>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="delivery-price-per-km" className="text-sm mb-2 block">Preço por KM (R$)</Label>
+                      <Input
+                        id="delivery-price-per-km"
+                        type="number"
+                        step="0.01"
+                        value={formData.delivery_price_per_km || 0}
+                        onChange={(e) => setFormData(prev => ({ ...prev, delivery_price_per_km: parseFloat(e.target.value) || 0 }))}
+                        placeholder="2,50"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Multiplicado pela distância</p>
+                    </div>
+                  </div>
+
+                  <div className="grid sm:grid-cols-3 gap-4">
+                    <div>
+                      <Label htmlFor="delivery-min-fee" className="text-sm mb-2 block">Taxa Mínima (R$)</Label>
+                      <Input
+                        id="delivery-min-fee"
+                        type="number"
+                        step="0.01"
+                        value={formData.delivery_min_fee || 0}
+                        onChange={(e) => setFormData(prev => ({ ...prev, delivery_min_fee: parseFloat(e.target.value) || 0 }))}
+                        placeholder="5,00"
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="delivery-max-fee" className="text-sm mb-2 block">Taxa Máxima (R$) - Opcional</Label>
+                      <Input
+                        id="delivery-max-fee"
+                        type="number"
+                        step="0.01"
+                        value={formData.delivery_max_fee || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, delivery_max_fee: e.target.value ? parseFloat(e.target.value) : null }))}
+                        placeholder="20,00"
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="delivery-free-distance" className="text-sm mb-2 block">Entrega Grátis Até (KM) - Opcional</Label>
+                      <Input
+                        id="delivery-free-distance"
+                        type="number"
+                        step="0.1"
+                        value={formData.delivery_free_distance || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, delivery_free_distance: e.target.value ? parseFloat(e.target.value) : null }))}
+                        placeholder="2,0"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-2">
+                    <p className="text-xs text-blue-800">
+                      <strong>Fórmula:</strong> Taxa = Taxa Base + (Distância × Preço por KM)
+                      <br />
+                      <strong>Exemplo:</strong> Base R$ 5,00 + (3km × R$ 2,50) = R$ 12,50
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <Separator />
 
               <div>
                 <Label htmlFor="min-order-value" className="flex items-center gap-2 mb-2">
