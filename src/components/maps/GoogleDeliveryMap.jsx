@@ -290,7 +290,10 @@ export default function GoogleDeliveryMap({
     m.panTo({ lat: entregadorLocation.lat, lng: entregadorLocation.lng });
   }, [mapLoaded, entregadorLocation]);
 
-  if (!apiKey) return null;
+  if (!apiKey) {
+    if (typeof console !== 'undefined' && console.warn) console.warn('Google Maps desativado: VITE_GOOGLE_MAPS_KEY não definida');
+    return null;
+  }
 
   if (loadError) {
     return (
