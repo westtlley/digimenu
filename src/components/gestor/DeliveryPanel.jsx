@@ -190,7 +190,7 @@ export default function DeliveryPanel({ entregadores, orders, stores = [] }) {
       {/* Map View */}
       {viewMode === 'map' && (
         <div className="grid lg:grid-cols-3 gap-4">
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2 h-[400px] lg:h-[480px]">
             <MultiDeliveryTrackingMap
               orders={orders}
               entregadores={entregadores}

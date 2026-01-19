@@ -35,6 +35,8 @@ const REJECTION_REASONS = [
 export default function OrderDetailModal({ order, entregadores, onClose, onUpdate, user }) {
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [showDeliveryModal, setShowDeliveryModal] = useState(false);
+  const [showRejectChangeModal, setShowRejectChangeModal] = useState(false);
+  const [changeRejectMotivo, setChangeRejectMotivo] = useState('');
   const [rejectionReason, setRejectionReason] = useState('');
   const [customRejectionReason, setCustomRejectionReason] = useState('');
   const [selectedEntregador, setSelectedEntregador] = useState('');
@@ -112,7 +114,9 @@ export default function OrderDetailModal({ order, entregadores, onClose, onUpdat
       };
       
       if (messages[newStatus]) {
-        toast.success(messages[newStatus]);
+        toast.success(newStatus === 'accepted' 
+          ? '✅ Pedido aceito! Está na coluna Em preparo. Se estiver com filtro «Novos», mude para «Todos» ou «Aceitos» para vê-lo.'
+          : messages[newStatus]);
       }
       
       onUpdate();
@@ -275,6 +279,35 @@ export default function OrderDetailModal({ order, entregadores, onClose, onUpdat
     }
   };
 
+  const handleApproveChangeRequest = async () => {
+    try {
+      await base44.entities.Order.update(order.id, { ...order, customer_change_status: 'approved' });
+      queryClient.invalidateQueries({ queryKey: ['gestorOrders'] });
+      toast.success('Alteração do cliente aceita.');
+      onUpdate();
+    } catch (e) {
+      toast.error(e?.message || 'Erro ao aceitar alteração.');
+    }
+  };
+
+  const handleRejectChangeRequest = async () => {
+    const motivo = (changeRejectMotivo || '').trim();
+    if (motivo.length < 3) {
+      toast.error('Informe um breve motivo da reprovação (mín. 3 caracteres).');
+      return;
+    }
+    try {
+      await base44.entities.Order.update(order.id, { ...order, customer_change_status: 'rejected', customer_change_response: motivo });
+      queryClient.invalidateQueries({ queryKey: ['gestorOrders'] });
+      toast.success('Alteração reprovada.');
+      setShowRejectChangeModal(false);
+      setChangeRejectMotivo('');
+      onUpdate();
+    } catch (e) {
+      toast.error(e?.message || 'Erro ao reprovar alteração.');
+    }
+  };
+
   const handlePrint = () => {
     const printWindow = window.open('', '_blank');
     const paymentLabel = {
@@ -409,6 +442,9 @@ export default function OrderDetailModal({ order, entregadores, onClose, onUpdat
             ${order.scheduled_date && order.scheduled_time ? 
               `<p style="margin: 0; color: #0066cc; font-weight: bold;">⏰ AGENDADO: ${formatScheduledDateTime(order.scheduled_date, order.scheduled_time)}</p>` 
             : ''}
+            ${order.customer_change_request ? 
+              `<p style="margin: 4px 0 0 0; padding: 6px; background: #fef3c7; border: 1px solid #f59e0b; border-radius: 4px;"><strong>✏️ Alteração/adicional:</strong> ${order.customer_change_request}${order.customer_change_status === 'approved' ? ' <span style="color:green;">(Aceito)</span>' : order.customer_change_status === 'rejected' ? ' <span style="color:red;">(Reprovado)</span>' : ' <span style="color:#b45309;">(Pendente)</span>'}</p>` 
+            : ''}
           </div>
 
 
@@ -499,6 +535,39 @@ export default function OrderDetailModal({ order, entregadores, onClose, onUpdat
                 </p>
               )}
             </div>
+
+            {/* Solicitação de alteração/adicional do cliente */}
+            {order.customer_change_request && (
+              <div className={`rounded-lg p-3 border ${
+                order.customer_change_status === 'approved' ? 'bg-green-50 border-green-200' :
+                order.customer_change_status === 'rejected' ? 'bg-red-50 border-red-200' :
+                'bg-amber-50 border-amber-200'
+              }`}>
+                <p className="text-xs font-semibold text-gray-700 mb-1">✏️ Solicitação do cliente</p>
+                <p className="text-sm text-gray-800">{order.customer_change_request}</p>
+                {(!order.customer_change_status || order.customer_change_status === 'pending') && (
+                  <div className="flex gap-2 mt-2">
+                    <Button size="sm" onClick={handleApproveChangeRequest} className="bg-green-600 hover:bg-green-700">
+                      <Check className="w-3.5 h-3.5 mr-1" /> Aceitar
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => setShowRejectChangeModal(true)} className="border-red-300 text-red-600 hover:bg-red-50">
+                      <XCircle className="w-3.5 h-3.5 mr-1" /> Reprovar
+                    </Button>
+                  </div>
+                )}
+                {order.customer_change_status === 'approved' && (
+                  <Badge className="mt-2 bg-green-600">Alteração aceita</Badge>
+                )}
+                {order.customer_change_status === 'rejected' && (
+                  <div className="mt-2">
+                    <Badge variant="outline" className="border-red-300 text-red-700">Reprovada</Badge>
+                    {order.customer_change_response && (
+                      <p className="text-xs text-gray-600 mt-1">Motivo: {order.customer_change_response}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Timeline Button */}
             <Button
@@ -801,6 +870,33 @@ export default function OrderDetailModal({ order, entregadores, onClose, onUpdat
                 ) : (
                   'Confirmar Rejeição'
                 )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reprovar alteração do cliente */}
+      <Dialog open={showRejectChangeModal} onOpenChange={(open) => { setShowRejectChangeModal(open); if (!open) setChangeRejectMotivo(''); }}>
+        <DialogContent className="max-w-sm">
+          <div className="space-y-4">
+            <h3 className="font-bold text-lg text-amber-700">Reprovar alteração solicitada</h3>
+            <p className="text-sm text-gray-600">
+              Informe um breve motivo para o cliente (mín. 3 caracteres). Ex.: &quot;Ingrediente indisponível&quot;.
+            </p>
+            <Textarea
+              value={changeRejectMotivo}
+              onChange={(e) => setChangeRejectMotivo(e.target.value)}
+              placeholder="Motivo da reprovação..."
+              rows={3}
+              className="resize-none"
+            />
+            <div className="flex gap-3">
+              <Button variant="outline" onClick={() => { setShowRejectChangeModal(false); setChangeRejectMotivo(''); }} className="flex-1">
+                Cancelar
+              </Button>
+              <Button onClick={handleRejectChangeRequest} disabled={(changeRejectMotivo || '').trim().length < 3} className="flex-1 bg-amber-600 hover:bg-amber-700">
+                Reprovar alteração
               </Button>
             </div>
           </div>

@@ -48,6 +48,7 @@ export default function GestorPedidos() {
   
   const audioRef = useRef(null);
   const prevOrderCountRef = useRef(0);
+  const autoAcceptedIdsRef = useRef(new Set());
   const queryClient = useQueryClient();
   const { isMaster, hasModuleAccess, loading: permLoading, user } = usePermission();
   
@@ -86,7 +87,7 @@ export default function GestorPedidos() {
     queryFn: () => base44.entities.Store.list(),
   });
 
-  // Carregar configurações de notificação
+  // Carregar configurações de notificação e gerais (GestorSettings)
   useEffect(() => {
     try {
       const saved = localStorage.getItem('gestor_notification_config');
@@ -95,10 +96,43 @@ export default function GestorPedidos() {
         setNotificationConfig(config);
         setSoundEnabled(config.soundEnabled !== false);
       }
+      const gs = localStorage.getItem('gestorSettings');
+      const gestorSettings = gs ? JSON.parse(gs) : {};
+      if (gestorSettings.sound_notifications === false) setSoundEnabled(false);
     } catch (e) {
       console.error('Erro ao carregar configurações de notificação:', e);
     }
   }, []);
+
+  // Aceitar automaticamente (quando ativado em Configurações do gestor)
+  useEffect(() => {
+    try {
+      const gs = localStorage.getItem('gestorSettings');
+      const gestorSettings = gs ? JSON.parse(gs) : {};
+      if (!gestorSettings.auto_accept || !orders.length) return;
+
+      const prepTime = Math.max(5, Math.min(180, Number(gestorSettings.default_prep_time) || 30));
+      const newOrders = orders.filter(o => o.status === 'new');
+
+      (async () => {
+        for (const o of newOrders) {
+          if (autoAcceptedIdsRef.current.has(o.id)) continue;
+          autoAcceptedIdsRef.current.add(o.id);
+          try {
+            await base44.entities.Order.update(o.id, {
+              ...o,
+              status: 'accepted',
+              accepted_at: new Date().toISOString(),
+              prep_time: prepTime,
+            });
+            queryClient.invalidateQueries({ queryKey: ['gestorOrders'] });
+          } catch (e) {
+            autoAcceptedIdsRef.current.delete(o.id);
+          }
+        }
+      })();
+    } catch (_) {}
+  }, [orders, queryClient]);
 
   // Verificar mudanças de status e notificar conforme configuração
   useEffect(() => {

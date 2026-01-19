@@ -79,7 +79,7 @@ function LocationMarker({ position, setPosition }) {
 }
 
 export default function AddressMapPicker({ isOpen, onClose, onConfirm, initialAddress = '' }) {
-  const [position, setPosition] = useState({ lat: -5.0892, lng: -42.8019 });
+  const [position, setPosition] = useState({ lat: -15.7942, lng: -47.8822 });
   const [address, setAddress] = useState('');
   const [searchQuery, setSearchQuery] = useState(initialAddress);
   const [searching, setSearching] = useState(false);

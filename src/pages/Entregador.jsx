@@ -218,16 +218,20 @@ export default function Entregador() {
               lng: parseFloat(data[0].lon)
             });
           } else {
-            // Fallback padrão
-            setCustomerLocation({ lat: -5.0892, lng: -42.8019 });
+            setCustomerLocation(activeOrder.store_latitude != null && activeOrder.store_longitude != null
+              ? { lat: activeOrder.store_latitude, lng: activeOrder.store_longitude }
+              : { lat: -15.7942, lng: -47.8822 });
           }
         })
         .catch(() => {
-          setCustomerLocation({ lat: -5.0892, lng: -42.8019 });
+          setCustomerLocation(activeOrder.store_latitude != null && activeOrder.store_longitude != null
+            ? { lat: activeOrder.store_latitude, lng: activeOrder.store_longitude }
+            : { lat: -15.7942, lng: -47.8822 });
         });
     } else {
-      // Fallback se não tiver endereço
-      setCustomerLocation({ lat: -5.0892, lng: -42.8019 });
+      setCustomerLocation(activeOrder.store_latitude != null && activeOrder.store_longitude != null
+        ? { lat: activeOrder.store_latitude, lng: activeOrder.store_longitude }
+        : { lat: -15.7942, lng: -47.8822 });
     }
   }, [activeOrders]);
 

@@ -244,7 +244,7 @@ export default function CheckoutView({
                                 cep: endereco.cep || customer.cep,
                                 address_street: endereco.logradouro || customer.address_street || '',
                                 neighborhood: endereco.bairro || customer.neighborhood || '',
-                                address_complement: endereco.complemento || customer.address_complement || '',
+                                // Não preencher complemento com o retorno do CEP (ex: "até 899/900") — fica a critério do cliente
                                 city: endereco.cidade || customer.city || '',
                                 state: endereco.estado || customer.state || '',
                               });
@@ -463,6 +463,24 @@ export default function CheckoutView({
                   </div>
                 </div>
               )}
+            </section>
+
+            {/* Solicitar alteração ou adicional (opcional) */}
+            <section className="bg-amber-50/70 rounded-xl p-4 border border-amber-200/60">
+              <Label htmlFor="customer_change_request" className="text-xs font-medium text-amber-800 flex items-center gap-1">
+                ✏️ Solicitar alteração ou adicional (opcional)
+              </Label>
+              <p className="text-[10px] text-amber-700/90 mb-1.5">
+                Ex.: &quot;Trocar arroz por batata&quot;, &quot;Adicionar queijo extra&quot;. O restaurante pode aceitar ou reprovar.
+              </p>
+              <Textarea
+                id="customer_change_request"
+                placeholder="Descreva a alteração ou o adicional desejado..."
+                value={customer.customer_change_request || ''}
+                onChange={(e) => setCustomer({ ...customer, customer_change_request: e.target.value })}
+                className="mt-1 min-h-[72px] text-sm resize-none border-amber-200 bg-white"
+                maxLength={500}
+              />
             </section>
 
             {/* Cupom */}

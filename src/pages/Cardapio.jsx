@@ -20,7 +20,6 @@ import PromotionBanner from '../components/menu/PromotionBanner';
 import RecentOrders from '../components/menu/RecentOrders';
 import UserAuthButton from '../components/atoms/UserAuthButton';
 import CustomerProfileModal from '../components/customer/CustomerProfileModal';
-import OrderStatusBadge from '../components/customer/OrderStatusBadge';
 import StoreClosedOverlay from '../components/menu/StoreClosedOverlay';
 import ThemeToggle from '../components/ui/ThemeToggle';
 
@@ -365,7 +364,11 @@ export default function Cardapio() {
       discount: discount,
       coupon_code: appliedCoupon?.code,
       total: total,
-      status: 'new'
+      status: 'new',
+      ...((customer.customer_change_request || '').trim() && {
+        customer_change_request: (customer.customer_change_request || '').trim(),
+        customer_change_status: 'pending',
+      }),
     };
 
     const order = await orderService.createOrder(orderData, createOrderMutation);
@@ -1162,16 +1165,6 @@ export default function Cardapio() {
         />
       )}
 
-      {/* Status Badge do Pedido Ativo */}
-      {currentView === 'menu' && (
-        <OrderStatusBadge 
-          userEmail={userEmail || customer.email}
-          onOrderClick={(order) => {
-            setShowOrderHistory(true);
-            // Opcional: scrollar para o pedido específico
-          }}
-        />
-      )}
     </div>
   );
 }

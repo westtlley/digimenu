@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet'
 import { Navigation, MapPin } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import { createMotoMarkerIcon } from '@/components/maps/MotoMarkerIcon';
 
 // Fix marker icons
 delete L.Icon.Default.prototype._getIconUrl;
@@ -105,9 +106,12 @@ export default function DeliveryMap({ order, entregadorLocation, darkMode }) {
           </Popup>
         </Marker>
         
-        {/* Marcador do entregador */}
+        {/* Marcador do entregador – Moto em movimento */}
         {entregadorLocation && (
-          <Marker position={entregadorLocation}>
+          <Marker
+            position={entregadorLocation}
+            icon={createMotoMarkerIcon({ bearing: 0, isMoving: true })}
+          >
             <Popup>Você está aqui</Popup>
           </Marker>
         )}

@@ -6,6 +6,7 @@ import L from 'leaflet';
 import { motion } from 'framer-motion';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { createMotoMarkerIcon, computeBearing } from '@/components/maps/MotoMarkerIcon';
 
 // Fix marker icons
 delete L.Icon.Default.prototype._getIconUrl;
@@ -16,42 +17,6 @@ L.Icon.Default.mergeOptions({
 });
 
 const ORS_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImI0NGE1MmYxODVhMTQ4MjFhZWFiMjUxZDFmYjhkMTg3IiwiaCI6Im11cm11cjY0In0=';
-
-// Custom icons
-const createEntregadorIcon = (entregador, isSelected = false) => {
-  const statusColor = entregador.status === 'busy' ? '#eab308' : '#22c55e';
-  return L.divIcon({
-    html: `
-      <div style="
-        background: ${statusColor};
-        width: ${isSelected ? '44px' : '40px'};
-        height: ${isSelected ? '44px' : '40px'};
-        border-radius: 50%;
-        border: ${isSelected ? '4px' : '3px'} solid white;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        animation: pulse 2s infinite;
-        position: relative;
-      ">
-        <svg width="${isSelected ? '22' : '20'}" height="${isSelected ? '22' : '20'}" viewBox="0 0 24 24" fill="white">
-          <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
-        </svg>
-        ${isSelected ? '<div style="position: absolute; top: -8px; right: -8px; background: #3b82f6; width: 16px; height: 16px; border-radius: 50%; border: 2px solid white;"></div>' : ''}
-      </div>
-      <style>
-        @keyframes pulse {
-          0%, 100% { transform: scale(1); opacity: 1; }
-          50% { transform: scale(1.1); opacity: 0.8; }
-        }
-      </style>
-    `,
-    className: 'custom-entregador-icon',
-    iconSize: [isSelected ? 44 : 40, isSelected ? 44 : 40],
-    iconAnchor: [isSelected ? 22 : 20, isSelected ? 22 : 20],
-  });
-};
 
 const createOrderIcon = () => {
   return L.divIcon({
@@ -264,9 +229,9 @@ export default function MultiDeliveryTrackingMap({
         <TileLayer
           url={darkMode 
             ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-            : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+            : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'
           }
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; CARTO'
         />
 
         {/* Rotas dos entregadores */}
@@ -311,16 +276,29 @@ export default function MultiDeliveryTrackingMap({
           );
         })}
 
-        {/* Marcadores dos Entregadores */}
+        {/* Marcadores dos Entregadores – Moto em movimento */}
         {activeEntregadores.map(entregador => {
           const order = orders.find(o => o.id === entregador.current_order_id);
           const isSelected = selectedEntregador === entregador.id;
+          const routeKey = `${entregador.id}-${order?.id}`;
+          const route = routes[routeKey];
+          let bearing = 0;
+          if (route?.path?.length >= 2) {
+            const from = { lat: route.path[0][0], lng: route.path[0][1] };
+            const to = { lat: route.path[1][0], lng: route.path[1][1] };
+            bearing = computeBearing(from, to);
+          }
 
           return (
             <Marker
               key={entregador.id}
               position={[entregador.current_latitude, entregador.current_longitude]}
-              icon={createEntregadorIcon(entregador, isSelected)}
+              icon={createMotoMarkerIcon({
+                bearing,
+                isMoving: entregador.status === 'busy',
+                size: isSelected ? 56 : 52,
+                accentColor: isSelected ? '#3b82f6' : (entregador.status === 'busy' ? '#eab308' : '#22c55e'),
+              })}
               eventHandlers={{
                 click: () => {
                   setSelectedEntregador(entregador.id);
