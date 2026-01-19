@@ -97,11 +97,11 @@ export default function AdvancedOrderFilters({
     applyFilters(defaultFilters);
   };
 
-  // Aplicar filtros quando orders ou searchTerm mudarem
+  // Aplicar filtros quando orders, searchTerm ou filtros mudarem (orders evita pedido "sumir" após aceitar/atualizar)
   React.useEffect(() => {
     applyFilters(filters);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orders.length, searchTerm, filters.status, filters.period]);
+  }, [orders, searchTerm, filters.status, filters.period]);
 
   return (
     <div className="flex items-center gap-2 flex-wrap">

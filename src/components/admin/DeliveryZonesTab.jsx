@@ -93,7 +93,6 @@ export default function DeliveryZonesTab() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!window.confirm('Confirma criar a zona de entrega "' + (formData.neighborhood || '').trim() + '"?')) return;
     createMutation.mutate({ ...formData, fee: parseFloat(formData.fee) || 0 });
   };
 
@@ -145,7 +144,7 @@ export default function DeliveryZonesTab() {
               <Label>Pedido mínimo (R$)</Label>
               <Input type="number" step="0.01" value={deliveryConfig.min_order_value} onChange={e=>setDeliveryConfig(c=>({...c, min_order_value: parseFloat(e.target.value)||0}))} />
             </div>
-            <Button onClick={()=>{ if(!window.confirm('Confirma salvar a configuração de entrega?')) return; updateStoreMutation.mutate({data: deliveryConfig}); }} disabled={updateStoreMutation.isPending}>Salvar configuração</Button>
+            <Button onClick={()=> updateStoreMutation.mutate({data: deliveryConfig})} disabled={updateStoreMutation.isPending}>Salvar configuração</Button>
           </CardContent>
         </Card>
       )}
@@ -224,11 +223,7 @@ export default function DeliveryZonesTab() {
                   size="icon"
                   variant="ghost"
                   className="h-8 w-8 text-red-500 hover:text-red-700"
-                  onClick={() => {
-                    if (confirm('Excluir esta zona?')) {
-                      deleteMutation.mutate(zone.id);
-                    }
-                  }}
+                  onClick={() => deleteMutation.mutate(zone.id)}
                 >
                   <Trash2 className="w-4 h-4" />
                 </Button>

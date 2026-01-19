@@ -190,7 +190,7 @@ export default function DeliveryPanel({ entregadores, orders, stores = [] }) {
       {/* Map View */}
       {viewMode === 'map' && (
         <div className="grid lg:grid-cols-3 gap-4">
-          <div className="lg:col-span-2 h-[400px] lg:h-[480px]">
+          <div className="lg:col-span-2 h-[400px] min-h-[300px] lg:h-[480px] rounded-xl overflow-hidden border border-gray-200">
             <MultiDeliveryTrackingMap
               orders={orders}
               entregadores={entregadores}
@@ -506,7 +506,7 @@ export default function DeliveryPanel({ entregadores, orders, stores = [] }) {
 
       {/* Modal Novo Entregador */}
       <Dialog open={showNewEntregadorModal} onOpenChange={setShowNewEntregadorModal}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md" aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>Novo Entregador</DialogTitle>
           </DialogHeader>
@@ -559,7 +559,7 @@ export default function DeliveryPanel({ entregadores, orders, stores = [] }) {
       {/* Modal Editar Entregador */}
       {editingEntregador && (
         <Dialog open={!!editingEntregador} onOpenChange={() => setEditingEntregador(null)}>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-md" aria-describedby={undefined}>
             <DialogHeader>
               <DialogTitle>Editar Entregador</DialogTitle>
             </DialogHeader>

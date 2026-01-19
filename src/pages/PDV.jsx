@@ -171,14 +171,12 @@ export default function PDV() {
 
   const clearCart = () => {
     if (cart.length === 0) return;
-    if (confirm('Limpar venda?')) {
-      setCart([]);
-      setDiscountReais('');
-      setDiscountPercent('');
-      setCustomerName('Cliente Balcão');
-      setCustomerPhone('');
-      toast.success('Venda limpa');
-    }
+    setCart([]);
+    setDiscountReais('');
+    setDiscountPercent('');
+    setCustomerName('Cliente Balcão');
+    setCustomerPhone('');
+    toast.success('Venda limpa');
   };
 
   const subtotal = cart.reduce((sum, item) => sum + (item.totalPrice * item.quantity), 0);
@@ -197,9 +195,6 @@ export default function PDV() {
       toast.error('Valor limite de travamento deve ser maior que zero ou vazio');
       return;
     }
-    const msg = 'Confirma a abertura do caixa com valor de ' + new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(amount) + '?';
-    if (!window.confirm(msg)) return;
-
     openCaixaMutation.mutate({
       opening_amount_cash: amount,
       opening_date: new Date().toISOString(),

@@ -65,7 +65,6 @@ export default function CategoriesTab() {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!newCategoryName.trim()) return;
-    if (!window.confirm('Confirma criar a categoria "' + newCategoryName.trim() + '"?')) return;
     createMutation.mutate({ name: newCategoryName.trim(), order: categories.length });
   };
 
@@ -129,11 +128,7 @@ export default function CategoriesTab() {
               size="icon"
               variant="ghost"
               className="text-red-500 hover:text-red-700 hover:bg-red-50"
-              onClick={() => {
-                if (confirm('Excluir esta categoria?')) {
-                  deleteMutation.mutate(category.id);
-                }
-              }}
+              onClick={() => deleteMutation.mutate(category.id)}
             >
               <Trash2 className="w-4 h-4" />
             </Button>

@@ -27,7 +27,10 @@ import OrderAlertModal from '../components/entregador/OrderAlertModal';
 import LiveLocationTracker from '../components/entregador/LiveLocationTracker';
 import ProfessionalDeliveryMap from '../components/maps/ProfessionalDeliveryMap';
 import RealTimeTrackingMap from '../components/maps/RealTimeTrackingMap';
+import GoogleDeliveryMap from '../components/maps/GoogleDeliveryMap';
 import { useCriticalNotifications } from '../components/hooks/useCriticalNotifications';
+
+const useGoogleMaps = !!import.meta.env.VITE_GOOGLE_MAPS_KEY;
 
 import RouteOptimizer from '../components/entregador/RouteOptimizer';
 import DeliveryProgressBar from '../components/entregador/DeliveryProgressBar';
@@ -293,17 +296,12 @@ export default function Entregador() {
       return;
     }
     
-    // Confirmar antes de mostrar modal
-    if (confirm('Código validado! Deseja confirmar a entrega?')) {
-      setShowProofModal(order);
-      
-      // Limpar input
-      setDeliveryCodeInput(prev => {
-        const newState = { ...prev };
-        delete newState[order.id];
-        return newState;
-      });
-    }
+    setShowProofModal(order);
+    setDeliveryCodeInput(prev => {
+      const newState = { ...prev };
+      delete newState[order.id];
+      return newState;
+    });
   };
 
   const handleProofSubmitted = () => {
@@ -777,21 +775,39 @@ export default function Entregador() {
             </div>
             <div className="h-[400px] md:h-[500px]">
                   {customerLocation || (activeOrders[0]?.store_latitude && activeOrders[0]?.store_longitude) ? (
-                    <RealTimeTrackingMap
-                      entregadorLocation={entregadorLocation}
-                      storeLocation={
-                        activeOrders[0]?.store_latitude && activeOrders[0]?.store_longitude
-                          ? { lat: activeOrders[0].store_latitude, lng: activeOrders[0].store_longitude }
-                          : null
-                      }
-                      customerLocation={customerLocation}
-                      order={activeOrders[0]}
-                      darkMode={darkMode}
-                      mode="entregador"
-                      onNavigate={(address) => {
-                        window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`, '_blank');
-                      }}
-                    />
+                    useGoogleMaps ? (
+                      <GoogleDeliveryMap
+                        entregadorLocation={entregadorLocation}
+                        storeLocation={
+                          activeOrders[0]?.store_latitude && activeOrders[0]?.store_longitude
+                            ? { lat: activeOrders[0].store_latitude, lng: activeOrders[0].store_longitude }
+                            : null
+                        }
+                        customerLocation={customerLocation}
+                        order={activeOrders[0]}
+                        darkMode={darkMode}
+                        mode="entregador"
+                        onNavigate={(address) => {
+                          window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`, '_blank');
+                        }}
+                      />
+                    ) : (
+                      <RealTimeTrackingMap
+                        entregadorLocation={entregadorLocation}
+                        storeLocation={
+                          activeOrders[0]?.store_latitude && activeOrders[0]?.store_longitude
+                            ? { lat: activeOrders[0].store_latitude, lng: activeOrders[0].store_longitude }
+                            : null
+                        }
+                        customerLocation={customerLocation}
+                        order={activeOrders[0]}
+                        darkMode={darkMode}
+                        mode="entregador"
+                        onNavigate={(address) => {
+                          window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`, '_blank');
+                        }}
+                      />
+                    )
                   ) : (
                     <div className="h-full flex items-center justify-center bg-gray-100 dark:bg-gray-800">
                       <div className="text-center">
@@ -1128,25 +1144,20 @@ export default function Entregador() {
                             };
 
                             const motivoFinal = motivosMap[motivo] || motivo;
-
-                            if (confirm(`Confirmar cancelamento?\nMotivo: ${motivoFinal}`)) {
-                              await base44.entities.Order.update(order.id, {
-                                ...order,
-                                status: 'cancelled',
-                                rejection_reason: `Cancelado pelo entregador: ${motivoFinal}`
+                            await base44.entities.Order.update(order.id, {
+                              ...order,
+                              status: 'cancelled',
+                              rejection_reason: `Cancelado pelo entregador: ${motivoFinal}`
+                            });
+                            if (!entregador._isVirtual) {
+                              await base44.entities.Entregador.update(entregador.id, {
+                                ...entregador,
+                                status: 'available',
+                                current_order_id: null
                               });
-
-                              if (!entregador._isVirtual) {
-                                await base44.entities.Entregador.update(entregador.id, {
-                                  ...entregador,
-                                  status: 'available',
-                                  current_order_id: null
-                                });
-                              }
-
-                              queryClient.invalidateQueries({ queryKey: ['deliveryOrders'] });
-                              queryClient.invalidateQueries({ queryKey: ['gestorOrders'] });
                             }
+                            queryClient.invalidateQueries({ queryKey: ['deliveryOrders'] });
+                            queryClient.invalidateQueries({ queryKey: ['gestorOrders'] });
                           }}
                           variant="outline"
                           className={`w-full h-10 md:h-12 rounded-xl font-semibold text-xs md:text-sm border-2 ${darkMode ? 'border-red-700 text-red-400 hover:bg-red-900/30' : 'border-red-500 text-red-600 hover:bg-red-50'}`}
@@ -1158,14 +1169,12 @@ export default function Entregador() {
                       <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                         <Button
                           onClick={async () => {
-                            if (confirm('Confirmar que chegou ao restaurante?')) {
-                              await base44.entities.Order.update(order.id, {
-                                ...order,
-                                status: 'arrived_at_store'
-                              });
-                              queryClient.invalidateQueries({ queryKey: ['deliveryOrders'] });
-                              queryClient.invalidateQueries({ queryKey: ['gestorOrders'] });
-                            }
+                            await base44.entities.Order.update(order.id, {
+                              ...order,
+                              status: 'arrived_at_store'
+                            });
+                            queryClient.invalidateQueries({ queryKey: ['deliveryOrders'] });
+                            queryClient.invalidateQueries({ queryKey: ['gestorOrders'] });
                           }}
                           className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white h-10 md:h-12 text-xs md:text-base font-bold rounded-xl shadow-lg shadow-blue-500/30"
                         >
@@ -1216,21 +1225,18 @@ export default function Entregador() {
                             return;
                           }
 
-                          if (confirm('Confirmar coleta do pedido?')) {
-                            await base44.entities.Order.update(order.id, {
-                              ...order,
-                              status: 'picked_up',
-                              picked_up_at: new Date().toISOString()
-                            });
-                            queryClient.invalidateQueries({ queryKey: ['deliveryOrders'] });
-                            queryClient.invalidateQueries({ queryKey: ['gestorOrders'] });
-
-                            setPickupCodeInput(prev => {
-                              const newState = { ...prev };
-                              delete newState[order.id];
-                              return newState;
-                            });
-                          }
+                          await base44.entities.Order.update(order.id, {
+                            ...order,
+                            status: 'picked_up',
+                            picked_up_at: new Date().toISOString()
+                          });
+                          queryClient.invalidateQueries({ queryKey: ['deliveryOrders'] });
+                          queryClient.invalidateQueries({ queryKey: ['gestorOrders'] });
+                          setPickupCodeInput(prev => {
+                            const newState = { ...prev };
+                            delete newState[order.id];
+                            return newState;
+                          });
                         }}
                         disabled={!pickupCodeInput[order.id] || pickupCodeInput[order.id].length !== 4}
                         className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white h-10 md:h-12 text-xs md:text-base font-bold rounded-xl shadow-lg shadow-green-500/30"
@@ -1260,14 +1266,12 @@ export default function Entregador() {
                     <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                       <Button
                         onClick={async () => {
-                          if (confirm('Confirmar saída para entrega ao cliente?')) {
-                            await base44.entities.Order.update(order.id, {
-                              ...order,
-                              status: 'out_for_delivery'
-                            });
-                            queryClient.invalidateQueries({ queryKey: ['deliveryOrders'] });
-                            queryClient.invalidateQueries({ queryKey: ['gestorOrders'] });
-                          }
+                          await base44.entities.Order.update(order.id, {
+                            ...order,
+                            status: 'out_for_delivery'
+                          });
+                          queryClient.invalidateQueries({ queryKey: ['deliveryOrders'] });
+                          queryClient.invalidateQueries({ queryKey: ['gestorOrders'] });
                         }}
                         className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white h-12 md:h-14 text-base font-bold rounded-xl shadow-lg shadow-blue-500/30"
                       >
@@ -1306,25 +1310,20 @@ export default function Entregador() {
                             };
 
                             const motivoFinal = motivosMap[motivo] || motivo;
-
-                            if (confirm(`Confirmar cancelamento?\nMotivo: ${motivoFinal}`)) {
-                              await base44.entities.Order.update(order.id, {
-                                ...order,
-                                status: 'cancelled',
-                                rejection_reason: `Cancelado pelo entregador: ${motivoFinal}`
+                            await base44.entities.Order.update(order.id, {
+                              ...order,
+                              status: 'cancelled',
+                              rejection_reason: `Cancelado pelo entregador: ${motivoFinal}`
+                            });
+                            if (!entregador._isVirtual) {
+                              await base44.entities.Entregador.update(entregador.id, {
+                                ...entregador,
+                                status: 'available',
+                                current_order_id: null
                               });
-
-                              if (!entregador._isVirtual) {
-                                await base44.entities.Entregador.update(entregador.id, {
-                                  ...entregador,
-                                  status: 'available',
-                                  current_order_id: null
-                                });
-                              }
-
-                              queryClient.invalidateQueries({ queryKey: ['deliveryOrders'] });
-                              queryClient.invalidateQueries({ queryKey: ['gestorOrders'] });
                             }
+                            queryClient.invalidateQueries({ queryKey: ['deliveryOrders'] });
+                            queryClient.invalidateQueries({ queryKey: ['gestorOrders'] });
                           }}
                           variant="outline"
                           className={`w-full h-10 md:h-12 rounded-xl font-semibold text-xs md:text-sm border-2 ${darkMode ? 'border-red-700 text-red-400 hover:bg-red-900/30' : 'border-red-500 text-red-600 hover:bg-red-50'}`}
@@ -1336,14 +1335,12 @@ export default function Entregador() {
                       <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                         <Button
                           onClick={async () => {
-                            if (confirm('Confirmar que chegou no local de entrega?')) {
-                              await base44.entities.Order.update(order.id, {
-                                ...order,
-                                status: 'arrived_at_customer'
-                              });
-                              queryClient.invalidateQueries({ queryKey: ['deliveryOrders'] });
-                              queryClient.invalidateQueries({ queryKey: ['gestorOrders'] });
-                            }
+                            await base44.entities.Order.update(order.id, {
+                              ...order,
+                              status: 'arrived_at_customer'
+                            });
+                            queryClient.invalidateQueries({ queryKey: ['deliveryOrders'] });
+                            queryClient.invalidateQueries({ queryKey: ['gestorOrders'] });
                           }}
                           className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white h-10 md:h-12 text-xs md:text-base font-bold rounded-xl shadow-lg shadow-blue-500/30"
                         >
@@ -1393,25 +1390,20 @@ export default function Entregador() {
                             };
 
                             const motivoFinal = motivosMap[motivo] || motivo;
-
-                            if (confirm(`Confirmar cancelamento?\nMotivo: ${motivoFinal}`)) {
-                              await base44.entities.Order.update(order.id, {
-                                ...order,
-                                status: 'cancelled',
-                                rejection_reason: `Cancelado pelo entregador: ${motivoFinal}`
+                            await base44.entities.Order.update(order.id, {
+                              ...order,
+                              status: 'cancelled',
+                              rejection_reason: `Cancelado pelo entregador: ${motivoFinal}`
+                            });
+                            if (!entregador._isVirtual) {
+                              await base44.entities.Entregador.update(entregador.id, {
+                                ...entregador,
+                                status: 'available',
+                                current_order_id: null
                               });
-
-                              if (!entregador._isVirtual) {
-                                await base44.entities.Entregador.update(entregador.id, {
-                                  ...entregador,
-                                  status: 'available',
-                                  current_order_id: null
-                                });
-                              }
-
-                              queryClient.invalidateQueries({ queryKey: ['deliveryOrders'] });
-                              queryClient.invalidateQueries({ queryKey: ['gestorOrders'] });
                             }
+                            queryClient.invalidateQueries({ queryKey: ['deliveryOrders'] });
+                            queryClient.invalidateQueries({ queryKey: ['gestorOrders'] });
                           }}
                           variant="outline"
                           className={`w-full h-10 md:h-12 rounded-xl font-semibold text-xs md:text-sm border-2 ${darkMode ? 'border-red-700 text-red-400 hover:bg-red-900/30' : 'border-red-500 text-red-600 hover:bg-red-50'}`}

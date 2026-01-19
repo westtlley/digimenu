@@ -8,7 +8,7 @@ import {
 import OrderChatModal from './OrderChatModal';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { formatBrazilianDateTime, formatScheduledDateTime } from '../utils/dateUtils';
@@ -79,7 +79,8 @@ export default function OrderDetailModal({ order, entregadores, onClose, onUpdat
         }
       }
       
-      const updatedOrder = await base44.entities.Order.update(id, updates);
+      const payload = { ...order, ...updates };
+      const res = await base44.entities.Order.update(id, payload);
       
       try {
         await base44.entities.OrderLog.create({
@@ -94,32 +95,25 @@ export default function OrderDetailModal({ order, entregadores, onClose, onUpdat
         console.log('Log error:', e);
       }
       
-      return { status: updates.status, order: updatedOrder };
+      return { status: updates.status, order: res || payload };
     },
-    onSuccess: ({ status: newStatus }) => {
+    onSuccess: (data) => {
+      const newStatus = data?.status;
       queryClient.invalidateQueries({ queryKey: ['gestorOrders'] });
       queryClient.invalidateQueries({ queryKey: ['orderLogs', order.id] });
-      
       const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2018/2018-preview.mp3');
       audio.volume = 0.5;
       audio.play().catch(() => {});
-      
       const messages = {
-        'accepted': '✅ Pedido aceito com sucesso!',
-        'preparing': '👨‍🍳 Pedido em preparo!',
-        'ready': '✅ Pedido pronto para retirada/entrega!',
-        'out_for_delivery': '🚚 Pedido saiu para entrega!',
-        'delivered': '✅ Pedido entregue!',
-        'cancelled': '❌ Pedido cancelado',
+        'accepted': '✅ Pedido aceito!',
+        'preparing': '👨‍🍳 Em preparo!',
+        'ready': '✅ Pronto!',
+        'out_for_delivery': '🚚 Saiu para entrega!',
+        'delivered': '✅ Entregue!',
+        'cancelled': '❌ Cancelado',
       };
-      
-      if (messages[newStatus]) {
-        toast.success(newStatus === 'accepted' 
-          ? '✅ Pedido aceito! Está na coluna Em preparo. Se estiver com filtro «Novos», mude para «Todos» ou «Aceitos» para vê-lo.'
-          : messages[newStatus]);
-      }
-      
-      onUpdate();
+      if (messages[newStatus]) toast.success(messages[newStatus]);
+      onUpdate(data?.order);
     },
     onError: (error) => {
       console.error('Update error:', error);
@@ -479,12 +473,12 @@ export default function OrderDetailModal({ order, entregadores, onClose, onUpdat
   return (
     <>
       <Dialog open={true} onOpenChange={onClose}>
-        <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto p-0">
+        <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto p-0" aria-describedby={undefined}>
           {/* Header */}
           <div className="sticky top-0 bg-gradient-to-r from-red-600 to-red-500 text-white p-4 z-10">
             <div className="flex items-center justify-between mb-2">
               <div className="flex-1">
-                <h2 className="font-bold text-lg">COMANDA</h2>
+                <DialogTitle className="font-bold text-lg text-white">COMANDA</DialogTitle>
                 <p className="text-sm opacity-90">
                   Pedido #{order.order_code || order.id?.slice(-6).toUpperCase()}
                 </p>
@@ -807,10 +801,10 @@ export default function OrderDetailModal({ order, entregadores, onClose, onUpdat
       <Dialog open={showRejectModal} onOpenChange={setShowRejectModal}>
         <DialogContent className="max-w-sm">
           <div className="space-y-4">
-            <h3 className="font-bold text-lg text-red-600">⚠️ Rejeitar Pedido</h3>
-            <p className="text-sm text-gray-600">
+            <DialogTitle className="font-bold text-lg text-red-600">⚠️ Rejeitar Pedido</DialogTitle>
+            <DialogDescription className="text-sm text-gray-600">
               Selecione o motivo da rejeição. Esta ação não pode ser desfeita.
-            </p>
+            </DialogDescription>
             <div className="space-y-2">
               {REJECTION_REASONS.map(reason => (
                 <button
@@ -880,10 +874,10 @@ export default function OrderDetailModal({ order, entregadores, onClose, onUpdat
       <Dialog open={showRejectChangeModal} onOpenChange={(open) => { setShowRejectChangeModal(open); if (!open) setChangeRejectMotivo(''); }}>
         <DialogContent className="max-w-sm">
           <div className="space-y-4">
-            <h3 className="font-bold text-lg text-amber-700">Reprovar alteração solicitada</h3>
-            <p className="text-sm text-gray-600">
+            <DialogTitle className="font-bold text-lg text-amber-700">Reprovar alteração solicitada</DialogTitle>
+            <DialogDescription className="text-sm text-gray-600">
               Informe um breve motivo para o cliente (mín. 3 caracteres). Ex.: &quot;Ingrediente indisponível&quot;.
-            </p>
+            </DialogDescription>
             <Textarea
               value={changeRejectMotivo}
               onChange={(e) => setChangeRejectMotivo(e.target.value)}
@@ -905,9 +899,9 @@ export default function OrderDetailModal({ order, entregadores, onClose, onUpdat
 
       {/* Delivery Modal */}
       <Dialog open={showDeliveryModal} onOpenChange={setShowDeliveryModal}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-sm" aria-describedby={undefined}>
           <div className="space-y-4">
-            <h3 className="font-bold text-lg">Chamar Entregador</h3>
+            <DialogTitle className="font-bold text-lg">Chamar Entregador</DialogTitle>
             {availableEntregadores.length === 0 ? (
               <p className="text-center text-gray-500 py-4">Nenhum entregador disponível</p>
             ) : (
