@@ -6,7 +6,7 @@ import {
   MapPin, Navigation, Clock, TrendingUp, CheckCircle, Loader2, 
   Zap, X, ArrowRight, Route as RouteIcon
 } from 'lucide-react';
-import { Loader } from '@googlemaps/js-api-loader';
+import { setOptions, importLibrary } from '@googlemaps/js-api-loader';
 
 // Algoritmo de otimização de rota (Nearest Neighbor)
 const optimizeRoute = (orders, startPoint) => {
@@ -92,72 +92,78 @@ function RouteMap({ orders, currentLocation, onNavigate }) {
   React.useEffect(() => {
     if (!apiKey || !mapRef.current || (!currentLocation && (!orders || orders.length === 0))) return;
     const center = currentLocation || (orders?.[0]?.coordinates) || { lat: -5.0892, lng: -42.8019 };
-    const loader = new Loader({ apiKey, version: 'weekly' });
-    loader.load().then(() => {
-      const map = new google.maps.Map(mapRef.current, {
-        center: { lat: center.lat, lng: center.lng },
-        zoom: 13,
-        zoomControl: true,
-        mapTypeControl: true,
-        fullscreenControl: true,
-      });
-      mapInstanceRef.current = map;
+    setOptions({ apiKey, version: 'weekly' });
 
-      if (currentLocation) {
-        const m = new google.maps.Marker({
-          map,
-          position: { lat: currentLocation.lat, lng: currentLocation.lng },
-          title: 'Sua Localização',
-          icon: { path: google.maps.SymbolPath.CIRCLE, scale: 12, fillColor: '#10b981', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2 },
+    (async () => {
+      try {
+        await importLibrary('maps');
+        const map = new google.maps.Map(mapRef.current, {
+          center: { lat: center.lat, lng: center.lng },
+          zoom: 13,
+          zoomControl: true,
+          mapTypeControl: true,
+          fullscreenControl: true,
         });
-        markersRef.current.push(m);
+        mapInstanceRef.current = map;
+
+        if (currentLocation) {
+          const m = new google.maps.Marker({
+            map,
+            position: { lat: currentLocation.lat, lng: currentLocation.lng },
+            title: 'Sua Localização',
+            icon: { path: google.maps.SymbolPath.CIRCLE, scale: 12, fillColor: '#10b981', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2 },
+          });
+          markersRef.current.push(m);
+        }
+
+        (orders || []).forEach((order, index) => {
+          const c = order.coordinates;
+          if (!c) return;
+          const mk = new google.maps.Marker({
+            map,
+            position: { lat: c.lat, lng: c.lng },
+            title: `Parada ${index + 1}: #${order.order_code}`,
+            label: { text: String(index + 1), color: 'white', fontWeight: 'bold' },
+            icon: { path: google.maps.SymbolPath.CIRCLE, scale: 14, fillColor: '#3b82f6', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2 },
+          });
+          const inf = new google.maps.InfoWindow({
+            content: `<div class="p-2" style="min-width:180px"><p class="font-bold text-sm mb-1">Parada ${index + 1}</p><p class="font-semibold">#${order.order_code}</p><p class="text-xs text-gray-600 mb-2">${order.customer_name || ''}</p><button id="nav-${order.id}" class="w-full bg-blue-500 hover:bg-blue-600 text-white py-1.5 px-2 rounded text-sm">Navegar</button></div>`,
+          });
+          mk.addListener('click', () => {
+            infoRef.current?.close();
+            infoRef.current = inf;
+            inf.open(map, mk);
+            setTimeout(() => {
+              document.getElementById(`nav-${order.id}`)?.addEventListener('click', () => { onNavigate?.(c); inf.close(); });
+            }, 50);
+          });
+          markersRef.current.push(mk);
+        });
+
+        const routePoints = currentLocation && (orders || []).length > 0
+          ? [currentLocation, ...(orders || []).map(o => o.coordinates).filter(Boolean)]
+          : [];
+        if (routePoints.length > 1) {
+          const poly = new google.maps.Polyline({
+            map,
+            path: routePoints.map(p => ({ lat: p.lat, lng: p.lng })),
+            strokeColor: '#3b82f6',
+            strokeWeight: 4,
+            strokeOpacity: 0.7,
+          });
+          polyRef.current = poly;
+        }
+
+        const all = [currentLocation, ...(orders || []).map(o => o.coordinates).filter(Boolean)].filter(Boolean);
+        if (all.length >= 2) {
+          const b = new google.maps.LatLngBounds();
+          all.forEach(p => b.extend({ lat: p.lat, lng: p.lng }));
+          map.fitBounds(b, 50);
+        }
+      } catch (e) {
+        console.error('Erro ao carregar Google Maps:', e);
       }
-
-      (orders || []).forEach((order, index) => {
-        const c = order.coordinates;
-        if (!c) return;
-        const mk = new google.maps.Marker({
-          map,
-          position: { lat: c.lat, lng: c.lng },
-          title: `Parada ${index + 1}: #${order.order_code}`,
-          label: { text: String(index + 1), color: 'white', fontWeight: 'bold' },
-          icon: { path: google.maps.SymbolPath.CIRCLE, scale: 14, fillColor: '#3b82f6', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2 },
-        });
-        const inf = new google.maps.InfoWindow({
-          content: `<div class="p-2" style="min-width:180px"><p class="font-bold text-sm mb-1">Parada ${index + 1}</p><p class="font-semibold">#${order.order_code}</p><p class="text-xs text-gray-600 mb-2">${order.customer_name || ''}</p><button id="nav-${order.id}" class="w-full bg-blue-500 hover:bg-blue-600 text-white py-1.5 px-2 rounded text-sm">Navegar</button></div>`,
-        });
-        mk.addListener('click', () => {
-          infoRef.current?.close();
-          infoRef.current = inf;
-          inf.open(map, mk);
-          setTimeout(() => {
-            document.getElementById(`nav-${order.id}`)?.addEventListener('click', () => { onNavigate?.(c); inf.close(); });
-          }, 50);
-        });
-        markersRef.current.push(mk);
-      });
-
-      const routePoints = currentLocation && (orders || []).length > 0
-        ? [currentLocation, ...(orders || []).map(o => o.coordinates).filter(Boolean)]
-        : [];
-      if (routePoints.length > 1) {
-        const poly = new google.maps.Polyline({
-          map,
-          path: routePoints.map(p => ({ lat: p.lat, lng: p.lng })),
-          strokeColor: '#3b82f6',
-          strokeWeight: 4,
-          strokeOpacity: 0.7,
-        });
-        polyRef.current = poly;
-      }
-
-      const all = [currentLocation, ...(orders || []).map(o => o.coordinates).filter(Boolean)].filter(Boolean);
-      if (all.length >= 2) {
-        const b = new google.maps.LatLngBounds();
-        all.forEach(p => b.extend({ lat: p.lat, lng: p.lng }));
-        map.fitBounds(b, 50);
-      }
-    });
+    })();
 
     return () => {
       infoRef.current?.close();

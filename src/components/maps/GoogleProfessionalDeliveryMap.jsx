@@ -3,7 +3,7 @@
  * Mesma API que ProfessionalDeliveryMap (Leaflet). Requer VITE_GOOGLE_MAPS_API_KEY.
  */
 import React, { useEffect, useState, useRef } from 'react';
-import { Loader } from '@googlemaps/js-api-loader';
+import { setOptions, importLibrary } from '@googlemaps/js-api-loader';
 import { Navigation, MapPin, Clock } from 'lucide-react';
 
 const ORS_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImI0NGE1MmYxODVhMTQ4MjFhZWFiMjUxZDFmYjhkMTg3IiwiaCI6Im11cm11cjY0In0=';
@@ -57,31 +57,37 @@ export default function GoogleProfessionalDeliveryMap({
       .finally(() => setLoading(false));
   }, [showRoute, deliveryLocation, customerLocation]);
 
-  // Inicializar mapa
+  // Inicializar mapa (API nova: setOptions + importLibrary)
   useEffect(() => {
     if (!apiKey || !mapRef.current) return;
     setLoadError(null);
-    const loader = new Loader({ apiKey, version: 'weekly' });
-    loader.load().then(() => {
-      const map = new google.maps.Map(mapRef.current, {
-        center: { lat: center.lat, lng: center.lng },
-        zoom: 14,
-        zoomControl: true,
-        mapTypeControl: true,
-        fullscreenControl: true,
-        styles: darkMode ? [{ elementType: 'geometry', stylers: [{ color: '#242f3e' }] }] : undefined,
-      });
-      mapInstanceRef.current = map;
+    setOptions({ apiKey, version: 'weekly' });
 
-      const mkStore = new google.maps.Marker({ map, position: store, title: 'Restaurante', icon: { path: google.maps.SymbolPath.BACKWARD_CLOSED_ARROW, scale: 10, fillColor: '#8b5cf6', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2 }, visible: !!storeLocation });
-      const mkDel = new google.maps.Marker({ map, position: deliveryLocation || center, title: deliveryName || 'Entregador', icon: { url: getMotoIconUrl(0), scaledSize: new google.maps.Size(44, 44), anchor: new google.maps.Point(22, 22) }, visible: !!deliveryLocation });
-      const mkCust = new google.maps.Marker({ map, position: customerLocation || center, title: customerName || 'Cliente', icon: { path: google.maps.SymbolPath.CIRCLE, scale: 10, fillColor: '#8b5cf6', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2 }, visible: !!customerLocation });
-      const poly = new google.maps.Polyline({ map, path: [], strokeColor: '#3b82f6', strokeOpacity: 0.8, strokeWeight: 5 });
+    (async () => {
+      try {
+        await importLibrary('maps');
+        const map = new google.maps.Map(mapRef.current, {
+          center: { lat: center.lat, lng: center.lng },
+          zoom: 14,
+          zoomControl: true,
+          mapTypeControl: true,
+          fullscreenControl: true,
+          styles: darkMode ? [{ elementType: 'geometry', stylers: [{ color: '#242f3e' }] }] : undefined,
+        });
+        mapInstanceRef.current = map;
 
-      markerRefs.current = { store: mkStore, delivery: mkDel, customer: mkCust };
-      polyRef.current = poly;
-      setMapLoaded(true);
-    }).catch(e => setLoadError(e?.message || 'Erro ao carregar Google Maps'));
+        const mkStore = new google.maps.Marker({ map, position: store, title: 'Restaurante', icon: { path: google.maps.SymbolPath.BACKWARD_CLOSED_ARROW, scale: 10, fillColor: '#8b5cf6', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2 }, visible: !!storeLocation });
+        const mkDel = new google.maps.Marker({ map, position: deliveryLocation || center, title: deliveryName || 'Entregador', icon: { url: getMotoIconUrl(0), scaledSize: new google.maps.Size(44, 44), anchor: new google.maps.Point(22, 22) }, visible: !!deliveryLocation });
+        const mkCust = new google.maps.Marker({ map, position: customerLocation || center, title: customerName || 'Cliente', icon: { path: google.maps.SymbolPath.CIRCLE, scale: 10, fillColor: '#8b5cf6', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2 }, visible: !!customerLocation });
+        const poly = new google.maps.Polyline({ map, path: [], strokeColor: '#3b82f6', strokeOpacity: 0.8, strokeWeight: 5 });
+
+        markerRefs.current = { store: mkStore, delivery: mkDel, customer: mkCust };
+        polyRef.current = poly;
+        setMapLoaded(true);
+      } catch (e) {
+        setLoadError(e?.message || 'Erro ao carregar Google Maps');
+      }
+    })();
 
     return () => {
       Object.values(markerRefs.current || {}).forEach(m => m?.setMap?.(null));

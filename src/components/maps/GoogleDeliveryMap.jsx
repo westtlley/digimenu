@@ -1,10 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Loader } from '@googlemaps/js-api-loader';
+import { setOptions, importLibrary } from '@googlemaps/js-api-loader';
 import { Navigation, MapPin, Clock, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
-
-// DEBUG Maps: remova depois de validar
-console.log('MAP KEY:', import.meta.env.VITE_GOOGLE_MAPS_API_KEY);
 
 const ORS_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImI0NGE1MmYxODVhMTQ4MjFhZWFiMjUxZDFmYjhkMTg3IiwiaCI6Im11cm11cjY0In0=';
 const DEFAULT_CENTER = { lat: -15.7942, lng: -47.8822 };
@@ -99,87 +96,88 @@ export default function GoogleDeliveryMap({
 
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
-  // Inicializar Google Maps
+  // Inicializar Google Maps (API nova: setOptions + importLibrary)
   useEffect(() => {
     if (!apiKey || !mapRef.current) return;
 
     setLoadError(null);
-    console.log('INICIANDO GOOGLE MAPS');
-    const loader = new Loader({ apiKey, version: 'weekly' });
+    setOptions({ apiKey, version: 'weekly' });
 
-    loader.load().then(() => {
-      console.log('GOOGLE MAPS CARREGADO', window.google);
-      const center = customerLocation || storeLocation || entregadorLocation || DEFAULT_CENTER;
-      const map = new google.maps.Map(mapRef.current, {
-        center: { lat: center.lat ?? DEFAULT_CENTER.lat, lng: center.lng ?? DEFAULT_CENTER.lng },
-        zoom: 14,
-        disableDefaultUI: false,
-        zoomControl: true,
-        mapTypeControl: true,
-        scaleControl: true,
-        fullscreenControl: true,
-        streetViewControl: false,
-        styles: darkMode ? DARK_STYLES : undefined,
-      });
+    (async () => {
+      try {
+        await importLibrary('maps');
+        const center = customerLocation || storeLocation || entregadorLocation || DEFAULT_CENTER;
+        const map = new google.maps.Map(mapRef.current, {
+          center: { lat: center.lat ?? DEFAULT_CENTER.lat, lng: center.lng ?? DEFAULT_CENTER.lng },
+          zoom: 14,
+          disableDefaultUI: false,
+          zoomControl: true,
+          mapTypeControl: true,
+          scaleControl: true,
+          fullscreenControl: true,
+          streetViewControl: false,
+          styles: darkMode ? DARK_STYLES : undefined,
+        });
 
-      const mkStore = new google.maps.Marker({
-        map,
-        position: storeLocation || center,
-        title: 'Restaurante',
-        icon: {
-          path: google.maps.SymbolPath.CIRCLE,
-          scale: 10,
-          fillColor: '#ef4444',
-          fillOpacity: 1,
-          strokeColor: '#fff',
-          strokeWeight: 2,
-        },
-        visible: !!storeLocation,
-      });
+        const mkStore = new google.maps.Marker({
+          map,
+          position: storeLocation || center,
+          title: 'Restaurante',
+          icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            scale: 10,
+            fillColor: '#ef4444',
+            fillOpacity: 1,
+            strokeColor: '#fff',
+            strokeWeight: 2,
+          },
+          visible: !!storeLocation,
+        });
 
-      const mkCustomer = new google.maps.Marker({
-        map,
-        position: customerLocation || center,
-        title: 'Cliente',
-        icon: {
-          path: google.maps.SymbolPath.CIRCLE,
-          scale: 10,
-          fillColor: '#8b5cf6',
-          fillOpacity: 1,
-          strokeColor: '#fff',
-          strokeWeight: 2,
-        },
-        visible: !!customerLocation,
-      });
+        const mkCustomer = new google.maps.Marker({
+          map,
+          position: customerLocation || center,
+          title: 'Cliente',
+          icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            scale: 10,
+            fillColor: '#8b5cf6',
+            fillOpacity: 1,
+            strokeColor: '#fff',
+            strokeWeight: 2,
+          },
+          visible: !!customerLocation,
+        });
 
-      const pos0 = entregadorLocation || storeLocation || customerLocation || center;
-      const mkEntregador = new google.maps.Marker({
-        map,
-        position: pos0,
-        title: 'Entregador',
-        icon: { url: getMotoIconUrl(0), scaledSize: new google.maps.Size(44, 44), anchor: new google.maps.Point(22, 22) },
-        visible: !!entregadorLocation,
-      });
+        const pos0 = entregadorLocation || storeLocation || customerLocation || center;
+        const mkEntregador = new google.maps.Marker({
+          map,
+          position: pos0,
+          title: 'Entregador',
+          icon: { url: getMotoIconUrl(0), scaledSize: new google.maps.Size(44, 44), anchor: new google.maps.Point(22, 22) },
+          visible: !!entregadorLocation,
+        });
 
-      const poly = new google.maps.Polyline({
-        map,
-        path: [],
-        strokeColor: '#3b82f6',
-        strokeOpacity: 0.8,
-        strokeWeight: 4,
-        geodesic: true,
-      });
+        const poly = new google.maps.Polyline({
+          map,
+          path: [],
+          strokeColor: '#3b82f6',
+          strokeOpacity: 0.8,
+          strokeWeight: 4,
+          geodesic: true,
+        });
 
-      mapInstanceRef.current = map;
-      markerStoreRef.current = mkStore;
-      markerCustomerRef.current = mkCustomer;
-      markerEntregadorRef.current = mkEntregador;
-      routePolylineRef.current = poly;
-      lastPosRef.current = entregadorLocation ? { ...entregadorLocation } : null;
-      setMapLoaded(true);
-    }).catch((err) => {
-      setLoadError(err?.message || 'Erro ao carregar Google Maps');
-    });
+        mapInstanceRef.current = map;
+        markerStoreRef.current = mkStore;
+        markerCustomerRef.current = mkCustomer;
+        markerEntregadorRef.current = mkEntregador;
+        routePolylineRef.current = poly;
+        lastPosRef.current = entregadorLocation ? { ...entregadorLocation } : null;
+        setMapLoaded(true);
+      } catch (err) {
+        setLoadError(err?.message || 'Erro ao carregar Google Maps');
+      }
+    })();
 
     return () => {
       cancelAnimRef.current?.();

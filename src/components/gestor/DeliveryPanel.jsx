@@ -9,7 +9,6 @@ import AutoAssignModal from './AutoAssignModal';
 import EntregadorMessaging from './EntregadorMessaging';
 import EntregadorRating from './EntregadorRating';
 import RouteOptimizer from './RouteOptimizer';
-import LiveDeliveryMap from './LiveDeliveryMap';
 import GoogleMultiDeliveryTrackingMap from './GoogleMultiDeliveryTrackingMap';
 import ReviewsHistory from '../entregador/ReviewsHistory';
 import { base44 } from '@/api/base44Client';

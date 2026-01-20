@@ -92,6 +92,24 @@ fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api'}/uploa
 .catch(console.error);
 ```
 
+## 🗺️ Google Maps (VITE_GOOGLE_MAPS_API_KEY)
+
+Para os mapas no **Gestor** (Mapa ao Vivo), **Entregador** e **checkout** funcionarem:
+
+1. **Local:** crie `.env` na raiz (ou copie de `.env.example`) com:
+   ```env
+   VITE_GOOGLE_MAPS_API_KEY=sua_chave_maps_javascript_api
+   ```
+   Reinicie o servidor (`npm run dev`).
+
+2. **Vercel:** em **Settings → Environment Variables**, adicione:
+   - Nome: `VITE_GOOGLE_MAPS_API_KEY`
+   - Valor: sua chave da [Google Cloud Console](https://console.cloud.google.com/apis/credentials) (com **Maps JavaScript API** ativada)
+
+   Faça um novo deploy após salvar.
+
+3. **Se `window.google` ficar `undefined`:** a chave não está chegando (verifique o nome exato da variável e reinício/redeploy) ou o script do Google não carregou (rede, bloqueio, faturamento na conta Google).
+
 ## 📝 Nota Importante
 
 A URL `https://digimenu-chi.vercel.app` é o **frontend**, não o backend. Você precisa de um backend separado rodando com:

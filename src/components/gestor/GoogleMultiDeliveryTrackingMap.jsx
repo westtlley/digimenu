@@ -3,7 +3,7 @@
  * Substitui MultiDeliveryTrackingMap (Leaflet). Requer VITE_GOOGLE_MAPS_API_KEY.
  */
 import React, { useEffect, useState, useRef } from 'react';
-import { Loader } from '@googlemaps/js-api-loader';
+import { setOptions, importLibrary } from '@googlemaps/js-api-loader';
 import { Navigation, MapPin, Clock, Loader2, Users } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -79,26 +79,32 @@ export default function GoogleMultiDeliveryTrackingMap({
     ? { lat: allPoints.reduce((s, p) => s + p.lat, 0) / allPoints.length, lng: allPoints.reduce((s, p) => s + p.lng, 0) / allPoints.length }
     : DEFAULT_CENTER;
 
-  // Inicializar mapa Google
+  // Inicializar mapa Google (API nova: setOptions + importLibrary)
   useEffect(() => {
     if (!apiKey || !mapRef.current) return;
     setLoadError(null);
-    const loader = new Loader({ apiKey, version: 'weekly' });
-    loader.load().then(() => {
-      const map = new google.maps.Map(mapRef.current, {
-        center,
-        zoom: 13,
-        zoomControl: true,
-        mapTypeControl: true,
-        fullscreenControl: true,
-        styles: darkMode ? [
-          { elementType: 'geometry', stylers: [{ color: '#242f3e' }] },
-          { elementType: 'labels.text.fill', stylers: [{ color: '#746855' }] },
-        ] : undefined,
-      });
-      mapInstanceRef.current = map;
-      setMapLoaded(true);
-    }).catch((e) => setLoadError(e?.message || 'Erro ao carregar Google Maps'));
+    setOptions({ apiKey, version: 'weekly' });
+
+    (async () => {
+      try {
+        await importLibrary('maps');
+        const map = new google.maps.Map(mapRef.current, {
+          center,
+          zoom: 13,
+          zoomControl: true,
+          mapTypeControl: true,
+          fullscreenControl: true,
+          styles: darkMode ? [
+            { elementType: 'geometry', stylers: [{ color: '#242f3e' }] },
+            { elementType: 'labels.text.fill', stylers: [{ color: '#746855' }] },
+          ] : undefined,
+        });
+        mapInstanceRef.current = map;
+        setMapLoaded(true);
+      } catch (e) {
+        setLoadError(e?.message || 'Erro ao carregar Google Maps');
+      }
+    })();
 
     return () => {
       Object.values(markersRef.current).forEach(m => m?.setMap?.(null));
@@ -196,9 +202,10 @@ export default function GoogleMultiDeliveryTrackingMap({
 
   if (!apiKey) {
     return (
-      <div className="h-full flex flex-col items-center justify-center bg-gray-100 dark:bg-gray-800 rounded-xl">
-        <MapPin className="w-12 h-12 text-gray-400 mb-2" />
-        <p className="text-gray-500 dark:text-gray-400 text-sm text-center px-4">Configure VITE_GOOGLE_MAPS_API_KEY no .env para exibir o mapa.</p>
+      <div className="h-full flex flex-col items-center justify-center bg-amber-50 dark:bg-amber-900/20 rounded-xl p-6">
+        <MapPin className="w-12 h-12 text-amber-500 mb-2" />
+        <p className="text-amber-800 dark:text-amber-200 text-sm font-medium text-center mb-1">Chave do Google Maps não configurada</p>
+        <p className="text-gray-600 dark:text-gray-400 text-xs text-center max-w-xs">Adicione <code className="bg-black/5 dark:bg-white/10 px-1 rounded">VITE_GOOGLE_MAPS_API_KEY</code> no <code className="bg-black/5 dark:bg-white/10 px-1 rounded">.env</code> na raiz do projeto e reinicie o servidor (<code>npm run dev</code>). Na Vercel: Settings → Environment Variables.</p>
       </div>
     );
   }
