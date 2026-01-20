@@ -85,10 +85,9 @@ function FixMapResize() {
   return null;
 }
 
-const ORS_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImI0NGE1MmYxODVhMTQ4MjFhZWFiMjUxZDFmYjhkMTg3IiwiaCI6Im11cm11cjY0In0=';
-
 /**
  * Mapa de rastreamento em tempo real com animação de trajeto
+ * Rota ORS: chave em VITE_ORS_KEY no .env
  * Para uso no App Entregador
  */
 export default function RealTimeTrackingMap({
@@ -155,10 +154,16 @@ export default function RealTimeTrackingMap({
     };
   }, [entregadorLocation]);
 
-  // Calcular rota
+  // Calcular rota — chave em VITE_ORS_KEY no .env
+  const orsKey = import.meta.env.VITE_ORS_KEY;
   useEffect(() => {
     const calculateRoute = async () => {
       if (!entregadorLocation || !customerLocation) {
+        setRoute([]);
+        setRouteInfo(null);
+        return;
+      }
+      if (!orsKey) {
         setRoute([]);
         setRouteInfo(null);
         return;
@@ -182,7 +187,7 @@ export default function RealTimeTrackingMap({
         const res = await fetch('https://api.openrouteservice.org/v2/directions/driving-car', {
           method: 'POST',
           headers: {
-            Authorization: ORS_KEY,
+            Authorization: orsKey,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify(body),
@@ -215,7 +220,7 @@ export default function RealTimeTrackingMap({
     };
 
     calculateRoute();
-  }, [entregadorLocation, customerLocation, storeLocation, order?.status]);
+  }, [entregadorLocation, customerLocation, storeLocation, order?.status, orsKey]);
 
   const DEFAULT_CENTER = { lat: -15.7942, lng: -47.8822 }; // Brasília — fallback
   const mapCenter = animatedPosition || entregadorLocation || customerLocation || storeLocation || DEFAULT_CENTER;

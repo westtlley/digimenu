@@ -7,7 +7,6 @@ import { setOptions, importLibrary } from '@googlemaps/js-api-loader';
 import { Navigation, MapPin, Clock, Loader2, Users } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-const ORS_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImI0NGE1MmYxODVhMTQ4MjFhZWFiMjUxZDFmYjhkMTg3IiwiaCI6Im11cm11cjY0In0=';
 const DEFAULT_CENTER = { lat: -5.0892, lng: -42.8019 };
 
 function getMotoIconUrl(bearing = 0, color = '#22c55e') {
@@ -48,8 +47,10 @@ export default function GoogleMultiDeliveryTrackingMap({
     });
   }, [orders]);
 
-  // Rotas ORS
+  // Rotas ORS — chave em VITE_ORS_KEY no .env
+  const orsKey = import.meta.env.VITE_ORS_KEY;
   useEffect(() => {
+    if (!orsKey) return;
     entregadores.filter(e => e.status === 'busy' && e.current_latitude && e.current_longitude).forEach(async (ent) => {
       const order = orders.find(o => o.id === ent.current_order_id);
       if (!order || !customerLocations[order.id]) return;
@@ -57,7 +58,7 @@ export default function GoogleMultiDeliveryTrackingMap({
       if (routes[key]) return;
       try {
         const body = { coordinates: [[ent.current_longitude, ent.current_latitude], [customerLocations[order.id].lng, customerLocations[order.id].lat]] };
-        const res = await fetch('https://api.openrouteservice.org/v2/directions/driving-car', { method: 'POST', headers: { Authorization: ORS_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        const res = await fetch('https://api.openrouteservice.org/v2/directions/driving-car', { method: 'POST', headers: { Authorization: orsKey, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
         const data = await res.json();
         if (data?.features?.[0]) {
           const path = data.features[0].geometry.coordinates.map(c => ({ lat: c[1], lng: c[0] }));
@@ -65,7 +66,7 @@ export default function GoogleMultiDeliveryTrackingMap({
         }
       } catch (e) { console.error(e); }
     });
-  }, [entregadores, orders, customerLocations]);
+  }, [entregadores, orders, customerLocations, orsKey]);
 
   const activeEntregadores = entregadores.filter(e => (e.status === 'busy' || e.current_order_id) && e.current_latitude && e.current_longitude);
   const pendingOrders = orders.filter(o => o.status === 'ready' && o.delivery_method === 'delivery');
@@ -205,7 +206,7 @@ export default function GoogleMultiDeliveryTrackingMap({
       <div className="h-full flex flex-col items-center justify-center bg-amber-50 dark:bg-amber-900/20 rounded-xl p-6">
         <MapPin className="w-12 h-12 text-amber-500 mb-2" />
         <p className="text-amber-800 dark:text-amber-200 text-sm font-medium text-center mb-1">Chave do Google Maps não configurada</p>
-        <p className="text-gray-600 dark:text-gray-400 text-xs text-center max-w-xs">Adicione <code className="bg-black/5 dark:bg-white/10 px-1 rounded">VITE_GOOGLE_MAPS_API_KEY</code> no <code className="bg-black/5 dark:bg-white/10 px-1 rounded">.env</code> na raiz do projeto e reinicie o servidor (<code>npm run dev</code>). Na Vercel: Settings → Environment Variables.</p>
+        <p className="text-gray-600 dark:text-gray-400 text-xs text-center max-w-xs">Adicione <code className="bg-black/5 dark:bg-white/10 px-1 rounded">VITE_GOOGLE_MAPS_KEY</code> (ou <code className="bg-black/5 dark:bg-white/10 px-1 rounded">VITE_GOOGLE_MAPS_API_KEY</code>) no <code className="bg-black/5 dark:bg-white/10 px-1 rounded">.env</code> na raiz e reinicie (<code>npm run dev</code>). Na Vercel: Settings → Environment Variables.</p>
       </div>
     );
   }

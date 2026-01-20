@@ -28,7 +28,8 @@ import {
   Layers,
   Plus,
   Grid3x3,
-  Pizza
+  Pizza,
+  Layout
 } from 'lucide-react';
 
 const MENU_STRUCTURE = [
@@ -99,6 +100,7 @@ const MENU_STRUCTURE = [
       { id: 'store', label: 'Loja', icon: Store, module: 'store' },
       { id: 'theme', label: 'Tema', icon: Palette, module: 'theme' },
       { id: 'printer', label: 'Impressora', icon: Printer, module: 'printer' },
+      { id: 'pagina_assinar', label: 'Editar Página de Vendas', icon: Layout, masterOnly: true },
     ]
   }
 ];
@@ -132,11 +134,11 @@ export default function AdminSidebar({ activeTab, setActiveTab, isMaster = false
 
   const getLeafItems = (it) => {
     if (!it.submenu) return [];
-    return it.submenu.flatMap(s =>
-      s.section === 'subsection'
-        ? (s.submenu || []).filter(x => x.module && hasModuleAccess(x.module))
-        : (s.module && hasModuleAccess(s.module) ? [s] : [])
-    );
+    return it.submenu.flatMap(s => {
+      if (s.section === 'subsection')
+        return (s.submenu || []).filter(x => x.module && hasModuleAccess(x.module));
+      return (s.module && hasModuleAccess(s.module)) || (s.masterOnly && isMaster) ? [s] : [];
+    });
   };
 
   const renderMenuItem = (item, isSubmenu = false) => {
@@ -153,7 +155,7 @@ export default function AdminSidebar({ activeTab, setActiveTab, isMaster = false
       const visibleSubmenu = item.submenu.filter(sub => {
         if (sub.section === 'subsection')
           return (sub.submenu || []).some(s => s.module && hasModuleAccess(s.module));
-        return sub.module && hasModuleAccess(sub.module);
+        return (sub.module && hasModuleAccess(sub.module)) || (sub.masterOnly && isMaster);
       });
       if (visibleSubmenu.length === 0) return null;
 

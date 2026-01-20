@@ -6,7 +6,6 @@ import React, { useEffect, useState, useRef } from 'react';
 import { setOptions, importLibrary } from '@googlemaps/js-api-loader';
 import { Navigation, MapPin, Clock } from 'lucide-react';
 
-const ORS_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImI0NGE1MmYxODVhMTQ4MjFhZWFiMjUxZDFmYjhkMTg3IiwiaCI6Im11cm11cjY0In0=';
 const DEFAULT = { lat: -15.7942, lng: -47.8822 };
 
 function getMotoIconUrl(bearing = 0) {
@@ -39,12 +38,14 @@ export default function GoogleProfessionalDeliveryMap({
   const store = storeLocation || DEFAULT;
   const center = deliveryLocation || customerLocation || store;
 
-  // Rota ORS
+  // Rota ORS — chave em VITE_ORS_KEY no .env
+  const orsKey = import.meta.env.VITE_ORS_KEY;
   useEffect(() => {
     if (!showRoute || !deliveryLocation || !customerLocation) { setRoute([]); setInfo(null); return; }
+    if (!orsKey) { setRoute([]); setInfo(null); return; }
     setLoading(true);
     const body = { coordinates: [[deliveryLocation.lng, deliveryLocation.lat], [customerLocation.lng, customerLocation.lat]] };
-    fetch('https://api.openrouteservice.org/v2/directions/driving-car', { method: 'POST', headers: { Authorization: ORS_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    fetch('https://api.openrouteservice.org/v2/directions/driving-car', { method: 'POST', headers: { Authorization: orsKey, 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       .then(r => r.json())
       .then(data => {
         if (data?.features?.[0]) {
@@ -55,7 +56,7 @@ export default function GoogleProfessionalDeliveryMap({
       })
       .catch(() => setRoute([]))
       .finally(() => setLoading(false));
-  }, [showRoute, deliveryLocation, customerLocation]);
+  }, [showRoute, deliveryLocation, customerLocation, orsKey]);
 
   // Inicializar mapa (API nova: setOptions + importLibrary)
   useEffect(() => {

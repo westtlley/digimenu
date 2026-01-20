@@ -4,8 +4,6 @@ import { Navigation, Clock, MapPin } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 import { createMotoMarkerIcon, computeBearing } from './MotoMarkerIcon';
 
-const ORS_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImI0NGE1MmYxODVhMTQ4MjFhZWFiMjUxZDFmYjhkMTg3IiwiaCI6Im11cm11cjY0In0=';
-
 function FixMapResize() {
   const map = useMap();
   useEffect(() => {
@@ -83,8 +81,14 @@ export default function ProfessionalDeliveryMap({
     return () => clearInterval(interval);
   }, [deliveryLocation]);
 
+  const orsKey = import.meta.env.VITE_ORS_KEY;
   useEffect(() => {
     if (!showRoute || !deliveryLocation || !customerLocation) {
+      setRoute([]);
+      setInfo(null);
+      return;
+    }
+    if (!orsKey) {
       setRoute([]);
       setInfo(null);
       return;
@@ -103,7 +107,7 @@ export default function ProfessionalDeliveryMap({
         const res = await fetch('https://api.openrouteservice.org/v2/directions/driving-car', {
           method: 'POST',
           headers: {
-            Authorization: ORS_KEY,
+            Authorization: orsKey,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify(body),
@@ -129,7 +133,7 @@ export default function ProfessionalDeliveryMap({
     };
 
     fetchRoute();
-  }, [deliveryLocation, customerLocation, showRoute]);
+  }, [deliveryLocation, customerLocation, showRoute, orsKey]);
 
   if (!customerLocation) {
     return (

@@ -16,8 +16,6 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-const ORS_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImI0NGE1MmYxODVhMTQ4MjFhZWFiMjUxZDFmYjhkMTg3IiwiaCI6Im11cm11cjY0In0=';
-
 const createOrderIcon = () => {
   return L.divIcon({
     html: `
@@ -134,8 +132,10 @@ export default function MultiDeliveryTrackingMap({
     });
   }, [orders]);
 
-  // Calcular rotas para entregadores ativos
+  // Calcular rotas para entregadores ativos — chave em VITE_ORS_KEY no .env
+  const orsKey = import.meta.env.VITE_ORS_KEY;
   useEffect(() => {
+    if (!orsKey) return;
     const activeEntregadores = entregadores.filter(e => 
       e.status === 'busy' && e.current_latitude && e.current_longitude
     );
@@ -166,7 +166,7 @@ export default function MultiDeliveryTrackingMap({
         const res = await fetch('https://api.openrouteservice.org/v2/directions/driving-car', {
           method: 'POST',
           headers: {
-            Authorization: ORS_KEY,
+            Authorization: orsKey,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify(body),
@@ -191,7 +191,7 @@ export default function MultiDeliveryTrackingMap({
         setLoading(prev => ({ ...prev, [routeKey]: false }));
       }
     });
-  }, [entregadores, orders, customerLocations]);
+  }, [entregadores, orders, customerLocations, orsKey]);
 
   const activeEntregadores = entregadores.filter(e => 
     (e.status === 'busy' || e.current_order_id) && e.current_latitude && e.current_longitude

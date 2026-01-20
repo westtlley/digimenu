@@ -358,11 +358,13 @@ export default function Entregador() {
   };
 
   const getTimeSince = (date) => {
-    const now = new Date();
+    if (date == null || date === '') return '—';
     const created = new Date(date);
+    if (Number.isNaN(created.getTime())) return '—';
+    const now = new Date();
     const diffMs = now - created;
     const diffMins = Math.floor(diffMs / 60000);
-    
+    if (diffMins < 0 || !Number.isFinite(diffMins)) return '—';
     if (diffMins < 1) return 'Agora';
     if (diffMins < 60) return `${diffMins}m atrás`;
     const diffHours = Math.floor(diffMins / 60);

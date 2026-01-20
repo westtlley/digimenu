@@ -3,7 +3,6 @@ import { setOptions, importLibrary } from '@googlemaps/js-api-loader';
 import { Navigation, MapPin, Clock, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-const ORS_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImI0NGE1MmYxODVhMTQ4MjFhZWFiMjUxZDFmYjhkMTg3IiwiaCI6Im11cm11cjY0In0=';
 const DEFAULT_CENTER = { lat: -15.7942, lng: -47.8822 };
 
 function calculateBearing(from, to) {
@@ -68,7 +67,7 @@ const DARK_STYLES = [
  * - Rotação do ícone da moto conforme a direção do movimento
  * - Rota via OpenRouteService; overlay de distância/tempo e botão de navegação
  *
- * Requer: VITE_GOOGLE_MAPS_API_KEY no .env
+ * Requer: VITE_GOOGLE_MAPS_KEY (ou VITE_GOOGLE_MAPS_API_KEY) no .env — API 2.x
  */
 export default function GoogleDeliveryMap({
   entregadorLocation,
@@ -94,20 +93,28 @@ export default function GoogleDeliveryMap({
   const [routeInfo, setRouteInfo] = useState(null);
   const [routeLoading, setRouteLoading] = useState(false);
 
-  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_KEY || import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+  const hasLocations = !!(customerLocation || storeLocation);
 
-  // Inicializar Google Maps (API nova: setOptions + importLibrary)
+  // Inicializar Google Maps — API 2.x: setOptions + importLibrary("maps") + new Map(element, options)
+  // hasLocations: só monta o mapa quando há loja ou cliente (o div ref={mapRef} existe)
   useEffect(() => {
-    if (!apiKey || !mapRef.current) return;
+    if (!apiKey || !hasLocations || !mapRef.current) return;
 
     setLoadError(null);
-    setOptions({ apiKey, version: 'weekly' });
+    setOptions({ apiKey, language: 'pt-BR', region: 'BR' });
 
     (async () => {
       try {
-        await importLibrary('maps');
+        const [{ Map, Marker: MarkerFromMaps }, { Marker: MarkerFromLib }] = await Promise.all([
+          importLibrary('maps'),
+          importLibrary('marker'),
+        ]);
+        const Marker = MarkerFromLib ?? MarkerFromMaps;
+        if (typeof Marker !== 'function') throw new Error('Marker não disponível. Verifique importLibrary("maps") e importLibrary("marker").');
+
         const center = customerLocation || storeLocation || entregadorLocation || DEFAULT_CENTER;
-        const map = new google.maps.Map(mapRef.current, {
+        const map = new Map(mapRef.current, {
           center: { lat: center.lat ?? DEFAULT_CENTER.lat, lng: center.lng ?? DEFAULT_CENTER.lng },
           zoom: 14,
           disableDefaultUI: false,
@@ -119,12 +126,16 @@ export default function GoogleDeliveryMap({
           styles: darkMode ? DARK_STYLES : undefined,
         });
 
-        const mkStore = new google.maps.Marker({
+        // google.maps disponível após importLibrary('maps') — SymbolPath, Size, Point, Polyline
+        const g = typeof google !== 'undefined' ? google.maps : null;
+        if (!g) throw new Error('google.maps não disponível após importLibrary.');
+
+        const mkStore = new Marker({
           map,
           position: storeLocation || center,
           title: 'Restaurante',
           icon: {
-            path: google.maps.SymbolPath.CIRCLE,
+            path: g.SymbolPath.CIRCLE,
             scale: 10,
             fillColor: '#ef4444',
             fillOpacity: 1,
@@ -134,12 +145,12 @@ export default function GoogleDeliveryMap({
           visible: !!storeLocation,
         });
 
-        const mkCustomer = new google.maps.Marker({
+        const mkCustomer = new Marker({
           map,
           position: customerLocation || center,
           title: 'Cliente',
           icon: {
-            path: google.maps.SymbolPath.CIRCLE,
+            path: g.SymbolPath.CIRCLE,
             scale: 10,
             fillColor: '#8b5cf6',
             fillOpacity: 1,
@@ -150,15 +161,15 @@ export default function GoogleDeliveryMap({
         });
 
         const pos0 = entregadorLocation || storeLocation || customerLocation || center;
-        const mkEntregador = new google.maps.Marker({
+        const mkEntregador = new Marker({
           map,
           position: pos0,
           title: 'Entregador',
-          icon: { url: getMotoIconUrl(0), scaledSize: new google.maps.Size(44, 44), anchor: new google.maps.Point(22, 22) },
+          icon: { url: getMotoIconUrl(0), scaledSize: new g.Size(44, 44), anchor: new g.Point(22, 22) },
           visible: !!entregadorLocation,
         });
 
-        const poly = new google.maps.Polyline({
+        const poly = new g.Polyline({
           map,
           path: [],
           strokeColor: '#3b82f6',
@@ -188,7 +199,7 @@ export default function GoogleDeliveryMap({
       mapInstanceRef.current = null;
       setMapLoaded(false);
     };
-  }, [apiKey]);
+  }, [apiKey, hasLocations, darkMode]);
 
   // Aplicar tema escuro quando mudar
   useEffect(() => {
@@ -212,11 +223,18 @@ export default function GoogleDeliveryMap({
     } else if (mc) mc.setVisible(false);
   }, [mapLoaded, storeLocation, customerLocation]);
 
-  // Calcular rota (ORS)
+  // Calcular rota (ORS) — chave em VITE_ORS_KEY no .env
+  const orsKey = import.meta.env.VITE_ORS_KEY;
   useEffect(() => {
     if (!entregadorLocation || !customerLocation) {
       setRoute([]);
       setRouteInfo(null);
+      return;
+    }
+    if (!orsKey) {
+      setRoute([]);
+      setRouteInfo(null);
+      setRouteLoading(false);
       return;
     }
     setRouteLoading(true);
@@ -226,7 +244,7 @@ export default function GoogleDeliveryMap({
     const body = { coordinates: [[origin.lng, origin.lat], [customerLocation.lng, customerLocation.lat]] };
     fetch('https://api.openrouteservice.org/v2/directions/driving-car', {
       method: 'POST',
-      headers: { Authorization: ORS_KEY, 'Content-Type': 'application/json' },
+      headers: { Authorization: orsKey, 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     })
       .then((r) => r.json())
@@ -240,7 +258,7 @@ export default function GoogleDeliveryMap({
       })
       .catch(() => setRoute([]))
       .finally(() => setRouteLoading(false));
-  }, [entregadorLocation, customerLocation, storeLocation, order?.status]);
+  }, [entregadorLocation, customerLocation, storeLocation, order?.status, orsKey]);
 
   // Desenhar polyline da rota
   useEffect(() => {
@@ -297,15 +315,26 @@ export default function GoogleDeliveryMap({
     return (
       <div className="h-full flex flex-col items-center justify-center bg-gray-100 dark:bg-gray-800 rounded-xl">
         <span className="text-4xl mb-2">🗺️</span>
-        <p className="text-gray-500 dark:text-gray-400 text-sm text-center px-4">Configure VITE_GOOGLE_MAPS_API_KEY no .env para exibir o mapa.</p>
+        <p className="text-gray-500 dark:text-gray-400 text-sm text-center px-4">Configure VITE_GOOGLE_MAPS_KEY no .env para exibir o mapa.</p>
       </div>
     );
   }
 
   if (loadError) {
     return (
-      <div className="h-full flex items-center justify-center bg-gray-100 dark:bg-gray-800 rounded-xl">
-        <p className="text-red-600 dark:text-red-400 text-sm">Erro: {loadError}</p>
+      <div className="h-full flex flex-col items-center justify-center bg-gray-100 dark:bg-gray-800 rounded-xl p-6">
+        <p className="text-red-600 dark:text-red-400 text-sm text-center mb-2">O mapa não abriu corretamente.</p>
+        <p className="text-gray-500 dark:text-gray-400 text-xs text-center mb-4">Chave do Google Maps, rede ou restrição de domínio (ex.: Vercel) podem causar isso.</p>
+        {order?.address && (
+          <button
+            type="button"
+            onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(order.address)}`, '_blank')}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 text-white text-sm"
+          >
+            <Navigation className="w-4 h-4" />
+            Abrir no Google Maps
+          </button>
+        )}
       </div>
     );
   }

@@ -21,6 +21,7 @@ import ThemeTab from '../components/admin/ThemeTab';
 import OrdersTab from '../components/admin/OrdersTab';
 import StoreTab from '../components/admin/StoreTab';
 import PaymentMethodsTab from '../components/admin/PaymentMethodsTab';
+import AssinarPageEditorTab from '../components/admin/AssinarPageEditorTab';
 import PrinterConfig from '../components/gestor/PrinterConfig';
 import FinancialTab from '../components/admin/FinancialTab';
 import OrderHistoryTab from '../components/admin/OrderHistoryTab';
@@ -251,6 +252,8 @@ export default function Admin() {
         return hasModuleAccess('store') ? <StoreTab /> : <AccessDenied />;
       case 'payments':
         return hasModuleAccess('payments') ? <PaymentMethodsTab /> : <AccessDenied />;
+      case 'pagina_assinar':
+        return isMaster ? <AssinarPageEditorTab /> : <AccessDenied />;
       case 'graficos':
         return hasModuleAccess('graficos') ? (
           <div className="flex items-center justify-center h-96">
