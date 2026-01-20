@@ -94,41 +94,14 @@ export default function PizzaVisualization({ selectedSize, selectedFlavors, sele
 
   return (
     <div className={`w-full ${showBackground ? responsive.container : 'h-full'} flex flex-col items-center justify-center relative ${showBackground ? responsive.padding : ''}`}>
-      {/* Background com animação melhorada - apenas se showBackground for true */}
-      {showBackground && (
-        <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.5 }}
-          className="absolute inset-0 rounded-2xl overflow-hidden"
-          style={{
-            backgroundImage: `url(${backgroundImage})`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-          }}
-        >
-          <div 
-            className="absolute inset-0 bg-black rounded-2xl"
-            style={{ 
-              filter: `blur(${backgroundBlur}px)`,
-              opacity: backgroundOpacity / 100,
-              backgroundImage: `url(${backgroundImage})`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-            }}
-          ></div>
-          <div className="absolute inset-0 bg-gradient-to-br from-orange-900/20 via-transparent to-yellow-900/20"></div>
-        </motion.div>
-      )}
-
-      {/* Container principal - melhorado para responsividade */}
+      {/* Background e tábua removidos: apenas a pizza, para não atrapalhar ao redimensionar */}
       <div 
-        className={`relative ${showBackground ? 'z-10' : ''} w-full ${showBackground ? 'flex-1' : 'h-full'} flex flex-col items-center justify-center`}
+        className="relative w-full flex flex-col items-center justify-center"
         style={{
           transform: `translate(${globalOffsetX}px, ${globalOffsetY}px)`
         }}
       >
-        {/* Container da pizza e tábua - centralizado e responsivo */}
+        {/* Container da pizza - centralizado e responsivo */}
         <div 
           className="relative flex items-center justify-center w-full"
           style={{ 
@@ -137,33 +110,7 @@ export default function PizzaVisualization({ selectedSize, selectedFlavors, sele
             height: 'auto'
           }}
         >
-          {/* Tábua - posicionada atrás da pizza */}
-          <motion.div 
-            initial={{ scale: 0.7, opacity: 0, rotate: -5 }}
-            animate={{ scale: 1, opacity: 1, rotate: 0 }}
-            transition={{ duration: 0.6, type: 'spring', stiffness: 100 }}
-            className="absolute inset-0 flex items-center justify-center pointer-events-none"
-            style={{
-              transform: `translate(${boardOffsetX}px, ${boardOffsetY}px) scale(${boardScale / 100})`,
-              zIndex: 1,
-              width: '100%',
-              height: '100%'
-            }}
-          >
-            <img 
-              src={boardUrl} 
-              alt="Tábua" 
-              className="object-contain w-full h-full"
-              style={{ 
-                opacity: boardOpacity / 100,
-                filter: `drop-shadow(0 12px 24px rgba(0,0,0,${shadowIntensity / 100}))`,
-                transform: 'preserve-3d'
-              }}
-              draggable={false}
-            />
-          </motion.div>
-
-          {/* Pizza SVG - posicionada sobre a tábua */}
+          {/* Pizza SVG */}
           <div 
             className="relative z-10 flex items-center justify-center w-full h-full"
             style={{

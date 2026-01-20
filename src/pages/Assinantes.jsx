@@ -18,7 +18,6 @@ import {
   Package,
   Settings,
   Edit,
-  Eye,
   Lock,
   Copy,
   RefreshCw,
@@ -61,7 +60,6 @@ import { HelpCircle } from 'lucide-react';
 import UserAuthButton from '../components/atoms/UserAuthButton';
 import PermissionsEditor from '../components/permissions/PermissionsEditor';
 import SubscriberDataViewer from '../components/admin/SubscriberDataViewer';
-import SubscriberDataFilter from '../components/admin/SubscriberDataFilter';
 import ExpirationProgressBar from '../components/admin/subscribers/ExpirationProgressBar';
 import ExportCSV from '../components/admin/subscribers/ExportCSV';
 import ImportCSV from '../components/admin/subscribers/ImportCSV';
@@ -774,20 +772,6 @@ export default function Assinantes() {
     );
   }
 
-  // Se está visualizando dados filtrados de um assinante
-  if (selectedSubscriberForData) {
-    return (
-      <div className="min-h-screen bg-gray-50 p-6">
-        <div className="max-w-7xl mx-auto">
-          <SubscriberDataFilter 
-            subscriber={selectedSubscriberForData}
-            onBack={() => setSelectedSubscriberForData(null)}
-          />
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -1149,10 +1133,6 @@ export default function Assinantes() {
                           <DropdownMenuItem onClick={() => setViewingSubscriber(subscriber)}>
                             <Package className="w-4 h-4 mr-2" />
                             Ver Dados Completos
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setSelectedSubscriberForData(subscriber)}>
-                            <Eye className="w-4 h-4 mr-2" />
-                            Ver Dados Filtrados
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => openEditModal(subscriber)}>
                             <Edit className="w-4 h-4 mr-2" />

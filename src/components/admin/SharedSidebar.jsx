@@ -29,7 +29,8 @@ import {
   FileText,
   Receipt,
   QrCode,
-  Sparkles
+  Sparkles,
+  UserCog
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient as base44 } from '@/api/apiClient';
@@ -141,6 +142,7 @@ export default function SharedSidebar({
 
   const hasModuleAccess = (module) => {
     if (isMaster) return true;
+    if (module === 'colaboradores') return ['premium', 'pro'].includes((plan || '').toLowerCase());
     if (!permissions || typeof permissions !== 'object') return false;
     
     const modulePerms = permissions[module];

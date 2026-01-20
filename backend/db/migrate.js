@@ -63,6 +63,23 @@ export async function migrate() {
         } catch (error) {
           console.warn('⚠️ Aviso ao adicionar coluna whatsapp_auto_enabled (pode já existir):', error.message);
         }
+
+        // profile_role em users (entregador, cozinha, pdv) para colaboradores Premium/Pro
+        try {
+          await query(`
+            DO $$ 
+            BEGIN
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                            WHERE table_name='users' AND column_name='profile_role') THEN
+                ALTER TABLE users ADD COLUMN profile_role VARCHAR(50);
+                RAISE NOTICE 'Coluna profile_role adicionada em users';
+              END IF;
+            END $$;
+          `);
+          console.log('✅ Migração de coluna profile_role concluída.');
+        } catch (error) {
+          console.warn('⚠️ Aviso ao adicionar profile_role (pode já existir):', error.message);
+        }
     
     console.log('✅ Migração concluída com sucesso!');
     return true;

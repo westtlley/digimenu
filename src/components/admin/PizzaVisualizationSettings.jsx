@@ -231,21 +231,13 @@ export default function PizzaVisualizationSettings() {
         {/* Preview */}
         <Card className="p-3 md:p-4 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 sticky top-4 h-fit">
           <h3 className="text-white font-semibold mb-2 text-sm">Preview</h3>
-          <p className="text-xs text-gray-400 mb-2">💡 Clique e arraste a pizza ou tábua para reposicionar</p>
+          <p className="text-xs text-gray-400 mb-2">💡 Clique e arraste a pizza para reposicionar. Sem fundo nem tábua.</p>
           <div 
-            className="relative rounded-xl overflow-hidden aspect-square select-none"
-            style={settings.semFundo ? { background: '#e5e7eb' } : { backgroundImage: `url(${settings.backgroundImage})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
-            onMouseMove={(e) => { handleMouseMove(e); handleResizeMouseMove(e); }}
+            className="relative rounded-xl overflow-hidden aspect-square select-none bg-gray-800"
+            onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
           >
-            {!settings.semFundo && (
-              <div 
-                className="absolute inset-0 bg-black"
-                style={{ filter: `blur(${settings.backgroundBlur}px)`, opacity: settings.backgroundOpacity / 100, backgroundImage: `url(${settings.backgroundImage})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
-              />
-            )}
-            
             <div className="relative w-full h-full flex items-center justify-center p-4">
               <div 
                 style={{
@@ -257,27 +249,7 @@ export default function PizzaVisualizationSettings() {
                   justifyContent: 'center'
                 }}
               >
-                {/* Tábua */}
-                <div 
-                  className="absolute inset-0 flex items-center justify-center cursor-move"
-                  onMouseDown={(e) => handleMouseDown(e, 'board')}
-                  style={{
-                    transform: `translate(${settings.boardOffsetX}px, ${settings.boardOffsetY}px)`
-                  }}
-                >
-                  <img 
-                    src={settings.boardImageUrl}
-                    alt="Tábua" 
-                    className="object-contain max-w-full max-h-full"
-                    style={{ 
-                      width: `${settings.boardScale}%`,
-                      opacity: settings.boardOpacity / 100,
-                      filter: `drop-shadow(0 8px 16px rgba(0,0,0,${settings.shadowIntensity / 100}))`
-                    }}
-                  />
-                </div>
-
-                {/* Pizza SVG */}
+                {/* Pizza SVG - tábua e fundo removidos */}
                 <div 
                   className="relative z-10 w-full max-w-[280px] aspect-square cursor-move"
                   onMouseDown={(e) => handleMouseDown(e, 'pizza')}
@@ -368,22 +340,11 @@ export default function PizzaVisualizationSettings() {
                   <p className="text-xs text-gray-300 drop-shadow">2/4 Mussarela</p>
                   <p className="text-xs text-yellow-400 drop-shadow">🧀 Borda: {mockEdge.name}</p>
                 </div>
+                </div>
               </div>
-              </div>
-
-              {/* Controle de Redimensionamento da Tábua */}
-              <div 
-              className="absolute bottom-2 right-2 w-8 h-8 bg-white rounded-full shadow-lg cursor-nwse-resize flex items-center justify-center hover:bg-orange-500 hover:text-white transition-colors z-20"
-              onMouseDown={handleResizeMouseDown}
-              title="Arraste para redimensionar a tábua"
-              >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-              </svg>
-              </div>
-              </div>
-              </div>
-              </Card>
+            </div>
+          </div>
+        </Card>
 
         {/* Controls */}
         <Card className="p-3 md:p-4">

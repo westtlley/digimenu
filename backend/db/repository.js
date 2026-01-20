@@ -380,6 +380,14 @@ export async function updateUser(id, userData) {
     updates.push(`google_photo = $${paramIndex++}`);
     values.push(userData.google_photo);
   }
+  if (userData.profile_role !== undefined) {
+    updates.push(`profile_role = $${paramIndex++}`);
+    values.push(userData.profile_role);
+  }
+  if (userData.subscriber_email !== undefined) {
+    updates.push(`subscriber_email = $${paramIndex++}`);
+    values.push(userData.subscriber_email);
+  }
 
   if (updates.length === 0) {
     return await getUserById(id);
@@ -397,6 +405,29 @@ export async function updateUser(id, userData) {
 
   const result = await query(sql, values);
   return result.rows[0] || null;
+}
+
+/** Lista colaboradores (usuários com profile_role) de um assinante */
+export async function listColaboradores(ownerEmail) {
+  const result = await query(
+    `SELECT id, email, full_name, profile_role, created_at, updated_at
+     FROM users
+     WHERE LOWER(TRIM(subscriber_email)) = LOWER(TRIM($1)) AND profile_role IS NOT NULL
+     ORDER BY full_name`,
+    [ownerEmail]
+  );
+  return result.rows;
+}
+
+/** Remove colaborador (usuário com profile_role do assinante) */
+export async function deleteColaborador(id, ownerEmail) {
+  const result = await query(
+    `DELETE FROM users
+     WHERE id = $1 AND LOWER(TRIM(subscriber_email)) = LOWER(TRIM($2)) AND profile_role IS NOT NULL
+     RETURNING id`,
+    [id, ownerEmail]
+  );
+  return (result.rows[0] && result.rows[0].id) != null;
 }
 
 // =======================

@@ -272,6 +272,13 @@ class ApiClient {
       redirectToLogin: (returnUrl = '/') => {
         window.location.href = `/login?returnUrl=${encodeURIComponent(returnUrl)}`;
       },
+
+      /**
+       * Altera a senha do usuário logado
+       */
+      changePassword: async (currentPassword, newPassword) => {
+        return self.post('/auth/change-password', { currentPassword, newPassword });
+      },
     };
   }
 

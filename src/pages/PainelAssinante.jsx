@@ -29,6 +29,7 @@ import PaymentMethodsTab from '../components/admin/PaymentMethodsTab';
 import PrinterConfig from '../components/gestor/PrinterConfig';
 import CaixaTab from '../components/admin/CaixaTab';
 import WhatsAppTab from '../components/admin/WhatsAppTab';
+import ColaboradoresTab from '../components/admin/ColaboradoresTab';
 
 function AccessDenied() {
   return (
@@ -161,6 +162,8 @@ export default function PainelAssinante() {
         return hasModuleAccess('printer') ? <PrinterConfig /> : <AccessDenied />;
       case 'whatsapp':
         return hasModuleAccess('whatsapp') ? <WhatsAppTab /> : <AccessDenied />;
+      case 'colaboradores':
+        return hasModuleAccess('colaboradores') ? <ColaboradoresTab /> : <AccessDenied />;
       default:
         return <DashboardTab user={user} subscriberData={subscriberData} onNavigateToTab={setActiveTab} />;
     }

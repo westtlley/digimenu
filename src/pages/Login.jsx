@@ -1,14 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { apiClient as base44 } from '@/api/apiClient';
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Eye, EyeOff, LogIn, Loader2, Lock } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Eye, EyeOff, LogIn, Loader2, Lock, Store, Settings, User } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { createPageUrl } from '@/utils';
 import toast from 'react-hot-toast';
 
+/**
+ * Página de Login única. O formulário é o mesmo para todos.
+ * Após o login, o redirecionamento é feito conforme o perfil retornado pelo backend:
+ * - Cliente (role customer): Cardápio — pedidos, dados e histórico
+ * - Assinante: Painel do Restaurante (PainelAssinante)
+ * - Admin Master: Admin
+ * - returnUrl específico (ex. /Entregador) é respeitado quando o usuário tem permissão.
+ */
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -17,18 +24,25 @@ export default function Login() {
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const returnUrl = searchParams.get('returnUrl') || '/Admin';
+  const returnUrl = searchParams.get('returnUrl') || '/';
 
   useEffect(() => {
-    // Verificar se já está autenticado
     const checkAuth = async () => {
       try {
-        const isAuth = await base44.auth.isAuthenticated();
-        if (isAuth) {
-          navigate(returnUrl);
+        const ok = await base44.auth.isAuthenticated();
+        if (!ok) return;
+        const me = await base44.auth.me();
+        let to = returnUrl;
+        if (!returnUrl || returnUrl === '/' || returnUrl === '/login') {
+          if (me?.role === 'customer') to = '/Cardapio';
+          else if (me?.profile_role === 'entregador') to = '/Entregador';
+          else if (me?.profile_role === 'cozinha') to = '/Cozinha';
+          else if (me?.profile_role === 'pdv') to = '/PDV';
+          else to = me?.is_master ? '/Admin' : '/PainelAssinante';
         }
+        navigate(to);
       } catch (e) {
-        // Não autenticado, continuar na página de login
+        // Não autenticado ou falha em me()
       }
     };
     checkAuth();
@@ -40,84 +54,120 @@ export default function Login() {
     setLoading(true);
 
     if (!email || !password) {
-      setError('Por favor, preencha todos os campos');
+      setError('Preencha email e senha');
       setLoading(false);
       return;
     }
 
     try {
       const response = await base44.auth.login(email, password);
-      
+      const userData = response.user || response;
+
       if (response.token) {
         toast.success('Login realizado com sucesso!');
-        
-        // Verificar se é master, assinante ou cliente para redirecionar corretamente
-        const userData = response.user;
+
         let redirectUrl = returnUrl;
-        
-        // Clientes sempre vão para o Cardápio
+
+        // Cliente → sempre Cardápio (acesso a pedidos, dados, histórico)
         if (userData?.role === 'customer') {
-          redirectUrl = createPageUrl('Cardapio');
+          redirectUrl = '/Cardapio';
         }
-        // Se não for master e tentar acessar Admin, redirecionar para PainelAssinante
+        // Colaborador (perfil limitado) → Entregador, Cozinha ou PDV
+        else if (userData?.profile_role === 'entregador') {
+          redirectUrl = '/Entregador';
+        } else if (userData?.profile_role === 'cozinha') {
+          redirectUrl = '/Cozinha';
+        } else if (userData?.profile_role === 'pdv') {
+          redirectUrl = '/PDV';
+        }
+        // Assinante tentando Admin → PainelAssinante
         else if (!userData?.is_master && (returnUrl.includes('/Admin') || returnUrl === '/Admin')) {
           redirectUrl = '/PainelAssinante';
         }
-        // Se for master e tentar acessar PainelAssinante, redirecionar para Admin
-        else if (userData?.is_master && (returnUrl.includes('/PainelAssinante') || returnUrl === '/PainelAssinante')) {
+        // Master tentando PainelAssinante → Admin
+        else if (userData?.is_master && (returnUrl.includes('PainelAssinante') || returnUrl.includes('/PainelAssinante'))) {
           redirectUrl = '/Admin';
         }
-        // Se não especificar, redirecionar baseado no tipo de usuário
+        // Sem destino definido (/, /login, vazio): decidir pelo perfil
         else if (!returnUrl || returnUrl === '/' || returnUrl === '/login') {
           if (userData?.role === 'customer') {
-            redirectUrl = createPageUrl('Cardapio');
+            redirectUrl = '/Cardapio';
+          } else if (userData?.profile_role === 'entregador') {
+            redirectUrl = '/Entregador';
+          } else if (userData?.profile_role === 'cozinha') {
+            redirectUrl = '/Cozinha';
+          } else if (userData?.profile_role === 'pdv') {
+            redirectUrl = '/PDV';
           } else {
             redirectUrl = userData?.is_master ? '/Admin' : '/PainelAssinante';
           }
         }
-        
-        // Redirecionar
-        setTimeout(() => {
-          navigate(redirectUrl);
-        }, 500);
+
+        setTimeout(() => navigate(redirectUrl), 400);
       } else {
         setError('Erro ao fazer login. Tente novamente.');
       }
-    } catch (error) {
-      console.error('Login error:', error);
-      const errorMessage = error.message || 'Erro ao fazer login. Verifique suas credenciais.';
-      setError(errorMessage);
-      toast.error(errorMessage);
+    } catch (err) {
+      const msg = err?.message || 'Credenciais inválidas. Tente novamente.';
+      setError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
   };
 
-
   return (
-    <div className="min-h-screen flex items-center justify-center p-4" style={{ backgroundColor: 'var(--bg-primary)' }}>
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-slate-50 to-gray-100 dark:from-gray-900 dark:to-gray-950">
       <div className="w-full max-w-md">
-        <div className="rounded-2xl shadow-xl p-8" style={{ backgroundColor: 'var(--bg-card)', border: `1px solid var(--border-color)` }}>
-          {/* Logo/Header */}
-          <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-orange-500 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Lock className="w-8 h-8 text-white" />
+        <div
+          className="rounded-2xl shadow-xl p-6 sm:p-8"
+          style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)' }}
+        >
+          {/* Cabeçalho */}
+          <div className="text-center mb-6">
+            <div className="w-14 h-14 bg-orange-500 rounded-xl flex items-center justify-center mx-auto mb-3">
+              <Lock className="w-7 h-7 text-white" />
             </div>
-            <h1 className="text-3xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>
+            <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
               Entrar
             </h1>
-            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-              Acesse sua conta para continuar
+            <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
+              Use o mesmo formulário; você será levado ao painel do seu perfil.
             </p>
           </div>
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Email */}
-            <div className="space-y-2">
-              <Label htmlFor="email" style={{ color: 'var(--text-primary)' }}>
-                Email
-              </Label>
+          {/* Blocos: quem pode entrar */}
+          <div className="grid grid-cols-3 gap-2 mb-6">
+            <div
+              className="p-3 rounded-xl border text-center"
+              style={{ borderColor: 'var(--border-color)', backgroundColor: 'var(--bg-secondary)' }}
+            >
+              <User className="w-5 h-5 mx-auto mb-1 text-blue-600" />
+              <p className="text-[11px] font-semibold" style={{ color: 'var(--text-primary)' }}>Cliente</p>
+              <p className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>Cardápio, dados e histórico</p>
+            </div>
+            <div
+              className="p-3 rounded-xl border text-center"
+              style={{ borderColor: 'var(--border-color)', backgroundColor: 'var(--bg-secondary)' }}
+            >
+              <Store className="w-5 h-5 mx-auto mb-1 text-green-600" />
+              <p className="text-[11px] font-semibold" style={{ color: 'var(--text-primary)' }}>Assinante</p>
+              <p className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>Painel do restaurante</p>
+            </div>
+            <div
+              className="p-3 rounded-xl border text-center"
+              style={{ borderColor: 'var(--border-color)', backgroundColor: 'var(--bg-secondary)' }}
+            >
+              <Settings className="w-5 h-5 mx-auto mb-1 text-amber-600" />
+              <p className="text-[11px] font-semibold" style={{ color: 'var(--text-primary)' }}>Admin</p>
+              <p className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>Acesso master</p>
+            </div>
+          </div>
+
+          {/* Formulário */}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <Label htmlFor="email" style={{ color: 'var(--text-primary)' }}>Email</Label>
               <Input
                 id="email"
                 type="email"
@@ -125,130 +175,84 @@ export default function Login() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={loading}
-                className="w-full"
+                className="mt-1"
                 required
                 autoComplete="email"
               />
             </div>
-
-            {/* Password */}
-            <div className="space-y-2">
-              <Label htmlFor="password" style={{ color: 'var(--text-primary)' }}>
-                Senha
-              </Label>
-              <div className="relative">
+            <div>
+              <Label htmlFor="password" style={{ color: 'var(--text-primary)' }}>Senha</Label>
+              <div className="relative mt-1">
                 <Input
                   id="password"
                   type={showPassword ? 'text' : 'password'}
-                  placeholder="Digite sua senha"
+                  placeholder="Sua senha"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={loading}
-                  className="w-full pr-10"
+                  className="pr-10"
                   required
                   autoComplete="current-password"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
                   disabled={loading}
                 >
-                  {showPassword ? (
-                    <EyeOff className="w-5 h-5" />
-                  ) : (
-                    <Eye className="w-5 h-5" />
-                  )}
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
               </div>
             </div>
-
-            {/* Error Message */}
             {error && (
-              <div className="p-3 rounded-lg bg-red-50 border border-red-200">
-                <p className="text-sm text-red-600">{error}</p>
+              <div className="p-2.5 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+                <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
               </div>
             )}
-
-            {/* Submit Button */}
             <Button
               type="submit"
               className="w-full bg-orange-500 hover:bg-orange-600 text-white"
               disabled={loading}
             >
-              {loading ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Entrando...
-                </>
-              ) : (
-                <>
-                  <LogIn className="w-4 h-4 mr-2" />
-                  Entrar
-                </>
-              )}
+              {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Entrando...</> : <><LogIn className="w-4 h-4 mr-2" /> Entrar</>}
             </Button>
           </form>
 
-          {/* Links */}
-          <div className="mt-6 pt-6 border-t" style={{ borderColor: 'var(--border-color)' }}>
-            <p className="text-xs text-center mb-3" style={{ color: 'var(--text-secondary)' }}>
-              Não tem uma conta?{' '}
-              <Link 
-                to="/cadastro-cliente" 
-                className="text-orange-500 hover:text-orange-600 font-medium"
-              >
-                Cadastre-se como Cliente
-              </Link>
+          {/* Cadastros e links */}
+          <div className="mt-6 pt-5 border-t space-y-2" style={{ borderColor: 'var(--border-color)' }}>
+            <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+              <strong>Cliente:</strong>{' '}
+              <Link to="/cadastro-cliente" className="text-orange-500 hover:text-orange-600 font-medium">Cadastre-se</Link>
+              {' — '}Cardápio, pedidos e histórico.
             </p>
-            <p className="text-xs text-center" style={{ color: 'var(--text-secondary)' }}>
-              É um restaurante?{' '}
-              <Link 
-                to={createPageUrl('Cadastro')} 
-                className="text-orange-500 hover:text-orange-600 font-medium"
-              >
-                Cadastre-se como Assinante
-              </Link>
+            <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+              <strong>Restaurante:</strong>{' '}
+              <Link to="/Assinar" className="text-orange-500 hover:text-orange-600 font-medium">Assinar DigiMenu</Link>
+              {' — '}Painel, PDV e gestão.
+            </p>
+            <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+              <strong>Admin / Master:</strong> acesso por convite.{' '}
+              <a href="https://wa.me/5586988196114" target="_blank" rel="noopener noreferrer" className="text-orange-500 hover:text-orange-600 font-medium">Solicitar no WhatsApp</a>.
             </p>
           </div>
 
-          {/* Help */}
-          <div className="mt-4 p-3 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+          {/* Ajuda */}
+          <div className="mt-4 p-3 rounded-xl" style={{ backgroundColor: 'var(--bg-secondary)' }}>
             <p className="text-xs text-center" style={{ color: 'var(--text-secondary)' }}>
-              <strong>Email não cadastrado?</strong> Entre em contato para solicitar acesso.
+              Esqueceu a senha ou não tem acesso? Entre em contato.
             </p>
-            <a
-              href="https://wa.me/5586988196114"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block mt-2"
-            >
-              <Button variant="outline" size="sm" className="w-full bg-green-50 hover:bg-green-100 border-green-200">
-                Falar no WhatsApp
+            <a href="https://wa.me/5586988196114" target="_blank" rel="noopener noreferrer" className="block mt-2">
+              <Button variant="outline" size="sm" className="w-full border-green-300 text-green-700 hover:bg-green-50 dark:hover:bg-green-900/20">
+                WhatsApp
               </Button>
             </a>
           </div>
-
-          {/* Demo Credentials */}
-          <div className="mt-4 p-3 rounded-lg bg-blue-50 border border-blue-200">
-            <p className="text-xs font-semibold text-blue-800 mb-1">Credenciais de Teste:</p>
-            <p className="text-xs text-blue-700">
-              Email: <code className="bg-blue-100 px-1 rounded">admin@digimenu.com</code>
-            </p>
-            <p className="text-xs text-blue-700">
-              Senha: <code className="bg-blue-100 px-1 rounded">admin123</code>
-            </p>
-          </div>
         </div>
 
-        {/* Back to Menu */}
+        {/* Voltar ao cardápio */}
         <div className="mt-4 text-center">
-          <Link 
-            to={createPageUrl('Cardapio')} 
-            className="text-sm" 
-            style={{ color: 'var(--text-secondary)' }}
-          >
-            ← Voltar para o Cardápio
+          <Link to="/Cardapio" className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+            ← Ver cardápio sem login
           </Link>
         </div>
       </div>

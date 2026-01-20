@@ -32,7 +32,7 @@ import Cardapio from "./Cardapio";
 
 import Admin from "./Admin";
 
-import { BrowserRouter as Router, Route, Routes, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, useLocation, Navigate } from 'react-router-dom';
 
 const PAGES = {
     
@@ -99,12 +99,11 @@ function PagesContent() {
                 
                 <Route path="/Cadastro" element={<Cadastro />} />
                 
-                {/* Rota de login */}
-                        <Route path="/login" element={<Login />} />
-                        <Route path="/cadastro-cliente" element={<CadastroCliente />} />
-                        <Route path="/definir-senha" element={<DefinirSenha />} />
-                        <Route path="/setup-password" element={<DefinirSenha />} />
-                <Route path="/Login" element={<Login />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/Login" element={<Navigate to="/login" replace />} />
+                <Route path="/cadastro-cliente" element={<CadastroCliente />} />
+                <Route path="/definir-senha" element={<DefinirSenha />} />
+                <Route path="/setup-password" element={<DefinirSenha />} />
                 
                 <Route path="/Entregador" element={<Entregador />} />
                 
@@ -117,7 +116,7 @@ function PagesContent() {
                 <Route path="/MeusPedidos" element={<MeusPedidos />} />
                 
                 <Route path="/PDV" element={<PDV />} />
-                
+                <Route path="/Cozinha" element={<Cozinha />} />
                 <Route path="/PainelAssinante" element={<PainelAssinante />} />
                 
                 <Route path="/RastreioCliente" element={<RastreioCliente />} />

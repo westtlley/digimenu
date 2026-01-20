@@ -511,39 +511,8 @@ app.post('/api/auth/login', async (req, res) => {
       hasPasswordHash: !!user.password && user.password.startsWith('$2')
     });
 
-    // Verificar senha (em produção, usar bcrypt)
-    // Por enquanto, aceita qualquer senha para admin@digimenu.com
-    if (user.email === 'admin@digimenu.com' && password === 'admin123') {
-      console.log('✅ [login] Login admin bem-sucedido');
-      // Gerar token JWT
-      const token = jwt.sign(
-        {
-          id: user.id,
-          email: user.email,
-          role: user.role,
-          is_master: user.is_master
-        },
-        JWT_SECRET,
-        { expiresIn: '7d' }
-      );
-
-      // Armazenar token ativo
-      activeTokens[token] = user.email;
-
-      // Retornar token e dados do usuário
-      return res.json({
-        token,
-        user: {
-          id: user.id,
-          email: user.email,
-          full_name: user.full_name,
-          is_master: user.is_master,
-          role: user.role
-        }
-      });
-    }
-
-    // Para outros usuários, verificar senha com bcrypt
+    // Verificar senha: bcrypt ou legado (texto só para transição; troque no Admin)
+    // O bypass fixo admin@digimenu.com + admin123 foi removido por segurança.
     if (user.password) {
       try {
         const isValid = await bcrypt.compare(password, user.password);
@@ -571,7 +540,9 @@ app.post('/api/auth/login', async (req, res) => {
               email: user.email,
               full_name: user.full_name,
               is_master: user.is_master,
-              role: user.role
+              role: user.role,
+              subscriber_email: user.subscriber_email || null,
+              profile_role: user.profile_role || null
             }
           });
         } else {
@@ -602,12 +573,37 @@ app.post('/api/auth/login', async (req, res) => {
               email: user.email,
               full_name: user.full_name,
               is_master: user.is_master,
-              role: user.role
+              role: user.role,
+              subscriber_email: user.subscriber_email || null,
+              profile_role: user.profile_role || null
             }
           });
         }
       }
     } else {
+      // Recuperação: admin padrão sem senha no DB (ex. após persist que não grava texto)
+      const emailMatch = (user.email || '').toLowerCase() === 'admin@digimenu.com';
+      if (emailMatch && password === 'admin123') {
+        console.log('⚠️ [login] Acesso de recuperação (admin sem senha). Altere a senha no Admin.');
+        const token = jwt.sign(
+          { id: user.id, email: user.email, role: user.role, is_master: user.is_master },
+          JWT_SECRET,
+          { expiresIn: '7d' }
+        );
+        activeTokens[token] = user.email;
+        return res.json({
+          token,
+          user: {
+            id: user.id,
+            email: user.email,
+            full_name: user.full_name,
+            is_master: user.is_master,
+            role: user.role,
+            subscriber_email: user.subscriber_email || null,
+            profile_role: user.profile_role || null
+          }
+        });
+      }
       console.log('❌ [login] Usuário sem senha:', user.email);
     }
 
@@ -626,11 +622,240 @@ app.get('/api/auth/me', authenticate, async (req, res) => {
       email: req.user.email,
       full_name: req.user.full_name,
       is_master: req.user.is_master,
-      role: req.user.role
+      role: req.user.role,
+      subscriber_email: req.user.subscriber_email || null,
+      profile_role: req.user.profile_role || null
     });
   } catch (error) {
     console.error('Erro ao obter usuário:', error);
     return res.status(500).json({ error: 'Erro interno no servidor' });
+  }
+});
+
+// Alterar própria senha (requer autenticação)
+app.post('/api/auth/change-password', authenticate, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: 'Senha atual e nova senha são obrigatórias' });
+    }
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: 'A nova senha deve ter no mínimo 6 caracteres' });
+    }
+
+    // Carregar usuário com senha (req.user pode não ter o hash)
+    let user;
+    if (usePostgreSQL) {
+      user = await repo.getUserByEmail(req.user.email);
+    } else if (db && db.users) {
+      user = db.users.find(u => (u.email || '').toLowerCase() === (req.user.email || '').toLowerCase());
+    }
+    if (!user) {
+      return res.status(404).json({ error: 'Usuário não encontrado' });
+    }
+
+    let valid = false;
+    if (user.password) {
+      if (typeof user.password === 'string' && user.password.startsWith('$2')) {
+        valid = await bcrypt.compare(currentPassword, user.password);
+      } else if (user.password === currentPassword) {
+        valid = true;
+      }
+    } else if ((user.email || '').toLowerCase() === 'admin@digimenu.com' && currentPassword === 'admin123') {
+      valid = true; // recuperação: admin sem senha no DB
+    }
+    if (!valid) {
+      return res.status(401).json({ error: 'Senha atual incorreta' });
+    }
+
+    const hashed = await bcrypt.hash(newPassword, 10);
+
+    if (usePostgreSQL) {
+      await repo.updateUser(user.id, { password: hashed });
+    } else if (db && db.users) {
+      const u = db.users.find(x => (x.email || '').toLowerCase() === (req.user.email || '').toLowerCase());
+      if (u) {
+        u.password = hashed;
+        u.updated_at = new Date().toISOString();
+        try {
+          const persistenceModule = await import('./db/persistence.js');
+          if (persistenceModule?.saveDatabase) persistenceModule.saveDatabase(db);
+          else if (typeof saveDatabaseDebounced === 'function') saveDatabaseDebounced(db);
+        } catch (e) {
+          console.error('Erro ao salvar senha (JSON):', e);
+        }
+      }
+    }
+
+    return res.json({ success: true, message: 'Senha alterada com sucesso.' });
+  } catch (error) {
+    console.error('Erro ao alterar senha:', error);
+    return res.status(500).json({ error: error?.message || 'Erro ao alterar senha' });
+  }
+});
+
+// -----------------------
+// Colaboradores (Premium/Pro): perfis limitados Entregador, Cozinha, PDV
+// -----------------------
+const COLAB_ROLES = ['entregador', 'cozinha', 'pdv'];
+
+async function getOwnerAndSubscriber(req) {
+  const owner = (req.query.as_subscriber || req.user?._contextForSubscriber || req.user?.subscriber_email || req.user?.email || '').toString().toLowerCase().trim();
+  let subscriber = null;
+  if (usePostgreSQL) {
+    subscriber = await repo.getSubscriberByEmail(owner);
+  } else if (db?.subscribers) {
+    subscriber = db.subscribers.find(s => (s.email || '').toLowerCase().trim() === owner) || null;
+  }
+  return { owner, subscriber };
+}
+
+function canUseColaboradores(subscriber, isMaster) {
+  if (isMaster && subscriber) {
+    const p = (subscriber.plan || '').toLowerCase();
+    return p === 'premium' || p === 'pro';
+  }
+  if (!subscriber) return false;
+  const p = (subscriber.plan || '').toLowerCase();
+  return p === 'premium' || p === 'pro';
+}
+
+app.get('/api/colaboradores', authenticate, async (req, res) => {
+  try {
+    const { owner, subscriber } = await getOwnerAndSubscriber(req);
+    if (!owner) return res.status(400).json({ error: 'Contexto do assinante necessário' });
+    if (!canUseColaboradores(subscriber, req.user?.is_master)) {
+      return res.status(403).json({ error: 'Colaboradores disponível apenas nos planos Premium e Pro' });
+    }
+    let list = [];
+    if (usePostgreSQL && repo.listColaboradores) {
+      list = await repo.listColaboradores(owner);
+    } else if (db?.users) {
+      list = db.users
+        .filter(u => (u.subscriber_email || '').toLowerCase().trim() === owner && (u.profile_role || '').trim())
+        .map(u => ({ id: u.id, email: u.email, full_name: u.full_name, profile_role: u.profile_role, created_at: u.created_at, updated_at: u.updated_at }));
+    }
+    return res.json(list);
+  } catch (e) {
+    console.error('GET /api/colaboradores:', e);
+    return res.status(500).json({ error: e?.message || 'Erro ao listar colaboradores' });
+  }
+});
+
+app.post('/api/colaboradores', authenticate, async (req, res) => {
+  try {
+    const { owner, subscriber } = await getOwnerAndSubscriber(req);
+    if (!owner) return res.status(400).json({ error: 'Contexto do assinante necessário' });
+    if (!canUseColaboradores(subscriber, req.user?.is_master)) {
+      return res.status(403).json({ error: 'Colaboradores disponível apenas nos planos Premium e Pro' });
+    }
+    const { name, email, password, role } = req.body || {};
+    const roleNorm = (role || '').toLowerCase().trim();
+    if (!COLAB_ROLES.includes(roleNorm)) return res.status(400).json({ error: 'Perfil inválido. Use: entregador, cozinha ou pdv' });
+    if (!(email && String(email).trim())) return res.status(400).json({ error: 'Email é obrigatório' });
+    if (!(password && String(password).length >= 6)) return res.status(400).json({ error: 'Senha com no mínimo 6 caracteres' });
+    const emailNorm = String(email).toLowerCase().trim();
+
+    let existing = usePostgreSQL ? await repo.getUserByEmail(emailNorm) : db?.users?.find(u => (u.email || '').toLowerCase().trim() === emailNorm);
+    if (existing) return res.status(400).json({ error: 'Este email já está em uso' });
+
+    const hashed = await bcrypt.hash(String(password), 10);
+    const userData = {
+      email: emailNorm,
+      full_name: (name || emailNorm.split('@')[0] || '').trim() || 'Colaborador',
+      password: hashed,
+      is_master: false,
+      role: 'user',
+      subscriber_email: owner,
+      profile_role: roleNorm
+    };
+
+    let created;
+    if (usePostgreSQL) {
+      created = await repo.createUser(userData);
+    } else if (db?.users) {
+      created = {
+        id: String(Date.now()),
+        ...userData,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      db.users.push(created);
+      if (typeof saveDatabaseDebounced === 'function') saveDatabaseDebounced(db);
+    } else {
+      return res.status(500).json({ error: 'Banco não disponível' });
+    }
+    const out = { id: created.id, email: created.email, full_name: created.full_name, profile_role: created.profile_role, created_at: created.created_at, updated_at: created.updated_at };
+    return res.status(201).json(out);
+  } catch (e) {
+    console.error('POST /api/colaboradores:', e);
+    return res.status(500).json({ error: e?.message || 'Erro ao criar colaborador' });
+  }
+});
+
+app.patch('/api/colaboradores/:id', authenticate, async (req, res) => {
+  try {
+    const { owner, subscriber } = await getOwnerAndSubscriber(req);
+    if (!owner) return res.status(400).json({ error: 'Contexto do assinante necessário' });
+    if (!canUseColaboradores(subscriber, req.user?.is_master)) return res.status(403).json({ error: 'Colaboradores disponível apenas nos planos Premium e Pro' });
+    const { name, role, newPassword } = req.body || {};
+    const id = req.params.id;
+
+    let u = null;
+    if (usePostgreSQL) {
+      const all = await repo.listColaboradores(owner);
+      u = all.find(x => String(x.id) === String(id)) || null;
+    } else if (db?.users) {
+      u = db.users.find(x => String(x.id) === String(id) && (x.subscriber_email || '').toLowerCase().trim() === owner && (x.profile_role || '').trim());
+    }
+    if (!u) return res.status(404).json({ error: 'Colaborador não encontrado' });
+
+    const up = {};
+    if (name !== undefined) up.full_name = String(name).trim() || u.full_name;
+    if (role !== undefined) {
+      const r = String(role).toLowerCase().trim();
+      if (COLAB_ROLES.includes(r)) up.profile_role = r;
+    }
+    if (newPassword !== undefined && String(newPassword).length >= 6) up.password = await bcrypt.hash(String(newPassword), 10);
+
+    if (Object.keys(up).length === 0) return res.json({ id: u.id, email: u.email, full_name: u.full_name, profile_role: u.profile_role });
+
+    if (usePostgreSQL) {
+      await repo.updateUser(u.id, up);
+      const updated = await repo.getUserById(u.id);
+      return res.json({ id: updated.id, email: updated.email, full_name: updated.full_name, profile_role: updated.profile_role, updated_at: updated.updated_at });
+    }
+    Object.assign(u, up, { updated_at: new Date().toISOString() });
+    if (typeof saveDatabaseDebounced === 'function') saveDatabaseDebounced(db);
+    return res.json({ id: u.id, email: u.email, full_name: u.full_name, profile_role: u.profile_role, updated_at: u.updated_at });
+  } catch (e) {
+    console.error('PATCH /api/colaboradores:', e);
+    return res.status(500).json({ error: e?.message || 'Erro ao atualizar colaborador' });
+  }
+});
+
+app.delete('/api/colaboradores/:id', authenticate, async (req, res) => {
+  try {
+    const { owner, subscriber } = await getOwnerAndSubscriber(req);
+    if (!owner) return res.status(400).json({ error: 'Contexto do assinante necessário' });
+    if (!canUseColaboradores(subscriber, req.user?.is_master)) return res.status(403).json({ error: 'Colaboradores disponível apenas nos planos Premium e Pro' });
+    const id = req.params.id;
+
+    if (usePostgreSQL) {
+      const ok = await repo.deleteColaborador(id, owner);
+      if (!ok) return res.status(404).json({ error: 'Colaborador não encontrado' });
+    } else if (db?.users) {
+      const idx = db.users.findIndex(x => String(x.id) === String(id) && (x.subscriber_email || '').toLowerCase().trim() === owner && (x.profile_role || '').trim());
+      if (idx === -1) return res.status(404).json({ error: 'Colaborador não encontrado' });
+      db.users.splice(idx, 1);
+      if (typeof saveDatabaseDebounced === 'function') saveDatabaseDebounced(db);
+    } else {
+      return res.status(500).json({ error: 'Banco não disponível' });
+    }
+    return res.json({ success: true });
+  } catch (e) {
+    console.error('DELETE /api/colaboradores:', e);
+    return res.status(500).json({ error: e?.message || 'Erro ao remover colaborador' });
   }
 });
 

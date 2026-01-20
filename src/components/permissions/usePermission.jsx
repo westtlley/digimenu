@@ -108,9 +108,11 @@ export function usePermission() {
   /**
    * Verifica se o usuário tem acesso a um módulo
    * ✅ CORREÇÃO: Blindado com Array.isArray
+   * colaboradores: apenas planos Premium e Pro
    */
   const hasModuleAccess = (module) => {
     if (isMaster) return true;
+    if (module === 'colaboradores') return ['premium', 'pro'].includes((subscriberData?.plan || '').toLowerCase());
     if (!permissions || typeof permissions !== 'object') return false;
     
     const modulePerms = permissions[module];

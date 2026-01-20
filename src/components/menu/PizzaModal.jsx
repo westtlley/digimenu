@@ -349,25 +349,12 @@ export default function PizzaModal({ isOpen, onClose, pizza, onAddToCart, primar
                   {selectedFlavors.length}/{maxFlavors} selecionados
                 </p>
 
-                {/* Visualização da Pizza - Estilo igual à montagem dos pratos */}
+                {/* Visualização da pizza — sem fundo nem tábua */}
                 <div 
-                  className="relative rounded-2xl flex items-center justify-center overflow-hidden backdrop-blur-xl border-2 shadow-2xl mb-4 sm:mb-6 h-[320px] sm:h-[400px] md:h-[450px]"
-                  style={{
-                    background: `linear-gradient(to bottom right, ${primaryColor}30, ${primaryColor}20, ${primaryColor}15)`,
-                    borderColor: `${primaryColor}30`
-                  }}
+                  className="relative rounded-2xl flex items-center justify-center overflow-hidden border-2 shadow-2xl mb-4 sm:mb-6 h-[320px] sm:h-[400px] md:h-[450px] bg-gray-900/80"
+                  style={{ borderColor: `${primaryColor}40` }}
                 >
-                  {/* Fundo desfocado igual à montagem dos pratos */}
-                  <div 
-                    className="absolute inset-0 bg-cover bg-center opacity-[0.08] blur-xl"
-                    style={{
-                      backgroundImage: `url(https://images.unsplash.com/photo-1513104890138-7c749659a591?w=800&q=80)`
-                    }}
-                  ></div>
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent"></div>
-                  
-                  {/* Conteúdo da pizza */}
-                  <div className="relative z-10 w-full h-full flex items-center justify-center p-2 sm:p-4">
+                  <div className="relative w-full h-full flex items-center justify-center p-2 sm:p-4">
                     {selectedEdge ? (
                       <PizzaVisualization
                         selectedSize={currentSize}
@@ -570,23 +557,10 @@ export default function PizzaModal({ isOpen, onClose, pizza, onAddToCart, primar
                 {/* Visualização da Pizza com Borda - Estilo igual à montagem dos pratos */}
                 {edges.length > 0 && (
                   <div 
-                    className="relative rounded-2xl flex items-center justify-center overflow-hidden backdrop-blur-xl border-2 shadow-2xl mb-4 sm:mb-6 h-[320px] sm:h-[400px] md:h-[450px]"
-                    style={{
-                      background: `linear-gradient(to bottom right, ${primaryColor}30, ${primaryColor}20, ${primaryColor}15)`,
-                      borderColor: `${primaryColor}30`
-                    }}
+                    className="relative rounded-2xl flex items-center justify-center overflow-hidden border-2 shadow-2xl mb-4 sm:mb-6 h-[320px] sm:h-[400px] md:h-[450px] bg-gray-900/80"
+                    style={{ borderColor: `${primaryColor}40` }}
                   >
-                    {/* Fundo desfocado igual à montagem dos pratos */}
-                    <div 
-                      className="absolute inset-0 bg-cover bg-center opacity-[0.08] blur-xl"
-                      style={{
-                        backgroundImage: `url(https://images.unsplash.com/photo-1513104890138-7c749659a591?w=800&q=80)`
-                      }}
-                    ></div>
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent"></div>
-                    
-                    {/* Conteúdo da pizza */}
-                    <div className="relative z-10 w-full h-full flex items-center justify-center p-2 sm:p-4">
+                    <div className="relative w-full h-full flex items-center justify-center p-2 sm:p-4">
                       <PizzaVisualization
                         selectedSize={currentSize}
                         selectedFlavors={selectedFlavorObjects}
@@ -709,25 +683,12 @@ export default function PizzaModal({ isOpen, onClose, pizza, onAddToCart, primar
               >
                 <h3 className="text-xl font-bold mb-4">Resumo do Pedido</h3>
                 
-                {/* Visualização Final - Estilo igual à montagem dos pratos */}
+                {/* Visualização final — sem fundo nem tábua */}
                 <div 
-                  className="relative rounded-2xl flex items-center justify-center overflow-hidden backdrop-blur-xl border-2 shadow-2xl mb-4 sm:mb-6 h-[320px] sm:h-[400px] md:h-[450px]"
-                  style={{
-                    background: `linear-gradient(to bottom right, ${primaryColor}30, ${primaryColor}20, ${primaryColor}15)`,
-                    borderColor: `${primaryColor}30`
-                  }}
+                  className="relative rounded-2xl flex items-center justify-center overflow-hidden border-2 shadow-2xl mb-4 sm:mb-6 h-[320px] sm:h-[400px] md:h-[450px] bg-gray-900/80"
+                  style={{ borderColor: `${primaryColor}40` }}
                 >
-                  {/* Fundo desfocado igual à montagem dos pratos */}
-                  <div 
-                    className="absolute inset-0 bg-cover bg-center opacity-[0.08] blur-xl"
-                    style={{
-                      backgroundImage: `url(https://images.unsplash.com/photo-1513104890138-7c749659a591?w=800&q=80)`
-                    }}
-                  ></div>
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent"></div>
-                  
-                  {/* Conteúdo da pizza */}
-                  <div className="relative z-10 w-full h-full flex items-center justify-center p-2 sm:p-4">
+                  <div className="relative w-full h-full flex items-center justify-center p-2 sm:p-4">
                     <PizzaVisualization
                       selectedSize={currentSize}
                       selectedFlavors={selectedFlavorObjects}

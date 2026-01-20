@@ -90,6 +90,9 @@ const PREMIUM_PERMISSIONS = {
     // Relatórios Avançados
     reports_advanced: true,
     
+    // Colaboradores: perfis limitados (Entregador, Cozinha, PDV)
+    collaborators: true,
+    
     // Admin - AINDA NÃO INCLUÍDO
     admin_users: false,
     admin_subscribers: false,
@@ -119,6 +122,9 @@ const PRO_PERMISSIONS = {
     settings_advanced: true,
     branding_advanced: true,
     customization_advanced: true,
+    
+    // Colaboradores: perfis limitados (Entregador, Cozinha, PDV)
+    collaborators: true,
     
     // Admin - AINDA NÃO INCLUÍDO (exceto funções master)
     admin_users: true, // Pode gerenciar usuários da própria conta

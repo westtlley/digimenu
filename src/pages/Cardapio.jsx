@@ -1,10 +1,10 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { apiClient as base44 } from '@/api/apiClient';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { ShoppingCart, Search, Clock, Star, Share2, MapPin, Info, Home, Receipt, Gift, User, MessageSquare } from 'lucide-react';
+import { ShoppingCart, Search, Clock, Star, Share2, MapPin, Info, Home, Receipt, Gift, User, MessageSquare, UtensilsCrossed } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import toast, { Toaster } from 'react-hot-toast';
 
 // Components
@@ -49,6 +49,7 @@ export default function Cardapio() {
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userEmail, setUserEmail] = useState(null);
+  const [showSplash, setShowSplash] = useState(true);
 
   // Custom Hooks
   const { cart, addItem, updateItem, removeItem, updateQuantity, clearCart, cartTotal, cartItemsCount } = useCart();
@@ -189,6 +190,12 @@ export default function Cardapio() {
       }
     };
     checkAuth();
+  }, []);
+
+  // Splash/loading ao abrir o cardápio (animação rápida tipo “login”)
+  useEffect(() => {
+    const t = setTimeout(() => setShowSplash(false), 1400);
+    return () => clearTimeout(t);
   }, []);
 
   const handleAddToCart = async (item, isEditing = false) => {
@@ -412,6 +419,41 @@ export default function Cardapio() {
   return (
     <div className="min-h-screen bg-background">
       <Toaster position="top-center" />
+
+      {/* Splash rápido ao carregar o cardápio */}
+      <AnimatePresence>
+        {showSplash && (
+          <motion.div
+            initial={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.35 }}
+            className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-gray-900"
+          >
+            <motion.div
+              initial={{ scale: 0.85, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 0.3 }}
+              className="flex flex-col items-center gap-4"
+            >
+              {store?.logo ? (
+                <div className="w-20 h-20 rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl">
+                  <img src={store.logo} alt="" className="w-full h-full object-cover" />
+                </div>
+              ) : (
+                <div className="w-20 h-20 rounded-2xl flex items-center justify-center shadow-2xl" style={{ backgroundColor: primaryColor }}>
+                  <UtensilsCrossed className="w-10 h-10 text-white" />
+                </div>
+              )}
+              <p className="text-white font-semibold text-lg">{store?.name || 'Cardápio'}</p>
+              <motion.div
+                animate={{ opacity: [0.4, 1, 0.4] }}
+                transition={{ duration: 0.8, repeat: Infinity }}
+                className="h-1 w-24 rounded-full bg-white/60"
+              />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       
       {/* Store Closed Overlay */}
       {isStoreUnavailable && (

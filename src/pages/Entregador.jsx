@@ -73,25 +73,26 @@ export default function Entregador() {
         const userData = await base44.auth.me();
         setUser(userData);
 
-        // Verificar permissão do plano
-        const subscribers = await base44.entities.Subscriber.list();
-        const subscriber = subscribers.find(s => 
-          s.email === userData.subscriber_email || s.email === userData.email
-        );
-        
-        if (subscriber) {
-          const hasPermission = subscriber.permissions?.gestor_pedidos?.length > 0;
-          setHasAccess(hasPermission);
-          
-          if (!hasPermission) {
-            setLoading(false);
-            return;
+        // Colaborador com perfil Entregador tem acesso direto
+        if (userData.profile_role === 'entregador') {
+          setHasAccess(true);
+        } else {
+          const subscribers = await base44.entities.Subscriber.list();
+          const subscriber = subscribers.find(s => 
+            s.email === userData.subscriber_email || s.email === userData.email
+          );
+          if (subscriber) {
+            const hasPermission = subscriber.permissions?.gestor_pedidos?.length > 0;
+            setHasAccess(hasPermission);
+            if (!hasPermission) {
+              setLoading(false);
+              return;
+            }
           }
         }
         
-        // Se é master OU tem permissão de entregador, criar acesso
-        if (userData.is_master || userData.is_entregador) {
-          // Buscar entregador vinculado ao email
+        // Master, is_entregador ou perfil colaborador Entregador
+        if (userData.is_master || userData.is_entregador || userData.profile_role === 'entregador') {
           const allEntregadores = await base44.entities.Entregador.list();
           const matchedEntregador = allEntregadores.find(e => 
             e.email?.toLowerCase().trim() === userData.email?.toLowerCase().trim()
@@ -101,7 +102,6 @@ export default function Entregador() {
             setEntregador(matchedEntregador);
             setDarkMode(matchedEntregador.dark_mode || false);
           } else {
-            // Se tem permissão mas não tem entregador cadastrado, criar virtual
             const virtualEntregador = {
               id: userData.is_master ? 'master-' + userData.email : 'user-' + userData.email,
               name: userData.full_name || userData.email.split('@')[0],
@@ -116,7 +116,8 @@ export default function Entregador() {
               notifications_enabled: true,
               vibration_enabled: true,
               _isMaster: userData.is_master,
-              _isVirtual: true
+              _isVirtual: true,
+              _subscriberEmail: userData.subscriber_email || userData.email
             };
             setEntregador(virtualEntregador);
             setDarkMode(false);

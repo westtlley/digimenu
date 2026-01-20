@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, LogOut, LogIn, Loader2, Package, Users, Lock, Menu, UtensilsCrossed, Calculator, Truck } from 'lucide-react';
+import { Settings, LogOut, LogIn, Loader2, Package, Users, Lock, Menu, UtensilsCrossed, Calculator, Truck, KeyRound } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { useTheme } from '../components/theme/ThemeProvider';
 import ThemeToggle from '../components/ui/ThemeToggle';
@@ -50,6 +50,7 @@ export default function Admin() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
+  const [showChangePassword, setShowChangePassword] = useState(false);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   
@@ -374,10 +375,18 @@ export default function Admin() {
                 <span className="hidden sm:inline">Cardápio</span>
               </Button>
             </Link>
+            {isMaster && (
+              <Button variant="ghost" size="icon" className="text-white bg-amber-600/80 hover:bg-amber-600 sm:w-auto sm:px-3" title="Alterar minha senha" onClick={() => setShowChangePassword(true)}>
+                <KeyRound className="w-4 h-4 sm:mr-2" />
+                <span className="hidden sm:inline">Senha</span>
+              </Button>
+            )}
             <UserAuthButton className="text-white" />
           </div>
         </div>
       </header>
+
+      <ChangePasswordDialog open={showChangePassword} onOpenChange={setShowChangePassword} />
 
       {/* Mobile Sidebar Overlay */}
       {showMobileSidebar && (
