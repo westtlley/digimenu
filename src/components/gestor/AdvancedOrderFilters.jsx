@@ -25,20 +25,30 @@ const PERIOD_OPTIONS = [
   { value: 'all', label: 'Todos' },
 ];
 
+const SCHEDULED_HOUR_OPTIONS = [
+  { value: 'all', label: 'Qualquer horário' },
+  { value: '11', label: '11h' }, { value: '12', label: '12h' }, { value: '13', label: '13h' }, { value: '14', label: '14h' },
+  { value: '18', label: '18h' }, { value: '19', label: '19h' }, { value: '20', label: '20h' }, { value: '21', label: '21h' },
+];
+
 export default function AdvancedOrderFilters({ 
   orders = [], 
   onFilterChange,
   searchTerm,
-  onSearchChange 
+  onSearchChange,
+  entregadores = [],
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [filters, setFilters] = useState({
     status: 'all',
     period: 'today',
-    searchType: 'code', // code, customer, phone
+    searchType: 'code',
+    entregador: 'all',
+    scheduledHour: 'all',
   });
 
-  const activeFiltersCount = Object.values(filters).filter(v => v !== 'all' && v !== 'code' && v !== 'today').length;
+  const activeFiltersCount = [filters.status, filters.period, filters.entregador, filters.scheduledHour]
+    .filter(v => v !== 'all' && v !== 'today').length;
 
   const handleFilterChange = (key, value) => {
     const newFilters = { ...filters, [key]: value };
@@ -67,6 +77,16 @@ export default function AdvancedOrderFilters({
       filtered = filtered.filter(o => new Date(o.created_date) >= monthAgo);
     }
 
+    // Filtrar por entregador
+    if (filterValues.entregador && filterValues.entregador !== 'all') {
+      filtered = filtered.filter(o => String(o.entregador_id) === String(filterValues.entregador));
+    }
+
+    // Filtrar por horário agendado (ex.: 12h, 13h)
+    if (filterValues.scheduledHour && filterValues.scheduledHour !== 'all') {
+      filtered = filtered.filter(o => o.scheduled_time && String(o.scheduled_time).slice(0, 2) === String(filterValues.scheduledHour));
+    }
+
     // Aplicar busca se houver termo
     if (searchTerm) {
       if (filterValues.searchType === 'code') {
@@ -92,16 +112,18 @@ export default function AdvancedOrderFilters({
       status: 'all',
       period: 'today',
       searchType: 'code',
+      entregador: 'all',
+      scheduledHour: 'all',
     };
     setFilters(defaultFilters);
     applyFilters(defaultFilters);
   };
 
-  // Aplicar filtros quando orders, searchTerm ou filtros mudarem (orders evita pedido "sumir" após aceitar/atualizar)
+  // Aplicar filtros quando orders, searchTerm ou filtros mudarem
   React.useEffect(() => {
     applyFilters(filters);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orders, searchTerm, filters.status, filters.period]);
+  }, [orders, searchTerm, filters.status, filters.period, filters.entregador, filters.scheduledHour]);
 
   return (
     <div className="flex items-center gap-2 flex-wrap">
@@ -219,6 +241,35 @@ export default function AdvancedOrderFilters({
               </Select>
             </div>
 
+            {/* Entregador */}
+            {entregadores.length > 0 && (
+              <div>
+                <label className="text-xs font-medium text-gray-700 mb-1.5 block">Entregador</label>
+                <Select value={filters.entregador} onValueChange={(v) => handleFilterChange('entregador', v)}>
+                  <SelectTrigger className="h-9"><SelectValue placeholder="Todos" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    {entregadores.map(e => (
+                      <SelectItem key={e.id} value={String(e.id)}>{e.name || e.email}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Agendado para (horário) */}
+            <div>
+              <label className="text-xs font-medium text-gray-700 mb-1.5 block">Agendado para</label>
+              <Select value={filters.scheduledHour} onValueChange={(v) => handleFilterChange('scheduledHour', v)}>
+                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {SCHEDULED_HOUR_OPTIONS.map(opt => (
+                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             {/* Badges de filtros ativos */}
             {activeFiltersCount > 0 && (
               <div className="pt-2 border-t">
@@ -238,12 +289,19 @@ export default function AdvancedOrderFilters({
                   {filters.period !== 'today' && (
                     <Badge variant="outline" className="text-xs">
                       {PERIOD_OPTIONS.find(o => o.value === filters.period)?.label}
-                      <button
-                        onClick={() => handleFilterChange('period', 'today')}
-                        className="ml-1 hover:text-red-600"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
+                      <button onClick={() => handleFilterChange('period', 'today')} className="ml-1 hover:text-red-600"><X className="w-3 h-3" /></button>
+                    </Badge>
+                  )}
+                  {filters.entregador !== 'all' && (
+                    <Badge variant="outline" className="text-xs">
+                      {entregadores.find(e => String(e.id) === filters.entregador)?.name || 'Entregador'}
+                      <button onClick={() => handleFilterChange('entregador', 'all')} className="ml-1 hover:text-red-600"><X className="w-3 h-3" /></button>
+                    </Badge>
+                  )}
+                  {filters.scheduledHour !== 'all' && (
+                    <Badge variant="outline" className="text-xs">
+                      {SCHEDULED_HOUR_OPTIONS.find(o => o.value === filters.scheduledHour)?.label}
+                      <button onClick={() => handleFilterChange('scheduledHour', 'all')} className="ml-1 hover:text-red-600"><X className="w-3 h-3" /></button>
                     </Badge>
                   )}
                 </div>

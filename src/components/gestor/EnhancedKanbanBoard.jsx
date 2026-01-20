@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
-import { Bell, ChefHat, CheckCircle, Truck, Package, AlertTriangle, Clock as ClockIcon, ChevronDown, ChevronUp, Filter, Search, X } from 'lucide-react';
+import { Bell, ChefHat, CheckCircle, Truck, Package, AlertTriangle, Clock as ClockIcon, ChevronDown, ChevronUp, Filter, Search, X, Maximize2, Minimize2 } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -67,18 +67,28 @@ export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = 
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterMethod, setFilterMethod] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
+  const [compact, setCompact] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
   const queryClient = useQueryClient();
+
+  // Atualizar "Há X min" a cada 1 min
+  React.useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 60000);
+    return () => clearInterval(t);
+  }, []);
 
   const updateOrderMutation = useMutation({
     mutationFn: async ({ orderId, newStatus }) => {
-      const order = orders.find(o => o.id === orderId);
+      const order = orders.find(o => String(o.id) === String(orderId));
       if (!order) throw new Error('Pedido não encontrado');
-      
-      await base44.entities.Order.update(orderId, {
-        ...order,
-        status: newStatus
-      });
-      
+      const payload = { ...order, status: newStatus };
+      if (newStatus === 'ready') {
+        payload.ready_at = new Date().toISOString();
+        if (!order.pickup_code) payload.pickup_code = Math.floor(1000 + Math.random() * 9000).toString();
+        if (!order.delivery_code && order.delivery_method === 'delivery') payload.delivery_code = Math.floor(1000 + Math.random() * 9000).toString();
+      }
+      if (newStatus === 'delivered') payload.delivered_at = new Date().toISOString();
+      await base44.entities.Order.update(orderId, payload);
       return { orderId, newStatus };
     },
     onSuccess: () => {
@@ -115,15 +125,21 @@ export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = 
 
   const getTimeElapsed = (date) => {
     if (!date) return '';
-    const mins = differenceInMinutes(new Date(), new Date(date));
+    const mins = differenceInMinutes(new Date(now), new Date(date));
     if (mins < 1) return 'Agora';
-    if (mins < 60) return `${mins} min`;
-    return `${Math.floor(mins / 60)}h ${mins % 60}min`;
+    if (mins < 60) return `Há ${mins} min`;
+    return `Há ${Math.floor(mins / 60)}h ${mins % 60}min`;
   };
 
   const isLate = (order) => {
     if (!order.created_date) return false;
-    return differenceInMinutes(new Date(), new Date(order.created_date)) > 30 && 
+    return differenceInMinutes(new Date(now), new Date(order.created_date)) > 30 && 
+           !['delivered', 'cancelled'].includes(order.status);
+  };
+
+  const isVeryLate = (order) => {
+    if (!order.created_date) return false;
+    return differenceInMinutes(new Date(now), new Date(order.created_date)) > 45 && 
            !['delivered', 'cancelled'].includes(order.status);
   };
 
@@ -136,52 +152,43 @@ export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = 
 
   const onDragEnd = useCallback((result) => {
     const { destination, source, draggableId } = result;
-
     if (!destination) return;
     if (destination.droppableId === source.droppableId && destination.index === source.index) return;
 
-    // Encontrar a coluna de destino e determinar novo status
     const targetColumn = COLUMNS.find(col => col.id === destination.droppableId);
     if (!targetColumn) return;
 
-    // Determinar novo status baseado na coluna
-    // Não permitir mudanças inválidas
-    const order = orders.find(o => o.id === draggableId);
+    const order = orders.find(o => String(o.id) === String(draggableId));
     if (!order) return;
-    
+
     let newStatus;
     if (targetColumn.id === 'new') {
-      // Se está indo para "new", manter status atual ou voltar para preparing
-      if (['new', 'accepted', 'preparing'].includes(order.status)) {
-        newStatus = order.status;
-      } else {
-        newStatus = 'preparing';
-      }
+      newStatus = ['new', 'accepted', 'preparing'].includes(order.status) ? order.status : 'preparing';
     } else if (targetColumn.id === 'ready') {
       newStatus = 'ready';
     } else if (targetColumn.id === 'delivery') {
-      // Só pode ir para delivery se já estiver ready ou picked_up
-      if (order.status === 'ready' || order.status === 'picked_up') {
-        newStatus = 'out_for_delivery';
-      } else {
-        toast.error('Pedido precisa estar pronto antes de ir para entrega');
-        return;
-      }
+      if (order.status === 'ready' || order.status === 'picked_up') newStatus = 'out_for_delivery';
+      else { toast.error('Pedido precisa estar pronto antes de ir para entrega'); return; }
     } else if (targetColumn.id === 'done') {
-      // Só pode finalizar se estiver em entrega
-      if (['out_for_delivery', 'arrived_at_customer'].includes(order.status)) {
-        newStatus = 'delivered';
-      } else {
-        toast.error('Pedido precisa estar em entrega para ser finalizado');
-        return;
-      }
-    } else {
-      return;
-    }
+      if (['out_for_delivery', 'arrived_at_customer'].includes(order.status)) newStatus = 'delivered';
+      else { toast.error('Pedido precisa estar em entrega para ser finalizado'); return; }
+    } else return;
 
-    // Atualizar status do pedido
-    updateOrderMutation.mutate({ orderId: draggableId, newStatus });
-  }, [updateOrderMutation, orders]);
+    // Otimista: atualizar cache antes da API para o arraste fluir
+    const prev = queryClient.getQueryData(['gestorOrders']) || [];
+    queryClient.setQueryData(['gestorOrders'], prev.map(o =>
+      String(o.id) === String(draggableId) ? { ...o, status: newStatus } : o
+    ));
+
+    updateOrderMutation.mutate(
+      { orderId: draggableId, newStatus },
+      {
+        onError: () => {
+          queryClient.setQueryData(['gestorOrders'], prev);
+        },
+      }
+    );
+  }, [updateOrderMutation, orders, queryClient]);
 
   return (
     <div className="space-y-4">
@@ -227,6 +234,9 @@ export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = 
             >
               <Filter className="w-4 h-4 mr-2" />
               Filtros
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setCompact(c => !c)} className="h-9" title={compact ? 'Expandir' : 'Compacto'}>
+              {compact ? <Maximize2 className="w-4 h-4" /> : <Minimize2 className="w-4 h-4" />}
             </Button>
           </div>
         </div>
@@ -323,9 +333,15 @@ export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = 
                                     onClick={() => onSelectOrder(order)}
                                     className={`${
                                       darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-                                    } rounded-md hover:shadow-md transition-all cursor-pointer p-2.5 border-l-2 ${
-                                      isLate(order) 
+                                    } rounded-md hover:shadow-md transition-all cursor-pointer border-l-2 ${
+                                      compact ? 'p-1.5' : 'p-2.5'
+                                    } ${
+                                      isVeryLate(order)
+                                        ? 'border-red-600 bg-red-100/50 dark:bg-red-900/30 ring-1 ring-red-300'
+                                        : isLate(order) 
                                         ? 'border-red-500 bg-red-50/30 dark:bg-red-900/20' 
+                                        : order.priority === 'alta'
+                                        ? 'border-orange-400 dark:border-orange-500'
                                         : darkMode ? 'border-gray-600' : 'border-gray-200'
                                     } ${snapshot.isDragging ? 'shadow-xl' : ''}`}
                                   >
@@ -336,7 +352,8 @@ export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = 
                                           #{order.order_code || order.id?.slice(-6)}
                                         </p>
                                         {isLate(order) && (
-                                          <Badge className="bg-red-500 text-white text-[8px] h-3.5 mt-0.5 px-1">
+                                          <Badge className="bg-red-500 text-white text-[8px] h-3.5 mt-0.5 px-1 flex items-center gap-0.5">
+                                            {isVeryLate(order) && <Bell className="w-2.5 h-2.5" />}
                                             Atrasado
                                           </Badge>
                                         )}

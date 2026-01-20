@@ -32,6 +32,13 @@ JWT_SECRET=digimenu_super_secret_2026
 FRONTEND_URL=https://digimenu-chi.vercel.app
 ```
 
+**🌐 CORS – Desenvolvimento local (localhost):**  
+Para o frontend em `http://localhost:5173` falar com o backend no Render, o backend precisa aceitar essa origem. Se você **não** definir `CORS_ORIGINS`, o backend já permite `FRONTEND_URL`, `http://localhost:5173` e `http://127.0.0.1:5173`. Se quiser controlar manualmente, defina:
+
+```
+CORS_ORIGINS=https://digimenu-chi.vercel.app,http://localhost:5173,http://127.0.0.1:5173
+```
+
 **⚠️ IMPORTANTE - JWT_SECRET:**
 - Use o **mesmo valor** no backend local e no Render
 - Escolha uma string forte e segura (ex: `digimenu_super_secret_2026`)

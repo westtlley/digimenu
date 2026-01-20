@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { 
   Package, Bell, Volume2, VolumeX, RefreshCw, Search,
   ChefHat, CheckCircle, Truck, Grid3x3, LayoutGrid, Menu, X as CloseIcon, LogOut,
-  Clock, AlertTriangle, Settings, ChevronLeft, Lock
+  Clock, AlertTriangle, Settings, ChevronLeft, Lock, DollarSign, Download, Printer
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,8 +20,11 @@ import DeliveryPanel from '../components/gestor/DeliveryPanel';
 import GestorSettings from '../components/gestor/GestorSettings';
 import GestorStatsPanel from '../components/gestor/GestorStatsPanel';
 import AdvancedOrderFilters from '../components/gestor/AdvancedOrderFilters';
+import FinancialDashboard from '../components/gestor/FinancialDashboard';
 import UserAuthButton from '../components/atoms/UserAuthButton';
 import { usePermission } from '../components/permissions/usePermission';
+import { downloadOrdersCSV, exportGestorReportPDF, printOrdersInQueue } from '../utils/gestorExport';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 export default function GestorPedidos() {
   const [activeTab, setActiveTab] = useState('now'); // now, scheduled
@@ -45,6 +48,9 @@ export default function GestorPedidos() {
     const saved = localStorage.getItem('gestor-sidebar-collapsed');
     return saved === 'true';
   });
+  const [onlyNew, setOnlyNew] = useState(false);
+  const [printQueue, setPrintQueue] = useState([]);
+  const [quickStatusKey, setQuickStatusKey] = useState(null);
   
   const audioRef = useRef(null);
   const prevOrderCountRef = useRef(0);
@@ -76,19 +82,20 @@ export default function GestorPedidos() {
     refetchInterval: 3000, // Atualizar a cada 3 segundos para GPS em tempo real
   });
 
-  const { data: entregadores = [] } = useQuery({
+  const { data: entregadoresData } = useQuery({
     queryKey: ['entregadores'],
     queryFn: () => base44.entities.Entregador.list(),
-    refetchInterval: 3000, // Atualizar localização em tempo real
+    refetchInterval: 3000,
+    retry: false,
   });
+  const entregadores = useMemo(() => (entregadoresData != null ? entregadoresData : []), [entregadoresData]);
 
   const { data: stores = [] } = useQuery({
     queryKey: ['store'],
     queryFn: () => base44.entities.Store.list(),
   });
 
-  // Carregar configurações de notificação e gerais (GestorSettings)
-  useEffect(() => {
+  const loadGestorSettings = () => {
     try {
       const saved = localStorage.getItem('gestor_notification_config');
       if (saved) {
@@ -102,6 +109,14 @@ export default function GestorPedidos() {
     } catch (e) {
       console.error('Erro ao carregar configurações de notificação:', e);
     }
+  };
+
+  useEffect(() => { loadGestorSettings(); }, []);
+
+  useEffect(() => {
+    const onUpdated = () => { loadGestorSettings(); };
+    window.addEventListener('gestorSettingsUpdated', onUpdated);
+    return () => window.removeEventListener('gestorSettingsUpdated', onUpdated);
   }, []);
 
   // Aceitar automaticamente (quando ativado em Configurações do gestor)
@@ -207,46 +222,28 @@ export default function GestorPedidos() {
     }
   };
 
-  // Atalhos de teclado
+  // Atalhos de teclado: Esc, Ctrl+F, 1-4 (status no modal)
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // Esc - Fechar modal
       if (e.key === 'Escape') {
-        if (selectedOrder) {
-          setSelectedOrder(null);
-        }
-        if (showMobileMenu) {
-          setShowMobileMenu(false);
-        }
+        if (selectedOrder) setSelectedOrder(null);
+        if (showMobileMenu) setShowMobileMenu(false);
         return;
       }
-
-      // Ctrl+F ou Cmd+F - Focar busca (apenas se não estiver em input/textarea)
       if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
         e.preventDefault();
-        const searchInput = document.querySelector('input[placeholder*="Buscar"]');
-        if (searchInput) {
-          searchInput.focus();
-          searchInput.select();
-        }
+        document.querySelector('input[placeholder*="Buscar"]')?.focus();
         return;
       }
-
-      // Atalhos numéricos para status (1-5) - apenas se não estiver digitando
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
-        return;
-      }
-
-      const firstNewOrder = filteredOrders.find(o => o.status === 'new');
-      if (firstNewOrder && ['1', '2', '3', '4', '5'].includes(e.key)) {
-        // Status rápidos (via modal, não implementado completamente por falta de contexto)
-        // Poderia abrir modal automaticamente e aplicar status
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      if (selectedOrder && ['1', '2', '3', '4'].includes(e.key)) {
+        const map = { '1': 'accepted', '2': 'ready', '3': 'out_for_delivery', '4': 'delivered' };
+        setQuickStatusKey(map[e.key]);
       }
     };
-
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedOrder, showMobileMenu, filteredOrders]);
+  }, [selectedOrder, showMobileMenu]);
 
   // Aplicar filtros básicos (aba agora/agendados)
   const baseFilteredOrders = useMemo(() => {
@@ -254,10 +251,8 @@ export default function GestorPedidos() {
       const isScheduled = order.scheduled_date && order.scheduled_time;
       
       if (activeTab === 'now') {
-        // Aba "Agora": pedidos não agendados OU pedidos agendados que já foram aceitos
         return !isScheduled || (isScheduled && order.status !== 'new');
       } else if (activeTab === 'scheduled') {
-        // Aba "Agendados": apenas pedidos agendados que ainda estão pendentes
         return isScheduled && order.status === 'new';
       }
       
@@ -265,13 +260,22 @@ export default function GestorPedidos() {
     });
   }, [orders, activeTab]);
 
-  // Inicializar filteredOrders com baseFilteredOrders quando necessário
+  // Tempo de preparo sugerido (média dos últimos pedidos com accepted_at e ready_at)
+  const suggestedPrepTime = useMemo(() => {
+    const withPrep = orders.filter(o => o.accepted_at && o.ready_at);
+    if (withPrep.length === 0) return 30;
+    const avg = withPrep.reduce((s, o) => s + (new Date(o.ready_at) - new Date(o.accepted_at)) / 60000, 0) / withPrep.length;
+    return Math.max(5, Math.min(180, Math.round(avg))) || 30;
+  }, [orders]);
+
+  const kanbanOrders = onlyNew ? filteredOrders.filter(o => o.status === 'new') : filteredOrders;
+
+  // Inicializar filteredOrders com baseFilteredOrders quando não houver busca ativa
   useEffect(() => {
-    // Apenas inicializar se não houver filtros ativos
     if (!searchTerm && filteredOrders.length === 0) {
       setFilteredOrders(baseFilteredOrders);
     }
-  }, [baseFilteredOrders]);
+  }, [baseFilteredOrders, searchTerm]);
 
   const handleFilterChange = (filtered) => {
     setFilteredOrders(filtered);
@@ -285,10 +289,21 @@ export default function GestorPedidos() {
     localStorage.setItem('gestor-sidebar-collapsed', newState.toString());
   };
 
-  if (permLoading || !user) {
+  if (permLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <RefreshCw className="w-8 h-8 animate-spin text-red-500" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
+        <p className="text-gray-600 dark:text-gray-400 mb-4">Sessão expirada ou não autenticado.</p>
+        <Link to="/login">
+          <Button className="bg-red-500 hover:bg-red-600">Fazer login</Button>
+        </Link>
       </div>
     );
   }
@@ -361,11 +376,38 @@ export default function GestorPedidos() {
                 onFilterChange={handleFilterChange}
                 searchTerm={searchTerm}
                 onSearchChange={setSearchTerm}
+                entregadores={entregadores}
               />
             </div>
 
             {/* Right */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap justify-end">
+              <Button
+                variant={onlyNew ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setOnlyNew(!onlyNew)}
+                className="h-9"
+                title="Só novos"
+              >
+                <Bell className="w-4 h-4 mr-1" />
+                Só novos {orders.filter(o => o.status === 'new').length > 0 && `(${orders.filter(o => o.status === 'new').length})`}
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-9">
+                    <Download className="w-4 h-4 mr-1" />
+                    Exportar
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => { downloadOrdersCSV(filteredOrders, `pedidos_${new Date().toISOString().slice(0,10)}.csv`); toast.success('CSV baixado'); }}>
+                    Exportar CSV
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => { exportGestorReportPDF(orders); toast.success('PDF baixado'); }}>
+                    Relatório do dia (PDF)
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               <Button
                 variant="ghost"
                 size="icon"
@@ -396,6 +438,7 @@ export default function GestorPedidos() {
               onFilterChange={handleFilterChange}
               searchTerm={searchTerm}
               onSearchChange={setSearchTerm}
+              entregadores={entregadores}
             />
           </div>
         </div>
@@ -494,20 +537,28 @@ export default function GestorPedidos() {
             </button>
 
             <button
+              onClick={() => setViewMode('resumo')}
+              className={`w-full flex items-center gap-2 px-2 py-2 rounded-md transition-all duration-200 ${
+                viewMode === 'resumo' ? 'bg-red-50 text-red-600' : 'text-gray-600 hover:bg-gray-50'
+              }`}
+              title={sidebarCollapsed ? 'Resumo' : ''}
+            >
+              <DollarSign className="w-4 h-4 flex-shrink-0" />
+              <span className={`text-sm font-medium whitespace-nowrap transition-all duration-300 ${
+                sidebarCollapsed ? 'opacity-0 w-0 overflow-hidden' : 'opacity-100'
+              }`}>Resumo</span>
+            </button>
+            <button
               onClick={() => setViewMode('settings')}
               className={`w-full flex items-center gap-2 px-2 py-2 rounded-md transition-all duration-200 ${
-                viewMode === 'settings' 
-                  ? 'bg-red-50 text-red-600' 
-                  : 'text-gray-600 hover:bg-gray-50'
+                viewMode === 'settings' ? 'bg-red-50 text-red-600' : 'text-gray-600 hover:bg-gray-50'
               }`}
               title={sidebarCollapsed ? 'Ajustes' : ''}
             >
               <Settings className="w-4 h-4 flex-shrink-0" />
               <span className={`text-sm font-medium whitespace-nowrap transition-all duration-300 ${
                 sidebarCollapsed ? 'opacity-0 w-0 overflow-hidden' : 'opacity-100'
-              }`}>
-                Ajustes
-              </span>
+              }`}>Ajustes</span>
             </button>
           </nav>
 
@@ -592,21 +643,24 @@ export default function GestorPedidos() {
               </button>
 
               <button
-                onClick={() => {
-                  setViewMode('settings');
-                  setShowMobileMenu(false);
-                }}
+                onClick={() => { setViewMode('resumo'); setShowMobileMenu(false); }}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
-                  viewMode === 'settings' 
-                    ? 'bg-red-500 text-white shadow-sm' 
-                    : 'hover:bg-gray-100 text-gray-700'
+                  viewMode === 'resumo' ? 'bg-red-500 text-white shadow-sm' : 'hover:bg-gray-100 text-gray-700'
+                }`}
+              >
+                <DollarSign className="w-5 h-5" />
+                <span className="font-medium">Resumo</span>
+                {viewMode === 'resumo' && <CheckCircle className="w-4 h-4 ml-auto" />}
+              </button>
+              <button
+                onClick={() => { setViewMode('settings'); setShowMobileMenu(false); }}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
+                  viewMode === 'settings' ? 'bg-red-500 text-white shadow-sm' : 'hover:bg-gray-100 text-gray-700'
                 }`}
               >
                 <Settings className="w-5 h-5" />
                 <span className="font-medium">Ajustes</span>
-                {viewMode === 'settings' && (
-                  <CheckCircle className="w-4 h-4 ml-auto" />
-                )}
+                {viewMode === 'settings' && <CheckCircle className="w-4 h-4 ml-auto" />}
               </button>
             </nav>
 
@@ -648,17 +702,16 @@ export default function GestorPedidos() {
         )}
         {viewMode === 'kanban' && (
           <EnhancedKanbanBoard 
-            orders={filteredOrders}
+            orders={kanbanOrders}
             onSelectOrder={setSelectedOrder}
             darkMode={false}
           />
         )}
+        {viewMode === 'resumo' && (
+          <FinancialDashboard orders={orders} />
+        )}
         {viewMode === 'delivery' && (
-          <DeliveryPanel 
-            entregadores={entregadores}
-            orders={orders}
-            stores={stores}
-          />
+          <DeliveryPanel entregadores={entregadores} orders={orders} stores={stores} />
         )}
         {viewMode === 'settings' && (
           <GestorSettings />
@@ -666,17 +719,42 @@ export default function GestorPedidos() {
         </div>
       </main>
 
+      {/* Fila de impressão - botão flutuante */}
+      {printQueue.length > 0 && (
+        <button
+          onClick={() => { printOrdersInQueue(orders, printQueue); setPrintQueue([]); toast.success(`${printQueue.length} comanda(s) enviada(s) para impressão`); }}
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white px-4 py-3 rounded-xl shadow-lg"
+        >
+          <Printer className="w-5 h-5" />
+          Imprimir {printQueue.length} comanda(s)
+        </button>
+      )}
+
       {/* Order Detail Modal */}
       {selectedOrder && (
         <OrderDetailModal
           order={selectedOrder}
           entregadores={entregadores}
           onClose={() => setSelectedOrder(null)}
-          onUpdate={() => {
+          onUpdate={(updatedOrder) => {
             queryClient.invalidateQueries({ queryKey: ['gestorOrders'] });
-            setSelectedOrder(null);
+            setSelectedOrder(updatedOrder ?? null);
           }}
           user={user}
+          suggestedPrepTime={suggestedPrepTime}
+          quickStatusKey={quickStatusKey}
+          onClearQuickStatus={() => setQuickStatusKey(null)}
+          onViewMap={() => { setViewMode('delivery'); setSelectedOrder(null); }}
+          onDuplicate={async (o) => {
+            const { id, order_code, created_date, delivered_at, accepted_at, ready_at, ...rest } = o;
+            try {
+              await base44.entities.Order.create({ ...rest, status: 'new', created_date: new Date().toISOString() });
+              queryClient.invalidateQueries({ queryKey: ['gestorOrders'] });
+              toast.success('Pedido duplicado.');
+              setSelectedOrder(null);
+            } catch (e) { toast.error(e?.message || 'Erro ao duplicar.'); }
+          }}
+          onAddToPrintQueue={() => setPrintQueue(q => q.includes(selectedOrder.id) ? q : [...q, selectedOrder.id])}
         />
       )}
     </div>

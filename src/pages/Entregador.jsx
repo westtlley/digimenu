@@ -25,12 +25,8 @@ import PushNotifications from '../components/entregador/PushNotifications';
 import CriticalMessageModal from '../components/entregador/CriticalMessageModal';
 import OrderAlertModal from '../components/entregador/OrderAlertModal';
 import LiveLocationTracker from '../components/entregador/LiveLocationTracker';
-import ProfessionalDeliveryMap from '../components/maps/ProfessionalDeliveryMap';
-import RealTimeTrackingMap from '../components/maps/RealTimeTrackingMap';
 import GoogleDeliveryMap from '../components/maps/GoogleDeliveryMap';
 import { useCriticalNotifications } from '../components/hooks/useCriticalNotifications';
-
-const useGoogleMaps = !!import.meta.env.VITE_GOOGLE_MAPS_KEY;
 
 import RouteOptimizer from '../components/entregador/RouteOptimizer';
 import DeliveryProgressBar from '../components/entregador/DeliveryProgressBar';
@@ -774,49 +770,22 @@ export default function Entregador() {
               </div>
             </div>
             <div className="h-[400px] md:h-[500px]">
-                  {customerLocation || (activeOrders[0]?.store_latitude && activeOrders[0]?.store_longitude) ? (
-                    useGoogleMaps ? (
-                      <GoogleDeliveryMap
-                        entregadorLocation={entregadorLocation}
-                        storeLocation={
-                          activeOrders[0]?.store_latitude && activeOrders[0]?.store_longitude
-                            ? { lat: activeOrders[0].store_latitude, lng: activeOrders[0].store_longitude }
-                            : null
-                        }
-                        customerLocation={customerLocation}
-                        order={activeOrders[0]}
-                        darkMode={darkMode}
-                        mode="entregador"
-                        onNavigate={(address) => {
-                          window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`, '_blank');
-                        }}
-                      />
-                    ) : (
-                      <RealTimeTrackingMap
-                        entregadorLocation={entregadorLocation}
-                        storeLocation={
-                          activeOrders[0]?.store_latitude && activeOrders[0]?.store_longitude
-                            ? { lat: activeOrders[0].store_latitude, lng: activeOrders[0].store_longitude }
-                            : null
-                        }
-                        customerLocation={customerLocation}
-                        order={activeOrders[0]}
-                        darkMode={darkMode}
-                        mode="entregador"
-                        onNavigate={(address) => {
-                          window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`, '_blank');
-                        }}
-                      />
-                    )
-                  ) : (
-                    <div className="h-full flex items-center justify-center bg-gray-100 dark:bg-gray-800">
-                      <div className="text-center">
-                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-3" />
-                        <p className="text-gray-600 dark:text-gray-400 text-sm">Carregando localização do cliente...</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
+              <GoogleDeliveryMap
+                entregadorLocation={entregadorLocation}
+                storeLocation={
+                  activeOrders[0]?.store_latitude && activeOrders[0]?.store_longitude
+                    ? { lat: activeOrders[0].store_latitude, lng: activeOrders[0].store_longitude }
+                    : null
+                }
+                customerLocation={customerLocation}
+                order={activeOrders[0]}
+                darkMode={darkMode}
+                mode="entregador"
+                onNavigate={(address) => {
+                  window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`, '_blank');
+                }}
+              />
+            </div>
           </motion.div>
         </div>
       )}

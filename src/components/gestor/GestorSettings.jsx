@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { toast } from "sonner";
+import toast from 'react-hot-toast';
 import NotificationSettings from './NotificationSettings';
 import NotificationConfig from './NotificationConfig';
 
@@ -46,6 +46,7 @@ export default function GestorSettings() {
   const saveSettings = () => {
     localStorage.setItem('gestorSettings', JSON.stringify(settings));
     toast.success('Configurações salvas!');
+    window.dispatchEvent(new CustomEvent('gestorSettingsUpdated', { detail: settings }));
   };
 
   const createTemplateMutation = useMutation({

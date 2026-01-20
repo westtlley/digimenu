@@ -93,7 +93,13 @@ export function usePermission() {
   useEffect(() => {
     loadPermissions();
     const interval = setInterval(loadPermissions, 30000);
-    return () => clearInterval(interval);
+    const t = setTimeout(() => {
+      setLoading((prev) => (prev ? false : prev));
+    }, 12000);
+    return () => {
+      clearInterval(interval);
+      clearTimeout(t);
+    };
   }, []);
 
   // ✅ isMaster baseado APENAS em user.is_master (definido ANTES das funções que o usam)

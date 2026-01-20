@@ -3,7 +3,7 @@ import { base44 } from '@/api/base44Client';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { 
   X, Phone, MapPin, CreditCard, Clock, Check, XCircle,
-  Printer, MessageSquare, Timer, ChefHat, CheckCircle, Truck, RefreshCw, Send
+  Printer, MessageSquare, Timer, ChefHat, CheckCircle, Truck, RefreshCw, Send, Copy
 } from 'lucide-react';
 import OrderChatModal from './OrderChatModal';
 import { Button } from "@/components/ui/button";
@@ -32,7 +32,11 @@ const REJECTION_REASONS = [
   'Outro motivo',
 ];
 
-export default function OrderDetailModal({ order, entregadores, onClose, onUpdate, user }) {
+export default function OrderDetailModal({ 
+  order, entregadores, onClose, onUpdate, user,
+  suggestedPrepTime = 30, quickStatusKey, onClearQuickStatus,
+  onViewMap, onDuplicate, onAddToPrintQueue,
+}) {
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [showDeliveryModal, setShowDeliveryModal] = useState(false);
   const [showRejectChangeModal, setShowRejectChangeModal] = useState(false);
@@ -40,11 +44,41 @@ export default function OrderDetailModal({ order, entregadores, onClose, onUpdat
   const [rejectionReason, setRejectionReason] = useState('');
   const [customRejectionReason, setCustomRejectionReason] = useState('');
   const [selectedEntregador, setSelectedEntregador] = useState('');
-  const [prepTime, setPrepTime] = useState(order.prep_time || 30);
+  const [prepTime, setPrepTime] = useState(order.prep_time || suggestedPrepTime || 30);
   const [showTimeline, setShowTimeline] = useState(false);
   const [showSendMessage, setShowSendMessage] = useState(false);
+  const [internalNotes, setInternalNotes] = useState(order.internal_notes || '');
+  const [priority, setPriority] = useState(order.priority || 'normal');
 
   const queryClient = useQueryClient();
+
+  // Atalho 1–4: aplicar status e limpar
+  React.useEffect(() => {
+    if (!quickStatusKey || updateMutation.isPending) return;
+    const run = () => {
+      if (quickStatusKey === 'accepted' && order.status === 'new') {
+        updateMutation.mutate({ id: order.id, updates: { status: 'accepted', accepted_at: new Date().toISOString(), prep_time: prepTime } }, { onSuccess: () => onClearQuickStatus?.() });
+        return;
+      }
+      if (quickStatusKey === 'ready' && ['accepted', 'preparing'].includes(order.status)) {
+        const u = { status: 'ready', ready_at: new Date().toISOString() };
+        if (!order.pickup_code) u.pickup_code = Math.floor(1000 + Math.random() * 9000).toString();
+        if (!order.delivery_code && order.delivery_method === 'delivery') u.delivery_code = Math.floor(1000 + Math.random() * 9000).toString();
+        updateMutation.mutate({ id: order.id, updates: u }, { onSuccess: () => onClearQuickStatus?.() });
+        return;
+      }
+      if (quickStatusKey === 'out_for_delivery' && ['ready', 'picked_up'].includes(order.status)) {
+        updateMutation.mutate({ id: order.id, updates: { status: 'out_for_delivery' } }, { onSuccess: () => onClearQuickStatus?.() });
+        return;
+      }
+      if (quickStatusKey === 'delivered' && ['ready', 'out_for_delivery', 'arrived_at_customer'].includes(order.status)) {
+        updateMutation.mutate({ id: order.id, updates: { status: 'delivered', delivered_at: new Date().toISOString() } }, { onSuccess: () => onClearQuickStatus?.() });
+        return;
+      }
+      onClearQuickStatus?.();
+    };
+    run();
+  }, [quickStatusKey]);
 
   // Buscar logs do pedido
   const { data: orderLogs = [] } = useQuery({
@@ -563,6 +597,25 @@ export default function OrderDetailModal({ order, entregadores, onClose, onUpdat
               </div>
             )}
 
+            {/* Notas internas e Prioridade */}
+            <div className="space-y-2">
+              <div>
+                <label className="text-xs font-medium text-gray-600 block mb-1">Notas internas</label>
+                <Textarea value={internalNotes} onChange={(e) => setInternalNotes(e.target.value)} placeholder="Só você vê" rows={2} className="resize-none text-sm" />
+                <Button type="button" size="sm" variant="ghost" className="mt-1 h-7 text-xs" onClick={() => updateMutation.mutate({ id: order.id, updates: { internal_notes: internalNotes } })} disabled={updateMutation.isPending}>
+                  Salvar notas
+                </Button>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-gray-600">Prioridade:</span>
+                <select value={priority} onChange={(e) => { const v = e.target.value; setPriority(v); updateMutation.mutate({ id: order.id, updates: { priority: v } }); }} className="border rounded px-2 py-1 text-xs">
+                  <option value="normal">Normal</option>
+                  <option value="alta">Alta</option>
+                  <option value="baixa">Baixa</option>
+                </select>
+              </div>
+            </div>
+
             {/* Timeline Button */}
             <Button
               variant="outline"
@@ -694,7 +747,7 @@ export default function OrderDetailModal({ order, entregadores, onClose, onUpdat
             <div className="space-y-2">
               {order.status === 'new' && (
                 <>
-                  <div className="flex items-center gap-2 mb-2 bg-white p-2 rounded border">
+                  <div className="flex items-center gap-2 mb-2 bg-white p-2 rounded border flex-wrap">
                     <Timer className="w-4 h-4 text-gray-600" />
                     <span className="text-xs">Tempo de preparo:</span>
                     <select 
@@ -702,11 +755,13 @@ export default function OrderDetailModal({ order, entregadores, onClose, onUpdat
                       onChange={(e) => setPrepTime(parseInt(e.target.value))}
                       className="border rounded px-2 py-1 text-xs font-medium"
                     >
-                      <option value={15}>15 min</option>
-                      <option value={30}>30 min</option>
-                      <option value={45}>45 min</option>
-                      <option value={60}>60 min</option>
+                      {[10,15,20,25,30,40,45,60,90].map(m => (
+                        <option key={m} value={m}>{m} min</option>
+                      ))}
                     </select>
+                    {suggestedPrepTime && suggestedPrepTime !== prepTime && (
+                      <button type="button" onClick={() => setPrepTime(suggestedPrepTime)} className="text-[10px] text-blue-600 underline">Sugerido: {suggestedPrepTime}min</button>
+                    )}
                   </div>
                   <Button 
                     onClick={handleAccept} 
@@ -781,17 +836,33 @@ export default function OrderDetailModal({ order, entregadores, onClose, onUpdat
                 <Button onClick={handlePrint} variant="outline" size="sm">
                   <Printer className="w-4 h-4 mr-1" /> Imprimir
                 </Button>
-                <Button 
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    const phone = order.customer_phone?.replace(/\D/g, '');
-                    window.open(`https://wa.me/55${phone}`, '_blank');
-                  }}
-                >
-                  <MessageSquare className="w-4 h-4 mr-1" /> WhatsApp
-                </Button>
+                {onAddToPrintQueue && (
+                  <Button onClick={onAddToPrintQueue} variant="outline" size="sm">
+                    <Printer className="w-4 h-4 mr-1" /> Na fila
+                  </Button>
+                )}
+                {order.customer_phone && (
+                  <>
+                    <Button variant="outline" size="sm" onClick={() => { const p = order.customer_phone?.replace(/\D/g, ''); const msg = `Olá! Seu pedido #${order.order_code || order.id} está: ${order.status}.`; window.open(`https://wa.me/55${p}?text=${encodeURIComponent(msg)}`, '_blank'); }}>
+                      <Send className="w-4 h-4 mr-1" /> Enviar status
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => window.open(`https://wa.me/55${order.customer_phone?.replace(/\D/g, '')}`, '_blank')}>
+                      <MessageSquare className="w-4 h-4 mr-1" /> WhatsApp
+                    </Button>
+                  </>
+                )}
+                {onViewMap && order.delivery_method === 'delivery' && order.address && (
+                  <Button onClick={onViewMap} variant="outline" size="sm">
+                    <MapPin className="w-4 h-4 mr-1" /> Ver no mapa
+                  </Button>
+                )}
+                {onDuplicate && (
+                  <Button onClick={() => onDuplicate(order)} variant="outline" size="sm">
+                    <Copy className="w-4 h-4 mr-1" /> Duplicar
+                  </Button>
+                )}
               </div>
+              <p className="text-[10px] text-gray-400 mt-1">1–4: atalhos de status | Esc: fechar</p>
             </div>
           </div>
         </DialogContent>

@@ -6,17 +6,7 @@ import {
   MapPin, Navigation, Clock, TrendingUp, CheckCircle, Loader2, 
   Zap, X, ArrowRight, Route as RouteIcon
 } from 'lucide-react';
-import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
-
-// Fix marker icons
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-});
+import { Loader } from '@googlemaps/js-api-loader';
 
 // Algoritmo de otimização de rota (Nearest Neighbor)
 const optimizeRoute = (orders, startPoint) => {
@@ -90,107 +80,104 @@ const geocodeAddress = async (address) => {
   return null;
 };
 
-// Componente de mapa
+// Mapa Google para rota otimizada
 function RouteMap({ orders, currentLocation, onNavigate }) {
-  const [bounds, setBounds] = useState(null);
+  const mapRef = React.useRef(null);
+  const mapInstanceRef = React.useRef(null);
+  const markersRef = React.useRef([]);
+  const polyRef = React.useRef(null);
+  const infoRef = React.useRef(null);
+  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
-  useEffect(() => {
-    if (orders.length > 0 && currentLocation) {
-      const allPoints = [currentLocation, ...orders.map(o => o.coordinates)];
-      const latitudes = allPoints.map(p => p.lat);
-      const longitudes = allPoints.map(p => p.lng);
-      
-      setBounds([
-        [Math.min(...latitudes), Math.min(...longitudes)],
-        [Math.max(...latitudes), Math.max(...longitudes)]
-      ]);
-    }
-  }, [orders, currentLocation]);
+  React.useEffect(() => {
+    if (!apiKey || !mapRef.current || (!currentLocation && (!orders || orders.length === 0))) return;
+    const center = currentLocation || (orders?.[0]?.coordinates) || { lat: -5.0892, lng: -42.8019 };
+    const loader = new Loader({ apiKey, version: 'weekly' });
+    loader.load().then(() => {
+      const map = new google.maps.Map(mapRef.current, {
+        center: { lat: center.lat, lng: center.lng },
+        zoom: 13,
+        zoomControl: true,
+        mapTypeControl: true,
+        fullscreenControl: true,
+      });
+      mapInstanceRef.current = map;
 
-  const startIcon = L.divIcon({
-    html: '<div style="background: #10b981; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">🚴</div>',
-    className: '',
-    iconSize: [32, 32],
-  });
-
-  const destinationIcon = (index) => L.divIcon({
-    html: `<div style="background: #3b82f6; color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">${index + 1}</div>`,
-    className: '',
-    iconSize: [32, 32],
-  });
-
-  const BoundsHandler = () => {
-    const map = useMap();
-    useEffect(() => {
-      if (bounds) {
-        map.fitBounds(bounds, { padding: [50, 50] });
+      if (currentLocation) {
+        const m = new google.maps.Marker({
+          map,
+          position: { lat: currentLocation.lat, lng: currentLocation.lng },
+          title: 'Sua Localização',
+          icon: { path: google.maps.SymbolPath.CIRCLE, scale: 12, fillColor: '#10b981', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2 },
+        });
+        markersRef.current.push(m);
       }
-    }, [bounds, map]);
-    return null;
-  };
 
-  const routePoints = currentLocation && orders.length > 0
-    ? [currentLocation, ...orders.map(o => o.coordinates)]
-    : [];
+      (orders || []).forEach((order, index) => {
+        const c = order.coordinates;
+        if (!c) return;
+        const mk = new google.maps.Marker({
+          map,
+          position: { lat: c.lat, lng: c.lng },
+          title: `Parada ${index + 1}: #${order.order_code}`,
+          label: { text: String(index + 1), color: 'white', fontWeight: 'bold' },
+          icon: { path: google.maps.SymbolPath.CIRCLE, scale: 14, fillColor: '#3b82f6', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2 },
+        });
+        const inf = new google.maps.InfoWindow({
+          content: `<div class="p-2" style="min-width:180px"><p class="font-bold text-sm mb-1">Parada ${index + 1}</p><p class="font-semibold">#${order.order_code}</p><p class="text-xs text-gray-600 mb-2">${order.customer_name || ''}</p><button id="nav-${order.id}" class="w-full bg-blue-500 hover:bg-blue-600 text-white py-1.5 px-2 rounded text-sm">Navegar</button></div>`,
+        });
+        mk.addListener('click', () => {
+          infoRef.current?.close();
+          infoRef.current = inf;
+          inf.open(map, mk);
+          setTimeout(() => {
+            document.getElementById(`nav-${order.id}`)?.addEventListener('click', () => { onNavigate?.(c); inf.close(); });
+          }, 50);
+        });
+        markersRef.current.push(mk);
+      });
 
-  return (
-    <MapContainer
-      center={currentLocation || [-5.0892, -42.8019]}
-      zoom={13}
-      style={{ height: '400px', width: '100%', borderRadius: '12px' }}
-      className="z-0"
-    >
-      <TileLayer
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        attribution='&copy; OpenStreetMap contributors'
-      />
-      <BoundsHandler />
+      const routePoints = currentLocation && (orders || []).length > 0
+        ? [currentLocation, ...(orders || []).map(o => o.coordinates).filter(Boolean)]
+        : [];
+      if (routePoints.length > 1) {
+        const poly = new google.maps.Polyline({
+          map,
+          path: routePoints.map(p => ({ lat: p.lat, lng: p.lng })),
+          strokeColor: '#3b82f6',
+          strokeWeight: 4,
+          strokeOpacity: 0.7,
+        });
+        polyRef.current = poly;
+      }
 
-      {currentLocation && (
-        <Marker position={[currentLocation.lat, currentLocation.lng]} icon={startIcon}>
-          <Popup>
-            <div className="text-center font-semibold">
-              📍 Sua Localização
-            </div>
-          </Popup>
-        </Marker>
-      )}
+      const all = [currentLocation, ...(orders || []).map(o => o.coordinates).filter(Boolean)].filter(Boolean);
+      if (all.length >= 2) {
+        const b = new google.maps.LatLngBounds();
+        all.forEach(p => b.extend({ lat: p.lat, lng: p.lng }));
+        map.fitBounds(b, 50);
+      }
+    });
 
-      {orders.map((order, index) => (
-        <Marker
-          key={order.id}
-          position={[order.coordinates.lat, order.coordinates.lng]}
-          icon={destinationIcon(index)}
-        >
-          <Popup>
-            <div className="p-2">
-              <p className="font-bold text-sm mb-1">Parada {index + 1}</p>
-              <p className="font-semibold">#{order.order_code}</p>
-              <p className="text-xs text-gray-600 mb-2">{order.customer_name}</p>
-              <Button
-                size="sm"
-                onClick={() => onNavigate(order.coordinates)}
-                className="w-full bg-blue-500 hover:bg-blue-600"
-              >
-                <Navigation className="w-3 h-3 mr-1" />
-                Navegar
-              </Button>
-            </div>
-          </Popup>
-        </Marker>
-      ))}
+    return () => {
+      infoRef.current?.close();
+      markersRef.current.forEach(m => m?.setMap?.(null));
+      markersRef.current = [];
+      polyRef.current?.setMap?.(null);
+      mapInstanceRef.current = null;
+    };
+  }, [apiKey, currentLocation, orders, onNavigate]);
 
-      {routePoints.length > 1 && (
-        <Polyline
-          positions={routePoints.map(p => [p.lat, p.lng])}
-          color="#3b82f6"
-          weight={4}
-          opacity={0.7}
-          dashArray="10, 10"
-        />
-      )}
-    </MapContainer>
-  );
+  if (!apiKey) {
+    return (
+      <div className="h-[400px] flex flex-col items-center justify-center bg-gray-100 rounded-xl">
+        <MapPin className="w-12 h-12 text-gray-400 mb-2" />
+        <p className="text-gray-500 text-sm text-center px-4">Configure VITE_GOOGLE_MAPS_API_KEY no .env para exibir o mapa.</p>
+      </div>
+    );
+  }
+
+  return <div ref={mapRef} style={{ height: '400px', width: '100%', borderRadius: '12px' }} className="z-0" />;
 }
 
 export default function RouteOptimizer({ isOpen, onClose, orders, currentLocation, darkMode }) {

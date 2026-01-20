@@ -3,6 +3,9 @@ import { Loader } from '@googlemaps/js-api-loader';
 import { Navigation, MapPin, Clock, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
+// DEBUG Maps: remova depois de validar
+console.log('MAP KEY:', import.meta.env.VITE_GOOGLE_MAPS_API_KEY);
+
 const ORS_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImI0NGE1MmYxODVhMTQ4MjFhZWFiMjUxZDFmYjhkMTg3IiwiaCI6Im11cm11cjY0In0=';
 const DEFAULT_CENTER = { lat: -15.7942, lng: -47.8822 };
 
@@ -68,7 +71,7 @@ const DARK_STYLES = [
  * - Rotação do ícone da moto conforme a direção do movimento
  * - Rota via OpenRouteService; overlay de distância/tempo e botão de navegação
  *
- * Requer: VITE_GOOGLE_MAPS_KEY no .env
+ * Requer: VITE_GOOGLE_MAPS_API_KEY no .env
  */
 export default function GoogleDeliveryMap({
   entregadorLocation,
@@ -94,16 +97,18 @@ export default function GoogleDeliveryMap({
   const [routeInfo, setRouteInfo] = useState(null);
   const [routeLoading, setRouteLoading] = useState(false);
 
-  const apiKey = typeof import.meta !== 'undefined' && import.meta.env?.VITE_GOOGLE_MAPS_KEY;
+  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
   // Inicializar Google Maps
   useEffect(() => {
     if (!apiKey || !mapRef.current) return;
 
     setLoadError(null);
+    console.log('INICIANDO GOOGLE MAPS');
     const loader = new Loader({ apiKey, version: 'weekly' });
 
     loader.load().then(() => {
+      console.log('GOOGLE MAPS CARREGADO', window.google);
       const center = customerLocation || storeLocation || entregadorLocation || DEFAULT_CENTER;
       const map = new google.maps.Map(mapRef.current, {
         center: { lat: center.lat ?? DEFAULT_CENTER.lat, lng: center.lng ?? DEFAULT_CENTER.lng },
@@ -291,8 +296,12 @@ export default function GoogleDeliveryMap({
   }, [mapLoaded, entregadorLocation]);
 
   if (!apiKey) {
-    if (typeof console !== 'undefined' && console.warn) console.warn('Google Maps desativado: VITE_GOOGLE_MAPS_KEY não definida');
-    return null;
+    return (
+      <div className="h-full flex flex-col items-center justify-center bg-gray-100 dark:bg-gray-800 rounded-xl">
+        <span className="text-4xl mb-2">🗺️</span>
+        <p className="text-gray-500 dark:text-gray-400 text-sm text-center px-4">Configure VITE_GOOGLE_MAPS_API_KEY no .env para exibir o mapa.</p>
+      </div>
+    );
   }
 
   if (loadError) {

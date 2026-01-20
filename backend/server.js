@@ -38,6 +38,9 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
+const CORS_ORIGINS = process.env.CORS_ORIGINS
+  ? process.env.CORS_ORIGINS.split(',').map(s => s.trim()).filter(Boolean)
+  : [FRONTEND_URL, 'http://localhost:5173', 'http://127.0.0.1:5173'];
 const BACKEND_URL = process.env.BACKEND_URL || `http://localhost:${PORT}`;
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
@@ -46,7 +49,7 @@ const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 // 🧱 MIDDLEWARES
 // =======================
 app.use(cors({
-  origin: FRONTEND_URL,
+  origin: CORS_ORIGINS.length === 1 ? CORS_ORIGINS[0] : CORS_ORIGINS,
   credentials: true
 }));
 app.use(express.json({ limit: '10mb' }));

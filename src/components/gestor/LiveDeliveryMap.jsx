@@ -4,7 +4,7 @@ import { base44 } from '@/api/base44Client';
 import { MapPin, Navigation, Loader2, RefreshCw } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import ProfessionalDeliveryMap from '../maps/ProfessionalDeliveryMap';
+import GoogleProfessionalDeliveryMap from '../maps/GoogleProfessionalDeliveryMap';
 
 /**
  * Mapa ao vivo para o gestor com todos os entregadores ativos
@@ -121,7 +121,7 @@ export default function LiveDeliveryMap({ orders, entregadores, onSelectOrder })
               const customerLoc = customerLocations[order?.id];
 
               return (
-                <ProfessionalDeliveryMap
+                <GoogleProfessionalDeliveryMap
                   mode="gestor"
                   deliveryLocation={deliveryLoc}
                   customerLocation={customerLoc}
@@ -129,7 +129,6 @@ export default function LiveDeliveryMap({ orders, entregadores, onSelectOrder })
                   customerName={order?.customer_name}
                   showRoute={true}
                   order={order}
-                  className="h-full"
                 />
               );
             })()}

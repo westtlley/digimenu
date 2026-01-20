@@ -10,7 +10,7 @@ import EntregadorMessaging from './EntregadorMessaging';
 import EntregadorRating from './EntregadorRating';
 import RouteOptimizer from './RouteOptimizer';
 import LiveDeliveryMap from './LiveDeliveryMap';
-import MultiDeliveryTrackingMap from './MultiDeliveryTrackingMap';
+import GoogleMultiDeliveryTrackingMap from './GoogleMultiDeliveryTrackingMap';
 import ReviewsHistory from '../entregador/ReviewsHistory';
 import { base44 } from '@/api/base44Client';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
@@ -191,7 +191,7 @@ export default function DeliveryPanel({ entregadores, orders, stores = [] }) {
       {viewMode === 'map' && (
         <div className="grid lg:grid-cols-3 gap-4">
           <div className="lg:col-span-2 h-[400px] min-h-[300px] lg:h-[480px] rounded-xl overflow-hidden border border-gray-200">
-            <MultiDeliveryTrackingMap
+            <GoogleMultiDeliveryTrackingMap
               orders={orders}
               entregadores={entregadores}
               stores={stores}

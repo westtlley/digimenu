@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
-import L from 'leaflet';
 import { MapPin, Search, Navigation, X, Loader2 } from 'lucide-react';
+import GoogleMapPicker from '@/components/maps/GoogleMapPicker';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,74 +8,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { motion, AnimatePresence } from 'framer-motion';
 import { buscarCEP } from '@/utils/cepService';
 import toast from 'react-hot-toast';
-import 'leaflet/dist/leaflet.css';
-
-// Fix para ícones do Leaflet
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-});
-
-// Componente para centralizar mapa quando posição muda
-function AutoCenter({ center, zoom = 16 }) {
-  const map = useMap();
-  
-  useEffect(() => {
-    if (center && map) {
-      map.setView(center, zoom, {
-        animate: true,
-        duration: 0.5
-      });
-    }
-  }, [center, zoom, map]);
-  
-  return null;
-}
-
-// Componente para ajustar tamanho do mapa
-function FixMapResize() {
-  const map = useMap();
-  
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (map) {
-        map.invalidateSize();
-      }
-    }, 100);
-    
-    return () => clearTimeout(timer);
-  }, [map]);
-  
-  return null;
-}
-
-function LocationMarker({ position, setPosition }) {
-  useMapEvents({
-    click(e) {
-      setPosition(e.latlng);
-    },
-  });
-
-  // Criar ícone customizado para o marcador
-  const customIcon = L.icon({
-    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
-    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-    iconSize: [25, 41],
-    iconAnchor: [12, 41],
-    popupAnchor: [1, -34],
-    shadowSize: [41, 41]
-  });
-
-  return position ? <Marker position={position} icon={customIcon} draggable={true} eventHandlers={{
-    dragend: (e) => {
-      const marker = e.target;
-      const position = marker.getLatLng();
-      setPosition(position);
-    }
-  }} /> : null;
-}
 
 export default function AddressMapPicker({ isOpen, onClose, onConfirm, initialAddress = '' }) {
   const [position, setPosition] = useState({ lat: -15.7942, lng: -47.8822 });
@@ -432,29 +363,14 @@ export default function AddressMapPicker({ isOpen, onClose, onConfirm, initialAd
             </Button>
           </div>
 
-          {/* Map - Container fixo para não sair da tela */}
+          {/* Map - Google Maps */}
           <div className="flex-1 relative min-h-[400px] max-h-[500px] overflow-hidden">
-            <MapContainer
-              center={[position.lat, position.lng]}
-              zoom={16}
+            <GoogleMapPicker
+              center={position}
+              onPositionChange={(lat, lng) => setPosition({ lat, lng })}
+              className="absolute inset-0"
               style={{ height: '100%', width: '100%', zIndex: 1 }}
-              zoomControl={true}
-              scrollWheelZoom={true}
-              className="rounded-lg"
-            >
-              <FixMapResize />
-              <AutoCenter center={[position.lat, position.lng]} zoom={16} />
-              
-              {/* TileLayer com visual melhorado */}
-              <TileLayer
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                maxZoom={19}
-                minZoom={3}
-              />
-              
-              <LocationMarker position={position} setPosition={setPosition} />
-            </MapContainer>
+            />
 
             {/* Endereço detectado */}
             {address && (
