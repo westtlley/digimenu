@@ -22,6 +22,7 @@ import OrdersTab from '../components/admin/OrdersTab';
 import StoreTab from '../components/admin/StoreTab';
 import PaymentMethodsTab from '../components/admin/PaymentMethodsTab';
 import AssinarPageEditorTab from '../components/admin/AssinarPageEditorTab';
+import ChangePasswordDialog from '../components/admin/ChangePasswordDialog';
 import PrinterConfig from '../components/gestor/PrinterConfig';
 import FinancialTab from '../components/admin/FinancialTab';
 import OrderHistoryTab from '../components/admin/OrderHistoryTab';

@@ -3,3 +3,4 @@ node_modules/
 *.log
 db/data/
 .DS_Store
+scripts/setup-master-*.sql
