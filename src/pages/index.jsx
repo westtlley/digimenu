@@ -24,6 +24,8 @@ import MeusPedidos from "./MeusPedidos";
 
 import PDV from "./PDV";
 
+import Cozinha from "./Cozinha";
+
 import PainelAssinante from "./PainelAssinante";
 
 import RastreioCliente from "./RastreioCliente";
