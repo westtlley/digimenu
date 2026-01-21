@@ -704,11 +704,11 @@ export default function GestorPedidos() {
 
       {/* Content */}
       <main className={`flex-1 transition-all duration-300 ${sidebarCollapsed ? 'lg:ml-14' : 'lg:ml-52'}`}>
-        <div className="max-w-[1240px] mx-auto p-4">
+        <div className="max-w-[1240px] mx-auto p-4 xl:pr-14">
         {viewMode === 'inicio' && (
           <GestorDicasAtalhos onNavigate={setViewMode} />
         )}
-        {/* Kanban: barra de filtros + Só novos */}
+        {/* Kanban: filtros, quadros (em cima), depois estatísticas */}
         {viewMode === 'kanban' && (
           <div className="mb-4 flex flex-col sm:flex-row sm:items-center gap-3 flex-wrap">
             <div className="flex-1 min-w-[200px]">
@@ -732,16 +732,7 @@ export default function GestorPedidos() {
             </Button>
           </div>
         )}
-        {/* Stats Panel - Mostrar apenas no modo kanban */}
-        {viewMode === 'kanban' && (
-          <div className="mb-6">
-            <GestorStatsPanel 
-              orders={orders}
-              entregadores={entregadores}
-              darkMode={false}
-            />
-          </div>
-        )}
+        {/* Quadros de pedidos em cima (Kanban) */}
         {viewMode === 'kanban' && (
           <EnhancedKanbanBoard 
             orders={kanbanOrders}
@@ -749,6 +740,16 @@ export default function GestorPedidos() {
             darkMode={false}
             isLoading={isLoading}
           />
+        )}
+        {/* Stats Panel - abaixo dos quadros no modo kanban */}
+        {viewMode === 'kanban' && (
+          <div className="mt-6">
+            <GestorStatsPanel 
+              orders={orders}
+              entregadores={entregadores}
+              darkMode={false}
+            />
+          </div>
         )}
         {viewMode === 'resumo' && (
           <FinancialDashboard orders={orders} />
