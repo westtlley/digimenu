@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { 
   Package, Bell, Volume2, VolumeX, RefreshCw, Search,
   ChefHat, CheckCircle, Truck, Grid3x3, LayoutGrid, Menu, X as CloseIcon, LogOut,
-  Clock, AlertTriangle, Settings, ChevronLeft, Lock, DollarSign, Download, Printer
+  Clock, AlertTriangle, Settings, ChevronLeft, Lock, DollarSign, Download, Printer, Home
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,12 +19,15 @@ import OrderDetailModal from '../components/gestor/OrderDetailModal';
 import DeliveryPanel from '../components/gestor/DeliveryPanel';
 import GestorSettings from '../components/gestor/GestorSettings';
 import GestorStatsPanel from '../components/gestor/GestorStatsPanel';
+import GestorLoading from '../components/gestor/GestorLoading';
+import GestorDicasAtalhos from '../components/gestor/GestorDicasAtalhos';
 import AdvancedOrderFilters from '../components/gestor/AdvancedOrderFilters';
 import FinancialDashboard from '../components/gestor/FinancialDashboard';
 import UserAuthButton from '../components/atoms/UserAuthButton';
 import { usePermission } from '../components/permissions/usePermission';
 import { downloadOrdersCSV, exportGestorReportPDF, printOrdersInQueue } from '../utils/gestorExport';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 
 export default function GestorPedidos() {
   const [activeTab, setActiveTab] = useState('now'); // now, scheduled
@@ -51,8 +54,11 @@ export default function GestorPedidos() {
   const [onlyNew, setOnlyNew] = useState(false);
   const [printQueue, setPrintQueue] = useState([]);
   const [quickStatusKey, setQuickStatusKey] = useState(null);
+  const [showAreYouThereModal, setShowAreYouThereModal] = useState(false);
   
   const audioRef = useRef(null);
+  const areYouTherePausedRef = useRef(false);
+  const areYouThereTimerRef = useRef(null);
   const prevOrderCountRef = useRef(0);
   const autoAcceptedIdsRef = useRef(new Set());
   const queryClient = useQueryClient();
@@ -189,6 +195,37 @@ export default function GestorPedidos() {
     prevOrderCountRef.current = newOrders.length;
   }, [orders, soundEnabled, notificationConfig]);
 
+  // "Está aí?" (inatividade): após N min sem interação, modal
+  useEffect(() => {
+    try {
+      const gs = JSON.parse(localStorage.getItem('gestorSettings') || '{}');
+      if (!gs.are_you_there_enabled) return;
+      const mins = Math.max(1, Math.min(120, Number(gs.are_you_there_minutes) || 15));
+      const ms = mins * 60 * 1000;
+      const schedule = () => {
+        if (areYouTherePausedRef.current) return;
+        if (areYouThereTimerRef.current) clearTimeout(areYouThereTimerRef.current);
+        areYouThereTimerRef.current = setTimeout(() => {
+          if (areYouTherePausedRef.current) return;
+          setShowAreYouThereModal(true);
+        }, ms);
+      };
+      const onActivity = () => { if (!areYouTherePausedRef.current) schedule(); };
+      window.addEventListener('mousemove', onActivity);
+      window.addEventListener('keydown', onActivity);
+      window.addEventListener('click', onActivity);
+      window.addEventListener('scroll', onActivity);
+      schedule();
+      return () => {
+        if (areYouThereTimerRef.current) clearTimeout(areYouThereTimerRef.current);
+        window.removeEventListener('mousemove', onActivity);
+        window.removeEventListener('keydown', onActivity);
+        window.removeEventListener('click', onActivity);
+        window.removeEventListener('scroll', onActivity);
+      };
+    } catch (_) {}
+  }, []);
+
   // Auto-cancel late orders
   useEffect(() => {
     const checkLateOrders = async () => {
@@ -290,11 +327,7 @@ export default function GestorPedidos() {
   };
 
   if (permLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <RefreshCw className="w-8 h-8 animate-spin text-red-500" />
-      </div>
-    );
+    return <GestorLoading />;
   }
 
   if (!user) {
@@ -302,7 +335,7 @@ export default function GestorPedidos() {
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
         <p className="text-gray-600 dark:text-gray-400 mb-4">Sessão expirada ou não autenticado.</p>
         <Link to="/login">
-          <Button className="bg-red-500 hover:bg-red-600">Fazer login</Button>
+          <Button className="bg-orange-500 hover:bg-orange-600">Fazer login</Button>
         </Link>
       </div>
     );
@@ -319,7 +352,7 @@ export default function GestorPedidos() {
           <p className="text-gray-600 mb-6">Esta funcionalidade não está disponível no seu plano atual.</p>
           <div className="space-y-3">
             <Link to={createPageUrl('PainelAssinante')}>
-              <Button className="w-full bg-red-500 hover:bg-red-600">Voltar ao Painel</Button>
+              <Button className="w-full bg-orange-500 hover:bg-orange-600">Voltar ao Painel</Button>
             </Link>
             <Link to={createPageUrl('Cardapio')}>
               <Button variant="outline" className="w-full">Ver Cardápio</Button>
@@ -350,7 +383,7 @@ export default function GestorPedidos() {
                   {store.logo ? (
                     <img src={store.logo} alt={store.name} className="w-8 h-8 rounded-lg object-cover" />
                   ) : (
-                    <Package className="w-5 h-5 text-red-500" />
+                    <Package className="w-5 h-5 text-orange-500" />
                   )}
                 </Button>
               </Link>
@@ -358,7 +391,7 @@ export default function GestorPedidos() {
                 {store.logo ? (
                   <img src={store.logo} alt={store.name} className="w-10 h-10 rounded-lg object-cover" />
                 ) : (
-                  <div className="w-10 h-10 bg-red-500 rounded-lg flex items-center justify-center">
+                  <div className="w-10 h-10 bg-orange-500 rounded-lg flex items-center justify-center">
                     <Package className="w-5 h-5 text-white" />
                   </div>
                 )}
@@ -453,7 +486,7 @@ export default function GestorPedidos() {
                 onClick={() => setActiveTab('now')}
                 className={`px-6 py-3 font-medium text-sm border-b-2 transition-colors ${
                   activeTab === 'now' 
-                    ? 'border-red-500 text-red-500' 
+                    ? 'border-orange-500 text-orange-500' 
                     : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
               >
@@ -463,7 +496,7 @@ export default function GestorPedidos() {
                 onClick={() => setActiveTab('scheduled')}
                 className={`px-6 py-3 font-medium text-sm border-b-2 transition-colors ${
                   activeTab === 'scheduled' 
-                    ? 'border-red-500 text-red-500' 
+                    ? 'border-orange-500 text-orange-500' 
                     : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
               >
@@ -503,10 +536,22 @@ export default function GestorPedidos() {
           {/* Menu Items */}
           <nav className="flex-1 p-1.5 space-y-0.5 overflow-y-auto">
             <button
+              onClick={() => setViewMode('inicio')}
+              className={`w-full flex items-center gap-2 px-2 py-2 rounded-md transition-all duration-200 ${
+                viewMode === 'inicio' ? 'bg-orange-50 text-orange-600' : 'text-gray-600 hover:bg-gray-50'
+              }`}
+              title={sidebarCollapsed ? 'Início' : ''}
+            >
+              <Home className="w-4 h-4 flex-shrink-0" />
+              <span className={`text-sm font-medium whitespace-nowrap transition-all duration-300 ${
+                sidebarCollapsed ? 'opacity-0 w-0 overflow-hidden' : 'opacity-100'
+              }`}>Início</span>
+            </button>
+            <button
               onClick={() => setViewMode('kanban')}
               className={`w-full flex items-center gap-2 px-2 py-2 rounded-md transition-all duration-200 ${
                 viewMode === 'kanban' 
-                  ? 'bg-red-50 text-red-600' 
+                  ? 'bg-orange-50 text-orange-600' 
                   : 'text-gray-600 hover:bg-gray-50'
               }`}
               title={sidebarCollapsed ? 'Quadros' : ''}
@@ -523,7 +568,7 @@ export default function GestorPedidos() {
               onClick={() => setViewMode('delivery')}
               className={`w-full flex items-center gap-2 px-2 py-2 rounded-md transition-all duration-200 ${
                 viewMode === 'delivery' 
-                  ? 'bg-red-50 text-red-600' 
+                  ? 'bg-orange-50 text-orange-600' 
                   : 'text-gray-600 hover:bg-gray-50'
               }`}
               title={sidebarCollapsed ? 'Entregadores' : ''}
@@ -539,7 +584,7 @@ export default function GestorPedidos() {
             <button
               onClick={() => setViewMode('resumo')}
               className={`w-full flex items-center gap-2 px-2 py-2 rounded-md transition-all duration-200 ${
-                viewMode === 'resumo' ? 'bg-red-50 text-red-600' : 'text-gray-600 hover:bg-gray-50'
+                viewMode === 'resumo' ? 'bg-orange-50 text-orange-600' : 'text-gray-600 hover:bg-gray-50'
               }`}
               title={sidebarCollapsed ? 'Resumo' : ''}
             >
@@ -551,7 +596,7 @@ export default function GestorPedidos() {
             <button
               onClick={() => setViewMode('settings')}
               className={`w-full flex items-center gap-2 px-2 py-2 rounded-md transition-all duration-200 ${
-                viewMode === 'settings' ? 'bg-red-50 text-red-600' : 'text-gray-600 hover:bg-gray-50'
+                viewMode === 'settings' ? 'bg-orange-50 text-orange-600' : 'text-gray-600 hover:bg-gray-50'
               }`}
               title={sidebarCollapsed ? 'Ajustes' : ''}
             >
@@ -567,11 +612,11 @@ export default function GestorPedidos() {
             {!sidebarCollapsed ? (
               <div className="text-center py-1">
                 <p className="text-[10px] text-gray-400 uppercase tracking-wide">Ativos</p>
-                <p className="text-xl font-bold text-red-500">{orders.filter(o => !['delivered', 'cancelled'].includes(o.status)).length}</p>
+                <p className="text-xl font-bold text-orange-500">{orders.filter(o => !['delivered', 'cancelled'].includes(o.status)).length}</p>
               </div>
             ) : (
               <div className="flex justify-center">
-                <div className="w-7 h-7 rounded-full bg-red-500 flex items-center justify-center">
+                <div className="w-7 h-7 rounded-full bg-orange-500 flex items-center justify-center">
                   <span className="text-xs font-bold text-white">{orders.filter(o => !['delivered', 'cancelled'].includes(o.status)).length}</span>
                 </div>
               </div>
@@ -591,7 +636,7 @@ export default function GestorPedidos() {
             onClick={(e) => e.stopPropagation()}
           >
             {/* Mobile Menu Header */}
-            <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-red-500 to-red-600 text-white">
+            <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-orange-500 to-orange-600 text-white">
               <div className="flex items-center gap-2">
                 <Menu className="w-5 h-5" />
                 <h2 className="font-bold">Menu</h2>
@@ -607,13 +652,23 @@ export default function GestorPedidos() {
             {/* Mobile Menu Items */}
             <nav className="p-3 space-y-2">
               <button
+                onClick={() => { setViewMode('inicio'); setShowMobileMenu(false); }}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
+                  viewMode === 'inicio' ? 'bg-orange-500 text-white shadow-sm' : 'hover:bg-gray-100 text-gray-700'
+                }`}
+              >
+                <Home className="w-5 h-5" />
+                <span className="font-medium">Início</span>
+                {viewMode === 'inicio' && <CheckCircle className="w-4 h-4 ml-auto" />}
+              </button>
+              <button
                 onClick={() => {
                   setViewMode('kanban');
                   setShowMobileMenu(false);
                 }}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
                   viewMode === 'kanban' 
-                    ? 'bg-red-500 text-white shadow-sm' 
+                    ? 'bg-orange-500 text-white shadow-sm' 
                     : 'hover:bg-gray-100 text-gray-700'
                 }`}
               >
@@ -631,7 +686,7 @@ export default function GestorPedidos() {
                 }}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
                   viewMode === 'delivery' 
-                    ? 'bg-red-500 text-white shadow-sm' 
+                    ? 'bg-orange-500 text-white shadow-sm' 
                     : 'hover:bg-gray-100 text-gray-700'
                 }`}
               >
@@ -645,7 +700,7 @@ export default function GestorPedidos() {
               <button
                 onClick={() => { setViewMode('resumo'); setShowMobileMenu(false); }}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
-                  viewMode === 'resumo' ? 'bg-red-500 text-white shadow-sm' : 'hover:bg-gray-100 text-gray-700'
+                  viewMode === 'resumo' ? 'bg-orange-500 text-white shadow-sm' : 'hover:bg-gray-100 text-gray-700'
                 }`}
               >
                 <DollarSign className="w-5 h-5" />
@@ -655,7 +710,7 @@ export default function GestorPedidos() {
               <button
                 onClick={() => { setViewMode('settings'); setShowMobileMenu(false); }}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
-                  viewMode === 'settings' ? 'bg-red-500 text-white shadow-sm' : 'hover:bg-gray-100 text-gray-700'
+                  viewMode === 'settings' ? 'bg-orange-500 text-white shadow-sm' : 'hover:bg-gray-100 text-gray-700'
                 }`}
               >
                 <Settings className="w-5 h-5" />
@@ -669,7 +724,7 @@ export default function GestorPedidos() {
               <div className="grid grid-cols-2 gap-3 text-center">
                 <div className="bg-white rounded-lg p-3 shadow-sm">
                   <p className="text-xs text-gray-500">Pedidos Ativos</p>
-                  <p className="text-xl font-bold text-red-500">
+                  <p className="text-xl font-bold text-orange-500">
                     {orders.filter(o => !['delivered', 'cancelled'].includes(o.status)).length}
                   </p>
                 </div>
@@ -690,6 +745,9 @@ export default function GestorPedidos() {
       {/* Content */}
       <main className={`transition-all duration-300 ${sidebarCollapsed ? 'lg:ml-14' : 'lg:ml-52'}`}>
         <div className="max-w-[1240px] mx-auto p-4">
+        {viewMode === 'inicio' && (
+          <GestorDicasAtalhos onNavigate={setViewMode} />
+        )}
         {/* Stats Panel - Mostrar apenas no modo kanban */}
         {viewMode === 'kanban' && (
           <div className="mb-6">
@@ -705,6 +763,7 @@ export default function GestorPedidos() {
             orders={kanbanOrders}
             onSelectOrder={setSelectedOrder}
             darkMode={false}
+            isLoading={isLoading}
           />
         )}
         {viewMode === 'resumo' && (
@@ -729,6 +788,26 @@ export default function GestorPedidos() {
           Imprimir {printQueue.length} comanda(s)
         </button>
       )}
+
+      {/* Modal "Está aí?" (inatividade) */}
+      <Dialog open={showAreYouThereModal} onOpenChange={(o) => { if (!o) setShowAreYouThereModal(false); }}>
+        <DialogContent className="max-w-sm">
+          <DialogTitle>Você ainda está aí?</DialogTitle>
+          <p className="text-sm text-gray-600">O gestor está pausado. Toque em Continuar para seguir recebendo avisos.</p>
+          <div className="flex gap-2 mt-4">
+            <Button onClick={() => setShowAreYouThereModal(false)} className="flex-1 bg-orange-500 hover:bg-orange-600 uppercase font-bold">
+              Continuar
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => { areYouTherePausedRef.current = true; setShowAreYouThereModal(false); }}
+              className="flex-1"
+            >
+              Desligar (sessão)
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Order Detail Modal */}
       {selectedOrder && (
