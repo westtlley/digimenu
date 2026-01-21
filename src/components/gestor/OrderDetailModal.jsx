@@ -43,12 +43,20 @@ export default function OrderDetailModal({
   const [changeRejectMotivo, setChangeRejectMotivo] = useState('');
   const [rejectionReason, setRejectionReason] = useState('');
   const [customRejectionReason, setCustomRejectionReason] = useState('');
+  const [customRejectionError, setCustomRejectionError] = useState(false);
   const [selectedEntregador, setSelectedEntregador] = useState('');
   const [prepTime, setPrepTime] = useState(order.prep_time || suggestedPrepTime || 30);
   const [showTimeline, setShowTimeline] = useState(false);
   const [showSendMessage, setShowSendMessage] = useState(false);
   const [internalNotes, setInternalNotes] = useState(order.internal_notes || '');
   const [priority, setPriority] = useState(order.priority || 'normal');
+
+  const canAlterPrepPerOrder = (() => {
+    try {
+      const g = JSON.parse(localStorage.getItem('gestorSettings') || '{}');
+      return g.can_alter_prep_per_order !== false;
+    } catch { return true; }
+  })();
 
   const queryClient = useQueryClient();
 
@@ -57,7 +65,8 @@ export default function OrderDetailModal({
     if (!quickStatusKey || updateMutation.isPending) return;
     const run = () => {
       if (quickStatusKey === 'accepted' && order.status === 'new') {
-        updateMutation.mutate({ id: order.id, updates: { status: 'accepted', accepted_at: new Date().toISOString(), prep_time: prepTime } }, { onSuccess: () => onClearQuickStatus?.() });
+        const p = canAlterPrepPerOrder ? prepTime : (suggestedPrepTime || 30);
+        updateMutation.mutate({ id: order.id, updates: { status: 'accepted', accepted_at: new Date().toISOString(), prep_time: p } }, { onSuccess: () => onClearQuickStatus?.() });
         return;
       }
       if (quickStatusKey === 'ready' && ['accepted', 'preparing'].includes(order.status)) {
@@ -162,24 +171,21 @@ export default function OrderDetailModal({
 
   const handleAccept = async () => {
     if (updateMutation.isPending) return;
-    
-    // Validações
-    if (!prepTime || prepTime < 5 || prepTime > 180) {
+    const effectivePrep = canAlterPrepPerOrder ? prepTime : (suggestedPrepTime || 30);
+    if (!effectivePrep || effectivePrep < 5 || effectivePrep > 180) {
       toast.error('Tempo de preparo deve ser entre 5 e 180 minutos');
       return;
     }
-    
     if (order.status !== 'new') {
       toast.error('Este pedido já foi processado');
       return;
     }
-    
     updateMutation.mutate({
       id: order.id,
       updates: { 
         status: 'accepted',
         accepted_at: new Date().toISOString(),
-        prep_time: prepTime,
+        prep_time: effectivePrep,
       }
     });
   };
@@ -222,15 +228,18 @@ export default function OrderDetailModal({
       : rejectionReason;
     
     if (rejectionReason === 'Outro motivo' && !customRejectionReason.trim()) {
+      setCustomRejectionError(true);
       toast.error('Descreva o motivo da rejeição');
       return;
     }
     
     if (finalReason.length < 5) {
+      if (rejectionReason === 'Outro motivo') setCustomRejectionError(true);
       toast.error('Motivo muito curto. Mínimo de 5 caracteres');
       return;
     }
     
+    setCustomRejectionError(false);
     updateMutation.mutate({
       id: order.id,
       updates: { 
@@ -241,6 +250,7 @@ export default function OrderDetailModal({
     setShowRejectModal(false);
     setRejectionReason('');
     setCustomRejectionReason('');
+    setCustomRejectionError(false);
   };
 
   const handleAssignDelivery = async () => {
@@ -509,7 +519,7 @@ export default function OrderDetailModal({
       <Dialog open={true} onOpenChange={onClose}>
         <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto p-0" aria-describedby={undefined}>
           {/* Header */}
-          <div className="sticky top-0 bg-gradient-to-r from-red-600 to-red-500 text-white p-4 z-10">
+          <div className="sticky top-0 bg-gradient-to-r from-orange-600 to-orange-500 text-white p-4 z-10">
             <div className="flex items-center justify-between mb-2">
               <div className="flex-1">
                 <DialogTitle className="font-bold text-lg text-white">COMANDA</DialogTitle>
@@ -575,10 +585,10 @@ export default function OrderDetailModal({
                 <p className="text-sm text-gray-800">{order.customer_change_request}</p>
                 {(!order.customer_change_status || order.customer_change_status === 'pending') && (
                   <div className="flex gap-2 mt-2">
-                    <Button size="sm" onClick={handleApproveChangeRequest} className="bg-green-600 hover:bg-green-700">
+                    <Button size="sm" onClick={handleApproveChangeRequest} className="rounded bg-green-600 hover:bg-green-700 uppercase font-bold transition-all duration-100">
                       <Check className="w-3.5 h-3.5 mr-1" /> Aceitar
                     </Button>
-                    <Button size="sm" variant="outline" onClick={() => setShowRejectChangeModal(true)} className="border-red-300 text-red-600 hover:bg-red-50">
+                    <Button size="sm" variant="outline" onClick={() => setShowRejectChangeModal(true)} className="rounded border-red-300 text-red-600 hover:bg-red-50 uppercase font-bold transition-all duration-100">
                       <XCircle className="w-3.5 h-3.5 mr-1" /> Reprovar
                     </Button>
                   </div>
@@ -601,14 +611,14 @@ export default function OrderDetailModal({
             <div className="space-y-2">
               <div>
                 <label className="text-xs font-medium text-gray-600 block mb-1">Notas internas</label>
-                <Textarea value={internalNotes} onChange={(e) => setInternalNotes(e.target.value)} placeholder="Só você vê" rows={2} className="resize-none text-sm" />
+                <Textarea value={internalNotes} onChange={(e) => setInternalNotes(e.target.value)} placeholder="Só você vê" rows={2} className="resize-none text-sm focus:border-gray-800 focus:ring-1 focus:ring-gray-800/20 focus:outline-none" />
                 <Button type="button" size="sm" variant="ghost" className="mt-1 h-7 text-xs" onClick={() => updateMutation.mutate({ id: order.id, updates: { internal_notes: internalNotes } })} disabled={updateMutation.isPending}>
                   Salvar notas
                 </Button>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-xs font-medium text-gray-600">Prioridade:</span>
-                <select value={priority} onChange={(e) => { const v = e.target.value; setPriority(v); updateMutation.mutate({ id: order.id, updates: { priority: v } }); }} className="border rounded px-2 py-1 text-xs">
+                <select value={priority} onChange={(e) => { const v = e.target.value; setPriority(v); updateMutation.mutate({ id: order.id, updates: { priority: v } }); }} className="border rounded px-2 py-1 text-xs focus:border-gray-800 focus:ring-1 focus:ring-gray-800/20 focus:outline-none">
                   <option value="normal">Normal</option>
                   <option value="alta">Alta</option>
                   <option value="baixa">Baixa</option>
@@ -747,25 +757,30 @@ export default function OrderDetailModal({
             <div className="space-y-2">
               {order.status === 'new' && (
                 <>
-                  <div className="flex items-center gap-2 mb-2 bg-white p-2 rounded border flex-wrap">
-                    <Timer className="w-4 h-4 text-gray-600" />
-                    <span className="text-xs">Tempo de preparo:</span>
-                    <select 
-                      value={prepTime}
-                      onChange={(e) => setPrepTime(parseInt(e.target.value))}
-                      className="border rounded px-2 py-1 text-xs font-medium"
-                    >
-                      {[10,15,20,25,30,40,45,60,90].map(m => (
-                        <option key={m} value={m}>{m} min</option>
-                      ))}
-                    </select>
-                    {suggestedPrepTime && suggestedPrepTime !== prepTime && (
-                      <button type="button" onClick={() => setPrepTime(suggestedPrepTime)} className="text-[10px] text-blue-600 underline">Sugerido: {suggestedPrepTime}min</button>
-                    )}
-                  </div>
+                  {canAlterPrepPerOrder && (
+                    <div className="flex items-center gap-2 mb-2 bg-white p-2 rounded border flex-wrap">
+                      <Timer className="w-4 h-4 text-gray-600" />
+                      <span className="text-xs">Tempo de preparo:</span>
+                      <select 
+                        value={prepTime}
+                        onChange={(e) => setPrepTime(parseInt(e.target.value))}
+                        className="border rounded px-2 py-1 text-xs font-medium min-h-[52px] focus:border-gray-800 focus:ring-1 focus:ring-gray-800/20 focus:outline-none"
+                      >
+                        {[10,15,20,25,30,40,45,60,90].map(m => (
+                          <option key={m} value={m}>{m} min</option>
+                        ))}
+                      </select>
+                      {suggestedPrepTime && suggestedPrepTime !== prepTime && (
+                        <button type="button" onClick={() => setPrepTime(suggestedPrepTime)} className="text-[10px] text-blue-600 underline">Sugerido: {suggestedPrepTime}min</button>
+                      )}
+                    </div>
+                  )}
+                  {!canAlterPrepPerOrder && (
+                    <p className="text-xs text-gray-500 mb-2">Tempo de preparo: {suggestedPrepTime || 30} min (padrão)</p>
+                  )}
                   <Button 
                     onClick={handleAccept} 
-                    className="w-full bg-green-600 hover:bg-green-700 h-12 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="rounded w-full bg-green-600 hover:bg-green-700 h-12 font-bold uppercase disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-100"
                     disabled={updateMutation.isPending}
                   >
                     {updateMutation.isPending ? (
@@ -781,7 +796,7 @@ export default function OrderDetailModal({
                   <Button 
                     onClick={() => setShowRejectModal(true)} 
                     variant="outline" 
-                    className="w-full border-red-300 text-red-600 hover:bg-red-50 h-10"
+                    className="rounded w-full border-red-300 text-red-600 hover:bg-red-50 h-10 uppercase font-bold transition-all duration-100"
                     disabled={updateMutation.isPending}
                   >
                     <XCircle className="w-4 h-4 mr-2" /> Rejeitar
@@ -790,19 +805,19 @@ export default function OrderDetailModal({
               )}
 
               {order.status === 'accepted' && (
-                <Button onClick={handleNextStatus} className="w-full bg-yellow-600 hover:bg-yellow-700 h-12 font-semibold">
+                <Button onClick={handleNextStatus} className="rounded w-full bg-yellow-600 hover:bg-yellow-700 h-12 font-semibold transition-all duration-100">
                   <ChefHat className="w-5 h-5 mr-2" /> Iniciar Preparo
                 </Button>
               )}
 
               {order.status === 'preparing' && (
-                <Button onClick={handleNextStatus} className="w-full bg-green-600 hover:bg-green-700 h-12 font-semibold">
+                <Button onClick={handleNextStatus} className="rounded w-full bg-green-600 hover:bg-green-700 h-12 font-semibold transition-all duration-100">
                   <CheckCircle className="w-5 h-5 mr-2" /> Marcar como Pronto
                 </Button>
               )}
 
               {order.status === 'ready' && order.delivery_method === 'delivery' && (
-                <Button onClick={() => setShowDeliveryModal(true)} className="w-full bg-blue-600 hover:bg-blue-700 h-12 font-semibold">
+                <Button onClick={() => setShowDeliveryModal(true)} className="rounded w-full bg-blue-600 hover:bg-blue-700 h-12 font-semibold transition-all duration-100">
                   <Truck className="w-5 h-5 mr-2" /> Chamar Entregador
                 </Button>
               )}
@@ -810,7 +825,7 @@ export default function OrderDetailModal({
               {/* Códigos exibidos no cabeçalho do modal */}
 
               {order.status === 'ready' && order.delivery_method === 'pickup' && (
-                <Button onClick={handleNextStatus} className="w-full bg-green-600 hover:bg-green-700 h-12 font-semibold">
+                <Button onClick={handleNextStatus} className="rounded w-full bg-green-600 hover:bg-green-700 h-12 font-semibold transition-all duration-100">
                   <CheckCircle className="w-5 h-5 mr-2" /> Marcar como Entregue
                 </Button>
               )}
@@ -826,14 +841,14 @@ export default function OrderDetailModal({
                       <Send className="w-4 h-4 mr-2" /> Enviar Mensagem ao Entregador
                     </Button>
                   )}
-                  <Button onClick={handleNextStatus} className="w-full bg-green-600 hover:bg-green-700 h-12 font-semibold">
-                    <CheckCircle className="w-5 h-5 mr-2" /> Confirmar Entrega
-                  </Button>
+<Button onClick={handleNextStatus} className="rounded w-full bg-green-600 hover:bg-green-700 h-12 font-semibold transition-all duration-100">
+                  <CheckCircle className="w-5 h-5 mr-2" /> Confirmar Entrega
+                </Button>
                 </>
               )}
 
               <div className="grid grid-cols-2 gap-2">
-                <Button onClick={handlePrint} variant="outline" size="sm">
+                <Button onClick={handlePrint} variant="outline" size="sm" className="rounded uppercase font-bold transition-all duration-100">
                   <Printer className="w-4 h-4 mr-1" /> Imprimir
                 </Button>
                 {onAddToPrintQueue && (
@@ -894,17 +909,17 @@ export default function OrderDetailModal({
 
             {rejectionReason === 'Outro motivo' && (
               <div>
-                <label className="text-sm font-medium text-gray-700 mb-2 block">
+                <label className={`text-sm font-medium mb-2 block ${customRejectionError ? 'text-red-500' : 'text-gray-700'}`}>
                   Descreva o motivo *
                 </label>
                 <Textarea
                   value={customRejectionReason}
-                  onChange={(e) => setCustomRejectionReason(e.target.value)}
+                  onChange={(e) => { setCustomRejectionReason(e.target.value); setCustomRejectionError(false); }}
                   placeholder="Ex: Cliente solicitou cancelamento..."
                   rows={3}
-                  className="resize-none"
+                  className={`resize-none min-h-[52px] focus:outline-none focus:ring-1 focus:ring-gray-800/20 focus:border-gray-800 ${customRejectionError ? 'border-2 border-red-500' : ''}`}
                 />
-                <p className="text-xs text-gray-500 mt-1">
+                <p className={`text-xs mt-1 ${customRejectionError ? 'text-red-500' : 'text-gray-500'}`}>
                   Mínimo de 5 caracteres
                 </p>
               </div>
@@ -912,20 +927,20 @@ export default function OrderDetailModal({
 
             <div className="flex gap-3">
               <Button 
-                variant="outline" 
                 onClick={() => {
                   setShowRejectModal(false);
                   setRejectionReason('');
                   setCustomRejectionReason('');
+                  setCustomRejectionError(false);
                 }} 
-                className="flex-1"
+                className="flex-1 bg-[#a6a6a5] hover:bg-[#929290] text-white border-0 rounded transition-all duration-100"
               >
                 Cancelar
               </Button>
               <Button 
                 onClick={handleReject} 
                 disabled={!rejectionReason || updateMutation.isPending} 
-                className="flex-1 bg-red-600 hover:bg-red-700 disabled:opacity-50"
+                className="rounded flex-1 bg-red-600 hover:bg-red-700 disabled:opacity-50 transition-all duration-100"
               >
                 {updateMutation.isPending ? (
                   <>
@@ -954,13 +969,13 @@ export default function OrderDetailModal({
               onChange={(e) => setChangeRejectMotivo(e.target.value)}
               placeholder="Motivo da reprovação..."
               rows={3}
-              className="resize-none"
+              className="resize-none min-h-[52px] focus:border-gray-800 focus:ring-1 focus:ring-gray-800/20 focus:outline-none"
             />
             <div className="flex gap-3">
-              <Button variant="outline" onClick={() => { setShowRejectChangeModal(false); setChangeRejectMotivo(''); }} className="flex-1">
+              <Button onClick={() => { setShowRejectChangeModal(false); setChangeRejectMotivo(''); }} className="flex-1 bg-[#a6a6a5] hover:bg-[#929290] text-white border-0 rounded transition-all duration-100">
                 Cancelar
               </Button>
-              <Button onClick={handleRejectChangeRequest} disabled={(changeRejectMotivo || '').trim().length < 3} className="flex-1 bg-amber-600 hover:bg-amber-700">
+              <Button onClick={handleRejectChangeRequest} disabled={(changeRejectMotivo || '').trim().length < 3} className="rounded flex-1 bg-amber-600 hover:bg-amber-700 transition-all duration-100">
                 Reprovar alteração
               </Button>
             </div>
@@ -992,13 +1007,13 @@ export default function OrderDetailModal({
                   ))}
                 </div>
                 <div className="flex gap-3">
-                  <Button variant="outline" onClick={() => setShowDeliveryModal(false)} className="flex-1">
+                  <Button onClick={() => setShowDeliveryModal(false)} className="flex-1 bg-[#a6a6a5] hover:bg-[#929290] text-white border-0 rounded transition-all duration-100">
                     Cancelar
                   </Button>
                   <Button 
                     onClick={handleAssignDelivery} 
                     disabled={!selectedEntregador || updateMutation.isPending} 
-                    className="flex-1 bg-blue-600 disabled:opacity-50"
+                    className="rounded flex-1 bg-blue-600 disabled:opacity-50 transition-all duration-100"
                   >
                     {updateMutation.isPending ? 'Processando...' : 'Confirmar'}
                   </Button>

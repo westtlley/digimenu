@@ -135,6 +135,17 @@ export const designTokens = {
     xl: '1280px',
     '2xl': '1536px',
   },
+  // Gestor de Pedidos – identidade DigiMenu (laranja #f97316)
+  gestor: {
+    primary: '#f97316',
+    primaryHover: '#ea580c',
+    primaryActive: '#c2410c',
+    primaryBg: '#fff7ed',
+    primaryBgMedium: '#ffedd5',
+    primaryBorder: '#fed7aa',
+    splashBg: '#7a7775',       // fundo do loading (ref. iFood)
+    buttonTransition: '100ms', // transição dos botões de ação (ref. iFood)
+  },
 };
 
 // Gradientes pré-definidos

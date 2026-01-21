@@ -17,9 +17,12 @@ import NotificationConfig from './NotificationConfig';
 export default function GestorSettings() {
   const [settings, setSettings] = useState({
     default_prep_time: 30,
+    can_alter_prep_per_order: true,
     auto_print: false,
     sound_notifications: true,
     auto_accept: false,
+    are_you_there_enabled: false,
+    are_you_there_minutes: 15,
   });
 
   const queryClient = useQueryClient();
@@ -37,10 +40,13 @@ export default function GestorSettings() {
   const store = stores[0];
 
   useEffect(() => {
-    const savedSettings = localStorage.getItem('gestorSettings');
-    if (savedSettings) {
-      setSettings(JSON.parse(savedSettings));
-    }
+    try {
+      const saved = localStorage.getItem('gestorSettings');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setSettings(prev => ({ ...prev, ...parsed }));
+      }
+    } catch (_) {}
   }, []);
 
   const saveSettings = () => {
@@ -140,13 +146,13 @@ export default function GestorSettings() {
             <div className="space-y-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 bg-gray-50 rounded-md">
                 <div>
-                  <Label className="text-xs font-medium text-gray-700">Tempo padrão de preparo</Label>
-                  <p className="text-[10px] text-gray-500">Tempo estimado para preparar pedidos</p>
+                  <Label className="text-xs font-medium text-gray-700">Tempo de preparo padrão</Label>
+                  <p className="text-[10px] text-gray-500">Tempo estimado para preparar pedidos (sempre sugerido ao aceitar)</p>
                 </div>
                 <select
                   value={settings.default_prep_time}
                   onChange={(e) => setSettings(prev => ({ ...prev, default_prep_time: parseInt(e.target.value) }))}
-                  className="border rounded-md px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-red-500"
+                  className="border rounded-md px-2.5 py-1.5 text-xs min-h-[52px] focus:outline-none focus:border-gray-800 focus:ring-1 focus:ring-gray-800/20"
                 >
                   <option value={15}>15 minutos</option>
                   <option value={30}>30 minutos</option>
@@ -154,6 +160,17 @@ export default function GestorSettings() {
                   <option value={60}>60 minutos</option>
                   <option value={90}>90 minutos</option>
                 </select>
+              </div>
+
+              <div className="flex items-center justify-between p-2.5 bg-gray-50 rounded-md">
+                <div>
+                  <Label className="text-xs font-medium text-gray-700">Permitir alterar por pedido</Label>
+                  <p className="text-[10px] text-gray-500">Ao aceitar, poder alterar o tempo de preparo daquele pedido</p>
+                </div>
+                <Switch
+                  checked={settings.can_alter_prep_per_order !== false}
+                  onCheckedChange={(checked) => setSettings(prev => ({ ...prev, can_alter_prep_per_order: checked }))}
+                />
               </div>
 
               <div className="flex items-center justify-between p-2.5 bg-gray-50 rounded-md">
@@ -189,7 +206,57 @@ export default function GestorSettings() {
                 />
               </div>
 
-              <Button onClick={saveSettings} className="w-full bg-red-500 hover:bg-red-600 text-sm py-2">
+              <div className="flex items-center justify-between p-2.5 bg-gray-50 rounded-md">
+                <div>
+                  <Label className="text-xs font-medium text-gray-700">Está aí? (alerta de inatividade)</Label>
+                  <p className="text-[10px] text-gray-500">Após N minutos sem interação, avisar. Desligado por padrão.</p>
+                </div>
+                <Switch
+                  checked={settings.are_you_there_enabled === true}
+                  onCheckedChange={(checked) => setSettings(prev => ({ ...prev, are_you_there_enabled: checked }))}
+                />
+              </div>
+              {settings.are_you_there_enabled && (
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 bg-gray-50 rounded-md">
+                  <Label className="text-xs font-medium text-gray-700">Após quantos minutos?</Label>
+                  <select
+                    value={settings.are_you_there_minutes || 15}
+                    onChange={(e) => setSettings(prev => ({ ...prev, are_you_there_minutes: parseInt(e.target.value) }))}
+                    className="border rounded-md px-2.5 py-1.5 text-xs w-28 focus:outline-none focus:border-gray-800 focus:ring-1 focus:ring-gray-800/20"
+                  >
+                    {[5, 10, 15, 20, 30, 45, 60].map(m => (
+                      <option key={m} value={m}>{m} min</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div className="p-2.5 bg-gray-50 rounded-md">
+                <Label className="text-xs font-medium text-gray-700 block mb-1">Sistema</Label>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      const regs = await navigator.serviceWorker?.getRegistrations?.() || [];
+                      for (const r of regs) await r.unregister();
+                      if ('caches' in window) {
+                        const names = await caches.keys();
+                        await Promise.all(names.filter(n => n !== 'meta-json').map(n => caches.delete(n)));
+                      }
+                      toast.success('Cache limpo. Recarregando...');
+                      window.location.reload();
+                    } catch (e) {
+                      toast.error('Erro ao limpar cache');
+                    }
+                  }}
+                  className="text-xs text-orange-600 hover:underline"
+                >
+                  Limpar cache e recarregar
+                </button>
+                <p className="text-[10px] text-gray-500 mt-1">Use se a versão antiga continuar em cache.</p>
+              </div>
+
+              <Button onClick={saveSettings} className="w-full bg-orange-500 hover:bg-orange-600 text-sm py-2">
                 <Save className="w-3.5 h-3.5 mr-1.5" /> Salvar Configurações
               </Button>
             </div>
@@ -240,13 +307,13 @@ export default function GestorSettings() {
                 placeholder="Título do template"
                 value={newTemplate.title}
                 onChange={(e) => setNewTemplate(prev => ({ ...prev, title: e.target.value }))}
-                className="text-xs"
+                className="text-xs focus:border-gray-800 focus:ring-1 focus:ring-gray-800/20"
               />
               <Textarea
                 placeholder="Mensagem"
                 value={newTemplate.message}
                 onChange={(e) => setNewTemplate(prev => ({ ...prev, message: e.target.value }))}
-                className="min-h-[70px] text-xs"
+                className="min-h-[70px] text-xs focus:border-gray-800 focus:ring-1 focus:ring-gray-800/20 focus:outline-none"
               />
               <Button onClick={handleAddTemplate} variant="outline" className="w-full text-xs py-2">
                 <Plus className="w-3.5 h-3.5 mr-1.5" /> Adicionar Template
