@@ -2,9 +2,10 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { 
-  Package, Bell, Volume2, VolumeX, RefreshCw, Search,
-  ChefHat, CheckCircle, Truck, Grid3x3, LayoutGrid, Menu, X as CloseIcon, LogOut,
-  Clock, AlertTriangle, Settings, ChevronLeft, Lock, DollarSign, Download, Printer, Home
+  Package, Bell, Volume2, VolumeX, RefreshCw,
+  CheckCircle, Truck, LayoutGrid, Menu, X as CloseIcon,
+  Settings, ChevronLeft, Lock, DollarSign, Download, Printer, Home,
+  BarChart2, Headphones, MessageCircle, Check
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +27,7 @@ import FinancialDashboard from '../components/gestor/FinancialDashboard';
 import UserAuthButton from '../components/atoms/UserAuthButton';
 import { usePermission } from '../components/permissions/usePermission';
 import { downloadOrdersCSV, exportGestorReportPDF, printOrdersInQueue } from '../utils/gestorExport';
+import { getNotificationSoundConfig } from '@/utils/gestorSounds';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 
@@ -56,7 +58,6 @@ export default function GestorPedidos() {
   const [quickStatusKey, setQuickStatusKey] = useState(null);
   const [showAreYouThereModal, setShowAreYouThereModal] = useState(false);
   
-  const audioRef = useRef(null);
   const areYouTherePausedRef = useRef(false);
   const areYouThereTimerRef = useRef(null);
   const prevOrderCountRef = useRef(0);
@@ -122,7 +123,11 @@ export default function GestorPedidos() {
   useEffect(() => {
     const onUpdated = () => { loadGestorSettings(); };
     window.addEventListener('gestorSettingsUpdated', onUpdated);
-    return () => window.removeEventListener('gestorSettingsUpdated', onUpdated);
+    window.addEventListener('gestorNotificationConfigUpdated', onUpdated);
+    return () => {
+      window.removeEventListener('gestorSettingsUpdated', onUpdated);
+      window.removeEventListener('gestorNotificationConfigUpdated', onUpdated);
+    };
   }, []);
 
   // Aceitar automaticamente (quando ativado em Configurações do gestor)
@@ -254,9 +259,12 @@ export default function GestorPedidos() {
   }, [orders, queryClient]);
 
   const playNotificationSound = () => {
-    if (audioRef.current) {
-      audioRef.current.play().catch(() => {});
-    }
+    try {
+      const { url, volume } = getNotificationSoundConfig();
+      const audio = new Audio(url);
+      audio.volume = volume;
+      audio.play().catch(() => {});
+    } catch (_) {}
   };
 
   // Atalhos de teclado: Esc, Ctrl+F, 1-4 (status no modal)
@@ -366,19 +374,16 @@ export default function GestorPedidos() {
   const store = stores[0] || { name: 'Gestor de Pedidos' };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
       <Toaster position="top-center" />
-      <audio ref={audioRef} preload="auto" volume="1.0">
-        <source src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" type="audio/mpeg" />
-      </audio>
       
-      {/* Header */}
-      <header className="bg-white border-b sticky top-0 z-50">
-        <div className="px-4 py-3">
-          <div className="flex items-center justify-between max-w-screen-2xl mx-auto">
-            {/* Left */}
-            <div className="flex items-center gap-3">
-              <Link to={createPageUrl(backPage)} className="lg:hidden">
+      {/* Header - estilo iFood */}
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-50 h-14 flex-shrink-0">
+        <div className="px-4 h-full">
+          <div className="flex items-center justify-between h-full max-w-screen-2xl mx-auto">
+            {/* Left: logo + loja + status */}
+            <div className="flex items-center gap-3 min-w-0">
+              <Link to={createPageUrl(backPage)} className="lg:hidden flex-shrink-0">
                 <Button variant="ghost" size="icon" className="h-9 w-9">
                   {store.logo ? (
                     <img src={store.logo} alt={store.name} className="w-8 h-8 rounded-lg object-cover" />
@@ -387,49 +392,38 @@ export default function GestorPedidos() {
                   )}
                 </Button>
               </Link>
-              <div className="hidden lg:flex items-center gap-3">
+              <div className="flex items-center gap-3 min-w-0">
                 {store.logo ? (
-                  <img src={store.logo} alt={store.name} className="w-10 h-10 rounded-lg object-cover" />
+                  <img src={store.logo} alt={store.name} className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
                 ) : (
-                  <div className="w-10 h-10 bg-orange-500 rounded-lg flex items-center justify-center">
+                  <div className="w-10 h-10 bg-orange-500 rounded-lg flex items-center justify-center flex-shrink-0">
                     <Package className="w-5 h-5 text-white" />
                   </div>
                 )}
-                <div>
-                  <h1 className="font-bold text-lg">{store.name}</h1>
-                  <p className="text-xs text-gray-500">Gestor de Pedidos</p>
+                <div className="min-w-0">
+                  <h1 className="font-semibold text-base truncate">{store.name}</h1>
+                  <p className={`text-xs font-medium ${store.is_open ? 'text-green-600' : 'text-red-600'}`}>
+                    {store.is_open ? 'Loja aberta' : 'Loja fechada'}
+                  </p>
                 </div>
               </div>
             </div>
 
-            {/* Center - Advanced Filters */}
-            <div className="flex-1 max-w-2xl mx-4 hidden md:block">
-              <AdvancedOrderFilters
-                orders={baseFilteredOrders}
-                onFilterChange={handleFilterChange}
-                searchTerm={searchTerm}
-                onSearchChange={setSearchTerm}
-                entregadores={entregadores}
-              />
-            </div>
-
-            {/* Right */}
-            <div className="flex items-center gap-2 flex-wrap justify-end">
-              <Button
-                variant={onlyNew ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setOnlyNew(!onlyNew)}
-                className="h-9"
-                title="Só novos"
-              >
-                <Bell className="w-4 h-4 mr-1" />
-                Só novos {orders.filter(o => o.status === 'new').length > 0 && `(${orders.filter(o => o.status === 'new').length})`}
+            {/* Right: ícones + ações */}
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setViewMode('resumo')} title="Resumo">
+                <BarChart2 className="w-4 h-4 text-gray-600" />
+              </Button>
+              <a href="#suporte" className="hidden sm:inline-flex items-center justify-center h-9 w-9 rounded-md text-gray-600 hover:bg-gray-100" title="Suporte">
+                <Headphones className="w-4 h-4" />
+              </a>
+              <Button variant="ghost" size="icon" className="h-9 w-9 hidden sm:flex" title="Chat">
+                <MessageCircle className="w-4 h-4 text-gray-600" />
               </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-9">
-                    <Download className="w-4 h-4 mr-1" />
-                    Exportar
+                  <Button variant="ghost" size="icon" className="h-9 w-9">
+                    <Download className="w-4 h-4 text-gray-600" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
@@ -441,84 +435,54 @@ export default function GestorPedidos() {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setSoundEnabled(!soundEnabled)}
-                className="h-9 w-9"
-              >
-                {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+              <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setSoundEnabled(!soundEnabled)} title={soundEnabled ? 'Desligar som' : 'Ligar som'}>
+                {soundEnabled ? <Volume2 className="w-4 h-4 text-gray-600" /> : <VolumeX className="w-4 h-4 text-gray-400" />}
               </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => queryClient.invalidateQueries({ queryKey: ['gestorOrders'] })}
-                className="h-9 w-9"
-              >
-                <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+              <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => queryClient.invalidateQueries({ queryKey: ['gestorOrders'] })} title="Atualizar">
+                <RefreshCw className={`w-4 h-4 text-gray-600 ${isLoading ? 'animate-spin' : ''}`} />
               </Button>
-              <Link to={createPageUrl(backPage)} className="hidden lg:block">
-                <Button variant="outline" size="sm">Voltar</Button>
+              <Link to={createPageUrl(backPage)} className="hidden lg:inline-flex">
+                <Button variant="outline" size="sm" className="h-9">Voltar</Button>
               </Link>
               <UserAuthButton />
             </div>
           </div>
-
-          {/* Mobile Search/Filters */}
-          <div className="mt-3 md:hidden">
-            <AdvancedOrderFilters
-              orders={baseFilteredOrders}
-              onFilterChange={handleFilterChange}
-              searchTerm={searchTerm}
-              onSearchChange={setSearchTerm}
-              entregadores={entregadores}
-            />
-          </div>
         </div>
       </header>
 
-      {/* Tabs */}
-      <div className="bg-white border-b">
-        <div className="px-4 max-w-screen-2xl mx-auto">
-          <div className="flex items-center justify-between">
-            <div className="flex">
-              <button
-                onClick={() => setActiveTab('now')}
-                className={`px-6 py-3 font-medium text-sm border-b-2 transition-colors ${
-                  activeTab === 'now' 
-                    ? 'border-orange-500 text-orange-500' 
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                Agora
-              </button>
-              <button
-                onClick={() => setActiveTab('scheduled')}
-                className={`px-6 py-3 font-medium text-sm border-b-2 transition-colors ${
-                  activeTab === 'scheduled' 
-                    ? 'border-orange-500 text-orange-500' 
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                Agendados
-              </button>
+      {/* Tabs Agora/Agendados - apenas no modo kanban */}
+      {viewMode === 'kanban' && (
+        <div className="bg-white border-b border-gray-200 flex-shrink-0">
+          <div className="px-4 max-w-screen-2xl mx-auto">
+            <div className="flex items-center justify-between">
+              <div className="flex">
+                <button
+                  onClick={() => setActiveTab('now')}
+                  className={`px-5 py-2.5 font-medium text-sm border-b-2 transition-colors ${
+                    activeTab === 'now' ? 'border-orange-500 text-orange-500' : 'border-transparent text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  Agora
+                </button>
+                <button
+                  onClick={() => setActiveTab('scheduled')}
+                  className={`px-5 py-2.5 font-medium text-sm border-b-2 transition-colors ${
+                    activeTab === 'scheduled' ? 'border-orange-500 text-orange-500' : 'border-transparent text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  Agendados
+                </button>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => setShowMobileMenu(true)} className="lg:hidden">
+                <Menu className="w-5 h-5" />
+              </Button>
             </div>
-
-            {/* Mobile Menu Button */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowMobileMenu(true)}
-              className="lg:hidden"
-            >
-              <Menu className="w-5 h-5" />
-            </Button>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Desktop Sidebar */}
-      <aside className={`hidden lg:block fixed left-0 top-[57px] h-[calc(100vh-57px)] bg-white border-r z-40 transition-all duration-300 ease-in-out ${
+      <aside className={`hidden lg:block fixed left-0 top-14 h-[calc(100vh-3.5rem)] bg-white border-r border-gray-200 z-40 transition-all duration-300 ease-in-out ${
         sidebarCollapsed ? 'w-14' : 'w-52'
       }`}>
         <div className="h-full flex flex-col">
@@ -537,8 +501,8 @@ export default function GestorPedidos() {
           <nav className="flex-1 p-1.5 space-y-0.5 overflow-y-auto">
             <button
               onClick={() => setViewMode('inicio')}
-              className={`w-full flex items-center gap-2 px-2 py-2 rounded-md transition-all duration-200 ${
-                viewMode === 'inicio' ? 'bg-orange-50 text-orange-600' : 'text-gray-600 hover:bg-gray-50'
+              className={`w-full flex items-center gap-2 px-2 py-2 rounded-r-md border-l-4 transition-all duration-200 ${
+                viewMode === 'inicio' ? 'border-orange-500 bg-orange-50 text-orange-600' : 'border-transparent text-gray-600 hover:bg-gray-50'
               }`}
               title={sidebarCollapsed ? 'Início' : ''}
             >
@@ -549,10 +513,8 @@ export default function GestorPedidos() {
             </button>
             <button
               onClick={() => setViewMode('kanban')}
-              className={`w-full flex items-center gap-2 px-2 py-2 rounded-md transition-all duration-200 ${
-                viewMode === 'kanban' 
-                  ? 'bg-orange-50 text-orange-600' 
-                  : 'text-gray-600 hover:bg-gray-50'
+              className={`w-full flex items-center gap-2 px-2 py-2 rounded-r-md border-l-4 transition-all duration-200 ${
+                viewMode === 'kanban' ? 'border-orange-500 bg-orange-50 text-orange-600' : 'border-transparent text-gray-600 hover:bg-gray-50'
               }`}
               title={sidebarCollapsed ? 'Quadros' : ''}
             >
@@ -566,10 +528,8 @@ export default function GestorPedidos() {
 
             <button
               onClick={() => setViewMode('delivery')}
-              className={`w-full flex items-center gap-2 px-2 py-2 rounded-md transition-all duration-200 ${
-                viewMode === 'delivery' 
-                  ? 'bg-orange-50 text-orange-600' 
-                  : 'text-gray-600 hover:bg-gray-50'
+              className={`w-full flex items-center gap-2 px-2 py-2 rounded-r-md border-l-4 transition-all duration-200 ${
+                viewMode === 'delivery' ? 'border-orange-500 bg-orange-50 text-orange-600' : 'border-transparent text-gray-600 hover:bg-gray-50'
               }`}
               title={sidebarCollapsed ? 'Entregadores' : ''}
             >
@@ -583,8 +543,8 @@ export default function GestorPedidos() {
 
             <button
               onClick={() => setViewMode('resumo')}
-              className={`w-full flex items-center gap-2 px-2 py-2 rounded-md transition-all duration-200 ${
-                viewMode === 'resumo' ? 'bg-orange-50 text-orange-600' : 'text-gray-600 hover:bg-gray-50'
+              className={`w-full flex items-center gap-2 px-2 py-2 rounded-r-md border-l-4 transition-all duration-200 ${
+                viewMode === 'resumo' ? 'border-orange-500 bg-orange-50 text-orange-600' : 'border-transparent text-gray-600 hover:bg-gray-50'
               }`}
               title={sidebarCollapsed ? 'Resumo' : ''}
             >
@@ -595,8 +555,8 @@ export default function GestorPedidos() {
             </button>
             <button
               onClick={() => setViewMode('settings')}
-              className={`w-full flex items-center gap-2 px-2 py-2 rounded-md transition-all duration-200 ${
-                viewMode === 'settings' ? 'bg-orange-50 text-orange-600' : 'text-gray-600 hover:bg-gray-50'
+              className={`w-full flex items-center gap-2 px-2 py-2 rounded-r-md border-l-4 transition-all duration-200 ${
+                viewMode === 'settings' ? 'border-orange-500 bg-orange-50 text-orange-600' : 'border-transparent text-gray-600 hover:bg-gray-50'
               }`}
               title={sidebarCollapsed ? 'Ajustes' : ''}
             >
@@ -743,10 +703,34 @@ export default function GestorPedidos() {
 
 
       {/* Content */}
-      <main className={`transition-all duration-300 ${sidebarCollapsed ? 'lg:ml-14' : 'lg:ml-52'}`}>
+      <main className={`flex-1 transition-all duration-300 ${sidebarCollapsed ? 'lg:ml-14' : 'lg:ml-52'}`}>
         <div className="max-w-[1240px] mx-auto p-4">
         {viewMode === 'inicio' && (
           <GestorDicasAtalhos onNavigate={setViewMode} />
+        )}
+        {/* Kanban: barra de filtros + Só novos */}
+        {viewMode === 'kanban' && (
+          <div className="mb-4 flex flex-col sm:flex-row sm:items-center gap-3 flex-wrap">
+            <div className="flex-1 min-w-[200px]">
+              <AdvancedOrderFilters
+                orders={baseFilteredOrders}
+                onFilterChange={handleFilterChange}
+                searchTerm={searchTerm}
+                onSearchChange={setSearchTerm}
+                entregadores={entregadores}
+              />
+            </div>
+            <Button
+              variant={onlyNew ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setOnlyNew(!onlyNew)}
+              className="h-9 shrink-0"
+              title="Só novos"
+            >
+              <Bell className="w-4 h-4 mr-1" />
+              Só novos {orders.filter(o => o.status === 'new').length > 0 && `(${orders.filter(o => o.status === 'new').length})`}
+            </Button>
+          </div>
         )}
         {/* Stats Panel - Mostrar apenas no modo kanban */}
         {viewMode === 'kanban' && (
@@ -777,6 +761,24 @@ export default function GestorPedidos() {
         )}
         </div>
       </main>
+
+      {/* Footer global - estilo iFood */}
+      <footer className="flex-shrink-0 border-t border-gray-200 bg-gray-100 py-2 px-4">
+        <div className="max-w-screen-2xl mx-auto flex items-center justify-center gap-2 text-sm text-gray-600">
+          <Check className="w-4 h-4 text-green-600" />
+          <span>DigiMenu • Gestor de Pedidos</span>
+        </div>
+      </footer>
+
+      {/* Aba flutuante "Avalie a plataforma" */}
+      <a
+        href="#avalie"
+        className="fixed right-0 top-1/2 -translate-y-1/2 z-40 hidden xl:flex items-center justify-center w-10 h-24 bg-gray-800 hover:bg-gray-700 text-white text-xs font-medium rounded-l-lg shadow-lg writing-mode-vertical cursor-pointer"
+        style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
+        title="Avalie a plataforma"
+      >
+        Avalie a plataforma
+      </a>
 
       {/* Fila de impressão - botão flutuante */}
       {printQueue.length > 0 && (
