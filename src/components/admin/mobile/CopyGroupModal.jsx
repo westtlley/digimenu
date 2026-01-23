@@ -5,9 +5,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 
-export default function CopyGroupModal({ isOpen, onClose, availableGroups, onConfirm }) {
+export default function CopyGroupModal({ isOpen, onClose, availableGroups, onConfirm, currentDish = null }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedGroups, setSelectedGroups] = useState([]);
+
+  // ✅ Obter grupos já adicionados ao prato atual
+  const getAlreadyAddedGroups = () => {
+    if (!currentDish?.complement_groups) return [];
+    return currentDish.complement_groups.map(cg => cg.group_id);
+  };
+
+  const alreadyAddedGroupIds = getAlreadyAddedGroups();
 
   const filteredGroups = availableGroups.filter(group => {
     const matchesSearch = group.name?.toLowerCase().includes(searchTerm.toLowerCase());

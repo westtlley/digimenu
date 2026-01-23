@@ -170,7 +170,7 @@ export default function DeliveryPanel({ entregadores, orders, stores = [] }) {
           size="sm"
           variant={viewMode === 'map' ? 'default' : 'ghost'}
           onClick={() => setViewMode('map')}
-          className={viewMode === 'map' ? 'bg-red-500 hover:bg-red-600' : ''}
+          className={viewMode === 'map' ? 'bg-orange-500 hover:bg-orange-600' : ''}
         >
           <MapIcon className="w-4 h-4 mr-1" />
           Mapa ao Vivo
@@ -179,7 +179,7 @@ export default function DeliveryPanel({ entregadores, orders, stores = [] }) {
           size="sm"
           variant={viewMode === 'list' ? 'default' : 'ghost'}
           onClick={() => setViewMode('list')}
-          className={viewMode === 'list' ? 'bg-red-500 hover:bg-red-600' : ''}
+          className={viewMode === 'list' ? 'bg-orange-500 hover:bg-orange-600' : ''}
         >
           <List className="w-4 h-4 mr-1" />
           Lista
@@ -236,7 +236,7 @@ export default function DeliveryPanel({ entregadores, orders, stores = [] }) {
       {viewMode === 'list' && (
         <>
           <div className="flex justify-end mb-3">
-            <Button onClick={() => setShowNewEntregadorModal(true)} className="bg-red-500 hover:bg-red-600">
+            <Button onClick={() => setShowNewEntregadorModal(true)} className="bg-orange-500 hover:bg-orange-600">
               <Plus className="w-4 h-4 mr-2" />
               Novo Entregador
             </Button>
@@ -246,7 +246,7 @@ export default function DeliveryPanel({ entregadores, orders, stores = [] }) {
             <div className="bg-white rounded-xl p-12 text-center border">
               <Bike className="w-16 h-16 text-gray-300 mx-auto mb-4" />
               <p className="text-gray-500 mb-4">Nenhum entregador cadastrado</p>
-              <Button onClick={() => setShowNewEntregadorModal(true)} className="bg-red-500 hover:bg-red-600">
+              <Button onClick={() => setShowNewEntregadorModal(true)} className="bg-orange-500 hover:bg-orange-600">
                 <Plus className="w-4 h-4 mr-2" />
                 Cadastrar Primeiro Entregador
               </Button>
@@ -547,7 +547,7 @@ export default function DeliveryPanel({ entregadores, orders, stores = [] }) {
               <Button type="button" variant="outline" onClick={() => setShowNewEntregadorModal(false)} className="flex-1">
                 Cancelar
               </Button>
-              <Button type="submit" className="flex-1 bg-red-500 hover:bg-red-600">
+              <Button type="submit" className="flex-1 bg-orange-500 hover:bg-orange-600">
                 Cadastrar
               </Button>
             </div>
@@ -600,7 +600,7 @@ export default function DeliveryPanel({ entregadores, orders, stores = [] }) {
                 <Button type="button" variant="outline" onClick={() => setEditingEntregador(null)} className="flex-1">
                   Cancelar
                 </Button>
-                <Button type="submit" className="flex-1 bg-red-500 hover:bg-red-600">
+                <Button type="submit" className="flex-1 bg-orange-500 hover:bg-orange-600">
                   Salvar
                 </Button>
               </div>

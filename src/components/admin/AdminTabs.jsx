@@ -1,10 +1,9 @@
 import React from 'react';
 import { cn } from "@/lib/utils";
 
+// ✅ Categorias e Complementos agora estão dentro de Pratos
 const TABS = [
   { id: 'dishes', label: 'Pratos' },
-  { id: 'categories', label: 'Categorias' },
-  { id: 'complements', label: 'Complementos' },
   { id: 'coupons', label: 'Cupons' },
   { id: 'promotions', label: 'Promoções' },
   { id: 'orders', label: 'Pedidos' },

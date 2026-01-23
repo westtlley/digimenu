@@ -139,11 +139,13 @@ export default function PainelAssinante() {
       case 'financial':
         return hasModuleAccess('financial') ? <FinancialTab /> : <AccessDenied />;
       case 'dishes':
-        return hasModuleAccess('dishes') ? <DishesTab /> : <AccessDenied />;
-      case 'categories':
-        return hasModuleAccess('dishes') ? <CategoriesTab /> : <AccessDenied />;
-      case 'complements':
-        return hasModuleAccess('dishes') ? <ComplementsTab /> : <AccessDenied />;
+      case 'categories': // ✅ Redirecionar para dishes (categorias dentro de pratos)
+      case 'complements': // ✅ Redirecionar para dishes (complementos dentro de pratos)
+        return hasModuleAccess('dishes') ? (
+          <DishesTab 
+            initialTab={activeTab === 'categories' ? 'categories' : activeTab === 'complements' ? 'complements' : 'dishes'}
+          />
+        ) : <AccessDenied />;
       case 'pizza_config':
         return hasModuleAccess('pizza_config') ? <PizzaConfigTab /> : <AccessDenied />;
       case 'delivery_zones':

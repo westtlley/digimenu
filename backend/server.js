@@ -30,13 +30,21 @@ import { migrate } from './db/migrate.js';
 import * as repo from './db/repository.js';
 import { requirePermission, requireAccess, requireMaster } from './middlewares/permissions.js';
 import { PLANS, getPlanInfo } from './utils/plans.js';
+import { validateJWTSecret, sanitizeForLog } from './middlewares/security.js';
+import { loginLimiter, apiLimiter, createLimiter } from './middlewares/rateLimit.js';
+import { validate, schemas } from './middlewares/validation.js';
+import { errorHandler, asyncHandler } from './middlewares/errorHandler.js';
+import { compressionMiddleware } from './middlewares/compression.js';
 
 // =======================
 // ⚙️ APP SETUP
 // =======================
 const app = express();
 const PORT = process.env.PORT || 3000;
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
+
+// ✅ VALIDAR JWT_SECRET (obrigatório em produção)
+const JWT_SECRET = validateJWTSecret();
+
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 const CORS_ORIGINS = process.env.CORS_ORIGINS
   ? process.env.CORS_ORIGINS.split(',').map(s => s.trim()).filter(Boolean)
@@ -48,12 +56,18 @@ const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 // =======================
 // 🧱 MIDDLEWARES
 // =======================
+// ✅ COMPRESSÃO DE RESPOSTAS (reduz tamanho em ~70%)
+app.use(compressionMiddleware);
+
 app.use(cors({
   origin: CORS_ORIGINS.length === 1 ? CORS_ORIGINS[0] : CORS_ORIGINS,
   credentials: true
 }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// ✅ RATE LIMITING (aplicar após rotas públicas)
+app.use('/api', apiLimiter);
 
 // Inicializar Passport
 app.use(passport.initialize());
@@ -459,7 +473,7 @@ if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET) {
 // =======================
 // 🔐 AUTHENTICATION
 // =======================
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', loginLimiter, validate(schemas.login), asyncHandler(async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -511,12 +525,11 @@ app.post('/api/auth/login', async (req, res) => {
       hasPasswordHash: !!user.password && user.password.startsWith('$2')
     });
 
-    // Verificar senha: bcrypt ou legado (texto só para transição; troque no Admin)
-    // O bypass fixo admin@digimenu.com + admin123 foi removido por segurança.
+    // ✅ SEMPRE usar bcrypt para verificar senhas
     if (user.password) {
       try {
+        // Tentar comparar com bcrypt primeiro
         const isValid = await bcrypt.compare(password, user.password);
-        console.log('🔐 [login] Comparação bcrypt:', { isValid, hasPassword: !!user.password });
         
         if (isValid) {
           console.log('✅ [login] Login bem-sucedido para:', user.email);
@@ -545,46 +558,84 @@ app.post('/api/auth/login', async (req, res) => {
               profile_role: user.profile_role || null
             }
           });
-        } else {
-          console.log('❌ [login] Senha incorreta para:', user.email);
         }
+        
+        // Se não passou, senha está incorreta
+        console.log('❌ [login] Senha incorreta para:', user.email);
       } catch (bcryptError) {
-        console.error('❌ [login] Erro ao comparar senha com bcrypt:', bcryptError);
-        // Se houver erro no bcrypt, tentar comparação direta (para casos onde a senha não foi hasheada)
+        // Se bcrypt falhar, pode ser senha antiga sem hash
+        // Neste caso, hash a senha antiga e atualize no banco
+        console.warn('⚠️ [login] Senha sem hash detectada, atualizando...');
+        
+        // Verificar se a senha antiga (texto plano) corresponde
         if (user.password === password) {
-          console.log('⚠️ [login] Senha sem hash detectada, usando comparação direta');
-          const token = jwt.sign(
-            {
-              id: user.id,
-              email: user.email,
-              role: user.role,
-              is_master: user.is_master
-            },
-            JWT_SECRET,
-            { expiresIn: '7d' }
-          );
-
-          activeTokens[token] = user.email;
-
-          return res.json({
-            token,
-            user: {
-              id: user.id,
-              email: user.email,
-              full_name: user.full_name,
-              is_master: user.is_master,
-              role: user.role,
-              subscriber_email: user.subscriber_email || null,
-              profile_role: user.profile_role || null
+          // Hash a senha e atualize no banco
+          const hashed = await bcrypt.hash(password, 10);
+          
+          // Atualizar senha no banco
+          if (usePostgreSQL) {
+            await repo.updateUser(user.id, { password: hashed });
+          } else if (db && db.users) {
+            const u = db.users.find(x => x.id === user.id);
+            if (u) {
+              u.password = hashed;
+              u.updated_at = new Date().toISOString();
+              if (saveDatabaseDebounced) saveDatabaseDebounced(db);
             }
-          });
+          }
+          
+          // Agora tentar comparar novamente
+          const isValid = await bcrypt.compare(password, hashed);
+          if (isValid) {
+            console.log('✅ [login] Senha atualizada e login bem-sucedido');
+            const token = jwt.sign(
+              {
+                id: user.id,
+                email: user.email,
+                role: user.role,
+                is_master: user.is_master
+              },
+              JWT_SECRET,
+              { expiresIn: '7d' }
+            );
+
+            activeTokens[token] = user.email;
+
+            return res.json({
+              token,
+              user: {
+                id: user.id,
+                email: user.email,
+                full_name: user.full_name,
+                is_master: user.is_master,
+                role: user.role,
+                subscriber_email: user.subscriber_email || null,
+                profile_role: user.profile_role || null
+              }
+            });
+          }
         }
+        
+        console.error('❌ [login] Erro ao comparar senha:', bcryptError);
       }
     } else {
-      // Recuperação: admin padrão sem senha no DB (ex. após persist que não grava texto)
+      // Usuário sem senha - apenas para admin padrão em desenvolvimento
       const emailMatch = (user.email || '').toLowerCase() === 'admin@digimenu.com';
-      if (emailMatch && password === 'admin123') {
-        console.log('⚠️ [login] Acesso de recuperação (admin sem senha). Altere a senha no Admin.');
+      if (emailMatch && password === 'admin123' && process.env.NODE_ENV !== 'production') {
+        console.warn('⚠️ [login] Acesso de recuperação (admin sem senha). Altere a senha no Admin.');
+        // Hash a senha e salvar
+        const hashed = await bcrypt.hash(password, 10);
+        if (usePostgreSQL) {
+          await repo.updateUser(user.id, { password: hashed });
+        } else if (db && db.users) {
+          const u = db.users.find(x => x.id === user.id);
+          if (u) {
+            u.password = hashed;
+            u.updated_at = new Date().toISOString();
+            if (saveDatabaseDebounced) saveDatabaseDebounced(db);
+          }
+        }
+        
         const token = jwt.sign(
           { id: user.id, email: user.email, role: user.role, is_master: user.is_master },
           JWT_SECRET,
@@ -609,11 +660,10 @@ app.post('/api/auth/login', async (req, res) => {
 
     return res.status(401).json({ error: 'Credenciais inválidas' });
   } catch (error) {
-    console.error('❌ [login] Erro no login:', error);
-    console.error('❌ [login] Stack:', error.stack);
-    return res.status(500).json({ error: 'Erro interno no servidor' });
+    console.error('❌ [login] Erro no login:', sanitizeForLog({ error: error.message }));
+    throw error; // Deixar errorHandler tratar
   }
-});
+}));
 
 app.get('/api/auth/me', authenticate, async (req, res) => {
   try {
@@ -633,7 +683,7 @@ app.get('/api/auth/me', authenticate, async (req, res) => {
 });
 
 // Alterar própria senha (requer autenticação)
-app.post('/api/auth/change-password', authenticate, async (req, res) => {
+app.post('/api/auth/change-password', authenticate, validate(schemas.changePassword), asyncHandler(async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
     if (!currentPassword || !newPassword) {
@@ -689,10 +739,10 @@ app.post('/api/auth/change-password', authenticate, async (req, res) => {
 
     return res.json({ success: true, message: 'Senha alterada com sucesso.' });
   } catch (error) {
-    console.error('Erro ao alterar senha:', error);
-    return res.status(500).json({ error: error?.message || 'Erro ao alterar senha' });
+    console.error('Erro ao alterar senha:', sanitizeForLog({ error: error.message }));
+    throw error;
   }
-});
+}));
 
 // -----------------------
 // Colaboradores (Premium/Pro): perfis limitados Entregador, Cozinha, PDV
@@ -742,7 +792,7 @@ app.get('/api/colaboradores', authenticate, async (req, res) => {
   }
 });
 
-app.post('/api/colaboradores', authenticate, async (req, res) => {
+app.post('/api/colaboradores', authenticate, validate(schemas.createColaborador), createLimiter, asyncHandler(async (req, res) => {
   try {
     const { owner, subscriber } = await getOwnerAndSubscriber(req);
     if (!owner) return res.status(400).json({ error: 'Contexto do assinante necessário' });
@@ -788,12 +838,12 @@ app.post('/api/colaboradores', authenticate, async (req, res) => {
     const out = { id: created.id, email: created.email, full_name: created.full_name, profile_role: created.profile_role, created_at: created.created_at, updated_at: created.updated_at };
     return res.status(201).json(out);
   } catch (e) {
-    console.error('POST /api/colaboradores:', e);
-    return res.status(500).json({ error: e?.message || 'Erro ao criar colaborador' });
+    console.error('POST /api/colaboradores:', sanitizeForLog({ error: e?.message }));
+    throw e;
   }
-});
+}));
 
-app.patch('/api/colaboradores/:id', authenticate, async (req, res) => {
+app.patch('/api/colaboradores/:id', authenticate, asyncHandler(async (req, res) => {
   try {
     const { owner, subscriber } = await getOwnerAndSubscriber(req);
     if (!owner) return res.status(400).json({ error: 'Contexto do assinante necessário' });
@@ -829,12 +879,12 @@ app.patch('/api/colaboradores/:id', authenticate, async (req, res) => {
     if (typeof saveDatabaseDebounced === 'function') saveDatabaseDebounced(db);
     return res.json({ id: u.id, email: u.email, full_name: u.full_name, profile_role: u.profile_role, updated_at: u.updated_at });
   } catch (e) {
-    console.error('PATCH /api/colaboradores:', e);
-    return res.status(500).json({ error: e?.message || 'Erro ao atualizar colaborador' });
+    console.error('PATCH /api/colaboradores:', sanitizeForLog({ error: e?.message }));
+    throw e;
   }
-});
+}));
 
-app.delete('/api/colaboradores/:id', authenticate, async (req, res) => {
+app.delete('/api/colaboradores/:id', authenticate, asyncHandler(async (req, res) => {
   try {
     const { owner, subscriber } = await getOwnerAndSubscriber(req);
     if (!owner) return res.status(400).json({ error: 'Contexto do assinante necessário' });
@@ -854,13 +904,13 @@ app.delete('/api/colaboradores/:id', authenticate, async (req, res) => {
     }
     return res.json({ success: true });
   } catch (e) {
-    console.error('DELETE /api/colaboradores:', e);
-    return res.status(500).json({ error: e?.message || 'Erro ao remover colaborador' });
+    console.error('DELETE /api/colaboradores:', sanitizeForLog({ error: e?.message }));
+    throw e;
   }
-});
+}));
 
 // Rota para definir senha usando token (NÃO requer autenticação - pública)
-app.post('/api/auth/set-password', async (req, res) => {
+app.post('/api/auth/set-password', validate(schemas.setPassword), asyncHandler(async (req, res) => {
   try {
     const { token, password } = req.body;
 
@@ -1086,13 +1136,10 @@ app.post('/api/auth/set-password', async (req, res) => {
       message: 'Senha definida com sucesso! Você já pode fazer login.'
     });
   } catch (error) {
-    console.error('❌ Erro ao definir senha:', error);
-    return res.status(500).json({ 
-      error: 'Erro ao definir senha',
-      details: error.message 
-    });
+    console.error('❌ Erro ao definir senha:', sanitizeForLog({ error: error.message }));
+    throw error;
   }
-});
+}));
 
 // =======================
 // 🖼️ IMAGE UPLOAD
@@ -1146,25 +1193,31 @@ app.post('/api/upload-image', upload.single('image'), async (req, res) => {
 // 📦 ENTITIES (CRUD GENÉRICO)
 // =======================
 // Listar entidades
-app.get('/api/entities/:entity', authenticate, async (req, res) => {
+app.get('/api/entities/:entity', authenticate, asyncHandler(async (req, res) => {
   try {
     const { entity } = req.params;
-    const { order_by, as_subscriber, ...filters } = req.query;
+    const { order_by, as_subscriber, page, limit, ...filters } = req.query;
 
     // Modo suporte: master atuando em nome de um assinante (só em Assinantes > Ver dados completos)
     if (req.user?.is_master && as_subscriber) {
       req.user._contextForSubscriber = as_subscriber;
     }
 
-    let items;
+    // ✅ PAGINAÇÃO
+    const pagination = {
+      page: page ? parseInt(page) : 1,
+      limit: limit ? parseInt(limit) : 50
+    };
+
+    let result;
     if (usePostgreSQL) {
       if (!req.user?.is_master && !filters.owner_email) {
         const subscriber = await repo.getSubscriberByEmail(req.user.email);
         if (subscriber) filters.owner_email = subscriber.email;
       }
-      items = await repo.listEntities(entity, filters, order_by, req.user);
+      result = await repo.listEntities(entity, filters, order_by, req.user, pagination);
     } else if (db && db.entities) {
-      items = db.entities[entity] || [];
+      let items = db.entities[entity] || [];
 
       if (req.user?.is_master && as_subscriber) {
         items = items.filter(item => item.owner_email === as_subscriber);
@@ -1201,16 +1254,35 @@ app.get('/api/entities/:entity', authenticate, async (req, res) => {
           return 0;
         });
       }
+      
+      // ✅ PAGINAÇÃO (fallback JSON)
+      const total = items.length;
+      const start = (pagination.page - 1) * pagination.limit;
+      const end = start + pagination.limit;
+      const paginatedItems = items.slice(start, end);
+      const totalPages = Math.ceil(total / pagination.limit);
+      
+      result = {
+        items: paginatedItems,
+        pagination: {
+          page: pagination.page,
+          limit: pagination.limit,
+          total,
+          totalPages,
+          hasNext: pagination.page < totalPages,
+          hasPrev: pagination.page > 1
+        }
+      };
     } else {
       return res.status(500).json({ error: 'Banco de dados não inicializado' });
     }
     
-    res.json(items);
+    res.json(result);
   } catch (error) {
-    console.error('Erro ao listar entidades:', error);
-    res.status(500).json({ error: 'Erro interno no servidor' });
+    console.error('Erro ao listar entidades:', sanitizeForLog({ error: error.message }));
+    throw error;
   }
-});
+}));
 
 // Obter entidade por ID
 app.get('/api/entities/:entity/:id', authenticate, async (req, res) => {
@@ -2004,9 +2076,42 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
 // =======================
 // 🧪 HEALTH CHECK
 // =======================
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', time: new Date().toISOString() });
-});
+app.get('/api/health', asyncHandler(async (req, res) => {
+  const health = {
+    status: 'ok',
+    time: new Date().toISOString(),
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV || 'development'
+  };
+  
+  // Verificar conexão com banco de dados
+  if (usePostgreSQL) {
+    try {
+      const connected = await testConnection();
+      health.database = connected ? 'connected' : 'disconnected';
+    } catch (error) {
+      health.database = 'error';
+      health.databaseError = error.message;
+    }
+  } else {
+    health.database = 'fallback_json';
+  }
+  
+  // Verificar Cloudinary (se configurado)
+  if (process.env.CLOUDINARY_CLOUD_NAME) {
+    health.cloudinary = 'configured';
+  } else {
+    health.cloudinary = 'not_configured';
+  }
+  
+  const statusCode = health.database === 'connected' || health.database === 'fallback_json' ? 200 : 503;
+  res.status(statusCode).json(health);
+}));
+
+// =======================
+// ✅ TRATAMENTO DE ERROS (deve ser o último middleware)
+// =======================
+app.use(errorHandler);
 
 // =======================
 // 🚀 START SERVER
@@ -2014,4 +2119,10 @@ app.get('/api/health', (req, res) => {
 app.listen(PORT, () => {
   console.log(`🚀 Servidor rodando na porta ${PORT}`);
   console.log(`📡 http://localhost:${PORT}/api`);
+  console.log(`🔒 Ambiente: ${process.env.NODE_ENV || 'development'}`);
+  if (process.env.NODE_ENV === 'production') {
+    console.log('✅ Modo produção ativo');
+  } else {
+    console.log('⚠️ Modo desenvolvimento - algumas proteções estão desabilitadas');
+  }
 });

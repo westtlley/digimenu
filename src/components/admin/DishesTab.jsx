@@ -19,6 +19,8 @@ import CategoryForm from './CategoryForm';
 import ComplementTemplates from './ComplementTemplates';
 import BulkEditOptions from './BulkEditOptions';
 import ProductTypeModal from './ProductTypeModal';
+import CategoriesTab from './CategoriesTab';
+import ComplementsTab from './ComplementsTab';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import MobileDishCard from './mobile/MobileDishCard';
@@ -43,7 +45,7 @@ const formatCurrency = (value) => {
 };
 
 // ========= COMPONENT =========
-export default function DishesTab({ onNavigateToPizzas }) {
+export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' }) {
   const [user, setUser] = React.useState(null);
   const [showDishModal, setShowDishModal] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
@@ -80,6 +82,14 @@ export default function DishesTab({ onNavigateToPizzas }) {
   const [selectedDishes, setSelectedDishes] = useState([]);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [mobileComplementsDish, setMobileComplementsDish] = useState(null);
+  const [internalTab, setInternalTab] = useState(initialTab); // ✅ Aba interna: 'dishes', 'categories', 'complements'
+  
+  // ✅ Atualizar aba quando initialTab mudar
+  useEffect(() => {
+    if (initialTab) {
+      setInternalTab(initialTab);
+    }
+  }, [initialTab]);
 
   const { canCreate, canUpdate, canDelete } = usePermission();
   const canEdit = canUpdate('dishes');
@@ -840,6 +850,88 @@ export default function DishesTab({ onNavigateToPizzas }) {
         )}
       </div>
 
+      {/* ✅ Abas Internas: Pratos, Categorias, Complementos */}
+      <div className="hidden lg:block border-b bg-white">
+        <div className="px-6 flex gap-1">
+          <button
+            onClick={() => setInternalTab('dishes')}
+            className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+              internalTab === 'dishes'
+                ? 'border-orange-500 text-orange-500'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <UtensilsCrossed className="w-4 h-4 inline mr-2" />
+            Pratos
+          </button>
+          <button
+            onClick={() => setInternalTab('categories')}
+            className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+              internalTab === 'categories'
+                ? 'border-orange-500 text-orange-500'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <Layers className="w-4 h-4 inline mr-2" />
+            Categorias
+          </button>
+          <button
+            onClick={() => setInternalTab('complements')}
+            className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+              internalTab === 'complements'
+                ? 'border-orange-500 text-orange-500'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <Grid3x3 className="w-4 h-4 inline mr-2" />
+            Complementos
+          </button>
+        </div>
+      </div>
+
+      {/* Mobile: Abas internas */}
+      <div className="lg:hidden border-b bg-white sticky top-[73px] z-20">
+        <div className="flex overflow-x-auto scrollbar-hide">
+          <button
+            onClick={() => setInternalTab('dishes')}
+            className={`px-4 py-3 text-xs font-medium border-b-2 transition-colors flex-shrink-0 ${
+              internalTab === 'dishes'
+                ? 'border-orange-500 text-orange-500'
+                : 'border-transparent text-gray-500'
+            }`}
+          >
+            Pratos
+          </button>
+          <button
+            onClick={() => setInternalTab('categories')}
+            className={`px-4 py-3 text-xs font-medium border-b-2 transition-colors flex-shrink-0 ${
+              internalTab === 'categories'
+                ? 'border-orange-500 text-orange-500'
+                : 'border-transparent text-gray-500'
+            }`}
+          >
+            Categorias
+          </button>
+          <button
+            onClick={() => setInternalTab('complements')}
+            className={`px-4 py-3 text-xs font-medium border-b-2 transition-colors flex-shrink-0 ${
+              internalTab === 'complements'
+                ? 'border-orange-500 text-orange-500'
+                : 'border-transparent text-gray-500'
+            }`}
+          >
+            Complementos
+          </button>
+        </div>
+      </div>
+
+      {/* Conteúdo das Abas */}
+      {internalTab === 'categories' ? (
+        <CategoriesTab />
+      ) : internalTab === 'complements' ? (
+        <ComplementsTab />
+      ) : (
+        <>
       {/* Desktop Header */}
       <div className="hidden lg:block p-6">
         <div className="flex flex-wrap gap-3 mb-6">
@@ -1587,6 +1679,7 @@ export default function DishesTab({ onNavigateToPizzas }) {
           setShowReuseGroupModal(false);
           setCurrentDishForReuse(null);
         }}
+        currentDish={currentDishForReuse ? safeDishes.find(d => d.id === currentDishForReuse) : null}
         onSelect={(groupId) => {
           if (currentDishForReuse) {
             reuseComplementGroupToDish(currentDishForReuse, groupId);
@@ -1594,6 +1687,7 @@ export default function DishesTab({ onNavigateToPizzas }) {
         }}
         availableGroups={safeComplementGroups}
         allDishes={safeDishes}
+        currentDish={currentDishForReuse ? safeDishes.find(d => d.id === currentDishForReuse) : null}
       />
 
       {/* Modal Configurações do Grupo */}
@@ -2212,6 +2306,8 @@ function DishRow({ dish, complementGroups, expanded, onToggleExpand, onEdit, onD
             </DropdownMenu>
           )}
         </div>
+      )}
+        </>
       )}
     </div>
   );

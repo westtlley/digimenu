@@ -21,7 +21,7 @@ export default function GestorStatsPanel({
 }) {
   const formatCurrency = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
 
-  const { todayOrders, yesterdayOrders, totalRevenue, pendingOrders, inDelivery, avgPrepTime, activeEntregadores, ticketMedio, stats, chartByHour, pieData } = useMemo(() => {
+  const { todayOrders, yesterdayOrders, totalRevenue, pendingOrders, inDelivery, avgPrepTime, activeEntregadores, ticketMedio, stats, chartByHour, pieData, concludedOrdersCurrentMonth, concludedOrdersLastMonth, diffFromLastMonth } = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const yesterday = new Date(today);
@@ -52,6 +52,24 @@ export default function GestorStatsPanel({
       : 0;
 
     const activeEntregadores = entregadores.filter(e => e.status === 'available' || e.status === 'busy').length;
+
+    // Concluídos no mês atual e no mês anterior (diffFromLastMonth)
+    const now = new Date();
+    const firstDayThis = new Date(now.getFullYear(), now.getMonth(), 1);
+    const firstDayLast = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const concludedOrdersCurrentMonth = orders.filter(o => {
+      if (o.status !== 'delivered') return false;
+      const d = new Date(o.delivered_at || o.created_date);
+      return d >= firstDayThis;
+    }).length;
+    const concludedOrdersLastMonth = orders.filter(o => {
+      if (o.status !== 'delivered') return false;
+      const d = new Date(o.delivered_at || o.created_date);
+      return d >= firstDayLast && d < firstDayThis;
+    }).length;
+    const diffFromLastMonth = concludedOrdersLastMonth > 0
+      ? (((concludedOrdersCurrentMonth - concludedOrdersLastMonth) / concludedOrdersLastMonth) * 100).toFixed(1)
+      : null;
 
     // Variação real vs ontem
     const prevCount = yesterdayOrders.length;
@@ -129,7 +147,7 @@ export default function GestorStatsPanel({
       { name: 'Entregues', value: done, color: '#64748b' }
     ].filter(d => d.value > 0);
 
-    return { todayOrders, yesterdayOrders, totalRevenue, pendingOrders, inDelivery, avgPrepTime, activeEntregadores, ticketMedio, stats, chartByHour, pieData };
+    return { todayOrders, yesterdayOrders, totalRevenue, pendingOrders, inDelivery, avgPrepTime, activeEntregadores, ticketMedio, stats, chartByHour, pieData, concludedOrdersCurrentMonth, concludedOrdersLastMonth, diffFromLastMonth };
   }, [orders, entregadores]);
 
   const colorClasses = {
@@ -225,6 +243,30 @@ export default function GestorStatsPanel({
           </div>
         </motion.div>
       </div>
+
+      {/* Resumo do mês: concluídos e diff vs mês anterior */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.25 }}
+        className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border rounded-2xl p-4`}
+      >
+        <h3 className={`font-bold mb-3 ${darkMode ? 'text-white' : 'text-gray-900'}`}>Resumo do mês</h3>
+        <div className="flex flex-wrap gap-4 items-center">
+          <div>
+            <span className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{concludedOrdersCurrentMonth}</span>
+            <span className={`text-sm ml-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>concluídos este mês</span>
+          </div>
+          <div className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+            Mês anterior: <span className="font-medium">{concludedOrdersLastMonth}</span>
+          </div>
+          {diffFromLastMonth != null && (
+            <span className={`text-sm font-medium ${Number(diffFromLastMonth) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {Number(diffFromLastMonth) >= 0 ? '+' : ''}{diffFromLastMonth}% em relação ao mês passado
+            </span>
+          )}
+        </div>
+      </motion.div>
 
       {/* Performance */}
       <motion.div

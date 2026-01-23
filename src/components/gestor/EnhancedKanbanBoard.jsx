@@ -1,5 +1,7 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import Skeleton, { SkeletonTheme } from 'react-loading-skeleton';
+import 'react-loading-skeleton/dist/skeleton.css';
 import { Bell, ChefHat, CheckCircle, Truck, Package, AlertTriangle, Clock as ClockIcon, ChevronDown, ChevronUp, Filter, Search, X, Maximize2, Minimize2 } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -61,7 +63,7 @@ const COLUMNS = [
 /**
  * Kanban melhorado com drag-and-drop, filtros e busca
  */
-export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = false }) {
+export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = false, isLoading = false }) {
   const [collapsedColumns, setCollapsedColumns] = useState({});
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
@@ -69,7 +71,16 @@ export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = 
   const [showFilters, setShowFilters] = useState(false);
   const [compact, setCompact] = useState(false);
   const [now, setNow] = useState(() => Date.now());
+  const [reduceMotion, setReduceMotion] = useState(false);
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    const m = window.matchMedia('(prefers-reduced-motion: reduce)');
+    setReduceMotion(m.matches);
+    const f = () => setReduceMotion(m.matches);
+    m.addEventListener('change', f);
+    return () => m.removeEventListener('change', f);
+  }, []);
 
   // Atualizar "Há X min" a cada 1 min
   React.useEffect(() => {
@@ -189,6 +200,34 @@ export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = 
       }
     );
   }, [updateOrderMutation, orders, queryClient]);
+
+  // Skeleton quando isLoading e ainda sem pedidos (evita flash vazio)
+  const showSkeleton = isLoading && orders.length === 0;
+  if (showSkeleton) {
+    return (
+      <div className="space-y-4">
+        <div className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border rounded-lg p-4`}>
+          <SkeletonTheme baseColor="#ebebeb" highlightColor="#f5f5f5">
+            <Skeleton height={40} className="mb-3" enableAnimation={!reduceMotion} />
+            <div className="flex gap-2">
+              <Skeleton width={140} height={36} enableAnimation={!reduceMotion} />
+              <Skeleton width={80} height={36} enableAnimation={!reduceMotion} />
+            </div>
+          </SkeletonTheme>
+        </div>
+        <div className="flex gap-2.5 h-[calc(100vh-280px)]">
+          {COLUMNS.map(col => (
+            <div key={col.id} className={`flex-1 flex flex-col ${darkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-gray-50 border-gray-200'} border rounded-lg p-2`}>
+              <SkeletonTheme baseColor="#ebebeb" highlightColor="#f5f5f5">
+                <Skeleton height={36} className="mb-2" enableAnimation={!reduceMotion} />
+                <Skeleton count={3} height={100} style={{ marginBottom: 8 }} enableAnimation={!reduceMotion} />
+              </SkeletonTheme>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">

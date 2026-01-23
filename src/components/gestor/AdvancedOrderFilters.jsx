@@ -173,7 +173,7 @@ export default function AdvancedOrderFilters({
             <Filter className="w-4 h-4 mr-2" />
             Filtros
             {activeFiltersCount > 0 && (
-              <Badge className="ml-2 h-5 w-5 p-0 flex items-center justify-center text-xs bg-red-500 text-white">
+              <Badge className="ml-2 h-5 w-5 p-0 flex items-center justify-center text-xs bg-orange-500 text-white">
                 {activeFiltersCount}
               </Badge>
             )}

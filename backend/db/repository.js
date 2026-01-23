@@ -55,11 +55,14 @@ export async function listEntitiesForSubscriber(entityType, subscriberEmail, ord
   }
 }
 
-// Listar entidades
-export async function listEntities(entityType, filters = {}, orderBy = null, user = null) {
+// Listar entidades com paginação
+export async function listEntities(entityType, filters = {}, orderBy = null, user = null, pagination = {}) {
   try {
+    const { page = 1, limit = 50 } = pagination;
+    const offset = (page - 1) * limit;
     const subscriberEmail = getSubscriberEmail(user);
     
+    // Query principal com paginação
     let sql = `
       SELECT id, data, created_at, updated_at
       FROM entities
@@ -91,6 +94,36 @@ export async function listEntities(entityType, filters = {}, orderBy = null, use
       });
     }
     
+    // Query de contagem (para total)
+    let countSql = `
+      SELECT COUNT(*) as total
+      FROM entities
+      WHERE entity_type = $1
+    `;
+    const countParams = [entityType];
+    
+    if (subscriberEmail) {
+      countSql += ` AND subscriber_email = $${countParams.length + 1}`;
+      countParams.push(subscriberEmail);
+    } else if (user?.is_master) {
+      countSql += ` AND subscriber_email IS NULL`;
+    } else {
+      countSql += ` AND subscriber_email IS NULL`;
+    }
+    
+    // Aplicar mesmos filtros na contagem
+    if (Object.keys(filters).length > 0) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value === 'null' || value === null) {
+          countSql += ` AND (data->>$${countParams.length + 1} IS NULL)`;
+          countParams.push(key);
+        } else {
+          countSql += ` AND data->>$${countParams.length + 1} = $${countParams.length + 2}`;
+          countParams.push(key, String(value));
+        }
+      });
+    }
+    
     // Ordenação
     if (orderBy) {
       const direction = orderBy.startsWith('-') ? 'DESC' : 'ASC';
@@ -101,15 +134,39 @@ export async function listEntities(entityType, filters = {}, orderBy = null, use
       sql += ` ORDER BY created_at DESC`;
     }
     
-    const result = await query(sql, params);
+    // ✅ PAGINAÇÃO
+    sql += ` LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+    params.push(limit, offset);
+    
+    // Executar queries em paralelo
+    const [result, countResult] = await Promise.all([
+      query(sql, params),
+      query(countSql, countParams)
+    ]);
+    
+    const total = parseInt(countResult.rows[0].total);
+    const totalPages = Math.ceil(total / limit);
     
     // Converter JSONB para objetos normais
-    return result.rows.map(row => ({
+    const items = result.rows.map(row => ({
       id: row.id.toString(),
       ...row.data,
       created_at: row.created_at,
       updated_at: row.updated_at
     }));
+    
+    // Retornar com paginação
+    return {
+      items,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1
+      }
+    };
   } catch (error) {
     console.error(`Erro ao listar ${entityType}:`, error);
     throw error;

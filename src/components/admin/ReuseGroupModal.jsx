@@ -5,9 +5,17 @@ import { Button } from "@/components/ui/button";
 import { Search, Check } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
 
-export default function ReuseGroupModal({ isOpen, onClose, onSelect, availableGroups, allDishes }) {
+export default function ReuseGroupModal({ isOpen, onClose, onSelect, availableGroups, allDishes, currentDish }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedGroups, setSelectedGroups] = useState([]);
+
+  // ✅ Obter grupos já adicionados ao prato atual
+  const getAlreadyAddedGroups = () => {
+    if (!currentDish?.complement_groups) return [];
+    return currentDish.complement_groups.map(cg => cg.group_id);
+  };
+
+  const alreadyAddedGroupIds = getAlreadyAddedGroups();
 
   const getDishesUsingGroup = (groupId) => {
     return allDishes.filter(d => 
@@ -47,32 +55,59 @@ export default function ReuseGroupModal({ isOpen, onClose, onSelect, availableGr
             filteredGroups.map(group => {
               const dishesUsing = getDishesUsingGroup(group.id);
               const isSelected = selectedGroups.includes(group.id);
+              const isAlreadyAdded = alreadyAddedGroupIds.includes(group.id);
+              
               return (
                 <button
                   key={group.id}
                   onClick={() => {
+                    // ✅ Não permitir selecionar se já está adicionado
+                    if (isAlreadyAdded) return;
+                    
                     if (isSelected) {
                       setSelectedGroups(prev => prev.filter(id => id !== group.id));
                     } else {
                       setSelectedGroups(prev => [...prev, group.id]);
                     }
                   }}
+                  disabled={isAlreadyAdded}
                   className={`w-full p-4 border rounded-lg text-left transition-colors ${
-                    isSelected ? 'bg-orange-50 border-orange-300' : 'hover:bg-gray-50'
+                    isAlreadyAdded 
+                      ? 'bg-gray-100 border-gray-300 opacity-60 cursor-not-allowed' 
+                      : isSelected 
+                        ? 'bg-orange-50 border-orange-300' 
+                        : 'hover:bg-gray-50'
                   }`}
                 >
                   <div className="flex items-start gap-3">
                     <div className={`w-5 h-5 mt-0.5 border-2 rounded flex items-center justify-center flex-shrink-0 ${
-                      isSelected ? 'bg-orange-500 border-orange-500' : 'border-gray-300'
+                      isAlreadyAdded
+                        ? 'bg-gray-400 border-gray-400'
+                        : isSelected 
+                          ? 'bg-orange-500 border-orange-500' 
+                          : 'border-gray-300'
                     }`}>
-                      {isSelected && <Check className="w-3 h-3 text-white" />}
+                      {isAlreadyAdded ? (
+                        <Check className="w-3 h-3 text-white" />
+                      ) : isSelected ? (
+                        <Check className="w-3 h-3 text-white" />
+                      ) : null}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-base mb-1">{group.name}</h3>
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-semibold text-base">{group.name}</h3>
+                        {isAlreadyAdded && (
+                          <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-300">
+                            Já adicionado
+                          </Badge>
+                        )}
+                      </div>
                       <p className="text-sm text-gray-500">
-                        {dishesUsing.length > 0 
-                          ? `Disponível em: ${dishesUsing.map(d => d.name).join(', ')}` 
-                          : 'Grupo disponível para uso'}
+                        {isAlreadyAdded
+                          ? 'Este grupo já está adicionado a este prato'
+                          : dishesUsing.length > 0 
+                            ? `Disponível em: ${dishesUsing.map(d => d.name).join(', ')}` 
+                            : 'Grupo disponível para uso'}
                       </p>
                     </div>
                     <Badge variant="outline" className="ml-2 flex-shrink-0">
@@ -95,6 +130,7 @@ export default function ReuseGroupModal({ isOpen, onClose, onSelect, availableGr
             </Button>
             <Button 
               onClick={() => {
+                // ✅ Adicionar múltiplos grupos de uma vez
                 selectedGroups.forEach(groupId => onSelect(groupId));
                 setSelectedGroups([]);
                 onClose();
@@ -102,7 +138,7 @@ export default function ReuseGroupModal({ isOpen, onClose, onSelect, availableGr
               disabled={selectedGroups.length === 0}
               className="bg-orange-500 hover:bg-orange-600"
             >
-              Confirmar
+              Confirmar {selectedGroups.length > 0 && `(${selectedGroups.length})`}
             </Button>
           </div>
         </div>

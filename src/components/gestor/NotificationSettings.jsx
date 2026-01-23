@@ -124,7 +124,7 @@ export default function NotificationSettings() {
       {/* Volume Control */}
       <div className="bg-white rounded-xl p-6 shadow-sm border">
         <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
-          <Volume2 className="w-5 h-5 text-red-500" />
+          <Volume2 className="w-5 h-5 text-orange-500" />
           Controle de Volume
         </h3>
         
@@ -143,7 +143,7 @@ export default function NotificationSettings() {
           <div className="p-4 bg-gray-50 rounded-lg">
             <div className="flex items-center justify-between mb-3">
               <Label className="font-medium">Volume</Label>
-              <span className="text-sm font-bold text-red-500">{settings.volume}%</span>
+              <span className="text-sm font-bold text-orange-500">{settings.volume}%</span>
             </div>
             <div className="flex items-center gap-3">
               <Volume1 className="w-4 h-4 text-gray-400" />
@@ -158,10 +158,10 @@ export default function NotificationSettings() {
             </div>
           </div>
 
-          <div className="flex items-center justify-between p-4 bg-red-50 border border-red-200 rounded-lg">
+          <div className="flex items-center justify-between p-4 bg-orange-50 border border-orange-200 rounded-lg">
             <div>
-              <Label className="font-medium text-red-900">Repetir até visualizar</Label>
-              <p className="text-xs text-red-700">Som toca continuamente até aceitar pedido</p>
+              <Label className="font-medium text-orange-900">Repetir até visualizar</Label>
+              <p className="text-xs text-orange-700">Som toca continuamente até aceitar pedido</p>
             </div>
             <Switch
               checked={settings.repeatUntilViewed}
@@ -181,14 +181,14 @@ export default function NotificationSettings() {
               key={sound.id}
               className={`flex items-center justify-between p-3 rounded-lg border-2 transition-all cursor-pointer ${
                 settings.selectedSound === sound.id
-                  ? 'border-red-500 bg-red-50'
+                  ? 'border-orange-500 bg-orange-50'
                   : 'border-gray-200 hover:border-gray-300 bg-white'
               }`}
               onClick={() => saveSettings({ ...settings, selectedSound: sound.id })}
             >
               <div className="flex items-center gap-3">
                 {settings.selectedSound === sound.id ? (
-                  <div className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center">
+                  <div className="w-5 h-5 bg-orange-500 rounded-full flex items-center justify-center">
                     <Check className="w-3 h-3 text-white" />
                   </div>
                 ) : (
@@ -254,14 +254,14 @@ export default function NotificationSettings() {
               <div
                 className={`flex items-center justify-between p-3 rounded-lg border-2 transition-all cursor-pointer ${
                   settings.selectedSound === 'custom'
-                    ? 'border-red-500 bg-red-50'
+                    ? 'border-orange-500 bg-orange-50'
                     : 'border-gray-300 bg-white'
                 }`}
                 onClick={() => saveSettings({ ...settings, selectedSound: 'custom' })}
               >
                 <div className="flex items-center gap-3">
                   {settings.selectedSound === 'custom' ? (
-                    <div className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center">
+                    <div className="w-5 h-5 bg-orange-500 rounded-full flex items-center justify-center">
                       <Check className="w-3 h-3 text-white" />
                     </div>
                   ) : (

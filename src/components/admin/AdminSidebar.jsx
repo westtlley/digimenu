@@ -68,9 +68,7 @@ const MENU_STRUCTURE = [
     section: 'section',
     submenu: [
       { id: 'restaurante_grp', label: 'Restaurante', icon: UtensilsCrossed, section: 'subsection', submenu: [
-        { id: 'dishes', label: 'Pratos', icon: UtensilsCrossed, module: 'dishes' },
-        { id: 'categories', label: 'Categorias', icon: Layers, module: 'dishes' },
-        { id: 'complements', label: 'Complementos', icon: Grid3x3, module: 'dishes' },
+        { id: 'dishes', label: 'Pratos (Categorias e Complementos)', icon: UtensilsCrossed, module: 'dishes' },
       ]},
       { id: 'pizza_config', label: 'Pizzas', icon: Pizza, module: 'pizza_config' },
       { id: 'promotions', label: 'Promoções', icon: Megaphone, module: 'promotions' },

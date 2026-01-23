@@ -221,14 +221,36 @@ export default function NewDishModal({
                                 whileTap={{ scale: 0.98 }}
                                 onClick={() => handleSelect(group, option)}
                                 className={cn(
-                                  "w-full p-2.5 md:p-3 rounded-lg border-2 flex items-center justify-between transition-all",
+                                  "w-full p-2.5 md:p-3 rounded-lg border-2 flex items-center gap-3 transition-all",
                                   isSelected(group, option)
                                     ? darkMode ? "bg-gray-700 border-opacity-80" : "bg-orange-50 border-orange-300"
                                     : darkMode ? "border-gray-700 hover:bg-gray-700/50" : "border-gray-200 hover:bg-gray-50"
                                 )}
                                 style={isSelected(group, option) ? { borderColor: primaryColor } : {}}
                               >
-                                <div className="flex items-center gap-2">
+                                {/* ✅ IMAGEM DO COMPLEMENTO */}
+                                {option.image ? (
+                                  <div className="w-12 h-12 md:w-14 md:h-14 rounded-lg overflow-hidden flex-shrink-0 border-2" style={{ borderColor: isSelected(group, option) ? primaryColor : 'transparent' }}>
+                                    <img 
+                                      src={option.image} 
+                                      alt={option.name}
+                                      className="w-full h-full object-cover"
+                                      onError={(e) => {
+                                        e.target.style.display = 'none';
+                                        e.target.nextSibling.style.display = 'flex';
+                                      }}
+                                    />
+                                    <div className="w-full h-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-gray-400 text-xs" style={{ display: 'none' }}>
+                                      🍽️
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="w-12 h-12 md:w-14 md:h-14 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center flex-shrink-0 border-2" style={{ borderColor: isSelected(group, option) ? primaryColor : 'transparent' }}>
+                                    <span className="text-gray-400 text-lg">🍽️</span>
+                                  </div>
+                                )}
+                                
+                                <div className="flex items-center gap-2 flex-1 min-w-0">
                                   <div 
                                     className={cn(
                                       "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0",
@@ -238,7 +260,7 @@ export default function NewDishModal({
                                   >
                                     {isSelected(group, option) && <Check className="w-3 h-3 text-white" />}
                                   </div>
-                                  <span className={`font-medium text-sm ${darkMode ? 'text-white' : 'text-gray-900'}`}>{option.name}</span>
+                                  <span className={`font-medium text-sm truncate ${darkMode ? 'text-white' : 'text-gray-900'}`}>{option.name}</span>
                                 </div>
                                 {option.price > 0 && (
                                   <span className={`font-semibold text-sm flex-shrink-0 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>

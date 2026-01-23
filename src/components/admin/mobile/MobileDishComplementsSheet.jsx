@@ -389,6 +389,7 @@ export default function MobileDishComplementsSheet({
         onClose={() => setShowCopyModal(false)}
         availableGroups={complementGroups}
         onConfirm={onCopyGroups}
+        currentDish={dish}
       />
     </AnimatePresence>
   );

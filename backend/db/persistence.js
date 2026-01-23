@@ -52,7 +52,8 @@ export function saveDatabase(db) {
     const dataToSave = {
       users: db.users.map(u => ({
         ...u,
-        password: undefined // Não salvar senhas em texto plano
+        // Persistir apenas hash bcrypt; não gravar texto (ex. admin123)
+        password: (typeof u.password === 'string' && u.password.startsWith('$2')) ? u.password : undefined
       })),
       customers: db.customers,
       entities: db.entities,

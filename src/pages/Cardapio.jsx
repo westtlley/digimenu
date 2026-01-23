@@ -55,35 +55,44 @@ export default function Cardapio() {
   const { cart, addItem, updateItem, removeItem, updateQuantity, clearCart, cartTotal, cartItemsCount } = useCart();
   const { customer, setCustomer, clearCustomer } = useCustomer();
 
-  // Data Fetching
+  // Data Fetching - ✅ OTIMIZADO: cache de 2 minutos, sem polling excessivo
   const { data: dishes = [], isLoading: dishesLoading } = useQuery({
     queryKey: ['dishes'],
     queryFn: () => base44.entities.Dish.list('order'),
-    refetchInterval: 5000, // Atualiza a cada 5 segundos
-    staleTime: 0, // Sempre considera os dados como desatualizados
+    staleTime: 2 * 60 * 1000, // 2 minutos - dados considerados frescos
+    gcTime: 5 * 60 * 1000, // 5 minutos no cache
     initialData: [], // 👈 ESSENCIAL: garante que dishes nunca seja undefined
-    gcTime: 0, // Remove do cache imediatamente
-    refetchOnMount: true // Sempre refaz a requisição ao montar
+    refetchOnMount: false, // Não refazer ao montar se dados estão frescos
+    refetchOnWindowFocus: false // Não refazer ao focar janela
   });
 
+  // ✅ OTIMIZADO: Dados estáticos com cache longo (10 minutos)
   const { data: categories = [] } = useQuery({
     queryKey: ['categories'],
-    queryFn: () => base44.entities.Category.list('order')
+    queryFn: () => base44.entities.Category.list('order'),
+    staleTime: 10 * 60 * 1000, // 10 minutos - categorias mudam pouco
+    gcTime: 30 * 60 * 1000 // 30 minutos no cache
   });
 
   const { data: complementGroups = [] } = useQuery({
     queryKey: ['complementGroups'],
-    queryFn: () => base44.entities.ComplementGroup.list('order')
+    queryFn: () => base44.entities.ComplementGroup.list('order'),
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000
   });
 
   const { data: pizzaSizes = [] } = useQuery({
     queryKey: ['pizzaSizes'],
-    queryFn: () => base44.entities.PizzaSize.list('order')
+    queryFn: () => base44.entities.PizzaSize.list('order'),
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000
   });
 
   const { data: pizzaFlavors = [] } = useQuery({
     queryKey: ['pizzaFlavors'],
-    queryFn: () => base44.entities.PizzaFlavor.list('order')
+    queryFn: () => base44.entities.PizzaFlavor.list('order'),
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000
   });
 
   const { data: pizzaEdges = [] } = useQuery({

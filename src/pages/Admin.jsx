@@ -206,6 +206,8 @@ export default function Admin() {
       case 'clients':
         return hasModuleAccess('clients') ? <ClientsTab /> : <AccessDenied />;
       case 'dishes':
+      case 'categories': // ✅ Redirecionar para dishes (categorias dentro de pratos)
+      case 'complements': // ✅ Redirecionar para dishes (complementos dentro de pratos)
         // ✅ Master sempre tem acesso, mesmo se hasModuleAccess falhar temporariamente
         const hasDishesAccess = isMaster || hasModuleAccess('dishes');
         console.log('🍽️ [Admin] Renderizando DishesTab:', {
@@ -218,7 +220,10 @@ export default function Admin() {
         });
         return hasDishesAccess ? (
           <ErrorBoundary>
-            <DishesTab onNavigateToPizzas={() => setActiveTab('pizza_config')} />
+            <DishesTab 
+              onNavigateToPizzas={() => setActiveTab('pizza_config')}
+              initialTab={activeTab === 'categories' ? 'categories' : activeTab === 'complements' ? 'complements' : 'dishes'}
+            />
           </ErrorBoundary>
         ) : (
           <div className="p-8 text-center">
@@ -228,10 +233,6 @@ export default function Admin() {
             </p>
           </div>
         );
-      case 'categories':
-        return hasModuleAccess('dishes') ? <CategoriesTab /> : <AccessDenied />;
-      case 'complements':
-        return hasModuleAccess('dishes') ? <ComplementsTab /> : <AccessDenied />;
       case 'pizza_config':
         return hasModuleAccess('pizza_config') ? <PizzaConfigTab /> : <AccessDenied />;
       case 'delivery_zones':
