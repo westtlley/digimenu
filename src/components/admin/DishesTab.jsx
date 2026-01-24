@@ -122,6 +122,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
     },
     initialData: [],
     retry: 1,
+    refetchOnMount: 'always', // evita cache vazio ao abrir Pratos e não mostrar itens cadastrados
   });
 
   const { data: categories = [], isLoading: categoriesLoading, error: categoriesError } = useQuery({
@@ -137,6 +138,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
     },
     initialData: [],
     retry: 1,
+    refetchOnMount: 'always', // evita cache vazio ao abrir Pratos e não mostrar itens cadastrados
   });
 
   const { data: complementGroups = [], isLoading: groupsLoading, error: groupsError } = useQuery({
@@ -701,6 +703,10 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
   safeCategories.forEach(cat => {
     dishesByCategory[cat.id] = filteredDishes.filter(d => d.category_id === cat.id);
   });
+  // Pratos sem categoria (ou com category_id inexistente) — exibir mesmo quando categories=[] para corrigir bug de "não mostra nada até criar categoria"
+  const dishesWithoutCategory = filteredDishes.filter(
+    d => !d.category_id || !safeCategories.some(c => c.id === d.category_id)
+  );
 
   const handleBulkStatusChange = (status) => {
     if (selectedDishes.length === 0) return;
@@ -1050,6 +1056,44 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
 
       {/* Mobile Lista por Categoria */}
       <div className="lg:hidden px-4 pb-24 space-y-3">
+        {/* Sem categoria: pratos órfãos ou quando categories=[] — evita "não mostra nada" até criar categoria */}
+        {dishesWithoutCategory.length > 0 && (
+          <MobileCategoryAccordion
+            key="__sem_categoria__"
+            category={{ id: '__sem_categoria__', name: 'Sem categoria' }}
+            dishCount={dishesWithoutCategory.length}
+            isExpanded={expandedCategories['__sem_categoria__'] !== false}
+            onToggle={() => toggleCategoryExpansion('__sem_categoria__')}
+            onAddDish={() => handleOpenProductTypeModal(safeCategories[0]?.id || '')}
+            onEdit={() => {}}
+            onDuplicate={() => {}}
+            onDelete={() => {}}
+          >
+            {dishesWithoutCategory.map((dish) => (
+              <MobileDishCard
+                key={dish.id}
+                dish={dish}
+                onEdit={() => openDishModal(dish)}
+                onDuplicate={() => duplicateDish(dish)}
+                onDelete={() => {
+                  if (confirm('Excluir este prato?')) deleteDishMutation.mutate(dish.id);
+                }}
+                onToggleActive={(checked) => {
+                  if (!canUpdate('dishes')) return;
+                  updateDishMutation.mutate({ id: dish.id, data: { is_active: checked } });
+                }}
+                onToggleHighlight={(checked) => {
+                  if (!canUpdate('dishes')) return;
+                  updateDishMutation.mutate({ id: dish.id, data: { is_highlight: checked } });
+                }}
+                onToggleComplements={() => setMobileComplementsDish(dish)}
+                complementGroupsCount={dish.complement_groups?.length || 0}
+                formatCurrency={formatCurrency}
+                canEdit={canUpdate('dishes')}
+              />
+            ))}
+          </MobileCategoryAccordion>
+        )}
         {safeCategories.map((category) => {
           const categoryDishes = dishesByCategory[category.id] || [];
           const isExpanded = expandedCategories[category.id] !== false;
@@ -1111,7 +1155,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
           );
         })}
 
-        {categories.length === 0 && (
+        {safeCategories.length === 0 && safeDishes.length === 0 && (
           <EmptyState
             icon={UtensilsCrossed}
             title="Você ainda não cadastrou nenhum prato"
@@ -1121,19 +1165,85 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
           />
         )}
 
-        {categories.length > 0 && dishes.length === 0 && (
+        {safeCategories.length > 0 && safeDishes.length === 0 && (
           <EmptyState
             icon={UtensilsCrossed}
             title="Você ainda não cadastrou nenhum prato"
             description="Adicione pratos às categorias criadas para começar a vender"
             actionLabel="Cadastrar primeiro prato"
-            onAction={() => openDishModal(null, categories[0]?.id || '')}
+            onAction={() => openDishModal(null, safeCategories[0]?.id || '')}
           />
         )}
       </div>
 
       {/* Desktop Lista por Categoria */}
       <div className="hidden lg:block px-6 pb-6 space-y-4">
+        {/* Sem categoria: pratos órfãos ou quando categories=[] — evita "não mostra nada" até criar categoria */}
+        {dishesWithoutCategory.length > 0 && (
+          <div className="bg-gray-50 rounded-xl overflow-hidden">
+            <div className="flex items-center justify-between p-4 bg-white border-b cursor-pointer hover:bg-gray-50" onClick={() => toggleCategoryExpansion('__sem_categoria__')}>
+              <div className="flex items-center gap-3">
+                <Menu className="w-5 h-5 text-gray-400" />
+                <h2 className="font-bold text-lg">Sem categoria</h2>
+                <Badge variant="secondary" className="text-xs">{dishesWithoutCategory.length} itens</Badge>
+              </div>
+              <div className="flex items-center gap-2">
+                {canCreate('dishes') && (
+                  <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); handleOpenProductTypeModal(safeCategories[0]?.id || ''); }}>
+                    <Plus className="w-4 h-4 mr-1" />
+                    Adicionar prato
+                  </Button>
+                )}
+                {expandedCategories['__sem_categoria__'] !== false ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+              </div>
+            </div>
+            {expandedCategories['__sem_categoria__'] !== false && (
+              <div className="p-4 space-y-3">
+                {dishesWithoutCategory.map((dish) => (
+                  <DishRow
+                    key={dish.id}
+                    dish={dish}
+                    isSelected={selectedDishes.includes(dish.id)}
+                    onToggleSelection={() => toggleDishSelection(dish.id)}
+                    complementGroups={safeComplementGroups}
+                    expanded={expandedDishes[dish.id]}
+                    onToggleExpand={() => toggleDishExpansion(dish.id)}
+                    onEdit={() => openDishModal(dish)}
+                    onDelete={() => deleteDishMutation.mutate(dish.id)}
+                    onDuplicate={() => duplicateDish(dish)}
+                    onUpdate={(data) => updateDishMutation.mutate({ id: dish.id, data })}
+                    onToggleOption={toggleComplementOption}
+                    onUpdateOptionName={updateComplementOptionName}
+                    onUpdateOptionPrice={updateComplementOptionPrice}
+                    onUpdateOptionImage={updateComplementOptionImage}
+                    onRemoveOption={removeComplementOption}
+                    onAddOption={addNewComplementOption}
+                    onAddGroup={() => addNewComplementGroupToDish(dish.id)}
+                    onReuseGroup={(groupId) => reuseComplementGroupToDish(dish.id, groupId)}
+                    onRemoveGroup={(groupId) => removeGroupFromDish(dish.id, groupId)}
+                    onOpenReuseModal={() => { setCurrentDishForReuse(dish.id); setShowReuseGroupModal(true); }}
+                    allComplementGroups={safeComplementGroups}
+                    allDishes={safeDishes}
+                    onEditGroup={(group) => {
+                      const linked = dish.complement_groups?.find(cg => cg.group_id === group.id);
+                      openGroupSettings({ ...group, is_required: linked?.is_required || false }, dish.id);
+                    }}
+                    getGroupUsageInfo={getGroupUsageInfo}
+                    formatCurrency={formatCurrency}
+                    updateDishMutation={updateDishMutation}
+                    updateComplementGroupMutation={updateComplementGroupMutation}
+                    createComplementGroupMutation={createComplementGroupMutation}
+                    canEdit={canUpdate('dishes')}
+                    canCreate={canCreate('dishes')}
+                    canDelete={canDelete('dishes')}
+                    setBulkEditGroup={setBulkEditGroup}
+                    setShowBulkEditModal={setShowBulkEditModal}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         {safeCategories.map((category, categoryIndex) => {
           const categoryDishes = dishesByCategory[category.id] || [];
           const isExpanded = expandedCategories[category.id] !== false;
@@ -1276,7 +1386,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
           );
         })}
 
-        {categories.length === 0 && (
+        {safeCategories.length === 0 && safeDishes.length === 0 && (
           <EmptyState
             icon={UtensilsCrossed}
             title="Você ainda não cadastrou nenhum prato"
@@ -1286,13 +1396,13 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
           />
         )}
 
-        {categories.length > 0 && dishes.length === 0 && (
+        {safeCategories.length > 0 && safeDishes.length === 0 && (
           <EmptyState
             icon={UtensilsCrossed}
             title="Você ainda não cadastrou nenhum prato"
             description="Adicione pratos às categorias criadas para começar a vender"
             actionLabel="Cadastrar primeiro prato"
-            onAction={() => openDishModal(null, categories[0]?.id || '')}
+            onAction={() => openDishModal(null, safeCategories[0]?.id || '')}
           />
         )}
       </div>
