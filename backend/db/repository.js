@@ -504,6 +504,23 @@ export async function getSubscriberByEmail(email) {
   return result.rows[0] || null;
 }
 
+/** Busca assinante pelo slug do link do cardápio (ex: /s/meu-restaurante) */
+export async function getSubscriberBySlug(slug) {
+  if (!slug || String(slug).trim() === '') return null;
+  const normalized = String(slug).trim().toLowerCase();
+  const result = await query(
+    'SELECT * FROM subscribers WHERE LOWER(TRIM(slug)) = $1 AND slug IS NOT NULL',
+    [normalized]
+  );
+  return result.rows[0] || null;
+}
+
+/** Busca assinante por ID */
+export async function getSubscriberById(id) {
+  const result = await query('SELECT * FROM subscribers WHERE id = $1', [id]);
+  return result.rows[0] || null;
+}
+
 export async function createSubscriber(subscriberData) {
   try {
     console.log('📝 [REPOSITORY] createSubscriber chamado com:', {
@@ -610,6 +627,12 @@ export async function updateSubscriber(emailOrId, subscriberData) {
   } else if (subscriberData.whatsapp_auto_enabled !== undefined) {
     updates.push(`whatsapp_auto_enabled = $${paramIndex++}`);
     values.push(subscriberData.whatsapp_auto_enabled);
+  }
+  if (subscriberData.slug !== undefined) {
+    const raw = subscriberData.slug;
+    const s = (raw === null || raw === '') ? null : (String(raw).trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') || null);
+    updates.push(`slug = $${paramIndex++}`);
+    values.push(s);
   }
 
   if (updates.length === 0) {

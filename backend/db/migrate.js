@@ -80,6 +80,23 @@ export async function migrate() {
         } catch (error) {
           console.warn('⚠️ Aviso ao adicionar profile_role (pode já existir):', error.message);
         }
+
+        // slug em subscribers — link único do cardápio por assinante (ex: /s/meu-restaurante)
+        try {
+          await query(`
+            DO $$ 
+            BEGIN
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                            WHERE table_name='subscribers' AND column_name='slug') THEN
+                ALTER TABLE subscribers ADD COLUMN slug VARCHAR(100) UNIQUE;
+                RAISE NOTICE 'Coluna slug adicionada em subscribers';
+              END IF;
+            END $$;
+          `);
+          console.log('✅ Migração de coluna slug (link do cardápio) concluída.');
+        } catch (error) {
+          console.warn('⚠️ Aviso ao adicionar slug (pode já existir):', error.message);
+        }
     
     console.log('✅ Migração concluída com sucesso!');
     return true;

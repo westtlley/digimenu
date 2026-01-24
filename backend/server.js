@@ -238,7 +238,8 @@ const publicRoutes = [
   '/api/auth/login',
   '/api/auth/set-password',
   '/api/auth/google',
-  '/api/auth/google/callback'
+  '/api/auth/google/callback',
+  '/api/public/cardapio'  // /api/public/cardapio/:slug — link único do cardápio por assinante
 ];
 
 const isPublicRoute = (path) => {
@@ -769,6 +770,59 @@ function canUseColaboradores(subscriber, isMaster) {
   const p = (subscriber.plan || '').toLowerCase();
   return p === 'premium' || p === 'pro';
 }
+
+// =======================
+// 🔗 CARDÁPIO PÚBLICO POR LINK (slug) — cada assinante tem seu link ex: /s/meu-restaurante
+// =======================
+app.get('/api/public/cardapio/:slug', asyncHandler(async (req, res) => {
+  if (!usePostgreSQL) {
+    return res.status(503).json({ error: 'Cardápio por link requer PostgreSQL. Configure DATABASE_URL.' });
+  }
+  const slug = (req.params.slug || '').trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+  if (!slug) return res.status(400).json({ error: 'Slug inválido' });
+  const subscriber = await repo.getSubscriberBySlug(slug);
+  if (!subscriber) return res.status(404).json({ error: 'Link não encontrado' });
+  const se = subscriber.email;
+  const [
+    storeList,
+    dishes,
+    categories,
+    complementGroups,
+    pizzaSizes,
+    pizzaFlavors,
+    pizzaEdges,
+    pizzaExtras,
+    deliveryZones,
+    coupons,
+    promotions
+  ] = await Promise.all([
+    repo.listEntitiesForSubscriber('Store', se, null),
+    repo.listEntitiesForSubscriber('Dish', se, 'order'),
+    repo.listEntitiesForSubscriber('Category', se, 'order'),
+    repo.listEntitiesForSubscriber('ComplementGroup', se, 'order'),
+    repo.listEntitiesForSubscriber('PizzaSize', se, 'order'),
+    repo.listEntitiesForSubscriber('PizzaFlavor', se, 'order'),
+    repo.listEntitiesForSubscriber('PizzaEdge', se, null),
+    repo.listEntitiesForSubscriber('PizzaExtra', se, null),
+    repo.listEntitiesForSubscriber('DeliveryZone', se, null),
+    repo.listEntitiesForSubscriber('Coupon', se, null),
+    repo.listEntitiesForSubscriber('Promotion', se, null)
+  ]);
+  const store = Array.isArray(storeList) && storeList[0] ? storeList[0] : { name: 'Loja', is_open: true };
+  res.json({
+    store,
+    dishes: Array.isArray(dishes) ? dishes : [],
+    categories: Array.isArray(categories) ? categories : [],
+    complementGroups: Array.isArray(complementGroups) ? complementGroups : [],
+    pizzaSizes: Array.isArray(pizzaSizes) ? pizzaSizes : [],
+    pizzaFlavors: Array.isArray(pizzaFlavors) ? pizzaFlavors : [],
+    pizzaEdges: Array.isArray(pizzaEdges) ? pizzaEdges : [],
+    pizzaExtras: Array.isArray(pizzaExtras) ? pizzaExtras : [],
+    deliveryZones: Array.isArray(deliveryZones) ? deliveryZones : [],
+    coupons: Array.isArray(coupons) ? coupons : [],
+    promotions: Array.isArray(promotions) ? promotions : []
+  });
+}));
 
 app.get('/api/colaboradores', authenticate, async (req, res) => {
   try {
@@ -1502,8 +1556,20 @@ app.post('/api/entities/:entity/bulk', authenticate, async (req, res) => {
 app.put('/api/subscribers/:id', authenticate, async (req, res) => {
   try {
     const { id } = req.params;
-    const data = req.body;
+    let data = req.body;
     const idVal = /^\d+$/.test(String(id)) ? parseInt(id, 10) : id;
+
+    // Assinante só pode alterar o próprio — e apenas o campo slug (link do cardápio)
+    if (!req.user?.is_master) {
+      let sub = null;
+      if (usePostgreSQL && repo.getSubscriberById) sub = await repo.getSubscriberById(idVal);
+      else if (db?.subscribers) sub = db.subscribers.find(s => s.id == idVal || String(s.id) === String(idVal));
+      if (!sub) return res.status(404).json({ error: 'Assinante não encontrado' });
+      const own = (s) => (s || '').toLowerCase() === (req.user?.subscriber_email || req.user?.email || '').toLowerCase();
+      if (!own(sub.email)) return res.status(403).json({ error: 'Só é possível editar seu próprio link' });
+      data = { slug: data.slug };
+    }
+
     let updated;
     if (usePostgreSQL) {
       updated = await repo.updateSubscriber(idVal, data);

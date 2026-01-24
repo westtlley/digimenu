@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Store, Save, Clock, Image as ImageIcon, MapPin, Instagram, Facebook, MessageSquare, AlertCircle, HelpCircle } from 'lucide-react';
+import { Store, Save, Clock, Image as ImageIcon, MapPin, Instagram, Facebook, MessageSquare, AlertCircle, HelpCircle, Link2, Copy } from 'lucide-react';
+import { usePermission } from '../permissions/usePermission';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
@@ -23,7 +24,9 @@ const DAYS_OF_WEEK = [
 ];
 
 export default function StoreTab() {
+  const { subscriberData, isMaster, refresh } = usePermission();
   const [user, setUser] = React.useState(null);
+  const [slugEdit, setSlugEdit] = useState('');
   const [formData, setFormData] = useState({
     name: '', logo: '', whatsapp: '', address: '', slogan: '', instagram: '', facebook: '',
     is_open: null, accepting_orders: true, pause_message: '',
@@ -43,6 +46,22 @@ export default function StoreTab() {
     };
     loadUser();
   }, []);
+
+  useEffect(() => {
+    if (subscriberData?.slug != null) setSlugEdit(subscriberData.slug);
+  }, [subscriberData?.slug]);
+
+  const slugSaveMutation = useMutation({
+    mutationFn: async (val) => {
+      const s = String(val || '').trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+      await base44.put(`/subscribers/${subscriberData.id}`, { slug: s || null });
+    },
+    onSuccess: () => {
+      refresh();
+      toast.success('Link do cardápio atualizado.');
+    },
+    onError: (e) => toast.error(e?.message || 'Erro ao salvar link'),
+  });
 
   const { data: stores = [] } = useQuery({
     queryKey: ['store'],
@@ -272,6 +291,62 @@ export default function StoreTab() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Link do cardápio — cada assinante tem seu link /s/:slug */}
+          {!isMaster && subscriberData && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Link2 className="w-5 h-5" />
+                  Link do seu cardápio
+                </CardTitle>
+                <CardDescription>
+                  Este é o link que seus clientes usam para ver o cardápio. Compartilhe no WhatsApp, redes sociais, etc.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label>Seu link</Label>
+                  <div className="flex gap-2 mt-1">
+                    <Input
+                      readOnly
+                      value={typeof window !== 'undefined' ? `${window.location.origin}/s/${subscriberData?.slug || '...'}` : ''}
+                      className="font-mono text-sm"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => {
+                        const url = `${window.location.origin}/s/${subscriberData?.slug || ''}`;
+                        if (url && navigator.clipboard) navigator.clipboard.writeText(url).then(() => toast.success('Link copiado!'));
+                      }}
+                    >
+                      <Copy className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+                <div>
+                  <Label>Personalize o final do link (ex: meu-restaurante)</Label>
+                  <p className="text-xs text-gray-500 mb-1">Apenas letras minúsculas, números e hífen. Deixe em branco para remover.</p>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="ex: meu-restaurante"
+                      value={slugEdit}
+                      onChange={(e) => setSlugEdit(e.target.value)}
+                      className="font-mono"
+                    />
+                    <Button
+                      type="button"
+                      onClick={() => slugSaveMutation.mutate(slugEdit)}
+                      disabled={slugSaveMutation.isPending}
+                    >
+                      {slugSaveMutation.isPending ? 'Salvando…' : 'Salvar'}
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
           {/* Seção: Identidade da Loja */}
           <Card>
             <CardHeader>

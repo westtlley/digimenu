@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import { apiClient as base44 } from '@/api/apiClient';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { ShoppingCart, Search, Clock, Star, Share2, MapPin, Info, Home, Receipt, Gift, User, MessageSquare, UtensilsCrossed } from 'lucide-react';
@@ -37,6 +38,7 @@ import { stockUtils } from '@/components/utils/stockUtils';
 import { formatCurrency } from '@/components/utils/formatters';
 
 export default function Cardapio() {
+  const { slug } = useParams(); // link do assinante: /s/meu-restaurante
   const [selectedDish, setSelectedDish] = useState(null);
   const [selectedPizza, setSelectedPizza] = useState(null);
   const [editingCartItem, setEditingCartItem] = useState(null);
@@ -55,28 +57,37 @@ export default function Cardapio() {
   const { cart, addItem, updateItem, removeItem, updateQuantity, clearCart, cartTotal, cartItemsCount } = useCart();
   const { customer, setCustomer, clearCustomer } = useCustomer();
 
-  // Data Fetching - ✅ OTIMIZADO: cache de 2 minutos, sem polling excessivo
-  const { data: dishes = [], isLoading: dishesLoading } = useQuery({
-    queryKey: ['dishes'],
-    queryFn: () => base44.entities.Dish.list('order'),
-    staleTime: 2 * 60 * 1000, // 2 minutos - dados considerados frescos
-    gcTime: 5 * 60 * 1000, // 5 minutos no cache
-    initialData: [], // 👈 ESSENCIAL: garante que dishes nunca seja undefined
-    refetchOnMount: false, // Não refazer ao montar se dados estão frescos
-    refetchOnWindowFocus: false // Não refazer ao focar janela
+  // Cardápio público por link (sem login) — /s/:slug
+  const { data: publicData, isLoading: publicLoading, isError: publicError } = useQuery({
+    queryKey: ['publicCardapio', slug],
+    queryFn: () => base44.get(`/public/cardapio/${slug}`),
+    enabled: !!slug,
   });
 
-  // ✅ OTIMIZADO: Dados estáticos com cache longo (10 minutos)
+  // Data Fetching - quando não é /s/:slug (enabled: !slug)
+  const { data: dishes = [], isLoading: loadingDishes } = useQuery({
+    queryKey: ['dishes'],
+    queryFn: () => base44.entities.Dish.list('order'),
+    enabled: !slug,
+    staleTime: 2 * 60 * 1000,
+    gcTime: 5 * 60 * 1000,
+    initialData: [],
+    refetchOnMount: false,
+    refetchOnWindowFocus: false
+  });
+
   const { data: categories = [] } = useQuery({
     queryKey: ['categories'],
     queryFn: () => base44.entities.Category.list('order'),
-    staleTime: 10 * 60 * 1000, // 10 minutos - categorias mudam pouco
-    gcTime: 30 * 60 * 1000 // 30 minutos no cache
+    enabled: !slug,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000
   });
 
   const { data: complementGroups = [] } = useQuery({
     queryKey: ['complementGroups'],
     queryFn: () => base44.entities.ComplementGroup.list('order'),
+    enabled: !slug,
     staleTime: 10 * 60 * 1000,
     gcTime: 30 * 60 * 1000
   });
@@ -84,6 +95,7 @@ export default function Cardapio() {
   const { data: pizzaSizes = [] } = useQuery({
     queryKey: ['pizzaSizes'],
     queryFn: () => base44.entities.PizzaSize.list('order'),
+    enabled: !slug,
     staleTime: 10 * 60 * 1000,
     gcTime: 30 * 60 * 1000
   });
@@ -91,39 +103,61 @@ export default function Cardapio() {
   const { data: pizzaFlavors = [] } = useQuery({
     queryKey: ['pizzaFlavors'],
     queryFn: () => base44.entities.PizzaFlavor.list('order'),
+    enabled: !slug,
     staleTime: 10 * 60 * 1000,
     gcTime: 30 * 60 * 1000
   });
 
   const { data: pizzaEdges = [] } = useQuery({
     queryKey: ['pizzaEdges'],
-    queryFn: () => base44.entities.PizzaEdge.list('order')
+    queryFn: () => base44.entities.PizzaEdge.list('order'),
+    enabled: !slug
   });
 
   const { data: pizzaExtras = [] } = useQuery({
     queryKey: ['pizzaExtras'],
-    queryFn: () => base44.entities.PizzaExtra.list('order')
+    queryFn: () => base44.entities.PizzaExtra.list('order'),
+    enabled: !slug
   });
 
   const { data: stores = [] } = useQuery({
     queryKey: ['store'],
-    queryFn: () => base44.entities.Store.list()
+    queryFn: () => base44.entities.Store.list(),
+    enabled: !slug
   });
 
   const { data: coupons = [] } = useQuery({
     queryKey: ['coupons'],
-    queryFn: () => base44.entities.Coupon.list()
+    queryFn: () => base44.entities.Coupon.list(),
+    enabled: !slug
   });
 
   const { data: deliveryZones = [] } = useQuery({
     queryKey: ['deliveryZones'],
-    queryFn: () => base44.entities.DeliveryZone.list()
+    queryFn: () => base44.entities.DeliveryZone.list(),
+    enabled: !slug
   });
 
   const { data: promotions = [] } = useQuery({
     queryKey: ['promotions'],
-    queryFn: () => base44.entities.Promotion.list()
+    queryFn: () => base44.entities.Promotion.list(),
+    enabled: !slug
   });
+
+  // Quando /s/:slug: usar dados da API pública; senão usar das queries
+  const _pub = slug && publicData ? publicData : null;
+  const store = _pub?.store || stores?.[0] || { name: 'Sabor do Dia', is_open: true };
+  const dishesResolved = _pub?.dishes ?? dishes ?? [];
+  const categoriesResolved = _pub?.categories ?? categories ?? [];
+  const complementGroupsResolved = _pub?.complementGroups ?? complementGroups ?? [];
+  const pizzaSizesResolved = _pub?.pizzaSizes ?? pizzaSizes ?? [];
+  const pizzaFlavorsResolved = _pub?.pizzaFlavors ?? pizzaFlavors ?? [];
+  const pizzaEdgesResolved = _pub?.pizzaEdges ?? pizzaEdges ?? [];
+  const pizzaExtrasResolved = _pub?.pizzaExtras ?? pizzaExtras ?? [];
+  const deliveryZonesResolved = _pub?.deliveryZones ?? deliveryZones ?? [];
+  const couponsResolved = _pub?.coupons ?? coupons ?? [];
+  const promotionsResolved = _pub?.promotions ?? promotions ?? [];
+  const loadingDishes = slug ? publicLoading : dishesLoading;
 
   const createOrderMutation = useMutation({
     mutationFn: (data) => base44.entities.Order.create(data)
@@ -133,8 +167,18 @@ export default function Cardapio() {
     mutationFn: ({ id, data }) => base44.entities.Coupon.update(id, data)
   });
 
-  // Store data
-  const store = stores[0] || { name: 'Sabor do Dia', is_open: true };
+  // Link /s/:slug inválido
+  if (slug && publicError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
+        <div className="text-center">
+          <p className="text-lg text-gray-600 dark:text-gray-400">Link não encontrado</p>
+          <a href="/" className="mt-4 inline-block text-orange-500 hover:underline">Voltar ao início</a>
+        </div>
+      </div>
+    );
+  }
+
   const primaryColor = store.theme_primary_color || '#f97316';
   const headerBg = store.theme_header_bg || '#ffffff';
   const headerText = store.theme_header_text || '#000000';
@@ -144,15 +188,14 @@ export default function Cardapio() {
   const isStoreOpen = !isStoreUnavailable && !isStoreClosed && !isStorePaused;
 
   // Coupons
-  const { couponCode, setCouponCode, appliedCoupon, couponError, validateAndApply, removeCoupon, calculateDiscount } = useCoupons(coupons, cartTotal);
+  const { couponCode, setCouponCode, appliedCoupon, couponError, validateAndApply, removeCoupon, calculateDiscount } = useCoupons(couponsResolved, cartTotal);
 
   // Upsell
-  const { showUpsellModal, upsellPromotions, checkUpsell, resetUpsell, closeUpsell } = useUpsell(promotions, cartTotal);
+  const { showUpsellModal, upsellPromotions, checkUpsell, resetUpsell, closeUpsell } = useUpsell(promotionsResolved, cartTotal);
 
   // Memoized calculations
   const activeDishes = useMemo(() => {
-    // Garantir que dishes seja um array
-    const safeDishes = Array.isArray(dishes) ? dishes : [];
+    const safeDishes = Array.isArray(dishesResolved) ? dishesResolved : [];
     // Filtra apenas pratos ativos E que tenham nome e preço definidos
     return safeDishes.filter((d) => {
       if (d.is_active === false) return false;
@@ -160,7 +203,7 @@ export default function Cardapio() {
       
       // Para pizzas, verificar se tem tamanhos e sabores configurados
       if (d.product_type === 'pizza') {
-        if (pizzaSizes.length === 0 || pizzaFlavors.length === 0) return false;
+        if (pizzaSizesResolved.length === 0 || pizzaFlavorsResolved.length === 0) return false;
       } else {
         // Para outros produtos, verificar se tem preço
         if (d.price === null || d.price === undefined) return false;
@@ -168,12 +211,12 @@ export default function Cardapio() {
       
       return true;
     });
-  }, [dishes, pizzaSizes, pizzaFlavors]);
+  }, [dishesResolved, pizzaSizesResolved, pizzaFlavorsResolved]);
   const highlightDishes = useMemo(() => {
     const safeActiveDishes = Array.isArray(activeDishes) ? activeDishes : [];
     return safeActiveDishes.filter((d) => d.is_highlight);
   }, [activeDishes]);
-  const activePromotions = useMemo(() => (Array.isArray(promotions) ? promotions : []).filter(p => p.is_active), [promotions]);
+  const activePromotions = useMemo(() => (Array.isArray(promotionsResolved) ? promotionsResolved : []).filter(p => p.is_active), [promotionsResolved]);
 
   const filteredDishes = useMemo(() => {
     const safeActiveDishes = Array.isArray(activeDishes) ? activeDishes : [];
@@ -314,7 +357,7 @@ export default function Cardapio() {
   const handleUpsellAccept = (promotion) => {
     if (!promotion) return;
     
-    const promoDish = dishes.find(d => d.id === promotion.offer_dish_id);
+    const promoDish = dishesResolved.find(d => d.id === promotion.offer_dish_id);
     if (!promoDish) {
       closeUpsell();
       return;
@@ -347,7 +390,7 @@ export default function Cardapio() {
     const calculatedDeliveryFee = orderService.calculateDeliveryFee(
       customer.deliveryMethod, 
       customer.neighborhood, 
-      deliveryZones,
+      deliveryZonesResolved,
       store,
       customer.latitude,
       customer.longitude
@@ -396,7 +439,7 @@ export default function Cardapio() {
       const message = whatsappService.formatOrderMessage(
         order, 
         cart, 
-        complementGroups, 
+        complementGroupsResolved, 
         formatCurrency
       );
 
@@ -716,7 +759,7 @@ export default function Cardapio() {
               >
                 Todos
               </button>
-              {categories.map((cat) => (
+              {categoriesResolved.map((cat) => (
                 <button
                   key={cat.id}
                   onClick={() => setSelectedCategory(cat.id)}
@@ -781,7 +824,7 @@ export default function Cardapio() {
         <div data-section="promotions">
           <PromotionBanner
             promotions={activePromotions}
-            dishes={dishes}
+            dishes={dishesResolved}
             primaryColor={primaryColor}
             onSelectPromotion={setSelectedDish}
             store={store}
@@ -845,7 +888,7 @@ export default function Cardapio() {
                           )}
                           <span className="font-bold text-base md:text-sm lg:text-base block truncate leading-tight" style={{ color: primaryColor }}>
                             {dish.product_type === 'pizza' 
-                              ? `A partir de ${formatCurrency(pizzaSizes[0]?.price_tradicional || 0)}`
+                              ? `A partir de ${formatCurrency(pizzaSizesResolved[0]?.price_tradicional || 0)}`
                               : formatCurrency(dish.price)
                             }
                           </span>
@@ -863,9 +906,9 @@ export default function Cardapio() {
           <h2 className="font-bold text-base md:text-lg mb-4 md:mb-4 text-foreground">
             {selectedCategory === 'all' 
               ? 'Cardápio Completo' 
-              : categories.find(c => c.id === selectedCategory)?.name || 'Pratos'}
+              : categoriesResolved.find(c => c.id === selectedCategory)?.name || 'Pratos'}
           </h2>
-          {dishesLoading ? (
+          {loadingDishes ? (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-3 lg:gap-4">
               {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
                 <DishSkeleton key={i} />
@@ -963,7 +1006,7 @@ export default function Cardapio() {
                           )}
                           <span className="font-bold text-base md:text-sm lg:text-base block truncate leading-tight" style={{ color: primaryColor }}>
                             {dish.product_type === 'pizza' 
-                              ? `A partir de ${formatCurrency(pizzaSizes[0]?.price_tradicional || 0)}`
+                              ? `A partir de ${formatCurrency(pizzaSizesResolved[0]?.price_tradicional || 0)}`
                               : formatCurrency(dish.price)
                             }
                           </span>
@@ -977,7 +1020,7 @@ export default function Cardapio() {
           )}
         </section>
 
-        {!dishesLoading && filteredDishes.length === 0 && (
+        {!loadingDishes && filteredDishes.length === 0 && (
           <div className="text-center py-16">
             <p className="text-muted-foreground">Nenhum prato encontrado</p>
           </div>
@@ -1153,7 +1196,7 @@ export default function Cardapio() {
           setEditingCartItem(null);
         }}
         dish={selectedDish}
-        complementGroups={complementGroups}
+        complementGroups={complementGroupsResolved}
         onAddToCart={handleAddToCart}
         editingItem={editingCartItem}
         primaryColor={primaryColor}
@@ -1162,10 +1205,10 @@ export default function Cardapio() {
       {selectedPizza && (
         <PizzaBuilder
           dish={selectedPizza}
-          sizes={pizzaSizes}
-          flavors={pizzaFlavors}
-          edges={pizzaEdges}
-          extras={pizzaExtras}
+          sizes={pizzaSizesResolved}
+          flavors={pizzaFlavorsResolved}
+          edges={pizzaEdgesResolved}
+          extras={pizzaExtrasResolved}
           onAddToCart={handleAddToCart}
           onClose={() => {
             setSelectedPizza(null);
@@ -1191,7 +1234,7 @@ export default function Cardapio() {
         isOpen={showUpsellModal}
         onClose={closeUpsell}
         promotions={upsellPromotions}
-        dishes={dishes}
+        dishes={dishesResolved}
         onAccept={handleUpsellAccept}
         onDecline={closeUpsell}
         primaryColor={primaryColor}
@@ -1210,7 +1253,7 @@ export default function Cardapio() {
           couponError={couponError}
           onApplyCoupon={handleApplyCoupon}
           onRemoveCoupon={handleRemoveCoupon}
-          deliveryZones={deliveryZones}
+          deliveryZones={deliveryZonesResolved}
           store={store}
           primaryColor={primaryColor}
         />

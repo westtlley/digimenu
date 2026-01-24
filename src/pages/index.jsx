@@ -90,11 +90,10 @@ function PagesContent() {
     
     return (
         <Layout currentPageName={currentPage}>
-            <Routes>            
-                
+            <Routes>
+                {/* Link único por assinante: /s/meu-restaurante — cardápio público sem login */}
+                <Route path="/s/:slug" element={<Cardapio />} />
                     <Route path="/" element={<Cardapio />} />
-                
-                
                 <Route path="/Assinantes" element={<Assinantes />} />
                 
                 <Route path="/Assinar" element={<Assinar />} />
