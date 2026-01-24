@@ -167,13 +167,14 @@ export default function Cardapio() {
     mutationFn: ({ id, data }) => base44.entities.Coupon.update(id, data)
   });
 
-  // Link /s/:slug inválido
+  // Link /s/:slug inválido (404, 429, 503, etc.)
   if (slug && publicError) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
-        <div className="text-center">
-          <p className="text-lg text-gray-600 dark:text-gray-400">Link não encontrado</p>
-          <a href="/" className="mt-4 inline-block text-orange-500 hover:underline">Voltar ao início</a>
+        <div className="text-center max-w-md p-6 rounded-xl bg-white dark:bg-gray-800 shadow-lg border border-gray-200 dark:border-gray-700">
+          <p className="text-xl font-medium text-gray-800 dark:text-gray-100">Link não encontrado</p>
+          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Este cardápio não existe ou o link está incorreto. Verifique com o estabelecimento.</p>
+          <a href="/" className="mt-6 inline-block px-4 py-2 rounded-lg bg-orange-500 text-white font-medium hover:bg-orange-600">Voltar ao início</a>
         </div>
       </div>
     );

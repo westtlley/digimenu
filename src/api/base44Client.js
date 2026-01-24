@@ -18,4 +18,9 @@ export const base44 = {
 
   // Módulo de integrações
   integrations: apiClient.integrations,
+
+  // Métodos HTTP diretos (usados por StoreTab, ColaboradoresTab, etc.)
+  get: (endpoint, params) => apiClient.get(endpoint, params),
+  put: (endpoint, data) => apiClient.put(endpoint, data),
+  post: (endpoint, data, opts) => apiClient.post(endpoint, data, opts),
 };

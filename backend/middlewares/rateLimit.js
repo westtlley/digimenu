@@ -31,11 +31,13 @@ export const loginLimiter = rateLimit({
 });
 
 /**
- * Rate limit geral para API (100 requisições por 15 minutos)
+ * Rate limit geral para API (300 requisições por 15 minutos)
+ * Aumentado de 100 para evitar "Muitas requisições" em painéis com muitas
+ * listagens, refetch e uso normal (Assinantes, Loja, Gestor, etc.)
  */
 export const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 100, // 100 requisições
+  max: 300, // 300 requisições (antes 100)
   message: {
     error: 'Muitas requisições. Tente novamente mais tarde.',
     retryAfter: 15 * 60

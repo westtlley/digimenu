@@ -92,7 +92,8 @@ export function usePermission() {
 
   useEffect(() => {
     loadPermissions();
-    const interval = setInterval(loadPermissions, 30000);
+    // 60s (antes 30s) para reduzir requisições e evitar "Muitas requisições"
+    const interval = setInterval(loadPermissions, 60000);
     const t = setTimeout(() => {
       setLoading((prev) => (prev ? false : prev));
     }, 12000);
