@@ -810,6 +810,7 @@ app.get('/api/public/cardapio/:slug', asyncHandler(async (req, res) => {
   ]);
   const store = Array.isArray(storeList) && storeList[0] ? storeList[0] : { name: 'Loja', is_open: true };
   res.json({
+    subscriber_email: se,
     store,
     dishes: Array.isArray(dishes) ? dishes : [],
     categories: Array.isArray(categories) ? categories : [],
@@ -1375,6 +1376,7 @@ app.post('/api/entities/:entity', authenticate, async (req, res) => {
       req.user._contextForSubscriber = asSub;
       delete data.as_subscriber;
       data.owner_email = asSub;
+      createOpts.forSubscriberEmail = asSub;
     }
 
     if (!req.user?.is_master) {
@@ -1383,6 +1385,17 @@ app.post('/api/entities/:entity', authenticate, async (req, res) => {
       if (subscriber) {
         if (!data.owner_email) data.owner_email = subscriber.email;
         createOpts.forSubscriberEmail = subscriber.email;
+      }
+    }
+
+    // Pedido do cardápio público /s/:slug: owner_email no body indica o assinante (restaurante).
+    // Garante que o pedido caia no Gestor do assinante, não no do master.
+    if (data.owner_email && !createOpts.forSubscriberEmail) {
+      const ownerSub = usePostgreSQL ? await repo.getSubscriberByEmail(data.owner_email) : db?.subscribers?.find(s => (s.email || '').toLowerCase() === (data.owner_email || '').toLowerCase());
+      if (ownerSub) {
+        createOpts.forSubscriberEmail = data.owner_email;
+      } else if (String(entity).toLowerCase() === 'order') {
+        return res.status(400).json({ error: 'owner_email não é um assinante válido. Pedido do cardápio por link precisa do dono do cardápio.' });
       }
     }
 

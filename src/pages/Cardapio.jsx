@@ -433,6 +433,8 @@ export default function Cardapio() {
         customer_change_request: (customer.customer_change_request || '').trim(),
         customer_change_status: 'pending',
       }),
+      // Cardápio público /s/:slug: pedido deve cair no Gestor do assinante, não no do master
+      ...(slug && publicData?.subscriber_email && { owner_email: publicData.subscriber_email }),
     };
 
     const order = await orderService.createOrder(orderData, createOrderMutation);
