@@ -34,3 +34,6 @@ lerna-debug.log*
 
 # OS
 Thumbs.db
+
+# Pasta de captura/referência (não faz parte do projeto)
+gestordepedidos.ifood.com.br/
