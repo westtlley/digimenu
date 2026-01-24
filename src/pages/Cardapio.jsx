@@ -30,6 +30,7 @@ import { useStoreStatus } from '@/components/hooks/useStoreStatus';
 import { useUpsell } from '@/components/hooks/useUpsell';
 import { useCoupons } from '@/components/hooks/useCoupons';
 import { useCustomer } from '@/components/hooks/useCustomer';
+import { useDocumentHead } from '@/hooks/useDocumentHead';
 
 // Services & Utils
 import { orderService } from '@/components/services/orderService';
@@ -158,6 +159,8 @@ export default function Cardapio() {
   const couponsResolved = _pub?.coupons ?? coupons ?? [];
   const promotionsResolved = _pub?.promotions ?? promotions ?? [];
   const loadingDishes = slug ? publicLoading : dishesLoading;
+
+  useDocumentHead(store);
 
   const createOrderMutation = useMutation({
     mutationFn: (data) => base44.entities.Order.create(data)

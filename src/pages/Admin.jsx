@@ -32,6 +32,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { usePermission } from '../components/permissions/usePermission';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
+import { useDocumentHead } from '@/hooks/useDocumentHead';
 
 function AccessDenied() {
   return (
@@ -65,6 +66,8 @@ export default function Admin() {
     queryFn: () => base44.entities.Store.list(),
   });
   const store = stores[0];
+
+  useDocumentHead(store);
 
   // TODOS OS HOOKS DEVEM VIR ANTES DE QUALQUER RETURN CONDICIONAL
   // Debug: Log para verificar o estado

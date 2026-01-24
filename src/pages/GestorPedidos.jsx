@@ -26,6 +26,7 @@ import AdvancedOrderFilters from '../components/gestor/AdvancedOrderFilters';
 import FinancialDashboard from '../components/gestor/FinancialDashboard';
 import UserAuthButton from '../components/atoms/UserAuthButton';
 import { usePermission } from '../components/permissions/usePermission';
+import { useDocumentHead } from '@/hooks/useDocumentHead';
 import { downloadOrdersCSV, exportGestorReportPDF, printOrdersInQueue } from '../utils/gestorExport';
 import { getNotificationSoundConfig } from '@/utils/gestorSounds';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -101,6 +102,8 @@ export default function GestorPedidos() {
     queryKey: ['store'],
     queryFn: () => base44.entities.Store.list(),
   });
+  const store = stores[0] || { name: 'Gestor de Pedidos' };
+  useDocumentHead(store);
 
   const loadGestorSettings = () => {
     try {
@@ -370,8 +373,6 @@ export default function GestorPedidos() {
       </div>
     );
   }
-
-  const store = stores[0] || { name: 'Gestor de Pedidos' };
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">

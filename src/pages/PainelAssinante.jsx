@@ -8,6 +8,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { usePermission } from '../components/permissions/usePermission';
 import { useQuery } from '@tanstack/react-query';
+import { useDocumentHead } from '@/hooks/useDocumentHead';
 import toast from 'react-hot-toast';
 import SharedSidebar from '../components/admin/SharedSidebar';
 import DashboardTab from '../components/admin/DashboardTab';
@@ -59,6 +60,8 @@ export default function PainelAssinante() {
     queryFn: () => base44.entities.Store.list(),
   });
   const store = stores[0];
+
+  useDocumentHead(store);
 
   // Abrir aba via ?tab= na URL (ex: /painelassinante?tab=store)
   const [searchParams] = useSearchParams();
