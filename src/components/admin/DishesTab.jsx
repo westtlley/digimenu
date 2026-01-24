@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Trash2, Star, ChevronDown, ChevronUp, MoreVertical, Layers, Copy, FolderPlus, Menu, Settings, Files, Pencil, Gift, X, GripVertical, Search, Bookmark, Edit as EditIcon, UtensilsCrossed } from 'lucide-react';
+import { Plus, Trash2, Star, ChevronDown, ChevronUp, MoreVertical, Layers, Copy, FolderPlus, Menu, Settings, Files, Pencil, Gift, X, GripVertical, Search, Bookmark, Edit as EditIcon, UtensilsCrossed, Grid3x3 } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import ComboModal from './ComboModal';
 import ReuseGroupModal from './ReuseGroupModal';
@@ -1462,6 +1462,8 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
           </Button>
         </div>
       </MobileBottomSheet>
+        </>
+      )}
 
       {/* Modal Nova/Editar Categoria */}
       <CategoryForm
@@ -2306,8 +2308,6 @@ function DishRow({ dish, complementGroups, expanded, onToggleExpand, onEdit, onD
             </DropdownMenu>
           )}
         </div>
-      )}
-        </>
       )}
     </div>
   );

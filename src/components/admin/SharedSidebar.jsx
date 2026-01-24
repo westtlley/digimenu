@@ -107,6 +107,7 @@ const MENU_STRUCTURE = [
       { id: 'store', label: 'Loja', icon: Store, module: 'store' },
       { id: 'theme', label: 'Tema', icon: Palette, module: 'theme' },
       { id: 'printer', label: 'Impressora', icon: Printer, module: 'printer' },
+      { id: 'colaboradores', label: 'Colaboradores', icon: UserCog, module: 'colaboradores' },
     ]
   }
 ];
