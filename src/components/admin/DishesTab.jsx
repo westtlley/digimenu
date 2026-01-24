@@ -153,7 +153,8 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
       }
     },
     initialData: [],
-    retry: 1,
+    retry: 2,
+    refetchOnMount: 'always', // evita cache vazio: complementos voltam a aparecer após refresh
   });
 
   const { data: combos = [] } = useQuery({
@@ -574,10 +575,10 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
       ...(dish.complement_groups || []),
       { group_id: groupId, is_required: false }
     ];
-    updateDishMutation.mutate({
-      id: dishId,
-      data: { ...dish, complement_groups: updatedGroups }
-    });
+    updateDishMutation.mutate(
+      { id: dishId, data: { ...dish, complement_groups: updatedGroups } },
+      { onSettled: () => queryClient.invalidateQueries({ queryKey: ['complementGroups'] }) }
+    );
   };
 
   const removeGroupFromDish = (dishId, groupId) => {

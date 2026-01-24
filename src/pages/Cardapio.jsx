@@ -90,7 +90,8 @@ export default function Cardapio() {
     queryFn: () => base44.entities.ComplementGroup.list('order'),
     enabled: !slug,
     staleTime: 10 * 60 * 1000,
-    gcTime: 30 * 60 * 1000
+    gcTime: 30 * 60 * 1000,
+    refetchOnMount: 'always',
   });
 
   const { data: pizzaSizes = [] } = useQuery({

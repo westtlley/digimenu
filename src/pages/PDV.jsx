@@ -53,6 +53,7 @@ export default function PDV() {
   const { data: complementGroups = [] } = useQuery({
     queryKey: ['complementGroups'],
     queryFn: () => base44.entities.ComplementGroup.list('order'),
+    refetchOnMount: 'always',
   });
 
   const { data: caixas = [], isLoading: caixasLoading } = useQuery({

@@ -104,6 +104,7 @@ export default function ComplementTemplates({ isOpen, onClose, onUseTemplate }) 
   const { data: complementGroups = [] } = useQuery({
     queryKey: ['complementGroups'],
     queryFn: () => base44.entities.ComplementGroup.list('order'),
+    refetchOnMount: 'always',
   });
 
   // ✅ Usar campo is_template ou tag para identificar templates (sem [TEMPLATE] no nome)

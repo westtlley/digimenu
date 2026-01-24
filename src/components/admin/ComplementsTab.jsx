@@ -232,6 +232,7 @@ export default function ComplementsTab() {
   const { data: groups = [] } = useQuery({
     queryKey: ['complementGroups'],
     queryFn: () => base44.entities.ComplementGroup.list('order'),
+    refetchOnMount: 'always',
   });
 
   const createMutation = useMutation({
