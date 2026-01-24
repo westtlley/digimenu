@@ -22,7 +22,8 @@ import {
   Copy,
   RefreshCw,
   CheckSquare,
-  Square
+  Square,
+  Link2
 } from 'lucide-react';
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -87,6 +88,7 @@ export default function Assinantes() {
   const [newSubscriber, setNewSubscriber] = useState({
     email: '',
     name: '',
+    slug: '',
     plan: 'basic', // Inicializar com 'basic' em vez de 'custom'
     status: 'active',
     expires_at: '',
@@ -271,6 +273,7 @@ export default function Assinantes() {
       setNewSubscriber({ 
         email: '', 
         name: '', 
+        slug: '',
         plan: 'basic', 
         status: 'active', 
         expires_at: '',
@@ -581,6 +584,11 @@ export default function Assinantes() {
       dataToCreate.expires_at = newSubscriber.expires_at;
     }
     
+    // slug: link do cardápio (/s/meu-restaurante). Backend normaliza.
+    if (newSubscriber.slug != null) {
+      dataToCreate.slug = (newSubscriber.slug || '').trim() || null;
+    }
+    
     // Adicionar permissions (sempre objeto válido)
     if (permissions && Object.keys(permissions).length > 0) {
       dataToCreate.permissions = permissions;
@@ -647,7 +655,8 @@ export default function Assinantes() {
       status: editingSubscriber.status || 'active',
       expires_at: editingSubscriber.expires_at || '',
       permissions: editingSubscriber.permissions || {},
-      notes: editingSubscriber.notes || ''
+      notes: editingSubscriber.notes || '',
+      slug: editingSubscriber.slug ?? ''
     };
 
     console.log('💾 SALVANDO - editingSubscriber.id:', editingSubscriber.id);
@@ -1163,6 +1172,7 @@ export default function Assinantes() {
                               setNewSubscriber({
                                 email: duplicated.email,
                                 name: duplicated.name,
+                                slug: '',
                                 plan: duplicated.plan,
                                 status: duplicated.status || 'active',
                                 expires_at: duplicated.expires_at || '',
@@ -1277,6 +1287,30 @@ export default function Assinantes() {
                 />
               </div>
 
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <label className="text-sm font-medium text-gray-700 flex items-center gap-1">
+                    <Link2 className="w-4 h-4 text-orange-500" />
+                    Link do cardápio
+                  </label>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <HelpCircle className="w-4 h-4 text-gray-400 cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="max-w-xs">Parte final da URL do cardápio: /s/meu-restaurante. Apenas letras minúsculas, números e hífen. Deixe vazio para o assinante definir depois em Loja.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+                <Input
+                  placeholder="ex: meu-restaurante"
+                  value={newSubscriber.slug || ''}
+                  onChange={(e) => setNewSubscriber({...newSubscriber, slug: e.target.value})}
+                  className="font-mono"
+                />
+                <p className="text-xs text-gray-500 mt-1">URL: /s/<span className="font-mono">{newSubscriber.slug || '...'}</span></p>
+              </div>
+
             {/* Templates de Planos */}
             <PlanTemplates
               onSelectTemplate={(template) => {
@@ -1381,6 +1415,20 @@ export default function Assinantes() {
                     value={editingSubscriber.name || ''}
                     onChange={(e) => setEditingSubscriber({...editingSubscriber, name: e.target.value})}
                   />
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-1 block flex items-center gap-1">
+                    <Link2 className="w-4 h-4 text-orange-500" />
+                    Link do cardápio
+                  </label>
+                  <Input
+                    placeholder="ex: meu-restaurante"
+                    value={editingSubscriber.slug || ''}
+                    onChange={(e) => setEditingSubscriber({...editingSubscriber, slug: e.target.value})}
+                    className="font-mono"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">URL do cardápio: /s/<span className="font-mono">{editingSubscriber.slug || '...'}</span>. Apenas letras minúsculas, números e hífen. Deixe vazio para remover.</p>
                 </div>
               </div>
 

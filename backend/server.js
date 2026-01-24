@@ -1690,6 +1690,8 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
               // Verificar se já existe
               const existingIndex = db.subscribers.findIndex(s => s.email === data.email);
               
+              const rawSlug = data.slug;
+              const slug = (rawSlug == null || rawSlug === '') ? null : (String(rawSlug).trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') || null);
               const newSub = {
                 id: existingIndex >= 0 ? db.subscribers[existingIndex].id : Date.now().toString(),
                 email: data.email,
@@ -1699,6 +1701,7 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
                 expires_at: data.expires_at || null,
                 permissions: data.permissions || {},
                 whatsapp_auto_enabled: data.whatsapp_auto_enabled !== undefined ? data.whatsapp_auto_enabled : true,
+                slug,
                 created_at: existingIndex >= 0 ? db.subscribers[existingIndex].created_at : new Date().toISOString(),
                 updated_at: new Date().toISOString()
               };

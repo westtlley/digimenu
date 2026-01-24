@@ -65,7 +65,7 @@ export default function Cardapio() {
   });
 
   // Data Fetching - quando não é /s/:slug (enabled: !slug)
-  const { data: dishes = [], isLoading: loadingDishes } = useQuery({
+  const { data: dishes = [], isLoading: dishesLoading } = useQuery({
     queryKey: ['dishes'],
     queryFn: () => base44.entities.Dish.list('order'),
     enabled: !slug,

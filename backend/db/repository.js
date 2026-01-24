@@ -549,6 +549,9 @@ export async function createSubscriber(subscriberData) {
     const expires_at = subscriberData.expires_at || null;
     const permissionsJson = JSON.stringify(permissions);
     const whatsapp_auto_enabled = subscriberData.whatsapp_auto_enabled !== undefined ? subscriberData.whatsapp_auto_enabled : true;
+    // slug: link do cardápio (ex: /s/meu-restaurante). Normalizar como em updateSubscriber.
+    const rawSlug = subscriberData.slug;
+    const slug = (rawSlug == null || rawSlug === '') ? null : (String(rawSlug).trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') || null);
     
     console.log('📝 [REPOSITORY] Valores preparados:', {
       email,
@@ -557,13 +560,14 @@ export async function createSubscriber(subscriberData) {
       status,
       expires_at,
       permissions: permissionsJson,
-      whatsapp_auto_enabled
+      whatsapp_auto_enabled,
+      slug
     });
     
     // Usar ON CONFLICT para lidar com emails duplicados (upsert)
     const result = await query(
-      `INSERT INTO subscribers (email, name, plan, status, expires_at, permissions, whatsapp_auto_enabled)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO subscribers (email, name, plan, status, expires_at, permissions, whatsapp_auto_enabled, slug)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        ON CONFLICT (email) DO UPDATE SET
          name = EXCLUDED.name,
          plan = EXCLUDED.plan,
@@ -571,6 +575,7 @@ export async function createSubscriber(subscriberData) {
          expires_at = EXCLUDED.expires_at,
          permissions = EXCLUDED.permissions,
          whatsapp_auto_enabled = EXCLUDED.whatsapp_auto_enabled,
+         slug = EXCLUDED.slug,
          updated_at = CURRENT_TIMESTAMP
        RETURNING *`,
       [
@@ -580,7 +585,8 @@ export async function createSubscriber(subscriberData) {
         status,
         expires_at,
         permissionsJson, // JÁ CONVERTIDO PARA JSON
-        whatsapp_auto_enabled
+        whatsapp_auto_enabled,
+        slug
       ]
     );
     
