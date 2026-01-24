@@ -292,28 +292,28 @@ class ApiClient {
         /**
          * Lista. opts.as_subscriber = email do assinante para modo suporte (master).
          * opts.page e opts.limit para paginação.
-         * Retorna { items: [], pagination: {...} } se usar paginação, ou array direto se não.
+         * Retorna array de items (o backend devolve { items, pagination }; normalizamos para array).
          */
         list: async (orderBy = null, opts = {}) => {
           const params = typeof opts === 'object' && opts !== null ? { ...opts } : {};
           if (orderBy) params.order_by = orderBy;
           
-          // Se usar paginação, retornar estrutura completa
           const result = await self.get(`/entities/${entityName}`, params);
           
-          // Se resultado tem estrutura de paginação, retornar como está
-          if (result && typeof result === 'object' && 'items' in result && 'pagination' in result) {
-            return result;
+          // Backend sempre retorna { items: [], pagination } — normalizar para array
+          if (result && typeof result === 'object' && Array.isArray(result.items)) {
+            return result.items;
           }
-          
-          // Caso contrário, retornar array direto (compatibilidade)
-          return result;
+          // Compatibilidade: se vier array direto (ex.: JSON in-memory)
+          return Array.isArray(result) ? result : [];
         },
 
         filter: async (filters = {}, orderBy = null) => {
           const params = { ...filters };
           if (orderBy) params.order_by = orderBy;
-          return self.get(`/entities/${entityName}`, params);
+          const result = await self.get(`/entities/${entityName}`, params);
+          if (result && typeof result === 'object' && Array.isArray(result.items)) return result.items;
+          return Array.isArray(result) ? result : [];
         },
 
         /**

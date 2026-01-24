@@ -180,7 +180,7 @@ export default function SharedSidebar({
 
     if (isSectionOrSub) {
       const isExpanded = expandedGroups[item.id];
-      const visibleSubmenu = item.submenu.filter(sub => {
+      const visibleSubmenu = (item.submenu || []).filter(sub => {
         if (sub.section === 'subsection')
           return (sub.submenu || []).some(s => s.module && hasModuleAccess(s.module) && !hideDishesBasicPizzas(s));
         return sub.module && hasModuleAccess(sub.module) && !hideDishesBasicPizzas(sub);
