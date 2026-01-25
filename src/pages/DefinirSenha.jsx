@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Eye, EyeOff, Lock, Loader2, CheckCircle, Clock } from 'lucide-react';
 import { apiClient } from '@/api/apiClient';
+import { logger } from '@/utils/logger';
 import toast from 'react-hot-toast';
 
 export default function DefinirSenha() {
@@ -86,14 +87,14 @@ export default function DefinirSenha() {
     }
 
     try {
-      console.log('🔐 Enviando requisição para definir senha...', { token: token?.substring(0, 20) + '...' });
+      logger.log('🔐 Enviando requisição para definir senha...');
       
       const response = await apiClient.post('/auth/set-password', {
         token,
         password
       });
 
-      console.log('📥 Resposta recebida:', response);
+      logger.log('📥 Resposta recebida');
 
       // Verificar diferentes formatos de resposta
       if (response?.success || response?.data?.success) {
@@ -110,7 +111,7 @@ export default function DefinirSenha() {
         toast.error(errorMsg);
       }
     } catch (error) {
-      console.error('❌ Erro ao definir senha:', error);
+      logger.error('❌ Erro ao definir senha:', error);
       const errorMessage = error?.response?.data?.error || error?.message || 'Erro ao definir senha. Verifique o token.';
       setError(errorMessage);
       toast.error(errorMessage);

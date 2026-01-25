@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
+import { useSlugContext } from '@/hooks/useSlugContext';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 
@@ -63,6 +64,8 @@ export default function Entregador() {
   
   const audioRef = useRef(null);
   const queryClient = useQueryClient();
+  const { slug, subscriberEmail, inSlugContext } = useSlugContext();
+  const asSub = (inSlugContext && user?.is_master && subscriberEmail) ? subscriberEmail : undefined;
 
   // Critical Notifications System
   const criticalNotifications = useCriticalNotifications(entregador?.id);
@@ -72,6 +75,7 @@ export default function Entregador() {
       try {
         const userData = await base44.auth.me();
         setUser(userData);
+        const asSub = (inSlugContext && userData?.is_master && subscriberEmail) ? subscriberEmail : undefined;
 
         // Colaborador com perfil Entregador tem acesso direto
         if (userData.profile_role === 'entregador') {
@@ -93,7 +97,7 @@ export default function Entregador() {
         
         // Master, is_entregador ou perfil colaborador Entregador
         if (userData.is_master || userData.is_entregador || userData.profile_role === 'entregador') {
-          const allEntregadores = await base44.entities.Entregador.list();
+          const allEntregadores = await base44.entities.Entregador.list(null, asSub ? { as_subscriber: asSub } : {});
           const matchedEntregador = allEntregadores.find(e => 
             e.email?.toLowerCase().trim() === userData.email?.toLowerCase().trim()
           );
@@ -137,22 +141,22 @@ export default function Entregador() {
     if (!hasSeenTutorial && !neverShowAgain) {
       setTimeout(() => setShowTutorial(true), 1000);
     }
-  }, []);
+  }, [inSlugContext, subscriberEmail]);
 
   const prevOrderCountRef = useRef(0);
 
   const { data: orders = [] } = useQuery({
-    queryKey: ['deliveryOrders', entregador?.id],
-    queryFn: () => base44.entities.Order.filter({ entregador_id: entregador?.id }),
+    queryKey: ['deliveryOrders', entregador?.id, asSub ?? 'me'],
+    queryFn: () => base44.entities.Order.filter({ entregador_id: entregador?.id, ...(asSub && { as_subscriber: asSub }) }),
     enabled: !!entregador?.id && !entregador?._isMaster,
     refetchInterval: 5000,
   });
 
   // Para master, buscar todos os pedidos out_for_delivery
   const { data: allOrders = [] } = useQuery({
-    queryKey: ['allDeliveryOrders'],
+    queryKey: ['allDeliveryOrders', asSub ?? 'me'],
     queryFn: async () => {
-      const orders = await base44.entities.Order.list();
+      const orders = await base44.entities.Order.list(null, asSub ? { as_subscriber: asSub } : {});
       return orders.filter(o => ['going_to_store', 'arrived_at_store', 'picked_up', 'out_for_delivery', 'arrived_at_customer'].includes(o.status));
     },
     enabled: !!entregador?._isMaster,
@@ -405,7 +409,7 @@ export default function Entregador() {
           <p className="text-gray-600 mb-6">
             Esta funcionalidade não está disponível no seu plano atual.
           </p>
-          <Link to={createPageUrl('PainelAssinante')}>
+          <Link to={createPageUrl('PainelAssinante', slug || undefined)}>
             <Button className="bg-blue-500 hover:bg-blue-600">
               Voltar ao Painel
             </Button>
@@ -426,7 +430,7 @@ export default function Entregador() {
           <p className={`mb-6 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
             Você não está cadastrado como entregador.
           </p>
-          <Link to={createPageUrl('Cardapio')}>
+          <Link to={createPageUrl('Cardapio', slug || undefined)}>
             <Button className="w-full bg-blue-500 hover:bg-blue-600">Ver Cardápio</Button>
           </Link>
         </div>

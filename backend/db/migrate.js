@@ -97,6 +97,45 @@ export async function migrate() {
         } catch (error) {
           console.warn('⚠️ Aviso ao adicionar slug (pode já existir):', error.message);
         }
+
+        // password_token e token_expires_at em subscribers (definir senha do assinante)
+        try {
+          await query(`
+            DO $$ 
+            BEGIN
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                            WHERE table_name='subscribers' AND column_name='password_token') THEN
+                ALTER TABLE subscribers ADD COLUMN password_token VARCHAR(255);
+                RAISE NOTICE 'Coluna password_token adicionada em subscribers';
+              END IF;
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                            WHERE table_name='subscribers' AND column_name='token_expires_at') THEN
+                ALTER TABLE subscribers ADD COLUMN token_expires_at TIMESTAMP;
+                RAISE NOTICE 'Coluna token_expires_at adicionada em subscribers';
+              END IF;
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                            WHERE table_name='subscribers' AND column_name='has_password') THEN
+                ALTER TABLE subscribers ADD COLUMN has_password BOOLEAN DEFAULT false;
+                RAISE NOTICE 'Coluna has_password adicionada em subscribers';
+              END IF;
+            END $$;
+          `);
+          console.log('✅ Migração de colunas password_token/token_expires_at/has_password em subscribers concluída.');
+        } catch (error) {
+          console.warn('⚠️ Aviso ao adicionar colunas de senha em subscribers (pode já existir):', error.message);
+        }
+
+        // Tabela password_reset_tokens (esqueci minha senha — usuários e assinantes)
+        await query(`
+          CREATE TABLE IF NOT EXISTS password_reset_tokens (
+            id SERIAL PRIMARY KEY,
+            email VARCHAR(255) NOT NULL,
+            token VARCHAR(255) NOT NULL UNIQUE,
+            expires_at TIMESTAMP NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          );
+        `);
+        console.log('✅ Migração de tabela password_reset_tokens concluída.');
     
     console.log('✅ Migração concluída com sucesso!');
     return true;

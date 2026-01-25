@@ -236,16 +236,23 @@ export default function Login() {
             </p>
           </div>
 
-          {/* Ajuda */}
+          {/* Esqueci minha senha */}
+          <div className="mt-4 text-center">
+            <Link to="/esqueci-senha" className="text-sm text-orange-500 hover:underline">
+              Esqueci minha senha
+            </Link>
+          </div>
+
+          {/* Ajuda e atalhos */}
           <div className="mt-4 p-3 rounded-xl" style={{ backgroundColor: 'var(--bg-secondary)' }}>
             <p className="text-xs text-center" style={{ color: 'var(--text-secondary)' }}>
-              Esqueceu a senha ou não tem acesso? Entre em contato.
+              <strong>Colaborador</strong> (Entregador/Cozinha/PDV): use o mesmo login; você será direcionado ao seu painel.
             </p>
-            <a href="https://wa.me/5586988196114" target="_blank" rel="noopener noreferrer" className="block mt-2">
-              <Button variant="outline" size="sm" className="w-full border-green-300 text-green-700 hover:bg-green-50 dark:hover:bg-green-900/20">
-                WhatsApp
-              </Button>
-            </a>
+            <p className="text-xs text-center mt-2" style={{ color: 'var(--text-secondary)' }}>
+              <Link to="/ajuda" className="text-orange-500 hover:underline">Ajuda</Link>
+              {' · '}
+              <a href="https://wa.me/5586988196114" target="_blank" rel="noopener noreferrer" className="text-orange-500 hover:underline">WhatsApp</a>
+            </p>
           </div>
         </div>
 

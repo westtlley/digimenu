@@ -5,6 +5,7 @@ import { Loader2, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
+import { logger } from '@/utils/logger';
 
 /**
  * Componente para proteger rotas que requerem email cadastrado
@@ -80,7 +81,7 @@ export default function ProtectedRoute({
               setSubscriberData(subscriber || null);
             }
           } catch (error) {
-            console.error('Error checking subscription:', error);
+            logger.error('Error checking subscription:', error);
             setAuthorized(false);
           }
         } else {
@@ -89,7 +90,7 @@ export default function ProtectedRoute({
         }
 
       } catch (error) {
-        console.error('Error checking access:', error);
+        logger.error('Error checking access:', error);
         setAuthorized(false);
       } finally {
         setLoading(false);

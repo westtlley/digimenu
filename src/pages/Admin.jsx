@@ -30,6 +30,7 @@ import ErrorBoundary from '../components/ErrorBoundary';
 import WhatsAppComandaToggle from '../components/admin/WhatsAppComandaToggle';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
+import { logger } from '@/utils/logger';
 import { usePermission } from '../components/permissions/usePermission';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { useDocumentHead } from '@/hooks/useDocumentHead';
@@ -69,34 +70,10 @@ export default function Admin() {
 
   useDocumentHead(store);
 
-  // TODOS OS HOOKS DEVEM VIR ANTES DE QUALQUER RETURN CONDICIONAL
-  // Debug: Log para verificar o estado
+  // Verificação de Acesso - APENAS master pode acessar Admin; assinantes → PainelAssinante
   useEffect(() => {
-    console.log('🔍 [Admin] Estado atual:');
-    console.log('  - loading:', loading);
-    console.log('  - isMaster:', isMaster);
-    console.log('  - user:', user);
-    console.log('  - user?.is_master:', user?.is_master);
-    console.log('  - permissions:', permissions);
-    console.log('  - permissions type:', typeof permissions);
-    console.log('  - permissions is object:', typeof permissions === 'object');
-    console.log('  - hasModuleAccess("dishes"):', hasModuleAccess('dishes'));
-    console.log('  - subscriberData:', subscriberData);
-  }, [loading, isMaster, user, permissions, subscriberData, hasModuleAccess]);
-
-  // Verificação de Acesso - APENAS master pode acessar Admin
-  // Assinantes devem usar PainelAssinante
-  useEffect(() => {
-    if (!loading) {
-      console.log('🔍 [Admin] Verificando acesso após loading...');
-      console.log('  - isMaster:', isMaster);
-      console.log('  - subscriberData:', subscriberData);
-      
-      if (!isMaster && subscriberData && subscriberData.status === 'active') {
-        console.log('🔄 [Admin] Redirecionando assinante para PainelAssinante');
-        // Redirecionar assinantes para PainelAssinante
-        navigate('/PainelAssinante', { replace: true });
-      }
+    if (!loading && !isMaster && subscriberData && subscriberData.status === 'active') {
+      navigate('/PainelAssinante', { replace: true });
     }
   }, [loading, isMaster, subscriberData, navigate]);
 
@@ -111,9 +88,7 @@ export default function Admin() {
     base44.auth.logout();
   };
 
-  // Loading
   if (loading) {
-    console.log('⏳ [Admin] Em loading...');
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg-primary)' }}>
         <div className="text-center">
@@ -124,15 +99,8 @@ export default function Admin() {
     );
   }
   
-  // Se não for master, mostrar tela de acesso negado
   if (!isMaster) {
-    console.log('🚫 [Admin] Acesso negado - não é master');
-    console.log('🚫 [Admin] user?.is_master:', user?.is_master);
-    console.log('🚫 [Admin] permissions:', permissions);
-    
-    // Se for assinante ativo, mostrar loading enquanto redireciona
     if (subscriberData && subscriberData.status === 'active') {
-      console.log('🔄 [Admin] Redirecionando assinante...');
       return (
         <div className="min-h-screen flex items-center justify-center bg-gray-900">
           <div className="text-center">
@@ -142,8 +110,6 @@ export default function Admin() {
         </div>
       );
     }
-    
-    console.log('🚫 [Admin] Renderizando tela de acesso negado');
     return (
       <div className="min-h-screen flex items-center justify-center p-4" style={{ backgroundColor: 'var(--bg-primary)' }}>
         <div className="rounded-2xl shadow-lg p-8 max-w-md text-center" style={{ backgroundColor: 'var(--bg-card)', border: `1px solid var(--border-color)` }}>

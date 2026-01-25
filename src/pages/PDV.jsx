@@ -11,6 +11,7 @@ import { Search, Receipt, ShoppingCart, AlertTriangle, ArrowLeft, Trash2, Plus, 
 import toast, { Toaster } from 'react-hot-toast';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
+import { useSlugContext } from '@/hooks/useSlugContext';
 import NewDishModal from '../components/menu/NewDishModal';
 import PaymentModal from '../components/pdv/PaymentModal';
 import SaleSuccessModal from '../components/pdv/SaleSuccessModal';
@@ -36,29 +37,33 @@ export default function PDV() {
 
   const queryClient = useQueryClient();
   const { isMaster } = usePermission();
+  const { slug, subscriberEmail, inSlugContext, loading: slugLoading, error: slugError } = useSlugContext();
+  const asSub = (inSlugContext && isMaster && subscriberEmail) ? subscriberEmail : undefined;
   
   // Define página de volta baseado no tipo de usuário
   const backPage = isMaster ? 'Admin' : 'PainelAssinante';
+  const backUrl = createPageUrl(backPage, isMaster ? undefined : slug || undefined);
 
+  const opts = asSub ? { as_subscriber: asSub } : {};
   const { data: dishes = [] } = useQuery({
-    queryKey: ['dishes'],
-    queryFn: () => base44.entities.Dish.list(),
+    queryKey: ['dishes', asSub ?? 'me'],
+    queryFn: () => base44.entities.Dish.list(null, opts),
   });
 
   const { data: categories = [] } = useQuery({
-    queryKey: ['categories'],
-    queryFn: () => base44.entities.Category.list('order'),
+    queryKey: ['categories', asSub ?? 'me'],
+    queryFn: () => base44.entities.Category.list('order', opts),
   });
 
   const { data: complementGroups = [] } = useQuery({
-    queryKey: ['complementGroups'],
-    queryFn: () => base44.entities.ComplementGroup.list('order'),
+    queryKey: ['complementGroups', asSub ?? 'me'],
+    queryFn: () => base44.entities.ComplementGroup.list('order', opts),
     refetchOnMount: 'always',
   });
 
   const { data: caixas = [], isLoading: caixasLoading } = useQuery({
-    queryKey: ['caixas'],
-    queryFn: () => base44.entities.Caixa.list('-opening_date'),
+    queryKey: ['caixas', asSub ?? 'me'],
+    queryFn: () => base44.entities.Caixa.list('-opening_date', opts),
     refetchInterval: 5000,
   });
 
@@ -354,7 +359,7 @@ export default function PDV() {
       <div className="bg-gray-900 text-white h-16 flex-shrink-0 border-b border-gray-700">
         <div className="h-full px-4 flex items-center justify-between max-w-[2000px] mx-auto">
           <div className="flex items-center gap-4">
-            <Link to={createPageUrl(backPage)}>
+            <Link to={backUrl}>
               <Button variant="ghost" size="sm" className="text-white hover:bg-gray-800 h-10">
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Voltar
@@ -829,7 +834,7 @@ export default function PDV() {
                 Cancelar
               </Button>
             ) : (
-              <Link to={createPageUrl(backPage)} className="w-full sm:w-auto">
+              <Link to={backUrl} className="w-full sm:w-auto">
                 <Button 
                   variant="outline"
                   className="w-full"

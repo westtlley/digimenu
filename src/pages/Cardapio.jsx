@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { apiClient as base44 } from '@/api/apiClient';
+import { createPageUrl } from '@/utils';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { ShoppingCart, Search, Clock, Star, Share2, MapPin, Info, Home, Receipt, Gift, User, MessageSquare, UtensilsCrossed } from 'lucide-react';
 import { Input } from "@/components/ui/input";
@@ -589,6 +590,11 @@ export default function Cardapio() {
               <Share2 className="w-5 h-5" />
             </button>
             <ThemeToggle className="text-white hover:bg-white/20" />
+            {slug && isAuthenticated && (userEmail || '').toLowerCase() === (publicData?.subscriber_email || '').toLowerCase() && (
+              <Link to={createPageUrl('PainelAssinante', slug)} className="p-2 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-colors text-white" title="Painel / Gestor">
+                <Receipt className="w-5 h-5" />
+              </Link>
+            )}
             <button 
               className="p-2 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-colors text-white" 
               onClick={() => {
@@ -690,6 +696,11 @@ export default function Cardapio() {
                   <Share2 className="w-5 h-5" />
                 </button>
                 <ThemeToggle className="text-muted-foreground hover:text-foreground hover:bg-muted" />
+                {slug && isAuthenticated && (userEmail || '').toLowerCase() === (publicData?.subscriber_email || '').toLowerCase() && (
+                  <Link to={createPageUrl('PainelAssinante', slug)} className="p-2 rounded-lg transition-colors text-muted-foreground hover:text-foreground hover:bg-muted" title="Painel / Gestor">
+                    <Receipt className="w-5 h-5 md:w-6 md:h-6" />
+                  </Link>
+                )}
                 <button 
                   className="p-2 rounded-lg transition-colors text-muted-foreground hover:text-foreground hover:bg-muted" 
                   onClick={() => {

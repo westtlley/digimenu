@@ -77,6 +77,7 @@ import EmptyState from '../components/ui/EmptyState';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import ThemeToggle from '../components/ui/ThemeToggle';
+import { logger } from '@/utils/logger';
 
 export default function Assinantes() {
   const [user, setUser] = useState(null);
@@ -122,11 +123,11 @@ export default function Assinantes() {
   const { data: subscribers = [], isLoading: subscribersLoading, refetch: refetchSubscribers } = useQuery({
     queryKey: ['subscribers'],
     queryFn: async () => {
-      console.log('🔄 Buscando assinantes...');
+      logger.log('🔄 Buscando assinantes...');
       try {
         const response = await base44.functions.invoke('getSubscribers');
-        console.log('📥 Resposta getSubscribers RAW:', response);
-        console.log('📥 Resposta getSubscribers STRINGIFIED:', JSON.stringify(response, null, 2));
+        logger.log('📥 Resposta getSubscribers RAW:', response);
+        logger.log('📥 Resposta getSubscribers STRINGIFIED:', JSON.stringify(response, null, 2));
         
         // Verificar diferentes formatos de resposta
         let subscribersList = [];
@@ -147,8 +148,8 @@ export default function Assinantes() {
           subscribersList = [];
         }
         
-        console.log('📋 Assinantes retornados:', subscribersList.length);
-        console.log('📋 IDs dos assinantes:', subscribersList.map(s => s.id || s.email));
+        logger.log('📋 Assinantes retornados:', subscribersList.length);
+        logger.log('📋 IDs dos assinantes:', subscribersList.map(s => s.id || s.email));
         
         // Atualizar cache de tokens
         const tokensMap = {};
@@ -165,7 +166,7 @@ export default function Assinantes() {
         
         return subscribersList;
       } catch (error) {
-        console.error('❌ Erro ao buscar assinantes:', error);
+        logger.error('❌ Erro ao buscar assinantes:', error);
         throw error;
       }
     },
@@ -210,45 +211,45 @@ export default function Assinantes() {
       return { previousSubscribers };
     },
     mutationFn: async (data) => {
-      console.log('📤 [FRONTEND] Enviando dados para criar assinante:', JSON.stringify(data, null, 2));
+      logger.log('📤 [FRONTEND] Enviando dados para criar assinante:', JSON.stringify(data, null, 2));
       
       try {
         const response = await base44.functions.invoke('createSubscriber', data);
         
-        console.log('📥 [FRONTEND] Resposta RAW recebida:', response);
-        console.log('📥 [FRONTEND] Tipo da resposta:', typeof response);
-        console.log('📥 [FRONTEND] response é objeto?', typeof response === 'object');
-        console.log('📥 [FRONTEND] response.data existe?', !!response?.data);
-        console.log('📥 [FRONTEND] response.data:', response?.data);
-        console.log('📥 [FRONTEND] response.data?.subscriber existe?', !!response?.data?.subscriber);
-        console.log('📥 [FRONTEND] response.data?.subscriber:', response?.data?.subscriber);
-        console.log('📥 [FRONTEND] Resposta completa (stringified):', JSON.stringify(response, null, 2));
+        logger.log('📥 [FRONTEND] Resposta RAW recebida:', response);
+        logger.log('📥 [FRONTEND] Tipo da resposta:', typeof response);
+        logger.log('📥 [FRONTEND] response é objeto?', typeof response === 'object');
+        logger.log('📥 [FRONTEND] response.data existe?', !!response?.data);
+        logger.log('📥 [FRONTEND] response.data:', response?.data);
+        logger.log('📥 [FRONTEND] response.data?.subscriber existe?', !!response?.data?.subscriber);
+        logger.log('📥 [FRONTEND] response.data?.subscriber:', response?.data?.subscriber);
+        logger.log('📥 [FRONTEND] Resposta completa (stringified):', JSON.stringify(response, null, 2));
         
         // Verificar se há erro
         if (response?.data?.error) {
-          console.error('❌ [FRONTEND] Erro na resposta:', response.data.error);
+          logger.error('❌ [FRONTEND] Erro na resposta:', response.data.error);
           throw new Error(response.data.error);
         }
         
         // Verificar se subscriber existe - múltiplas verificações
         if (!response) {
-          console.error('❌ [FRONTEND] Resposta é null ou undefined');
+          logger.error('❌ [FRONTEND] Resposta é null ou undefined');
           throw new Error('Resposta inválida do servidor: resposta vazia');
         }
         
         if (!response.data) {
-          console.error('❌ [FRONTEND] response.data não existe. Resposta completa:', response);
+          logger.error('❌ [FRONTEND] response.data não existe. Resposta completa:', response);
           throw new Error('Resposta inválida do servidor: campo data não encontrado');
         }
         
         if (!response.data.subscriber) {
-          console.error('❌ [FRONTEND] response.data.subscriber não existe');
-          console.error('❌ [FRONTEND] response.data completo:', JSON.stringify(response.data, null, 2));
-          console.error('❌ [FRONTEND] Chaves de response.data:', Object.keys(response.data || {}));
+          logger.error('❌ [FRONTEND] response.data.subscriber não existe');
+          logger.error('❌ [FRONTEND] response.data completo:', JSON.stringify(response.data, null, 2));
+          logger.error('❌ [FRONTEND] Chaves de response.data:', Object.keys(response.data || {}));
           throw new Error('Resposta inválida do servidor. Subscriber não encontrado na resposta.');
         }
         
-        console.log('✅ [FRONTEND] Subscriber encontrado:', response.data.subscriber);
+        logger.log('✅ [FRONTEND] Subscriber encontrado:', response.data.subscriber);
         // Retornar tanto o subscriber quanto os dados adicionais (token, setup_url)
         return {
           ...response.data.subscriber,
@@ -256,15 +257,15 @@ export default function Assinantes() {
           password_token: response.data.password_token
         };
       } catch (error) {
-        console.error('❌ [FRONTEND] Erro na mutationFn:', error);
-        console.error('❌ [FRONTEND] Stack trace:', error.stack);
+        logger.error('❌ [FRONTEND] Erro na mutationFn:', error);
+        logger.error('❌ [FRONTEND] Stack trace:', error.stack);
         throw error;
       }
     },
     onSuccess: async (data) => {
-      console.log('✅ [FRONTEND] Assinante criado com sucesso - dados completos:', JSON.stringify(data, null, 2));
-      console.log('✅ [FRONTEND] data.setup_url:', data.setup_url);
-      console.log('✅ [FRONTEND] data.password_token:', data.password_token);
+      logger.log('✅ [FRONTEND] Assinante criado com sucesso - dados completos:', JSON.stringify(data, null, 2));
+      logger.log('✅ [FRONTEND] data.setup_url:', data.setup_url);
+      logger.log('✅ [FRONTEND] data.password_token:', data.password_token);
       
       // Fechar modal primeiro
       setShowAddModal(false);
@@ -287,7 +288,7 @@ export default function Assinantes() {
       // Se não tiver setup_url mas tiver token, construir manualmente
       if (!setupUrl && data.password_token) {
         setupUrl = `${baseUrl}/definir-senha?token=${data.password_token}`;
-        console.log('🔗 [FRONTEND] URL construída manualmente:', setupUrl);
+        logger.log('🔗 [FRONTEND] URL construída manualmente:', setupUrl);
       }
       
       // Mostrar link de definição de senha se disponível
@@ -297,9 +298,9 @@ export default function Assinantes() {
         // Copiar link para área de transferência
         try {
           await navigator.clipboard.writeText(setupUrl);
-          console.log('🔗 [FRONTEND] Link copiado para área de transferência:', setupUrl);
+          logger.log('🔗 [FRONTEND] Link copiado para área de transferência:', setupUrl);
         } catch (err) {
-          console.error('❌ [FRONTEND] Erro ao copiar link:', err);
+          logger.error('❌ [FRONTEND] Erro ao copiar link:', err);
         }
         
         // Mostrar toast
@@ -324,9 +325,9 @@ export default function Assinantes() {
       setTimeout(async () => {
         try {
           const result = await refetchSubscribers();
-          console.log('🔄 [1ª tentativa] Lista de assinantes atualizada:', result.data?.length || 0, 'assinantes');
+          logger.log('🔄 [1ª tentativa] Lista de assinantes atualizada:', result.data?.length || 0, 'assinantes');
         } catch (error) {
-          console.error('❌ Erro no refetch (1ª tentativa):', error);
+          logger.error('❌ Erro no refetch (1ª tentativa):', error);
         }
       }, 300);
       
@@ -334,9 +335,9 @@ export default function Assinantes() {
       setTimeout(async () => {
         try {
           const result = await refetchSubscribers();
-          console.log('🔄 [2ª tentativa] Lista de assinantes atualizada:', result.data?.length || 0, 'assinantes');
+          logger.log('🔄 [2ª tentativa] Lista de assinantes atualizada:', result.data?.length || 0, 'assinantes');
         } catch (error) {
-          console.error('❌ Erro no refetch (2ª tentativa):', error);
+          logger.error('❌ Erro no refetch (2ª tentativa):', error);
         }
       }, 1500);
       
@@ -344,9 +345,9 @@ export default function Assinantes() {
       setTimeout(async () => {
         try {
           await queryClient.refetchQueries({ queryKey: ['subscribers'] });
-          console.log('🔄 [3ª tentativa] Query invalidada e refetchada novamente');
+          logger.log('🔄 [3ª tentativa] Query invalidada e refetchada novamente');
         } catch (error) {
-          console.error('❌ Erro no refetch (3ª tentativa):', error);
+          logger.error('❌ Erro no refetch (3ª tentativa):', error);
         }
       }, 3000);
     },
@@ -356,7 +357,7 @@ export default function Assinantes() {
         queryClient.setQueryData(['subscribers'], context.previousSubscribers);
       }
       
-      console.error('❌ Erro completo ao criar assinante:', error);
+      logger.error('❌ Erro completo ao criar assinante:', error);
       const errorMessage = error?.message || error?.toString() || 'Erro desconhecido';
       toast.error(`Erro ao adicionar assinante: ${errorMessage}`);
     },
@@ -441,13 +442,13 @@ export default function Assinantes() {
       if (response.data.error) {
         throw new Error(response.data.error);
       }
-      console.log('✅ [FRONTEND] Token gerado com sucesso:', response.data);
+      logger.log('✅ [FRONTEND] Token gerado com sucesso:', response.data);
       return response.data;
     },
     onSuccess: async (data, variables) => {
-      console.log('✅ [FRONTEND] onSuccess - Token gerado:', data);
-      console.log('✅ [FRONTEND] setup_url recebido:', data.setup_url);
-      console.log('✅ [FRONTEND] token recebido:', data.token);
+      logger.log('✅ [FRONTEND] onSuccess - Token gerado:', data);
+      logger.log('✅ [FRONTEND] setup_url recebido:', data.setup_url);
+      logger.log('✅ [FRONTEND] token recebido:', data.token);
       
       // Atualizar cache local
       const key = variables.subscriber_id || variables.email;
@@ -457,7 +458,7 @@ export default function Assinantes() {
         expires_at: data.expires_at || data.data?.expires_at
       };
       
-      console.log('💾 [FRONTEND] Salvando no cache local:', { key, tokenInfo });
+      logger.log('💾 [FRONTEND] Salvando no cache local:', { key, tokenInfo });
       setPasswordTokens(prev => ({
         ...prev,
         [key]: tokenInfo
@@ -470,9 +471,9 @@ export default function Assinantes() {
       setTimeout(async () => {
         try {
           await refetchSubscribers();
-          console.log('🔄 Lista de assinantes atualizada após gerar token');
+          logger.log('🔄 Lista de assinantes atualizada após gerar token');
         } catch (error) {
-          console.error('❌ Erro ao refetch após gerar token:', error);
+          logger.error('❌ Erro ao refetch após gerar token:', error);
         }
       }, 300);
       
@@ -492,7 +493,7 @@ export default function Assinantes() {
       }
     },
     onError: (error) => {
-      console.error('❌ Erro ao gerar token:', error);
+      logger.error('❌ Erro ao gerar token:', error);
       toast.error(error.message || 'Erro ao gerar token de senha');
     }
   });
@@ -508,7 +509,7 @@ export default function Assinantes() {
       await navigator.clipboard.writeText(setupUrl);
       toast.success(`Link de senha copiado para ${subscriberName || 'assinante'}!`);
     } catch (err) {
-      console.error('Erro ao copiar link:', err);
+      logger.error('Erro ao copiar link:', err);
       toast.error('Erro ao copiar link. Tente novamente.');
     }
   };
@@ -594,12 +595,12 @@ export default function Assinantes() {
       dataToCreate.permissions = permissions;
     }
 
-    console.log('Criando assinante:', JSON.stringify(dataToCreate, null, 2));
+    logger.log('Criando assinante:', JSON.stringify(dataToCreate, null, 2));
     
     try {
       createMutation.mutate(dataToCreate);
     } catch (error) {
-      console.error('Erro ao criar assinante:', error);
+      logger.error('Erro ao criar assinante:', error);
       alert('Erro ao criar assinante: ' + error.message);
     }
   };
@@ -616,12 +617,12 @@ export default function Assinantes() {
   const [permissionLogs, setPermissionLogs] = useState([]);
   
   const openEditModal = async (subscriber) => {
-    console.log('📂 Abrindo modal para:', subscriber);
+    logger.log('📂 Abrindo modal para:', subscriber);
     const initialState = {
       ...subscriber,
       permissions: subscriber.permissions || {}
     };
-    console.log('📂 Estado inicial editingSubscriber:', initialState);
+    logger.log('📂 Estado inicial editingSubscriber:', initialState);
     setEditingSubscriber(initialState);
     setShowEditModal(true);
     
@@ -634,7 +635,7 @@ export default function Assinantes() {
       );
       setPermissionLogs(logs);
     } catch (e) {
-      console.error('Erro ao carregar logs:', e);
+      logger.error('Erro ao carregar logs:', e);
       setPermissionLogs([]);
     }
   };
@@ -644,7 +645,7 @@ export default function Assinantes() {
 
     const originalData = subscribers.find(s => s.id === editingSubscriber.id);
 
-    console.log('💾 SALVANDO - editingSubscriber completo:', JSON.stringify(editingSubscriber, null, 2));
+    logger.log('💾 SALVANDO - editingSubscriber completo:', JSON.stringify(editingSubscriber, null, 2));
 
     const dataToUpdate = {
       id: editingSubscriber.id, // Incluir ID no data também para garantir
@@ -659,9 +660,9 @@ export default function Assinantes() {
       slug: editingSubscriber.slug ?? ''
     };
 
-    console.log('💾 SALVANDO - editingSubscriber.id:', editingSubscriber.id);
-    console.log('💾 SALVANDO - originalData:', originalData);
-    console.log('💾 SALVANDO - dataToUpdate completo:', JSON.stringify(dataToUpdate, null, 2));
+    logger.log('💾 SALVANDO - editingSubscriber.id:', editingSubscriber.id);
+    logger.log('💾 SALVANDO - originalData:', originalData);
+    logger.log('💾 SALVANDO - dataToUpdate completo:', JSON.stringify(dataToUpdate, null, 2));
 
     updateMutation.mutate({ 
       id: editingSubscriber.id, 
@@ -674,7 +675,7 @@ export default function Assinantes() {
   };
   
   const handlePlanChange = (newPlan) => {
-    console.log('🧠 Assinantes.jsx - Recebido plano:', newPlan);
+    logger.log('🧠 Assinantes.jsx - Recebido plano:', newPlan);
 
     // Obter permissões do novo plano se não for custom
     const newPermissions = newPlan !== 'custom' ? getPlanPermissions(newPlan) : {};
@@ -687,7 +688,7 @@ export default function Assinantes() {
           // Atualizar permissões apenas se não for custom ou se não tiver permissões customizadas
           permissions: newPlan !== 'custom' ? newPermissions : (prev.permissions || {})
         };
-        console.log('🧠 Assinantes.jsx - editingSubscriber atualizado:', updated.plan, updated.permissions);
+        logger.log('🧠 Assinantes.jsx - editingSubscriber atualizado:', updated.plan, updated.permissions);
         return updated;
       });
     } else {
@@ -698,7 +699,7 @@ export default function Assinantes() {
           // Atualizar permissões apenas se não for custom
           permissions: newPlan !== 'custom' ? newPermissions : {}
         };
-        console.log('🧠 Assinantes.jsx - newSubscriber atualizado:', updated.plan, updated.permissions);
+        logger.log('🧠 Assinantes.jsx - newSubscriber atualizado:', updated.plan, updated.permissions);
         return updated;
       });
     }
@@ -819,7 +820,7 @@ export default function Assinantes() {
                       await createMutation.mutateAsync(sub);
                       successCount++;
                     } catch (error) {
-                      console.error('Erro ao importar assinante:', sub.email, error);
+                      logger.error('Erro ao importar assinante:', sub.email, error);
                       errorCount++;
                     }
                   }
@@ -936,7 +937,7 @@ export default function Assinantes() {
                   }
                   setSelectedSubscriberIds(new Set());
                 } catch (error) {
-                  console.error('Erro na ação em lote:', error);
+                  logger.error('Erro na ação em lote:', error);
                   toast.error('Erro ao executar ação em lote');
                 }
               }}
@@ -1463,11 +1464,11 @@ export default function Assinantes() {
               <PermissionsEditor
                 permissions={editingSubscriber.permissions}
                 onChange={(perms) => {
-                  console.log('🔄 Permissions onChange - Antes:', editingSubscriber.plan);
+                  logger.log('🔄 Permissions onChange - Antes:', editingSubscriber.plan);
                   setEditingSubscriber(prev => {
-                    console.log('🔄 Permissions onChange - Prev plan:', prev.plan);
+                    logger.log('🔄 Permissions onChange - Prev plan:', prev.plan);
                     const updated = {...prev, permissions: perms};
-                    console.log('🔄 Permissions onChange - Depois:', updated.plan);
+                    logger.log('🔄 Permissions onChange - Depois:', updated.plan);
                     return updated;
                   });
                 }}

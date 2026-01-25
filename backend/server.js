@@ -30,6 +30,7 @@ import { migrate } from './db/migrate.js';
 import * as repo from './db/repository.js';
 import { requirePermission, requireAccess, requireMaster } from './middlewares/permissions.js';
 import { PLANS, getPlanInfo } from './utils/plans.js';
+import { logger } from './utils/logger.js';
 import { validateJWTSecret, sanitizeForLog } from './middlewares/security.js';
 import { loginLimiter, apiLimiter, createLimiter } from './middlewares/rateLimit.js';
 import { validate, schemas } from './middlewares/validation.js';
@@ -237,6 +238,8 @@ const publicRoutes = [
   '/api/upload-image',
   '/api/auth/login',
   '/api/auth/set-password',
+  '/api/auth/forgot-password',
+  '/api/auth/reset-password',
   '/api/auth/google',
   '/api/auth/google/callback',
   '/api/public/cardapio'  // /api/public/cardapio/:slug — link único do cardápio por assinante
@@ -743,6 +746,50 @@ app.post('/api/auth/change-password', authenticate, validate(schemas.changePassw
     console.error('Erro ao alterar senha:', sanitizeForLog({ error: error.message }));
     throw error;
   }
+}));
+
+// Esqueci minha senha (gera token e envia link por email; sem email config = apenas log do link)
+app.post('/api/auth/forgot-password', loginLimiter, validate(schemas.forgotPassword), asyncHandler(async (req, res) => {
+  if (!usePostgreSQL) {
+    return res.status(503).json({ error: 'Recuperação de senha requer PostgreSQL. Configure DATABASE_URL.' });
+  }
+  const { email } = req.body;
+  const emailNorm = String(email).toLowerCase().trim();
+  const user = await repo.getUserByEmail(emailNorm);
+  // Sempre retornar a mesma mensagem (não vazar se o email existe)
+  const msg = 'Se existir uma conta com este email, você receberá um link para redefinir a senha.';
+  if (!user) {
+    return res.json({ success: true, message: msg });
+  }
+  const token = crypto.randomBytes(32).toString('hex');
+  const expiresAt = new Date();
+  expiresAt.setHours(expiresAt.getHours() + 1);
+  await repo.createPasswordResetToken(emailNorm, token, expiresAt);
+  const link = `${FRONTEND_URL}/redefinir-senha?token=${token}`;
+  logger.log('🔐 [forgot-password] Link de redefinição (configure SMTP para enviar por email):', link);
+  // TODO: enviar email quando SMTP/Resend etc. estiver configurado
+  return res.json({ success: true, message: msg });
+}));
+
+// Redefinir senha com token (esqueci minha senha)
+app.post('/api/auth/reset-password', validate(schemas.resetPassword), asyncHandler(async (req, res) => {
+  if (!usePostgreSQL) {
+    return res.status(503).json({ error: 'Redefinição de senha requer PostgreSQL. Configure DATABASE_URL.' });
+  }
+  const { token, newPassword } = req.body;
+  const row = await repo.getPasswordResetTokenByToken(token);
+  if (!row) {
+    return res.status(400).json({ error: 'Token inválido ou expirado. Solicite um novo link.' });
+  }
+  const user = await repo.getUserByEmail(row.email);
+  if (!user) {
+    await repo.deletePasswordResetToken(token);
+    return res.status(400).json({ error: 'Token inválido ou expirado.' });
+  }
+  const hashed = await bcrypt.hash(newPassword, 10);
+  await repo.updateUser(user.id, { password: hashed });
+  await repo.deletePasswordResetToken(token);
+  return res.json({ success: true, message: 'Senha redefinida com sucesso. Faça login.' });
 }));
 
 // -----------------------

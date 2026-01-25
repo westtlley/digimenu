@@ -7,6 +7,7 @@ import { apiClient as base44 } from '@/api/apiClient';
 import { Link, useSearchParams } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { usePermission } from '../components/permissions/usePermission';
+import { useSlugContext } from '@/hooks/useSlugContext';
 import { useQuery } from '@tanstack/react-query';
 import { useDocumentHead } from '@/hooks/useDocumentHead';
 import toast from 'react-hot-toast';
@@ -53,11 +54,14 @@ export default function PainelAssinante() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   
   const { loading, permissions, isMaster, hasModuleAccess, user, subscriberData } = usePermission();
-  
+  const { slug, subscriberEmail, inSlugContext, loading: slugLoading, error: slugError } = useSlugContext();
+  const asSub = (inSlugContext && isMaster && subscriberEmail) ? subscriberEmail : undefined;
+  const canAccessSlug = !inSlugContext || isMaster || (user?.email || '').toLowerCase() === (subscriberEmail || '').toLowerCase() || (user?.subscriber_email || '').toLowerCase() === (subscriberEmail || '').toLowerCase();
+
   // Buscar dados da loja para header
   const { data: stores = [] } = useQuery({
-    queryKey: ['store'],
-    queryFn: () => base44.entities.Store.list(),
+    queryKey: ['store', asSub ?? 'me'],
+    queryFn: () => base44.entities.Store.list(null, asSub ? { as_subscriber: asSub } : {}),
   });
   const store = stores[0];
 
@@ -110,7 +114,7 @@ export default function PainelAssinante() {
                 Falar no WhatsApp
               </Button>
             </a>
-            <Link to={createPageUrl('Cardapio')} className="block">
+            <Link to={createPageUrl('Cardapio', slug || undefined)} className="block">
               <Button variant="outline" className="w-full">
                 Ver Cardápio
               </Button>
@@ -124,6 +128,8 @@ export default function PainelAssinante() {
       </div>
     );
   }
+
+  const to = (p) => createPageUrl(p, slug || undefined);
 
   const renderContent = () => {
     switch (activeTab) {
@@ -231,7 +237,7 @@ export default function PainelAssinante() {
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             {hasModuleAccess('pdv') && (
-              <Link to={createPageUrl('PDV')}>
+              <Link to={to('PDV')}>
                 <Button size="sm" className="bg-white text-orange-600 hover:bg-orange-50">
                   <Calculator className="w-4 h-4 mr-2" />
                   PDV
@@ -239,7 +245,7 @@ export default function PainelAssinante() {
               </Link>
             )}
             {hasModuleAccess('gestor_pedidos') ? (
-              <Link to={createPageUrl('GestorPedidos')}>
+              <Link to={to('GestorPedidos')}>
                 <Button size="sm" className="bg-white text-orange-600 hover:bg-orange-50">
                   <Truck className="w-4 h-4 mr-2" />
                   Gestor
@@ -251,7 +257,7 @@ export default function PainelAssinante() {
                 Gestor
               </Button>
             )}
-            <Link to={createPageUrl('Cardapio')}>
+            <Link to={to('Cardapio')}>
               <Button size="sm" className="bg-white text-orange-600 hover:bg-orange-50">
                 <UtensilsCrossed className="w-4 h-4 mr-2" />
                 Cardápio

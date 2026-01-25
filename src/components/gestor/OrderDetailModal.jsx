@@ -34,6 +34,7 @@ const REJECTION_REASONS = [
 
 export default function OrderDetailModal({ 
   order, entregadores, onClose, onUpdate, user,
+  asSub,
   suggestedPrepTime = 30, quickStatusKey, onClearQuickStatus,
   onViewMap, onDuplicate, onAddToPrintQueue,
 }) {
@@ -123,7 +124,8 @@ export default function OrderDetailModal({
       }
       
       const payload = { ...order, ...updates };
-      const res = await base44.entities.Order.update(id, payload);
+      const updateOpts = asSub ? { as_subscriber: asSub } : {};
+      const res = await base44.entities.Order.update(id, payload, updateOpts);
       
       try {
         await base44.entities.OrderLog.create({
@@ -132,7 +134,8 @@ export default function OrderDetailModal({
           old_status: order.status,
           new_status: updates.status,
           user_email: user?.email,
-          details: updates.rejection_reason || null
+          details: updates.rejection_reason || null,
+          ...(asSub && { as_subscriber: asSub })
         });
       } catch (e) {
         console.log('Log error:', e);
@@ -302,11 +305,12 @@ export default function OrderDetailModal({
       
       // Atualizar entregador
       if (entregador) {
+        const updOpts = asSub ? { as_subscriber: asSub } : {};
         await base44.entities.Entregador.update(selectedEntregador, {
           ...entregador,
           current_order_id: order.id,
           status: 'busy'
-        });
+        }, updOpts);
       }
       
       setShowDeliveryModal(false);
@@ -319,7 +323,8 @@ export default function OrderDetailModal({
 
   const handleApproveChangeRequest = async () => {
     try {
-      await base44.entities.Order.update(order.id, { ...order, customer_change_status: 'approved' });
+      const opts = asSub ? { as_subscriber: asSub } : {};
+      await base44.entities.Order.update(order.id, { ...order, customer_change_status: 'approved' }, opts);
       queryClient.invalidateQueries({ queryKey: ['gestorOrders'] });
       toast.success('Alteração do cliente aceita.');
       onUpdate();
@@ -335,7 +340,8 @@ export default function OrderDetailModal({
       return;
     }
     try {
-      await base44.entities.Order.update(order.id, { ...order, customer_change_status: 'rejected', customer_change_response: motivo });
+      const opts = asSub ? { as_subscriber: asSub } : {};
+      await base44.entities.Order.update(order.id, { ...order, customer_change_status: 'rejected', customer_change_response: motivo }, opts);
       queryClient.invalidateQueries({ queryKey: ['gestorOrders'] });
       toast.success('Alteração reprovada.');
       setShowRejectChangeModal(false);

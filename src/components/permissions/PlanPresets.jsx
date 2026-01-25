@@ -20,7 +20,7 @@ export const PLAN_PRESETS = {
     permissions: {
       dashboard: ['view'],
       pdv: [],
-      gestor_pedidos: [],
+      gestor_pedidos: ['view', 'update'],
       caixa: [],
       whatsapp: [],
       dishes: ['view', 'create', 'update', 'delete'],

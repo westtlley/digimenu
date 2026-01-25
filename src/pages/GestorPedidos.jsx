@@ -27,6 +27,7 @@ import FinancialDashboard from '../components/gestor/FinancialDashboard';
 import UserAuthButton from '../components/atoms/UserAuthButton';
 import { usePermission } from '../components/permissions/usePermission';
 import { useDocumentHead } from '@/hooks/useDocumentHead';
+import { useSlugContext } from '@/hooks/useSlugContext';
 import { downloadOrdersCSV, exportGestorReportPDF, printOrdersInQueue } from '../utils/gestorExport';
 import { getNotificationSoundConfig } from '@/utils/gestorSounds';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -65,9 +66,13 @@ export default function GestorPedidos() {
   const autoAcceptedIdsRef = useRef(new Set());
   const queryClient = useQueryClient();
   const { isMaster, hasModuleAccess, loading: permLoading, user } = usePermission();
-  
+  const { slug, subscriberEmail, inSlugContext, loading: slugLoading, error: slugError } = useSlugContext();
+
   const hasAccess = isMaster || hasModuleAccess('gestor_pedidos');
   const backPage = isMaster ? 'Admin' : 'PainelAssinante';
+  // Em /s/:slug, master usa as_subscriber; assinante/colaborador já é filtrado pelo backend
+  const asSub = (inSlugContext && isMaster && subscriberEmail) ? subscriberEmail : undefined;
+  const canAccessSlug = !inSlugContext || isMaster || (user?.email || '').toLowerCase() === (subscriberEmail || '').toLowerCase() || (user?.subscriber_email || '').toLowerCase() === (subscriberEmail || '').toLowerCase();
 
   useEffect(() => {
     if (user && 'Notification' in window && Notification.permission === 'default') {
@@ -76,9 +81,10 @@ export default function GestorPedidos() {
   }, [user]);
 
   const { data: orders = [], isLoading } = useQuery({
-    queryKey: ['gestorOrders'],
+    queryKey: ['gestorOrders', asSub ?? 'me'],
     queryFn: async () => {
-      const allOrders = await base44.entities.Order.list('-created_date');
+      const opts = asSub ? { as_subscriber: asSub } : {};
+      const allOrders = await base44.entities.Order.list('-created_date', opts);
       // Filtrar apenas pedidos do cardápio (não do PDV/Balcão)
       return allOrders.filter(order => {
         // Bloquear pedidos PDV e de Balcão
@@ -91,16 +97,16 @@ export default function GestorPedidos() {
   });
 
   const { data: entregadoresData } = useQuery({
-    queryKey: ['entregadores'],
-    queryFn: () => base44.entities.Entregador.list(),
+    queryKey: ['entregadores', asSub ?? 'me'],
+    queryFn: () => base44.entities.Entregador.list(null, asSub ? { as_subscriber: asSub } : {}),
     refetchInterval: 3000,
     retry: false,
   });
   const entregadores = useMemo(() => (entregadoresData != null ? entregadoresData : []), [entregadoresData]);
 
   const { data: stores = [] } = useQuery({
-    queryKey: ['store'],
-    queryFn: () => base44.entities.Store.list(),
+    queryKey: ['store', asSub ?? 'me'],
+    queryFn: () => base44.entities.Store.list(null, asSub ? { as_subscriber: asSub } : {}),
   });
   const store = stores[0] || { name: 'Gestor de Pedidos' };
   useDocumentHead(store);
@@ -153,7 +159,7 @@ export default function GestorPedidos() {
               status: 'accepted',
               accepted_at: new Date().toISOString(),
               prep_time: prepTime,
-            });
+            }, asSub ? { as_subscriber: asSub } : {});
             queryClient.invalidateQueries({ queryKey: ['gestorOrders'] });
           } catch (e) {
             autoAcceptedIdsRef.current.delete(o.id);
@@ -251,7 +257,7 @@ export default function GestorPedidos() {
             ...order,
             status: 'cancelled',
             rejection_reason: 'Cancelado automaticamente por atraso (tempo de preparo excedido)'
-          });
+          }, asSub ? { as_subscriber: asSub } : {});
           queryClient.invalidateQueries({ queryKey: ['gestorOrders'] });
         }
       }
@@ -259,7 +265,7 @@ export default function GestorPedidos() {
     
     const interval = setInterval(checkLateOrders, 60000); // Check every minute
     return () => clearInterval(interval);
-  }, [orders, queryClient]);
+  }, [orders, queryClient, asSub]);
 
   const playNotificationSound = () => {
     try {
@@ -352,6 +358,32 @@ export default function GestorPedidos() {
     );
   }
 
+  if (inSlugContext && slugLoading) {
+    return <GestorLoading />;
+  }
+  if (inSlugContext && slugError) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md text-center">
+          <p className="text-gray-600 mb-4">Link não encontrado.</p>
+          <Link to="/"><Button>Ir ao cardápio</Button></Link>
+        </div>
+      </div>
+    );
+  }
+  if (inSlugContext && subscriberEmail && !canAccessSlug) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md text-center">
+          <Lock className="w-12 h-12 text-red-500 mx-auto mb-3" />
+          <h2 className="text-lg font-semibold">Acesso negado</h2>
+          <p className="text-sm text-gray-500 mt-2">Você não tem permissão para acessar o Gestor deste estabelecimento.</p>
+          <Link to="/" className="mt-4 inline-block"><Button variant="outline">Voltar</Button></Link>
+        </div>
+      </div>
+    );
+  }
+
   if (!hasAccess) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
@@ -362,10 +394,10 @@ export default function GestorPedidos() {
           <h2 className="text-2xl font-bold text-gray-800 mb-2">Gestor de Pedidos</h2>
           <p className="text-gray-600 mb-6">Esta funcionalidade não está disponível no seu plano atual.</p>
           <div className="space-y-3">
-            <Link to={createPageUrl('PainelAssinante')}>
+            <Link to={createPageUrl('PainelAssinante', slug || undefined)}>
               <Button className="w-full bg-orange-500 hover:bg-orange-600">Voltar ao Painel</Button>
             </Link>
-            <Link to={createPageUrl('Cardapio')}>
+            <Link to={createPageUrl('Cardapio', slug || undefined)}>
               <Button variant="outline" className="w-full">Ver Cardápio</Button>
             </Link>
           </div>
@@ -373,6 +405,8 @@ export default function GestorPedidos() {
       </div>
     );
   }
+
+  const backUrl = createPageUrl(backPage, isMaster ? undefined : slug || undefined);
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -384,7 +418,7 @@ export default function GestorPedidos() {
           <div className="flex items-center justify-between h-full max-w-screen-2xl mx-auto">
             {/* Left: logo + loja + status */}
             <div className="flex items-center gap-3 min-w-0">
-              <Link to={createPageUrl(backPage)} className="lg:hidden flex-shrink-0">
+              <Link to={backUrl} className="lg:hidden flex-shrink-0">
                 <Button variant="ghost" size="icon" className="h-9 w-9">
                   {store.logo ? (
                     <img src={store.logo} alt={store.name} className="w-8 h-8 rounded-lg object-cover" />
@@ -442,7 +476,7 @@ export default function GestorPedidos() {
               <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => queryClient.invalidateQueries({ queryKey: ['gestorOrders'] })} title="Atualizar">
                 <RefreshCw className={`w-4 h-4 text-gray-600 ${isLoading ? 'animate-spin' : ''}`} />
               </Button>
-              <Link to={createPageUrl(backPage)} className="hidden lg:inline-flex">
+              <Link to={backUrl} className="hidden lg:inline-flex">
                 <Button variant="outline" size="sm" className="h-9">Voltar</Button>
               </Link>
               <UserAuthButton />
@@ -824,6 +858,7 @@ export default function GestorPedidos() {
             setSelectedOrder(updatedOrder ?? null);
           }}
           user={user}
+          asSub={asSub}
           suggestedPrepTime={suggestedPrepTime}
           quickStatusKey={quickStatusKey}
           onClearQuickStatus={() => setQuickStatusKey(null)}
@@ -831,7 +866,8 @@ export default function GestorPedidos() {
           onDuplicate={async (o) => {
             const { id, order_code, created_date, delivered_at, accepted_at, ready_at, ...rest } = o;
             try {
-              await base44.entities.Order.create({ ...rest, status: 'new', created_date: new Date().toISOString() });
+              const data = { ...rest, status: 'new', created_date: new Date().toISOString(), ...(asSub && { as_subscriber: asSub }) };
+              await base44.entities.Order.create(data);
               queryClient.invalidateQueries({ queryKey: ['gestorOrders'] });
               toast.success('Pedido duplicado.');
               setSelectedOrder(null);

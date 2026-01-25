@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { base44 } from '@/api/base44Client';
+import { logger } from '@/utils/logger';
 
 /**
  * Hook para verificar permissões do usuário atual
  * Retorna as permissões e funções para verificar acesso a módulos/ações
- * 
+ *
  * ⚠️ CRÍTICO: permissions SEMPRE é um objeto {}, nunca string
  */
 export function usePermission() {
@@ -14,58 +15,49 @@ export function usePermission() {
   const [user, setUser] = useState(null);
   const [subscriberData, setSubscriberData] = useState(null);
 
-  const loadPermissions = async () => {
+  const loadPermissions = useCallback(async () => {
     try {
-      console.log('🔄 [usePermission] Carregando permissões...');
+      logger.log('🔄 [usePermission] Carregando permissões...');
       const currentUser = await base44.auth.me();
-      console.log('👤 [usePermission] Usuário recebido:', currentUser);
-      console.log('👤 [usePermission] is_master:', currentUser?.is_master);
+      logger.log('👤 [usePermission] Usuário recebido, is_master:', currentUser?.is_master);
 
       if (!currentUser) {
-        console.log('⚠️ [usePermission] Usuário não encontrado');
+        logger.log('⚠️ [usePermission] Usuário não encontrado');
         setPermissions({});
         setUser(null);
         setSubscriberData(null);
         setLoading(false);
         return;
       }
-      
-      console.log('👤 [usePermission] Usuário recebido:', currentUser);
-      console.log('👤 [usePermission] is_master:', currentUser?.is_master);
 
       setUser(currentUser);
 
       // ✅ CORREÇÃO DEFINITIVA: NUNCA mais usar 'FULL_ACCESS'
       if (currentUser.is_master === true) {
-        console.log('✅ [usePermission] Usuário é master - concedendo acesso total');
+        logger.log('✅ [usePermission] Usuário é master - concedendo acesso total');
         setPermissions({}); // sempre objeto
         setSubscriberData({
           email: currentUser.email,
-          plan: 'master', // ✅ CORRIGIDO: era 'premium'
+          plan: 'master',
           status: 'active',
           permissions: {}
         });
         setLoading(false);
         return;
       }
-      
-      console.log('📋 [usePermission] Usuário não é master - verificando assinatura...');
+
+      logger.log('📋 [usePermission] Usuário não é master - verificando assinatura...');
 
       const result = await base44.functions.invoke('checkSubscriptionStatus', {
         user_email: currentUser.email
       });
 
-      console.log('📋 [usePermission] Resultado checkSubscriptionStatus:', result);
+      logger.log('📋 [usePermission] Resultado checkSubscriptionStatus');
 
       // Verificar se encontrou assinante (mesmo que inativo, ainda tem dados)
       if (result.data?.subscriber) {
         const subscriber = result.data.subscriber;
-        console.log('✅ [usePermission] Assinante encontrado:', {
-          email: subscriber.email,
-          name: subscriber.name,
-          status: subscriber.status,
-          plan: subscriber.plan
-        });
+        logger.log('✅ [usePermission] Assinante encontrado:', subscriber?.email, subscriber?.plan);
         let perms = subscriber.permissions || {};
         if (subscriber.plan === 'basic' && Array.isArray(perms.dishes) && perms.dishes.includes('view') && !perms.dishes.includes('create')) {
           perms = { ...perms, dishes: ['view', 'create', 'update', 'delete'] };
@@ -76,32 +68,34 @@ export function usePermission() {
         setPermissions(perms);
         setSubscriberData(subscriber);
       } else {
-        console.warn('⚠️ [usePermission] Nenhum assinante encontrado para:', currentUser.email);
+        logger.warn('⚠️ [usePermission] Nenhum assinante encontrado para:', currentUser.email);
         setPermissions({});
         setSubscriberData(null);
       }
-
     } catch (e) {
-      console.error('Error loading permissions:', e);
+      logger.error('Error loading permissions:', e);
       setPermissions({});
       setSubscriberData(null);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadPermissions();
-    // 60s (antes 30s) para reduzir requisições e evitar "Muitas requisições"
-    const interval = setInterval(loadPermissions, 60000);
+    // 5 min para reduzir requisições; recarregar também ao ganhar foco na janela
+    const interval = setInterval(loadPermissions, 5 * 60 * 1000);
+    const onFocus = () => loadPermissions();
+    window.addEventListener('focus', onFocus);
     const t = setTimeout(() => {
       setLoading((prev) => (prev ? false : prev));
     }, 12000);
     return () => {
       clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
       clearTimeout(t);
     };
-  }, []);
+  }, [loadPermissions]);
 
   // ✅ isMaster baseado APENAS em user.is_master (definido ANTES das funções que o usam)
   const isMaster = user?.is_master === true;

@@ -31,13 +31,13 @@ export const loginLimiter = rateLimit({
 });
 
 /**
- * Rate limit geral para API (300 requisições por 15 minutos)
- * Aumentado de 100 para evitar "Muitas requisições" em painéis com muitas
- * listagens, refetch e uso normal (Assinantes, Loja, Gestor, etc.)
+ * Rate limit geral para API (500 requisições por 15 minutos)
+ * Aumentado e com skip em rotas que têm seu próprio limite ou são só leitura pública,
+ * para evitar "Muitas requisições" em login e no cardápio público /s/:slug.
  */
 export const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 300, // 300 requisições (antes 100)
+  max: 500, // 500 requisições
   message: {
     error: 'Muitas requisições. Tente novamente mais tarde.',
     retryAfter: 15 * 60
@@ -46,6 +46,13 @@ export const apiLimiter = rateLimit({
   legacyHeaders: false,
   keyGenerator: (req) => {
     return req.ip || req.connection.remoteAddress || req.socket.remoteAddress;
+  },
+  // Não contar no limite geral: login (tem loginLimiter) e cardápio público (muitas leituras)
+  skip: (req) => {
+    const p = req.originalUrl || req.url || '';
+    if (p.includes('/api/auth/login')) return true;
+    if (p.includes('/api/public/')) return true;
+    return false;
   },
   handler: (req, res) => {
     res.status(429).json({

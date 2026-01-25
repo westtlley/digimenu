@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
+import { useSlugContext } from '@/hooks/useSlugContext';
 import toast from 'react-hot-toast';
 
 const STATUS_LABEL = {
@@ -20,6 +21,8 @@ export default function Cozinha() {
   const [loading, setLoading] = useState(true);
   const [allowed, setAllowed] = useState(false);
   const queryClient = useQueryClient();
+  const { slug, subscriberEmail, inSlugContext, loading: slugLoading, error: slugError } = useSlugContext();
+  const asSub = (inSlugContext && user?.is_master && subscriberEmail) ? subscriberEmail : undefined;
 
   useEffect(() => {
     (async () => {
@@ -37,14 +40,14 @@ export default function Cozinha() {
   }, []);
 
   const { data: orders = [], isLoading: ordersLoading } = useQuery({
-    queryKey: ['cozinhaOrders'],
-    queryFn: () => base44.entities.Order.list('-created_date'),
+    queryKey: ['cozinhaOrders', asSub ?? 'me'],
+    queryFn: () => base44.entities.Order.list('-created_date', asSub ? { as_subscriber: asSub } : {}),
     enabled: allowed,
     refetchInterval: 8000,
   });
 
   const updateMu = useMutation({
-    mutationFn: ({ id, updates }) => base44.entities.Order.update(id, updates),
+    mutationFn: ({ id, updates }) => base44.entities.Order.update(id, updates, asSub ? { as_subscriber: asSub } : {}),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cozinhaOrders'] });
       toast.success('Status atualizado');

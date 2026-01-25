@@ -640,6 +640,18 @@ export async function updateSubscriber(emailOrId, subscriberData) {
     updates.push(`slug = $${paramIndex++}`);
     values.push(s);
   }
+  if (subscriberData.password_token !== undefined) {
+    updates.push(`password_token = $${paramIndex++}`);
+    values.push(subscriberData.password_token);
+  }
+  if (subscriberData.token_expires_at !== undefined) {
+    updates.push(`token_expires_at = $${paramIndex++}`);
+    values.push(subscriberData.token_expires_at);
+  }
+  if (subscriberData.has_password !== undefined) {
+    updates.push(`has_password = $${paramIndex++}`);
+    values.push(!!subscriberData.has_password);
+  }
 
   if (updates.length === 0) {
     // Se não há updates, apenas retornar o assinante
@@ -695,6 +707,30 @@ export async function deleteSubscriber(emailOrId) {
   }
   
   return result.rows[0] || null;
+}
+
+// =======================
+// PASSWORD RESET TOKENS (esqueci minha senha)
+// =======================
+
+export async function createPasswordResetToken(email, token, expiresAt) {
+  await query(
+    `INSERT INTO password_reset_tokens (email, token, expires_at)
+     VALUES ($1, $2, $3)`,
+    [email.toLowerCase().trim(), token, expiresAt]
+  );
+}
+
+export async function getPasswordResetTokenByToken(token) {
+  const result = await query(
+    `SELECT * FROM password_reset_tokens WHERE token = $1 AND expires_at > NOW()`,
+    [token]
+  );
+  return result.rows[0] || null;
+}
+
+export async function deletePasswordResetToken(token) {
+  await query('DELETE FROM password_reset_tokens WHERE token = $1', [token]);
 }
 
 // =======================
