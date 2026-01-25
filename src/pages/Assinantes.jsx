@@ -88,6 +88,7 @@ export default function Assinantes() {
   const [searchTerm, setSearchTerm] = useState('');
   const [newSubscriber, setNewSubscriber] = useState({
     email: '',
+    linked_user_email: '',
     name: '',
     slug: '',
     plan: 'basic', // Inicializar com 'basic' em vez de 'custom'
@@ -273,6 +274,7 @@ export default function Assinantes() {
       // Limpar formulário
       setNewSubscriber({ 
         email: '', 
+        linked_user_email: '',
         name: '', 
         slug: '',
         plan: 'basic', 
@@ -588,6 +590,11 @@ export default function Assinantes() {
     // slug: link do cardápio (/s/meu-restaurante). Backend normaliza.
     if (newSubscriber.slug != null) {
       dataToCreate.slug = (newSubscriber.slug || '').trim() || null;
+    }
+    
+    // linked_user_email: email personalizado para acesso ao painel (se diferente do email da assinatura)
+    if (newSubscriber.linked_user_email != null && String(newSubscriber.linked_user_email || '').trim()) {
+      dataToCreate.linked_user_email = String(newSubscriber.linked_user_email).trim();
     }
     
     // Adicionar permissions (sempre objeto válido)
@@ -1172,6 +1179,7 @@ export default function Assinantes() {
                               };
                               setNewSubscriber({
                                 email: duplicated.email,
+                                linked_user_email: subscriber.linked_user_email || '',
                                 name: duplicated.name,
                                 slug: '',
                                 plan: duplicated.plan,
@@ -1246,9 +1254,9 @@ export default function Assinantes() {
                 </p>
               </div>
               
-              <div>
+              <div data-field="email-acesso" className="border-l-2 border-orange-200 pl-3">
                 <div className="flex items-center gap-2 mb-1">
-                  <label className="text-sm font-medium text-gray-700">Email de Acesso (opcional)</label>
+                  <label className="text-sm font-medium text-gray-700" htmlFor="linked_user_email">Email de Acesso / Email personalizado (opcional)</label>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <HelpCircle className="w-4 h-4 text-gray-400 cursor-help" />
@@ -1259,6 +1267,7 @@ export default function Assinantes() {
                   </Tooltip>
                 </div>
                 <Input
+                  id="linked_user_email"
                   type="email"
                   placeholder="email@exemplo.com"
                   value={newSubscriber.linked_user_email || ''}
@@ -1397,9 +1406,10 @@ export default function Assinantes() {
                   />
                 </div>
                 
-                <div>
-                  <label className="text-sm font-medium text-gray-700 mb-1 block">Email de Acesso</label>
+                <div data-field="email-acesso" className="border-l-2 border-orange-200 pl-3">
+                  <label className="text-sm font-medium text-gray-700 mb-1 block" htmlFor="edit-linked_user_email">Email de Acesso / Email personalizado</label>
                   <Input
+                    id="edit-linked_user_email"
                     type="email"
                     placeholder="Se diferente do email da assinatura"
                     value={editingSubscriber.linked_user_email || ''}

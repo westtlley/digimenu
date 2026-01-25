@@ -98,7 +98,7 @@ export async function migrate() {
           console.warn('⚠️ Aviso ao adicionar slug (pode já existir):', error.message);
         }
 
-        // password_token e token_expires_at em subscribers (definir senha do assinante)
+        // password_token, token_expires_at, has_password, linked_user_email em subscribers
         try {
           await query(`
             DO $$ 
@@ -118,11 +118,16 @@ export async function migrate() {
                 ALTER TABLE subscribers ADD COLUMN has_password BOOLEAN DEFAULT false;
                 RAISE NOTICE 'Coluna has_password adicionada em subscribers';
               END IF;
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                            WHERE table_name='subscribers' AND column_name='linked_user_email') THEN
+                ALTER TABLE subscribers ADD COLUMN linked_user_email VARCHAR(255);
+                RAISE NOTICE 'Coluna linked_user_email adicionada em subscribers';
+              END IF;
             END $$;
           `);
-          console.log('✅ Migração de colunas password_token/token_expires_at/has_password em subscribers concluída.');
+          console.log('✅ Migração de colunas password_token/token_expires_at/has_password/linked_user_email em subscribers concluída.');
         } catch (error) {
-          console.warn('⚠️ Aviso ao adicionar colunas de senha em subscribers (pode já existir):', error.message);
+          console.warn('⚠️ Aviso ao adicionar colunas em subscribers (pode já existir):', error.message);
         }
 
         // Tabela password_reset_tokens (esqueci minha senha — usuários e assinantes)

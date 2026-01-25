@@ -1752,6 +1752,7 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
               
               const rawSlug = data.slug;
               const slug = (rawSlug == null || rawSlug === '') ? null : (String(rawSlug).trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') || null);
+              const linked = (data.linked_user_email != null && String(data.linked_user_email || '').trim()) ? String(data.linked_user_email).trim() : null;
               const newSub = {
                 id: existingIndex >= 0 ? db.subscribers[existingIndex].id : Date.now().toString(),
                 email: data.email,
@@ -1762,6 +1763,7 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
                 permissions: data.permissions || {},
                 whatsapp_auto_enabled: data.whatsapp_auto_enabled !== undefined ? data.whatsapp_auto_enabled : true,
                 slug,
+                linked_user_email: linked,
                 created_at: existingIndex >= 0 ? db.subscribers[existingIndex].created_at : new Date().toISOString(),
                 updated_at: new Date().toISOString()
               };

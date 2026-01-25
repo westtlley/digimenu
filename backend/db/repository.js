@@ -552,6 +552,8 @@ export async function createSubscriber(subscriberData) {
     // slug: link do cardápio (ex: /s/meu-restaurante). Normalizar como em updateSubscriber.
     const rawSlug = subscriberData.slug;
     const slug = (rawSlug == null || rawSlug === '') ? null : (String(rawSlug).trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') || null);
+    // linked_user_email: email personalizado para acesso ao painel
+    const linked_user_email = (subscriberData.linked_user_email == null || String(subscriberData.linked_user_email || '').trim() === '') ? null : String(subscriberData.linked_user_email).trim();
     
     console.log('📝 [REPOSITORY] Valores preparados:', {
       email,
@@ -561,13 +563,14 @@ export async function createSubscriber(subscriberData) {
       expires_at,
       permissions: permissionsJson,
       whatsapp_auto_enabled,
-      slug
+      slug,
+      linked_user_email: linked_user_email ? '(preenchido)' : null
     });
     
     // Usar ON CONFLICT para lidar com emails duplicados (upsert)
     const result = await query(
-      `INSERT INTO subscribers (email, name, plan, status, expires_at, permissions, whatsapp_auto_enabled, slug)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `INSERT INTO subscribers (email, name, plan, status, expires_at, permissions, whatsapp_auto_enabled, slug, linked_user_email)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        ON CONFLICT (email) DO UPDATE SET
          name = EXCLUDED.name,
          plan = EXCLUDED.plan,
@@ -576,6 +579,7 @@ export async function createSubscriber(subscriberData) {
          permissions = EXCLUDED.permissions,
          whatsapp_auto_enabled = EXCLUDED.whatsapp_auto_enabled,
          slug = EXCLUDED.slug,
+         linked_user_email = EXCLUDED.linked_user_email,
          updated_at = CURRENT_TIMESTAMP
        RETURNING *`,
       [
@@ -584,9 +588,10 @@ export async function createSubscriber(subscriberData) {
         plan,
         status,
         expires_at,
-        permissionsJson, // JÁ CONVERTIDO PARA JSON
+        permissionsJson,
         whatsapp_auto_enabled,
-        slug
+        slug,
+        linked_user_email
       ]
     );
     
@@ -639,6 +644,10 @@ export async function updateSubscriber(emailOrId, subscriberData) {
     const s = (raw === null || raw === '') ? null : (String(raw).trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') || null);
     updates.push(`slug = $${paramIndex++}`);
     values.push(s);
+  }
+  if (subscriberData.linked_user_email !== undefined) {
+    updates.push(`linked_user_email = $${paramIndex++}`);
+    values.push(subscriberData.linked_user_email === '' || subscriberData.linked_user_email === null ? null : String(subscriberData.linked_user_email).trim());
   }
   if (subscriberData.password_token !== undefined) {
     updates.push(`password_token = $${paramIndex++}`);
