@@ -141,6 +141,18 @@ export async function migrate() {
           );
         `);
         console.log('✅ Migração de tabela password_reset_tokens concluída.');
+
+        // Índice para Comanda (entity_type + subscriber já cobertos por idx_entities_type_subscriber)
+        try {
+          await query(`
+            CREATE INDEX IF NOT EXISTS idx_entities_comanda
+            ON entities ((data->>'status'))
+            WHERE entity_type = 'Comanda';
+          `);
+          console.log('✅ Índice idx_entities_comanda criado.');
+        } catch (e) {
+          console.warn('⚠️ Aviso ao criar idx_entities_comanda (pode já existir):', e.message);
+        }
     
     console.log('✅ Migração concluída com sucesso!');
     return true;

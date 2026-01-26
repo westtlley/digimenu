@@ -57,7 +57,8 @@ export default function AdvancedOrderFilters({
   };
 
   const applyFilters = (filterValues) => {
-    let filtered = [...orders];
+    const list = Array.isArray(orders) ? orders : [];
+    let filtered = [...list];
 
     // Filtrar por status
     if (filterValues.status !== 'all') {
@@ -68,7 +69,12 @@ export default function AdvancedOrderFilters({
     const now = new Date();
     if (filterValues.period === 'today') {
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      filtered = filtered.filter(o => new Date(o.created_date) >= today);
+      filtered = filtered.filter(o => {
+        if (!o.created_date) return true; // manter se data ausente (evita esconder pedidos)
+        const d = new Date(o.created_date);
+        if (isNaN(d.getTime())) return true; // manter se data inválida
+        return d >= today;
+      });
     } else if (filterValues.period === 'week') {
       const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
       filtered = filtered.filter(o => new Date(o.created_date) >= weekAgo);

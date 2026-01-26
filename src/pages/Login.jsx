@@ -117,7 +117,7 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-slate-50 to-gray-100 dark:from-gray-900 dark:to-gray-950">
+    <div className="min-h-screen min-h-screen-mobile flex items-center justify-center p-4 bg-gradient-to-b from-slate-50 to-gray-100 dark:from-gray-900 dark:to-gray-950">
       <div className="w-full max-w-md">
         <div
           className="rounded-2xl shadow-xl p-6 sm:p-8"
@@ -211,7 +211,7 @@ export default function Login() {
             )}
             <Button
               type="submit"
-              className="w-full bg-orange-500 hover:bg-orange-600 text-white"
+              className="w-full min-h-[48px] bg-orange-500 hover:bg-orange-600 text-white"
               disabled={loading}
             >
               {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Entrando...</> : <><LogIn className="w-4 h-4 mr-2" /> Entrar</>}

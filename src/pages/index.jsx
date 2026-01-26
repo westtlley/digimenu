@@ -87,6 +87,8 @@ function PagesContent() {
                 <Route path="/s/:slug/EntregadorPanel" element={<ProtectedRoute requireActiveSubscription><EntregadorPanel /></ProtectedRoute>} />
                 <Route path="/s/:slug" element={<Cardapio />} />
                 <Route path="/" element={<Cardapio />} />
+                <Route path="/cardapio" element={<Navigate to="/" replace />} />
+                <Route path="/Cardapio" element={<Navigate to="/" replace />} />
                 <Route path="/Assinantes" element={<ProtectedRoute requireMaster><Assinantes /></ProtectedRoute>} />
                 
                 <Route path="/Assinar" element={<Assinar />} />
@@ -111,7 +113,6 @@ function PagesContent() {
                 <Route path="/Cozinha" element={<ProtectedRoute requireActiveSubscription><Cozinha /></ProtectedRoute>} />
                 <Route path="/PainelAssinante" element={<ProtectedRoute requireActiveSubscription><PainelAssinante /></ProtectedRoute>} />
                 <Route path="/RastreioCliente" element={<RastreioCliente />} />
-                <Route path="/Cardapio" element={<Cardapio />} />
                 <Route path="/Admin" element={<ProtectedRoute requireMaster><Admin /></ProtectedRoute>} />
                 
             </Routes>

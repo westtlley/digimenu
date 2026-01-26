@@ -41,6 +41,9 @@ const BASIC_PERMISSIONS = {
     whatsapp_auto_enable: true,
     whatsapp_auto_disable: true, // Pode desativar
     
+    // Comandas - NÃO INCLUÍDAS no básico
+    comandas: false,
+    
     // Funcionalidades avançadas - NÃO INCLUÍDAS
     orders_advanced: false,
     pdv: false,
@@ -90,6 +93,9 @@ const PREMIUM_PERMISSIONS = {
     // Relatórios Avançados
     reports_advanced: true,
     
+    // Comandas (criação, edição, fechamento, histórico, múltiplos pagamentos)
+    comandas: true,
+    
     // Colaboradores: perfis limitados (Entregador, Cozinha, PDV)
     collaborators: true,
     
@@ -117,6 +123,9 @@ const PRO_PERMISSIONS = {
     reports_advanced: true,
     analytics_advanced: true,
     exports_advanced: true,
+    
+    // Comandas
+    comandas: true,
     
     // Configurações Avançadas
     settings_advanced: true,

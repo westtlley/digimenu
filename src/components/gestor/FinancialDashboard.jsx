@@ -40,7 +40,7 @@ export default function FinancialDashboard({ orders }) {
 
   return (
     <div className="space-y-6 p-6">
-      <h2 className="text-2xl font-bold">Resumo do Dia</h2>
+      <h2 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>Resumo do Dia</h2>
 
       {/* Cards de Resumo */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -73,23 +73,23 @@ export default function FinancialDashboard({ orders }) {
       </div>
 
       {/* Por Forma de Pagamento */}
-      <div className="bg-white rounded-xl p-6 shadow-sm border">
+      <div className="rounded-xl p-6 shadow-sm border" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
         <div className="flex items-center gap-2 mb-4">
           <CreditCard className="w-5 h-5" />
-          <h3 className="font-bold text-lg">Por Forma de Pagamento</h3>
+          <h3 className="font-bold text-lg" style={{ color: 'var(--text-primary)' }}>Por Forma de Pagamento</h3>
         </div>
         <div className="space-y-3">
           {Object.entries(stats.byPaymentMethod).map(([method, data]) => (
-            <div key={method} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+            <div key={method} className="flex items-center justify-between p-3 rounded-lg" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
               <div>
-                <p className="font-medium">{paymentMethodLabels[method] || method}</p>
-                <p className="text-sm text-gray-500">{data.count} pedidos</p>
+                <p className="font-medium" style={{ color: 'var(--text-primary)' }}>{paymentMethodLabels[method] || method}</p>
+                <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{data.count} pedidos</p>
               </div>
-              <p className="font-bold text-green-600">{formatCurrency(data.total)}</p>
+              <p className="font-bold text-green-600 dark:text-green-400">{formatCurrency(data.total)}</p>
             </div>
           ))}
           {Object.keys(stats.byPaymentMethod).length === 0 && (
-            <p className="text-center text-gray-400 py-4">Nenhum pedido hoje</p>
+            <p className="text-center py-4" style={{ color: 'var(--text-muted)' }}>Nenhum pedido hoje</p>
           )}
         </div>
       </div>

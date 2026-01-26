@@ -37,7 +37,8 @@ export const PLAN_PRESETS = {
       clients: [],
       financial: [],
       printer: [],
-      mais: []
+      mais: [],
+      comandas: []
     }
   },
   
@@ -64,7 +65,8 @@ export const PLAN_PRESETS = {
       clients: ['view'],
       financial: ['view'],
       printer: [],
-      mais: ['view']
+      mais: ['view'],
+      comandas: ['view', 'create', 'update', 'close', 'history']
     }
   },
   
@@ -91,7 +93,8 @@ export const PLAN_PRESETS = {
       clients: ['view', 'create', 'update', 'delete'],
       financial: ['view'],
       printer: ['view', 'update'],
-      mais: ['view']
+      mais: ['view'],
+      comandas: ['view', 'create', 'update', 'close', 'history']
     }
   }
 };

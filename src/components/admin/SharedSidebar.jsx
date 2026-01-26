@@ -23,7 +23,7 @@ import {
   TrendingUp,
   BarChart3,
   Layers,
-  Grid3x3,
+  LayoutGrid,
   Pizza,
   Package,
   FileText,
@@ -77,11 +77,12 @@ const MENU_STRUCTURE = [
       { id: 'restaurante_grp', label: 'Restaurante', icon: UtensilsCrossed, section: 'subsection', submenu: [
         { id: 'dishes', label: 'Pratos', icon: UtensilsCrossed, module: 'dishes' },
         { id: 'categories', label: 'Categorias', icon: Layers, module: 'dishes' },
-        { id: 'complements', label: 'Complementos', icon: Grid3x3, module: 'dishes' },
+        { id: 'complements', label: 'Complementos', icon: LayoutGrid, module: 'dishes' },
       ]},
       { id: 'pizza_config', label: 'Pizzas', icon: Pizza, module: 'pizza_config' },
       { id: 'promotions', label: 'Promoções', icon: Megaphone, module: 'promotions' },
       { id: 'coupons', label: 'Cupons', icon: Ticket, module: 'coupons' },
+      { id: 'comandas', label: 'Comandas', icon: Receipt, module: 'comandas' },
     ]
   },
 
@@ -283,12 +284,13 @@ export default function SharedSidebar({
         
         <div className="flex items-center gap-1">
           {!collapsed && (
-            <button
-              onClick={onClose}
-              className="lg:hidden p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
+<button
+            onClick={onClose}
+            className="lg:hidden min-h-touch min-w-touch flex items-center justify-center p-2 -m-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400"
+            aria-label="Fechar menu"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
           )}
           <button
             onClick={() => setCollapsed(!collapsed)}

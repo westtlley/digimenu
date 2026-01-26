@@ -36,14 +36,14 @@ export default function DashboardTab({ user, subscriberData, onNavigateToTab }) 
     queryFn: () => base44.entities.Dish.list(),
   });
 
-  // Cálculos
+  // Cálculos: exclui cancelados; faturamento só de entregues
   const today = moment().startOf('day');
-  const todayOrders = orders.filter(o => moment(o.created_date).isSame(today, 'day'));
-  const todayRevenue = todayOrders.reduce((sum, o) => sum + (o.total || 0), 0);
+  const todayOrders = (orders || []).filter(o => moment(o.created_date).isSame(today, 'day') && o.status !== 'cancelled');
+  const todayRevenue = todayOrders.filter(o => o.status === 'delivered').reduce((sum, o) => sum + (o.total || 0), 0);
   
   const thisMonth = moment().startOf('month');
-  const monthOrders = orders.filter(o => moment(o.created_date).isSameOrAfter(thisMonth));
-  const monthRevenue = monthOrders.reduce((sum, o) => sum + (o.total || 0), 0);
+  const monthOrders = (orders || []).filter(o => moment(o.created_date).isSameOrAfter(thisMonth) && o.status !== 'cancelled');
+  const monthRevenue = monthOrders.filter(o => o.status === 'delivered').reduce((sum, o) => sum + (o.total || 0), 0);
 
   const newOrders = orders.filter(o => o.status === 'new').length;
   const preparingOrders = orders.filter(o => ['accepted', 'preparing'].includes(o.status)).length;

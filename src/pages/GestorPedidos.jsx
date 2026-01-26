@@ -409,7 +409,7 @@ export default function GestorPedidos() {
   const backUrl = createPageUrl(backPage, isMaster ? undefined : slug || undefined);
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-screen min-h-screen-mobile bg-gray-50 flex flex-col">
       <Toaster position="top-center" />
       
       {/* Header - estilo iFood */}
@@ -638,7 +638,8 @@ export default function GestorPedidos() {
               </div>
               <button 
                 onClick={() => setShowMobileMenu(false)}
-                className="p-1 rounded-lg hover:bg-white/20 transition-colors"
+                className="min-h-touch min-w-touch flex items-center justify-center p-2 -m-1 rounded-lg hover:bg-white/20 transition-colors"
+                aria-label="Fechar menu"
               >
                 <CloseIcon className="w-5 h-5" />
               </button>
@@ -715,7 +716,7 @@ export default function GestorPedidos() {
             </nav>
 
             {/* Mobile Stats */}
-            <div className="absolute bottom-0 left-0 right-0 p-4 border-t bg-gray-50">
+            <div className="absolute bottom-0 left-0 right-0 p-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t bg-gray-50">
               <div className="grid grid-cols-2 gap-3 text-center">
                 <div className="bg-white rounded-lg p-3 shadow-sm">
                   <p className="text-xs text-gray-500">Pedidos Ativos</p>

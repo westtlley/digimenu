@@ -18,6 +18,7 @@ import DeliveryZonesTab from '../components/admin/DeliveryZonesTab';
 import CouponsTab from '../components/admin/CouponsTab';
 import PromotionsTab from '../components/admin/PromotionsTab';
 import ThemeTab from '../components/admin/ThemeTab';
+import ComandasTab from '../components/admin/ComandasTab';
 import OrdersTab from '../components/admin/OrdersTab';
 import StoreTab from '../components/admin/StoreTab';
 import PaymentMethodsTab from '../components/admin/PaymentMethodsTab';
@@ -210,6 +211,8 @@ export default function Admin() {
         return hasModuleAccess('coupons') ? <CouponsTab /> : <AccessDenied />;
       case 'promotions':
         return hasModuleAccess('promotions') ? <PromotionsTab /> : <AccessDenied />;
+      case 'comandas':
+        return hasModuleAccess('comandas') ? <ComandasTab /> : <AccessDenied />;
       case 'theme':
         return hasModuleAccess('theme') ? <ThemeTab /> : <AccessDenied />;
       case 'orders':
@@ -272,16 +275,17 @@ export default function Admin() {
   
   try {
     return (
-      <div className="min-h-screen flex flex-col bg-gray-100 dark:bg-gray-900">
+      <div className="min-h-screen min-h-screen-mobile flex flex-col bg-gray-100 dark:bg-gray-900">
       {/* Header Profissional com Logo */}
       <header className="text-white flex-shrink-0 sticky top-0 z-50 bg-gradient-to-r from-gray-800 via-gray-900 to-gray-800 border-b border-gray-700 shadow-lg">
         <div className="px-3 sm:px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3 flex-1 min-w-0">
             <button
               onClick={() => setShowMobileSidebar(true)}
-              className="lg:hidden p-1.5 rounded-lg transition-colors hover:bg-white/10"
+              className="lg:hidden min-h-touch min-w-touch flex items-center justify-center p-2 -m-1 rounded-lg transition-colors hover:bg-white/10"
+              aria-label="Abrir menu"
             >
-              <Menu className="w-5 h-5" />
+              <Menu className="w-6 h-6" />
             </button>
             
             {/* Logo da Loja */}

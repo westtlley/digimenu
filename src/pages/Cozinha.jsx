@@ -105,7 +105,7 @@ export default function Cozinha() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
+    <div className="min-h-screen min-h-screen-mobile bg-gray-100 dark:bg-gray-900">
       <header className="bg-orange-600 text-white sticky top-0 z-10 shadow">
         <div className="px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">

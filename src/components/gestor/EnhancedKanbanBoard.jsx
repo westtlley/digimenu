@@ -64,6 +64,7 @@ const COLUMNS = [
  * Kanban melhorado com drag-and-drop, filtros e busca
  */
 export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = false, isLoading = false }) {
+  const safeOrders = Array.isArray(orders) ? orders : [];
   const [collapsedColumns, setCollapsedColumns] = useState({});
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
@@ -90,7 +91,7 @@ export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = 
 
   const updateOrderMutation = useMutation({
     mutationFn: async ({ orderId, newStatus }) => {
-      const order = orders.find(o => String(o.id) === String(orderId));
+      const order = safeOrders.find(o => String(o.id) === String(orderId));
       if (!order) throw new Error('Pedido não encontrado');
       const payload = { ...order, status: newStatus };
       if (newStatus === 'ready') {
@@ -112,7 +113,7 @@ export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = 
   });
 
   const getColumnOrders = (statuses) => {
-    let filtered = orders.filter(o => statuses.includes(o.status));
+    let filtered = safeOrders.filter(o => statuses.includes(o.status));
     
     // Aplicar filtros
     if (searchTerm) {
@@ -169,7 +170,7 @@ export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = 
     const targetColumn = COLUMNS.find(col => col.id === destination.droppableId);
     if (!targetColumn) return;
 
-    const order = orders.find(o => String(o.id) === String(draggableId));
+    const order = safeOrders.find(o => String(o.id) === String(draggableId));
     if (!order) return;
 
     let newStatus;
@@ -202,7 +203,7 @@ export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = 
   }, [updateOrderMutation, orders, queryClient]);
 
   // Skeleton quando isLoading e ainda sem pedidos (evita flash vazio)
-  const showSkeleton = isLoading && orders.length === 0;
+  const showSkeleton = isLoading && safeOrders.length === 0;
   if (showSkeleton) {
     return (
       <div className="space-y-4">
@@ -319,6 +320,11 @@ export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = 
                         <div className="text-left">
                           <p className={`font-semibold text-xs ${darkMode ? 'text-white' : 'text-gray-700'}`}>
                             {column.label}
+                            {column.id === 'new' && columnOrders.some(o => o.status === 'new') && (
+                              <span className={`ml-1 font-medium ${column.textColor}`}>
+                                · {columnOrders.filter(o => o.status === 'new').length} novo(s)
+                              </span>
+                            )}
                           </p>
                           <p className={`text-[10px] ${darkMode ? 'text-gray-400' : 'text-gray-400'}`}>
                             {columnOrders.length} pedidos

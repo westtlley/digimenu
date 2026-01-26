@@ -26,6 +26,7 @@ import DeliveryZonesTab from '../components/admin/DeliveryZonesTab';
 import CouponsTab from '../components/admin/CouponsTab';
 import PromotionsTab from '../components/admin/PromotionsTab';
 import ThemeTab from '../components/admin/ThemeTab';
+import ComandasTab from '../components/admin/ComandasTab';
 import StoreTab from '../components/admin/StoreTab';
 import PaymentMethodsTab from '../components/admin/PaymentMethodsTab';
 import PrinterConfig from '../components/gestor/PrinterConfig';
@@ -163,6 +164,8 @@ export default function PainelAssinante() {
         return hasModuleAccess('coupons') ? <CouponsTab /> : <AccessDenied />;
       case 'promotions':
         return hasModuleAccess('promotions') ? <PromotionsTab /> : <AccessDenied />;
+      case 'comandas':
+        return hasModuleAccess('comandas') ? <ComandasTab /> : <AccessDenied />;
       case 'theme':
         return hasModuleAccess('theme') ? <ThemeTab /> : <AccessDenied />;
       case 'store':
@@ -181,16 +184,17 @@ export default function PainelAssinante() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex flex-col">
+    <div className="min-h-screen min-h-screen-mobile bg-gray-100 dark:bg-gray-900 flex flex-col">
       {/* Header Profissional com Logo */}
       <header className="bg-gradient-to-r from-orange-600 via-orange-500 to-orange-600 text-white flex-shrink-0 sticky top-0 z-50 shadow-lg">
         <div className="px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3 flex-1 min-w-0">
             <button
               onClick={() => setShowMobileSidebar(true)}
-              className="lg:hidden p-2 hover:bg-white/10 rounded-lg transition"
+              className="lg:hidden min-h-touch min-w-touch flex items-center justify-center p-2 -m-1 hover:bg-white/10 rounded-lg transition"
+              aria-label="Abrir menu"
             >
-              <Menu className="w-5 h-5" />
+              <Menu className="w-6 h-6" />
             </button>
             
             {/* Logo da Loja */}

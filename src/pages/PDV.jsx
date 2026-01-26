@@ -352,7 +352,7 @@ export default function PDV() {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
+    <div className="min-h-screen min-h-screen-mobile h-screen flex flex-col bg-gray-50">
       <Toaster position="top-center" />
       
       {/* Header Fixo */}
@@ -633,10 +633,10 @@ export default function PDV() {
       </div>
 
       {/* Botão Flutuante Mobile */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 p-4 bg-gray-900 border-t border-gray-700">
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 p-4 pb-[max(1rem,env(safe-area-inset-bottom,0px))] bg-gray-900 border-t border-gray-700">
         <Button
           onClick={() => setShowMobileCart(true)}
-          className="w-full h-14 bg-orange-500 hover:bg-orange-600 text-white font-bold text-lg"
+          className="w-full min-h-[48px] h-14 bg-orange-500 hover:bg-orange-600 text-white font-bold text-lg"
           disabled={cart.length === 0}
         >
           <ShoppingCart className="w-5 h-5 mr-2" />
@@ -652,7 +652,8 @@ export default function PDV() {
             <h3 className="text-xl font-bold text-white">Comanda</h3>
             <button
               onClick={() => setShowMobileCart(false)}
-              className="text-white p-2 hover:bg-gray-800 rounded"
+              className="text-white min-h-touch min-w-touch flex items-center justify-center p-2 -m-1 hover:bg-gray-800 rounded"
+              aria-label="Fechar comanda"
             >
               <X className="w-6 h-6" />
             </button>
@@ -697,7 +698,7 @@ export default function PDV() {
             ))}
           </div>
 
-          <div className="flex-shrink-0 p-4 border-t border-gray-700 space-y-3">
+          <div className="flex-shrink-0 p-4 pb-[max(1rem,env(safe-area-inset-bottom,0px))] border-t border-gray-700 space-y-3">
             <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-xl p-4">
               <div className="flex items-center justify-between">
                 <span className="text-lg font-bold text-white">TOTAL</span>
@@ -710,7 +711,7 @@ export default function PDV() {
                 setShowMobileCart(false);
                 setShowPaymentModal(true);
               }}
-              className="w-full h-12 bg-green-600 hover:bg-green-700 font-bold"
+              className="w-full min-h-[48px] h-12 bg-green-600 hover:bg-green-700 font-bold"
             >
               Finalizar Venda
             </Button>

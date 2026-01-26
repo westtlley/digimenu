@@ -124,12 +124,16 @@ export async function listEntities(entityType, filters = {}, orderBy = null, use
       });
     }
     
-    // Ordenação
+    // Ordenação (created_at/updated_at são colunas da tabela; demais vêm de data->>field)
     if (orderBy) {
       const direction = orderBy.startsWith('-') ? 'DESC' : 'ASC';
       const field = orderBy.replace(/^-/, '');
-      sql += ` ORDER BY data->>$${params.length + 1} ${direction}`;
-      params.push(field);
+      if (field === 'created_at' || field === 'updated_at') {
+        sql += ` ORDER BY ${field} ${direction} NULLS LAST`;
+      } else {
+        sql += ` ORDER BY data->>$${params.length + 1} ${direction} NULLS LAST`;
+        params.push(field);
+      }
     } else {
       sql += ` ORDER BY created_at DESC`;
     }
@@ -327,6 +331,35 @@ export async function deleteEntity(entityType, id, user = null) {
   } catch (error) {
     console.error(`Erro ao deletar ${entityType} ${id}:`, error);
     throw error;
+  }
+}
+
+/**
+ * Retorna o próximo número para código de Comanda (ex: C-001, C-002).
+ * owner: subscriber_email do assinante ou null para master (subscriber_email IS NULL).
+ */
+export async function getNextComandaCode(owner) {
+  try {
+    let sql = `
+      SELECT COALESCE(MAX(
+        (NULLIF(regexp_replace(COALESCE(data->>'code',''), '[^0-9]', '', 'g'), '')::int)
+      ), 0) + 1 as next_num
+      FROM entities
+      WHERE entity_type = 'Comanda'
+    `;
+    const params = [];
+    if (owner != null && String(owner).trim() !== '') {
+      sql += ` AND subscriber_email = $1`;
+      params.push(String(owner).trim());
+    } else {
+      sql += ` AND subscriber_email IS NULL`;
+    }
+    const result = await query(sql, params);
+    const nextNum = result.rows[0]?.next_num || 1;
+    return 'C-' + String(nextNum).padStart(3, '0');
+  } catch (error) {
+    console.error('Erro ao obter próximo código Comanda:', error);
+    return 'C-001';
   }
 }
 

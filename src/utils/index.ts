@@ -11,5 +11,7 @@ export function createPageUrl(pageName: string, slug?: string | null) {
         if (pageName === 'Cardapio' || pageName === 'cardapio') return `/s/${slug}`;
         return `/s/${slug}/${pageName}`;
     }
+    // Cardápio sem slug: não existe /cardapio genérico; ir para a home.
+    if (pageName === 'Cardapio' || pageName === 'cardapio') return '/';
     return '/' + pageName.toLowerCase().replace(/ /g, '-');
 }

@@ -790,7 +790,7 @@ export default function Assinantes() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen min-h-screen-mobile bg-gray-50">
       {/* Header */}
       <header className="bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 text-white shadow-xl">
         <div className="max-w-6xl mx-auto px-4 py-5">

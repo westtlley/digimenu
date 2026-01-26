@@ -17,6 +17,8 @@ import { toast } from "sonner";
 import { format } from 'date-fns';
 
 export default function DeliveryPanel({ entregadores, orders, stores = [] }) {
+  const safeOrders = Array.isArray(orders) ? orders : [];
+  const safeEntregadores = Array.isArray(entregadores) ? entregadores : [];
   const [viewMode, setViewMode] = useState('list');
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showAutoAssign, setShowAutoAssign] = useState(false);
@@ -73,9 +75,9 @@ export default function DeliveryPanel({ entregadores, orders, stores = [] }) {
     }
   });
 
-  const availableEntregadores = entregadores.filter(e => e.status === 'available');
-  const busyEntregadores = entregadores.filter(e => e.status === 'busy');
-  const readyOrders = orders.filter(o => o.status === 'ready' && o.delivery_method === 'delivery');
+  const availableEntregadores = safeEntregadores.filter(e => e.status === 'available');
+  const busyEntregadores = safeEntregadores.filter(e => e.status === 'busy');
+  const readyOrders = safeOrders.filter(o => o.status === 'ready' && o.delivery_method === 'delivery');
 
   const [entregadorFormData, setEntregadorFormData] = useState({
     name: '',

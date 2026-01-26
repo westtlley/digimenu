@@ -1446,6 +1446,23 @@ app.post('/api/entities/:entity', authenticate, async (req, res) => {
       }
     }
 
+    // Comanda: gerar código (C-001, C-002...) se não informado
+    if (String(entity) === 'Comanda' && !(data.code && String(data.code).trim())) {
+      const owner = createOpts.forSubscriberEmail || data.owner_email || null;
+      if (usePostgreSQL && repo.getNextComandaCode) {
+        data.code = await repo.getNextComandaCode(owner);
+      } else if (db && db.entities) {
+        const list = (db.entities.Comanda || []).filter(c => !owner || (String(c.owner_email || '').toLowerCase() === String(owner).toLowerCase()));
+        const max = list.reduce((m, c) => {
+          const n = parseInt(String(c.code || '').replace(/^[^0-9]+/i, ''), 10);
+          return isNaN(n) ? m : Math.max(m, n);
+        }, 0);
+        data.code = 'C-' + String(max + 1).padStart(3, '0');
+      } else {
+        data.code = 'C-001';
+      }
+    }
+
     let newItem;
     if (usePostgreSQL) {
       newItem = await repo.createEntity(entity, data, req.user, createOpts);
@@ -2138,6 +2155,7 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
         let combos = [];
         let orders = [];
         let caixas = [];
+        let comandas = [];
         let store = null;
         
         if (usePostgreSQL) {
@@ -2148,6 +2166,7 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
           combos = await repo.listEntitiesForSubscriber('Combo', se, null);
           orders = await repo.listEntitiesForSubscriber('Order', se, '-created_date');
           caixas = await repo.listEntitiesForSubscriber('Caixa', se, null);
+          comandas = await repo.listEntitiesForSubscriber('Comanda', se, '-created_at');
           const stores = await repo.listEntitiesForSubscriber('Store', se, null);
           store = stores[0] || null;
         } else if (db && db.entities) {
@@ -2158,6 +2177,7 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
           combos = (db.entities.Combo || []).filter(e => e.owner_email === subscriber.email || !e.owner_email);
           orders = (db.entities.Order || []).filter(e => e.owner_email === subscriber.email || e.customer_email === subscriber.email || !e.owner_email);
           caixas = (db.entities.Caixa || []).filter(e => e.owner_email === subscriber.email || !e.owner_email);
+          comandas = (db.entities.Comanda || []).filter(e => e.owner_email === subscriber.email || !e.owner_email);
           const stores = (db.entities.Store || []).filter(e => e.owner_email === subscriber.email || !e.owner_email);
           store = stores[0] || null;
         }
@@ -2167,18 +2187,21 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
           total_dishes: dishes.length,
           total_orders: orders.length,
           total_revenue: orders.reduce((sum, o) => sum + (parseFloat(o.total) || 0), 0),
-          active_caixas: caixas.filter(c => c.status === 'open').length
+          active_caixas: caixas.filter(c => c.status === 'open').length,
+          total_comandas: comandas.length,
+          comandas_abertas: comandas.filter(c => c.status === 'open').length
         };
         
         console.log('✅ [getFullSubscriberProfile] Perfil completo gerado:', {
           subscriber: subscriber.email,
           dishes: stats.total_dishes,
           orders: stats.total_orders,
-          revenue: stats.total_revenue
+          revenue: stats.total_revenue,
+          comandas: stats.total_comandas
         });
         
         return res.json({
-          data: { dishes, categories, complement_groups, combos, orders, caixas, store },
+          data: { dishes, categories, complement_groups, combos, orders, caixas, comandas, store },
           stats,
           subscriber
         });

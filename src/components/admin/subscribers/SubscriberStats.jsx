@@ -8,41 +8,42 @@ import { differenceInDays, isPast } from 'date-fns';
  * Dashboard de estatísticas de assinantes
  */
 export default function SubscriberStats({ subscribers = [] }) {
+  const safeSubscribers = Array.isArray(subscribers) ? subscribers : [];
   const stats = useMemo(() => {
     const now = new Date();
     const thirtyDaysFromNow = new Date();
     thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
 
-    const active = subscribers.filter(s => s.status === 'active');
-    const inactive = subscribers.filter(s => s.status === 'inactive');
-    const expired = subscribers.filter(s => {
+    const active = safeSubscribers.filter(s => s.status === 'active');
+    const inactive = safeSubscribers.filter(s => s.status === 'inactive');
+    const expired = safeSubscribers.filter(s => {
       if (!s.expires_at) return false;
       return isPast(new Date(s.expires_at));
     });
-    const expiringSoon = subscribers.filter(s => {
+    const expiringSoon = safeSubscribers.filter(s => {
       if (!s.expires_at) return false;
       const daysUntilExpiration = differenceInDays(new Date(s.expires_at), now);
       return daysUntilExpiration <= 30 && daysUntilExpiration > 0;
     });
 
     const plans = {
-      basic: subscribers.filter(s => s.plan === 'basic').length,
-      pro: subscribers.filter(s => s.plan === 'pro').length,
-      premium: subscribers.filter(s => s.plan === 'premium').length,
-      custom: subscribers.filter(s => s.plan === 'custom').length
+      basic: safeSubscribers.filter(s => s.plan === 'basic').length,
+      pro: safeSubscribers.filter(s => s.plan === 'pro').length,
+      premium: safeSubscribers.filter(s => s.plan === 'premium').length,
+      custom: safeSubscribers.filter(s => s.plan === 'custom').length
     };
 
-    const withPassword = subscribers.filter(s => s.has_password).length;
-    const withoutPassword = subscribers.filter(s => !s.has_password).length;
+    const withPassword = safeSubscribers.filter(s => s.has_password).length;
+    const withoutPassword = safeSubscribers.filter(s => !s.has_password).length;
 
     // Calcular crescimento (últimos 30 dias - simulado, seria melhor ter created_at)
-    const recent = subscribers.filter(s => {
+    const recent = safeSubscribers.filter(s => {
       // Assumir que novos assinantes são recentes se não tiver expires_at ou expires_at futuro
       return s.status === 'active' && (!s.expires_at || !isPast(new Date(s.expires_at)));
     });
 
     return {
-      total: subscribers.length,
+      total: safeSubscribers.length,
       active: active.length,
       inactive: inactive.length,
       expired: expired.length,
@@ -51,9 +52,9 @@ export default function SubscriberStats({ subscribers = [] }) {
       withPassword,
       withoutPassword,
       recent: recent.length,
-      activeRate: subscribers.length > 0 ? ((active.length / subscribers.length) * 100).toFixed(1) : 0
+      activeRate: safeSubscribers.length > 0 ? ((active.length / safeSubscribers.length) * 100).toFixed(1) : 0
     };
-  }, [subscribers]);
+  }, [safeSubscribers]);
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

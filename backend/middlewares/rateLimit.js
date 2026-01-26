@@ -37,7 +37,7 @@ export const loginLimiter = rateLimit({
  */
 export const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 500, // 500 requisições
+  max: 1500, // 1500 requisições (evita "Muitas requisições" em uso normal; /api/auth e /api/public já têm skip)
   message: {
     error: 'Muitas requisições. Tente novamente mais tarde.',
     retryAfter: 15 * 60

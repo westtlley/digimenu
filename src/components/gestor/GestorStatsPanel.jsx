@@ -19,6 +19,8 @@ export default function GestorStatsPanel({
   entregadores = [],
   darkMode = false 
 }) {
+  const safeOrders = Array.isArray(orders) ? orders : [];
+  const safeEntregadores = Array.isArray(entregadores) ? entregadores : [];
   const formatCurrency = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
 
   const { todayOrders, yesterdayOrders, totalRevenue, pendingOrders, inDelivery, avgPrepTime, activeEntregadores, ticketMedio, stats, chartByHour, pieData, concludedOrdersCurrentMonth, concludedOrdersLastMonth, diffFromLastMonth } = useMemo(() => {
@@ -29,12 +31,12 @@ export default function GestorStatsPanel({
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    const todayOrders = orders.filter(o => {
+    const todayOrders = safeOrders.filter(o => {
       const d = new Date(o.created_date);
       return d >= today && d < tomorrow;
     });
 
-    const yesterdayOrders = orders.filter(o => {
+    const yesterdayOrders = safeOrders.filter(o => {
       const d = new Date(o.created_date);
       return d >= yesterday && d < today;
     });
@@ -43,8 +45,8 @@ export default function GestorStatsPanel({
     const totalRevenue = deliveredToday.reduce((s, o) => s + (o.total || 0), 0);
     const ticketMedio = deliveredToday.length > 0 ? totalRevenue / deliveredToday.length : 0;
 
-    const pendingOrders = orders.filter(o => ['new', 'accepted', 'preparing'].includes(o.status)).length;
-    const inDelivery = orders.filter(o => ['out_for_delivery', 'going_to_store', 'picked_up'].includes(o.status)).length;
+    const pendingOrders = safeOrders.filter(o => ['new', 'accepted', 'preparing'].includes(o.status)).length;
+    const inDelivery = safeOrders.filter(o => ['out_for_delivery', 'going_to_store', 'picked_up'].includes(o.status)).length;
 
     const withPrep = todayOrders.filter(o => o.accepted_at && o.ready_at);
     const avgPrepTime = withPrep.length > 0
@@ -57,12 +59,12 @@ export default function GestorStatsPanel({
     const now = new Date();
     const firstDayThis = new Date(now.getFullYear(), now.getMonth(), 1);
     const firstDayLast = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const concludedOrdersCurrentMonth = orders.filter(o => {
+    const concludedOrdersCurrentMonth = safeOrders.filter(o => {
       if (o.status !== 'delivered') return false;
       const d = new Date(o.delivered_at || o.created_date);
       return d >= firstDayThis;
     }).length;
-    const concludedOrdersLastMonth = orders.filter(o => {
+    const concludedOrdersLastMonth = safeOrders.filter(o => {
       if (o.status !== 'delivered') return false;
       const d = new Date(o.delivered_at || o.created_date);
       return d >= firstDayLast && d < firstDayThis;
@@ -148,7 +150,7 @@ export default function GestorStatsPanel({
     ].filter(d => d.value > 0);
 
     return { todayOrders, yesterdayOrders, totalRevenue, pendingOrders, inDelivery, avgPrepTime, activeEntregadores, ticketMedio, stats, chartByHour, pieData, concludedOrdersCurrentMonth, concludedOrdersLastMonth, diffFromLastMonth };
-  }, [orders, entregadores]);
+  }, [safeOrders, safeEntregadores]);
 
   const colorClasses = {
     blue: darkMode ? 'from-blue-900/50 to-blue-800/30 border-blue-700' : 'from-blue-50 to-blue-100 border-blue-200',

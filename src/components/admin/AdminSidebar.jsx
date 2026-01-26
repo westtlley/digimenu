@@ -27,9 +27,9 @@ import {
   BarChart3,
   Layers,
   Plus,
-  Grid3x3,
   Pizza,
-  Layout
+  Layout,
+  Receipt
 } from 'lucide-react';
 
 const MENU_STRUCTURE = [
@@ -73,6 +73,7 @@ const MENU_STRUCTURE = [
       { id: 'pizza_config', label: 'Pizzas', icon: Pizza, module: 'pizza_config' },
       { id: 'promotions', label: 'Promoções', icon: Megaphone, module: 'promotions' },
       { id: 'coupons', label: 'Cupons', icon: Ticket, module: 'coupons' },
+      { id: 'comandas', label: 'Comandas', icon: Receipt, module: 'comandas' },
     ]
   },
 
@@ -243,7 +244,8 @@ export default function AdminSidebar({ activeTab, setActiveTab, isMaster = false
           {!collapsed && (
             <button
               onClick={onClose}
-              className="lg:hidden p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400"
+              className="lg:hidden min-h-touch min-w-touch flex items-center justify-center p-2 -m-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400"
+              aria-label="Fechar menu"
             >
               <ChevronLeft className="w-5 h-5" />
             </button>

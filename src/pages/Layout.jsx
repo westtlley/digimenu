@@ -95,6 +95,21 @@ export default function Layout({ children }) {
           opacity: 0.8;
         }
 
+        /* Cores de destaque (valores, ícones) - legíveis em modo escuro */
+        .dark .text-blue-600 { color: #60a5fa !important; }
+        .dark .text-blue-700 { color: #93c5fd !important; }
+        .dark .text-blue-900 { color: #bfdbfe !important; }
+        .dark .text-green-600 { color: #4ade80 !important; }
+        .dark .text-green-700 { color: #86efac !important; }
+        .dark .text-green-900 { color: #bbf7d0 !important; }
+        .dark .text-purple-600 { color: #a78bfa !important; }
+        .dark .text-purple-700 { color: #c4b5fd !important; }
+        .dark .text-purple-900 { color: #ddd6fe !important; }
+        .dark .text-yellow-500 { color: #facc15 !important; }
+        .dark .text-yellow-600 { color: #fde047 !important; }
+        .dark .text-orange-600 { color: #fb923c !important; }
+        .dark .text-red-600 { color: #f87171 !important; }
+
         /* Backgrounds - Garantir contraste adequado */
         .bg-white, .dark .bg-white {
           background-color: var(--bg-card) !important;
@@ -190,6 +205,22 @@ export default function Layout({ children }) {
         *:focus-visible {
           outline: 2px solid var(--border-focus);
           outline-offset: 2px;
+        }
+
+        /* Safe-area para notch e barra de gestos (PWA/app) */
+        .safe-top { padding-top: env(safe-area-inset-top, 0px); }
+        .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
+        .safe-left { padding-left: env(safe-area-inset-left, 0px); }
+        .safe-right { padding-right: env(safe-area-inset-right, 0px); }
+        .safe-x { padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); }
+        .safe-y { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+
+        /* Evitar scroll horizontal em mobile */
+        html, body { overflow-x: hidden; }
+
+        /* Altura mínima em mobile (dvh = dynamic viewport height, evita barra de endereço) */
+        @media (max-width: 768px) {
+          .min-h-screen-mobile { min-height: 100dvh; min-height: 100vh; }
         }
 
         /* Transições suaves */

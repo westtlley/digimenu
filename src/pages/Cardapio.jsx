@@ -39,6 +39,35 @@ import { whatsappService } from '@/components/services/whatsappService';
 import { stockUtils } from '@/components/utils/stockUtils';
 import { formatCurrency } from '@/components/utils/formatters';
 
+/** Landing quando não há slug: / ou /cardapio — não exibe cardápio de nenhum estabelecimento. */
+function CardapioSemLink() {
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
+      <div className="text-center max-w-md p-8 rounded-2xl bg-white dark:bg-gray-800 shadow-xl border border-gray-200 dark:border-gray-700">
+        <div className="w-16 h-16 mx-auto mb-4 rounded-2xl flex items-center justify-center bg-orange-500/10">
+          <UtensilsCrossed className="w-8 h-8 text-orange-500" />
+        </div>
+        <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">DigiMenu</h1>
+        <p className="mt-3 text-gray-600 dark:text-gray-400">
+          O cardápio digital é acessado pelo link do estabelecimento: <strong>/s/nome-do-restaurante</strong>
+        </p>
+        <p className="mt-2 text-sm text-gray-500 dark:text-gray-500">
+          Ex.: /s/raiz-maranhense
+        </p>
+        <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
+          <Link to="/Assinar" className="px-4 py-2.5 rounded-lg bg-orange-500 text-white font-medium hover:bg-orange-600 transition-colors">
+            Assinar DigiMenu
+          </Link>
+          <Link to="/login" className="px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+            Já tenho conta
+          </Link>
+        </div>
+        <a href="/" className="mt-4 inline-block text-sm text-gray-500 dark:text-gray-400 hover:text-orange-500">Voltar ao início</a>
+      </div>
+    </div>
+  );
+}
+
 export default function Cardapio() {
   const { slug } = useParams(); // link do assinante: /s/meu-restaurante
   const [selectedDish, setSelectedDish] = useState(null);
@@ -66,11 +95,11 @@ export default function Cardapio() {
     enabled: !!slug,
   });
 
-  // Data Fetching - quando não é /s/:slug (enabled: !slug)
+  // Dados do cardápio: só via /public/cardapio/:slug. Não carregar entidades do master em / ou /cardapio.
   const { data: dishes = [], isLoading: dishesLoading } = useQuery({
     queryKey: ['dishes'],
     queryFn: () => base44.entities.Dish.list('order'),
-    enabled: !slug,
+    enabled: false,
     staleTime: 2 * 60 * 1000,
     gcTime: 5 * 60 * 1000,
     initialData: [],
@@ -81,7 +110,7 @@ export default function Cardapio() {
   const { data: categories = [] } = useQuery({
     queryKey: ['categories'],
     queryFn: () => base44.entities.Category.list('order'),
-    enabled: !slug,
+    enabled: false,
     staleTime: 10 * 60 * 1000,
     gcTime: 30 * 60 * 1000
   });
@@ -89,7 +118,7 @@ export default function Cardapio() {
   const { data: complementGroups = [] } = useQuery({
     queryKey: ['complementGroups'],
     queryFn: () => base44.entities.ComplementGroup.list('order'),
-    enabled: !slug,
+    enabled: false,
     staleTime: 10 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
     refetchOnMount: 'always',
@@ -98,7 +127,7 @@ export default function Cardapio() {
   const { data: pizzaSizes = [] } = useQuery({
     queryKey: ['pizzaSizes'],
     queryFn: () => base44.entities.PizzaSize.list('order'),
-    enabled: !slug,
+    enabled: false,
     staleTime: 10 * 60 * 1000,
     gcTime: 30 * 60 * 1000
   });
@@ -106,7 +135,7 @@ export default function Cardapio() {
   const { data: pizzaFlavors = [] } = useQuery({
     queryKey: ['pizzaFlavors'],
     queryFn: () => base44.entities.PizzaFlavor.list('order'),
-    enabled: !slug,
+    enabled: false,
     staleTime: 10 * 60 * 1000,
     gcTime: 30 * 60 * 1000
   });
@@ -114,37 +143,37 @@ export default function Cardapio() {
   const { data: pizzaEdges = [] } = useQuery({
     queryKey: ['pizzaEdges'],
     queryFn: () => base44.entities.PizzaEdge.list('order'),
-    enabled: !slug
+    enabled: false
   });
 
   const { data: pizzaExtras = [] } = useQuery({
     queryKey: ['pizzaExtras'],
     queryFn: () => base44.entities.PizzaExtra.list('order'),
-    enabled: !slug
+    enabled: false
   });
 
   const { data: stores = [] } = useQuery({
     queryKey: ['store'],
     queryFn: () => base44.entities.Store.list(),
-    enabled: !slug
+    enabled: false
   });
 
   const { data: coupons = [] } = useQuery({
     queryKey: ['coupons'],
     queryFn: () => base44.entities.Coupon.list(),
-    enabled: !slug
+    enabled: false
   });
 
   const { data: deliveryZones = [] } = useQuery({
     queryKey: ['deliveryZones'],
     queryFn: () => base44.entities.DeliveryZone.list(),
-    enabled: !slug
+    enabled: false
   });
 
   const { data: promotions = [] } = useQuery({
     queryKey: ['promotions'],
     queryFn: () => base44.entities.Promotion.list(),
-    enabled: !slug
+    enabled: false
   });
 
   // Quando /s/:slug: usar dados da API pública; senão usar das queries
@@ -255,6 +284,9 @@ export default function Cardapio() {
     const t = setTimeout(() => setShowSplash(false), 1400);
     return () => clearTimeout(t);
   }, []);
+
+  // Sem slug: / ou /cardapio — exibir landing; não mostrar cardápio de estabelecimento.
+  if (!slug) return <CardapioSemLink />;
 
   const handleAddToCart = async (item, isEditing = false) => {
     const dish = item.dish || item;
@@ -477,7 +509,7 @@ export default function Cardapio() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen min-h-screen-mobile bg-background">
       <Toaster position="top-center" />
 
       {/* Splash rápido ao carregar o cardápio */}

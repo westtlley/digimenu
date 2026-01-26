@@ -5,6 +5,7 @@ import { AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid } from "r
 import moment from 'moment';
 import { TrendingUp, DollarSign } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useTheme } from '@/components/theme/ThemeProvider';
 
 const PERIODS = [
   { value: '7', label: '7 dias' },
@@ -14,7 +15,9 @@ const PERIODS = [
 
 export default function DashboardCharts({ orders = [] }) {
   const [period, setPeriod] = useState('7');
+  const { isDark } = useTheme();
 
+  // Ignorar cancelados; faturamento só de entregues; contagem só não cancelados
   const chartData = useMemo(() => {
     const isMonth = period === '12m';
     const n = isMonth ? 12 : (period === '7' ? 7 : 30);
@@ -43,11 +46,15 @@ export default function DashboardCharts({ orders = [] }) {
       return orderMoment.isSame(pt.fullDate, 'day');
     };
 
-    orders.forEach((order) => {
+    const validOrders = (orders || []).filter(o => o.status !== 'cancelled');
+    validOrders.forEach((order) => {
       const orderDate = moment(order.created_date);
       const idx = points.findIndex((d) => matchPoint(orderDate, d));
       if (idx !== -1) {
-        points[idx].revenue += order.total || 0;
+        // Faturamento: só pedidos entregues
+        if (order.status === 'delivered') {
+          points[idx].revenue += order.total || 0;
+        }
         points[idx].orders += 1;
       }
     });
@@ -75,12 +82,15 @@ export default function DashboardCharts({ orders = [] }) {
     }).format(value || 0);
   };
 
+  const gridStroke = isDark ? '#475569' : '#e5e7eb';
+  const axisStroke = isDark ? '#94a3b8' : '#6b7280';
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* Gráfico de Faturamento */}
-      <Card>
+      <Card style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-base font-semibold flex items-center gap-2">
+          <CardTitle className="text-base font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
             <DollarSign className="w-5 h-5 text-green-600" />
             Faturamento
           </CardTitle>
@@ -104,16 +114,16 @@ export default function DashboardCharts({ orders = [] }) {
                   <stop offset="95%" stopColor="#22c55e" stopOpacity={0}/>
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
               <XAxis 
                 dataKey="date" 
-                stroke="#6b7280"
+                stroke={axisStroke}
                 fontSize={12}
                 tickLine={false}
                 axisLine={false}
               />
               <YAxis 
-                stroke="#6b7280"
+                stroke={axisStroke}
                 fontSize={12}
                 tickLine={false}
                 axisLine={false}
@@ -141,27 +151,27 @@ export default function DashboardCharts({ orders = [] }) {
       </Card>
 
       {/* Gráfico de Pedidos */}
-      <Card>
+      <Card style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-base font-semibold flex items-center gap-2">
+          <CardTitle className="text-base font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
             <TrendingUp className="w-5 h-5 text-blue-600" />
             Pedidos
           </CardTitle>
-          <span className="text-xs text-muted-foreground">{PERIODS.find((p) => p.value === period)?.label}</span>
+          <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{PERIODS.find((p) => p.value === period)?.label}</span>
         </CardHeader>
         <CardContent>
           <ChartContainer config={chartConfig} className="h-[300px]">
             <LineChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
               <XAxis 
                 dataKey="date" 
-                stroke="#6b7280"
+                stroke={axisStroke}
                 fontSize={12}
                 tickLine={false}
                 axisLine={false}
               />
               <YAxis 
-                stroke="#6b7280"
+                stroke={axisStroke}
                 fontSize={12}
                 tickLine={false}
                 axisLine={false}
