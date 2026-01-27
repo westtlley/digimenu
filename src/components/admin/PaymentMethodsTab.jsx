@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,11 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Edit, Trash2, CreditCard } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Plus, Edit, Trash2, CreditCard, Search, Filter, TrendingUp, DollarSign } from 'lucide-react';
 import EmptyState from '@/components/ui/EmptyState';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { toast } from 'sonner';
+import toast from 'react-hot-toast';
 
 const DEFAULT_PAYMENT_METHODS = [
   { id: 'dinheiro', name: 'Dinheiro', icon: '💵', type: 'presencial', active: true },
@@ -169,9 +170,16 @@ export default function PaymentMethodsTab() {
                 if (firstMethod) toggleMethod(firstMethod.id);
               }}
             />
+          ) : filteredMethods.length === 0 ? (
+            <div className="text-center py-12 text-gray-400 border-2 border-dashed rounded-xl">
+              {searchTerm || filterStatus !== 'all' 
+                ? 'Nenhum método encontrado com os filtros aplicados'
+                : 'Nenhum método de pagamento cadastrado'
+              }
+            </div>
           ) : (
-            <div className="grid grid-cols-2 gap-3">
-              {paymentMethods.filter(m => m.type === 'presencial').map((method) => (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {filteredMethods.map((method) => (
               <div key={method.id} className="flex items-center justify-between p-3 border rounded-lg">
                 <div className="flex items-center gap-3">
                   <span className="text-2xl">{method.icon}</span>

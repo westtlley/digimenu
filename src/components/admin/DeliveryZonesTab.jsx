@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
@@ -7,9 +7,10 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, Trash2, MapPin } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Plus, Trash2, MapPin, Search, Filter, TrendingUp, Package } from 'lucide-react';
 import EmptyState from '@/components/ui/EmptyState';
-import { toast } from 'sonner';
+import toast from 'react-hot-toast';
 
 export default function DeliveryZonesTab() {
   const [showModal, setShowModal] = useState(false);
@@ -53,8 +54,52 @@ export default function DeliveryZonesTab() {
 
   const { data: zones = [] } = useQuery({
     queryKey: ['deliveryZones'],
-    queryFn: () => base44.entities.DeliveryZone.list('neighborhood'),
+    queryFn: async () => {
+      try {
+        const result = await base44.entities.DeliveryZone.list('neighborhood');
+        return Array.isArray(result) ? result : [];
+      } catch (error) {
+        console.error('Erro ao buscar zonas:', error);
+        return [];
+      }
+    },
+    initialData: [],
+    refetchOnMount: 'always',
   });
+
+  // Filtrar zonas
+  const filteredZones = useMemo(() => {
+    if (!Array.isArray(zones)) return [];
+    return zones.filter(zone => {
+      const matchesSearch = !searchTerm || 
+        zone.neighborhood?.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesStatus = filterStatus === 'all' ||
+        (filterStatus === 'active' && zone.is_active) ||
+        (filterStatus === 'inactive' && !zone.is_active);
+      
+      return matchesSearch && matchesStatus;
+    });
+  }, [zones, searchTerm, filterStatus]);
+
+  // Estatísticas
+  const stats = useMemo(() => {
+    const safeZones = Array.isArray(zones) ? zones : [];
+    const active = safeZones.filter(z => z.is_active).length;
+    const inactive = safeZones.filter(z => !z.is_active).length;
+    const totalFee = safeZones.reduce((sum, z) => {
+      const fee = parseFloat(z.fee || 0);
+      return sum + (isNaN(fee) ? 0 : fee);
+    }, 0);
+    const avgFee = active > 0 ? totalFee / active : 0;
+
+    return {
+      total: safeZones.length,
+      active,
+      inactive,
+      avgFee
+    };
+  }, [zones]);
 
   const createMutation = useMutation({
     mutationFn: (data) => base44.entities.DeliveryZone.create(data),
@@ -73,11 +118,7 @@ export default function DeliveryZonesTab() {
     mutationFn: ({ id, data }) => base44.entities.DeliveryZone.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['deliveryZones'] });
-      const toast = document.createElement('div');
-      toast.className = 'fixed bottom-4 right-4 z-[9999] bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg text-sm';
-      toast.innerHTML = '✅ Salvo!';
-      document.body.appendChild(toast);
-      setTimeout(() => toast.remove(), 2000);
+      toast.success('✅ Salvo!');
     },
   });
 
@@ -149,11 +190,76 @@ export default function DeliveryZonesTab() {
         </Card>
       )}
 
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-lg font-bold">Zonas de Entrega</h2>
-          <p className="text-sm text-gray-500">Taxas por bairro</p>
+      {/* Estatísticas */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Total de Zonas</p>
+                <p className="text-2xl font-bold">{stats.total}</p>
+              </div>
+              <MapPin className="w-8 h-8 text-blue-500" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Ativas</p>
+                <p className="text-2xl font-bold text-green-600">{stats.active}</p>
+              </div>
+              <TrendingUp className="w-8 h-8 text-green-500" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Inativas</p>
+                <p className="text-2xl font-bold text-gray-400">{stats.inactive}</p>
+              </div>
+              <Package className="w-8 h-8 text-gray-400" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Taxa Média</p>
+                <p className="text-2xl font-bold text-orange-600">{formatCurrency(stats.avgFee)}</p>
+              </div>
+              <TrendingUp className="w-8 h-8 text-orange-500" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Busca e Filtros */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Input
+            placeholder="Buscar zona por bairro..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
         </div>
+        <Select value={filterStatus} onValueChange={setFilterStatus}>
+          <SelectTrigger className="w-[140px]">
+            <Filter className="w-4 h-4 mr-2" />
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas</SelectItem>
+            <SelectItem value="active">Ativas</SelectItem>
+            <SelectItem value="inactive">Inativas</SelectItem>
+          </SelectContent>
+        </Select>
         <Button onClick={() => setShowModal(true)} className="bg-orange-500 hover:bg-orange-600">
           <Plus className="w-4 h-4 mr-2" />
           Nova Zona
@@ -161,7 +267,7 @@ export default function DeliveryZonesTab() {
       </div>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {zones.length === 0 ? (
+        {filteredZones.length === 0 ? (
           <div className="col-span-full">
             <EmptyState
               icon={MapPin}
@@ -223,7 +329,11 @@ export default function DeliveryZonesTab() {
                   size="icon"
                   variant="ghost"
                   className="h-8 w-8 text-red-500 hover:text-red-700"
-                  onClick={() => deleteMutation.mutate(zone.id)}
+                  onClick={() => {
+                    if (confirm(`Excluir a zona "${zone.neighborhood}"?`)) {
+                      deleteMutation.mutate(zone.id);
+                    }
+                  }}
                 >
                   <Trash2 className="w-4 h-4" />
                 </Button>
