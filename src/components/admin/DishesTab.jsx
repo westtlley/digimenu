@@ -10,7 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Trash2, Star, ChevronDown, ChevronUp, MoreVertical, Layers, Copy, FolderPlus, Menu, Settings, Files, Pencil, Gift, X, GripVertical, Search, Bookmark, Edit as EditIcon, UtensilsCrossed, LayoutGrid } from 'lucide-react';
+import { Card, CardContent } from "@/components/ui/card";
+import { Plus, Trash2, Star, ChevronDown, ChevronUp, MoreVertical, Layers, Copy, FolderPlus, Menu, Settings, Files, Pencil, Gift, X, GripVertical, Search, Bookmark, Edit as EditIcon, UtensilsCrossed, LayoutGrid, CheckCircle, Package } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import ComboModal from './ComboModal';
 import ReuseGroupModal from './ReuseGroupModal';
@@ -966,6 +967,56 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
               Criar Combo
             </Button>
           )}
+        </div>
+
+        {/* Estatísticas */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <Card className="border-l-4 border-l-blue-500">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Total de Pratos</p>
+                  <p className="text-2xl font-bold">{safeDishes.length}</p>
+                </div>
+                <Package className="w-8 h-8 text-blue-500" />
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-l-4 border-l-green-500">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Ativos</p>
+                  <p className="text-2xl font-bold text-green-600">
+                    {safeDishes.filter(d => d.is_active !== false).length}
+                  </p>
+                </div>
+                <CheckCircle className="w-8 h-8 text-green-500" />
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-l-4 border-l-orange-500">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Categorias</p>
+                  <p className="text-2xl font-bold text-orange-600">{safeCategories.length}</p>
+                </div>
+                <Layers className="w-8 h-8 text-orange-500" />
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-l-4 border-l-purple-500">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Complementos</p>
+                  <p className="text-2xl font-bold text-purple-600">{safeComplementGroups.length}</p>
+                </div>
+                <Settings className="w-8 h-8 text-purple-500" />
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Desktop Filtros e Busca */}

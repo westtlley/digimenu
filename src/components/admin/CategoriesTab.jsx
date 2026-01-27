@@ -1,17 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, GripVertical, ChevronUp, ChevronDown, Menu, FolderPlus } from 'lucide-react';
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { Plus, Trash2, GripVertical, ChevronUp, ChevronDown, Menu, FolderPlus, Search, Package } from 'lucide-react';
 import EmptyState from '@/components/ui/EmptyState';
+import toast from 'react-hot-toast';
 
 export default function CategoriesTab() {
   const [user, setUser] = React.useState(null);
   const [showModal, setShowModal] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
 
   const queryClient = useQueryClient();
 
@@ -30,7 +34,41 @@ export default function CategoriesTab() {
   const { data: categories = [] } = useQuery({
     queryKey: ['categories'],
     queryFn: () => base44.entities.Category.list('order'),
+    refetchOnMount: 'always',
   });
+
+  const { data: dishes = [] } = useQuery({
+    queryKey: ['dishes'],
+    queryFn: () => base44.entities.Dish.list(),
+  });
+
+  // Filtrar categorias
+  const filteredCategories = useMemo(() => {
+    if (!searchTerm) return categories;
+    return categories.filter(cat => 
+      cat.name?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [categories, searchTerm]);
+
+  // Estatísticas
+  const stats = useMemo(() => {
+    const totalCategories = categories.length;
+    const totalDishes = dishes.length;
+    const dishesByCategory = categories.map(cat => ({
+      category: cat,
+      count: dishes.filter(d => d.category_id === cat.id).length
+    }));
+    const categoriesWithDishes = dishesByCategory.filter(item => item.count > 0).length;
+    const emptyCategories = totalCategories - categoriesWithDishes;
+
+    return {
+      totalCategories,
+      totalDishes,
+      categoriesWithDishes,
+      emptyCategories,
+      dishesByCategory
+    };
+  }, [categories, dishes]);
 
   const createMutation = useMutation({
     mutationFn: async (data) => {
@@ -42,13 +80,10 @@ export default function CategoriesTab() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
+      queryClient.invalidateQueries({ queryKey: ['dishes'] });
       setShowModal(false);
       setNewCategoryName('');
-      const toast = document.createElement('div');
-      toast.className = 'fixed top-4 right-4 z-[9999] bg-green-600 text-white px-6 py-4 rounded-xl shadow-2xl';
-      toast.innerHTML = '✅ Categoria criada!';
-      document.body.appendChild(toast);
-      setTimeout(() => toast.remove(), 2000);
+      toast.success('✅ Categoria criada!');
     },
   });
 
@@ -80,8 +115,55 @@ export default function CategoriesTab() {
   };
 
   return (
-    <div className="p-4 sm:p-6">
-      <div className="flex justify-center mb-4 sm:mb-6">
+    <div className="p-4 sm:p-6 space-y-6">
+      {/* Estatísticas */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Total de Categorias</p>
+                <p className="text-2xl font-bold">{stats.totalCategories}</p>
+              </div>
+              <Menu className="w-8 h-8 text-orange-500" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Com Pratos</p>
+                <p className="text-2xl font-bold text-green-600">{stats.categoriesWithDishes}</p>
+              </div>
+              <Package className="w-8 h-8 text-green-500" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Vazias</p>
+                <p className="text-2xl font-bold text-gray-400">{stats.emptyCategories}</p>
+              </div>
+              <FolderPlus className="w-8 h-8 text-gray-400" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Busca e Ações */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Input
+            placeholder="Buscar categoria..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
         <Button onClick={() => setShowModal(true)} className="bg-orange-500 hover:bg-orange-600">
           <Plus className="w-4 h-4 mr-2" />
           Adicionar Categoria
@@ -89,23 +171,39 @@ export default function CategoriesTab() {
       </div>
 
       <div className="max-w-xl mx-auto space-y-3">
-        {categories.map((category, index) => (
+        {filteredCategories.length === 0 ? (
+          <EmptyState
+            icon={FolderPlus}
+            title={searchTerm ? "Nenhuma categoria encontrada" : "Organize melhor seu cardápio criando categorias"}
+            description={searchTerm ? "Tente buscar com outro termo" : "Categorias ajudam seus clientes a encontrar pratos mais facilmente"}
+            actionLabel={searchTerm ? undefined : "Criar categoria"}
+            onAction={searchTerm ? undefined : () => setShowModal(true)}
+          />
+        ) : (
+          filteredCategories.map((category, index) => {
+            const dishCount = dishes.filter(d => d.category_id === category.id).length;
+            return (
           <div
             key={category.id}
             className="bg-white rounded-xl p-3 sm:p-4 shadow-sm flex items-center gap-2 sm:gap-4"
           >
             <Menu className="w-5 h-5 text-gray-400" />
             
-            <input
-              type="text"
-              value={category.name || ''}
-              onChange={(e) => updateMutation.mutate({ 
-                id: category.id, 
-                data: { ...category, name: e.target.value } 
-              })}
-              className="flex-1 font-medium bg-transparent border-b border-transparent hover:border-gray-300 focus:border-orange-500 focus:outline-none"
-              placeholder="Nome da categoria"
-            />
+            <div className="flex-1 min-w-0">
+              <input
+                type="text"
+                value={category.name || ''}
+                onChange={(e) => updateMutation.mutate({ 
+                  id: category.id, 
+                  data: { ...category, name: e.target.value } 
+                })}
+                className="w-full font-medium bg-transparent border-b border-transparent hover:border-gray-300 focus:border-orange-500 focus:outline-none"
+                placeholder="Nome da categoria"
+              />
+              <Badge variant="outline" className="mt-1 text-xs">
+                {dishCount} {dishCount === 1 ? 'prato' : 'pratos'}
+              </Badge>
+            </div>
 
             <div className="flex items-center gap-1">
               <button
@@ -128,7 +226,13 @@ export default function CategoriesTab() {
               size="icon"
               variant="ghost"
               className="text-red-500 hover:text-red-700 hover:bg-red-50"
-              onClick={() => deleteMutation.mutate(category.id)}
+              onClick={() => {
+                if (dishCount > 0) {
+                  if (!confirm(`Esta categoria tem ${dishCount} prato(s). Deseja realmente excluir?`)) return;
+                }
+                deleteMutation.mutate(category.id);
+                toast.success('Categoria excluída');
+              }}
             >
               <Trash2 className="w-4 h-4" />
             </Button>

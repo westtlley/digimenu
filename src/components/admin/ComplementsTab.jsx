@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
@@ -6,10 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Trash2, X, GripVertical } from 'lucide-react';
+import { Plus, Trash2, X, GripVertical, Search, Package, Filter } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import toast from 'react-hot-toast';
 
 // Componente separado para opção individual com estado local
 function OptionItem({ option, group, optionIndex, provided, snapshot, onUpdate, onToggle, onRemove, canEdit }) {
@@ -133,9 +136,16 @@ function GroupItem({ group, groupIndex, provided, snapshot, updateMutation, dele
           variant="ghost"
           className="text-red-500 hover:text-red-700 flex-shrink-0"
           onClick={() => {
-            if (confirm('Excluir este grupo?')) {
-              deleteMutation.mutate(group.id);
+            const dishesUsingGroup = dishes.filter(d => 
+              d.complement_groups?.some(cg => cg.group_id === group.id)
+            );
+            if (dishesUsingGroup.length > 0) {
+              if (!confirm(`Este grupo está sendo usado em ${dishesUsingGroup.length} prato(s). Deseja realmente excluir?`)) return;
+            } else {
+              if (!confirm('Excluir este grupo?')) return;
             }
+            deleteMutation.mutate(group.id);
+            toast.success('Grupo excluído');
           }}
         >
           <Trash2 className="w-4 h-4" />
@@ -209,6 +219,8 @@ function GroupItem({ group, groupIndex, provided, snapshot, updateMutation, dele
 export default function ComplementsTab() {
   const [user, setUser] = React.useState(null);
   const [showModal, setShowModal] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterRequired, setFilterRequired] = useState('all');
   const [formData, setFormData] = useState({
     name: '',
     is_required: true,
@@ -231,9 +243,60 @@ export default function ComplementsTab() {
 
   const { data: groups = [] } = useQuery({
     queryKey: ['complementGroups'],
-    queryFn: () => base44.entities.ComplementGroup.list('order'),
+    queryFn: async () => {
+      try {
+        const result = await base44.entities.ComplementGroup.list('order');
+        return Array.isArray(result) ? result : [];
+      } catch (error) {
+        console.error('Erro ao buscar grupos:', error);
+        return [];
+      }
+    },
+    initialData: [],
     refetchOnMount: 'always',
   });
+
+  const { data: dishes = [] } = useQuery({
+    queryKey: ['dishes'],
+    queryFn: () => base44.entities.Dish.list(),
+  });
+
+  // Filtrar grupos
+  const filteredGroups = useMemo(() => {
+    let result = groups.filter(group => {
+      const matchesSearch = !searchTerm || 
+        group.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (group.options || []).some(opt => opt.name?.toLowerCase().includes(searchTerm.toLowerCase()));
+      
+      const matchesRequired = filterRequired === 'all' ||
+        (filterRequired === 'required' && group.is_required) ||
+        (filterRequired === 'optional' && !group.is_required);
+      
+      return matchesSearch && matchesRequired;
+    });
+    return result;
+  }, [groups, searchTerm, filterRequired]);
+
+  // Estatísticas
+  const stats = useMemo(() => {
+    const totalGroups = groups.length;
+    const totalOptions = groups.reduce((sum, g) => sum + (g.options?.length || 0), 0);
+    const activeOptions = groups.reduce((sum, g) => 
+      sum + (g.options?.filter(o => o.is_active !== false).length || 0), 0
+    );
+    const groupsInUse = groups.filter(g => {
+      return dishes.some(d => 
+        d.complement_groups?.some(cg => cg.group_id === g.id)
+      );
+    }).length;
+
+    return {
+      totalGroups,
+      totalOptions,
+      activeOptions,
+      groupsInUse
+    };
+  }, [groups, dishes]);
 
   const createMutation = useMutation({
     mutationFn: async (data) => {
@@ -247,11 +310,7 @@ export default function ComplementsTab() {
       queryClient.invalidateQueries({ queryKey: ['complementGroups'] });
       setShowModal(false);
       setFormData({ name: '', is_required: true, max_selection: 1 });
-      const toast = document.createElement('div');
-      toast.className = 'fixed top-4 right-4 z-[9999] bg-green-600 text-white px-6 py-4 rounded-xl shadow-2xl animate-in slide-in-from-top';
-      toast.innerHTML = '✅ Grupo criado!';
-      document.body.appendChild(toast);
-      setTimeout(() => toast.remove(), 2000);
+      toast.success('✅ Grupo criado!');
     },
   });
 
@@ -259,11 +318,7 @@ export default function ComplementsTab() {
     mutationFn: ({ id, data }) => base44.entities.ComplementGroup.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['complementGroups'] });
-      const toast = document.createElement('div');
-      toast.className = 'fixed bottom-4 right-4 z-[9999] bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg text-sm animate-in slide-in-from-bottom';
-      toast.innerHTML = '✅ Salvo!';
-      document.body.appendChild(toast);
-      setTimeout(() => toast.remove(), 2000);
+      toast.success('✅ Salvo!');
     },
   });
 
@@ -298,15 +353,11 @@ export default function ComplementsTab() {
       base44.entities.ComplementGroup.update(group.id, { order: index })
     );
 
-    try {
-      await Promise.all(updatePromises);
-      queryClient.invalidateQueries({ queryKey: ['complementGroups'] });
-      const toast = document.createElement('div');
-      toast.className = 'fixed bottom-4 right-4 z-[9999] bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg text-sm animate-in slide-in-from-bottom';
-      toast.innerHTML = '✅ Ordem atualizada!';
-      document.body.appendChild(toast);
-      setTimeout(() => toast.remove(), 2000);
-    } catch (error) {
+      try {
+        await Promise.all(updatePromises);
+        queryClient.invalidateQueries({ queryKey: ['complementGroups'] });
+        toast.success('✅ Ordem atualizada!');
+      } catch (error) {
       console.error("Erro ao reordenar grupos:", error);
       queryClient.invalidateQueries({ queryKey: ['complementGroups'] });
     }
@@ -378,8 +429,77 @@ export default function ComplementsTab() {
   const canEdit = user?.is_master || user?.can_edit;
 
   return (
-    <div className="p-4 sm:p-6">
-      <div className="flex justify-center mb-6">
+    <div className="p-4 sm:p-6 space-y-6">
+      {/* Estatísticas */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Grupos</p>
+                <p className="text-2xl font-bold">{stats.totalGroups}</p>
+              </div>
+              <Package className="w-8 h-8 text-gray-500" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Opções</p>
+                <p className="text-2xl font-bold">{stats.totalOptions}</p>
+              </div>
+              <Package className="w-8 h-8 text-blue-500" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Ativas</p>
+                <p className="text-2xl font-bold text-green-600">{stats.activeOptions}</p>
+              </div>
+              <Package className="w-8 h-8 text-green-500" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Em Uso</p>
+                <p className="text-2xl font-bold text-orange-600">{stats.groupsInUse}</p>
+              </div>
+              <Package className="w-8 h-8 text-orange-500" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Busca e Filtros */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Input
+            placeholder="Buscar grupo ou opção..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        <Select value={filterRequired} onValueChange={setFilterRequired}>
+          <SelectTrigger className="w-[180px]">
+            <Filter className="w-4 h-4 mr-2" />
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos</SelectItem>
+            <SelectItem value="required">Obrigatórios</SelectItem>
+            <SelectItem value="optional">Opcionais</SelectItem>
+          </SelectContent>
+        </Select>
         <Button onClick={() => setShowModal(true)} className="bg-gray-800 hover:bg-gray-900">
           <Plus className="w-4 h-4 mr-2" />
           Criar Novo Grupo
@@ -390,37 +510,43 @@ export default function ComplementsTab() {
         <Droppable droppableId="groups">
           {(provided) => (
             <div {...provided.droppableProps} ref={provided.innerRef} className="grid gap-6">
-              {groups.map((group, groupIndex) => (
-                <Draggable key={group.id} draggableId={group.id} index={groupIndex}>
-                  {(provided, snapshot) => (
-                    <GroupItem
-                      group={group}
-                      groupIndex={groupIndex}
-                      provided={provided}
-                      snapshot={snapshot}
-                      updateMutation={updateMutation}
-                      deleteMutation={deleteMutation}
-                      onAddOption={addOption}
-                      onToggleOption={toggleOption}
-                      onRemoveOption={removeOption}
-                      onUpdateOption={updateOption}
-                      onDragEndOptions={handleDragEndOptions}
-                      canEdit={canEdit}
-                    />
-                  )}
-                </Draggable>
-              ))}
+              {filteredGroups.length === 0 ? (
+                <div className="text-center py-12 text-gray-400 border-2 border-dashed rounded-xl">
+                  {searchTerm || filterRequired !== 'all' 
+                    ? 'Nenhum grupo encontrado com os filtros aplicados'
+                    : 'Nenhum grupo de complementos cadastrado ainda.'
+                  }
+                </div>
+              ) : (
+                filteredGroups.map((group, groupIndex) => {
+                  const originalIndex = groups.findIndex(g => g.id === group.id);
+                  return (
+                    <Draggable key={group.id} draggableId={group.id} index={groupIndex}>
+                      {(provided, snapshot) => (
+                        <GroupItem
+                          group={group}
+                          groupIndex={originalIndex}
+                          provided={provided}
+                          snapshot={snapshot}
+                          updateMutation={updateMutation}
+                          deleteMutation={deleteMutation}
+                          onAddOption={addOption}
+                          onToggleOption={toggleOption}
+                          onRemoveOption={removeOption}
+                          onUpdateOption={updateOption}
+                          onDragEndOptions={handleDragEndOptions}
+                          canEdit={canEdit}
+                        />
+                      )}
+                    </Draggable>
+                  );
+                })
+              )}
               {provided.placeholder}
             </div>
           )}
         </Droppable>
       </DragDropContext>
-
-      {groups.length === 0 && (
-        <div className="text-center py-12 text-gray-400 border-2 border-dashed rounded-xl">
-          Nenhum grupo de complementos cadastrado ainda.
-        </div>
-      )}
 
       {/* Modal Criar Grupo */}
       <Dialog open={showModal} onOpenChange={setShowModal}>

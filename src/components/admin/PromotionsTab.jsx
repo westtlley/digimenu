@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
@@ -10,11 +10,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Plus, Trash2, Zap, ArrowUpRight, RefreshCw } from 'lucide-react';
+import { Plus, Trash2, Zap, ArrowUpRight, RefreshCw, Search, Filter, TrendingUp } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function PromotionsTab() {
   const [showModal, setShowModal] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [filterType, setFilterType] = useState('all');
   const [formData, setFormData] = useState({
     name: '',
     type: 'add',
@@ -136,6 +139,39 @@ export default function PromotionsTab() {
   const safeDishes = Array.isArray(dishes) ? dishes : [];
   const getDishName = (id) => safeDishes.find(d => d.id === id)?.name || 'Prato não encontrado';
 
+  // Filtrar promoções
+  const filteredPromotions = useMemo(() => {
+    return promotions.filter(promo => {
+      const matchesSearch = !searchTerm || 
+        promo.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        getDishName(promo.offer_dish_id).toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesStatus = filterStatus === 'all' ||
+        (filterStatus === 'active' && promo.is_active) ||
+        (filterStatus === 'inactive' && !promo.is_active);
+      
+      const matchesType = filterType === 'all' || promo.type === filterType;
+      
+      return matchesSearch && matchesStatus && matchesType;
+    });
+  }, [promotions, searchTerm, filterStatus, filterType, safeDishes]);
+
+  // Estatísticas
+  const stats = useMemo(() => {
+    const active = promotions.filter(p => p.is_active).length;
+    const inactive = promotions.filter(p => !p.is_active).length;
+    const addType = promotions.filter(p => p.type === 'add').length;
+    const replaceType = promotions.filter(p => p.type === 'replace').length;
+
+    return {
+      total: promotions.length,
+      active,
+      inactive,
+      addType,
+      replaceType
+    };
+  }, [promotions]);
+
   return (
     <div className="p-4 sm:p-6 space-y-6">
       {/* Banners do cardápio (Store) */}
@@ -183,11 +219,86 @@ export default function PromotionsTab() {
         </Card>
       )}
 
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-lg font-bold">Promoções Upsell</h2>
-          <p className="text-sm text-gray-500">Ofertas exibidas ao finalizar pedido</p>
+      {/* Estatísticas */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Total</p>
+                <p className="text-2xl font-bold">{stats.total}</p>
+              </div>
+              <Zap className="w-8 h-8 text-orange-500" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Ativas</p>
+                <p className="text-2xl font-bold text-green-600">{stats.active}</p>
+              </div>
+              <TrendingUp className="w-8 h-8 text-green-500" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Adicionar</p>
+                <p className="text-2xl font-bold text-blue-600">{stats.addType}</p>
+              </div>
+              <Plus className="w-8 h-8 text-blue-500" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Substituir</p>
+                <p className="text-2xl font-bold text-purple-600">{stats.replaceType}</p>
+              </div>
+              <RefreshCw className="w-8 h-8 text-purple-500" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Busca e Filtros */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Input
+            placeholder="Buscar promoção ou prato..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
         </div>
+        <Select value={filterStatus} onValueChange={setFilterStatus}>
+          <SelectTrigger className="w-[140px]">
+            <Filter className="w-4 h-4 mr-2" />
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos</SelectItem>
+            <SelectItem value="active">Ativas</SelectItem>
+            <SelectItem value="inactive">Inativas</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={filterType} onValueChange={setFilterType}>
+          <SelectTrigger className="w-[160px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os tipos</SelectItem>
+            <SelectItem value="add">Adicionar</SelectItem>
+            <SelectItem value="replace">Substituir</SelectItem>
+          </SelectContent>
+        </Select>
         <Button onClick={() => setShowModal(true)} className="bg-orange-500 hover:bg-orange-600">
           <Plus className="w-4 h-4 mr-2" />
           Nova Promoção
@@ -195,13 +306,13 @@ export default function PromotionsTab() {
       </div>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {promotions.length === 0 ? (
+        {filteredPromotions.length === 0 ? (
           <div className="col-span-full text-center py-12 text-gray-400 border-2 border-dashed rounded-xl">
             <Zap className="w-12 h-12 mx-auto mb-3 opacity-50" />
             <p>Nenhuma promoção cadastrada</p>
           </div>
         ) : (
-          promotions.map(promo => (
+          filteredPromotions.map(promo => (
             <div key={promo.id} className={`bg-white rounded-xl p-4 shadow-sm border-2 ${promo.is_active ? 'border-green-200' : 'border-gray-200 opacity-60'}`}>
               <div className="flex items-start justify-between mb-3">
                 <div>

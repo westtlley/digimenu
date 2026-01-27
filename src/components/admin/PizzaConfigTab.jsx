@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { apiClient } from '@/api/apiClient';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
@@ -10,8 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Card } from "@/components/ui/card";
-import { Plus, Trash2, Pencil, Star, Settings } from 'lucide-react';
+import { Card, CardContent } from "@/components/ui/card";
+import { Plus, Trash2, Pencil, Star, Settings, Search } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import PizzaVisualizationSettings from './PizzaVisualizationSettings';
 import MyPizzasTab from './MyPizzasTab';
@@ -220,6 +220,23 @@ export default function PizzaConfigTab() {
             <Card className="p-4 h-fit">
               <h3 className="font-semibold mb-3">Configuração</h3>
               <p className="text-xs text-gray-500 mb-3">Tamanhos, sabores, bordas e extras</p>
+              
+              {/* Busca */}
+              <div className="mb-3">
+                <div className="relative">
+                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Input
+                    placeholder="Buscar sabores, bordas ou extras..."
+                    value={searchTerm}
+                    onChange={(e) => {
+                      setSearchTerm(e.target.value);
+                      // Detectar tipo baseado no contexto do accordion aberto
+                    }}
+                    className="pl-8 text-sm"
+                  />
+                </div>
+              </div>
+
               <Accordion type="multiple" defaultValue={['sizes','flavors']} className="w-full">
                 <AccordionItem value="sizes" className="border rounded-lg px-2">
                   <AccordionTrigger className="py-2 text-sm font-medium hover:no-underline">
@@ -284,8 +301,8 @@ export default function PizzaConfigTab() {
                   </AccordionTrigger>
                   <AccordionContent className="pb-2">
                     <Button size="sm" onClick={() => { setEditingExtra(null); setShowExtraModal(true); }} className="mb-2 w-full"><Plus className="w-3 h-3 mr-1" />Novo</Button>
-                    <div className="space-y-1">
-                      {extras.map(x => (
+                    <div className="space-y-1 max-h-96 overflow-y-auto">
+                      {(searchTerm && searchType === 'extras' ? filteredExtras : extras).map(x => (
                         <div key={x.id} className="flex items-center gap-2 p-2 rounded border text-xs">
                           {x.image && <img src={x.image} alt="" className="w-8 h-8 rounded object-cover flex-shrink-0" />}
                           <span className="flex-1 truncate">{x.name} {formatCurrency(x.price)}</span>

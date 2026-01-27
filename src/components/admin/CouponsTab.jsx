@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
@@ -6,14 +6,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, Ticket, Percent, DollarSign, Calendar, Copy } from 'lucide-react';
+import { Plus, Trash2, Ticket, Percent, DollarSign, Calendar, Copy, Search, Filter, TrendingUp } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 
 export default function CouponsTab() {
   const [showModal, setShowModal] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [filterType, setFilterType] = useState('all');
   const [formData, setFormData] = useState({
     code: '',
     discount_type: 'percentage',
@@ -101,16 +105,144 @@ export default function CouponsTab() {
 
   const isExpired = (date) => {
     if (!date) return false;
-    return new Date(date) < new Date();
+    try {
+      const expDate = new Date(date);
+      return !isNaN(expDate.getTime()) && expDate < new Date();
+    } catch {
+      return false;
+    }
   };
 
+  // Filtrar cupons
+  const filteredCoupons = useMemo(() => {
+    return coupons.filter(coupon => {
+      const matchesSearch = !searchTerm || 
+        coupon.code?.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const expired = isExpired(coupon.expires_at);
+      const maxReached = coupon.max_uses > 0 && coupon.current_uses >= coupon.max_uses;
+      const isValid = coupon.is_active && !expired && !maxReached;
+      
+      const matchesStatus = filterStatus === 'all' ||
+        (filterStatus === 'active' && isValid) ||
+        (filterStatus === 'inactive' && !coupon.is_active) ||
+        (filterStatus === 'expired' && expired) ||
+        (filterStatus === 'exhausted' && maxReached);
+      
+      const matchesType = filterType === 'all' || coupon.discount_type === filterType;
+      
+      return matchesSearch && matchesStatus && matchesType;
+    });
+  }, [coupons, searchTerm, filterStatus, filterType]);
+
+  // Estatísticas
+  const stats = useMemo(() => {
+    const active = coupons.filter(c => {
+      const expired = isExpired(c.expires_at);
+      const maxReached = c.max_uses > 0 && c.current_uses >= c.max_uses;
+      return c.is_active && !expired && !maxReached;
+    }).length;
+    const expired = coupons.filter(c => isExpired(c.expires_at)).length;
+    const exhausted = coupons.filter(c => c.max_uses > 0 && c.current_uses >= c.max_uses).length;
+    const percentage = coupons.filter(c => c.discount_type === 'percentage').length;
+    const fixed = coupons.filter(c => c.discount_type === 'fixed').length;
+    const totalUses = coupons.reduce((sum, c) => sum + (c.current_uses || 0), 0);
+
+    return {
+      total: coupons.length,
+      active,
+      expired,
+      exhausted,
+      percentage,
+      fixed,
+      totalUses
+    };
+  }, [coupons]);
+
   return (
-    <div className="p-4 sm:p-6">
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h2 className="text-lg font-bold">Cupons de Desconto</h2>
-          <p className="text-sm text-gray-500">{coupons.length} cupons cadastrados</p>
+    <div className="p-4 sm:p-6 space-y-6">
+      {/* Estatísticas */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Total</p>
+                <p className="text-2xl font-bold">{stats.total}</p>
+              </div>
+              <Ticket className="w-8 h-8 text-orange-500" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Ativos</p>
+                <p className="text-2xl font-bold text-green-600">{stats.active}</p>
+              </div>
+              <TrendingUp className="w-8 h-8 text-green-500" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Expirados</p>
+                <p className="text-2xl font-bold text-red-600">{stats.expired}</p>
+              </div>
+              <Calendar className="w-8 h-8 text-red-500" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Usos Totais</p>
+                <p className="text-2xl font-bold text-blue-600">{stats.totalUses}</p>
+              </div>
+              <DollarSign className="w-8 h-8 text-blue-500" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Busca e Filtros */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Input
+            placeholder="Buscar cupom por código..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10 font-mono"
+          />
         </div>
+        <Select value={filterStatus} onValueChange={setFilterStatus}>
+          <SelectTrigger className="w-[140px]">
+            <Filter className="w-4 h-4 mr-2" />
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos</SelectItem>
+            <SelectItem value="active">Ativos</SelectItem>
+            <SelectItem value="inactive">Inativos</SelectItem>
+            <SelectItem value="expired">Expirados</SelectItem>
+            <SelectItem value="exhausted">Esgotados</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={filterType} onValueChange={setFilterType}>
+          <SelectTrigger className="w-[160px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os tipos</SelectItem>
+            <SelectItem value="percentage">Porcentagem</SelectItem>
+            <SelectItem value="fixed">Valor Fixo</SelectItem>
+          </SelectContent>
+        </Select>
         <Button onClick={() => setShowModal(true)} className="bg-orange-500 hover:bg-orange-600">
           <Plus className="w-4 h-4 mr-2" />
           Novo Cupom
@@ -118,13 +250,13 @@ export default function CouponsTab() {
       </div>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {coupons.length === 0 ? (
+        {filteredCoupons.length === 0 ? (
           <div className="col-span-full text-center py-12 text-gray-400 border-2 border-dashed rounded-xl">
             <Ticket className="w-12 h-12 mx-auto mb-3 opacity-50" />
             <p>Nenhum cupom cadastrado ainda</p>
           </div>
         ) : (
-          coupons.map(coupon => {
+          filteredCoupons.map(coupon => {
             const expired = isExpired(coupon.expires_at);
             const maxReached = coupon.max_uses > 0 && coupon.current_uses >= coupon.max_uses;
             const isValid = coupon.is_active && !expired && !maxReached;
