@@ -61,22 +61,63 @@ export default function PaymentMethodsTab() {
     updateStorePmMutation.mutate(next);
   };
 
+  // Salvar métodos quando mudarem
+  const savePaymentMethodsMutation = useMutation({
+    mutationFn: (methods) => {
+      if (!store?.id) return Promise.resolve();
+      return base44.entities.Store.update(store.id, { 
+        payment_methods_config: JSON.stringify(methods) 
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['store'] });
+      toast.success('Métodos de pagamento salvos');
+    },
+    onError: () => toast.error('Erro ao salvar métodos'),
+  });
+
+  // Carregar métodos salvos do store
+  useEffect(() => {
+    if (store?.payment_methods_config) {
+      try {
+        const saved = JSON.parse(store.payment_methods_config);
+        if (Array.isArray(saved) && saved.length > 0) {
+          setPaymentMethods(saved);
+        }
+      } catch (e) {
+        console.error('Erro ao carregar métodos salvos:', e);
+      }
+    }
+  }, [store?.payment_methods_config]);
+
   const toggleMethod = (id) => {
-    setPaymentMethods(methods => 
-      methods.map(m => m.id === id ? { ...m, active: !m.active } : m)
-    );
+    const updated = paymentMethods.map(m => m.id === id ? { ...m, active: !m.active } : m);
+    setPaymentMethods(updated);
+    if (store?.id) {
+      savePaymentMethodsMutation.mutate(updated);
+    }
   };
 
   const addMethod = () => {
     const newId = Date.now().toString();
-    setPaymentMethods([...paymentMethods, { ...newMethod, id: newId, active: true }]);
+    const updated = [...paymentMethods, { ...newMethod, id: newId, active: true }];
+    setPaymentMethods(updated);
     setShowAddModal(false);
     setNewMethod({ name: '', icon: '💳', type: 'presencial' });
+    if (store?.id) {
+      savePaymentMethodsMutation.mutate(updated);
+    }
   };
 
   const deleteMethod = (id) => {
-    if (confirm('Remover forma de pagamento?')) {
-      setPaymentMethods(methods => methods.filter(m => m.id !== id));
+    const method = paymentMethods.find(m => m.id === id);
+    if (confirm(`Remover forma de pagamento "${method?.name}"?`)) {
+      const updated = paymentMethods.filter(m => m.id !== id);
+      setPaymentMethods(updated);
+      if (store?.id) {
+        savePaymentMethodsMutation.mutate(updated);
+      }
+      toast.success('Método removido');
     }
   };
 
