@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Search, Receipt, ShoppingCart, AlertTriangle, ArrowLeft, Trash2, Plus, Minus, X } from 'lucide-react';
@@ -34,6 +34,7 @@ export default function PDV() {
   const [showOpenCaixaModal, setShowOpenCaixaModal] = useState(false);
   const [openingAmount, setOpeningAmount] = useState('');
   const [lockThreshold, setLockThreshold] = useState('');
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
 
   const queryClient = useQueryClient();
   const { isMaster } = usePermission();
@@ -384,6 +385,15 @@ export default function PDV() {
             <Badge variant="outline" className="text-white border-gray-600 h-8 hidden sm:flex">
               {cart.length} {cart.length === 1 ? 'item' : 'itens'}
             </Badge>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowHistoryModal(true)}
+              className="text-white hover:bg-gray-800 h-10 hidden sm:flex"
+            >
+              <History className="w-4 h-4 mr-2" />
+              Histórico
+            </Button>
           </div>
         </div>
       </div>
@@ -707,11 +717,25 @@ export default function PDV() {
             </div>
             <Button
               onClick={() => {
-                if (isCaixaLocked) { toast.error('🔒 Caixa travado. Faça uma retirada em Caixa para continuar.'); return; }
+                if (!openCaixa) {
+                  toast.error('⚠️ Abra o caixa para iniciar as vendas');
+                  setShowMobileCart(false);
+                  setShowOpenCaixaModal(true);
+                  return;
+                }
+                if (isCaixaLocked) { 
+                  toast.error('🔒 Caixa travado. Faça uma retirada em Caixa para continuar.'); 
+                  return; 
+                }
+                if (cart.length === 0) {
+                  toast.error('Adicione itens à comanda antes de finalizar');
+                  return;
+                }
                 setShowMobileCart(false);
                 setShowPaymentModal(true);
               }}
-              className="w-full min-h-[48px] h-12 bg-green-600 hover:bg-green-700 font-bold"
+              disabled={cart.length === 0 || !openCaixa || isCaixaLocked}
+              className="w-full min-h-[48px] h-12 bg-green-600 hover:bg-green-700 font-bold disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Finalizar Venda
             </Button>

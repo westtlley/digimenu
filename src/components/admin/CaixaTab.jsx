@@ -7,10 +7,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { 
   DollarSign, TrendingUp, TrendingDown, CheckCircle, 
-  AlertTriangle, ArrowLeft, ArrowRight, Banknote, CreditCard
+  AlertTriangle, ArrowLeft, ArrowRight, Banknote, CreditCard,
+  Search, X, Filter
 } from 'lucide-react';
 import moment from 'moment';
 import toast, { Toaster } from 'react-hot-toast';
@@ -25,6 +27,9 @@ export default function CaixaTab() {
   const [closingNotes, setClosingNotes] = useState('');
   const [withdrawalData, setWithdrawalData] = useState({ amount: '', reason: '' });
   const [supplyData, setSupplyData] = useState({ amount: '', reason: '' });
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all'); // all, open, closed
+  const [closingCashAmount, setClosingCashAmount] = useState('');
 
   const queryClient = useQueryClient();
 
@@ -142,6 +147,24 @@ export default function CaixaTab() {
       return;
     }
 
+    // Calcular saldo atual antes de permitir sangria
+    const caixaOps = operations.filter(op => op.caixa_id === selectedCaixa.id);
+    const vendas = caixaOps.filter(op => op.type === 'venda_pdv');
+    const sangrias = caixaOps.filter(op => op.type === 'sangria');
+    const suprimentos = caixaOps.filter(op => op.type === 'suprimento');
+
+    const cashVendas = vendas.filter(op => op.payment_method === 'dinheiro').reduce((sum, op) => sum + op.amount, 0);
+    const totalSangrias = sangrias.reduce((sum, op) => sum + op.amount, 0);
+    const totalSuprimentos = suprimentos.reduce((sum, op) => sum + op.amount, 0);
+    
+    const saldoAtual = (selectedCaixa.opening_amount_cash || 0) + cashVendas + totalSuprimentos - totalSangrias;
+    const withdrawalAmount = parseFloat(withdrawalData.amount);
+
+    if (withdrawalAmount > saldoAtual) {
+      toast.error(`⚠️ Saldo insuficiente! Saldo atual: ${formatCurrency(saldoAtual)}`);
+      return;
+    }
+
     await createOperationMutation.mutateAsync({
       caixa_id: selectedCaixa.id,
       type: 'sangria',
@@ -221,7 +244,10 @@ export default function CaixaTab() {
   };
 
   const handleCloseCaixa = async () => {
-    if (!selectedCaixa) return;
+    if (!selectedCaixa || !closingCashAmount) {
+      toast.error('Informe o valor em dinheiro físico para fechamento');
+      return;
+    }
 
     const cashOperations = operations.filter(op => 
       op.caixa_id === selectedCaixa.id && op.type === 'venda_pdv'
@@ -245,18 +271,20 @@ export default function CaixaTab() {
       return;
     }
 
-    const closingCash = 
+    const expectedCash = 
       (freshCaixa.opening_amount_cash || 0) +
       totals.cash +
       (freshCaixa.supplies || 0) -
       (freshCaixa.withdrawals || 0);
 
+    const actualCash = parseFloat(closingCashAmount);
+
     closeCaixaMutation.mutate({
       id: selectedCaixa.id,
       freshCaixa,
       totals,
-      closingCash,
-      closingNotes
+      closingCash: actualCash,
+      closingNotes: closingNotes + (actualCash !== expectedCash ? `\n\nDiferença: ${formatCurrency(actualCash - expectedCash)}` : '')
     });
   };
 
@@ -266,6 +294,17 @@ export default function CaixaTab() {
 
   const openCaixas = caixas.filter(c => c.status === 'open');
   const activeCaixa = openCaixas[0];
+
+  // Filtros
+  const filteredCaixas = caixas.filter(c => {
+    const matchesSearch = !searchTerm || 
+      c.id?.toString().includes(searchTerm) ||
+      moment(c.opening_date).format('DD/MM/YYYY').includes(searchTerm);
+    const matchesStatus = statusFilter === 'all' || 
+      (statusFilter === 'open' && c.status === 'open') ||
+      (statusFilter === 'closed' && c.status === 'closed');
+    return matchesSearch && matchesStatus;
+  });
 
   // View caixa aberto
   if (selectedCaixa) {
@@ -491,7 +530,13 @@ export default function CaixaTab() {
         </div>
 
         {/* Modals */}
-        <Dialog open={showCloseModal} onOpenChange={setShowCloseModal}>
+        <Dialog open={showCloseModal} onOpenChange={(open) => {
+          setShowCloseModal(open);
+          if (!open) {
+            setClosingCashAmount('');
+            setClosingNotes('');
+          }
+        }}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Confirmar Fechamento do Caixa</DialogTitle>
@@ -509,9 +554,37 @@ export default function CaixaTab() {
                   <span className="font-bold">{formatCurrency(totalVendas)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Saldo Final em Dinheiro</span>
-                  <span className="font-bold text-green-600">{formatCurrency(saldoAtual)}</span>
+                  <span>Saldo Esperado em Dinheiro</span>
+                  <span className="font-bold text-blue-600">{formatCurrency(saldoAtual)}</span>
                 </div>
+              </div>
+
+              <div>
+                <Label className="font-semibold">Valor Real em Dinheiro Físico (R$) *</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={closingCashAmount}
+                  onChange={(e) => setClosingCashAmount(e.target.value)}
+                  placeholder="0,00"
+                  className="text-xl font-bold h-14 text-center border-2"
+                  autoFocus
+                />
+                <p className="text-xs text-gray-600 mt-1">Informe o valor físico contado no caixa</p>
+                {closingCashAmount && parseFloat(closingCashAmount) !== saldoAtual && (
+                  <div className={`mt-2 p-3 rounded-lg ${
+                    parseFloat(closingCashAmount) > saldoAtual 
+                      ? 'bg-green-50 border border-green-200' 
+                      : 'bg-red-50 border border-red-200'
+                  }`}>
+                    <p className={`text-sm font-semibold ${
+                      parseFloat(closingCashAmount) > saldoAtual ? 'text-green-800' : 'text-red-800'
+                    }`}>
+                      {parseFloat(closingCashAmount) > saldoAtual ? '✅' : '⚠️'} Diferença: {formatCurrency(Math.abs(parseFloat(closingCashAmount) - saldoAtual))}
+                      {parseFloat(closingCashAmount) > saldoAtual ? ' (Sobra)' : ' (Falta)'}
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div>
@@ -525,10 +598,18 @@ export default function CaixaTab() {
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setShowCloseModal(false)}>
+              <Button variant="outline" onClick={() => {
+                setShowCloseModal(false);
+                setClosingCashAmount('');
+                setClosingNotes('');
+              }}>
                 Cancelar
               </Button>
-              <Button onClick={handleCloseCaixa} className="bg-gray-900">
+              <Button 
+                onClick={handleCloseCaixa} 
+                disabled={!closingCashAmount}
+                className="bg-gray-900"
+              >
                 Confirmar Fechamento
               </Button>
             </DialogFooter>
@@ -549,7 +630,26 @@ export default function CaixaTab() {
                   value={withdrawalData.amount}
                   onChange={(e) => setWithdrawalData({...withdrawalData, amount: e.target.value})}
                   placeholder="0,00"
+                  className="text-lg font-semibold"
                 />
+                {withdrawalData.amount && selectedCaixa && (() => {
+                  const caixaOps = operations.filter(op => op.caixa_id === selectedCaixa.id);
+                  const vendas = caixaOps.filter(op => op.type === 'venda_pdv');
+                  const sangrias = caixaOps.filter(op => op.type === 'sangria');
+                  const suprimentos = caixaOps.filter(op => op.type === 'suprimento');
+                  const cashVendas = vendas.filter(op => op.payment_method === 'dinheiro').reduce((sum, op) => sum + op.amount, 0);
+                  const totalSangrias = sangrias.reduce((sum, op) => sum + op.amount, 0);
+                  const totalSuprimentos = suprimentos.reduce((sum, op) => sum + op.amount, 0);
+                  const saldoAtual = (selectedCaixa.opening_amount_cash || 0) + cashVendas + totalSuprimentos - totalSangrias;
+                  const withdrawalAmount = parseFloat(withdrawalData.amount);
+                  const isValid = withdrawalAmount <= saldoAtual;
+                  return (
+                    <div className={`mt-2 p-2 rounded text-xs ${isValid ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
+                      Saldo disponível: {formatCurrency(saldoAtual)}
+                      {!isValid && <span className="block font-semibold mt-1">⚠️ Valor excede o saldo disponível!</span>}
+                    </div>
+                  );
+                })()}
               </div>
               <div>
                 <Label>Motivo</Label>
@@ -667,9 +767,33 @@ export default function CaixaTab() {
           </Card>
         )}
 
+        {/* Filtros e Busca */}
+        <div className="flex flex-col sm:flex-row gap-4 mb-6">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <Input
+              placeholder="Buscar por data ou ID..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[180px]">
+              <Filter className="w-4 h-4 mr-2" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              <SelectItem value="open">Abertos</SelectItem>
+              <SelectItem value="closed">Fechados</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
         <div>
           <h3 className="text-xl font-bold mb-4">📋 Histórico de Caixas</h3>
-          {caixas.filter(c => c.status === 'closed').length === 0 ? (
+          {filteredCaixas.filter(c => c.status === 'closed').length === 0 ? (
             <Card>
               <CardContent className="p-8 text-center text-gray-500">
                 Nenhum caixa fechado ainda
@@ -677,7 +801,7 @@ export default function CaixaTab() {
             </Card>
           ) : (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {caixas.filter(c => c.status === 'closed').slice(0, 6).map(caixa => (
+              {filteredCaixas.filter(c => c.status === 'closed').slice(0, 12).map(caixa => (
                 <Card
                   key={caixa.id}
                   className="cursor-pointer hover:shadow-lg transition-shadow"
