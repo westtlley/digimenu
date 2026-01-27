@@ -283,12 +283,97 @@ export default function StoreTab() {
 
   const storeMode = getStoreMode();
 
+  // Estatísticas e validações
+  const storeStatus = useMemo(() => {
+    const hasLogo = !!formData.logo;
+    const hasName = !!formData.name?.trim();
+    const hasWhatsApp = !!formData.whatsapp?.trim();
+    const hasAddress = !!formData.address?.trim();
+    const isConfigured = hasLogo && hasName && hasWhatsApp;
+    const workingDaysCount = (formData.working_days || []).length;
+    const isOpen = storeMode === 'open' || (storeMode === 'auto' && workingDaysCount > 0);
+
+    return {
+      hasLogo,
+      hasName,
+      hasWhatsApp,
+      hasAddress,
+      isConfigured,
+      workingDaysCount,
+      isOpen
+    };
+  }, [formData, storeMode]);
+
   return (
-    <div className="min-h-screen bg-gray-50 py-6 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-6 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">
         <div className="mb-6">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Configurações da Loja</h1>
-          <p className="text-gray-600">Gerencie as informações e funcionamento do seu restaurante</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-2">Configurações da Loja</h1>
+          <p className="text-gray-600 dark:text-gray-400">Gerencie as informações e funcionamento do seu restaurante</p>
+        </div>
+
+        {/* Status da Configuração */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <Card className={storeStatus.hasLogo ? 'border-green-200' : 'border-gray-200'}>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Logo</p>
+                  <p className="text-lg font-bold">{storeStatus.hasLogo ? '✓' : '✗'}</p>
+                </div>
+                {storeStatus.hasLogo ? (
+                  <CheckCircle2 className="w-6 h-6 text-green-500" />
+                ) : (
+                  <XCircle className="w-6 h-6 text-gray-400" />
+                )}
+              </div>
+            </CardContent>
+          </Card>
+          <Card className={storeStatus.hasName ? 'border-green-200' : 'border-gray-200'}>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Nome</p>
+                  <p className="text-lg font-bold">{storeStatus.hasName ? '✓' : '✗'}</p>
+                </div>
+                {storeStatus.hasName ? (
+                  <CheckCircle2 className="w-6 h-6 text-green-500" />
+                ) : (
+                  <XCircle className="w-6 h-6 text-gray-400" />
+                )}
+              </div>
+            </CardContent>
+          </Card>
+          <Card className={storeStatus.hasWhatsApp ? 'border-green-200' : 'border-gray-200'}>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">WhatsApp</p>
+                  <p className="text-lg font-bold">{storeStatus.hasWhatsApp ? '✓' : '✗'}</p>
+                </div>
+                {storeStatus.hasWhatsApp ? (
+                  <CheckCircle2 className="w-6 h-6 text-green-500" />
+                ) : (
+                  <XCircle className="w-6 h-6 text-gray-400" />
+                )}
+              </div>
+            </CardContent>
+          </Card>
+          <Card className={storeStatus.isOpen ? 'border-green-200' : 'border-red-200'}>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Status</p>
+                  <p className="text-lg font-bold">{storeStatus.isOpen ? 'Aberta' : 'Fechada'}</p>
+                </div>
+                {storeStatus.isOpen ? (
+                  <TrendingUp className="w-6 h-6 text-green-500" />
+                ) : (
+                  <XCircle className="w-6 h-6 text-red-500" />
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -404,7 +489,12 @@ export default function StoreTab() {
                     value={formData.name}
                     onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                     placeholder="Ex: Restaurante Raiz"
+                    required
+                    className={!formData.name?.trim() ? 'border-red-300' : ''}
                   />
+                  {!formData.name?.trim() && (
+                    <p className="text-xs text-red-500 mt-1">Nome da loja é obrigatório</p>
+                  )}
                 </div>
 
                 <div>
