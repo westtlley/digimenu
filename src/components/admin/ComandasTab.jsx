@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Receipt, Edit2, XCircle, History, Trash2 } from 'lucide-react';
+import { Plus, Receipt, Edit2, XCircle, History, Trash2, Search, X, AlertCircle, CheckCircle2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const PAYMENT_METHODS = [
@@ -39,10 +39,13 @@ const formatDate = (d) =>
 export default function ComandasTab() {
   const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
   const [formOpen, setFormOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [editingComanda, setEditingComanda] = useState(null);
   const [formMode, setFormMode] = useState('create'); // create | edit | close
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+  const [comandaToClose, setComandaToClose] = useState(null);
 
   const { data: comandas = [], isLoading } = useQuery({
     queryKey: ['Comanda', statusFilter],
@@ -94,9 +97,43 @@ export default function ComandasTab() {
   };
 
   const handleClose = (c) => {
-    setEditingComanda(c);
-    setFormMode('close');
-    setFormOpen(true);
+    setComandaToClose(c);
+    setShowCloseConfirm(true);
+  };
+
+  const confirmClose = () => {
+    if (comandaToClose) {
+      setEditingComanda(comandaToClose);
+      setFormMode('close');
+      setFormOpen(true);
+      setShowCloseConfirm(false);
+      setComandaToClose(null);
+    }
+  };
+
+  const handleCancel = (c) => {
+    if (window.confirm(`Tem certeza que deseja cancelar a comanda ${c.code || `#${c.id}`}?`)) {
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      const history = [
+        ...(Array.isArray(c.history) ? c.history : []),
+        {
+          at: new Date().toISOString(),
+          by: user?.email || 'sistema',
+          action: 'cancelled',
+          details: {},
+        },
+      ];
+      updateMutation.mutate({
+        id: c.id,
+        data: {
+          ...c,
+          status: 'cancelled',
+          cancelled_at: new Date().toISOString(),
+          cancelled_by: user?.email,
+          history,
+        },
+      });
+    }
   };
 
   const handleHistory = (c) => {
@@ -112,9 +149,16 @@ export default function ComandasTab() {
   return (
     <div className="space-y-6 p-4 md:p-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <h2 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
-          Comandas
-        </h2>
+        <div>
+          <h2 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
+            Comandas
+          </h2>
+          {!isLoading && comandas.length > 0 && (
+            <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
+              {stats.open} abertas · {stats.closed} fechadas · Total: {formatCurrency(stats.totalValue)}
+            </p>
+          )}
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-[140px]">
@@ -132,6 +176,26 @@ export default function ComandasTab() {
             Nova Comanda
           </Button>
         </div>
+      </div>
+
+      {/* Busca */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+        <Input
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          placeholder="Buscar por código, mesa ou cliente..."
+          className="pl-10 pr-10"
+          style={{ backgroundColor: 'var(--bg-input)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}
+        />
+        {searchTerm && (
+          <button
+            onClick={() => setSearchTerm('')}
+            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       {isLoading ? (
@@ -225,6 +289,42 @@ export default function ComandasTab() {
         onOpenChange={setHistoryOpen}
         comanda={editingComanda}
       />
+
+      {/* Modal de confirmação de fechamento */}
+      <Dialog open={showCloseConfirm} onOpenChange={setShowCloseConfirm}>
+        <DialogContent style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+          <DialogHeader>
+            <DialogTitle style={{ color: 'var(--text-primary)' }} className="flex items-center gap-2">
+              <AlertCircle className="w-5 h-5" />
+              Confirmar fechamento
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p style={{ color: 'var(--text-primary)' }}>
+              Tem certeza que deseja fechar a comanda <strong>{comandaToClose?.code || `#${comandaToClose?.id}`}</strong>?
+            </p>
+            {comandaToClose && (
+              <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                  <strong>Total:</strong> {formatCurrency(comandaToClose.total || 0)}
+                </p>
+                <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                  <strong>Itens:</strong> {Array.isArray(comandaToClose.items) ? comandaToClose.items.length : 0}
+                </p>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCloseConfirm(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={confirmClose}>
+              <CheckCircle2 className="w-4 h-4 mr-2" />
+              Confirmar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -440,44 +540,78 @@ function ComandaFormModal({
                   </Button>
                 </div>
                 <div className="space-y-2 max-h-48 overflow-y-auto">
-                  {items.map((it, idx) => (
-                    <div key={idx} className="flex gap-2 flex-wrap items-end p-2 rounded border" style={{ borderColor: 'var(--border-color)' }}>
-                      <Select value={it.dish_id} onValueChange={(v) => setDish(idx, v)}>
-                        <SelectTrigger className="flex-1 min-w-[120px]">
-                          <SelectValue placeholder="Prato" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {dishes.map((d) => (
-                            <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Input
-                        type="number"
-                        min={1}
-                        value={it.quantity}
-                        onChange={(e) => updateItem(idx, 'quantity', parseInt(e.target.value, 10) || 1)}
-                        className="w-16"
-                      />
-                      <Input
-                        type="number"
-                        step="0.01"
-                        value={it.unit_price}
-                        onChange={(e) => updateItem(idx, 'unit_price', parseFloat(e.target.value) || 0)}
-                        className="w-24"
-                      />
-                      <Button type="button" variant="ghost" size="icon" onClick={() => removeItem(idx)}>
-                        <Trash2 className="w-4 h-4 text-red-500" />
-                      </Button>
+                  {items.length === 0 ? (
+                    <div className="text-center py-4 text-sm" style={{ color: 'var(--text-muted)' }}>
+                      Nenhum item adicionado. Clique em "Adicionar" para começar.
                     </div>
-                  ))}
+                  ) : (
+                    items.map((it, idx) => {
+                      const itemTotal = (Number(it.quantity) || 0) * (Number(it.unit_price) || 0);
+                      return (
+                        <div key={idx} className="flex gap-2 flex-wrap items-end p-3 rounded border hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors" style={{ borderColor: 'var(--border-color)' }}>
+                          <Select value={it.dish_id} onValueChange={(v) => setDish(idx, v)}>
+                            <SelectTrigger className="flex-1 min-w-[140px]">
+                              <SelectValue placeholder="Selecione o prato" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {dishes.map((d) => (
+                                <SelectItem key={d.id} value={d.id}>
+                                  {d.name} {d.price ? `- ${formatCurrency(d.price)}` : ''}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <div className="flex items-center gap-1">
+                            <Label className="text-xs" style={{ color: 'var(--text-muted)' }}>Qtd:</Label>
+                            <Input
+                              type="number"
+                              min={1}
+                              value={it.quantity}
+                              onChange={(e) => updateItem(idx, 'quantity', parseInt(e.target.value, 10) || 1)}
+                              className="w-16 text-center"
+                              style={{ backgroundColor: 'var(--bg-input)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}
+                            />
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Label className="text-xs" style={{ color: 'var(--text-muted)' }}>R$:</Label>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              value={it.unit_price}
+                              onChange={(e) => updateItem(idx, 'unit_price', parseFloat(e.target.value) || 0)}
+                              className="w-24"
+                              style={{ backgroundColor: 'var(--bg-input)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}
+                            />
+                          </div>
+                          <div className="flex items-center gap-2 px-2 py-1 rounded" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                            <span className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
+                              {formatCurrency(itemTotal)}
+                            </span>
+                          </div>
+                          <Button type="button" variant="ghost" size="icon" onClick={() => removeItem(idx)} className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20">
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
               </div>
             </>
           )}
 
-          <div className="font-semibold" style={{ color: 'var(--text-primary)' }}>
-            Total: {formatCurrency(isClose ? comanda?.total : totalItems)}
+          <div className="p-3 rounded-lg border" style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-color)' }}>
+            <div className="flex justify-between items-center">
+              <span className="font-semibold text-lg" style={{ color: 'var(--text-primary)' }}>Total:</span>
+              <span className="font-bold text-xl" style={{ color: 'var(--text-primary)' }}>
+                {formatCurrency(isClose ? comanda?.total : totalItems)}
+              </span>
+            </div>
+            {!isClose && items.length > 0 && (
+              <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                {items.length} {items.length === 1 ? 'item' : 'itens'} · {items.reduce((sum, i) => sum + (Number(i.quantity) || 0), 0)} unidades
+              </p>
+            )}
           </div>
 
           {isClose && (
@@ -513,9 +647,34 @@ function ComandaFormModal({
                   <Plus className="w-3 h-3 mr-1" /> Forma de pagamento
                 </Button>
               </div>
-              <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
-                Total pago: {formatCurrency(totalPaid)} {!canClose && totalItems > 0 && '(insuficiente)'}
-              </p>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center p-2 rounded" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                  <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Total:</span>
+                  <span className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(totalItems)}</span>
+                </div>
+                <div className="flex justify-between items-center p-2 rounded" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                  <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Total pago:</span>
+                  <span className={`text-sm font-bold ${totalPaid >= totalItems ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                    {formatCurrency(totalPaid)}
+                  </span>
+                </div>
+                {totalPaid > totalItems && (
+                  <div className="flex justify-between items-center p-2 rounded border border-green-200 dark:border-green-800" style={{ backgroundColor: 'rgba(34, 197, 94, 0.1)' }}>
+                    <span className="text-sm font-medium text-green-700 dark:text-green-300">Troco:</span>
+                    <span className="text-sm font-bold text-green-700 dark:text-green-300">
+                      {formatCurrency(totalPaid - totalItems)}
+                    </span>
+                  </div>
+                )}
+                {!canClose && totalItems > 0 && (
+                  <div className="flex items-center gap-2 p-2 rounded border border-red-200 dark:border-red-800" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)' }}>
+                    <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400" />
+                    <span className="text-xs text-red-600 dark:text-red-400">
+                      Valor pago insuficiente. Faltam {formatCurrency(totalItems - totalPaid)}
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -537,25 +696,85 @@ function ComandaHistoryModal({ open, onOpenChange, comanda }) {
   const history = Array.isArray(comanda?.history) ? comanda.history : [];
   const formatAt = (at) => (at ? new Date(at).toLocaleString('pt-BR') : '');
 
+  const getActionIcon = (action) => {
+    switch (action) {
+      case 'created':
+        return <Plus className="w-4 h-4 text-green-600 dark:text-green-400" />;
+      case 'updated':
+        return <Edit2 className="w-4 h-4 text-blue-600 dark:text-blue-400" />;
+      case 'closed':
+        return <CheckCircle2 className="w-4 h-4 text-teal-600 dark:text-teal-400" />;
+      case 'cancelled':
+        return <XCircle className="w-4 h-4 text-red-600 dark:text-red-400" />;
+      default:
+        return <History className="w-4 h-4 text-gray-600 dark:text-gray-400" />;
+    }
+  };
+
+  const getActionLabel = (action) => {
+    const labels = {
+      created: 'Criada',
+      updated: 'Atualizada',
+      closed: 'Fechada',
+      cancelled: 'Cancelada',
+    };
+    return labels[action] || action;
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
         <DialogHeader>
-          <DialogTitle style={{ color: 'var(--text-primary)' }}>Histórico — {comanda?.code || ''}</DialogTitle>
+          <DialogTitle style={{ color: 'var(--text-primary)' }} className="flex items-center gap-2">
+            <History className="w-5 h-5" />
+            Histórico — {comanda?.code || `#${comanda?.id}`}
+          </DialogTitle>
         </DialogHeader>
-        <div className="space-y-2">
+        <div className="space-y-3">
           {history.length === 0 ? (
-            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Nenhuma alteração registrada.</p>
+            <div className="text-center py-8">
+              <History className="w-12 h-12 mx-auto mb-3 opacity-30" style={{ color: 'var(--text-muted)' }} />
+              <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Nenhuma alteração registrada.</p>
+            </div>
           ) : (
             history.map((h, i) => (
-              <div key={i} className="flex flex-col gap-0.5 p-2 rounded border" style={{ borderColor: 'var(--border-color)' }}>
-                <span className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>{h.action}</span>
-                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{formatAt(h.at)} · {h.by}</span>
-                {h.details && Object.keys(h.details).length > 0 && (
-                  <pre className="text-xs mt-1 overflow-x-auto" style={{ color: 'var(--text-secondary)' }}>
-                    {JSON.stringify(h.details, null, 1)}
-                  </pre>
-                )}
+              <div key={i} className="flex gap-3 p-3 rounded-lg border hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors" style={{ borderColor: 'var(--border-color)' }}>
+                <div className="flex-shrink-0 mt-0.5">
+                  {getActionIcon(h.action)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                      {getActionLabel(h.action)}
+                    </span>
+                    <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                      {formatAt(h.at)}
+                    </span>
+                  </div>
+                  <p className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>
+                    Por: {h.by || 'Sistema'}
+                  </p>
+                  {h.details && Object.keys(h.details).length > 0 && (
+                    <div className="mt-2 p-2 rounded text-xs overflow-x-auto" style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}>
+                      {h.details.payments && Array.isArray(h.details.payments) && (
+                        <div className="space-y-1">
+                          <p className="font-medium">Pagamentos:</p>
+                          {h.details.payments.map((p, idx) => (
+                            <p key={idx} className="pl-2">
+                              {PAYMENT_METHODS.find(m => m.value === p.method)?.label || p.method}: {formatCurrency(p.amount)}
+                            </p>
+                          ))}
+                        </div>
+                      )}
+                      {h.details.summary && (
+                        <p className="italic">{h.details.summary}</p>
+                      )}
+                      {!h.details.payments && !h.details.summary && (
+                        <pre className="text-xs">{JSON.stringify(h.details, null, 2)}</pre>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             ))
           )}

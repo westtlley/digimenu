@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Receipt, Loader2, LogOut, Plus, Edit2, XCircle, History, Trash2, Filter } from 'lucide-react';
+import { Receipt, Loader2, LogOut, Plus, Edit2, XCircle, History, Trash2, Filter, Search, X, AlertCircle, CheckCircle2, Calculator } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -42,10 +42,13 @@ export default function Garcom() {
   const [allowed, setAllowed] = useState(false);
   const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState('open');
+  const [searchTerm, setSearchTerm] = useState('');
   const [formOpen, setFormOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [editingComanda, setEditingComanda] = useState(null);
   const [formMode, setFormMode] = useState('create');
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+  const [comandaToClose, setComandaToClose] = useState(null);
 
   useEffect(() => {
     (async () => {
@@ -115,9 +118,42 @@ export default function Garcom() {
   };
 
   const handleClose = (c) => {
-    setEditingComanda(c);
-    setFormMode('close');
-    setFormOpen(true);
+    setComandaToClose(c);
+    setShowCloseConfirm(true);
+  };
+
+  const confirmClose = () => {
+    if (comandaToClose) {
+      setEditingComanda(comandaToClose);
+      setFormMode('close');
+      setFormOpen(true);
+      setShowCloseConfirm(false);
+      setComandaToClose(null);
+    }
+  };
+
+  const handleCancel = (c) => {
+    if (window.confirm(`Tem certeza que deseja cancelar a comanda ${c.code || `#${c.id}`}?`)) {
+      const history = [
+        ...(Array.isArray(c.history) ? c.history : []),
+        {
+          at: new Date().toISOString(),
+          by: user?.email || 'sistema',
+          action: 'cancelled',
+          details: {},
+        },
+      ];
+      updateMutation.mutate({
+        id: c.id,
+        data: {
+          ...c,
+          status: 'cancelled',
+          cancelled_at: new Date().toISOString(),
+          cancelled_by: user?.email,
+          history,
+        },
+      });
+    }
   };
 
   const handleHistory = (c) => {
@@ -126,9 +162,30 @@ export default function Garcom() {
   };
 
   const filtered = comandas.filter((c) => {
-    if (statusFilter === 'all') return true;
-    return (c.status || 'open') === statusFilter;
+    // Filtro por status
+    if (statusFilter !== 'all' && (c.status || 'open') !== statusFilter) {
+      return false;
+    }
+    
+    // Busca por código, mesa ou cliente
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase().trim();
+      const code = (c.code || `#${c.id}`).toLowerCase();
+      const table = (c.table_name || '').toLowerCase();
+      const customer = (c.customer_name || '').toLowerCase();
+      return code.includes(term) || table.includes(term) || customer.includes(term);
+    }
+    
+    return true;
   });
+
+  // Estatísticas rápidas
+  const stats = {
+    total: comandas.length,
+    open: comandas.filter(c => (c.status || 'open') === 'open').length,
+    closed: comandas.filter(c => c.status === 'closed').length,
+    totalValue: comandas.reduce((sum, c) => sum + (c.total || 0), 0),
+  };
 
   if (loading) {
     return (
@@ -181,6 +238,57 @@ export default function Garcom() {
       </header>
 
       <main className="p-4 max-w-6xl mx-auto pb-24 safe-bottom">
+        {/* Estatísticas rápidas */}
+        {!isLoading && comandas.length > 0 && (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+            <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-teal-200 dark:border-teal-800">
+              <CardContent className="p-3">
+                <p className="text-xs text-gray-600 dark:text-gray-400">Total</p>
+                <p className="text-lg font-bold text-teal-600 dark:text-teal-400">{stats.total}</p>
+              </CardContent>
+            </Card>
+            <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-teal-200 dark:border-teal-800">
+              <CardContent className="p-3">
+                <p className="text-xs text-gray-600 dark:text-gray-400">Abertas</p>
+                <p className="text-lg font-bold text-teal-600 dark:text-teal-400">{stats.open}</p>
+              </CardContent>
+            </Card>
+            <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-teal-200 dark:border-teal-800">
+              <CardContent className="p-3">
+                <p className="text-xs text-gray-600 dark:text-gray-400">Fechadas</p>
+                <p className="text-lg font-bold text-gray-600 dark:text-gray-400">{stats.closed}</p>
+              </CardContent>
+            </Card>
+            <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-teal-200 dark:border-teal-800">
+              <CardContent className="p-3">
+                <p className="text-xs text-gray-600 dark:text-gray-400">Total Geral</p>
+                <p className="text-lg font-bold text-teal-600 dark:text-teal-400">{formatCurrency(stats.totalValue)}</p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Busca */}
+        <div className="mb-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <Input
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Buscar por código, mesa ou cliente..."
+              className="pl-10 pr-10 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600"
+            />
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm('')}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        </div>
+
         {/* Filtros em chips */}
         <div className="flex flex-wrap gap-2 mb-6">
           <button
@@ -278,6 +386,19 @@ export default function Garcom() {
                         <p className="text-sm text-gray-600 dark:text-gray-400">{c.customer_name}</p>
                       )}
                     </div>
+                    
+                    {/* Contador de itens */}
+                    <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                      <span className="bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 px-2 py-1 rounded-full">
+                        {Array.isArray(c.items) ? c.items.length : 0} {Array.isArray(c.items) && c.items.length === 1 ? 'item' : 'itens'}
+                      </span>
+                      {Array.isArray(c.items) && c.items.length > 0 && (
+                        <span className="text-gray-400">
+                          {c.items.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0)} unidades
+                        </span>
+                      )}
+                    </div>
+
                     <div className="flex items-baseline gap-2">
                       <span className="text-2xl font-bold text-teal-600 dark:text-teal-400">
                         {formatCurrency(c.total)}
@@ -292,7 +413,10 @@ export default function Garcom() {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => handleEdit(c)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEdit(c);
+                            }}
                             className="flex-1 min-h-touch border-teal-300 dark:border-teal-700 text-teal-700 dark:text-teal-300 hover:bg-teal-50 dark:hover:bg-teal-900/30"
                           >
                             <Edit2 className="w-4 h-4 mr-1" />
@@ -301,22 +425,42 @@ export default function Garcom() {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => handleClose(c)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleClose(c);
+                            }}
                             className="flex-1 min-h-touch border-teal-300 dark:border-teal-700 text-teal-700 dark:text-teal-300 hover:bg-teal-50 dark:hover:bg-teal-900/30"
                           >
-                            <XCircle className="w-4 h-4 mr-1" />
+                            <CheckCircle2 className="w-4 h-4 mr-1" />
                             Fechar
                           </Button>
                         </>
                       )}
+                      {isOpen && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCancel(c);
+                          }}
+                          className="w-full min-h-touch text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+                        >
+                          <XCircle className="w-4 h-4 mr-1" />
+                          Cancelar
+                        </Button>
+                      )}
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={() => handleHistory(c)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleHistory(c);
+                        }}
                         className="w-full min-h-touch text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
                       >
                         <History className="w-4 h-4 mr-1" />
-                        Histórico
+                        Ver detalhes
                       </Button>
                     </div>
                   </CardContent>
@@ -354,6 +498,42 @@ export default function Garcom() {
         onOpenChange={setHistoryOpen}
         comanda={editingComanda}
       />
+
+      {/* Modal de confirmação de fechamento */}
+      <Dialog open={showCloseConfirm} onOpenChange={setShowCloseConfirm}>
+        <DialogContent className="bg-white dark:bg-gray-800 border-teal-200 dark:border-teal-800">
+          <DialogHeader>
+            <DialogTitle className="text-teal-700 dark:text-teal-300 flex items-center gap-2">
+              <AlertCircle className="w-5 h-5" />
+              Confirmar fechamento
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-gray-700 dark:text-gray-300">
+              Tem certeza que deseja fechar a comanda <strong>{comandaToClose?.code || `#${comandaToClose?.id}`}</strong>?
+            </p>
+            {comandaToClose && (
+              <div className="bg-teal-50 dark:bg-teal-900/20 p-3 rounded-lg">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  <strong>Total:</strong> {formatCurrency(comandaToClose.total || 0)}
+                </p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  <strong>Itens:</strong> {Array.isArray(comandaToClose.items) ? comandaToClose.items.length : 0}
+                </p>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCloseConfirm(false)} className="border-gray-300 dark:border-gray-600">
+              Cancelar
+            </Button>
+            <Button onClick={confirmClose} className="bg-teal-600 hover:bg-teal-700 text-white">
+              <CheckCircle2 className="w-4 h-4 mr-2" />
+              Confirmar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -462,6 +642,18 @@ function ComandaFormModal({
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    
+    // Validações
+    if (mode === 'create' && items.length === 0) {
+      toast.error('Adicione pelo menos um item à comanda');
+      return;
+    }
+    
+    if (mode === 'edit' && items.length === 0) {
+      toast.error('A comanda deve ter pelo menos um item');
+      return;
+    }
+
     if (mode === 'create') {
       const history = appendHistory([], 'created', {});
       onCreate({
@@ -605,8 +797,18 @@ function ComandaFormModal({
             </>
           )}
 
-          <div className="font-semibold text-lg text-teal-700 dark:text-teal-300">
-            Total: {formatCurrency(isClose ? comanda?.total : totalItems)}
+          <div className="p-3 bg-teal-50 dark:bg-teal-900/20 rounded-lg border border-teal-200 dark:border-teal-800">
+            <div className="flex justify-between items-center">
+              <span className="font-semibold text-lg text-teal-700 dark:text-teal-300">Total:</span>
+              <span className="font-bold text-xl text-teal-700 dark:text-teal-300">
+                {formatCurrency(isClose ? comanda?.total : totalItems)}
+              </span>
+            </div>
+            {!isClose && items.length > 0 && (
+              <p className="text-xs text-teal-600 dark:text-teal-400 mt-1">
+                {items.length} {items.length === 1 ? 'item' : 'itens'} · {items.reduce((sum, i) => sum + (Number(i.quantity) || 0), 0)} unidades
+              </p>
+            )}
           </div>
 
           {isClose && (
@@ -642,9 +844,37 @@ function ComandaFormModal({
                   <Plus className="w-3 h-3 mr-1" /> Forma de pagamento
                 </Button>
               </div>
-              <p className="text-sm mt-1 text-gray-600 dark:text-gray-400">
-                Total pago: {formatCurrency(totalPaid)} {!canClose && totalItems > 0 && '(insuficiente)'}
-              </p>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-900/50 rounded">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Total:</span>
+                  <span className="text-sm font-bold text-teal-700 dark:text-teal-300">{formatCurrency(totalItems)}</span>
+                </div>
+                <div className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-900/50 rounded">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Total pago:</span>
+                  <span className={`text-sm font-bold ${totalPaid >= totalItems ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                    {formatCurrency(totalPaid)}
+                  </span>
+                </div>
+                {totalPaid > totalItems && (
+                  <div className="flex justify-between items-center p-2 bg-green-50 dark:bg-green-900/20 rounded border border-green-200 dark:border-green-800">
+                    <span className="text-sm font-medium text-green-700 dark:text-green-300 flex items-center gap-1">
+                      <Calculator className="w-4 h-4" />
+                      Troco:
+                    </span>
+                    <span className="text-sm font-bold text-green-700 dark:text-green-300">
+                      {formatCurrency(totalPaid - totalItems)}
+                    </span>
+                  </div>
+                )}
+                {!canClose && totalItems > 0 && (
+                  <div className="flex items-center gap-2 p-2 bg-red-50 dark:bg-red-900/20 rounded border border-red-200 dark:border-red-800">
+                    <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400" />
+                    <span className="text-xs text-red-600 dark:text-red-400">
+                      Valor pago insuficiente. Faltam {formatCurrency(totalItems - totalPaid)}
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -670,25 +900,85 @@ function ComandaHistoryModal({ open, onOpenChange, comanda }) {
   const history = Array.isArray(comanda?.history) ? comanda.history : [];
   const formatAt = (at) => (at ? new Date(at).toLocaleString('pt-BR') : '');
 
+  const getActionIcon = (action) => {
+    switch (action) {
+      case 'created':
+        return <Plus className="w-4 h-4 text-green-600 dark:text-green-400" />;
+      case 'updated':
+        return <Edit2 className="w-4 h-4 text-blue-600 dark:text-blue-400" />;
+      case 'closed':
+        return <CheckCircle2 className="w-4 h-4 text-teal-600 dark:text-teal-400" />;
+      case 'cancelled':
+        return <XCircle className="w-4 h-4 text-red-600 dark:text-red-400" />;
+      default:
+        return <History className="w-4 h-4 text-gray-600 dark:text-gray-400" />;
+    }
+  };
+
+  const getActionLabel = (action) => {
+    const labels = {
+      created: 'Criada',
+      updated: 'Atualizada',
+      closed: 'Fechada',
+      cancelled: 'Cancelada',
+    };
+    return labels[action] || action;
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto bg-white dark:bg-gray-800 border-teal-200 dark:border-teal-800">
         <DialogHeader>
-          <DialogTitle className="text-teal-700 dark:text-teal-300">Histórico — {comanda?.code || ''}</DialogTitle>
+          <DialogTitle className="text-teal-700 dark:text-teal-300 flex items-center gap-2">
+            <History className="w-5 h-5" />
+            Histórico — {comanda?.code || `#${comanda?.id}`}
+          </DialogTitle>
         </DialogHeader>
-        <div className="space-y-2">
+        <div className="space-y-3">
           {history.length === 0 ? (
-            <p className="text-sm text-gray-500 dark:text-gray-400">Nenhuma alteração registrada.</p>
+            <div className="text-center py-8">
+              <History className="w-12 h-12 mx-auto mb-3 text-gray-300 dark:text-gray-600 opacity-50" />
+              <p className="text-sm text-gray-500 dark:text-gray-400">Nenhuma alteração registrada.</p>
+            </div>
           ) : (
             history.map((h, i) => (
-              <div key={i} className="flex flex-col gap-0.5 p-3 rounded-lg border border-teal-100 dark:border-teal-900 bg-teal-50 dark:bg-teal-900/20">
-                <span className="text-xs font-medium text-teal-700 dark:text-teal-300">{h.action}</span>
-                <span className="text-xs text-gray-600 dark:text-gray-400">{formatAt(h.at)} · {h.by}</span>
-                {h.details && Object.keys(h.details).length > 0 && (
-                  <pre className="text-xs mt-1 overflow-x-auto text-gray-700 dark:text-gray-300">
-                    {JSON.stringify(h.details, null, 1)}
-                  </pre>
-                )}
+              <div key={i} className="flex gap-3 p-3 rounded-lg border border-teal-100 dark:border-teal-900 bg-teal-50 dark:bg-teal-900/20 hover:bg-teal-100 dark:hover:bg-teal-900/30 transition-colors">
+                <div className="flex-shrink-0 mt-0.5">
+                  {getActionIcon(h.action)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-medium text-teal-700 dark:text-teal-300">
+                      {getActionLabel(h.action)}
+                    </span>
+                    <span className="text-xs text-gray-500 dark:text-gray-500">
+                      {formatAt(h.at)}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">
+                    Por: {h.by || 'Sistema'}
+                  </p>
+                  {h.details && Object.keys(h.details).length > 0 && (
+                    <div className="mt-2 p-2 bg-white dark:bg-gray-800 rounded text-xs text-gray-700 dark:text-gray-300 overflow-x-auto">
+                      {h.details.payments && Array.isArray(h.details.payments) && (
+                        <div className="space-y-1">
+                          <p className="font-medium">Pagamentos:</p>
+                          {h.details.payments.map((p, idx) => (
+                            <p key={idx} className="pl-2">
+                              {PAYMENT_METHODS.find(m => m.value === p.method)?.label || p.method}: {formatCurrency(p.amount)}
+                            </p>
+                          ))}
+                        </div>
+                      )}
+                      {h.details.summary && (
+                        <p className="italic">{h.details.summary}</p>
+                      )}
+                      {!h.details.payments && !h.details.summary && (
+                        <pre className="text-xs">{JSON.stringify(h.details, null, 2)}</pre>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             ))
           )}
