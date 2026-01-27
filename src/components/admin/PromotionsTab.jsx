@@ -137,10 +137,13 @@ export default function PromotionsTab() {
   };
 
   const safeDishes = Array.isArray(dishes) ? dishes : [];
-  const getDishName = (id) => safeDishes.find(d => d.id === id)?.name || 'Prato não encontrado';
+  const getDishName = useMemo(() => {
+    return (id) => safeDishes.find(d => d.id === id)?.name || 'Prato não encontrado';
+  }, [safeDishes]);
 
   // Filtrar promoções
   const filteredPromotions = useMemo(() => {
+    if (!Array.isArray(promotions)) return [];
     return promotions.filter(promo => {
       const matchesSearch = !searchTerm || 
         promo.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -154,17 +157,18 @@ export default function PromotionsTab() {
       
       return matchesSearch && matchesStatus && matchesType;
     });
-  }, [promotions, searchTerm, filterStatus, filterType, safeDishes]);
+  }, [promotions, searchTerm, filterStatus, filterType, getDishName]);
 
   // Estatísticas
   const stats = useMemo(() => {
-    const active = promotions.filter(p => p.is_active).length;
-    const inactive = promotions.filter(p => !p.is_active).length;
-    const addType = promotions.filter(p => p.type === 'add').length;
-    const replaceType = promotions.filter(p => p.type === 'replace').length;
+    const safePromotions = Array.isArray(promotions) ? promotions : [];
+    const active = safePromotions.filter(p => p.is_active).length;
+    const inactive = safePromotions.filter(p => !p.is_active).length;
+    const addType = safePromotions.filter(p => p.type === 'add').length;
+    const replaceType = safePromotions.filter(p => p.type === 'replace').length;
 
     return {
-      total: promotions.length,
+      total: safePromotions.length,
       active,
       inactive,
       addType,

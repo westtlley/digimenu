@@ -263,6 +263,7 @@ export default function ComplementsTab() {
 
   // Filtrar grupos
   const filteredGroups = useMemo(() => {
+    if (!Array.isArray(groups)) return [];
     let result = groups.filter(group => {
       const matchesSearch = !searchTerm || 
         group.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -279,13 +280,15 @@ export default function ComplementsTab() {
 
   // Estatísticas
   const stats = useMemo(() => {
-    const totalGroups = groups.length;
-    const totalOptions = groups.reduce((sum, g) => sum + (g.options?.length || 0), 0);
-    const activeOptions = groups.reduce((sum, g) => 
+    const safeGroups = Array.isArray(groups) ? groups : [];
+    const safeDishes = Array.isArray(dishes) ? dishes : [];
+    const totalGroups = safeGroups.length;
+    const totalOptions = safeGroups.reduce((sum, g) => sum + (g.options?.length || 0), 0);
+    const activeOptions = safeGroups.reduce((sum, g) => 
       sum + (g.options?.filter(o => o.is_active !== false).length || 0), 0
     );
-    const groupsInUse = groups.filter(g => {
-      return dishes.some(d => 
+    const groupsInUse = safeGroups.filter(g => {
+      return safeDishes.some(d => 
         d.complement_groups?.some(cg => cg.group_id === g.id)
       );
     }).length;

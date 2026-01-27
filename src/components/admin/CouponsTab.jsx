@@ -115,6 +115,7 @@ export default function CouponsTab() {
 
   // Filtrar cupons
   const filteredCoupons = useMemo(() => {
+    if (!Array.isArray(coupons)) return [];
     return coupons.filter(coupon => {
       const matchesSearch = !searchTerm || 
         coupon.code?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -137,7 +138,8 @@ export default function CouponsTab() {
 
   // Estatísticas
   const stats = useMemo(() => {
-    const active = coupons.filter(c => {
+    const safeCoupons = Array.isArray(coupons) ? coupons : [];
+    const active = safeCoupons.filter(c => {
       const expired = isExpired(c.expires_at);
       const maxReached = c.max_uses > 0 && c.current_uses >= c.max_uses;
       return c.is_active && !expired && !maxReached;
@@ -157,7 +159,7 @@ export default function CouponsTab() {
       fixed,
       totalUses
     };
-  }, [coupons]);
+  }, [coupons, isExpired]);
 
   return (
     <div className="p-4 sm:p-6 space-y-6">

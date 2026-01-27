@@ -44,19 +44,22 @@ export default function CategoriesTab() {
 
   // Filtrar categorias
   const filteredCategories = useMemo(() => {
-    if (!searchTerm) return categories;
-    return categories.filter(cat => 
+    const safeCategories = Array.isArray(categories) ? categories : [];
+    if (!searchTerm) return safeCategories;
+    return safeCategories.filter(cat => 
       cat.name?.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [categories, searchTerm]);
 
   // Estatísticas
   const stats = useMemo(() => {
-    const totalCategories = categories.length;
-    const totalDishes = dishes.length;
-    const dishesByCategory = categories.map(cat => ({
+    const safeCategories = Array.isArray(categories) ? categories : [];
+    const safeDishes = Array.isArray(dishes) ? dishes : [];
+    const totalCategories = safeCategories.length;
+    const totalDishes = safeDishes.length;
+    const dishesByCategory = safeCategories.map(cat => ({
       category: cat,
-      count: dishes.filter(d => d.category_id === cat.id).length
+      count: safeDishes.filter(d => d.category_id === cat.id).length
     }));
     const categoriesWithDishes = dishesByCategory.filter(item => item.count > 0).length;
     const emptyCategories = totalCategories - categoriesWithDishes;
