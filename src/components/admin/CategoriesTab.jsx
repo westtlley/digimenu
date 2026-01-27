@@ -186,70 +186,62 @@ export default function CategoriesTab() {
           filteredCategories.map((category, index) => {
             const dishCount = dishes.filter(d => d.category_id === category.id).length;
             return (
-          <div
-            key={category.id}
-            className="bg-white rounded-xl p-3 sm:p-4 shadow-sm flex items-center gap-2 sm:gap-4"
-          >
-            <Menu className="w-5 h-5 text-gray-400" />
-            
-            <div className="flex-1 min-w-0">
-              <input
-                type="text"
-                value={category.name || ''}
-                onChange={(e) => updateMutation.mutate({ 
-                  id: category.id, 
-                  data: { ...category, name: e.target.value } 
-                })}
-                className="w-full font-medium bg-transparent border-b border-transparent hover:border-gray-300 focus:border-orange-500 focus:outline-none"
-                placeholder="Nome da categoria"
-              />
-              <Badge variant="outline" className="mt-1 text-xs">
-                {dishCount} {dishCount === 1 ? 'prato' : 'pratos'}
-              </Badge>
-            </div>
-
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => moveCategory(index, -1)}
-                disabled={index === 0}
-                className="p-1 hover:bg-gray-100 rounded disabled:opacity-30"
+              <div
+                key={category.id}
+                className="bg-white rounded-xl p-3 sm:p-4 shadow-sm flex items-center gap-2 sm:gap-4"
               >
-                <ChevronUp className="w-4 h-4 text-gray-400" />
-              </button>
-              <button
-                onClick={() => moveCategory(index, 1)}
-                disabled={index === categories.length - 1}
-                className="p-1 hover:bg-gray-100 rounded disabled:opacity-30"
-              >
-                <ChevronDown className="w-4 h-4 text-gray-400" />
-              </button>
-            </div>
+                <Menu className="w-5 h-5 text-gray-400" />
+                
+                <div className="flex-1 min-w-0">
+                  <input
+                    type="text"
+                    value={category.name || ''}
+                    onChange={(e) => updateMutation.mutate({ 
+                      id: category.id, 
+                      data: { ...category, name: e.target.value } 
+                    })}
+                    className="w-full font-medium bg-transparent border-b border-transparent hover:border-gray-300 focus:border-orange-500 focus:outline-none"
+                    placeholder="Nome da categoria"
+                  />
+                  <Badge variant="outline" className="mt-1 text-xs">
+                    {dishCount} {dishCount === 1 ? 'prato' : 'pratos'}
+                  </Badge>
+                </div>
 
-            <Button
-              size="icon"
-              variant="ghost"
-              className="text-red-500 hover:text-red-700 hover:bg-red-50"
-              onClick={() => {
-                if (dishCount > 0) {
-                  if (!confirm(`Esta categoria tem ${dishCount} prato(s). Deseja realmente excluir?`)) return;
-                }
-                deleteMutation.mutate(category.id);
-                toast.success('Categoria excluída');
-              }}
-            >
-              <Trash2 className="w-4 h-4" />
-            </Button>
-          </div>
-        ))}
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => moveCategory(index, -1)}
+                    disabled={index === 0}
+                    className="p-1 hover:bg-gray-100 rounded disabled:opacity-30"
+                  >
+                    <ChevronUp className="w-4 h-4 text-gray-400" />
+                  </button>
+                  <button
+                    onClick={() => moveCategory(index, 1)}
+                    disabled={index === categories.length - 1}
+                    className="p-1 hover:bg-gray-100 rounded disabled:opacity-30"
+                  >
+                    <ChevronDown className="w-4 h-4 text-gray-400" />
+                  </button>
+                </div>
 
-        {categories.length === 0 && (
-          <EmptyState
-            icon={FolderPlus}
-            title="Organize melhor seu cardápio criando categorias"
-            description="Categorias ajudam seus clientes a encontrar pratos mais facilmente"
-            actionLabel="Criar categoria"
-            onAction={() => setShowModal(true)}
-          />
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                  onClick={() => {
+                    if (dishCount > 0) {
+                      if (!confirm(`Esta categoria tem ${dishCount} prato(s). Deseja realmente excluir?`)) return;
+                    }
+                    deleteMutation.mutate(category.id);
+                    toast.success('Categoria excluída');
+                  }}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
+            );
+          })
         )}
       </div>
 
