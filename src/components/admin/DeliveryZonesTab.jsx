@@ -14,6 +14,8 @@ import toast from 'react-hot-toast';
 
 export default function DeliveryZonesTab() {
   const [showModal, setShowModal] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all');
   const [formData, setFormData] = useState({ neighborhood: '', fee: '', is_active: true });
 
   const [deliveryConfig, setDeliveryConfig] = useState({
