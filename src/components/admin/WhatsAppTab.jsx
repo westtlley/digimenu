@@ -2,12 +2,28 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { 
-  MessageCircle, Bell, Bot, CheckCircle, ExternalLink, FileText, Star
+  MessageCircle, Bell, Bot, CheckCircle, ExternalLink, FileText, Star,
+  Send, Copy, Plus, Trash2, Edit2
 } from 'lucide-react';
+import { whatsappService } from '../services/whatsappService';
+import toast from 'react-hot-toast';
 
 export default function WhatsAppTab() {
   const [activeSection, setActiveSection] = useState('config');
+  const [templates, setTemplates] = useState(() => {
+    const saved = localStorage.getItem('whatsapp_templates');
+    return saved ? JSON.parse(saved) : [
+      { id: 1, name: 'Pedido Confirmado', message: 'Olá! Seu pedido foi confirmado e está sendo preparado. 🍽️' },
+      { id: 2, name: 'Pedido Pronto', message: 'Seu pedido está pronto para retirada! 🎉' },
+      { id: 3, name: 'Pedido em Rota', message: 'Seu pedido saiu para entrega! 🚴' },
+    ];
+  });
+  const [editingTemplate, setEditingTemplate] = useState(null);
+  const [newTemplate, setNewTemplate] = useState({ name: '', message: '' });
 
   return (
     <div className="space-y-6">
@@ -146,13 +162,169 @@ export default function WhatsAppTab() {
       )}
 
       {activeSection === 'notifications' && (
-        <Card>
-          <CardContent className="p-12 text-center">
-            <Bell className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-600 mb-2">Notificações</h3>
-            <p className="text-gray-400">Configure as notificações automáticas enviadas aos clientes</p>
-          </CardContent>
-        </Card>
+        <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Bell className="w-5 h-5" />
+                Templates de Mensagens
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Lista de Templates */}
+              <div className="space-y-3">
+                {templates.map((template) => (
+                  <Card key={template.id} className="border-l-4 border-l-green-500">
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex-1">
+                          <h4 className="font-semibold mb-1">{template.name}</h4>
+                          <p className="text-sm text-gray-600 whitespace-pre-wrap">{template.message}</p>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              const phone = prompt('Digite o número do WhatsApp (apenas números):');
+                              if (phone) {
+                                whatsappService.sendToWhatsApp(phone, template.message);
+                                toast.success('Abrindo WhatsApp...');
+                              }
+                            }}
+                          >
+                            <Send className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              navigator.clipboard.writeText(template.message);
+                              toast.success('Mensagem copiada!');
+                            }}
+                          >
+                            <Copy className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setEditingTemplate(template)}
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              const updated = templates.filter(t => t.id !== template.id);
+                              setTemplates(updated);
+                              localStorage.setItem('whatsapp_templates', JSON.stringify(updated));
+                              toast.success('Template removido');
+                            }}
+                          >
+                            <Trash2 className="w-4 h-4 text-red-500" />
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              {/* Adicionar Novo Template */}
+              {!editingTemplate && (
+                <Card className="border-dashed">
+                  <CardContent className="p-4">
+                    <h4 className="font-semibold mb-3">Adicionar Novo Template</h4>
+                    <div className="space-y-3">
+                      <div>
+                        <Label>Nome do Template</Label>
+                        <Input
+                          value={newTemplate.name}
+                          onChange={(e) => setNewTemplate({ ...newTemplate, name: e.target.value })}
+                          placeholder="Ex: Pedido Confirmado"
+                        />
+                      </div>
+                      <div>
+                        <Label>Mensagem</Label>
+                        <Textarea
+                          value={newTemplate.message}
+                          onChange={(e) => setNewTemplate({ ...newTemplate, message: e.target.value })}
+                          placeholder="Digite a mensagem do template..."
+                          rows={4}
+                        />
+                      </div>
+                      <Button
+                        onClick={() => {
+                          if (!newTemplate.name || !newTemplate.message) {
+                            toast.error('Preencha todos os campos');
+                            return;
+                          }
+                          const updated = [...templates, { id: Date.now(), ...newTemplate }];
+                          setTemplates(updated);
+                          localStorage.setItem('whatsapp_templates', JSON.stringify(updated));
+                          setNewTemplate({ name: '', message: '' });
+                          toast.success('Template adicionado!');
+                        }}
+                        className="w-full"
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Adicionar Template
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Editar Template */}
+              {editingTemplate && (
+                <Card className="border-2 border-blue-500">
+                  <CardContent className="p-4">
+                    <h4 className="font-semibold mb-3">Editar Template</h4>
+                    <div className="space-y-3">
+                      <div>
+                        <Label>Nome do Template</Label>
+                        <Input
+                          value={editingTemplate.name}
+                          onChange={(e) => setEditingTemplate({ ...editingTemplate, name: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label>Mensagem</Label>
+                        <Textarea
+                          value={editingTemplate.message}
+                          onChange={(e) => setEditingTemplate({ ...editingTemplate, message: e.target.value })}
+                          rows={4}
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={() => {
+                            const updated = templates.map(t => t.id === editingTemplate.id ? editingTemplate : t);
+                            setTemplates(updated);
+                            localStorage.setItem('whatsapp_templates', JSON.stringify(updated));
+                            setEditingTemplate(null);
+                            toast.success('Template atualizado!');
+                          }}
+                          className="flex-1"
+                        >
+                          Salvar
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => setEditingTemplate(null)}
+                          className="flex-1"
+                        >
+                          Cancelar
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       )}
 
       {activeSection === 'auto' && (

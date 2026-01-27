@@ -31,6 +31,11 @@ export default function DashboardTab({ user, subscriberData, onNavigateToTab }) 
     queryFn: () => base44.entities.Order.list('-created_date'),
   });
 
+  const { data: pdvSales = [] } = useQuery({
+    queryKey: ['dashboardPDVSales'],
+    queryFn: () => base44.entities.PedidoPDV.list('-created_date'),
+  });
+
   const { data: dishes = [] } = useQuery({
     queryKey: ['dishes'],
     queryFn: () => base44.entities.Dish.list(),
@@ -113,10 +118,10 @@ export default function DashboardTab({ user, subscriberData, onNavigateToTab }) 
       </div>
 
       {/* Métricas Avançadas */}
-      <DashboardMetrics orders={orders} dishes={dishes} />
+      <DashboardMetrics orders={orders} dishes={dishes} pdvSales={pdvSales} />
 
       {/* Gráficos de Vendas */}
-      {orders.length > 0 && <DashboardCharts orders={orders} />}
+      {(orders.length > 0 || pdvSales.length > 0) && <DashboardCharts orders={orders} pdvSales={pdvSales} />}
 
       {/* Stats Cards Rápidos */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

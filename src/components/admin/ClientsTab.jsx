@@ -4,10 +4,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { 
   Users, Search, Phone, Mail, DollarSign, ShoppingCart, 
-  Clock, Ban, CheckCircle, MoreVertical, TrendingUp, Filter
+  Clock, Ban, CheckCircle, MoreVertical, TrendingUp, Filter,
+  Eye, Package, Calendar
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -28,6 +30,8 @@ import ClientsSkeleton from '../skeletons/ClientsSkeleton';
 export default function ClientsTab() {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('recent'); // recent, spending, frequency
+  const [selectedClient, setSelectedClient] = useState(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: orders = [], isLoading } = useQuery({
@@ -229,11 +233,14 @@ export default function ClientsTab() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem>
-                          <Mail className="w-4 h-4 mr-2" />
-                          Enviar Email
+                        <DropdownMenuItem onClick={() => {
+                          setSelectedClient(client);
+                          setShowDetailModal(true);
+                        }}>
+                          <Eye className="w-4 h-4 mr-2" />
+                          Ver Detalhes
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => window.open(`https://wa.me/${client.phone?.replace(/\D/g, '')}`, '_blank')}>
+                        <DropdownMenuItem onClick={() => window.open(`https://wa.me/55${client.phone?.replace(/\D/g, '')}`, '_blank')}>
                           <Phone className="w-4 h-4 mr-2" />
                           WhatsApp
                         </DropdownMenuItem>
@@ -261,6 +268,138 @@ export default function ClientsTab() {
           ))
         )}
       </div>
+
+      {/* Modal de Detalhes do Cliente */}
+      <Dialog open={showDetailModal} onOpenChange={setShowDetailModal}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="w-5 h-5" />
+              {selectedClient?.name}
+            </DialogTitle>
+          </DialogHeader>
+          {selectedClient && (
+            <div className="space-y-6 py-4">
+              {/* Informações do Cliente */}
+              <div className="grid grid-cols-2 gap-4">
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-16 h-16 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full flex items-center justify-center text-white font-bold text-2xl">
+                        {selectedClient.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-lg">{selectedClient.name}</h3>
+                        {selectedClient.email !== 'sem-email' && (
+                          <p className="text-sm text-gray-600">{selectedClient.email}</p>
+                        )}
+                      </div>
+                    </div>
+                    {selectedClient.phone && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Phone className="w-4 h-4 text-gray-400" />
+                        <span>{selectedClient.phone}</span>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">Total Gasto</span>
+                        <span className="text-2xl font-bold text-green-600">{formatCurrency(selectedClient.totalSpent)}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">Pedidos</span>
+                        <span className="text-xl font-semibold">{selectedClient.orders.length}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">Ticket Médio</span>
+                        <span className="text-lg font-semibold">
+                          {formatCurrency(selectedClient.orders.length > 0 ? selectedClient.totalSpent / selectedClient.orders.length : 0)}
+                        </span>
+                      </div>
+                      {selectedClient.lastOrderDate && (
+                        <div className="flex items-center justify-between pt-2 border-t">
+                          <span className="text-sm text-gray-600">Último Pedido</span>
+                          <span className="text-sm font-medium">{selectedClient.lastOrderDate.fromNow()}</span>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Histórico de Pedidos */}
+              <div>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Package className="w-5 h-5" />
+                    Histórico de Pedidos ({selectedClient.orders.length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3 max-h-96 overflow-y-auto">
+                    {selectedClient.orders.length === 0 ? (
+                      <p className="text-center text-gray-500 py-8">Nenhum pedido registrado</p>
+                    ) : (
+                      selectedClient.orders
+                        .sort((a, b) => new Date(b.created_date) - new Date(a.created_date))
+                        .map((order) => (
+                          <div key={order.id} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
+                            <div className="flex items-start justify-between mb-2">
+                              <div>
+                                <div className="flex items-center gap-2 mb-1">
+                                  <Badge variant="outline" className="font-mono">
+                                    #{order.order_code || order.id?.slice(-6)}
+                                  </Badge>
+                                  <Badge className={order.status === 'delivered' ? 'bg-green-500' : order.status === 'cancelled' ? 'bg-red-500' : 'bg-yellow-500'}>
+                                    {order.status === 'delivered' ? 'Entregue' : order.status === 'cancelled' ? 'Cancelado' : order.status}
+                                  </Badge>
+                                </div>
+                                <p className="text-sm text-gray-600">
+                                  <Calendar className="w-3 h-3 inline mr-1" />
+                                  {moment(order.created_date).format('DD/MM/YYYY HH:mm')}
+                                </p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-lg font-bold text-green-600">{formatCurrency(order.total)}</p>
+                                <p className="text-xs text-gray-500 capitalize">{order.payment_method?.replace('_', ' ')}</p>
+                              </div>
+                            </div>
+                            <div className="text-sm text-gray-600">
+                              <p>
+                                <span className="font-medium">Itens:</span> {(order.items || []).length}
+                              </p>
+                              {order.delivery_method && (
+                                <p>
+                                  <span className="font-medium">Tipo:</span> {order.delivery_method === 'delivery' ? 'Entrega 🚴' : 'Retirada 🏪'}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        ))
+                    )}
+                  </div>
+                </CardContent>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDetailModal(false)}>
+              Fechar
+            </Button>
+            {selectedClient?.phone && (
+              <Button onClick={() => window.open(`https://wa.me/55${selectedClient.phone.replace(/\D/g, '')}`, '_blank')}>
+                <Phone className="w-4 h-4 mr-2" />
+                WhatsApp
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

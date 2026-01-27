@@ -13,7 +13,7 @@ const PERIODS = [
   { value: '12m', label: '12 meses' },
 ];
 
-export default function DashboardCharts({ orders = [] }) {
+export default function DashboardCharts({ orders = [], pdvSales = [] }) {
   const [period, setPeriod] = useState('7');
   const { isDark } = useTheme();
 
@@ -60,7 +60,7 @@ export default function DashboardCharts({ orders = [] }) {
     });
 
     return points;
-  }, [orders, period]);
+  }, [orders, pdvSales, period]);
 
   const chartConfig = {
     revenue: {

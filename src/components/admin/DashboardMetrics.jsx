@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import moment from 'moment';
 
-export default function DashboardMetrics({ orders = [], dishes = [] }) {
+export default function DashboardMetrics({ orders = [], dishes = [], pdvSales = [] }) {
   const metrics = useMemo(() => {
     const today = moment().startOf('day');
     const yesterday = moment().startOf('day').subtract(1, 'day');
@@ -109,7 +109,7 @@ export default function DashboardMetrics({ orders = [], dishes = [] }) {
       },
       topProducts
     };
-  }, [orders, dishes]);
+  }, [orders, dishes, pdvSales]);
 
   const formatCurrency = (value) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);

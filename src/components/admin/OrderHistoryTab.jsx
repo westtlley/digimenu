@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
-import { Search, Calendar, User, DollarSign, Filter, Download } from 'lucide-react';
+import { Search, Calendar, User, DollarSign, Filter, Download, Eye, X, Package } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { formatBrazilianDateTime, formatInputDate } from '../utils/dateUtils';
 import HistorySkeleton from '../skeletons/HistorySkeleton';
 
@@ -27,6 +28,10 @@ export default function OrderHistoryTab() {
   const [filterPayment, setFilterPayment] = useState('all');
   const [filterType, setFilterType] = useState('all'); // all | delivery | pdv
   const [dateFilter, setDateFilter] = useState('today');
+  const [customDateStart, setCustomDateStart] = useState('');
+  const [customDateEnd, setCustomDateEnd] = useState('');
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
 
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ['orderHistory'],
@@ -41,6 +46,14 @@ export default function OrderHistoryTab() {
     if (!order.created_date) return false;
     const orderDate = new Date(order.created_date);
     const today = new Date();
+    
+    if (dateFilter === 'custom') {
+      if (!customDateStart || !customDateEnd) return false;
+      const start = new Date(customDateStart);
+      const end = new Date(customDateEnd);
+      end.setHours(23, 59, 59, 999);
+      return orderDate >= start && orderDate <= end;
+    }
     
     switch (dateFilter) {
       case 'today':
@@ -143,6 +156,7 @@ export default function OrderHistoryTab() {
                 <SelectItem value="today">Hoje</SelectItem>
                 <SelectItem value="week">Últimos 7 dias</SelectItem>
                 <SelectItem value="month">Último mês</SelectItem>
+                <SelectItem value="custom">Período Customizado</SelectItem>
                 <SelectItem value="all">Todos</SelectItem>
               </SelectContent>
             </Select>
@@ -193,6 +207,28 @@ export default function OrderHistoryTab() {
             </Select>
           </div>
         </div>
+
+        {/* Filtro de Data Customizada */}
+        {dateFilter === 'custom' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 pt-4 border-t">
+            <div>
+              <label className="text-sm font-medium mb-2 block">Data Inicial</label>
+              <Input
+                type="date"
+                value={customDateStart}
+                onChange={(e) => setCustomDateStart(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-2 block">Data Final</label>
+              <Input
+                type="date"
+                value={customDateEnd}
+                onChange={(e) => setCustomDateEnd(e.target.value)}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Resumo */}
@@ -232,11 +268,15 @@ export default function OrderHistoryTab() {
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pagamento</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {filteredOrders.map((order) => (
-                  <tr key={order.id} className="hover:bg-gray-50">
+                  <tr key={order.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => {
+                    setSelectedOrder(order);
+                    setShowDetailModal(true);
+                  }}>
                     <td className="px-4 py-3 text-sm">
                       {order.created_date && formatBrazilianDateTime(order.created_date)}
                     </td>
@@ -281,6 +321,19 @@ export default function OrderHistoryTab() {
                     <td className="px-4 py-3 text-sm font-bold text-green-600">
                       {formatCurrency(order.total)}
                     </td>
+                    <td className="px-4 py-3">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedOrder(order);
+                          setShowDetailModal(true);
+                        }}
+                      >
+                        <Eye className="w-4 h-4" />
+                      </Button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -288,6 +341,125 @@ export default function OrderHistoryTab() {
           </div>
         )}
       </div>
+
+      {/* Modal de Detalhes */}
+      <Dialog open={showDetailModal} onOpenChange={setShowDetailModal}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Package className="w-5 h-5" />
+              Detalhes do Pedido #{selectedOrder?.order_code || selectedOrder?.id?.slice(-6)}
+            </DialogTitle>
+          </DialogHeader>
+          {selectedOrder && (
+            <div className="space-y-4 py-4">
+              {/* Informações do Cliente */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Cliente</p>
+                  <p className="font-semibold">{selectedOrder.customer_name}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Telefone</p>
+                  <p className="font-semibold">{selectedOrder.customer_phone || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Data</p>
+                  <p className="font-semibold">{formatBrazilianDateTime(selectedOrder.created_date)}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Status</p>
+                  <Badge className={statusConfig[selectedOrder.status]?.color || 'bg-gray-500'}>
+                    {statusConfig[selectedOrder.status]?.label || selectedOrder.status}
+                  </Badge>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Pagamento</p>
+                  <p className="font-semibold capitalize">{selectedOrder.payment_method?.replace('_', ' ')}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Tipo</p>
+                  <Badge variant="outline" className={isOrderPDV(selectedOrder) ? 'border-orange-300 text-orange-700' : 'border-blue-300 text-blue-700'}>
+                    {isOrderPDV(selectedOrder) ? 'PDV' : 'Delivery'}
+                  </Badge>
+                </div>
+              </div>
+
+              {/* Itens */}
+              <div>
+                <p className="text-sm font-semibold mb-2">Itens do Pedido</p>
+                <div className="space-y-2">
+                  {(selectedOrder.items || []).map((item, idx) => (
+                    <div key={idx} className="border rounded-lg p-3">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <p className="font-semibold">{item.quantity || 1}x {item.dish?.name || item.dish_name}</p>
+                          <p className="text-sm text-gray-600">{formatCurrency(item.unit_price || item.total_price)} un.</p>
+                        </div>
+                        <p className="font-bold text-green-600">
+                          {formatCurrency((item.total_price || item.unit_price || 0) * (item.quantity || 1))}
+                        </p>
+                      </div>
+                      {item.selections && Object.keys(item.selections).length > 0 && (
+                        <div className="text-xs text-gray-600 ml-3 mt-2 space-y-0.5">
+                          {Object.entries(item.selections).map(([gId, sel]) => {
+                            if (Array.isArray(sel)) {
+                              return sel.map((s, i) => <p key={i}>• {s.name}</p>);
+                            } else if (sel) {
+                              return <p key={gId}>• {sel.name}</p>;
+                            }
+                            return null;
+                          })}
+                        </div>
+                      )}
+                      {item.observations && (
+                        <p className="text-xs text-gray-600 italic mt-2">📝 {item.observations}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Totais */}
+              <div className="border-t pt-4 space-y-2">
+                <div className="flex justify-between">
+                  <span>Subtotal</span>
+                  <span className="font-semibold">{formatCurrency(selectedOrder.subtotal || selectedOrder.total)}</span>
+                </div>
+                {selectedOrder.delivery_fee > 0 && (
+                  <div className="flex justify-between">
+                    <span>Taxa de Entrega</span>
+                    <span className="font-semibold">{formatCurrency(selectedOrder.delivery_fee)}</span>
+                  </div>
+                )}
+                {selectedOrder.discount > 0 && (
+                  <div className="flex justify-between text-red-600">
+                    <span>Desconto</span>
+                    <span className="font-semibold">-{formatCurrency(selectedOrder.discount)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-lg font-bold border-t pt-2">
+                  <span>Total</span>
+                  <span className="text-green-600">{formatCurrency(selectedOrder.total)}</span>
+                </div>
+              </div>
+
+              {/* Endereço (se delivery) */}
+              {selectedOrder.delivery_method === 'delivery' && selectedOrder.address && (
+                <div>
+                  <p className="text-sm font-semibold mb-2">Endereço de Entrega</p>
+                  <p className="text-sm text-gray-600">{selectedOrder.address}</p>
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDetailModal(false)}>
+              Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
