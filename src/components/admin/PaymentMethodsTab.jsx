@@ -121,7 +121,37 @@ export default function PaymentMethodsTab() {
     }
   };
 
-  const activeCount = paymentMethods.filter(m => m.active && m.type === 'presencial').length;
+  // Filtrar métodos
+  const filteredMethods = useMemo(() => {
+    return paymentMethods.filter(method => {
+      if (method.type !== 'presencial') return false;
+      
+      const matchesSearch = !searchTerm || 
+        method.name?.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesStatus = filterStatus === 'all' ||
+        (filterStatus === 'active' && method.active) ||
+        (filterStatus === 'inactive' && !method.active);
+      
+      return matchesSearch && matchesStatus;
+    });
+  }, [paymentMethods, searchTerm, filterStatus]);
+
+  // Estatísticas
+  const stats = useMemo(() => {
+    const presencial = paymentMethods.filter(m => m.type === 'presencial');
+    const active = presencial.filter(m => m.active).length;
+    const inactive = presencial.filter(m => !m.active).length;
+    const total = presencial.length;
+
+    return {
+      total,
+      active,
+      inactive
+    };
+  }, [paymentMethods]);
+
+  const activeCount = stats.active;
 
   return (
     <div className="space-y-6">
