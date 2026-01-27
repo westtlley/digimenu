@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Search, Receipt, ShoppingCart, AlertTriangle, ArrowLeft, Trash2, Plus, Minus, X } from 'lucide-react';
+import { Search, Receipt, ShoppingCart, AlertTriangle, ArrowLeft, Trash2, Plus, Minus, X, History, Clock } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -66,6 +66,11 @@ export default function PDV() {
     queryKey: ['caixas', asSub ?? 'me'],
     queryFn: () => base44.entities.Caixa.list('-opening_date', opts),
     refetchInterval: 5000,
+  });
+
+  const { data: pdvSales = [] } = useQuery({
+    queryKey: ['pedidosPDV', asSub ?? 'me'],
+    queryFn: () => base44.entities.PedidoPDV.list('-created_date', opts).catch(() => []),
   });
 
   useEffect(() => {
@@ -771,6 +776,105 @@ export default function PDV() {
         formatCurrency={formatCurrency}
         onPrint={handlePrintReceipt}
       />
+
+      {/* Modal Histórico de Vendas */}
+      <Dialog open={showHistoryModal} onOpenChange={setShowHistoryModal}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl">
+              <History className="w-6 h-6 text-orange-500" />
+              Histórico de Vendas PDV
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto space-y-3 py-4">
+            {!pdvSales || pdvSales.length === 0 ? (
+              <div className="text-center py-12">
+                <Receipt className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                <p className="text-gray-500">Nenhuma venda registrada ainda</p>
+              </div>
+            ) : (
+              pdvSales.map((sale) => {
+                // Validar e formatar data de forma segura
+                let saleDate = null;
+                try {
+                  const dateStr = sale.created_date || sale.created_at;
+                  if (dateStr && typeof dateStr === 'string' && dateStr.trim() !== '') {
+                    saleDate = new Date(dateStr);
+                    // Verificar se a data é válida
+                    if (isNaN(saleDate.getTime())) {
+                      saleDate = null;
+                    }
+                  }
+                } catch (e) {
+                  console.error('Erro ao processar data:', e);
+                  saleDate = null;
+                }
+
+                return (
+                  <Card key={sale.id} className="border-l-4 border-l-orange-500">
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between mb-3">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <Badge className="bg-orange-500">#{sale.order_code}</Badge>
+                            {saleDate && (
+                              <span className="text-sm text-gray-600">
+                                <Clock className="w-4 h-4 inline mr-1" />
+                                {saleDate.toLocaleString('pt-BR')}
+                              </span>
+                            )}
+                          </div>
+                          <p className="font-semibold text-lg">{sale.customer_name}</p>
+                          {sale.customer_phone && (
+                            <p className="text-sm text-gray-600">📞 {sale.customer_phone}</p>
+                          )}
+                        </div>
+                        <div className="text-right">
+                          <p className="text-2xl font-bold text-green-600">
+                            {formatCurrency(sale.total)}
+                          </p>
+                          <Badge variant="outline" className="mt-1">
+                            {sale.payment_method}
+                          </Badge>
+                        </div>
+                      </div>
+                      <div className="space-y-1 border-t pt-2">
+                        {sale.items?.map((item, idx) => (
+                          <div key={idx} className="flex justify-between text-sm">
+                            <span>
+                              {item.quantity}x {item.dish_name}
+                            </span>
+                            <span className="font-medium">
+                              {formatCurrency(item.total_price)}
+                            </span>
+                          </div>
+                        ))}
+                        {sale.discount > 0 && (
+                          <div className="flex justify-between text-sm text-red-600 pt-1 border-t">
+                            <span>Desconto</span>
+                            <span>-{formatCurrency(sale.discount)}</span>
+                          </div>
+                        )}
+                        {sale.change > 0 && (
+                          <div className="flex justify-between text-sm text-blue-600">
+                            <span>Troco</span>
+                            <span>{formatCurrency(sale.change)}</span>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowHistoryModal(false)}>
+              Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Modal Abertura de Caixa - OBRIGATÓRIO */}
       <Dialog open={showOpenCaixaModal} onOpenChange={(open) => {
