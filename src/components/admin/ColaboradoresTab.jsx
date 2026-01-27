@@ -6,11 +6,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { UserCog, Plus, Pencil, Trash2, Truck, ChefHat, CreditCard, Loader2, Eye, EyeOff } from 'lucide-react';
+import { UserCog, Plus, Pencil, Trash2, Truck, ChefHat, CreditCard, Receipt, Loader2, Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-const ROLE_LABELS = { entregador: 'Entregador', cozinha: 'Cozinha', pdv: 'PDV' };
-const ROLE_ICONS = { entregador: Truck, cozinha: ChefHat, pdv: CreditCard };
+const ROLE_LABELS = { entregador: 'Entregador', cozinha: 'Cozinha', pdv: 'PDV', garcom: 'Garçom' };
+const ROLE_ICONS = { entregador: Truck, cozinha: ChefHat, pdv: CreditCard, garcom: Receipt };
 
 export default function ColaboradoresTab() {
   const [showModal, setShowModal] = useState(false);
@@ -99,7 +99,7 @@ export default function ColaboradoresTab() {
             Colaboradores
           </h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-            Perfis com acesso limitado: Entregador, Cozinha e PDV. Apenas planos Premium e Pro.
+            Perfis com acesso limitado: Entregador, Cozinha, PDV e Garçom. Apenas planos Premium e Pro.
           </p>
         </div>
         <Button onClick={openAdd} className="bg-orange-500 hover:bg-orange-600">
@@ -116,7 +116,7 @@ export default function ColaboradoresTab() {
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-8 text-center">
           <UserCog className="w-12 h-12 text-gray-400 mx-auto mb-3" />
           <p className="text-gray-500 dark:text-gray-400">Nenhum colaborador cadastrado.</p>
-          <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Adicione perfis para funcionários acessarem Entregador, Cozinha ou PDV.</p>
+          <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Adicione perfis para funcionários acessarem Entregador, Cozinha, PDV ou Garçom.</p>
           <Button onClick={openAdd} className="mt-4 bg-orange-500 hover:bg-orange-600">
             <Plus className="w-4 h-4 mr-2" />
             Adicionar colaborador
@@ -190,6 +190,7 @@ export default function ColaboradoresTab() {
                   <SelectItem value="entregador">Entregador</SelectItem>
                   <SelectItem value="cozinha">Cozinha</SelectItem>
                   <SelectItem value="pdv">PDV</SelectItem>
+                  <SelectItem value="garcom">Garçom</SelectItem>
                 </SelectContent>
               </Select>
             </div>

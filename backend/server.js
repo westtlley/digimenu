@@ -795,7 +795,7 @@ app.post('/api/auth/reset-password', validate(schemas.resetPassword), asyncHandl
 // -----------------------
 // Colaboradores (Premium/Pro): perfis limitados Entregador, Cozinha, PDV
 // -----------------------
-const COLAB_ROLES = ['entregador', 'cozinha', 'pdv'];
+const COLAB_ROLES = ['entregador', 'cozinha', 'pdv', 'garcom'];
 
 async function getOwnerAndSubscriber(req) {
   const owner = (req.query.as_subscriber || req.user?._contextForSubscriber || req.user?.subscriber_email || req.user?.email || '').toString().toLowerCase().trim();
@@ -903,7 +903,7 @@ app.post('/api/colaboradores', authenticate, validate(schemas.createColaborador)
     }
     const { name, email, password, role } = req.body || {};
     const roleNorm = (role || '').toLowerCase().trim();
-    if (!COLAB_ROLES.includes(roleNorm)) return res.status(400).json({ error: 'Perfil inválido. Use: entregador, cozinha ou pdv' });
+    if (!COLAB_ROLES.includes(roleNorm)) return res.status(400).json({ error: 'Perfil inválido. Use: entregador, cozinha, pdv ou garcom' });
     if (!(email && String(email).trim())) return res.status(400).json({ error: 'Email é obrigatório' });
     if (!(password && String(password).length >= 6)) return res.status(400).json({ error: 'Senha com no mínimo 6 caracteres' });
     const emailNorm = String(email).toLowerCase().trim();

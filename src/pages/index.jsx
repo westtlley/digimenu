@@ -15,6 +15,7 @@ import Home from "./Home";
 import MeusPedidos from "./MeusPedidos";
 import PDV from "./PDV";
 import Cozinha from "./Cozinha";
+import Garcom from "./Garcom";
 import PainelAssinante from "./PainelAssinante";
 import RastreioCliente from "./RastreioCliente";
 import Cardapio from "./Cardapio";
@@ -45,6 +46,8 @@ const PAGES = {
     MeusPedidos: MeusPedidos,
     
     PDV: PDV,
+    
+    Garcom: Garcom,
     
     PainelAssinante: PainelAssinante,
     
@@ -111,6 +114,7 @@ function PagesContent() {
                 <Route path="/MeusPedidos" element={<MeusPedidos />} />
                 <Route path="/PDV" element={<ProtectedRoute requireActiveSubscription><PDV /></ProtectedRoute>} />
                 <Route path="/Cozinha" element={<ProtectedRoute requireActiveSubscription><Cozinha /></ProtectedRoute>} />
+                <Route path="/Garcom" element={<ProtectedRoute requireActiveSubscription><Garcom /></ProtectedRoute>} />
                 <Route path="/PainelAssinante" element={<ProtectedRoute requireActiveSubscription><PainelAssinante /></ProtectedRoute>} />
                 <Route path="/RastreioCliente" element={<RastreioCliente />} />
                 <Route path="/Admin" element={<ProtectedRoute requireMaster><Admin /></ProtectedRoute>} />

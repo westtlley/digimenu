@@ -38,6 +38,7 @@ export default function Login() {
           else if (me?.profile_role === 'entregador') to = '/Entregador';
           else if (me?.profile_role === 'cozinha') to = '/Cozinha';
           else if (me?.profile_role === 'pdv') to = '/PDV';
+          else if (me?.profile_role === 'garcom') to = '/Garcom';
           else to = me?.is_master ? '/Admin' : '/PainelAssinante';
         }
         navigate(to);
@@ -72,13 +73,15 @@ export default function Login() {
         if (userData?.role === 'customer') {
           redirectUrl = '/Cardapio';
         }
-        // Colaborador (perfil limitado) → Entregador, Cozinha ou PDV
+        // Colaborador (perfil limitado) → Entregador, Cozinha, PDV ou Garçom
         else if (userData?.profile_role === 'entregador') {
           redirectUrl = '/Entregador';
         } else if (userData?.profile_role === 'cozinha') {
           redirectUrl = '/Cozinha';
         } else if (userData?.profile_role === 'pdv') {
           redirectUrl = '/PDV';
+        } else if (userData?.profile_role === 'garcom') {
+          redirectUrl = '/Garcom';
         }
         // Assinante tentando Admin → PainelAssinante
         else if (!userData?.is_master && (returnUrl.includes('/Admin') || returnUrl === '/Admin')) {
@@ -98,6 +101,8 @@ export default function Login() {
             redirectUrl = '/Cozinha';
           } else if (userData?.profile_role === 'pdv') {
             redirectUrl = '/PDV';
+          } else if (userData?.profile_role === 'garcom') {
+            redirectUrl = '/Garcom';
           } else {
             redirectUrl = userData?.is_master ? '/Admin' : '/PainelAssinante';
           }
