@@ -37,6 +37,8 @@ export default function PaymentMethodsTab() {
   const [paymentMethods, setPaymentMethods] = useState(DEFAULT_PAYMENT_METHODS);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showOnlineConfig, setShowOnlineConfig] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all');
   const [newMethod, setNewMethod] = useState({ name: '', icon: '💳', type: 'presencial' });
   const [storeNewPm, setStoreNewPm] = useState({ name: '', image: '' });
 
