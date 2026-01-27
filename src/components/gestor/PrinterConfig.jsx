@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
@@ -6,8 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Printer, Save, TestTube, Eye } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Printer, Save, TestTube, Eye, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import toast from 'react-hot-toast';
 
 export default function PrinterConfig() {
   const [showPreview, setShowPreview] = useState(false);
@@ -44,8 +47,9 @@ export default function PrinterConfig() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['printerConfig'] });
-      alert('✅ Configuração salva com sucesso!');
-    }
+      toast.success('✅ Configuração salva com sucesso!');
+    },
+    onError: (e) => toast.error('Erro ao salvar: ' + (e?.message || 'Desconhecido'))
   });
 
   const handleSave = () => {
@@ -53,10 +57,22 @@ export default function PrinterConfig() {
   };
 
   const handleTestPrint = () => {
+    if (!formData.printer_name?.trim()) {
+      toast.error('Configure o nome da impressora antes de testar');
+      return;
+    }
     const testContent = generateTestComanda();
     printComanda(testContent);
-    alert('Enviando para impressora...\n\nSe nada foi impresso, verifique:\n- Impressora conectada\n- Driver instalado\n- Papel carregado');
+    toast.success('Enviando para impressora...', {
+      duration: 3000,
+      icon: '🖨️'
+    });
   };
+
+  // Validações
+  const isValid = useMemo(() => {
+    return !!formData.printer_name?.trim();
+  }, [formData.printer_name]);
 
   const generateTestComanda = () => {
     return `
@@ -107,22 +123,52 @@ Espaçamento: ${formData.line_spacing}
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      <div className="flex items-center gap-3 mb-6">
+    <div className="max-w-4xl mx-auto p-6 space-y-6">
+      <div className="flex items-center gap-3">
         <Printer className="w-6 h-6" />
-        <h2 className="text-2xl font-bold">Configuração de Impressora</h2>
+        <div>
+          <h2 className="text-2xl font-bold">Configuração de Impressora</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Configure sua impressora para receitas e comandas</p>
+        </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border p-6 space-y-6">
-        {/* Nome da Impressora */}
-        <div>
-          <Label>Nome da Impressora *</Label>
-          <Input
-            value={formData.printer_name}
-            onChange={(e) => setFormData({ ...formData, printer_name: e.target.value })}
-            placeholder="Ex: Epson TM-T20"
-          />
-        </div>
+      {/* Status */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Status da Configuração</p>
+              <p className="text-lg font-bold">{isValid ? 'Configurada' : 'Não Configurada'}</p>
+            </div>
+            {isValid ? (
+              <CheckCircle2 className="w-8 h-8 text-green-500" />
+            ) : (
+              <AlertCircle className="w-8 h-8 text-yellow-500" />
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Configurações Básicas</CardTitle>
+          <CardDescription>Informações principais da impressora</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Nome da Impressora */}
+          <div>
+            <Label>Nome da Impressora *</Label>
+            <Input
+              value={formData.printer_name}
+              onChange={(e) => setFormData({ ...formData, printer_name: e.target.value })}
+              placeholder="Ex: Epson TM-T20"
+              required
+              className={!formData.printer_name?.trim() ? 'border-red-300' : ''}
+            />
+            {!formData.printer_name?.trim() && (
+              <p className="text-xs text-red-500 mt-1">Nome da impressora é obrigatório</p>
+            )}
+          </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Tipo */}
@@ -258,22 +304,27 @@ Espaçamento: ${formData.line_spacing}
           </div>
         </div>
 
-        {/* Botões */}
-        <div className="flex gap-3 pt-4">
-          <Button onClick={handleSave} className="flex-1 bg-green-600 hover:bg-green-700">
-            <Save className="w-4 h-4 mr-2" />
-            Salvar Configuração
-          </Button>
-          <Button onClick={() => setShowPreview(true)} variant="outline">
-            <Eye className="w-4 h-4 mr-2" />
-            Visualizar
-          </Button>
-          <Button onClick={handleTestPrint} variant="outline">
-            <TestTube className="w-4 h-4 mr-2" />
-            Testar Impressão
-          </Button>
-        </div>
-      </div>
+          {/* Botões */}
+          <div className="flex flex-col sm:flex-row gap-3 pt-4">
+            <Button 
+              onClick={handleSave} 
+              className="flex-1 bg-green-600 hover:bg-green-700"
+              disabled={!isValid || saveMutation.isPending}
+            >
+              <Save className="w-4 h-4 mr-2" />
+              {saveMutation.isPending ? 'Salvando...' : 'Salvar Configuração'}
+            </Button>
+            <Button onClick={() => setShowPreview(true)} variant="outline" disabled={!isValid}>
+              <Eye className="w-4 h-4 mr-2" />
+              Visualizar
+            </Button>
+            <Button onClick={handleTestPrint} variant="outline" disabled={!isValid}>
+              <TestTube className="w-4 h-4 mr-2" />
+              Testar Impressão
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Preview Modal */}
       <Dialog open={showPreview} onOpenChange={setShowPreview}>
