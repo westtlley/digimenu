@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
@@ -6,10 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Store, Save, Clock, Image as ImageIcon, MapPin, Instagram, Facebook, MessageSquare, AlertCircle, HelpCircle, Link2, Copy } from 'lucide-react';
+import { Badge } from "@/components/ui/badge";
+import { Store, Save, Clock, Image as ImageIcon, MapPin, Instagram, Facebook, MessageSquare, AlertCircle, HelpCircle, Link2, Copy, CheckCircle2, XCircle, TrendingUp } from 'lucide-react';
 import { usePermission } from '../permissions/usePermission';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { toast } from "sonner";
+import toast from 'react-hot-toast';
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -424,10 +425,19 @@ export default function StoreTab() {
                   <Input
                     id="whatsapp"
                     value={formData.whatsapp}
-                    onChange={(e) => setFormData(prev => ({ ...prev, whatsapp: e.target.value }))}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/\D/g, '');
+                      setFormData(prev => ({ ...prev, whatsapp: value }));
+                    }}
                     placeholder="5586999999999"
+                    maxLength={15}
                   />
-                  <p className="text-xs text-gray-500 mt-1">Formato: DDD + número (sem espaços)</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Formato: DDD + número (apenas números)
+                    {formData.whatsapp && formData.whatsapp.length < 10 && (
+                      <span className="text-red-500 ml-2">Número muito curto</span>
+                    )}
+                  </p>
                 </div>
               </div>
 

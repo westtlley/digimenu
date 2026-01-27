@@ -26,11 +26,14 @@ import {
   Bell,
   BarChart3,
 } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { CheckCircle2 } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -176,7 +179,7 @@ export default function AssinarPageEditorTab() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['paymentConfig'] });
-      toast.success('Página Assinar salva com sucesso.');
+      toast.success('✅ Página Assinar salva com sucesso!');
     },
     onError: (e) => toast.error(e?.message || 'Erro ao salvar'),
   });
