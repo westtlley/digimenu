@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
@@ -145,6 +145,23 @@ export default function ComandasTab() {
     if (statusFilter === 'all') return true;
     return (c.status || 'open') === statusFilter;
   });
+
+  // Estatísticas
+  const stats = useMemo(() => {
+    const safeComandas = Array.isArray(comandas) ? comandas : [];
+    const open = safeComandas.filter(c => (c.status || 'open') === 'open').length;
+    const closed = safeComandas.filter(c => c.status === 'closed').length;
+    const totalValue = safeComandas.reduce((sum, c) => {
+      const total = parseFloat(c.total || c.total_value || 0);
+      return sum + (isNaN(total) ? 0 : total);
+    }, 0);
+
+    return {
+      open,
+      closed,
+      totalValue
+    };
+  }, [comandas]);
 
   return (
     <div className="space-y-6 p-4 md:p-6">
