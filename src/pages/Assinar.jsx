@@ -118,20 +118,15 @@ export default function Assinar() {
 
   // Mutation para criar ASSINATURA RECORRENTE no Mercado Pago
   const createSubscriptionMutation = useMutation({
-    mutationFn: async () => {
-      if (!user) {
-        throw new Error('Faça login antes de assinar');
-      }
-
+    mutationFn: async ({ email, name }) => {
       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}/api/mercadopago/create-subscription`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          email: user.email,
-          name: user.full_name || user.email.split('@')[0],
+          email: email,
+          name: name,
           plan: 'pro',
           interval: selectedPlan // 'monthly' | 'yearly'
         })
@@ -157,20 +152,15 @@ export default function Assinar() {
 
   // Mutation para criar PAGAMENTO ÚNICO no Mercado Pago
   const createPaymentMutation = useMutation({
-    mutationFn: async () => {
-      if (!user) {
-        throw new Error('Faça login antes de assinar');
-      }
-
+    mutationFn: async ({ email, name }) => {
       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}/api/mercadopago/create-payment`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          email: user.email,
-          name: user.full_name || user.email.split('@')[0],
+          email: email,
+          name: name,
           plan: 'pro',
           interval: selectedPlan // 'monthly' | 'yearly'
         })
@@ -196,22 +186,46 @@ export default function Assinar() {
 
   const handleSubscribeWithCard = () => {
     if (!user) {
-      alert('Faça login antes de assinar');
-      base44.auth.redirectToLogin(window.location.href);
-      return;
+      // Pedir email e nome se não estiver logado
+      const email = prompt('Digite seu email:');
+      if (!email || !email.includes('@')) {
+        alert('Email inválido!');
+        return;
+      }
+      const name = prompt('Digite seu nome completo:');
+      if (!name || name.trim().length < 3) {
+        alert('Nome inválido!');
+        return;
+      }
+      createSubscriptionMutation.mutate({ email, name });
+    } else {
+      createSubscriptionMutation.mutate({ 
+        email: user.email, 
+        name: user.full_name || user.email.split('@')[0] 
+      });
     }
-
-    createSubscriptionMutation.mutate();
   };
 
   const handlePayWithCard = () => {
     if (!user) {
-      alert('Faça login antes de assinar');
-      base44.auth.redirectToLogin(window.location.href);
-      return;
+      // Pedir email e nome se não estiver logado
+      const email = prompt('Digite seu email:');
+      if (!email || !email.includes('@')) {
+        alert('Email inválido!');
+        return;
+      }
+      const name = prompt('Digite seu nome completo:');
+      if (!name || name.trim().length < 3) {
+        alert('Nome inválido!');
+        return;
+      }
+      createPaymentMutation.mutate({ email, name });
+    } else {
+      createPaymentMutation.mutate({ 
+        email: user.email, 
+        name: user.full_name || user.email.split('@')[0] 
+      });
     }
-
-    createPaymentMutation.mutate();
   };
 
   if (loading) {
