@@ -258,10 +258,23 @@ class ApiClient {
       },
 
       /**
-       * Redireciona para página de login
+       * Redireciona para página de login apropriada
+       * Detecta automaticamente o contexto ou usa a página de cliente por padrão
        */
       redirectToLogin: (returnUrl = '/') => {
-        window.location.href = `/login?returnUrl=${encodeURIComponent(returnUrl)}`;
+        // Detectar contexto pela URL de retorno
+        let loginPath = '/login/cliente'; // Padrão: cliente
+        
+        if (returnUrl.includes('/Admin') || returnUrl.includes('/Assinantes')) {
+          loginPath = '/login/admin';
+        } else if (returnUrl.includes('/PainelAssinante') || returnUrl.includes('/Assinar')) {
+          loginPath = '/login/assinante';
+        } else if (returnUrl.includes('/Entregador') || returnUrl.includes('/Cozinha') || 
+                   returnUrl.includes('/PDV') || returnUrl.includes('/Garcom')) {
+          loginPath = '/login/colaborador';
+        }
+        
+        window.location.href = `${loginPath}?returnUrl=${encodeURIComponent(returnUrl)}`;
       },
 
       /**

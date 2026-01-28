@@ -339,7 +339,7 @@ export default function Admin() {
             {hasGestorAccess && (
               <Link to={createPageUrl('GestorPedidos')}>
                 <Button variant="ghost" size="icon" className="text-white bg-orange-600 hover:bg-orange-700 sm:w-auto sm:px-3" title="Gestor de Pedidos">
-                  <Truck className="w-4 h-4 sm:mr-2" />
+                  <Settings className="w-4 h-4 sm:mr-2" />
                   <span className="hidden sm:inline">Gestor</span>
                 </Button>
               </Link>

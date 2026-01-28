@@ -251,13 +251,13 @@ export default function PainelAssinante() {
             {hasModuleAccess('gestor_pedidos') ? (
               <Link to={to('GestorPedidos')}>
                 <Button size="sm" className="bg-white text-orange-600 hover:bg-orange-50">
-                  <Truck className="w-4 h-4 mr-2" />
+                  <Settings className="w-4 h-4 mr-2" />
                   Gestor
                 </Button>
               </Link>
             ) : (
               <Button size="sm" className="bg-white/50 text-orange-400 cursor-not-allowed" disabled title="Não disponível no seu plano">
-                <Truck className="w-4 h-4 mr-2" />
+                <Settings className="w-4 h-4 mr-2" />
                 Gestor
               </Button>
             )}

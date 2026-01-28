@@ -6,6 +6,7 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { ShoppingCart, Search, Clock, Star, Share2, MapPin, Info, Home, Receipt, Gift, User, MessageSquare, UtensilsCrossed } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from 'framer-motion';
 import toast, { Toaster } from 'react-hot-toast';
 
@@ -24,6 +25,7 @@ import UserAuthButton from '../components/atoms/UserAuthButton';
 import CustomerProfileModal from '../components/customer/CustomerProfileModal';
 import StoreClosedOverlay from '../components/menu/StoreClosedOverlay';
 import ThemeToggle from '../components/ui/ThemeToggle';
+import QuickSignupModal from '../components/menu/QuickSignupModal';
 
 // Hooks
 import { useCart } from '@/components/hooks/useCart';
@@ -58,7 +60,7 @@ function CardapioSemLink() {
           <Link to="/Assinar" className="px-4 py-2.5 rounded-lg bg-orange-500 text-white font-medium hover:bg-orange-600 transition-colors">
             Assinar DigiMenu
           </Link>
-          <Link to="/login" className="px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+          <Link to="/login/assinante" className="px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
             Já tenho conta
           </Link>
         </div>
@@ -80,6 +82,7 @@ export default function Cardapio() {
   const [showOrderHistory, setShowOrderHistory] = useState(false);
   const [showCustomerProfile, setShowCustomerProfile] = useState(false);
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+  const [showQuickSignup, setShowQuickSignup] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userEmail, setUserEmail] = useState(null);
   const [showSplash, setShowSplash] = useState(true);
@@ -622,11 +625,7 @@ export default function Cardapio() {
               <Share2 className="w-5 h-5" />
             </button>
             <ThemeToggle className="text-white hover:bg-white/20" />
-            {slug && isAuthenticated && (userEmail || '').toLowerCase() === (publicData?.subscriber_email || '').toLowerCase() && (
-              <Link to={createPageUrl('PainelAssinante', slug)} className="p-2 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-colors text-white" title="Painel / Gestor">
-                <Receipt className="w-5 h-5" />
-              </Link>
-            )}
+            {/* Removido: Link do gestor - acesso apenas para assinantes via painel dedicado */}
             <button 
               className="p-2 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-colors text-white" 
               onClick={() => {
@@ -636,10 +635,14 @@ export default function Cardapio() {
                     if (isAuth) {
                       setShowCustomerProfile(true);
                     } else {
-                      base44.auth.redirectToLogin();
+                      // Não forçar login - abrir modal opcional ou redirecionar para login de cliente
+                      const currentUrl = window.location.pathname;
+                      window.location.href = `/login/cliente?returnUrl=${encodeURIComponent(currentUrl)}`;
                     }
                   } catch {
-                    base44.auth.redirectToLogin();
+                    // Em caso de erro, permitir continuar sem login
+                    const currentUrl = window.location.pathname;
+                    window.location.href = `/login/cliente?returnUrl=${encodeURIComponent(currentUrl)}`;
                   }
                 };
                 checkAuth();
@@ -728,11 +731,7 @@ export default function Cardapio() {
                   <Share2 className="w-5 h-5" />
                 </button>
                 <ThemeToggle className="text-muted-foreground hover:text-foreground hover:bg-muted" />
-                {slug && isAuthenticated && (userEmail || '').toLowerCase() === (publicData?.subscriber_email || '').toLowerCase() && (
-                  <Link to={createPageUrl('PainelAssinante', slug)} className="p-2 rounded-lg transition-colors text-muted-foreground hover:text-foreground hover:bg-muted" title="Painel / Gestor">
-                    <Receipt className="w-5 h-5 md:w-6 md:h-6" />
-                  </Link>
-                )}
+                {/* Removido: Link do gestor - acesso apenas para assinantes via painel dedicado */}
                 <button 
                   className="p-2 rounded-lg transition-colors text-muted-foreground hover:text-foreground hover:bg-muted" 
                   onClick={() => {
@@ -742,10 +741,14 @@ export default function Cardapio() {
                         if (isAuth) {
                           setShowCustomerProfile(true);
                         } else {
-                          base44.auth.redirectToLogin();
+                          // Não forçar login - redirecionar para login de cliente
+                          const currentUrl = window.location.pathname;
+                          window.location.href = `/login/cliente?returnUrl=${encodeURIComponent(currentUrl)}`;
                         }
                       } catch {
-                        base44.auth.redirectToLogin();
+                        // Em caso de erro, permitir continuar sem login
+                        const currentUrl = window.location.pathname;
+                        window.location.href = `/login/cliente?returnUrl=${encodeURIComponent(currentUrl)}`;
                       }
                     };
                     checkAuth();
@@ -880,6 +883,38 @@ export default function Cardapio() {
             store={store}
           />
         </div>
+
+        {/* Botão de Cadastro Opcional - Apenas se não estiver autenticado */}
+        {!isAuthenticated && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6 p-4 rounded-xl bg-gradient-to-r from-orange-50 via-amber-50 to-orange-50 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-orange-900/20 border border-orange-200 dark:border-orange-800"
+          >
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center flex-shrink-0">
+                  <Gift className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <p className="font-semibold text-gray-900 dark:text-white text-sm">
+                    Cadastre-se gratuitamente
+                  </p>
+                  <p className="text-xs text-gray-600 dark:text-gray-400">
+                    Ganhe pontos, promoções exclusivas e muito mais
+                  </p>
+                </div>
+              </div>
+              <Button
+                onClick={() => setShowQuickSignup(true)}
+                className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white text-sm font-medium px-4 py-2 h-auto whitespace-nowrap"
+              >
+                <Gift className="w-4 h-4 mr-2" />
+                Cadastrar-se
+              </Button>
+            </div>
+          </motion.div>
+        )}
 
         {/* Recent Orders */}
         <RecentOrders
@@ -1278,6 +1313,17 @@ export default function Cardapio() {
       <CustomerProfileModal
         isOpen={showCustomerProfile}
         onClose={() => setShowCustomerProfile(false)}
+      />
+
+      <QuickSignupModal
+        isOpen={showQuickSignup}
+        onClose={() => setShowQuickSignup(false)}
+        onSuccess={(user) => {
+          setIsAuthenticated(true);
+          setUserEmail(user?.email || null);
+          toast.success('Bem-vindo! Agora você pode aproveitar todos os benefícios.');
+        }}
+        returnUrl={window.location.pathname}
       />
 
       <UpsellModal

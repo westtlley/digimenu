@@ -3,6 +3,10 @@ import Assinantes from "./Assinantes";
 import Assinar from "./Assinar";
 import Cadastro from "./Cadastro";
 import Login from "./Login";
+import LoginCliente from "./auth/LoginCliente";
+import LoginAssinante from "./auth/LoginAssinante";
+import LoginAdmin from "./auth/LoginAdmin";
+import LoginColaborador from "./auth/LoginColaborador";
 import CadastroCliente from "./CadastroCliente";
 import DefinirSenha from "./DefinirSenha";
 import EsqueciSenha from "./EsqueciSenha";
@@ -98,9 +102,17 @@ function PagesContent() {
                 
                 <Route path="/Cadastro" element={<Cadastro />} />
                 
-                <Route path="/login" element={<Login />} />
-                <Route path="/Login" element={<Navigate to="/login" replace />} />
+                {/* Rotas de login separadas */}
+                <Route path="/login/cliente" element={<LoginCliente />} />
+                <Route path="/login/assinante" element={<LoginAssinante />} />
+                <Route path="/login/admin" element={<LoginAdmin />} />
+                <Route path="/login/colaborador" element={<LoginColaborador />} />
+                
+                {/* Rota antiga - redireciona para login de cliente (compatibilidade) */}
+                <Route path="/login" element={<Navigate to="/login/cliente" replace />} />
+                <Route path="/Login" element={<Navigate to="/login/cliente" replace />} />
                 <Route path="/cadastro-cliente" element={<CadastroCliente />} />
+                <Route path="/cadastro/cliente" element={<CadastroCliente />} />
                 <Route path="/definir-senha" element={<DefinirSenha />} />
                 <Route path="/setup-password" element={<DefinirSenha />} />
                 <Route path="/esqueci-senha" element={<EsqueciSenha />} />
