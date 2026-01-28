@@ -535,12 +535,7 @@ app.post('/api/auth/login', validate(schemas.login), asyncHandler(async (req, re
       id: user.id,
       email: user.email,
       hasPassword: !!user.password,
-      passwordLength: user.password ? user.password.length : 0
-    });
-
-    console.log('✅ [login] Usuário encontrado:', {
-      email: user.email,
-      hasPassword: !!user.password,
+      passwordLength: user.password ? user.password.length : 0,
       hasPasswordHash: !!user.password && user.password.startsWith('$2')
     });
 
