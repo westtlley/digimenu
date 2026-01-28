@@ -280,15 +280,30 @@ export default function Cardapio() {
 
   useEffect(() => {
     const checkAuth = async () => {
-      const isAuth = await base44.auth.isAuthenticated();
-      setIsAuthenticated(isAuth);
-      if (isAuth) {
-        try {
-          const user = await base44.auth.me();
-          setUserEmail(user?.email || null);
-        } catch (e) {
-          console.log('Erro ao buscar email do usuário:', e);
+      try {
+        // Verificar token no localStorage diretamente para evitar requisições desnecessárias
+        const token = localStorage.getItem('auth_token');
+        if (!token) {
+          setIsAuthenticated(false);
+          return;
         }
+        
+        // Tentar verificar autenticação
+        const isAuth = await base44.auth.isAuthenticated();
+        setIsAuthenticated(isAuth);
+        if (isAuth) {
+          try {
+            const user = await base44.auth.me();
+            setUserEmail(user?.email || null);
+          } catch (e) {
+            console.log('Erro ao buscar email do usuário (não crítico):', e);
+            setIsAuthenticated(false);
+          }
+        }
+      } catch (e) {
+        // Ignorar erros de autenticação em rotas públicas
+        console.log('Erro ao verificar autenticação (não crítico):', e);
+        setIsAuthenticated(false);
       }
     };
     checkAuth();

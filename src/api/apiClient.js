@@ -114,9 +114,19 @@ class ApiClient {
             url.includes('/public/') ||
             url.includes('/api/public/');
           
-          if (isPublicRoute) {
+          // Verificar também se estamos em uma página pública (cardápio)
+          const currentPath = window.location.pathname;
+          const isPublicPage = 
+            currentPath.startsWith('/s/') || // Link do assinante
+            currentPath === '/Assinar' ||
+            currentPath === '/assinar' ||
+            currentPath === '/cadastro' ||
+            currentPath === '/cadastro-cliente' ||
+            currentPath.includes('/login');
+          
+          if (isPublicRoute || isPublicPage) {
             // Para rotas públicas, apenas lançar erro sem redirecionar
-            logger.log('🔓 Rota pública detectada, não redirecionando:', endpoint);
+            logger.log('🔓 Rota pública detectada, não redirecionando:', { endpoint, currentPath });
             const errorMessage = data?.message || data?.error || data || `HTTP error! status: ${response.status}`;
             throw new Error(errorMessage);
           }
@@ -124,7 +134,7 @@ class ApiClient {
           // Para rotas privadas, redirecionar para login
           if (!this.isLoggingOut) {
             this.isLoggingOut = true;
-            logger.warn('🔒 Sessão expirada. Redirecionando para login...', { endpoint, url });
+            logger.warn('🔒 Sessão expirada. Redirecionando para login...', { endpoint, url, currentPath });
             this.removeToken();
             localStorage.removeItem('user');
             const returnUrl = window.location.pathname + window.location.search || '/';
@@ -241,9 +251,18 @@ class ApiClient {
         if (!token) return false;
         
         try {
+          // Salvar flag para prevenir redirect durante verificação
+          const previousIsLoggingOut = self.isLoggingOut;
+          self.isLoggingOut = true; // Temporariamente bloquear redirects
+          
           await self.get('/auth/me');
+          
+          // Restaurar flag
+          self.isLoggingOut = previousIsLoggingOut;
           return true;
         } catch {
+          // Restaurar flag em caso de erro
+          self.isLoggingOut = false;
           return false;
         }
       },
@@ -252,7 +271,12 @@ class ApiClient {
        * Obtém dados do usuário atual
        */
       me: async () => {
-        return self.get('/auth/me');
+        try {
+          return await self.get('/auth/me');
+        } catch (error) {
+          // Não redirecionar em caso de erro, apenas lançar
+          throw error;
+        }
       },
 
       /**
