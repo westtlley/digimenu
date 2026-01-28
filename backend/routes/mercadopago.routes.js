@@ -5,23 +5,28 @@ import { logger } from '../utils/logger.js';
 
 const router = express.Router();
 
-// Importar Mercado Pago (se configurado)
+// Importar Mercado Pago de forma síncrona
 let mercadopago = null;
-try {
-  const mpModule = await import('mercadopago');
-  mercadopago = mpModule.default;
-  
-  if (process.env.MERCADOPAGO_ACCESS_TOKEN) {
-    mercadopago.configure({
-      access_token: process.env.MERCADOPAGO_ACCESS_TOKEN
-    });
-    logger.log('✅ Mercado Pago configurado');
-  } else {
-    logger.warn('⚠️ MERCADOPAGO_ACCESS_TOKEN não configurado');
+let mercadopagoReady = false;
+
+(async () => {
+  try {
+    const mpModule = await import('mercadopago');
+    mercadopago = mpModule.default;
+    
+    if (process.env.MERCADOPAGO_ACCESS_TOKEN) {
+      mercadopago.configure({
+        access_token: process.env.MERCADOPAGO_ACCESS_TOKEN
+      });
+      mercadopagoReady = true;
+      logger.log('✅ Mercado Pago configurado');
+    } else {
+      logger.warn('⚠️ MERCADOPAGO_ACCESS_TOKEN não configurado');
+    }
+  } catch (error) {
+    logger.warn('⚠️ Mercado Pago não disponível (módulo não instalado)');
   }
-} catch (error) {
-  logger.warn('⚠️ Mercado Pago não disponível (módulo não instalado)');
-}
+})();
 
 /**
  * Criar preferência de pagamento no Mercado Pago
@@ -29,7 +34,7 @@ try {
  */
 router.post('/create-payment', async (req, res) => {
   try {
-    if (!mercadopago || !process.env.MERCADOPAGO_ACCESS_TOKEN) {
+    if (!mercadopagoReady || !mercadopago) {
       return res.status(503).json({
         success: false,
         error: 'Mercado Pago não configurado. Configure MERCADOPAGO_ACCESS_TOKEN no .env'
@@ -134,7 +139,7 @@ router.post('/create-payment', async (req, res) => {
  */
 router.post('/create-subscription', async (req, res) => {
   try {
-    if (!mercadopago || !process.env.MERCADOPAGO_ACCESS_TOKEN) {
+    if (!mercadopagoReady || !mercadopago) {
       return res.status(503).json({
         success: false,
         error: 'Mercado Pago não configurado. Configure MERCADOPAGO_ACCESS_TOKEN no .env'
@@ -232,7 +237,7 @@ router.post('/create-subscription', async (req, res) => {
  */
 router.post('/cancel-subscription', async (req, res) => {
   try {
-    if (!mercadopago || !process.env.MERCADOPAGO_ACCESS_TOKEN) {
+    if (!mercadopagoReady || !mercadopago) {
       return res.status(503).json({
         success: false,
         error: 'Mercado Pago não configurado'
@@ -328,7 +333,7 @@ router.post('/webhook', async (req, res) => {
  */
 async function processPayment(paymentId) {
   try {
-    if (!mercadopago) {
+    if (!mercadopagoReady || !mercadopago) {
       logger.error('❌ Mercado Pago não disponível');
       return;
     }
@@ -568,7 +573,7 @@ Equipe DigiMenu
  */
 async function processSubscription(subscriptionId) {
   try {
-    if (!mercadopago) {
+    if (!mercadopagoReady || !mercadopago) {
       logger.error('❌ Mercado Pago não disponível');
       return;
     }
@@ -692,7 +697,7 @@ async function processSubscription(subscriptionId) {
  */
 async function handleSubscriptionCancellation(subscriptionId) {
   try {
-    if (!mercadopago) {
+    if (!mercadopagoReady || !mercadopago) {
       logger.error('❌ Mercado Pago não disponível');
       return;
     }
