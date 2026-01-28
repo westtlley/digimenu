@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import {
   Check,
   Smartphone,
@@ -114,6 +114,55 @@ export default function Assinar() {
 
   const handlePaymentLink = () => {
     if (c.payment_link) window.open(c.payment_link, '_blank');
+  };
+
+  // Mutation para criar pagamento no Mercado Pago
+  const createPaymentMutation = useMutation({
+    mutationFn: async () => {
+      if (!user) {
+        throw new Error('Faça login antes de assinar');
+      }
+
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}/api/mercadopago/create-payment`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          email: user.email,
+          name: user.full_name || user.email.split('@')[0],
+          plan: 'pro', // ou detectar do plano selecionado
+          interval: selectedPlan // 'monthly' | 'yearly'
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Erro ao criar pagamento');
+      }
+
+      return await response.json();
+    },
+    onSuccess: (data) => {
+      if (data.init_point) {
+        // Redirecionar para página de pagamento do Mercado Pago
+        window.location.href = data.init_point;
+      }
+    },
+    onError: (error) => {
+      alert(error.message || 'Erro ao criar pagamento. Tente novamente.');
+    }
+  });
+
+  const handlePayWithCard = () => {
+    if (!user) {
+      alert('Faça login antes de assinar');
+      base44.auth.redirectToLogin(window.location.href);
+      return;
+    }
+
+    createPaymentMutation.mutate();
   };
 
   if (loading) {
@@ -250,6 +299,26 @@ export default function Assinar() {
                       </Button>
                     </div>
                   )}
+                  {/* Mercado Pago - Pagamento com Cartão */}
+                  <div className="bg-white/10 rounded-xl p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <CreditCard className="w-5 h-5" />
+                      <span className="font-medium">Cartão de Crédito</span>
+                    </div>
+                    <p className="text-xs text-orange-200 mb-3">Pagamento seguro pelo Mercado Pago</p>
+                    <Button 
+                      onClick={handlePayWithCard} 
+                      disabled={createPaymentMutation.isLoading}
+                      className="w-full bg-white text-orange-600 hover:bg-orange-50" 
+                      size="sm"
+                    >
+                      {createPaymentMutation.isLoading ? (
+                        <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Processando...</>
+                      ) : (
+                        <><CreditCard className="w-4 h-4 mr-2" /> Pagar com Cartão</>
+                      )}
+                    </Button>
+                  </div>
                   {c.payment_link && (
                     <div className="bg-white/10 rounded-xl p-4">
                       <div className="flex items-center gap-2 mb-3">

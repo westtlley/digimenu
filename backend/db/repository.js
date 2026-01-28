@@ -905,3 +905,70 @@ export async function updateCustomer(id, customerData) {
   );
   return result.rows[0] || null;
 }
+
+/**
+ * Salvar pagamento no histórico
+ */
+export async function savePayment(paymentData) {
+  if (!pool) {
+    logger.warn('⚠️ PostgreSQL não disponível - pagamentos não serão salvos');
+    return null;
+  }
+  
+  try {
+    const result = await pool.query(
+      `INSERT INTO payments (
+        subscriber_email,
+        amount,
+        plan,
+        interval,
+        status,
+        payment_method,
+        gateway_payment_id,
+        gateway_response,
+        paid_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      RETURNING *`,
+      [
+        paymentData.subscriber_email,
+        paymentData.amount,
+        paymentData.plan,
+        paymentData.interval || 'monthly',
+        paymentData.status,
+        paymentData.payment_method,
+        paymentData.gateway_payment_id,
+        JSON.stringify(paymentData.gateway_response || {}),
+        paymentData.paid_at || new Date().toISOString()
+      ]
+    );
+    
+    logger.log('✅ Pagamento salvo:', result.rows[0].id);
+    return result.rows[0];
+  } catch (error) {
+    logger.error('❌ Erro ao salvar pagamento:', error);
+    return null;
+  }
+}
+
+/**
+ * Listar pagamentos de um assinante
+ */
+export async function listPayments(subscriberEmail) {
+  if (!pool) {
+    return [];
+  }
+  
+  try {
+    const result = await pool.query(
+      `SELECT * FROM payments
+       WHERE subscriber_email = $1
+       ORDER BY paid_at DESC`,
+      [subscriberEmail]
+    );
+    
+    return result.rows;
+  } catch (error) {
+    logger.error('❌ Erro ao listar pagamentos:', error);
+    return [];
+  }
+}

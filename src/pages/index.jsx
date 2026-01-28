@@ -25,6 +25,9 @@ import RastreioCliente from "./RastreioCliente";
 import TrackOrder from "./TrackOrder";
 import Cardapio from "./Cardapio";
 import Admin from "./Admin";
+import PagamentoSucesso from "./pagamento/PagamentoSucesso";
+import PagamentoFalha from "./pagamento/PagamentoFalha";
+import PagamentoPendente from "./pagamento/PagamentoPendente";
 import ProtectedRoute from "../components/auth/ProtectedRoute";
 import { BrowserRouter as Router, Route, Routes, useLocation, Navigate } from 'react-router-dom';
 
@@ -135,6 +138,11 @@ function PagesContent() {
                 <Route path="/PainelAssinante" element={<ProtectedRoute requireActiveSubscription><PainelAssinante /></ProtectedRoute>} />
                 <Route path="/RastreioCliente" element={<RastreioCliente />} />
                 <Route path="/Admin" element={<ProtectedRoute requireMaster><Admin /></ProtectedRoute>} />
+                
+                {/* Páginas de callback de pagamento */}
+                <Route path="/pagamento/sucesso" element={<PagamentoSucesso />} />
+                <Route path="/pagamento/falha" element={<PagamentoFalha />} />
+                <Route path="/pagamento/pendente" element={<PagamentoPendente />} />
                 
             </Routes>
         </Layout>

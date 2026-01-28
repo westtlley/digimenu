@@ -36,8 +36,10 @@ import { storeToken, getToken, deleteToken } from './utils/tokenStorage.js';
 import { requestLogger } from './utils/monitoring.js';
 import { scheduleBackups } from './utils/backup.js';
 import { analyticsMiddleware } from './utils/analytics.js';
+import { initializeCronJobs } from './utils/cronJobs.js';
 import analyticsRoutes from './routes/analytics.routes.js';
 import backupRoutes from './routes/backup.routes.js';
+import mercadopagoRoutes from './routes/mercadopago.routes.js';
 import { loginLimiter, apiLimiter, createLimiter } from './middlewares/rateLimit.js';
 import { validate, schemas } from './middlewares/validation.js';
 import { errorHandler, asyncHandler } from './middlewares/errorHandler.js';
@@ -2327,6 +2329,7 @@ app.get('/api/health', asyncHandler(async (req, res) => {
 // =======================
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/backup', backupRoutes);
+app.use('/api/mercadopago', mercadopagoRoutes);
 
 // =======================
 // ✅ TRATAMENTO DE ERROS (deve ser o último middleware)
@@ -2340,6 +2343,10 @@ app.listen(PORT, () => {
   console.log(`🚀 Servidor rodando na porta ${PORT}`);
   console.log(`📡 http://localhost:${PORT}/api`);
   console.log(`🔒 Ambiente: ${process.env.NODE_ENV || 'development'}`);
+  
+  // 🔔 Inicializar cron jobs (notificações de expiração)
+  initializeCronJobs();
+  
   if (process.env.NODE_ENV === 'production') {
     console.log('✅ Modo produção ativo');
     
