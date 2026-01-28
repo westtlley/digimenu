@@ -6,7 +6,7 @@ import OrderTracking from '../components/customer/OrderTracking';
 import UserAuthButton from '../components/atoms/UserAuthButton';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
-import ThemeToggle from '../components/ThemeToggle';
+import ThemeToggle from '@/components/ui/ThemeToggle';
 
 export default function MeusPedidos() {
   const [user, setUser] = useState(null);

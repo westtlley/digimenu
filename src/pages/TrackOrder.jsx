@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { ArrowLeft, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import OrderTracking from '@/components/customer/OrderTracking';
-import ThemeToggle from '@/components/ThemeToggle';
+import ThemeToggle from '@/components/ui/ThemeToggle';
 
 export default function TrackOrder() {
   return (
