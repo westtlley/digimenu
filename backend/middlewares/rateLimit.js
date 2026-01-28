@@ -6,11 +6,11 @@
 import rateLimit from 'express-rate-limit';
 
 /**
- * Rate limit para login (5 tentativas por 15 minutos)
+ * Rate limit para login (DESABILITADO - sem limite de tentativas)
  */
 export const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 5, // 5 tentativas
+  max: 999999, // Praticamente sem limite
   message: {
     error: 'Muitas tentativas de login. Tente novamente em 15 minutos.',
     retryAfter: 15 * 60 // segundos

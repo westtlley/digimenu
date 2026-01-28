@@ -492,7 +492,7 @@ if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET) {
 // =======================
 // 🔐 AUTHENTICATION
 // =======================
-app.post('/api/auth/login', loginLimiter, validate(schemas.login), asyncHandler(async (req, res) => {
+app.post('/api/auth/login', validate(schemas.login), asyncHandler(async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -764,7 +764,7 @@ app.post('/api/auth/change-password', authenticate, validate(schemas.changePassw
 }));
 
 // Esqueci minha senha (gera token e envia link por email; sem email config = apenas log do link)
-app.post('/api/auth/forgot-password', loginLimiter, validate(schemas.forgotPassword), asyncHandler(async (req, res) => {
+app.post('/api/auth/forgot-password', validate(schemas.forgotPassword), asyncHandler(async (req, res) => {
   if (!usePostgreSQL) {
     return res.status(503).json({ error: 'Recuperação de senha requer PostgreSQL. Configure DATABASE_URL.' });
   }
