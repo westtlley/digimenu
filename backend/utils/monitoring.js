@@ -180,7 +180,15 @@ export function requestLogger(req, res, next) {
       userAgent: req.get('user-agent')
     };
     
-    if (res.statusCode >= 400) {
+    // Não logar como warning: 401 (não autenticado - esperado), 404 em rotas públicas conhecidas
+    const isExpectedError = 
+      res.statusCode === 401 || // Não autenticado - comportamento esperado
+      (res.statusCode === 404 && req.path === '/'); // Health check na raiz
+    
+    if (res.statusCode >= 400 && !isExpectedError) {
+      logWarning(`HTTP ${res.statusCode}`, logData);
+    } else if (res.statusCode >= 500) {
+      // Erros 5xx sempre são warnings
       logWarning(`HTTP ${res.statusCode}`, logData);
     } else {
       logDebug(`HTTP ${req.method} ${req.path}`, logData);

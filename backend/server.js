@@ -2243,6 +2243,21 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
 });
 
 // =======================
+// 🏠 ROTA RAIZ (para health checks)
+// =======================
+app.get('/', (req, res) => {
+  res.json({
+    service: 'DigiMenu API',
+    status: 'online',
+    version: '1.0.0',
+    endpoints: {
+      health: '/api/health',
+      docs: '/api/docs'
+    }
+  });
+});
+
+// =======================
 // 🧪 HEALTH CHECK
 // =======================
 app.get('/api/health', asyncHandler(async (req, res) => {
