@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Separator } from "@/components/ui/separator";
 import { apiClient as base44 } from '@/api/apiClient';
 import CustomerOrdersHistory from './CustomerOrdersHistory';
+import OrderTracking from './OrderTracking';
 import { useQuery } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 
@@ -160,6 +161,7 @@ export default function CustomerProfileModal({ isOpen, onClose }) {
 
   const tabs = [
     { id: 'profile', label: 'Meus Dados', icon: User },
+    { id: 'tracking', label: 'Rastrear Pedido', icon: Package },
     { id: 'loyalty', label: 'Fidelidade', icon: Award },
     { id: 'history', label: 'Histórico', icon: History },
     { id: 'feedback', label: 'Avaliação', icon: MessageSquare },
@@ -362,6 +364,13 @@ export default function CustomerProfileModal({ isOpen, onClose }) {
                         Sair da Conta
                       </Button>
                     </div>
+                  </div>
+                )}
+
+                {/* Rastrear Pedido */}
+                {activeTab === 'tracking' && (
+                  <div className="max-w-4xl mx-auto">
+                    <OrderTracking userEmail={user?.email} showInput={true} />
                   </div>
                 )}
 

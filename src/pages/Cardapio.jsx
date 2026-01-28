@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { apiClient as base44 } from '@/api/apiClient';
 import { createPageUrl } from '@/utils';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { ShoppingCart, Search, Clock, Star, Share2, MapPin, Info, Home, Receipt, Gift, User, MessageSquare, UtensilsCrossed, Instagram, Facebook, Phone } from 'lucide-react';
+import { ShoppingCart, Search, Clock, Star, Share2, MapPin, Info, Home, Receipt, Gift, User, MessageSquare, UtensilsCrossed, Instagram, Facebook, Phone, Package } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -1288,11 +1288,18 @@ export default function Cardapio() {
           </div>
 
           {/* Copyright */}
-          <div className="border-t border-gray-200 dark:border-gray-800 mt-8 pt-6 text-center">
+          <div className="border-t border-gray-200 dark:border-gray-800 mt-8 pt-6 text-center space-y-3">
+            <Link 
+              to="/rastrear-pedido"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-all shadow-md hover:shadow-lg font-medium"
+            >
+              <Package className="w-4 h-4" />
+              Rastrear Meu Pedido
+            </Link>
             <p className="text-xs text-gray-500 dark:text-gray-500">
               © {new Date().getFullYear()} {store.name}. Todos os direitos reservados.
             </p>
-            <p className="text-xs text-gray-400 dark:text-gray-600 mt-2">
+            <p className="text-xs text-gray-400 dark:text-gray-600">
               Powered by <span className="font-semibold" style={{ color: primaryColor }}>DigiMenu</span>
             </p>
           </div>

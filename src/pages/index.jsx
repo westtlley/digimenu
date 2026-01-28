@@ -22,6 +22,7 @@ import Cozinha from "./Cozinha";
 import Garcom from "./Garcom";
 import PainelAssinante from "./PainelAssinante";
 import RastreioCliente from "./RastreioCliente";
+import TrackOrder from "./TrackOrder";
 import Cardapio from "./Cardapio";
 import Admin from "./Admin";
 import ProtectedRoute from "../components/auth/ProtectedRoute";
@@ -101,6 +102,10 @@ function PagesContent() {
                 <Route path="/Assinar" element={<Assinar />} />
                 
                 <Route path="/Cadastro" element={<Cadastro />} />
+                
+                {/* Rastreamento público de pedidos */}
+                <Route path="/rastrear-pedido" element={<TrackOrder />} />
+                <Route path="/track-order" element={<TrackOrder />} />
                 
                 {/* Rotas de login separadas */}
                 <Route path="/login/cliente" element={<LoginCliente />} />
