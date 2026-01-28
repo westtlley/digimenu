@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste de Conexão</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .status {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Teste de Conexão - DigiMenu</h1>
+    
+    <div class="status info">
+        <strong>Instruções:</strong> Clique nos botões abaixo para testar as conexões.
+    </div>
+
+    <div id="results"></div>
+
+    <button onclick="testBackend()">Testar Backend (Porta 3000)</button>
+    <button onclick="testFrontend()">Testar Frontend (Porta 5173)</button>
+    <button onclick="testAll()">Testar Tudo</button>
+
+    <script>
+        function addResult(message, type = 'info') {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `status ${type}`;
+            div.innerHTML = message;
+            results.appendChild(div);
+        }
+
+        async function testBackend() {
+            try {
+                const response = await fetch('http://localhost:3000/api/health');
+                const data = await response.json();
+                addResult(`✅ <strong>Backend OK!</strong><br>Status: ${response.status}<br>Resposta: ${JSON.stringify(data)}`, 'success');
+            } catch (error) {
+                addResult(`❌ <strong>Backend FALHOU!</strong><br>Erro: ${error.message}<br>Certifique-se de que o backend está rodando na porta 3000`, 'error');
+            }
+        }
+
+        async function testFrontend() {
+            try {
+                const response = await fetch('http://localhost:5173');
+                const text = await response.text();
+                if (response.ok) {
+                    addResult(`✅ <strong>Frontend OK!</strong><br>Status: ${response.status}<br>Página carregada com sucesso`, 'success');
+                } else {
+                    addResult(`⚠️ <strong>Frontend respondeu com erro!</strong><br>Status: ${response.status}`, 'error');
+                }
+            } catch (error) {
+                addResult(`❌ <strong>Frontend FALHOU!</strong><br>Erro: ${error.message}<br>Certifique-se de que o frontend está rodando na porta 5173`, 'error');
+            }
+        }
+
+        async function testAll() {
+            document.getElementById('results').innerHTML = '';
+            addResult('🔄 Testando conexões...', 'info');
+            await testBackend();
+            await testFrontend();
+        }
+
+        // Testar automaticamente ao carregar
+        window.onload = () => {
+            addResult('📋 Clique nos botões acima para testar as conexões', 'info');
+        };
+    </script>
+</body>
+</html>
