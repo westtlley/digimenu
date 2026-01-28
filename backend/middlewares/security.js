@@ -6,6 +6,9 @@
 import helmet from 'helmet';
 import { sanitizeMiddleware } from '../utils/sanitize.js';
 
+// Re-exportar sanitizeMiddleware para uso em server.js
+export { sanitizeMiddleware };
+
 /**
  * Configurar Helmet para headers de segurança
  */
