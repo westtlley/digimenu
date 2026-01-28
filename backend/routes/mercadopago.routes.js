@@ -5,45 +5,53 @@ import { logger } from '../utils/logger.js';
 
 const router = express.Router();
 
-// Função para inicializar Mercado Pago sob demanda
-let mercadopagoInstance = null;
-let mercadopagoInitPromise = null;
+// Instâncias do Mercado Pago (versão 2.x usa clients)
+let mpClients = null;
+let mpInitPromise = null;
 
 async function getMercadoPago() {
   // Se já está inicializado, retorna
-  if (mercadopagoInstance) {
-    return mercadopagoInstance;
+  if (mpClients) {
+    return mpClients;
   }
   
   // Se já está inicializando, aguarda
-  if (mercadopagoInitPromise) {
-    return mercadopagoInitPromise;
+  if (mpInitPromise) {
+    return mpInitPromise;
   }
   
   // Inicializa pela primeira vez
-  mercadopagoInitPromise = (async () => {
+  mpInitPromise = (async () => {
     try {
       if (!process.env.MERCADOPAGO_ACCESS_TOKEN) {
         throw new Error('MERCADOPAGO_ACCESS_TOKEN não configurado');
       }
       
-      const mpModule = await import('mercadopago');
-      const mp = mpModule.default;
+      // Importar Mercado Pago SDK v2
+      const { MercadoPagoConfig, Preference, PreApproval, Payment } = await import('mercadopago');
       
-      mp.configure({
-        access_token: process.env.MERCADOPAGO_ACCESS_TOKEN
+      // Criar configuração
+      const client = new MercadoPagoConfig({
+        accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN,
+        options: { timeout: 5000 }
       });
       
-      mercadopagoInstance = mp;
-      logger.log('✅ Mercado Pago configurado');
-      return mp;
+      // Criar clients para cada recurso
+      mpClients = {
+        preference: new Preference(client),
+        preapproval: new PreApproval(client),
+        payment: new Payment(client)
+      };
+      
+      logger.log('✅ Mercado Pago configurado (SDK v2)');
+      return mpClients;
     } catch (error) {
       logger.error('❌ Erro ao configurar Mercado Pago:', error.message);
       throw error;
     }
   })();
   
-  return mercadopagoInitPromise;
+  return mpInitPromise;
 }
 
 /**
@@ -126,17 +134,17 @@ router.post('/create-payment', async (req, res) => {
       amount
     });
     
-    const response = await mercadopago.preferences.create(preference);
+    const response = await mercadopago.preference.create({ body: preference });
     
     logger.log('✅ Preferência criada:', {
-      id: response.body.id,
-      init_point: response.body.init_point
+      id: response.id,
+      init_point: response.init_point
     });
     
     res.json({
       success: true,
-      init_point: response.body.init_point, // URL de pagamento
-      preference_id: response.body.id
+      init_point: response.init_point, // URL de pagamento
+      preference_id: response.id
     });
     
   } catch (error) {
@@ -222,17 +230,17 @@ router.post('/create-subscription', async (req, res) => {
       }
     };
     
-    const response = await mercadopago.preapproval.create(subscription);
+    const response = await mercadopago.preapproval.create({ body: subscription });
     
     logger.log('✅ Assinatura criada:', {
-      id: response.body.id,
-      init_point: response.body.init_point
+      id: response.id,
+      init_point: response.init_point
     });
     
     res.json({
       success: true,
-      init_point: response.body.init_point,
-      subscription_id: response.body.id
+      init_point: response.init_point,
+      subscription_id: response.id
     });
     
   } catch (error) {
@@ -348,8 +356,7 @@ async function processPayment(paymentId) {
     const mercadopago = await getMercadoPago();
     
     // Buscar detalhes do pagamento
-    const payment = await mercadopago.payment.get(paymentId);
-    const paymentData = payment.body;
+    const paymentData = await mercadopago.payment.get({ id: paymentId });
     
     logger.log('💳 Processando pagamento:', {
       id: paymentData.id,
@@ -585,8 +592,7 @@ async function processSubscription(subscriptionId) {
     const mercadopago = await getMercadoPago();
     
     // Buscar detalhes da assinatura
-    const subscription = await mercadopago.preapproval.get(subscriptionId);
-    const subscriptionData = subscription.body;
+    const subscriptionData = await mercadopago.preapproval.get({ id: subscriptionId });
     
     logger.log('🔄 Processando assinatura:', {
       id: subscriptionData.id,
@@ -706,8 +712,7 @@ async function handleSubscriptionCancellation(subscriptionId) {
     const mercadopago = await getMercadoPago();
     
     // Buscar detalhes da assinatura
-    const subscription = await mercadopago.preapproval.get(subscriptionId);
-    const subscriptionData = subscription.body;
+    const subscriptionData = await mercadopago.preapproval.get({ id: subscriptionId });
     
     logger.log('🚫 Processando cancelamento de assinatura:', {
       id: subscriptionData.id,
