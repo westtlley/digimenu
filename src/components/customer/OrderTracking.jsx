@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient as base44 } from '@/api/apiClient';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -103,12 +103,12 @@ export default function OrderTracking({ userEmail, showInput = true }) {
   const [activeSearch, setActiveSearch] = useState(!!userEmail);
 
   // Atualizar searchEmail quando userEmail mudar
-  React.useEffect(() => {
+  useEffect(() => {
     if (userEmail && userEmail !== searchEmail) {
       setSearchEmail(userEmail);
       setActiveSearch(true);
     }
-  }, [userEmail]);
+  }, [userEmail, searchEmail]);
 
   // Buscar pedidos por email ou telefone
   const { data: orders = [], isLoading, refetch, isFetching } = useQuery({
