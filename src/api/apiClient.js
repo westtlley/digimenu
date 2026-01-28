@@ -106,11 +106,25 @@ class ApiClient {
         // Tratamento de erro 401 (não autorizado) - redirecionar para login
         // MAS NÃO redirecionar se for uma rota pública (ex: /public/cardapio)
         if (response.status === 401) {
-          const isPublicRoute = endpoint.includes('/public/') || endpoint.includes('/api/public/');
+          // Verificar se é rota pública de várias formas
+          const isPublicRoute = 
+            endpoint.includes('/public/') || 
+            endpoint.includes('/api/public/') ||
+            endpoint.startsWith('/public/') ||
+            url.includes('/public/') ||
+            url.includes('/api/public/');
           
-          if (!isPublicRoute && !this.isLoggingOut) {
+          if (isPublicRoute) {
+            // Para rotas públicas, apenas lançar erro sem redirecionar
+            logger.log('🔓 Rota pública detectada, não redirecionando:', endpoint);
+            const errorMessage = data?.message || data?.error || data || `HTTP error! status: ${response.status}`;
+            throw new Error(errorMessage);
+          }
+          
+          // Para rotas privadas, redirecionar para login
+          if (!this.isLoggingOut) {
             this.isLoggingOut = true;
-            logger.warn('🔒 Sessão expirada. Redirecionando para login...');
+            logger.warn('🔒 Sessão expirada. Redirecionando para login...', { endpoint, url });
             this.removeToken();
             localStorage.removeItem('user');
             const returnUrl = window.location.pathname + window.location.search || '/';
@@ -120,11 +134,8 @@ class ApiClient {
               }
             }, 50);
           }
-
-          // Para rotas públicas, apenas lançar erro sem redirecionar
-          if (!isPublicRoute) {
-            throw new Error('Sessão expirada. Por favor, faça login novamente.');
-          }
+          
+          throw new Error('Sessão expirada. Por favor, faça login novamente.');
         }
         
         const errorMessage = data?.message || data?.error || data || `HTTP error! status: ${response.status}`;

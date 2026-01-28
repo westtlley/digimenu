@@ -93,10 +93,21 @@ export default function Cardapio() {
   const { customer, setCustomer, clearCustomer } = useCustomer();
 
   // Cardápio público por link (sem login) — /s/:slug
-  const { data: publicData, isLoading: publicLoading, isError: publicError } = useQuery({
+  const { data: publicData, isLoading: publicLoading, isError: publicError, error: publicErrorDetails } = useQuery({
     queryKey: ['publicCardapio', slug],
-    queryFn: () => base44.get(`/public/cardapio/${slug}`),
+    queryFn: async () => {
+      try {
+        const result = await base44.get(`/public/cardapio/${slug}`);
+        return result;
+      } catch (error) {
+        console.error('❌ [Cardapio] Erro ao buscar cardápio público:', error);
+        console.error('❌ [Cardapio] Slug:', slug);
+        console.error('❌ [Cardapio] Endpoint:', `/public/cardapio/${slug}`);
+        throw error;
+      }
+    },
     enabled: !!slug,
+    retry: false, // Não tentar novamente em caso de erro
   });
 
   // Dados do cardápio: só via /public/cardapio/:slug. Não carregar entidades do master em / ou /cardapio.
