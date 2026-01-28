@@ -1,6 +1,5 @@
 import cron from 'node-cron';
 import { differenceInDays } from 'date-fns';
-import { db, saveDatabaseChanges } from '../db/persistence.js';
 import { 
   sendExpirationWarningEmail, 
   sendExpiredEmail 
@@ -38,8 +37,11 @@ async function checkExpirations() {
     logger.log('   Verificando expirações de assinaturas');
     logger.log('========================================');
     
+    // Importar repository dinamicamente para evitar circular dependency
+    const repoModule = await import('../db/repository.js');
+    
     const now = new Date();
-    const subscribers = db.subscribers || [];
+    const subscribers = await repoModule.listSubscribers();
     let notificationsSent = 0;
     let subscriptionsExpired = 0;
     
@@ -102,8 +104,10 @@ async function checkExpirations() {
       // Expirado hoje ou já passou
       if (daysUntilExpiration <= 0) {
         // Atualizar status para expirado
-        subscriber.status = 'expired';
-        subscriber.updated_at = new Date().toISOString();
+        await repoModule.updateSubscriber(subscriber.id, {
+          status: 'expired',
+          updated_at: new Date().toISOString()
+        });
         
         // Enviar email de expiração
         await sendExpiredEmail({
@@ -115,11 +119,6 @@ async function checkExpirations() {
         logger.log(`❌ Assinatura expirada: ${subscriber.email}`);
         subscriptionsExpired++;
       }
-    }
-    
-    // Salvar mudanças no banco
-    if (subscriptionsExpired > 0) {
-      await saveDatabaseChanges();
     }
     
     logger.log('========================================');
