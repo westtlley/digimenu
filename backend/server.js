@@ -252,12 +252,17 @@ const publicRoutes = [
   '/api/health',
   '/api/upload-image',
   '/api/auth/login',
+  '/api/auth/me',  // Permitir chamadas de verificação de auth
   '/api/auth/set-password',
   '/api/auth/forgot-password',
   '/api/auth/reset-password',
   '/api/auth/google',
   '/api/auth/google/callback',
-  '/api/public/cardapio'  // /api/public/cardapio/:slug — link único do cardápio por assinante
+  '/api/public/cardapio',  // /api/public/cardapio/:slug — link único do cardápio por assinante
+  '/api/entities/PaymentConfig',  // Configurações de pagamento públicas para o cardápio
+  '/api/entities/MenuItem',  // Itens do menu públicos para o cardápio
+  '/api/entities/Category',  // Categorias públicas para o cardápio
+  '/api/entities/Subscriber'  // Info do assinante pública para o cardápio
 ];
 
 const isPublicRoute = (path) => {
@@ -267,6 +272,25 @@ const isPublicRoute = (path) => {
 const authenticate = async (req, res, next) => {
   // Rotas públicas não precisam de autenticação
   if (isPublicRoute(req.path)) {
+    // Para rotas públicas, apenas passar adiante sem verificar token
+    // O token pode ser verificado opcionalmente dentro da rota se necessário
+    const token = extractTokenFromRequest(req);
+    if (token) {
+      try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        let user;
+        if (usePostgreSQL) {
+          user = await repo.getUserByEmail(decoded.email);
+        } else if (db && db.users) {
+          user = db.users.find(u => u.email === decoded.email);
+        }
+        if (user) {
+          req.user = user;
+        }
+      } catch (err) {
+        // Token inválido em rota pública - apenas ignorar
+      }
+    }
     return next();
   }
 
