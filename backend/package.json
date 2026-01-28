@@ -6,7 +6,11 @@
   "type": "module",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "node --watch server.js",
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "backup": "node scripts/backup.js",
+    "migrate": "node db/migrate.js"
   },
   "keywords": [],
   "author": "",

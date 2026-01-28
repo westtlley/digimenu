@@ -33,6 +33,11 @@ import { PLANS, getPlanInfo } from './utils/plans.js';
 import { logger } from './utils/logger.js';
 import { validateJWTSecret, sanitizeForLog, setupHelmet, sanitizeMiddleware } from './middlewares/security.js';
 import { storeToken, getToken, deleteToken } from './utils/tokenStorage.js';
+import { requestLogger } from './utils/monitoring.js';
+import { scheduleBackups } from './utils/backup.js';
+import { analyticsMiddleware } from './utils/analytics.js';
+import analyticsRoutes from './routes/analytics.routes.js';
+import backupRoutes from './routes/backup.routes.js';
 import { loginLimiter, apiLimiter, createLimiter } from './middlewares/rateLimit.js';
 import { validate, schemas } from './middlewares/validation.js';
 import { errorHandler, asyncHandler } from './middlewares/errorHandler.js';
@@ -76,6 +81,9 @@ app.use(sanitizeMiddleware);
 
 // ✅ LOGGING DE REQUISIÇÕES
 app.use(requestLogger);
+
+// ✅ ANALYTICS (rastreamento de eventos)
+app.use(analyticsMiddleware);
 
 // ✅ RATE LIMITING (aplicar após rotas públicas)
 app.use('/api', apiLimiter);
@@ -2270,6 +2278,12 @@ app.get('/api/health', asyncHandler(async (req, res) => {
 }));
 
 // =======================
+// 📊 ROTAS DE ANALYTICS E BACKUP
+// =======================
+app.use('/api/analytics', analyticsRoutes);
+app.use('/api/backup', backupRoutes);
+
+// =======================
 // ✅ TRATAMENTO DE ERROS (deve ser o último middleware)
 // =======================
 app.use(errorHandler);
@@ -2283,6 +2297,11 @@ app.listen(PORT, () => {
   console.log(`🔒 Ambiente: ${process.env.NODE_ENV || 'development'}`);
   if (process.env.NODE_ENV === 'production') {
     console.log('✅ Modo produção ativo');
+    
+    // Inicializar backup automático em produção
+    if (process.env.DATABASE_URL) {
+      scheduleBackups();
+    }
   } else {
     console.log('⚠️ Modo desenvolvimento - algumas proteções estão desabilitadas');
   }
