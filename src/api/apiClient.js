@@ -300,10 +300,34 @@ class ApiClient {
 
       /**
        * Faz logout
+       * Se estiver em um cardápio (/s/:slug), recarrega a página para manter no cardápio
+       * Caso contrário, redireciona para login de cliente
        */
       logout: () => {
         self.removeToken();
-        window.location.href = '/';
+        const currentPath = window.location.pathname;
+        
+        // Se está em um cardápio, apenas recarrega para manter na página
+        if (currentPath.startsWith('/s/')) {
+          window.location.reload();
+        } 
+        // Se está em página administrativa
+        else if (currentPath.includes('/Admin') || currentPath.includes('/Assinantes')) {
+          window.location.href = '/login/admin';
+        }
+        // Se está em painel de assinante
+        else if (currentPath.includes('/PainelAssinante') || currentPath.includes('/GestorPedidos')) {
+          window.location.href = '/login/assinante';
+        }
+        // Se está em área de colaborador
+        else if (currentPath.includes('/Entregador') || currentPath.includes('/Cozinha') || 
+                 currentPath.includes('/PDV') || currentPath.includes('/Garcom')) {
+          window.location.href = '/login/colaborador';
+        }
+        // Cliente ou página pública - não redireciona, apenas recarrega
+        else {
+          window.location.reload();
+        }
       },
 
       /**
