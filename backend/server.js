@@ -274,6 +274,7 @@ const authenticate = async (req, res, next) => {
   
   // Se não tem token, usar usuário padrão (modo desenvolvimento)
   if (!token) {
+    console.log('⚠️ [authenticate] Sem token:', { path: req.path, method: req.method });
     if (process.env.NODE_ENV !== 'production') {
       // Em desenvolvimento, permitir sem token
       if (usePostgreSQL) {
@@ -283,6 +284,7 @@ const authenticate = async (req, res, next) => {
       } else {
         return res.status(401).json({ error: 'Usuário padrão não encontrado' });
       }
+      console.log('✅ [authenticate] Usando usuário padrão (dev)');
       return next();
     }
     // Em produção, retornar erro se não tiver token
@@ -292,6 +294,8 @@ const authenticate = async (req, res, next) => {
   // Tentar validar JWT
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
+    console.log('✅ [authenticate] Token válido:', { email: decoded.email, id: decoded.id });
+    
     let user;
     if (usePostgreSQL) {
       user = await repo.getUserByEmail(decoded.email);
@@ -303,7 +307,14 @@ const authenticate = async (req, res, next) => {
     } else {
       return res.status(401).json({ error: 'Banco de dados não inicializado' });
     }
+    
+    if (!user) {
+      console.log('❌ [authenticate] Usuário não encontrado:', decoded.email);
+      return res.status(401).json({ error: 'Usuário não encontrado' });
+    }
+    
     req.user = user;
+    console.log('✅ [authenticate] Usuário autenticado:', { email: user.email, is_master: user.is_master });
     return next();
   } catch (error) {
     // JWT inválido - tentar método alternativo (buscar em activeTokens)

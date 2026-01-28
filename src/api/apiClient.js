@@ -53,8 +53,8 @@ class ApiClient {
    * Faz uma requisição HTTP
    */
   async request(endpoint, options = {}) {
-    // Bloquear requisições se já estamos fazendo logout
-    if (this.isLoggingOut) {
+    // Bloquear requisições se já estamos fazendo logout (exceto /auth/me)
+    if (this.isLoggingOut && !endpoint.includes('/auth/me') && !endpoint.includes('/auth/login')) {
       throw new Error('Sessão expirada. Redirecionando...');
     }
 
@@ -106,6 +106,9 @@ class ApiClient {
         // Tratamento de erro 401 (não autorizado) - redirecionar para login
         // MAS NÃO redirecionar se for uma rota pública (ex: /public/cardapio)
         if (response.status === 401) {
+          // Não redirecionar se for chamada de /auth/me ou /auth/login
+          const isAuthCheck = endpoint.includes('/auth/me') || endpoint.includes('/auth/login');
+          
           // Verificar se é rota pública de várias formas
           const isPublicRoute = 
             endpoint.includes('/public/') || 
@@ -124,9 +127,9 @@ class ApiClient {
             currentPath === '/cadastro-cliente' ||
             currentPath.includes('/login');
           
-          if (isPublicRoute || isPublicPage) {
-            // Para rotas públicas, apenas lançar erro sem redirecionar
-            logger.log('🔓 Rota pública detectada, não redirecionando:', { endpoint, currentPath });
+          if (isAuthCheck || isPublicRoute || isPublicPage) {
+            // Para rotas de auth check ou públicas, apenas lançar erro sem redirecionar
+            logger.log('🔓 Rota pública ou auth check detectada, não redirecionando:', { endpoint, currentPath });
             const errorMessage = data?.message || data?.error || data || `HTTP error! status: ${response.status}`;
             throw new Error(errorMessage);
           }
@@ -248,21 +251,26 @@ class ApiClient {
        */
       isAuthenticated: async () => {
         const token = localStorage.getItem('auth_token');
-        if (!token) return false;
+        if (!token) {
+          logger.log('❌ [isAuthenticated] Sem token');
+          return false;
+        }
+        
+        // Garantir que o token da instância está atualizado
+        if (self.token !== token) {
+          self.token = token;
+        }
         
         try {
-          // Salvar flag para prevenir redirect durante verificação
-          const previousIsLoggingOut = self.isLoggingOut;
-          self.isLoggingOut = true; // Temporariamente bloquear redirects
-          
-          await self.get('/auth/me');
-          
-          // Restaurar flag
-          self.isLoggingOut = previousIsLoggingOut;
+          const user = await self.get('/auth/me');
+          logger.log('✅ [isAuthenticated] Usuário autenticado:', user?.email);
           return true;
-        } catch {
-          // Restaurar flag em caso de erro
-          self.isLoggingOut = false;
+        } catch (error) {
+          logger.log('❌ [isAuthenticated] Erro:', error.message);
+          // Se o erro for 401, limpar o token inválido
+          if (error.message?.includes('401') || error.message?.includes('expirada')) {
+            self.removeToken();
+          }
           return false;
         }
       },
