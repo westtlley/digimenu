@@ -25,4 +25,27 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    rollupOptions: {
+      onwarn(warning, warn) {
+        // Ignorar avisos de extensões do navegador
+        if (warning.code === 'UNRESOLVED_IMPORT' && warning.id?.includes('webpage_content_reporter')) {
+          return;
+        }
+        // Ignorar outros avisos de extensões
+        if (warning.id?.includes('chrome-extension://') || warning.id?.includes('moz-extension://')) {
+          return;
+        }
+        warn(warning);
+      },
+    },
+    // Melhorar tratamento de erros no build
+    commonjsOptions: {
+      transformMixedEsModules: true,
+    },
+  },
+  // Ignorar erros de extensões do navegador no console
+  define: {
+    'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development'),
+  },
 }) 
