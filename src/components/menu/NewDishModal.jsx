@@ -137,14 +137,14 @@ export default function NewDishModal({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className={`relative flex flex-col md:flex-row w-full md:m-auto md:max-w-5xl md:h-[85vh] ${darkMode ? 'bg-gray-800/95' : 'bg-white/95'} backdrop-blur-xl md:rounded-3xl overflow-hidden shadow-2xl`}
+            className="relative flex flex-col md:flex-row w-full md:m-auto md:max-w-5xl md:h-[85vh] bg-white dark:bg-gray-900 backdrop-blur-xl md:rounded-3xl overflow-hidden shadow-2xl"
           >
             {/* Mobile Image Header - Compacto */}
             <div className="md:hidden relative w-full h-36 flex-shrink-0">
               {dish.image ? (
                 <img src={dish.image} alt={dish.name} className="w-full h-full object-cover" />
               ) : (
-                <div className={`w-full h-full flex items-center justify-center ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+                <div className="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-800">
                   <span className="text-gray-400 text-xs">Sem imagem</span>
                 </div>
               )}
@@ -155,8 +155,16 @@ export default function NewDishModal({
                   <p className="text-gray-200 text-xs line-clamp-1">{dish.description}</p>
                 )}
               </div>
-              <button onClick={onClose} className="absolute top-2 right-2 p-1.5 bg-black/40 hover:bg-black/60 rounded-full backdrop-blur-sm">
-                <X className="w-4 h-4 text-white" />
+              {/* Botão X fixo no mobile com melhor contraste e área de toque maior */}
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onClose();
+                }}
+                className="absolute top-2 right-2 p-2.5 bg-black/60 hover:bg-black/80 rounded-full backdrop-blur-sm z-50 active:scale-95 transition-all touch-manipulation"
+                aria-label="Fechar"
+              >
+                <X className="w-5 h-5 text-white" strokeWidth={2.5} />
               </button>
             </div>
 
@@ -165,7 +173,7 @@ export default function NewDishModal({
               {dish.image ? (
                 <img src={dish.image} alt={dish.name} className="w-full h-full object-cover" />
               ) : (
-                <div className={`w-full h-full flex items-center justify-center ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+                <div className="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-800">
                   <span className="text-gray-400">Sem imagem</span>
                 </div>
               )}
@@ -180,14 +188,17 @@ export default function NewDishModal({
 
             {/* Right - Options */}
             <div className="flex-1 flex flex-col min-h-0">
-              <button onClick={onClose} className={`hidden md:block absolute top-4 right-4 p-2 rounded-full z-10 ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}>
-                <X className={`w-5 h-5 ${darkMode ? 'text-white' : ''}`} />
+              <button 
+                onClick={onClose} 
+                className="hidden md:block absolute top-4 right-4 p-2 rounded-full z-10 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-900 dark:text-white" />
               </button>
 
               <div className="flex-1 overflow-y-auto p-3 md:p-5 pt-3 md:pt-12">
                 {dishComplementGroups.length === 0 ? (
                   <div className="text-center py-8">
-                    <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Este prato não possui complementos</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Este prato não possui complementos</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -199,15 +210,15 @@ export default function NewDishModal({
                       return (
                         <div key={group.id}>
                           <div className="flex items-center justify-between mb-2">
-                            <h3 className={`font-semibold text-sm md:text-base ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                            <h3 className="font-semibold text-sm md:text-base text-gray-900 dark:text-gray-100">
                               {group.name}
                               {linkedGroup?.is_required && <span className="text-red-500 ml-1">*</span>}
                             </h3>
                             <div className="flex gap-1.5">
-                              <Badge variant="outline" className={`text-xs ${linkedGroup?.is_required ? 'border-red-300 text-red-600' : darkMode ? 'border-gray-600 text-gray-400' : 'text-gray-500'}`}>
+                              <Badge variant="outline" className={`text-xs ${linkedGroup?.is_required ? 'border-red-300 text-red-600 dark:border-red-500 dark:text-red-400' : 'border-gray-300 text-gray-600 dark:border-gray-600 dark:text-gray-400'}`}>
                                 {linkedGroup?.is_required ? 'Obrigatório' : 'Opcional'}
                               </Badge>
-                              <Badge variant="outline" className={`text-xs ${darkMode ? 'border-blue-600 text-blue-400' : 'border-blue-200 text-blue-600'}`}>
+                              <Badge variant="outline" className="text-xs border-blue-300 text-blue-600 dark:border-blue-500 dark:text-blue-400">
                                 {group.max_selection || 1}
                               </Badge>
                             </div>
@@ -223,8 +234,8 @@ export default function NewDishModal({
                                 className={cn(
                                   "w-full p-2.5 md:p-3 rounded-lg border-2 flex items-center gap-3 transition-all",
                                   isSelected(group, option)
-                                    ? darkMode ? "bg-gray-700 border-opacity-80" : "bg-orange-50 border-orange-300"
-                                    : darkMode ? "border-gray-700 hover:bg-gray-700/50" : "border-gray-200 hover:bg-gray-50"
+                                    ? "bg-orange-50 dark:bg-orange-900/20 border-opacity-80"
+                                    : "border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
                                 )}
                                 style={isSelected(group, option) ? { borderColor: primaryColor } : {}}
                               >
@@ -254,16 +265,16 @@ export default function NewDishModal({
                                   <div 
                                     className={cn(
                                       "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0",
-                                      isSelected(group, option) ? "border-transparent" : darkMode ? "border-gray-600" : "border-gray-300"
+                                      isSelected(group, option) ? "border-transparent" : "border-gray-300 dark:border-gray-600"
                                     )}
                                     style={isSelected(group, option) ? { backgroundColor: primaryColor } : {}}
                                   >
                                     {isSelected(group, option) && <Check className="w-3 h-3 text-white" />}
                                   </div>
-                                  <span className={`font-medium text-sm truncate ${darkMode ? 'text-white' : 'text-gray-900'}`}>{option.name}</span>
+                                  <span className="font-medium text-sm truncate text-gray-900 dark:text-gray-100">{option.name}</span>
                                 </div>
                                 {option.price > 0 && (
-                                  <span className={`font-semibold text-sm flex-shrink-0 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                                  <span className="font-semibold text-sm flex-shrink-0 text-gray-700 dark:text-gray-300">
                                     + {formatCurrency(option.price)}
                                   </span>
                                 )}
@@ -281,10 +292,10 @@ export default function NewDishModal({
               <motion.div 
                 initial={{ y: 20 }}
                 animate={{ y: 0 }}
-                className={`border-t p-3 flex-shrink-0 ${darkMode ? 'bg-gray-800/80 border-gray-700' : 'bg-white/80 border-gray-200'} backdrop-blur-xl`}
+                className="border-t p-3 flex-shrink-0 bg-white/95 dark:bg-gray-900/95 border-gray-200 dark:border-gray-800 backdrop-blur-xl"
               >
                 <div className="flex items-center justify-between mb-2">
-                  <span className={`font-medium text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Total</span>
+                  <span className="font-medium text-sm text-gray-600 dark:text-gray-400">Total</span>
                   <span className="text-xl md:text-2xl font-bold" style={{ color: primaryColor }}>
                     {formatCurrency(currentTotal)}
                   </span>
@@ -294,7 +305,7 @@ export default function NewDishModal({
                   whileTap={{ scale: 0.98 }}
                   onClick={handleAddToCart}
                   disabled={!canAddToCart()}
-                  className="w-full h-11 rounded-xl text-white font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+                  className="w-full h-11 rounded-xl text-white font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed shadow-lg transition-all active:scale-95"
                   style={{ background: canAddToCart() ? `linear-gradient(135deg, ${primaryColor}, #ef4444)` : '#9ca3af' }}
                 >
                   <Check className="w-4 h-4 inline mr-1.5" />

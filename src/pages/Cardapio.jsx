@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { apiClient as base44 } from '@/api/apiClient';
 import { createPageUrl } from '@/utils';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { ShoppingCart, Search, Clock, Star, Share2, MapPin, Info, Home, Receipt, Gift, User, MessageSquare, UtensilsCrossed } from 'lucide-react';
+import { ShoppingCart, Search, Clock, Star, Share2, MapPin, Info, Home, Receipt, Gift, User, MessageSquare, UtensilsCrossed, Instagram, Facebook, Phone } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -663,29 +663,21 @@ export default function Cardapio() {
             <ThemeToggle className="text-white hover:bg-white/20" />
             {/* Removido: Link do gestor - acesso apenas para assinantes via painel dedicado */}
             <button 
-              className="p-2 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-colors text-white" 
+              className={`p-2 rounded-full backdrop-blur-sm transition-all ${isAuthenticated ? 'bg-green-500/90 hover:bg-green-600' : 'bg-white/20 hover:bg-white/30'} text-white`}
               onClick={() => {
-                const checkAuth = async () => {
-                  try {
-                    const isAuth = await base44.auth.isAuthenticated();
-                    if (isAuth) {
-                      setShowCustomerProfile(true);
-                    } else {
-                      // Não forçar login - abrir modal opcional ou redirecionar para login de cliente
-                      const currentUrl = window.location.pathname;
-                      window.location.href = `/login/cliente?returnUrl=${encodeURIComponent(currentUrl)}`;
-                    }
-                  } catch {
-                    // Em caso de erro, permitir continuar sem login
-                    const currentUrl = window.location.pathname;
-                    window.location.href = `/login/cliente?returnUrl=${encodeURIComponent(currentUrl)}`;
-                  }
-                };
-                checkAuth();
+                if (isAuthenticated) {
+                  setShowCustomerProfile(true);
+                } else {
+                  const currentUrl = window.location.pathname;
+                  window.location.href = `/login/cliente?returnUrl=${encodeURIComponent(currentUrl)}`;
+                }
               }}
-              title="Perfil do Cliente"
+              title={isAuthenticated ? "Meu Perfil" : "Entrar / Cadastrar"}
             >
               <User className="w-5 h-5" />
+              {isAuthenticated && (
+                <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 border-2 border-white rounded-full"></span>
+              )}
             </button>
             {/* Ícone de carrinho - oculto no mobile, visível no desktop */}
             <button 
@@ -769,29 +761,21 @@ export default function Cardapio() {
                 <ThemeToggle className="text-muted-foreground hover:text-foreground hover:bg-muted" />
                 {/* Removido: Link do gestor - acesso apenas para assinantes via painel dedicado */}
                 <button 
-                  className="p-2 rounded-lg transition-colors text-muted-foreground hover:text-foreground hover:bg-muted" 
+                  className={`relative p-2 rounded-lg transition-all ${isAuthenticated ? 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}
                   onClick={() => {
-                    const checkAuth = async () => {
-                      try {
-                        const isAuth = await base44.auth.isAuthenticated();
-                        if (isAuth) {
-                          setShowCustomerProfile(true);
-                        } else {
-                          // Não forçar login - redirecionar para login de cliente
-                          const currentUrl = window.location.pathname;
-                          window.location.href = `/login/cliente?returnUrl=${encodeURIComponent(currentUrl)}`;
-                        }
-                      } catch {
-                        // Em caso de erro, permitir continuar sem login
-                        const currentUrl = window.location.pathname;
-                        window.location.href = `/login/cliente?returnUrl=${encodeURIComponent(currentUrl)}`;
-                      }
-                    };
-                    checkAuth();
+                    if (isAuthenticated) {
+                      setShowCustomerProfile(true);
+                    } else {
+                      const currentUrl = window.location.pathname;
+                      window.location.href = `/login/cliente?returnUrl=${encodeURIComponent(currentUrl)}`;
+                    }
                   }}
-                  title="Perfil do Cliente"
+                  title={isAuthenticated ? "Meu Perfil" : "Entrar / Cadastrar"}
                 >
                   <User className="w-5 h-5 md:w-6 md:h-6" />
+                  {isAuthenticated && (
+                    <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-white dark:border-gray-900"></span>
+                  )}
                 </button>
                 {/* Ícone de carrinho - oculto no mobile, visível no desktop */}
                 <button 
@@ -1203,37 +1187,66 @@ export default function Cardapio() {
       </nav>
 
       {/* Footer */}
-      <footer className="bg-card border-t border-border text-foreground mt-8">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              {store.logo && (
-                <img src={store.logo} alt={store.name} className="w-16 h-16 rounded-lg object-cover mb-4" />
-              )}
-              <h3 className="font-bold text-lg mb-2">{store.name}</h3>
-              {store.slogan && (
-                <p className="text-muted-foreground text-sm italic mb-4">"{store.slogan}"</p>
-              )}
+      <footer className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950 border-t border-gray-200 dark:border-gray-800 mt-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+            {/* Coluna 1: Info do Estabelecimento */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                {store.logo && (
+                  <img src={store.logo} alt={store.name} className="w-16 h-16 rounded-xl object-cover shadow-md border-2 border-white dark:border-gray-800" />
+                )}
+                <div>
+                  <h3 className="font-bold text-xl text-gray-900 dark:text-white">{store.name}</h3>
+                  {store.slogan && (
+                    <p className="text-gray-600 dark:text-gray-400 text-sm italic mt-0.5">"{store.slogan}"</p>
+                  )}
+                </div>
+              </div>
               {store.address && (
-                <p className="text-muted-foreground text-sm mb-2">📍 {store.address}</p>
+                <div className="flex items-start gap-2 text-gray-700 dark:text-gray-300">
+                  <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: primaryColor }} />
+                  <p className="text-sm">{store.address}</p>
+                </div>
               )}
-              {store.whatsapp && (
-                <p className="text-muted-foreground text-sm mb-2">📱 {store.whatsapp}</p>
+              {store.opening_time && store.closing_time && (
+                <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
+                  <Clock className="w-4 h-4 flex-shrink-0" style={{ color: primaryColor }} />
+                  <p className="text-sm">{store.opening_time} - {store.closing_time}</p>
+                </div>
               )}
             </div>
 
-            <div>
-              <h3 className="font-bold text-lg mb-4">Redes Sociais</h3>
-              <div className="space-y-2">
+            {/* Coluna 2: Redes Sociais */}
+            <div className="space-y-4">
+              <h3 className="font-bold text-lg text-gray-900 dark:text-white">Conecte-se</h3>
+              <div className="flex flex-col sm:flex-row lg:flex-col gap-3">
+                {store.whatsapp && (
+                  <a 
+                    href={`https://wa.me/55${store.whatsapp.replace(/\D/g, '')}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="group flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-xl transition-all shadow-md hover:shadow-lg transform hover:scale-105"
+                  >
+                    <MessageSquare className="w-5 h-5" fill="currentColor" />
+                    <div className="flex-1 text-left">
+                      <p className="font-semibold text-sm">WhatsApp</p>
+                      <p className="text-xs opacity-90">{store.whatsapp}</p>
+                    </div>
+                  </a>
+                )}
                 {store.instagram && (
                   <a 
                     href={store.instagram.startsWith('http') ? store.instagram : `https://instagram.com/${store.instagram}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+                    className="group flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white rounded-xl transition-all shadow-md hover:shadow-lg transform hover:scale-105"
                   >
-                    <span>📷</span>
-                    <span className="text-sm">Instagram</span>
+                    <Instagram className="w-5 h-5" />
+                    <div className="flex-1 text-left">
+                      <p className="font-semibold text-sm">Instagram</p>
+                      <p className="text-xs opacity-90">@{store.instagram.replace(/^@/, '').replace(/https?:\/\/(www\.)?instagram\.com\//, '')}</p>
+                    </div>
                   </a>
                 )}
                 {store.facebook && (
@@ -1241,55 +1254,47 @@ export default function Cardapio() {
                     href={store.facebook.startsWith('http') ? store.facebook : `https://facebook.com/${store.facebook}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+                    className="group flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-xl transition-all shadow-md hover:shadow-lg transform hover:scale-105"
                   >
-                    <span>👥</span>
-                    <span className="text-sm">Facebook</span>
-                  </a>
-                )}
-                {store.whatsapp && (
-                  <a 
-                    href={`https://wa.me/55${store.whatsapp.replace(/\D/g, '')}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    <span>💬</span>
-                    <span className="text-sm">WhatsApp</span>
+                    <Facebook className="w-5 h-5" fill="currentColor" />
+                    <div className="flex-1 text-left">
+                      <p className="font-semibold text-sm">Facebook</p>
+                      <p className="text-xs opacity-90">Siga-nos</p>
+                    </div>
                   </a>
                 )}
               </div>
             </div>
 
-            <div>
-              <h3 className="font-bold text-lg mb-4">Horário</h3>
-              {store.opening_time && store.closing_time && (
-                <p className="text-muted-foreground text-sm mb-4">
-                  🕒 {store.opening_time} - {store.closing_time}
-                </p>
-              )}
-
-              {store.payment_methods && store.payment_methods.length > 0 && (
-                <div className="mt-6">
-                  <h3 className="font-bold text-sm mb-3">Formas de Pagamento</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {store.payment_methods.map((method, idx) => (
-                      <div key={idx} className="bg-background border border-border rounded p-2">
-                        {method.image ? (
-                          <img src={method.image} alt={method.name} className="h-6 object-contain" />
-                        ) : (
-                          <span className="text-xs text-foreground">{method.name}</span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+            {/* Coluna 3: Formas de Pagamento */}
+            <div className="space-y-4">
+              <h3 className="font-bold text-lg text-gray-900 dark:text-white">Pagamento</h3>
+              {store.payment_methods && store.payment_methods.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {store.payment_methods.map((method, idx) => (
+                    <div key={idx} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-2.5 shadow-sm hover:shadow-md transition-shadow">
+                      {method.image ? (
+                        <img src={method.image} alt={method.name} className="h-7 object-contain" />
+                      ) : (
+                        <span className="text-xs font-medium text-gray-700 dark:text-gray-300">{method.name}</span>
+                      )}
+                    </div>
+                  ))}
                 </div>
+              ) : (
+                <p className="text-sm text-gray-600 dark:text-gray-400">Consulte as formas de pagamento disponíveis</p>
               )}
             </div>
           </div>
 
-          <div className="border-t border-border mt-4 pt-4 text-center text-xs text-muted-foreground">
-            © 2025 {store.name}. Todos os direitos reservados.
+          {/* Copyright */}
+          <div className="border-t border-gray-200 dark:border-gray-800 mt-8 pt-6 text-center">
+            <p className="text-xs text-gray-500 dark:text-gray-500">
+              © {new Date().getFullYear()} {store.name}. Todos os direitos reservados.
+            </p>
+            <p className="text-xs text-gray-400 dark:text-gray-600 mt-2">
+              Powered by <span className="font-semibold" style={{ color: primaryColor }}>DigiMenu</span>
+            </p>
           </div>
         </div>
       </footer>
