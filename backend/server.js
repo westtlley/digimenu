@@ -242,7 +242,7 @@ function generatePasswordTokenForSubscriber(subscriberEmail, subscriberId = null
 // =======================
 // 🔐 AUTH HELPERS
 // =======================
-const getToken = req =>
+const extractTokenFromRequest = req =>
   req.headers.authorization?.startsWith('Bearer ')
     ? req.headers.authorization.slice(7)
     : null;
@@ -270,7 +270,7 @@ const authenticate = async (req, res, next) => {
     return next();
   }
 
-  const token = getToken(req);
+  const token = extractTokenFromRequest(req);
   
   // Se não tem token, usar usuário padrão (modo desenvolvimento)
   if (!token) {
