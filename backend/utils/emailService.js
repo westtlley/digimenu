@@ -1,4 +1,4 @@
-const logger = require('./logger');
+import { logger } from './logger.js';
 
 /**
  * Serviço de envio de emails
@@ -278,7 +278,7 @@ Equipe DigiMenu
   return { success: true };
 }
 
-module.exports = {
+export {
   sendWelcomeEmail,
   sendRenewalEmail,
   sendExpirationWarningEmail,

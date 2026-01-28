@@ -1,11 +1,11 @@
-const cron = require('node-cron');
-const { differenceInDays } = require('date-fns');
-const { db, saveDatabaseChanges } = require('../db/persistence');
-const { 
+import cron from 'node-cron';
+import { differenceInDays } from 'date-fns';
+import { db, saveDatabaseChanges } from '../db/persistence.js';
+import { 
   sendExpirationWarningEmail, 
   sendExpiredEmail 
-} = require('./emailService');
-const logger = require('./logger');
+} from './emailService.js';
+import { logger } from './logger.js';
 
 /**
  * Inicializar cron jobs do sistema
@@ -141,7 +141,7 @@ async function runExpirationCheckNow() {
   await checkExpirations();
 }
 
-module.exports = {
+export {
   initializeCronJobs,
   runExpirationCheckNow
 };
