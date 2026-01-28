@@ -104,8 +104,11 @@ class ApiClient {
 
       if (!response.ok) {
         // Tratamento de erro 401 (não autorizado) - redirecionar para login
+        // MAS NÃO redirecionar se for uma rota pública (ex: /public/cardapio)
         if (response.status === 401) {
-          if (!this.isLoggingOut) {
+          const isPublicRoute = endpoint.includes('/public/') || endpoint.includes('/api/public/');
+          
+          if (!isPublicRoute && !this.isLoggingOut) {
             this.isLoggingOut = true;
             logger.warn('🔒 Sessão expirada. Redirecionando para login...');
             this.removeToken();
@@ -118,7 +121,10 @@ class ApiClient {
             }, 50);
           }
 
-          throw new Error('Sessão expirada. Por favor, faça login novamente.');
+          // Para rotas públicas, apenas lançar erro sem redirecionar
+          if (!isPublicRoute) {
+            throw new Error('Sessão expirada. Por favor, faça login novamente.');
+          }
         }
         
         const errorMessage = data?.message || data?.error || data || `HTTP error! status: ${response.status}`;

@@ -93,9 +93,9 @@ function PagesContent() {
                 <Route path="/s/:slug/Entregador" element={<ProtectedRoute requireActiveSubscription><Entregador /></ProtectedRoute>} />
                 <Route path="/s/:slug/EntregadorPanel" element={<ProtectedRoute requireActiveSubscription><EntregadorPanel /></ProtectedRoute>} />
                 <Route path="/s/:slug" element={<Cardapio />} />
-                <Route path="/" element={<Cardapio />} />
-                <Route path="/cardapio" element={<Navigate to="/" replace />} />
-                <Route path="/Cardapio" element={<Navigate to="/" replace />} />
+                <Route path="/" element={<Navigate to="/Assinar" replace />} />
+                <Route path="/cardapio" element={<Navigate to="/Assinar" replace />} />
+                <Route path="/Cardapio" element={<Navigate to="/Assinar" replace />} />
                 <Route path="/Assinantes" element={<ProtectedRoute requireMaster><Assinantes /></ProtectedRoute>} />
                 
                 <Route path="/Assinar" element={<Assinar />} />

@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { apiClient as base44 } from '@/api/apiClient';
 import { createPageUrl } from '@/utils';
 import { useQuery, useMutation } from '@tanstack/react-query';
@@ -72,6 +72,7 @@ function CardapioSemLink() {
 
 export default function Cardapio() {
   const { slug } = useParams(); // link do assinante: /s/meu-restaurante
+  const navigate = useNavigate();
   const [selectedDish, setSelectedDish] = useState(null);
   const [selectedPizza, setSelectedPizza] = useState(null);
   const [editingCartItem, setEditingCartItem] = useState(null);
@@ -211,7 +212,7 @@ export default function Cardapio() {
         <div className="text-center max-w-md p-6 rounded-xl bg-white dark:bg-gray-800 shadow-lg border border-gray-200 dark:border-gray-700">
           <p className="text-xl font-medium text-gray-800 dark:text-gray-100">Link não encontrado</p>
           <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Este cardápio não existe ou o link está incorreto. Verifique com o estabelecimento.</p>
-          <a href="/" className="mt-6 inline-block px-4 py-2 rounded-lg bg-orange-500 text-white font-medium hover:bg-orange-600">Voltar ao início</a>
+          <Link to="/Assinar" className="mt-6 inline-block px-4 py-2 rounded-lg bg-orange-500 text-white font-medium hover:bg-orange-600">Assinar DigiMenu</Link>
         </div>
       </div>
     );
@@ -288,8 +289,17 @@ export default function Cardapio() {
     return () => clearTimeout(t);
   }, []);
 
-  // Sem slug: / ou /cardapio — exibir landing; não mostrar cardápio de estabelecimento.
-  if (!slug) return <CardapioSemLink />;
+  // Sem slug: redirecionar para página de assinatura
+  // A rota / já redireciona para /Assinar, mas garantimos aqui também
+  useEffect(() => {
+    if (!slug) {
+      navigate('/Assinar', { replace: true });
+    }
+  }, [slug, navigate]);
+
+  if (!slug) {
+    return null; // Retornar null enquanto redireciona
+  }
 
   const handleAddToCart = async (item, isEditing = false) => {
     const dish = item.dish || item;
