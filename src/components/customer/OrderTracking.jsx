@@ -102,6 +102,14 @@ export default function OrderTracking({ userEmail, showInput = true }) {
   const [searchEmail, setSearchEmail] = useState(userEmail || '');
   const [activeSearch, setActiveSearch] = useState(!!userEmail);
 
+  // Atualizar searchEmail quando userEmail mudar
+  React.useEffect(() => {
+    if (userEmail && userEmail !== searchEmail) {
+      setSearchEmail(userEmail);
+      setActiveSearch(true);
+    }
+  }, [userEmail]);
+
   // Buscar pedidos por email ou telefone
   const { data: orders = [], isLoading, refetch, isFetching } = useQuery({
     queryKey: ['customerOrders', searchEmail, searchPhone],
@@ -109,27 +117,51 @@ export default function OrderTracking({ userEmail, showInput = true }) {
       if (!searchEmail && !searchPhone) return [];
       
       try {
-        // Buscar pedidos (Orders)
-        const ordersPromise = searchEmail 
-          ? base44.entities.Order.filter({ customer_email: searchEmail })
-          : Promise.resolve([]);
+        console.log('🔍 Buscando pedidos:', { searchEmail, searchPhone });
+        
+        // Buscar todos os pedidos e filtrar
+        const allOrdersPromise = base44.entities.Order.list('-created_date').catch(err => {
+          console.error('Erro ao buscar Orders:', err);
+          return [];
+        });
+        
+        const allComandasPromise = base44.entities.Comanda.list('-created_at').catch(err => {
+          console.error('Erro ao buscar Comandas:', err);
+          return [];
+        });
 
-        // Buscar comandas por telefone se fornecido
-        const comandasPromise = searchPhone
-          ? base44.entities.Comanda.filter({ customer_phone: searchPhone })
-          : Promise.resolve([]);
+        const [allOrders, allComandas] = await Promise.all([allOrdersPromise, allComandasPromise]);
+        
+        console.log('📦 Orders encontrados:', allOrders?.length || 0);
+        console.log('📋 Comandas encontrados:', allComandas?.length || 0);
 
-        const [orderResults, comandaResults] = await Promise.all([ordersPromise, comandasPromise]);
+        // Filtrar por email ou telefone
+        const filteredOrders = (Array.isArray(allOrders) ? allOrders : [])
+          .filter(o => 
+            (searchEmail && (o.customer_email === searchEmail || o.created_by === searchEmail)) ||
+            (searchPhone && o.customer_phone && o.customer_phone.replace(/\D/g, '') === searchPhone.replace(/\D/g, ''))
+          )
+          .map(o => ({ ...o, type: 'order' }));
+
+        const filteredComandas = (Array.isArray(allComandas) ? allComandas : [])
+          .filter(c => 
+            (searchEmail && c.customer_email === searchEmail) ||
+            (searchPhone && c.customer_phone && c.customer_phone.replace(/\D/g, '') === searchPhone.replace(/\D/g, ''))
+          )
+          .map(c => ({ ...c, type: 'comanda' }));
 
         // Combinar e ordenar por data
-        const allOrders = [
-          ...(Array.isArray(orderResults) ? orderResults : []).map(o => ({ ...o, type: 'order' })),
-          ...(Array.isArray(comandaResults) ? comandaResults : []).map(c => ({ ...c, type: 'comanda' }))
-        ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        const allResults = [...filteredOrders, ...filteredComandas]
+          .sort((a, b) => {
+            const dateA = new Date(a.created_at || a.created_date || 0);
+            const dateB = new Date(b.created_at || b.created_date || 0);
+            return dateB - dateA;
+          });
 
-        return allOrders;
+        console.log('✅ Total de pedidos encontrados:', allResults.length);
+        return allResults;
       } catch (error) {
-        console.error('Erro ao buscar pedidos:', error);
+        console.error('❌ Erro ao buscar pedidos:', error);
         return [];
       }
     },
