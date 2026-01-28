@@ -129,6 +129,151 @@ router.post('/create-payment', async (req, res) => {
 });
 
 /**
+ * Criar assinatura recorrente no Mercado Pago
+ * POST /api/mercadopago/create-subscription
+ */
+router.post('/create-subscription', async (req, res) => {
+  try {
+    if (!mercadopago || !process.env.MERCADOPAGO_ACCESS_TOKEN) {
+      return res.status(503).json({
+        success: false,
+        error: 'Mercado Pago não configurado. Configure MERCADOPAGO_ACCESS_TOKEN no .env'
+      });
+    }
+    
+    const { email, name, plan, interval } = req.body;
+    
+    // Validar dados
+    if (!email || !name || !plan || !interval) {
+      return res.status(400).json({
+        success: false,
+        error: 'Dados incompletos: email, name, plan e interval são obrigatórios'
+      });
+    }
+    
+    // Definir preços
+    const prices = {
+      monthly: {
+        basic: 29.90,
+        pro: 49.90,
+        premium: 99.90
+      },
+      yearly: {
+        basic: 299.90,
+        pro: 499.90,
+        premium: 999.90
+      }
+    };
+    
+    const amount = prices[interval]?.[plan];
+    
+    if (!amount) {
+      return res.status(400).json({
+        success: false,
+        error: 'Plano ou intervalo inválido'
+      });
+    }
+    
+    logger.log('🔄 Criando assinatura recorrente...', {
+      email,
+      plan,
+      interval,
+      amount
+    });
+    
+    // Criar assinatura recorrente (preapproval)
+    const subscription = {
+      reason: `DigiMenu - Plano ${plan.charAt(0).toUpperCase() + plan.slice(1)} (${interval === 'monthly' ? 'Mensal' : 'Anual'})`,
+      auto_recurring: {
+        frequency: interval === 'monthly' ? 1 : 12,
+        frequency_type: 'months',
+        transaction_amount: amount,
+        currency_id: 'BRL'
+      },
+      payer_email: email,
+      back_url: `${process.env.FRONTEND_URL}/pagamento/sucesso`,
+      status: 'pending',
+      external_reference: `${email}_${Date.now()}`,
+      metadata: {
+        subscriber_email: email,
+        plan: plan,
+        interval: interval,
+        system: 'digimenu',
+        type: 'subscription'
+      }
+    };
+    
+    const response = await mercadopago.preapproval.create(subscription);
+    
+    logger.log('✅ Assinatura criada:', {
+      id: response.body.id,
+      init_point: response.body.init_point
+    });
+    
+    res.json({
+      success: true,
+      init_point: response.body.init_point,
+      subscription_id: response.body.id
+    });
+    
+  } catch (error) {
+    logger.error('❌ Erro ao criar assinatura:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erro ao criar assinatura',
+      details: error.message
+    });
+  }
+});
+
+/**
+ * Cancelar assinatura recorrente
+ * POST /api/mercadopago/cancel-subscription
+ */
+router.post('/cancel-subscription', async (req, res) => {
+  try {
+    if (!mercadopago || !process.env.MERCADOPAGO_ACCESS_TOKEN) {
+      return res.status(503).json({
+        success: false,
+        error: 'Mercado Pago não configurado'
+      });
+    }
+    
+    const { subscription_id } = req.body;
+    
+    if (!subscription_id) {
+      return res.status(400).json({
+        success: false,
+        error: 'subscription_id é obrigatório'
+      });
+    }
+    
+    logger.log('🚫 Cancelando assinatura:', subscription_id);
+    
+    // Cancelar assinatura
+    await mercadopago.preapproval.update({
+      id: subscription_id,
+      status: 'cancelled'
+    });
+    
+    logger.log('✅ Assinatura cancelada:', subscription_id);
+    
+    res.json({
+      success: true,
+      message: 'Assinatura cancelada com sucesso'
+    });
+    
+  } catch (error) {
+    logger.error('❌ Erro ao cancelar assinatura:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erro ao cancelar assinatura',
+      details: error.message
+    });
+  }
+});
+
+/**
  * Webhook do Mercado Pago
  * POST /api/mercadopago/webhook
  */
@@ -140,15 +285,33 @@ router.post('/webhook', async (req, res) => {
     res.status(200).send('OK');
     
     // Processar notificação de forma assíncrona
-    const { type, data } = req.body;
+    const { type, data, action } = req.body;
     
     if (type === 'payment') {
-      // Processar pagamento
+      // Processar pagamento único ou pagamento de assinatura
       setTimeout(async () => {
         try {
           await processPayment(data.id);
         } catch (error) {
           logger.error('❌ Erro ao processar pagamento:', error);
+        }
+      }, 100);
+    } else if (type === 'subscription_preapproval' || action === 'subscription.authorized') {
+      // Processar evento de assinatura
+      setTimeout(async () => {
+        try {
+          await processSubscription(data.id);
+        } catch (error) {
+          logger.error('❌ Erro ao processar assinatura:', error);
+        }
+      }, 100);
+    } else if (action === 'subscription.paused' || action === 'subscription.cancelled') {
+      // Assinatura pausada ou cancelada
+      setTimeout(async () => {
+        try {
+          await handleSubscriptionCancellation(data.id);
+        } catch (error) {
+          logger.error('❌ Erro ao processar cancelamento:', error);
         }
       }, 100);
     }
@@ -398,6 +561,176 @@ Continue aproveitando todos os recursos do DigiMenu!
 Equipe DigiMenu
 ================================================
   `);
+}
+
+/**
+ * Processar assinatura recorrente aprovada
+ */
+async function processSubscription(subscriptionId) {
+  try {
+    if (!mercadopago) {
+      logger.error('❌ Mercado Pago não disponível');
+      return;
+    }
+    
+    // Buscar detalhes da assinatura
+    const subscription = await mercadopago.preapproval.get(subscriptionId);
+    const subscriptionData = subscription.body;
+    
+    logger.log('🔄 Processando assinatura:', {
+      id: subscriptionData.id,
+      status: subscriptionData.status,
+      email: subscriptionData.payer_email
+    });
+    
+    // Apenas processar assinaturas autorizadas
+    if (subscriptionData.status !== 'authorized') {
+      logger.log('⏳ Assinatura não autorizada ainda, status:', subscriptionData.status);
+      return;
+    }
+    
+    const { subscriber_email, plan, interval } = subscriptionData.external_reference 
+      ? JSON.parse(subscriptionData.external_reference)
+      : { subscriber_email: subscriptionData.payer_email, plan: 'pro', interval: 'monthly' };
+    
+    // Importar funções do repository
+    const repoModule = await import('../db/repository.js');
+    
+    // Verificar se assinante já existe
+    let subscriber = await repoModule.getSubscriberByEmail(subscriber_email);
+    
+    if (!subscriber) {
+      // Criar novo assinante com assinatura recorrente
+      logger.log('📝 Criando novo assinante com assinatura recorrente:', subscriber_email);
+      
+      const expiresAt = interval === 'monthly' 
+        ? addMonths(new Date(), 1)
+        : addMonths(new Date(), 12);
+      
+      const slug = generateSlug(subscriber_email);
+      const plansModule = await import('../utils/plans.js');
+      
+      subscriber = await repoModule.createSubscriber({
+        email: subscriber_email,
+        name: subscriptionData.payer_name || subscriber_email.split('@')[0],
+        plan: plan,
+        status: 'active',
+        expires_at: expiresAt.toISOString(),
+        permissions: plansModule.getPlanPermissions(plan),
+        whatsapp_auto_enabled: true,
+        subscription_id: subscriptionData.id,
+        payment_method: 'card',
+        subscription_status: 'active',
+        auto_renewal: true
+      });
+      
+      // Criar usuário
+      let user = await repoModule.getUserByEmail(subscriber_email);
+      if (!user) {
+        user = await repoModule.createUser({
+          email: subscriber_email,
+          full_name: subscriptionData.payer_name || subscriber_email.split('@')[0],
+          password: null,
+          is_master: false,
+          role: 'subscriber',
+          subscriber_email: subscriber_email
+        });
+      }
+      
+      // Criar Store padrão
+      await repoModule.createEntity('Store', {
+        name: `Restaurante ${subscriptionData.payer_name || 'Novo'}`,
+        slug: slug,
+        description: 'Bem-vindo ao nosso restaurante!',
+        phone: '',
+        address: '',
+        logo: '',
+        banner: '',
+        primary_color: '#f97316',
+        is_open: true,
+        opening_hours: {},
+        subscriber_email: subscriber_email
+      }, subscriber_email);
+      
+      // Gerar token de senha
+      const passwordToken = generatePasswordToken(subscriber_email);
+      
+      // Enviar email de boas-vindas
+      await sendWelcomeEmail({
+        email: subscriber_email,
+        name: subscriptionData.payer_name || subscriber_email.split('@')[0],
+        passwordToken: passwordToken,
+        slug: slug,
+        plan: plan
+      });
+      
+      logger.log('✅ Assinante criado com assinatura recorrente:', subscriber_email);
+      
+    } else {
+      // Atualizar assinante existente com assinatura recorrente
+      logger.log('🔄 Atualizando assinante para assinatura recorrente:', subscriber_email);
+      
+      await repoModule.updateSubscriber(subscriber.id, {
+        subscription_id: subscriptionData.id,
+        payment_method: 'card',
+        subscription_status: 'active',
+        auto_renewal: true,
+        status: 'active',
+        updated_at: new Date().toISOString()
+      });
+      
+      logger.log('✅ Assinante atualizado para assinatura recorrente:', subscriber_email);
+    }
+    
+  } catch (error) {
+    logger.error('❌ Erro ao processar assinatura:', error);
+  }
+}
+
+/**
+ * Processar cancelamento/pausa de assinatura
+ */
+async function handleSubscriptionCancellation(subscriptionId) {
+  try {
+    if (!mercadopago) {
+      logger.error('❌ Mercado Pago não disponível');
+      return;
+    }
+    
+    // Buscar detalhes da assinatura
+    const subscription = await mercadopago.preapproval.get(subscriptionId);
+    const subscriptionData = subscription.body;
+    
+    logger.log('🚫 Processando cancelamento de assinatura:', {
+      id: subscriptionData.id,
+      status: subscriptionData.status,
+      email: subscriptionData.payer_email
+    });
+    
+    const repoModule = await import('../db/repository.js');
+    
+    // Buscar assinante pelo subscription_id
+    const subscribers = await repoModule.listSubscribers();
+    const subscriber = subscribers.find(s => s.subscription_id === subscriptionData.id);
+    
+    if (subscriber) {
+      await repoModule.updateSubscriber(subscriber.id, {
+        subscription_status: subscriptionData.status, // 'paused' ou 'cancelled'
+        auto_renewal: false,
+        updated_at: new Date().toISOString()
+      });
+      
+      logger.log(`✅ Assinatura ${subscriptionData.status === 'paused' ? 'pausada' : 'cancelada'}:`, subscriber.email);
+      
+      // Se cancelada, marcar para expirar no fim do período pago
+      if (subscriptionData.status === 'cancelled') {
+        logger.log('ℹ️ Assinatura cancelada - expirará em:', subscriber.expires_at);
+      }
+    }
+    
+  } catch (error) {
+    logger.error('❌ Erro ao processar cancelamento:', error);
+  }
 }
 
 export default router;

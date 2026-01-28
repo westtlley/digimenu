@@ -116,7 +116,46 @@ export default function Assinar() {
     if (c.payment_link) window.open(c.payment_link, '_blank');
   };
 
-  // Mutation para criar pagamento no Mercado Pago
+  // Mutation para criar ASSINATURA RECORRENTE no Mercado Pago
+  const createSubscriptionMutation = useMutation({
+    mutationFn: async () => {
+      if (!user) {
+        throw new Error('Faça login antes de assinar');
+      }
+
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}/api/mercadopago/create-subscription`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          email: user.email,
+          name: user.full_name || user.email.split('@')[0],
+          plan: 'pro',
+          interval: selectedPlan // 'monthly' | 'yearly'
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Erro ao criar assinatura');
+      }
+
+      return await response.json();
+    },
+    onSuccess: (data) => {
+      if (data.init_point) {
+        // Redirecionar para página de assinatura do Mercado Pago
+        window.location.href = data.init_point;
+      }
+    },
+    onError: (error) => {
+      alert(error.message || 'Erro ao criar assinatura. Tente novamente.');
+    }
+  });
+
+  // Mutation para criar PAGAMENTO ÚNICO no Mercado Pago
   const createPaymentMutation = useMutation({
     mutationFn: async () => {
       if (!user) {
@@ -132,7 +171,7 @@ export default function Assinar() {
         body: JSON.stringify({
           email: user.email,
           name: user.full_name || user.email.split('@')[0],
-          plan: 'pro', // ou detectar do plano selecionado
+          plan: 'pro',
           interval: selectedPlan // 'monthly' | 'yearly'
         })
       });
@@ -154,6 +193,16 @@ export default function Assinar() {
       alert(error.message || 'Erro ao criar pagamento. Tente novamente.');
     }
   });
+
+  const handleSubscribeWithCard = () => {
+    if (!user) {
+      alert('Faça login antes de assinar');
+      base44.auth.redirectToLogin(window.location.href);
+      return;
+    }
+
+    createSubscriptionMutation.mutate();
+  };
 
   const handlePayWithCard = () => {
     if (!user) {
@@ -281,64 +330,123 @@ export default function Assinar() {
               <div className="bg-white/10 rounded-2xl p-6">
                 <h4 className="font-semibold mb-4 flex items-center gap-2">
                   <CreditCard className="w-5 h-5" />
-                  Formas de Pagamento
+                  Escolha sua Forma de Pagamento
                 </h4>
-                <div className="grid sm:grid-cols-2 gap-4">
-                  {c.pix_key && (
-                    <div className="bg-white/10 rounded-xl p-4">
-                      <div className="flex items-center gap-2 mb-3">
-                        <QrCode className="w-5 h-5" />
-                        <span className="font-medium">PIX</span>
-                      </div>
-                      <p className="text-xs text-orange-200 mb-2">
-                        {String(c.pix_key_type || 'cpf').toUpperCase()}: {c.pix_key}
-                      </p>
-                      {c.pix_beneficiary && <p className="text-xs text-orange-200 mb-2">Beneficiário: {c.pix_beneficiary}</p>}
-                      <Button onClick={handleCopyPix} className="w-full bg-white text-orange-600 hover:bg-orange-50" size="sm">
-                        {copied ? <><Check className="w-4 h-4 mr-2" />Copiado!</> : <><Copy className="w-4 h-4 mr-2" />Copiar Chave PIX</>}
-                      </Button>
-                    </div>
-                  )}
-                  {/* Mercado Pago - Pagamento com Cartão */}
-                  <div className="bg-white/10 rounded-xl p-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      <CreditCard className="w-5 h-5" />
-                      <span className="font-medium">Cartão de Crédito</span>
-                    </div>
-                    <p className="text-xs text-orange-200 mb-3">Pagamento seguro pelo Mercado Pago</p>
-                    <Button 
-                      onClick={handlePayWithCard} 
-                      disabled={createPaymentMutation.isLoading}
-                      className="w-full bg-white text-orange-600 hover:bg-orange-50" 
-                      size="sm"
-                    >
-                      {createPaymentMutation.isLoading ? (
-                        <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Processando...</>
-                      ) : (
-                        <><CreditCard className="w-4 h-4 mr-2" /> Pagar com Cartão</>
-                      )}
-                    </Button>
+                
+                {/* ASSINATURA RECORRENTE - RECOMENDADO */}
+                <div className="relative bg-gradient-to-r from-green-500/20 to-emerald-500/20 border-2 border-green-400 rounded-xl p-4 mb-4">
+                  <div className="absolute -top-3 left-4">
+                    <Badge className="bg-green-500 text-white px-3 py-1 font-semibold">
+                      <Sparkles className="w-3 h-3 inline mr-1" />
+                      RECOMENDADO
+                    </Badge>
                   </div>
-                  {c.payment_link && (
-                    <div className="bg-white/10 rounded-xl p-4">
-                      <div className="flex items-center gap-2 mb-3">
-                        <ExternalLink className="w-5 h-5" />
-                        <span className="font-medium">Link de Pagamento</span>
+                  <div className="flex items-start gap-2 mb-3 mt-2">
+                    <CreditCard className="w-5 h-5 text-green-300 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <div className="font-semibold text-white mb-1">Assinatura Automática (Cartão)</div>
+                      <div className="space-y-1 mb-3">
+                        <p className="text-xs text-green-200 flex items-center gap-1">
+                          <Check className="w-3 h-3" />
+                          Cobrança automática - não precisa lembrar!
+                        </p>
+                        <p className="text-xs text-green-200 flex items-center gap-1">
+                          <Check className="w-3 h-3" />
+                          Cancele quando quiser, sem multa
+                        </p>
+                        <p className="text-xs text-green-200 flex items-center gap-1">
+                          <Check className="w-3 h-3" />
+                          Nunca perca acesso por esquecimento
+                        </p>
                       </div>
-                      <p className="text-xs text-orange-200 mb-3">Cartão, boleto ou PIX</p>
-                      <Button onClick={handlePaymentLink} className="w-full bg-white text-orange-600 hover:bg-orange-50" size="sm">
-                        <ExternalLink className="w-4 h-4 mr-2" /> Pagar Agora
+                    </div>
+                  </div>
+                  <Button 
+                    onClick={handleSubscribeWithCard} 
+                    disabled={createSubscriptionMutation.isLoading}
+                    className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold shadow-lg" 
+                  >
+                    {createSubscriptionMutation.isLoading ? (
+                      <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Processando...</>
+                    ) : (
+                      <><Zap className="w-4 h-4 mr-2" /> Assinar com Cartão (Automático)</>
+                    )}
+                  </Button>
+                </div>
+
+                {/* OUTRAS OPÇÕES */}
+                <details className="group mb-4">
+                  <summary className="cursor-pointer text-sm text-orange-200 hover:text-white transition-colors mb-3 flex items-center gap-2 select-none">
+                    <span>✋ Prefere pagar manualmente todo mês?</span>
+                    <span className="text-xs opacity-70">(clique)</span>
+                  </summary>
+                  
+                  <div className="grid sm:grid-cols-2 gap-3 pt-2 animate-in fade-in duration-200">
+                    {/* Pagamento Único com Cartão */}
+                    <div className="bg-white/10 rounded-xl p-4 border border-white/20">
+                      <div className="flex items-center gap-2 mb-2">
+                        <CreditCard className="w-4 h-4" />
+                        <span className="font-medium text-sm">Cartão (Pagamento Único)</span>
+                      </div>
+                      <p className="text-xs text-orange-200 mb-3">Você renova manualmente</p>
+                      <Button 
+                        onClick={handlePayWithCard} 
+                        disabled={createPaymentMutation.isLoading}
+                        className="w-full bg-white/20 hover:bg-white/30 text-white border border-white/30" 
+                        size="sm"
+                      >
+                        {createPaymentMutation.isLoading ? (
+                          <><Loader2 className="w-3 h-3 mr-2 animate-spin" /> Processando...</>
+                        ) : (
+                          <><CreditCard className="w-3 h-3 mr-2" /> Pagar Uma Vez</>
+                        )}
                       </Button>
                     </div>
-                  )}
-                  {!c.pix_key && !c.payment_link && (
-                    <div className="sm:col-span-2 text-center py-4">
-                      <p className="text-orange-200 mb-3">Entre em contato para contratar</p>
-                      <Button className="bg-white text-orange-600 hover:bg-orange-50" onClick={() => window.open(whatsappUrl, '_blank')}>
-                        <MessageSquare className="w-4 h-4 mr-2" /> Falar no WhatsApp
-                      </Button>
-                    </div>
-                  )}
+
+                    {/* PIX */}
+                    {c.pix_key && (
+                      <div className="bg-white/10 rounded-xl p-4 border border-white/20">
+                        <div className="flex items-center gap-2 mb-2">
+                          <QrCode className="w-4 h-4" />
+                          <span className="font-medium text-sm">PIX (Manual)</span>
+                        </div>
+                        <p className="text-xs text-orange-200 mb-2 truncate">
+                          {String(c.pix_key_type || 'cpf').toUpperCase()}: {c.pix_key}
+                        </p>
+                        <Button onClick={handleCopyPix} className="w-full bg-white/20 hover:bg-white/30 text-white border border-white/30" size="sm">
+                          {copied ? <><Check className="w-3 h-3 mr-2" />Copiado!</> : <><Copy className="w-3 h-3 mr-2" />Copiar</>}
+                        </Button>
+                      </div>
+                    )}
+
+                    {/* Link de Pagamento */}
+                    {c.payment_link && (
+                      <div className="bg-white/10 rounded-xl p-4 border border-white/20">
+                        <div className="flex items-center gap-2 mb-2">
+                          <ExternalLink className="w-4 h-4" />
+                          <span className="font-medium text-sm">Boleto/Outros</span>
+                        </div>
+                        <p className="text-xs text-orange-200 mb-3">Pagamento manual</p>
+                        <Button onClick={handlePaymentLink} className="w-full bg-white/20 hover:bg-white/30 text-white border border-white/30" size="sm">
+                          <ExternalLink className="w-3 h-3 mr-2" /> Pagar
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </details>
+
+                {/* Comparação de Métodos */}
+                <div className="bg-blue-500/10 border border-blue-400/30 rounded-lg p-3 text-xs">
+                  <div className="font-semibold text-blue-200 mb-2 flex items-center gap-2">
+                    <Shield className="w-4 h-4" />
+                    Por que escolher assinatura automática?
+                  </div>
+                  <div className="space-y-1 text-blue-100">
+                    <p>• <strong>Nunca esqueça:</strong> Seu cardápio fica sempre ativo</p>
+                    <p>• <strong>Economia de tempo:</strong> Não precisa pagar manualmente</p>
+                    <p>• <strong>Cancele quando quiser:</strong> Sem multas ou burocracia</p>
+                    <p>• <strong>90% dos clientes preferem</strong> renovação automática</p>
+                  </div>
                 </div>
               </div>
             </CardContent>
