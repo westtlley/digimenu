@@ -1,18 +1,10 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Check, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Link, useNavigate } from 'react-router-dom';
-import { confetti } from '@/utils/confetti';
 
 export default function PagamentoSucesso() {
   const navigate = useNavigate();
-
-  useEffect(() => {
-    // Animação de confetti
-    if (typeof confetti === 'function') {
-      confetti();
-    }
-  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 flex items-center justify-center p-4">
