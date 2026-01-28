@@ -31,7 +31,8 @@ import * as repo from './db/repository.js';
 import { requirePermission, requireAccess, requireMaster } from './middlewares/permissions.js';
 import { PLANS, getPlanInfo } from './utils/plans.js';
 import { logger } from './utils/logger.js';
-import { validateJWTSecret, sanitizeForLog } from './middlewares/security.js';
+import { validateJWTSecret, sanitizeForLog, setupHelmet, sanitizeMiddleware } from './middlewares/security.js';
+import { storeToken, getToken, deleteToken } from './utils/tokenStorage.js';
 import { loginLimiter, apiLimiter, createLimiter } from './middlewares/rateLimit.js';
 import { validate, schemas } from './middlewares/validation.js';
 import { errorHandler, asyncHandler } from './middlewares/errorHandler.js';
@@ -57,6 +58,9 @@ const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 // =======================
 // 🧱 MIDDLEWARES
 // =======================
+// ✅ SEGURANÇA: Helmet para headers de segurança
+setupHelmet(app);
+
 // ✅ COMPRESSÃO DE RESPOSTAS (reduz tamanho em ~70%)
 app.use(compressionMiddleware);
 
@@ -66,6 +70,12 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// ✅ SANITIZAÇÃO DE DADOS (proteção XSS)
+app.use(sanitizeMiddleware);
+
+// ✅ LOGGING DE REQUISIÇÕES
+app.use(requestLogger);
 
 // ✅ RATE LIMITING (aplicar após rotas públicas)
 app.use('/api', apiLimiter);
@@ -142,12 +152,9 @@ if (!usePostgreSQL) {
   })();
 }
 
+// Tokens agora são gerenciados pelo tokenStorage (Redis ou banco)
+// Mantido para compatibilidade durante migração
 const activeTokens = {};
-
-// =======================
-// 🔐 PASSWORD TOKEN HELPERS
-// =======================
-// Armazenar tokens de senha (em produção, usar Redis ou banco)
 const passwordTokens = {};
 
 // Função para gerar token de senha para assinante

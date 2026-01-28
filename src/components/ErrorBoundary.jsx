@@ -1,5 +1,7 @@
 import React from 'react';
+import { AlertCircle, RefreshCw, Home } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -12,61 +14,80 @@ class ErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    console.error('❌ [ErrorBoundary] Erro capturado:', error);
-    console.error('❌ [ErrorBoundary] Stack trace:', errorInfo.componentStack);
     this.setState({
       error,
       errorInfo
     });
+    
+    // Enviar erro para monitoramento (Sentry, etc.)
+    if (window.Sentry) {
+      window.Sentry.captureException(error, {
+        contexts: {
+          react: {
+            componentStack: errorInfo.componentStack
+          }
+        }
+      });
+    }
+    
+    console.error('ErrorBoundary capturou um erro:', error, errorInfo);
   }
+
+  handleReset = () => {
+    this.setState({ hasError: false, error: null, errorInfo: null });
+    window.location.reload();
+  };
 
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen flex items-center justify-center p-4 bg-gray-50 dark:bg-gray-900">
-          <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 border border-red-200 dark:border-red-800">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-2xl">⚠️</span>
+        <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
+          <Card className="max-w-2xl w-full">
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <AlertCircle className="w-8 h-8 text-red-500" />
+                <CardTitle>Ops! Algo deu errado</CardTitle>
               </div>
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
-                Algo deu errado
-              </h2>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                Ocorreu um erro ao renderizar esta página. Por favor, recarregue a página ou entre em contato com o suporte.
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-gray-600 dark:text-gray-400">
+                Ocorreu um erro inesperado. Nossa equipe foi notificada e está trabalhando para resolver o problema.
               </p>
+              
               {process.env.NODE_ENV === 'development' && this.state.error && (
-                <details className="text-left mb-4">
-                  <summary className="cursor-pointer text-sm text-gray-500 dark:text-gray-400 mb-2">
-                    Detalhes do erro (desenvolvimento)
-                  </summary>
-                  <pre className="text-xs bg-gray-100 dark:bg-gray-900 p-2 rounded overflow-auto max-h-40">
+                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                  <p className="font-mono text-sm text-red-800 dark:text-red-200">
                     {this.state.error.toString()}
-                    {this.state.errorInfo?.componentStack}
-                  </pre>
-                </details>
+                  </p>
+                  {this.state.errorInfo && (
+                    <details className="mt-2">
+                      <summary className="cursor-pointer text-sm text-red-600 dark:text-red-400">
+                        Detalhes técnicos
+                      </summary>
+                      <pre className="mt-2 text-xs overflow-auto max-h-64">
+                        {this.state.errorInfo.componentStack}
+                      </pre>
+                    </details>
+                  )}
+                </div>
               )}
-              <div className="flex gap-2 justify-center">
-                <Button
-                  onClick={() => {
-                    this.setState({ hasError: false, error: null, errorInfo: null });
-                    window.location.reload();
-                  }}
-                  className="bg-orange-500 hover:bg-orange-600"
-                >
+              
+              <div className="flex gap-3">
+                <Button onClick={this.handleReset} className="flex-1">
+                  <RefreshCw className="w-4 h-4 mr-2" />
                   Recarregar Página
                 </Button>
-                <Button
-                  onClick={() => {
-                    this.setState({ hasError: false, error: null, errorInfo: null });
-                  }}
-                  variant="outline"
+                <Button 
+                  variant="outline" 
+                  onClick={() => window.location.href = '/'}
+                  className="flex-1"
                 >
-                  Tentar Novamente
+                  <Home className="w-4 h-4 mr-2" />
+                  Ir para Início
                 </Button>
               </div>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
         </div>
       );
     }

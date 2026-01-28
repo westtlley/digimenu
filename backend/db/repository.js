@@ -640,6 +640,76 @@ export async function createSubscriber(subscriberData) {
   }
 }
 
+// =======================
+// TOKEN STORAGE
+// =======================
+
+/**
+ * Armazenar token no banco de dados
+ */
+export async function storeToken(key, value, ttlSeconds = null) {
+  const expiresAt = ttlSeconds 
+    ? new Date(Date.now() + ttlSeconds * 1000)
+    : null;
+  
+  const sql = `
+    INSERT INTO tokens (key, value, expires_at)
+    VALUES ($1, $2, $3)
+    ON CONFLICT (key) 
+    DO UPDATE SET 
+      value = $2,
+      expires_at = $3,
+      updated_at = CURRENT_TIMESTAMP
+    RETURNING id, key, expires_at, created_at
+  `;
+  
+  const result = await query(sql, [key, JSON.stringify(value), expiresAt]);
+  return result.rows[0];
+}
+
+/**
+ * Recuperar token do banco de dados
+ */
+export async function getToken(key) {
+  const sql = `
+    SELECT key, value, expires_at, created_at
+    FROM tokens
+    WHERE key = $1
+      AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
+  `;
+  
+  const result = await query(sql, [key]);
+  
+  if (result.rows.length === 0) {
+    return null;
+  }
+  
+  const row = result.rows[0];
+  return {
+    ...JSON.parse(row.value),
+    expires_at: row.expires_at,
+    created_at: row.created_at
+  };
+}
+
+/**
+ * Deletar token do banco de dados
+ */
+export async function deleteToken(key) {
+  const sql = `DELETE FROM tokens WHERE key = $1 RETURNING id`;
+  const result = await query(sql, [key]);
+  return result.rows.length > 0;
+}
+
+/**
+ * Limpar tokens expirados
+ */
+export async function cleanupExpiredTokens() {
+  const sql = `DELETE FROM tokens WHERE expires_at IS NOT NULL AND expires_at < CURRENT_TIMESTAMP`;
+  const result = await query(sql);
+  return result.rowCount;
+}
+
 export async function updateSubscriber(emailOrId, subscriberData) {
   const updates = [];
   const values = [];

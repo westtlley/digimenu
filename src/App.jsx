@@ -4,6 +4,7 @@ import Pages from "@/pages/index.jsx"
 import { Toaster } from "@/components/ui/toaster"
 import { Toaster as HotToaster } from "react-hot-toast"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import ErrorBoundary from '@/components/ErrorBoundary'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -23,11 +24,13 @@ const queryClient = new QueryClient({
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <Pages />
-      <Toaster />
-      <HotToaster position="top-center" />
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <Pages />
+        <Toaster />
+        <HotToaster position="top-center" />
+      </QueryClientProvider>
+    </ErrorBoundary>
   )
 }
 

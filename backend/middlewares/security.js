@@ -1,68 +1,136 @@
 /**
- * Middleware de Segurança
- * Validações críticas de segurança do sistema
+ * Middlewares de segurança adicionais
+ * Helmet.js, CSRF protection, etc.
  */
 
+import helmet from 'helmet';
+import { sanitizeMiddleware } from '../utils/sanitize.js';
+
 /**
- * Valida se JWT_SECRET está configurado corretamente
+ * Configurar Helmet para headers de segurança
+ */
+export function setupHelmet(app) {
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com"],
+        imgSrc: ["'self'", "data:", "https:", "http:"],
+        scriptSrc: ["'self'"],
+        connectSrc: ["'self'"],
+      },
+    },
+    crossOriginEmbedderPolicy: false, // Permitir Cloudinary e outros
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  }));
+}
+
+/**
+ * Validar JWT_SECRET
  */
 export function validateJWTSecret() {
-  const JWT_SECRET = process.env.JWT_SECRET;
+  const secret = process.env.JWT_SECRET;
   
-  if (!JWT_SECRET) {
-    console.error('❌ ERRO CRÍTICO: JWT_SECRET não configurado!');
+  if (!secret) {
     if (process.env.NODE_ENV === 'production') {
-      console.error('🚨 Sistema não pode iniciar sem JWT_SECRET em produção!');
-      process.exit(1);
+      throw new Error('JWT_SECRET é obrigatório em produção!');
     }
-    console.warn('⚠️ Usando JWT_SECRET padrão (APENAS DESENVOLVIMENTO)');
-    return 'dev-secret';
+    console.warn('⚠️ JWT_SECRET não configurado, usando padrão (NÃO USE EM PRODUÇÃO)');
+    return 'default-secret-change-in-production';
   }
   
-  if (JWT_SECRET === 'dev-secret' && process.env.NODE_ENV === 'production') {
-    console.error('❌ ERRO CRÍTICO: JWT_SECRET padrão em produção!');
-    console.error('🚨 Configure uma chave segura em produção!');
-    process.exit(1);
+  if (secret.length < 32) {
+    console.warn('⚠️ JWT_SECRET muito curto, recomendado mínimo 32 caracteres');
   }
   
-  if (JWT_SECRET.length < 32) {
-    console.warn('⚠️ JWT_SECRET muito curto. Recomendado: mínimo 32 caracteres');
-  }
-  
-  return JWT_SECRET;
+  return secret;
 }
 
 /**
- * Middleware para validar autenticação obrigatória em produção
- */
-export function enforceAuth(req, res, next) {
-  // Em produção, sempre exigir token
-  if (process.env.NODE_ENV === 'production' && !req.headers.authorization) {
-    return res.status(401).json({ 
-      error: 'Token de autenticação obrigatório',
-      code: 'AUTH_REQUIRED'
-    });
-  }
-  next();
-}
-
-/**
- * Sanitiza dados sensíveis para logs
+ * Sanitizar dados para logs (remover informações sensíveis)
  */
 export function sanitizeForLog(data) {
-  if (!data || typeof data !== 'object') return data;
+  if (!data || typeof data !== 'object') {
+    return data;
+  }
   
-  const sensitive = ['password', 'token', 'secret', 'authorization', 'jwt'];
+  const sensitive = ['password', 'token', 'secret', 'key', 'authorization', 'cookie'];
   const sanitized = { ...data };
   
-  for (const key in sanitized) {
+  for (const key of Object.keys(sanitized)) {
     const lowerKey = key.toLowerCase();
     if (sensitive.some(s => lowerKey.includes(s))) {
       sanitized[key] = '***REDACTED***';
-    } else if (typeof sanitized[key] === 'object') {
+    } else if (typeof sanitized[key] === 'object' && sanitized[key] !== null) {
       sanitized[key] = sanitizeForLog(sanitized[key]);
     }
   }
   
   return sanitized;
 }
+
+/**
+ * Rate limiting por IP (complementar ao express-rate-limit)
+ */
+export function createIPRateLimit(windowMs, max) {
+  const requests = new Map();
+  
+  setInterval(() => {
+    requests.clear();
+  }, windowMs);
+  
+  return (req, res, next) => {
+    const ip = req.ip || req.connection.remoteAddress;
+    const now = Date.now();
+    
+    if (!requests.has(ip)) {
+      requests.set(ip, { count: 1, resetAt: now + windowMs });
+      return next();
+    }
+    
+    const record = requests.get(ip);
+    
+    if (now > record.resetAt) {
+      record.count = 1;
+      record.resetAt = now + windowMs;
+      return next();
+    }
+    
+    if (record.count >= max) {
+      return res.status(429).json({
+        error: 'Muitas requisições. Tente novamente mais tarde.',
+        retryAfter: Math.ceil((record.resetAt - now) / 1000)
+      });
+    }
+    
+    record.count++;
+    next();
+  };
+}
+
+/**
+ * Validar origem da requisição
+ */
+export function validateOrigin(req, res, next) {
+  const allowedOrigins = process.env.CORS_ORIGINS 
+    ? process.env.CORS_ORIGINS.split(',').map(s => s.trim())
+    : [process.env.FRONTEND_URL || 'http://localhost:5173'];
+  
+  const origin = req.headers.origin;
+  
+  if (origin && !allowedOrigins.includes(origin)) {
+    return res.status(403).json({ error: 'Origem não permitida' });
+  }
+  
+  next();
+}
+
+export default {
+  setupHelmet,
+  validateJWTSecret,
+  sanitizeForLog,
+  createIPRateLimit,
+  validateOrigin,
+  sanitizeMiddleware
+};
