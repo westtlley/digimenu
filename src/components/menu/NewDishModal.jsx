@@ -148,11 +148,11 @@ export default function NewDishModal({
                   <span className="text-gray-400 text-xs">Sem imagem</span>
                 </div>
               )}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
               <div className="absolute bottom-0 left-0 right-0 p-3">
-                <h2 className="text-white text-lg font-bold mb-0.5">{dish.name}</h2>
+                <h2 className="text-white text-lg font-bold mb-0.5 drop-shadow-lg">{dish.name}</h2>
                 {dish.description && (
-                  <p className="text-gray-200 text-xs line-clamp-1">{dish.description}</p>
+                  <p className="text-gray-100 text-xs line-clamp-1 drop-shadow-md">{dish.description}</p>
                 )}
               </div>
               {/* Botão X fixo no mobile com melhor contraste e área de toque maior */}
@@ -177,11 +177,11 @@ export default function NewDishModal({
                   <span className="text-gray-400">Sem imagem</span>
                 </div>
               )}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
               <div className="absolute bottom-0 left-0 right-0 p-6">
-                <h2 className="text-white text-2xl font-bold mb-1">{dish.name}</h2>
+                <h2 className="text-white text-2xl font-bold mb-1 drop-shadow-lg">{dish.name}</h2>
                 {dish.description && (
-                  <p className="text-gray-200 text-sm">{dish.description}</p>
+                  <p className="text-gray-100 text-sm drop-shadow-md">{dish.description}</p>
                 )}
               </div>
             </div>
@@ -292,11 +292,11 @@ export default function NewDishModal({
               <motion.div 
                 initial={{ y: 20 }}
                 animate={{ y: 0 }}
-                className="border-t p-3 flex-shrink-0 bg-white/95 dark:bg-gray-900/95 border-gray-200 dark:border-gray-800 backdrop-blur-xl"
+                className="border-t p-3 flex-shrink-0 bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 shadow-lg"
               >
                 <div className="flex items-center justify-between mb-2">
-                  <span className="font-medium text-sm text-gray-600 dark:text-gray-400">Total</span>
-                  <span className="text-xl md:text-2xl font-bold" style={{ color: primaryColor }}>
+                  <span className="font-medium text-sm text-gray-700 dark:text-gray-300">Total</span>
+                  <span className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white" style={{ color: primaryColor }}>
                     {formatCurrency(currentTotal)}
                   </span>
                 </div>

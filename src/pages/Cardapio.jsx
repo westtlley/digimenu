@@ -1289,17 +1289,29 @@ export default function Cardapio() {
 
           {/* Copyright */}
           <div className="border-t border-gray-200 dark:border-gray-800 mt-8 pt-6 text-center space-y-3">
-            <Link 
-              to="/rastrear-pedido"
-              className="inline-flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-all shadow-md hover:shadow-lg font-medium"
-            >
-              <Package className="w-4 h-4" />
-              Rastrear Meu Pedido
-            </Link>
-            <p className="text-xs text-gray-500 dark:text-gray-500">
+            <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
+              {isAuthenticated && (
+                <button
+                  onClick={() => setShowOrderHistory(true)}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg transition-all shadow-md hover:shadow-lg font-medium"
+                  style={{ background: `linear-gradient(135deg, ${primaryColor}, #ef4444)` }}
+                >
+                  <Receipt className="w-4 h-4" />
+                  Meus Pedidos
+                </button>
+              )}
+              <Link 
+                to="/rastrear-pedido"
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-all shadow-md hover:shadow-lg font-medium"
+              >
+                <Package className="w-4 h-4" />
+                Rastrear Pedido
+              </Link>
+            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
               © {new Date().getFullYear()} {store.name}. Todos os direitos reservados.
             </p>
-            <p className="text-xs text-gray-400 dark:text-gray-600">
+            <p className="text-xs text-gray-400 dark:text-gray-500">
               Powered by <span className="font-semibold" style={{ color: primaryColor }}>DigiMenu</span>
             </p>
           </div>
