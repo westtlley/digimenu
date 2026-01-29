@@ -80,9 +80,10 @@ export default function PermissionsEditor({ permissions, onChange, selectedPlan 
         if (activePlans.length === 0) {
           console.log('⚠️ Nenhum plano cadastrado, usando planos padrão');
           return [
+            { id: 'free', slug: 'free', name: 'Gratuito', description: 'Plano gratuito para uso pessoal', is_active: true, order: 0 },
             { id: 'basic', slug: 'basic', name: 'Básico', description: 'Plano básico com funcionalidades essenciais', is_active: true, order: 1 },
-            { id: 'pro', slug: 'pro', name: 'Profissional', description: 'Plano profissional com recursos avançados', is_active: true, order: 2 },
-            { id: 'premium', slug: 'premium', name: 'Premium', description: 'Plano premium com todos os recursos', is_active: true, order: 3 }
+            { id: 'pro', slug: 'pro', name: 'Pro', description: 'Plano profissional com recursos avançados', is_active: true, order: 2 },
+            { id: 'ultra', slug: 'ultra', name: 'Ultra', description: 'Plano ultra com todos os recursos', is_active: true, order: 3 }
           ];
         }
         
@@ -91,9 +92,10 @@ export default function PermissionsEditor({ permissions, onChange, selectedPlan 
         console.error('❌ Erro ao carregar planos:', error);
         // Retornar planos padrão em caso de erro
         return [
+          { id: 'free', slug: 'free', name: 'Gratuito', description: 'Plano gratuito para uso pessoal', is_active: true, order: 0 },
           { id: 'basic', slug: 'basic', name: 'Básico', description: 'Plano básico com funcionalidades essenciais', is_active: true, order: 1 },
-          { id: 'pro', slug: 'pro', name: 'Profissional', description: 'Plano profissional com recursos avançados', is_active: true, order: 2 },
-          { id: 'premium', slug: 'premium', name: 'Premium', description: 'Plano premium com todos os recursos', is_active: true, order: 3 }
+          { id: 'pro', slug: 'pro', name: 'Pro', description: 'Plano profissional com recursos avançados', is_active: true, order: 2 },
+          { id: 'ultra', slug: 'ultra', name: 'Ultra', description: 'Plano ultra com todos os recursos', is_active: true, order: 3 }
         ];
       }
     }
