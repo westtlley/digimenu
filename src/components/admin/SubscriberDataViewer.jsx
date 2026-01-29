@@ -15,9 +15,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import CategoryForm from './CategoryForm';
 import ReorderModal from './ReorderModal';
 import ComboModal from './ComboModal';
+import ImportBackupModal from './ImportBackupModal';
 import { 
   ArrowLeft, Package, ShoppingCart, DollarSign, Store, 
-  Loader2, Download, Plus, Pencil, Trash2, Clock, GripVertical, Gift
+  Loader2, Download, Upload, Plus, Pencil, Trash2, Clock, GripVertical, Gift
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -27,6 +28,7 @@ export default function SubscriberDataViewer({ subscriber, onBack }) {
   const [editingCategory, setEditingCategory] = useState(null);
   const [dishFormOpen, setDishFormOpen] = useState(false);
   const [editingDish, setEditingDish] = useState(null);
+  const [importModalOpen, setImportModalOpen] = useState(false);
   const [dishForm, setDishForm] = useState({
     name: '', category_id: '', price: '', original_price: '', description: '', is_active: true,
     complement_groups: [], stock: '', portion: '', is_highlight: false, is_new: false, is_popular: false,
@@ -363,7 +365,11 @@ export default function SubscriberDataViewer({ subscriber, onBack }) {
         <div className="flex items-center gap-2">
           <Button variant="outline" onClick={exportBackup}>
             <Download className="w-4 h-4 mr-2" />
-            Fazer Backup
+            Exportar Backup
+          </Button>
+          <Button variant="outline" onClick={() => setImportModalOpen(true)}>
+            <Upload className="w-4 h-4 mr-2" />
+            Importar Backup
           </Button>
           <Badge className={
             subscriber.status === 'active' ? 'bg-green-500' : 
@@ -997,6 +1003,16 @@ export default function SubscriberDataViewer({ subscriber, onBack }) {
         onSubmit={handleComboSubmit}
         combo={editingCombo}
         dishes={data.dishes || []}
+      />
+
+      {/* Import Backup Modal */}
+      <ImportBackupModal
+        open={importModalOpen}
+        onOpenChange={setImportModalOpen}
+        onSuccess={(results) => {
+          toast.success('Backup importado com sucesso!');
+          queryClient.invalidateQueries({ queryKey: ['profile', subscriber.slug] });
+        }}
       />
     </div>
   );

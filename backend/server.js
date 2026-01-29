@@ -39,6 +39,7 @@ import { analyticsMiddleware } from './utils/analytics.js';
 import { initializeCronJobs } from './utils/cronJobs.js';
 import analyticsRoutes from './routes/analytics.routes.js';
 import backupRoutes from './routes/backup.routes.js';
+import subscriberBackupRoutes from './routes/subscriberBackup.routes.js';
 import mercadopagoRoutes from './routes/mercadopago.routes.js';
 import metricsRoutes from './routes/metrics.routes.js';
 import { loginLimiter, apiLimiter, createLimiter } from './middlewares/rateLimit.js';
@@ -2330,6 +2331,7 @@ app.get('/api/health', asyncHandler(async (req, res) => {
 // =======================
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/backup', backupRoutes);
+app.use('/api/subscriber-backup', subscriberBackupRoutes);
 app.use('/api/mercadopago', mercadopagoRoutes);
 app.use('/api/metrics', metricsRoutes);
 
