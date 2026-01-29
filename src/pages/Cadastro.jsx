@@ -15,6 +15,7 @@ const PLAN_INFO = {
 export default function Cadastro() {
   const [searchParams] = useSearchParams();
   const planKey = searchParams.get('plan') || 'free';
+  const interval = searchParams.get('interval') || 'monthly';
   const plan = PLAN_INFO[planKey] || PLAN_INFO.free;
   
   const [showPassword, setShowPassword] = useState(false);
@@ -84,7 +85,7 @@ export default function Cadastro() {
             email: formData.email, 
             name: formData.fullName,
             plan: planKey,
-            interval: 'monthly'
+            interval: interval
           })
         });
         
