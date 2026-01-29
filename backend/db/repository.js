@@ -729,7 +729,8 @@ export async function updateSubscriber(emailOrId, subscriberData) {
   }
   if (subscriberData.expires_at !== undefined) {
     updates.push(`expires_at = $${paramIndex++}`);
-    values.push(subscriberData.expires_at);
+    // Converter string vazia para null (PostgreSQL não aceita "" para timestamp)
+    values.push(subscriberData.expires_at === '' || subscriberData.expires_at === null ? null : subscriberData.expires_at);
   }
   if (subscriberData.permissions !== undefined) {
     updates.push(`permissions = $${paramIndex++}`);
@@ -758,7 +759,8 @@ export async function updateSubscriber(emailOrId, subscriberData) {
   }
   if (subscriberData.token_expires_at !== undefined) {
     updates.push(`token_expires_at = $${paramIndex++}`);
-    values.push(subscriberData.token_expires_at);
+    // Converter string vazia para null (PostgreSQL não aceita "" para timestamp)
+    values.push(subscriberData.token_expires_at === '' || subscriberData.token_expires_at === null ? null : subscriberData.token_expires_at);
   }
   if (subscriberData.has_password !== undefined) {
     updates.push(`has_password = $${paramIndex++}`);
