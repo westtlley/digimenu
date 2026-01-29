@@ -437,15 +437,26 @@ async function processPayment(paymentId) {
       // Criar novo assinante
       logger.log('📝 Criando novo assinante:', subscriber_email);
       
-      const expiresAt = interval === 'monthly' 
-        ? addMonths(new Date(), 1)
-        : addMonths(new Date(), 12);
+      // Importar getPlanPermissions e TRIAL_DAYS
+      const plansModule = await import('../utils/plans.js');
+      
+      // Calcular data de expiração considerando trial
+      const trialDays = plansModule.TRIAL_DAYS[plan] || 0;
+      let expiresAt = new Date();
+      
+      if (trialDays > 0) {
+        // Adicionar trial primeiro
+        expiresAt = addDays(expiresAt, trialDays);
+        logger.log(`✨ Trial de ${trialDays} dias aplicado. Expira em: ${expiresAt.toISOString()}`);
+      }
+      
+      // Depois adicionar o período pago (após o trial)
+      expiresAt = interval === 'monthly' 
+        ? addMonths(expiresAt, 1)
+        : addMonths(expiresAt, 12);
       
       // Gerar slug único
       const slug = generateSlug(subscriber_email);
-      
-      // Importar getPlanPermissions
-      const plansModule = await import('../utils/plans.js');
       
       subscriber = await repoModule.createSubscriber({
         email: subscriber_email,
@@ -669,12 +680,23 @@ async function processSubscription(subscriptionId) {
       // Criar novo assinante com assinatura recorrente
       logger.log('📝 Criando novo assinante com assinatura recorrente:', subscriber_email);
       
-      const expiresAt = interval === 'monthly' 
-        ? addMonths(new Date(), 1)
-        : addMonths(new Date(), 12);
-      
       const slug = generateSlug(subscriber_email);
       const plansModule = await import('../utils/plans.js');
+      
+      // Calcular data de expiração considerando trial
+      const trialDays = plansModule.TRIAL_DAYS[plan] || 0;
+      let expiresAt = new Date();
+      
+      if (trialDays > 0) {
+        // Adicionar trial primeiro
+        expiresAt = addDays(expiresAt, trialDays);
+        logger.log(`✨ Trial de ${trialDays} dias aplicado. Expira em: ${expiresAt.toISOString()}`);
+      }
+      
+      // Depois adicionar o período pago (após o trial)
+      expiresAt = interval === 'monthly' 
+        ? addMonths(expiresAt, 1)
+        : addMonths(expiresAt, 12);
       
       subscriber = await repoModule.createSubscriber({
         email: subscriber_email,
