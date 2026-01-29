@@ -1,390 +1,285 @@
-import React, { useState } from 'react';
-import { base44 } from '@/api/base44Client';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams, Link } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Check, Eye, EyeOff } from 'lucide-react';
-import UserAuthButton from '../components/atoms/UserAuthButton';
+import { Eye, EyeOff, ArrowLeft, Loader2, Check, Sparkles } from 'lucide-react';
+
+const PLAN_INFO = {
+  free: { name: 'Gratuito', color: 'green', price: 'R$ 0/mês', trial: '' },
+  basic: { name: 'Básico', color: 'blue', price: 'R$ 39,90/mês', trial: '10 dias grátis' },
+  pro: { name: 'Pro', color: 'orange', price: 'R$ 79,90/mês', trial: '7 dias grátis' },
+  ultra: { name: 'Ultra', color: 'purple', price: 'R$ 149,90/mês', trial: '7 dias grátis' },
+};
 
 export default function Cadastro() {
-  const [step, setStep] = useState(1);
+  const [searchParams] = useSearchParams();
+  const planKey = searchParams.get('plan') || 'free';
+  const plan = PLAN_INFO[planKey] || PLAN_INFO.free;
+  
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [formData, setFormData] = useState({
-    // Step 1 - Negócio
-    cep: '',
-    address: '',
-    neighborhood: '',
-    city: '',
-    state: '',
-    number: '',
-    complement: '',
-    
-    // Step 2 - Você
     fullName: '',
-    storeName: '',
-    whatsapp: '',
     email: '',
     password: '',
-    
-    // Step 3 - Finalização
-    segment: '',
-    monthlyRevenue: '',
-    employees: '',
-    howKnew: '',
-    referralCode: ''
+    storeName: '',
+    whatsapp: '',
   });
 
   const handleChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    setError('');
   };
 
-  const handleNext = () => {
-    if (step === 1) {
-      if (!formData.cep) {
-        setError('CEP é obrigatório');
-        return;
-      }
-    } else if (step === 2) {
-      if (!formData.fullName || !formData.email || !formData.password) {
-        setError('Preencha todos os campos obrigatórios');
-        return;
-      }
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    // Validações
+    if (!formData.fullName || formData.fullName.trim().length < 3) {
+      setError('Nome completo é obrigatório (mínimo 3 caracteres)');
+      return;
     }
+    
+    if (!formData.email || !formData.email.includes('@')) {
+      setError('Email válido é obrigatório');
+      return;
+    }
+    
+    if (!formData.password || formData.password.length < 6) {
+      setError('Senha deve ter no mínimo 6 caracteres');
+      return;
+    }
+    
+    setLoading(true);
     setError('');
-    setStep(step + 1);
-  };
-
-  const handleBack = () => {
-    setError('');
-    setStep(step - 1);
-  };
-
-  const handleSubmit = async () => {
+    
     try {
-      // Criar conta e fazer cadastro
-      // Por enquanto só redireciona
-      alert('Cadastro concluído! Redirecionando para o painel...');
-      window.location.href = '/';
-    } catch (e) {
-      setError('Erro ao criar conta: ' + e.message);
+      // Se for plano FREE, criar direto
+      if (planKey === 'free') {
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}/api/mercadopago/create-free-subscriber`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            email: formData.email, 
+            name: formData.fullName 
+          })
+        });
+        
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || 'Erro ao criar conta gratuita');
+        }
+        
+        // Redirecionar para login
+        alert('✅ Conta gratuita criada com sucesso!\n\nFaça login para acessar seu painel.');
+        window.location.href = '/login/cliente';
+      } else {
+        // Para planos pagos, criar assinatura no Mercado Pago
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}/api/mercadopago/create-subscription`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            email: formData.email, 
+            name: formData.fullName,
+            plan: planKey,
+            interval: 'monthly'
+          })
+        });
+        
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || 'Erro ao criar assinatura');
+        }
+        
+        const data = await response.json();
+        
+        if (data.init_point) {
+          // Redirecionar para checkout do Mercado Pago
+          window.location.href = data.init_point;
+        } else {
+          throw new Error('Link de pagamento não recebido');
+        }
+      }
+    } catch (err) {
+      setError(err.message || 'Erro ao processar cadastro. Tente novamente.');
+      setLoading(false);
     }
   };
-
-  const renderStepIndicator = () => (
-    <div className="flex items-center justify-center gap-4 mb-8">
-      <div className="flex items-center">
-        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
-          step >= 1 ? 'bg-red-500 text-white' : 'bg-gray-200 text-gray-500'
-        }`}>
-          {step > 1 ? <Check className="w-5 h-5" /> : '1'}
-        </div>
-        <span className="ml-2 text-sm font-medium hidden sm:inline">
-          {step === 1 ? 'Conte-nos sobre o seu Negócio' : ''}
-        </span>
-      </div>
-
-      <div className="w-16 h-0.5 bg-gray-300" />
-
-      <div className="flex items-center">
-        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
-          step >= 2 ? 'bg-red-500 text-white' : 'bg-gray-200 text-gray-500'
-        }`}>
-          {step > 2 ? <Check className="w-5 h-5" /> : '2'}
-        </div>
-        <span className="ml-2 text-sm font-medium hidden sm:inline">
-          {step === 2 ? 'Conte-nos sobre você' : ''}
-        </span>
-      </div>
-
-      <div className="w-16 h-0.5 bg-gray-300" />
-
-      <div className="flex items-center">
-        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
-          step >= 3 ? 'bg-red-500 text-white' : 'bg-gray-200 text-gray-500'
-        }`}>
-          {step > 3 ? <Check className="w-5 h-5" /> : '3'}
-        </div>
-        <span className="ml-2 text-sm font-medium hidden sm:inline">
-          {step === 3 ? 'Finalizando seu cadastro inicial' : ''}
-        </span>
-      </div>
-    </div>
-  );
 
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-2xl">
-        {/* Logo */}
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-amber-50/40 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md border border-gray-100">
+        
+        {/* Header */}
         <div className="text-center mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-16 h-16 bg-orange-500 rounded-xl mx-auto flex items-center justify-center text-2xl">
-              🍽️
-            </div>
+          <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl mx-auto flex items-center justify-center text-3xl shadow-lg mb-4">
+            🍽️
           </div>
-          <h1 className="text-2xl font-bold mb-2">BeeFood</h1>
-          <div className="flex justify-center">
-            <UserAuthButton />
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">DigiMenu</h1>
+          <p className="text-gray-600">Crie sua conta e comece agora</p>
+        </div>
+
+        {/* Plano Selecionado */}
+        <div className={`mb-6 p-4 rounded-xl border-2 ${
+          plan.color === 'green' ? 'bg-green-50 border-green-200' :
+          plan.color === 'blue' ? 'bg-blue-50 border-blue-200' :
+          plan.color === 'orange' ? 'bg-orange-50 border-orange-200' :
+          'bg-purple-50 border-purple-200'
+        }`}>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600">Plano selecionado:</p>
+              <p className="text-xl font-bold text-gray-900">{plan.name}</p>
+              {plan.trial && (
+                <p className="text-sm text-green-600 font-semibold mt-1">✨ {plan.trial}</p>
+              )}
+            </div>
+            <div className="text-right">
+              <p className="text-2xl font-bold text-gray-900">{plan.price}</p>
+            </div>
           </div>
         </div>
 
-        {renderStepIndicator()}
+        {/* Formulário */}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {error && (
+            <div className="bg-red-50 border-l-4 border-red-500 text-red-700 p-3 rounded text-sm">
+              {error}
+            </div>
+          )}
 
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
-            {error}
+          <div>
+            <Label htmlFor="fullName">Nome Completo *</Label>
+            <Input
+              id="fullName"
+              placeholder="Seu nome completo"
+              value={formData.fullName}
+              onChange={(e) => handleChange('fullName', e.target.value)}
+              required
+              disabled={loading}
+            />
           </div>
-        )}
 
-        {/* Step 1 - Negócio */}
-        {step === 1 && (
-          <div className="space-y-4">
-            <h2 className="text-xl font-bold text-center mb-6">Conte-nos sobre o seu Negócio</h2>
-            
-            <div>
-              <Label>CEP</Label>
+          <div>
+            <Label htmlFor="email">Email *</Label>
+            <Input
+              id="email"
+              type="email"
+              placeholder="seuemail@exemplo.com"
+              value={formData.email}
+              onChange={(e) => handleChange('email', e.target.value)}
+              required
+              disabled={loading}
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="password">Senha *</Label>
+            <div className="relative">
               <Input
-                placeholder="00000-000"
-                value={formData.cep}
-                onChange={(e) => handleChange('cep', e.target.value)}
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                placeholder="Mínimo 6 caracteres"
+                value={formData.password}
+                onChange={(e) => handleChange('password', e.target.value)}
+                required
+                disabled={loading}
               />
-            </div>
-
-            <div>
-              <Label>Endereço (Obrigatório)</Label>
-              <Input
-                placeholder="Digite o endereço"
-                value={formData.address}
-                onChange={(e) => handleChange('address', e.target.value)}
-              />
-            </div>
-
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <Label>Bairro (Obrigatório)</Label>
-                <Input
-                  placeholder="Digite o bairro"
-                  value={formData.neighborhood}
-                  onChange={(e) => handleChange('neighborhood', e.target.value)}
-                />
-              </div>
-              <div>
-                <Label>Cidade</Label>
-                <Input
-                  placeholder=""
-                  value={formData.city}
-                  onChange={(e) => handleChange('city', e.target.value)}
-                />
-              </div>
-              <div>
-                <Label>Estado</Label>
-                <Input
-                  placeholder=""
-                  value={formData.state}
-                  onChange={(e) => handleChange('state', e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Nº (Obrigatório)</Label>
-                <Input
-                  placeholder="Digite o Nº"
-                  value={formData.number}
-                  onChange={(e) => handleChange('number', e.target.value)}
-                />
-              </div>
-              <div>
-                <Label>Complemento</Label>
-                <Input
-                  placeholder="Digite o complemento"
-                  value={formData.complement}
-                  onChange={(e) => handleChange('complement', e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-4 pt-4">
-              <Button variant="outline" onClick={() => window.location.href = '/'} className="flex-1">
-                VOLTAR
-              </Button>
-              <Button onClick={handleNext} className="flex-1 bg-red-500 hover:bg-red-600">
-                PRÓXIMO
-              </Button>
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                disabled={loading}
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
             </div>
           </div>
-        )}
 
-        {/* Step 2 - Você */}
-        {step === 2 && (
-          <div className="space-y-4">
-            <h2 className="text-xl font-bold text-center mb-6">Conte-nos sobre você</h2>
-
-            <div>
-              <Label>Nome Completo (Obrigatório)</Label>
-              <Input
-                placeholder="Digite o seu nome completo"
-                value={formData.fullName}
-                onChange={(e) => handleChange('fullName', e.target.value)}
-              />
-            </div>
-
-            <div>
-              <Label>Nome do Estabelecimento (Obrigatório)</Label>
-              <Input
-                placeholder="Digite o nome do estabelecimento"
-                value={formData.storeName}
-                onChange={(e) => handleChange('storeName', e.target.value)}
-              />
-            </div>
-
-            <div>
-              <Label>WhatsApp (Obrigatório)</Label>
-              <div className="flex gap-2">
-                <Input className="w-20" placeholder="+55" disabled value="+55" />
+          {/* Campos opcionais */}
+          <details className="text-sm">
+            <summary className="cursor-pointer text-gray-600 hover:text-gray-900 font-medium">
+              + Informações adicionais (opcional)
+            </summary>
+            <div className="mt-4 space-y-4 pl-4">
+              <div>
+                <Label htmlFor="storeName">Nome do Restaurante</Label>
                 <Input
-                  placeholder="(86) 98819-6114"
+                  id="storeName"
+                  placeholder="Nome do seu negócio"
+                  value={formData.storeName}
+                  onChange={(e) => handleChange('storeName', e.target.value)}
+                  disabled={loading}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="whatsapp">WhatsApp</Label>
+                <Input
+                  id="whatsapp"
+                  placeholder="(00) 00000-0000"
                   value={formData.whatsapp}
                   onChange={(e) => handleChange('whatsapp', e.target.value)}
-                  className="flex-1"
+                  disabled={loading}
                 />
               </div>
             </div>
+          </details>
 
-            <div>
-              <Label>E-mail (Obrigatório)</Label>
-              <Input
-                type="email"
-                placeholder="seuemail@email.com"
-                value={formData.email}
-                onChange={(e) => handleChange('email', e.target.value)}
-              />
-            </div>
-
-            <div>
-              <Label>Senha (Obrigatório)</Label>
-              <div className="relative">
-                <Input
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="Digite a sua melhor senha"
-                  value={formData.password}
-                  onChange={(e) => handleChange('password', e.target.value)}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
-
-            <div className="flex gap-4 pt-4">
-              <Button variant="outline" onClick={handleBack} className="flex-1">
-                VOLTAR
-              </Button>
-              <Button onClick={handleNext} className="flex-1 bg-red-500 hover:bg-red-600">
-                PRÓXIMO
-              </Button>
-            </div>
+          {/* Botões */}
+          <div className="flex gap-3 pt-4">
+            <Button 
+              type="button"
+              variant="outline" 
+              onClick={() => window.location.href = '/assinar'}
+              disabled={loading}
+              className="flex-1"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Voltar
+            </Button>
+            <Button 
+              type="submit"
+              disabled={loading}
+              className="flex-1 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white shadow-lg"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Processando...
+                </>
+              ) : (
+                <>
+                  {planKey === 'free' ? 'Criar Conta Grátis' : 'Continuar para Pagamento'}
+                  <Sparkles className="w-4 h-4 ml-2" />
+                </>
+              )}
+            </Button>
           </div>
-        )}
 
-        {/* Step 3 - Finalização */}
-        {step === 3 && (
-          <div className="space-y-4">
-            <h2 className="text-xl font-bold text-center mb-6">Finalizando seu cadastro inicial</h2>
+          <p className="text-xs text-center text-gray-500 mt-4">
+            Ao criar uma conta, você concorda com nossos{' '}
+            <a href="/termos" className="text-orange-600 hover:underline">Termos de Serviço</a>
+            {' '}e{' '}
+            <a href="/privacidade" className="text-orange-600 hover:underline">Política de Privacidade</a>.
+          </p>
+        </form>
 
-            <div>
-              <Label>Qual seu segmento?</Label>
-              <select 
-                value={formData.segment}
-                onChange={(e) => handleChange('segment', e.target.value)}
-                className="w-full border rounded-lg px-3 py-2"
-              >
-                <option value="">Selecione o seu segmento</option>
-                <option value="Restaurante">Restaurante</option>
-                <option value="Lanchonete">Lanchonete</option>
-                <option value="Pizzaria">Pizzaria</option>
-                <option value="Hamburgueria">Hamburgueria</option>
-                <option value="Açaiteria">Açaiteria</option>
-                <option value="Outros">Outros</option>
-              </select>
-            </div>
+        {/* Link para Login */}
+        <div className="mt-6 pt-6 border-t text-center text-sm">
+          <p className="text-gray-600">
+            Já tem uma conta?{' '}
+            <Link to="/login/cliente" className="text-orange-600 hover:text-orange-700 font-semibold hover:underline">
+              Fazer login
+            </Link>
+          </p>
+        </div>
 
-            <div>
-              <Label>Qual seu faturamento mensal em média?</Label>
-              <select 
-                value={formData.monthlyRevenue}
-                onChange={(e) => handleChange('monthlyRevenue', e.target.value)}
-                className="w-full border rounded-lg px-3 py-2"
-              >
-                <option value="">Selecione o seu faturamento</option>
-                <option value="0-5k">Até R$ 5.000</option>
-                <option value="5k-10k">R$ 5.000 - R$ 10.000</option>
-                <option value="10k-20k">R$ 10.000 - R$ 20.000</option>
-                <option value="20k-50k">R$ 20.000 - R$ 50.000</option>
-                <option value="50k+">Acima de R$ 50.000</option>
-              </select>
-            </div>
-
-            <div>
-              <Label>Quantas pessoas trabalham com você?</Label>
-              <select 
-                value={formData.employees}
-                onChange={(e) => handleChange('employees', e.target.value)}
-                className="w-full border rounded-lg px-3 py-2"
-              >
-                <option value="">Selecione uma opção</option>
-                <option value="1">Apenas eu</option>
-                <option value="2-5">2 a 5 pessoas</option>
-                <option value="6-10">6 a 10 pessoas</option>
-                <option value="11-20">11 a 20 pessoas</option>
-                <option value="20+">Mais de 20 pessoas</option>
-              </select>
-            </div>
-
-            <div>
-              <Label>Como conheceu o BeeFood?</Label>
-              <select 
-                value={formData.howKnew}
-                onChange={(e) => handleChange('howKnew', e.target.value)}
-                className="w-full border rounded-lg px-3 py-2"
-              >
-                <option value="">Selecione como conheceu o BeeFood</option>
-                <option value="Google">Google</option>
-                <option value="Instagram">Instagram</option>
-                <option value="Facebook">Facebook</option>
-                <option value="Indicação">Indicação de amigo</option>
-                <option value="Youtube">Youtube</option>
-                <option value="Outros">Outros</option>
-              </select>
-            </div>
-
-            <div>
-              <Label>Código de Indicação</Label>
-              <Input
-                placeholder="Digite o seu código de indicação"
-                value={formData.referralCode}
-                onChange={(e) => handleChange('referralCode', e.target.value)}
-              />
-            </div>
-
-            <div className="flex gap-4 pt-4">
-              <Button variant="outline" onClick={handleBack} className="flex-1">
-                VOLTAR
-              </Button>
-              <Button onClick={handleSubmit} className="flex-1 bg-red-500 hover:bg-red-600">
-                CONFIRMAR E ACESSAR BEEFOOD
-              </Button>
-            </div>
-          </div>
-        )}
-
-        <div className="text-center mt-8 pt-4 border-t text-sm text-gray-500">
-          BeeFood - Todos os direitos reservados
+        {/* Footer */}
+        <div className="text-center mt-8 text-xs text-gray-400">
+          DigiMenu © 2026 - Todos os direitos reservados
         </div>
       </div>
     </div>
