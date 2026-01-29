@@ -6,6 +6,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Check, ChevronRight, X, Sparkles, Star, ChefHat } from 'lucide-react';
 import PizzaVisualization from './PizzaVisualization';
+import PizzaVisualizationPremium from './PizzaVisualizationPremium';
+import { useQuery } from '@tanstack/react-query';
+import { apiClient as base44 } from '@/api/apiClient';
 
 const formatCurrency = (value) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
@@ -30,6 +33,16 @@ export default function PizzaBuilder({
   const [selectedExtras, setSelectedExtras] = useState([]);
   const [specifications, setSpecifications] = useState('');
   const [editingItemId, setEditingItemId] = useState(null);
+  const [showConfetti, setShowConfetti] = useState(false);
+
+  // Buscar configuração da loja para modo premium
+  const { data: store } = useQuery({
+    queryKey: ['store'],
+    queryFn: () => base44.entities.Store.list().then(stores => stores[0]),
+    staleTime: 5 * 60 * 1000 // 5 minutos
+  });
+
+  const usePremiumMode = store?.enable_premium_pizza_visualization !== false;
 
   const steps = [
     { id: 'size', title: 'Tamanho', icon: '📏', required: true },
@@ -107,17 +120,28 @@ export default function PizzaBuilder({
   };
 
   const handleAddToCart = () => {
-    const item = {
-      id: editingItemId || undefined,
-      dish,
-      size: selectedSize,
-      flavors: selectedFlavors,
-      edge: selectedEdge,
-      extras: selectedExtras,
-      specifications,
-      totalPrice: calculatePrice()
-    };
-    onAddToCart(item, editingItemId !== null);
+    // Ativar confete se modo premium estiver ativo
+    if (usePremiumMode) {
+      setShowConfetti(true);
+      setTimeout(() => setShowConfetti(false), 3000);
+    }
+    
+    // Aguardar animação antes de adicionar ao carrinho (só no modo premium)
+    const delay = usePremiumMode ? 800 : 0;
+    
+    setTimeout(() => {
+      const item = {
+        id: editingItemId || undefined,
+        dish,
+        size: selectedSize,
+        flavors: selectedFlavors,
+        edge: selectedEdge,
+        extras: selectedExtras,
+        specifications,
+        totalPrice: calculatePrice()
+      };
+      onAddToCart(item, editingItemId !== null);
+    }, delay);
   };
 
   const addFlavor = (flavor) => {
@@ -286,13 +310,24 @@ export default function PizzaBuilder({
               <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1513104890138-7c749659a591?w=800&q=80')] bg-cover bg-center opacity-[0.08] blur-xl"></div>
               <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent"></div>
               <div className="relative z-10 w-full h-full flex items-center justify-center p-4">
-                <PizzaVisualization
-                  selectedSize={selectedSize}
-                  selectedFlavors={selectedFlavors}
-                  selectedEdge={selectedEdge}
-                  selectedExtras={selectedExtras}
-                  showBackground={false}
-                />
+                {usePremiumMode ? (
+                  <PizzaVisualizationPremium
+                    selectedSize={selectedSize}
+                    selectedFlavors={selectedFlavors}
+                    selectedEdge={selectedEdge}
+                    selectedExtras={selectedExtras}
+                    showBackground={false}
+                    showConfetti={showConfetti}
+                  />
+                ) : (
+                  <PizzaVisualization
+                    selectedSize={selectedSize}
+                    selectedFlavors={selectedFlavors}
+                    selectedEdge={selectedEdge}
+                    selectedExtras={selectedExtras}
+                    showBackground={false}
+                  />
+                )}
               </div>
               {!selectedSize && (
                 <motion.div

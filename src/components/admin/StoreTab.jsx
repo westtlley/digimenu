@@ -13,6 +13,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import toast from 'react-hot-toast';
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import PizzaVisualizationSettings from './PizzaVisualizationSettings';
 
 const DAYS_OF_WEEK = [
   { value: 0, label: 'Dom' },
@@ -760,6 +761,9 @@ export default function StoreTab() {
               )}
             </CardContent>
           </Card>
+
+          {/* Configuração de Visualização Premium de Pizza */}
+          <PizzaVisualizationSettings />
 
           {/* Botão Salvar */}
           <div className="sticky bottom-0 pt-4 pb-6 bg-gray-50 z-10">

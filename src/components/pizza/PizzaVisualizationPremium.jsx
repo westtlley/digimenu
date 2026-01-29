@@ -116,11 +116,11 @@ export default function PizzaVisualizationPremium({
   selectedEdge, 
   selectedExtras, 
   showBackground = false,
+  showConfetti = false,
   onAnimationComplete = null 
 }) {
   const totalSlices = selectedFlavors.length;
   const [showSmoke, setShowSmoke] = useState(false);
-  const [showConfetti, setShowConfetti] = useState(false);
   const [showIngredients, setShowIngredients] = useState(false);
   
   // Estado para dimensões da janela
