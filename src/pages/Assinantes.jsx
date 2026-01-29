@@ -67,7 +67,6 @@ import ExportCSV from '../components/admin/subscribers/ExportCSV';
 import ImportCSV from '../components/admin/subscribers/ImportCSV';
 import AdvancedFilters from '../components/admin/subscribers/AdvancedFilters';
 import BulkActions from '../components/admin/subscribers/BulkActions';
-import PlanTemplates from '../components/admin/subscribers/PlanTemplates';
 import SubscriberStats from '../components/admin/subscribers/SubscriberStats';
 import { comparePermissions, getPlanPermissions } from '../components/permissions/PlanPresets';
 import { formatBrazilianDate } from '../components/utils/dateUtils';
@@ -1410,18 +1409,6 @@ export default function Assinantes() {
                 />
                 <p className="text-xs text-gray-500 mt-1">URL: /s/<span className="font-mono">{newSubscriber.slug || '...'}</span></p>
               </div>
-
-            {/* Templates de Planos */}
-            <PlanTemplates
-              onSelectTemplate={(template) => {
-                setNewSubscriber({
-                  ...newSubscriber,
-                  plan: 'custom',
-                  permissions: template.permissions
-                });
-                toast.success(`Template "${template.name}" aplicado!`);
-              }}
-            />
             
             <PermissionsEditor
               permissions={newSubscriber.permissions}

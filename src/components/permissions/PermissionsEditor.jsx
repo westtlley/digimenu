@@ -106,12 +106,16 @@ export default function PermissionsEditor({ permissions, onChange, selectedPlan 
   
   // Encontrar o plano selecionado para exibir o nome
   const selectedPlanData = useMemo(() => {
-    return plans.find(p => p.slug === currentPlan);
+    const found = plans.find(p => p.slug === currentPlan);
+    console.log('🔍 PermissionsEditor - selectedPlanData:', found, 'currentPlan:', currentPlan, 'plans:', plans);
+    return found;
   }, [plans, currentPlan]);
   
   const displayName = useMemo(() => {
     if (currentPlan === 'custom') return 'Personalizado';
-    return selectedPlanData?.name || 'Básico';
+    const name = selectedPlanData?.name || currentPlan.charAt(0).toUpperCase() + currentPlan.slice(1);
+    console.log('🏷️ PermissionsEditor - displayName:', name, 'currentPlan:', currentPlan);
+    return name;
   }, [currentPlan, selectedPlanData]);
 
   const warnings = validatePermissions(permissions);
@@ -234,9 +238,9 @@ export default function PermissionsEditor({ permissions, onChange, selectedPlan 
       {/* 1) Plano */}
       <div>
         <Label className="mb-1 block">Plano</Label>
-        <Select value={currentPlan} onValueChange={handlePlanChange}>
+        <Select key={currentPlan} value={currentPlan} onValueChange={handlePlanChange}>
           <SelectTrigger className="w-full">
-            <SelectValue>{displayName}</SelectValue>
+            <SelectValue placeholder="Selecione um plano">{displayName}</SelectValue>
           </SelectTrigger>
           <SelectContent>
             {(plans || []).map((p) => (
