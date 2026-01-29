@@ -55,6 +55,51 @@ async function getMercadoPago() {
 }
 
 /**
+ * Criar assinante FREE (sem pagamento)
+ * POST /api/mercadopago/create-free-subscriber
+ */
+router.post('/create-free-subscriber', async (req, res) => {
+  try {
+    const { email, name } = req.body;
+    
+    if (!email || !name) {
+      return res.status(400).json({ error: 'Email e nome são obrigatórios' });
+    }
+    
+    // Importar repository para criar o assinante
+    const { createSubscriber } = await import('../db/repository.js');
+    
+    // Gerar slug único baseado no email
+    const slug = email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '') + '-' + Date.now();
+    
+    // Criar assinante FREE
+    const newSubscriber = await createSubscriber({
+      slug,
+      company_name: name,
+      email,
+      phone: '',
+      plan: 'free',
+      status: 'active',
+      subscription_status: 'active',
+      payment_method: 'free',
+      auto_renewal: false,
+      expires_at: null, // Plano free não expira
+    });
+    
+    logger.log(`✅ Assinante FREE criado: ${email} (${slug})`);
+    
+    res.json({
+      success: true,
+      message: 'Conta gratuita criada com sucesso!',
+      subscriber: newSubscriber
+    });
+  } catch (error) {
+    logger.error('❌ Erro ao criar assinante FREE:', error);
+    res.status(500).json({ error: error.message || 'Erro ao criar conta gratuita' });
+  }
+});
+
+/**
  * Criar preferência de pagamento no Mercado Pago
  * POST /api/mercadopago/create-payment
  */
