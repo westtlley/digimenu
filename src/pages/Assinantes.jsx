@@ -182,8 +182,31 @@ export default function Assinantes() {
   const { data: plans = [] } = useQuery({
     queryKey: ['plans'],
     queryFn: async () => {
-      const allPlans = await base44.entities.Plan.list('order');
-      return allPlans.filter(p => p.is_active);
+      try {
+        const allPlans = await base44.entities.Plan.list('order');
+        const activePlans = allPlans.filter(p => p.is_active !== false);
+        
+        // Se não houver planos no banco, retornar planos padrão
+        if (activePlans.length === 0) {
+          console.log('⚠️ Nenhum plano no banco, retornando planos padrão (Assinantes)');
+          return [
+            { id: 'free', slug: 'free', name: 'Gratuito', description: 'Teste de 10 dias', is_active: true, order: 0 },
+            { id: 'basic', slug: 'basic', name: 'Básico', description: 'Funcionalidades essenciais', is_active: true, order: 1 },
+            { id: 'pro', slug: 'pro', name: 'Pro', description: 'Recursos avançados', is_active: true, order: 2 },
+            { id: 'ultra', slug: 'ultra', name: 'Ultra', description: 'Todos os recursos', is_active: true, order: 3 }
+          ];
+        }
+        
+        return activePlans;
+      } catch (error) {
+        console.error('❌ Erro ao carregar planos, retornando padrão:', error);
+        return [
+          { id: 'free', slug: 'free', name: 'Gratuito', description: 'Teste de 10 dias', is_active: true, order: 0 },
+          { id: 'basic', slug: 'basic', name: 'Básico', description: 'Funcionalidades essenciais', is_active: true, order: 1 },
+          { id: 'pro', slug: 'pro', name: 'Pro', description: 'Recursos avançados', is_active: true, order: 2 },
+          { id: 'ultra', slug: 'ultra', name: 'Ultra', description: 'Todos os recursos', is_active: true, order: 3 }
+        ];
+      }
     },
     enabled: !!user?.is_master
   });
@@ -758,9 +781,10 @@ export default function Assinantes() {
 
   const getPlanColor = (slug) => {
     if (slug === 'custom') return 'bg-orange-100 text-orange-700';
-    if (slug === 'basic') return 'bg-gray-100 text-gray-700';
-    if (slug === 'pro') return 'bg-blue-100 text-blue-700';
-    if (slug === 'premium') return 'bg-purple-100 text-purple-700';
+    if (slug === 'free') return 'bg-emerald-100 text-emerald-700';
+    if (slug === 'basic') return 'bg-blue-100 text-blue-700';
+    if (slug === 'pro') return 'bg-orange-100 text-orange-700';
+    if (slug === 'ultra') return 'bg-purple-100 text-purple-700';
     return 'bg-gray-100 text-gray-700';
   };
 

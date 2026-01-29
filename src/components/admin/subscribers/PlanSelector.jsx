@@ -18,20 +18,23 @@ export default function PlanSelector({ selectedPlan, onPlanChange }) {
         
         // Fallback para planos padrão
         if (activePlans.length === 0) {
+          console.log('⚠️ Nenhum plano no banco, retornando planos padrão');
           return [
+            { id: 'free', slug: 'free', name: 'Gratuito', description: 'Teste de 10 dias', is_active: true, order: 0 },
             { id: 'basic', slug: 'basic', name: 'Básico', description: 'Funcionalidades essenciais', is_active: true, order: 1 },
-            { id: 'pro', slug: 'pro', name: 'Profissional', description: 'Recursos avançados', is_active: true, order: 2 },
-            { id: 'premium', slug: 'premium', name: 'Premium', description: 'Todos os recursos', is_active: true, order: 3 }
+            { id: 'pro', slug: 'pro', name: 'Pro', description: 'Recursos avançados', is_active: true, order: 2 },
+            { id: 'ultra', slug: 'ultra', name: 'Ultra', description: 'Todos os recursos', is_active: true, order: 3 }
           ];
         }
         
         return activePlans;
       } catch (error) {
-        console.error('Erro ao carregar planos:', error);
+        console.error('❌ Erro ao carregar planos, retornando padrão:', error);
         return [
-          { id: 'basic', slug: 'basic', name: 'Básico', description: 'Funcionalidades essenciais', is_active: true },
-          { id: 'pro', slug: 'pro', name: 'Profissional', description: 'Recursos avançados', is_active: true },
-          { id: 'premium', slug: 'premium', name: 'Premium', description: 'Todos os recursos', is_active: true }
+          { id: 'free', slug: 'free', name: 'Gratuito', description: 'Teste de 10 dias', is_active: true, order: 0 },
+          { id: 'basic', slug: 'basic', name: 'Básico', description: 'Funcionalidades essenciais', is_active: true, order: 1 },
+          { id: 'pro', slug: 'pro', name: 'Pro', description: 'Recursos avançados', is_active: true, order: 2 },
+          { id: 'ultra', slug: 'ultra', name: 'Ultra', description: 'Todos os recursos', is_active: true, order: 3 }
         ];
       }
     }
@@ -48,12 +51,14 @@ export default function PlanSelector({ selectedPlan, onPlanChange }) {
         key => permissions[key] && Array.isArray(permissions[key]) && permissions[key].length > 0
       ).length;
 
-      if (plan.slug === 'basic') {
-        features.push('Visualização de pedidos', 'Cardápio básico', 'Dashboard', 'Suporte por email');
+      if (plan.slug === 'free') {
+        features.push('10 dias de teste', 'Cardápio básico', 'Até 20 produtos', 'Pedidos via WhatsApp');
+      } else if (plan.slug === 'basic') {
+        features.push('Até 100 produtos', 'Cardápio completo', 'Dashboard', 'Personalização', 'Suporte por email');
       } else if (plan.slug === 'pro') {
-        features.push('Tudo do Básico', 'Gestão completa de cardápio', 'Gestor de pedidos', 'WhatsApp integrado', 'Zonas de entrega');
-      } else if (plan.slug === 'premium') {
-        features.push('Tudo do Profissional', 'Acesso total ao sistema', 'Relatórios avançados', 'Suporte prioritário', 'Recursos ilimitados');
+        features.push('Tudo do Básico', 'App entregadores', 'Zonas de entrega', 'Cupons e promoções', 'Relatórios avançados');
+      } else if (plan.slug === 'ultra') {
+        features.push('Tudo do Pro', 'PDV completo', 'Comandas presenciais', 'Emissão fiscal', 'Multi-localização');
       } else {
         features.push(`${activeModules} módulos configurados`, 'Permissões personalizadas');
       }
