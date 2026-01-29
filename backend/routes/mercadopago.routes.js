@@ -72,18 +72,20 @@ router.post('/create-free-subscriber', async (req, res) => {
     // Gerar slug único baseado no email
     const slug = email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '') + '-' + Date.now();
     
-    // Criar assinante FREE
+    // Criar assinante FREE com 10 dias de trial
+    const expiresAt = addDays(new Date(), 10);
+    
     const newSubscriber = await createSubscriber({
       slug,
       company_name: name,
       email,
       phone: '',
       plan: 'free',
-      status: 'active',
-      subscription_status: 'active',
-      payment_method: 'free',
+      status: 'trial', // Marcado como trial
+      subscription_status: 'trial',
+      payment_method: 'trial',
       auto_renewal: false,
-      expires_at: null, // Plano free não expira
+      expires_at: expiresAt.toISOString(), // Expira em 10 dias
     });
     
     logger.log(`✅ Assinante FREE criado: ${email} (${slug})`);
@@ -437,23 +439,33 @@ async function processPayment(paymentId) {
       // Criar novo assinante
       logger.log('📝 Criando novo assinante:', subscriber_email);
       
-      // Importar getPlanPermissions e TRIAL_DAYS
+      // Importar getPlanPermissions
       const plansModule = await import('../utils/plans.js');
       
-      // Calcular data de expiração considerando trial
-      const trialDays = plansModule.TRIAL_DAYS[plan] || 0;
-      let expiresAt = new Date();
+      // Verificar se já existe histórico de trial FREE
+      const allSubscribers = await repoModule.listSubscribers();
+      const hasUsedFreeTrial = allSubscribers.some(s => 
+        s.email === subscriber_email && s.plan === 'free'
+      );
       
-      if (trialDays > 0) {
-        // Adicionar trial primeiro
-        expiresAt = addDays(expiresAt, trialDays);
-        logger.log(`✨ Trial de ${trialDays} dias aplicado. Expira em: ${expiresAt.toISOString()}`);
+      // Calcular data de expiração
+      let expiresAt = new Date();
+      let bonusDays = 0;
+      
+      // Se não usou trial FREE antes, ganha 10 dias de bônus no primeiro mês
+      if (!hasUsedFreeTrial && plan !== 'free') {
+        bonusDays = 10;
+        expiresAt = addDays(expiresAt, bonusDays);
+        logger.log(`🎁 Bônus de ${bonusDays} dias aplicado (não usou trial FREE antes)`);
       }
       
-      // Depois adicionar o período pago (após o trial)
+      // Adicionar período pago (30 dias ou 12 meses)
       expiresAt = interval === 'monthly' 
         ? addMonths(expiresAt, 1)
         : addMonths(expiresAt, 12);
+      
+      const totalDays = bonusDays + (interval === 'monthly' ? 30 : 365);
+      logger.log(`📅 Expira em: ${expiresAt.toISOString()} (${totalDays} dias totais)`);
       
       // Gerar slug único
       const slug = generateSlug(subscriber_email);
@@ -683,20 +695,30 @@ async function processSubscription(subscriptionId) {
       const slug = generateSlug(subscriber_email);
       const plansModule = await import('../utils/plans.js');
       
-      // Calcular data de expiração considerando trial
-      const trialDays = plansModule.TRIAL_DAYS[plan] || 0;
-      let expiresAt = new Date();
+      // Verificar se já existe histórico de trial FREE
+      const allSubscribers = await repoModule.listSubscribers();
+      const hasUsedFreeTrial = allSubscribers.some(s => 
+        s.email === subscriber_email && s.plan === 'free'
+      );
       
-      if (trialDays > 0) {
-        // Adicionar trial primeiro
-        expiresAt = addDays(expiresAt, trialDays);
-        logger.log(`✨ Trial de ${trialDays} dias aplicado. Expira em: ${expiresAt.toISOString()}`);
+      // Calcular data de expiração
+      let expiresAt = new Date();
+      let bonusDays = 0;
+      
+      // Se não usou trial FREE antes, ganha 10 dias de bônus no primeiro mês
+      if (!hasUsedFreeTrial && plan !== 'free') {
+        bonusDays = 10;
+        expiresAt = addDays(expiresAt, bonusDays);
+        logger.log(`🎁 Bônus de ${bonusDays} dias aplicado (não usou trial FREE antes)`);
       }
       
-      // Depois adicionar o período pago (após o trial)
+      // Adicionar período pago (30 dias ou 12 meses)
       expiresAt = interval === 'monthly' 
         ? addMonths(expiresAt, 1)
         : addMonths(expiresAt, 12);
+      
+      const totalDays = bonusDays + (interval === 'monthly' ? 30 : 365);
+      logger.log(`📅 Expira em: ${expiresAt.toISOString()} (${totalDays} dias totais)`);
       
       subscriber = await repoModule.createSubscriber({
         email: subscriber_email,

@@ -32,15 +32,15 @@ import UserAuthButton from '../components/atoms/UserAuthButton';
 
 const PLANS_DATA = {
   free: {
-    name: 'Gratuito',
-    tagline: 'Para testar sem compromisso',
-    subtitle: 'Grátis para sempre',
+    name: 'Teste Grátis',
+    tagline: 'Teste sem cartão',
+    subtitle: '10 dias de teste',
     icon: Gift,
     iconColor: 'text-emerald-500',
     bgGradient: 'from-emerald-500 to-green-600',
     monthly: 0,
     yearly: 0,
-    badge: null,
+    badge: '10 dias grátis',
     popular: false,
     features: [
       'Cardápio digital básico',
@@ -58,19 +58,21 @@ const PLANS_DATA = {
       'Cupons e promoções',
       'Relatórios',
     ],
-    cta: 'Começar Grátis',
+    cta: 'Testar 10 Dias Grátis',
+    trialDays: 10,
   },
   basic: {
     name: 'Básico',
     tagline: 'Comece a vender online hoje',
-    subtitle: '10 dias grátis',
+    subtitle: 'Primeiro mês: 40 dias',
     icon: Smartphone,
     iconColor: 'text-blue-500',
     bgGradient: 'from-blue-500 to-blue-600',
-    monthly: 40.00,
-    yearly: 400.00,
-    badge: '10 dias grátis',
+    monthly: 39.90,
+    yearly: 399.00,
+    badge: '1º mês: 40 dias',
     popular: false,
+    bonusDays: 10,
     features: [
       'Cardápio digital ilimitado',
       'Até 100 produtos',
@@ -96,10 +98,11 @@ const PLANS_DATA = {
     icon: TrendingUp,
     iconColor: 'text-orange-500',
     bgGradient: 'from-orange-500 to-orange-600',
-    monthly: 80.00,
-    yearly: 800.00,
-    badge: '7 dias grátis',
+    monthly: 79.90,
+    yearly: 799.00,
+    badge: '1º mês: 40 dias',
     popular: true,
+    bonusDays: 10,
     features: [
       'Tudo do Básico +',
       'Até 500 produtos',
@@ -123,10 +126,11 @@ const PLANS_DATA = {
     icon: Crown,
     iconColor: 'text-purple-500',
     bgGradient: 'from-purple-600 to-indigo-600',
-    monthly: 150.00,
-    yearly: 1500.00,
-    badge: '7 dias grátis',
+    monthly: 149.90,
+    yearly: 1499.00,
+    badge: '1º mês: 40 dias',
     popular: false,
+    bonusDays: 10,
     features: [
       'Tudo do Pro +',
       'Produtos ilimitados',
@@ -301,24 +305,37 @@ export default function Assinar() {
                       )}
                     </div>
 
-                    {/* Preço */}
-                    <div className="text-center mb-6 pb-6 border-b-2 border-gray-100">
-                      <div className="flex items-baseline justify-center gap-1 mb-1">
-                        <span className="text-xl text-gray-600 font-medium">R$</span>
-                        <span className="text-5xl font-extrabold text-gray-900">
-                          {Math.floor(price)}
-                        </span>
-                        <span className="text-2xl font-bold text-gray-900">
-                          ,{(price % 1).toFixed(2).split('.')[1]}
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-500 font-medium">/mês</p>
-                      {selectedInterval === 'yearly' && price > 0 && (
-                        <p className="text-xs text-emerald-600 font-semibold mt-2">
-                          💰 Economize R$ {(plan.monthly * 2).toFixed(2)} por ano
-                        </p>
-                      )}
+              {/* Preço */}
+              <div className="text-center mb-6 pb-6 border-b-2 border-gray-100">
+                {key === 'free' ? (
+                  <>
+                    <div className="flex flex-col items-center justify-center gap-1 mb-1">
+                      <span className="text-5xl font-extrabold text-emerald-600">
+                        10 dias
+                      </span>
+                      <span className="text-2xl font-bold text-emerald-600">
+                        GRÁTIS
+                      </span>
                     </div>
+                    <p className="text-sm text-gray-600 font-medium mt-2">Sem cartão de crédito</p>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-baseline justify-center gap-1 mb-1">
+                      <span className="text-xl text-gray-600 font-medium">R$</span>
+                      <span className="text-5xl font-extrabold text-gray-900">
+                        {price.toFixed(2).replace('.', ',')}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-500 font-medium">/mês</p>
+                    {selectedInterval === 'yearly' && price > 0 && (
+                      <p className="text-xs text-emerald-600 font-semibold mt-2">
+                        💰 Economize R$ {(plan.monthly * 2).toFixed(2).replace('.', ',')} por ano
+                      </p>
+                    )}
+                  </>
+                )}
+              </div>
 
                     {/* Features */}
                     <div className="space-y-3 mb-6 min-h-[280px]">
