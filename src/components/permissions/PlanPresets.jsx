@@ -14,22 +14,22 @@ export const PLAN_PRESETS = {
     description: 'Assinatura expirada - sem acesso',
     permissions: {}
   },
-  basic: {
-    name: 'Básico',
-    description: 'Pratos ou Pizzas; Loja em todos',
+  free: {
+    name: 'Gratuito',
+    description: 'Trial de 10 dias - acesso básico para teste',
     permissions: {
       dashboard: ['view'],
       pdv: [],
-      gestor_pedidos: ['view', 'update'],
+      gestor_pedidos: ['view'],
       caixa: [],
-      whatsapp: [],
+      whatsapp: ['view'],
       dishes: ['view', 'create', 'update', 'delete'],
-      pizza_config: [], // Pratos: []. Pizzas: ['view','create','update','delete'] — definido na edição
+      pizza_config: [],
       delivery_zones: [],
       coupons: [],
       promotions: [],
       theme: [],
-      store: ['view', 'update'], // Todos os planos: perfil e informações do restaurante
+      store: ['view', 'update'],
       payments: [],
       graficos: [],
       orders: ['view'],
@@ -41,10 +41,65 @@ export const PLAN_PRESETS = {
       comandas: []
     }
   },
+  basic: {
+    name: 'Básico',
+    description: 'Cardápio + Pedidos + Personalização',
+    permissions: {
+      dashboard: ['view'],
+      pdv: [],
+      gestor_pedidos: ['view', 'update'],
+      caixa: [],
+      whatsapp: ['view'],
+      dishes: ['view', 'create', 'update', 'delete'],
+      pizza_config: [],
+      delivery_zones: [],
+      coupons: [],
+      promotions: [],
+      theme: ['view', 'update'],
+      store: ['view', 'update'],
+      payments: [],
+      graficos: [],
+      orders: ['view', 'update'],
+      history: ['view'],
+      clients: ['view'],
+      financial: [],
+      printer: [],
+      mais: ['view'],
+      comandas: []
+    }
+  },
   
   pro: {
     name: 'Pro',
-    description: 'Pratos e Pizzas; gestão completa',
+    description: 'Básico + Entregas + Marketing',
+    permissions: {
+      dashboard: ['view'],
+      pdv: [],
+      gestor_pedidos: ['view', 'create', 'update', 'delete'],
+      caixa: [],
+      whatsapp: ['view'],
+      dishes: ['view', 'create', 'update', 'delete'],
+      pizza_config: ['view', 'create', 'update', 'delete'],
+      delivery_zones: ['view', 'create', 'update', 'delete'],
+      coupons: ['view', 'create', 'update', 'delete'],
+      promotions: ['view', 'create', 'update', 'delete'],
+      theme: ['view', 'update'],
+      store: ['view', 'update'],
+      payments: ['view', 'update'],
+      graficos: ['view'],
+      orders: ['view', 'create', 'update', 'delete'],
+      history: ['view'],
+      clients: ['view', 'create', 'update', 'delete'],
+      financial: ['view'],
+      printer: [],
+      mais: ['view'],
+      comandas: []
+    }
+  },
+  
+  ultra: {
+    name: 'Ultra',
+    description: 'ACESSO TOTAL - Tudo liberado',
     permissions: {
       dashboard: ['view'],
       pdv: ['view', 'create', 'update'],
@@ -58,21 +113,22 @@ export const PLAN_PRESETS = {
       promotions: ['view', 'create', 'update', 'delete'],
       theme: ['view', 'update'],
       store: ['view', 'update'],
-      payments: ['view'],
+      payments: ['view', 'update'],
       graficos: ['view'],
-      orders: ['view', 'update'],
+      orders: ['view', 'create', 'update', 'delete'],
       history: ['view'],
-      clients: ['view'],
+      clients: ['view', 'create', 'update', 'delete'],
       financial: ['view'],
-      printer: [],
+      printer: ['view', 'update'],
       mais: ['view'],
       comandas: ['view', 'create', 'update', 'close', 'history']
     }
   },
   
+  // COMPATIBILIDADE: manter 'premium' apontando para 'ultra'
   premium: {
-    name: 'Premium',
-    description: 'Pratos e Pizzas; acesso total',
+    name: 'Ultra',
+    description: 'ACESSO TOTAL - Tudo liberado',
     permissions: {
       dashboard: ['view'],
       pdv: ['view', 'create', 'update'],
