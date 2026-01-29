@@ -75,17 +75,17 @@ router.post('/create-payment', async (req, res) => {
       });
     }
     
-    // Definir preços (você pode buscar do PaymentConfig depois)
+    // Definir preços dos planos (importados de plans.js)
     const prices = {
       monthly: {
-        basic: 29.90,
-        pro: 49.90,
-        premium: 99.90
+        basic: 39.90,
+        pro: 79.90,
+        ultra: 149.90
       },
       yearly: {
-        basic: 299.90,
-        pro: 499.90,
-        premium: 999.90
+        basic: 399.00,
+        pro: 799.00,
+        ultra: 1499.00
       }
     };
     
@@ -178,17 +178,17 @@ router.post('/create-subscription', async (req, res) => {
       });
     }
     
-    // Definir preços
+    // Definir preços dos planos (importados de plans.js)
     const prices = {
       monthly: {
-        basic: 29.90,
-        pro: 49.90,
-        premium: 99.90
+        basic: 39.90,
+        pro: 79.90,
+        ultra: 149.90
       },
       yearly: {
-        basic: 299.90,
-        pro: 499.90,
-        premium: 999.90
+        basic: 399.00,
+        pro: 799.00,
+        ultra: 1499.00
       }
     };
     
