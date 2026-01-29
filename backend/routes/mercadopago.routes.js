@@ -123,11 +123,13 @@ router.post('/create-payment', async (req, res) => {
     // Definir preços dos planos (importados de plans.js)
     const prices = {
       monthly: {
+        free: 0,
         basic: 39.90,
         pro: 79.90,
         ultra: 149.90
       },
       yearly: {
+        free: 0,
         basic: 399.00,
         pro: 799.00,
         ultra: 1499.00
@@ -226,11 +228,13 @@ router.post('/create-subscription', async (req, res) => {
     // Definir preços dos planos (importados de plans.js)
     const prices = {
       monthly: {
+        free: 0,
         basic: 39.90,
         pro: 79.90,
         ultra: 149.90
       },
       yearly: {
+        free: 0,
         basic: 399.00,
         pro: 799.00,
         ultra: 1499.00
