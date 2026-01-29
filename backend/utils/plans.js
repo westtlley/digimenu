@@ -5,6 +5,7 @@
  */
 
 export const PLANS = {
+  FREE: 'free',
   BASIC: 'basic',
   PRO: 'pro',
   ULTRA: 'ultra',
@@ -14,14 +15,84 @@ export const PLANS = {
 
 // Preços dos planos (mensais em R$)
 export const PLAN_PRICES = {
+  free: { monthly: 0, yearly: 0 },
   basic: { monthly: 39.90, yearly: 399.00 },
   pro: { monthly: 79.90, yearly: 799.00 },
   ultra: { monthly: 149.90, yearly: 1499.00 }
 };
 
+// Trial periods (em dias)
+export const TRIAL_PERIODS = {
+  free: 0, // Sem trial (já é grátis)
+  basic: 10, // 10 dias de teste
+  pro: 7,
+  ultra: 7
+};
+
+/**
+ * Permissões do Plano FREE - R$ 0/mês
+ * "Para uso pessoal, amigos, família e parceiros"
+ */
+const FREE_PERMISSIONS = {
+    // Cardápio Digital Básico
+    menu_digital: true,
+    menu_view: true,
+    menu_create: true,
+    menu_edit: true,
+    menu_delete: true,
+    categories_unlimited: true,
+    products_limit: 20, // Apenas 20 produtos
+    
+    // Dashboard Básico
+    dashboard_view: true,
+    dashboard_basic: true,
+    
+    // Loja/Restaurante
+    restaurant_create: true,
+    restaurant_edit: true,
+    restaurant_view: true,
+    restaurant_customize: false, // Sem personalização
+    
+    // Pedidos Simplificados
+    orders_view: true,
+    orders_create: true,
+    orders_update: true,
+    orders_accept_reject: true,
+    orders_history_days: 7, // Apenas 7 dias de histórico
+    orders_delete: false,
+    
+    // WhatsApp básico
+    whatsapp_auto: true,
+    whatsapp_notifications: true,
+    
+    // Limites rígidos
+    users_limit: 1,
+    orders_per_day: 10, // Apenas 10 pedidos/dia
+    
+    // TUDO MAIS BLOQUEADO
+    team_management: false,
+    delivery_app: false,
+    orders_advanced: false,
+    delivery_zones: false,
+    coupons: false,
+    promotions: false,
+    upsell: false,
+    reports_detailed: false,
+    pdv: false,
+    cash_control: false,
+    comandas_presencial: false,
+    waiter_app: false,
+    kitchen_display: false,
+    fiscal_integration: false,
+    api_webhooks: false,
+    admin_users: false,
+    admin_subscribers: false,
+    admin_master: false
+  };
+
 /**
  * Permissões do Plano BÁSICO - R$ 39,90/mês
- * "Comece a vender online hoje"
+ * "Comece a vender online hoje" + 10 DIAS GRÁTIS
  */
 const BASIC_PERMISSIONS = {
     // Cardápio Digital
@@ -256,6 +327,7 @@ const ADMIN_PERMISSIONS = {
  * Permissões por plano (exportado)
  */
 export const PLAN_PERMISSIONS = {
+  [PLANS.FREE]: FREE_PERMISSIONS,
   [PLANS.BASIC]: BASIC_PERMISSIONS,
   [PLANS.PRO]: PRO_PERMISSIONS,
   [PLANS.ULTRA]: ULTRA_PERMISSIONS,
@@ -333,12 +405,40 @@ export function getAvailablePlans() {
  */
 export function getPlanInfo(plan) {
   const planInfo = {
+    [PLANS.FREE]: {
+      name: 'Gratuito',
+      tagline: 'Para uso pessoal e testes',
+      description: 'Ideal para amigos, família e parceiros',
+      price_monthly: 0,
+      price_yearly: 0,
+      trial_days: 0,
+      features: [
+        'Cardápio digital básico',
+        'Até 20 produtos',
+        'Pedidos via WhatsApp',
+        'Gestor de pedidos simples',
+        'Histórico 7 dias',
+        'Até 10 pedidos/dia',
+        '1 usuário',
+        'Sem personalização visual',
+        'Sem cupons ou promoções'
+      ],
+      limits: {
+        products: 20,
+        orders_per_day: 10,
+        users: 1,
+        history_days: 7
+      },
+      badge: 'Grátis',
+      badge_color: 'green'
+    },
     [PLANS.BASIC]: {
       name: 'Básico',
       tagline: 'Comece a vender online hoje',
       description: 'Perfeito para começar seu delivery',
       price_monthly: PLAN_PRICES.basic.monthly,
       price_yearly: PLAN_PRICES.basic.yearly,
+      trial_days: TRIAL_PERIODS.basic, // 10 dias grátis!
       features: [
         'Cardápio digital ilimitado',
         'Até 100 produtos',
@@ -363,6 +463,7 @@ export function getPlanInfo(plan) {
       description: 'Para restaurantes em crescimento',
       price_monthly: PLAN_PRICES.pro.monthly,
       price_yearly: PLAN_PRICES.pro.yearly,
+      trial_days: TRIAL_PERIODS.pro, // 7 dias grátis
       popular: true, // Badge "Mais Popular"
       features: [
         '✅ Tudo do Básico, mais:',
@@ -390,6 +491,7 @@ export function getPlanInfo(plan) {
       description: 'Solução completa para operações avançadas',
       price_monthly: PLAN_PRICES.ultra.monthly,
       price_yearly: PLAN_PRICES.ultra.yearly,
+      trial_days: TRIAL_PERIODS.ultra, // 7 dias grátis
       features: [
         '✅ Tudo do Pro, mais:',
         'Produtos ilimitados',
