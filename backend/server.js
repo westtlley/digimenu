@@ -1784,7 +1784,7 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
       }
       
       // Validar plano
-      const validPlans = ['basic', 'premium', 'pro', 'admin', 'custom'];
+      const validPlans = ['free', 'basic', 'pro', 'ultra', 'admin', 'custom'];
       if (data.plan && !validPlans.includes(data.plan)) {
         return res.status(400).json({ 
           error: `Plano inválido: ${data.plan}. Planos válidos: ${validPlans.join(', ')}` 
@@ -1944,7 +1944,7 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
       
       // Validar plano se estiver sendo atualizado
       if (updateData.plan) {
-        const validPlans = ['basic', 'premium', 'pro', 'admin', 'custom'];
+        const validPlans = ['free', 'basic', 'pro', 'ultra', 'admin', 'custom'];
         if (!validPlans.includes(updateData.plan)) {
           return res.status(400).json({ 
             error: `Plano inválido: ${updateData.plan}. Planos válidos: ${validPlans.join(', ')}` 

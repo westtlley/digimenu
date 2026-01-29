@@ -61,8 +61,8 @@ export const schemas = {
   createSubscriber: z.object({
     email: z.string().email('Email inválido').toLowerCase().trim(),
     name: z.string().min(3, 'Nome deve ter no mínimo 3 caracteres'),
-    plan: z.enum(['basic', 'premium', 'pro', 'admin', 'custom'], {
-      errorMap: () => ({ message: 'Plano inválido. Use: basic, premium, pro, admin ou custom' })
+    plan: z.enum(['free', 'basic', 'pro', 'ultra', 'admin', 'custom'], {
+      errorMap: () => ({ message: 'Plano inválido. Use: free, basic, pro, ultra, admin ou custom' })
     }),
     status: z.enum(['active', 'inactive', 'suspended', 'expired']).optional(),
     expires_at: z.string().datetime().optional().nullable(),
