@@ -30,6 +30,7 @@ import PagamentoSucesso from "./pagamento/PagamentoSucesso";
 import PagamentoFalha from "./pagamento/PagamentoFalha";
 import PagamentoPendente from "./pagamento/PagamentoPendente";
 import ProtectedRoute from "../components/auth/ProtectedRoute";
+import SmartRedirect from "../components/auth/SmartRedirect";
 import { BrowserRouter as Router, Route, Routes, useLocation, Navigate } from 'react-router-dom';
 
 const PAGES = {
@@ -100,9 +101,12 @@ function PagesContent() {
                 <Route path="/s/:slug/Entregador" element={<ProtectedRoute requireActiveSubscription><Entregador /></ProtectedRoute>} />
                 <Route path="/s/:slug/EntregadorPanel" element={<ProtectedRoute requireActiveSubscription><EntregadorPanel /></ProtectedRoute>} />
                 <Route path="/s/:slug" element={<Cardapio />} />
-                <Route path="/" element={<Navigate to="/Assinar" replace />} />
-                <Route path="/cardapio" element={<Navigate to="/Assinar" replace />} />
-                <Route path="/Cardapio" element={<Navigate to="/Assinar" replace />} />
+                
+                {/* GOVERNANÇA DE REDIRECIONAMENTOS: SmartRedirect decide baseado no perfil do usuário */}
+                <Route path="/" element={<SmartRedirect />} />
+                <Route path="/cardapio" element={<SmartRedirect />} />
+                <Route path="/Cardapio" element={<SmartRedirect />} />
+                
                 <Route path="/Assinantes" element={<ProtectedRoute requireMaster><Assinantes /></ProtectedRoute>} />
                 <Route path="/AdminMasterDashboard" element={<ProtectedRoute requireMaster><AdminMasterDashboard /></ProtectedRoute>} />
                 

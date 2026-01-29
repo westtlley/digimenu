@@ -1135,47 +1135,10 @@ export default function Assinantes() {
                             </p>
                           </div>
                         )}
-                        {/* Link de Definição de Senha */}
+                        {/* Status da Senha (SEGURANÇA: Link removido) */}
                         <div className="mt-2 space-y-1">
-                          {/* Verificar setup_url do subscriber ou do cache de tokens */}
                           {(() => {
-                            const subscriberKey = subscriber.id || subscriber.email;
-                            const cachedToken = passwordTokens[subscriberKey];
-                            const setupUrl = subscriber.setup_url || cachedToken?.setup_url;
-                            
-                            if (setupUrl) {
-                              return (
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <div className="flex items-center gap-1 bg-blue-50 border border-blue-200 rounded px-2 py-1">
-                                    <Lock className="w-3 h-3 text-blue-600" />
-                                    <span className="text-xs text-blue-700 font-medium">Link disponível</span>
-                                  </div>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-7 px-2 text-xs bg-blue-500 text-white hover:bg-blue-600"
-                                    onClick={() => copyPasswordLink(setupUrl, subscriber.name || subscriber.email)}
-                                  >
-                                    <Copy className="w-3 h-3 mr-1" />
-                                    Copiar Link
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-7 px-2 text-xs"
-                                    onClick={() => regenerateToken(subscriber)}
-                                    disabled={generateTokenMutation.isPending}
-                                  >
-                                    <RefreshCw className={`w-3 h-3 mr-1 ${generateTokenMutation.isPending ? 'animate-spin' : ''}`} />
-                                    Regenerar
-                                  </Button>
-                                  {/* Mostrar link de forma legível */}
-                                  <div className="w-full mt-1 p-2 bg-gray-50 border border-gray-200 rounded text-xs font-mono break-all">
-                                    {setupUrl}
-                                  </div>
-                                </div>
-                              );
-                            } else if (subscriber.has_password) {
+                            if (subscriber.has_password) {
                               return (
                                 <div className="flex items-center gap-2">
                                   <div className="flex items-center gap-1 bg-green-50 border border-green-200 rounded px-2 py-1">
@@ -1190,27 +1153,18 @@ export default function Assinantes() {
                                     disabled={generateTokenMutation.isPending}
                                   >
                                     <RefreshCw className={`w-3 h-3 mr-1 ${generateTokenMutation.isPending ? 'animate-spin' : ''}`} />
-                                    Gerar Novo Link
+                                    Resetar Senha
                                   </Button>
                                 </div>
                               );
                             } else {
                               return (
-                                <div className="flex items-center gap-2 flex-wrap">
+                                <div className="flex items-center gap-2">
                                   <div className="flex items-center gap-1 bg-yellow-50 border border-yellow-200 rounded px-2 py-1">
                                     <Lock className="w-3 h-3 text-yellow-600" />
-                                    <span className="text-xs text-yellow-700">Sem link</span>
+                                    <span className="text-xs text-yellow-700">Senha pendente</span>
                                   </div>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-7 px-2 text-xs bg-orange-500 text-white hover:bg-orange-600"
-                                    onClick={() => regenerateToken(subscriber)}
-                                    disabled={generateTokenMutation.isPending}
-                                  >
-                                    <RefreshCw className={`w-3 h-3 mr-1 ${generateTokenMutation.isPending ? 'animate-spin' : ''}`} />
-                                    Gerar Link Temporário
-                                  </Button>
+                                  <span className="text-xs text-gray-500 italic">(Link enviado por e-mail)</span>
                                 </div>
                               );
                             }
