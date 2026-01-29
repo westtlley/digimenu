@@ -3,7 +3,6 @@
  * Permite importar e exportar dados do próprio negócio
  */
 import express from 'express';
-import { requireAuth } from '../middlewares/auth.js';
 import { 
   createDish, 
   updateDish, 
@@ -31,7 +30,7 @@ const router = express.Router();
  *   }
  * }
  */
-router.post('/import', requireAuth, async (req, res) => {
+router.post('/import', async (req, res) => {
   try {
     const { backupData, mode = 'merge' } = req.body;
     const userId = req.user.id;
@@ -219,7 +218,7 @@ router.post('/import', requireAuth, async (req, res) => {
  * POST /api/subscriber-backup/validate
  * Valida arquivo de backup antes de importar
  */
-router.post('/validate', requireAuth, async (req, res) => {
+router.post('/validate', async (req, res) => {
   try {
     const { backupData } = req.body;
     
