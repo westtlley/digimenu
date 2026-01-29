@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, LogOut, LogIn, Loader2, Package, Users, Lock, Menu, UtensilsCrossed, Calculator, Truck, KeyRound } from 'lucide-react';
+import { Settings, LogOut, LogIn, Loader2, Package, Users, Lock, Menu, UtensilsCrossed, Calculator, Truck, KeyRound, BarChart3 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { useTheme } from '../components/theme/ThemeProvider';
 import ThemeToggle from '../components/ui/ThemeToggle';
@@ -323,12 +323,20 @@ export default function Admin() {
             <ThemeToggle className="text-white hover:bg-gray-700" />
             {(store?.id || subscriberData?.id) && <WhatsAppComandaToggle store={store} subscriber={subscriberData} />}
             {isMaster && (
-              <Link to={createPageUrl('Assinantes')}>
-                <Button variant="ghost" size="icon" className="text-white bg-purple-600 hover:bg-purple-700 sm:w-auto sm:px-3">
-                  <Users className="w-4 h-4 sm:mr-2" />
-                  <span className="hidden sm:inline">Assinantes</span>
-                </Button>
-              </Link>
+              <>
+                <Link to={createPageUrl('AdminMasterDashboard')}>
+                  <Button variant="ghost" size="icon" className="text-white bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 sm:w-auto sm:px-3 font-semibold shadow-lg" title="Dashboard Executivo">
+                    <BarChart3 className="w-4 h-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Dashboard</span>
+                  </Button>
+                </Link>
+                <Link to={createPageUrl('Assinantes')}>
+                  <Button variant="ghost" size="icon" className="text-white bg-purple-600 hover:bg-purple-700 sm:w-auto sm:px-3">
+                    <Users className="w-4 h-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Assinantes</span>
+                  </Button>
+                </Link>
+              </>
             )}
             <Link to={createPageUrl('PDV')}>
               <Button variant="ghost" size="icon" className="text-white bg-blue-600 hover:bg-blue-700 sm:w-auto sm:px-3" title="PDV">

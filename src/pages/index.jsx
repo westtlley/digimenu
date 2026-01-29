@@ -1,5 +1,6 @@
 import Layout from "./Layout.jsx";
 import Assinantes from "./Assinantes";
+import AdminMasterDashboard from "./AdminMasterDashboard";
 import Assinar from "./Assinar";
 import Cadastro from "./Cadastro";
 import Login from "./Login";
@@ -34,6 +35,8 @@ import { BrowserRouter as Router, Route, Routes, useLocation, Navigate } from 'r
 const PAGES = {
     
     Assinantes: Assinantes,
+    
+    AdminMasterDashboard: AdminMasterDashboard,
     
     Assinar: Assinar,
     
