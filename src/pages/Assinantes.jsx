@@ -23,7 +23,8 @@ import {
   RefreshCw,
   CheckSquare,
   Square,
-  Link2
+  Link2,
+  BarChart3
 } from 'lucide-react';
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -816,6 +817,12 @@ export default function Assinantes() {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <Link to={createPageUrl('AdminMasterDashboard')}>
+                <Button variant="ghost" className="text-white hover:bg-white/10 font-medium">
+                  <BarChart3 className="w-4 h-4 mr-2" />
+                  <span className="hidden sm:inline">Dashboard</span>
+                </Button>
+              </Link>
               <ImportCSV 
                 onImport={async (subscribers) => {
                   // Importar múltiplos assinantes
@@ -872,25 +879,84 @@ export default function Assinantes() {
       {/* Content */}
       <div className="max-w-6xl mx-auto px-4 py-6">
         {/* Search e Filtros */}
-        <div className="mb-6 flex items-center gap-3 flex-wrap">
+        <div className="mb-6 space-y-4">
+          {/* Barra de Busca */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="relative flex-1 min-w-[250px] max-w-md"
+            >
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <Input
+                placeholder="Buscar por email ou nome..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-11 h-11 border-gray-300 focus:border-orange-500 focus:ring-orange-500 transition-all duration-200"
+              />
+            </motion.div>
+            <AdvancedFilters 
+              subscribers={subscribers} 
+              onFilterChange={handleAdvancedFilterChange}
+            />
+          </div>
+
+          {/* Filtros Rápidos Visuais */}
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="relative flex-1 min-w-[250px] max-w-md"
+            transition={{ delay: 0.3 }}
+            className="flex items-center gap-2 flex-wrap bg-white rounded-xl p-3 border-2 border-gray-200 shadow-sm"
           >
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <Input
-              placeholder="Buscar por email ou nome..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-11 h-11 border-gray-300 focus:border-orange-500 focus:ring-orange-500 transition-all duration-200"
-            />
+            <span className="text-sm font-medium text-gray-700 mr-2">Filtro Rápido:</span>
+            {[
+              { label: 'Todos', count: subscribers.length, filter: null, color: 'gray' },
+              { label: 'Ativos', count: subscribers.filter(s => s.status === 'active').length, filter: 'active', color: 'green' },
+              { label: 'Inativos', count: subscribers.filter(s => s.status === 'inactive').length, filter: 'inactive', color: 'red' },
+              { label: 'Gratuitos', count: subscribers.filter(s => s.plan === 'free' && s.status === 'active').length, filter: 'free', color: 'green' },
+              { label: 'Básico', count: subscribers.filter(s => s.plan === 'basic' && s.status === 'active').length, filter: 'basic', color: 'blue' },
+              { label: 'Pro', count: subscribers.filter(s => s.plan === 'pro' && s.status === 'active').length, filter: 'pro', color: 'orange' },
+              { label: 'Ultra', count: subscribers.filter(s => s.plan === 'ultra' && s.status === 'active').length, filter: 'ultra', color: 'purple' },
+            ].map((quickFilter) => {
+              const isActive = advancedFiltered === null && quickFilter.filter === null;
+              const colorClasses = {
+                gray: 'bg-gray-100 text-gray-700 hover:bg-gray-200 border-gray-300',
+                green: 'bg-green-50 text-green-700 hover:bg-green-100 border-green-200',
+                red: 'bg-red-50 text-red-700 hover:bg-red-100 border-red-200',
+                blue: 'bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200',
+                orange: 'bg-orange-50 text-orange-700 hover:bg-orange-100 border-orange-200',
+                purple: 'bg-purple-50 text-purple-700 hover:bg-purple-100 border-purple-200'
+              };
+              
+              return (
+                <Button
+                  key={quickFilter.label}
+                  variant="outline"
+                  size="sm"
+                  className={cn(
+                    "text-xs font-medium transition-all duration-200",
+                    colorClasses[quickFilter.color],
+                    isActive && "ring-2 ring-offset-2 ring-orange-500"
+                  )}
+                  onClick={() => {
+                    if (quickFilter.filter === null) {
+                      setAdvancedFiltered(null);
+                    } else if (quickFilter.filter === 'active' || quickFilter.filter === 'inactive') {
+                      setAdvancedFiltered(subscribers.filter(s => s.status === quickFilter.filter));
+                    } else {
+                      setAdvancedFiltered(subscribers.filter(s => s.plan === quickFilter.filter && s.status === 'active'));
+                    }
+                  }}
+                >
+                  {quickFilter.label}
+                  <Badge className="ml-1.5 bg-white/50 text-current border-current/20">
+                    {quickFilter.count}
+                  </Badge>
+                </Button>
+              );
+            })}
           </motion.div>
-          <AdvancedFilters 
-            subscribers={subscribers} 
-            onFilterChange={handleAdvancedFilterChange}
-          />
         </div>
 
         {/* List */}

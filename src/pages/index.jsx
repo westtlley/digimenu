@@ -104,6 +104,7 @@ function PagesContent() {
                 <Route path="/cardapio" element={<Navigate to="/Assinar" replace />} />
                 <Route path="/Cardapio" element={<Navigate to="/Assinar" replace />} />
                 <Route path="/Assinantes" element={<ProtectedRoute requireMaster><Assinantes /></ProtectedRoute>} />
+                <Route path="/AdminMasterDashboard" element={<ProtectedRoute requireMaster><AdminMasterDashboard /></ProtectedRoute>} />
                 
                 <Route path="/Assinar" element={<Assinar />} />
                 
