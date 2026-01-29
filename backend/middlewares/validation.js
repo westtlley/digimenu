@@ -73,7 +73,7 @@ export const schemas = {
   updateSubscriber: z.object({
     email: z.string().email().toLowerCase().trim().optional(),
     name: z.string().min(3).optional(),
-    plan: z.enum(['basic', 'premium', 'pro', 'admin', 'custom']).optional(),
+    plan: z.enum(['free', 'basic', 'pro', 'ultra', 'admin', 'custom']).optional(),
     status: z.enum(['active', 'inactive', 'suspended', 'expired']).optional(),
     expires_at: z.string().datetime().optional().nullable(),
     permissions: z.record(z.any()).optional(),

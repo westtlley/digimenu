@@ -860,11 +860,11 @@ async function getOwnerAndSubscriber(req) {
 function canUseColaboradores(subscriber, isMaster) {
   if (isMaster && subscriber) {
     const p = (subscriber.plan || '').toLowerCase();
-    return p === 'premium' || p === 'pro';
+    return p === 'pro' || p === 'ultra';
   }
   if (!subscriber) return false;
   const p = (subscriber.plan || '').toLowerCase();
-  return p === 'premium' || p === 'pro';
+  return p === 'pro' || p === 'ultra';
 }
 
 // =======================
