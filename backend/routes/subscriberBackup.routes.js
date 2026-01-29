@@ -4,13 +4,8 @@
  */
 import express from 'express';
 import { 
-  createDish, 
-  updateDish, 
-  createCategory, 
-  updateCategory,
-  createComplementGroup,
-  updateComplementGroup,
-  updateStore
+  createEntity, 
+  updateEntity
 } from '../db/repository.js';
 import logger from '../utils/logger.js';
 
@@ -67,16 +62,16 @@ router.post('/import', async (req, res) => {
           if (mode === 'merge' && category.id) {
             // Tenta atualizar categoria existente
             try {
-              await updateCategory(category.id, cleanCategory);
+              await updateEntity('Category', category.id, cleanCategory);
               results.categories.updated++;
             } catch {
               // Se não existir, cria nova
-              await createCategory(cleanCategory);
+              await createEntity('Category', cleanCategory);
               results.categories.created++;
             }
           } else {
             // Sempre cria nova
-            await createCategory(cleanCategory);
+            await createEntity('Category', cleanCategory);
             results.categories.created++;
           }
         } catch (error) {
@@ -103,14 +98,14 @@ router.post('/import', async (req, res) => {
 
           if (mode === 'merge' && group.id) {
             try {
-              await updateComplementGroup(group.id, cleanGroup);
+              await updateEntity('ComplementGroup', group.id, cleanGroup);
               results.complement_groups.updated++;
             } catch {
-              await createComplementGroup(cleanGroup);
+              await createEntity('ComplementGroup', cleanGroup);
               results.complement_groups.created++;
             }
           } else {
-            await createComplementGroup(cleanGroup);
+            await createEntity('ComplementGroup', cleanGroup);
             results.complement_groups.created++;
           }
         } catch (error) {
@@ -141,14 +136,14 @@ router.post('/import', async (req, res) => {
 
           if (mode === 'merge' && dish.id) {
             try {
-              await updateDish(dish.id, cleanDish);
+              await updateEntity('Dish', dish.id, cleanDish);
               results.dishes.updated++;
             } catch {
-              await createDish(cleanDish);
+              await createEntity('Dish', cleanDish);
               results.dishes.created++;
             }
           } else {
-            await createDish(cleanDish);
+            await createEntity('Dish', cleanDish);
             results.dishes.created++;
           }
         } catch (error) {
@@ -177,7 +172,8 @@ router.post('/import', async (req, res) => {
           min_order_value: data.store.min_order_value
         };
 
-        await updateStore(userId, cleanStore);
+        // Store usa user_id como identificador, então precisamos buscar pelo email do request
+        await updateEntity('Store', userId, cleanStore);
         results.store.updated = true;
       } catch (error) {
         logger.error(`❌ Erro ao importar configurações da loja:`, error.message);
