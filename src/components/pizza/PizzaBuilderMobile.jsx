@@ -165,7 +165,7 @@ export default function PizzaBuilderMobile({
                 className="overflow-hidden"
               >
                 <div className="p-3 space-y-2">
-                  {sizes.filter(s => s.is_active).map((size) => (
+                  {(sizes || []).filter(s => s && s.is_active).map((size) => (
                     <button
                       key={size.id}
                       onClick={() => {
@@ -181,13 +181,13 @@ export default function PizzaBuilderMobile({
                     >
                       <div className="flex items-center justify-between">
                         <div>
-                          <h4 className="font-bold text-white text-sm">{size.name}</h4>
+                          <h4 className="font-bold text-white text-sm">{size.name || 'Tamanho'}</h4>
                           <p className="text-xs text-gray-300 mt-0.5">
-                            {size.slices} fatias • {size.max_flavors} {size.max_flavors === 1 ? 'sabor' : 'sabores'}
+                            {size.slices || 0} fatias • {size.max_flavors || 0} {size.max_flavors === 1 ? 'sabor' : 'sabores'}
                           </p>
                         </div>
                         <span className="font-bold text-orange-400 text-sm">
-                          {formatCurrency(size.price_tradicional)}
+                          {formatCurrency(size.price_tradicional || 0)}
                         </span>
                       </div>
                     </button>
@@ -237,7 +237,7 @@ export default function PizzaBuilderMobile({
                 className="overflow-hidden"
               >
                 <div className="p-3 space-y-2 max-h-[300px] overflow-y-auto">
-                  {flavors.filter(f => f.is_active).map((flavor) => {
+                  {(flavors || []).filter(f => f && f.is_active).map((flavor) => {
                     const count = getFlavorCount(flavor.id);
                     const isSelected = count > 0;
                     return (
@@ -246,10 +246,10 @@ export default function PizzaBuilderMobile({
                       }`}>
                         <div className="flex items-center gap-3">
                           {flavor.image && (
-                            <img src={flavor.image} alt={flavor.name} className="w-12 h-12 rounded-lg object-cover" />
+                            <img src={flavor.image} alt={flavor.name || 'Sabor'} className="w-12 h-12 rounded-lg object-cover" />
                           )}
                           <div className="flex-1 min-w-0">
-                            <h4 className="font-bold text-white text-sm truncate">{flavor.name}</h4>
+                            <h4 className="font-bold text-white text-sm truncate">{flavor.name || 'Sabor'}</h4>
                             {flavor.category === 'premium' && (
                               <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/50 text-xs mt-1">Premium</Badge>
                             )}
@@ -286,7 +286,7 @@ export default function PizzaBuilderMobile({
         </div>
 
         {/* Step 3: Borda */}
-        {edges.filter(e => e.is_active).length > 0 && (
+        {(edges || []).filter(e => e && e.is_active).length > 0 && (
           <div className={`bg-gray-800/50 rounded-2xl border-2 overflow-hidden ${selectedSize ? 'border-gray-700' : 'border-gray-800 opacity-50'}`}>
             <button
               onClick={() => selectedSize && setExpandedStep(expandedStep === 'edge' ? '' : 'edge')}
@@ -336,7 +336,7 @@ export default function PizzaBuilderMobile({
                     >
                       <span className="font-bold text-white text-sm">Sem borda</span>
                     </button>
-                    {edges.filter(e => e.is_active).map((edge) => (
+                    {(edges || []).filter(e => e && e.is_active).map((edge) => (
                       <button
                         key={edge.id}
                         onClick={() => {
@@ -350,8 +350,8 @@ export default function PizzaBuilderMobile({
                         }`}
                       >
                         <div className="flex items-center justify-between">
-                          <span className="font-bold text-white text-sm">{edge.name}</span>
-                          <span className="font-bold text-orange-400 text-sm">+{formatCurrency(edge.price)}</span>
+                          <span className="font-bold text-white text-sm">{edge.name || 'Borda'}</span>
+                          <span className="font-bold text-orange-400 text-sm">+{formatCurrency(edge.price || 0)}</span>
                         </div>
                       </button>
                     ))}
@@ -363,7 +363,7 @@ export default function PizzaBuilderMobile({
         )}
 
         {/* Step 4: Extras */}
-        {extras.filter(e => e.is_active).length > 0 && (
+        {(extras || []).filter(e => e && e.is_active).length > 0 && (
           <div className={`bg-gray-800/50 rounded-2xl border-2 overflow-hidden ${selectedSize ? 'border-gray-700' : 'border-gray-800 opacity-50'}`}>
             <button
               onClick={() => selectedSize && setExpandedStep(expandedStep === 'extras' ? '' : 'extras')}
@@ -400,7 +400,7 @@ export default function PizzaBuilderMobile({
                   className="overflow-hidden"
                 >
                   <div className="p-3 space-y-2">
-                    {extras.filter(e => e.is_active).map((extra) => {
+                    {(extras || []).filter(e => e && e.is_active).map((extra) => {
                       const isSelected = selectedExtras.find(e => e.id === extra.id);
                       return (
                         <button
@@ -413,8 +413,8 @@ export default function PizzaBuilderMobile({
                           }`}
                         >
                           <div className="flex items-center justify-between">
-                            <span className="font-bold text-white text-sm">{extra.name}</span>
-                            <span className="font-bold text-orange-400 text-sm">+{formatCurrency(extra.price)}</span>
+                            <span className="font-bold text-white text-sm">{extra.name || 'Extra'}</span>
+                            <span className="font-bold text-orange-400 text-sm">+{formatCurrency(extra.price || 0)}</span>
                           </div>
                         </button>
                       );
