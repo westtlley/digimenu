@@ -44,44 +44,123 @@ export default function CartModal({ isOpen, onClose, cart, onUpdateQuantity, onR
     queryFn: async () => {
       try {
         const user = await base44.auth.me();
+        if (!user || !user.email) {
+          console.log('❌ Usuário não autenticado ou sem email');
+          return [];
+        }
+
+        console.log('🔍 Buscando pedidos para:', user.email);
         const allOrders = await base44.entities.Order.list('-created_date');
+        console.log('📦 Total de pedidos no sistema:', allOrders.length);
+        
         // Filtrar apenas pedidos do cliente que não estão finalizados ou cancelados
         // Mas também incluir entregues recentemente (últimas 5 horas) para avaliação
         const fiveHoursAgo = new Date();
         fiveHoursAgo.setHours(fiveHoursAgo.getHours() - 5);
         
-        return allOrders.filter(o => {
-          const isCustomerOrder = o.customer_email === user.email || o.created_by === user.email;
-          const isDeliveredRecently = o.status === 'delivered' && o.delivered_at && new Date(o.delivered_at) > fiveHoursAgo && !o.restaurant_rating;
+        const customerOrders = allOrders.filter(o => {
+          // Verificar se é pedido do cliente (por email ou telefone)
+          const isCustomerByEmail = o.customer_email === user.email || o.created_by === user.email;
+          
+          // Caso o cliente não esteja autenticado, também buscar por telefone
+          // (se o telefone do usuário estiver disponível no perfil)
+          const isCustomerByPhone = user.phone && o.customer_phone && 
+            o.customer_phone.replace(/\D/g, '') === user.phone.replace(/\D/g, '');
+          
+          const isCustomerOrder = isCustomerByEmail || isCustomerByPhone;
+          
+          // Incluir pedidos ativos (não entregues nem cancelados)
           const isActive = o.status !== 'delivered' && o.status !== 'cancelled';
+          
+          // Incluir pedidos entregues recentemente (para avaliação)
+          const isDeliveredRecently = o.status === 'delivered' && 
+            o.delivered_at && 
+            new Date(o.delivered_at) > fiveHoursAgo && 
+            !o.restaurant_rating;
           
           return isCustomerOrder && (isActive || isDeliveredRecently);
         });
-      } catch {
+
+        console.log('✅ Pedidos do cliente encontrados:', customerOrders.length);
+        if (customerOrders.length > 0) {
+          console.log('📋 IDs dos pedidos:', customerOrders.map(o => `#${o.order_code} (${o.status})`).join(', '));
+        }
+        
+        return customerOrders;
+      } catch (error) {
+        console.error('❌ Erro ao buscar pedidos:', error);
         return [];
       }
     },
     enabled: isOpen,
-    refetchInterval: 3000 // Atualizar a cada 3 segundos
+    refetchInterval: 2000, // ⚡ Atualizar a cada 2 segundos (tempo real)
+    refetchOnWindowFocus: true, // Atualizar quando voltar para a aba
+    refetchOnMount: true // Atualizar ao abrir o modal
   });
 
-  // Detectar quando um pedido muda para "delivered" e mostrar modal de avaliação
+  // Detectar mudanças de status em tempo real e notificar o cliente
   useEffect(() => {
-    if (!isOpen || ordersLoading) return;
+    if (!isOpen || ordersLoading || orders.length === 0) return;
 
+    const prevOrders = prevOrdersRef.current;
+
+    // Detectar pedidos entregues (para modal de avaliação)
     const currentDelivered = orders.filter(o => o.status === 'delivered' && !o.restaurant_rating);
-    const prevDelivered = prevOrdersRef.current.filter(o => o.status === 'delivered' && !o.restaurant_rating);
+    const prevDelivered = prevOrders.filter(o => o.status === 'delivered' && !o.restaurant_rating);
 
-    // Se há um novo pedido entregue sem avaliação
     const newDelivered = currentDelivered.find(o => 
       !prevDelivered.find(p => p.id === o.id)
     );
 
     if (newDelivered && !showRatingModal) {
-      // Aguardar um pouco antes de mostrar o modal para não ser muito intrusivo
       setTimeout(() => {
         setShowRatingModal(newDelivered);
       }, 1000);
+    }
+
+    // Detectar mudanças de status (para notificação)
+    if (prevOrders.length > 0) {
+      orders.forEach(order => {
+        const prevOrder = prevOrders.find(p => p.id === order.id);
+        
+        // Se o pedido existia antes e mudou de status
+        if (prevOrder && prevOrder.status !== order.status) {
+          const config = statusConfig[order.status];
+          const Icon = config?.icon || Clock;
+          
+          console.log(`🔔 Status atualizado: Pedido #${order.order_code} → ${config?.label || order.status}`);
+          
+          // Notificação visual
+          toast.success(
+            <div className="flex items-center gap-2">
+              <Icon className="w-5 h-5" />
+              <div>
+                <p className="font-bold">Status atualizado!</p>
+                <p className="text-sm">Pedido #{order.order_code}: {config?.label || order.status}</p>
+              </div>
+            </div>,
+            {
+              duration: 4000,
+              position: 'top-center',
+              style: {
+                background: '#fff',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+              }
+            }
+          );
+
+          // Som de notificação (apenas para status importantes)
+          if (['ready', 'out_for_delivery', 'arrived_at_customer', 'delivered'].includes(order.status)) {
+            try {
+              const audio = new Audio('/notification.mp3'); // Você pode adicionar um arquivo de áudio
+              audio.volume = 0.5;
+              audio.play().catch(() => {}); // Ignorar erro se não tiver permissão
+            } catch (e) {
+              // Silenciosamente ignorar se não conseguir tocar o som
+            }
+          }
+        }
+      });
     }
 
     prevOrdersRef.current = orders;
@@ -198,8 +277,17 @@ export default function CartModal({ isOpen, onClose, cart, onUpdateQuantity, onR
               }`}
               style={activeTab === 'orders' ? { borderBottomColor: primaryColor } : {}}
             >
-              Meus Pedidos {orders.length > 0 && (
-                <span className={`absolute top-1 right-2 w-5 h-5 ${statusConfig[orders[0]?.status]?.color || 'bg-red-500'} text-white text-xs rounded-full flex items-center justify-center font-bold`}>
+              <span className="flex items-center justify-center gap-2">
+                Meus Pedidos
+                {activeTab === 'orders' && (
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-red-500 text-white text-[10px] font-bold rounded uppercase">
+                    <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></span>
+                    Live
+                  </span>
+                )}
+              </span>
+              {orders.length > 0 && (
+                <span className={`absolute top-1 right-2 w-5 h-5 ${statusConfig[orders[0]?.status]?.color || 'bg-red-500'} text-white text-xs rounded-full flex items-center justify-center font-bold animate-pulse`}>
                   {orders.length}
                 </span>
               )}
@@ -300,9 +388,17 @@ export default function CartModal({ isOpen, onClose, cart, onUpdateQuantity, onR
                   <p className={darkMode ? 'text-gray-400' : 'text-gray-500'}>Carregando pedidos...</p>
                 </div>
               ) : orders.length === 0 ? (
-                <div className="text-center py-12">
+                <div className="text-center py-12 px-4">
                   <Package className="w-16 h-16 mx-auto mb-4 opacity-30" style={{ color: darkMode ? '#6b7280' : '#9ca3af' }} />
-                  <p className={darkMode ? 'text-gray-400' : 'text-gray-500'}>Nenhum pedido ativo</p>
+                  <p className={`font-semibold mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    Nenhum pedido ativo
+                  </p>
+                  <p className={`text-sm mb-4 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                    Seus pedidos em andamento aparecerão aqui com atualização em tempo real
+                  </p>
+                  <div className={`text-xs p-3 rounded-lg ${darkMode ? 'bg-gray-700/50 text-gray-400' : 'bg-blue-50 text-blue-600'}`}>
+                    💡 Faça um pedido e acompanhe o status em tempo real!
+                  </div>
                 </div>
               ) : (
                 orders.map((order) => {

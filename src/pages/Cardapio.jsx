@@ -469,11 +469,23 @@ export default function Cardapio() {
     const discount = calculateDiscount();
     const { total } = orderService.calculateTotals(cartTotal, discount, calculatedDeliveryFee);
 
+    // Buscar email do usuário autenticado
+    let userEmail = undefined;
+    if (isAuthenticated) {
+      try {
+        const user = await base44.auth.me();
+        userEmail = user?.email;
+      } catch (e) {
+        console.error('Erro ao buscar usuário:', e);
+      }
+    }
+
     const orderData = {
       order_code: orderCode,
       customer_name: customer.name,
       customer_phone: customer.phone,
-      customer_email: isAuthenticated ? (await base44.auth.me()).email : undefined,
+      customer_email: userEmail, // Email do usuário autenticado
+      created_by: userEmail, // Quem criou o pedido (para rastreamento)
       customer_latitude: customer.latitude || null,
       customer_longitude: customer.longitude || null,
       delivery_method: customer.deliveryMethod,
