@@ -10,7 +10,8 @@
     "test": "vitest",
     "test:watch": "vitest --watch",
     "backup": "node scripts/backup.js",
-    "migrate": "node db/migrate.js"
+    "migrate": "node db/migrate.js",
+    "seed:demo": "node -r dotenv/config scripts/seed-demo-pizzaria.js"
   },
   "keywords": [],
   "author": "",
