@@ -462,6 +462,10 @@ export async function updateUser(id, userData) {
     updates.push(`role = $${paramIndex++}`);
     values.push(userData.role);
   }
+  if (userData.slug !== undefined) {
+    updates.push(`slug = $${paramIndex++}`);
+    values.push(userData.slug);
+  }
   if (userData.google_id !== undefined) {
     updates.push(`google_id = $${paramIndex++}`);
     values.push(userData.google_id);

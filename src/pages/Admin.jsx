@@ -29,6 +29,7 @@ import FinancialTab from '../components/admin/FinancialTab';
 import OrderHistoryTab from '../components/admin/OrderHistoryTab';
 import ErrorBoundary from '../components/ErrorBoundary';
 import WhatsAppComandaToggle from '../components/admin/WhatsAppComandaToggle';
+import MasterSlugSettings from '../components/admin/MasterSlugSettings';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { logger } from '@/utils/logger';
@@ -352,12 +353,14 @@ export default function Admin() {
                 </Button>
               </Link>
             )}
-            <Link to={createPageUrl('Cardapio')}>
-              <Button variant="ghost" size="icon" className="text-white bg-green-600 hover:bg-green-700 sm:w-auto sm:px-3" title="Cardápio">
-                <UtensilsCrossed className="w-4 h-4 sm:mr-2" />
-                <span className="hidden sm:inline">Cardápio</span>
-              </Button>
-            </Link>
+            {(user?.slug || subscriberData?.slug) && (
+              <Link to={createPageUrl('Cardapio', user?.slug || subscriberData?.slug)}>
+                <Button variant="ghost" size="icon" className="text-white bg-green-600 hover:bg-green-700 sm:w-auto sm:px-3" title="Cardápio">
+                  <UtensilsCrossed className="w-4 h-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Cardápio</span>
+                </Button>
+              </Link>
+            )}
             {isMaster && (
               <Button variant="ghost" size="icon" className="text-white bg-amber-600/80 hover:bg-amber-600 sm:w-auto sm:px-3" title="Alterar minha senha" onClick={() => setShowChangePassword(true)}>
                 <KeyRound className="w-4 h-4 sm:mr-2" />

@@ -1730,6 +1730,34 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
     const { name } = req.params;
     const data = req.body;
     
+    // Atualizar slug do master
+    if (name === 'updateMasterSlug') {
+      if (!req.user?.is_master) {
+        return res.status(403).json({ error: 'Apenas master pode atualizar slug' });
+      }
+      
+      try {
+        const cleanSlug = data.slug ? String(data.slug).trim().toLowerCase()
+          .replace(/\s+/g, '-')
+          .replace(/[^a-z0-9-]/g, '') : null;
+        
+        const updated = await repo.updateUser(req.user.id, { slug: cleanSlug });
+        
+        return res.json({ 
+          data: { 
+            user: updated,
+            message: 'Slug atualizado com sucesso' 
+          } 
+        });
+      } catch (error) {
+        console.error('❌ Erro ao atualizar slug do master:', error);
+        return res.status(500).json({ 
+          error: 'Erro ao atualizar slug',
+          details: error.message 
+        });
+      }
+    }
+    
     console.log(`🔧 Função chamada: ${name}`, data);
     
     // Funções de assinantes

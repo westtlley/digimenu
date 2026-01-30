@@ -14,6 +14,7 @@ import toast from 'react-hot-toast';
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import PizzaVisualizationSettings from './PizzaVisualizationSettings';
+import MasterSlugSettings from './MasterSlugSettings';
 
 const DAYS_OF_WEEK = [
   { value: 0, label: 'Dom' },
@@ -312,6 +313,13 @@ export default function StoreTab() {
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-2">Configurações da Loja</h1>
           <p className="text-gray-600 dark:text-gray-400">Gerencie as informações e funcionamento do seu restaurante</p>
         </div>
+
+        {/* Configuração de Slug do Master */}
+        {isMaster && user && (
+          <div className="mb-6">
+            <MasterSlugSettings user={user} />
+          </div>
+        )}
 
         {/* Status da Configuração */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
