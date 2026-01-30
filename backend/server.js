@@ -2341,6 +2341,197 @@ app.use('/api/metrics', metricsRoutes);
 app.use(errorHandler);
 
 // =======================
+// 🌱 ENDPOINT DE SEED DEMO (uso único via HTTP)
+// =======================
+app.post('/api/seed-demo', asyncHandler(async (req, res) => {
+  if (!usePostgreSQL) {
+    return res.status(503).json({ error: 'Seed requer PostgreSQL. Configure DATABASE_URL.' });
+  }
+
+  // Validação simples com chave secreta
+  const secretKey = req.headers['x-seed-key'] || req.query.key;
+  const expectedKey = process.env.SEED_SECRET_KEY || 'demo-secret-2026';
+  
+  if (secretKey !== expectedKey) {
+    return res.status(403).json({ 
+      error: 'Não autorizado. Configure SEED_SECRET_KEY no Render ou use a chave padrão.',
+      hint: 'Envie a chave via header x-seed-key ou query ?key=...'
+    });
+  }
+
+  const DEMO_EMAIL = 'demo@pizzaria.com';
+  const DEMO_SLUG = 'demo-pizzaria';
+
+  try {
+    // 1. Verificar se já existe
+    let subscriber = await repo.getSubscriberByEmail(DEMO_EMAIL);
+    
+    if (subscriber) {
+      return res.json({ 
+        message: 'Demo já existe! Use o link abaixo.',
+        url: `https://digimenu-chi.vercel.app/s/${DEMO_SLUG}`,
+        email: DEMO_EMAIL,
+        slug: DEMO_SLUG,
+        alreadyExists: true
+      });
+    }
+
+    console.log('🍕 Criando demo-pizzaria...');
+
+    // 2. Criar subscriber
+    subscriber = await repo.createSubscriber({
+      email: DEMO_EMAIL,
+      name: 'Pizzaria Demo',
+      slug: DEMO_SLUG,
+      plan: 'ultra',
+      status: 'active',
+      expires_at: null,
+      permissions: {
+        store: ['view', 'update'],
+        dishes: ['view', 'create', 'update', 'delete'],
+        categories: ['view', 'create', 'update', 'delete'],
+        orders: ['view', 'create', 'update', 'delete'],
+        dashboard: ['view'],
+        whatsapp: ['view'],
+        pizza_config: ['view', 'update']
+      }
+    });
+    console.log('✅ Subscriber criado');
+
+    const subEmail = subscriber.email;
+
+    // 3. Criar loja
+    await repo.createEntity('Store', subEmail, {
+      name: 'Pizzaria Demo',
+      slogan: 'A melhor pizza da cidade!',
+      whatsapp: '11999887766',
+      address: 'Rua das Pizzas, 123 - Centro',
+      opening_time: '18:00',
+      closing_time: '23:00',
+      working_days: [0, 1, 2, 3, 4, 5, 6],
+      is_open: true,
+      accepting_orders: true,
+      primary_color: '#e63946',
+      enable_premium_pizza_visualization: true
+    });
+    console.log('✅ Loja criada');
+
+    // 4. Criar categorias
+    const pizzaCat = await repo.createEntity('Category', subEmail, { name: 'Pizzas', order: 1, is_active: true });
+    const bebidaCat = await repo.createEntity('Category', subEmail, { name: 'Bebidas', order: 2, is_active: true });
+    await repo.createEntity('Category', subEmail, { name: 'Sobremesas', order: 3, is_active: true });
+    console.log('✅ Categorias criadas');
+
+    // 5. Tamanhos de pizza
+    await repo.createEntity('PizzaSize', subEmail, {
+      name: 'Pequena', slices: 4, max_flavors: 2,
+      price_tradicional: 35.00, price_premium: 40.00, order: 1, is_active: true
+    });
+    await repo.createEntity('PizzaSize', subEmail, {
+      name: 'Média', slices: 6, max_flavors: 2,
+      price_tradicional: 50.00, price_premium: 60.00, order: 2, is_active: true
+    });
+    await repo.createEntity('PizzaSize', subEmail, {
+      name: 'Grande', slices: 8, max_flavors: 3,
+      price_tradicional: 65.00, price_premium: 75.00, order: 3, is_active: true
+    });
+    console.log('✅ Tamanhos criados');
+
+    // 6. Sabores
+    const flavors = [
+      { name: 'Margherita', category: 'tradicional', order: 1 },
+      { name: 'Calabresa', category: 'tradicional', order: 2 },
+      { name: 'Frango com Catupiry', category: 'tradicional', order: 3 },
+      { name: 'Portuguesa', category: 'tradicional', order: 4 },
+      { name: 'Quatro Queijos', category: 'premium', order: 5 },
+      { name: 'Pepperoni', category: 'premium', order: 6 },
+      { name: 'Lombinho', category: 'premium', order: 7 },
+      { name: 'Camarão', category: 'premium', order: 8 }
+    ];
+    for (const flavor of flavors) {
+      await repo.createEntity('PizzaFlavor', subEmail, {
+        ...flavor, description: `Deliciosa pizza de ${flavor.name}`, is_active: true
+      });
+    }
+    console.log('✅ Sabores criados');
+
+    // 7. Bordas
+    await repo.createEntity('PizzaEdge', subEmail, { name: 'Catupiry', price: 8.00, order: 1, is_active: true });
+    await repo.createEntity('PizzaEdge', subEmail, { name: 'Cheddar', price: 10.00, order: 2, is_active: true });
+    console.log('✅ Bordas criadas');
+
+    // 8. Extras
+    await repo.createEntity('PizzaExtra', subEmail, { name: 'Bacon Extra', price: 5.00, order: 1, is_active: true });
+    await repo.createEntity('PizzaExtra', subEmail, { name: 'Azeitonas', price: 3.00, order: 2, is_active: true });
+    console.log('✅ Extras criados');
+
+    // 9. Pratos
+    await repo.createEntity('Dish', subEmail, {
+      name: 'Monte Sua Pizza',
+      description: 'Escolha o tamanho, sabores, borda e extras!',
+      price: 35.00,
+      category_id: pizzaCat.id,
+      product_type: 'pizza',
+      is_active: true,
+      order: 1
+    });
+    await repo.createEntity('Dish', subEmail, {
+      name: 'Coca-Cola 2L',
+      description: 'Refrigerante Coca-Cola 2 litros',
+      price: 12.00,
+      category_id: bebidaCat.id,
+      product_type: 'simple',
+      is_active: true,
+      order: 1
+    });
+    await repo.createEntity('Dish', subEmail, {
+      name: 'Guaraná Antarctica 2L',
+      description: 'Refrigerante Guaraná 2 litros',
+      price: 10.00,
+      category_id: bebidaCat.id,
+      product_type: 'simple',
+      is_active: true,
+      order: 2
+    });
+    console.log('✅ Pratos criados');
+
+    // 10. Zona de entrega
+    await repo.createEntity('DeliveryZone', subEmail, {
+      name: 'Centro', fee: 5.00, min_order: 30.00,
+      delivery_time: '40-50 min', is_active: true
+    });
+    console.log('✅ Zona de entrega criada');
+
+    console.log('🎉 Demo criado com sucesso!');
+
+    res.json({
+      success: true,
+      message: '🎉 Demo criado com sucesso!',
+      url: `https://digimenu-chi.vercel.app/s/${DEMO_SLUG}`,
+      email: DEMO_EMAIL,
+      slug: DEMO_SLUG,
+      details: {
+        categories: 3,
+        pizzaSizes: 3,
+        flavors: 8,
+        edges: 2,
+        extras: 2,
+        dishes: 3,
+        deliveryZones: 1
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Erro ao criar demo:', error);
+    res.status(500).json({ 
+      error: 'Erro ao criar demo',
+      message: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+}));
+
+// =======================
 // 🚀 START SERVER
 // =======================
 app.listen(PORT, () => {
