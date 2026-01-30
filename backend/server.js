@@ -2750,6 +2750,123 @@ app.get('/api/delete-subscriber-by-slug', deleteSubscriberBySlugHandler);
 app.post('/api/delete-subscriber-by-slug', deleteSubscriberBySlugHandler);
 
 // =======================
+// 🔧 ENDPOINT PARA EXECUTAR MIGRAÇÃO SQL
+// =======================
+const runMigrationHandler = asyncHandler(async (req, res) => {
+  if (!usePostgreSQL) {
+    return res.status(503).json({ error: 'Migração requer PostgreSQL' });
+  }
+
+  const secretKey = req.headers['x-migration-key'] || req.query.key;
+  if (secretKey !== process.env.CLEANUP_SECRET_KEY) {
+    return res.status(403).json({ error: 'Não autorizado. Configure CLEANUP_SECRET_KEY.' });
+  }
+
+  const migrationName = req.query.migration || req.body.migration;
+  if (!migrationName) {
+    return res.status(400).json({ error: 'Parâmetro "migration" é obrigatório' });
+  }
+
+  try {
+    console.log(`🔧 Executando migração: ${migrationName}`);
+    const { query } = await import('./db/postgres.js');
+    
+    if (migrationName === 'add_slug_to_users') {
+      // Adicionar coluna slug se não existir
+      await query(`
+        ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS slug VARCHAR(255) UNIQUE;
+      `);
+      
+      // Criar índice
+      await query(`
+        CREATE INDEX IF NOT EXISTS idx_users_slug ON users(slug);
+      `);
+      
+      console.log('✅ Migração add_slug_to_users executada com sucesso');
+      
+      return res.json({
+        success: true,
+        message: 'Migração add_slug_to_users executada com sucesso!',
+        migration: migrationName
+      });
+    }
+    
+    return res.status(400).json({
+      error: 'Migração não encontrada',
+      available_migrations: ['add_slug_to_users']
+    });
+
+  } catch (error) {
+    console.error('❌ Erro ao executar migração:', error);
+    res.status(500).json({ 
+      error: 'Erro ao executar migração',
+      message: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+});
+
+app.get('/api/run-migration', runMigrationHandler);
+app.post('/api/run-migration', runMigrationHandler);
+
+// =======================
+// 🔍 ENDPOINT DE DEBUG PARA VER ESTADO DO USUÁRIO
+// =======================
+const debugUserHandler = asyncHandler(async (req, res) => {
+  if (!usePostgreSQL) {
+    return res.status(503).json({ error: 'Debug requer PostgreSQL' });
+  }
+
+  const secretKey = req.headers['x-debug-key'] || req.query.key;
+  if (secretKey !== process.env.CLEANUP_SECRET_KEY) {
+    return res.status(403).json({ error: 'Não autorizado. Configure CLEANUP_SECRET_KEY.' });
+  }
+
+  try {
+    const { query } = await import('./db/postgres.js');
+    
+    // 1. Ver estrutura da tabela users
+    const columnsResult = await query(`
+      SELECT column_name, data_type, is_nullable
+      FROM information_schema.columns
+      WHERE table_name = 'users'
+      ORDER BY ordinal_position;
+    `);
+    
+    // 2. Ver todos os usuários master
+    const mastersResult = await query(
+      'SELECT id, email, full_name, is_master, slug FROM users WHERE is_master = TRUE'
+    );
+    
+    // 3. Ver todos os subscribers
+    const subscribersResult = await query(
+      'SELECT id, email, name, slug, plan, status FROM subscribers'
+    );
+    
+    res.json({
+      success: true,
+      database: {
+        users_columns: columnsResult.rows,
+        masters: mastersResult.rows,
+        subscribers: subscribersResult.rows,
+        has_slug_column: columnsResult.rows.some(col => col.column_name === 'slug')
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Erro ao debugar:', error);
+    res.status(500).json({ 
+      error: 'Erro ao debugar',
+      message: error.message
+    });
+  }
+});
+
+app.get('/api/debug-user', debugUserHandler);
+app.post('/api/debug-user', debugUserHandler);
+
+// =======================
 // 🚀 START SERVER
 // =======================
 app.listen(PORT, () => {
