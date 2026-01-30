@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Check, ChevronRight, X, Sparkles, Star, ChefHat } from 'lucide-react';
 import PizzaVisualization from './PizzaVisualization';
 import PizzaVisualizationPremium from './PizzaVisualizationPremium';
+import PizzaBuilderMobile from './PizzaBuilderMobile';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient as base44 } from '@/api/apiClient';
 
@@ -219,32 +220,85 @@ export default function PizzaBuilder({
     }
   };
 
+  // Renderizar versão mobile em telas pequenas
+  const [isMobile, setIsMobile] = React.useState(false);
+
+  React.useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 1024);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  if (isMobile) {
+    return (
+      <div className="fixed inset-0 bg-gradient-to-br from-black/98 via-gray-900/98 to-black/98 z-50">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 20 }}
+          transition={{ duration: 0.3 }}
+          className="h-full flex flex-col"
+        >
+          {/* Header Mobile */}
+          <div className="relative px-3 py-3 border-b border-gray-700/50 bg-gradient-to-r from-orange-500/10 via-transparent to-orange-500/10 backdrop-blur-sm flex items-center justify-between flex-shrink-0">
+            <h2 className="text-base font-bold text-white truncate flex-1">
+              {dish?.name || 'Monte sua Pizza'}
+            </h2>
+            <button 
+              onClick={onClose} 
+              className="p-2 hover:bg-gray-700/50 rounded-xl text-white flex-shrink-0 transition-all"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          <PizzaBuilderMobile
+            dish={dish}
+            sizes={sizes}
+            flavors={flavors}
+            edges={edges}
+            extras={extras}
+            selectedSize={selectedSize}
+            setSelectedSize={setSelectedSize}
+            selectedFlavors={selectedFlavors}
+            setSelectedFlavors={setSelectedFlavors}
+            wantsEdge={wantsEdge}
+            setWantsEdge={setWantsEdge}
+            selectedEdge={selectedEdge}
+            setSelectedEdge={setSelectedEdge}
+            selectedExtras={selectedExtras}
+            setSelectedExtras={setSelectedExtras}
+            specifications={specifications}
+            setSpecifications={setSpecifications}
+            calculatePrice={calculatePrice}
+            onAddToCart={handleAddToCart}
+            onClose={onClose}
+            primaryColor={primaryColor}
+            usePremiumMode={usePremiumMode}
+            showConfetti={showConfetti}
+          />
+        </motion.div>
+      </div>
+    );
+  }
+
+  // Versão Desktop
   return (
-    <div className="fixed inset-0 bg-gradient-to-br from-black/95 via-gray-900/95 to-black/95 backdrop-blur-sm z-50 flex items-center justify-center p-0 md:p-4">
+    <div className="fixed inset-0 bg-gradient-to-br from-black/95 via-gray-900/95 to-black/95 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <motion.div
         initial={{ opacity: 0, scale: 0.96, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.96, y: 20 }}
         transition={{ type: "spring", duration: 0.4 }}
-        className="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 rounded-none md:rounded-3xl max-w-7xl w-full h-full md:h-[96vh] overflow-hidden flex flex-col shadow-2xl border border-gray-700/50"
+        className="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 rounded-2xl max-w-5xl w-full h-[85vh] overflow-hidden flex flex-col shadow-2xl border border-gray-700/50"
       >
-        {/* Header Moderno com Gradiente */}
-        <div className="relative px-4 md:px-6 py-4 border-b border-gray-700/50 bg-gradient-to-r from-orange-500/10 via-transparent to-orange-500/10 backdrop-blur-sm flex items-center justify-between flex-shrink-0">
+        {/* Header Desktop Compacto */}
+        <div className="relative px-4 py-2.5 border-b border-gray-700/50 bg-gradient-to-r from-orange-500/10 via-transparent to-orange-500/10 backdrop-blur-sm flex items-center justify-between flex-shrink-0">
           <div className="absolute inset-0 bg-gradient-to-r from-orange-500/5 via-transparent to-orange-500/5"></div>
-          <div className="relative flex-1 min-w-0 pr-3">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow-lg">
-                <ChefHat className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h2 className="text-lg md:text-xl font-bold text-white truncate bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
-                  {dish?.name || 'Monte sua Pizza'}
-                </h2>
-                {dish?.description && (
-                  <p className="text-xs md:text-sm text-gray-400 mt-0.5 truncate hidden md:block">{dish.description}</p>
-                )}
-              </div>
-            </div>
+          <div className="relative flex-1 min-w-0 pr-2">
+            <h2 className="text-lg font-bold text-white truncate">
+              {dish?.name || 'Monte sua Pizza'}
+            </h2>
           </div>
           <button 
             onClick={onClose} 
@@ -254,16 +308,16 @@ export default function PizzaBuilder({
           </button>
         </div>
 
-        {/* Progress Bar Moderna */}
-        <div className="px-4 md:px-6 py-3 border-b border-gray-700/50 bg-gradient-to-r from-gray-800/50 to-gray-900/50 backdrop-blur-sm flex-shrink-0">
-          <div className="flex items-center gap-2 md:gap-3 overflow-x-auto scrollbar-hide pb-1">
+        {/* Progress Desktop */}
+        <div className="px-3 py-2 border-b border-gray-700/50 bg-gradient-to-r from-gray-800/50 to-gray-900/50 backdrop-blur-sm flex-shrink-0">
+          <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide">
             {steps.map((step, idx) => (
               <React.Fragment key={step.id}>
                 <motion.button
                   onClick={() => idx < currentStep && setCurrentStep(idx)}
                   whileHover={idx < currentStep ? { scale: 1.05 } : {}}
                   whileTap={{ scale: 0.95 }}
-                  className={`relative flex items-center gap-2 px-3 md:px-4 py-2 rounded-xl text-xs md:text-sm font-semibold whitespace-nowrap transition-all duration-300 ${
+                  className={`relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all duration-300 ${
                     idx === currentStep
                       ? 'text-white shadow-lg'
                       : idx < currentStep
@@ -272,7 +326,7 @@ export default function PizzaBuilder({
                   }`}
                   style={idx === currentStep ? { 
                     background: `linear-gradient(135deg, ${primaryColor}, ${primaryColor}dd)`,
-                    boxShadow: `0 4px 15px ${primaryColor}40`
+                    boxShadow: `0 2px 10px ${primaryColor}40`
                   } : idx < currentStep ? {
                     background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.2), rgba(34, 197, 94, 0.1))',
                     border: '1px solid rgba(34, 197, 94, 0.3)'
@@ -281,32 +335,31 @@ export default function PizzaBuilder({
                     border: '1px solid rgba(75, 85, 99, 0.3)'
                   }}
                 >
-                  <span className="text-base">{step.icon}</span>
-                  <span>{step.title}</span>
+                  <span className="text-sm">{step.icon}</span>
+                  <span className="text-xs">{step.title}</span>
                   {idx < currentStep && (
                     <motion.div
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
-                      className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full flex items-center justify-center"
+                      className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full flex items-center justify-center"
                     >
-                      <Check className="w-2.5 h-2.5 text-white" />
+                      <Check className="w-2 h-2 text-white" />
                     </motion.div>
                   )}
-                  {step.required && idx >= currentStep && <span className="text-red-400 ml-0.5">*</span>}
                 </motion.button>
                 {idx < steps.length - 1 && (
-                  <ChevronRight className="w-4 h-4 text-gray-600 flex-shrink-0" />
+                  <ChevronRight className="w-3 h-3 text-gray-600 flex-shrink-0" />
                 )}
               </React.Fragment>
             ))}
           </div>
         </div>
 
-        {/* Content - Grid Responsivo */}
+        {/* Content - Desktop Grid Otimizado */}
         <div className="flex-1 overflow-hidden min-h-0 bg-gradient-to-br from-gray-900 to-gray-800">
-          <div className="flex flex-col lg:grid lg:grid-cols-[400px_1fr] gap-0 lg:gap-4 h-full">
-            {/* Left: Pizza Visualization - Responsiva */}
-            <div className="relative lg:rounded-2xl flex items-center justify-center overflow-hidden bg-gradient-to-br from-amber-900/30 via-orange-900/20 to-yellow-900/30 backdrop-blur-xl lg:border-2 lg:border-orange-500/20 h-[280px] sm:h-[320px] lg:h-full lg:ml-4 lg:my-4 lg:sticky lg:top-4 shadow-2xl flex-shrink-0">
+          <div className="grid grid-cols-[340px_1fr] gap-0 h-full">
+            {/* Left: Pizza Visualization */}
+            <div className="relative flex items-center justify-center overflow-hidden bg-gradient-to-br from-amber-900/30 via-orange-900/20 to-yellow-900/30 backdrop-blur-xl border-r-2 border-orange-500/20 flex-shrink-0">
               <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1513104890138-7c749659a591?w=800&q=80')] bg-cover bg-center opacity-[0.08] blur-xl"></div>
               <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent"></div>
               <div className="relative z-10 w-full h-full flex items-center justify-center p-4">
@@ -345,8 +398,8 @@ export default function PizzaBuilder({
               )}
             </div>
 
-            {/* Right: Options - Design Moderno Responsivo */}
-            <div className="flex-1 p-4 md:p-6 space-y-4 overflow-y-auto overscroll-contain">
+            {/* Right: Options - Compacto para 100% Zoom */}
+            <div className="flex-1 p-4 space-y-3 overflow-y-auto overscroll-contain">
               <AnimatePresence mode="wait">
                 {/* Step 0: Size - Cards Modernos */}
                 {currentStep === 0 && (
@@ -358,12 +411,12 @@ export default function PizzaBuilder({
                     transition={{ duration: 0.3 }}
                     className="space-y-4"
                   >
-                    <div className="mb-6">
-                      <h3 className="text-xl md:text-2xl font-bold text-white mb-2 flex items-center gap-2">
-                        <span className="text-2xl">📏</span>
+                    <div className="mb-4">
+                      <h3 className="text-lg font-bold text-white mb-1.5 flex items-center gap-2">
+                        <span className="text-xl">📏</span>
                         Escolha o tamanho
                       </h3>
-                      <p className="text-sm text-gray-400">Selecione o tamanho ideal para sua pizza</p>
+                      <p className="text-xs text-gray-400">Selecione o tamanho ideal para sua pizza</p>
                     </div>
                     <div className="grid gap-3">
                       {sizes.filter(s => s.is_active).map((size, idx) => (
@@ -378,17 +431,17 @@ export default function PizzaBuilder({
                             setSelectedSize(size);
                             setSelectedFlavors([]);
                           }}
-                          className={`relative p-4 md:p-5 border-2 rounded-2xl text-left transition-all duration-300 overflow-hidden group ${
+                          className={`relative p-3 border-2 rounded-xl text-left transition-all duration-300 overflow-hidden group ${
                             selectedSize?.id === size.id
                               ? 'border-orange-500 bg-gradient-to-br from-orange-500/20 to-orange-600/10 shadow-lg shadow-orange-500/20'
                               : 'border-gray-700 hover:border-gray-600 bg-gradient-to-br from-gray-800/50 to-gray-900/50 hover:from-gray-800/70 hover:to-gray-900/70'
                           }`}
                         >
                           <div className="absolute inset-0 bg-gradient-to-br from-orange-500/0 via-orange-500/0 to-orange-500/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                          <div className="relative flex items-center justify-between gap-4">
+                          <div className="relative flex items-center justify-between gap-3">
                             <div className="flex-1">
-                              <div className="flex items-center gap-3 mb-2">
-                                <h4 className="font-bold text-lg md:text-xl text-white">{size.name}</h4>
+                              <div className="flex items-center gap-2 mb-1.5">
+                                <h4 className="font-bold text-base text-white">{size.name}</h4>
                                 {selectedSize?.id === size.id && (
                                   <motion.div
                                     initial={{ scale: 0 }}
