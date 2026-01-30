@@ -530,7 +530,7 @@ export default function PizzaBuilderV2({
 
   // --- RENDER ---
   return (
-    <div className="antialiased">
+    <div className="fixed inset-0 z-[9999] antialiased">
       <AnimatePresence mode="wait">
         {step === 'welcome' && <WelcomeView />}
         {step === 'custom' && <CustomView />}
