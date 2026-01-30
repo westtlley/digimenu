@@ -36,7 +36,7 @@ export default function PizzaBuilderV2({
   store = null
 }) {
   // Estados
-  const [step, setStep] = useState('welcome'); // welcome | custom | flavors | borders | extras | observations
+  const [step, setStep] = useState('custom'); // custom | flavors | borders | extras | observations
   const [selectedSize, setSelectedSize] = useState(null);
   const [selectedFlavors, setSelectedFlavors] = useState([]);
   const [selectedEdge, setSelectedEdge] = useState(null);
@@ -44,7 +44,7 @@ export default function PizzaBuilderV2({
   const [specifications, setSpecifications] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Carregar dados de edição
+  // Carregar dados de edição ou pré-preencher sabor
   React.useEffect(() => {
     if (editingItem) {
       setSelectedSize(editingItem.size || null);
@@ -52,12 +52,32 @@ export default function PizzaBuilderV2({
       setSelectedEdge(editingItem.edge || null);
       setSelectedExtras(editingItem.extras || []);
       setSpecifications(editingItem.specifications || '');
-      setStep('custom');
-    } else if (sizes.length > 0 && !selectedSize) {
+    } else {
       // Selecionar tamanho padrão (médio ou primeiro)
-      setSelectedSize(sizes.find(s => s.name.toLowerCase().includes('média')) || sizes[0]);
+      if (sizes.length > 0 && !selectedSize) {
+        const defaultSize = sizes.find(s => s.name.toLowerCase().includes('média')) || sizes[0];
+        setSelectedSize(defaultSize);
+      }
+      
+      // Pré-preencher sabor baseado no nome da pizza clicada
+      if (dish && flavors.length > 0 && selectedFlavors.length === 0) {
+        const dishName = dish.name.toLowerCase();
+        // Tentar encontrar o sabor que corresponde ao nome da pizza
+        // Ex: "Pizza Calabresa" -> procura sabor "Calabresa"
+        const matchingFlavor = flavors.find(f => {
+          if (!f || !f.name) return false;
+          const flavorName = f.name.toLowerCase();
+          // Remove "pizza" do nome do dish para comparar
+          const cleanDishName = dishName.replace(/pizza\s*/gi, '').trim();
+          return flavorName.includes(cleanDishName) || cleanDishName.includes(flavorName);
+        });
+        
+        if (matchingFlavor) {
+          setSelectedFlavors([matchingFlavor]);
+        }
+      }
     }
-  }, [editingItem, sizes]);
+  }, [editingItem, sizes, dish, flavors, selectedSize, selectedFlavors.length]);
 
   // Sabores filtrados
   const filteredFlavors = useMemo(() => {
@@ -143,71 +163,7 @@ export default function PizzaBuilderV2({
 
   // --- TELAS ---
 
-  // 1. WELCOME SCREEN
-  const WelcomeView = () => (
-    <div className="relative min-h-screen w-full flex flex-col overflow-hidden bg-black">
-      {/* Background Image */}
-      <div className="absolute inset-0 z-0">
-        <img 
-          src={dish?.image || "https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&q=80&w=1000"}
-          className="w-full h-full object-cover opacity-60 scale-105"
-          alt="Pizza"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
-      </div>
-
-      {/* Header */}
-      <header className="relative z-10 w-full py-4 px-6 flex items-center gap-4" style={{ backgroundColor: primaryColor }}>
-        <button onClick={onClose} className="text-white">
-          <X size={24} />
-        </button>
-        <h1 className="text-white font-black tracking-wider text-xl uppercase">
-          {dish?.name || 'Pizza'}
-        </h1>
-      </header>
-
-      {/* Content */}
-      <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-8 text-center mt-[-60px]">
-        <h2 className="text-6xl font-black text-white leading-tight mb-2 italic drop-shadow-lg">
-          {dish?.name || 'PIZZA'}<br/>PERSONALIZADA
-        </h2>
-        
-        <div className="p-1 rounded-sm rotate-[-2deg] mb-8 shadow-xl" style={{ backgroundColor: primaryColor }}>
-          <span className="text-white font-bold px-4 py-1 text-sm uppercase">Monte do seu jeito</span>
-        </div>
-
-        {store && (
-          <div className="space-y-4 w-full max-w-sm">
-            <div className="flex items-center justify-center gap-2 text-white">
-              <Store size={22} style={{ color: primaryColor }} />
-              <span className="font-black text-xl">{store.name}</span>
-            </div>
-            
-            <div className="space-y-3 text-sm text-gray-200 bg-black/40 p-6 rounded-2xl backdrop-blur-md border border-white/5">
-              <div className="flex justify-between border-b border-white/10 pb-2">
-                <span className="flex items-center gap-2"><Clock size={16} /> Tempo de preparo</span>
-                <span className="text-white font-black">30-40 Min</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="flex items-center gap-2"><Star size={16} /> Personalização</span>
-                <span className="text-white font-black">Total</span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <button 
-          onClick={() => setStep('custom')}
-          className="mt-12 text-white font-black py-5 px-14 rounded-full text-xl shadow-[0_10px_40px_-10px_rgba(249,115,22,0.5)] transition-all active:scale-95"
-          style={{ backgroundColor: primaryColor }}
-        >
-          COMEÇAR A MONTAR
-        </button>
-      </main>
-    </div>
-  );
-
-  // 2. CUSTOM VIEW (Montagem)
+  // CUSTOM VIEW (Montagem)
   const CustomView = () => (
     <div className="min-h-screen w-full flex flex-col bg-[#0f0f0f]">
       {/* Header */}
@@ -250,7 +206,10 @@ export default function PizzaBuilderV2({
 
         {/* Visualizador Circular da Pizza */}
         <div className="flex flex-col items-center py-4 relative">
-          <div className="relative w-72 h-72 pizza-container group">
+          <button 
+            onClick={() => setStep('flavors')}
+            className="relative w-72 h-72 pizza-container group cursor-pointer transition-transform active:scale-95"
+          >
             {/* Board / Base Wood Effect */}
             <div className="absolute inset-[-15px] bg-[#3a2214] rounded-full border-[12px] border-[#2a1a0f] shadow-2xl" />
             
@@ -260,7 +219,10 @@ export default function PizzaBuilderV2({
                   {selectedFlavors[0] ? (
                     <img src={selectedFlavors[0].image} className="w-full h-full object-cover animate-pulse" alt={selectedFlavors[0].name} />
                   ) : (
-                    <Plus size={64} className="opacity-10" />
+                    <div className="flex flex-col items-center gap-2">
+                      <Plus size={64} className="opacity-10" />
+                      <span className="text-xs font-bold opacity-30">TOQUE PARA ESCOLHER</span>
+                    </div>
                   )}
                 </div>
               ) : (
@@ -277,14 +239,17 @@ export default function PizzaBuilderV2({
                       {selectedFlavors[i] ? (
                         <img src={selectedFlavors[i].image} className="w-full h-full object-cover animate-pulse" alt={selectedFlavors[i].name} />
                       ) : (
-                        <Plus className="text-white/20" size={32} />
+                        <div className="flex flex-col items-center gap-1">
+                          <Plus className="text-white/20" size={32} />
+                          <span className="text-[8px] font-bold text-white/20">TOQUE</span>
+                        </div>
                       )}
                     </div>
                   ))}
                 </div>
               )}
             </div>
-          </div>
+          </button>
           
           <div className="mt-8 text-center bg-black/40 px-8 py-3 rounded-full border border-white/5">
             <span className="text-[10px] text-gray-500 font-black uppercase block tracking-tighter">Preço da pizza:</span>
@@ -292,14 +257,18 @@ export default function PizzaBuilderV2({
           </div>
         </div>
 
-        {/* Sabores Selection Button */}
-        <button 
-          onClick={() => setStep('flavors')}
-          className="w-full bg-white text-gray-500 py-4 rounded-xl font-black flex items-center justify-center gap-2 shadow-xl border border-gray-300 active:bg-gray-100 transition-colors uppercase text-sm"
-        >
-          <Star size={18} className="fill-current" style={{ color: primaryColor }} /> 
-          {selectedFlavors.length > 0 ? `${selectedFlavors.length} de ${maxFlavors} Sabores` : 'Escolher Sabores'}
-        </button>
+        {/* Sabores Info */}
+        <div className="text-center">
+          <p className="text-gray-400 text-xs uppercase tracking-widest font-black mb-1">Sabores Selecionados</p>
+          <p className="text-white text-lg font-black">
+            {selectedFlavors.length > 0 ? (
+              <span>{selectedFlavors.map(f => f.name).join(', ')}</span>
+            ) : (
+              <span className="text-gray-500">Toque na pizza acima para escolher</span>
+            )}
+          </p>
+          <p className="text-gray-500 text-xs mt-1">{selectedFlavors.length} de {maxFlavors}</p>
+        </div>
 
         {/* Opções Extras */}
         <div className="grid grid-cols-1 gap-4">
@@ -349,7 +318,7 @@ export default function PizzaBuilderV2({
     </div>
   );
 
-  // 3. FLAVORS VIEW (Seleção de Sabores)
+  // FLAVORS VIEW (Seleção de Sabores)
   const FlavorsView = () => (
     <div className="min-h-screen w-full flex flex-col bg-white">
       {/* Header */}
@@ -449,7 +418,7 @@ export default function PizzaBuilderV2({
     </div>
   );
 
-  // 4. SELECTION OVERLAY (Bordas, Extras, Observações)
+  // SELECTION OVERLAY (Bordas, Extras, Observações)
   const SelectionOverlay = ({ title, items, current, onSelect, onClose, type = 'single' }) => (
     <div className="fixed inset-0 z-[100] bg-black/90 flex flex-col p-6 animate-fade-in backdrop-blur-md">
       <div className="flex justify-between items-center mb-8">
@@ -532,7 +501,6 @@ export default function PizzaBuilderV2({
   return (
     <div className="fixed inset-0 z-[9999] antialiased">
       <AnimatePresence mode="wait">
-        {step === 'welcome' && <WelcomeView />}
         {step === 'custom' && <CustomView />}
         {step === 'flavors' && <FlavorsView />}
         {step === 'borders' && (
