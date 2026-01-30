@@ -1,76 +1,67 @@
 export const whatsappService = {
   formatOrderMessage(order, cart, complementGroups, formatCurrency) {
     const paymentMethods = {
-      'pix': 'PIX',
-      'dinheiro': 'Dinheiro',
-      'cartao_credito': 'Cartão de Crédito',
-      'cartao_debito': 'Cartão de Débito'
+      'pix': '💳 PIX',
+      'dinheiro': '💵 Dinheiro',
+      'cartao_credito': '💳 Crédito',
+      'cartao_debito': '💳 Débito'
     };
 
-    let comandaText = `🍽️ *NOVO PEDIDO - CARDÁPIO*\n`;
-    comandaText += `============================\n`;
-    comandaText += `📋 Pedido #${order.order_code}\n`;
-    comandaText += `⏰ ${new Date().toLocaleString('pt-BR')}\n`;
-    comandaText += `============================\n\n`;
+    // Header compacto e elegante
+    let comandaText = `🔔 *NOVO PEDIDO #${order.order_code}*\n`;
+    comandaText += `━━━━━━━━━━━━━━━━━━━━\n`;
+    comandaText += `📅 ${new Date().toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}\n\n`;
     
-    comandaText += `👤 *Cliente:* ${order.customer_name}\n`;
-    comandaText += `📱 *Contato:* ${order.customer_phone}\n`;
-    comandaText += `🚀 *Tipo:* ${order.delivery_method === 'delivery' ? 'Entrega 🚴' : 'Retirada 🏪'}\n`;
+    // Informações do cliente (condensadas)
+    comandaText += `👤 ${order.customer_name} • 📱 ${order.customer_phone}\n`;
+    comandaText += `${order.delivery_method === 'delivery' ? '🚴 Entrega' : '🏪 Retirada'}`;
     
-    if (order.delivery_method === 'delivery') {
-      comandaText += `📍 *Endereço:* ${order.address}\n`;
+    if (order.delivery_method === 'delivery' && order.address) {
+      comandaText += ` • 📍 ${order.address}`;
     }
     
-    comandaText += `💳 *Pagamento:* ${paymentMethods[order.payment_method] || order.payment_method}\n`;
+    comandaText += `\n${paymentMethods[order.payment_method] || order.payment_method}`;
     
     if (order.payment_method === 'dinheiro' && order.needs_change && order.change_amount) {
       const changeValue = parseFloat(order.change_amount) - order.total;
-      comandaText += `💵 *Troco para:* ${formatCurrency(parseFloat(order.change_amount))} _(Troco: ${formatCurrency(changeValue)})_\n`;
+      comandaText += ` (Troco: ${formatCurrency(changeValue)})`;
     }
     
     if (order.scheduled_date && order.scheduled_time) {
       const schedDate = new Date(order.scheduled_date).toLocaleDateString('pt-BR');
-      comandaText += `\n⏰ *AGENDADO PARA:* ${schedDate} às ${order.scheduled_time}\n`;
+      comandaText += `\n⏰ *Agendado:* ${schedDate} às ${order.scheduled_time}`;
     }
     
-    comandaText += `\n--- *ITENS DO PEDIDO* ---\n\n`;
+    comandaText += `\n\n━━━━━━━━━━━━━━━━━━━━\n*ITENS*\n`;
 
     cart.forEach((item, index) => {
       const isPizza = item.dish?.product_type === 'pizza';
+      const itemPrice = formatCurrency(item.totalPrice * (item.quantity || 1));
       
-      comandaText += `${index + 1}. *${item.dish.name}* x${item.quantity || 1}\n`;
+      // Nome do item + quantidade + preço (tudo em uma linha)
+      comandaText += `\n${index + 1}. *${item.dish.name}* (x${item.quantity || 1}) • ${itemPrice}\n`;
 
-      // Pizza detalhada
+      const details = [];
+
+      // Pizza detalhada (condensada)
       if (isPizza && item.size) {
-        comandaText += `   🍕 *${item.size.name}* (${item.size.slices} fatias • ${item.flavors?.length || 0} sabores)\n`;
+        details.push(`🍕 ${item.size.name}`);
         
         if (item.flavors && item.flavors.length > 0) {
-          comandaText += `   _Sabores:_\n`;
-          const flavorCounts = item.flavors.reduce((acc, f) => {
-            acc[f.name] = (acc[f.name] || 0) + 1;
-            return acc;
-          }, {});
-          Object.entries(flavorCounts).forEach(([name, count]) => {
-            comandaText += `     • ${count}/${item.size.slices} ${name}\n`;
-          });
+          const flavorNames = item.flavors.map(f => f.name).join(' + ');
+          details.push(flavorNames);
         }
         
         if (item.edge) {
-          comandaText += `   🧀 _Borda:_ ${item.edge.name}\n`;
+          details.push(`🧀 ${item.edge.name}`);
         }
         
         if (item.extras && item.extras.length > 0) {
-          comandaText += `   _Extras:_\n`;
-          item.extras.forEach(extra => {
-            comandaText += `     • ${extra.name}\n`;
-          });
-        }
-        
-        if (item.specifications) {
-          comandaText += `   📝 _Obs:_ ${item.specifications}\n`;
+          const extrasNames = item.extras.map(e => e.name).join(', ');
+          details.push(`+${extrasNames}`);
         }
       } 
-      // Prato normal
+      // Prato normal (condensado)
       else if (item.selections && Object.keys(item.selections).length > 0) {
         const dishGroups = complementGroups.filter(group => 
           item.dish.complement_groups?.some(cg => cg.group_id === group.id)
@@ -80,34 +71,36 @@ export const whatsappService = {
           const group = dishGroups.find(g => g.id === groupId);
           if (group) {
             if (Array.isArray(sel)) {
-              comandaText += `   _${group.name}: ${sel.map(opt => opt.name).join(', ')}_\n`;
-            } else if (sel) {
-              comandaText += `   _${group.name}: ${sel.name}_\n`;
+              const opts = sel.map(opt => opt.name).join(', ');
+              if (opts) details.push(opts);
+            } else if (sel && sel.name) {
+              details.push(sel.name);
             }
           }
         });
       }
-      
-      if (item.observations) {
-        comandaText += `   📝 _Obs:_ ${item.observations}\n`;
+
+      // Observações
+      if (item.specifications || item.observations) {
+        details.push(`📝 ${item.specifications || item.observations}`);
       }
 
-      comandaText += `   💰 ${formatCurrency(item.totalPrice * (item.quantity || 1))}\n\n`;
+      // Imprimir detalhes em uma linha limpa
+      if (details.length > 0) {
+        comandaText += `   _${details.join(' • ')}_\n`;
+      }
     });
     
-    comandaText += `============================\n`;
-    comandaText += `📦 *Subtotal:* ${formatCurrency(order.subtotal)}\n`;
+    // Totais (compactos)
+    comandaText += `\n━━━━━━━━━━━━━━━━━━━━\n`;
     
-    if (order.delivery_fee > 0) {
-      comandaText += `🚚 *Taxa entrega:* ${formatCurrency(order.delivery_fee)}\n`;
-    }
+    const totalsLine = [`Subtotal: ${formatCurrency(order.subtotal)}`];
+    if (order.delivery_fee > 0) totalsLine.push(`Taxa: ${formatCurrency(order.delivery_fee)}`);
+    if (order.discount > 0) totalsLine.push(`Desconto: -${formatCurrency(order.discount)}`);
     
-    if (order.discount > 0) {
-      comandaText += `🎟️ *Desconto:* -${formatCurrency(order.discount)}\n`;
-    }
-    
-    comandaText += `\n💵 *TOTAL:* ${formatCurrency(order.total)}\n`;
-    comandaText += `============================`;
+    comandaText += totalsLine.join(' • ') + `\n`;
+    comandaText += `\n💵 *TOTAL: ${formatCurrency(order.total)}*\n`;
+    comandaText += `━━━━━━━━━━━━━━━━━━━━`;
 
     return comandaText;
   },

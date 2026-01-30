@@ -96,10 +96,16 @@ export default function OrderQueue({
                 } ${isLate && !['delivered', 'cancelled'].includes(order.status) ? 'ring-2 ring-red-500' : ''}`}
               >
                 <div className="flex items-start justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono font-bold text-sm">
-                      #{order.order_code || order.id?.slice(-6).toUpperCase()}
-                    </span>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-bold text-sm">
+                        #{order.order_code || order.id?.slice(-6).toUpperCase()}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-gray-400 mt-0.5">
+                      📅 {new Date(order.created_date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} • 
+                      ⏰ {new Date(order.created_date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                    </p>
                   </div>
                   <Badge className={`${status.color} text-xs`}>
                     <StatusIcon className="w-3 h-3 mr-1" />

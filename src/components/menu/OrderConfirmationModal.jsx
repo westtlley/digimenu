@@ -25,6 +25,65 @@ export default function OrderConfirmationModal({
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
   };
 
+  // Função para formatar as seleções de um item (marmita, pizza, etc)
+  const formatItemSelections = (item) => {
+    const parts = [];
+
+    // Se for marmita
+    if (item.rice) parts.push(`🍚 ${item.rice.name || item.rice}`);
+    if (item.bean) parts.push(`🫘 ${item.bean.name || item.bean}`);
+    if (item.garnish) {
+      if (Array.isArray(item.garnish)) {
+        const garnishNames = item.garnish.map(g => g.name || g).join(', ');
+        if (garnishNames) parts.push(`🥗 ${garnishNames}`);
+      } else if (typeof item.garnish === 'object' && item.garnish.name) {
+        parts.push(`🥗 ${item.garnish.name}`);
+      }
+    }
+    if (item.salad) parts.push(`🥬 ${item.salad.name || item.salad}`);
+    if (item.drink) parts.push(`🥤 ${item.drink.name || item.drink}`);
+
+    // Se for pizza
+    if (item.size) parts.push(`📏 ${item.size.name || item.size}`);
+    if (item.flavors && Array.isArray(item.flavors)) {
+      const flavorNames = item.flavors.map(f => f.name || f).join(' + ');
+      if (flavorNames) parts.push(`🍕 ${flavorNames}`);
+    }
+    if (item.edge) parts.push(`🧀 Borda: ${item.edge.name || item.edge}`);
+    if (item.extras && Array.isArray(item.extras) && item.extras.length > 0) {
+      const extraNames = item.extras.map(e => e.name || e).join(', ');
+      if (extraNames) parts.push(`➕ ${extraNames}`);
+    }
+
+    // Se tiver complementos genéricos
+    if (item.complements && Array.isArray(item.complements)) {
+      const complementNames = item.complements.map(c => c.name || c).join(', ');
+      if (complementNames) parts.push(complementNames);
+    }
+
+    // Se tiver selections (formato antigo)
+    if (item.selections && typeof item.selections === 'object') {
+      Object.entries(item.selections).forEach(([key, value]) => {
+        if (value) {
+          if (Array.isArray(value)) {
+            const valueStr = value.map(v => v.name || v).filter(Boolean).join(', ');
+            if (valueStr) parts.push(valueStr);
+          } else if (typeof value === 'object' && value.name) {
+            parts.push(value.name);
+          } else if (typeof value === 'string') {
+            parts.push(value);
+          }
+        }
+      });
+    }
+
+    // Observações/especificações
+    if (item.specifications) parts.push(`📝 ${item.specifications}`);
+    if (item.observations) parts.push(`📝 ${item.observations}`);
+
+    return parts.length > 0 ? parts.join(' • ') : null;
+  };
+
   const formatAddress = () => {
     if (customer.deliveryMethod === 'pickup') {
       return 'Retirada na loja';
@@ -63,25 +122,27 @@ export default function OrderConfirmationModal({
           <div>
             <h3 className="font-semibold text-sm text-gray-700 mb-2">Itens do Pedido</h3>
             <div className="space-y-2 max-h-48 overflow-y-auto">
-              {cart.map((item, index) => (
-                <div key={index} className="flex items-start justify-between text-sm bg-gray-50 p-2 rounded-lg">
-                  <div className="flex-1">
-                    <p className="font-medium text-gray-900">
-                      {item.quantity}x {item.dish?.name || item.name}
-                    </p>
-                    {item.selections && Object.keys(item.selections).length > 0 && (
-                      <p className="text-xs text-gray-500 mt-1">
-                        {Object.entries(item.selections).map(([key, value]) => 
-                          Array.isArray(value) ? value.join(', ') : value
-                        ).join(' | ')}
+              {cart.map((item, index) => {
+                const selectionsText = formatItemSelections(item);
+                
+                return (
+                  <div key={index} className="flex items-start justify-between text-sm bg-gray-50 p-2 rounded-lg">
+                    <div className="flex-1">
+                      <p className="font-medium text-gray-900">
+                        {item.quantity}x {item.dish?.name || item.name}
                       </p>
-                    )}
+                      {selectionsText && (
+                        <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+                          {selectionsText}
+                        </p>
+                      )}
+                    </div>
+                    <p className="font-medium text-gray-900 ml-2 flex-shrink-0">
+                      {formatCurrency((item.totalPrice || item.price || 0) * (item.quantity || 1))}
+                    </p>
                   </div>
-                  <p className="font-medium text-gray-900 ml-2">
-                    {formatCurrency((item.totalPrice || item.price || 0) * (item.quantity || 1))}
-                  </p>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 

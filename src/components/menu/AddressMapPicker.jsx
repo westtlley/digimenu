@@ -288,12 +288,24 @@ export default function AddressMapPicker({ isOpen, onClose, onConfirm, initialAd
                       setShowSuggestions(false);
                     } else if (e.key === 'Escape') {
                       setShowSuggestions(false);
+                    } else if (e.key === 'ArrowDown' && suggestions.length > 0) {
+                      e.preventDefault();
+                      setShowSuggestions(true);
                     }
                   }}
                   onFocus={() => {
                     if (suggestions.length > 0) {
                       setShowSuggestions(true);
                     }
+                  }}
+                  onBlur={(e) => {
+                    // Delay para permitir que o clique na sugestão seja processado
+                    setTimeout(() => {
+                      // Só fechar se não estiver focando em uma sugestão
+                      if (!e.relatedTarget?.closest('.suggestions-dropdown')) {
+                        setShowSuggestions(false);
+                      }
+                    }, 200);
                   }}
                   className="flex-1 pr-8"
                 />
@@ -318,13 +330,18 @@ export default function AddressMapPicker({ isOpen, onClose, onConfirm, initialAd
                       initial={{ opacity: 0, y: -10 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -10 }}
-                      className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto"
+                      className="suggestions-dropdown absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl z-[9999] max-h-60 overflow-y-auto"
+                      onMouseDown={(e) => e.preventDefault()} // Prevenir que o input perca o foco
                     >
                       {suggestions.map((suggestion, index) => (
                         <button
                           key={index}
-                          onClick={() => handleSelectSuggestion(suggestion)}
-                          className="w-full text-left p-3 hover:bg-orange-50 border-b border-gray-100 last:border-b-0 transition-colors"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleSelectSuggestion(suggestion);
+                          }}
+                          className="w-full text-left p-3 hover:bg-orange-50 active:bg-orange-100 border-b border-gray-100 last:border-b-0 transition-colors"
                         >
                           <div className="flex items-start gap-2">
                             <MapPin className="w-4 h-4 text-orange-500 flex-shrink-0 mt-0.5" />
