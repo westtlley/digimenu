@@ -11,7 +11,8 @@
     "test:watch": "vitest --watch",
     "backup": "node scripts/backup.js",
     "migrate": "node db/migrate.js",
-    "seed:demo": "node -r dotenv/config scripts/seed-demo-pizzaria.js"
+    "seed:demo": "node -r dotenv/config scripts/seed-demo-pizzaria.js",
+    "cleanup:master": "node scripts/cleanup-master-subscriber-conflict.js"
   },
   "keywords": [],
   "author": "",
