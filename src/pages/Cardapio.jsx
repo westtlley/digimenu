@@ -12,7 +12,7 @@ import toast, { Toaster } from 'react-hot-toast';
 
 // Components
 import NewDishModal from '../components/menu/NewDishModal';
-import PizzaBuilder from '../components/pizza/PizzaBuilder';
+import PizzaBuilderV2 from '../components/pizza/PizzaBuilderV2';
 import CartModal from '../components/menu/CartModal';
 import CheckoutView from '../components/menu/CheckoutView';
 import OrderConfirmationModal from '../components/menu/OrderConfirmationModal';
@@ -1308,10 +1308,10 @@ export default function Cardapio() {
 
       {selectedPizza && (
         <>
-          {console.log('🍕 Renderizando PizzaBuilder para:', selectedPizza.name)}
+          {console.log('🍕 Renderizando PizzaBuilderV2 para:', selectedPizza.name)}
           {console.log('📏 Tamanhos disponíveis:', pizzaSizesResolved.length)}
           {console.log('🎨 Sabores disponíveis:', pizzaFlavorsResolved.length)}
-          <PizzaBuilder
+          <PizzaBuilderV2
             dish={selectedPizza}
             sizes={pizzaSizesResolved}
             flavors={pizzaFlavorsResolved}
@@ -1319,12 +1319,13 @@ export default function Cardapio() {
             extras={pizzaExtrasResolved}
             onAddToCart={handleAddToCart}
             onClose={() => {
-              console.log('❌ Fechando PizzaBuilder');
+              console.log('❌ Fechando PizzaBuilderV2');
               setSelectedPizza(null);
               setEditingCartItem(null);
             }}
             primaryColor={primaryColor}
             editingItem={editingCartItem}
+            store={storeData}
           />
         </>
       )}
