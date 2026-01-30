@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, User, Star, MessageSquare, History, Save, LogOut, Mail, Phone, MapPin, Award, TrendingUp, Package, CreditCard } from 'lucide-react';
+import { X, User, Star, MessageSquare, History, Save, LogOut, Mail, Phone, MapPin, Award, TrendingUp, Package, CreditCard, Camera, Upload } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,7 +24,8 @@ export default function CustomerProfileModal({ isOpen, onClose }) {
     complement: '',
     neighborhood: '',
     city: '',
-    zipcode: ''
+    zipcode: '',
+    profile_picture: ''
   });
   const [feedback, setFeedback] = useState({
     rating: 0,
@@ -57,7 +58,8 @@ export default function CustomerProfileModal({ isOpen, onClose }) {
           complement: customer.complement || '',
           neighborhood: customer.neighborhood || '',
           city: customer.city || '',
-          zipcode: customer.zipcode || ''
+          zipcode: customer.zipcode || '',
+          profile_picture: customer.profile_picture || ''
         });
       } else {
         setFormData({
@@ -68,7 +70,8 @@ export default function CustomerProfileModal({ isOpen, onClose }) {
           complement: '',
           neighborhood: '',
           city: '',
-          zipcode: ''
+          zipcode: '',
+          profile_picture: ''
         });
       }
     } catch (error) {
@@ -138,6 +141,29 @@ export default function CustomerProfileModal({ isOpen, onClose }) {
     }
   };
 
+  const handlePhotoUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validar tipo e tamanho
+    if (!file.type.startsWith('image/')) {
+      toast.error('Por favor, selecione uma imagem válida');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) { // 5MB
+      toast.error('A imagem deve ter no máximo 5MB');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setFormData(prev => ({ ...prev, profile_picture: reader.result }));
+      toast.success('Foto atualizada! Clique em "Salvar Alterações" para confirmar');
+    };
+    reader.readAsDataURL(file);
+  };
+
   // Calcular pontos de fidelidade e estatísticas
   const { data: orders = [] } = useQuery({
     queryKey: ['customerOrders', user?.email],
@@ -179,20 +205,43 @@ export default function CustomerProfileModal({ isOpen, onClose }) {
           <div className="relative bg-gradient-to-br from-orange-500 via-orange-600 to-red-500 p-6">
             <button
               onClick={onClose}
-              className="absolute top-4 right-4 p-2 rounded-full hover:bg-white/20 transition-colors z-10"
+              className="absolute top-4 right-4 p-2.5 rounded-full hover:bg-white/20 transition-colors z-10 backdrop-blur-sm"
+              title="Fechar"
             >
               <X className="w-5 h-5 text-white" />
             </button>
             
             <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center border-2 border-white/60 shadow-lg">
-                  <User className="w-8 h-8 text-white" />
+              <div className="flex items-center gap-5">
+                {/* Avatar com Upload */}
+                <div className="relative group">
+                  <div className="w-20 h-20 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center border-3 border-white/60 shadow-xl overflow-hidden">
+                    {formData.profile_picture ? (
+                      <img src={formData.profile_picture} alt="Foto de perfil" className="w-full h-full object-cover" />
+                    ) : (
+                      <User className="w-10 h-10 text-white" />
+                    )}
+                  </div>
+                  <label 
+                    htmlFor="photo-upload"
+                    className="absolute -bottom-1 -right-1 w-8 h-8 bg-white text-orange-500 rounded-full flex items-center justify-center cursor-pointer shadow-lg hover:scale-110 transition-transform border-2 border-orange-500"
+                    title="Alterar foto"
+                  >
+                    <Camera className="w-4 h-4" />
+                  </label>
+                  <input
+                    id="photo-upload"
+                    type="file"
+                    accept="image/*"
+                    onChange={handlePhotoUpload}
+                    className="hidden"
+                  />
                 </div>
+
                 <div>
                   <h2 className="text-2xl font-bold text-white drop-shadow-lg">{formData.name || user?.full_name || 'Meu Perfil'}</h2>
-                  <p className="text-white/90 text-sm flex items-center gap-1.5 drop-shadow">
-                    <Mail className="w-3.5 h-3.5" />
+                  <p className="text-white/90 text-sm flex items-center gap-2 drop-shadow mt-1">
+                    <Mail className="w-4 h-4" />
                     {user?.email}
                   </p>
                 </div>
@@ -201,7 +250,8 @@ export default function CustomerProfileModal({ isOpen, onClose }) {
               {/* Logout Button */}
               <button
                 onClick={handleLogout}
-                className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-lg bg-white/20 hover:bg-white/30 text-white font-medium transition-all"
+                className="hidden sm:flex items-center gap-2 px-5 py-2.5 rounded-lg bg-white/20 hover:bg-white/30 text-white font-medium transition-all backdrop-blur-sm"
+                title="Sair da conta"
               >
                 <LogOut className="w-4 h-4" />
                 Sair
@@ -210,21 +260,22 @@ export default function CustomerProfileModal({ isOpen, onClose }) {
           </div>
 
           {/* Tabs */}
-          <div className="flex border-b border-gray-200 dark:border-gray-800 overflow-x-auto bg-gray-50 dark:bg-gray-900/50">
+          <div className="flex border-b border-gray-200 dark:border-gray-800 overflow-x-auto bg-gray-50 dark:bg-gray-900/50 scrollbar-hide">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-2 px-4 md:px-6 py-3 font-medium transition-all border-b-2 whitespace-nowrap ${
+                  className={`flex items-center justify-center gap-2.5 px-5 md:px-8 py-3.5 font-medium transition-all border-b-2 whitespace-nowrap min-w-fit ${
                     activeTab === tab.id
                       ? 'border-orange-500 text-orange-600 dark:text-orange-400 bg-white dark:bg-gray-900'
                       : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800'
                   }`}
+                  title={tab.label}
                 >
-                  <Icon className="w-4 h-4" />
-                  <span className="hidden sm:inline">{tab.label}</span>
+                  <Icon className="w-5 h-5 flex-shrink-0" />
+                  <span className="hidden sm:inline text-sm">{tab.label}</span>
                 </button>
               );
             })}

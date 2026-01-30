@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { apiClient as base44 } from '@/api/apiClient';
 import { createPageUrl } from '@/utils';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { ShoppingCart, Search, Clock, Star, Share2, MapPin, Info, Home, Receipt, Gift, User, MessageSquare, UtensilsCrossed, Instagram, Facebook, Phone, Package } from 'lucide-react';
+import { ShoppingCart, Search, Clock, Star, Share2, MapPin, Info, Home, Receipt, Gift, User, MessageSquare, UtensilsCrossed, Instagram, Facebook, Phone, Package, Music2, Calendar } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -1017,14 +1017,14 @@ export default function Cardapio() {
       </main>
 
       {/* Bottom Navigation Bar - Barra de Navegação Inferior */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border z-50 md:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border z-50 md:hidden shadow-lg">
         <div className="flex items-center justify-around h-16 px-2">
           <button
             onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-            className="flex flex-col items-center justify-center gap-1 flex-1 h-full text-muted-foreground hover:text-foreground transition-colors"
+            className="flex items-center justify-center flex-1 h-full text-muted-foreground hover:text-foreground transition-all active:scale-95"
+            title="Início"
           >
-            <Home className="w-5 h-5" />
-            <span className="text-[10px] font-medium">Início</span>
+            <Home className="w-6 h-6" />
           </button>
           
           {store.whatsapp && (
@@ -1032,10 +1032,13 @@ export default function Cardapio() {
               href={`https://wa.me/55${store.whatsapp.replace(/\D/g, '')}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex flex-col items-center justify-center gap-1 flex-1 h-full text-muted-foreground hover:text-foreground transition-colors"
+              className="flex items-center justify-center flex-1 h-full text-green-500 hover:text-green-600 transition-all active:scale-95"
+              title="WhatsApp"
             >
-              <MessageSquare className="w-5 h-5" />
-              <span className="text-[10px] font-medium">WhatsApp</span>
+              {/* Ícone Oficial do WhatsApp */}
+              <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+              </svg>
             </a>
           )}
           
@@ -1048,24 +1051,24 @@ export default function Cardapio() {
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }
             }}
-            className="flex flex-col items-center justify-center gap-1 flex-1 h-full text-muted-foreground hover:text-foreground transition-colors"
+            className="flex items-center justify-center flex-1 h-full text-muted-foreground hover:text-foreground transition-all active:scale-95"
+            title="Promoções"
           >
-            <Gift className="w-5 h-5" />
-            <span className="text-[10px] font-medium">Promos</span>
+            <Gift className="w-6 h-6" />
           </button>
           
           <button
             onClick={() => setShowCartModal(true)}
-            className="flex flex-col items-center justify-center gap-1 flex-1 h-full relative transition-colors"
+            className="flex items-center justify-center flex-1 h-full relative transition-all active:scale-95"
             style={{ color: cart.length > 0 ? primaryColor : 'hsl(var(--muted-foreground))' }}
+            title="Carrinho"
           >
-            <ShoppingCart className="w-5 h-5" />
+            <ShoppingCart className="w-6 h-6" />
             {cart.length > 0 && (
-              <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">
+              <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold shadow-lg">
                 {cartItemsCount}
               </span>
             )}
-            <span className="text-[10px] font-medium">Carrinho</span>
           </button>
         </div>
       </nav>
@@ -1073,9 +1076,9 @@ export default function Cardapio() {
       {/* Footer */}
       <footer className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950 border-t border-gray-200 dark:border-gray-800 mt-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12">
             {/* Coluna 1: Info do Estabelecimento */}
-            <div className="space-y-4">
+            <div className="space-y-5">
               <div className="flex items-center gap-3">
                 {store.logo && (
                   <img src={store.logo} alt={store.name} className="w-16 h-16 rounded-xl object-cover shadow-md border-2 border-white dark:border-gray-800" />
@@ -1087,50 +1090,89 @@ export default function Cardapio() {
                   )}
                 </div>
               </div>
+              
               {store.address && (
                 <div className="flex items-start gap-2 text-gray-700 dark:text-gray-300">
                   <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: primaryColor }} />
                   <p className="text-sm">{store.address}</p>
                 </div>
               )}
+
+              {/* Horário de Funcionamento */}
               {store.opening_time && store.closing_time && (
-                <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
-                  <Clock className="w-4 h-4 flex-shrink-0" style={{ color: primaryColor }} />
-                  <p className="text-sm">{store.opening_time} - {store.closing_time}</p>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
+                    <Clock className="w-4 h-4 flex-shrink-0" style={{ color: primaryColor }} />
+                    <p className="text-sm font-semibold">Horário de Funcionamento</p>
+                  </div>
+                  <div className="ml-6 space-y-1">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      {store.opening_time} - {store.closing_time}
+                    </p>
+                    {store.working_days && store.working_days.length > 0 && (
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-3.5 h-3.5 text-gray-500" />
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {(() => {
+                            const daysMap = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+                            const workingDayNames = store.working_days
+                              .sort((a, b) => a - b)
+                              .map(day => daysMap[day]);
+                            
+                            // Se trabalha todos os dias
+                            if (workingDayNames.length === 7) return 'Todos os dias';
+                            
+                            // Se trabalha de segunda a sexta
+                            if (workingDayNames.length === 5 && 
+                                workingDayNames.join(',') === 'Seg,Ter,Qua,Qui,Sex') {
+                              return 'Segunda a Sexta';
+                            }
+                            
+                            // Se trabalha de segunda a sábado
+                            if (workingDayNames.length === 6 && 
+                                workingDayNames.join(',') === 'Seg,Ter,Qua,Qui,Sex,Sáb') {
+                              return 'Segunda a Sábado';
+                            }
+                            
+                            // Caso contrário, mostrar todos os dias
+                            return workingDayNames.join(', ');
+                          })()}
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
 
             {/* Coluna 2: Redes Sociais */}
             <div className="space-y-4">
-              <h3 className="font-bold text-lg text-gray-900 dark:text-white">Conecte-se</h3>
-              <div className="flex flex-col sm:flex-row lg:flex-col gap-3">
+              <h3 className="font-bold text-lg text-gray-900 dark:text-white">Conecte-se Conosco</h3>
+              
+              {/* Desktop: Ícones com texto */}
+              <div className="hidden sm:flex flex-wrap gap-3">
                 {store.whatsapp && (
                   <a 
                     href={`https://wa.me/55${store.whatsapp.replace(/\D/g, '')}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="group flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-xl transition-all shadow-md hover:shadow-lg transform hover:scale-105"
+                    className="group flex items-center gap-2 px-4 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-full transition-all shadow-md hover:shadow-lg transform hover:scale-105"
+                    title="WhatsApp"
                   >
-                    <MessageSquare className="w-5 h-5" fill="currentColor" />
-                    <div className="flex-1 text-left">
-                      <p className="font-semibold text-sm">WhatsApp</p>
-                      <p className="text-xs opacity-90">{store.whatsapp}</p>
-                    </div>
+                    <MessageSquare className="w-5 h-5" />
+                    <span className="text-sm font-medium">WhatsApp</span>
                   </a>
                 )}
                 {store.instagram && (
                   <a 
-                    href={store.instagram.startsWith('http') ? store.instagram : `https://instagram.com/${store.instagram}`}
+                    href={store.instagram.startsWith('http') ? store.instagram : `https://instagram.com/${store.instagram.replace(/^@/, '')}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="group flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white rounded-xl transition-all shadow-md hover:shadow-lg transform hover:scale-105"
+                    className="group flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white rounded-full transition-all shadow-md hover:shadow-lg transform hover:scale-105"
+                    title="Instagram"
                   >
                     <Instagram className="w-5 h-5" />
-                    <div className="flex-1 text-left">
-                      <p className="font-semibold text-sm">Instagram</p>
-                      <p className="text-xs opacity-90">@{store.instagram.replace(/^@/, '').replace(/https?:\/\/(www\.)?instagram\.com\//, '')}</p>
-                    </div>
+                    <span className="text-sm font-medium">Instagram</span>
                   </a>
                 )}
                 {store.facebook && (
@@ -1138,35 +1180,84 @@ export default function Cardapio() {
                     href={store.facebook.startsWith('http') ? store.facebook : `https://facebook.com/${store.facebook}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="group flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-xl transition-all shadow-md hover:shadow-lg transform hover:scale-105"
+                    className="group flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-full transition-all shadow-md hover:shadow-lg transform hover:scale-105"
+                    title="Facebook"
                   >
-                    <Facebook className="w-5 h-5" fill="currentColor" />
-                    <div className="flex-1 text-left">
-                      <p className="font-semibold text-sm">Facebook</p>
-                      <p className="text-xs opacity-90">Siga-nos</p>
-                    </div>
+                    <Facebook className="w-5 h-5" />
+                    <span className="text-sm font-medium">Facebook</span>
+                  </a>
+                )}
+                {store.tiktok && (
+                  <a 
+                    href={store.tiktok.startsWith('http') ? store.tiktok : `https://tiktok.com/@${store.tiktok.replace(/^@/, '')}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="group flex items-center gap-2 px-4 py-2.5 bg-black hover:bg-gray-800 text-white rounded-full transition-all shadow-md hover:shadow-lg transform hover:scale-105"
+                    title="TikTok"
+                  >
+                    <Music2 className="w-5 h-5" />
+                    <span className="text-sm font-medium">TikTok</span>
                   </a>
                 )}
               </div>
-            </div>
 
-            {/* Coluna 3: Formas de Pagamento */}
-            <div className="space-y-4">
-              <h3 className="font-bold text-lg text-gray-900 dark:text-white">Pagamento</h3>
-              {store.payment_methods && store.payment_methods.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {store.payment_methods.map((method, idx) => (
-                    <div key={idx} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-2.5 shadow-sm hover:shadow-md transition-shadow">
-                      {method.image ? (
-                        <img src={method.image} alt={method.name} className="h-7 object-contain" />
-                      ) : (
-                        <span className="text-xs font-medium text-gray-700 dark:text-gray-300">{method.name}</span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-gray-600 dark:text-gray-400">Consulte as formas de pagamento disponíveis</p>
+              {/* Mobile: Apenas ícones circulares */}
+              <div className="flex sm:hidden gap-4 justify-center">
+                {store.whatsapp && (
+                  <a 
+                    href={`https://wa.me/55${store.whatsapp.replace(/\D/g, '')}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center w-12 h-12 bg-green-500 hover:bg-green-600 text-white rounded-full transition-all shadow-md hover:shadow-lg transform hover:scale-110"
+                    title="WhatsApp"
+                  >
+                    <MessageSquare className="w-6 h-6" />
+                  </a>
+                )}
+                {store.instagram && (
+                  <a 
+                    href={store.instagram.startsWith('http') ? store.instagram : `https://instagram.com/${store.instagram.replace(/^@/, '')}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white rounded-full transition-all shadow-md hover:shadow-lg transform hover:scale-110"
+                    title="Instagram"
+                  >
+                    <Instagram className="w-6 h-6" />
+                  </a>
+                )}
+                {store.facebook && (
+                  <a 
+                    href={store.facebook.startsWith('http') ? store.facebook : `https://facebook.com/${store.facebook}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center w-12 h-12 bg-blue-600 hover:bg-blue-700 text-white rounded-full transition-all shadow-md hover:shadow-lg transform hover:scale-110"
+                    title="Facebook"
+                  >
+                    <Facebook className="w-6 h-6" />
+                  </a>
+                )}
+                {store.tiktok && (
+                  <a 
+                    href={store.tiktok.startsWith('http') ? store.tiktok : `https://tiktok.com/@${store.tiktok.replace(/^@/, '')}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center w-12 h-12 bg-black hover:bg-gray-800 text-white rounded-full transition-all shadow-md hover:shadow-lg transform hover:scale-110"
+                    title="TikTok"
+                  >
+                    <Music2 className="w-6 h-6" />
+                  </a>
+                )}
+              </div>
+
+              {/* Telefone (se houver) */}
+              {store.phone && (
+                <a 
+                  href={`tel:${store.phone.replace(/\D/g, '')}`}
+                  className="flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors mt-4"
+                >
+                  <Phone className="w-4 h-4" style={{ color: primaryColor }} />
+                  <span className="text-sm">{store.phone}</span>
+                </a>
               )}
             </div>
           </div>

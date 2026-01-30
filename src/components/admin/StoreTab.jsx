@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { Store, Save, Clock, Image as ImageIcon, MapPin, Instagram, Facebook, MessageSquare, AlertCircle, HelpCircle, Link2, Copy, CheckCircle2, XCircle, TrendingUp } from 'lucide-react';
+import { Store, Save, Clock, Image as ImageIcon, MapPin, Instagram, Facebook, MessageSquare, AlertCircle, HelpCircle, Link2, Copy, CheckCircle2, XCircle, TrendingUp, Music2 } from 'lucide-react';
 import { usePermission } from '../permissions/usePermission';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import toast from 'react-hot-toast';
@@ -30,7 +30,7 @@ export default function StoreTab() {
   const [user, setUser] = React.useState(null);
   const [slugEdit, setSlugEdit] = useState('');
   const [formData, setFormData] = useState({
-    name: '', logo: '', whatsapp: '', address: '', slogan: '', instagram: '', facebook: '',
+    name: '', logo: '', whatsapp: '', address: '', slogan: '', instagram: '', facebook: '', tiktok: '',
     is_open: null, accepting_orders: true, pause_message: '',
     opening_time: '08:00', closing_time: '18:00', working_days: [1, 2, 3, 4, 5],
   });
@@ -567,7 +567,7 @@ export default function StoreTab() {
                 />
               </div>
 
-              <div className="grid sm:grid-cols-2 gap-4">
+              <div className="grid sm:grid-cols-3 gap-4">
                 <div>
                   <Label htmlFor="instagram" className="flex items-center gap-2 mb-2">
                     <Instagram className="w-4 h-4 text-gray-500" />
@@ -591,6 +591,19 @@ export default function StoreTab() {
                     value={formData.facebook}
                     onChange={(e) => setFormData(prev => ({ ...prev, facebook: e.target.value }))}
                     placeholder="Link da página"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="tiktok" className="flex items-center gap-2 mb-2">
+                    <Music2 className="w-4 h-4 text-gray-500" />
+                    TikTok
+                  </Label>
+                  <Input
+                    id="tiktok"
+                    value={formData.tiktok}
+                    onChange={(e) => setFormData(prev => ({ ...prev, tiktok: e.target.value }))}
+                    placeholder="@seurestaurante"
                   />
                 </div>
               </div>
