@@ -302,11 +302,11 @@ export default function PizzaBuilder({
           </div>
         </div>
 
-        {/* Content - Grid Moderno */}
-        <div className="flex-1 overflow-y-auto min-h-0 bg-gradient-to-br from-gray-900 to-gray-800">
-          <div className="grid lg:grid-cols-[450px_1fr] gap-0 lg:gap-4 h-full p-0 lg:p-4">
-            {/* Left: Pizza Visualization - Melhorada */}
-            <div className="relative lg:rounded-2xl flex items-center justify-center overflow-hidden bg-gradient-to-br from-amber-900/30 via-orange-900/20 to-yellow-900/30 backdrop-blur-xl lg:border-2 lg:border-orange-500/20 h-[320px] lg:h-full lg:sticky lg:top-4 shadow-2xl">
+        {/* Content - Grid Responsivo */}
+        <div className="flex-1 overflow-hidden min-h-0 bg-gradient-to-br from-gray-900 to-gray-800">
+          <div className="flex flex-col lg:grid lg:grid-cols-[400px_1fr] gap-0 lg:gap-4 h-full">
+            {/* Left: Pizza Visualization - Responsiva */}
+            <div className="relative lg:rounded-2xl flex items-center justify-center overflow-hidden bg-gradient-to-br from-amber-900/30 via-orange-900/20 to-yellow-900/30 backdrop-blur-xl lg:border-2 lg:border-orange-500/20 h-[280px] sm:h-[320px] lg:h-full lg:ml-4 lg:my-4 lg:sticky lg:top-4 shadow-2xl flex-shrink-0">
               <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1513104890138-7c749659a591?w=800&q=80')] bg-cover bg-center opacity-[0.08] blur-xl"></div>
               <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent"></div>
               <div className="relative z-10 w-full h-full flex items-center justify-center p-4">
@@ -345,8 +345,8 @@ export default function PizzaBuilder({
               )}
             </div>
 
-            {/* Right: Options - Design Moderno */}
-            <div className="p-4 md:p-6 space-y-4 overflow-y-auto lg:max-h-full">
+            {/* Right: Options - Design Moderno Responsivo */}
+            <div className="flex-1 p-4 md:p-6 space-y-4 overflow-y-auto overscroll-contain">
               <AnimatePresence mode="wait">
                 {/* Step 0: Size - Cards Modernos */}
                 {currentStep === 0 && (
@@ -925,71 +925,77 @@ export default function PizzaBuilder({
           </div>
         </div>
 
-        {/* Footer Moderno */}
-        <div className="px-4 md:px-6 py-4 border-t border-gray-700/50 bg-gradient-to-r from-gray-800/80 via-gray-900/80 to-gray-800/80 backdrop-blur-sm flex items-center justify-between flex-shrink-0">
-          <div>
-            {currentStep > 0 && (
-              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentStep(currentStep - 1)}
-                  className="bg-gray-800/50 border-gray-700 text-white hover:bg-gray-700 h-10 px-4"
-                >
-                  Voltar
-                </Button>
-              </motion.div>
-            )}
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="text-right">
-              <p className="text-xs text-gray-400 mb-1">Total</p>
-              <motion.p
-                key={calculatePrice()}
-                initial={{ scale: 1.1 }}
-                animate={{ scale: 1 }}
-                className="text-xl md:text-2xl font-bold bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent"
-              >
-                {formatCurrency(calculatePrice())}
-              </motion.p>
+        {/* Footer Moderno Responsivo */}
+        <div className="px-3 md:px-6 py-3 md:py-4 border-t border-gray-700/50 bg-gradient-to-r from-gray-800/80 via-gray-900/80 to-gray-800/80 backdrop-blur-sm flex-shrink-0">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            {/* Botão Voltar */}
+            <div className="order-2 sm:order-1">
+              {currentStep > 0 && (
+                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentStep(currentStep - 1)}
+                    className="w-full sm:w-auto bg-gray-800/50 border-gray-700 text-white hover:bg-gray-700 h-10 px-4"
+                  >
+                    Voltar
+                  </Button>
+                </motion.div>
+              )}
             </div>
-            {currentStep < steps.length - 1 ? (
-              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Button
-                  onClick={handleNext}
-                  disabled={!canProceed()}
-                  className="text-white text-sm h-10 px-6 shadow-lg"
-                  style={{ 
-                    background: canProceed() 
-                      ? `linear-gradient(135deg, ${primaryColor}, ${primaryColor}dd)`
-                      : 'linear-gradient(135deg, #4b5563, #374151)',
-                    boxShadow: canProceed() ? `0 4px 15px ${primaryColor}40` : 'none'
-                  }}
+            
+            {/* Total e Ação */}
+            <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4 order-1 sm:order-2">
+              <div className="text-left sm:text-right">
+                <p className="text-xs text-gray-400 mb-0.5">Total</p>
+                <motion.p
+                  key={calculatePrice()}
+                  initial={{ scale: 1.1 }}
+                  animate={{ scale: 1 }}
+                  className="text-lg md:text-2xl font-bold bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent"
                 >
-                  Próximo
-                  <ChevronRight className="w-4 h-4 ml-2" />
-                </Button>
-              </motion.div>
-            ) : (
-              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Button
-                  onClick={handleAddToCart}
-                  disabled={!selectedSize || selectedFlavors.length === 0}
-                  className="text-white text-sm h-10 px-6 shadow-lg font-semibold"
-                  style={{ 
-                    background: (!selectedSize || selectedFlavors.length === 0)
-                      ? 'linear-gradient(135deg, #4b5563, #374151)'
-                      : `linear-gradient(135deg, ${primaryColor}, ${primaryColor}dd)`,
-                    boxShadow: (!selectedSize || selectedFlavors.length === 0) 
-                      ? 'none' 
-                      : `0 4px 20px ${primaryColor}50`
-                  }}
-                >
-                  <Check className="w-4 h-4 mr-2" />
-                  Adicionar ao Carrinho
-                </Button>
-              </motion.div>
-            )}
+                  {formatCurrency(calculatePrice())}
+                </motion.p>
+              </div>
+              {currentStep < steps.length - 1 ? (
+                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="flex-1 sm:flex-initial">
+                  <Button
+                    onClick={handleNext}
+                    disabled={!canProceed()}
+                    className="w-full sm:w-auto text-white text-sm h-10 px-6 shadow-lg whitespace-nowrap"
+                    style={{ 
+                      background: canProceed() 
+                        ? `linear-gradient(135deg, ${primaryColor}, ${primaryColor}dd)`
+                        : 'linear-gradient(135deg, #4b5563, #374151)',
+                      boxShadow: canProceed() ? `0 4px 15px ${primaryColor}40` : 'none'
+                    }}
+                  >
+                    Próximo
+                    <ChevronRight className="w-4 h-4 ml-2" />
+                  </Button>
+                </motion.div>
+              ) : (
+                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="flex-1 sm:flex-initial">
+                  <Button
+                    onClick={handleAddToCart}
+                    disabled={!selectedSize || selectedFlavors.length === 0}
+                    className="w-full sm:w-auto text-white text-sm h-10 px-4 sm:px-6 shadow-lg font-semibold whitespace-nowrap"
+                    style={{ 
+                      background: (!selectedSize || selectedFlavors.length === 0)
+                        ? 'linear-gradient(135deg, #4b5563, #374151)'
+                        : `linear-gradient(135deg, ${primaryColor}, ${primaryColor}dd)`,
+                      boxShadow: (!selectedSize || selectedFlavors.length === 0) 
+                        ? 'none' 
+                        : `0 4px 20px ${primaryColor}50`
+                    }}
+                  >
+                    <Check className="w-4 h-4 mr-2" />
+                    <span className="hidden sm:inline">Adicionar ao Carrinho</span>
+                    <span className="sm:hidden">Adicionar</span>
+                  </Button>
+                </motion.div>
+              )}
+            </div>
           </div>
         </div>
       </motion.div>
