@@ -258,46 +258,87 @@ export default function PizzaBuilderV2({
         </div>
 
         {/* Sabores Info */}
-        <div className="text-center">
-          <p className="text-gray-400 text-xs uppercase tracking-widest font-black mb-1">Sabores Selecionados</p>
-          <p className="text-white text-lg font-black">
-            {selectedFlavors.length > 0 ? (
-              <span>{selectedFlavors.map(f => f.name).join(', ')}</span>
-            ) : (
-              <span className="text-gray-500">Toque na pizza acima para escolher</span>
-            )}
-          </p>
-          <p className="text-gray-500 text-xs mt-1">{selectedFlavors.length} de {maxFlavors}</p>
+        <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/5">
+          <div className="flex items-center justify-between">
+            <div className="flex-1">
+              <p className="text-gray-400 text-[10px] uppercase tracking-widest font-black mb-1">🍕 Sabores</p>
+              <p className="text-white text-sm font-black leading-tight">
+                {selectedFlavors.length > 0 ? (
+                  <span>{selectedFlavors.map(f => f.name).join(' + ')}</span>
+                ) : (
+                  <span className="text-gray-500">Toque na pizza acima</span>
+                )}
+              </p>
+            </div>
+            <button 
+              onClick={() => setStep('flavors')}
+              className="px-4 py-2 rounded-lg text-xs font-black uppercase transition-all active:scale-95"
+              style={{ backgroundColor: primaryColor, color: 'white' }}
+            >
+              {selectedFlavors.length > 0 ? 'Alterar' : 'Escolher'}
+            </button>
+          </div>
         </div>
 
-        {/* Opções Extras */}
-        <div className="grid grid-cols-1 gap-4">
-          {(edges || []).filter(e => e && e.is_active).length > 0 && (
-            <button 
-              onClick={() => setStep('borders')}
-              className="w-full text-white py-4 rounded-xl font-black text-sm uppercase flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-transform"
-              style={{ backgroundColor: primaryColor }}
-            >
-              <Star size={18} className="fill-white" /> 
-              {selectedEdge ? selectedEdge.name : 'Escolher Borda'}
-            </button>
-          )}
+        {/* Personalização */}
+        <div className="space-y-3">
+          <h3 className="text-white text-xs font-black uppercase tracking-widest opacity-80 px-2">Personalize sua pizza:</h3>
           
-          {(extras || []).filter(e => e && e.is_active).length > 0 && (
-            <button 
-              onClick={() => setStep('extras')}
-              className="w-full bg-white text-blue-600 py-4 rounded-xl font-black text-sm uppercase flex items-center justify-center gap-2 shadow-lg border border-blue-100"
-            >
-              <Plus size={18} /> 
-              {selectedExtras.length > 0 ? `${selectedExtras.length} Extras` : 'Adicionar Extras'}
-            </button>
-          )}
-          
+          {/* Borda */}
+          <button 
+            onClick={() => setStep('borders')}
+            className="w-full bg-white/10 backdrop-blur-sm text-white py-4 px-5 rounded-2xl font-bold text-sm flex items-center justify-between shadow-lg active:scale-95 transition-all border border-white/5"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: `${primaryColor}30` }}>
+                <Star size={20} style={{ color: primaryColor }} className="fill-current" />
+              </div>
+              <div className="text-left">
+                <p className="text-[10px] text-gray-400 uppercase tracking-wider font-black">Borda</p>
+                <p className="text-white font-black text-xs">
+                  {selectedEdge && selectedEdge.id !== 'none' ? selectedEdge.name : 'Sem borda'}
+                </p>
+              </div>
+            </div>
+            <ChevronDown className="text-gray-400" size={20} />
+          </button>
+
+          {/* Extras */}
+          <button 
+            onClick={() => setStep('extras')}
+            className="w-full bg-white/10 backdrop-blur-sm text-white py-4 px-5 rounded-2xl font-bold text-sm flex items-center justify-between shadow-lg active:scale-95 transition-all border border-white/5"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full flex items-center justify-center bg-blue-500/20">
+                <Plus size={20} className="text-blue-400" />
+              </div>
+              <div className="text-left">
+                <p className="text-[10px] text-gray-400 uppercase tracking-wider font-black">Extras</p>
+                <p className="text-white font-black text-xs">
+                  {selectedExtras.length > 0 ? `${selectedExtras.length} selecionados` : 'Nenhum extra'}
+                </p>
+              </div>
+            </div>
+            <ChevronDown className="text-gray-400" size={20} />
+          </button>
+
+          {/* Observações */}
           <button 
             onClick={() => setStep('observations')}
-            className="w-full bg-white text-gray-600 py-4 rounded-xl font-black text-sm uppercase flex items-center justify-center gap-2 shadow-lg border border-gray-100"
+            className="w-full bg-white/10 backdrop-blur-sm text-white py-4 px-5 rounded-2xl font-bold text-sm flex items-center justify-between shadow-lg active:scale-95 transition-all border border-white/5"
           >
-            📝 {specifications ? 'Observações Adicionadas' : 'Observações'}
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full flex items-center justify-center bg-gray-500/20">
+                <span className="text-xl">📝</span>
+              </div>
+              <div className="text-left">
+                <p className="text-[10px] text-gray-400 uppercase tracking-wider font-black">Observações</p>
+                <p className="text-white font-black text-xs">
+                  {specifications ? 'Adicionadas' : 'Adicionar observações'}
+                </p>
+              </div>
+            </div>
+            <ChevronDown className="text-gray-400" size={20} />
           </button>
         </div>
       </div>
