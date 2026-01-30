@@ -2663,6 +2663,93 @@ app.get('/api/cleanup-master', cleanupMasterHandler);
 app.post('/api/cleanup-master', cleanupMasterHandler);
 
 // =======================
+// 🗑️ ENDPOINT PARA DELETAR SUBSCRIBER ESPECÍFICO POR SLUG
+// =======================
+const deleteSubscriberBySlugHandler = asyncHandler(async (req, res) => {
+  if (!usePostgreSQL) {
+    return res.status(503).json({ error: 'Deleção requer PostgreSQL' });
+  }
+
+  // Validação simples
+  const secretKey = req.headers['x-delete-key'] || req.query.key;
+  if (secretKey !== process.env.CLEANUP_SECRET_KEY) {
+    return res.status(403).json({ error: 'Não autorizado. Configure CLEANUP_SECRET_KEY.' });
+  }
+
+  const slugToDelete = req.query.slug || req.body.slug;
+  if (!slugToDelete) {
+    return res.status(400).json({ error: 'Parâmetro "slug" é obrigatório' });
+  }
+
+  try {
+    console.log(`🗑️ Procurando subscriber com slug: ${slugToDelete}`);
+    
+    // Importar query do postgres
+    const { query } = await import('./db/postgres.js');
+    
+    // 1. Buscar subscriber pelo slug
+    const subscriberResult = await query(
+      'SELECT id, email, name, slug, plan, status FROM subscribers WHERE slug = $1',
+      [slugToDelete]
+    );
+    
+    if (subscriberResult.rows.length === 0) {
+      return res.json({
+        success: false,
+        message: `Nenhum subscriber encontrado com o slug "${slugToDelete}"`,
+        slug: slugToDelete
+      });
+    }
+    
+    const subscriber = subscriberResult.rows[0];
+    console.log(`⚠️ Subscriber encontrado:`, subscriber);
+    
+    // 2. Deletar todas as entidades do subscriber
+    console.log(`  → Deletando entidades do subscriber ${subscriber.email}...`);
+    const entitiesResult = await query(
+      'DELETE FROM entities WHERE subscriber_email = $1',
+      [subscriber.email]
+    );
+    console.log(`  ✓ ${entitiesResult.rowCount} entidades deletadas`);
+    
+    // 3. Deletar o subscriber
+    console.log(`  → Deletando subscriber ${subscriber.email}...`);
+    await query(
+      'DELETE FROM subscribers WHERE email = $1',
+      [subscriber.email]
+    );
+    console.log(`  ✓ Subscriber deletado`);
+    
+    console.log('✅ Deleção concluída!');
+    
+    res.json({
+      success: true,
+      message: `Subscriber "${subscriber.name}" deletado com sucesso!`,
+      deleted_subscriber: {
+        email: subscriber.email,
+        name: subscriber.name,
+        slug: subscriber.slug,
+        plan: subscriber.plan,
+        status: subscriber.status
+      },
+      entities_deleted: entitiesResult.rowCount
+    });
+
+  } catch (error) {
+    console.error('❌ Erro ao deletar subscriber:', error);
+    res.status(500).json({ 
+      error: 'Erro ao deletar subscriber',
+      message: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+});
+
+// Registrar para GET e POST
+app.get('/api/delete-subscriber-by-slug', deleteSubscriberBySlugHandler);
+app.post('/api/delete-subscriber-by-slug', deleteSubscriberBySlugHandler);
+
+// =======================
 // 🚀 START SERVER
 // =======================
 app.listen(PORT, () => {
