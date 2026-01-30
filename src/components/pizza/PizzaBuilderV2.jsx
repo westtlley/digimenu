@@ -179,7 +179,7 @@ export default function PizzaBuilderV2({
         </button>
       </header>
 
-      <div className="flex-1 p-6 space-y-6 max-w-md mx-auto w-full pb-32">
+      <div className="flex-1 p-6 space-y-6 max-w-md mx-auto w-full pb-40 overflow-y-auto">
         {/* Tamanho Selector */}
         <div className="space-y-2">
           <label className="text-white text-xs font-black uppercase tracking-widest opacity-80">Tamanho:</label>
@@ -344,11 +344,11 @@ export default function PizzaBuilderV2({
       </div>
 
       {/* Footer Fixo - Adicionar */}
-      <div className="fixed bottom-0 left-0 right-0 p-6 bg-white/95 backdrop-blur-xl border-t border-gray-200 z-50">
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black via-black to-transparent z-50">
         <button 
           onClick={handleAddToCart}
           disabled={!selectedSize || selectedFlavors.length === 0}
-          className="w-full text-white py-5 rounded-xl font-black text-xl shadow-lg flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full max-w-md mx-auto text-white py-5 rounded-xl font-black text-lg shadow-[0_10px_40px_rgba(0,0,0,0.5)] flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           style={{ 
             backgroundColor: (!selectedSize || selectedFlavors.length === 0) ? '#9ca3af' : '#4caf50'
           }}
