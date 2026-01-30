@@ -369,9 +369,12 @@ export default function Cardapio() {
   };
 
   const handleDishClick = (dish) => {
+    console.log('🍕 Clicou no prato:', dish.name, 'Tipo:', dish.product_type);
     if (dish.product_type === 'pizza') {
+      console.log('✅ É pizza! Abrindo PizzaBuilder...');
       setSelectedPizza(dish);
     } else {
+      console.log('📦 Não é pizza, abrindo modal normal');
       setSelectedDish(dish);
     }
   };
@@ -1304,20 +1307,26 @@ export default function Cardapio() {
       />
 
       {selectedPizza && (
-        <PizzaBuilder
-          dish={selectedPizza}
-          sizes={pizzaSizesResolved}
-          flavors={pizzaFlavorsResolved}
-          edges={pizzaEdgesResolved}
-          extras={pizzaExtrasResolved}
-          onAddToCart={handleAddToCart}
-          onClose={() => {
-            setSelectedPizza(null);
-            setEditingCartItem(null);
-          }}
-          primaryColor={primaryColor}
-          editingItem={editingCartItem}
-        />
+        <>
+          {console.log('🍕 Renderizando PizzaBuilder para:', selectedPizza.name)}
+          {console.log('📏 Tamanhos disponíveis:', pizzaSizesResolved.length)}
+          {console.log('🎨 Sabores disponíveis:', pizzaFlavorsResolved.length)}
+          <PizzaBuilder
+            dish={selectedPizza}
+            sizes={pizzaSizesResolved}
+            flavors={pizzaFlavorsResolved}
+            edges={pizzaEdgesResolved}
+            extras={pizzaExtrasResolved}
+            onAddToCart={handleAddToCart}
+            onClose={() => {
+              console.log('❌ Fechando PizzaBuilder');
+              setSelectedPizza(null);
+              setEditingCartItem(null);
+            }}
+            primaryColor={primaryColor}
+            editingItem={editingCartItem}
+          />
+        </>
       )}
 
       <OrderHistoryModal
