@@ -169,7 +169,7 @@ export default function PizzaBuilderV2({
       {/* Header */}
       <header className="py-4 px-6 flex items-center justify-between sticky top-0 z-50 shadow-md" style={{ backgroundColor: primaryColor }}>
         <div className="flex items-center gap-4">
-          <button onClick={() => setStep('welcome')} className="text-white">
+          <button onClick={onClose} className="text-white">
             <ChevronLeft size={24} />
           </button>
           <h1 className="text-white font-black text-xl uppercase tracking-tighter">Minha Pizza</h1>
