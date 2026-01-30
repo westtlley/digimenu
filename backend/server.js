@@ -2564,6 +2564,102 @@ app.get('/api/seed-demo', seedDemoHandler);
 app.post('/api/seed-demo', seedDemoHandler);
 
 // =======================
+// 🧹 ENDPOINT DE LIMPEZA DE CONFLITO MASTER-SUBSCRIBER
+// =======================
+const cleanupMasterHandler = asyncHandler(async (req, res) => {
+  if (!usePostgreSQL) {
+    return res.status(503).json({ error: 'Limpeza requer PostgreSQL' });
+  }
+
+  // Validação simples (você pode melhorar com senha)
+  const secretKey = req.headers['x-cleanup-key'] || req.query.key;
+  if (secretKey !== process.env.CLEANUP_SECRET_KEY) {
+    return res.status(403).json({ error: 'Não autorizado. Configure CLEANUP_SECRET_KEY.' });
+  }
+
+  try {
+    console.log('🧹 Iniciando limpeza de conflitos master-subscriber...');
+    
+    // 1. Buscar todos os usuários master
+    const mastersResult = await repo.query(
+      'SELECT id, email, full_name, is_master FROM users WHERE is_master = TRUE'
+    );
+    
+    if (mastersResult.rows.length === 0) {
+      return res.json({
+        success: false,
+        message: 'Nenhum usuário master encontrado'
+      });
+    }
+    
+    const conflicts = [];
+    
+    // 2. Para cada master, verificar se existe subscriber com o mesmo email
+    for (const master of mastersResult.rows) {
+      const subscriber = await repo.getSubscriberByEmail(master.email);
+      
+      if (subscriber) {
+        conflicts.push({
+          master_email: master.email,
+          master_id: master.id,
+          subscriber_email: subscriber.email,
+          subscriber_id: subscriber.id,
+          subscriber_plan: subscriber.plan,
+          subscriber_status: subscriber.status
+        });
+        
+        console.log(`⚠️ Conflito encontrado: ${master.email}`);
+        
+        // 3. Deletar todas as entidades do subscriber
+        console.log(`  → Deletando entidades do subscriber ${subscriber.email}...`);
+        const entitiesResult = await repo.query(
+          'DELETE FROM entities WHERE subscriber_email = $1',
+          [subscriber.email]
+        );
+        console.log(`  ✓ ${entitiesResult.rowCount} entidades deletadas`);
+        
+        // 4. Deletar o subscriber
+        console.log(`  → Deletando subscriber ${subscriber.email}...`);
+        await repo.query(
+          'DELETE FROM subscribers WHERE email = $1',
+          [subscriber.email]
+        );
+        console.log(`  ✓ Subscriber deletado`);
+      }
+    }
+    
+    if (conflicts.length === 0) {
+      return res.json({
+        success: true,
+        message: 'Nenhum conflito encontrado. Sistema OK!',
+        masters: mastersResult.rows.length
+      });
+    }
+    
+    console.log('✅ Limpeza concluída!');
+    
+    res.json({
+      success: true,
+      message: `${conflicts.length} conflito(s) resolvido(s) com sucesso!`,
+      conflicts_resolved: conflicts,
+      masters_count: mastersResult.rows.length
+    });
+
+  } catch (error) {
+    console.error('❌ Erro ao limpar conflitos:', error);
+    res.status(500).json({ 
+      error: 'Erro ao limpar conflitos',
+      message: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+});
+
+// Registrar para GET e POST
+app.get('/api/cleanup-master', cleanupMasterHandler);
+app.post('/api/cleanup-master', cleanupMasterHandler);
+
+// =======================
 // 🚀 START SERVER
 // =======================
 app.listen(PORT, () => {
