@@ -478,7 +478,7 @@ export default function OrderDetailModal({
           <div class="header">
             <h1>COMANDA</h1>
             <p style="margin: 0;">Pedido #${order.order_code || order.id?.slice(-6).toUpperCase()}</p>
-            <p style="margin: 0; font-size: 11px;">${formatBrazilianDateTime(order.created_date)}</p>
+            <p style="margin: 0; font-size: 11px;">${formatBrazilianDateTime(order.created_at || order.created_date)}</p>
           </div>
           
           <div class="section">

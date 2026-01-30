@@ -83,8 +83,10 @@ export default function OrderQueue({
           orders.map(order => {
             const status = STATUS_CONFIG[order.status] || STATUS_CONFIG.new;
             const StatusIcon = status.icon;
-            const elapsed = getTimeElapsed(order.created_date);
-            const isLate = differenceInMinutes(new Date(), new Date(order.created_date)) > 30;
+            // Usar created_at (do banco) ou created_date (fallback)
+            const createdDate = order.created_at || order.created_date;
+            const elapsed = getTimeElapsed(createdDate);
+            const isLate = createdDate && differenceInMinutes(new Date(), new Date(createdDate)) > 30;
             const isNew = order.status === 'new';
 
             return (
@@ -102,10 +104,14 @@ export default function OrderQueue({
                         #{order.order_code || order.id?.slice(-6).toUpperCase()}
                       </span>
                     </div>
-                    <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mt-1">
-                      📅 {new Date(order.created_date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })} • 
-                      ⏰ {new Date(order.created_date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                    </p>
+                    {createdDate ? (
+                      <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mt-1">
+                        📅 {new Date(createdDate).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })} • 
+                        ⏰ {new Date(createdDate).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-gray-500 mt-1">Sem data</p>
+                    )}
                   </div>
                   <Badge className={`${status.color} text-xs`}>
                     <StatusIcon className="w-3 h-3 mr-1" />
