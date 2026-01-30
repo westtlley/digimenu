@@ -19,6 +19,7 @@ import OrderConfirmationModal from '../components/menu/OrderConfirmationModal';
 import OrderHistoryModal from '../components/menu/OrderHistoryModal';
 import UpsellModal from '../components/menu/UpsellModal';
 import DishSkeleton from '../components/menu/DishSkeleton';
+import DishCardWow from '../components/menu/DishCardWow';
 import PromotionBanner from '../components/menu/PromotionBanner';
 import RecentOrders from '../components/menu/RecentOrders';
 import UserAuthButton from '../components/atoms/UserAuthButton';
@@ -956,57 +957,19 @@ export default function Cardapio() {
               <h2 className="font-bold text-base md:text-lg text-foreground">Pratos do Dia</h2>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-3 lg:gap-4">
-              {highlightDishes.map((dish) => (
-                <motion.div
-                  key={dish.id}
-                  whileHover={{ y: -2, scale: 1.02 }}
-                  className="group bg-card border border-border rounded-xl md:rounded-lg overflow-hidden shadow-sm hover:shadow-xl cursor-pointer relative transition-all duration-200"
-                  onClick={() => handleDishClick(dish)}
-                >
-                  <Badge className="absolute top-2 left-2 z-10 bg-gradient-to-r from-yellow-400 to-yellow-500 text-black font-bold shadow-lg text-[10px] md:text-[9px] px-1.5 md:px-1 py-0.5">
-                    ⭐ Destaque
-                  </Badge>
-                  <div className="relative aspect-square bg-gray-100 dark:bg-gray-800 overflow-hidden">
-                    {dish.image ? (
-                      <>
-                        <div className="absolute inset-0 bg-gray-200 dark:bg-gray-700 animate-pulse" />
-                        <img 
-                          src={dish.image} 
-                          alt={dish.name} 
-                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                          loading="lazy"
-                          onLoad={(e) => {
-                            e.target.previousSibling.style.display = 'none';
-                          }}
-                        />
-                      </>
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-3xl md:text-2xl">
-                        🍽️
-                      </div>
-                    )}
-                  </div>
-                    <div className="p-3 md:p-2.5 lg:p-3">
-                      <h3 className="font-bold text-sm md:text-xs lg:text-sm mb-0.5 md:mb-0.5 text-foreground line-clamp-1 md:line-clamp-2">{dish.name}</h3>
-                      <p className="text-xs md:hidden text-muted-foreground line-clamp-1 mb-1.5">{dish.description}</p>
-                      <div className="flex items-end justify-between gap-1 mt-1.5 md:mt-1">
-                        <div className="flex-1 min-w-0">
-                          {dish.original_price && dish.original_price > dish.price && (
-                            <span className="text-xs md:text-[10px] lg:text-xs text-muted-foreground line-through block mb-0.5 font-medium">
-                              {formatCurrency(dish.original_price)}
-                            </span>
-                          )}
-                          <span className="font-bold text-base md:text-sm lg:text-base block truncate leading-tight" style={{ color: primaryColor }}>
-                            {dish.product_type === 'pizza' 
-                              ? `A partir de ${formatCurrency(pizzaSizesResolved[0]?.price_tradicional || 0)}`
-                              : formatCurrency(dish.price)
-                            }
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                </motion.div>
-              ))}
+              {highlightDishes.map((dish, index) => {
+                // Forçar badge de destaque nos highlights
+                const highlightDish = { ...dish, is_popular: true };
+                return (
+                  <DishCardWow
+                    key={dish.id}
+                    dish={highlightDish}
+                    onClick={handleDishClick}
+                    index={index}
+                    primaryColor={primaryColor}
+                  />
+                );
+              })}
             </div>
           </section>
         )}
@@ -1026,104 +989,20 @@ export default function Cardapio() {
             </div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-3 lg:gap-4">
-              {filteredDishes.map((dish) => {
+              {filteredDishes.map((dish, index) => {
                 const isOutOfStock = stockUtils.isOutOfStock(dish.stock);
                 const isLowStock = stockUtils.isLowStock(dish.stock);
 
-                // Determinar quais badges mostrar e em qual posição
-                const badges = [];
-                if (dish.is_new) badges.push({ label: 'Novo', icon: '✨', color: 'from-green-500 to-green-600', position: 'top-left' });
-                if (dish.is_popular) badges.push({ label: 'Mais Vendido', icon: '🔥', color: 'from-purple-500 to-purple-600', position: badges.length === 0 ? 'top-left' : 'top-right' });
-                if (dish.original_price && dish.original_price > dish.price) badges.push({ label: 'Oferta', icon: '🔥', color: 'from-red-500 to-red-600', position: badges.length === 0 ? 'top-right' : 'bottom-right' });
-                if (isOutOfStock) badges.push({ label: 'Esgotado', icon: '', color: 'bg-gray-600 dark:bg-gray-800', position: 'top-right' });
-                else if (isLowStock) badges.push({ label: 'Últimas unidades', icon: '', color: 'from-orange-500 to-orange-600', position: 'top-right' });
-
                 return (
-                  <motion.div
+                  <DishCardWow
                     key={dish.id}
-                    whileHover={{ y: isOutOfStock ? 0 : -2, scale: isOutOfStock ? 1 : 1.02 }}
-                    className={`group bg-card border border-border rounded-xl md:rounded-lg overflow-hidden shadow-sm hover:shadow-xl transition-all duration-200 ${
-                      isOutOfStock ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'
-                    }`}
-                    onClick={() => !isOutOfStock && handleDishClick(dish)}
-                  >
-                    {/* Imagem Quadrada - Aspect Ratio 1:1 */}
-                    <div className="relative aspect-square bg-gray-100 dark:bg-gray-800 overflow-hidden">
-                      {dish.image ? (
-                        <>
-                          <div className="absolute inset-0 bg-gray-200 dark:bg-gray-700 animate-pulse" />
-                          <img 
-                            src={dish.image} 
-                            alt={dish.name} 
-                            className={`w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 ${isOutOfStock ? 'grayscale' : ''}`}
-                            loading="lazy"
-                            onLoad={(e) => {
-                              if (e.target.previousSibling) {
-                                e.target.previousSibling.style.display = 'none';
-                              }
-                            }}
-                          />
-                        </>
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-3xl md:text-2xl">
-                          🍽️
-                        </div>
-                      )}
-                      
-                      {/* Badges distribuídos uniformemente */}
-                      <div className="absolute top-2 left-2 flex flex-col gap-1 z-10">
-                        {badges.filter(b => b.position === 'top-left').map((badge, idx) => (
-                          <Badge key={idx} className={`bg-gradient-to-r ${badge.color} text-white text-[10px] md:text-[9px] font-semibold shadow-lg px-1.5 md:px-1 py-0.5 md:py-0.5`}>
-                            {badge.icon && <span className="mr-0.5">{badge.icon}</span>}
-                            <span className="hidden md:inline">{badge.label}</span>
-                            <span className="md:hidden">{badge.label.length > 6 ? badge.label.substring(0, 6) : badge.label}</span>
-                          </Badge>
-                        ))}
-                      </div>
-                      <div className="absolute top-2 right-2 flex flex-col gap-1 z-10">
-                        {badges.filter(b => b.position === 'top-right').map((badge, idx) => (
-                          <Badge key={idx} className={`${badge.color.includes('from-') ? `bg-gradient-to-r ${badge.color}` : badge.color} text-white text-[10px] md:text-[9px] font-semibold shadow-lg px-1.5 md:px-1 py-0.5 md:py-0.5`}>
-                            {badge.icon && <span className="mr-0.5">{badge.icon}</span>}
-                            <span className="hidden md:inline">{badge.label}</span>
-                            <span className="md:hidden">{badge.label.length > 6 ? badge.label.substring(0, 6) : badge.label}</span>
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                    
-                    {/* Conteúdo do Card - Compacto no Desktop */}
-                    <div className="p-3 md:p-2.5 lg:p-3">
-                      <h3 className="font-bold text-sm md:text-xs lg:text-sm mb-0.5 md:mb-0.5 text-foreground line-clamp-1 md:line-clamp-2">{dish.name}</h3>
-                      
-                      {/* Descrição - Ocultar no desktop para economizar espaço */}
-                      <p className="text-xs md:hidden text-muted-foreground line-clamp-1 mb-1.5">{dish.description}</p>
-                      
-                      {/* Tempo de preparo - Apenas mobile */}
-                      {dish.prep_time && (
-                        <p className="text-[10px] md:hidden text-muted-foreground mb-2 flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          ~{dish.prep_time} min
-                        </p>
-                      )}
-                      
-                      {/* Preço */}
-                      <div className="flex items-end justify-between gap-1 mt-1.5 md:mt-1">
-                        <div className="flex-1 min-w-0">
-                          {dish.original_price && dish.original_price > dish.price && (
-                            <span className="text-xs md:text-[10px] lg:text-xs text-muted-foreground line-through block mb-0.5 font-medium">
-                              {formatCurrency(dish.original_price)}
-                            </span>
-                          )}
-                          <span className="font-bold text-base md:text-sm lg:text-base block truncate leading-tight" style={{ color: primaryColor }}>
-                            {dish.product_type === 'pizza' 
-                              ? `A partir de ${formatCurrency(pizzaSizesResolved[0]?.price_tradicional || 0)}`
-                              : formatCurrency(dish.price)
-                            }
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </motion.div>
+                    dish={dish}
+                    onClick={handleDishClick}
+                    index={index}
+                    isOutOfStock={isOutOfStock}
+                    isLowStock={isLowStock}
+                    primaryColor={primaryColor}
+                  />
                 );
               })}
             </div>
