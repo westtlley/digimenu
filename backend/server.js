@@ -2341,9 +2341,9 @@ app.use('/api/metrics', metricsRoutes);
 app.use(errorHandler);
 
 // =======================
-// 🌱 ENDPOINT DE SEED DEMO (uso único via HTTP)
+// 🌱 ENDPOINT DE SEED DEMO (uso único via HTTP - GET e POST)
 // =======================
-app.post('/api/seed-demo', asyncHandler(async (req, res) => {
+const seedDemoHandler = asyncHandler(async (req, res) => {
   if (!usePostgreSQL) {
     return res.status(503).json({ error: 'Seed requer PostgreSQL. Configure DATABASE_URL.' });
   }
@@ -2529,7 +2529,11 @@ app.post('/api/seed-demo', asyncHandler(async (req, res) => {
       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
-}));
+});
+
+// Registrar para GET e POST
+app.get('/api/seed-demo', seedDemoHandler);
+app.post('/api/seed-demo', seedDemoHandler);
 
 // =======================
 // 🚀 START SERVER
