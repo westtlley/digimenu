@@ -794,7 +794,7 @@ export default function PDV() {
                 <p className="text-gray-500">Nenhuma venda registrada ainda</p>
               </div>
             ) : (
-              pdvSales.map((sale) => {
+              (pdvSales || []).filter(sale => sale).map((sale) => {
                 // Validar e formatar data de forma segura
                 let saleDate = null;
                 try {
