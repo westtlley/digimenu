@@ -1074,11 +1074,11 @@ export default function Cardapio() {
       </nav>
 
       {/* Footer */}
-      <footer className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950 border-t border-gray-200 dark:border-gray-800 mt-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12">
+      <footer className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950 border-t border-gray-200 dark:border-gray-800 mt-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
             {/* Coluna 1: Info do Estabelecimento */}
-            <div className="space-y-5">
+            <div className="space-y-3">
               <div className="flex items-center gap-3">
                 {store.logo && (
                   <img src={store.logo} alt={store.name} className="w-16 h-16 rounded-xl object-cover shadow-md border-2 border-white dark:border-gray-800" />
@@ -1146,7 +1146,7 @@ export default function Cardapio() {
             </div>
 
             {/* Coluna 2: Redes Sociais */}
-            <div className="space-y-4">
+            <div className="space-y-3">
               <h3 className="font-bold text-lg text-gray-900 dark:text-white">Conecte-se Conosco</h3>
               
               {/* Desktop: Ícones com texto */}
@@ -1263,7 +1263,7 @@ export default function Cardapio() {
           </div>
 
           {/* Copyright */}
-          <div className="border-t border-gray-200 dark:border-gray-800 mt-8 pt-6 text-center space-y-3">
+          <div className="border-t border-gray-200 dark:border-gray-800 mt-6 pt-4 text-center space-y-2">
             <p className="text-xs text-gray-500 dark:text-gray-400">
               © {new Date().getFullYear()} {store.name}. Todos os direitos reservados.
             </p>

@@ -102,8 +102,8 @@ export default function OrderQueue({
                         #{order.order_code || order.id?.slice(-6).toUpperCase()}
                       </span>
                     </div>
-                    <p className="text-[10px] text-gray-400 mt-0.5">
-                      📅 {new Date(order.created_date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} • 
+                    <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mt-1">
+                      📅 {new Date(order.created_date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })} • 
                       ⏰ {new Date(order.created_date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                     </p>
                   </div>

@@ -76,15 +76,15 @@ export default function OrdersDashboard({ orders, orderCounts, onSelectOrder }) 
                 #{order.order_code || order.id?.slice(-6).toUpperCase()}
               </span>
               <Badge className={`${status.color} text-xs`}>
-                <StatusIcon className="w-3 h-3 mr-1" />
-                {status.label}
-              </Badge>
-            </div>
-            <p className="text-[10px] text-gray-400 mt-0.5">
-              📅 {new Date(order.created_date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} • 
-              ⏰ {new Date(order.created_date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-            </p>
+              <StatusIcon className="w-3 h-3 mr-1" />
+              {status.label}
+            </Badge>
           </div>
+          <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mt-1">
+            📅 {new Date(order.created_date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })} • 
+            ⏰ {new Date(order.created_date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+          </p>
+        </div>
           <span className={`text-xs sm:text-sm font-medium ${isLate ? 'text-red-600' : 'text-gray-500'}`}>
             Há {elapsed}
           </span>
