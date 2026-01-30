@@ -353,13 +353,20 @@ export default function OrderDetailModal({
   };
 
   const handlePrint = () => {
-    const printWindow = window.open('', '_blank');
-    const paymentLabel = {
-      pix: 'PIX',
-      dinheiro: 'Dinheiro',
-      cartao_credito: 'Cartão de Crédito',
-      cartao_debito: 'Cartão de Débito',
-    }[order.payment_method] || order.payment_method;
+    try {
+      const printWindow = window.open('', '_blank');
+      
+      if (!printWindow) {
+        toast.error('Popup bloqueado! Permita popups para imprimir.');
+        return;
+      }
+
+      const paymentLabel = {
+        pix: 'PIX',
+        dinheiro: 'Dinheiro',
+        cartao_credito: 'Cartão de Crédito',
+        cartao_debito: 'Cartão de Débito',
+      }[order.payment_method] || order.payment_method;
 
     let itemsHTML = '';
     (order.items || []).forEach((item, idx) => {
@@ -512,10 +519,16 @@ export default function OrderDetailModal({
       </html>
     `);
     
-    printWindow.document.close();
-    setTimeout(() => {
-      printWindow.print();
-    }, 250);
+      printWindow.document.close();
+      setTimeout(() => {
+        printWindow.print();
+      }, 250);
+      
+      toast.success('Comanda enviada para impressão!');
+    } catch (error) {
+      console.error('Erro ao imprimir:', error);
+      toast.error('Erro ao imprimir. Verifique se popups estão permitidos.');
+    }
   };
 
   const availableEntregadores = entregadores.filter(e => e.status === 'available');

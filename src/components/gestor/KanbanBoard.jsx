@@ -112,6 +112,10 @@ export default function KanbanBoard({ orders, onSelectOrder }) {
                         <div className="flex items-start justify-between mb-1.5">
                           <div className="flex-1">
                             <p className="font-semibold text-[11px] text-gray-900">#{order.order_code || order.id?.slice(-6)}</p>
+                            <p className="text-[9px] text-gray-400 mt-0.5">
+                              📅 {new Date(order.created_date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} • 
+                              ⏰ {new Date(order.created_date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                            </p>
                             {isLate(order) && (
                               <Badge className="bg-red-500 text-white text-[8px] h-3.5 mt-0.5 px-1">
                                 Atrasado

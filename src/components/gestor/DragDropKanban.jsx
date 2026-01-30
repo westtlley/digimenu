@@ -128,10 +128,14 @@ export default function DragDropKanban({ orders, onOrderClick }) {
                             <div className="flex items-start justify-between mb-3">
                               <div>
                                 <p className="font-bold text-lg">#{order.order_code || order.id?.slice(-6)}</p>
+                                <p className="text-[10px] text-gray-400 mt-0.5">
+                                  📅 {new Date(order.created_date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} • 
+                                  ⏰ {new Date(order.created_date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                </p>
                                 <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
                                   <Clock className="w-3 h-3" />
                                   <span className={getTimeColor(order)}>
-                                    {order.created_date && getTimeSince(order.created_date)}
+                                    Há {order.created_date && getTimeSince(order.created_date)}
                                   </span>
                                 </p>
                               </div>
