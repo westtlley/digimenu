@@ -876,37 +876,68 @@ app.get('/api/public/cardapio/:slug', asyncHandler(async (req, res) => {
   }
   const slug = (req.params.slug || '').trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
   if (!slug) return res.status(400).json({ error: 'Slug inválido' });
-  const subscriber = await repo.getSubscriberBySlug(slug);
-  if (!subscriber) return res.status(404).json({ error: 'Link não encontrado' });
-  const se = subscriber.email;
-  const [
-    storeList,
-    dishes,
-    categories,
-    complementGroups,
-    pizzaSizes,
-    pizzaFlavors,
-    pizzaEdges,
-    pizzaExtras,
-    deliveryZones,
-    coupons,
-    promotions
-  ] = await Promise.all([
-    repo.listEntitiesForSubscriber('Store', se, null),
-    repo.listEntitiesForSubscriber('Dish', se, 'order'),
-    repo.listEntitiesForSubscriber('Category', se, 'order'),
-    repo.listEntitiesForSubscriber('ComplementGroup', se, 'order'),
-    repo.listEntitiesForSubscriber('PizzaSize', se, 'order'),
-    repo.listEntitiesForSubscriber('PizzaFlavor', se, 'order'),
-    repo.listEntitiesForSubscriber('PizzaEdge', se, null),
-    repo.listEntitiesForSubscriber('PizzaExtra', se, null),
-    repo.listEntitiesForSubscriber('DeliveryZone', se, null),
-    repo.listEntitiesForSubscriber('Coupon', se, null),
-    repo.listEntitiesForSubscriber('Promotion', se, null)
-  ]);
+  
+  // Tentar buscar subscriber primeiro
+  let subscriber = await repo.getSubscriberBySlug(slug);
+  let isMaster = false;
+  let se = null;
+  
+  if (subscriber) {
+    se = subscriber.email;
+  } else {
+    // Se não encontrou subscriber, buscar usuário master pelo slug
+    const { query } = await import('./db/postgres.js');
+    const masterResult = await query(
+      'SELECT id, email, slug FROM users WHERE slug = $1 AND is_master = TRUE',
+      [slug]
+    );
+    
+    if (masterResult.rows.length > 0) {
+      isMaster = true;
+      se = null; // Master usa subscriber_email = NULL
+    } else {
+      return res.status(404).json({ error: 'Link não encontrado' });
+    }
+  }
+  // Buscar entidades (para subscriber ou master)
+  let storeList, dishes, categories, complementGroups, pizzaSizes, pizzaFlavors, pizzaEdges, pizzaExtras, deliveryZones, coupons, promotions;
+  
+  if (isMaster) {
+    // Para master, buscar entidades com subscriber_email IS NULL
+    const { query } = await import('./db/postgres.js');
+    [storeList, dishes, categories, complementGroups, pizzaSizes, pizzaFlavors, pizzaEdges, pizzaExtras, deliveryZones, coupons, promotions] = await Promise.all([
+      query(`SELECT id, data, created_at, updated_at FROM entities WHERE entity_type = 'Store' AND subscriber_email IS NULL`).then(r => r.rows.map(row => ({ id: row.id.toString(), ...row.data }))),
+      query(`SELECT id, data, created_at, updated_at FROM entities WHERE entity_type = 'Dish' AND subscriber_email IS NULL ORDER BY (data->>'order')::int NULLS LAST, created_at DESC`).then(r => r.rows.map(row => ({ id: row.id.toString(), ...row.data }))),
+      query(`SELECT id, data, created_at, updated_at FROM entities WHERE entity_type = 'Category' AND subscriber_email IS NULL ORDER BY (data->>'order')::int NULLS LAST, created_at DESC`).then(r => r.rows.map(row => ({ id: row.id.toString(), ...row.data }))),
+      query(`SELECT id, data, created_at, updated_at FROM entities WHERE entity_type = 'ComplementGroup' AND subscriber_email IS NULL ORDER BY (data->>'order')::int NULLS LAST, created_at DESC`).then(r => r.rows.map(row => ({ id: row.id.toString(), ...row.data }))),
+      query(`SELECT id, data, created_at, updated_at FROM entities WHERE entity_type = 'PizzaSize' AND subscriber_email IS NULL ORDER BY (data->>'order')::int NULLS LAST, created_at DESC`).then(r => r.rows.map(row => ({ id: row.id.toString(), ...row.data }))),
+      query(`SELECT id, data, created_at, updated_at FROM entities WHERE entity_type = 'PizzaFlavor' AND subscriber_email IS NULL ORDER BY (data->>'order')::int NULLS LAST, created_at DESC`).then(r => r.rows.map(row => ({ id: row.id.toString(), ...row.data }))),
+      query(`SELECT id, data, created_at, updated_at FROM entities WHERE entity_type = 'PizzaEdge' AND subscriber_email IS NULL`).then(r => r.rows.map(row => ({ id: row.id.toString(), ...row.data }))),
+      query(`SELECT id, data, created_at, updated_at FROM entities WHERE entity_type = 'PizzaExtra' AND subscriber_email IS NULL`).then(r => r.rows.map(row => ({ id: row.id.toString(), ...row.data }))),
+      query(`SELECT id, data, created_at, updated_at FROM entities WHERE entity_type = 'DeliveryZone' AND subscriber_email IS NULL`).then(r => r.rows.map(row => ({ id: row.id.toString(), ...row.data }))),
+      query(`SELECT id, data, created_at, updated_at FROM entities WHERE entity_type = 'Coupon' AND subscriber_email IS NULL`).then(r => r.rows.map(row => ({ id: row.id.toString(), ...row.data }))),
+      query(`SELECT id, data, created_at, updated_at FROM entities WHERE entity_type = 'Promotion' AND subscriber_email IS NULL`).then(r => r.rows.map(row => ({ id: row.id.toString(), ...row.data })))
+    ]);
+  } else {
+    // Para subscriber, usar a função existente
+    [storeList, dishes, categories, complementGroups, pizzaSizes, pizzaFlavors, pizzaEdges, pizzaExtras, deliveryZones, coupons, promotions] = await Promise.all([
+      repo.listEntitiesForSubscriber('Store', se, null),
+      repo.listEntitiesForSubscriber('Dish', se, 'order'),
+      repo.listEntitiesForSubscriber('Category', se, 'order'),
+      repo.listEntitiesForSubscriber('ComplementGroup', se, 'order'),
+      repo.listEntitiesForSubscriber('PizzaSize', se, 'order'),
+      repo.listEntitiesForSubscriber('PizzaFlavor', se, 'order'),
+      repo.listEntitiesForSubscriber('PizzaEdge', se, null),
+      repo.listEntitiesForSubscriber('PizzaExtra', se, null),
+      repo.listEntitiesForSubscriber('DeliveryZone', se, null),
+      repo.listEntitiesForSubscriber('Coupon', se, null),
+      repo.listEntitiesForSubscriber('Promotion', se, null)
+    ]);
+  }
   const store = Array.isArray(storeList) && storeList[0] ? storeList[0] : { name: 'Loja', is_open: true };
   res.json({
-    subscriber_email: se,
+    subscriber_email: se || 'master',
+    is_master: isMaster,
     store,
     dishes: Array.isArray(dishes) ? dishes : [],
     categories: Array.isArray(categories) ? categories : [],
@@ -2865,6 +2896,102 @@ const debugUserHandler = asyncHandler(async (req, res) => {
 
 app.get('/api/debug-user', debugUserHandler);
 app.post('/api/debug-user', debugUserHandler);
+
+// =======================
+// 🏪 ENDPOINT PARA CONFIGURAR LOJA DO MASTER
+// =======================
+const setupMasterStoreHandler = asyncHandler(async (req, res) => {
+  if (!usePostgreSQL) {
+    return res.status(503).json({ error: 'Setup requer PostgreSQL' });
+  }
+
+  const secretKey = req.headers['x-setup-key'] || req.query.key;
+  if (secretKey !== process.env.CLEANUP_SECRET_KEY) {
+    return res.status(403).json({ error: 'Não autorizado. Configure CLEANUP_SECRET_KEY.' });
+  }
+
+  try {
+    console.log('🏪 Configurando loja para usuário master...');
+    const { query } = await import('./db/postgres.js');
+    
+    // 1. Buscar usuário master
+    const masterResult = await query(
+      'SELECT id, email, full_name, slug FROM users WHERE is_master = TRUE LIMIT 1'
+    );
+    
+    if (masterResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Nenhum usuário master encontrado' });
+    }
+    
+    const master = masterResult.rows[0];
+    console.log('✓ Master encontrado:', master.email);
+    
+    // 2. Verificar se já existe loja para o master
+    const storeResult = await query(
+      `SELECT * FROM entities 
+       WHERE entity_type = 'Store' 
+       AND subscriber_email IS NULL
+       LIMIT 1`
+    );
+    
+    let store;
+    if (storeResult.rows.length > 0) {
+      store = storeResult.rows[0];
+      console.log('✓ Loja já existe para o master');
+    } else {
+      // 3. Criar loja para o master
+      console.log('→ Criando loja para o master...');
+      const storeData = {
+        name: 'Loja Master',
+        slogan: 'Bem-vindo!',
+        whatsapp: '',
+        address: '',
+        is_open: true,
+        accepting_orders: true,
+        primary_color: '#f97316',
+        opening_time: '08:00',
+        closing_time: '22:00',
+        working_days: [0, 1, 2, 3, 4, 5, 6],
+        enable_premium_pizza_visualization: true
+      };
+      
+      const insertResult = await query(
+        `INSERT INTO entities (entity_type, subscriber_email, data, created_at, updated_at)
+         VALUES ($1, NULL, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+         RETURNING *`,
+        ['Store', JSON.stringify(storeData)]
+      );
+      
+      store = insertResult.rows[0];
+      console.log('✓ Loja criada para o master');
+    }
+    
+    res.json({
+      success: true,
+      message: 'Master configurado com sucesso!',
+      master: {
+        id: master.id,
+        email: master.email,
+        slug: master.slug,
+        cardapio_url: master.slug ? `https://digimenu-chi.vercel.app/s/${master.slug}` : null
+      },
+      store: {
+        id: store.id,
+        name: store.data.name
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Erro ao configurar master:', error);
+    res.status(500).json({ 
+      error: 'Erro ao configurar master',
+      message: error.message
+    });
+  }
+});
+
+app.get('/api/setup-master-store', setupMasterStoreHandler);
+app.post('/api/setup-master-store', setupMasterStoreHandler);
 
 // =======================
 // 🚀 START SERVER
