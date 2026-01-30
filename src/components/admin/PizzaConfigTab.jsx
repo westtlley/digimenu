@@ -23,6 +23,7 @@ const formatCurrency = (value) => {
 export default function PizzaConfigTab() {
   const [user, setUser] = React.useState(null);
   const [activeTab, setActiveTab] = useState('pizzas');
+  const [searchTerm, setSearchTerm] = useState('');
   
   // Modals
   const [showSizeModal, setShowSizeModal] = useState(false);
