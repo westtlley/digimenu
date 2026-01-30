@@ -2580,8 +2580,11 @@ const cleanupMasterHandler = asyncHandler(async (req, res) => {
   try {
     console.log('🧹 Iniciando limpeza de conflitos master-subscriber...');
     
+    // Importar query do postgres
+    const { query } = await import('./db/postgres.js');
+    
     // 1. Buscar todos os usuários master
-    const mastersResult = await repo.query(
+    const mastersResult = await query(
       'SELECT id, email, full_name, is_master FROM users WHERE is_master = TRUE'
     );
     
@@ -2612,7 +2615,7 @@ const cleanupMasterHandler = asyncHandler(async (req, res) => {
         
         // 3. Deletar todas as entidades do subscriber
         console.log(`  → Deletando entidades do subscriber ${subscriber.email}...`);
-        const entitiesResult = await repo.query(
+        const entitiesResult = await query(
           'DELETE FROM entities WHERE subscriber_email = $1',
           [subscriber.email]
         );
@@ -2620,7 +2623,7 @@ const cleanupMasterHandler = asyncHandler(async (req, res) => {
         
         // 4. Deletar o subscriber
         console.log(`  → Deletando subscriber ${subscriber.email}...`);
-        await repo.query(
+        await query(
           'DELETE FROM subscribers WHERE email = $1',
           [subscriber.email]
         );
