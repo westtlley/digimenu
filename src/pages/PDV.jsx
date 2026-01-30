@@ -74,7 +74,7 @@ export default function PDV() {
   });
 
   useEffect(() => {
-    const activeCaixa = caixas.find(c => c.status === 'open');
+    const activeCaixa = (caixas || []).find(c => c && c.status === 'open');
     setOpenCaixa(activeCaixa || null);
     if (caixasLoading) return;
     if (!activeCaixa) setShowOpenCaixaModal(true);
@@ -124,9 +124,10 @@ export default function PDV() {
   const isCaixaLocked = !!(openCaixa?.lock_threshold != null && (Number(openCaixa?.total_cash) || 0) >= (Number(openCaixa?.lock_threshold) || 0));
 
   const safeDishes = Array.isArray(dishes) ? dishes : [];
-  const activeDishes = safeDishes.filter(d => d.is_active !== false);
+  const activeDishes = safeDishes.filter(d => d && d.is_active !== false);
   const filteredDishes = activeDishes.filter(d => {
-    const matchesSearch = !searchTerm || d.name?.toLowerCase().includes(searchTerm.toLowerCase());
+    if (!d || !d.name) return false;
+    const matchesSearch = !searchTerm || d.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = selectedCategory === 'all' || d.category_id === selectedCategory;
     return matchesSearch && matchesCategory;
   });
@@ -423,7 +424,7 @@ export default function PDV() {
                 >
                   TODOS
                 </button>
-                {categories.map(cat => (
+                {(categories || []).filter(cat => cat && cat.name).map(cat => (
                   <button
                     key={cat.id}
                     onClick={() => setSelectedCategory(cat.id)}
@@ -433,7 +434,7 @@ export default function PDV() {
                         : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
                     }`}
                   >
-                    {cat.name.toUpperCase()}
+                    {(cat.name || 'Categoria').toUpperCase()}
                   </button>
                 ))}
               </div>
