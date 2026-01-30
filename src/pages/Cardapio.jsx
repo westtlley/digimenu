@@ -1325,7 +1325,7 @@ export default function Cardapio() {
             }}
             primaryColor={primaryColor}
             editingItem={editingCartItem}
-            store={storeData}
+            store={store}
           />
         </>
       )}
