@@ -215,26 +215,47 @@ export default function PizzaBuilderV2({
                   onClick={() => setStep('flavors')}
                   className="relative w-56 h-56 sm:w-64 sm:h-64 lg:w-[340px] lg:h-[340px] pizza-container group cursor-pointer transition-transform active:scale-95 flex-shrink-0"
                 >
-                  {/* Tábua de Pizza - Background */}
+                  {/* Tábua de Pizza - Background (desce primeiro) */}
                   <motion.div
-                    initial={{ y: -100, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    transition={{ duration: 0.6, ease: "easeOut" }}
-                    className="absolute inset-[-20px] z-0"
+                    initial={{ y: -150, opacity: 0, scale: 0.9 }}
+                    animate={{ y: 0, opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.7, ease: [0.34, 1.56, 0.64, 1] }}
+                    className="absolute inset-[-25px] z-0"
                     style={{
-                      backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'400\' height=\'400\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cdefs%3E%3Cpattern id=\'wood\' x=\'0\' y=\'0\' width=\'40\' height=\'40\' patternUnits=\'userSpaceOnUse\'%3E%3Cpath d=\'M0 20h40M20 0v40\' stroke=\'%23a0522d\' stroke-width=\'0.5\' opacity=\'0.3\'/%3E%3C/pattern%3E%3C/defs%3E%3Ccircle cx=\'200\' cy=\'200\' r=\'180\' fill=\'%23d2691e\'/%3E%3Ccircle cx=\'200\' cy=\'200\' r=\'180\' fill=\'url(%23wood)\'/%3E%3Ccircle cx=\'200\' cy=\'200\' r=\'170\' fill=\'none\' stroke=\'%238b4513\' stroke-width=\'2\'/%3E%3C/svg%3E")',
-                      backgroundSize: 'cover',
-                      backgroundPosition: 'center',
+                      background: `
+                        radial-gradient(circle at 50% 50%, 
+                          #8b4513 0%, 
+                          #a0522d 30%, 
+                          #cd853f 60%, 
+                          #d2691e 100%
+                        ),
+                        repeating-linear-gradient(
+                          45deg,
+                          transparent,
+                          transparent 10px,
+                          rgba(139, 69, 19, 0.1) 10px,
+                          rgba(139, 69, 19, 0.1) 20px
+                        )
+                      `,
                       borderRadius: '50%',
-                      filter: 'drop-shadow(0 10px 30px rgba(0,0,0,0.4))',
+                      filter: 'drop-shadow(0 15px 40px rgba(0,0,0,0.5))',
+                      border: '8px solid #654321',
+                      boxShadow: 'inset 0 0 30px rgba(0,0,0,0.3)',
                     }}
                   />
                   
-                  {/* Pizza - Aparece depois da tábua */}
+                  {/* Pizza - Aparece depois da tábua (com bounce) */}
                   <motion.div
-                    initial={{ scale: 0, opacity: 0, y: 20 }}
+                    initial={{ scale: 0, opacity: 0, y: 30 }}
                     animate={{ scale: 1, opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5, delay: 0.3, ease: "easeOut" }}
+                    transition={{ 
+                      duration: 0.6, 
+                      delay: 0.4, 
+                      ease: [0.34, 1.56, 0.64, 1],
+                      type: "spring",
+                      stiffness: 200,
+                      damping: 15
+                    }}
                     className="absolute inset-0 rounded-full overflow-hidden transition-transform duration-500 hover:rotate-6 shadow-xl z-10"
                   >
                     <svg viewBox="0 0 100 100" className="w-full h-full">
