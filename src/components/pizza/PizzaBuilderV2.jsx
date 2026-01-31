@@ -208,10 +208,7 @@ export default function PizzaBuilderV2({
                   onClick={() => setStep('flavors')}
                   className="relative w-56 h-56 sm:w-64 sm:h-64 lg:w-[340px] lg:h-[340px] pizza-container group cursor-pointer transition-transform active:scale-95 flex-shrink-0"
                 >
-                  {/* Board / Base Wood Effect - reduzido no desktop para caber na tela */}
-                  <div className="absolute inset-[-12px] lg:inset-[-10px] bg-[#3a2214] rounded-full border-[10px] lg:border-[8px] border-[#2a1a0f] shadow-2xl" />
-                  
-                  <div className="absolute inset-0 bg-[#333] rounded-full border-8 shadow-inner overflow-hidden flex transition-transform duration-500 hover:rotate-6" style={{ borderColor: primaryColor }}>
+                  <div className="absolute inset-0 bg-[#333] rounded-full overflow-hidden flex transition-transform duration-500 hover:rotate-6 shadow-xl">
                     {maxFlavors === 1 ? (
                       <div className="w-full h-full flex items-center justify-center text-white/20 bg-[#444]">
                         {selectedFlavors[0] ? (
@@ -228,10 +225,7 @@ export default function PizzaBuilderV2({
                         {Array.from({ length: maxFlavors }).map((_, i) => (
                           <div 
                             key={i} 
-                            style={{ 
-                              width: `${100 / maxFlavors}%`,
-                              borderRight: i < maxFlavors - 1 ? `1px solid ${primaryColor}40` : 'none'
-                            }}
+                            style={{ width: `${100 / maxFlavors}%` }}
                             className="h-full flex items-center justify-center overflow-hidden bg-[#444]"
                           >
                             {selectedFlavors[i] ? (
