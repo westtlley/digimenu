@@ -165,9 +165,9 @@ export default function PizzaBuilderV2({
 
   // CUSTOM VIEW (Montagem)
   const CustomView = () => (
-    <div className="min-h-screen w-full flex flex-col bg-[#0f0f0f]">
+    <div className="h-screen w-full flex flex-col bg-[#0f0f0f] overflow-hidden">
       {/* Header */}
-      <header className="py-4 px-6 flex items-center justify-between sticky top-0 z-50 shadow-md" style={{ backgroundColor: primaryColor }}>
+      <header className="flex-shrink-0 py-4 px-6 flex items-center justify-between shadow-md" style={{ backgroundColor: primaryColor }}>
         <div className="flex items-center gap-4">
           <button onClick={onClose} className="text-white">
             <ChevronLeft size={24} />
@@ -179,19 +179,22 @@ export default function PizzaBuilderV2({
         </button>
       </header>
 
-      {/* Layout Desktop vs Mobile */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="container mx-auto px-4 py-6 pb-6 lg:pb-8">
+      {/* Layout Desktop vs Mobile - min-h-0 é crítico para scroll no flexbox */}
+      <div 
+        className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain"
+        style={{ WebkitOverflowScrolling: 'touch' }}
+      >
+        <div className="container mx-auto px-4 py-6 pb-44 lg:pb-8">
           {/* Layout em Grid no Desktop */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 max-w-6xl mx-auto">
             
             {/* Coluna Esquerda - APENAS Pizza e Preço no Desktop */}
-            <div className="space-y-6">
+            <div className="space-y-4 lg:space-y-6">
               {/* Visualizador Circular da Pizza */}
-              <div className="flex flex-col items-center py-4 relative">
+              <div className="flex flex-col items-center py-2 lg:py-4 relative">
                 <button 
                   onClick={() => setStep('flavors')}
-                  className="relative w-72 h-72 lg:w-80 lg:h-80 pizza-container group cursor-pointer transition-transform active:scale-95"
+                  className="relative w-56 h-56 sm:w-64 sm:h-64 lg:w-80 lg:h-80 pizza-container group cursor-pointer transition-transform active:scale-95"
                 >
                   {/* Board / Base Wood Effect */}
                   <div className="absolute inset-[-15px] bg-[#3a2214] rounded-full border-[12px] border-[#2a1a0f] shadow-2xl" />
