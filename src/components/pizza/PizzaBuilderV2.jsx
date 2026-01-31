@@ -1,5 +1,7 @@
 import React, { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
+import { base44 } from '@/api/base44Client';
 import { 
   Menu, 
   Search, 
@@ -23,6 +25,9 @@ const formatCurrency = (value) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
 };
 
+// Imagem padrão da borda (textura realista de borda recheada)
+const DEFAULT_EDGE_IMAGE = 'https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/693428740b45fa735818cde5/625e680ac_Designsemnome.png';
+
 export default function PizzaBuilderV2({ 
   dish, 
   sizes = [], 
@@ -35,6 +40,13 @@ export default function PizzaBuilderV2({
   editingItem = null,
   store = null
 }) {
+  // Config da visualização (imagem da borda)
+  const { data: savedConfigs = [] } = useQuery({
+    queryKey: ['pizzaVisualizationConfig'],
+    queryFn: () => base44.entities.PizzaVisualizationConfig.list(),
+  });
+  const edgeImageUrl = savedConfigs[0]?.edgeImageUrl || DEFAULT_EDGE_IMAGE;
+
   // Estados
   const [step, setStep] = useState('custom'); // custom | flavors | borders | extras | observations
   const [selectedSize, setSelectedSize] = useState(null);
@@ -235,6 +247,43 @@ export default function PizzaBuilderV2({
                       </div>
                     )}
                   </div>
+
+                  {/* Overlay da borda recheada - imagem real cobrindo a borda da pizza */}
+                  {selectedEdge && selectedEdge.id !== 'none' && (
+                    <div className="absolute inset-0 pointer-events-none z-10 rounded-full overflow-visible flex items-center justify-center">
+                      <svg 
+                        viewBox="0 0 100 100" 
+                        className="w-full h-full drop-shadow-lg"
+                        preserveAspectRatio="xMidYMid meet"
+                      >
+                        <defs>
+                          <pattern id={`pizzaBuilderEdge-${selectedEdge?.id || 'default'}`} patternUnits="userSpaceOnUse" width="100" height="100">
+                            <image 
+                              href={selectedEdge?.image || edgeImageUrl}
+                              x="0" 
+                              y="0" 
+                              width="100" 
+                              height="100" 
+                              preserveAspectRatio="xMidYMid slice"
+                            />
+                          </pattern>
+                        </defs>
+                        <motion.circle
+                          initial={{ scale: 0.9, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          transition={{ duration: 0.3 }}
+                          cx="50"
+                          cy="50"
+                          r="46"
+                          fill="none"
+                          stroke={`url(#pizzaBuilderEdge-${selectedEdge?.id || 'default'})`}
+                          strokeWidth="10"
+                          strokeLinecap="round"
+                          filter="drop-shadow(0 2px 6px rgba(0,0,0,0.4))"
+                        />
+                      </svg>
+                    </div>
+                  )}
                 </button>
                 
                 <div className="mt-8 text-center bg-black/40 px-8 py-3 rounded-full border border-white/5">
