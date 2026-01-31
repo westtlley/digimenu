@@ -66,9 +66,15 @@ export default function PizzaBuilderV2({
   // Resetar animação quando voltar da tela de sabores ou abrir pela primeira vez
   React.useEffect(() => {
     if (step === 'custom') {
+      // Forçar re-render da animação
       setAnimationKey(prev => prev + 1);
     }
   }, [step]);
+  
+  // Também resetar quando o componente monta
+  React.useEffect(() => {
+    setAnimationKey(1);
+  }, []);
 
   // Carregar dados de edição ou pré-preencher sabor
   React.useEffect(() => {
