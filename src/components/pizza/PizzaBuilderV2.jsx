@@ -45,7 +45,10 @@ export default function PizzaBuilderV2({
     queryKey: ['pizzaVisualizationConfig'],
     queryFn: () => base44.entities.PizzaVisualizationConfig.list(),
   });
-  const edgeImageUrl = savedConfigs[0]?.edgeImageUrl || LOCAL_EDGE_IMAGE;
+  const vizConfig = savedConfigs[0] || {};
+  const edgeImageUrl = vizConfig.edgeImageUrl || LOCAL_EDGE_IMAGE;
+  const edgeStrokeWidth = vizConfig.edgeStrokeWidth ?? 12;
+  const edgeRadius = vizConfig.edgeRadius ?? 48;
 
   // Estados
   const [step, setStep] = useState('custom'); // custom | flavors | borders | extras | observations
@@ -109,8 +112,9 @@ export default function PizzaBuilderV2({
     return grouped;
   }, [filteredFlavors]);
 
-  // Número máximo de sabores
-  const maxFlavors = selectedSize?.max_flavors || 1;
+  // Número máximo de sabores (1-4) e extras
+  const maxFlavors = Math.min(Math.max(selectedSize?.max_flavors || 1, 1), 4);
+  const maxExtras = selectedSize?.max_extras ?? 5;
 
   // Toggle sabor
   const toggleFlavor = (flavor) => {
@@ -208,38 +212,67 @@ export default function PizzaBuilderV2({
                   onClick={() => setStep('flavors')}
                   className="relative w-56 h-56 sm:w-64 sm:h-64 lg:w-[340px] lg:h-[340px] pizza-container group cursor-pointer transition-transform active:scale-95 flex-shrink-0"
                 >
-                  <div className="absolute inset-0 bg-[#333] rounded-full overflow-hidden flex transition-transform duration-500 hover:rotate-6 shadow-xl">
-                    {maxFlavors === 1 ? (
-                      <div className="w-full h-full flex items-center justify-center text-white/20 bg-[#444]">
-                        {selectedFlavors[0] ? (
-                          <img src={selectedFlavors[0].image} className="w-full h-full object-cover animate-pulse" alt={selectedFlavors[0].name} />
-                        ) : (
-                          <div className="flex flex-col items-center gap-2">
-                            <Plus size={64} className="opacity-10" />
-                            <span className="text-xs font-bold opacity-30">TOQUE PARA ESCOLHER</span>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="w-full h-full flex relative">
-                        {Array.from({ length: maxFlavors }).map((_, i) => (
-                          <div 
-                            key={i} 
-                            style={{ width: `${100 / maxFlavors}%` }}
-                            className="h-full flex items-center justify-center overflow-hidden bg-[#444]"
-                          >
-                            {selectedFlavors[i] ? (
-                              <img src={selectedFlavors[i].image} className="w-full h-full object-cover animate-pulse" alt={selectedFlavors[i].name} />
-                            ) : (
-                              <div className="flex flex-col items-center gap-1">
-                                <Plus className="text-white/20" size={32} />
-                                <span className="text-[8px] font-bold text-white/20">TOQUE</span>
-                              </div>
-                            )}
-                          </div>
+                  <div className="absolute inset-0 rounded-full overflow-hidden transition-transform duration-500 hover:rotate-6 shadow-xl">
+                    <svg viewBox="0 0 100 100" className="w-full h-full">
+                      <defs>
+                        {Array.from({ length: maxFlavors }).map((_, i) => selectedFlavors[i]?.image && (
+                          <pattern key={i} id={`pizza-slice-${i}`} x="0" y="0" width="1" height="1" patternContentUnits="objectBoundingBox">
+                            <image href={selectedFlavors[i].image} x="-0.1" y="-0.1" width="1.2" height="1.2" preserveAspectRatio="xMidYMid slice" />
+                          </pattern>
                         ))}
-                      </div>
-                    )}
+                      </defs>
+                      {maxFlavors === 1 ? (
+                        selectedFlavors[0] ? (
+                          <circle cx="50" cy="50" r="50" fill={selectedFlavors[0].image ? `url(#pizza-slice-0)` : (selectedFlavors[0].color || '#444')} />
+                        ) : (
+                          <g>
+                            <circle cx="50" cy="50" r="50" fill="#333" />
+                            <text x="50" y="45" textAnchor="middle" fill="rgba(255,255,255,0.3)" fontSize="8">+</text>
+                            <text x="50" y="55" textAnchor="middle" fill="rgba(255,255,255,0.2)" fontSize="4">TOQUE</text>
+                          </g>
+                        )
+                      ) : (
+                        Array.from({ length: maxFlavors }).map((_, i) => {
+                          const anglePerSlice = 360 / maxFlavors;
+                          const startAngle = (anglePerSlice * i - 90) * (Math.PI / 180);
+                          const endAngle = (anglePerSlice * (i + 1) - 90) * (Math.PI / 180);
+                          const r = 50;
+                          const x1 = 50 + r * Math.cos(startAngle);
+                          const y1 = 50 + r * Math.sin(startAngle);
+                          const x2 = 50 + r * Math.cos(endAngle);
+                          const y2 = 50 + r * Math.sin(endAngle);
+                          const largeArc = anglePerSlice > 180 ? 1 : 0;
+                          const pathData = `M 50 50 L ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} Z`;
+                          const flavor = selectedFlavors[i];
+                          return (
+                            <path
+                              key={i}
+                              d={pathData}
+                              fill={flavor?.image ? `url(#pizza-slice-${i})` : (flavor?.color || '#444')}
+                              stroke="rgba(0,0,0,0.1)"
+                              strokeWidth="0.5"
+                            />
+                          );
+                        })
+                      )}
+                      {maxFlavors > 1 && selectedFlavors.filter(Boolean).length < maxFlavors && (
+                        <g>
+                          {Array.from({ length: maxFlavors }).map((_, i) => {
+                            if (selectedFlavors[i]) return null;
+                            const anglePerSlice = 360 / maxFlavors;
+                            const midAngle = (anglePerSlice * (i + 0.5) - 90) * (Math.PI / 180);
+                            const x = 50 + 25 * Math.cos(midAngle);
+                            const y = 50 + 25 * Math.sin(midAngle);
+                            return (
+                              <g key={`placeholder-${i}`}>
+                                <text x={x} y={y - 3} textAnchor="middle" fill="rgba(255,255,255,0.3)" fontSize="6">+</text>
+                                <text x={x} y={y + 4} textAnchor="middle" fill="rgba(255,255,255,0.2)" fontSize="3">TOQUE</text>
+                              </g>
+                            );
+                          })}
+                        </g>
+                      )}
+                    </svg>
                   </div>
 
                   {/* Overlay da borda recheada - imagem real cobrindo a borda da pizza */}
@@ -268,10 +301,10 @@ export default function PizzaBuilderV2({
                           transition={{ duration: 0.3 }}
                           cx="50"
                           cy="50"
-                          r="46"
+                          r={edgeRadius}
                           fill="none"
                           stroke={`url(#pizzaBuilderEdge-${selectedEdge?.id || 'default'})`}
-                          strokeWidth="10"
+                          strokeWidth={edgeStrokeWidth}
                           strokeLinecap="round"
                           filter="drop-shadow(0 2px 6px rgba(0,0,0,0.4))"
                         />
@@ -339,10 +372,11 @@ export default function PizzaBuilderV2({
               {/* Título Personalização */}
               <h3 className="text-white text-xs font-black uppercase tracking-widest opacity-80 px-2 pt-2">Personalize sua pizza:</h3>
               
-              {/* Borda */}
+              {/* Borda - só após pizza completa (sabores selecionados) */}
               <button 
-                onClick={() => setStep('borders')}
-                className="w-full bg-white/10 backdrop-blur-sm text-white py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-between shadow-md active:scale-95 transition-all border border-white/5 hover:bg-white/20"
+                onClick={() => selectedFlavors.length >= 1 && setStep('borders')}
+                disabled={selectedFlavors.length < 1}
+                className={`w-full backdrop-blur-sm text-white py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-between shadow-md transition-all border border-white/5 ${selectedFlavors.length >= 1 ? 'bg-white/10 hover:bg-white/20 active:scale-95' : 'bg-white/5 opacity-50 cursor-not-allowed'}`}
               >
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: `${primaryColor}30` }}>
@@ -358,10 +392,11 @@ export default function PizzaBuilderV2({
                 <ChevronDown className="text-gray-400" size={18} />
               </button>
 
-              {/* Extras */}
+              {/* Extras - só após borda (ou se não tiver bordas) */}
               <button 
-                onClick={() => setStep('extras')}
-                className="w-full bg-white/10 backdrop-blur-sm text-white py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-between shadow-md active:scale-95 transition-all border border-white/5 hover:bg-white/20"
+                onClick={() => (edges.length === 0 || selectedEdge !== null) && setStep('extras')}
+                disabled={edges.length > 0 && selectedEdge === null}
+                className={`w-full backdrop-blur-sm text-white py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-between shadow-md transition-all border border-white/5 ${(edges.length === 0 || selectedEdge !== null) ? 'bg-white/10 hover:bg-white/20 active:scale-95' : 'bg-white/5 opacity-50 cursor-not-allowed'}`}
               >
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-full flex items-center justify-center bg-blue-500/20">
@@ -531,7 +566,7 @@ export default function PizzaBuilderV2({
   );
 
   // SELECTION OVERLAY (Bordas, Extras, Observações)
-  const SelectionOverlay = ({ title, items, current, onSelect, onClose, type = 'single' }) => (
+  const SelectionOverlay = ({ title, items, current, onSelect, onClose, type = 'single', maxItems = 999 }) => (
     <div className="fixed inset-0 z-[100] bg-black/90 flex flex-col animate-fade-in backdrop-blur-md">
       {/* Header mais compacto */}
       <div className="flex justify-between items-center p-4 border-b border-white/10">
@@ -557,22 +592,24 @@ export default function PizzaBuilderV2({
               const isSelected = type === 'multiple' 
                 ? current.find(c => c.id === item.id)
                 : current?.id === item.id;
+              const isDisabled = type === 'multiple' && !isSelected && current.length >= maxItems;
               
               return (
                 <button
                   key={item.id}
+                  disabled={isDisabled}
                   onClick={() => {
                     if (type === 'multiple') {
                       const newCurrent = isSelected 
                         ? current.filter(c => c.id !== item.id)
-                        : [...current, item];
+                        : current.length < maxItems ? [...current, item] : current;
                       onSelect(newCurrent);
                     } else {
                       onSelect(item);
                       if (type === 'single') onClose();
                     }
                   }}
-                  className={`w-full p-4 rounded-xl border-2 flex justify-between items-center transition-all ${isSelected ? 'text-white' : 'border-white/10 bg-white/5 text-gray-400'}`}
+                  className={`w-full p-4 rounded-xl border-2 flex justify-between items-center transition-all ${isSelected ? 'text-white' : isDisabled ? 'border-white/5 bg-white/5 text-gray-600 opacity-50 cursor-not-allowed' : 'border-white/10 bg-white/5 text-gray-400'}`}
                   style={{ 
                     borderColor: isSelected ? primaryColor : 'rgba(255,255,255,0.1)',
                     backgroundColor: isSelected ? `${primaryColor}20` : 'rgba(255,255,255,0.05)'
@@ -627,12 +664,13 @@ export default function PizzaBuilderV2({
         )}
         {step === 'extras' && (
           <SelectionOverlay 
-            title="Adicionar Extras" 
+            title={`Adicionar Extras (máx. ${maxExtras})`} 
             items={extras.filter(e => e && e.is_active)} 
             current={selectedExtras} 
             onSelect={setSelectedExtras} 
             onClose={() => setStep('custom')} 
             type="multiple"
+            maxItems={maxExtras}
           />
         )}
         {step === 'observations' && (

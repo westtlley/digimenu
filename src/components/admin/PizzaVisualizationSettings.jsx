@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Sparkles, Zap, Star, Flame, Info } from 'lucide-react';
+import { Input } from "@/components/ui/input";
+import { Sparkles, Zap, Star, Flame, Info, Image } from 'lucide-react';
 import { apiClient as base44 } from '@/api/apiClient';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
@@ -12,8 +13,8 @@ import toast from 'react-hot-toast';
 /**
  * PAINEL DE CONFIGURAÇÃO DE VISUALIZAÇÃO DE PIZZA
  * 
- * Permite o assinante ativar/desativar o modo premium de visualização de pizza
- * com todas as animações épicas e efeitos especiais
+ * - Modo premium com animações
+ * - Tamanho da borda para cobrir a pizza
  */
 export default function PizzaVisualizationSettings() {
   const queryClient = useQueryClient();
@@ -24,7 +25,21 @@ export default function PizzaVisualizationSettings() {
     queryFn: () => base44.entities.Store.list().then(stores => stores[0])
   });
 
+  // Config da visualização (borda, etc)
+  const { data: vizConfigs = [], isLoading: loadingConfig } = useQuery({
+    queryKey: ['pizzaVisualizationConfig'],
+    queryFn: () => base44.entities.PizzaVisualizationConfig.list().catch(() => [])
+  });
+  const vizConfig = vizConfigs[0] || {};
+
   const [premiumMode, setPremiumMode] = useState(store?.enable_premium_pizza_visualization !== false);
+  const [edgeStrokeWidth, setEdgeStrokeWidth] = useState(vizConfig.edgeStrokeWidth ?? 12);
+  const [edgeRadius, setEdgeRadius] = useState(vizConfig.edgeRadius ?? 48);
+
+  useEffect(() => {
+    if (vizConfig.edgeStrokeWidth != null) setEdgeStrokeWidth(vizConfig.edgeStrokeWidth);
+    if (vizConfig.edgeRadius != null) setEdgeRadius(vizConfig.edgeRadius);
+  }, [vizConfig.edgeStrokeWidth, vizConfig.edgeRadius]);
 
   // Mutation para salvar configuração
   const saveMutation = useMutation({
@@ -50,6 +65,41 @@ export default function PizzaVisualizationSettings() {
   const handleToggle = (enabled) => {
     setPremiumMode(enabled);
     saveMutation.mutate(enabled);
+  };
+
+  // Salvar config da borda
+  const saveConfigMutation = useMutation({
+    mutationFn: async (data) => {
+      if (vizConfig.id) {
+        return base44.entities.PizzaVisualizationConfig.update(vizConfig.id, data);
+      }
+      return base44.entities.PizzaVisualizationConfig.create(data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pizzaVisualizationConfig'] });
+      toast.success('Configuração da borda salva!');
+    },
+    onError: () => {
+      toast.error('Erro ao salvar. Tente novamente.');
+    }
+  });
+
+  const handleSaveBordaConfig = () => {
+    const sw = parseInt(edgeStrokeWidth, 10);
+    const er = parseInt(edgeRadius, 10);
+    if (isNaN(sw) || sw < 6 || sw > 20) {
+      toast.error('Espessura deve ser entre 6 e 20');
+      return;
+    }
+    if (isNaN(er) || er < 40 || er > 55) {
+      toast.error('Raio deve ser entre 40 e 55');
+      return;
+    }
+    saveConfigMutation.mutate({
+      ...vizConfig,
+      edgeStrokeWidth: sw,
+      edgeRadius: er
+    });
   };
 
   if (loadingStore) {
@@ -102,6 +152,48 @@ export default function PizzaVisualizationSettings() {
             onCheckedChange={handleToggle}
             disabled={saveMutation.isPending}
           />
+        </div>
+
+        {/* Config Tamanho da Borda */}
+        <div className="p-4 rounded-xl bg-white/50 dark:bg-gray-800/50 border-2 border-gray-200 dark:border-gray-700 space-y-4">
+          <div className="flex items-center gap-2">
+            <Image className="w-5 h-5 text-orange-500" />
+            <h4 className="font-semibold">Tamanho da Borda na Pizza</h4>
+          </div>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Ajuste para a borda recheada cobrir melhor a pizza na visualização.
+          </p>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>Espessura da borda (6-20)</Label>
+              <Input
+                type="number"
+                min={6}
+                max={20}
+                value={edgeStrokeWidth}
+                onChange={(e) => setEdgeStrokeWidth(Number(e.target.value) || 12)}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label>Raio da borda (40-55)</Label>
+              <Input
+                type="number"
+                min={40}
+                max={55}
+                value={edgeRadius}
+                onChange={(e) => setEdgeRadius(Number(e.target.value) || 48)}
+                className="mt-1"
+              />
+            </div>
+          </div>
+          <Button
+            onClick={handleSaveBordaConfig}
+            disabled={saveConfigMutation.isPending}
+            className="bg-orange-500 hover:bg-orange-600"
+          >
+            {saveConfigMutation.isPending ? 'Salvando...' : 'Salvar ajuste da borda'}
+          </Button>
         </div>
 
         {/* Comparação Visual */}

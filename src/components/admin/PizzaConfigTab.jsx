@@ -398,6 +398,7 @@ function SizeModal({ isOpen, onClose, onSubmit, size }) {
     name: '',
     slices: '',
     max_flavors: '',
+    max_extras: '3',
     diameter_cm: '',
     price_tradicional: '',
     price_premium: '',
@@ -410,6 +411,7 @@ function SizeModal({ isOpen, onClose, onSubmit, size }) {
         name: size.name || '',
         slices: size.slices?.toString() || '',
         max_flavors: size.max_flavors?.toString() || '',
+        max_extras: size.max_extras?.toString() || '3',
         diameter_cm: size.diameter_cm?.toString() || '',
         price_tradicional: size.price_tradicional?.toString() || '',
         price_premium: size.price_premium?.toString() || '',
@@ -417,7 +419,7 @@ function SizeModal({ isOpen, onClose, onSubmit, size }) {
       });
     } else {
       setFormData({
-        name: '', slices: '', max_flavors: '', diameter_cm: '',
+        name: '', slices: '', max_flavors: '', max_extras: '3', diameter_cm: '',
         price_tradicional: '', price_premium: '', is_active: true
       });
     }
@@ -429,6 +431,7 @@ function SizeModal({ isOpen, onClose, onSubmit, size }) {
       ...formData,
       slices: parseInt(formData.slices),
       max_flavors: parseInt(formData.max_flavors),
+      max_extras: parseInt(formData.max_extras) || 3,
       diameter_cm: parseFloat(formData.diameter_cm),
       price_tradicional: parseFloat(formData.price_tradicional),
       price_premium: parseFloat(formData.price_premium)
@@ -463,15 +466,28 @@ function SizeModal({ isOpen, onClose, onSubmit, size }) {
               />
             </div>
             <div>
-              <Label>Máx. Sabores *</Label>
+              <Label>Máx. Sabores (1-4) *</Label>
               <Input
                 type="number"
+                min={1}
+                max={4}
                 value={formData.max_flavors}
                 onChange={(e) => setFormData(prev => ({ ...prev, max_flavors: e.target.value }))}
                 placeholder="Ex: 2"
                 required
               />
             </div>
+          </div>
+          <div>
+            <Label>Máx. Extras</Label>
+            <Input
+              type="number"
+              min={0}
+              max={10}
+              value={formData.max_extras}
+              onChange={(e) => setFormData(prev => ({ ...prev, max_extras: e.target.value }))}
+              placeholder="Ex: 3"
+            />
           </div>
           <div>
             <Label>Diâmetro (cm)</Label>
