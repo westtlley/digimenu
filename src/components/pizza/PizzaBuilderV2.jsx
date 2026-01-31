@@ -179,172 +179,199 @@ export default function PizzaBuilderV2({
         </button>
       </header>
 
-      <div className="flex-1 p-6 space-y-6 max-w-md mx-auto w-full pb-40 overflow-y-auto">
-        {/* Tamanho Selector */}
-        <div className="space-y-2">
-          <label className="text-white text-xs font-black uppercase tracking-widest opacity-80">Tamanho:</label>
-          <div className="relative">
-            <select 
-              className="w-full text-white py-4 px-4 rounded-xl font-bold appearance-none text-sm shadow-lg border-b-4 focus:outline-none"
-              style={{ backgroundColor: primaryColor, borderColor: '#c2410c' }}
-              value={selectedSize?.id || ''}
-              onChange={(e) => {
-                const size = sizes.find(s => s.id === e.target.value);
-                setSelectedSize(size);
-                setSelectedFlavors([]);
-              }}
-            >
-              {(sizes || []).filter(s => s && s.is_active).map(s => (
-                <option key={s.id} value={s.id}>
-                  {s.name} - {s.slices} fatias - {s.max_flavors} {s.max_flavors === 1 ? 'sabor' : 'sabores'}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-white pointer-events-none" size={20} />
-          </div>
-        </div>
-
-        {/* Visualizador Circular da Pizza */}
-        <div className="flex flex-col items-center py-4 relative">
-          <button 
-            onClick={() => setStep('flavors')}
-            className="relative w-72 h-72 pizza-container group cursor-pointer transition-transform active:scale-95"
-          >
-            {/* Board / Base Wood Effect */}
-            <div className="absolute inset-[-15px] bg-[#3a2214] rounded-full border-[12px] border-[#2a1a0f] shadow-2xl" />
+      {/* Layout Desktop vs Mobile */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="container mx-auto px-4 py-6 pb-32 md:pb-8">
+          {/* Layout em Grid no Desktop */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 max-w-6xl mx-auto">
             
-            <div className="absolute inset-0 bg-[#333] rounded-full border-8 shadow-inner overflow-hidden flex transition-transform duration-500 hover:rotate-6" style={{ borderColor: primaryColor }}>
-              {maxFlavors === 1 ? (
-                <div className="w-full h-full flex items-center justify-center text-white/20 bg-[#444]">
-                  {selectedFlavors[0] ? (
-                    <img src={selectedFlavors[0].image} className="w-full h-full object-cover animate-pulse" alt={selectedFlavors[0].name} />
-                  ) : (
-                    <div className="flex flex-col items-center gap-2">
-                      <Plus size={64} className="opacity-10" />
-                      <span className="text-xs font-bold opacity-30">TOQUE PARA ESCOLHER</span>
-                    </div>
-                  )}
+            {/* Coluna Esquerda - Visualização da Pizza */}
+            <div className="space-y-6">
+              {/* Tamanho Selector */}
+              <div className="space-y-2">
+                <label className="text-white text-xs font-black uppercase tracking-widest opacity-80">Tamanho:</label>
+                <div className="relative">
+                  <select 
+                    className="w-full text-white py-4 px-4 rounded-xl font-bold appearance-none text-sm shadow-lg border-b-4 focus:outline-none"
+                    style={{ backgroundColor: primaryColor, borderColor: '#c2410c' }}
+                    value={selectedSize?.id || ''}
+                    onChange={(e) => {
+                      const size = sizes.find(s => s.id === e.target.value);
+                      setSelectedSize(size);
+                      setSelectedFlavors([]);
+                    }}
+                  >
+                    {(sizes || []).filter(s => s && s.is_active).map(s => (
+                      <option key={s.id} value={s.id}>
+                        {s.name} - {s.slices} fatias - {s.max_flavors} {s.max_flavors === 1 ? 'sabor' : 'sabores'}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-white pointer-events-none" size={20} />
                 </div>
-              ) : (
-                <div className="w-full h-full flex relative">
-                  {Array.from({ length: maxFlavors }).map((_, i) => (
-                    <div 
-                      key={i} 
-                      style={{ 
-                        width: `${100 / maxFlavors}%`,
-                        borderRight: i < maxFlavors - 1 ? `1px solid ${primaryColor}40` : 'none'
-                      }}
-                      className="h-full flex items-center justify-center overflow-hidden bg-[#444]"
-                    >
-                      {selectedFlavors[i] ? (
-                        <img src={selectedFlavors[i].image} className="w-full h-full object-cover animate-pulse" alt={selectedFlavors[i].name} />
+              </div>
+
+              {/* Visualizador Circular da Pizza */}
+              <div className="flex flex-col items-center py-4 relative">
+                <button 
+                  onClick={() => setStep('flavors')}
+                  className="relative w-72 h-72 pizza-container group cursor-pointer transition-transform active:scale-95"
+                >
+                  {/* Board / Base Wood Effect */}
+                  <div className="absolute inset-[-15px] bg-[#3a2214] rounded-full border-[12px] border-[#2a1a0f] shadow-2xl" />
+                  
+                  <div className="absolute inset-0 bg-[#333] rounded-full border-8 shadow-inner overflow-hidden flex transition-transform duration-500 hover:rotate-6" style={{ borderColor: primaryColor }}>
+                    {maxFlavors === 1 ? (
+                      <div className="w-full h-full flex items-center justify-center text-white/20 bg-[#444]">
+                        {selectedFlavors[0] ? (
+                          <img src={selectedFlavors[0].image} className="w-full h-full object-cover animate-pulse" alt={selectedFlavors[0].name} />
+                        ) : (
+                          <div className="flex flex-col items-center gap-2">
+                            <Plus size={64} className="opacity-10" />
+                            <span className="text-xs font-bold opacity-30">TOQUE PARA ESCOLHER</span>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="w-full h-full flex relative">
+                        {Array.from({ length: maxFlavors }).map((_, i) => (
+                          <div 
+                            key={i} 
+                            style={{ 
+                              width: `${100 / maxFlavors}%`,
+                              borderRight: i < maxFlavors - 1 ? `1px solid ${primaryColor}40` : 'none'
+                            }}
+                            className="h-full flex items-center justify-center overflow-hidden bg-[#444]"
+                          >
+                            {selectedFlavors[i] ? (
+                              <img src={selectedFlavors[i].image} className="w-full h-full object-cover animate-pulse" alt={selectedFlavors[i].name} />
+                            ) : (
+                              <div className="flex flex-col items-center gap-1">
+                                <Plus className="text-white/20" size={32} />
+                                <span className="text-[8px] font-bold text-white/20">TOQUE</span>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </button>
+                
+                <div className="mt-8 text-center bg-black/40 px-8 py-3 rounded-full border border-white/5">
+                  <span className="text-[10px] text-gray-500 font-black uppercase block tracking-tighter">Preço da pizza:</span>
+                  <span className="text-3xl font-black text-white italic">{formatCurrency(calculatePrice())}</span>
+                </div>
+              </div>
+
+              {/* Sabores Info */}
+              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/5">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <p className="text-gray-400 text-[10px] uppercase tracking-widest font-black mb-1">🍕 Sabores</p>
+                    <p className="text-white text-sm font-black leading-tight">
+                      {selectedFlavors.length > 0 ? (
+                        <span>{selectedFlavors.map(f => f.name).join(' + ')}</span>
                       ) : (
-                        <div className="flex flex-col items-center gap-1">
-                          <Plus className="text-white/20" size={32} />
-                          <span className="text-[8px] font-bold text-white/20">TOQUE</span>
-                        </div>
+                        <span className="text-gray-500">Toque na pizza acima</span>
                       )}
-                    </div>
-                  ))}
+                    </p>
+                  </div>
+                  <button 
+                    onClick={() => setStep('flavors')}
+                    className="px-4 py-2 rounded-lg text-xs font-black uppercase transition-all active:scale-95"
+                    style={{ backgroundColor: primaryColor, color: 'white' }}
+                  >
+                    {selectedFlavors.length > 0 ? 'Alterar' : 'Escolher'}
+                  </button>
                 </div>
-              )}
+              </div>
             </div>
-          </button>
-          
-          <div className="mt-8 text-center bg-black/40 px-8 py-3 rounded-full border border-white/5">
-            <span className="text-[10px] text-gray-500 font-black uppercase block tracking-tighter">Preço da pizza:</span>
-            <span className="text-3xl font-black text-white italic">{formatCurrency(calculatePrice())}</span>
+
+            {/* Coluna Direita - Opções de Personalização */}
+            <div className="space-y-6">
+              {/* Personalização */}
+              <div className="space-y-3">
+                <h3 className="text-white text-xs font-black uppercase tracking-widest opacity-80 px-2">Personalize sua pizza:</h3>
+                
+                {/* Borda */}
+                <button 
+                  onClick={() => setStep('borders')}
+                  className="w-full bg-white/10 backdrop-blur-sm text-white py-4 px-5 rounded-2xl font-bold text-sm flex items-center justify-between shadow-lg active:scale-95 transition-all border border-white/5 hover:bg-white/20"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: `${primaryColor}30` }}>
+                      <Star size={20} style={{ color: primaryColor }} className="fill-current" />
+                    </div>
+                    <div className="text-left">
+                      <p className="text-[10px] text-gray-400 uppercase tracking-wider font-black">Borda</p>
+                      <p className="text-white font-black text-xs">
+                        {selectedEdge && selectedEdge.id !== 'none' ? selectedEdge.name : 'Sem borda'}
+                      </p>
+                    </div>
+                  </div>
+                  <ChevronDown className="text-gray-400" size={20} />
+                </button>
+
+                {/* Extras */}
+                <button 
+                  onClick={() => setStep('extras')}
+                  className="w-full bg-white/10 backdrop-blur-sm text-white py-4 px-5 rounded-2xl font-bold text-sm flex items-center justify-between shadow-lg active:scale-95 transition-all border border-white/5 hover:bg-white/20"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center bg-blue-500/20">
+                      <Plus size={20} className="text-blue-400" />
+                    </div>
+                    <div className="text-left">
+                      <p className="text-[10px] text-gray-400 uppercase tracking-wider font-black">Extras</p>
+                      <p className="text-white font-black text-xs">
+                        {selectedExtras.length > 0 ? `${selectedExtras.length} selecionados` : 'Nenhum extra'}
+                      </p>
+                    </div>
+                  </div>
+                  <ChevronDown className="text-gray-400" size={20} />
+                </button>
+
+                {/* Observações */}
+                <button 
+                  onClick={() => setStep('observations')}
+                  className="w-full bg-white/10 backdrop-blur-sm text-white py-4 px-5 rounded-2xl font-bold text-sm flex items-center justify-between shadow-lg active:scale-95 transition-all border border-white/5 hover:bg-white/20"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center bg-gray-500/20">
+                      <span className="text-xl">📝</span>
+                    </div>
+                    <div className="text-left">
+                      <p className="text-[10px] text-gray-400 uppercase tracking-wider font-black">Observações</p>
+                      <p className="text-white font-black text-xs">
+                        {specifications ? 'Adicionadas' : 'Adicionar observações'}
+                      </p>
+                    </div>
+                  </div>
+                  <ChevronDown className="text-gray-400" size={20} />
+                </button>
+              </div>
+
+              {/* Botão de Adicionar - Desktop (visível apenas em telas grandes) */}
+              <div className="hidden lg:block pt-6">
+                <button 
+                  onClick={handleAddToCart}
+                  disabled={!selectedSize || selectedFlavors.length === 0}
+                  className="w-full text-white py-5 rounded-xl font-black text-lg shadow-[0_10px_40px_rgba(0,0,0,0.5)] flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ 
+                    backgroundColor: (!selectedSize || selectedFlavors.length === 0) ? '#9ca3af' : '#4caf50'
+                  }}
+                >
+                  <ShoppingBag size={24} /> ADICIONAR AO PEDIDO
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
-
-        {/* Sabores Info */}
-        <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/5">
-          <div className="flex items-center justify-between">
-            <div className="flex-1">
-              <p className="text-gray-400 text-[10px] uppercase tracking-widest font-black mb-1">🍕 Sabores</p>
-              <p className="text-white text-sm font-black leading-tight">
-                {selectedFlavors.length > 0 ? (
-                  <span>{selectedFlavors.map(f => f.name).join(' + ')}</span>
-                ) : (
-                  <span className="text-gray-500">Toque na pizza acima</span>
-                )}
-              </p>
-            </div>
-            <button 
-              onClick={() => setStep('flavors')}
-              className="px-4 py-2 rounded-lg text-xs font-black uppercase transition-all active:scale-95"
-              style={{ backgroundColor: primaryColor, color: 'white' }}
-            >
-              {selectedFlavors.length > 0 ? 'Alterar' : 'Escolher'}
-            </button>
-          </div>
-        </div>
-
-        {/* Personalização */}
-        <div className="space-y-3">
-          <h3 className="text-white text-xs font-black uppercase tracking-widest opacity-80 px-2">Personalize sua pizza:</h3>
-          
-          {/* Borda */}
-          <button 
-            onClick={() => setStep('borders')}
-            className="w-full bg-white/10 backdrop-blur-sm text-white py-4 px-5 rounded-2xl font-bold text-sm flex items-center justify-between shadow-lg active:scale-95 transition-all border border-white/5"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: `${primaryColor}30` }}>
-                <Star size={20} style={{ color: primaryColor }} className="fill-current" />
-              </div>
-              <div className="text-left">
-                <p className="text-[10px] text-gray-400 uppercase tracking-wider font-black">Borda</p>
-                <p className="text-white font-black text-xs">
-                  {selectedEdge && selectedEdge.id !== 'none' ? selectedEdge.name : 'Sem borda'}
-                </p>
-              </div>
-            </div>
-            <ChevronDown className="text-gray-400" size={20} />
-          </button>
-
-          {/* Extras */}
-          <button 
-            onClick={() => setStep('extras')}
-            className="w-full bg-white/10 backdrop-blur-sm text-white py-4 px-5 rounded-2xl font-bold text-sm flex items-center justify-between shadow-lg active:scale-95 transition-all border border-white/5"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full flex items-center justify-center bg-blue-500/20">
-                <Plus size={20} className="text-blue-400" />
-              </div>
-              <div className="text-left">
-                <p className="text-[10px] text-gray-400 uppercase tracking-wider font-black">Extras</p>
-                <p className="text-white font-black text-xs">
-                  {selectedExtras.length > 0 ? `${selectedExtras.length} selecionados` : 'Nenhum extra'}
-                </p>
-              </div>
-            </div>
-            <ChevronDown className="text-gray-400" size={20} />
-          </button>
-
-          {/* Observações */}
-          <button 
-            onClick={() => setStep('observations')}
-            className="w-full bg-white/10 backdrop-blur-sm text-white py-4 px-5 rounded-2xl font-bold text-sm flex items-center justify-between shadow-lg active:scale-95 transition-all border border-white/5"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full flex items-center justify-center bg-gray-500/20">
-                <span className="text-xl">📝</span>
-              </div>
-              <div className="text-left">
-                <p className="text-[10px] text-gray-400 uppercase tracking-wider font-black">Observações</p>
-                <p className="text-white font-black text-xs">
-                  {specifications ? 'Adicionadas' : 'Adicionar observações'}
-                </p>
-              </div>
-            </div>
-            <ChevronDown className="text-gray-400" size={20} />
-          </button>
         </div>
       </div>
 
-      {/* Footer Fixo - Adicionar */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black via-black to-transparent z-50">
+      {/* Footer Fixo - Adicionar (Mobile apenas) */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black via-black to-transparent z-50">
         <button 
           onClick={handleAddToCart}
           disabled={!selectedSize || selectedFlavors.length === 0}
