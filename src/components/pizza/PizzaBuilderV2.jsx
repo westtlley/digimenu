@@ -184,20 +184,20 @@ export default function PizzaBuilderV2({
         className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain"
         style={{ WebkitOverflowScrolling: 'touch' }}
       >
-        <div className="container mx-auto px-4 py-6 pb-44 lg:pb-8">
+        <div className="w-full max-w-full mx-auto px-4 py-6 pb-44 lg:pb-8 box-border">
           {/* Layout em Grid no Desktop */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-6 max-w-5xl mx-auto w-full">
             
             {/* Coluna Esquerda - APENAS Pizza e Preço no Desktop */}
-            <div className="space-y-4 lg:space-y-6">
+            <div className="space-y-4 lg:space-y-6 overflow-hidden">
               {/* Visualizador Circular da Pizza */}
-              <div className="flex flex-col items-center py-2 lg:py-4 relative">
+              <div className="flex flex-col items-center justify-center py-2 lg:py-2 relative min-w-0">
                 <button 
                   onClick={() => setStep('flavors')}
-                  className="relative w-56 h-56 sm:w-64 sm:h-64 lg:w-[420px] lg:h-[420px] pizza-container group cursor-pointer transition-transform active:scale-95"
+                  className="relative w-56 h-56 sm:w-64 sm:h-64 lg:w-[340px] lg:h-[340px] pizza-container group cursor-pointer transition-transform active:scale-95 flex-shrink-0"
                 >
-                  {/* Board / Base Wood Effect */}
-                  <div className="absolute inset-[-15px] bg-[#3a2214] rounded-full border-[12px] border-[#2a1a0f] shadow-2xl" />
+                  {/* Board / Base Wood Effect - reduzido no desktop para caber na tela */}
+                  <div className="absolute inset-[-12px] lg:inset-[-10px] bg-[#3a2214] rounded-full border-[10px] lg:border-[8px] border-[#2a1a0f] shadow-2xl" />
                   
                   <div className="absolute inset-0 bg-[#333] rounded-full border-8 shadow-inner overflow-hidden flex transition-transform duration-500 hover:rotate-6" style={{ borderColor: primaryColor }}>
                     {maxFlavors === 1 ? (
