@@ -49,6 +49,9 @@ export default function PizzaBuilderV2({
   const edgeImageUrl = vizConfig.edgeImageUrl || LOCAL_EDGE_IMAGE;
   const edgeStrokeWidth = vizConfig.edgeStrokeWidth ?? 12;
   const edgeRadius = vizConfig.edgeRadius ?? 48;
+  const edgeOffsetX = vizConfig.edgeOffsetX ?? 0;
+  const edgeOffsetY = vizConfig.edgeOffsetY ?? 0;
+  const edgeScale = vizConfig.edgeScale ?? 1;
 
   // Estados
   const [step, setStep] = useState('custom'); // custom | flavors | borders | extras | observations
@@ -295,19 +298,21 @@ export default function PizzaBuilderV2({
                             />
                           </pattern>
                         </defs>
-                        <motion.circle
-                          initial={{ scale: 0.9, opacity: 0 }}
-                          animate={{ scale: 1, opacity: 1 }}
-                          transition={{ duration: 0.3 }}
-                          cx="50"
-                          cy="50"
-                          r={edgeRadius}
-                          fill="none"
-                          stroke={`url(#pizzaBuilderEdge-${selectedEdge?.id || 'default'})`}
-                          strokeWidth={edgeStrokeWidth}
-                          strokeLinecap="round"
-                          filter="drop-shadow(0 2px 6px rgba(0,0,0,0.4))"
-                        />
+                        <g transform={`translate(${50 + Number(edgeOffsetX)}, ${50 + Number(edgeOffsetY)}) scale(${edgeScale}) translate(-50, -50)`}>
+                          <motion.circle
+                            initial={{ scale: 0.9, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            transition={{ duration: 0.3 }}
+                            cx="50"
+                            cy="50"
+                            r={edgeRadius}
+                            fill="none"
+                            stroke={`url(#pizzaBuilderEdge-${selectedEdge?.id || 'default'})`}
+                            strokeWidth={edgeStrokeWidth}
+                            strokeLinecap="round"
+                            filter="drop-shadow(0 2px 6px rgba(0,0,0,0.4))"
+                          />
+                        </g>
                       </svg>
                     </div>
                   )}

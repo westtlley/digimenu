@@ -4,8 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Sparkles, Zap, Star, Flame, Info, Image } from 'lucide-react';
+import { Slider } from "@/components/ui/slider";
+import { Sparkles, Zap, Star, Flame, Info, Image, Move, Maximize2 } from 'lucide-react';
 import { apiClient as base44 } from '@/api/apiClient';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
@@ -35,11 +35,17 @@ export default function PizzaVisualizationSettings() {
   const [premiumMode, setPremiumMode] = useState(store?.enable_premium_pizza_visualization !== false);
   const [edgeStrokeWidth, setEdgeStrokeWidth] = useState(vizConfig.edgeStrokeWidth ?? 12);
   const [edgeRadius, setEdgeRadius] = useState(vizConfig.edgeRadius ?? 48);
+  const [edgeOffsetX, setEdgeOffsetX] = useState(vizConfig.edgeOffsetX ?? 0);
+  const [edgeOffsetY, setEdgeOffsetY] = useState(vizConfig.edgeOffsetY ?? 0);
+  const [edgeScale, setEdgeScale] = useState(vizConfig.edgeScale ?? 1);
 
   useEffect(() => {
     if (vizConfig.edgeStrokeWidth != null) setEdgeStrokeWidth(vizConfig.edgeStrokeWidth);
     if (vizConfig.edgeRadius != null) setEdgeRadius(vizConfig.edgeRadius);
-  }, [vizConfig.edgeStrokeWidth, vizConfig.edgeRadius]);
+    if (vizConfig.edgeOffsetX != null) setEdgeOffsetX(vizConfig.edgeOffsetX);
+    if (vizConfig.edgeOffsetY != null) setEdgeOffsetY(vizConfig.edgeOffsetY);
+    if (vizConfig.edgeScale != null) setEdgeScale(vizConfig.edgeScale);
+  }, [vizConfig.edgeStrokeWidth, vizConfig.edgeRadius, vizConfig.edgeOffsetX, vizConfig.edgeOffsetY, vizConfig.edgeScale]);
 
   // Mutation para salvar configuração
   const saveMutation = useMutation({
@@ -85,22 +91,30 @@ export default function PizzaVisualizationSettings() {
   });
 
   const handleSaveBordaConfig = () => {
-    const sw = parseInt(edgeStrokeWidth, 10);
-    const er = parseInt(edgeRadius, 10);
-    if (isNaN(sw) || sw < 6 || sw > 20) {
-      toast.error('Espessura deve ser entre 6 e 20');
+    const sw = Math.round(Number(edgeStrokeWidth));
+    const er = Math.round(Number(edgeRadius));
+    const ox = Number(edgeOffsetX);
+    const oy = Number(edgeOffsetY);
+    const sc = Number(edgeScale);
+    if (isNaN(sw) || sw < 4 || sw > 28) {
+      toast.error('Espessura deve ser entre 4 e 28');
       return;
     }
-    if (isNaN(er) || er < 40 || er > 55) {
-      toast.error('Raio deve ser entre 40 e 55');
+    if (isNaN(er) || er < 30 || er > 55) {
+      toast.error('Raio deve ser entre 30 e 55');
       return;
     }
     saveConfigMutation.mutate({
       ...vizConfig,
       edgeStrokeWidth: sw,
-      edgeRadius: er
+      edgeRadius: er,
+      edgeOffsetX: isNaN(ox) ? 0 : Math.max(-15, Math.min(15, ox)),
+      edgeOffsetY: isNaN(oy) ? 0 : Math.max(-15, Math.min(15, oy)),
+      edgeScale: isNaN(sc) ? 1 : Math.max(0.7, Math.min(1.4, sc))
     });
   };
+
+  const edgeImageUrl = vizConfig.edgeImageUrl || '/images/pizza-borda.png';
 
   if (loadingStore) {
     return (
@@ -154,46 +168,98 @@ export default function PizzaVisualizationSettings() {
           />
         </div>
 
-        {/* Config Tamanho da Borda */}
+        {/* Editor Visual da Borda */}
         <div className="p-4 rounded-xl bg-white/50 dark:bg-gray-800/50 border-2 border-gray-200 dark:border-gray-700 space-y-4">
           <div className="flex items-center gap-2">
             <Image className="w-5 h-5 text-orange-500" />
-            <h4 className="font-semibold">Tamanho da Borda na Pizza</h4>
+            <h4 className="font-semibold">Posicionar Borda na Pizza</h4>
           </div>
           <p className="text-sm text-gray-600 dark:text-gray-400">
-            Ajuste para a borda recheada cobrir melhor a pizza na visualização.
+            Ajuste visualmente: mova, aumente ou diminua a borda. O preview atualiza em tempo real.
           </p>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>Espessura da borda (6-20)</Label>
-              <Input
-                type="number"
-                min={6}
-                max={20}
-                value={edgeStrokeWidth}
-                onChange={(e) => setEdgeStrokeWidth(Number(e.target.value) || 12)}
-                className="mt-1"
-              />
+
+          {/* Preview em tempo real */}
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1 flex justify-center items-center p-4 bg-gray-100 dark:bg-gray-900 rounded-xl min-h-[200px]">
+              <div className="relative w-48 h-48 sm:w-56 sm:h-56">
+                <div className="absolute inset-0 bg-[#333] rounded-full overflow-hidden">
+                  <div className="w-full h-full bg-gradient-to-br from-amber-700 to-amber-900 rounded-full" />
+                </div>
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-lg" preserveAspectRatio="xMidYMid meet">
+                    <defs>
+                      <pattern id="previewEdgeConfig" patternUnits="userSpaceOnUse" width="100" height="100">
+                        <image href={edgeImageUrl} x="0" y="0" width="100" height="100" preserveAspectRatio="xMidYMid slice" />
+                      </pattern>
+                    </defs>
+                    <g transform={`translate(${50 + Number(edgeOffsetX)}, ${50 + Number(edgeOffsetY)}) scale(${edgeScale}) translate(-50, -50)`}>
+                      <circle
+                        cx="50"
+                        cy="50"
+                        r={edgeRadius}
+                        fill="none"
+                        stroke="url(#previewEdgeConfig)"
+                        strokeWidth={edgeStrokeWidth}
+                        strokeLinecap="round"
+                        style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' }}
+                      />
+                    </g>
+                  </svg>
+                </div>
+              </div>
             </div>
-            <div>
-              <Label>Raio da borda (40-55)</Label>
-              <Input
-                type="number"
-                min={40}
-                max={55}
-                value={edgeRadius}
-                onChange={(e) => setEdgeRadius(Number(e.target.value) || 48)}
-                className="mt-1"
-              />
+
+            <div className="flex-1 space-y-4">
+              <div>
+                <Label className="flex items-center gap-2 text-xs">
+                  <Maximize2 className="w-3.5 h-3.5" /> Raio: {Math.round(edgeRadius)}
+                </Label>
+                <Slider value={[edgeRadius]} onValueChange={([v]) => setEdgeRadius(v)} min={30} max={55} step={1} className="mt-1" />
+              </div>
+              <div>
+                <Label className="flex items-center gap-2 text-xs">
+                  Espessura: {Math.round(edgeStrokeWidth)}
+                </Label>
+                <Slider value={[edgeStrokeWidth]} onValueChange={([v]) => setEdgeStrokeWidth(v)} min={4} max={28} step={1} className="mt-1" />
+              </div>
+              <div>
+                <Label className="flex items-center gap-2 text-xs">
+                  <Move className="w-3.5 h-3.5" /> Posição X: {Number(edgeOffsetX).toFixed(1)}
+                </Label>
+                <Slider value={[edgeOffsetX]} onValueChange={([v]) => setEdgeOffsetX(v)} min={-15} max={15} step={0.5} className="mt-1" />
+              </div>
+              <div>
+                <Label className="flex items-center gap-2 text-xs">Posição Y: {Number(edgeOffsetY).toFixed(1)}</Label>
+                <Slider value={[edgeOffsetY]} onValueChange={([v]) => setEdgeOffsetY(v)} min={-15} max={15} step={0.5} className="mt-1" />
+              </div>
+              <div>
+                <Label className="text-xs">Escala: {(Number(edgeScale) * 100).toFixed(0)}%</Label>
+                <Slider value={[edgeScale]} onValueChange={([v]) => setEdgeScale(v)} min={0.7} max={1.4} step={0.05} className="mt-1" />
+              </div>
             </div>
           </div>
-          <Button
-            onClick={handleSaveBordaConfig}
-            disabled={saveConfigMutation.isPending}
-            className="bg-orange-500 hover:bg-orange-600"
-          >
-            {saveConfigMutation.isPending ? 'Salvando...' : 'Salvar ajuste da borda'}
-          </Button>
+
+          <div className="flex gap-2 flex-wrap">
+            <Button
+              onClick={handleSaveBordaConfig}
+              disabled={saveConfigMutation.isPending}
+              className="bg-orange-500 hover:bg-orange-600"
+            >
+              {saveConfigMutation.isPending ? 'Salvando...' : 'Salvar'}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setEdgeRadius(48);
+                setEdgeStrokeWidth(12);
+                setEdgeOffsetX(0);
+                setEdgeOffsetY(0);
+                setEdgeScale(1);
+              }}
+            >
+              Restaurar padrão
+            </Button>
+          </div>
         </div>
 
         {/* Comparação Visual */}
