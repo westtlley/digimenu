@@ -11,30 +11,57 @@ import jsPDF from 'jspdf';
 const formatCurrency = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
 const PAYMENT_LABELS = { pix: 'PIX', dinheiro: 'Dinheiro', cartao_credito: 'Cartão de Crédito', cartao_debito: 'Cartão de Débito' };
 
-function buildItemsHtml(order) {
+/** Endereço completo (evita cortes) - igual ao WhatsApp - exportado para uso em PDF/impressão */
+export function getFullAddress(order) {
+  if (!order || order.delivery_method !== 'delivery') return '';
+  if (order.address && order.address.length > 10) return order.address;
+  const parts = [
+    order.address_street,
+    order.address_number,
+    order.address_complement,
+    order.neighborhood,
+    order.city,
+    order.state
+  ].filter(Boolean);
+  return parts.length ? parts.join(', ') : (order.address || '');
+}
+
+function buildItemsHtml(order, complementGroups = []) {
   let html = '';
   (order.items || []).forEach((item, idx) => {
     const isPizza = item.dish?.product_type === 'pizza';
+    const size = item.size || item.selections?.size;
+    const flavors = item.flavors || item.selections?.flavors;
+    const edge = item.edge || item.selections?.edge;
+    const extras = item.extras || item.selections?.extras;
     html += `<div style="margin-bottom:12px;border-left:3px solid #666;padding-left:8px;">`;
     html += `<p style="margin:0;font-weight:bold;">#${idx + 1} - ${item.dish?.name || 'Item'} x${item.quantity || 1}</p>`;
-    if (isPizza && item.size) {
-      html += `<p style="margin:4px 0 0 12px;font-size:10px;">🍕 ${item.size.name} (${item.size.slices} fatias)</p>`;
-      if (item.flavors?.length) {
-        const f = item.flavors.reduce((a, x) => { a[x.name] = (a[x.name]||0)+1; return a; }, {});
-        Object.entries(f).forEach(([n, c]) => { html += `<p style="margin:2px 0 0 24px;font-size:10px;">• ${c}/${item.size.slices} ${n}</p>`; });
+    if (isPizza && size) {
+      html += `<p style="margin:4px 0 0 12px;font-size:10px;">🍕 ${size.name} (${size.slices || ''} fatias)</p>`;
+      if (flavors?.length) {
+        const f = flavors.reduce((a, x) => { a[x.name] = (a[x.name]||0)+1; return a; }, {});
+        Object.entries(f).forEach(([n, c]) => { html += `<p style="margin:2px 0 0 24px;font-size:10px;">• ${c}/${size.slices || ''} ${n}</p>`; });
       }
-      if (item.edge) html += `<p style="margin:2px 0 0 12px;font-size:10px;">🧀 Borda: ${item.edge.name}</p>`;
-      if (item.extras?.length) item.extras.forEach(e => { html += `<p style="margin:2px 0 0 24px;font-size:10px;">• ${e.name}</p>`; });
+      if (edge) html += `<p style="margin:2px 0 0 12px;font-size:10px;">🧀 Borda: ${edge.name}</p>`;
+      if (extras?.length) extras.forEach(e => { html += `<p style="margin:2px 0 0 24px;font-size:10px;">• ${e.name}</p>`; });
     } else if (item.selections && Object.keys(item.selections).length > 0) {
-      Object.values(item.selections).flat().filter(Boolean).forEach(s => { html += `<p style="margin:2px 0 0 12px;font-size:10px;">• ${s.name || s}</p>`; });
+      Object.values(item.selections).forEach(sel => {
+        if (Array.isArray(sel)) {
+          sel.forEach(opt => { if (opt?.name) html += `<p style="margin:2px 0 0 12px;font-size:10px;">• ${opt.name}</p>`; });
+        } else if (sel?.name) {
+          html += `<p style="margin:2px 0 0 12px;font-size:10px;">• ${sel.name}</p>`;
+        }
+      });
     }
+    if (item.specifications) html += `<p style="margin:2px 0 0 12px;font-size:10px;font-style:italic;">📝 ${item.specifications}</p>`;
     if (item.observations) html += `<p style="margin:2px 0 0 12px;font-size:10px;font-style:italic;">📝 ${item.observations}</p>`;
     html += `<p style="margin:4px 0 0 0;">Valor: ${formatCurrency((item.totalPrice || 0) * (item.quantity || 1))}</p></div>`;
   });
   return html;
 }
 
-const COMANDA_STYLE = `body{font-family:'Courier New',monospace;font-size:12px;line-height:1.4;padding:10mm;margin:0;width:80mm;}
+const COMANDA_STYLE = `body{font-family:'Courier New',monospace;font-size:11px;line-height:1.35;padding:10mm;margin:0;max-width:80mm;word-wrap:break-word;overflow-wrap:break-word;word-break:break-word;}
+p,div{word-wrap:break-word;overflow-wrap:break-word;word-break:break-word;white-space:pre-wrap;}
 h1{text-align:center;font-size:16px;margin:0 0 5px 0;}
 .header{text-align:center;margin-bottom:10px;padding-bottom:10px;border-bottom:2px dashed #000;}
 .section{margin:10px 0;}
@@ -46,17 +73,19 @@ h1{text-align:center;font-size:16px;margin:0 0 5px 0;}
 /**
  * Gera o conteúdo HTML (body) de uma comanda para impressão
  */
-export function buildComandaBody(order) {
+export function buildComandaBody(order, complementGroups = []) {
   const paymentLabel = PAYMENT_LABELS[order.payment_method] || order.payment_method;
-  const itemsHTML = buildItemsHtml(order);
+  const itemsHTML = buildItemsHtml(order, complementGroups);
   const code = order.order_code || String(order.id || '').slice(-6).toUpperCase();
   const orderDate = order.created_at || order.created_date;
+  const fullAddress = getFullAddress(order);
+  const esc = (s) => (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   return `<div class="header"><h1>COMANDA</h1><p style="margin:0;">Pedido #${code}</p><p style="margin:0;font-size:11px;">${orderDate ? formatBrazilianDateTime(orderDate) : '—'}</p></div>
 <div class="section">
-<p style="margin:0;"><strong>Cliente:</strong> ${order.customer_name || ''}</p>
-<p style="margin:0;"><strong>Contato:</strong> ${order.customer_phone || ''}</p>
+<p style="margin:0;"><strong>Cliente:</strong> ${esc(order.customer_name || '')}</p>
+<p style="margin:0;"><strong>Contato:</strong> ${esc(order.customer_phone || '')}</p>
 <p style="margin:0;"><strong>Tipo:</strong> ${order.delivery_method === 'delivery' ? 'Entrega 🚴' : 'Retirada 🏪'}</p>
-${order.address ? `<p style="margin:0;"><strong>Endereço:</strong> ${order.address}</p>` : ''}
+${fullAddress ? `<p style="margin:0;"><strong>Endereço:</strong> ${esc(fullAddress)}</p>` : ''}
 <p style="margin:0;"><strong>Pagamento:</strong> ${paymentLabel}</p>
 ${order.payment_method === 'dinheiro' && order.needs_change && order.change_amount ? `<p style="margin:0;"><strong>Troco para:</strong> ${formatCurrency(order.change_amount)}</p>` : ''}
 ${order.scheduled_date && order.scheduled_time ? `<p style="margin:0;color:#0066cc;font-weight:bold;">⏰ AGENDADO: ${formatScheduledDateTime(order.scheduled_date, order.scheduled_time)}</p>` : ''}

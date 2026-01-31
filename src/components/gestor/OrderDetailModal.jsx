@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/compone
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { formatBrazilianDateTime, formatScheduledDateTime } from '../utils/dateUtils';
+import { getFullAddress } from '@/utils/gestorExport';
 import jsPDF from 'jspdf';
 import toast from 'react-hot-toast';
 import { OrderTimeline } from '../molecules/OrderTimeline';
@@ -434,12 +435,16 @@ export default function OrderDetailModal({
           <style>
             body {
               font-family: 'Courier New', monospace;
-              font-size: 12px;
-              line-height: 1.4;
+              font-size: 11px;
+              line-height: 1.35;
               padding: 10mm;
               margin: 0;
-              width: 80mm;
+              max-width: 80mm;
+              word-wrap: break-word;
+              overflow-wrap: break-word;
+              word-break: break-word;
             }
+            p, div { word-wrap: break-word; overflow-wrap: break-word; word-break: break-word; }
             h1 {
               text-align: center;
               font-size: 16px;
@@ -483,10 +488,10 @@ export default function OrderDetailModal({
           </div>
           
           <div class="section">
-            <p style="margin: 0;"><strong>Cliente:</strong> ${order.customer_name}</p>
-            <p style="margin: 0;"><strong>Contato:</strong> ${order.customer_phone}</p>
+            <p style="margin: 0;"><strong>Cliente:</strong> ${order.customer_name || ''}</p>
+            <p style="margin: 0;"><strong>Contato:</strong> ${order.customer_phone || ''}</p>
             <p style="margin: 0;"><strong>Tipo:</strong> ${order.delivery_method === 'delivery' ? 'Entrega 🚴' : 'Retirada 🏪'}</p>
-            ${order.address ? `<p style="margin: 0;"><strong>Endereço:</strong> ${order.address}</p>` : ''}
+            ${(getFullAddress(order) || order.address) ? `<p style="margin: 0;"><strong>Endereço:</strong> ${(getFullAddress(order) || order.address || '')}</p>` : ''}
             <p style="margin: 0;"><strong>Pagamento:</strong> ${paymentLabel}</p>
             ${order.payment_method === 'dinheiro' && order.needs_change && order.change_amount ? 
               `<p style="margin: 0; color: #ff6600;"><strong>Troco para:</strong> ${formatCurrency(order.change_amount)} (Troco: ${formatCurrency(order.change_amount - order.total)})</p>` 

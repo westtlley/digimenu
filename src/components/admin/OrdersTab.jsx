@@ -9,6 +9,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Phone, MapPin, CreditCard, Trash2, Printer, Calendar, Filter, ShoppingCart } from 'lucide-react';
 import jsPDF from 'jspdf';
+import { getFullAddress } from '@/utils/gestorExport';
 import EmptyState from '@/components/ui/EmptyState';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -61,64 +62,77 @@ export default function OrdersTab({ isMaster }) {
   };
 
   const printOrder = (order) => {
-    const pdf = new jsPDF({
-      unit: 'mm',
-      format: [80, 200]
-    });
-    
+    const pdf = new jsPDF({ unit: 'mm', format: [80, 297] });
+    const margin = 5;
+    const maxW = 70;
+    const lineH = 4.5;
+    const addText = (text, bold = false) => {
+      if (!text) return;
+      pdf.setFont('courier', bold ? 'bold' : 'normal');
+      const lines = pdf.splitTextToSize(String(text), maxW);
+      lines.forEach(line => { pdf.text(line, margin, y); y += lineH; });
+    };
     let y = 10;
     pdf.setFontSize(12);
     pdf.setFont('courier', 'bold');
     pdf.text('COMANDA', 40, y, { align: 'center' });
     y += 8;
-    
-    pdf.setFontSize(10);
+    pdf.setFontSize(9);
     pdf.setFont('courier', 'normal');
-    pdf.text(`Pedido: #${order.order_code || order.id.slice(-6).toUpperCase()}`, 5, y);
-    y += 5;
+    addText(`Pedido: #${order.order_code || order.id?.slice(-6).toUpperCase()}`);
     const orderDate = order.created_at || order.created_date;
-    pdf.text(`Data: ${orderDate ? format(new Date(orderDate), "dd/MM/yyyy HH:mm") : '—'}`, 5, y);
-    y += 8;
-    
-    pdf.text(`Cliente: ${order.customer_name}`, 5, y);
-    y += 5;
-    pdf.text(`Tel: ${order.customer_phone}`, 5, y);
-    y += 5;
-    
-    if (order.delivery_method === 'delivery') {
-      pdf.text(`Entrega: ${order.address}`, 5, y);
-      y += 5;
-    } else {
-      pdf.text('Retirada no local', 5, y);
-      y += 5;
+    addText(`Data: ${orderDate ? format(new Date(orderDate), "dd/MM/yyyy HH:mm") : '—'}`);
+    y += 2;
+    addText(`Cliente: ${order.customer_name || ''}`);
+    addText(`Tel: ${order.customer_phone || ''}`);
+    const fullAddr = getFullAddress(order);
+    if (order.delivery_method === 'delivery' && fullAddr) {
+      addText(`Entrega: ${fullAddr}`);
+    } else if (order.delivery_method !== 'delivery') {
+      addText('Retirada no local');
     }
-    
-    pdf.text(`Pagamento: ${PAYMENT_LABELS[order.payment_method] || order.payment_method}`, 5, y);
-    y += 8;
-    
-    pdf.text('--------------------------------', 5, y);
-    y += 5;
-    
+    addText(`Pagamento: ${PAYMENT_LABELS[order.payment_method] || order.payment_method}`);
+    if (order.payment_method === 'dinheiro' && order.needs_change && order.change_amount) {
+      addText(`Troco para: ${formatCurrency(order.change_amount)}`);
+    }
+    if (order.scheduled_date && order.scheduled_time) {
+      addText(`AGENDADO: ${order.scheduled_date} às ${order.scheduled_time}`);
+    }
+    y += 2;
+    pdf.text('--------------------------------', margin, y);
+    y += lineH;
     (order.items || []).forEach((item, idx) => {
-      pdf.text(`${idx + 1}. ${item.dish?.name || 'Item'}`, 5, y);
-      y += 4;
-      pdf.text(`   ${formatCurrency(item.totalPrice)}`, 5, y);
-      y += 5;
+      const isPizza = item.dish?.product_type === 'pizza';
+      const size = item.size || item.selections?.size;
+      const flavors = item.flavors || item.selections?.flavors;
+      const edge = item.edge || item.selections?.edge;
+      const extras = item.extras || item.selections?.extras;
+      addText(`${idx + 1}. ${item.dish?.name || 'Item'} x${item.quantity || 1} - ${formatCurrency((item.totalPrice || 0) * (item.quantity || 1))}`);
+      if (isPizza && size) {
+        addText(`   ${size.name} (${size.slices || ''} fatias)`);
+        if (flavors?.length) {
+          const f = flavors.reduce((a, x) => { a[x.name] = (a[x.name]||0)+1; return a; }, {});
+          Object.entries(f).forEach(([n, c]) => addText(`   • ${c}/${size.slices || ''} ${n}`));
+        }
+        if (edge) addText(`   Borda: ${edge.name}`);
+        if (extras?.length) extras.forEach(e => addText(`   + ${e.name}`));
+      } else if (item.selections && Object.keys(item.selections).length > 0) {
+        Object.values(item.selections).forEach(sel => {
+          if (Array.isArray(sel)) sel.forEach(opt => opt?.name && addText(`   • ${opt.name}`));
+          else if (sel?.name) addText(`   • ${sel.name}`);
+        });
+      }
+      if (item.specifications) addText(`   Obs: ${item.specifications}`);
+      if (item.observations) addText(`   Obs: ${item.observations}`);
     });
-    
-    pdf.text('--------------------------------', 5, y);
-    y += 5;
-    
-    pdf.text(`Subtotal: ${formatCurrency(order.subtotal)}`, 5, y);
-    y += 5;
-    if (order.delivery_fee > 0) {
-      pdf.text(`Entrega: ${formatCurrency(order.delivery_fee)}`, 5, y);
-      y += 5;
-    }
+    pdf.text('--------------------------------', margin, y);
+    y += lineH;
+    addText(`Subtotal: ${formatCurrency(order.subtotal)}`);
+    if (order.delivery_fee > 0) addText(`Taxa: ${formatCurrency(order.delivery_fee)}`);
+    if (order.discount > 0) addText(`Desconto: -${formatCurrency(order.discount)}`);
     pdf.setFont('courier', 'bold');
-    pdf.text(`TOTAL: ${formatCurrency(order.total)}`, 5, y);
-    
-    pdf.save(`comanda-${order.order_code || order.id.slice(-6)}.pdf`);
+    addText(`TOTAL: ${formatCurrency(order.total)}`, true);
+    pdf.save(`comanda-${order.order_code || order.id?.slice(-6)}.pdf`);
   };
 
   const filteredOrders = orders.filter(order => {
