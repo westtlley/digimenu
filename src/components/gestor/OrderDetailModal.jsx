@@ -372,32 +372,36 @@ export default function OrderDetailModal({
     let itemsHTML = '';
     (order.items || []).forEach((item, idx) => {
       const isPizza = item.dish?.product_type === 'pizza';
+      const size = item.size || item.selections?.size;
+      const flavors = item.flavors || item.selections?.flavors;
+      const edge = item.edge || item.selections?.edge;
+      const extras = item.extras || item.selections?.extras;
       
       itemsHTML += `<div style="margin-bottom: 12px; border-left: 3px solid #666; padding-left: 8px;">`;
       itemsHTML += `<p style="margin: 0; font-weight: bold;">#${idx + 1} - ${item.dish?.name} x${item.quantity || 1}</p>`;
       
       // Pizza detalhada
-      if (isPizza && item.size) {
-        itemsHTML += `<p style="margin: 4px 0 0 12px; font-size: 10px; font-weight: bold;">🍕 ${item.size.name} (${item.size.slices} fatias • ${item.flavors?.length || 0} sabores)</p>`;
+      if (isPizza && size) {
+        itemsHTML += `<p style="margin: 4px 0 0 12px; font-size: 10px; font-weight: bold;">🍕 ${size.name} (${size.slices || ''} fatias • ${flavors?.length || 0} sabores)</p>`;
         
-        if (item.flavors && item.flavors.length > 0) {
+        if (flavors && flavors.length > 0) {
           itemsHTML += `<p style="margin: 2px 0 0 12px; font-size: 10px;">Sabores:</p>`;
-          const flavorCounts = item.flavors.reduce((acc, f) => {
+          const flavorCounts = flavors.reduce((acc, f) => {
             acc[f.name] = (acc[f.name] || 0) + 1;
             return acc;
           }, {});
           Object.entries(flavorCounts).forEach(([name, count]) => {
-            itemsHTML += `<p style="margin: 2px 0; font-size: 10px; margin-left: 24px;">  • ${count}/${item.size.slices} ${name}</p>`;
+            itemsHTML += `<p style="margin: 2px 0; font-size: 10px; margin-left: 24px;">  • ${count}/${size.slices || ''} ${name}</p>`;
           });
         }
         
-        if (item.edge) {
-          itemsHTML += `<p style="margin: 2px 0; font-size: 10px; margin-left: 12px;">🧀 Borda: ${item.edge.name}</p>`;
+        if (edge) {
+          itemsHTML += `<p style="margin: 2px 0; font-size: 10px; margin-left: 12px;">🧀 Borda: ${edge.name}</p>`;
         }
         
-        if (item.extras && item.extras.length > 0) {
+        if (extras && extras.length > 0) {
           itemsHTML += `<p style="margin: 2px 0; font-size: 10px; margin-left: 12px;">Extras:</p>`;
-          item.extras.forEach(extra => {
+          extras.forEach(extra => {
             itemsHTML += `<p style="margin: 2px 0; font-size: 10px; margin-left: 24px;">  • ${extra.name}</p>`;
           });
         }
