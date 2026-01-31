@@ -225,45 +225,37 @@ export default function PizzaBuilderV2({
                         ))}
                         
                         {/* Definições da borda (anel) */}
-                        {selectedEdge && selectedEdge.id !== 'none' && (() => {
-                          const outerRadius = 50;
-                          const innerRadius = 42;
-                          const edgeImage = selectedEdge?.image;
-                          const patternId = `pizza-edge-ring-${selectedEdge?.id || 'default'}`;
-                          const maskId = `pizza-edge-mask-${selectedEdge?.id || 'default'}`;
-                          
-                          return (
-                            <>
-                              {/* Máscara para criar o anel: fundo preto (esconde), círculo externo branco (mostra), interno preto (esconde centro) */}
-                              <mask id={maskId}>
-                                <rect width="100" height="100" fill="black" />
-                                <circle cx="50" cy="50" r={outerRadius} fill="white" />
-                                <circle cx="50" cy="50" r={innerRadius} fill="black" />
-                              </mask>
-                              
-                              {/* Pattern para preencher o anel da borda */}
-                              {edgeImage && (
-                                <pattern 
-                                  id={patternId}
-                                  x="0" 
-                                  y="0" 
-                                  width="1" 
-                                  height="1" 
-                                  patternContentUnits="objectBoundingBox"
-                                >
-                                  <image 
-                                    href={edgeImage} 
-                                    x="-0.1" 
-                                    y="-0.1" 
-                                    width="1.2" 
-                                    height="1.2" 
-                                    preserveAspectRatio="xMidYMid slice"
-                                  />
-                                </pattern>
-                              )}
-                            </>
-                          );
-                        })()}
+                        {selectedEdge && selectedEdge.id !== 'none' && (
+                          <>
+                            {/* Máscara para criar o anel: fundo preto (esconde), círculo externo branco (mostra), interno preto (esconde centro) */}
+                            <mask id={`pizza-edge-mask-${selectedEdge?.id || 'default'}`}>
+                              <rect width="100" height="100" fill="black" />
+                              <circle cx="50" cy="50" r="50" fill="white" />
+                              <circle cx="50" cy="50" r="42" fill="black" />
+                            </mask>
+                            
+                            {/* Pattern para preencher o anel da borda */}
+                            {selectedEdge?.image && (
+                              <pattern 
+                                id={`pizza-edge-ring-${selectedEdge?.id || 'default'}`}
+                                x="0" 
+                                y="0" 
+                                width="1" 
+                                height="1" 
+                                patternContentUnits="objectBoundingBox"
+                              >
+                                <image 
+                                  href={selectedEdge.image} 
+                                  x="-0.1" 
+                                  y="-0.1" 
+                                  width="1.2" 
+                                  height="1.2" 
+                                  preserveAspectRatio="xMidYMid slice"
+                                />
+                              </pattern>
+                            )}
+                          </>
+                        )}
                       </defs>
                       
                       {/* SABORES (recheio) - renderizado primeiro */}
@@ -320,27 +312,16 @@ export default function PizzaBuilderV2({
                       )}
                       
                       {/* BORDA RECHEADA - ÁREA ANELAR (renderizada por último, por cima) */}
-                      {selectedEdge && selectedEdge.id !== 'none' && (() => {
-                        const outerRadius = 50;
-                        const innerRadius = 42;
-                        const edgeImage = selectedEdge?.image;
-                        const patternId = `pizza-edge-ring-${selectedEdge?.id || 'default'}`;
-                        const maskId = `pizza-edge-mask-${selectedEdge?.id || 'default'}`;
-                        
-                        return (
-                          <motion.circle
-                            initial={{ scale: 0.95, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            transition={{ duration: 0.4, ease: "easeOut" }}
-                            cx="50" 
-                            cy="50" 
-                            r={outerRadius} 
-                            fill={edgeImage ? `url(#${patternId})` : '#f5deb3'}
-                            mask={`url(#${maskId})`}
-                            opacity={edgeImage ? 1 : 0.7}
-                          />
-                        );
-                      })()}
+                      {selectedEdge && selectedEdge.id !== 'none' && (
+                        <circle 
+                          cx="50" 
+                          cy="50" 
+                          r="50" 
+                          fill={selectedEdge?.image ? `url(#pizza-edge-ring-${selectedEdge?.id || 'default'})` : '#f5deb3'}
+                          mask={`url(#pizza-edge-mask-${selectedEdge?.id || 'default'})`}
+                          opacity={selectedEdge?.image ? 1 : 0.7}
+                        />
+                      )}
                     </svg>
                   </div>
                 </button>
