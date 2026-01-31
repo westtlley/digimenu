@@ -65,22 +65,34 @@ export default function AdvancedOrderFilters({
       filtered = filtered.filter(o => o.status === filterValues.status);
     }
 
-    // Filtrar por período
+    // Filtrar por período (created_at ou created_date)
+    const getOrderDate = (o) => o.created_at || o.created_date;
     const now = new Date();
     if (filterValues.period === 'today') {
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       filtered = filtered.filter(o => {
-        if (!o.created_date) return true; // manter se data ausente (evita esconder pedidos)
-        const d = new Date(o.created_date);
+        const dt = getOrderDate(o);
+        if (!dt) return true; // manter se data ausente (evita esconder pedidos)
+        const d = new Date(dt);
         if (isNaN(d.getTime())) return true; // manter se data inválida
         return d >= today;
       });
     } else if (filterValues.period === 'week') {
       const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      filtered = filtered.filter(o => new Date(o.created_date) >= weekAgo);
+      filtered = filtered.filter(o => {
+        const dt = getOrderDate(o);
+        if (!dt) return true;
+        const d = new Date(dt);
+        return !isNaN(d.getTime()) && d >= weekAgo;
+      });
     } else if (filterValues.period === 'month') {
       const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-      filtered = filtered.filter(o => new Date(o.created_date) >= monthAgo);
+      filtered = filtered.filter(o => {
+        const dt = getOrderDate(o);
+        if (!dt) return true;
+        const d = new Date(dt);
+        return !isNaN(d.getTime()) && d >= monthAgo;
+      });
     }
 
     // Filtrar por entregador
@@ -112,8 +124,10 @@ export default function AdvancedOrderFilters({
 
     // SEMPRE ordenar por data/hora - MAIS NOVOS NO TOPO
     filtered.sort((a, b) => {
-      const dateA = a.created_date ? new Date(a.created_date).getTime() : 0;
-      const dateB = b.created_date ? new Date(b.created_date).getTime() : 0;
+      const dtA = a.created_at || a.created_date;
+      const dtB = b.created_at || b.created_date;
+      const dateA = dtA ? new Date(dtA).getTime() : 0;
+      const dateB = dtB ? new Date(dtB).getTime() : 0;
       return dateB - dateA; // Ordem decrescente (mais recente primeiro)
     });
 

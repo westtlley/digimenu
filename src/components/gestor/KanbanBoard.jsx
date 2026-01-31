@@ -30,9 +30,11 @@ export default function KanbanBoard({ orders, onSelectOrder }) {
     return `${Math.floor(mins / 60)}h ${mins % 60}min`;
   };
 
+  const orderDate = (o) => o?.created_at || o?.created_date;
   const isLate = (order) => {
-    if (!order.created_date) return false;
-    return differenceInMinutes(new Date(), new Date(order.created_date)) > 30 && 
+    const dt = orderDate(order);
+    if (!dt) return false;
+    return differenceInMinutes(new Date(), new Date(dt)) > 30 && 
            !['delivered', 'cancelled'].includes(order.status);
   };
 
@@ -113,8 +115,9 @@ export default function KanbanBoard({ orders, onSelectOrder }) {
                           <div className="flex-1">
                             <p className="font-semibold text-[11px] text-gray-900">#{order.order_code || order.id?.slice(-6)}</p>
                             <p className="text-[9px] text-gray-400 mt-0.5">
-                              📅 {new Date(order.created_date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} • 
-                              ⏰ {new Date(order.created_date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                              {(order.created_at || order.created_date) ? (
+                                <>📅 {new Date(order.created_at || order.created_date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} • ⏰ {new Date(order.created_at || order.created_date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</>
+                              ) : '—'}
                             </p>
                             {isLate(order) && (
                               <Badge className="bg-red-500 text-white text-[8px] h-3.5 mt-0.5 px-1">
@@ -146,7 +149,7 @@ export default function KanbanBoard({ orders, onSelectOrder }) {
                           <span className="font-bold text-[11px] text-green-600">{formatCurrency(order.total)}</span>
                           <span className="text-[9px] text-gray-400 flex items-center gap-0.5">
                             <ClockIcon className="w-2.5 h-2.5" />
-                            {getTimeElapsed(order.created_date)}
+                            {getTimeElapsed(order.created_at || order.created_date)}
                           </span>
                         </div>
                       </motion.div>

@@ -151,11 +151,12 @@ export async function listEntities(entityType, filters = {}, orderBy = null, use
     const total = parseInt(countResult.rows[0].total);
     const totalPages = Math.ceil(total / limit);
     
-    // Converter JSONB para objetos normais
+    // Converter JSONB para objetos normais (created_date = alias de created_at para compatibilidade)
     const items = result.rows.map(row => ({
       id: row.id.toString(),
       ...row.data,
       created_at: row.created_at,
+      created_date: row.created_at || row.data?.created_date,
       updated_at: row.updated_at
     }));
     
@@ -209,6 +210,7 @@ export async function getEntityById(entityType, id, user = null) {
       id: row.id.toString(),
       ...row.data,
       created_at: row.created_at,
+      created_date: row.created_at || row.data?.created_date,
       updated_at: row.updated_at
     };
   } catch (error) {
@@ -240,6 +242,7 @@ export async function createEntity(entityType, data, user = null, options = {}) 
       id: row.id.toString(),
       ...data,
       created_at: row.created_at,
+      created_date: row.created_at || data?.created_date,
       updated_at: row.updated_at
     };
   } catch (error) {
@@ -299,6 +302,7 @@ export async function updateEntity(entityType, id, data, user = null) {
       id: row.id.toString(),
       ...row.data,
       created_at: row.created_at,
+      created_date: row.created_at || row.data?.created_date,
       updated_at: row.updated_at
     };
   } catch (error) {

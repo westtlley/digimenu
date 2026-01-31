@@ -143,15 +143,18 @@ export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = 
     return `Há ${Math.floor(mins / 60)}h ${mins % 60}min`;
   };
 
+  const orderDate = (o) => o?.created_at || o?.created_date;
   const isLate = (order) => {
-    if (!order.created_date) return false;
-    return differenceInMinutes(new Date(now), new Date(order.created_date)) > 30 && 
+    const dt = orderDate(order);
+    if (!dt) return false;
+    return differenceInMinutes(new Date(now), new Date(dt)) > 30 && 
            !['delivered', 'cancelled'].includes(order.status);
   };
 
   const isVeryLate = (order) => {
-    if (!order.created_date) return false;
-    return differenceInMinutes(new Date(now), new Date(order.created_date)) > 45 && 
+    const dt = orderDate(order);
+    if (!dt) return false;
+    return differenceInMinutes(new Date(now), new Date(dt)) > 45 && 
            !['delivered', 'cancelled'].includes(order.status);
   };
 
@@ -435,7 +438,7 @@ export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = 
                                       </span>
                                       <span className={`text-[9px] ${darkMode ? 'text-gray-500' : 'text-gray-400'} flex items-center gap-0.5`}>
                                         <ClockIcon className="w-2.5 h-2.5" />
-                                        {getTimeElapsed(order.created_date)}
+                                        {getTimeElapsed(order.created_at || order.created_date)}
                                       </span>
                                     </div>
                                   </motion.div>

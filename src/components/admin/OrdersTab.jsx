@@ -76,7 +76,8 @@ export default function OrdersTab({ isMaster }) {
     pdf.setFont('courier', 'normal');
     pdf.text(`Pedido: #${order.order_code || order.id.slice(-6).toUpperCase()}`, 5, y);
     y += 5;
-    pdf.text(`Data: ${format(new Date(order.created_date + 'Z'), "dd/MM/yyyy HH:mm")}`, 5, y);
+    const orderDate = order.created_at || order.created_date;
+    pdf.text(`Data: ${orderDate ? format(new Date(orderDate), "dd/MM/yyyy HH:mm") : '—'}`, 5, y);
     y += 8;
     
     pdf.text(`Cliente: ${order.customer_name}`, 5, y);
@@ -121,7 +122,8 @@ export default function OrdersTab({ isMaster }) {
   };
 
   const filteredOrders = orders.filter(order => {
-    const matchDate = !dateFilter || (order.created_date && format(new Date(order.created_date + 'Z'), 'yyyy-MM-dd') === dateFilter);
+    const orderDate = order.created_at || order.created_date;
+    const matchDate = !dateFilter || (orderDate && format(new Date(orderDate), 'yyyy-MM-dd') === dateFilter);
     const pdv = isOrderPDV(order);
     const matchType = filterType === 'all' || (filterType === 'pdv' && pdv) || (filterType === 'delivery' && !pdv);
     return matchDate && matchType;
@@ -187,7 +189,7 @@ export default function OrdersTab({ isMaster }) {
                 </div>
                 <h3 className="font-bold text-base sm:text-lg">{order.customer_name}</h3>
                 <p className="text-xs sm:text-sm text-gray-500">
-                  {order.created_date && format(new Date(order.created_date + 'Z'), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                  {(order.created_at || order.created_date) && format(new Date(order.created_at || order.created_date), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
                 </p>
               </div>
               <div className="flex items-center gap-2 flex-wrap">

@@ -1548,11 +1548,13 @@ app.post('/api/entities/:entity', authenticate, async (req, res) => {
       newItem = await repo.createEntity(entity, data, req.user, createOpts);
     } else if (db && db.entities) {
       if (!db.entities[entity]) db.entities[entity] = [];
+      const now = new Date().toISOString();
       newItem = {
         id: String(Date.now()),
         ...data,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        created_at: now,
+        created_date: now,
+        updated_at: now
       };
       db.entities[entity].push(newItem);
       if (typeof saveDatabaseDebounced === 'function') saveDatabaseDebounced(db);

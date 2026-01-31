@@ -50,7 +50,8 @@ export function buildComandaBody(order) {
   const paymentLabel = PAYMENT_LABELS[order.payment_method] || order.payment_method;
   const itemsHTML = buildItemsHtml(order);
   const code = order.order_code || String(order.id || '').slice(-6).toUpperCase();
-  return `<div class="header"><h1>COMANDA</h1><p style="margin:0;">Pedido #${code}</p><p style="margin:0;font-size:11px;">${formatBrazilianDateTime(order.created_date)}</p></div>
+  const orderDate = order.created_at || order.created_date;
+  return `<div class="header"><h1>COMANDA</h1><p style="margin:0;">Pedido #${code}</p><p style="margin:0;font-size:11px;">${orderDate ? formatBrazilianDateTime(orderDate) : '—'}</p></div>
 <div class="section">
 <p style="margin:0;"><strong>Cliente:</strong> ${order.customer_name || ''}</p>
 <p style="margin:0;"><strong>Contato:</strong> ${order.customer_phone || ''}</p>
@@ -69,7 +70,7 @@ ${order.discount > 0 ? `<p style="margin:0;color:green;">Desconto: -${formatCurr
 <p style="margin:5px 0 0 0;font-size:16px;">TOTAL: ${formatCurrency(order.total)}</p>
 </div>
 ${(order.pickup_code || order.delivery_code) ? `<div class="code-box"><p style="margin:0;font-size:10px;">Cód. Retirada</p><p class="code">${order.pickup_code || order.delivery_code || ''}</p></div>` : ''}
-<div style="text-align:center;margin-top:15px;font-size:10px;color:#666;">${formatBrazilianDateTime(order.created_date)}</div>`;
+<div style="text-align:center;margin-top:15px;font-size:10px;color:#666;">${orderDate ? formatBrazilianDateTime(orderDate) : '—'}</div>`;
 }
 
 /**
@@ -103,7 +104,7 @@ export function exportOrdersToCSV(orders) {
     o.customer_phone || '',
     o.status || '',
     String(o.total || 0).replace('.', ','),
-    o.created_date ? formatBrazilianDateTime(o.created_date) : '',
+    (o.created_at || o.created_date) ? formatBrazilianDateTime(o.created_at || o.created_date) : '',
     PAYMENT_LABELS[o.payment_method] || o.payment_method || '',
     o.delivery_method === 'delivery' ? 'Entrega' : 'Retirada'
   ].map(c => `"${String(c)}"`).join(','));
@@ -129,7 +130,10 @@ export function downloadOrdersCSV(orders, filename) {
  */
 export function exportGestorReportPDF(orders) {
   const today = new Date().toDateString();
-  const list = orders.filter(o => new Date(o.created_date).toDateString() === today && o.status !== 'cancelled');
+  const list = orders.filter(o => {
+    const dt = o.created_at || o.created_date;
+    return dt && new Date(dt).toDateString() === today && o.status !== 'cancelled';
+  });
   const totalRevenue = list.reduce((s, o) => s + (o.total || 0), 0);
   const byStatus = list.reduce((a, o) => { a[o.status] = (a[o.status]||0)+1; return a; }, {});
   const byPay = list.reduce((a, o) => {
