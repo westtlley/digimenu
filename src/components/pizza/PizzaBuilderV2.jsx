@@ -245,25 +245,12 @@ export default function PizzaBuilderV2({
                       }}
                       className="absolute inset-[-25px] z-0"
                       style={{
-                        background: `
-                          radial-gradient(circle at 50% 50%, 
-                            #8b4513 0%, 
-                            #a0522d 30%, 
-                            #cd853f 60%, 
-                            #d2691e 100%
-                        ),
-                        repeating-linear-gradient(
-                          45deg,
-                          transparent,
-                          transparent 10px,
-                          rgba(139, 69, 19, 0.1) 10px,
-                          rgba(139, 69, 19, 0.1) 20px
-                        )
-                      `,
+                        backgroundImage: `url("data:image/svg+xml,%3Csvg width='400' height='400' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3Cpattern id='woodGrain' x='0' y='0' width='100' height='100' patternUnits='userSpaceOnUse'%3E%3Cpath d='M0,50 Q25,30 50,50 T100,50' stroke='%23a0522d' stroke-width='0.5' fill='none' opacity='0.3'/%3E%3Cpath d='M0,60 Q25,40 50,60 T100,60' stroke='%238b4513' stroke-width='0.5' fill='none' opacity='0.2'/%3E%3Cpath d='M0,40 Q25,20 50,40 T100,40' stroke='%23cd853f' stroke-width='0.5' fill='none' opacity='0.25'/%3E%3C/pattern%3E%3C/defs%3E%3Ccircle cx='200' cy='200' r='180' fill='%23d2691e'/%3E%3Ccircle cx='200' cy='200' r='180' fill='url(%23woodGrain)'/%3E%3Ccircle cx='200' cy='200' r='170' fill='none' stroke='%238b4513' stroke-width='3' opacity='0.4'/%3E%3Ccircle cx='200' cy='200' r='180' fill='none' stroke='%23654321' stroke-width='4'/%3E%3Cpath d='M 200 20 L 200 0 L 180 10 L 200 20 Z' fill='%23d2691e' stroke='%23654321' stroke-width='2'/%3E%3Cpath d='M 200 20 L 200 0 L 220 10 L 200 20 Z' fill='%23d2691e' stroke='%23654321' stroke-width='2'/%3E%3Ccircle cx='200' cy='5' r='3' fill='%23654321'/%3E%3C/svg%3E")`,
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
                         borderRadius: '50%',
                         filter: 'drop-shadow(0 15px 40px rgba(0,0,0,0.5))',
-                        border: '8px solid #654321',
-                        boxShadow: 'inset 0 0 30px rgba(0,0,0,0.3)',
+                        boxShadow: 'inset 0 0 30px rgba(0,0,0,0.2)',
                       }}
                     />
                   </AnimatePresence>
