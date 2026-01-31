@@ -278,14 +278,14 @@ export default function PizzaBuilderV2({
                     </svg>
                   </div>
 
-                  {/* Borda recheada - círculo menor preenchido com imagem, com divisões visuais */}
+                  {/* BORDA RECHEADA - ÁREA ANELAR (entre círculo externo e interno) */}
                   {selectedEdge && selectedEdge.id !== 'none' && (() => {
-                    // Raio da borda (menor que a pizza, tipo 45-48)
-                    const edgeRadiusValue = Number(edgeRadius) || 48;
-                    // Imagem da borda - usa APENAS a imagem cadastrada na borda
+                    // Raio externo da pizza (borda externa)
+                    const outerRadius = 50;
+                    // Raio interno (onde começa o recheio) - área anelar da borda
+                    const innerRadius = 42; // 8px de largura da borda
+                    // Imagem da borda (massa recheada) - APENAS da borda cadastrada
                     const edgeImage = selectedEdge?.image;
-                    // Número de fatias (para as linhas divisórias)
-                    const slices = maxFlavors;
                     
                     return (
                       <motion.div
@@ -293,10 +293,6 @@ export default function PizzaBuilderV2({
                         animate={{ scale: 1, opacity: 1 }}
                         transition={{ duration: 0.4, ease: "easeOut" }}
                         className="absolute inset-0 pointer-events-none z-10 flex items-center justify-center"
-                        style={{
-                          transform: `translate(${Number(edgeOffsetX) || 0}px, ${Number(edgeOffsetY) || 0}px) scale(${Number(edgeScale) || 1})`,
-                          transformOrigin: 'center center',
-                        }}
                       >
                         <svg 
                           viewBox="0 0 100 100" 
@@ -305,9 +301,9 @@ export default function PizzaBuilderV2({
                           style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.3))' }}
                         >
                           <defs>
-                            {/* Pattern único para o círculo da borda inteiro */}
+                            {/* Pattern para preencher o anel da borda */}
                             <pattern 
-                              id={`pizza-edge-${selectedEdge?.id || 'default'}`} 
+                              id={`pizza-edge-ring-${selectedEdge?.id || 'default'}`} 
                               x="0" 
                               y="0" 
                               width="1" 
@@ -325,52 +321,33 @@ export default function PizzaBuilderV2({
                             </pattern>
                           </defs>
                           
-                          {/* Círculo da borda - preenchido com imagem inteira */}
+                          {/* ANEL DA BORDA - área entre círculo externo e interno */}
                           {edgeImage ? (
                             <circle 
                               cx="50" 
                               cy="50" 
-                              r={edgeRadiusValue} 
-                              fill={`url(#pizza-edge-${selectedEdge?.id || 'default'})`}
-                              stroke="rgba(0,0,0,0.1)"
-                              strokeWidth="0.5"
+                              r={outerRadius} 
+                              fill={`url(#pizza-edge-ring-${selectedEdge?.id || 'default'})`}
+                              mask="url(#pizza-edge-mask)"
                             />
                           ) : (
                             <circle 
                               cx="50" 
                               cy="50" 
-                              r={edgeRadiusValue} 
+                              r={outerRadius} 
                               fill="#f5deb3"
-                              stroke="rgba(0,0,0,0.2)"
-                              strokeWidth="1"
-                              strokeDasharray="2,2"
+                              mask="url(#pizza-edge-mask)"
                               opacity="0.6"
                             />
                           )}
                           
-                          {/* Linhas divisórias - mostram onde estão as fatias (opcional) */}
-                          {slices > 1 && Array.from({ length: slices }).map((_, i) => {
-                            const anglePerSlice = 360 / slices;
-                            const angle = (anglePerSlice * i - 90) * (Math.PI / 180);
-                            const x1 = 50;
-                            const y1 = 50;
-                            const x2 = 50 + edgeRadiusValue * Math.cos(angle);
-                            const y2 = 50 + edgeRadiusValue * Math.sin(angle);
-                            
-                            return (
-                              <line
-                                key={`edge-divider-${i}`}
-                                x1={x1}
-                                y1={y1}
-                                x2={x2}
-                                y2={y2}
-                                stroke="rgba(0,0,0,0.2)"
-                                strokeWidth="0.3"
-                                strokeDasharray="1,1"
-                                opacity="0.5"
-                              />
-                            );
-                          })}
+                          {/* Máscara para criar o anel (círculo externo menos círculo interno) */}
+                          <defs>
+                            <mask id="pizza-edge-mask">
+                              <circle cx="50" cy="50" r={outerRadius} fill="white" />
+                              <circle cx="50" cy="50" r={innerRadius} fill="black" />
+                            </mask>
+                          </defs>
                         </svg>
                       </motion.div>
                     );
