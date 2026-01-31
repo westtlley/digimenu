@@ -225,36 +225,24 @@ export default function PizzaBuilderV2({
                         ))}
                         
                         {/* Definições da borda (anel) */}
-                        {selectedEdge && selectedEdge.id !== 'none' && (
-                          <>
-                            {/* Máscara para criar o anel: fundo preto (esconde), círculo externo branco (mostra), interno preto (esconde centro) */}
-                            <mask id={`pizza-edge-mask-${selectedEdge?.id || 'default'}`}>
-                              <rect width="100" height="100" fill="black" />
-                              <circle cx="50" cy="50" r="50" fill="white" />
-                              <circle cx="50" cy="50" r="42" fill="black" />
-                            </mask>
-                            
-                            {/* Pattern para preencher o anel da borda */}
-                            {selectedEdge?.image && (
-                              <pattern 
-                                id={`pizza-edge-ring-${selectedEdge?.id || 'default'}`}
-                                x="0" 
-                                y="0" 
-                                width="1" 
-                                height="1" 
-                                patternContentUnits="objectBoundingBox"
-                              >
-                                <image 
-                                  href={selectedEdge.image} 
-                                  x="-0.1" 
-                                  y="-0.1" 
-                                  width="1.2" 
-                                  height="1.2" 
-                                  preserveAspectRatio="xMidYMid slice"
-                                />
-                              </pattern>
-                            )}
-                          </>
+                        {selectedEdge && selectedEdge.id !== 'none' && selectedEdge?.image && (
+                          <pattern 
+                            id={`pizza-edge-ring-${selectedEdge?.id || 'default'}`}
+                            x="0" 
+                            y="0" 
+                            width="1" 
+                            height="1" 
+                            patternContentUnits="objectBoundingBox"
+                          >
+                            <image 
+                              href={selectedEdge.image} 
+                              x="-0.1" 
+                              y="-0.1" 
+                              width="1.2" 
+                              height="1.2" 
+                              preserveAspectRatio="xMidYMid slice"
+                            />
+                          </pattern>
                         )}
                       </defs>
                       
@@ -311,17 +299,27 @@ export default function PizzaBuilderV2({
                         </g>
                       )}
                       
-                      {/* BORDA RECHEADA - ÁREA ANELAR (renderizada por último, por cima) */}
-                      {selectedEdge && selectedEdge.id !== 'none' && (
-                        <circle 
-                          cx="50" 
-                          cy="50" 
-                          r="50" 
-                          fill={selectedEdge?.image ? `url(#pizza-edge-ring-${selectedEdge?.id || 'default'})` : '#f5deb3'}
-                          mask={`url(#pizza-edge-mask-${selectedEdge?.id || 'default'})`}
-                          opacity={selectedEdge?.image ? 1 : 0.7}
-                        />
-                      )}
+                      {/* BORDA RECHEADA - ÁREA ANELAR (path SVG criando o anel diretamente) */}
+                      {selectedEdge && selectedEdge.id !== 'none' && (() => {
+                        const outerRadius = 50;
+                        const innerRadius = 42;
+                        const edgeImage = selectedEdge?.image;
+                        
+                        // Criar path do anel: círculo externo menos círculo interno
+                        // Usando fill-rule="evenodd" para criar o anel
+                        const outerPath = `M 50,50 m -${outerRadius},0 a ${outerRadius},${outerRadius} 0 1,1 ${outerRadius * 2},0 a ${outerRadius},${outerRadius} 0 1,1 -${outerRadius * 2},0`;
+                        const innerPath = `M 50,50 m -${innerRadius},0 a ${innerRadius},${innerRadius} 0 1,1 ${innerRadius * 2},0 a ${innerRadius},${innerRadius} 0 1,1 -${innerRadius * 2},0`;
+                        const ringPath = `${outerPath} ${innerPath}`;
+                        
+                        return (
+                          <path
+                            d={ringPath}
+                            fill={edgeImage ? `url(#pizza-edge-ring-${selectedEdge?.id || 'default'})` : '#f5deb3'}
+                            fillRule="evenodd"
+                            opacity={edgeImage ? 1 : 0.7}
+                          />
+                        );
+                      })()}
                     </svg>
                   </div>
                 </button>
