@@ -61,6 +61,15 @@ export default function PizzaBuilderV2({
   const [selectedExtras, setSelectedExtras] = useState([]);
   const [specifications, setSpecifications] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [showPizzaAnimation, setShowPizzaAnimation] = useState(true);
+  
+  // Resetar animação quando voltar da tela de sabores
+  React.useEffect(() => {
+    if (step === 'custom') {
+      setShowPizzaAnimation(false);
+      setTimeout(() => setShowPizzaAnimation(true), 50);
+    }
+  }, [step]);
 
   // Carregar dados de edição ou pré-preencher sabor
   React.useEffect(() => {
@@ -216,48 +225,53 @@ export default function PizzaBuilderV2({
                   className="relative w-56 h-56 sm:w-64 sm:h-64 lg:w-[340px] lg:h-[340px] pizza-container group cursor-pointer transition-transform active:scale-95 flex-shrink-0"
                 >
                   {/* Tábua de Pizza - Background (desce primeiro) */}
-                  <motion.div
-                    initial={{ y: -150, opacity: 0, scale: 0.9 }}
-                    animate={{ y: 0, opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.7, ease: [0.34, 1.56, 0.64, 1] }}
-                    className="absolute inset-[-25px] z-0"
-                    style={{
-                      background: `
-                        radial-gradient(circle at 50% 50%, 
-                          #8b4513 0%, 
-                          #a0522d 30%, 
-                          #cd853f 60%, 
-                          #d2691e 100%
-                        ),
-                        repeating-linear-gradient(
-                          45deg,
-                          transparent,
-                          transparent 10px,
-                          rgba(139, 69, 19, 0.1) 10px,
-                          rgba(139, 69, 19, 0.1) 20px
-                        )
-                      `,
-                      borderRadius: '50%',
-                      filter: 'drop-shadow(0 15px 40px rgba(0,0,0,0.5))',
-                      border: '8px solid #654321',
-                      boxShadow: 'inset 0 0 30px rgba(0,0,0,0.3)',
-                    }}
-                  />
+                  {showPizzaAnimation && (
+                    <motion.div
+                      key="board"
+                      initial={{ y: -150, opacity: 0, scale: 0.9 }}
+                      animate={{ y: 0, opacity: 1, scale: 1 }}
+                      transition={{ duration: 0.7, ease: [0.34, 1.56, 0.64, 1] }}
+                      className="absolute inset-[-25px] z-0"
+                      style={{
+                        background: `
+                          radial-gradient(circle at 50% 50%, 
+                            #8b4513 0%, 
+                            #a0522d 30%, 
+                            #cd853f 60%, 
+                            #d2691e 100%
+                          ),
+                          repeating-linear-gradient(
+                            45deg,
+                            transparent,
+                            transparent 10px,
+                            rgba(139, 69, 19, 0.1) 10px,
+                            rgba(139, 69, 19, 0.1) 20px
+                          )
+                        `,
+                        borderRadius: '50%',
+                        filter: 'drop-shadow(0 15px 40px rgba(0,0,0,0.5))',
+                        border: '8px solid #654321',
+                        boxShadow: 'inset 0 0 30px rgba(0,0,0,0.3)',
+                      }}
+                    />
+                  )}
                   
                   {/* Pizza - Aparece depois da tábua (com bounce) */}
-                  <motion.div
-                    initial={{ scale: 0, opacity: 0, y: 30 }}
-                    animate={{ scale: 1, opacity: 1, y: 0 }}
-                    transition={{ 
-                      duration: 0.6, 
-                      delay: 0.4, 
-                      ease: [0.34, 1.56, 0.64, 1],
-                      type: "spring",
-                      stiffness: 200,
-                      damping: 15
-                    }}
-                    className="absolute inset-0 rounded-full overflow-hidden transition-transform duration-500 hover:rotate-6 shadow-xl z-10"
-                  >
+                  {showPizzaAnimation && (
+                    <motion.div
+                      key="pizza"
+                      initial={{ scale: 0, opacity: 0, y: 30 }}
+                      animate={{ scale: 1, opacity: 1, y: 0 }}
+                      transition={{ 
+                        duration: 0.6, 
+                        delay: 0.4, 
+                        ease: [0.34, 1.56, 0.64, 1],
+                        type: "spring",
+                        stiffness: 200,
+                        damping: 15
+                      }}
+                      className="absolute inset-0 rounded-full overflow-hidden transition-transform duration-500 hover:rotate-6 shadow-xl z-10"
+                    >
                     <svg viewBox="0 0 100 100" className="w-full h-full">
                       <defs>
                         {Array.from({ length: maxFlavors }).map((_, i) => selectedFlavors[i]?.image && (
