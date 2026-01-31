@@ -287,18 +287,14 @@ export default function PizzaBuilderV2({
                     // Imagem da borda (massa recheada) - APENAS da borda cadastrada
                     const edgeImage = selectedEdge?.image;
                     const patternId = `pizza-edge-ring-${selectedEdge?.id || 'default'}`;
-                    
-                    // Criar path do anel usando fill-rule="evenodd"
-                    const outerCircle = `M 50,50 m -${outerRadius},0 a ${outerRadius},${outerRadius} 0 1,1 ${outerRadius * 2},0 a ${outerRadius},${outerRadius} 0 1,1 -${outerRadius * 2},0`;
-                    const innerCircle = `M 50,50 m -${innerRadius},0 a ${innerRadius},${innerRadius} 0 1,1 ${innerRadius * 2},0 a ${innerRadius},${innerRadius} 0 1,1 -${innerRadius * 2},0`;
-                    const ringPath = `${outerCircle} ${innerCircle}`;
+                    const maskId = `pizza-edge-mask-${selectedEdge?.id || 'default'}`;
                     
                     return (
                       <motion.div
                         initial={{ scale: 0.95, opacity: 0 }}
                         animate={{ scale: 1, opacity: 1 }}
                         transition={{ duration: 0.4, ease: "easeOut" }}
-                        className="absolute inset-0 pointer-events-none z-10 flex items-center justify-center"
+                        className="absolute inset-0 pointer-events-none z-20 flex items-center justify-center"
                       >
                         <svg 
                           viewBox="0 0 100 100" 
@@ -307,6 +303,13 @@ export default function PizzaBuilderV2({
                           style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.3))' }}
                         >
                           <defs>
+                            {/* Máscara para criar o anel: círculo externo branco, interno preto (corta) */}
+                            <mask id={maskId}>
+                              <rect width="100" height="100" fill="white" />
+                              <circle cx="50" cy="50" r={outerRadius} fill="white" />
+                              <circle cx="50" cy="50" r={innerRadius} fill="black" />
+                            </mask>
+                            
                             {/* Pattern para preencher o anel da borda */}
                             {edgeImage && (
                               <pattern 
@@ -329,18 +332,22 @@ export default function PizzaBuilderV2({
                             )}
                           </defs>
                           
-                          {/* ANEL DA BORDA - path com fill-rule="evenodd" para criar o anel */}
+                          {/* Círculo externo com imagem, máscara corta o centro criando o anel */}
                           {edgeImage ? (
-                            <path
-                              d={ringPath}
+                            <circle 
+                              cx="50" 
+                              cy="50" 
+                              r={outerRadius} 
                               fill={`url(#${patternId})`}
-                              fillRule="evenodd"
+                              mask={`url(#${maskId})`}
                             />
                           ) : (
-                            <path
-                              d={ringPath}
+                            <circle 
+                              cx="50" 
+                              cy="50" 
+                              r={outerRadius} 
                               fill="#f5deb3"
-                              fillRule="evenodd"
+                              mask={`url(#${maskId})`}
                               opacity="0.6"
                             />
                           )}
