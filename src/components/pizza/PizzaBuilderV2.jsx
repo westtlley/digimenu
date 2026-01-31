@@ -333,24 +333,14 @@ export default function PizzaBuilderV2({
                           </defs>
                           
                           {/* Círculo externo com imagem, máscara corta o centro criando o anel */}
-                          {edgeImage ? (
-                            <circle 
-                              cx="50" 
-                              cy="50" 
-                              r={outerRadius} 
-                              fill={`url(#${patternId})`}
-                              mask={`url(#${maskId})`}
-                            />
-                          ) : (
-                            <circle 
-                              cx="50" 
-                              cy="50" 
-                              r={outerRadius} 
-                              fill="#f5deb3"
-                              mask={`url(#${maskId})`}
-                              opacity="0.6"
-                            />
-                          )}
+                          <circle 
+                            cx="50" 
+                            cy="50" 
+                            r={outerRadius} 
+                            fill={edgeImage ? `url(#${patternId})` : '#f5deb3'}
+                            mask={`url(#${maskId})`}
+                            opacity={edgeImage ? 1 : 0.7}
+                          />
                         </svg>
                       </motion.div>
                     );
