@@ -278,13 +278,13 @@ export default function PizzaBuilderV2({
                     </svg>
                   </div>
 
-                  {/* Borda recheada - círculo menor dividido em fatias igual aos sabores */}
+                  {/* Borda recheada - círculo menor preenchido com imagem, com divisões visuais */}
                   {selectedEdge && selectedEdge.id !== 'none' && (() => {
                     // Raio da borda (menor que a pizza, tipo 45-48)
                     const edgeRadiusValue = Number(edgeRadius) || 48;
                     // Imagem da borda
                     const edgeImage = selectedEdge?.image || edgeImageUrl;
-                    // Número de fatias (igual ao número de sabores)
+                    // Número de fatias (para as linhas divisórias)
                     const slices = maxFlavors;
                     
                     return (
@@ -305,67 +305,59 @@ export default function PizzaBuilderV2({
                           style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.3))' }}
                         >
                           <defs>
-                            {/* Pattern para cada fatia da borda */}
-                            {Array.from({ length: slices }).map((_, i) => (
-                              <pattern 
-                                key={`edge-slice-${i}`} 
-                                id={`edge-slice-${i}`} 
-                                x="0" 
-                                y="0" 
-                                width="1" 
-                                height="1" 
-                                patternContentUnits="objectBoundingBox"
-                              >
-                                <image 
-                                  href={edgeImage} 
-                                  x="-0.1" 
-                                  y="-0.1" 
-                                  width="1.2" 
-                                  height="1.2" 
-                                  preserveAspectRatio="xMidYMid slice"
-                                  transform={`rotate(${(360 / slices) * i} 0.5 0.5)`}
-                                />
-                              </pattern>
-                            ))}
+                            {/* Pattern único para o círculo da borda inteiro */}
+                            <pattern 
+                              id={`pizza-edge-${selectedEdge?.id || 'default'}`} 
+                              x="0" 
+                              y="0" 
+                              width="1" 
+                              height="1" 
+                              patternContentUnits="objectBoundingBox"
+                            >
+                              <image 
+                                href={edgeImage} 
+                                x="-0.1" 
+                                y="-0.1" 
+                                width="1.2" 
+                                height="1.2" 
+                                preserveAspectRatio="xMidYMid slice"
+                              />
+                            </pattern>
                           </defs>
                           
-                          {/* Renderizar fatias da borda */}
-                          {slices === 1 ? (
-                            // Borda inteira (1 fatia)
-                            <circle 
-                              cx="50" 
-                              cy="50" 
-                              r={edgeRadiusValue} 
-                              fill={edgeImage ? `url(#edge-slice-0)` : '#f5deb3'}
-                              stroke="rgba(0,0,0,0.1)"
-                              strokeWidth="0.5"
-                            />
-                          ) : (
-                            // Borda dividida em fatias
-                            Array.from({ length: slices }).map((_, i) => {
-                              const anglePerSlice = 360 / slices;
-                              const startAngle = (anglePerSlice * i - 90) * (Math.PI / 180);
-                              const endAngle = (anglePerSlice * (i + 1) - 90) * (Math.PI / 180);
-                              const r = edgeRadiusValue;
-                              const x1 = 50 + r * Math.cos(startAngle);
-                              const y1 = 50 + r * Math.sin(startAngle);
-                              const x2 = 50 + r * Math.cos(endAngle);
-                              const y2 = 50 + r * Math.sin(endAngle);
-                              const largeArc = anglePerSlice > 180 ? 1 : 0;
-                              // Path da fatia (do centro até a borda externa)
-                              const pathData = `M 50 50 L ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} Z`;
-                              
-                              return (
-                                <path
-                                  key={`edge-${i}`}
-                                  d={pathData}
-                                  fill={edgeImage ? `url(#edge-slice-${i})` : '#f5deb3'}
-                                  stroke="rgba(0,0,0,0.15)"
-                                  strokeWidth="0.5"
-                                />
-                              );
-                            })
-                          )}
+                          {/* Círculo da borda - preenchido com imagem inteira */}
+                          <circle 
+                            cx="50" 
+                            cy="50" 
+                            r={edgeRadiusValue} 
+                            fill={edgeImage ? `url(#pizza-edge-${selectedEdge?.id || 'default'})` : '#f5deb3'}
+                            stroke="rgba(0,0,0,0.1)"
+                            strokeWidth="0.5"
+                          />
+                          
+                          {/* Linhas divisórias - mostram onde estão as fatias (opcional) */}
+                          {slices > 1 && Array.from({ length: slices }).map((_, i) => {
+                            const anglePerSlice = 360 / slices;
+                            const angle = (anglePerSlice * i - 90) * (Math.PI / 180);
+                            const x1 = 50;
+                            const y1 = 50;
+                            const x2 = 50 + edgeRadiusValue * Math.cos(angle);
+                            const y2 = 50 + edgeRadiusValue * Math.sin(angle);
+                            
+                            return (
+                              <line
+                                key={`edge-divider-${i}`}
+                                x1={x1}
+                                y1={y1}
+                                x2={x2}
+                                y2={y2}
+                                stroke="rgba(0,0,0,0.2)"
+                                strokeWidth="0.3"
+                                strokeDasharray="1,1"
+                                opacity="0.5"
+                              />
+                            );
+                          })}
                         </svg>
                       </motion.div>
                     );
