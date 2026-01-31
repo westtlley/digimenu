@@ -194,7 +194,7 @@ export default function PizzaBuilderV2({
               <div className="flex flex-col items-center py-2 lg:py-4 relative">
                 <button 
                   onClick={() => setStep('flavors')}
-                  className="relative w-56 h-56 sm:w-64 sm:h-64 lg:w-80 lg:h-80 pizza-container group cursor-pointer transition-transform active:scale-95"
+                  className="relative w-56 h-56 sm:w-64 sm:h-64 lg:w-[420px] lg:h-[420px] pizza-container group cursor-pointer transition-transform active:scale-95"
                 >
                   {/* Board / Base Wood Effect */}
                   <div className="absolute inset-[-15px] bg-[#3a2214] rounded-full border-[12px] border-[#2a1a0f] shadow-2xl" />
