@@ -181,7 +181,7 @@ export default function PizzaBuilderV2({
 
       {/* Layout Desktop vs Mobile */}
       <div className="flex-1 overflow-y-auto">
-        <div className="container mx-auto px-4 py-6 pb-48 md:pb-8">
+        <div className="container mx-auto px-4 py-6 pb-56 md:pb-8">
           {/* Layout em Grid no Desktop */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 max-w-6xl mx-auto">
             
@@ -390,20 +390,20 @@ export default function PizzaBuilderV2({
   const FlavorsView = () => (
     <div className="min-h-screen w-full flex flex-col bg-white">
       {/* Header */}
-      <header className="py-4 px-6 sticky top-0 z-50 shadow-md" style={{ backgroundColor: primaryColor }}>
-        <div className="flex items-center justify-between mb-4">
+      <header className="py-3 px-4 sticky top-0 z-50 shadow-md" style={{ backgroundColor: primaryColor }}>
+        <div className="flex items-center justify-between mb-3">
           <button onClick={() => setStep('custom')} className="text-white">
-            <ChevronLeft size={28} strokeWidth={3} />
+            <ChevronLeft size={24} strokeWidth={3} />
           </button>
-          <h1 className="text-white font-black text-xl uppercase tracking-tighter">Selecione os Sabores</h1>
-          <div className="w-8" />
+          <h1 className="text-white font-black text-lg uppercase tracking-tight">Selecione os Sabores</h1>
+          <div className="w-6" />
         </div>
         <div className="relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
           <input 
             type="text" 
             placeholder="Pesquisar sabor..."
-            className="w-full bg-white rounded-xl py-4 pl-12 pr-4 text-gray-900 font-medium text-sm focus:outline-none shadow-inner border border-gray-100"
+            className="w-full bg-white rounded-xl py-3 pl-10 pr-3 text-gray-900 font-medium text-sm focus:outline-none shadow-inner border border-gray-100"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             autoFocus
@@ -412,51 +412,51 @@ export default function PizzaBuilderV2({
       </header>
 
       {/* Content */}
-      <main className="flex-1 p-4 space-y-10 bg-gray-50 overflow-y-auto pb-32">
+      <main className="flex-1 p-3 space-y-6 bg-gray-50 overflow-y-auto pb-40">
         {Object.entries(flavorsByCategory).map(([category, categoryFlavors]) => (
-          <div key={category} className="space-y-6">
-            <h3 className="font-black italic text-2xl border-l-4 pl-4 uppercase tracking-tighter drop-shadow-sm" style={{ color: primaryColor, borderColor: primaryColor }}>
+          <div key={category} className="space-y-3">
+            <h3 className="font-black italic text-lg border-l-4 pl-3 uppercase tracking-tight" style={{ color: primaryColor, borderColor: primaryColor }}>
               {category}
             </h3>
-            <div className="grid grid-cols-1 gap-6">
+            <div className="grid grid-cols-1 gap-3">
               {categoryFlavors.map(flavor => {
                 const isSelected = selectedFlavors.find(f => f.id === flavor.id);
                 return (
                   <motion.div 
                     key={flavor.id}
-                    whileTap={{ scale: 0.96 }}
+                    whileTap={{ scale: 0.98 }}
                     onClick={() => toggleFlavor(flavor)}
-                    className={`flex gap-5 bg-white p-4 rounded-2xl shadow-md border-2 transition-all relative overflow-hidden ${isSelected ? 'ring-4 ring-opacity-30' : 'border-transparent'}`}
+                    className={`flex gap-3 bg-white p-3 rounded-xl shadow-sm border-2 transition-all relative overflow-hidden ${isSelected ? 'ring-2 ring-opacity-30' : 'border-transparent'}`}
                     style={{ borderColor: isSelected ? primaryColor : 'transparent', ringColor: isSelected ? `${primaryColor}40` : 'transparent' }}
                   >
                     {flavor.image && (
-                      <div className="w-24 h-24 rounded-full overflow-hidden flex-shrink-0 border-4 border-gray-50 shadow-lg">
+                      <div className="w-16 h-16 rounded-full overflow-hidden flex-shrink-0 border-2 border-gray-100 shadow">
                         <img src={flavor.image} className="w-full h-full object-cover" alt={flavor.name} />
                       </div>
                     )}
                     <div className="flex-1 min-w-0 flex flex-col justify-center">
-                      <div className="flex justify-between items-start">
-                        <h4 className="text-gray-900 font-black text-base uppercase tracking-tight">{flavor.name}</h4>
-                        <span className="font-black text-base italic" style={{ color: primaryColor }}>
+                      <div className="flex justify-between items-start gap-2">
+                        <h4 className="text-gray-900 font-bold text-sm uppercase tracking-tight">{flavor.name}</h4>
+                        <span className="font-bold text-sm whitespace-nowrap" style={{ color: primaryColor }}>
                           {formatCurrency(flavor.price || 0)}
                         </span>
                       </div>
                       {flavor.description && (
-                        <p className="text-[11px] text-gray-500 font-medium leading-tight mt-2 line-clamp-2 pr-4">
+                        <p className="text-[10px] text-gray-500 leading-tight mt-1 line-clamp-2">
                           {flavor.description}
                         </p>
                       )}
                       {flavor.category === 'premium' && (
-                        <div className="mt-3 flex gap-2">
-                          <Badge className="bg-amber-100 text-amber-700 text-[9px] font-black px-3 py-1 rounded-full uppercase italic border border-amber-200">
+                        <div className="mt-1.5">
+                          <Badge className="bg-amber-100 text-amber-700 text-[8px] font-bold px-2 py-0.5 rounded-full uppercase border border-amber-200">
                             Premium
                           </Badge>
                         </div>
                       )}
                     </div>
                     {isSelected && (
-                      <div className="absolute top-2 right-2 text-white p-1 rounded-full shadow-lg" style={{ backgroundColor: primaryColor }}>
-                        <Check size={14} strokeWidth={4} />
+                      <div className="absolute top-2 right-2 text-white p-1 rounded-full shadow-md" style={{ backgroundColor: primaryColor }}>
+                        <Check size={12} strokeWidth={4} />
                       </div>
                     )}
                   </motion.div>
@@ -468,16 +468,16 @@ export default function PizzaBuilderV2({
       </main>
 
       {/* Footer */}
-      <footer className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-xl border-t border-gray-200 p-6 flex justify-between items-center shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-50">
+      <footer className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-gray-200 p-4 flex justify-between items-center shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-50">
         <div className="flex flex-col">
-          <span className="text-[10px] text-gray-400 font-black uppercase tracking-widest">Progresso</span>
+          <span className="text-[9px] text-gray-400 font-black uppercase tracking-widest">Progresso</span>
           <span className="text-sm font-black text-gray-900 uppercase">
             {selectedFlavors.length} de {maxFlavors} sabores
           </span>
         </div>
         <button 
           onClick={() => setStep('custom')}
-          className={`px-12 py-4 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${selectedFlavors.length > 0 ? 'text-white shadow-xl' : 'bg-gray-100 text-gray-400'}`}
+          className={`px-8 py-3 rounded-xl font-black text-xs uppercase tracking-wide transition-all ${selectedFlavors.length > 0 ? 'text-white shadow-lg' : 'bg-gray-100 text-gray-400'}`}
           style={{ backgroundColor: selectedFlavors.length > 0 ? primaryColor : '#f3f4f6' }}
         >
           Confirmar
