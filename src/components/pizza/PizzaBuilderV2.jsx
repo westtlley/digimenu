@@ -25,8 +25,8 @@ const formatCurrency = (value) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
 };
 
-// Imagem padrão da borda (textura realista de borda recheada)
-const DEFAULT_EDGE_IMAGE = 'https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/693428740b45fa735818cde5/625e680ac_Designsemnome.png';
+// Imagem da borda: coloque sua borda realista em public/images/pizza-borda.png
+const LOCAL_EDGE_IMAGE = '/images/pizza-borda.png';
 
 export default function PizzaBuilderV2({ 
   dish, 
@@ -45,7 +45,7 @@ export default function PizzaBuilderV2({
     queryKey: ['pizzaVisualizationConfig'],
     queryFn: () => base44.entities.PizzaVisualizationConfig.list(),
   });
-  const edgeImageUrl = savedConfigs[0]?.edgeImageUrl || DEFAULT_EDGE_IMAGE;
+  const edgeImageUrl = savedConfigs[0]?.edgeImageUrl || LOCAL_EDGE_IMAGE;
 
   // Estados
   const [step, setStep] = useState('custom'); // custom | flavors | borders | extras | observations
