@@ -278,72 +278,121 @@ export default function PizzaBuilderV2({
                     </svg>
                   </div>
 
-                  {/* Overlay da borda recheada - imagem real cobrindo a borda da pizza */}
+                  {/* Borda recheada realista - CSS puro com gradientes e sombras */}
                   {selectedEdge && selectedEdge.id !== 'none' && (() => {
-                    const finalRadius = Number(edgeRadius) || 50;
-                    const finalStrokeWidth = Number(edgeStrokeWidth) || 16;
-                    const finalOffsetX = Number(edgeOffsetX) || 0;
-                    const finalOffsetY = Number(edgeOffsetY) || 0;
+                    // Cores realistas baseadas no tipo de borda
+                    const getEdgeColors = (edgeName) => {
+                      const name = (edgeName || '').toLowerCase();
+                      if (name.includes('catupiry') || name.includes('requeijão')) {
+                        return {
+                          outer: '#f5f5dc', // Bege claro
+                          middle: '#fff8dc', // Bege cremoso
+                          inner: '#fffacd', // Amarelo claro
+                          shadow: 'rgba(200, 180, 140, 0.6)',
+                          highlight: 'rgba(255, 255, 255, 0.4)'
+                        };
+                      }
+                      if (name.includes('cheddar')) {
+                        return {
+                          outer: '#ffa500', // Laranja
+                          middle: '#ff8c00', // Laranja escuro
+                          inner: '#ffd700', // Dourado
+                          shadow: 'rgba(200, 100, 0, 0.6)',
+                          highlight: 'rgba(255, 220, 100, 0.5)'
+                        };
+                      }
+                      if (name.includes('chocolate')) {
+                        return {
+                          outer: '#8b4513', // Marrom
+                          middle: '#a0522d', // Marrom claro
+                          inner: '#cd853f', // Marrom peru
+                          shadow: 'rgba(100, 50, 0, 0.7)',
+                          highlight: 'rgba(200, 150, 100, 0.3)'
+                        };
+                      }
+                      // Padrão: borda de queijo
+                      return {
+                        outer: '#f5deb3', // Trigo
+                        middle: '#fff8dc', // Bege
+                        inner: '#fffacd', // Amarelo claro
+                        shadow: 'rgba(180, 160, 120, 0.6)',
+                        highlight: 'rgba(255, 255, 255, 0.5)'
+                      };
+                    };
+
+                    const colors = getEdgeColors(selectedEdge?.name);
                     const finalScale = Number(edgeScale) || 1;
-                    const edgeImg = selectedEdge?.image || edgeImageUrl;
-                    const patternId = `pizzaBuilderEdge-${selectedEdge?.id || 'default'}-${Date.now()}`;
+                    const finalOffsetX = (Number(edgeOffsetX) || 0) * 0.5;
+                    const finalOffsetY = (Number(edgeOffsetY) || 0) * 0.5;
                     
                     return (
-                      <div className="absolute inset-0 pointer-events-none z-10 rounded-full overflow-visible">
-                        <svg 
-                          viewBox="0 0 100 100" 
-                          className="w-full h-full"
-                          preserveAspectRatio="xMidYMid meet"
-                          style={{ 
-                            filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.6))',
+                      <motion.div
+                        initial={{ scale: 0.95, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        transition={{ duration: 0.4, ease: "easeOut" }}
+                        className="absolute inset-0 pointer-events-none z-10 rounded-full"
+                        style={{
+                          transform: `translate(${finalOffsetX}px, ${finalOffsetY}px) scale(${finalScale})`,
+                          transformOrigin: 'center center',
+                        }}
+                      >
+                        {/* Borda externa - textura realista */}
+                        <div
+                          className="absolute inset-0 rounded-full"
+                          style={{
+                            background: `radial-gradient(circle at 50% 50%, 
+                              ${colors.inner} 0%, 
+                              ${colors.middle} 30%, 
+                              ${colors.outer} 60%, 
+                              ${colors.outer} 100%)`,
+                            border: `8px solid ${colors.outer}`,
+                            boxShadow: `
+                              inset 0 0 20px ${colors.highlight},
+                              0 0 15px ${colors.shadow},
+                              0 4px 20px rgba(0, 0, 0, 0.4),
+                              inset 0 -5px 10px rgba(0, 0, 0, 0.2)
+                            `,
+                            filter: 'blur(0.5px)',
                           }}
-                        >
-                          <defs>
-                            <pattern 
-                              id={patternId}
-                              patternUnits="userSpaceOnUse" 
-                              width="100" 
-                              height="100"
-                              x="0"
-                              y="0"
-                            >
-                              <image 
-                                href={edgeImg}
-                                x="0" 
-                                y="0" 
-                                width="100" 
-                                height="100" 
-                                preserveAspectRatio="xMidYMid slice"
-                                onError={(e) => {
-                                  console.warn('Erro ao carregar imagem da borda:', edgeImg);
-                                  e.target.style.display = 'none';
-                                }}
-                              />
-                            </pattern>
-                          </defs>
-                          {/* Círculo da borda - raio 50 = borda externa da pizza no viewBox */}
-                          <g 
-                            transform={`translate(${50 + finalOffsetX}, ${50 + finalOffsetY}) scale(${finalScale}) translate(-50, -50)`}
-                          >
-                            <motion.circle
-                              initial={{ scale: 0.95, opacity: 0 }}
-                              animate={{ scale: 1, opacity: 1 }}
-                              transition={{ duration: 0.4, ease: "easeOut" }}
-                              cx="50"
-                              cy="50"
-                              r={finalRadius}
-                              fill="none"
-                              stroke={`url(#${patternId})`}
-                              strokeWidth={finalStrokeWidth}
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              style={{
-                                transformOrigin: '50% 50%',
-                              }}
-                            />
-                          </g>
-                        </svg>
-                      </div>
+                        />
+                        
+                        {/* Textura interna - efeito de recheio */}
+                        <div
+                          className="absolute inset-[8px] rounded-full"
+                          style={{
+                            background: `radial-gradient(circle at 50% 50%, 
+                              ${colors.highlight} 0%, 
+                              transparent 40%,
+                              ${colors.middle} 60%,
+                              ${colors.outer} 100%)`,
+                            opacity: 0.7,
+                            mixBlendMode: 'overlay',
+                          }}
+                        />
+                        
+                        {/* Destaques - brilho realista */}
+                        <div
+                          className="absolute inset-[10px] rounded-full"
+                          style={{
+                            background: `radial-gradient(circle at 30% 30%, 
+                              ${colors.highlight} 0%, 
+                              transparent 50%)`,
+                            opacity: 0.6,
+                            mixBlendMode: 'screen',
+                          }}
+                        />
+                        
+                        {/* Sombra profunda na parte inferior */}
+                        <div
+                          className="absolute bottom-0 left-0 right-0 h-[20%] rounded-full"
+                          style={{
+                            background: `radial-gradient(ellipse at 50% 0%, 
+                              ${colors.shadow} 0%, 
+                              transparent 70%)`,
+                            opacity: 0.5,
+                          }}
+                        />
+                      </motion.div>
                     );
                   })()}
                 </button>
