@@ -181,7 +181,7 @@ export default function PizzaBuilderV2({
 
       {/* Layout Desktop vs Mobile */}
       <div className="flex-1 overflow-y-auto">
-        <div className="container mx-auto px-4 py-6 pb-32 md:pb-8">
+        <div className="container mx-auto px-4 py-6 pb-48 md:pb-8">
           {/* Layout em Grid no Desktop */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 max-w-6xl mx-auto">
             
@@ -289,66 +289,66 @@ export default function PizzaBuilderV2({
             </div>
 
             {/* Coluna Direita - Opções de Personalização */}
-            <div className="space-y-6">
+            <div className="space-y-4">
               {/* Personalização */}
-              <div className="space-y-3">
+              <div className="space-y-2">
                 <h3 className="text-white text-xs font-black uppercase tracking-widest opacity-80 px-2">Personalize sua pizza:</h3>
                 
                 {/* Borda */}
                 <button 
                   onClick={() => setStep('borders')}
-                  className="w-full bg-white/10 backdrop-blur-sm text-white py-4 px-5 rounded-2xl font-bold text-sm flex items-center justify-between shadow-lg active:scale-95 transition-all border border-white/5 hover:bg-white/20"
+                  className="w-full bg-white/10 backdrop-blur-sm text-white py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-between shadow-md active:scale-95 transition-all border border-white/5 hover:bg-white/20"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: `${primaryColor}30` }}>
-                      <Star size={20} style={{ color: primaryColor }} className="fill-current" />
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: `${primaryColor}30` }}>
+                      <Star size={16} style={{ color: primaryColor }} className="fill-current" />
                     </div>
                     <div className="text-left">
-                      <p className="text-[10px] text-gray-400 uppercase tracking-wider font-black">Borda</p>
+                      <p className="text-[9px] text-gray-400 uppercase tracking-wider font-black">Borda</p>
                       <p className="text-white font-black text-xs">
                         {selectedEdge && selectedEdge.id !== 'none' ? selectedEdge.name : 'Sem borda'}
                       </p>
                     </div>
                   </div>
-                  <ChevronDown className="text-gray-400" size={20} />
+                  <ChevronDown className="text-gray-400" size={18} />
                 </button>
 
                 {/* Extras */}
                 <button 
                   onClick={() => setStep('extras')}
-                  className="w-full bg-white/10 backdrop-blur-sm text-white py-4 px-5 rounded-2xl font-bold text-sm flex items-center justify-between shadow-lg active:scale-95 transition-all border border-white/5 hover:bg-white/20"
+                  className="w-full bg-white/10 backdrop-blur-sm text-white py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-between shadow-md active:scale-95 transition-all border border-white/5 hover:bg-white/20"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full flex items-center justify-center bg-blue-500/20">
-                      <Plus size={20} className="text-blue-400" />
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center bg-blue-500/20">
+                      <Plus size={16} className="text-blue-400" />
                     </div>
                     <div className="text-left">
-                      <p className="text-[10px] text-gray-400 uppercase tracking-wider font-black">Extras</p>
+                      <p className="text-[9px] text-gray-400 uppercase tracking-wider font-black">Extras</p>
                       <p className="text-white font-black text-xs">
                         {selectedExtras.length > 0 ? `${selectedExtras.length} selecionados` : 'Nenhum extra'}
                       </p>
                     </div>
                   </div>
-                  <ChevronDown className="text-gray-400" size={20} />
+                  <ChevronDown className="text-gray-400" size={18} />
                 </button>
 
                 {/* Observações */}
                 <button 
                   onClick={() => setStep('observations')}
-                  className="w-full bg-white/10 backdrop-blur-sm text-white py-4 px-5 rounded-2xl font-bold text-sm flex items-center justify-between shadow-lg active:scale-95 transition-all border border-white/5 hover:bg-white/20"
+                  className="w-full bg-white/10 backdrop-blur-sm text-white py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-between shadow-md active:scale-95 transition-all border border-white/5 hover:bg-white/20"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full flex items-center justify-center bg-gray-500/20">
-                      <span className="text-xl">📝</span>
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center bg-gray-500/20">
+                      <span className="text-lg">📝</span>
                     </div>
                     <div className="text-left">
-                      <p className="text-[10px] text-gray-400 uppercase tracking-wider font-black">Observações</p>
+                      <p className="text-[9px] text-gray-400 uppercase tracking-wider font-black">Observações</p>
                       <p className="text-white font-black text-xs">
                         {specifications ? 'Adicionadas' : 'Adicionar observações'}
                       </p>
                     </div>
                   </div>
-                  <ChevronDown className="text-gray-400" size={20} />
+                  <ChevronDown className="text-gray-400" size={18} />
                 </button>
               </div>
 
@@ -488,78 +488,78 @@ export default function PizzaBuilderV2({
 
   // SELECTION OVERLAY (Bordas, Extras, Observações)
   const SelectionOverlay = ({ title, items, current, onSelect, onClose, type = 'single' }) => (
-    <div className="fixed inset-0 z-[100] bg-black/90 flex flex-col p-6 animate-fade-in backdrop-blur-md">
-      <div className="flex justify-between items-center mb-8">
-        <h2 className="text-white font-black text-2xl uppercase italic tracking-tighter">{title}</h2>
-        <button onClick={onClose} className="text-white p-2 rounded-full" style={{ backgroundColor: primaryColor }}>
-          <X size={24} />
+    <div className="fixed inset-0 z-[100] bg-black/90 flex flex-col animate-fade-in backdrop-blur-md">
+      {/* Header mais compacto */}
+      <div className="flex justify-between items-center p-4 border-b border-white/10">
+        <h2 className="text-white font-black text-lg uppercase tracking-tight">{title}</h2>
+        <button onClick={onClose} className="text-white p-2 rounded-full hover:bg-white/10 transition-colors">
+          <X size={20} />
         </button>
       </div>
-      <div className="space-y-4 overflow-y-auto pr-2">
-        {type === 'textarea' ? (
-          <Textarea
-            value={current}
-            onChange={(e) => onSelect(e.target.value)}
-            placeholder="Ex: Sem cebola, bem assada, massa fina..."
-            className="bg-white/10 border-white/20 text-white placeholder:text-gray-400 min-h-[120px] text-base"
-            autoFocus
-          />
-        ) : (
-          items.map((item) => {
-            const isSelected = type === 'multiple' 
-              ? current.find(c => c.id === item.id)
-              : current?.id === item.id;
-            
-            return (
-              <button
-                key={item.id}
-                onClick={() => {
-                  if (type === 'multiple') {
-                    const newCurrent = isSelected 
-                      ? current.filter(c => c.id !== item.id)
-                      : [...current, item];
-                    onSelect(newCurrent);
-                  } else {
-                    onSelect(item);
-                    if (type === 'single') onClose();
-                  }
-                }}
-                className={`w-full p-6 rounded-2xl border-2 flex justify-between items-center transition-all ${isSelected ? 'text-white' : 'border-white/10 bg-white/5 text-gray-400'}`}
-                style={{ 
-                  borderColor: isSelected ? primaryColor : 'rgba(255,255,255,0.1)',
-                  backgroundColor: isSelected ? `${primaryColor}33` : 'rgba(255,255,255,0.05)'
-                }}
-              >
-                <span className="font-black uppercase">{item.name}</span>
-                <div className="flex items-center gap-3">
-                  {item.price > 0 && <span className="text-sm font-bold text-gray-400">+ {formatCurrency(item.price)}</span>}
-                  {isSelected && <Check style={{ color: primaryColor }} />}
-                </div>
-              </button>
-            );
-          })
-        )}
-      </div>
-      {type === 'textarea' && (
-        <div className="mt-6">
-          <button 
-            onClick={onClose}
-            className="w-full text-white py-4 rounded-xl font-black text-lg"
-            style={{ backgroundColor: primaryColor }}
-          >
-            Confirmar
-          </button>
+      
+      {/* Content com max-height e scroll */}
+      <div className="flex-1 overflow-y-auto p-4">
+        <div className="max-w-2xl mx-auto space-y-2">
+          {type === 'textarea' ? (
+            <Textarea
+              value={current}
+              onChange={(e) => onSelect(e.target.value)}
+              placeholder="Ex: Sem cebola, bem assada, massa fina..."
+              className="bg-white/10 border-white/20 text-white placeholder:text-gray-400 min-h-[100px] text-sm"
+              autoFocus
+            />
+          ) : (
+            items.map((item) => {
+              const isSelected = type === 'multiple' 
+                ? current.find(c => c.id === item.id)
+                : current?.id === item.id;
+              
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    if (type === 'multiple') {
+                      const newCurrent = isSelected 
+                        ? current.filter(c => c.id !== item.id)
+                        : [...current, item];
+                      onSelect(newCurrent);
+                    } else {
+                      onSelect(item);
+                      if (type === 'single') onClose();
+                    }
+                  }}
+                  className={`w-full p-4 rounded-xl border-2 flex justify-between items-center transition-all ${isSelected ? 'text-white' : 'border-white/10 bg-white/5 text-gray-400'}`}
+                  style={{ 
+                    borderColor: isSelected ? primaryColor : 'rgba(255,255,255,0.1)',
+                    backgroundColor: isSelected ? `${primaryColor}20` : 'rgba(255,255,255,0.05)'
+                  }}
+                >
+                  <span className="font-bold text-sm uppercase tracking-wide">{item.name}</span>
+                  <div className="flex items-center gap-3">
+                    {item.price > 0 && <span className="text-xs font-bold text-gray-300">+ {formatCurrency(item.price)}</span>}
+                    {isSelected && <Check style={{ color: primaryColor }} size={18} />}
+                  </div>
+                </button>
+              );
+            })
+          )}
         </div>
-      )}
-      {type === 'multiple' && (
-        <div className="mt-6">
-          <button 
-            onClick={onClose}
-            className="w-full text-white py-4 rounded-xl font-black text-lg"
-            style={{ backgroundColor: primaryColor }}
-          >
-            Confirmar ({current.length} selecionado{current.length !== 1 ? 's' : ''})
-          </button>
+      </div>
+      
+      {/* Footer fixo com botão */}
+      {(type === 'textarea' || type === 'multiple') && (
+        <div className="p-4 border-t border-white/10 bg-black/50">
+          <div className="max-w-2xl mx-auto">
+            <button 
+              onClick={onClose}
+              className="w-full text-white py-3 rounded-xl font-bold text-sm shadow-lg transition-transform active:scale-95"
+              style={{ backgroundColor: primaryColor }}
+            >
+              {type === 'multiple' 
+                ? `Confirmar (${current.length} selecionado${current.length !== 1 ? 's' : ''})` 
+                : 'Confirmar'}
+            </button>
+          </div>
         </div>
       )}
     </div>
