@@ -278,120 +278,95 @@ export default function PizzaBuilderV2({
                     </svg>
                   </div>
 
-                  {/* Borda recheada realista - CSS puro com gradientes e sombras */}
+                  {/* Borda recheada - círculo menor dividido em fatias igual aos sabores */}
                   {selectedEdge && selectedEdge.id !== 'none' && (() => {
-                    // Cores realistas baseadas no tipo de borda
-                    const getEdgeColors = (edgeName) => {
-                      const name = (edgeName || '').toLowerCase();
-                      if (name.includes('catupiry') || name.includes('requeijão')) {
-                        return {
-                          outer: '#f5f5dc', // Bege claro
-                          middle: '#fff8dc', // Bege cremoso
-                          inner: '#fffacd', // Amarelo claro
-                          shadow: 'rgba(200, 180, 140, 0.6)',
-                          highlight: 'rgba(255, 255, 255, 0.4)'
-                        };
-                      }
-                      if (name.includes('cheddar')) {
-                        return {
-                          outer: '#ffa500', // Laranja
-                          middle: '#ff8c00', // Laranja escuro
-                          inner: '#ffd700', // Dourado
-                          shadow: 'rgba(200, 100, 0, 0.6)',
-                          highlight: 'rgba(255, 220, 100, 0.5)'
-                        };
-                      }
-                      if (name.includes('chocolate')) {
-                        return {
-                          outer: '#8b4513', // Marrom
-                          middle: '#a0522d', // Marrom claro
-                          inner: '#cd853f', // Marrom peru
-                          shadow: 'rgba(100, 50, 0, 0.7)',
-                          highlight: 'rgba(200, 150, 100, 0.3)'
-                        };
-                      }
-                      // Padrão: borda de queijo
-                      return {
-                        outer: '#f5deb3', // Trigo
-                        middle: '#fff8dc', // Bege
-                        inner: '#fffacd', // Amarelo claro
-                        shadow: 'rgba(180, 160, 120, 0.6)',
-                        highlight: 'rgba(255, 255, 255, 0.5)'
-                      };
-                    };
-
-                    const colors = getEdgeColors(selectedEdge?.name);
-                    const finalScale = Number(edgeScale) || 1;
-                    const finalOffsetX = (Number(edgeOffsetX) || 0) * 0.5;
-                    const finalOffsetY = (Number(edgeOffsetY) || 0) * 0.5;
+                    // Raio da borda (menor que a pizza, tipo 45-48)
+                    const edgeRadiusValue = Number(edgeRadius) || 48;
+                    // Imagem da borda
+                    const edgeImage = selectedEdge?.image || edgeImageUrl;
+                    // Número de fatias (igual ao número de sabores)
+                    const slices = maxFlavors;
                     
                     return (
                       <motion.div
                         initial={{ scale: 0.95, opacity: 0 }}
                         animate={{ scale: 1, opacity: 1 }}
                         transition={{ duration: 0.4, ease: "easeOut" }}
-                        className="absolute inset-0 pointer-events-none z-10 rounded-full"
+                        className="absolute inset-0 pointer-events-none z-10 flex items-center justify-center"
                         style={{
-                          transform: `translate(${finalOffsetX}px, ${finalOffsetY}px) scale(${finalScale})`,
+                          transform: `translate(${Number(edgeOffsetX) || 0}px, ${Number(edgeOffsetY) || 0}px) scale(${Number(edgeScale) || 1})`,
                           transformOrigin: 'center center',
                         }}
                       >
-                        {/* Borda externa - textura realista */}
-                        <div
-                          className="absolute inset-0 rounded-full"
-                          style={{
-                            background: `radial-gradient(circle at 50% 50%, 
-                              ${colors.inner} 0%, 
-                              ${colors.middle} 30%, 
-                              ${colors.outer} 60%, 
-                              ${colors.outer} 100%)`,
-                            border: `8px solid ${colors.outer}`,
-                            boxShadow: `
-                              inset 0 0 20px ${colors.highlight},
-                              0 0 15px ${colors.shadow},
-                              0 4px 20px rgba(0, 0, 0, 0.4),
-                              inset 0 -5px 10px rgba(0, 0, 0, 0.2)
-                            `,
-                            filter: 'blur(0.5px)',
-                          }}
-                        />
-                        
-                        {/* Textura interna - efeito de recheio */}
-                        <div
-                          className="absolute inset-[8px] rounded-full"
-                          style={{
-                            background: `radial-gradient(circle at 50% 50%, 
-                              ${colors.highlight} 0%, 
-                              transparent 40%,
-                              ${colors.middle} 60%,
-                              ${colors.outer} 100%)`,
-                            opacity: 0.7,
-                            mixBlendMode: 'overlay',
-                          }}
-                        />
-                        
-                        {/* Destaques - brilho realista */}
-                        <div
-                          className="absolute inset-[10px] rounded-full"
-                          style={{
-                            background: `radial-gradient(circle at 30% 30%, 
-                              ${colors.highlight} 0%, 
-                              transparent 50%)`,
-                            opacity: 0.6,
-                            mixBlendMode: 'screen',
-                          }}
-                        />
-                        
-                        {/* Sombra profunda na parte inferior */}
-                        <div
-                          className="absolute bottom-0 left-0 right-0 h-[20%] rounded-full"
-                          style={{
-                            background: `radial-gradient(ellipse at 50% 0%, 
-                              ${colors.shadow} 0%, 
-                              transparent 70%)`,
-                            opacity: 0.5,
-                          }}
-                        />
+                        <svg 
+                          viewBox="0 0 100 100" 
+                          className="w-full h-full"
+                          preserveAspectRatio="xMidYMid meet"
+                          style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.3))' }}
+                        >
+                          <defs>
+                            {/* Pattern para cada fatia da borda */}
+                            {Array.from({ length: slices }).map((_, i) => (
+                              <pattern 
+                                key={`edge-slice-${i}`} 
+                                id={`edge-slice-${i}`} 
+                                x="0" 
+                                y="0" 
+                                width="1" 
+                                height="1" 
+                                patternContentUnits="objectBoundingBox"
+                              >
+                                <image 
+                                  href={edgeImage} 
+                                  x="-0.1" 
+                                  y="-0.1" 
+                                  width="1.2" 
+                                  height="1.2" 
+                                  preserveAspectRatio="xMidYMid slice"
+                                  transform={`rotate(${(360 / slices) * i} 0.5 0.5)`}
+                                />
+                              </pattern>
+                            ))}
+                          </defs>
+                          
+                          {/* Renderizar fatias da borda */}
+                          {slices === 1 ? (
+                            // Borda inteira (1 fatia)
+                            <circle 
+                              cx="50" 
+                              cy="50" 
+                              r={edgeRadiusValue} 
+                              fill={edgeImage ? `url(#edge-slice-0)` : '#f5deb3'}
+                              stroke="rgba(0,0,0,0.1)"
+                              strokeWidth="0.5"
+                            />
+                          ) : (
+                            // Borda dividida em fatias
+                            Array.from({ length: slices }).map((_, i) => {
+                              const anglePerSlice = 360 / slices;
+                              const startAngle = (anglePerSlice * i - 90) * (Math.PI / 180);
+                              const endAngle = (anglePerSlice * (i + 1) - 90) * (Math.PI / 180);
+                              const r = edgeRadiusValue;
+                              const x1 = 50 + r * Math.cos(startAngle);
+                              const y1 = 50 + r * Math.sin(startAngle);
+                              const x2 = 50 + r * Math.cos(endAngle);
+                              const y2 = 50 + r * Math.sin(endAngle);
+                              const largeArc = anglePerSlice > 180 ? 1 : 0;
+                              // Path da fatia (do centro até a borda externa)
+                              const pathData = `M 50 50 L ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} Z`;
+                              
+                              return (
+                                <path
+                                  key={`edge-${i}`}
+                                  d={pathData}
+                                  fill={edgeImage ? `url(#edge-slice-${i})` : '#f5deb3'}
+                                  stroke="rgba(0,0,0,0.15)"
+                                  strokeWidth="0.5"
+                                />
+                              );
+                            })
+                          )}
+                        </svg>
                       </motion.div>
                     );
                   })()}
