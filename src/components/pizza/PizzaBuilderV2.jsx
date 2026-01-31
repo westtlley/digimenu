@@ -223,13 +223,56 @@ export default function PizzaBuilderV2({
                             <image href={selectedFlavors[i].image} x="-0.1" y="-0.1" width="1.2" height="1.2" preserveAspectRatio="xMidYMid slice" />
                           </pattern>
                         ))}
+                        
+                        {/* Definições da borda (anel) */}
+                        {selectedEdge && selectedEdge.id !== 'none' && (() => {
+                          const outerRadius = 50;
+                          const innerRadius = 42;
+                          const edgeImage = selectedEdge?.image;
+                          const patternId = `pizza-edge-ring-${selectedEdge?.id || 'default'}`;
+                          const maskId = `pizza-edge-mask-${selectedEdge?.id || 'default'}`;
+                          
+                          return (
+                            <>
+                              {/* Máscara para criar o anel: fundo preto (esconde), círculo externo branco (mostra), interno preto (esconde centro) */}
+                              <mask id={maskId}>
+                                <rect width="100" height="100" fill="black" />
+                                <circle cx="50" cy="50" r={outerRadius} fill="white" />
+                                <circle cx="50" cy="50" r={innerRadius} fill="black" />
+                              </mask>
+                              
+                              {/* Pattern para preencher o anel da borda */}
+                              {edgeImage && (
+                                <pattern 
+                                  id={patternId}
+                                  x="0" 
+                                  y="0" 
+                                  width="1" 
+                                  height="1" 
+                                  patternContentUnits="objectBoundingBox"
+                                >
+                                  <image 
+                                    href={edgeImage} 
+                                    x="-0.1" 
+                                    y="-0.1" 
+                                    width="1.2" 
+                                    height="1.2" 
+                                    preserveAspectRatio="xMidYMid slice"
+                                  />
+                                </pattern>
+                              )}
+                            </>
+                          );
+                        })()}
                       </defs>
+                      
+                      {/* SABORES (recheio) - renderizado primeiro */}
                       {maxFlavors === 1 ? (
                         selectedFlavors[0] ? (
-                          <circle cx="50" cy="50" r="50" fill={selectedFlavors[0].image ? `url(#pizza-slice-0)` : (selectedFlavors[0].color || '#444')} />
+                          <circle cx="50" cy="50" r="42" fill={selectedFlavors[0].image ? `url(#pizza-slice-0)` : (selectedFlavors[0].color || '#444')} />
                         ) : (
                           <g>
-                            <circle cx="50" cy="50" r="50" fill="#333" />
+                            <circle cx="50" cy="50" r="42" fill="#333" />
                             <text x="50" y="45" textAnchor="middle" fill="rgba(255,255,255,0.3)" fontSize="8">+</text>
                             <text x="50" y="55" textAnchor="middle" fill="rgba(255,255,255,0.2)" fontSize="4">TOQUE</text>
                           </g>
@@ -239,7 +282,7 @@ export default function PizzaBuilderV2({
                           const anglePerSlice = 360 / maxFlavors;
                           const startAngle = (anglePerSlice * i - 90) * (Math.PI / 180);
                           const endAngle = (anglePerSlice * (i + 1) - 90) * (Math.PI / 180);
-                          const r = 50;
+                          const r = 42; // Raio interno (onde começa o recheio)
                           const x1 = 50 + r * Math.cos(startAngle);
                           const y1 = 50 + r * Math.sin(startAngle);
                           const x2 = 50 + r * Math.cos(endAngle);
@@ -264,8 +307,8 @@ export default function PizzaBuilderV2({
                             if (selectedFlavors[i]) return null;
                             const anglePerSlice = 360 / maxFlavors;
                             const midAngle = (anglePerSlice * (i + 0.5) - 90) * (Math.PI / 180);
-                            const x = 50 + 25 * Math.cos(midAngle);
-                            const y = 50 + 25 * Math.sin(midAngle);
+                            const x = 50 + 21 * Math.cos(midAngle);
+                            const y = 50 + 21 * Math.sin(midAngle);
                             return (
                               <g key={`placeholder-${i}`}>
                                 <text x={x} y={y - 3} textAnchor="middle" fill="rgba(255,255,255,0.3)" fontSize="6">+</text>
@@ -275,65 +318,20 @@ export default function PizzaBuilderV2({
                           })}
                         </g>
                       )}
-                    </svg>
-                  </div>
-
-                  {/* BORDA RECHEADA - ÁREA ANELAR (entre círculo externo e interno) */}
-                  {selectedEdge && selectedEdge.id !== 'none' && (() => {
-                    // Raio externo da pizza (borda externa)
-                    const outerRadius = 50;
-                    // Raio interno (onde começa o recheio) - área anelar da borda
-                    const innerRadius = 42; // 8px de largura da borda
-                    // Imagem da borda (massa recheada) - APENAS da borda cadastrada
-                    const edgeImage = selectedEdge?.image;
-                    const patternId = `pizza-edge-ring-${selectedEdge?.id || 'default'}`;
-                    const maskId = `pizza-edge-mask-${selectedEdge?.id || 'default'}`;
-                    
-                    return (
-                      <motion.div
-                        initial={{ scale: 0.95, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        transition={{ duration: 0.4, ease: "easeOut" }}
-                        className="absolute inset-0 pointer-events-none z-20 flex items-center justify-center"
-                      >
-                        <svg 
-                          viewBox="0 0 100 100" 
-                          className="w-full h-full"
-                          preserveAspectRatio="xMidYMid meet"
-                          style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.3))' }}
-                        >
-                          <defs>
-                            {/* Máscara para criar o anel: fundo preto (esconde), círculo externo branco (mostra), interno preto (esconde centro) */}
-                            <mask id={maskId}>
-                              <rect width="100" height="100" fill="black" />
-                              <circle cx="50" cy="50" r={outerRadius} fill="white" />
-                              <circle cx="50" cy="50" r={innerRadius} fill="black" />
-                            </mask>
-                            
-                            {/* Pattern para preencher o anel da borda */}
-                            {edgeImage && (
-                              <pattern 
-                                id={patternId}
-                                x="0" 
-                                y="0" 
-                                width="1" 
-                                height="1" 
-                                patternContentUnits="objectBoundingBox"
-                              >
-                                <image 
-                                  href={edgeImage} 
-                                  x="-0.1" 
-                                  y="-0.1" 
-                                  width="1.2" 
-                                  height="1.2" 
-                                  preserveAspectRatio="xMidYMid slice"
-                                />
-                              </pattern>
-                            )}
-                          </defs>
-                          
-                          {/* Círculo externo com imagem, máscara corta o centro criando o anel */}
-                          <circle 
+                      
+                      {/* BORDA RECHEADA - ÁREA ANELAR (renderizada por último, por cima) */}
+                      {selectedEdge && selectedEdge.id !== 'none' && (() => {
+                        const outerRadius = 50;
+                        const innerRadius = 42;
+                        const edgeImage = selectedEdge?.image;
+                        const patternId = `pizza-edge-ring-${selectedEdge?.id || 'default'}`;
+                        const maskId = `pizza-edge-mask-${selectedEdge?.id || 'default'}`;
+                        
+                        return (
+                          <motion.circle
+                            initial={{ scale: 0.95, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            transition={{ duration: 0.4, ease: "easeOut" }}
                             cx="50" 
                             cy="50" 
                             r={outerRadius} 
@@ -341,10 +339,10 @@ export default function PizzaBuilderV2({
                             mask={`url(#${maskId})`}
                             opacity={edgeImage ? 1 : 0.7}
                           />
-                        </svg>
-                      </motion.div>
-                    );
-                  })()}
+                        );
+                      })()}
+                    </svg>
+                  </div>
                 </button>
                 
                 <div className="mt-8 text-center bg-black/40 px-8 py-3 rounded-full border border-white/5">
