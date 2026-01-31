@@ -279,57 +279,73 @@ export default function PizzaBuilderV2({
                   </div>
 
                   {/* Overlay da borda recheada - imagem real cobrindo a borda da pizza */}
-                  {selectedEdge && selectedEdge.id !== 'none' && (
-                    <div className="absolute inset-0 pointer-events-none z-10 rounded-full overflow-visible">
-                      <svg 
-                        viewBox="0 0 100 100" 
-                        className="w-full h-full"
-                        preserveAspectRatio="xMidYMid meet"
-                        style={{ 
-                          filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.6))',
-                        }}
-                      >
-                        <defs>
-                          <pattern 
-                            id={`pizzaBuilderEdge-${selectedEdge?.id || 'default'}`} 
-                            patternUnits="userSpaceOnUse" 
-                            width="100" 
-                            height="100"
-                          >
-                            <image 
-                              href={selectedEdge?.image || edgeImageUrl}
-                              x="0" 
-                              y="0" 
-                              width="100" 
-                              height="100" 
-                              preserveAspectRatio="xMidYMid slice"
-                            />
-                          </pattern>
-                        </defs>
-                        {/* Círculo da borda - raio 50 = borda externa da pizza no viewBox */}
-                        <g 
-                          transform={`translate(${50 + (Number(edgeOffsetX) || 0)}, ${50 + (Number(edgeOffsetY) || 0)}) scale(${Number(edgeScale) || 1}) translate(-50, -50)`}
+                  {selectedEdge && selectedEdge.id !== 'none' && (() => {
+                    const finalRadius = Number(edgeRadius) || 50;
+                    const finalStrokeWidth = Number(edgeStrokeWidth) || 16;
+                    const finalOffsetX = Number(edgeOffsetX) || 0;
+                    const finalOffsetY = Number(edgeOffsetY) || 0;
+                    const finalScale = Number(edgeScale) || 1;
+                    const edgeImg = selectedEdge?.image || edgeImageUrl;
+                    const patternId = `pizzaBuilderEdge-${selectedEdge?.id || 'default'}-${Date.now()}`;
+                    
+                    return (
+                      <div className="absolute inset-0 pointer-events-none z-10 rounded-full overflow-visible">
+                        <svg 
+                          viewBox="0 0 100 100" 
+                          className="w-full h-full"
+                          preserveAspectRatio="xMidYMid meet"
+                          style={{ 
+                            filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.6))',
+                          }}
                         >
-                          <motion.circle
-                            initial={{ scale: 0.95, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            transition={{ duration: 0.4, ease: "easeOut" }}
-                            cx="50"
-                            cy="50"
-                            r={Number(edgeRadius) || 50}
-                            fill="none"
-                            stroke={`url(#pizzaBuilderEdge-${selectedEdge?.id || 'default'})`}
-                            strokeWidth={Number(edgeStrokeWidth) || 16}
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            style={{
-                              transformOrigin: '50% 50%',
-                            }}
-                          />
-                        </g>
-                      </svg>
-                    </div>
-                  )}
+                          <defs>
+                            <pattern 
+                              id={patternId}
+                              patternUnits="userSpaceOnUse" 
+                              width="100" 
+                              height="100"
+                              x="0"
+                              y="0"
+                            >
+                              <image 
+                                href={edgeImg}
+                                x="0" 
+                                y="0" 
+                                width="100" 
+                                height="100" 
+                                preserveAspectRatio="xMidYMid slice"
+                                onError={(e) => {
+                                  console.warn('Erro ao carregar imagem da borda:', edgeImg);
+                                  e.target.style.display = 'none';
+                                }}
+                              />
+                            </pattern>
+                          </defs>
+                          {/* Círculo da borda - raio 50 = borda externa da pizza no viewBox */}
+                          <g 
+                            transform={`translate(${50 + finalOffsetX}, ${50 + finalOffsetY}) scale(${finalScale}) translate(-50, -50)`}
+                          >
+                            <motion.circle
+                              initial={{ scale: 0.95, opacity: 0 }}
+                              animate={{ scale: 1, opacity: 1 }}
+                              transition={{ duration: 0.4, ease: "easeOut" }}
+                              cx="50"
+                              cy="50"
+                              r={finalRadius}
+                              fill="none"
+                              stroke={`url(#${patternId})`}
+                              strokeWidth={finalStrokeWidth}
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              style={{
+                                transformOrigin: '50% 50%',
+                              }}
+                            />
+                          </g>
+                        </svg>
+                      </div>
+                    );
+                  })()}
                 </button>
                 
                 <div className="mt-8 text-center bg-black/40 px-8 py-3 rounded-full border border-white/5">
