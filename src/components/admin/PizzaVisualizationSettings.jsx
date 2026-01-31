@@ -33,8 +33,9 @@ export default function PizzaVisualizationSettings() {
   const vizConfig = vizConfigs[0] || {};
 
   const [premiumMode, setPremiumMode] = useState(store?.enable_premium_pizza_visualization !== false);
-  const [edgeStrokeWidth, setEdgeStrokeWidth] = useState(vizConfig.edgeStrokeWidth ?? 12);
-  const [edgeRadius, setEdgeRadius] = useState(vizConfig.edgeRadius ?? 48);
+  // Valores padrão otimizados para cobrir perfeitamente a borda da pizza
+  const [edgeStrokeWidth, setEdgeStrokeWidth] = useState(vizConfig.edgeStrokeWidth ?? 16);
+  const [edgeRadius, setEdgeRadius] = useState(vizConfig.edgeRadius ?? 50);
   const [edgeOffsetX, setEdgeOffsetX] = useState(vizConfig.edgeOffsetX ?? 0);
   const [edgeOffsetY, setEdgeOffsetY] = useState(vizConfig.edgeOffsetY ?? 0);
   const [edgeScale, setEdgeScale] = useState(vizConfig.edgeScale ?? 1);
@@ -96,12 +97,12 @@ export default function PizzaVisualizationSettings() {
     const ox = Number(edgeOffsetX);
     const oy = Number(edgeOffsetY);
     const sc = Number(edgeScale);
-    if (isNaN(sw) || sw < 4 || sw > 28) {
-      toast.error('Espessura deve ser entre 4 e 28');
+    if (isNaN(sw) || sw < 8 || sw > 24) {
+      toast.error('Espessura deve ser entre 8 e 24');
       return;
     }
-    if (isNaN(er) || er < 30 || er > 55) {
-      toast.error('Raio deve ser entre 30 e 55');
+    if (isNaN(er) || er < 45 || er > 55) {
+      toast.error('Raio deve ser entre 45 e 55');
       return;
     }
     saveConfigMutation.mutate({
@@ -186,22 +187,24 @@ export default function PizzaVisualizationSettings() {
                   <div className="w-full h-full bg-gradient-to-br from-amber-700 to-amber-900 rounded-full" />
                 </div>
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-lg" preserveAspectRatio="xMidYMid meet">
+                  <svg viewBox="0 0 100 100" className="w-full h-full" preserveAspectRatio="xMidYMid meet">
                     <defs>
                       <pattern id="previewEdgeConfig" patternUnits="userSpaceOnUse" width="100" height="100">
                         <image href={edgeImageUrl} x="0" y="0" width="100" height="100" preserveAspectRatio="xMidYMid slice" />
                       </pattern>
                     </defs>
-                    <g transform={`translate(${50 + Number(edgeOffsetX)}, ${50 + Number(edgeOffsetY)}) scale(${edgeScale}) translate(-50, -50)`}>
+                    {/* Cálculo do raio: baseRadius (50) + ajuste fino da config */}
+                    <g transform={`translate(${50 + Number(edgeOffsetX) * 0.5}, ${50 + Number(edgeOffsetY) * 0.5}) scale(${edgeScale}) translate(-50, -50)`}>
                       <circle
                         cx="50"
                         cy="50"
-                        r={edgeRadius}
+                        r={50 + (edgeRadius - 50)}
                         fill="none"
                         stroke="url(#previewEdgeConfig)"
                         strokeWidth={edgeStrokeWidth}
                         strokeLinecap="round"
-                        style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' }}
+                        strokeLinejoin="round"
+                        style={{ filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.6))' }}
                       />
                     </g>
                   </svg>
@@ -214,13 +217,13 @@ export default function PizzaVisualizationSettings() {
                 <Label className="flex items-center gap-2 text-xs">
                   <Maximize2 className="w-3.5 h-3.5" /> Raio: {Math.round(edgeRadius)}
                 </Label>
-                <Slider value={[edgeRadius]} onValueChange={([v]) => setEdgeRadius(v)} min={30} max={55} step={1} className="mt-1" />
+                <Slider value={[edgeRadius]} onValueChange={([v]) => setEdgeRadius(v)} min={45} max={55} step={0.5} className="mt-1" />
               </div>
               <div>
                 <Label className="flex items-center gap-2 text-xs">
                   Espessura: {Math.round(edgeStrokeWidth)}
                 </Label>
-                <Slider value={[edgeStrokeWidth]} onValueChange={([v]) => setEdgeStrokeWidth(v)} min={4} max={28} step={1} className="mt-1" />
+                <Slider value={[edgeStrokeWidth]} onValueChange={([v]) => setEdgeStrokeWidth(v)} min={8} max={24} step={1} className="mt-1" />
               </div>
               <div>
                 <Label className="flex items-center gap-2 text-xs">
@@ -250,8 +253,8 @@ export default function PizzaVisualizationSettings() {
             <Button
               variant="outline"
               onClick={() => {
-                setEdgeRadius(48);
-                setEdgeStrokeWidth(12);
+                setEdgeRadius(50);
+                setEdgeStrokeWidth(16);
                 setEdgeOffsetX(0);
                 setEdgeOffsetY(0);
                 setEdgeScale(1);

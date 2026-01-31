@@ -47,8 +47,8 @@ export default function PizzaBuilderV2({
   });
   const vizConfig = savedConfigs[0] || {};
   const edgeImageUrl = vizConfig.edgeImageUrl || LOCAL_EDGE_IMAGE;
-  const edgeStrokeWidth = vizConfig.edgeStrokeWidth ?? 12;
-  const edgeRadius = vizConfig.edgeRadius ?? 48;
+  const edgeStrokeWidth = vizConfig.edgeStrokeWidth ?? 16;
+  const edgeRadius = vizConfig.edgeRadius ?? 50;
   const edgeOffsetX = vizConfig.edgeOffsetX ?? 0;
   const edgeOffsetY = vizConfig.edgeOffsetY ?? 0;
   const edgeScale = vizConfig.edgeScale ?? 1;
@@ -279,43 +279,65 @@ export default function PizzaBuilderV2({
                   </div>
 
                   {/* Overlay da borda recheada - imagem real cobrindo a borda da pizza */}
-                  {selectedEdge && selectedEdge.id !== 'none' && (
-                    <div className="absolute inset-0 pointer-events-none z-10 rounded-full overflow-visible flex items-center justify-center">
-                      <svg 
-                        viewBox="0 0 100 100" 
-                        className="w-full h-full drop-shadow-lg"
-                        preserveAspectRatio="xMidYMid meet"
-                      >
-                        <defs>
-                          <pattern id={`pizzaBuilderEdge-${selectedEdge?.id || 'default'}`} patternUnits="userSpaceOnUse" width="100" height="100">
-                            <image 
-                              href={selectedEdge?.image || edgeImageUrl}
-                              x="0" 
-                              y="0" 
+                  {selectedEdge && selectedEdge.id !== 'none' && (() => {
+                    // Calcular raio baseado no tamanho da pizza (50 = centro do viewBox 100x100)
+                    // O raio deve ser próximo de 50 para cobrir toda a borda
+                    const baseRadius = 50; // Raio da pizza no viewBox
+                    const calculatedRadius = baseRadius + (edgeRadius - 48); // Ajuste fino baseado na config
+                    const calculatedStrokeWidth = edgeStrokeWidth;
+                    
+                    return (
+                      <div className="absolute inset-0 pointer-events-none z-10 rounded-full overflow-visible flex items-center justify-center">
+                        <svg 
+                          viewBox="0 0 100 100" 
+                          className="w-full h-full"
+                          preserveAspectRatio="xMidYMid meet"
+                          style={{ 
+                            filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.6))',
+                          }}
+                        >
+                          <defs>
+                            <pattern 
+                              id={`pizzaBuilderEdge-${selectedEdge?.id || 'default'}`} 
+                              patternUnits="userSpaceOnUse" 
                               width="100" 
-                              height="100" 
-                              preserveAspectRatio="xMidYMid slice"
+                              height="100"
+                            >
+                              <image 
+                                href={selectedEdge?.image || edgeImageUrl}
+                                x="0" 
+                                y="0" 
+                                width="100" 
+                                height="100" 
+                                preserveAspectRatio="xMidYMid slice"
+                              />
+                            </pattern>
+                          </defs>
+                          {/* Círculo da borda - posicionado perfeitamente na borda da pizza */}
+                          <g 
+                            transform={`translate(${50 + Number(edgeOffsetX) * 0.5}, ${50 + Number(edgeOffsetY) * 0.5}) scale(${edgeScale}) translate(-50, -50)`}
+                          >
+                            <motion.circle
+                              initial={{ scale: 0.95, opacity: 0 }}
+                              animate={{ scale: 1, opacity: 1 }}
+                              transition={{ duration: 0.4, ease: "easeOut" }}
+                              cx="50"
+                              cy="50"
+                              r={calculatedRadius}
+                              fill="none"
+                              stroke={`url(#pizzaBuilderEdge-${selectedEdge?.id || 'default'})`}
+                              strokeWidth={calculatedStrokeWidth}
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              style={{
+                                transformOrigin: '50% 50%',
+                              }}
                             />
-                          </pattern>
-                        </defs>
-                        <g transform={`translate(${50 + Number(edgeOffsetX)}, ${50 + Number(edgeOffsetY)}) scale(${edgeScale}) translate(-50, -50)`}>
-                          <motion.circle
-                            initial={{ scale: 0.9, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            transition={{ duration: 0.3 }}
-                            cx="50"
-                            cy="50"
-                            r={edgeRadius}
-                            fill="none"
-                            stroke={`url(#pizzaBuilderEdge-${selectedEdge?.id || 'default'})`}
-                            strokeWidth={edgeStrokeWidth}
-                            strokeLinecap="round"
-                            filter="drop-shadow(0 2px 6px rgba(0,0,0,0.4))"
-                          />
-                        </g>
-                      </svg>
-                    </div>
-                  )}
+                          </g>
+                        </svg>
+                      </div>
+                    );
+                  })()}
                 </button>
                 
                 <div className="mt-8 text-center bg-black/40 px-8 py-3 rounded-full border border-white/5">
