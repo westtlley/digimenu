@@ -286,8 +286,12 @@ export default function PizzaBuilderV2({
                     const innerRadius = 42; // 8px de largura da borda
                     // Imagem da borda (massa recheada) - APENAS da borda cadastrada
                     const edgeImage = selectedEdge?.image;
-                    const maskId = `pizza-edge-mask-${selectedEdge?.id || 'default'}`;
                     const patternId = `pizza-edge-ring-${selectedEdge?.id || 'default'}`;
+                    
+                    // Criar path do anel usando fill-rule="evenodd"
+                    const outerCircle = `M 50,50 m -${outerRadius},0 a ${outerRadius},${outerRadius} 0 1,1 ${outerRadius * 2},0 a ${outerRadius},${outerRadius} 0 1,1 -${outerRadius * 2},0`;
+                    const innerCircle = `M 50,50 m -${innerRadius},0 a ${innerRadius},${innerRadius} 0 1,1 ${innerRadius * 2},0 a ${innerRadius},${innerRadius} 0 1,1 -${innerRadius * 2},0`;
+                    const ringPath = `${outerCircle} ${innerCircle}`;
                     
                     return (
                       <motion.div
@@ -303,12 +307,6 @@ export default function PizzaBuilderV2({
                           style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.3))' }}
                         >
                           <defs>
-                            {/* Máscara para criar o anel (círculo externo menos círculo interno) */}
-                            <mask id={maskId}>
-                              <circle cx="50" cy="50" r={outerRadius} fill="white" />
-                              <circle cx="50" cy="50" r={innerRadius} fill="black" />
-                            </mask>
-                            
                             {/* Pattern para preencher o anel da borda */}
                             {edgeImage && (
                               <pattern 
@@ -331,22 +329,18 @@ export default function PizzaBuilderV2({
                             )}
                           </defs>
                           
-                          {/* ANEL DA BORDA - área entre círculo externo e interno */}
+                          {/* ANEL DA BORDA - path com fill-rule="evenodd" para criar o anel */}
                           {edgeImage ? (
-                            <circle 
-                              cx="50" 
-                              cy="50" 
-                              r={outerRadius} 
+                            <path
+                              d={ringPath}
                               fill={`url(#${patternId})`}
-                              mask={`url(#${maskId})`}
+                              fillRule="evenodd"
                             />
                           ) : (
-                            <circle 
-                              cx="50" 
-                              cy="50" 
-                              r={outerRadius} 
+                            <path
+                              d={ringPath}
                               fill="#f5deb3"
-                              mask={`url(#${maskId})`}
+                              fillRule="evenodd"
                               opacity="0.6"
                             />
                           )}
