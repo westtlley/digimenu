@@ -215,7 +215,28 @@ export default function PizzaBuilderV2({
                   onClick={() => setStep('flavors')}
                   className="relative w-56 h-56 sm:w-64 sm:h-64 lg:w-[340px] lg:h-[340px] pizza-container group cursor-pointer transition-transform active:scale-95 flex-shrink-0"
                 >
-                  <div className="absolute inset-0 rounded-full overflow-hidden transition-transform duration-500 hover:rotate-6 shadow-xl">
+                  {/* Tábua de Pizza - Background */}
+                  <motion.div
+                    initial={{ y: -100, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ duration: 0.6, ease: "easeOut" }}
+                    className="absolute inset-[-20px] z-0"
+                    style={{
+                      backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'400\' height=\'400\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cdefs%3E%3Cpattern id=\'wood\' x=\'0\' y=\'0\' width=\'40\' height=\'40\' patternUnits=\'userSpaceOnUse\'%3E%3Cpath d=\'M0 20h40M20 0v40\' stroke=\'%23a0522d\' stroke-width=\'0.5\' opacity=\'0.3\'/%3E%3C/pattern%3E%3C/defs%3E%3Ccircle cx=\'200\' cy=\'200\' r=\'180\' fill=\'%23d2691e\'/%3E%3Ccircle cx=\'200\' cy=\'200\' r=\'180\' fill=\'url(%23wood)\'/%3E%3Ccircle cx=\'200\' cy=\'200\' r=\'170\' fill=\'none\' stroke=\'%238b4513\' stroke-width=\'2\'/%3E%3C/svg%3E")',
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                      borderRadius: '50%',
+                      filter: 'drop-shadow(0 10px 30px rgba(0,0,0,0.4))',
+                    }}
+                  />
+                  
+                  {/* Pizza - Aparece depois da tábua */}
+                  <motion.div
+                    initial={{ scale: 0, opacity: 0, y: 20 }}
+                    animate={{ scale: 1, opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, delay: 0.3, ease: "easeOut" }}
+                    className="absolute inset-0 rounded-full overflow-hidden transition-transform duration-500 hover:rotate-6 shadow-xl z-10"
+                  >
                     <svg viewBox="0 0 100 100" className="w-full h-full">
                       <defs>
                         {Array.from({ length: maxFlavors }).map((_, i) => selectedFlavors[i]?.image && (
