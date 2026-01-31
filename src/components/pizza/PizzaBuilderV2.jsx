@@ -303,9 +303,9 @@ export default function PizzaBuilderV2({
                           style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.3))' }}
                         >
                           <defs>
-                            {/* Máscara para criar o anel: círculo externo branco, interno preto (corta) */}
+                            {/* Máscara para criar o anel: fundo preto (esconde), círculo externo branco (mostra), interno preto (esconde centro) */}
                             <mask id={maskId}>
-                              <rect width="100" height="100" fill="white" />
+                              <rect width="100" height="100" fill="black" />
                               <circle cx="50" cy="50" r={outerRadius} fill="white" />
                               <circle cx="50" cy="50" r={innerRadius} fill="black" />
                             </mask>
