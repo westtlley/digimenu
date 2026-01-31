@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Slider } from "@/components/ui/slider";
-import { Sparkles, Zap, Star, Flame, Info, Image, Move, Maximize2 } from 'lucide-react';
+import { Sparkles, Zap, Star, Flame, Info, Image } from 'lucide-react';
 import { apiClient as base44 } from '@/api/apiClient';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
@@ -25,28 +24,8 @@ export default function PizzaVisualizationSettings() {
     queryFn: () => base44.entities.Store.list().then(stores => stores[0])
   });
 
-  // Config da visualização (borda, etc)
-  const { data: vizConfigs = [], isLoading: loadingConfig } = useQuery({
-    queryKey: ['pizzaVisualizationConfig'],
-    queryFn: () => base44.entities.PizzaVisualizationConfig.list().catch(() => [])
-  });
-  const vizConfig = vizConfigs[0] || {};
 
   const [premiumMode, setPremiumMode] = useState(store?.enable_premium_pizza_visualization !== false);
-  // Valores padrão otimizados para cobrir perfeitamente a borda da pizza
-  const [edgeStrokeWidth, setEdgeStrokeWidth] = useState(vizConfig.edgeStrokeWidth ?? 16);
-  const [edgeRadius, setEdgeRadius] = useState(vizConfig.edgeRadius ?? 50);
-  const [edgeOffsetX, setEdgeOffsetX] = useState(vizConfig.edgeOffsetX ?? 0);
-  const [edgeOffsetY, setEdgeOffsetY] = useState(vizConfig.edgeOffsetY ?? 0);
-  const [edgeScale, setEdgeScale] = useState(vizConfig.edgeScale ?? 1);
-
-  useEffect(() => {
-    if (vizConfig.edgeStrokeWidth != null) setEdgeStrokeWidth(vizConfig.edgeStrokeWidth);
-    if (vizConfig.edgeRadius != null) setEdgeRadius(vizConfig.edgeRadius);
-    if (vizConfig.edgeOffsetX != null) setEdgeOffsetX(vizConfig.edgeOffsetX);
-    if (vizConfig.edgeOffsetY != null) setEdgeOffsetY(vizConfig.edgeOffsetY);
-    if (vizConfig.edgeScale != null) setEdgeScale(vizConfig.edgeScale);
-  }, [vizConfig.edgeStrokeWidth, vizConfig.edgeRadius, vizConfig.edgeOffsetX, vizConfig.edgeOffsetY, vizConfig.edgeScale]);
 
   // Mutation para salvar configuração
   const saveMutation = useMutation({
@@ -74,48 +53,6 @@ export default function PizzaVisualizationSettings() {
     saveMutation.mutate(enabled);
   };
 
-  // Salvar config da borda
-  const saveConfigMutation = useMutation({
-    mutationFn: async (data) => {
-      if (vizConfig.id) {
-        return base44.entities.PizzaVisualizationConfig.update(vizConfig.id, data);
-      }
-      return base44.entities.PizzaVisualizationConfig.create(data);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['pizzaVisualizationConfig'] });
-      toast.success('Configuração da borda salva!');
-    },
-    onError: () => {
-      toast.error('Erro ao salvar. Tente novamente.');
-    }
-  });
-
-  const handleSaveBordaConfig = () => {
-    const sw = Math.round(Number(edgeStrokeWidth));
-    const er = Math.round(Number(edgeRadius));
-    const ox = Number(edgeOffsetX);
-    const oy = Number(edgeOffsetY);
-    const sc = Number(edgeScale);
-    if (isNaN(sw) || sw < 8 || sw > 24) {
-      toast.error('Espessura deve ser entre 8 e 24');
-      return;
-    }
-    if (isNaN(er) || er < 45 || er > 55) {
-      toast.error('Raio deve ser entre 45 e 55');
-      return;
-    }
-    saveConfigMutation.mutate({
-      ...vizConfig,
-      edgeStrokeWidth: sw,
-      edgeRadius: er,
-      edgeOffsetX: isNaN(ox) ? 0 : Math.max(-15, Math.min(15, ox)),
-      edgeOffsetY: isNaN(oy) ? 0 : Math.max(-15, Math.min(15, oy)),
-      edgeScale: isNaN(sc) ? 1 : Math.max(0.7, Math.min(1.4, sc))
-    });
-  };
-
-  const edgeImageUrl = vizConfig.edgeImageUrl || '/images/pizza-borda.png';
 
   if (loadingStore) {
     return (
@@ -169,99 +106,19 @@ export default function PizzaVisualizationSettings() {
           />
         </div>
 
-        {/* Editor Visual da Borda */}
-        <div className="p-4 rounded-xl bg-white/50 dark:bg-gray-800/50 border-2 border-gray-200 dark:border-gray-700 space-y-4">
-          <div className="flex items-center gap-2">
-            <Image className="w-5 h-5 text-orange-500" />
-            <h4 className="font-semibold">Posicionar Borda na Pizza</h4>
-          </div>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            Ajuste visualmente: mova, aumente ou diminua a borda. O preview atualiza em tempo real.
-          </p>
-
-          {/* Preview em tempo real */}
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1 flex justify-center items-center p-4 bg-gray-100 dark:bg-gray-900 rounded-xl min-h-[200px]">
-              <div className="relative w-48 h-48 sm:w-56 sm:h-56">
-                <div className="absolute inset-0 bg-[#333] rounded-full overflow-hidden">
-                  <div className="w-full h-full bg-gradient-to-br from-amber-700 to-amber-900 rounded-full" />
-                </div>
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <svg viewBox="0 0 100 100" className="w-full h-full" preserveAspectRatio="xMidYMid meet">
-                    <defs>
-                      <pattern id="previewEdgeConfig" patternUnits="userSpaceOnUse" width="100" height="100">
-                        <image href={edgeImageUrl} x="0" y="0" width="100" height="100" preserveAspectRatio="xMidYMid slice" />
-                      </pattern>
-                    </defs>
-                    {/* Cálculo do raio: baseRadius (50) + ajuste fino da config */}
-                    <g transform={`translate(${50 + Number(edgeOffsetX) * 0.5}, ${50 + Number(edgeOffsetY) * 0.5}) scale(${edgeScale}) translate(-50, -50)`}>
-                      <circle
-                        cx="50"
-                        cy="50"
-                        r={50 + (edgeRadius - 50)}
-                        fill="none"
-                        stroke="url(#previewEdgeConfig)"
-                        strokeWidth={edgeStrokeWidth}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        style={{ filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.6))' }}
-                      />
-                    </g>
-                  </svg>
-                </div>
-              </div>
+        {/* Informação sobre Borda */}
+        <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-950/20 border-2 border-blue-200 dark:border-blue-800">
+          <div className="flex items-start gap-3">
+            <Image className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
+            <div>
+              <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-1">
+                Imagem da Borda
+              </h4>
+              <p className="text-sm text-blue-700 dark:text-blue-300">
+                Para adicionar imagem à borda, vá em <strong>Pizza → Sabores e Bordas</strong> e edite a borda desejada. 
+                Cada borda pode ter sua própria imagem que preencherá o círculo da borda na pizza.
+              </p>
             </div>
-
-            <div className="flex-1 space-y-4">
-              <div>
-                <Label className="flex items-center gap-2 text-xs">
-                  <Maximize2 className="w-3.5 h-3.5" /> Raio: {Math.round(edgeRadius)}
-                </Label>
-                <Slider value={[edgeRadius]} onValueChange={([v]) => setEdgeRadius(v)} min={45} max={55} step={0.5} className="mt-1" />
-              </div>
-              <div>
-                <Label className="flex items-center gap-2 text-xs">
-                  Espessura: {Math.round(edgeStrokeWidth)}
-                </Label>
-                <Slider value={[edgeStrokeWidth]} onValueChange={([v]) => setEdgeStrokeWidth(v)} min={8} max={24} step={1} className="mt-1" />
-              </div>
-              <div>
-                <Label className="flex items-center gap-2 text-xs">
-                  <Move className="w-3.5 h-3.5" /> Posição X: {Number(edgeOffsetX).toFixed(1)}
-                </Label>
-                <Slider value={[edgeOffsetX]} onValueChange={([v]) => setEdgeOffsetX(v)} min={-15} max={15} step={0.5} className="mt-1" />
-              </div>
-              <div>
-                <Label className="flex items-center gap-2 text-xs">Posição Y: {Number(edgeOffsetY).toFixed(1)}</Label>
-                <Slider value={[edgeOffsetY]} onValueChange={([v]) => setEdgeOffsetY(v)} min={-15} max={15} step={0.5} className="mt-1" />
-              </div>
-              <div>
-                <Label className="text-xs">Escala: {(Number(edgeScale) * 100).toFixed(0)}%</Label>
-                <Slider value={[edgeScale]} onValueChange={([v]) => setEdgeScale(v)} min={0.7} max={1.4} step={0.05} className="mt-1" />
-              </div>
-            </div>
-          </div>
-
-          <div className="flex gap-2 flex-wrap">
-            <Button
-              onClick={handleSaveBordaConfig}
-              disabled={saveConfigMutation.isPending}
-              className="bg-orange-500 hover:bg-orange-600"
-            >
-              {saveConfigMutation.isPending ? 'Salvando...' : 'Salvar'}
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setEdgeRadius(50);
-                setEdgeStrokeWidth(16);
-                setEdgeOffsetX(0);
-                setEdgeOffsetY(0);
-                setEdgeScale(1);
-              }}
-            >
-              Restaurar padrão
-            </Button>
           </div>
         </div>
 

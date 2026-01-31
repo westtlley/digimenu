@@ -282,8 +282,8 @@ export default function PizzaBuilderV2({
                   {selectedEdge && selectedEdge.id !== 'none' && (() => {
                     // Raio da borda (menor que a pizza, tipo 45-48)
                     const edgeRadiusValue = Number(edgeRadius) || 48;
-                    // Imagem da borda
-                    const edgeImage = selectedEdge?.image || edgeImageUrl;
+                    // Imagem da borda - usa APENAS a imagem cadastrada na borda
+                    const edgeImage = selectedEdge?.image;
                     // Número de fatias (para as linhas divisórias)
                     const slices = maxFlavors;
                     
@@ -326,14 +326,27 @@ export default function PizzaBuilderV2({
                           </defs>
                           
                           {/* Círculo da borda - preenchido com imagem inteira */}
-                          <circle 
-                            cx="50" 
-                            cy="50" 
-                            r={edgeRadiusValue} 
-                            fill={edgeImage ? `url(#pizza-edge-${selectedEdge?.id || 'default'})` : '#f5deb3'}
-                            stroke="rgba(0,0,0,0.1)"
-                            strokeWidth="0.5"
-                          />
+                          {edgeImage ? (
+                            <circle 
+                              cx="50" 
+                              cy="50" 
+                              r={edgeRadiusValue} 
+                              fill={`url(#pizza-edge-${selectedEdge?.id || 'default'})`}
+                              stroke="rgba(0,0,0,0.1)"
+                              strokeWidth="0.5"
+                            />
+                          ) : (
+                            <circle 
+                              cx="50" 
+                              cy="50" 
+                              r={edgeRadiusValue} 
+                              fill="#f5deb3"
+                              stroke="rgba(0,0,0,0.2)"
+                              strokeWidth="1"
+                              strokeDasharray="2,2"
+                              opacity="0.6"
+                            />
+                          )}
                           
                           {/* Linhas divisórias - mostram onde estão as fatias (opcional) */}
                           {slices > 1 && Array.from({ length: slices }).map((_, i) => {
