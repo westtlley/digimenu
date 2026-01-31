@@ -181,41 +181,17 @@ export default function PizzaBuilderV2({
 
       {/* Layout Desktop vs Mobile */}
       <div className="flex-1 overflow-y-auto">
-        <div className="container mx-auto px-4 py-6 pb-56 md:pb-8">
+        <div className="container mx-auto px-4 py-6 pb-6 lg:pb-8">
           {/* Layout em Grid no Desktop */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 max-w-6xl mx-auto">
             
-            {/* Coluna Esquerda - Visualização da Pizza */}
+            {/* Coluna Esquerda - APENAS Pizza e Preço no Desktop */}
             <div className="space-y-6">
-              {/* Tamanho Selector */}
-              <div className="space-y-2">
-                <label className="text-white text-xs font-black uppercase tracking-widest opacity-80">Tamanho:</label>
-                <div className="relative">
-                  <select 
-                    className="w-full text-white py-4 px-4 rounded-xl font-bold appearance-none text-sm shadow-lg border-b-4 focus:outline-none"
-                    style={{ backgroundColor: primaryColor, borderColor: '#c2410c' }}
-                    value={selectedSize?.id || ''}
-                    onChange={(e) => {
-                      const size = sizes.find(s => s.id === e.target.value);
-                      setSelectedSize(size);
-                      setSelectedFlavors([]);
-                    }}
-                  >
-                    {(sizes || []).filter(s => s && s.is_active).map(s => (
-                      <option key={s.id} value={s.id}>
-                        {s.name} - {s.slices} fatias - {s.max_flavors} {s.max_flavors === 1 ? 'sabor' : 'sabores'}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-white pointer-events-none" size={20} />
-                </div>
-              </div>
-
               {/* Visualizador Circular da Pizza */}
               <div className="flex flex-col items-center py-4 relative">
                 <button 
                   onClick={() => setStep('flavors')}
-                  className="relative w-72 h-72 pizza-container group cursor-pointer transition-transform active:scale-95"
+                  className="relative w-72 h-72 lg:w-80 lg:h-80 pizza-container group cursor-pointer transition-transform active:scale-95"
                 >
                   {/* Board / Base Wood Effect */}
                   <div className="absolute inset-[-15px] bg-[#3a2214] rounded-full border-[12px] border-[#2a1a0f] shadow-2xl" />
@@ -263,106 +239,128 @@ export default function PizzaBuilderV2({
                   <span className="text-3xl font-black text-white italic">{formatCurrency(calculatePrice())}</span>
                 </div>
               </div>
+            </div>
+
+            {/* Coluna Direita - Todas as Opções */}
+            <div className="space-y-3">
+              {/* Tamanho Selector */}
+              <div className="space-y-2">
+                <label className="text-white text-xs font-black uppercase tracking-widest opacity-80">Tamanho:</label>
+                <div className="relative">
+                  <select 
+                    className="w-full text-white py-3 px-4 rounded-xl font-bold appearance-none text-sm shadow-lg border-b-4 focus:outline-none"
+                    style={{ backgroundColor: primaryColor, borderColor: '#c2410c' }}
+                    value={selectedSize?.id || ''}
+                    onChange={(e) => {
+                      const size = sizes.find(s => s.id === e.target.value);
+                      setSelectedSize(size);
+                      setSelectedFlavors([]);
+                    }}
+                  >
+                    {(sizes || []).filter(s => s && s.is_active).map(s => (
+                      <option key={s.id} value={s.id}>
+                        {s.name} - {s.slices} fatias - {s.max_flavors} {s.max_flavors === 1 ? 'sabor' : 'sabores'}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-white pointer-events-none" size={18} />
+                </div>
+              </div>
 
               {/* Sabores Info */}
-              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/5">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <p className="text-gray-400 text-[10px] uppercase tracking-widest font-black mb-1">🍕 Sabores</p>
-                    <p className="text-white text-sm font-black leading-tight">
+              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/5">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-gray-400 text-[9px] uppercase tracking-widest font-black mb-1">🍕 Sabores</p>
+                    <p className="text-white text-xs font-bold leading-tight truncate">
                       {selectedFlavors.length > 0 ? (
                         <span>{selectedFlavors.map(f => f.name).join(' + ')}</span>
                       ) : (
-                        <span className="text-gray-500">Toque na pizza acima</span>
+                        <span className="text-gray-500">Toque na pizza</span>
                       )}
                     </p>
                   </div>
                   <button 
                     onClick={() => setStep('flavors')}
-                    className="px-4 py-2 rounded-lg text-xs font-black uppercase transition-all active:scale-95"
+                    className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all active:scale-95 whitespace-nowrap"
                     style={{ backgroundColor: primaryColor, color: 'white' }}
                   >
                     {selectedFlavors.length > 0 ? 'Alterar' : 'Escolher'}
                   </button>
                 </div>
               </div>
-            </div>
 
-            {/* Coluna Direita - Opções de Personalização */}
-            <div className="space-y-4">
-              {/* Personalização */}
-              <div className="space-y-2">
-                <h3 className="text-white text-xs font-black uppercase tracking-widest opacity-80 px-2">Personalize sua pizza:</h3>
-                
-                {/* Borda */}
-                <button 
-                  onClick={() => setStep('borders')}
-                  className="w-full bg-white/10 backdrop-blur-sm text-white py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-between shadow-md active:scale-95 transition-all border border-white/5 hover:bg-white/20"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: `${primaryColor}30` }}>
-                      <Star size={16} style={{ color: primaryColor }} className="fill-current" />
-                    </div>
-                    <div className="text-left">
-                      <p className="text-[9px] text-gray-400 uppercase tracking-wider font-black">Borda</p>
-                      <p className="text-white font-black text-xs">
-                        {selectedEdge && selectedEdge.id !== 'none' ? selectedEdge.name : 'Sem borda'}
-                      </p>
-                    </div>
+              {/* Título Personalização */}
+              <h3 className="text-white text-xs font-black uppercase tracking-widest opacity-80 px-2 pt-2">Personalize sua pizza:</h3>
+              
+              {/* Borda */}
+              <button 
+                onClick={() => setStep('borders')}
+                className="w-full bg-white/10 backdrop-blur-sm text-white py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-between shadow-md active:scale-95 transition-all border border-white/5 hover:bg-white/20"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: `${primaryColor}30` }}>
+                    <Star size={16} style={{ color: primaryColor }} className="fill-current" />
                   </div>
-                  <ChevronDown className="text-gray-400" size={18} />
-                </button>
+                  <div className="text-left">
+                    <p className="text-[9px] text-gray-400 uppercase tracking-wider font-black">Borda</p>
+                    <p className="text-white font-black text-xs">
+                      {selectedEdge && selectedEdge.id !== 'none' ? selectedEdge.name : 'Sem borda'}
+                    </p>
+                  </div>
+                </div>
+                <ChevronDown className="text-gray-400" size={18} />
+              </button>
 
-                {/* Extras */}
-                <button 
-                  onClick={() => setStep('extras')}
-                  className="w-full bg-white/10 backdrop-blur-sm text-white py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-between shadow-md active:scale-95 transition-all border border-white/5 hover:bg-white/20"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center bg-blue-500/20">
-                      <Plus size={16} className="text-blue-400" />
-                    </div>
-                    <div className="text-left">
-                      <p className="text-[9px] text-gray-400 uppercase tracking-wider font-black">Extras</p>
-                      <p className="text-white font-black text-xs">
-                        {selectedExtras.length > 0 ? `${selectedExtras.length} selecionados` : 'Nenhum extra'}
-                      </p>
-                    </div>
+              {/* Extras */}
+              <button 
+                onClick={() => setStep('extras')}
+                className="w-full bg-white/10 backdrop-blur-sm text-white py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-between shadow-md active:scale-95 transition-all border border-white/5 hover:bg-white/20"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center bg-blue-500/20">
+                    <Plus size={16} className="text-blue-400" />
                   </div>
-                  <ChevronDown className="text-gray-400" size={18} />
-                </button>
+                  <div className="text-left">
+                    <p className="text-[9px] text-gray-400 uppercase tracking-wider font-black">Extras</p>
+                    <p className="text-white font-black text-xs">
+                      {selectedExtras.length > 0 ? `${selectedExtras.length} selecionados` : 'Nenhum extra'}
+                    </p>
+                  </div>
+                </div>
+                <ChevronDown className="text-gray-400" size={18} />
+              </button>
 
-                {/* Observações */}
-                <button 
-                  onClick={() => setStep('observations')}
-                  className="w-full bg-white/10 backdrop-blur-sm text-white py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-between shadow-md active:scale-95 transition-all border border-white/5 hover:bg-white/20"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center bg-gray-500/20">
-                      <span className="text-lg">📝</span>
-                    </div>
-                    <div className="text-left">
-                      <p className="text-[9px] text-gray-400 uppercase tracking-wider font-black">Observações</p>
-                      <p className="text-white font-black text-xs">
-                        {specifications ? 'Adicionadas' : 'Adicionar observações'}
-                      </p>
-                    </div>
+              {/* Observações */}
+              <button 
+                onClick={() => setStep('observations')}
+                className="w-full bg-white/10 backdrop-blur-sm text-white py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-between shadow-md active:scale-95 transition-all border border-white/5 hover:bg-white/20"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center bg-gray-500/20">
+                    <span className="text-lg">📝</span>
                   </div>
-                  <ChevronDown className="text-gray-400" size={18} />
-                </button>
-              </div>
+                  <div className="text-left">
+                    <p className="text-[9px] text-gray-400 uppercase tracking-wider font-black">Observações</p>
+                    <p className="text-white font-black text-xs">
+                      {specifications ? 'Adicionadas' : 'Adicionar observações'}
+                    </p>
+                  </div>
+                </div>
+                <ChevronDown className="text-gray-400" size={18} />
+              </button>
 
               {/* Botão de Adicionar - Desktop (visível apenas em telas grandes) */}
-              <div className="hidden lg:block pt-6">
+              <div className="hidden lg:block pt-4">
                 <button 
                   onClick={handleAddToCart}
                   disabled={!selectedSize || selectedFlavors.length === 0}
-                  className="w-full text-white py-5 rounded-xl font-black text-lg shadow-[0_10px_40px_rgba(0,0,0,0.5)] flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full text-white py-4 rounded-xl font-black text-base shadow-[0_10px_40px_rgba(0,0,0,0.5)] flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{ 
                     backgroundColor: (!selectedSize || selectedFlavors.length === 0) ? '#9ca3af' : '#4caf50'
                   }}
                 >
-                  <ShoppingBag size={24} /> ADICIONAR AO PEDIDO
+                  <ShoppingBag size={20} /> ADICIONAR AO PEDIDO
                 </button>
               </div>
             </div>
@@ -371,16 +369,16 @@ export default function PizzaBuilderV2({
       </div>
 
       {/* Footer Fixo - Adicionar (Mobile apenas) */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black via-black to-transparent z-50">
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black via-black/95 to-transparent z-50 pointer-events-none">
         <button 
           onClick={handleAddToCart}
           disabled={!selectedSize || selectedFlavors.length === 0}
-          className="w-full max-w-md mx-auto text-white py-5 rounded-xl font-black text-lg shadow-[0_10px_40px_rgba(0,0,0,0.5)] flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full max-w-md mx-auto text-white py-4 rounded-xl font-black text-base shadow-[0_10px_40px_rgba(0,0,0,0.5)] flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed pointer-events-auto"
           style={{ 
             backgroundColor: (!selectedSize || selectedFlavors.length === 0) ? '#9ca3af' : '#4caf50'
           }}
         >
-          <ShoppingBag size={24} /> ADICIONAR AO PEDIDO
+          <ShoppingBag size={20} /> ADICIONAR AO PEDIDO
         </button>
       </div>
     </div>
