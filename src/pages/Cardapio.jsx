@@ -613,7 +613,7 @@ export default function Cardapio() {
 
       {/* Hero Banner - Banner Superior Grande */}
       {store.banner_image ? (
-        <div className="relative w-full h-[200px] md:h-[240px] overflow-hidden">
+        <div className="relative w-full h-[200px] md:h-[88px] overflow-hidden">
           {/* Background Image */}
           <img 
             src={store.banner_image} 
@@ -624,211 +624,138 @@ export default function Cardapio() {
           {/* Overlay Gradient */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/30"></div>
           
-          {/* Logo e Nome do Restaurante - Topo Esquerdo (lado a lado) */}
-          <div className="absolute top-4 left-4 z-30 flex items-center gap-3">
-            {store.logo && (
-              <div className="w-12 h-12 md:w-16 md:h-16 rounded-full bg-white/95 backdrop-blur-sm p-1 shadow-2xl border-2 border-white/50 flex-shrink-0">
-                <img 
-                  src={store.logo} 
-                  alt={store.name} 
-                  className="w-full h-full rounded-full object-cover"
+          {/* Desktop: linha única - Logo | Search | Ícones */}
+          <div className="absolute inset-0 z-30 flex flex-col md:flex-row md:items-center md:justify-between md:gap-4 md:px-4 md:py-3">
+            <div className="flex items-center gap-3 pt-4 pl-4 md:pt-0 md:pl-0 md:flex-shrink-0">
+              {store.logo && (
+                <div className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-white/95 backdrop-blur-sm p-1 shadow-2xl border-2 border-white/50 flex-shrink-0">
+                  <img src={store.logo} alt={store.name} className="w-full h-full rounded-full object-cover" />
+                </div>
+              )}
+              <div className="text-white">
+                <h1 className="text-lg md:text-xl font-bold drop-shadow-lg leading-tight">{store.name}</h1>
+                <div className="flex items-center gap-3 mt-0.5 md:mt-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className={`w-1.5 h-1.5 rounded-full ${isStoreOpen ? 'bg-green-400' : 'bg-red-400'}`}></span>
+                    <span className="text-xs font-medium">{getStatusDisplay.text}</span>
+                  </div>
+                  {store.min_order_value > 0 && (
+                    <>
+                      <span className="text-white/60">•</span>
+                      <span className="text-xs opacity-90">
+                        Pedido mín. <span className="font-semibold">{formatCurrency(store.min_order_value)}</span>
+                      </span>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Search - rente aos ícones no desktop */}
+            <div className="absolute top-20 left-4 right-4 md:static md:flex-1 md:max-w-xl md:mx-4 z-30">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/80 md:text-muted-foreground" />
+                <Input
+                  placeholder="O que você procura hoje?"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 h-11 md:h-10 text-base bg-white/90 md:bg-white/95 backdrop-blur-sm border-white/30 text-foreground placeholder:text-muted-foreground"
                 />
               </div>
-            )}
-            <div className="text-white">
-              <h1 className="text-lg md:text-2xl font-bold drop-shadow-lg leading-tight">{store.name}</h1>
-              <div className="flex items-center gap-3 mt-1">
-                <div className="flex items-center gap-1.5">
-                  <span className={`w-1.5 h-1.5 rounded-full ${isStoreOpen ? 'bg-green-400' : 'bg-red-400'}`}></span>
-                  <span className="text-xs md:text-sm font-medium">{getStatusDisplay.text}</span>
-                </div>
-                {store.min_order_value > 0 && (
-                  <>
-                    <span className="text-white/60">•</span>
-                    <span className="text-xs md:text-sm opacity-90">
-                      Pedido mín. <span className="font-semibold">{formatCurrency(store.min_order_value)}</span>
-                    </span>
-                  </>
+            </div>
+
+            <div className="absolute top-4 right-4 md:static flex items-center gap-2 md:flex-shrink-0">
+              <button 
+                className="p-2 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-colors text-white" 
+                onClick={() => {
+                  if (navigator.share) {
+                    navigator.share({ title: store.name, text: `Confira o cardápio de ${store.name}`, url: window.location.href }).catch(() => {});
+                  } else {
+                    navigator.clipboard.writeText(window.location.href);
+                    toast.success('Link copiado!');
+                  }
+                }}
+                title="Compartilhar"
+              >
+                <Share2 className="w-5 h-5" />
+              </button>
+              <ThemeToggle className="text-white hover:bg-white/20" />
+              <button 
+                className={`p-2 rounded-full backdrop-blur-sm transition-all ${isAuthenticated ? 'bg-green-500/90 hover:bg-green-600' : 'bg-white/20 hover:bg-white/30'} text-white`}
+                onClick={() => {
+                  if (isAuthenticated) setShowCustomerProfile(true);
+                  else window.location.href = `/login/cliente?returnUrl=${encodeURIComponent(window.location.pathname)}`;
+                }}
+                title={isAuthenticated ? "Meu Perfil" : "Entrar / Cadastrar"}
+              >
+                <User className="w-5 h-5" />
+                {isAuthenticated && <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 border-2 border-white rounded-full"></span>}
+              </button>
+              <button 
+                className="hidden md:flex p-2 rounded-full relative bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-colors text-white" 
+                onClick={() => setShowCartModal(true)}
+              >
+                <ShoppingCart className="w-5 h-5" />
+                {cart.length > 0 && (
+                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">
+                    {cartItemsCount}
+                  </span>
                 )}
-              </div>
+              </button>
             </div>
-          </div>
-          
-          {/* Controles Superiores Direitos - Sobre o Banner */}
-          <div className="absolute top-4 right-4 z-30 flex items-center gap-2">
-            <button 
-              className="p-2 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-colors text-white" 
-              onClick={() => {
-                if (navigator.share) {
-                  navigator.share({
-                    title: store.name,
-                    text: `Confira o cardápio de ${store.name}`,
-                    url: window.location.href
-                  }).catch(() => {});
-                } else {
-                  navigator.clipboard.writeText(window.location.href);
-                  toast.success('Link copiado!');
-                }
-              }}
-              title="Compartilhar"
-            >
-              <Share2 className="w-5 h-5" />
-            </button>
-            <ThemeToggle className="text-white hover:bg-white/20" />
-            {/* Removido: Link do gestor - acesso apenas para assinantes via painel dedicado */}
-            <button 
-              className={`p-2 rounded-full backdrop-blur-sm transition-all ${isAuthenticated ? 'bg-green-500/90 hover:bg-green-600' : 'bg-white/20 hover:bg-white/30'} text-white`}
-              onClick={() => {
-                if (isAuthenticated) {
-                  setShowCustomerProfile(true);
-                } else {
-                  const currentUrl = window.location.pathname;
-                  window.location.href = `/login/cliente?returnUrl=${encodeURIComponent(currentUrl)}`;
-                }
-              }}
-              title={isAuthenticated ? "Meu Perfil" : "Entrar / Cadastrar"}
-            >
-              <User className="w-5 h-5" />
-              {isAuthenticated && (
-                <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 border-2 border-white rounded-full"></span>
-              )}
-            </button>
-            {/* Ícone de carrinho - oculto no mobile, visível no desktop */}
-            <button 
-              className="hidden md:flex p-2 rounded-full relative bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-colors text-white" 
-              onClick={() => setShowCartModal(true)}
-            >
-              <ShoppingCart className="w-5 h-5" />
-              {cart.length > 0 && (
-                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">
-                  {cartItemsCount}
-                </span>
-              )}
-            </button>
-          </div>
-
-          {/* Campo de Pesquisa - Centralizado no Banner */}
-          <div className="absolute top-20 md:top-24 left-4 right-4 z-30">
-            <div className="relative max-w-2xl mx-auto">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/80" />
-              <Input
-                placeholder="O que você procura hoje?"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 h-11 md:h-12 text-base bg-white/90 backdrop-blur-sm border-white/30 text-foreground placeholder:text-muted-foreground"
-              />
-            </div>
-          </div>
-
-          {/* Perfil da Loja - Canto Direito Inferior */}
-          <div className="absolute bottom-4 right-4 z-30">
-            <button 
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-colors text-white text-xs md:text-sm font-medium"
-              onClick={() => {
-                toast.success('Perfil da loja em breve!');
-              }}
-            >
-              <Info className="w-4 h-4" />
-              <span>Perfil da loja</span>
-            </button>
           </div>
         </div>
       ) : (
-        /* Header - Apenas quando NÃO tem banner */
-        <header className="border-b border-border sticky top-0 z-40 md:pb-2 pb-4 bg-card">
-          <div className="max-w-7xl mx-auto px-4 md:pt-3 pt-6">
-            <div className="flex items-center justify-between md:mb-3 mb-6">
-              <div className="flex items-center gap-3">
-                {store.logo ? (
-                  <img src={store.logo} alt={store.name} className="w-16 h-16 md:w-20 md:h-20 rounded-xl object-cover shadow-md" />
-                ) : (
-                  <div className="w-16 h-16 md:w-20 md:h-20 rounded-xl flex items-center justify-center text-3xl md:text-4xl shadow-md" style={{ backgroundColor: primaryColor }}>
-                    🍽️
-                  </div>
-                )}
-                <div className="hidden md:block">
-                  <h1 className="font-bold text-xl md:text-2xl text-foreground">{store.name}</h1>
-                  {store.min_order_value > 0 && (
-                    <p className="text-xs text-muted-foreground">Pedido mín. {formatCurrency(store.min_order_value)}</p>
+        /* Header - Apenas quando NÃO tem banner. Desktop: linha única com pesquisa rente */
+        <header className="border-b border-border sticky top-0 z-40 pb-4 md:pb-2 bg-card">
+          <div className="max-w-7xl mx-auto px-4 pt-6 md:pt-3 md:py-3">
+            {/* Desktop: logo | search | ícones em uma linha */}
+            <div className="flex flex-col md:flex-row md:items-center md:gap-4">
+              <div className="flex items-center justify-between mb-4 md:mb-0 md:flex-shrink-0">
+                <div className="flex items-center gap-3">
+                  {store.logo ? (
+                    <img src={store.logo} alt={store.name} className="w-16 h-16 md:w-14 md:h-14 rounded-xl object-cover shadow-md" />
+                  ) : (
+                    <div className="w-16 h-16 md:w-14 md:h-14 rounded-xl flex items-center justify-center text-3xl shadow-md" style={{ backgroundColor: primaryColor }}>
+                      🍽️
+                    </div>
                   )}
+                  <div>
+                    <h1 className="font-bold text-xl md:text-lg text-foreground">{store.name}</h1>
+                    {store.min_order_value > 0 && (
+                      <p className="text-xs text-muted-foreground">Pedido mín. {formatCurrency(store.min_order_value)}</p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 md:hidden">
+                  <button className="p-2 rounded-lg text-muted-foreground" onClick={() => { if (navigator.share) { navigator.share({ title: store.name, text: `Confira o cardápio de ${store.name}`, url: window.location.href }).catch(() => {}); } else { navigator.clipboard.writeText(window.location.href); toast.success('Link copiado!'); } }}><Share2 className="w-5 h-5" /></button>
+                  <ThemeToggle />
+                  <button className={`p-2 rounded-lg relative ${isAuthenticated ? 'text-green-600' : 'text-muted-foreground'}`} onClick={() => isAuthenticated ? setShowCustomerProfile(true) : (window.location.href = `/login/cliente?returnUrl=${encodeURIComponent(window.location.pathname)}`)}><User className="w-5 h-5" /></button>
+                  <button className="p-2 rounded-lg relative text-muted-foreground" onClick={() => setShowCartModal(true)}><ShoppingCart className="w-5 h-5" />{cart.length > 0 && <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">{cartItemsCount}</span>}</button>
                 </div>
               </div>
-              <div className="flex items-center gap-1 md:gap-2">
-                <button 
-                  className="p-2 rounded-lg transition-colors text-muted-foreground hover:text-foreground hover:bg-muted hidden md:flex" 
-                  onClick={() => {
-                    if (navigator.share) {
-                      navigator.share({
-                        title: store.name,
-                        text: `Confira o cardápio de ${store.name}`,
-                        url: window.location.href
-                      }).catch(() => {});
-                    } else {
-                      navigator.clipboard.writeText(window.location.href);
-                      toast.success('Link copiado!');
-                    }
-                  }}
-                  title="Compartilhar"
-                >
-                  <Share2 className="w-5 h-5" />
-                </button>
+              {/* Search - rente no desktop */}
+              <div className="relative flex-1 md:max-w-xl md:mx-4">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                <Input placeholder="O que você procura hoje?" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 h-12 md:h-10 text-base" />
+              </div>
+              {/* Ícones - ocultos no mobile (já estão na linha de cima) */}
+              <div className="hidden md:flex items-center gap-2 flex-shrink-0">
+                <button className="p-2 rounded-lg transition-colors text-muted-foreground hover:text-foreground hover:bg-muted" onClick={() => { if (navigator.share) { navigator.share({ title: store.name, text: `Confira o cardápio de ${store.name}`, url: window.location.href }).catch(() => {}); } else { navigator.clipboard.writeText(window.location.href); toast.success('Link copiado!'); } }} title="Compartilhar"><Share2 className="w-5 h-5" /></button>
                 <ThemeToggle className="text-muted-foreground hover:text-foreground hover:bg-muted" />
-                {/* Removido: Link do gestor - acesso apenas para assinantes via painel dedicado */}
-                <button 
-                  className={`relative p-2 rounded-lg transition-all ${isAuthenticated ? 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}
-                  onClick={() => {
-                    if (isAuthenticated) {
-                      setShowCustomerProfile(true);
-                    } else {
-                      const currentUrl = window.location.pathname;
-                      window.location.href = `/login/cliente?returnUrl=${encodeURIComponent(currentUrl)}`;
-                    }
-                  }}
-                  title={isAuthenticated ? "Meu Perfil" : "Entrar / Cadastrar"}
-                >
-                  <User className="w-5 h-5 md:w-6 md:h-6" />
-                  {isAuthenticated && (
-                    <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-white dark:border-gray-900"></span>
-                  )}
-                </button>
-                {/* Ícone de carrinho - oculto no mobile, visível no desktop */}
-                <button 
-                  className="hidden md:flex p-2 rounded-lg relative transition-colors text-muted-foreground hover:text-foreground hover:bg-muted" 
-                  onClick={() => setShowCartModal(true)}
-                >
-                  <ShoppingCart className="w-5 h-5 md:w-6 md:h-6" />
-                  {cart.length > 0 && (
-                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">
-                      {cartItemsCount}
-                    </span>
-                  )}
-                </button>
+                <button className={`relative p-2 rounded-lg transition-all ${isAuthenticated ? 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`} onClick={() => isAuthenticated ? setShowCustomerProfile(true) : (window.location.href = `/login/cliente?returnUrl=${encodeURIComponent(window.location.pathname)}`)} title={isAuthenticated ? "Meu Perfil" : "Entrar"}><User className="w-5 h-5" />{isAuthenticated && <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-white dark:border-gray-900"></span>}</button>
+                <button className="p-2 rounded-lg relative transition-colors text-muted-foreground hover:text-foreground hover:bg-muted" onClick={() => setShowCartModal(true)}><ShoppingCart className="w-5 h-5" />{cart.length > 0 && <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">{cartItemsCount}</span>}</button>
               </div>
             </div>
-
-            {/* Search */}
-            <div className="relative max-w-2xl mx-auto md:mb-2 mb-3">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-              <Input
-                placeholder="O que você procura hoje?"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 md:h-10 h-12 text-base"
-              />
-            </div>
-
-            {/* Status */}
-            <div className="text-center">
-              <span className={`text-xs font-medium ${getStatusDisplay.color}`}>
-                ● {getStatusDisplay.text}
-              </span>
+            <div className="text-center mt-2 md:mt-1">
+              <span className={`text-xs font-medium ${getStatusDisplay.color}`}>● {getStatusDisplay.text}</span>
             </div>
           </div>
         </header>
       )}
 
       {/* Category Tabs - Melhoradas */}
-      <div className={`bg-card border-b border-border sticky z-30 ${store.banner_image ? 'top-0' : 'md:top-[120px] top-[165px]'}`}>
+      <div className={`bg-card border-b border-border sticky z-30 ${store.banner_image ? 'md:top-0 top-0' : 'md:top-[88px] top-[165px]'}`}>
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex items-center justify-between gap-3 md:py-3 py-4">
             <div className="flex gap-2 overflow-x-auto scrollbar-hide flex-1">
