@@ -617,6 +617,13 @@ export async function createSubscriber(subscriberData) {
     const slug = (rawSlug == null || rawSlug === '') ? null : (String(rawSlug).trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') || null);
     // linked_user_email: email personalizado para acesso ao painel
     const linked_user_email = (subscriberData.linked_user_email == null || String(subscriberData.linked_user_email || '').trim() === '') ? null : String(subscriberData.linked_user_email).trim();
+    const phone = (subscriberData.phone == null || String(subscriberData.phone || '').trim() === '') ? null : String(subscriberData.phone).trim();
+    const cnpj_cpf = (subscriberData.cnpj_cpf == null || String(subscriberData.cnpj_cpf || '').trim() === '') ? null : String(subscriberData.cnpj_cpf).trim();
+    const notes = (subscriberData.notes == null || String(subscriberData.notes || '').trim() === '') ? null : String(subscriberData.notes).trim();
+    const origem = (subscriberData.origem == null || String(subscriberData.origem || '').trim() === '') ? null : String(subscriberData.origem).trim();
+    const tags = Array.isArray(subscriberData.tags) && subscriberData.tags.length > 0
+      ? subscriberData.tags.filter(t => t && String(t).trim())
+      : null;
     
     console.log('📝 [REPOSITORY] Valores preparados:', {
       email,
@@ -632,8 +639,8 @@ export async function createSubscriber(subscriberData) {
     
     // Usar ON CONFLICT para lidar com emails duplicados (upsert)
     const result = await query(
-      `INSERT INTO subscribers (email, name, plan, status, expires_at, permissions, whatsapp_auto_enabled, slug, linked_user_email)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      `INSERT INTO subscribers (email, name, plan, status, expires_at, permissions, whatsapp_auto_enabled, slug, linked_user_email, phone, cnpj_cpf, notes, origem, tags)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
        ON CONFLICT (email) DO UPDATE SET
          name = EXCLUDED.name,
          plan = EXCLUDED.plan,
@@ -643,6 +650,11 @@ export async function createSubscriber(subscriberData) {
          whatsapp_auto_enabled = EXCLUDED.whatsapp_auto_enabled,
          slug = EXCLUDED.slug,
          linked_user_email = EXCLUDED.linked_user_email,
+         phone = EXCLUDED.phone,
+         cnpj_cpf = EXCLUDED.cnpj_cpf,
+         notes = EXCLUDED.notes,
+         origem = EXCLUDED.origem,
+         tags = EXCLUDED.tags,
          updated_at = CURRENT_TIMESTAMP
        RETURNING *`,
       [
@@ -654,7 +666,12 @@ export async function createSubscriber(subscriberData) {
         permissionsJson,
         whatsapp_auto_enabled,
         slug,
-        linked_user_email
+        linked_user_email,
+        phone,
+        cnpj_cpf,
+        notes,
+        origem,
+        tags
       ]
     );
     
@@ -782,6 +799,29 @@ export async function updateSubscriber(emailOrId, subscriberData) {
   if (subscriberData.linked_user_email !== undefined) {
     updates.push(`linked_user_email = $${paramIndex++}`);
     values.push(subscriberData.linked_user_email === '' || subscriberData.linked_user_email === null ? null : String(subscriberData.linked_user_email).trim());
+  }
+  if (subscriberData.phone !== undefined) {
+    updates.push(`phone = $${paramIndex++}`);
+    values.push(subscriberData.phone === '' || subscriberData.phone === null ? null : String(subscriberData.phone).trim());
+  }
+  if (subscriberData.cnpj_cpf !== undefined) {
+    updates.push(`cnpj_cpf = $${paramIndex++}`);
+    values.push(subscriberData.cnpj_cpf === '' || subscriberData.cnpj_cpf === null ? null : String(subscriberData.cnpj_cpf).trim());
+  }
+  if (subscriberData.notes !== undefined) {
+    updates.push(`notes = $${paramIndex++}`);
+    values.push(subscriberData.notes === '' || subscriberData.notes === null ? null : String(subscriberData.notes).trim());
+  }
+  if (subscriberData.origem !== undefined) {
+    updates.push(`origem = $${paramIndex++}`);
+    values.push(subscriberData.origem === '' || subscriberData.origem === null ? null : String(subscriberData.origem).trim());
+  }
+  if (subscriberData.tags !== undefined) {
+    updates.push(`tags = $${paramIndex++}`);
+    const tagsVal = Array.isArray(subscriberData.tags) && subscriberData.tags.length > 0
+      ? subscriberData.tags.filter(t => t && String(t).trim())
+      : null;
+    values.push(tagsVal);
   }
   if (subscriberData.password_token !== undefined) {
     updates.push(`password_token = $${paramIndex++}`);

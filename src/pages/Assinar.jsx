@@ -535,7 +535,7 @@ export default function Assinar() {
       <footer className="py-8 px-4 border-t border-gray-200 bg-white">
         <div className="max-w-7xl mx-auto text-center">
           <p className="text-sm text-gray-600 mb-4">
-            © 2026 DigiMenu - Todos os direitos reservados
+            © {new Date().getFullYear()} DigiMenu - Todos os direitos reservados
           </p>
           <div className="flex items-center justify-center gap-8 text-sm text-gray-500">
             <a href="/termos" className="hover:text-orange-600 transition-colors font-medium">Termos de Uso</a>

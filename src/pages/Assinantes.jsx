@@ -24,7 +24,10 @@ import {
   CheckSquare,
   Square,
   Link2,
-  BarChart3
+  BarChart3,
+  Phone,
+  Building2,
+  Tag
 } from 'lucide-react';
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -50,6 +53,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import {
@@ -67,6 +80,7 @@ import ExportCSV from '../components/admin/subscribers/ExportCSV';
 import ImportCSV from '../components/admin/subscribers/ImportCSV';
 import AdvancedFilters from '../components/admin/subscribers/AdvancedFilters';
 import BulkActions from '../components/admin/subscribers/BulkActions';
+import SetupLinkModal from '../components/admin/subscribers/SetupLinkModal';
 import SubscriberStats from '../components/admin/subscribers/SubscriberStats';
 import { comparePermissions, getPlanPermissions } from '../components/permissions/PlanPresets';
 import { formatBrazilianDate } from '../components/utils/dateUtils';
@@ -91,15 +105,22 @@ export default function Assinantes() {
     linked_user_email: '',
     name: '',
     slug: '',
-    plan: 'basic', // Inicializar com 'basic' em vez de 'custom'
+    plan: 'basic',
     status: 'active',
     expires_at: '',
-    permissions: getPlanPermissions('basic') // Inicializar com permissões do plano básico
+    permissions: getPlanPermissions('basic'),
+    phone: '',
+    cnpj_cpf: '',
+    origem: 'manual',
+    tags: [],
+    notes: ''
   });
   const [viewingSubscriber, setViewingSubscriber] = useState(null);
   const [selectedSubscriberForData, setSelectedSubscriberForData] = useState(null);
   const [passwordTokens, setPasswordTokens] = useState({}); // Cache de tokens por assinante
   const [selectedSubscriberIds, setSelectedSubscriberIds] = useState(new Set()); // IDs selecionados para bulk actions
+  const [setupLinkModal, setSetupLinkModal] = useState({ open: false, url: null, name: null });
+  const [subscriberToDelete, setSubscriberToDelete] = useState(null);
 
   const queryClient = useQueryClient();
 
@@ -303,78 +324,31 @@ export default function Assinantes() {
         plan: 'basic', 
         status: 'active', 
         expires_at: '',
-        permissions: getPlanPermissions('basic')
+        permissions: getPlanPermissions('basic'),
+        phone: '',
+        cnpj_cpf: '',
+        origem: 'manual',
+        tags: [],
+        notes: ''
       });
       
-      // Construir URL base se não vier no setup_url
       const baseUrl = window.location.origin;
       let setupUrl = data.setup_url;
-      
-      // Se não tiver setup_url mas tiver token, construir manualmente
       if (!setupUrl && data.password_token) {
         setupUrl = `${baseUrl}/definir-senha?token=${data.password_token}`;
-        logger.log('🔗 [FRONTEND] URL construída manualmente:', setupUrl);
       }
       
-      // Mostrar link de definição de senha se disponível
-      if (setupUrl) {
-        const linkText = `Link para definir senha:\n\n${setupUrl}\n\n(Link copiado para a área de transferência)`;
-        
-        // Copiar link para área de transferência
-        try {
-          await navigator.clipboard.writeText(setupUrl);
-          logger.log('🔗 [FRONTEND] Link copiado para área de transferência:', setupUrl);
-        } catch (err) {
-          logger.error('❌ [FRONTEND] Erro ao copiar link:', err);
-        }
-        
-        // Mostrar toast
-        toast.success('Assinante criado! Link de definição de senha copiado.', {
-          duration: 5000
-        });
-        
-        // Mostrar alerta com o link (sempre exibir)
-        setTimeout(() => {
-          alert(`✅ Assinante criado com sucesso!\n\n${linkText}`);
-        }, 500);
-      } else {
-        console.warn('⚠️ [FRONTEND] setup_url não encontrado nos dados');
-        toast.success('Assinante criado com sucesso!');
-        alert('Assinante criado com sucesso!\n\n⚠️ Link de definição de senha não foi gerado. Verifique os logs do backend.');
+      try {
+        if (setupUrl) await navigator.clipboard.writeText(setupUrl);
+      } catch (err) {
+        logger.error('Erro ao copiar link:', err);
       }
       
-      // Invalidar e forçar refetch imediatamente (múltiplas tentativas para garantir)
+      toast.success(setupUrl ? 'Assinante criado! Link copiado.' : 'Assinante criado com sucesso!');
+      setSetupLinkModal({ open: true, url: setupUrl, name: data.name || data.email });
+      
       queryClient.invalidateQueries({ queryKey: ['subscribers'] });
-      
-      // Refetch imediato
-      setTimeout(async () => {
-        try {
-          const result = await refetchSubscribers();
-          logger.log('🔄 [1ª tentativa] Lista de assinantes atualizada:', result.data?.length || 0, 'assinantes');
-        } catch (error) {
-          logger.error('❌ Erro no refetch (1ª tentativa):', error);
-        }
-      }, 300);
-      
-      // Refetch após 1 segundo (caso a primeira não funcione)
-      setTimeout(async () => {
-        try {
-          const result = await refetchSubscribers();
-          logger.log('🔄 [2ª tentativa] Lista de assinantes atualizada:', result.data?.length || 0, 'assinantes');
-        } catch (error) {
-          logger.error('❌ Erro no refetch (2ª tentativa):', error);
-        }
-      }, 1500);
-      
-      // Refetch após 3 segundos (garantia final)
-      setTimeout(async () => {
-        try {
-          await queryClient.refetchQueries({ queryKey: ['subscribers'] });
-          logger.log('🔄 [3ª tentativa] Query invalidada e refetchada novamente');
-        } catch (error) {
-          logger.error('❌ Erro no refetch (3ª tentativa):', error);
-        }
-      }, 3000);
+      setTimeout(() => refetchSubscribers().catch(() => {}), 500);
     },
     onError: (error, newSubscriberData, context) => {
       // Rollback: reverter para estado anterior em caso de erro
@@ -547,36 +521,24 @@ export default function Assinantes() {
     });
   };
 
-  // Validação avançada de email
   const validateEmail = (email) => {
-    if (!email) {
-      return { valid: false, error: 'Email é obrigatório' };
-    }
-
+    if (!email) return { valid: false, error: 'Email é obrigatório' };
     const trimmedEmail = email.trim().toLowerCase();
-    
-    // Validação básica de formato
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(trimmedEmail)) {
-      return { valid: false, error: 'Formato de email inválido' };
-    }
-
-    // Verificar se email já existe
+    if (!emailRegex.test(trimmedEmail)) return { valid: false, error: 'Formato de email inválido' };
     const emailExists = subscribers.some(
       s => s.email?.toLowerCase() === trimmedEmail && s.id !== newSubscriber.id
     );
-    if (emailExists) {
-      return { valid: false, error: 'Este email já está cadastrado' };
-    }
-
-    // Verificar domínio comum
-    const domain = trimmedEmail.split('@')[1];
-    const commonDomains = ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com'];
-    if (!commonDomains.includes(domain) && !domain.includes('.')) {
-      return { valid: false, error: 'Domínio de email inválido' };
-    }
-
+    if (emailExists) return { valid: false, error: 'Este email já está cadastrado' };
     return { valid: true, email: trimmedEmail };
+  };
+
+  const normalizeSlug = (val) => (val || '').trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') || '';
+  const validateSlug = (slug) => {
+    if (!slug) return { valid: true, slug: '' };
+    const n = normalizeSlug(slug);
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(n)) return { valid: false, error: 'Use apenas letras minúsculas, números e hífen' };
+    return { valid: true, slug: n };
   };
 
   const handleAddSubscriber = () => {
@@ -597,32 +559,30 @@ export default function Assinantes() {
       permissions = getPlanPermissions(finalPlan);
     }
 
-    // Limpar campos vazios e garantir tipos corretos
+    const slugValidation = validateSlug(newSubscriber.slug);
+    if (!slugValidation.valid) {
+      toast.error(slugValidation.error);
+      return;
+    }
+
     const dataToCreate = {
       email: emailValidation.email,
       name: (newSubscriber.name || '').trim(),
       plan: finalPlan,
       status: String(newSubscriber.status || 'active'),
     };
-    
-    // Adicionar expires_at apenas se tiver valor
-    if (newSubscriber.expires_at) {
-      dataToCreate.expires_at = newSubscriber.expires_at;
-    }
-    
-    // slug: link do cardápio (/s/meu-restaurante). Backend normaliza.
-    if (newSubscriber.slug != null) {
-      dataToCreate.slug = (newSubscriber.slug || '').trim() || null;
-    }
-    
-    // linked_user_email: email personalizado para acesso ao painel (se diferente do email da assinatura)
+    if (newSubscriber.expires_at) dataToCreate.expires_at = newSubscriber.expires_at;
+    if (slugValidation.slug) dataToCreate.slug = slugValidation.slug;
     if (newSubscriber.linked_user_email != null && String(newSubscriber.linked_user_email || '').trim()) {
       dataToCreate.linked_user_email = String(newSubscriber.linked_user_email).trim();
     }
-    
-    // Adicionar permissions (sempre objeto válido)
-    if (permissions && Object.keys(permissions).length > 0) {
-      dataToCreate.permissions = permissions;
+    if (permissions && Object.keys(permissions).length > 0) dataToCreate.permissions = permissions;
+    if (newSubscriber.phone?.trim()) dataToCreate.phone = newSubscriber.phone.trim();
+    if (newSubscriber.cnpj_cpf?.trim()) dataToCreate.cnpj_cpf = newSubscriber.cnpj_cpf.trim();
+    if (newSubscriber.notes?.trim()) dataToCreate.notes = newSubscriber.notes.trim();
+    if (newSubscriber.origem?.trim()) dataToCreate.origem = newSubscriber.origem.trim();
+    if (Array.isArray(newSubscriber.tags) && newSubscriber.tags.length > 0) {
+      dataToCreate.tags = newSubscriber.tags.filter(t => t && String(t).trim());
     }
 
     logger.log('Criando assinante:', JSON.stringify(dataToCreate, null, 2));
@@ -677,8 +637,13 @@ export default function Assinantes() {
 
     logger.log('💾 SALVANDO - editingSubscriber completo:', JSON.stringify(editingSubscriber, null, 2));
 
+    const slugValidation = validateSlug(editingSubscriber.slug);
+    if (!slugValidation.valid) {
+      toast.error(slugValidation.error);
+      return;
+    }
     const dataToUpdate = {
-      id: editingSubscriber.id, // Incluir ID no data também para garantir
+      id: editingSubscriber.id,
       email: editingSubscriber.email,
       linked_user_email: editingSubscriber.linked_user_email || editingSubscriber.email,
       name: editingSubscriber.name || '',
@@ -687,7 +652,11 @@ export default function Assinantes() {
       expires_at: editingSubscriber.expires_at || '',
       permissions: editingSubscriber.permissions || {},
       notes: editingSubscriber.notes || '',
-      slug: editingSubscriber.slug ?? ''
+      slug: slugValidation.slug ?? '',
+      phone: editingSubscriber.phone || '',
+      cnpj_cpf: editingSubscriber.cnpj_cpf || '',
+      origem: editingSubscriber.origem || '',
+      tags: Array.isArray(editingSubscriber.tags) ? editingSubscriber.tags : []
     };
 
     logger.log('💾 SALVANDO - editingSubscriber.id:', editingSubscriber.id);
@@ -1121,6 +1090,19 @@ export default function Assinantes() {
                           </Badge>
                         </div>
                         <p className="text-sm text-gray-500">{subscriber.email}</p>
+                        {subscriber.phone && (
+                          <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
+                            <Phone className="w-3 h-3" /> {subscriber.phone}
+                          </p>
+                        )}
+                        {Array.isArray(subscriber.tags) && subscriber.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {subscriber.tags.slice(0, 3).map(tag => (
+                              <Badge key={tag} variant="outline" className="text-[10px] py-0 px-1.5">{tag}</Badge>
+                            ))}
+                            {subscriber.tags.length > 3 && <span className="text-xs text-gray-400">+{subscriber.tags.length - 3}</span>}
+                          </div>
+                        )}
                         {subscriber.linked_user_email && (
                           <p className="text-xs text-blue-600 flex items-center gap-1 mt-1">
                             🔗 Acesso: {subscriber.linked_user_email}
@@ -1213,36 +1195,30 @@ export default function Assinantes() {
                           </DropdownMenuItem>
                           <DropdownMenuItem 
                             onClick={() => {
-                              // Duplicar assinante
-                              const duplicated = {
-                                ...subscriber,
-                                email: `${subscriber.email.split('@')[0]}_copy@${subscriber.email.split('@')[1]}`,
-                                name: `${subscriber.name} (Cópia)`,
-                                id: undefined
-                              };
                               setNewSubscriber({
-                                email: duplicated.email,
+                                email: '',
                                 linked_user_email: subscriber.linked_user_email || '',
-                                name: duplicated.name,
+                                name: subscriber.name ? `${subscriber.name} (cópia)` : '',
                                 slug: '',
-                                plan: duplicated.plan,
-                                status: duplicated.status || 'active',
-                                expires_at: duplicated.expires_at || '',
-                                permissions: duplicated.permissions || getPlanPermissions('basic')
+                                plan: subscriber.plan || 'basic',
+                                status: subscriber.status || 'active',
+                                expires_at: subscriber.expires_at || '',
+                                permissions: subscriber.permissions || getPlanPermissions(subscriber.plan || 'basic'),
+                                phone: subscriber.phone || '',
+                                cnpj_cpf: subscriber.cnpj_cpf || '',
+                                origem: subscriber.origem || 'manual',
+                                tags: Array.isArray(subscriber.tags) ? [...subscriber.tags] : [],
+                                notes: subscriber.notes || ''
                               });
                               setShowAddModal(true);
-                              toast.success('Dados do assinante copiados! Revise e salve.');
+                              toast.success('Dados copiados. Informe um novo email e salve.');
                             }}
                           >
                             <Copy className="w-4 h-4 mr-2" />
                             Duplicar
                           </DropdownMenuItem>
                           <DropdownMenuItem 
-                            onClick={() => {
-                              if (confirm('Excluir este assinante?')) {
-                                deleteMutation.mutate(subscriber.id);
-                              }
-                            }}
+                            onClick={() => setSubscriberToDelete(subscriber)}
                             className="text-red-600"
                           >
                             <Trash2 className="w-4 h-4 mr-2" />
@@ -1340,6 +1316,58 @@ export default function Assinantes() {
                 />
               </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-1 block">Status</label>
+                  <Select value={newSubscriber.status} onValueChange={(v) => setNewSubscriber({...newSubscriber, status: v})}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">Ativo</SelectItem>
+                      <SelectItem value="inactive">Inativo</SelectItem>
+                      <SelectItem value="pending">Pendente</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-1 block flex items-center gap-1">
+                    <Phone className="w-4 h-4 text-orange-500" />
+                    Telefone
+                  </label>
+                  <Input
+                    placeholder="(00) 00000-0000"
+                    value={newSubscriber.phone || ''}
+                    onChange={(e) => setNewSubscriber({...newSubscriber, phone: e.target.value})}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-1 block flex items-center gap-1">
+                    <Building2 className="w-4 h-4 text-orange-500" />
+                    CNPJ/CPF
+                  </label>
+                  <Input
+                    placeholder="00.000.000/0001-00"
+                    value={newSubscriber.cnpj_cpf || ''}
+                    onChange={(e) => setNewSubscriber({...newSubscriber, cnpj_cpf: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-1 block">Origem</label>
+                  <Select value={newSubscriber.origem || 'manual'} onValueChange={(v) => setNewSubscriber({...newSubscriber, origem: v})}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="manual">Manual</SelectItem>
+                      <SelectItem value="import">Importação CSV</SelectItem>
+                      <SelectItem value="landing">Landing Page</SelectItem>
+                      <SelectItem value="indicacao">Indicação</SelectItem>
+                      <SelectItem value="outro">Outro</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <label className="text-sm font-medium text-gray-700 flex items-center gap-1">
@@ -1359,9 +1387,25 @@ export default function Assinantes() {
                   placeholder="ex: meu-restaurante"
                   value={newSubscriber.slug || ''}
                   onChange={(e) => setNewSubscriber({...newSubscriber, slug: e.target.value})}
+                  onBlur={(e) => setNewSubscriber(prev => ({...prev, slug: normalizeSlug(prev.slug)}))}
                   className="font-mono"
                 />
-                <p className="text-xs text-gray-500 mt-1">URL: /s/<span className="font-mono">{newSubscriber.slug || '...'}</span></p>
+                <p className="text-xs text-gray-500 mt-1">URL: /s/<span className="font-mono">{normalizeSlug(newSubscriber.slug) || '...'}</span></p>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1 block flex items-center gap-1">
+                  <Tag className="w-4 h-4 text-orange-500" />
+                  Tags (separadas por vírgula)
+                </label>
+                <Input
+                  placeholder="ex: beta, parceiro, vip"
+                  value={Array.isArray(newSubscriber.tags) ? newSubscriber.tags.join(', ') : ''}
+                  onChange={(e) => {
+                    const vals = (e.target.value || '').split(',').map(t => t.trim()).filter(Boolean);
+                    setNewSubscriber({...newSubscriber, tags: vals});
+                  }}
+                />
               </div>
             
             <PermissionsEditor
@@ -1371,23 +1415,33 @@ export default function Assinantes() {
               onPlanChange={handlePlanChange}
             />
             
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <label className="text-sm font-medium text-gray-700">Data de Expiração</label>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <HelpCircle className="w-4 h-4 text-gray-400 cursor-help" />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p className="max-w-xs">Data em que a assinatura expira automaticamente. Deixe vazio para assinatura sem expiração (permanente).</p>
-                    </TooltipContent>
-                  </Tooltip>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <label className="text-sm font-medium text-gray-700">Data de Expiração</label>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <HelpCircle className="w-4 h-4 text-gray-400 cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="max-w-xs">Data em que a assinatura expira. Deixe vazio para permanente.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                  <Input
+                    type="date"
+                    value={newSubscriber.expires_at}
+                    onChange={(e) => setNewSubscriber({...newSubscriber, expires_at: e.target.value})}
+                  />
                 </div>
-                <Input
-                  type="date"
-                  value={newSubscriber.expires_at}
-                  onChange={(e) => setNewSubscriber({...newSubscriber, expires_at: e.target.value})}
-                />
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-1 block">Observações</label>
+                  <Input
+                    placeholder="Notas internas..."
+                    value={newSubscriber.notes || ''}
+                    onChange={(e) => setNewSubscriber({...newSubscriber, notes: e.target.value})}
+                  />
+                </div>
               </div>
             </div>
           </TooltipProvider>
@@ -1468,9 +1522,59 @@ export default function Assinantes() {
                     placeholder="ex: meu-restaurante"
                     value={editingSubscriber.slug || ''}
                     onChange={(e) => setEditingSubscriber({...editingSubscriber, slug: e.target.value})}
+                    onBlur={(e) => setEditingSubscriber(prev => ({...prev, slug: normalizeSlug(prev.slug)}))}
                     className="font-mono"
                   />
-                  <p className="text-xs text-gray-500 mt-1">URL do cardápio: /s/<span className="font-mono">{editingSubscriber.slug || '...'}</span>. Apenas letras minúsculas, números e hífen. Deixe vazio para remover.</p>
+                  <p className="text-xs text-gray-500 mt-1">URL: /s/<span className="font-mono">{normalizeSlug(editingSubscriber.slug) || '...'}</span></p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-1 block flex items-center gap-1">
+                    <Phone className="w-4 h-4 text-orange-500" />
+                    Telefone
+                  </label>
+                  <Input
+                    placeholder="(00) 00000-0000"
+                    value={editingSubscriber.phone || ''}
+                    onChange={(e) => setEditingSubscriber({...editingSubscriber, phone: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-1 block flex items-center gap-1">
+                    <Building2 className="w-4 h-4 text-orange-500" />
+                    CNPJ/CPF
+                  </label>
+                  <Input
+                    placeholder="00.000.000/0001-00"
+                    value={editingSubscriber.cnpj_cpf || ''}
+                    onChange={(e) => setEditingSubscriber({...editingSubscriber, cnpj_cpf: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-1 block">Origem</label>
+                  <Select value={editingSubscriber.origem || 'manual'} onValueChange={(v) => setEditingSubscriber({...editingSubscriber, origem: v})}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="manual">Manual</SelectItem>
+                      <SelectItem value="import">Importação CSV</SelectItem>
+                      <SelectItem value="landing">Landing Page</SelectItem>
+                      <SelectItem value="indicacao">Indicação</SelectItem>
+                      <SelectItem value="outro">Outro</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="text-sm font-medium text-gray-700 mb-1 block flex items-center gap-1">
+                    <Tag className="w-4 h-4 text-orange-500" />
+                    Tags (separadas por vírgula)
+                  </label>
+                  <Input
+                    placeholder="ex: beta, parceiro"
+                    value={Array.isArray(editingSubscriber.tags) ? editingSubscriber.tags.join(', ') : ''}
+                    onChange={(e) => {
+                      const vals = (e.target.value || '').split(',').map(t => t.trim()).filter(Boolean);
+                      setEditingSubscriber({...editingSubscriber, tags: vals});
+                    }}
+                  />
                 </div>
               </div>
 
@@ -1576,6 +1680,41 @@ export default function Assinantes() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Modal pós-criação - link de definição de senha */}
+      <SetupLinkModal
+        open={setupLinkModal.open}
+        onClose={() => setSetupLinkModal({ open: false, url: null, name: null })}
+        setupUrl={setupLinkModal.url}
+        subscriberName={setupLinkModal.name}
+      />
+
+      {/* AlertDialog para exclusão */}
+      <AlertDialog open={!!subscriberToDelete} onOpenChange={(open) => !open && setSubscriberToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir assinante?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação é irreversível. O assinante <strong>{subscriberToDelete?.name || subscriberToDelete?.email}</strong> e todos os dados associados serão removidos.
+              Considerar desativar em vez de excluir para preservar o histórico.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700"
+              onClick={() => {
+                if (subscriberToDelete) {
+                  deleteMutation.mutate(subscriberToDelete.id);
+                  setSubscriberToDelete(null);
+                }
+              }}
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -76,11 +76,9 @@ export default function LoginAdmin() {
     <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
       <div className="w-full max-w-md">
         <div className="rounded-2xl shadow-2xl p-8 bg-gray-800 dark:bg-gray-900 border border-gray-700">
-          {/* Header */}
+          {/* Header - Logo DigiMenu + Admin Master */}
           <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
-              <Settings className="w-8 h-8 text-white" />
-            </div>
+            <img src="/images/digimenu-logo.svg" alt="DigiMenu" className="h-12 w-auto mx-auto mb-3 drop-shadow-lg" />
             <div className="flex items-center justify-center gap-2 mb-2">
               <Shield className="w-5 h-5 text-amber-400" />
               <h1 className="text-3xl font-bold text-white">

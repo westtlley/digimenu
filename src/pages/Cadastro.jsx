@@ -115,10 +115,8 @@ export default function Cadastro() {
         
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl mx-auto flex items-center justify-center text-3xl shadow-lg mb-4">
-            🍽️
-          </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">DigiMenu</h1>
+          <img src="/images/digimenu-logo.svg" alt="DigiMenu" className="h-14 w-auto mx-auto mb-3 drop-shadow-md" />
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">DigiMenu</h1>
           <p className="text-gray-600">Crie sua conta e comece agora</p>
         </div>
 
@@ -280,7 +278,7 @@ export default function Cadastro() {
 
         {/* Footer */}
         <div className="text-center mt-8 text-xs text-gray-400">
-          DigiMenu © 2026 - Todos os direitos reservados
+          DigiMenu © {new Date().getFullYear()} - Todos os direitos reservados
         </div>
       </div>
     </div>

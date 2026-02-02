@@ -1,10 +1,37 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    VitePWA({
+      registerType: 'autoUpdate',
+      includeAssets: ['favicon.ico'],
+      manifest: {
+        name: 'DigiMenu - Gestão de Restaurante',
+        short_name: 'DigiMenu',
+        description: 'Cardápio digital, PDV, Gestor de Pedidos, Entregador e Garçom',
+        theme_color: '#0f172a',
+        background_color: '#0f172a',
+        display: 'standalone',
+        orientation: 'portrait-primary',
+        scope: '/',
+        start_url: '/',
+        icons: [
+          { src: '/icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' }
+        ],
+        categories: ['food', 'business']
+      },
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        navigateFallback: '/index.html',
+        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024 // 4 MB para bundles grandes
+      }
+    })
+  ],
   server: {
     allowedHosts: true
   },

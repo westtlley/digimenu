@@ -12,6 +12,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useDocumentHead } from '@/hooks/useDocumentHead';
 import toast from 'react-hot-toast';
 import SharedSidebar from '../components/admin/SharedSidebar';
+import InstallAppButton from '../components/InstallAppButton';
 import DashboardTab from '../components/admin/DashboardTab';
 import WhatsAppComandaToggle from '../components/admin/WhatsAppComandaToggle';
 import DishesTab from '../components/admin/DishesTab';
@@ -245,10 +246,11 @@ export default function PainelAssinante() {
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap overflow-x-auto scrollbar-hide">
+            <InstallAppButton pageName="Painel" compact />
             {hasModuleAccess('pdv') && (
               <Link to={to('PDV')}>
-                <Button size="sm" className="bg-white text-orange-600 hover:bg-orange-50">
+                <Button size="sm" className="bg-white text-orange-600 hover:bg-orange-50 min-h-touch">
                   <Calculator className="w-4 h-4 mr-2" />
                   PDV
                 </Button>

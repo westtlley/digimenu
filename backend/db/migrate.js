@@ -130,6 +130,38 @@ export async function migrate() {
           console.warn('⚠️ Aviso ao adicionar colunas em subscribers (pode já existir):', error.message);
         }
 
+        // phone, cnpj_cpf, notes, origem, tags em subscribers
+        try {
+          await query(`
+            DO $$ 
+            BEGIN
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='subscribers' AND column_name='phone') THEN
+                ALTER TABLE subscribers ADD COLUMN phone VARCHAR(50);
+                RAISE NOTICE 'Coluna phone adicionada em subscribers';
+              END IF;
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='subscribers' AND column_name='cnpj_cpf') THEN
+                ALTER TABLE subscribers ADD COLUMN cnpj_cpf VARCHAR(30);
+                RAISE NOTICE 'Coluna cnpj_cpf adicionada em subscribers';
+              END IF;
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='subscribers' AND column_name='notes') THEN
+                ALTER TABLE subscribers ADD COLUMN notes TEXT;
+                RAISE NOTICE 'Coluna notes adicionada em subscribers';
+              END IF;
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='subscribers' AND column_name='origem') THEN
+                ALTER TABLE subscribers ADD COLUMN origem VARCHAR(100);
+                RAISE NOTICE 'Coluna origem adicionada em subscribers';
+              END IF;
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='subscribers' AND column_name='tags') THEN
+                ALTER TABLE subscribers ADD COLUMN tags TEXT[];
+                RAISE NOTICE 'Coluna tags adicionada em subscribers';
+              END IF;
+            END $$;
+          `);
+          console.log('✅ Migração de colunas phone/cnpj_cpf/notes/origem/tags em subscribers concluída.');
+        } catch (error) {
+          console.warn('⚠️ Aviso ao adicionar colunas extras em subscribers (pode já existir):', error.message);
+        }
+
         // Tabela password_reset_tokens (esqueci minha senha — usuários e assinantes)
         await query(`
           CREATE TABLE IF NOT EXISTS password_reset_tokens (

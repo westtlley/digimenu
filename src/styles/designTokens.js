@@ -135,7 +135,12 @@ export const designTokens = {
     xl: '1280px',
     '2xl': '1536px',
   },
-  // Gestor de Pedidos – identidade DigiMenu (laranja #f97316)
+  // Identidade visual DigiMenu (laranja)
+  brand: {
+    primary: '#F77F00',
+    primaryAlt: '#f97316',
+  },
+  // Gestor de Pedidos – identidade DigiMenu
   gestor: {
     primary: '#f97316',
     primaryHover: '#ea580c',

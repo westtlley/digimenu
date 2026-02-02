@@ -12,28 +12,19 @@ export function exportSubscribersToCSV(subscribers) {
     return '';
   }
 
-  // Cabeçalhos
   const headers = [
-    'Email',
-    'Nome',
-    'Plano',
-    'Status',
-    'Data de Expiração',
-    'Email de Acesso',
-    'Observações'
+    'Email', 'Nome', 'Plano', 'Status', 'Data de Expiração', 'Email de Acesso',
+    'Telefone', 'CNPJ_CPF', 'Origem', 'Tags', 'Slug', 'Observações'
   ];
 
-  // Converter assinantes para linhas CSV
   const rows = subscribers.map(sub => {
+    const tagsStr = Array.isArray(sub.tags) ? sub.tags.join(';') : '';
     return [
-      sub.email || '',
-      sub.name || '',
-      sub.plan || 'basic',
-      sub.status || 'active',
-      sub.expires_at || '',
-      sub.linked_user_email || '',
-      (sub.notes || '').replace(/"/g, '""') // Escapar aspas duplas
-    ].map(field => `"${field}"`).join(',');
+      sub.email || '', sub.name || '', sub.plan || 'basic', sub.status || 'active',
+      sub.expires_at || '', sub.linked_user_email || '', sub.phone || '',
+      sub.cnpj_cpf || '', sub.origem || '', tagsStr, sub.slug || '',
+      (sub.notes || '').replace(/"/g, '""')
+    ].map(field => `"${String(field)}"`).join(',');
   });
 
   // Combinar cabeçalhos e linhas
@@ -73,12 +64,17 @@ export function importCSVToSubscribers(csvText) {
   const headers = parseCSVLine(headerLine);
 
   // Mapear índices esperados
-  const emailIdx = headers.findIndex(h => /email/i.test(h) && !/acesso/i.test(h));
+  const emailIdx = headers.findIndex(h => /^email$/i.test(h) || (/email/i.test(h) && !/acesso/i.test(h)));
   const nameIdx = headers.findIndex(h => /nome/i.test(h));
   const planIdx = headers.findIndex(h => /plano/i.test(h));
   const statusIdx = headers.findIndex(h => /status/i.test(h));
   const expiresIdx = headers.findIndex(h => /expira/i.test(h));
   const linkedEmailIdx = headers.findIndex(h => /acesso/i.test(h));
+  const phoneIdx = headers.findIndex(h => /telefone|phone/i.test(h));
+  const cnpjIdx = headers.findIndex(h => /cnpj|cpf/i.test(h));
+  const origemIdx = headers.findIndex(h => /origem/i.test(h));
+  const tagsIdx = headers.findIndex(h => /tags/i.test(h));
+  const slugIdx = headers.findIndex(h => /slug|link/i.test(h));
   const notesIdx = headers.findIndex(h => /observa|note/i.test(h));
 
   // Parsear linhas de dados
@@ -100,6 +96,8 @@ export function importCSVToSubscribers(csvText) {
       continue;
     }
 
+    const tagsRaw = values[tagsIdx]?.trim();
+    const tags = tagsRaw ? tagsRaw.split(/[;,]/).map(t => t.trim()).filter(Boolean) : [];
     subscribers.push({
       email: email.toLowerCase(),
       name: values[nameIdx]?.trim() || '',
@@ -107,6 +105,11 @@ export function importCSVToSubscribers(csvText) {
       status: values[statusIdx]?.trim() || 'active',
       expires_at: values[expiresIdx]?.trim() || '',
       linked_user_email: values[linkedEmailIdx]?.trim() || '',
+      phone: values[phoneIdx]?.trim() || '',
+      cnpj_cpf: values[cnpjIdx]?.trim() || '',
+      origem: values[origemIdx]?.trim() || 'import',
+      tags: tags.length ? tags : undefined,
+      slug: values[slugIdx]?.trim() || '',
       notes: values[notesIdx]?.trim() || ''
     });
   }

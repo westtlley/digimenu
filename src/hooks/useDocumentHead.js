@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 
-const DEFAULT_FAVICON = 'https://base44.com/logo_v2.svg';
-const DEFAULT_TITLE = 'Digimenu';
+const DEFAULT_FAVICON = '/images/digimenu-logo.svg';
+const DEFAULT_TITLE = 'DigiMenu';
 
 /**
  * Atualiza o título da página e o favicon com os dados da loja/restaurante.

@@ -32,6 +32,7 @@ import { useCriticalNotifications } from '../components/hooks/useCriticalNotific
 import RouteOptimizer from '../components/entregador/RouteOptimizer';
 import DeliveryProgressBar from '../components/entregador/DeliveryProgressBar';
 import EmergencyButton from '../components/entregador/EmergencyButton';
+import InstallAppButton from '../components/InstallAppButton';
 import BatteryAlert from '../components/entregador/BatteryAlert';
 import PauseModal from '../components/entregador/PauseModal';
 import QuickReportModal from '../components/entregador/QuickReportModal';
@@ -496,11 +497,12 @@ export default function Entregador() {
             </div>
             
             <div className="flex items-center gap-2">
+              <InstallAppButton pageName="Entregador" compact />
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => setShowTutorial(true)}
-                className="hidden md:flex"
+                className="hidden md:flex min-h-touch min-w-touch"
               >
                 <HelpCircle className="w-5 h-5" />
               </Button>

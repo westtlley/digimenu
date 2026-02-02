@@ -29,7 +29,7 @@ const MODULE_GROUPS = [
     id: 'cardapio',
     name: 'Cardápio',
     modules: [
-      { id: 'dishes', name: 'Pratos', actions: ['view', 'create', 'update', 'delete'] },
+      { id: 'dishes', name: 'Pratos e Bebidas', actions: ['view', 'create', 'update', 'delete'] },
       { id: 'pizza_config', name: 'Pizzas', actions: ['view', 'create', 'update', 'delete'] },
       { id: 'comandas', name: 'Comandas', actions: ['view', 'create', 'update', 'close', 'history'] },
       { id: 'delivery_zones', name: 'Zonas de Entrega', actions: ['view', 'create', 'update', 'delete'] },

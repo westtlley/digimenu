@@ -20,6 +20,7 @@ import UpsellModal from '../components/menu/UpsellModal';
 import { usePermission } from '../components/permissions/usePermission';
 import { useUpsell } from '../components/hooks/useUpsell';
 import { usePDVHotkeys } from '../utils/pdvFunctions';
+import InstallAppButton from '../components/InstallAppButton';
 
 export default function PDV() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -453,22 +454,23 @@ export default function PDV() {
       <Toaster position="top-center" />
       
       {/* Header Fixo */}
-      <div className="bg-gray-900 text-white h-16 flex-shrink-0 border-b border-gray-700">
-        <div className="h-full px-4 flex items-center justify-between max-w-[2000px] mx-auto">
-          <div className="flex items-center gap-4">
-            <Link to={backUrl}>
-              <Button variant="ghost" size="sm" className="text-white hover:bg-gray-800 h-10">
+      <div className="bg-gray-900 text-white h-14 sm:h-16 flex-shrink-0 border-b border-gray-700 safe-top">
+        <div className="h-full px-3 sm:px-4 flex items-center justify-between max-w-[2000px] mx-auto gap-2">
+          <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+            <Link to={backUrl} className="shrink-0">
+              <Button variant="ghost" size="sm" className="text-white hover:bg-gray-800 min-h-touch min-w-touch h-10 sm:h-10 px-2 sm:px-3">
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Voltar
               </Button>
             </Link>
-            <div className="flex items-center gap-2">
-              <Receipt className="w-5 h-5" />
-              <h1 className="font-bold text-lg">PDV - Venda Presencial</h1>
+            <div className="flex items-center gap-2 min-w-0">
+              <Receipt className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
+              <h1 className="font-bold text-sm sm:text-lg truncate">PDV - Venda Presencial</h1>
             </div>
           </div>
           
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <InstallAppButton pageName="PDV" compact />
             {openCaixa ? (
               <Badge variant="outline" className="bg-green-600 text-white border-green-600 h-8 font-semibold">
                 ✅ Caixa Aberto
@@ -502,11 +504,11 @@ export default function PDV() {
           <div className="flex flex-col bg-white h-full overflow-hidden">
             
             {/* Categorias */}
-            <div className="flex-shrink-0 bg-gray-50 border-b px-4 py-3">
+            <div className="flex-shrink-0 bg-gray-50 border-b px-3 sm:px-4 py-2 sm:py-3">
               <div className="flex gap-2 overflow-x-auto scrollbar-hide">
                 <button
                   onClick={() => setSelectedCategory('all')}
-                  className={`px-5 py-2.5 rounded-lg text-sm font-bold whitespace-nowrap transition-colors ${
+                  className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-bold whitespace-nowrap transition-colors min-h-touch ${
                     selectedCategory === 'all'
                       ? 'bg-orange-500 text-white'
                       : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
@@ -517,7 +519,7 @@ export default function PDV() {
                 {hasPizzas && (
                   <button
                     onClick={() => setSelectedCategory('pizzas')}
-                    className={`px-5 py-2.5 rounded-lg text-sm font-bold whitespace-nowrap transition-colors ${
+                    className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-bold whitespace-nowrap transition-colors min-h-touch ${
                       selectedCategory === 'pizzas' ? 'bg-orange-500 text-white' : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
                     }`}
                   >
@@ -528,7 +530,7 @@ export default function PDV() {
                   <button
                     key={cat.id}
                     onClick={() => setSelectedCategory(cat.id)}
-                    className={`px-5 py-2.5 rounded-lg text-sm font-bold whitespace-nowrap transition-colors ${
+                    className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-bold whitespace-nowrap transition-colors min-h-touch ${
                       selectedCategory === cat.id
                         ? 'bg-orange-500 text-white'
                         : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
@@ -656,7 +658,7 @@ export default function PDV() {
                       <div className="flex items-center gap-2 bg-gray-700 rounded-lg p-0.5">
                         <button
                           onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                          className="w-8 h-8 rounded hover:bg-gray-600 flex items-center justify-center"
+                          className="w-9 h-9 min-h-touch min-w-touch rounded hover:bg-gray-600 flex items-center justify-center"
                         >
                           <Minus className="w-4 h-4 text-white" />
                         </button>
@@ -665,7 +667,7 @@ export default function PDV() {
                         </span>
                         <button
                           onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                          className="w-8 h-8 rounded hover:bg-gray-600 flex items-center justify-center"
+                          className="w-9 h-9 min-h-touch min-w-touch rounded hover:bg-gray-600 flex items-center justify-center"
                         >
                           <Plus className="w-4 h-4 text-white" />
                         </button>
@@ -784,7 +786,7 @@ export default function PDV() {
                   </div>
                   <button
                     onClick={() => removeItem(item.id)}
-                    className="text-red-400 p-1.5"
+                    className="text-red-400 p-2 min-h-touch min-w-touch rounded hover:bg-red-900/20"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -793,14 +795,14 @@ export default function PDV() {
                   <div className="flex items-center gap-2 bg-gray-700 rounded-lg p-0.5">
                     <button
                       onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                      className="w-8 h-8 rounded flex items-center justify-center"
+                      className="w-9 h-9 min-h-touch min-w-touch rounded flex items-center justify-center hover:bg-gray-600"
                     >
                       <Minus className="w-4 h-4 text-white" />
                     </button>
                     <span className="w-10 text-center font-bold text-white">{item.quantity}</span>
                     <button
                       onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                      className="w-8 h-8 rounded flex items-center justify-center"
+                      className="w-9 h-9 min-h-touch min-w-touch rounded flex items-center justify-center hover:bg-gray-600"
                     >
                       <Plus className="w-4 h-4 text-white" />
                     </button>

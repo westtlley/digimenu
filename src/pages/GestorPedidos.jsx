@@ -32,6 +32,7 @@ import { downloadOrdersCSV, exportGestorReportPDF, printOrdersInQueue } from '..
 import { getNotificationSoundConfig } from '@/utils/gestorSounds';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import InstallAppButton from '../components/InstallAppButton';
 
 export default function GestorPedidos() {
   const [activeTab, setActiveTab] = useState('now'); // now, scheduled
@@ -446,7 +447,8 @@ export default function GestorPedidos() {
 
             {/* Right: ícones + ações */}
             <div className="flex items-center gap-1 flex-shrink-0">
-              <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setViewMode('resumo')} title="Resumo">
+              <InstallAppButton pageName="Gestor" compact />
+              <Button variant="ghost" size="icon" className="h-9 w-9 min-h-touch min-w-touch" onClick={() => setViewMode('resumo')} title="Resumo">
                 <BarChart2 className="w-4 h-4 text-gray-600" />
               </Button>
               <a href="#suporte" className="hidden sm:inline-flex items-center justify-center h-9 w-9 rounded-md text-gray-600 hover:bg-gray-100" title="Suporte">

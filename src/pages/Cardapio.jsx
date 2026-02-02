@@ -27,6 +27,7 @@ import CustomerProfileModal from '../components/customer/CustomerProfileModal';
 import StoreClosedOverlay from '../components/menu/StoreClosedOverlay';
 import ThemeToggle from '../components/ui/ThemeToggle';
 import QuickSignupModal from '../components/menu/QuickSignupModal';
+import InstallAppButton from '../components/InstallAppButton';
 
 // Hooks
 import { useCart } from '@/components/hooks/useCart';
@@ -47,9 +48,7 @@ function CardapioSemLink() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
       <div className="text-center max-w-md p-8 rounded-2xl bg-white dark:bg-gray-800 shadow-xl border border-gray-200 dark:border-gray-700">
-        <div className="w-16 h-16 mx-auto mb-4 rounded-2xl flex items-center justify-center bg-orange-500/10">
-          <UtensilsCrossed className="w-8 h-8 text-orange-500" />
-        </div>
+        <img src="/images/digimenu-logo.svg" alt="DigiMenu" className="h-16 w-auto mx-auto mb-4 drop-shadow-md" />
         <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">DigiMenu</h1>
         <p className="mt-3 text-gray-600 dark:text-gray-400">
           O cardápio digital é acessado pelo link do estabelecimento: <strong>/s/nome-do-restaurante</strong>
@@ -583,35 +582,31 @@ export default function Cardapio() {
     <div className="min-h-screen min-h-screen-mobile bg-background">
       <Toaster position="top-center" />
 
-      {/* Splash rápido ao carregar o cardápio */}
+      {/* Splash DigiMenu - logo e "Seu cardápio digital" */}
       <AnimatePresence>
         {showSplash && (
           <motion.div
             initial={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.35 }}
-            className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-gray-900"
+            className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#F77F00]"
           >
             <motion.div
               initial={{ scale: 0.85, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ duration: 0.3 }}
-              className="flex flex-col items-center gap-4"
+              className="flex flex-col items-center gap-5 px-6"
             >
-              {store?.logo ? (
-                <div className="w-20 h-20 rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl">
-                  <img src={store.logo} alt="" className="w-full h-full object-cover" />
-                </div>
-              ) : (
-                <div className="w-20 h-20 rounded-2xl flex items-center justify-center shadow-2xl" style={{ backgroundColor: primaryColor }}>
-                  <UtensilsCrossed className="w-10 h-10 text-white" />
-                </div>
-              )}
-              <p className="text-white font-semibold text-lg">{store?.name || 'Cardápio'}</p>
+              <img
+                src="/images/digimenu-logo.svg"
+                alt="DigiMenu"
+                className="h-24 w-auto max-w-[280px] object-contain drop-shadow-lg"
+              />
+              <p className="text-white font-semibold text-xl text-center drop-shadow-sm">Seu cardápio digital</p>
               <motion.div
                 animate={{ opacity: [0.4, 1, 0.4] }}
                 transition={{ duration: 0.8, repeat: Infinity }}
-                className="h-1 w-24 rounded-full bg-white/60"
+                className="h-1 w-24 rounded-full bg-white/70"
               />
             </motion.div>
           </motion.div>
@@ -683,8 +678,9 @@ export default function Cardapio() {
             </div>
 
             <div className="absolute top-4 right-4 md:static flex items-center gap-2 md:flex-shrink-0">
+              <InstallAppButton pageName="Cardápio" compact />
               <button 
-                className="p-2 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-colors text-white" 
+                className="p-2 rounded-full min-h-touch min-w-touch bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-colors text-white flex items-center justify-center" 
                 onClick={() => {
                   if (navigator.share) {
                     navigator.share({ title: store.name, text: `Confira o cardápio de ${store.name}`, url: window.location.href }).catch(() => {});
@@ -746,7 +742,8 @@ export default function Cardapio() {
                   </div>
                 </div>
                 <div className="flex items-center gap-1 md:hidden">
-                  <button className="p-2 rounded-lg text-muted-foreground" onClick={() => { if (navigator.share) { navigator.share({ title: store.name, text: `Confira o cardápio de ${store.name}`, url: window.location.href }).catch(() => {}); } else { navigator.clipboard.writeText(window.location.href); toast.success('Link copiado!'); } }}><Share2 className="w-5 h-5" /></button>
+                  <InstallAppButton pageName="Cardápio" compact />
+                  <button className="p-2 rounded-lg min-h-touch min-w-touch text-muted-foreground" onClick={() => { if (navigator.share) { navigator.share({ title: store.name, text: `Confira o cardápio de ${store.name}`, url: window.location.href }).catch(() => {}); } else { navigator.clipboard.writeText(window.location.href); toast.success('Link copiado!'); } }}><Share2 className="w-5 h-5" /></button>
                   <ThemeToggle />
                   <button className={`p-2 rounded-lg relative ${isAuthenticated ? 'text-green-600' : 'text-muted-foreground'}`} onClick={() => isAuthenticated ? setShowCustomerProfile(true) : (window.location.href = `/login/cliente?returnUrl=${encodeURIComponent(window.location.pathname)}`)}><User className="w-5 h-5" /></button>
                   <button className="p-2 rounded-lg relative text-muted-foreground" onClick={() => setShowCartModal(true)}><ShoppingCart className="w-5 h-5" />{cart.length > 0 && <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">{cartItemsCount}</span>}</button>

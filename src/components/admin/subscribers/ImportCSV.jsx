@@ -97,7 +97,7 @@ export default function ImportCSV({ onImport, disabled = false }) {
                 className="cursor-pointer"
               />
               <p className="text-xs text-gray-500 mt-1">
-                Formato esperado: Email, Nome, Plano, Status, Data de Expiração, Email de Acesso, Observações
+                Colunas: Email, Nome, Plano, Status, Data de Expiração, Email de Acesso, Telefone, CNPJ_CPF, Origem, Tags, Slug, Observações
               </p>
             </div>
 

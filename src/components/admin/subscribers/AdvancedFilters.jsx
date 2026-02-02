@@ -155,9 +155,10 @@ export default function AdvancedFilters({ subscribers = [], onFilterChange }) {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="free">Gratuito</SelectItem>
                 <SelectItem value="basic">Básico</SelectItem>
-                <SelectItem value="pro">Profissional</SelectItem>
-                <SelectItem value="premium">Premium</SelectItem>
+                <SelectItem value="pro">Pro</SelectItem>
+                <SelectItem value="ultra">Ultra</SelectItem>
                 <SelectItem value="custom">Personalizado</SelectItem>
               </SelectContent>
             </Select>
