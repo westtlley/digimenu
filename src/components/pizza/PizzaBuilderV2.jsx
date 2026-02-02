@@ -227,30 +227,16 @@ export default function PizzaBuilderV2({
           {/* Layout em Grid no Desktop */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-6 max-w-5xl mx-auto w-full">
             
-            {/* Coluna Esquerda - APENAS Pizza e Preço no Desktop */}
-            <div className="space-y-4 lg:space-y-6 overflow-hidden">
-              {/* Visualizador Circular da Pizza */}
-              <div className="flex flex-col items-center justify-center py-2 lg:py-2 relative min-w-0">
+            {/* Coluna Esquerda - Pizza e Preço */}
+            <div className="space-y-2 lg:space-y-3">
+              <div className="flex flex-col items-center justify-center py-1 relative min-w-0">
                 <button 
                   onClick={() => selectedSize && setStep('flavors')}
-                  className="relative w-56 h-56 sm:w-64 sm:h-64 lg:w-[340px] lg:h-[340px] pizza-container group cursor-pointer active:scale-95 flex-shrink-0 disabled:opacity-70 disabled:cursor-not-allowed"
                   disabled={!selectedSize}
+                  className="relative w-[280px] h-[280px] sm:w-[340px] sm:h-[340px] lg:w-[420px] lg:h-[420px] pizza-container group cursor-pointer active:scale-95 flex-shrink-0 disabled:opacity-70 disabled:cursor-not-allowed rounded-full overflow-hidden shadow-xl"
                 >
-                  {/* Tábua de Pizza - Background */}
-                  <div
-                    className="absolute inset-[-25px] z-0"
-                    style={{
-                      backgroundImage: `url("${store?.pizza_board_image || '/images/pizza-board.png'}")`,
-                      backgroundSize: 'cover',
-                      backgroundPosition: 'center',
-                      borderRadius: '50%',
-                      filter: 'drop-shadow(0 15px 40px rgba(0,0,0,0.5))',
-                        boxShadow: (store?.pizza_board_image || '/images/pizza-board.png') ? 'none' : 'inset 0 0 30px rgba(0,0,0,0.2)',
-                    }}
-                  />
-                  
-                  {/* Pizza - estática */}
-                  <div className="absolute inset-0 rounded-full overflow-hidden shadow-xl z-10">
+                  {/* Pizza */}
+                  <div className="absolute inset-0 rounded-full overflow-hidden">
                     <svg viewBox="0 0 100 100" className="w-full h-full">
                       <defs>
                         {Array.from({ length: maxFlavors }).map((_, i) => selectedFlavors[i]?.image && (
@@ -342,9 +328,9 @@ export default function PizzaBuilderV2({
                   </div>
                 </button>
                 
-                <div className="mt-8 text-center bg-black/40 px-8 py-3 rounded-full border border-white/5">
-                  <span className="text-[10px] text-gray-500 font-black uppercase block tracking-tighter">Preço da pizza:</span>
-                  <span className="text-3xl font-black text-white italic">{formatCurrency(calculatePrice())}</span>
+                <div className="mt-2 text-center bg-black/40 px-4 py-1.5 rounded-full border border-white/5 inline-flex items-baseline">
+                  <span className="text-[9px] text-gray-500 font-black uppercase tracking-tighter">Preço:</span>
+                  <span className="ml-1.5 text-xl font-black text-white italic">{formatCurrency(calculatePrice())}</span>
                 </div>
               </div>
             </div>
