@@ -62,6 +62,7 @@ export default function PizzaBuilderV2({
   const [selectedExtras, setSelectedExtras] = useState([]);
   const [specifications, setSpecifications] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [extrasConfirmed, setExtrasConfirmed] = useState(false);
   const useCategories = categories?.length > 0;
   const fixedCategory = dish?.pizza_category_id && useCategories
     ? categories.find(c => c.id === dish.pizza_category_id)
@@ -114,6 +115,11 @@ export default function PizzaBuilderV2({
       setSelectedFlavors([]);
     }
   }, [fixedCategory?.id, sizes, editingItem]);
+
+  // Reset extrasConfirmed quando tamanho/categoria mudar
+  React.useEffect(() => {
+    setExtrasConfirmed(false);
+  }, [selectedSize?.id, selectedCategory?.id]);
 
   // Sabores filtrados
   const filteredFlavors = useMemo(() => {
@@ -202,9 +208,13 @@ export default function PizzaBuilderV2({
 
   // --- TELAS ---
 
+  const premiumMode = store?.enable_premium_pizza_visualization !== false;
+  const hasExtrasAvailable = (extras || []).filter(e => e && e.is_active).length > 0;
+  const canAddToCart = selectedSize && selectedFlavors.length > 0 && (!hasExtrasAvailable || extrasConfirmed);
+
   // CUSTOM VIEW (Montagem)
   const CustomView = () => (
-    <div className="h-screen w-full flex flex-col bg-[#0f0f0f] overflow-hidden">
+    <div className="h-screen w-full flex flex-col overflow-hidden" style={{ backgroundColor: premiumMode ? 'rgba(0,0,0,0.85)' : '#0f0f0f' }}>
       {/* Header */}
       <header className="flex-shrink-0 py-4 px-6 flex items-center justify-between shadow-md" style={{ backgroundColor: primaryColor }}>
         <div className="flex items-center gap-4">
@@ -228,15 +238,29 @@ export default function PizzaBuilderV2({
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-6 max-w-5xl mx-auto w-full">
             
             {/* Coluna Esquerda - Pizza e Preço */}
-            <div className="space-y-2 lg:space-y-3">
+            <div className={`space-y-2 lg:space-y-3 rounded-2xl p-4 ${premiumMode ? 'bg-black/40 backdrop-blur-xl border border-white/5' : ''}`}>
               <div className="flex flex-col items-center justify-center py-1 relative min-w-0">
                 <button 
-                  onClick={() => selectedSize && setStep('flavors')}
-                  disabled={!selectedSize}
-                  className="relative w-[280px] h-[280px] sm:w-[340px] sm:h-[340px] lg:w-[420px] lg:h-[420px] pizza-container group cursor-pointer active:scale-95 flex-shrink-0 disabled:opacity-70 disabled:cursor-not-allowed rounded-full overflow-hidden shadow-xl"
+                  onClick={() => selectedSize && (maxFlavors > 1 || selectedFlavors.length === 0) && setStep('flavors')}
+                  disabled={!selectedSize || (maxFlavors === 1 && selectedFlavors.length >= 1)}
+                  className="relative w-[280px] h-[280px] sm:w-[340px] sm:h-[340px] lg:w-[420px] lg:h-[420px] pizza-container group cursor-pointer flex-shrink-0 disabled:opacity-70 disabled:cursor-not-allowed rounded-full overflow-hidden shadow-xl"
                 >
+                  {premiumMode && selectedEdge && selectedEdge.id !== 'none' && (
+                    <motion.div 
+                      className="absolute inset-0 rounded-full pointer-events-none"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ duration: 0.3 }}
+                      style={{ boxShadow: 'inset 0 0 40px rgba(251,191,36,0.08)' }}
+                    />
+                  )}
                   {/* Pizza */}
-                  <div className="absolute inset-0 rounded-full overflow-hidden">
+                  <motion.div 
+                    className="absolute inset-0 rounded-full overflow-hidden"
+                    initial={premiumMode ? { opacity: 0.7, scale: 0.98 } : {}}
+                    animate={premiumMode ? { opacity: 1, scale: 1 } : {}}
+                    transition={{ duration: 0.3 }}
+                  >
                     <svg viewBox="0 0 100 100" className="w-full h-full">
                       <defs>
                         {Array.from({ length: maxFlavors }).map((_, i) => selectedFlavors[i]?.image && (
@@ -325,12 +349,12 @@ export default function PizzaBuilderV2({
                         </g>
                       )}
                     </svg>
-                  </div>
+                  </motion.div>
                 </button>
                 
-                <div className="mt-2 text-center bg-black/40 px-4 py-1.5 rounded-full border border-white/5 inline-flex items-baseline">
-                  <span className="text-[9px] text-gray-500 font-black uppercase tracking-tighter">Preço:</span>
-                  <span className="ml-1.5 text-xl font-black text-white italic">{formatCurrency(calculatePrice())}</span>
+                <div className="mt-2 text-center bg-black/40 px-5 py-2 rounded-full border border-white/5 inline-flex items-baseline">
+                  <span className="text-xs text-gray-500 font-black uppercase tracking-tighter">Preço:</span>
+                  <span className="ml-2 text-2xl md:text-3xl font-black text-white italic">{formatCurrency(calculatePrice())}</span>
                 </div>
               </div>
             </div>
@@ -340,8 +364,8 @@ export default function PizzaBuilderV2({
               {/* Categoria fixa (quando pizza já tem categoria) ou seletor de tamanho/categoria */}
               {categoryIsFixed ? (
                 <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/5">
-                  <p className="text-gray-400 text-[9px] uppercase tracking-widest font-black mb-1">Categoria</p>
-                  <p className="text-white font-bold text-sm">
+                  <p className="text-gray-400 text-xs uppercase tracking-widest font-black mb-1">Categoria</p>
+                  <p className="text-white font-bold text-base md:text-lg">
                     {((selectedCategory || fixedCategory)?.name) || (() => {
                       const c = selectedCategory || fixedCategory;
                       const sz = c ? sizes.find(s => s.id === c.size_id) : null;
@@ -403,12 +427,12 @@ export default function PizzaBuilderV2({
                 </div>
               )}
 
-              {/* Sabores - só após ter tamanho (ou categoria fixa) */}
+              {/* Sabores - travado quando 1 sabor já selecionado */}
               <div className={`bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/5 ${!selectedSize ? 'opacity-60' : ''}`}>
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex-1 min-w-0">
-                    <p className="text-gray-400 text-[9px] uppercase tracking-widest font-black mb-1">🍕 Sabores</p>
-                    <p className="text-white text-xs font-bold leading-tight truncate">
+                    <p className="text-gray-400 text-xs uppercase tracking-widest font-black mb-1">🍕 Sabores</p>
+                    <p className="text-white text-sm font-bold leading-tight truncate">
                       {selectedFlavors.length > 0 ? (
                         <span>{selectedFlavors.map(f => f.name).join(' + ')}</span>
                       ) : (
@@ -417,12 +441,12 @@ export default function PizzaBuilderV2({
                     </p>
                   </div>
                   <button 
-                    onClick={() => selectedSize && setStep('flavors')}
-                    disabled={!selectedSize}
-                    className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all active:scale-95 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                    onClick={() => selectedSize && maxFlavors > 1 && setStep('flavors')}
+                    disabled={!selectedSize || (maxFlavors === 1 && selectedFlavors.length >= 1)}
+                    className="px-3 py-1.5 rounded-lg text-xs font-black uppercase transition-all active:scale-95 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
                     style={{ backgroundColor: primaryColor, color: 'white' }}
                   >
-                    {selectedFlavors.length > 0 ? 'Alterar' : 'Escolher'}
+                    {maxFlavors === 1 && selectedFlavors.length >= 1 ? 'Ok' : selectedFlavors.length > 0 ? 'Alterar' : 'Escolher'}
                   </button>
                 </div>
               </div>
@@ -490,18 +514,19 @@ export default function PizzaBuilderV2({
                 <ChevronDown className="text-gray-400" size={18} />
               </button>
 
-              {/* Botão de Adicionar - Desktop (visível apenas em telas grandes) */}
+              {/* Botão de Adicionar - só clicável após confirmar extras (quando houver) */}
               <div className="hidden lg:block pt-4">
                 <button 
                   onClick={handleAddToCart}
-                  disabled={!selectedSize || selectedFlavors.length === 0}
+                  disabled={!canAddToCart}
                   className="w-full text-white py-4 rounded-xl font-black text-base shadow-[0_10px_40px_rgba(0,0,0,0.5)] flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                  style={{ 
-                    backgroundColor: (!selectedSize || selectedFlavors.length === 0) ? '#9ca3af' : '#4caf50'
-                  }}
+                  style={{ backgroundColor: canAddToCart ? '#4caf50' : '#9ca3af' }}
                 >
                   <ShoppingBag size={20} /> ADICIONAR AO PEDIDO
                 </button>
+                {hasExtrasAvailable && !extrasConfirmed && selectedFlavors.length > 0 && (
+                  <p className="text-xs text-amber-400/90 mt-2 text-center">Confirme os extras para adicionar ao pedido</p>
+                )}
               </div>
             </div>
           </div>
@@ -512,14 +537,15 @@ export default function PizzaBuilderV2({
       <div className="lg:hidden fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black via-black/95 to-transparent z-50 pointer-events-none">
         <button 
           onClick={handleAddToCart}
-          disabled={!selectedSize || selectedFlavors.length === 0}
+          disabled={!canAddToCart}
           className="w-full max-w-md mx-auto text-white py-4 rounded-xl font-black text-base shadow-[0_10px_40px_rgba(0,0,0,0.5)] flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed pointer-events-auto"
-          style={{ 
-            backgroundColor: (!selectedSize || selectedFlavors.length === 0) ? '#9ca3af' : '#4caf50'
-          }}
+          style={{ backgroundColor: canAddToCart ? '#4caf50' : '#9ca3af' }}
         >
           <ShoppingBag size={20} /> ADICIONAR AO PEDIDO
         </button>
+        {hasExtrasAvailable && !extrasConfirmed && selectedFlavors.length > 0 && (
+          <p className="text-xs text-amber-400/90 mt-2 text-center pointer-events-auto">Confirme os extras para adicionar</p>
+        )}
       </div>
     </div>
   );
@@ -625,7 +651,7 @@ export default function PizzaBuilderV2({
   );
 
   // SELECTION OVERLAY (Bordas, Extras, Observações)
-  const SelectionOverlay = ({ title, items, current, onSelect, onClose, type = 'single', maxItems = 999 }) => {
+  const SelectionOverlay = ({ title, items, current, onSelect, onClose, type = 'single', maxItems = 999, onConfirm }) => {
     // Estado local para textarea evita re-renders e bug de texto ao contrário/piscando
     const [localText, setLocalText] = useState(type === 'textarea' ? (current || '') : '');
     React.useEffect(() => {
@@ -701,6 +727,7 @@ export default function PizzaBuilderV2({
             <button 
               onClick={() => {
                 if (type === 'textarea') onSelect(localText);
+                onConfirm?.();
                 onClose();
               }}
               className="w-full text-white py-3 rounded-xl font-bold text-sm shadow-lg transition-transform active:scale-95"
@@ -739,7 +766,8 @@ export default function PizzaBuilderV2({
             items={extras.filter(e => e && e.is_active)} 
             current={selectedExtras} 
             onSelect={setSelectedExtras} 
-            onClose={() => setStep('custom')} 
+            onClose={() => setStep('custom')}
+            onConfirm={() => setExtrasConfirmed(true)}
             type="multiple"
             maxItems={maxExtras}
           />

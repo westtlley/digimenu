@@ -25,7 +25,10 @@ export default function PizzaVisualizationSettings() {
   });
 
 
-  const [premiumMode, setPremiumMode] = useState(store?.enable_premium_pizza_visualization !== false);
+  const [premiumMode, setPremiumMode] = useState(true);
+  React.useEffect(() => {
+    if (store !== undefined) setPremiumMode(store?.enable_premium_pizza_visualization !== false);
+  }, [store?.enable_premium_pizza_visualization]);
 
   // Mutation para salvar configuração
   const saveMutation = useMutation({

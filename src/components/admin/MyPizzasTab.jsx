@@ -155,65 +155,82 @@ export default function MyPizzasTab() {
         </Button>
       </div>
 
-      <div className="grid gap-4">
-        {pizzas.map(pizza => (
-          <div key={pizza.id} className="bg-white p-4 rounded-xl border">
-            <div className="flex items-start gap-4">
-              {pizza.image && (
-                <img src={pizza.image} alt={pizza.name} className="w-24 h-24 rounded-lg object-cover" />
-              )}
-              <div className="flex-1">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h3 className="font-bold text-lg">{pizza.name}</h3>
-                    {pizza.description && (
-                      <p className="text-sm text-gray-600 mt-1">{pizza.description}</p>
-                    )}
-                    {pizza.pizza_config?.sizes && (
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {pizza.pizza_config.sizes.map(size => (
-                          <Badge key={size.id} variant="outline" className="text-xs">
-                            {size.name}: {formatCurrency(size.price_tradicional)}
-                          </Badge>
-                        ))}
+      <div className="space-y-6">
+        {pizzas.length > 0 && (() => {
+          const grouped = {};
+          const sortedCategories = [...(pizzaCategories || [])].sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+          sortedCategories.forEach(c => { grouped[c.id] = { category: c, pizzas: [] }; });
+          grouped['_sem_categoria'] = { category: { name: 'Sem categoria', id: '_sem_categoria' }, pizzas: [] };
+          pizzas.forEach(p => {
+            const key = p.pizza_category_id || '_sem_categoria';
+            if (!grouped[key]) grouped[key] = { category: { name: 'Outros', id: key }, pizzas: [] };
+            grouped[key].pizzas.push(p);
+          });
+          const ordered = sortedCategories.map(c => grouped[c.id]).filter(Boolean).concat(
+            grouped['_sem_categoria'].pizzas.length > 0 ? [grouped['_sem_categoria']] : []
+          );
+          return ordered.map(({ category, pizzas: list }) => (
+            <div key={category.id}>
+              <h4 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-2 flex items-center gap-2">
+                <span className="w-1 h-4 rounded bg-orange-500" />
+                {category.name}
+                <Badge variant="secondary" className="text-xs">{list.length}</Badge>
+              </h4>
+              <div className="grid gap-4">
+                {list.map(pizza => (
+                  <div key={pizza.id} className="bg-white dark:bg-gray-800 p-4 rounded-xl border dark:border-gray-700">
+                    <div className="flex items-start gap-4">
+                      {pizza.image && (
+                        <img src={pizza.image} alt={pizza.name} className="w-24 h-24 rounded-lg object-cover" />
+                      )}
+                      <div className="flex-1">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <h3 className="font-bold text-lg">{pizza.name}</h3>
+                            {pizza.description && (
+                              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{pizza.description}</p>
+                            )}
+                            {pizza.pizza_config?.sizes && (
+                              <div className="flex flex-wrap gap-2 mt-2">
+                                {pizza.pizza_config.sizes.map(size => (
+                                  <Badge key={size.id} variant="outline" className="text-xs">
+                                    {size.name}: {formatCurrency(size.price_tradicional)}
+                                  </Badge>
+                                ))}
+                              </div>
+                            )}
+                            {pizza.is_highlight && <Badge className="mt-2 bg-yellow-100 text-yellow-700">⭐ Destaque</Badge>}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Switch
+                              checked={pizza.is_active !== false}
+                              onCheckedChange={(checked) => 
+                                updatePizzaMutation.mutate({ id: pizza.id, data: { is_active: checked } })
+                              }
+                            />
+                            <Button variant="ghost" size="icon" onClick={() => openPizzaModal(pizza)}>
+                              <Pencil className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => { if (confirm('Excluir esta pizza?')) deletePizzaMutation.mutate(pizza.id); }}
+                              className="text-red-500"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
                       </div>
-                    )}
-                    {pizza.is_highlight && <Badge className="mt-2 bg-yellow-100 text-yellow-700">⭐ Destaque</Badge>}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Switch
-                      checked={pizza.is_active !== false}
-                      onCheckedChange={(checked) => 
-                        updatePizzaMutation.mutate({ id: pizza.id, data: { is_active: checked } })
-                      }
-                    />
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => openPizzaModal(pizza)}
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => {
-                        if (confirm('Excluir esta pizza?')) {
-                          deletePizzaMutation.mutate(pizza.id);
-                        }
-                      }}
-                      className="text-red-500"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
+                ))}
               </div>
             </div>
-          </div>
-        ))}
+          ));
+        })()}
 
-        {pizzas.length === 0 && canCreatePizza && (
+      {pizzas.length === 0 && canCreatePizza && (
           <div className="text-center py-12 text-gray-400">
             <p>Nenhuma pizza cadastrada ainda</p>
             <p className="text-sm mt-1">Clique em "Nova Pizza" para começar</p>
