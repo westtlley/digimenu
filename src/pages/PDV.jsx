@@ -119,13 +119,6 @@ export default function PDV() {
     cart.reduce((s, i) => s + (i.totalPrice || 0) * (i.quantity || 1), 0)
   );
 
-  usePDVHotkeys({
-    onCancelSale: clearCart,
-    onFinishSale: () => {
-      if (cart.length > 0 && !isCaixaLocked && openCaixa) setShowPaymentModal(true);
-    },
-  });
-
   useEffect(() => {
     const activeCaixa = (caixas || []).find(c => c && c.status === 'open');
     setOpenCaixa(activeCaixa || null);
@@ -279,6 +272,13 @@ export default function PDV() {
     resetUpsell();
     toast.success('Venda limpa');
   };
+
+  usePDVHotkeys({
+    onCancelSale: clearCart,
+    onFinishSale: () => {
+      if (cart.length > 0 && !isCaixaLocked && openCaixa) setShowPaymentModal(true);
+    },
+  });
 
   const subtotal = cart.reduce((sum, item) => sum + (item.totalPrice * item.quantity), 0);
   const discountFromPercent = subtotal * (parseFloat(discountPercent || 0) / 100);
