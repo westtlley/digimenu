@@ -720,6 +720,9 @@ app.post('/api/auth/login', validate(schemas.login), asyncHandler(async (req, re
 
 app.get('/api/auth/me', authenticate, async (req, res) => {
   try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Não autenticado' });
+    }
     return res.json({
       id: req.user.id,
       email: req.user.email,
