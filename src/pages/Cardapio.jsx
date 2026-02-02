@@ -272,9 +272,13 @@ export default function Cardapio() {
 
   const filteredDishes = useMemo(() => {
     const safeActiveDishes = Array.isArray(activeDishes) ? activeDishes : [];
+    const isPizzaCategory = selectedCategory?.startsWith?.('pc_');
+    const pizzaCatId = isPizzaCategory ? selectedCategory.replace(/^pc_/, '') : null;
     return safeActiveDishes.filter((dish) => {
       const matchesSearch = !searchTerm || dish.name?.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesCategory = selectedCategory === 'all' || dish.category_id === selectedCategory;
+      const matchesCategory = selectedCategory === 'all'
+        || (isPizzaCategory && dish.product_type === 'pizza' && dish.pizza_category_id === pizzaCatId)
+        || (!isPizzaCategory && dish.category_id === selectedCategory);
       
       return matchesSearch && matchesCategory;
     });
@@ -859,6 +863,28 @@ export default function Cardapio() {
                   {cat.name}
                 </button>
               ))}
+              {pizzaCategoriesResolved?.length > 0 && pizzaCategoriesResolved.map((pc) => {
+                const pcKey = `pc_${pc.id}`;
+                const sz = pizzaSizesResolved?.find(s => s.id === pc.size_id);
+                const label = pc.name || (sz ? `${sz.name} • ${pc.max_flavors || 1} sabor(es)` : pc.id);
+                return (
+                  <button
+                    key={pcKey}
+                    onClick={() => setSelectedCategory(pcKey)}
+                    className={`relative px-6 md:px-8 py-2.5 md:py-3 rounded-full text-sm md:text-base font-semibold whitespace-nowrap transition-all duration-200 ${
+                      selectedCategory === pcKey
+                        ? 'text-white shadow-lg scale-105'
+                        : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                    }`}
+                    style={selectedCategory === pcKey ? { 
+                      backgroundColor: primaryColor, 
+                      color: 'white'
+                    } : {}}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -981,9 +1007,16 @@ export default function Cardapio() {
         {/* All Dishes */}
         <section>
           <h2 className="font-bold text-base md:text-lg mb-4 md:mb-4 text-foreground">
-            {selectedCategory === 'all' 
+            {selectedCategory === 'all'
               ? 'Cardápio Completo' 
-              : categoriesResolved.find(c => c.id === selectedCategory)?.name || 'Pratos'}
+              : selectedCategory?.startsWith?.('pc_')
+                ? (() => {
+                    const pcId = selectedCategory.replace(/^pc_/, '');
+                    const pc = pizzaCategoriesResolved?.find(c => c.id === pcId);
+                    const sz = pc ? pizzaSizesResolved?.find(s => s.id === pc.size_id) : null;
+                    return pc?.name || (pc && sz ? `${sz.name} • ${pc.max_flavors || 1} sabor(es)` : 'Pizzas');
+                  })()
+                : categoriesResolved.find(c => c.id === selectedCategory)?.name || 'Pratos'}
           </h2>
           {loadingDishes ? (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-3 lg:gap-4">

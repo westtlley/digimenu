@@ -63,6 +63,10 @@ export default function PizzaBuilderV2({
   const [specifications, setSpecifications] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const useCategories = categories?.length > 0;
+  const fixedCategory = dish?.pizza_category_id && useCategories
+    ? categories.find(c => c.id === dish.pizza_category_id)
+    : null;
+  const categoryIsFixed = !!fixedCategory;
 
   // Carregar dados de edição ou pré-preencher sabor
   React.useEffect(() => {
@@ -100,6 +104,16 @@ export default function PizzaBuilderV2({
       }
     }
   }, [editingItem, sizes, dish, flavors, selectedSize, selectedFlavors.length, useCategories, categories]);
+
+  // Quando a pizza tem categoria fixa, inicializar por ela
+  React.useEffect(() => {
+    if (fixedCategory && !editingItem) {
+      setSelectedCategory(fixedCategory);
+      const size = sizes.find(s => s.id === fixedCategory.size_id);
+      setSelectedSize(size || null);
+      setSelectedFlavors([]);
+    }
+  }, [fixedCategory?.id, sizes, editingItem]);
 
   // Sabores filtrados
   const filteredFlavors = useMemo(() => {
@@ -176,6 +190,7 @@ export default function PizzaBuilderV2({
     const item = {
       dish,
       size: selectedSize,
+      category: selectedCategory || fixedCategory,
       flavors: selectedFlavors,
       edge: selectedEdge,
       extras: selectedExtras,
@@ -336,60 +351,73 @@ export default function PizzaBuilderV2({
 
             {/* Coluna Direita - Todas as Opções */}
             <div className="space-y-3">
-              {/* Tamanho ou Categoria Selector */}
-              <div className="space-y-2">
-                <label className="text-white text-xs font-black uppercase tracking-widest opacity-80">
-                  {useCategories ? 'Categoria:' : 'Tamanho:'}
-                </label>
-                <div className="relative">
-                  {useCategories ? (
-                    <select 
-                      className="w-full text-white py-3 px-4 rounded-xl font-bold appearance-none text-sm shadow-lg border-b-4 focus:outline-none"
-                      style={{ backgroundColor: primaryColor, borderColor: '#c2410c' }}
-                      value={selectedCategory?.id || ''}
-                      onChange={(e) => {
-                        const cat = categories.find(c => c.id === e.target.value);
-                        setSelectedCategory(cat || null);
-                        const size = cat ? sizes.find(s => s.id === cat.size_id) : null;
-                        setSelectedSize(size);
-                        setSelectedFlavors([]);
-                      }}
-                    >
-                      <option value="">Escolha a categoria</option>
-                      {(categories || []).map(c => {
-                        const sz = sizes.find(s => s.id === c.size_id);
-                        return (
-                          <option key={c.id} value={c.id}>
-                            {c.name || (sz ? `${sz.name} ${c.max_flavors || 1} sabor(es)` : '')}
-                          </option>
-                        );
-                      })}
-                    </select>
-                  ) : (
-                    <select 
-                      className="w-full text-white py-3 px-4 rounded-xl font-bold appearance-none text-sm shadow-lg border-b-4 focus:outline-none"
-                      style={{ backgroundColor: primaryColor, borderColor: '#c2410c' }}
-                      value={selectedSize?.id || ''}
-                      onChange={(e) => {
-                        const size = sizes.find(s => s.id === e.target.value);
-                        setSelectedSize(size);
-                        setSelectedCategory(null);
-                        setSelectedFlavors([]);
-                      }}
-                    >
-                      <option value="">Escolha o tamanho</option>
-                      {(sizes || []).filter(s => s && s.is_active).map(s => (
-                        <option key={s.id} value={s.id}>
-                          {s.name} - {s.slices} fatias - {s.max_flavors} {s.max_flavors === 1 ? 'sabor' : 'sabores'}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                  <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-white pointer-events-none" size={18} />
+              {/* Categoria fixa (quando pizza já tem categoria) ou seletor de tamanho/categoria */}
+              {categoryIsFixed ? (
+                <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/5">
+                  <p className="text-gray-400 text-[9px] uppercase tracking-widest font-black mb-1">Categoria</p>
+                  <p className="text-white font-bold text-sm">
+                    {((selectedCategory || fixedCategory)?.name) || (() => {
+                      const c = selectedCategory || fixedCategory;
+                      const sz = c ? sizes.find(s => s.id === c.size_id) : null;
+                      return (c && sz) ? `${sz.name} • ${c.max_flavors || 1} sabor(es)` : '';
+                    })()}
+                  </p>
                 </div>
-              </div>
+              ) : (
+                <div className="space-y-2">
+                  <label className="text-white text-xs font-black uppercase tracking-widest opacity-80">
+                    {useCategories ? 'Categoria:' : 'Tamanho:'}
+                  </label>
+                  <div className="relative">
+                    {useCategories ? (
+                      <select 
+                        className="w-full text-white py-3 px-4 rounded-xl font-bold appearance-none text-sm shadow-lg border-b-4 focus:outline-none"
+                        style={{ backgroundColor: primaryColor, borderColor: '#c2410c' }}
+                        value={selectedCategory?.id || ''}
+                        onChange={(e) => {
+                          const cat = categories.find(c => c.id === e.target.value);
+                          setSelectedCategory(cat || null);
+                          const size = cat ? sizes.find(s => s.id === cat.size_id) : null;
+                          setSelectedSize(size);
+                          setSelectedFlavors([]);
+                        }}
+                      >
+                        <option value="">Escolha a categoria</option>
+                        {(categories || []).map(c => {
+                          const sz = sizes.find(s => s.id === c.size_id);
+                          return (
+                            <option key={c.id} value={c.id}>
+                              {c.name || (sz ? `${sz.name} ${c.max_flavors || 1} sabor(es)` : '')}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    ) : (
+                      <select 
+                        className="w-full text-white py-3 px-4 rounded-xl font-bold appearance-none text-sm shadow-lg border-b-4 focus:outline-none"
+                        style={{ backgroundColor: primaryColor, borderColor: '#c2410c' }}
+                        value={selectedSize?.id || ''}
+                        onChange={(e) => {
+                          const size = sizes.find(s => s.id === e.target.value);
+                          setSelectedSize(size);
+                          setSelectedCategory(null);
+                          setSelectedFlavors([]);
+                        }}
+                      >
+                        <option value="">Escolha o tamanho</option>
+                        {(sizes || []).filter(s => s && s.is_active).map(s => (
+                          <option key={s.id} value={s.id}>
+                            {s.name} - {s.slices} fatias - {s.max_flavors} {s.max_flavors === 1 ? 'sabor' : 'sabores'}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                    <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-white pointer-events-none" size={18} />
+                  </div>
+                </div>
+              )}
 
-              {/* Sabores - só após escolher tamanho */}
+              {/* Sabores - só após ter tamanho (ou categoria fixa) */}
               <div className={`bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/5 ${!selectedSize ? 'opacity-60' : ''}`}>
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex-1 min-w-0">

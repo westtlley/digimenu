@@ -11,7 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Card, CardContent } from "@/components/ui/card";
-import { Plus, Trash2, Pencil, Star, Settings, Search } from 'lucide-react';
+import { Plus, Trash2, Pencil, Star, Settings, Search, ChevronUp, ChevronDown } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import PizzaVisualizationSettings from './PizzaVisualizationSettings';
 import MyPizzasTab from './MyPizzasTab';
@@ -280,19 +280,50 @@ export default function PizzaConfigTab() {
               <Accordion type="multiple" defaultValue={['sizes','flavors']} className="w-full">
                 <AccordionItem value="sizes" className="border rounded-lg px-2">
                   <AccordionTrigger className="py-2 text-sm font-medium hover:no-underline">
-                    Tamanhos ({sizes.length})
+                    Tamanhos e Categorias ({sizes.length} + {pizzaCategories.length})
                   </AccordionTrigger>
-                  <AccordionContent className="pb-2">
-                    <Button size="sm" onClick={() => { setEditingSize(null); setShowSizeModal(true); }} className="mb-2 w-full"><Plus className="w-3 h-3 mr-1" />Novo</Button>
-                    <div className="space-y-1">
-                      {sizes.map(s => (
-                        <div key={s.id} className="flex items-center gap-2 p-2 rounded border text-xs">
-                          <span className="flex-1 truncate">{s.name} • {s.slices}f • {formatCurrency(s.price_tradicional)}</span>
-                          <Switch checked={s.is_active} onCheckedChange={(c)=>updateSizeMutation.mutate({id:s.id,data:{...s,is_active:c}})} className="scale-75" />
-                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={()=>{ setEditingSize(s); setShowSizeModal(true); }}><Pencil className="w-3 h-3" /></Button>
-                          <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500" onClick={()=>{ if(confirm('Excluir?')) deleteSizeMutation.mutate(s.id); }}><Trash2 className="w-3 h-3" /></Button>
-                        </div>
-                      ))}
+                  <AccordionContent className="pb-2 space-y-3">
+                    <div>
+                      <p className="text-[10px] text-gray-500 mb-2 font-medium">Tamanhos (base: P, M, G com preço)</p>
+                      <Button size="sm" onClick={() => { setEditingSize(null); setShowSizeModal(true); }} className="mb-2 w-full"><Plus className="w-3 h-3 mr-1" />Novo Tamanho</Button>
+                      <div className="space-y-1">
+                        {sizes.map(s => (
+                          <div key={s.id} className="flex items-center gap-2 p-2 rounded border text-xs">
+                            <span className="flex-1 truncate">{s.name} • {s.slices}f • {formatCurrency(s.price_tradicional)}</span>
+                            <Switch checked={s.is_active} onCheckedChange={(c)=>updateSizeMutation.mutate({id:s.id,data:{...s,is_active:c}})} className="scale-75" />
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={()=>{ setEditingSize(s); setShowSizeModal(true); }}><Pencil className="w-3 h-3" /></Button>
+                            <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500" onClick={()=>{ if(confirm('Excluir?')) deleteSizeMutation.mutate(s.id); }}><Trash2 className="w-3 h-3" /></Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="border-t pt-3">
+                      <p className="text-[10px] text-gray-500 mb-2 font-medium">Categorias (aparecem no cardápio — reordene arrastando)</p>
+                      <Button size="sm" onClick={() => { setEditingCategory(null); setShowCategoryModal(true); }} className="mb-2 w-full"><Plus className="w-3 h-3 mr-1" />Nova Categoria</Button>
+                      <div className="space-y-1">
+                        {pizzaCategories.map((c, idx) => {
+                          const sz = sizes.find(s => s.id === c.size_id);
+                          const moveCategory = (dir) => {
+                            const to = dir === 'up' ? idx - 1 : idx + 1;
+                            if (to < 0 || to >= pizzaCategories.length) return;
+                            const a = pizzaCategories[idx];
+                            const b = pizzaCategories[to];
+                            updateCategoryMutation.mutate({ id: a.id, data: { ...a, order: to } });
+                            updateCategoryMutation.mutate({ id: b.id, data: { ...b, order: idx } });
+                          };
+                          return (
+                            <div key={c.id} className="flex items-center gap-2 p-2 rounded border text-xs group">
+                              <div className="flex flex-col opacity-60 group-hover:opacity-100">
+                                <button type="button" onClick={() => moveCategory('up')} disabled={idx === 0} className="p-0.5 disabled:opacity-30"><ChevronUp className="w-4 h-4" /></button>
+                                <button type="button" onClick={() => moveCategory('down')} disabled={idx === pizzaCategories.length - 1} className="p-0.5 disabled:opacity-30"><ChevronDown className="w-4 h-4" /></button>
+                              </div>
+                              <span className="flex-1 truncate">{c.name || 'Sem nome'} {sz && `(${sz.name} • ${c.max_flavors || 1} sabor${(c.max_flavors || 1) > 1 ? 'es' : ''})`}</span>
+                              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={()=>{ setEditingCategory(c); setShowCategoryModal(true); }}><Pencil className="w-3 h-3" /></Button>
+                              <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500" onClick={()=>{ if(confirm('Excluir?')) deleteCategoryMutation.mutate(c.id); }}><Trash2 className="w-3 h-3" /></Button>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   </AccordionContent>
                 </AccordionItem>
@@ -351,27 +382,6 @@ export default function PizzaConfigTab() {
                           <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500" onClick={()=>{ if(confirm('Excluir?')) deleteExtraMutation.mutate(x.id); }}><Trash2 className="w-3 h-3" /></Button>
                         </div>
                       ))}
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-                <AccordionItem value="categories" className="border rounded-lg px-2">
-                  <AccordionTrigger className="py-2 text-sm font-medium hover:no-underline">
-                    Categorias ({pizzaCategories.length})
-                  </AccordionTrigger>
-                  <AccordionContent className="pb-2">
-                    <p className="text-[10px] text-gray-500 mb-2">Ex: Pizza M 1 sabor, Pizza G 2 sabores. Se vazia, usa tamanhos direto.</p>
-                    <Button size="sm" onClick={() => { setEditingCategory(null); setShowCategoryModal(true); }} className="mb-2 w-full"><Plus className="w-3 h-3 mr-1" />Nova Categoria</Button>
-                    <div className="space-y-1">
-                      {pizzaCategories.map(c => {
-                        const sz = sizes.find(s => s.id === c.size_id);
-                        return (
-                          <div key={c.id} className="flex items-center gap-2 p-2 rounded border text-xs">
-                            <span className="flex-1 truncate">{c.name || 'Sem nome'} {sz && `(${sz.name} • ${c.max_flavors || 1} sabor${(c.max_flavors || 1) > 1 ? 'es' : ''})`}</span>
-                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={()=>{ setEditingCategory(c); setShowCategoryModal(true); }}><Pencil className="w-3 h-3" /></Button>
-                            <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500" onClick={()=>{ if(confirm('Excluir?')) deleteCategoryMutation.mutate(c.id); }}><Trash2 className="w-3 h-3" /></Button>
-                          </div>
-                        );
-                      })}
                     </div>
                   </AccordionContent>
                 </AccordionItem>
