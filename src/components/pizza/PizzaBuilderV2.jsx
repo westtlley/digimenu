@@ -363,6 +363,7 @@ export default function PizzaBuilderV2({
                       )}
                     </svg>
                   </motion.div>
+                  </AnimatePresence>
                 </button>
                 
                 <div className="mt-8 text-center bg-black/40 px-8 py-3 rounded-full border border-white/5">
