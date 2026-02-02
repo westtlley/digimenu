@@ -29,7 +29,8 @@ import {
   Plus,
   Pizza,
   Layout,
-  Receipt
+  Receipt,
+  Bell
 } from 'lucide-react';
 
 const MENU_STRUCTURE = [
@@ -99,6 +100,7 @@ const MENU_STRUCTURE = [
       { id: 'store', label: 'Loja', icon: Store, module: 'store' },
       { id: 'theme', label: 'Tema', icon: Palette, module: 'theme' },
       { id: 'printer', label: 'Impressora', icon: Printer, module: 'printer' },
+      { id: 'service_requests', label: 'Solicitações', icon: Bell, masterOnly: true },
       { id: 'pagina_assinar', label: 'Editar Página de Vendas', icon: Layout, masterOnly: true },
     ]
   }

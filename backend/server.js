@@ -1375,6 +1375,14 @@ app.post('/api/upload-image', upload.single('image'), async (req, res) => {
 });
 
 // =======================
+// 🔔 SERVICE REQUESTS (solicitações de assinantes para master)
+// =======================
+app.get('/api/service-requests', authenticate, requireMaster, asyncHandler(async (req, res) => {
+  const items = usePostgreSQL ? await repo.listAllServiceRequests() : [];
+  res.json({ items });
+}));
+
+// =======================
 // 📦 ENTITIES (CRUD GENÉRICO)
 // =======================
 // Listar entidades

@@ -37,10 +37,11 @@ export default function CategoriesTab() {
     refetchOnMount: 'always',
   });
 
-  const { data: dishes = [] } = useQuery({
+  const { data: dishesRaw = [] } = useQuery({
     queryKey: ['dishes'],
     queryFn: () => base44.entities.Dish.list(),
   });
+  const dishes = (Array.isArray(dishesRaw) ? dishesRaw : []).filter(d => d.product_type !== 'pizza');
 
   // Filtrar categorias
   const filteredCategories = useMemo(() => {

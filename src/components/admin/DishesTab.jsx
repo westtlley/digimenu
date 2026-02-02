@@ -92,7 +92,8 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
     }
   }, [initialTab]);
 
-  const { canCreate, canUpdate, canDelete } = usePermission();
+  const { canCreate, canUpdate, canDelete, hasModuleAccess, subscriberData } = usePermission();
+  const hasPizzaService = hasModuleAccess('pizza_config');
   const canEdit = canUpdate('dishes');
   
   React.useEffect(() => {
@@ -280,7 +281,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
   });
 
   // Validações de segurança - DECLARADAS AQUI PARA ESTAREM DISPONÍVEIS EM TODAS AS FUNÇÕES
-  const safeDishes = Array.isArray(dishes) ? dishes : [];
+  const safeDishes = (Array.isArray(dishes) ? dishes : []).filter(d => d.product_type !== 'pizza');
   const safeCategories = Array.isArray(categories) ? categories : [];
   const safeComplementGroups = Array.isArray(complementGroups) ? complementGroups : [];
 
@@ -1478,6 +1479,8 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
         categoryId={selectedCategoryForNewDish}
         categoryDishes={Array.isArray(dishesByCategory[selectedCategoryForNewDish]) ? dishesByCategory[selectedCategoryForNewDish] : []}
         onRedirectToPizzas={handleRedirectToPizzas}
+        hasPizzaService={hasPizzaService}
+        subscriberName={subscriberData?.name || user?.full_name || ''}
       />
 
       {/* Mobile Complements Sheet */}

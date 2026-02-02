@@ -30,6 +30,7 @@ import OrderHistoryTab from '../components/admin/OrderHistoryTab';
 import ErrorBoundary from '../components/ErrorBoundary';
 import WhatsAppComandaToggle from '../components/admin/WhatsAppComandaToggle';
 import MasterSlugSettings from '../components/admin/MasterSlugSettings';
+import ServiceRequestsTab from '../components/admin/ServiceRequestsTab';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { logger } from '@/utils/logger';
@@ -228,6 +229,8 @@ export default function Admin() {
         return hasModuleAccess('store') ? <StoreTab /> : <AccessDenied />;
       case 'payments':
         return hasModuleAccess('payments') ? <PaymentMethodsTab /> : <AccessDenied />;
+      case 'service_requests':
+        return isMaster ? <ServiceRequestsTab /> : <AccessDenied />;
       case 'pagina_assinar':
         return isMaster ? <AssinarPageEditorTab /> : <AccessDenied />;
       case 'graficos':

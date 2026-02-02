@@ -1,13 +1,18 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { UtensilsCrossed, Package, Pizza } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { base44 } from '@/api/base44Client';
+import toast from 'react-hot-toast';
 
-export default function ProductTypeModal({ isOpen, onClose, onSelectType, categoryId, categoryDishes = [], onRedirectToPizzas }) {
+export default function ProductTypeModal({ isOpen, onClose, onSelectType, categoryId, categoryDishes = [], onRedirectToPizzas, hasPizzaService = false, subscriberName = '', onRequestPizzaService }) {
   // Verificar se a categoria tem produtos do tipo "preparado"
   const hasPreparadoProducts = categoryDishes.some(dish => 
     !dish.product_type || dish.product_type === 'preparado'
   );
+
+  const [showPizzaPlanDialog, setShowPizzaPlanDialog] = useState(false);
+  const [requestingService, setRequestingService] = useState(false);
 
   const productTypes = [
     {
@@ -28,7 +33,9 @@ export default function ProductTypeModal({ isOpen, onClose, onSelectType, catego
       type: 'pizza',
       icon: Pizza,
       title: 'Pizza',
-      description: 'As pizzas são gerenciadas na aba "Pizzas". Clique aqui para ir até lá.',
+      description: hasPizzaService 
+        ? 'As pizzas são gerenciadas na aba "Pizzas". Clique aqui para ir até lá.' 
+        : 'O serviço de Pizza não faz parte do seu plano. Clique para solicitar.',
       available: true
     }
   ];
@@ -37,15 +44,40 @@ export default function ProductTypeModal({ isOpen, onClose, onSelectType, catego
     if (!available) return;
     
     if (type === 'pizza') {
-      onClose();
-      if (onRedirectToPizzas) {
-        onRedirectToPizzas();
+      if (!hasPizzaService) {
+        setShowPizzaPlanDialog(true);
+        return;
       }
+      onClose();
+      if (onRedirectToPizzas) onRedirectToPizzas();
       return;
     }
     
     onSelectType(type);
     onClose();
+  };
+
+  const handleRequestPizzaService = async () => {
+    setRequestingService(true);
+    try {
+      if (onRequestPizzaService) {
+        await onRequestPizzaService();
+      } else {
+        await base44.entities.ServiceRequest.create({
+          type: 'add_pizza_service',
+          subscriber_name: subscriberName || 'Assinante',
+          status: 'pending',
+          requested_at: new Date().toISOString()
+        });
+      }
+      toast.success('Solicitação enviada! Entraremos em contato em breve.');
+      setShowPizzaPlanDialog(false);
+      onClose();
+    } catch (e) {
+      toast.error('Erro ao enviar solicitação. Tente novamente.');
+    } finally {
+      setRequestingService(false);
+    }
   };
 
   return (
@@ -104,6 +136,32 @@ export default function ProductTypeModal({ isOpen, onClose, onSelectType, catego
             Cancelar
           </button>
         </div>
+
+        {showPizzaPlanDialog && (
+          <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+            <p className="text-sm text-amber-800 font-medium mb-2">
+              O serviço de Pizza não faz parte do seu plano atual.
+            </p>
+            <p className="text-sm text-amber-700 mb-4">
+              Deseja solicitar a inclusão deste serviço? Enviaremos sua solicitação para análise.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowPizzaPlanDialog(false)}
+                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleRequestPizzaService}
+                disabled={requestingService}
+                className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50"
+              >
+                {requestingService ? 'Enviando...' : 'Sim, solicitar serviço'}
+              </button>
+            </div>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );

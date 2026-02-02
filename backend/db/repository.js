@@ -55,6 +55,28 @@ export async function listEntitiesForSubscriber(entityType, subscriberEmail, ord
   }
 }
 
+/** Lista todas as ServiceRequests (para master - sem filtro de subscriber) */
+export async function listAllServiceRequests() {
+  try {
+    const result = await query(`
+      SELECT id, subscriber_email, data, created_at, updated_at
+      FROM entities
+      WHERE entity_type = 'ServiceRequest'
+      ORDER BY created_at DESC
+    `);
+    return result.rows.map(row => ({
+      id: row.id.toString(),
+      subscriber_email: row.subscriber_email,
+      ...row.data,
+      created_at: row.created_at,
+      updated_at: row.updated_at
+    }));
+  } catch (error) {
+    console.error('Erro ao listar ServiceRequests:', error);
+    throw error;
+  }
+}
+
 // Listar entidades com paginação
 export async function listEntities(entityType, filters = {}, orderBy = null, user = null, pagination = {}) {
   try {
