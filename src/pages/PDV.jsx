@@ -13,9 +13,13 @@ import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { useSlugContext } from '@/hooks/useSlugContext';
 import NewDishModal from '../components/menu/NewDishModal';
+import PizzaBuilderV2 from '../components/pizza/PizzaBuilderV2';
 import PaymentModal from '../components/pdv/PaymentModal';
 import SaleSuccessModal from '../components/pdv/SaleSuccessModal';
+import UpsellModal from '../components/menu/UpsellModal';
 import { usePermission } from '../components/permissions/usePermission';
+import { useUpsell } from '../components/hooks/useUpsell';
+import { usePDVHotkeys } from '../utils/pdvFunctions';
 
 export default function PDV() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -35,6 +39,7 @@ export default function PDV() {
   const [openingAmount, setOpeningAmount] = useState('');
   const [lockThreshold, setLockThreshold] = useState('');
   const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [selectedPizza, setSelectedPizza] = useState(null);
 
   const queryClient = useQueryClient();
   const { isMaster } = usePermission();
@@ -71,6 +76,54 @@ export default function PDV() {
   const { data: pdvSales = [] } = useQuery({
     queryKey: ['pedidosPDV', asSub ?? 'me'],
     queryFn: () => base44.entities.PedidoPDV.list('-created_date', opts).catch(() => []),
+  });
+
+  const { data: storeList = [] } = useQuery({
+    queryKey: ['store', asSub ?? 'me'],
+    queryFn: () => base44.entities.Store.list(opts),
+  });
+  const store = storeList[0] || { theme_primary_color: '#f97316' };
+
+  const { data: pizzaSizes = [] } = useQuery({
+    queryKey: ['pizzaSizes', asSub ?? 'me'],
+    queryFn: () => base44.entities.PizzaSize.list('order', opts),
+  });
+
+  const { data: pizzaFlavors = [] } = useQuery({
+    queryKey: ['pizzaFlavors', asSub ?? 'me'],
+    queryFn: () => base44.entities.PizzaFlavor.list('order', opts),
+  });
+
+  const { data: pizzaEdges = [] } = useQuery({
+    queryKey: ['pizzaEdges', asSub ?? 'me'],
+    queryFn: () => base44.entities.PizzaEdge.list(null, opts),
+  });
+
+  const { data: pizzaExtras = [] } = useQuery({
+    queryKey: ['pizzaExtras', asSub ?? 'me'],
+    queryFn: () => base44.entities.PizzaExtra.list(null, opts),
+  });
+
+  const { data: pizzaCategories = [] } = useQuery({
+    queryKey: ['pizzaCategories', asSub ?? 'me'],
+    queryFn: () => base44.entities.PizzaCategory.list('order', opts),
+  });
+
+  const { data: promotions = [] } = useQuery({
+    queryKey: ['promotions', asSub ?? 'me'],
+    queryFn: () => base44.entities.Promotion.list(opts),
+  });
+
+  const { showUpsellModal, upsellPromotions, checkUpsell, resetUpsell, closeUpsell } = useUpsell(
+    Array.isArray(promotions) ? promotions : [],
+    cart.reduce((s, i) => s + (i.totalPrice || 0) * (i.quantity || 1), 0)
+  );
+
+  usePDVHotkeys({
+    onCancelSale: clearCart,
+    onFinishSale: () => {
+      if (cart.length > 0 && !isCaixaLocked && openCaixa) setShowPaymentModal(true);
+    },
   });
 
   useEffect(() => {
@@ -125,18 +178,17 @@ export default function PDV() {
 
   const safeDishes = Array.isArray(dishes) ? dishes : [];
   const activeDishes = safeDishes.filter(d => d && d.is_active !== false);
+  const hasPizzas = activeDishes.some(d => d.product_type === 'pizza');
   const filteredDishes = activeDishes.filter(d => {
     if (!d || !d.name) return false;
     const matchesSearch = !searchTerm || d.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = selectedCategory === 'all' || d.category_id === selectedCategory;
+    let matchesCategory = true;
+    if (selectedCategory === 'pizzas') matchesCategory = d.product_type === 'pizza';
+    else if (selectedCategory !== 'all') matchesCategory = d.category_id === selectedCategory;
     return matchesSearch && matchesCategory;
   });
 
   const handleDishClick = (dish) => {
-    const dishGroups = complementGroups.filter(group =>
-      dish.complement_groups?.some(cg => cg.group_id === group.id)
-    );
-
     if (!openCaixa) {
       toast.error('⚠️ Abra o caixa para iniciar as vendas');
       setShowOpenCaixaModal(true);
@@ -147,10 +199,19 @@ export default function PDV() {
       return;
     }
 
+    if (dish.product_type === 'pizza' && pizzaSizes?.length > 0 && pizzaFlavors?.length > 0) {
+      setSelectedPizza(dish);
+      return;
+    }
+
+    const dishGroups = complementGroups.filter(group =>
+      dish.complement_groups?.some(cg => cg.group_id === group.id)
+    );
+
     if (dishGroups.length > 0) {
       setSelectedDish(dish);
     } else {
-      addToCart({ dish, totalPrice: dish.price, selections: {} });
+      addToCart({ dish, totalPrice: dish.price ?? 0, selections: {} });
     }
   };
 
@@ -164,9 +225,35 @@ export default function PDV() {
       toast.error('🔒 Caixa travado. Faça uma retirada em Caixa para continuar.');
       return;
     }
-    setCart([...cart, { ...item, quantity: 1, id: Date.now() }]);
+    const newItem = { ...item, quantity: 1, id: Date.now() };
+    setCart(prev => {
+      const next = [...prev, newItem];
+      const newTotal = next.reduce((s, i) => s + (i.totalPrice || 0) * (i.quantity || 1), 0);
+      setTimeout(() => checkUpsell(newTotal), 100);
+      return next;
+    });
     setSelectedDish(null);
+    setSelectedPizza(null);
     toast.success(`${item.dish.name} adicionado!`);
+  };
+
+  const handleUpsellAccept = (promotion) => {
+    if (!promotion) return;
+    const promoDish = safeDishes.find(d => d.id === promotion.offer_dish_id);
+    if (!promoDish) {
+      closeUpsell();
+      return;
+    }
+    if (promotion.type === 'replace') {
+      setCart([]);
+    }
+    const promoItem = {
+      dish: { ...promoDish, price: promotion.offer_price },
+      totalPrice: promotion.offer_price,
+      selections: {}
+    };
+    addToCart(promoItem);
+    closeUpsell();
   };
 
   const updateQuantity = (id, newQuantity) => {
@@ -189,6 +276,7 @@ export default function PDV() {
     setDiscountPercent('');
     setCustomerName('Cliente Balcão');
     setCustomerPhone('');
+    resetUpsell();
     toast.success('Venda limpa');
   };
 
@@ -242,12 +330,12 @@ export default function PDV() {
       customer_phone: customerPhone,
       customer_document: paymentData.document,
       items: cart.map(item => ({
-        dish_id: item.dish.id,
-        dish_name: item.dish.name,
+        dish_id: item.dish?.id,
+        dish_name: item.dish?.name,
         quantity: item.quantity,
-        unit_price: item.dish.price,
-        total_price: item.totalPrice * item.quantity,
-        selections: item.selections
+        unit_price: item.totalPrice ?? item.dish?.price,
+        total_price: (item.totalPrice ?? item.dish?.price ?? 0) * item.quantity,
+        selections: item.selections || (item.flavors ? { size: item.size, flavors: item.flavors, edge: item.edge, extras: item.extras, specifications: item.specifications } : {})
       })),
       subtotal,
       discount: totalDiscount,
@@ -329,12 +417,14 @@ export default function PDV() {
           <div>Data: ${new Date().toLocaleString('pt-BR')}</div>
           <div>Cliente: ${lastSale.customerName}</div>
           <div class="line"></div>
-          ${lastSale.items.map(item => `
+          ${lastSale.items.map(item => {
+            const details = item.flavors?.length ? ` (${item.size?.name || ''} ${item.flavors.map(f => f.name).join(' + ')})` : '';
+            return `
             <div class="item">
-              <span>${item.quantity}x ${item.dish.name}</span>
+              <span>${item.quantity}x ${item.dish.name}${details || ''}</span>
               <span>${formatCurrency(item.totalPrice * item.quantity)}</span>
             </div>
-          `).join('')}
+          `}).join('')}
           <div class="line"></div>
           <div class="item bold total">
             <span>TOTAL</span>
@@ -424,6 +514,16 @@ export default function PDV() {
                 >
                   TODOS
                 </button>
+                {hasPizzas && (
+                  <button
+                    onClick={() => setSelectedCategory('pizzas')}
+                    className={`px-5 py-2.5 rounded-lg text-sm font-bold whitespace-nowrap transition-colors ${
+                      selectedCategory === 'pizzas' ? 'bg-orange-500 text-white' : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
+                    }`}
+                  >
+                    PIZZAS
+                  </button>
+                )}
                 {(categories || []).filter(cat => cat && cat.name).map(cat => (
                   <button
                     key={cat.id}
@@ -480,7 +580,9 @@ export default function PDV() {
                         {dish.name}
                       </h4>
                       <div className="text-xl font-bold text-orange-600">
-                        {formatCurrency(dish.price)}
+                        {dish.product_type === 'pizza'
+                          ? (dish.pizza_config?.sizes?.[0] ? formatCurrency(dish.pizza_config.sizes[0].price_tradicional) : 'Montar')
+                          : formatCurrency(dish.price)}
                       </div>
                     </div>
                   </button>
@@ -527,17 +629,14 @@ export default function PDV() {
                         <h4 className="font-bold text-white text-sm mb-1">
                           {item.dish.name}
                         </h4>
-                        {Object.keys(item.selections || {}).length > 0 && (
+                        {(item.flavors?.length > 0 || (item.selections && Object.keys(item.selections).length > 0)) && (
                           <div className="mb-1">
-                            {Object.entries(item.selections).map(([gId, sel]) => {
-                              if (Array.isArray(sel)) {
-                                return sel.map((s, i) => (
-                                  <p key={i} className="text-xs text-gray-400">• {s.name}</p>
-                                ));
-                              } else if (sel) {
-                                return <p key={gId} className="text-xs text-gray-400">• {sel.name}</p>;
-                              }
-                              return null;
+                            {item.size && <p className="text-xs text-gray-400">• {item.size.name}</p>}
+                            {item.flavors?.map((f, i) => <p key={i} className="text-xs text-gray-400">• {f.name}</p>)}
+                            {item.edge && item.edge.id !== 'none' && <p className="text-xs text-gray-400">• Borda: {item.edge.name}</p>}
+                            {!item.flavors?.length && Object.entries(item.selections || {}).map(([gId, sel]) => {
+                              if (Array.isArray(sel)) return sel.map((s, i) => <p key={`${gId}-${i}`} className="text-xs text-gray-400">• {s?.name}</p>);
+                              return sel ? <p key={gId} className="text-xs text-gray-400">• {sel?.name}</p> : null;
                             })}
                           </div>
                         )}
@@ -756,7 +855,33 @@ export default function PDV() {
         dish={selectedDish}
         complementGroups={complementGroups}
         onAddToCart={addToCart}
-        primaryColor="#f97316"
+        primaryColor={store.theme_primary_color || '#f97316'}
+      />
+
+      {selectedPizza && (
+        <PizzaBuilderV2
+          dish={selectedPizza}
+          sizes={pizzaSizes}
+          flavors={pizzaFlavors}
+          edges={pizzaEdges}
+          extras={pizzaExtras}
+          categories={pizzaCategories}
+          onAddToCart={addToCart}
+          onClose={() => setSelectedPizza(null)}
+          primaryColor={store.theme_primary_color || '#f97316'}
+          store={store}
+        />
+      )}
+
+      <UpsellModal
+        isOpen={showUpsellModal}
+        onClose={closeUpsell}
+        promotions={upsellPromotions}
+        dishes={safeDishes}
+        onAccept={handleUpsellAccept}
+        onDecline={closeUpsell}
+        primaryColor={store.theme_primary_color || '#f97316'}
+        darkMode
       />
 
       <PaymentModal
