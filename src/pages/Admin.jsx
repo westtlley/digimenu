@@ -81,12 +81,18 @@ export default function Admin() {
     }
   }, [loading, isMaster, subscriberData, navigate]);
 
-  // Abrir aba via ?tab= na URL (ex: /admin?tab=store)
-  const [searchParams] = useSearchParams();
+  // Abrir aba via ?tab= na URL - ao mudar aba, atualiza URL para persistir no refresh
+  const [searchParams, setSearchParams] = useSearchParams();
   useEffect(() => {
     const tab = searchParams.get('tab');
     if (tab) setActiveTab(tab);
   }, [searchParams]);
+
+  const handleSetActiveTab = (tab) => {
+    setActiveTab(tab);
+    setShowMobileSidebar(false);
+    setSearchParams({ tab }, { replace: true });
+  };
 
   const handleLogout = () => {
     base44.auth.logout();
@@ -171,7 +177,7 @@ export default function Admin() {
   const renderTabContent = () => {
     switch (activeTab) {
       case 'dashboard':
-        return <DashboardTab user={user} subscriberData={subscriberData} onNavigateToTab={setActiveTab} />;
+        return <DashboardTab user={user} subscriberData={subscriberData} onNavigateToTab={handleSetActiveTab} />;
       case 'caixa':
         return hasModuleAccess('caixa') ? <CaixaTab /> : <AccessDenied />;
       case 'whatsapp':
@@ -194,7 +200,7 @@ export default function Admin() {
         return hasDishesAccess ? (
           <ErrorBoundary>
             <DishesTab 
-              onNavigateToPizzas={() => setActiveTab('pizza_config')}
+              onNavigateToPizzas={() => handleSetActiveTab('pizza_config')}
               initialTab={activeTab === 'categories' ? 'categories' : activeTab === 'complements' ? 'complements' : 'dishes'}
             />
           </ErrorBoundary>
@@ -249,7 +255,7 @@ export default function Admin() {
           </div>
         ) : <AccessDenied />;
       default:
-        return <DashboardTab user={user} subscriberData={subscriberData} onNavigateToTab={setActiveTab} />;
+        return <DashboardTab user={user} subscriberData={subscriberData} onNavigateToTab={handleSetActiveTab} />;
     }
   };
 
@@ -400,10 +406,7 @@ export default function Admin() {
         >
           <AdminSidebar 
             activeTab={activeTab} 
-            setActiveTab={(tab) => {
-              setActiveTab(tab);
-              setShowMobileSidebar(false);
-            }} 
+            setActiveTab={handleSetActiveTab} 
             isMaster={isMaster}
             permissions={permissions}
             collapsed={sidebarCollapsed}

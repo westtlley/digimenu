@@ -68,12 +68,18 @@ export default function PainelAssinante() {
 
   useDocumentHead(store);
 
-  // Abrir aba via ?tab= na URL (ex: /painelassinante?tab=store)
-  const [searchParams] = useSearchParams();
+  // Abrir aba via ?tab= na URL - ao mudar aba, atualiza URL para persistir no refresh
+  const [searchParams, setSearchParams] = useSearchParams();
   useEffect(() => {
     const tab = searchParams.get('tab');
     if (tab) setActiveTab(tab);
   }, [searchParams]);
+
+  const handleSetActiveTab = (tab) => {
+    setActiveTab(tab);
+    setShowMobileSidebar(false);
+    setSearchParams({ tab }, { replace: true });
+  };
 
   const handleLogout = () => {
     base44.auth.logout();
@@ -135,7 +141,7 @@ export default function PainelAssinante() {
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
-        return <DashboardTab user={user} subscriberData={subscriberData} onNavigateToTab={setActiveTab} />;
+        return <DashboardTab user={user} subscriberData={subscriberData} onNavigateToTab={handleSetActiveTab} />;
       case 'pdv':
         return hasModuleAccess('pdv') ? <div className="p-8 text-center">Use o botão PDV no header</div> : <AccessDenied />;
       case 'caixa':
@@ -179,7 +185,7 @@ export default function PainelAssinante() {
       case 'colaboradores':
         return hasModuleAccess('colaboradores') ? <ColaboradoresTab /> : <AccessDenied />;
       default:
-        return <DashboardTab user={user} subscriberData={subscriberData} onNavigateToTab={setActiveTab} />;
+        return <DashboardTab user={user} subscriberData={subscriberData} onNavigateToTab={handleSetActiveTab} />;
     }
   };
 
@@ -309,10 +315,7 @@ export default function PainelAssinante() {
         >
           <SharedSidebar
             activeTab={activeTab}
-            setActiveTab={(tab) => {
-              setActiveTab(tab);
-              setShowMobileSidebar(false);
-            }}
+            setActiveTab={handleSetActiveTab}
             isMaster={isMaster}
             permissions={permissions}
             plan={subscriberData?.plan}
