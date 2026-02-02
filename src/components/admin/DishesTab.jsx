@@ -13,7 +13,6 @@ import { Switch } from "@/components/ui/switch";
 import { Card, CardContent } from "@/components/ui/card";
 import { Plus, Trash2, Star, ChevronDown, ChevronUp, MoreVertical, Layers, Copy, FolderPlus, Menu, Settings, Files, Pencil, Gift, X, GripVertical, Search, Bookmark, Edit as EditIcon, UtensilsCrossed, LayoutGrid, CheckCircle, Package } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
-import ComboModal from './ComboModal';
 import ReuseGroupModal from './ReuseGroupModal';
 import ReorderModal from './ReorderModal';
 import CategoryForm from './CategoryForm';
@@ -69,8 +68,6 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
   const [newCategoryName, setNewCategoryName] = useState('');
   const [complementMode, setComplementMode] = useState(null);
   const [copyFromDishId, setCopyFromDishId] = useState('');
-  const [showComboModal, setShowComboModal] = useState(false);
-  const [editingCombo, setEditingCombo] = useState(null);
   const [showReuseGroupModal, setShowReuseGroupModal] = useState(false);
   const [currentDishForReuse, setCurrentDishForReuse] = useState(null);
   const [editingOptionPrice, setEditingOptionPrice] = useState(null);
@@ -157,12 +154,6 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
     initialData: [],
     retry: 2,
     refetchOnMount: 'always', // evita cache vazio: complementos voltam a aparecer após refresh
-  });
-
-  const { data: combos = [] } = useQuery({
-    queryKey: ['combos'],
-    queryFn: () => base44.entities.Combo.list(),
-    initialData: [],
   });
 
   // ========= MUTATIONS =========
@@ -255,29 +246,6 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
   const updateComplementGroupMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.ComplementGroup.update(id, data),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['complementGroups'] }),
-  });
-
-  const createComboMutation = useMutation({
-    mutationFn: (data) => base44.entities.Combo.create(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['combos'] });
-      setShowComboModal(false);
-      setEditingCombo(null);
-    },
-  });
-
-  const updateComboMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.Combo.update(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['combos'] });
-      setShowComboModal(false);
-      setEditingCombo(null);
-    },
-  });
-
-  const deleteComboMutation = useMutation({
-    mutationFn: (id) => base44.entities.Combo.delete(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['combos'] }),
   });
 
   // Validações de segurança - DECLARADAS AQUI PARA ESTAREM DISPONÍVEIS EM TODAS AS FUNÇÕES
@@ -1466,7 +1434,6 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
           <MobileFloatingActions
             onAddDish={() => handleOpenProductTypeModal(safeCategories[0]?.id || '')}
             onAddCategory={() => setShowCategoryModal(true)}
-            onAddCombo={() => setShowComboModal(true)}
           />
         </div>
       )}
@@ -1820,24 +1787,6 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
           </form>
         </DialogContent>
       </Dialog>
-
-      {/* Modal Combo */}
-      <ComboModal
-        isOpen={showComboModal}
-        onClose={() => {
-          setShowComboModal(false);
-          setEditingCombo(null);
-        }}
-        onSubmit={(comboData) => {
-          if (editingCombo) {
-            updateComboMutation.mutate({ id: editingCombo.id, data: comboData });
-          } else {
-            createComboMutation.mutate(comboData);
-          }
-        }}
-        combo={editingCombo}
-        dishes={safeDishes}
-      />
 
       {/* Modal Reutilizar Grupo */}
       <ReuseGroupModal

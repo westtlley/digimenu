@@ -17,6 +17,7 @@ import PizzaConfigTab from '../components/admin/PizzaConfigTab';
 import DeliveryZonesTab from '../components/admin/DeliveryZonesTab';
 import CouponsTab from '../components/admin/CouponsTab';
 import PromotionsTab from '../components/admin/PromotionsTab';
+import BeveragesTab from '../components/admin/BeveragesTab';
 import ThemeTab from '../components/admin/ThemeTab';
 import ComandasTab from '../components/admin/ComandasTab';
 import OrdersTab from '../components/admin/OrdersTab';
@@ -205,6 +206,8 @@ export default function Admin() {
             </p>
           </div>
         );
+      case 'beverages':
+        return hasModuleAccess('dishes') ? <BeveragesTab /> : <AccessDenied />;
       case 'pizza_config':
         return hasModuleAccess('pizza_config') ? <PizzaConfigTab /> : <AccessDenied />;
       case 'delivery_zones':

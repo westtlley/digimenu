@@ -30,7 +30,8 @@ import {
   Pizza,
   Layout,
   Receipt,
-  Bell
+  Bell,
+  Wine
 } from 'lucide-react';
 
 const MENU_STRUCTURE = [
@@ -71,6 +72,7 @@ const MENU_STRUCTURE = [
       { id: 'restaurante_grp', label: 'Restaurante', icon: UtensilsCrossed, section: 'subsection', submenu: [
         { id: 'dishes', label: 'Pratos (Categorias e Complementos)', icon: UtensilsCrossed, module: 'dishes' },
       ]},
+      { id: 'beverages', label: 'Bebidas', icon: Wine, module: 'dishes' },
       { id: 'pizza_config', label: 'Pizzas', icon: Pizza, module: 'pizza_config' },
       { id: 'promotions', label: 'Promoções', icon: Megaphone, module: 'promotions' },
       { id: 'coupons', label: 'Cupons', icon: Ticket, module: 'coupons' },

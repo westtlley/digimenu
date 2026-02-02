@@ -5,29 +5,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 export default function MobileFloatingActions({
   onAddDish,
   onAddCategory,
-  onAddCombo
+  onAddCombo,
 }) {
   const [isOpen, setIsOpen] = useState(false);
 
   const actions = [
-    { 
-      icon: UtensilsCrossed, 
-      label: 'Novo Prato', 
-      onClick: () => { onAddDish(); setIsOpen(false); },
-      color: 'bg-orange-500'
-    },
-    { 
-      icon: FolderPlus, 
-      label: 'Nova Categoria', 
-      onClick: () => { onAddCategory(); setIsOpen(false); },
-      color: 'bg-blue-500'
-    },
-    { 
-      icon: Gift, 
-      label: 'Novo Combo', 
-      onClick: () => { onAddCombo(); setIsOpen(false); },
-      color: 'bg-purple-500'
-    },
+    { icon: UtensilsCrossed, label: 'Novo Prato', onClick: () => { onAddDish?.(); setIsOpen(false); }, color: 'bg-orange-500' },
+    { icon: FolderPlus, label: 'Nova Categoria', onClick: () => { onAddCategory?.(); setIsOpen(false); }, color: 'bg-blue-500' },
+    ...(onAddCombo ? [{ icon: Gift, label: 'Novo Combo', onClick: () => { onAddCombo(); setIsOpen(false); }, color: 'bg-purple-500' }] : []),
   ];
 
   return (

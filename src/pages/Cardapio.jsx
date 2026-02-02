@@ -203,6 +203,7 @@ export default function Cardapio() {
   const pizzaEdgesResolved = _pub?.pizzaEdges ?? pizzaEdges ?? [];
   const pizzaExtrasResolved = _pub?.pizzaExtras ?? pizzaExtras ?? [];
   const pizzaCategoriesResolved = _pub?.pizzaCategories ?? [];
+  const beverageCategoriesResolved = _pub?.beverageCategories ?? [];
   const deliveryZonesResolved = _pub?.deliveryZones ?? deliveryZones ?? [];
   const couponsResolved = _pub?.coupons ?? coupons ?? [];
   const promotionsResolved = _pub?.promotions ?? promotions ?? [];
@@ -248,22 +249,27 @@ export default function Cardapio() {
   // Memoized calculations
   const activeDishes = useMemo(() => {
     const safeDishes = Array.isArray(dishesResolved) ? dishesResolved : [];
-    // Filtra apenas pratos ativos E que tenham nome e preço definidos
     return safeDishes.filter((d) => {
+      if (d.product_type === 'beverage') return false;
       if (d.is_active === false) return false;
       if (!d.name || d.name.trim() === '') return false;
-      
-      // Para pizzas, verificar se tem tamanhos e sabores configurados
       if (d.product_type === 'pizza') {
         if (pizzaSizesResolved.length === 0 || pizzaFlavorsResolved.length === 0) return false;
-      } else {
-        // Para outros produtos, verificar se tem preço
-        if (d.price === null || d.price === undefined) return false;
-      }
-      
+      } else if (d.price === null || d.price === undefined) return false;
       return true;
     });
   }, [dishesResolved, pizzaSizesResolved, pizzaFlavorsResolved]);
+
+  const activeBeverages = useMemo(() => {
+    const safeDishes = Array.isArray(dishesResolved) ? dishesResolved : [];
+    return safeDishes.filter((d) => {
+      if (d.product_type !== 'beverage') return false;
+      if (d.is_active === false) return false;
+      if (!d.name || d.name.trim() === '') return false;
+      if (d.price === null || d.price === undefined) return false;
+      return true;
+    });
+  }, [dishesResolved]);
   const highlightDishes = useMemo(() => {
     const safeActiveDishes = Array.isArray(activeDishes) ? activeDishes : [];
     return safeActiveDishes.filter((d) => d.is_highlight);
@@ -273,16 +279,28 @@ export default function Cardapio() {
   const filteredDishes = useMemo(() => {
     const safeActiveDishes = Array.isArray(activeDishes) ? activeDishes : [];
     const isPizzaCategory = selectedCategory?.startsWith?.('pc_');
+    const isBeverageCategory = selectedCategory === 'beverages' || selectedCategory?.startsWith?.('bc_');
+    if (isBeverageCategory) return [];
     const pizzaCatId = isPizzaCategory ? selectedCategory.replace(/^pc_/, '') : null;
     return safeActiveDishes.filter((dish) => {
       const matchesSearch = !searchTerm || dish.name?.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesCategory = selectedCategory === 'all'
         || (isPizzaCategory && dish.product_type === 'pizza' && dish.pizza_category_id === pizzaCatId)
         || (!isPizzaCategory && dish.category_id === selectedCategory);
-      
       return matchesSearch && matchesCategory;
     });
   }, [activeDishes, searchTerm, selectedCategory]);
+
+  const filteredBeverages = useMemo(() => {
+    if (selectedCategory !== 'beverages' && !selectedCategory?.startsWith?.('bc_')) return [];
+    const list = Array.isArray(activeBeverages) ? activeBeverages : [];
+    const bcId = selectedCategory?.startsWith?.('bc_') ? selectedCategory.replace(/^bc_/, '') : null;
+    return list.filter((b) => {
+      const matchesSearch = !searchTerm || b.name?.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesCategory = selectedCategory === 'beverages' || !bcId || b.category_id === bcId;
+      return matchesSearch && matchesCategory;
+    });
+  }, [activeBeverages, searchTerm, selectedCategory]);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -812,6 +830,34 @@ export default function Cardapio() {
                   </button>
                 );
               })}
+              {activeBeverages.length > 0 && (
+                <>
+                  <button
+                    onClick={() => setSelectedCategory('beverages')}
+                    className={`relative px-6 md:px-8 py-2.5 md:py-3 rounded-full text-sm md:text-base font-semibold whitespace-nowrap transition-all duration-200 ${
+                      selectedCategory === 'beverages' ? 'text-white shadow-lg scale-105' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                    }`}
+                    style={selectedCategory === 'beverages' ? { backgroundColor: primaryColor, color: 'white' } : {}}
+                  >
+                    Bebidas
+                  </button>
+                  {beverageCategoriesResolved?.map((bc) => {
+                    const bcKey = `bc_${bc.id}`;
+                    return (
+                      <button
+                        key={bcKey}
+                        onClick={() => setSelectedCategory(bcKey)}
+                        className={`relative px-6 md:px-8 py-2.5 md:py-3 rounded-full text-sm md:text-base font-semibold whitespace-nowrap transition-all duration-200 ${
+                          selectedCategory === bcKey ? 'text-white shadow-lg scale-105' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                        }`}
+                        style={selectedCategory === bcKey ? { backgroundColor: primaryColor, color: 'white' } : {}}
+                      >
+                        {bc.name}
+                      </button>
+                    );
+                  })}
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -931,19 +977,23 @@ export default function Cardapio() {
           </section>
         )}
 
-        {/* All Dishes */}
+        {/* All Dishes / Bebidas */}
         <section>
           <h2 className="font-bold text-base md:text-lg mb-4 md:mb-4 text-foreground">
-            {selectedCategory === 'all'
-              ? 'Cardápio Completo' 
-              : selectedCategory?.startsWith?.('pc_')
-                ? (() => {
-                    const pcId = selectedCategory.replace(/^pc_/, '');
-                    const pc = pizzaCategoriesResolved?.find(c => c.id === pcId);
-                    const sz = pc ? pizzaSizesResolved?.find(s => s.id === pc.size_id) : null;
-                    return pc?.name || (pc && sz ? `${sz.name} • ${pc.max_flavors || 1} sabor(es)` : 'Pizzas');
-                  })()
-                : categoriesResolved.find(c => c.id === selectedCategory)?.name || 'Pratos'}
+            {selectedCategory === 'beverages' || selectedCategory?.startsWith?.('bc_')
+              ? (selectedCategory?.startsWith?.('bc_')
+                  ? beverageCategoriesResolved?.find(c => c.id === selectedCategory.replace(/^bc_/, ''))?.name || 'Bebidas'
+                  : 'Bebidas')
+              : selectedCategory === 'all'
+                ? 'Cardápio Completo' 
+                : selectedCategory?.startsWith?.('pc_')
+                  ? (() => {
+                      const pcId = selectedCategory.replace(/^pc_/, '');
+                      const pc = pizzaCategoriesResolved?.find(c => c.id === pcId);
+                      const sz = pc ? pizzaSizesResolved?.find(s => s.id === pc.size_id) : null;
+                      return pc?.name || (pc && sz ? `${sz.name} • ${pc.max_flavors || 1} sabor(es)` : 'Pizzas');
+                    })()
+                  : categoriesResolved.find(c => c.id === selectedCategory)?.name || 'Pratos'}
           </h2>
           {loadingDishes ? (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-3 lg:gap-4">
@@ -951,12 +1001,29 @@ export default function Cardapio() {
                 <DishSkeleton key={i} />
               ))}
             </div>
+          ) : (selectedCategory === 'beverages' || selectedCategory?.startsWith?.('bc_')) ? (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-3 lg:gap-4">
+              {filteredBeverages.map((dish, index) => {
+                const isOutOfStock = stockUtils.isOutOfStock(dish.stock);
+                const isLowStock = stockUtils.isLowStock(dish.stock);
+                return (
+                  <DishCardWow
+                    key={dish.id}
+                    dish={dish}
+                    onClick={handleDishClick}
+                    index={index}
+                    isOutOfStock={isOutOfStock}
+                    isLowStock={isLowStock}
+                    primaryColor={primaryColor}
+                  />
+                );
+              })}
+            </div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-3 lg:gap-4">
               {filteredDishes.map((dish, index) => {
                 const isOutOfStock = stockUtils.isOutOfStock(dish.stock);
                 const isLowStock = stockUtils.isLowStock(dish.stock);
-
                 return (
                   <DishCardWow
                     key={dish.id}
@@ -973,7 +1040,7 @@ export default function Cardapio() {
           )}
         </section>
 
-        {!loadingDishes && filteredDishes.length === 0 && (
+        {!loadingDishes && (selectedCategory === 'beverages' || selectedCategory?.startsWith?.('bc_') ? filteredBeverages : filteredDishes).length === 0 && (
           <div className="text-center py-16">
             <p className="text-muted-foreground">Nenhum prato encontrado</p>
           </div>

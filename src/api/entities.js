@@ -71,6 +71,8 @@ export const PizzaExtra = base44.entities.PizzaExtra;
 
 export const PizzaVisualizationConfig = base44.entities.PizzaVisualizationConfig;
 
+export const BeverageCategory = base44.entities.BeverageCategory;
+
 
 
 // auth sdk:

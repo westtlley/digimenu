@@ -10,11 +10,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Plus, Trash2, Zap, ArrowUpRight, RefreshCw, Search, Filter, TrendingUp } from 'lucide-react';
+import { Plus, Trash2, Zap, ArrowUpRight, RefreshCw, Search, Filter, TrendingUp, Gift, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
+import ComboModalUnified from './ComboModalUnified';
 
 export default function PromotionsTab() {
   const [showModal, setShowModal] = useState(false);
+  const [showComboModal, setShowComboModal] = useState(false);
+  const [editingCombo, setEditingCombo] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterType, setFilterType] = useState('all');
@@ -39,6 +42,11 @@ export default function PromotionsTab() {
   const { data: dishes = [] } = useQuery({
     queryKey: ['dishes'],
     queryFn: () => base44.entities.Dish.list(),
+  });
+
+  const { data: combos = [] } = useQuery({
+    queryKey: ['combos'],
+    queryFn: () => base44.entities.Combo.list(),
   });
 
   const { data: stores = [] } = useQuery({ queryKey: ['store'], queryFn: () => base44.entities.Store.list() });
@@ -105,6 +113,34 @@ export default function PromotionsTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['promotions'] });
       toast.success('Promoção excluída!');
+    },
+  });
+
+  const createComboMutation = useMutation({
+    mutationFn: (data) => base44.entities.Combo.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['combos'] });
+      setShowComboModal(false);
+      setEditingCombo(null);
+      toast.success('Combo criado!');
+    },
+  });
+
+  const updateComboMutation = useMutation({
+    mutationFn: ({ id, data }) => base44.entities.Combo.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['combos'] });
+      setShowComboModal(false);
+      setEditingCombo(null);
+      toast.success('Combo atualizado!');
+    },
+  });
+
+  const deleteComboMutation = useMutation({
+    mutationFn: (id) => base44.entities.Combo.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['combos'] });
+      toast.success('Combo excluído!');
     },
   });
 
@@ -307,6 +343,10 @@ export default function PromotionsTab() {
           <Plus className="w-4 h-4 mr-2" />
           Nova Promoção
         </Button>
+        <Button variant="outline" onClick={() => { setEditingCombo(null); setShowComboModal(true); }} className="border-purple-300 text-purple-700 hover:bg-purple-50">
+          <Gift className="w-4 h-4 mr-2" />
+          Criar Combo
+        </Button>
       </div>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -366,6 +406,61 @@ export default function PromotionsTab() {
           ))
         )}
       </div>
+
+      {/* Combos - unificado em Promoções */}
+      <Card className="mt-8">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Gift className="w-5 h-5" />
+            Combos
+          </CardTitle>
+          <CardDescription>Pratos + Bebidas ou Pizzas + Bebidas. Adicionar ao carrinho ou substituir item.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {Array.isArray(combos) && combos.length === 0 ? (
+              <div className="col-span-full text-center py-8 text-gray-500 border-2 border-dashed rounded-xl">
+                <Gift className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                <p>Nenhum combo cadastrado</p>
+                <Button variant="outline" className="mt-3" onClick={() => setShowComboModal(true)}>Criar primeiro combo</Button>
+              </div>
+            ) : (
+              (combos || []).map((c) => (
+                <div key={c.id} className="bg-white dark:bg-gray-800 rounded-xl p-4 border flex flex-col">
+                  <div className="flex justify-between items-start mb-2">
+                    <h3 className="font-bold">{c.name}</h3>
+                    <div className="flex gap-1">
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditingCombo(c); setShowComboModal(true); }}>
+                        <Pencil className="w-4 h-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => confirm('Excluir combo?') && deleteComboMutation.mutate(c.id)}>
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500 mb-2">
+                    {c.combo_mode === 'pizzas_beverages' ? 'Pizzas + Bebidas' : 'Pratos + Bebidas'} · {c.combo_action === 'replace' ? 'Substituir' : 'Adicionar'}
+                  </p>
+                  <p className="font-bold text-green-600">{formatCurrency(c.combo_price)}</p>
+                  {c.original_price > c.combo_price && (
+                    <p className="text-xs text-gray-400 line-through">{formatCurrency(c.original_price)}</p>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <ComboModalUnified
+        isOpen={showComboModal}
+        onClose={() => { setShowComboModal(false); setEditingCombo(null); }}
+        onSubmit={(data) => editingCombo ? updateComboMutation.mutate({ id: editingCombo.id, data }) : createComboMutation.mutate(data)}
+        combo={editingCombo}
+        dishes={safeDishes}
+        pizzas={(dishes || []).filter(d => d.product_type === 'pizza')}
+        beverages={(dishes || []).filter(d => d.product_type === 'beverage')}
+      />
 
       <Dialog open={showModal} onOpenChange={setShowModal}>
         <DialogContent className="max-w-md mx-4">

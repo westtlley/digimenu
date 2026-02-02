@@ -678,7 +678,7 @@ export default function SubscriberDataViewer({ subscriber, onBack }) {
               </tbody>
             </table>
             {(data.combos || []).length === 0 && (
-              <div className="px-4 py-8 text-center text-gray-500">Nenhum combo. Use &quot;Criar combo&quot; na aba Pratos ou aqui.</div>
+              <div className="px-4 py-8 text-center text-gray-500">Nenhum combo. Use &quot;Criar combo&quot; em Promoções.</div>
             )}
           </div>
         </TabsContent>
