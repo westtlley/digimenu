@@ -33,6 +33,7 @@ export default function StoreTab() {
     name: '', logo: '', whatsapp: '', address: '', slogan: '', instagram: '', facebook: '', tiktok: '',
     is_open: null, accepting_orders: true, pause_message: '',
     opening_time: '08:00', closing_time: '18:00', working_days: [1, 2, 3, 4, 5],
+    pizza_board_image: '',
   });
 
   const queryClient = useQueryClient();
@@ -81,6 +82,7 @@ export default function StoreTab() {
         whatsapp: store.whatsapp || '',
         address: store.address || '',
         slogan: store.slogan || '',
+        pizza_board_image: store.pizza_board_image || '',
         instagram: store.instagram || '',
         facebook: store.facebook || '',
         is_open: store.is_open === null || store.is_open === undefined ? null : store.is_open,
@@ -471,6 +473,30 @@ export default function StoreTab() {
                   Alterar Logotipo
                 </label>
                 <span className="text-xs text-gray-500 mt-1">Recomendado: 500x500px</span>
+              </div>
+
+              {/* Tábua de Pizza */}
+              <div className="flex flex-col items-center">
+                <div className="w-32 h-32 bg-gray-100 rounded-xl flex items-center justify-center mb-3 overflow-hidden border-2 border-dashed border-gray-300 hover:border-orange-400 transition-colors">
+                  {formData.pizza_board_image ? (
+                    <img src={formData.pizza_board_image} alt="Tábua de Pizza" className="w-full h-full object-cover rounded-full" />
+                  ) : (
+                    <div className="w-24 h-24 rounded-full bg-gradient-to-br from-amber-700 to-amber-900 flex items-center justify-center">
+                      <span className="text-white text-2xl">🍕</span>
+                    </div>
+                  )}
+                </div>
+                <label className="text-sm text-orange-600 cursor-pointer hover:text-orange-700 font-medium flex items-center gap-2">
+                  <ImageIcon className="w-4 h-4" />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handlePizzaBoardUpload}
+                    className="hidden"
+                  />
+                  {formData.pizza_board_image ? 'Alterar Tábua' : 'Adicionar Tábua'}
+                </label>
+                <span className="text-xs text-gray-500 mt-1">Imagem da tábua de pizza</span>
               </div>
 
               <Separator />

@@ -47,8 +47,8 @@ export default function PizzaBuilderV2({
   });
   const vizConfig = savedConfigs[0] || {};
   const edgeImageUrl = vizConfig.edgeImageUrl || LOCAL_EDGE_IMAGE;
-  const edgeStrokeWidth = vizConfig.edgeStrokeWidth ?? 12;
-  const edgeRadius = vizConfig.edgeRadius ?? 48;
+  const edgeStrokeWidth = vizConfig.edgeStrokeWidth ?? 16;
+  const edgeRadius = vizConfig.edgeRadius ?? 50;
   const edgeOffsetX = vizConfig.edgeOffsetX ?? 0;
   const edgeOffsetY = vizConfig.edgeOffsetY ?? 0;
   const edgeScale = vizConfig.edgeScale ?? 1;
@@ -61,6 +61,20 @@ export default function PizzaBuilderV2({
   const [selectedExtras, setSelectedExtras] = useState([]);
   const [specifications, setSpecifications] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [animationKey, setAnimationKey] = useState(0);
+  
+  // Resetar animação quando voltar da tela de sabores ou abrir pela primeira vez
+  React.useEffect(() => {
+    if (step === 'custom') {
+      // Forçar re-render da animação
+      setAnimationKey(prev => prev + 1);
+    }
+  }, [step]);
+  
+  // Também resetar quando o componente monta
+  React.useEffect(() => {
+    setAnimationKey(1);
+  }, []);
 
   // Carregar dados de edição ou pré-preencher sabor
   React.useEffect(() => {
@@ -215,7 +229,51 @@ export default function PizzaBuilderV2({
                   onClick={() => setStep('flavors')}
                   className="relative w-56 h-56 sm:w-64 sm:h-64 lg:w-[340px] lg:h-[340px] pizza-container group cursor-pointer transition-transform active:scale-95 flex-shrink-0"
                 >
-                  <div className="absolute inset-0 rounded-full overflow-hidden transition-transform duration-500 hover:rotate-6 shadow-xl">
+                  {/* Tábua de Pizza - Background (desce primeiro) */}
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={`board-${animationKey}`}
+                      initial={{ y: -200, opacity: 0, scale: 0.8 }}
+                      animate={{ y: 0, opacity: 1, scale: 1 }}
+                      exit={{ y: -200, opacity: 0 }}
+                      transition={{ 
+                        duration: 0.8, 
+                        ease: [0.34, 1.56, 0.64, 1],
+                        type: "spring",
+                        stiffness: 100,
+                        damping: 12
+                      }}
+                      className="absolute inset-[-25px] z-0"
+                      style={{
+                        backgroundImage: store?.pizza_board_image 
+                          ? `url("${store.pizza_board_image}")`
+                          : `url("data:image/svg+xml,%3Csvg width='400' height='400' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3ClinearGradient id='woodBase' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' style='stop-color:%23d2691e;stop-opacity:1' /%3E%3Cstop offset='50%25' style='stop-color:%23cd853f;stop-opacity:1' /%3E%3Cstop offset='100%25' style='stop-color:%23a0522d;stop-opacity:1' /%3E%3C/linearGradient%3E%3Cpattern id='woodGrain' x='0' y='0' width='80' height='80' patternUnits='userSpaceOnUse'%3E%3Cpath d='M0,40 Q20,25 40,40 T80,40' stroke='%23a0522d' stroke-width='1' fill='none' opacity='0.4'/%3E%3Cpath d='M0,50 Q20,35 40,50 T80,50' stroke='%238b4513' stroke-width='0.8' fill='none' opacity='0.3'/%3E%3Cpath d='M0,30 Q20,15 40,30 T80,30' stroke='%23cd853f' stroke-width='0.8' fill='none' opacity='0.35'/%3E%3Cpath d='M0,60 Q20,45 40,60 T80,60' stroke='%23a0522d' stroke-width='0.6' fill='none' opacity='0.25'/%3E%3C/pattern%3E%3C/defs%3E%3Ccircle cx='200' cy='200' r='180' fill='url(%23woodBase)'/%3E%3Ccircle cx='200' cy='200' r='180' fill='url(%23woodGrain)'/%3E%3Ccircle cx='200' cy='200' r='172' fill='none' stroke='%238b4513' stroke-width='2' opacity='0.5'/%3E%3Ccircle cx='200' cy='200' r='180' fill='none' stroke='%23654321' stroke-width='3'/%3E%3Cpath d='M 200 20 Q 185 10 170 5 Q 160 0 150 5 Q 140 10 130 15 L 130 25 Q 140 20 150 18 Q 160 16 170 18 Q 180 20 190 22 L 200 20 Z' fill='url(%23woodBase)' stroke='%23654321' stroke-width='2'/%3E%3Cpath d='M 200 20 Q 215 10 230 5 Q 240 0 250 5 Q 260 10 270 15 L 270 25 Q 260 20 250 18 Q 240 16 230 18 Q 220 20 210 22 L 200 20 Z' fill='url(%23woodBase)' stroke='%23654321' stroke-width='2'/%3E%3Ccircle cx='200' cy='8' r='4' fill='%23654321'/%3E%3C/svg%3E")`,
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
+                        borderRadius: '50%',
+                        filter: 'drop-shadow(0 15px 40px rgba(0,0,0,0.5))',
+                        boxShadow: store?.pizza_board_image ? 'none' : 'inset 0 0 30px rgba(0,0,0,0.2)',
+                      }}
+                    />
+                  </AnimatePresence>
+                  
+                  {/* Pizza - Aparece depois da tábua (com bounce) */}
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={`pizza-${animationKey}`}
+                      initial={{ scale: 0, opacity: 0, y: 50, rotate: -180 }}
+                      animate={{ scale: 1, opacity: 1, y: 0, rotate: 0 }}
+                      exit={{ scale: 0, opacity: 0 }}
+                      transition={{ 
+                        duration: 0.7, 
+                        delay: 0.5, 
+                        ease: [0.34, 1.56, 0.64, 1],
+                        type: "spring",
+                        stiffness: 150,
+                        damping: 12
+                      }}
+                      className="absolute inset-0 rounded-full overflow-hidden transition-transform duration-500 hover:rotate-6 shadow-xl z-10"
+                    >
                     <svg viewBox="0 0 100 100" className="w-full h-full">
                       <defs>
                         {Array.from({ length: maxFlavors }).map((_, i) => selectedFlavors[i]?.image && (
@@ -223,30 +281,31 @@ export default function PizzaBuilderV2({
                             <image href={selectedFlavors[i].image} x="0" y="0" width="100" height="100" preserveAspectRatio="xMidYMid slice" />
                           </pattern>
                         ))}
+                        {/* Borda - pattern com userSpaceOnUse para melhor compatibilidade */}
                         {selectedEdge && selectedEdge.id !== 'none' && (
-                          <pattern id={`pizzaBuilderEdge-${selectedEdge?.id || 'default'}`} patternUnits="userSpaceOnUse" width="100" height="100">
+                          <pattern id={`pizza-edge-ring-${selectedEdge?.id || 'default'}`} patternUnits="userSpaceOnUse" x="0" y="0" width="100" height="100">
                             <image href={selectedEdge?.image || edgeImageUrl} x="0" y="0" width="100" height="100" preserveAspectRatio="xMidYMid slice" />
                           </pattern>
                         )}
                       </defs>
-                      {/* Base da pizza (massa) */}
+                      {/* Base massa */}
                       <circle cx="50" cy="50" r="50" fill="#3d2817" />
-                      {/* Borda por baixo - antes dos sabores */}
-                      {selectedEdge && selectedEdge.id !== 'none' && (
-                        <g transform={`translate(${50 + Number(edgeOffsetX)}, ${50 + Number(edgeOffsetY)}) scale(${edgeScale}) translate(-50, -50)`}>
-                          <circle
-                            cx="50"
-                            cy="50"
-                            r={edgeRadius}
-                            fill="none"
-                            stroke={`url(#pizzaBuilderEdge-${selectedEdge?.id || 'default'})`}
-                            strokeWidth={edgeStrokeWidth}
-                            strokeLinecap="round"
+                      {/* BORDA POR BAIXO - renderizada antes dos sabores */}
+                      {selectedEdge && selectedEdge.id !== 'none' && (() => {
+                        const outerRadius = 50;
+                        const innerRadius = 42;
+                        const outerPath = `M 50,50 m -${outerRadius},0 a ${outerRadius},${outerRadius} 0 1,1 ${outerRadius * 2},0 a ${outerRadius},${outerRadius} 0 1,1 -${outerRadius * 2},0`;
+                        const innerPath = `M 50,50 m -${innerRadius},0 a ${innerRadius},${innerRadius} 0 1,1 ${innerRadius * 2},0 a ${innerRadius},${innerRadius} 0 1,1 -${innerRadius * 2},0`;
+                        return (
+                          <path
+                            d={`${outerPath} ${innerPath}`}
+                            fill={`url(#pizza-edge-ring-${selectedEdge?.id || 'default'})`}
+                            fillRule="evenodd"
                             style={{ filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.4))' }}
                           />
-                        </g>
-                      )}
-                      {/* Raio dos sabores: menor quando tem borda, para borda ficar visível por baixo */}
+                        );
+                      })()}
+                      {/* SABORES (recheio) - em cima da borda, imagens com userSpaceOnUse */}
                       {(() => {
                         const flavorRadius = (selectedEdge && selectedEdge.id !== 'none') ? 42 : 50;
                         return maxFlavors === 1 ? (
@@ -290,9 +349,9 @@ export default function PizzaBuilderV2({
                             if (selectedFlavors[i]) return null;
                             const anglePerSlice = 360 / maxFlavors;
                             const midAngle = (anglePerSlice * (i + 0.5) - 90) * (Math.PI / 180);
-                            const flavorRadius = (selectedEdge && selectedEdge.id !== 'none') ? 42 : 50;
-                            const x = 50 + (flavorRadius / 2) * Math.cos(midAngle);
-                            const y = 50 + (flavorRadius / 2) * Math.sin(midAngle);
+                            const r = (selectedEdge && selectedEdge.id !== 'none') ? 42 : 50;
+                            const x = 50 + (r / 2) * Math.cos(midAngle);
+                            const y = 50 + (r / 2) * Math.sin(midAngle);
                             return (
                               <g key={`placeholder-${i}`}>
                                 <text x={x} y={y - 3} textAnchor="middle" fill="rgba(255,255,255,0.3)" fontSize="6">+</text>
@@ -303,8 +362,7 @@ export default function PizzaBuilderV2({
                         </g>
                       )}
                     </svg>
-                  </div>
-
+                  </motion.div>
                 </button>
                 
                 <div className="mt-8 text-center bg-black/40 px-8 py-3 rounded-full border border-white/5">
