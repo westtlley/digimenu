@@ -69,6 +69,11 @@ export default function MyPizzasTab() {
     queryFn: () => apiClient.entities.Category.list('order'),
   });
 
+  const { data: pizzaCategories = [] } = useQuery({
+    queryKey: ['pizzaCategories'],
+    queryFn: () => apiClient.entities.PizzaCategory.list('order'),
+  });
+
   // Mutations
   const createPizzaMutation = useMutation({
     mutationFn: (data) => apiClient.entities.Dish.create({
@@ -236,18 +241,20 @@ export default function MyPizzasTab() {
         edges={edges}
         extras={extras}
         categories={categories}
+        pizzaCategories={pizzaCategories}
       />
     </div>
   );
 }
 
-function PizzaModal({ isOpen, onClose, onSubmit, pizza, sizes, flavors, edges, extras, categories }) {
+function PizzaModal({ isOpen, onClose, onSubmit, pizza, sizes, flavors, edges, extras, categories, pizzaCategories = [] }) {
   const [selectedDefaultFlavor, setSelectedDefaultFlavor] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     image: '',
     category_id: '',
+    pizza_category_id: '',
     default_flavor_id: '',
     division_mode: 'slices',
     is_highlight: false,
@@ -272,6 +279,7 @@ function PizzaModal({ isOpen, onClose, onSubmit, pizza, sizes, flavors, edges, e
         description: pizza.description || '',
         image: pizza.image || '',
         category_id: pizza.category_id || '',
+        pizza_category_id: pizza.pizza_category_id || '',
         default_flavor_id: pizza.default_flavor_id || '',
         division_mode: pizza.division_mode || 'slices',
         is_highlight: pizza.is_highlight || false,
@@ -292,6 +300,7 @@ function PizzaModal({ isOpen, onClose, onSubmit, pizza, sizes, flavors, edges, e
         description: '',
         image: '',
         category_id: categories[0]?.id || '',
+        pizza_category_id: pizzaCategories[0]?.id || '',
         default_flavor_id: '',
         division_mode: 'slices',
         is_highlight: false,
@@ -324,7 +333,7 @@ function PizzaModal({ isOpen, onClose, onSubmit, pizza, sizes, flavors, edges, e
         }
       });
     }
-  }, [pizza, isOpen, sizes, flavors, edges, extras, categories]);
+  }, [pizza, isOpen, sizes, flavors, edges, extras, categories, pizzaCategories]);
 
   const handleDefaultFlavorSelect = (flavor) => {
     setSelectedDefaultFlavor(flavor);
@@ -376,7 +385,12 @@ function PizzaModal({ isOpen, onClose, onSubmit, pizza, sizes, flavors, edges, e
       return;
     }
 
-    onSubmit(formData);
+    const toSubmit = { ...formData };
+    if (pizzaCategories.length > 0 && toSubmit.pizza_category_id && !toSubmit.category_id) {
+      const defaultCat = categories.find(c => c.name?.toLowerCase().includes('pizza')) || categories[0];
+      toSubmit.category_id = defaultCat?.id || '';
+    }
+    onSubmit(toSubmit);
   };
 
   const toggleSize = (size) => {
@@ -580,18 +594,35 @@ function PizzaModal({ isOpen, onClose, onSubmit, pizza, sizes, flavors, edges, e
                   <div>
                     <Label>Categoria *</Label>
                     <Select 
-                      value={formData.category_id} 
-                      onValueChange={(value) => setFormData(prev => ({ ...prev, category_id: value }))}
+                      value={pizzaCategories.length > 0 ? (formData.pizza_category_id || '') : (formData.category_id || '')} 
+                      onValueChange={(value) => setFormData(prev => 
+                        pizzaCategories.length > 0 
+                          ? { ...prev, pizza_category_id: value } 
+                          : { ...prev, category_id: value }
+                      )}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Selecione" />
+                        <SelectValue placeholder={pizzaCategories.length ? "Ex: Pizza M 1 sabor" : "Selecione"} />
                       </SelectTrigger>
                       <SelectContent>
-                        {categories.map(cat => (
-                          <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
-                        ))}
+                        {pizzaCategories.length > 0 ? (
+                          pizzaCategories.map(cat => {
+                            const sz = sizes.find(s => s.id === cat.size_id);
+                            const label = cat.name || (sz ? `${sz.name} • ${cat.max_flavors || 1} sabor(es)` : cat.id);
+                            return (
+                              <SelectItem key={cat.id} value={cat.id}>{label}</SelectItem>
+                            );
+                          })
+                        ) : (
+                          categories.map(cat => (
+                            <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                          ))
+                        )}
                       </SelectContent>
                     </Select>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {pizzaCategories.length ? 'Por tamanho e quantidade de sabores (Configuração > Categorias)' : 'Sem categorias de pizza. Crie em Configuração > Categorias'}
+                    </p>
                   </div>
 
                   <div>
