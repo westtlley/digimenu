@@ -219,53 +219,80 @@ export default function PizzaBuilderV2({
                     <svg viewBox="0 0 100 100" className="w-full h-full">
                       <defs>
                         {Array.from({ length: maxFlavors }).map((_, i) => selectedFlavors[i]?.image && (
-                          <pattern key={i} id={`pizza-slice-${i}`} x="0" y="0" width="1" height="1" patternContentUnits="objectBoundingBox">
-                            <image href={selectedFlavors[i].image} x="-0.1" y="-0.1" width="1.2" height="1.2" preserveAspectRatio="xMidYMid slice" />
+                          <pattern key={i} id={`pizza-slice-${i}`} patternUnits="userSpaceOnUse" x="0" y="0" width="100" height="100">
+                            <image href={selectedFlavors[i].image} x="0" y="0" width="100" height="100" preserveAspectRatio="xMidYMid slice" />
                           </pattern>
                         ))}
+                        {selectedEdge && selectedEdge.id !== 'none' && (
+                          <pattern id={`pizzaBuilderEdge-${selectedEdge?.id || 'default'}`} patternUnits="userSpaceOnUse" width="100" height="100">
+                            <image href={selectedEdge?.image || edgeImageUrl} x="0" y="0" width="100" height="100" preserveAspectRatio="xMidYMid slice" />
+                          </pattern>
+                        )}
                       </defs>
-                      {maxFlavors === 1 ? (
-                        selectedFlavors[0] ? (
-                          <circle cx="50" cy="50" r="50" fill={selectedFlavors[0].image ? `url(#pizza-slice-0)` : (selectedFlavors[0].color || '#444')} />
-                        ) : (
-                          <g>
-                            <circle cx="50" cy="50" r="50" fill="#333" />
-                            <text x="50" y="45" textAnchor="middle" fill="rgba(255,255,255,0.3)" fontSize="8">+</text>
-                            <text x="50" y="55" textAnchor="middle" fill="rgba(255,255,255,0.2)" fontSize="4">TOQUE</text>
-                          </g>
-                        )
-                      ) : (
-                        Array.from({ length: maxFlavors }).map((_, i) => {
-                          const anglePerSlice = 360 / maxFlavors;
-                          const startAngle = (anglePerSlice * i - 90) * (Math.PI / 180);
-                          const endAngle = (anglePerSlice * (i + 1) - 90) * (Math.PI / 180);
-                          const r = 50;
-                          const x1 = 50 + r * Math.cos(startAngle);
-                          const y1 = 50 + r * Math.sin(startAngle);
-                          const x2 = 50 + r * Math.cos(endAngle);
-                          const y2 = 50 + r * Math.sin(endAngle);
-                          const largeArc = anglePerSlice > 180 ? 1 : 0;
-                          const pathData = `M 50 50 L ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} Z`;
-                          const flavor = selectedFlavors[i];
-                          return (
-                            <path
-                              key={i}
-                              d={pathData}
-                              fill={flavor?.image ? `url(#pizza-slice-${i})` : (flavor?.color || '#444')}
-                              stroke="rgba(0,0,0,0.1)"
-                              strokeWidth="0.5"
-                            />
-                          );
-                        })
+                      {/* Base da pizza (massa) */}
+                      <circle cx="50" cy="50" r="50" fill="#3d2817" />
+                      {/* Borda por baixo - antes dos sabores */}
+                      {selectedEdge && selectedEdge.id !== 'none' && (
+                        <g transform={`translate(${50 + Number(edgeOffsetX)}, ${50 + Number(edgeOffsetY)}) scale(${edgeScale}) translate(-50, -50)`}>
+                          <circle
+                            cx="50"
+                            cy="50"
+                            r={edgeRadius}
+                            fill="none"
+                            stroke={`url(#pizzaBuilderEdge-${selectedEdge?.id || 'default'})`}
+                            strokeWidth={edgeStrokeWidth}
+                            strokeLinecap="round"
+                            style={{ filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.4))' }}
+                          />
+                        </g>
                       )}
+                      {/* Raio dos sabores: menor quando tem borda, para borda ficar visível por baixo */}
+                      {(() => {
+                        const flavorRadius = (selectedEdge && selectedEdge.id !== 'none') ? 42 : 50;
+                        return maxFlavors === 1 ? (
+                          selectedFlavors[0] ? (
+                            <circle cx="50" cy="50" r={flavorRadius} fill={selectedFlavors[0].image ? `url(#pizza-slice-0)` : (selectedFlavors[0].color || '#444')} />
+                          ) : (
+                            <g>
+                              <circle cx="50" cy="50" r="50" fill="#333" />
+                              <text x="50" y="45" textAnchor="middle" fill="rgba(255,255,255,0.3)" fontSize="8">+</text>
+                              <text x="50" y="55" textAnchor="middle" fill="rgba(255,255,255,0.2)" fontSize="4">TOQUE</text>
+                            </g>
+                          )
+                        ) : (
+                          Array.from({ length: maxFlavors }).map((_, i) => {
+                            const anglePerSlice = 360 / maxFlavors;
+                            const startAngle = (anglePerSlice * i - 90) * (Math.PI / 180);
+                            const endAngle = (anglePerSlice * (i + 1) - 90) * (Math.PI / 180);
+                            const r = flavorRadius;
+                            const x1 = 50 + r * Math.cos(startAngle);
+                            const y1 = 50 + r * Math.sin(startAngle);
+                            const x2 = 50 + r * Math.cos(endAngle);
+                            const y2 = 50 + r * Math.sin(endAngle);
+                            const largeArc = anglePerSlice > 180 ? 1 : 0;
+                            const pathData = `M 50 50 L ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} Z`;
+                            const flavor = selectedFlavors[i];
+                            return (
+                              <path
+                                key={i}
+                                d={pathData}
+                                fill={flavor?.image ? `url(#pizza-slice-${i})` : (flavor?.color || '#444')}
+                                stroke="rgba(0,0,0,0.1)"
+                                strokeWidth="0.5"
+                              />
+                            );
+                          })
+                        );
+                      })()}
                       {maxFlavors > 1 && selectedFlavors.filter(Boolean).length < maxFlavors && (
                         <g>
                           {Array.from({ length: maxFlavors }).map((_, i) => {
                             if (selectedFlavors[i]) return null;
                             const anglePerSlice = 360 / maxFlavors;
                             const midAngle = (anglePerSlice * (i + 0.5) - 90) * (Math.PI / 180);
-                            const x = 50 + 25 * Math.cos(midAngle);
-                            const y = 50 + 25 * Math.sin(midAngle);
+                            const flavorRadius = (selectedEdge && selectedEdge.id !== 'none') ? 42 : 50;
+                            const x = 50 + (flavorRadius / 2) * Math.cos(midAngle);
+                            const y = 50 + (flavorRadius / 2) * Math.sin(midAngle);
                             return (
                               <g key={`placeholder-${i}`}>
                                 <text x={x} y={y - 3} textAnchor="middle" fill="rgba(255,255,255,0.3)" fontSize="6">+</text>
@@ -278,44 +305,6 @@ export default function PizzaBuilderV2({
                     </svg>
                   </div>
 
-                  {/* Overlay da borda recheada - imagem real cobrindo a borda da pizza */}
-                  {selectedEdge && selectedEdge.id !== 'none' && (
-                    <div className="absolute inset-0 pointer-events-none z-10 rounded-full overflow-visible flex items-center justify-center">
-                      <svg 
-                        viewBox="0 0 100 100" 
-                        className="w-full h-full drop-shadow-lg"
-                        preserveAspectRatio="xMidYMid meet"
-                      >
-                        <defs>
-                          <pattern id={`pizzaBuilderEdge-${selectedEdge?.id || 'default'}`} patternUnits="userSpaceOnUse" width="100" height="100">
-                            <image 
-                              href={selectedEdge?.image || edgeImageUrl}
-                              x="0" 
-                              y="0" 
-                              width="100" 
-                              height="100" 
-                              preserveAspectRatio="xMidYMid slice"
-                            />
-                          </pattern>
-                        </defs>
-                        <g transform={`translate(${50 + Number(edgeOffsetX)}, ${50 + Number(edgeOffsetY)}) scale(${edgeScale}) translate(-50, -50)`}>
-                          <motion.circle
-                            initial={{ scale: 0.9, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            transition={{ duration: 0.3 }}
-                            cx="50"
-                            cy="50"
-                            r={edgeRadius}
-                            fill="none"
-                            stroke={`url(#pizzaBuilderEdge-${selectedEdge?.id || 'default'})`}
-                            strokeWidth={edgeStrokeWidth}
-                            strokeLinecap="round"
-                            filter="drop-shadow(0 2px 6px rgba(0,0,0,0.4))"
-                          />
-                        </g>
-                      </svg>
-                    </div>
-                  )}
                 </button>
                 
                 <div className="mt-8 text-center bg-black/40 px-8 py-3 rounded-full border border-white/5">
