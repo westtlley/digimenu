@@ -30,12 +30,14 @@ export default function PizzaConfigTab() {
   const [showFlavorModal, setShowFlavorModal] = useState(false);
   const [showEdgeModal, setShowEdgeModal] = useState(false);
   const [showExtraModal, setShowExtraModal] = useState(false);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
   
   // Editing
   const [editingSize, setEditingSize] = useState(null);
   const [editingFlavor, setEditingFlavor] = useState(null);
   const [editingEdge, setEditingEdge] = useState(null);
   const [editingExtra, setEditingExtra] = useState(null);
+  const [editingCategory, setEditingCategory] = useState(null);
 
   const queryClient = useQueryClient();
 
@@ -70,6 +72,11 @@ export default function PizzaConfigTab() {
   const { data: extras = [] } = useQuery({
     queryKey: ['pizzaExtras'],
     queryFn: () => apiClient.entities.PizzaExtra.list('order'),
+  });
+
+  const { data: pizzaCategories = [] } = useQuery({
+    queryKey: ['pizzaCategories'],
+    queryFn: () => apiClient.entities.PizzaCategory.list('order'),
   });
 
   // Mutations - Sizes
@@ -200,6 +207,38 @@ export default function PizzaConfigTab() {
     },
   });
 
+  // Mutations - Categorias
+  const createCategoryMutation = useMutation({
+    mutationFn: (data) => apiClient.entities.PizzaCategory.create({
+      ...data,
+      subscriber_email: user?.subscriber_email || user?.email
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pizzaCategories'] });
+      toast.success('Categoria criada!');
+      setShowCategoryModal(false);
+      setEditingCategory(null);
+    },
+  });
+
+  const updateCategoryMutation = useMutation({
+    mutationFn: ({ id, data }) => apiClient.entities.PizzaCategory.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pizzaCategories'] });
+      toast.success('Categoria atualizada!');
+      setShowCategoryModal(false);
+      setEditingCategory(null);
+    },
+  });
+
+  const deleteCategoryMutation = useMutation({
+    mutationFn: (id) => apiClient.entities.PizzaCategory.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pizzaCategories'] });
+      toast.success('Categoria excluída!');
+    },
+  });
+
   return (
     <div className="p-6">
       <Toaster position="top-center" />
@@ -315,6 +354,27 @@ export default function PizzaConfigTab() {
                     </div>
                   </AccordionContent>
                 </AccordionItem>
+                <AccordionItem value="categories" className="border rounded-lg px-2">
+                  <AccordionTrigger className="py-2 text-sm font-medium hover:no-underline">
+                    Categorias ({pizzaCategories.length})
+                  </AccordionTrigger>
+                  <AccordionContent className="pb-2">
+                    <p className="text-[10px] text-gray-500 mb-2">Ex: Pizza M 1 sabor, Pizza G 2 sabores. Se vazia, usa tamanhos direto.</p>
+                    <Button size="sm" onClick={() => { setEditingCategory(null); setShowCategoryModal(true); }} className="mb-2 w-full"><Plus className="w-3 h-3 mr-1" />Nova Categoria</Button>
+                    <div className="space-y-1">
+                      {pizzaCategories.map(c => {
+                        const sz = sizes.find(s => s.id === c.size_id);
+                        return (
+                          <div key={c.id} className="flex items-center gap-2 p-2 rounded border text-xs">
+                            <span className="flex-1 truncate">{c.name || 'Sem nome'} {sz && `(${sz.name} • ${c.max_flavors || 1} sabor${(c.max_flavors || 1) > 1 ? 'es' : ''})`}</span>
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={()=>{ setEditingCategory(c); setShowCategoryModal(true); }}><Pencil className="w-3 h-3" /></Button>
+                            <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500" onClick={()=>{ if(confirm('Excluir?')) deleteCategoryMutation.mutate(c.id); }}><Trash2 className="w-3 h-3" /></Button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
               </Accordion>
             </Card>
           </div>
@@ -388,6 +448,23 @@ export default function PizzaConfigTab() {
           }
         }}
         extra={editingExtra}
+      />
+
+      <CategoryModal
+        isOpen={showCategoryModal}
+        onClose={() => {
+          setShowCategoryModal(false);
+          setEditingCategory(null);
+        }}
+        onSubmit={(data) => {
+          if (editingCategory) {
+            updateCategoryMutation.mutate({ id: editingCategory.id, data });
+          } else {
+            createCategoryMutation.mutate({ ...data, order: pizzaCategories.length });
+          }
+        }}
+        category={editingCategory}
+        sizes={sizes}
       />
     </div>
   );
@@ -952,6 +1029,88 @@ function ExtraModal({ isOpen, onClose, onSubmit, extra }) {
             <Button type="submit" className="flex-1 bg-orange-500">
               Salvar
             </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function CategoryModal({ isOpen, onClose, onSubmit, category, sizes = [] }) {
+  const [formData, setFormData] = useState({
+    name: '',
+    size_id: '',
+    max_flavors: '1'
+  });
+
+  React.useEffect(() => {
+    if (category) {
+      setFormData({
+        name: category.name || '',
+        size_id: category.size_id || '',
+        max_flavors: (category.max_flavors || 1).toString()
+      });
+    } else {
+      setFormData({
+        name: '',
+        size_id: sizes[0]?.id || '',
+        max_flavors: '1'
+      });
+    }
+  }, [category, sizes, isOpen]);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSubmit({
+      ...formData,
+      max_flavors: parseInt(formData.max_flavors) || 1
+    });
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>{category ? 'Editar' : 'Nova'} Categoria</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <Label>Nome da categoria *</Label>
+            <Input
+              value={formData.name}
+              onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+              placeholder="Ex: Pizza M 1 sabor, Pizza G 2 sabores"
+              required
+            />
+          </div>
+          <div>
+            <Label>Tamanho *</Label>
+            <select
+              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+              value={formData.size_id}
+              onChange={(e) => setFormData(prev => ({ ...prev, size_id: e.target.value }))}
+              required
+            >
+              <option value="">Selecione...</option>
+              {(sizes || []).filter(s => s && s.is_active !== false).map(s => (
+                <option key={s.id} value={s.id}>{s.name} - {s.slices} fatias</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <Label>Máx. sabores (1-4) *</Label>
+            <Input
+              type="number"
+              min={1}
+              max={4}
+              value={formData.max_flavors}
+              onChange={(e) => setFormData(prev => ({ ...prev, max_flavors: e.target.value }))}
+              required
+            />
+          </div>
+          <div className="flex gap-3 pt-4">
+            <Button type="button" variant="outline" onClick={onClose} className="flex-1">Cancelar</Button>
+            <Button type="submit" className="flex-1 bg-orange-500">Salvar</Button>
           </div>
         </form>
       </DialogContent>

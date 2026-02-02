@@ -19,7 +19,6 @@ import {
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
 
 const formatCurrency = (value) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
@@ -33,7 +32,8 @@ export default function PizzaBuilderV2({
   sizes = [], 
   flavors = [], 
   edges = [], 
-  extras = [], 
+  extras = [],
+  categories = [],
   onAddToCart, 
   onClose,
   primaryColor = '#f97316',
@@ -56,6 +56,7 @@ export default function PizzaBuilderV2({
   // Estados
   const [step, setStep] = useState('custom'); // custom | flavors | borders | extras | observations
   const [selectedSize, setSelectedSize] = useState(null);
+  const [selectedCategory, setSelectedCategory] = useState(null);
   const [selectedFlavors, setSelectedFlavors] = useState([]);
   const [selectedEdge, setSelectedEdge] = useState(null);
   const [selectedExtras, setSelectedExtras] = useState([]);
@@ -64,7 +65,14 @@ export default function PizzaBuilderV2({
   // Carregar dados de edição ou pré-preencher sabor
   React.useEffect(() => {
     if (editingItem) {
-      setSelectedSize(editingItem.size || null);
+      const size = editingItem.size || null;
+      setSelectedSize(size);
+      if (useCategories && size) {
+        const flavorCount = (editingItem.flavors || []).length;
+        const cat = categories.find(c => c.size_id === size.id && (c.max_flavors || 1) >= flavorCount)
+          || categories.find(c => c.size_id === size.id);
+        setSelectedCategory(cat || null);
+      }
       setSelectedFlavors(editingItem.flavors || []);
       setSelectedEdge(editingItem.edge || null);
       setSelectedExtras(editingItem.extras || []);
@@ -89,7 +97,7 @@ export default function PizzaBuilderV2({
         }
       }
     }
-  }, [editingItem, sizes, dish, flavors, selectedSize, selectedFlavors.length]);
+  }, [editingItem, sizes, dish, flavors, selectedSize, selectedFlavors.length, useCategories, categories]);
 
   // Sabores filtrados
   const filteredFlavors = useMemo(() => {
@@ -109,9 +117,11 @@ export default function PizzaBuilderV2({
     return grouped;
   }, [filteredFlavors]);
 
-  // Número máximo de sabores (1-4) e extras
-  const maxFlavors = Math.min(Math.max(selectedSize?.max_flavors || 1, 1), 4);
+  // Número máximo de sabores (1-4) e extras - categoria pode sobrescrever max_flavors
+  const effectiveMaxFlavors = selectedCategory?.max_flavors ?? selectedSize?.max_flavors ?? 1;
+  const maxFlavors = Math.min(Math.max(effectiveMaxFlavors, 1), 4);
   const maxExtras = selectedSize?.max_extras ?? 5;
+  const useCategories = categories?.length > 0;
 
   // Toggle sabor
   const toggleFlavor = (flavor) => {
@@ -214,14 +224,12 @@ export default function PizzaBuilderV2({
                   <div
                     className="absolute inset-[-25px] z-0"
                     style={{
-                      backgroundImage: store?.pizza_board_image 
-                        ? `url("${store.pizza_board_image}")`
-                        : `url("data:image/svg+xml,%3Csvg width='400' height='400' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3ClinearGradient id='woodBase' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' style='stop-color:%23d2691e;stop-opacity:1' /%3E%3Cstop offset='50%25' style='stop-color:%23cd853f;stop-opacity:1' /%3E%3Cstop offset='100%25' style='stop-color:%23a0522d;stop-opacity:1' /%3E%3C/linearGradient%3E%3Cpattern id='woodGrain' x='0' y='0' width='80' height='80' patternUnits='userSpaceOnUse'%3E%3Cpath d='M0,40 Q20,25 40,40 T80,40' stroke='%23a0522d' stroke-width='1' fill='none' opacity='0.4'/%3E%3Cpath d='M0,50 Q20,35 40,50 T80,50' stroke='%238b4513' stroke-width='0.8' fill='none' opacity='0.3'/%3E%3Cpath d='M0,30 Q20,15 40,30 T80,30' stroke='%23cd853f' stroke-width='0.8' fill='none' opacity='0.35'/%3E%3Cpath d='M0,60 Q20,45 40,60 T80,60' stroke='%23a0522d' stroke-width='0.6' fill='none' opacity='0.25'/%3E%3C/pattern%3E%3C/defs%3E%3Ccircle cx='200' cy='200' r='180' fill='url(%23woodBase)'/%3E%3Ccircle cx='200' cy='200' r='180' fill='url(%23woodGrain)'/%3E%3Ccircle cx='200' cy='200' r='172' fill='none' stroke='%238b4513' stroke-width='2' opacity='0.5'/%3E%3Ccircle cx='200' cy='200' r='180' fill='none' stroke='%23654321' stroke-width='3'/%3E%3Cpath d='M 200 20 Q 185 10 170 5 Q 160 0 150 5 Q 140 10 130 15 L 130 25 Q 140 20 150 18 Q 160 16 170 18 Q 180 20 190 22 L 200 20 Z' fill='url(%23woodBase)' stroke='%23654321' stroke-width='2'/%3E%3Cpath d='M 200 20 Q 215 10 230 5 Q 240 0 250 5 Q 260 10 270 15 L 270 25 Q 260 20 250 18 Q 240 16 230 18 Q 220 20 210 22 L 200 20 Z' fill='url(%23woodBase)' stroke='%23654321' stroke-width='2'/%3E%3Ccircle cx='200' cy='8' r='4' fill='%23654321'/%3E%3C/svg%3E")`,
+                      backgroundImage: `url("${store?.pizza_board_image || '/images/pizza-board.png'}")`,
                       backgroundSize: 'cover',
                       backgroundPosition: 'center',
                       borderRadius: '50%',
                       filter: 'drop-shadow(0 15px 40px rgba(0,0,0,0.5))',
-                      boxShadow: store?.pizza_board_image ? 'none' : 'inset 0 0 30px rgba(0,0,0,0.2)',
+                        boxShadow: (store?.pizza_board_image || '/images/pizza-board.png') ? 'none' : 'inset 0 0 30px rgba(0,0,0,0.2)',
                     }}
                   />
                   
@@ -327,27 +335,55 @@ export default function PizzaBuilderV2({
 
             {/* Coluna Direita - Todas as Opções */}
             <div className="space-y-3">
-              {/* Tamanho Selector */}
+              {/* Tamanho ou Categoria Selector */}
               <div className="space-y-2">
-                <label className="text-white text-xs font-black uppercase tracking-widest opacity-80">Tamanho:</label>
+                <label className="text-white text-xs font-black uppercase tracking-widest opacity-80">
+                  {useCategories ? 'Categoria:' : 'Tamanho:'}
+                </label>
                 <div className="relative">
-                  <select 
-                    className="w-full text-white py-3 px-4 rounded-xl font-bold appearance-none text-sm shadow-lg border-b-4 focus:outline-none"
-                    style={{ backgroundColor: primaryColor, borderColor: '#c2410c' }}
-                    value={selectedSize?.id || ''}
-                    onChange={(e) => {
-                      const size = sizes.find(s => s.id === e.target.value);
-                      setSelectedSize(size);
-                      setSelectedFlavors([]);
-                    }}
-                  >
-                    <option value="">Escolha o tamanho</option>
-                    {(sizes || []).filter(s => s && s.is_active).map(s => (
-                      <option key={s.id} value={s.id}>
-                        {s.name} - {s.slices} fatias - {s.max_flavors} {s.max_flavors === 1 ? 'sabor' : 'sabores'}
-                      </option>
-                    ))}
-                  </select>
+                  {useCategories ? (
+                    <select 
+                      className="w-full text-white py-3 px-4 rounded-xl font-bold appearance-none text-sm shadow-lg border-b-4 focus:outline-none"
+                      style={{ backgroundColor: primaryColor, borderColor: '#c2410c' }}
+                      value={selectedCategory?.id || ''}
+                      onChange={(e) => {
+                        const cat = categories.find(c => c.id === e.target.value);
+                        setSelectedCategory(cat || null);
+                        const size = cat ? sizes.find(s => s.id === cat.size_id) : null;
+                        setSelectedSize(size);
+                        setSelectedFlavors([]);
+                      }}
+                    >
+                      <option value="">Escolha a categoria</option>
+                      {(categories || []).map(c => {
+                        const sz = sizes.find(s => s.id === c.size_id);
+                        return (
+                          <option key={c.id} value={c.id}>
+                            {c.name || (sz ? `${sz.name} ${c.max_flavors || 1} sabor(es)` : '')}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  ) : (
+                    <select 
+                      className="w-full text-white py-3 px-4 rounded-xl font-bold appearance-none text-sm shadow-lg border-b-4 focus:outline-none"
+                      style={{ backgroundColor: primaryColor, borderColor: '#c2410c' }}
+                      value={selectedSize?.id || ''}
+                      onChange={(e) => {
+                        const size = sizes.find(s => s.id === e.target.value);
+                        setSelectedSize(size);
+                        setSelectedCategory(null);
+                        setSelectedFlavors([]);
+                      }}
+                    >
+                      <option value="">Escolha o tamanho</option>
+                      {(sizes || []).filter(s => s && s.is_active).map(s => (
+                        <option key={s.id} value={s.id}>
+                          {s.name} - {s.slices} fatias - {s.max_flavors} {s.max_flavors === 1 ? 'sabor' : 'sabores'}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                   <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-white pointer-events-none" size={18} />
                 </div>
               </div>
@@ -574,7 +610,13 @@ export default function PizzaBuilderV2({
   );
 
   // SELECTION OVERLAY (Bordas, Extras, Observações)
-  const SelectionOverlay = ({ title, items, current, onSelect, onClose, type = 'single', maxItems = 999 }) => (
+  const SelectionOverlay = ({ title, items, current, onSelect, onClose, type = 'single', maxItems = 999 }) => {
+    // Estado local para textarea evita re-renders e bug de texto ao contrário/piscando
+    const [localText, setLocalText] = useState(type === 'textarea' ? (current || '') : '');
+    React.useEffect(() => {
+      if (type === 'textarea') setLocalText(current || '');
+    }, [type, current]);
+    return (
     <div className="fixed inset-0 z-[100] bg-black/90 flex flex-col animate-fade-in backdrop-blur-md">
       {/* Header mais compacto */}
       <div className="flex justify-between items-center p-4 border-b border-white/10">
@@ -588,12 +630,14 @@ export default function PizzaBuilderV2({
       <div className="flex-1 overflow-y-auto p-4">
         <div className="max-w-2xl mx-auto space-y-2">
           {type === 'textarea' ? (
-            <Textarea
-              value={current}
-              onChange={(e) => onSelect(e.target.value)}
+            <textarea
+              dir="ltr"
+              value={localText}
+              onChange={(e) => setLocalText(e.target.value)}
               placeholder="Ex: Sem cebola, bem assada, massa fina..."
-              className="bg-white/10 border-white/20 text-white placeholder:text-gray-400 min-h-[100px] text-sm"
+              className="flex min-h-[100px] w-full rounded-md border border-white/20 bg-white/10 px-3 py-2 text-sm text-white placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/30"
               autoFocus
+              style={{ direction: 'ltr' }}
             />
           ) : (
             items.map((item) => {
@@ -640,7 +684,10 @@ export default function PizzaBuilderV2({
         <div className="p-4 border-t border-white/10 bg-black/50">
           <div className="max-w-2xl mx-auto">
             <button 
-              onClick={onClose}
+              onClick={() => {
+                if (type === 'textarea') onSelect(localText);
+                onClose();
+              }}
               className="w-full text-white py-3 rounded-xl font-bold text-sm shadow-lg transition-transform active:scale-95"
               style={{ backgroundColor: primaryColor }}
             >
@@ -653,6 +700,7 @@ export default function PizzaBuilderV2({
       )}
     </div>
   );
+  };
 
   // --- RENDER ---
   return (

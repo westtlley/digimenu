@@ -900,12 +900,12 @@ app.get('/api/public/cardapio/:slug', asyncHandler(async (req, res) => {
     }
   }
   // Buscar entidades (para subscriber ou master)
-  let storeList, dishes, categories, complementGroups, pizzaSizes, pizzaFlavors, pizzaEdges, pizzaExtras, deliveryZones, coupons, promotions;
+  let storeList, dishes, categories, complementGroups, pizzaSizes, pizzaFlavors, pizzaEdges, pizzaExtras, pizzaCategories, deliveryZones, coupons, promotions;
   
   if (isMaster) {
     // Para master, buscar entidades com subscriber_email IS NULL
     const { query } = await import('./db/postgres.js');
-    [storeList, dishes, categories, complementGroups, pizzaSizes, pizzaFlavors, pizzaEdges, pizzaExtras, deliveryZones, coupons, promotions] = await Promise.all([
+    [storeList, dishes, categories, complementGroups, pizzaSizes, pizzaFlavors, pizzaEdges, pizzaExtras, pizzaCategories, deliveryZones, coupons, promotions] = await Promise.all([
       query(`SELECT id, data, created_at, updated_at FROM entities WHERE entity_type = 'Store' AND subscriber_email IS NULL`).then(r => r.rows.map(row => ({ id: row.id.toString(), ...row.data }))),
       query(`SELECT id, data, created_at, updated_at FROM entities WHERE entity_type = 'Dish' AND subscriber_email IS NULL ORDER BY (data->>'order')::int NULLS LAST, created_at DESC`).then(r => r.rows.map(row => ({ id: row.id.toString(), ...row.data }))),
       query(`SELECT id, data, created_at, updated_at FROM entities WHERE entity_type = 'Category' AND subscriber_email IS NULL ORDER BY (data->>'order')::int NULLS LAST, created_at DESC`).then(r => r.rows.map(row => ({ id: row.id.toString(), ...row.data }))),
@@ -914,13 +914,14 @@ app.get('/api/public/cardapio/:slug', asyncHandler(async (req, res) => {
       query(`SELECT id, data, created_at, updated_at FROM entities WHERE entity_type = 'PizzaFlavor' AND subscriber_email IS NULL ORDER BY (data->>'order')::int NULLS LAST, created_at DESC`).then(r => r.rows.map(row => ({ id: row.id.toString(), ...row.data }))),
       query(`SELECT id, data, created_at, updated_at FROM entities WHERE entity_type = 'PizzaEdge' AND subscriber_email IS NULL`).then(r => r.rows.map(row => ({ id: row.id.toString(), ...row.data }))),
       query(`SELECT id, data, created_at, updated_at FROM entities WHERE entity_type = 'PizzaExtra' AND subscriber_email IS NULL`).then(r => r.rows.map(row => ({ id: row.id.toString(), ...row.data }))),
+      query(`SELECT id, data, created_at, updated_at FROM entities WHERE entity_type = 'PizzaCategory' AND subscriber_email IS NULL ORDER BY (data->>'order')::int NULLS LAST, created_at DESC`).then(r => r.rows.map(row => ({ id: row.id.toString(), ...row.data }))),
       query(`SELECT id, data, created_at, updated_at FROM entities WHERE entity_type = 'DeliveryZone' AND subscriber_email IS NULL`).then(r => r.rows.map(row => ({ id: row.id.toString(), ...row.data }))),
       query(`SELECT id, data, created_at, updated_at FROM entities WHERE entity_type = 'Coupon' AND subscriber_email IS NULL`).then(r => r.rows.map(row => ({ id: row.id.toString(), ...row.data }))),
       query(`SELECT id, data, created_at, updated_at FROM entities WHERE entity_type = 'Promotion' AND subscriber_email IS NULL`).then(r => r.rows.map(row => ({ id: row.id.toString(), ...row.data })))
     ]);
   } else {
     // Para subscriber, usar a função existente
-    [storeList, dishes, categories, complementGroups, pizzaSizes, pizzaFlavors, pizzaEdges, pizzaExtras, deliveryZones, coupons, promotions] = await Promise.all([
+    [storeList, dishes, categories, complementGroups, pizzaSizes, pizzaFlavors, pizzaEdges, pizzaExtras, pizzaCategories, deliveryZones, coupons, promotions] = await Promise.all([
       repo.listEntitiesForSubscriber('Store', se, null),
       repo.listEntitiesForSubscriber('Dish', se, 'order'),
       repo.listEntitiesForSubscriber('Category', se, 'order'),
@@ -929,6 +930,7 @@ app.get('/api/public/cardapio/:slug', asyncHandler(async (req, res) => {
       repo.listEntitiesForSubscriber('PizzaFlavor', se, 'order'),
       repo.listEntitiesForSubscriber('PizzaEdge', se, null),
       repo.listEntitiesForSubscriber('PizzaExtra', se, null),
+      repo.listEntitiesForSubscriber('PizzaCategory', se, 'order'),
       repo.listEntitiesForSubscriber('DeliveryZone', se, null),
       repo.listEntitiesForSubscriber('Coupon', se, null),
       repo.listEntitiesForSubscriber('Promotion', se, null)
@@ -946,6 +948,7 @@ app.get('/api/public/cardapio/:slug', asyncHandler(async (req, res) => {
     pizzaFlavors: Array.isArray(pizzaFlavors) ? pizzaFlavors : [],
     pizzaEdges: Array.isArray(pizzaEdges) ? pizzaEdges : [],
     pizzaExtras: Array.isArray(pizzaExtras) ? pizzaExtras : [],
+    pizzaCategories: Array.isArray(pizzaCategories) ? pizzaCategories : [],
     deliveryZones: Array.isArray(deliveryZones) ? deliveryZones : [],
     coupons: Array.isArray(coupons) ? coupons : [],
     promotions: Array.isArray(promotions) ? promotions : []

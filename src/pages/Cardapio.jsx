@@ -202,6 +202,7 @@ export default function Cardapio() {
   const pizzaFlavorsResolved = _pub?.pizzaFlavors ?? pizzaFlavors ?? [];
   const pizzaEdgesResolved = _pub?.pizzaEdges ?? pizzaEdges ?? [];
   const pizzaExtrasResolved = _pub?.pizzaExtras ?? pizzaExtras ?? [];
+  const pizzaCategoriesResolved = _pub?.pizzaCategories ?? [];
   const deliveryZonesResolved = _pub?.deliveryZones ?? deliveryZones ?? [];
   const couponsResolved = _pub?.coupons ?? coupons ?? [];
   const promotionsResolved = _pub?.promotions ?? promotions ?? [];
@@ -1317,6 +1318,7 @@ export default function Cardapio() {
             flavors={pizzaFlavorsResolved}
             edges={pizzaEdgesResolved}
             extras={pizzaExtrasResolved}
+            categories={pizzaCategoriesResolved}
             onAddToCart={handleAddToCart}
             onClose={() => {
               console.log('❌ Fechando PizzaBuilderV2');
