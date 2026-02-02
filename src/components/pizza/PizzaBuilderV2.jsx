@@ -61,21 +61,6 @@ export default function PizzaBuilderV2({
   const [selectedExtras, setSelectedExtras] = useState([]);
   const [specifications, setSpecifications] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [animationKey, setAnimationKey] = useState(0);
-  
-  // Resetar animação quando voltar da tela de sabores ou abrir pela primeira vez
-  React.useEffect(() => {
-    if (step === 'custom') {
-      // Forçar re-render da animação
-      setAnimationKey(prev => prev + 1);
-    }
-  }, [step]);
-  
-  // Também resetar quando o componente monta
-  React.useEffect(() => {
-    setAnimationKey(1);
-  }, []);
-
   // Carregar dados de edição ou pré-preencher sabor
   React.useEffect(() => {
     if (editingItem) {
@@ -85,14 +70,9 @@ export default function PizzaBuilderV2({
       setSelectedExtras(editingItem.extras || []);
       setSpecifications(editingItem.specifications || '');
     } else {
-      // Selecionar tamanho padrão (médio ou primeiro)
-      if (sizes.length > 0 && !selectedSize) {
-        const defaultSize = sizes.find(s => s.name.toLowerCase().includes('média')) || sizes[0];
-        setSelectedSize(defaultSize);
-      }
-      
-      // Pré-preencher sabor baseado no nome da pizza clicada
-      if (dish && flavors.length > 0 && selectedFlavors.length === 0) {
+      // Ordem: tamanho → sabores → personalize (não pré-selecionar tamanho)
+      // Pré-preencher sabor baseado no nome da pizza clicada (apenas quando já tem tamanho)
+      if (dish && flavors.length > 0 && selectedFlavors.length === 0 && selectedSize) {
         const dishName = dish.name.toLowerCase();
         // Tentar encontrar o sabor que corresponde ao nome da pizza
         // Ex: "Pizza Calabresa" -> procura sabor "Calabresa"
@@ -226,54 +206,27 @@ export default function PizzaBuilderV2({
               {/* Visualizador Circular da Pizza */}
               <div className="flex flex-col items-center justify-center py-2 lg:py-2 relative min-w-0">
                 <button 
-                  onClick={() => setStep('flavors')}
-                  className="relative w-56 h-56 sm:w-64 sm:h-64 lg:w-[340px] lg:h-[340px] pizza-container group cursor-pointer transition-transform active:scale-95 flex-shrink-0"
+                  onClick={() => selectedSize && setStep('flavors')}
+                  className="relative w-56 h-56 sm:w-64 sm:h-64 lg:w-[340px] lg:h-[340px] pizza-container group cursor-pointer active:scale-95 flex-shrink-0 disabled:opacity-70 disabled:cursor-not-allowed"
+                  disabled={!selectedSize}
                 >
-                  {/* Tábua de Pizza - Background (desce primeiro) */}
-                  <AnimatePresence mode="wait">
-                    <motion.div
-                      key={`board-${animationKey}`}
-                      initial={{ y: -200, opacity: 0, scale: 0.8 }}
-                      animate={{ y: 0, opacity: 1, scale: 1 }}
-                      exit={{ y: -200, opacity: 0 }}
-                      transition={{ 
-                        duration: 0.8, 
-                        ease: [0.34, 1.56, 0.64, 1],
-                        type: "spring",
-                        stiffness: 100,
-                        damping: 12
-                      }}
-                      className="absolute inset-[-25px] z-0"
-                      style={{
-                        backgroundImage: store?.pizza_board_image 
-                          ? `url("${store.pizza_board_image}")`
-                          : `url("data:image/svg+xml,%3Csvg width='400' height='400' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3ClinearGradient id='woodBase' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' style='stop-color:%23d2691e;stop-opacity:1' /%3E%3Cstop offset='50%25' style='stop-color:%23cd853f;stop-opacity:1' /%3E%3Cstop offset='100%25' style='stop-color:%23a0522d;stop-opacity:1' /%3E%3C/linearGradient%3E%3Cpattern id='woodGrain' x='0' y='0' width='80' height='80' patternUnits='userSpaceOnUse'%3E%3Cpath d='M0,40 Q20,25 40,40 T80,40' stroke='%23a0522d' stroke-width='1' fill='none' opacity='0.4'/%3E%3Cpath d='M0,50 Q20,35 40,50 T80,50' stroke='%238b4513' stroke-width='0.8' fill='none' opacity='0.3'/%3E%3Cpath d='M0,30 Q20,15 40,30 T80,30' stroke='%23cd853f' stroke-width='0.8' fill='none' opacity='0.35'/%3E%3Cpath d='M0,60 Q20,45 40,60 T80,60' stroke='%23a0522d' stroke-width='0.6' fill='none' opacity='0.25'/%3E%3C/pattern%3E%3C/defs%3E%3Ccircle cx='200' cy='200' r='180' fill='url(%23woodBase)'/%3E%3Ccircle cx='200' cy='200' r='180' fill='url(%23woodGrain)'/%3E%3Ccircle cx='200' cy='200' r='172' fill='none' stroke='%238b4513' stroke-width='2' opacity='0.5'/%3E%3Ccircle cx='200' cy='200' r='180' fill='none' stroke='%23654321' stroke-width='3'/%3E%3Cpath d='M 200 20 Q 185 10 170 5 Q 160 0 150 5 Q 140 10 130 15 L 130 25 Q 140 20 150 18 Q 160 16 170 18 Q 180 20 190 22 L 200 20 Z' fill='url(%23woodBase)' stroke='%23654321' stroke-width='2'/%3E%3Cpath d='M 200 20 Q 215 10 230 5 Q 240 0 250 5 Q 260 10 270 15 L 270 25 Q 260 20 250 18 Q 240 16 230 18 Q 220 20 210 22 L 200 20 Z' fill='url(%23woodBase)' stroke='%23654321' stroke-width='2'/%3E%3Ccircle cx='200' cy='8' r='4' fill='%23654321'/%3E%3C/svg%3E")`,
-                        backgroundSize: 'cover',
-                        backgroundPosition: 'center',
-                        borderRadius: '50%',
-                        filter: 'drop-shadow(0 15px 40px rgba(0,0,0,0.5))',
-                        boxShadow: store?.pizza_board_image ? 'none' : 'inset 0 0 30px rgba(0,0,0,0.2)',
-                      }}
-                    />
-                  </AnimatePresence>
+                  {/* Tábua de Pizza - Background */}
+                  <div
+                    className="absolute inset-[-25px] z-0"
+                    style={{
+                      backgroundImage: store?.pizza_board_image 
+                        ? `url("${store.pizza_board_image}")`
+                        : `url("data:image/svg+xml,%3Csvg width='400' height='400' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3ClinearGradient id='woodBase' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' style='stop-color:%23d2691e;stop-opacity:1' /%3E%3Cstop offset='50%25' style='stop-color:%23cd853f;stop-opacity:1' /%3E%3Cstop offset='100%25' style='stop-color:%23a0522d;stop-opacity:1' /%3E%3C/linearGradient%3E%3Cpattern id='woodGrain' x='0' y='0' width='80' height='80' patternUnits='userSpaceOnUse'%3E%3Cpath d='M0,40 Q20,25 40,40 T80,40' stroke='%23a0522d' stroke-width='1' fill='none' opacity='0.4'/%3E%3Cpath d='M0,50 Q20,35 40,50 T80,50' stroke='%238b4513' stroke-width='0.8' fill='none' opacity='0.3'/%3E%3Cpath d='M0,30 Q20,15 40,30 T80,30' stroke='%23cd853f' stroke-width='0.8' fill='none' opacity='0.35'/%3E%3Cpath d='M0,60 Q20,45 40,60 T80,60' stroke='%23a0522d' stroke-width='0.6' fill='none' opacity='0.25'/%3E%3C/pattern%3E%3C/defs%3E%3Ccircle cx='200' cy='200' r='180' fill='url(%23woodBase)'/%3E%3Ccircle cx='200' cy='200' r='180' fill='url(%23woodGrain)'/%3E%3Ccircle cx='200' cy='200' r='172' fill='none' stroke='%238b4513' stroke-width='2' opacity='0.5'/%3E%3Ccircle cx='200' cy='200' r='180' fill='none' stroke='%23654321' stroke-width='3'/%3E%3Cpath d='M 200 20 Q 185 10 170 5 Q 160 0 150 5 Q 140 10 130 15 L 130 25 Q 140 20 150 18 Q 160 16 170 18 Q 180 20 190 22 L 200 20 Z' fill='url(%23woodBase)' stroke='%23654321' stroke-width='2'/%3E%3Cpath d='M 200 20 Q 215 10 230 5 Q 240 0 250 5 Q 260 10 270 15 L 270 25 Q 260 20 250 18 Q 240 16 230 18 Q 220 20 210 22 L 200 20 Z' fill='url(%23woodBase)' stroke='%23654321' stroke-width='2'/%3E%3Ccircle cx='200' cy='8' r='4' fill='%23654321'/%3E%3C/svg%3E")`,
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                      borderRadius: '50%',
+                      filter: 'drop-shadow(0 15px 40px rgba(0,0,0,0.5))',
+                      boxShadow: store?.pizza_board_image ? 'none' : 'inset 0 0 30px rgba(0,0,0,0.2)',
+                    }}
+                  />
                   
-                  {/* Pizza - Aparece depois da tábua (com bounce) */}
-                  <AnimatePresence mode="wait">
-                    <motion.div
-                      key={`pizza-${animationKey}`}
-                      initial={{ scale: 0, opacity: 0, y: 50, rotate: -180 }}
-                      animate={{ scale: 1, opacity: 1, y: 0, rotate: 0 }}
-                      exit={{ scale: 0, opacity: 0 }}
-                      transition={{ 
-                        duration: 0.7, 
-                        delay: 0.5, 
-                        ease: [0.34, 1.56, 0.64, 1],
-                        type: "spring",
-                        stiffness: 150,
-                        damping: 12
-                      }}
-                      className="absolute inset-0 rounded-full overflow-hidden transition-transform duration-500 hover:rotate-6 shadow-xl z-10"
-                    >
+                  {/* Pizza - estática */}
+                  <div className="absolute inset-0 rounded-full overflow-hidden shadow-xl z-10">
                     <svg viewBox="0 0 100 100" className="w-full h-full">
                       <defs>
                         {Array.from({ length: maxFlavors }).map((_, i) => selectedFlavors[i]?.image && (
@@ -362,8 +315,7 @@ export default function PizzaBuilderV2({
                         </g>
                       )}
                     </svg>
-                  </motion.div>
-                  </AnimatePresence>
+                  </div>
                 </button>
                 
                 <div className="mt-8 text-center bg-black/40 px-8 py-3 rounded-full border border-white/5">
@@ -389,6 +341,7 @@ export default function PizzaBuilderV2({
                       setSelectedFlavors([]);
                     }}
                   >
+                    <option value="">Escolha o tamanho</option>
                     {(sizes || []).filter(s => s && s.is_active).map(s => (
                       <option key={s.id} value={s.id}>
                         {s.name} - {s.slices} fatias - {s.max_flavors} {s.max_flavors === 1 ? 'sabor' : 'sabores'}
@@ -399,8 +352,8 @@ export default function PizzaBuilderV2({
                 </div>
               </div>
 
-              {/* Sabores Info */}
-              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/5">
+              {/* Sabores - só após escolher tamanho */}
+              <div className={`bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/5 ${!selectedSize ? 'opacity-60' : ''}`}>
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex-1 min-w-0">
                     <p className="text-gray-400 text-[9px] uppercase tracking-widest font-black mb-1">🍕 Sabores</p>
@@ -408,13 +361,14 @@ export default function PizzaBuilderV2({
                       {selectedFlavors.length > 0 ? (
                         <span>{selectedFlavors.map(f => f.name).join(' + ')}</span>
                       ) : (
-                        <span className="text-gray-500">Toque na pizza</span>
+                        <span className="text-gray-500">{selectedSize ? 'Toque na pizza' : 'Escolha o tamanho'}</span>
                       )}
                     </p>
                   </div>
                   <button 
-                    onClick={() => setStep('flavors')}
-                    className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all active:scale-95 whitespace-nowrap"
+                    onClick={() => selectedSize && setStep('flavors')}
+                    disabled={!selectedSize}
+                    className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all active:scale-95 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
                     style={{ backgroundColor: primaryColor, color: 'white' }}
                   >
                     {selectedFlavors.length > 0 ? 'Alterar' : 'Escolher'}
@@ -422,8 +376,8 @@ export default function PizzaBuilderV2({
                 </div>
               </div>
 
-              {/* Título Personalização */}
-              <h3 className="text-white text-xs font-black uppercase tracking-widest opacity-80 px-2 pt-2">Personalize sua pizza:</h3>
+              {/* Título Personalização - só após sabores */}
+              <h3 className={`text-white text-xs font-black uppercase tracking-widest px-2 pt-2 ${selectedFlavors.length < 1 ? 'opacity-50' : 'opacity-80'}`}>Personalize sua pizza:</h3>
               
               {/* Borda - só após pizza completa (sabores selecionados) */}
               <button 
@@ -465,10 +419,11 @@ export default function PizzaBuilderV2({
                 <ChevronDown className="text-gray-400" size={18} />
               </button>
 
-              {/* Observações */}
+              {/* Observações - só após borda (ou se não tiver bordas) */}
               <button 
-                onClick={() => setStep('observations')}
-                className="w-full bg-white/10 backdrop-blur-sm text-white py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-between shadow-md active:scale-95 transition-all border border-white/5 hover:bg-white/20"
+                onClick={() => (edges.length === 0 || selectedEdge !== null) && setStep('observations')}
+                disabled={edges.length > 0 && selectedEdge === null}
+                className={`w-full backdrop-blur-sm text-white py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-between shadow-md active:scale-95 transition-all border border-white/5 ${(edges.length === 0 || selectedEdge !== null) ? 'bg-white/10 hover:bg-white/20' : 'bg-white/5 opacity-50 cursor-not-allowed'}`}
               >
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-full flex items-center justify-center bg-gray-500/20">
