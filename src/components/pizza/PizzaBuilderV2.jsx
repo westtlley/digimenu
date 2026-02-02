@@ -253,10 +253,10 @@ export default function PizzaBuilderV2({
                       </defs>
                       {/* Base massa */}
                       <circle cx="50" cy="50" r="50" fill="#3d2817" />
-                      {/* BORDA POR BAIXO - recheio encostado na borda (realista) */}
+                      {/* BORDA POR BAIXO - renderizada antes dos sabores */}
                       {selectedEdge && selectedEdge.id !== 'none' && (() => {
                         const outerRadius = 50;
-                        const innerRadius = 47;
+                        const innerRadius = 42;
                         const outerPath = `M 50,50 m -${outerRadius},0 a ${outerRadius},${outerRadius} 0 1,1 ${outerRadius * 2},0 a ${outerRadius},${outerRadius} 0 1,1 -${outerRadius * 2},0`;
                         const innerPath = `M 50,50 m -${innerRadius},0 a ${innerRadius},${innerRadius} 0 1,1 ${innerRadius * 2},0 a ${innerRadius},${innerRadius} 0 1,1 -${innerRadius * 2},0`;
                         return (
@@ -268,9 +268,9 @@ export default function PizzaBuilderV2({
                           />
                         );
                       })()}
-                      {/* SABORES (recheio) - encostado na borda, imagens com userSpaceOnUse */}
+                      {/* SABORES (recheio) - em cima da borda, imagens com userSpaceOnUse */}
                       {(() => {
-                        const flavorRadius = (selectedEdge && selectedEdge.id !== 'none') ? 47 : 50;
+                        const flavorRadius = (selectedEdge && selectedEdge.id !== 'none') ? 42 : 50;
                         return maxFlavors === 1 ? (
                           selectedFlavors[0] ? (
                             <circle cx="50" cy="50" r={flavorRadius} fill={selectedFlavors[0].image ? `url(#pizza-slice-0)` : (selectedFlavors[0].color || '#444')} />
@@ -312,7 +312,7 @@ export default function PizzaBuilderV2({
                             if (selectedFlavors[i]) return null;
                             const anglePerSlice = 360 / maxFlavors;
                             const midAngle = (anglePerSlice * (i + 0.5) - 90) * (Math.PI / 180);
-                            const r = (selectedEdge && selectedEdge.id !== 'none') ? 47 : 50;
+                            const r = (selectedEdge && selectedEdge.id !== 'none') ? 42 : 50;
                             const x = 50 + (r / 2) * Math.cos(midAngle);
                             const y = 50 + (r / 2) * Math.sin(midAngle);
                             return (
