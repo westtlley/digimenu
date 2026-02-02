@@ -62,6 +62,8 @@ export default function PizzaBuilderV2({
   const [selectedExtras, setSelectedExtras] = useState([]);
   const [specifications, setSpecifications] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const useCategories = categories?.length > 0;
+
   // Carregar dados de edição ou pré-preencher sabor
   React.useEffect(() => {
     if (editingItem) {
@@ -121,7 +123,6 @@ export default function PizzaBuilderV2({
   const effectiveMaxFlavors = selectedCategory?.max_flavors ?? selectedSize?.max_flavors ?? 1;
   const maxFlavors = Math.min(Math.max(effectiveMaxFlavors, 1), 4);
   const maxExtras = selectedSize?.max_extras ?? 5;
-  const useCategories = categories?.length > 0;
 
   // Toggle sabor
   const toggleFlavor = (flavor) => {
