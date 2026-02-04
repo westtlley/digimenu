@@ -5,7 +5,8 @@ import DishSkeleton from '../DishSkeleton';
 export default function GridLayout({ 
   dishes, 
   onDishClick, 
-  primaryColor, 
+  primaryColor,
+  textPrimaryColor,
   loading = false,
   stockUtils 
 }) {
@@ -33,6 +34,7 @@ export default function GridLayout({
             isOutOfStock={isOutOfStock}
             isLowStock={isLowStock}
             primaryColor={primaryColor}
+            textPrimaryColor={textPrimaryColor}
           />
         );
       })}

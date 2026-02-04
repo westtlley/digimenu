@@ -20,11 +20,13 @@ export default function CustomerProfileModal({ isOpen, onClose, primaryColor = '
     name: '',
     phone: '',
     email: '',
+    zipcode: '',
     address: '',
+    address_number: '',
     complement: '',
     neighborhood: '',
     city: '',
-    zipcode: '',
+    state: '',
     profile_picture: ''
   });
   const [feedback, setFeedback] = useState({
@@ -51,6 +53,7 @@ export default function CustomerProfileModal({ isOpen, onClose, primaryColor = '
           address: data.logradouro || '',
           neighborhood: data.bairro || '',
           city: data.localidade || '',
+          state: data.uf || '',
           zipcode: cleanCep
         }));
         toast.success('Endereço carregado automaticamente!');
@@ -97,11 +100,13 @@ export default function CustomerProfileModal({ isOpen, onClose, primaryColor = '
           name: userData.full_name || '',
           phone: '',
           email: userData.email || '',
+          zipcode: '',
           address: '',
+          address_number: '',
           complement: '',
           neighborhood: '',
           city: '',
-          zipcode: '',
+          state: '',
           profile_picture: ''
         });
       }

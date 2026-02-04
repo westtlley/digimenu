@@ -17,7 +17,8 @@ export default function DishCardWow({
   index = 0,
   isOutOfStock = false,
   isLowStock = false,
-  primaryColor = '#f97316'
+  primaryColor = '#f97316',
+  textPrimaryColor
 }) {
   const formatCurrency = (value) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
@@ -214,12 +215,18 @@ export default function DishCardWow({
                 <p className="text-[10px] md:text-[9px] text-muted-foreground line-through">
                   {formatCurrency(dish.original_price)}
                 </p>
-                <p className="text-base md:text-sm font-bold text-green-600 dark:text-green-500">
+                <p 
+                  className="text-base md:text-sm font-bold"
+                  style={{ color: textPrimaryColor || primaryColor }}
+                >
                   {formatCurrency(dish.price)}
                 </p>
               </div>
             ) : (
-              <p className="text-base md:text-sm font-bold" style={{ color: primaryColor }}>
+              <p 
+                className="text-base md:text-sm font-bold"
+                style={{ color: textPrimaryColor || primaryColor }}
+              >
                 {formatCurrency(dish.price)}
               </p>
             )}
