@@ -9,7 +9,8 @@ export default function CarouselLayout({
   onDishClick, 
   primaryColor, 
   loading = false,
-  stockUtils 
+  stockUtils,
+  formatCurrency 
 }) {
   const scrollRef = useRef(null);
 
