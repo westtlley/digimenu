@@ -34,6 +34,9 @@ import MasterSlugSettings from '../components/admin/MasterSlugSettings';
 import ServiceRequestsTab from '../components/admin/ServiceRequestsTab';
 import TablesTab from '../components/admin/TablesTab';
 import InventoryManagement from '../components/admin/InventoryManagement';
+import AffiliateProgram from '../components/admin/AffiliateProgram';
+import LGPDCompliance from '../components/admin/LGPDCompliance';
+import TwoFactorAuth from '../components/admin/TwoFactorAuth';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import InstallAppButton from '../components/InstallAppButton';
 import { createPageUrl } from '@/utils';
@@ -245,6 +248,12 @@ export default function Admin() {
         return hasModuleAccess('tables') ? <TablesTab /> : <AccessDenied />;
       case 'inventory':
         return hasModuleAccess('inventory') ? <InventoryManagement /> : <AccessDenied />;
+      case 'affiliates':
+        return hasModuleAccess('affiliates') ? <AffiliateProgram /> : <AccessDenied />;
+      case 'lgpd':
+        return hasModuleAccess('lgpd') ? <LGPDCompliance /> : <AccessDenied />;
+      case '2fa':
+        return hasModuleAccess('2fa') ? <TwoFactorAuth user={user} /> : <AccessDenied />;
       case 'service_requests':
         return isMaster ? <ServiceRequestsTab /> : <AccessDenied />;
       case 'pagina_assinar':

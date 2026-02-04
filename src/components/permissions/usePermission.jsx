@@ -107,7 +107,16 @@ export function usePermission() {
    */
   const hasModuleAccess = (module) => {
     if (isMaster) return true;
+    
+    // Módulos especiais que não dependem de permissões
     if (module === 'colaboradores') return ['premium', 'pro'].includes((subscriberData?.plan || '').toLowerCase());
+    
+    // Novos módulos avançados - disponíveis para todos os planos pagos
+    if (['affiliates', 'lgpd', '2fa', 'tables', 'inventory'].includes(module)) {
+      const plan = (subscriberData?.plan || '').toLowerCase();
+      return ['basic', 'pro', 'premium', 'ultra'].includes(plan);
+    }
+    
     if (!permissions || typeof permissions !== 'object') return false;
     
     const modulePerms = permissions[module];

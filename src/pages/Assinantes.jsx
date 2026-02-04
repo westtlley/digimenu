@@ -82,6 +82,9 @@ import AdvancedFilters from '../components/admin/subscribers/AdvancedFilters';
 import BulkActions from '../components/admin/subscribers/BulkActions';
 import SetupLinkModal from '../components/admin/subscribers/SetupLinkModal';
 import SubscriberStats from '../components/admin/subscribers/SubscriberStats';
+import PlanTemplates from '../components/admin/subscribers/PlanTemplates';
+import PlanCard from '../components/admin/subscribers/PlanCard';
+import PlanComparison from '../components/admin/subscribers/PlanComparison';
 import { comparePermissions, getPlanPermissions } from '../components/permissions/PlanPresets';
 import { formatBrazilianDate } from '../components/utils/dateUtils';
 import toast from 'react-hot-toast';
@@ -121,6 +124,7 @@ export default function Assinantes() {
   const [selectedSubscriberIds, setSelectedSubscriberIds] = useState(new Set()); // IDs selecionados para bulk actions
   const [setupLinkModal, setSetupLinkModal] = useState({ open: false, url: null, name: null });
   const [subscriberToDelete, setSubscriberToDelete] = useState(null);
+  const [showPlanCards, setShowPlanCards] = useState(false); // Toggle para mostrar cards visuais
 
   const queryClient = useQueryClient();
 
@@ -1407,6 +1411,18 @@ export default function Assinantes() {
                   }}
                 />
               </div>
+
+              {/* Templates de Planos */}
+              <PlanTemplates
+                onSelectTemplate={(template) => {
+                  setNewSubscriber({
+                    ...newSubscriber,
+                    permissions: template.permissions,
+                    plan: 'custom'
+                  });
+                  toast.success(`Template "${template.name}" aplicado!`);
+                }}
+              />
             
             <PermissionsEditor
               permissions={newSubscriber.permissions}
@@ -1605,6 +1621,18 @@ export default function Assinantes() {
                   />
                 </div>
               </div>
+
+              {/* Templates de Planos (no modal de edição) */}
+              <PlanTemplates
+                onSelectTemplate={(template) => {
+                  setEditingSubscriber({
+                    ...editingSubscriber,
+                    permissions: template.permissions,
+                    plan: 'custom'
+                  });
+                  toast.success(`Template "${template.name}" aplicado!`);
+                }}
+              />
               
               <PermissionsEditor
                 permissions={editingSubscriber.permissions}

@@ -33,6 +33,7 @@ import WelcomeDiscountModal from '../components/menu/WelcomeDiscountModal';
 import SmartUpsell from '../components/menu/SmartUpsell';
 import LoyaltyDashboard from '../components/menu/LoyaltyDashboard';
 import LoyaltyPointsDisplay from '../components/menu/LoyaltyPointsDisplay';
+import AIChatbot from '../components/menu/AIChatbot';
 import { useLoyalty } from '@/hooks/useLoyalty';
 import { useWebSocket } from '@/hooks/useWebSocket';
 
@@ -149,23 +150,46 @@ export default function Cardapio() {
     slug
   );
 
+  // Estado para timeout de carregamento
+  const [loadingTimeout, setLoadingTimeout] = useState(false);
+
   // Cardápio público por link (sem login) — /s/:slug
   const { data: publicData, isLoading: publicLoading, isError: publicError, error: publicErrorDetails } = useQuery({
     queryKey: ['publicCardapio', slug],
     queryFn: async () => {
       try {
+        // O base44.get já adiciona /api automaticamente
         const result = await base44.get(`/public/cardapio/${slug}`);
+        console.log('✅ [Cardapio] Dados recebidos:', result);
+        setLoadingTimeout(false);
         return result;
       } catch (error) {
         console.error('❌ [Cardapio] Erro ao buscar cardápio público:', error);
         console.error('❌ [Cardapio] Slug:', slug);
-        console.error('❌ [Cardapio] Endpoint:', `/public/cardapio/${slug}`);
+        console.error('❌ [Cardapio] Endpoint completo:', `/api/public/cardapio/${slug}`);
+        console.error('❌ [Cardapio] Erro completo:', error.message, error.stack);
+        setLoadingTimeout(true);
         throw error;
       }
     },
     enabled: !!slug,
-    retry: false, // Não tentar novamente em caso de erro
+    retry: 1, // Tentar 1 vez em caso de erro
+    retryDelay: 2000, // Esperar 2 segundos antes de tentar novamente
+    staleTime: 5 * 60 * 1000, // Cache por 5 minutos
   });
+
+  // Timeout de carregamento
+  useEffect(() => {
+    if (slug && publicLoading) {
+      const timer = setTimeout(() => {
+        setLoadingTimeout(true);
+        console.warn('⚠️ [Cardapio] Timeout de carregamento atingido');
+      }, 15000); // 15 segundos
+      return () => clearTimeout(timer);
+    } else {
+      setLoadingTimeout(false);
+    }
+  }, [slug, publicLoading]);
 
   // Dados do cardápio: só via /public/cardapio/:slug. Não carregar entidades do master em / ou /cardapio.
   const { data: dishes = [], isLoading: dishesLoading } = useQuery({
@@ -775,7 +799,19 @@ export default function Cardapio() {
   };
 
   // Se ainda está carregando ou não tem dados, mostrar apenas splash
-  if (publicLoading || !store || !store.name) {
+  // Mas adicionar timeout para não ficar carregando infinitamente
+  const [loadingTimeout, setLoadingTimeout] = useState(false);
+  
+  useEffect(() => {
+    if (slug && publicLoading) {
+      const timer = setTimeout(() => {
+        setLoadingTimeout(true);
+      }, 10000); // 10 segundos
+      return () => clearTimeout(timer);
+    }
+  }, [slug, publicLoading]);
+
+  if ((publicLoading && !loadingTimeout) || (!store || !store.name)) {
     return (
       <div className="min-h-screen min-h-screen-mobile bg-background">
         <Toaster position="top-center" />
@@ -784,7 +820,7 @@ export default function Cardapio() {
           initial={{ opacity: 1 }}
           animate={{ opacity: 1 }}
           className="fixed inset-0 z-[9999] flex flex-col items-center justify-center"
-          style={{ backgroundColor: primaryColor }}
+          style={{ backgroundColor: primaryColor || '#f97316' }}
         >
           <motion.div
             initial={{ scale: 0.85, opacity: 0 }}
@@ -802,6 +838,17 @@ export default function Cardapio() {
             <p className="text-white font-semibold text-xl text-center drop-shadow-sm">
               {store?.name || 'Carregando...'}
             </p>
+            {loadingTimeout && publicError && (
+              <div className="mt-4 text-center">
+                <p className="text-white/80 text-sm mb-2">Erro ao carregar cardápio</p>
+                <Button
+                  onClick={() => window.location.reload()}
+                  className="bg-white text-orange-500 hover:bg-gray-100"
+                >
+                  Tentar Novamente
+                </Button>
+              </div>
+            )}
             <motion.div
               animate={{ opacity: [0.4, 1, 0.4] }}
               transition={{ duration: 0.8, repeat: Infinity }}
@@ -840,14 +887,30 @@ export default function Cardapio() {
                   className="h-24 w-24 max-w-[280px] object-contain drop-shadow-lg rounded-xl"
                 />
               )}
-              <p className="text-white font-semibold text-xl text-center drop-shadow-sm">
-                {store?.name || 'Carregando...'}
-              </p>
+            <p className="text-white font-semibold text-xl text-center drop-shadow-sm">
+              {store?.name || 'Carregando...'}
+            </p>
+            {loadingTimeout && publicError && (
+              <div className="mt-4 text-center max-w-sm">
+                <p className="text-white/90 text-sm mb-3">Erro ao carregar cardápio</p>
+                <Button
+                  onClick={() => {
+                    setLoadingTimeout(false);
+                    window.location.reload();
+                  }}
+                  className="bg-white text-orange-500 hover:bg-gray-100 px-4 py-2 rounded-lg font-medium"
+                >
+                  Tentar Novamente
+                </Button>
+              </div>
+            )}
+            {!loadingTimeout && (
               <motion.div
                 animate={{ opacity: [0.4, 1, 0.4] }}
                 transition={{ duration: 0.8, repeat: Infinity }}
                 className="h-1 w-24 rounded-full bg-white/70"
               />
+            )}
             </motion.div>
           </motion.div>
         )}
@@ -1730,6 +1793,15 @@ export default function Cardapio() {
             </span>
           )}
         </motion.button>
+      )}
+
+      {/* 🤖 Chatbot com IA */}
+      {currentView === 'menu' && (
+        <AIChatbot
+          dishes={dishesResolved}
+          orders={[]}
+          onAddToCart={handleAddToCart}
+        />
       )}
 
     </div>

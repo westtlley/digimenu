@@ -194,6 +194,15 @@ export async function migrate() {
         } catch (e) {
           console.warn('⚠️ Aviso ao executar migração de Mesas e Estoque (pode já existir):', e.message);
         }
+
+        // Migração: Funcionalidades Avançadas (Chatbot, Afiliados, LGPD, 2FA)
+        try {
+          const migrationSQL = fs.readFileSync(path.join(__dirname, 'migrations', 'add_advanced_features.sql'), 'utf8');
+          await query(migrationSQL);
+          console.log('✅ Migração de Funcionalidades Avançadas concluída.');
+        } catch (e) {
+          console.warn('⚠️ Aviso ao executar migração de Funcionalidades Avançadas (pode já existir):', e.message);
+        }
     
     console.log('✅ Migração concluída com sucesso!');
     return true;

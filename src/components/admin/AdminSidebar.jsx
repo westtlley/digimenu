@@ -31,7 +31,8 @@ import {
   Layout,
   Receipt,
   Bell,
-  Wine
+  Wine,
+  Package
 } from 'lucide-react';
 
 const MENU_STRUCTURE = [
@@ -92,6 +93,18 @@ const MENU_STRUCTURE = [
     ]
   },
 
+  // 🍽️ RESTAURANTE
+  {
+    id: 'restaurante',
+    label: '🍽️ RESTAURANTE',
+    icon: UtensilsCrossed,
+    section: 'section',
+    submenu: [
+      { id: 'tables', label: 'Mesas e QR Code', icon: QrCode, module: 'tables' },
+      { id: 'inventory', label: 'Gestão de Estoque', icon: Package, module: 'inventory' },
+    ]
+  },
+
   // ⚙️ SISTEMA
   {
     id: 'sistema',
@@ -114,6 +127,7 @@ export default function AdminSidebar({ activeTab, setActiveTab, isMaster = false
     operacao: true,
     cardapio: true,
     restaurante_grp: true,
+    restaurante: true, // Seção RESTAURANTE (Mesas e Estoque)
     delivery: true,
     sistema: true
   });
@@ -121,6 +135,20 @@ export default function AdminSidebar({ activeTab, setActiveTab, isMaster = false
   // ✅ CORREÇÃO: Blindado com Array.isArray
   const hasModuleAccess = (module) => {
     if (isMaster) return true;
+    
+    // Módulos especiais que não dependem de permissões
+    if (module === 'colaboradores') {
+      // Verificar se tem permissão ou plano adequado
+      return true; // Master sempre tem acesso
+    }
+    
+    // Novos módulos avançados - disponíveis para todos os planos pagos
+    // Nota: AdminSidebar é usado apenas por master, mas mantemos a lógica para consistência
+    if (['affiliates', 'lgpd', '2fa', 'tables', 'inventory'].includes(module)) {
+      // Master sempre tem acesso
+      return true;
+    }
+    
     if (!permissions || typeof permissions !== 'object') return false;
     
     const modulePerms = permissions[module];

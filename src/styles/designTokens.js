@@ -151,6 +151,25 @@ export const designTokens = {
     splashBg: '#7a7775',       // fundo do loading (ref. iFood)
     buttonTransition: '100ms', // transição dos botões de ação (ref. iFood)
   },
+  // Animações
+  animations: {
+    stagger: {
+      default: 0.05,
+      fast: 0.02,
+      slow: 0.1,
+    },
+    duration: {
+      fast: 0.15,
+      normal: 0.3,
+      slow: 0.5,
+      slower: 0.8,
+    },
+    easing: {
+      default: 'cubic-bezier(0.4, 0, 0.2, 1)',
+      bounce: 'cubic-bezier(0.68, -0.55, 0.265, 1.55)',
+      smooth: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+    },
+  },
 };
 
 // Gradientes pré-definidos

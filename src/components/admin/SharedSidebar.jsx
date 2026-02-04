@@ -30,7 +30,9 @@ import {
   Receipt,
   QrCode,
   Sparkles,
-  UserCog
+  UserCog,
+  Key,
+  Shield
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient as base44 } from '@/api/apiClient';
@@ -121,6 +123,19 @@ const MENU_STRUCTURE = [
       { id: 'theme', label: 'Tema', icon: Palette, module: 'theme' },
       { id: 'printer', label: 'Impressora', icon: Printer, module: 'printer' },
       { id: 'colaboradores', label: 'Colaboradores', icon: UserCog, module: 'colaboradores' },
+      { id: '2fa', label: 'Autenticação 2FA', icon: Key, module: '2fa' },
+      { id: 'lgpd', label: 'Conformidade LGPD', icon: Shield, module: 'lgpd' },
+    ]
+  },
+
+  // 💰 MARKETING
+  {
+    id: 'marketing',
+    label: '💰 MARKETING',
+    icon: TrendingUp,
+    section: 'section',
+    submenu: [
+      { id: 'affiliates', label: 'Programa de Afiliados', icon: Users, module: 'affiliates' },
     ]
   }
 ];
@@ -141,8 +156,10 @@ export default function SharedSidebar({
     operacao: true,
     cardapio: true,
     restaurante_grp: true,
+    restaurante: true, // Seção RESTAURANTE (Mesas e Estoque)
     delivery: true,
-    sistema: true
+    sistema: true,
+    marketing: true // Seção MARKETING (Afiliados)
   });
 
   // Buscar dados da loja para mostrar logo
@@ -156,7 +173,16 @@ export default function SharedSidebar({
 
   const hasModuleAccess = (module) => {
     if (isMaster) return true;
+    
+    // Módulos especiais que não dependem de permissões
     if (module === 'colaboradores') return ['premium', 'pro'].includes((plan || '').toLowerCase());
+    
+    // Novos módulos avançados - disponíveis para todos os planos pagos
+    if (['affiliates', 'lgpd', '2fa', 'tables', 'inventory'].includes(module)) {
+      const planLower = (plan || '').toLowerCase();
+      return ['basic', 'pro', 'premium', 'ultra'].includes(planLower);
+    }
+    
     if (!permissions || typeof permissions !== 'object') return false;
     
     const modulePerms = permissions[module];

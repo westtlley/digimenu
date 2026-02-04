@@ -80,11 +80,42 @@ module.exports = {
   				to: {
   					height: '0'
   				}
+  			},
+  			'shimmer': {
+  				'0%': {
+  					backgroundPosition: '-1000px 0'
+  				},
+  				'100%': {
+  					backgroundPosition: '1000px 0'
+  				}
+  			},
+  			'ripple': {
+  				'0%': {
+  					transform: 'scale(0)',
+  					opacity: '0.6'
+  				},
+  				'100%': {
+  					transform: 'scale(2)',
+  					opacity: '0'
+  				}
+  			},
+  			'stagger-fade-in': {
+  				'0%': {
+  					opacity: '0',
+  					transform: 'translateY(20px)'
+  				},
+  				'100%': {
+  					opacity: '1',
+  					transform: 'translateY(0)'
+  				}
   			}
   		},
   		animation: {
   			'accordion-down': 'accordion-down 0.2s ease-out',
-  			'accordion-up': 'accordion-up 0.2s ease-out'
+  			'accordion-up': 'accordion-up 0.2s ease-out',
+  			'shimmer': 'shimmer 2s infinite',
+  			'ripple': 'ripple 0.6s ease-out',
+  			'stagger-fade-in': 'stagger-fade-in 0.3s ease-out'
   		}
   	}
   },

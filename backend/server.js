@@ -44,6 +44,8 @@ import backupRoutes from './routes/backup.routes.js';
 import subscriberBackupRoutes from './routes/subscriberBackup.routes.js';
 import mercadopagoRoutes from './routes/mercadopago.routes.js';
 import metricsRoutes from './routes/metrics.routes.js';
+import affiliatesRoutes from './routes/affiliates.routes.js';
+import lgpdRoutes from './routes/lgpd.routes.js';
 import { loginLimiter, apiLimiter, createLimiter } from './middlewares/rateLimit.js';
 import { validate, schemas } from './middlewares/validation.js';
 import { errorHandler, asyncHandler } from './middlewares/errorHandler.js';
@@ -2426,6 +2428,8 @@ app.use('/api/backup', backupRoutes);
 app.use('/api/subscriber-backup', subscriberBackupRoutes);
 app.use('/api/mercadopago', mercadopagoRoutes);
 app.use('/api/metrics', metricsRoutes);
+app.use('/api/affiliates', affiliatesRoutes);
+app.use('/api/lgpd', lgpdRoutes);
 
 // =======================
 // ✅ TRATAMENTO DE ERROS (deve ser o último middleware)
