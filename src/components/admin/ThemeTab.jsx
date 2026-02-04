@@ -39,6 +39,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { extractColorsFromImage } from '@/utils/extractColorsFromImage';
+import { Image as ImageIcon } from 'lucide-react';
 
 const PRESET_COLORS = [
   { name: 'Laranja', primary: '#f97316', secondary: '#1f2937', accent: '#eab308' },
@@ -182,6 +184,33 @@ export default function ThemeTab() {
       theme_gradient_enabled: true,
     }));
     setHasChanges(true);
+  };
+
+  const [isExtractingColors, setIsExtractingColors] = useState(false);
+
+  const extractColorsFromLogo = async () => {
+    if (!store?.logo) {
+      toast.error('Por favor, adicione uma logo primeiro em Configurações da Loja');
+      return;
+    }
+
+    setIsExtractingColors(true);
+    try {
+      const extractedColors = await extractColorsFromImage(store.logo);
+      setColors(prev => ({
+        ...prev,
+        theme_primary_color: extractedColors.primary,
+        theme_secondary_color: extractedColors.secondary,
+        theme_accent_color: extractedColors.accent,
+      }));
+      setHasChanges(true);
+      toast.success('Cores extraídas da logo com sucesso!');
+    } catch (error) {
+      console.error('Erro ao extrair cores:', error);
+      toast.error('Erro ao extrair cores da logo. Verifique se a imagem está acessível.');
+    } finally {
+      setIsExtractingColors(false);
+    }
   };
 
   const handleSave = () => {
@@ -432,6 +461,50 @@ export default function ThemeTab() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Extract Colors from Logo */}
+          {store?.logo && (
+            <Card style={{ backgroundColor: activeTheme.colors.bgCard, borderColor: activeTheme.colors.borderColor }}>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <ImageIcon className="w-5 h-5" />
+                  Extrair Cores da Logo
+                </CardTitle>
+                <CardDescription>
+                  Extrai automaticamente as cores principais da sua logo para usar como tema
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-4">
+                  <div className="w-20 h-20 rounded-lg overflow-hidden border-2 flex-shrink-0" style={{ borderColor: activeTheme.colors.borderColor }}>
+                    <img src={store.logo} alt="Logo" className="w-full h-full object-cover" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm mb-3" style={{ color: activeTheme.colors.textSecondary }}>
+                      Clique no botão abaixo para extrair as cores dominantes da sua logo e aplicá-las automaticamente como tema.
+                    </p>
+                    <Button
+                      onClick={extractColorsFromLogo}
+                      disabled={isExtractingColors}
+                      style={{ backgroundColor: activeTheme.colors.accent }}
+                    >
+                      {isExtractingColors ? (
+                        <>
+                          <Zap className="w-4 h-4 mr-2 animate-spin" />
+                          Extraindo cores...
+                        </>
+                      ) : (
+                        <>
+                          <ImageIcon className="w-4 h-4 mr-2" />
+                          Extrair Cores da Logo
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Presets */}
           <Card style={{ backgroundColor: activeTheme.colors.bgCard, borderColor: activeTheme.colors.borderColor }}>
