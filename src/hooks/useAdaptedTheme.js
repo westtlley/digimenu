@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { 
   adaptPrimaryColorForDark, 
   getTextColorForDark, 
@@ -7,20 +7,42 @@ import {
 } from '@/utils/themeColors';
 
 /**
- * Detecta se está em modo escuro
- */
-function isDarkMode() {
-  if (typeof window === 'undefined') return false;
-  return document.documentElement.classList.contains('dark') || 
-         window.matchMedia('(prefers-color-scheme: dark)').matches;
-}
-
-/**
  * Hook para adaptar cores do tema ao modo escuro
  * Garante contraste adequado mantendo a identidade das cores
  */
 export function useAdaptedTheme(storeTheme) {
-  const isDark = isDarkMode();
+  const [isDark, setIsDark] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return document.documentElement.classList.contains('dark') || 
+           window.matchMedia('(prefers-color-scheme: dark)').matches;
+  });
+
+  useEffect(() => {
+    // Observar mudanças na classe dark do documento
+    const observer = new MutationObserver(() => {
+      setIsDark(document.documentElement.classList.contains('dark'));
+    });
+
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class']
+    });
+
+    // Observar mudanças na preferência do sistema
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleChange = (e) => {
+      if (!document.documentElement.classList.contains('dark') && 
+          !document.documentElement.classList.contains('light')) {
+        setIsDark(e.matches);
+      }
+    };
+    mediaQuery.addEventListener('change', handleChange);
+
+    return () => {
+      observer.disconnect();
+      mediaQuery.removeEventListener('change', handleChange);
+    };
+  }, []);
   
   const primaryColor = storeTheme?.theme_primary_color || '#f97316';
   const secondaryColor = storeTheme?.theme_secondary_color || '#1f2937';
