@@ -1115,7 +1115,7 @@ export default function Cardapio() {
 
       {/* Footer */}
       <footer className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950 border-t border-gray-200 dark:border-gray-800 mt-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
             {/* Coluna 1: Info do Estabelecimento */}
             <div className="space-y-3">
@@ -1377,6 +1377,7 @@ export default function Cardapio() {
       <CustomerProfileModal
         isOpen={showCustomerProfile}
         onClose={() => setShowCustomerProfile(false)}
+        primaryColor={primaryColor}
       />
 
       <QuickSignupModal

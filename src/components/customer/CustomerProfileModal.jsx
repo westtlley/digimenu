@@ -13,7 +13,7 @@ import CustomerOrdersHistory from './CustomerOrdersHistory';
 import { useQuery } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 
-export default function CustomerProfileModal({ isOpen, onClose }) {
+export default function CustomerProfileModal({ isOpen, onClose, primaryColor = '#f97316' }) {
   const [user, setUser] = useState(null);
   const [activeTab, setActiveTab] = useState('profile');
   const [formData, setFormData] = useState({
@@ -33,6 +33,37 @@ export default function CustomerProfileModal({ isOpen, onClose }) {
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [loadingCep, setLoadingCep] = useState(false);
+
+  // Função para buscar CEP automaticamente
+  const fetchCepData = async (cep) => {
+    const cleanCep = cep.replace(/\D/g, '');
+    if (cleanCep.length !== 8) return;
+
+    setLoadingCep(true);
+    try {
+      const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
+      const data = await response.json();
+      
+      if (!data.erro) {
+        setFormData(prev => ({
+          ...prev,
+          address: data.logradouro || '',
+          neighborhood: data.bairro || '',
+          city: data.localidade || '',
+          zipcode: cleanCep
+        }));
+        toast.success('Endereço carregado automaticamente!');
+      } else {
+        toast.error('CEP não encontrado');
+      }
+    } catch (error) {
+      console.error('Erro ao buscar CEP:', error);
+      toast.error('Erro ao buscar CEP. Tente novamente.');
+    } finally {
+      setLoadingCep(false);
+    }
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -202,7 +233,7 @@ export default function CustomerProfileModal({ isOpen, onClose }) {
           className="bg-white dark:bg-gray-900 rounded-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden shadow-2xl flex flex-col"
         >
           {/* Header Aprimorado */}
-          <div className="relative bg-gradient-to-br from-orange-500 via-orange-600 to-red-500 p-6">
+          <div className="relative p-5 sm:p-6" style={{ background: `linear-gradient(135deg, ${primaryColor}, ${primaryColor}dd)` }}>
             <button
               onClick={onClose}
               className="absolute top-4 right-4 p-2.5 rounded-full hover:bg-white/20 transition-colors z-10 backdrop-blur-sm"
@@ -224,7 +255,8 @@ export default function CustomerProfileModal({ isOpen, onClose }) {
                   </div>
                   <label 
                     htmlFor="photo-upload"
-                    className="absolute -bottom-1 -right-1 w-8 h-8 bg-white text-orange-500 rounded-full flex items-center justify-center cursor-pointer shadow-lg hover:scale-110 transition-transform border-2 border-orange-500"
+                    className="absolute -bottom-1 -right-1 w-8 h-8 bg-white rounded-full flex items-center justify-center cursor-pointer shadow-lg hover:scale-110 transition-transform border-2"
+                    style={{ color: primaryColor, borderColor: primaryColor }}
                     title="Alterar foto"
                   >
                     <Camera className="w-4 h-4" />
@@ -247,15 +279,6 @@ export default function CustomerProfileModal({ isOpen, onClose }) {
                 </div>
               </div>
               
-              {/* Logout Button */}
-              <button
-                onClick={handleLogout}
-                className="hidden sm:flex items-center gap-2 px-5 py-2.5 rounded-lg bg-white/20 hover:bg-white/30 text-white font-medium transition-all backdrop-blur-sm"
-                title="Sair da conta"
-              >
-                <LogOut className="w-4 h-4" />
-                Sair
-              </button>
             </div>
           </div>
 
@@ -267,11 +290,12 @@ export default function CustomerProfileModal({ isOpen, onClose }) {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center justify-center gap-2.5 px-5 md:px-8 py-3.5 font-medium transition-all border-b-2 whitespace-nowrap min-w-fit ${
+                  className={`flex items-center justify-center gap-2 px-4 md:px-6 py-3 font-medium transition-all border-b-2 whitespace-nowrap min-w-fit ${
                     activeTab === tab.id
-                      ? 'border-orange-500 text-orange-600 dark:text-orange-400 bg-white dark:bg-gray-900'
+                      ? 'bg-white dark:bg-gray-900'
                       : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800'
                   }`}
+                  style={activeTab === tab.id ? { borderBottomColor: primaryColor, color: primaryColor } : {}}
                   title={tab.label}
                 >
                   <Icon className="w-5 h-5 flex-shrink-0" />
@@ -282,11 +306,11 @@ export default function CustomerProfileModal({ isOpen, onClose }) {
           </div>
 
           {/* Content */}
-          <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-gray-50 dark:bg-gray-950">
+          <div className="flex-1 overflow-y-auto p-4 sm:p-5 bg-gray-50 dark:bg-gray-950">
             {loading ? (
               <div className="flex items-center justify-center h-64">
                 <div className="text-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-4" style={{ borderColor: primaryColor }}></div>
                   <p className="text-gray-600 dark:text-gray-400">Carregando...</p>
                 </div>
               </div>
@@ -294,11 +318,11 @@ export default function CustomerProfileModal({ isOpen, onClose }) {
               <>
                 {/* Dados Pessoais */}
                 {activeTab === 'profile' && (
-                  <div className="max-w-3xl mx-auto space-y-6">
+                  <div className="max-w-3xl mx-auto space-y-4">
                     <Card>
                       <CardHeader>
                         <CardTitle className="flex items-center gap-2">
-                          <User className="w-5 h-5 text-orange-500" />
+                          <User className="w-5 h-5" style={{ color: primaryColor }} />
                           Informações Pessoais
                         </CardTitle>
                         <CardDescription>Mantenha seus dados atualizados para melhor atendimento</CardDescription>
@@ -352,23 +376,38 @@ export default function CustomerProfileModal({ isOpen, onClose }) {
                     <Card>
                       <CardHeader>
                         <CardTitle className="flex items-center gap-2">
-                          <MapPin className="w-5 h-5 text-orange-500" />
+                          <MapPin className="w-5 h-5" style={{ color: primaryColor }} />
                           Endereço de Entrega
                         </CardTitle>
                         <CardDescription>Facilite seus próximos pedidos salvando seu endereço</CardDescription>
                       </CardHeader>
-                      <CardContent className="space-y-4">
-                        <div className="grid sm:grid-cols-2 gap-4">
+                      <CardContent className="space-y-3">
+                        <div className="grid sm:grid-cols-2 gap-3">
                           <div>
                             <Label htmlFor="zipcode">CEP</Label>
-                            <Input
-                              id="zipcode"
-                              value={formData.zipcode}
-                              onChange={(e) => setFormData(prev => ({ ...prev, zipcode: e.target.value.replace(/\D/g, '') }))}
-                              placeholder="00000-000"
-                              maxLength={8}
-                              className="mt-1.5"
-                            />
+                            <div className="relative mt-1.5">
+                              <Input
+                                id="zipcode"
+                                value={formData.zipcode}
+                                onChange={(e) => {
+                                  const value = e.target.value.replace(/\D/g, '');
+                                  setFormData(prev => ({ ...prev, zipcode: value }));
+                                  if (value.length === 8) {
+                                    fetchCepData(value);
+                                  }
+                                }}
+                                placeholder="00000-000"
+                                maxLength={8}
+                                disabled={loadingCep}
+                                className="pr-10"
+                              />
+                              {loadingCep && (
+                                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2" style={{ borderColor: primaryColor }}></div>
+                                </div>
+                              )}
+                            </div>
+                            <p className="text-xs text-gray-500 mt-1">Digite o CEP e o endereço será preenchido automaticamente</p>
                           </div>
                           <div>
                             <Label htmlFor="city">Cidade</Label>
@@ -415,7 +454,14 @@ export default function CustomerProfileModal({ isOpen, onClose }) {
                     </Card>
                     
                     <div className="flex flex-col sm:flex-row gap-3">
-                      <Button onClick={handleSaveProfile} className="flex-1 bg-orange-500 hover:bg-orange-600" disabled={saving}>
+                      <Button 
+                        onClick={handleSaveProfile} 
+                        className="flex-1" 
+                        disabled={saving}
+                        style={{ backgroundColor: primaryColor }}
+                        onMouseEnter={(e) => e.target.style.opacity = '0.9'}
+                        onMouseLeave={(e) => e.target.style.opacity = '1'}
+                      >
                         <Save className="w-4 h-4 mr-2" />
                         {saving ? 'Salvando...' : 'Salvar Alterações'}
                       </Button>
@@ -432,7 +478,7 @@ export default function CustomerProfileModal({ isOpen, onClose }) {
                   <div className="max-w-4xl mx-auto space-y-6">
                     {/* Card de Pontos Principal */}
                     <Card className="relative overflow-hidden">
-                      <div className="absolute inset-0 bg-gradient-to-br from-yellow-400 via-orange-500 to-red-500 opacity-90"></div>
+                      <div className="absolute inset-0 opacity-90" style={{ background: `linear-gradient(135deg, ${primaryColor}, ${primaryColor}dd)` }}></div>
                       <CardContent className="relative p-8 text-center text-white">
                         <Award className="w-20 h-20 mx-auto mb-4 drop-shadow-lg" fill="white" />
                         <h3 className="text-5xl font-bold mb-2 drop-shadow-md">{loyaltyPoints}</h3>
@@ -460,27 +506,27 @@ export default function CustomerProfileModal({ isOpen, onClose }) {
                     <Card>
                       <CardHeader>
                         <CardTitle className="flex items-center gap-2">
-                          <TrendingUp className="w-5 h-5 text-orange-500" />
+                          <TrendingUp className="w-5 h-5" style={{ color: primaryColor }} />
                           Como Funciona
                         </CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-3">
-                        <div className="flex items-start gap-3 p-3 bg-orange-50 dark:bg-orange-900/10 rounded-lg">
-                          <div className="w-8 h-8 rounded-full bg-orange-500 text-white flex items-center justify-center font-bold flex-shrink-0">1</div>
+                        <div className="flex items-start gap-3 p-3 rounded-lg" style={{ backgroundColor: `${primaryColor}15` }}>
+                          <div className="w-8 h-8 rounded-full text-white flex items-center justify-center font-bold flex-shrink-0" style={{ backgroundColor: primaryColor }}>1</div>
                           <div>
                             <p className="font-semibold text-gray-900 dark:text-white">Ganhe Pontos</p>
                             <p className="text-sm text-gray-600 dark:text-gray-400">1 ponto por cada pedido realizado</p>
                           </div>
                         </div>
-                        <div className="flex items-start gap-3 p-3 bg-orange-50 dark:bg-orange-900/10 rounded-lg">
-                          <div className="w-8 h-8 rounded-full bg-orange-500 text-white flex items-center justify-center font-bold flex-shrink-0">2</div>
+                        <div className="flex items-start gap-3 p-3 rounded-lg" style={{ backgroundColor: `${primaryColor}15` }}>
+                          <div className="w-8 h-8 rounded-full text-white flex items-center justify-center font-bold flex-shrink-0" style={{ backgroundColor: primaryColor }}>2</div>
                           <div>
                             <p className="font-semibold text-gray-900 dark:text-white">Acumule</p>
                             <p className="text-sm text-gray-600 dark:text-gray-400">Seus pontos não expiram e crescem a cada compra</p>
                           </div>
                         </div>
-                        <div className="flex items-start gap-3 p-3 bg-orange-50 dark:bg-orange-900/10 rounded-lg">
-                          <div className="w-8 h-8 rounded-full bg-orange-500 text-white flex items-center justify-center font-bold flex-shrink-0">3</div>
+                        <div className="flex items-start gap-3 p-3 rounded-lg" style={{ backgroundColor: `${primaryColor}15` }}>
+                          <div className="w-8 h-8 rounded-full text-white flex items-center justify-center font-bold flex-shrink-0" style={{ backgroundColor: primaryColor }}>3</div>
                           <div>
                             <p className="font-semibold text-gray-900 dark:text-white">Troque por Benefícios</p>
                             <p className="text-sm text-gray-600 dark:text-gray-400">Descontos exclusivos e promoções especiais</p>
@@ -501,7 +547,7 @@ export default function CustomerProfileModal({ isOpen, onClose }) {
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
                               <Card>
                                 <CardContent className="p-4 text-center">
-                                  <Package className="w-8 h-8 mx-auto mb-2 text-orange-500" />
+                                  <Package className="w-8 h-8 mx-auto mb-2" style={{ color: primaryColor }} />
                                   <p className="text-2xl font-bold text-gray-900 dark:text-white">{orders.length}</p>
                                   <p className="text-sm text-gray-600 dark:text-gray-400">Total de Pedidos</p>
                                 </CardContent>
@@ -552,7 +598,7 @@ export default function CustomerProfileModal({ isOpen, onClose }) {
                     <Card>
                       <CardHeader>
                         <CardTitle className="flex items-center gap-2">
-                          <MessageSquare className="w-5 h-5 text-orange-500" />
+                          <MessageSquare className="w-5 h-5" style={{ color: primaryColor }} />
                           Sua Opinião é Importante
                         </CardTitle>
                         <CardDescription>Ajude-nos a melhorar nosso atendimento e qualidade</CardDescription>
@@ -601,7 +647,10 @@ export default function CustomerProfileModal({ isOpen, onClose }) {
                         
                         <Button 
                           onClick={handleSubmitFeedback} 
-                          className="w-full bg-orange-500 hover:bg-orange-600 py-6 text-base font-semibold"
+                          className="w-full py-6 text-base font-semibold"
+                          style={{ backgroundColor: primaryColor }}
+                          onMouseEnter={(e) => e.target.style.opacity = '0.9'}
+                          onMouseLeave={(e) => e.target.style.opacity = '1'}
                           disabled={!feedback.rating || !feedback.comment.trim()}
                         >
                           <MessageSquare className="w-5 h-5 mr-2" />
