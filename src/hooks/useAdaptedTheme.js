@@ -1,5 +1,4 @@
 import { useMemo } from 'react';
-import { useTheme } from '@/components/theme/ThemeProvider';
 import { 
   adaptPrimaryColorForDark, 
   getTextColorForDark, 
@@ -8,11 +7,20 @@ import {
 } from '@/utils/themeColors';
 
 /**
+ * Detecta se está em modo escuro
+ */
+function isDarkMode() {
+  if (typeof window === 'undefined') return false;
+  return document.documentElement.classList.contains('dark') || 
+         window.matchMedia('(prefers-color-scheme: dark)').matches;
+}
+
+/**
  * Hook para adaptar cores do tema ao modo escuro
  * Garante contraste adequado mantendo a identidade das cores
  */
 export function useAdaptedTheme(storeTheme) {
-  const { isDark } = useTheme();
+  const isDark = isDarkMode();
   
   const primaryColor = storeTheme?.theme_primary_color || '#f97316';
   const secondaryColor = storeTheme?.theme_secondary_color || '#1f2937';
