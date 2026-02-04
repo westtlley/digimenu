@@ -560,7 +560,7 @@ export default function Cardapio() {
         formatCurrency
       );
 
-      whatsappService.sendToWhatsApp(store.whatsapp, message);
+      whatsappService.sendToWhatsApp(store?.whatsapp, message);
     }
 
     // Limpar tudo
@@ -607,8 +607,8 @@ export default function Cardapio() {
             >
               {store?.logo && (
                 <img
-                  src={store.logo}
-                  alt={store.name || 'Restaurante'}
+                  src={store?.logo}
+                  alt={store?.name || 'Restaurante'}
                   className="h-24 w-24 max-w-[280px] object-contain drop-shadow-lg rounded-xl"
                 />
               )}
@@ -637,12 +637,12 @@ export default function Cardapio() {
       )}
 
       {/* Hero Banner - Banner Superior Grande */}
-      {store.banner_image ? (
+      {store?.banner_image ? (
         <div className="relative w-full h-[200px] md:h-[88px] overflow-hidden">
           {/* Background Image */}
           <img 
-            src={store.banner_image} 
-            alt={store.name}
+            src={store?.banner_image} 
+            alt={store?.name || 'Restaurante'}
             className="w-full h-full object-cover"
           />
           
@@ -652,23 +652,23 @@ export default function Cardapio() {
           {/* Desktop: linha única - Logo | Search | Ícones */}
           <div className="absolute inset-0 z-30 flex flex-col md:flex-row md:items-center md:justify-between md:gap-4 md:px-4 md:py-3">
             <div className="flex items-center gap-3 pt-4 pl-4 md:pt-0 md:pl-0 md:flex-shrink-0">
-              {store.logo && (
+              {store?.logo && (
                 <div className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-white/95 backdrop-blur-sm p-1 shadow-2xl border-2 border-white/50 flex-shrink-0">
-                  <img src={store.logo} alt={store.name} className="w-full h-full rounded-full object-cover" />
+                  <img src={store?.logo} alt={store?.name || 'Restaurante'} className="w-full h-full rounded-full object-cover" />
                 </div>
               )}
               <div className="text-white">
-                <h1 className="text-lg md:text-xl font-bold drop-shadow-lg leading-tight">{store.name}</h1>
+                <h1 className="text-lg md:text-xl font-bold drop-shadow-lg leading-tight">{store?.name || 'Restaurante'}</h1>
                 <div className="flex items-center gap-3 mt-0.5 md:mt-0">
                   <div className="flex items-center gap-1.5">
                     <span className={`w-1.5 h-1.5 rounded-full ${isStoreOpen ? 'bg-green-400' : 'bg-red-400'}`}></span>
                     <span className="text-xs font-medium">{getStatusDisplay.text}</span>
                   </div>
-                  {store.min_order_value > 0 && (
+                  {store?.min_order_value > 0 && (
                     <>
                       <span className="text-white/60">•</span>
                       <span className="text-xs opacity-90">
-                        Pedido mín. <span className="font-semibold">{formatCurrency(store.min_order_value)}</span>
+                        Pedido mín. <span className="font-semibold">{formatCurrency(store?.min_order_value || 0)}</span>
                       </span>
                     </>
                   )}
@@ -695,7 +695,7 @@ export default function Cardapio() {
                 className="p-2 rounded-full min-h-touch min-w-touch bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-colors text-white flex items-center justify-center" 
                 onClick={() => {
                   if (navigator.share) {
-                    navigator.share({ title: store.name, text: `Confira o cardápio de ${store.name}`, url: window.location.href }).catch(() => {});
+                    navigator.share({ title: store?.name || 'Cardápio', text: `Confira o cardápio de ${store?.name || 'nosso restaurante'}`, url: window.location.href }).catch(() => {});
                   } else {
                     navigator.clipboard.writeText(window.location.href);
                     toast.success('Link copiado!');
@@ -739,23 +739,23 @@ export default function Cardapio() {
             <div className="flex flex-col md:flex-row md:items-center md:gap-4">
               <div className="flex items-center justify-between mb-4 md:mb-0 md:flex-shrink-0">
                 <div className="flex items-center gap-3">
-                  {store.logo ? (
-                    <img src={store.logo} alt={store.name} className="w-16 h-16 md:w-14 md:h-14 rounded-xl object-cover shadow-md" />
+                  {store?.logo ? (
+                    <img src={store?.logo} alt={store?.name || 'Restaurante'} className="w-16 h-16 md:w-14 md:h-14 rounded-xl object-cover shadow-md" />
                   ) : (
                     <div className="w-16 h-16 md:w-14 md:h-14 rounded-xl flex items-center justify-center text-3xl shadow-md" style={{ backgroundColor: primaryColor }}>
                       🍽️
                     </div>
                   )}
                   <div>
-                    <h1 className="font-bold text-xl md:text-lg text-foreground">{store.name}</h1>
-                    {store.min_order_value > 0 && (
-                      <p className="text-xs text-muted-foreground">Pedido mín. {formatCurrency(store.min_order_value)}</p>
+                    <h1 className="font-bold text-xl md:text-lg text-foreground">{store?.name || 'Restaurante'}</h1>
+                    {store?.min_order_value > 0 && (
+                      <p className="text-xs text-muted-foreground">Pedido mín. {formatCurrency(store?.min_order_value || 0)}</p>
                     )}
                   </div>
                 </div>
                 <div className="flex items-center gap-1 md:hidden">
                   <InstallAppButton pageName="Cardápio" compact />
-                  <button className="p-2 rounded-lg min-h-touch min-w-touch text-muted-foreground" onClick={() => { if (navigator.share) { navigator.share({ title: store.name, text: `Confira o cardápio de ${store.name}`, url: window.location.href }).catch(() => {}); } else { navigator.clipboard.writeText(window.location.href); toast.success('Link copiado!'); } }}><Share2 className="w-5 h-5" /></button>
+                  <button className="p-2 rounded-lg min-h-touch min-w-touch text-muted-foreground" onClick={() => { if (navigator.share) { navigator.share({ title: store?.name || 'Cardápio', text: `Confira o cardápio de ${store?.name || 'nosso restaurante'}`, url: window.location.href }).catch(() => {}); } else { navigator.clipboard.writeText(window.location.href); toast.success('Link copiado!'); } }}><Share2 className="w-5 h-5" /></button>
                   <ThemeToggle />
                   <button className={`p-2 rounded-lg relative ${isAuthenticated ? 'text-green-600' : 'text-muted-foreground'}`} onClick={() => isAuthenticated ? setShowCustomerProfile(true) : (window.location.href = `/login/cliente?returnUrl=${encodeURIComponent(window.location.pathname)}`)}><User className="w-5 h-5" /></button>
                   <button className="p-2 rounded-lg relative text-muted-foreground" onClick={() => setShowCartModal(true)}><ShoppingCart className="w-5 h-5" />{cart.length > 0 && <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">{cartItemsCount}</span>}</button>
@@ -768,7 +768,7 @@ export default function Cardapio() {
               </div>
               {/* Ícones - ocultos no mobile (já estão na linha de cima) */}
               <div className="hidden md:flex items-center gap-2 flex-shrink-0">
-                <button className="p-2 rounded-lg transition-colors text-muted-foreground hover:text-foreground hover:bg-muted" onClick={() => { if (navigator.share) { navigator.share({ title: store.name, text: `Confira o cardápio de ${store.name}`, url: window.location.href }).catch(() => {}); } else { navigator.clipboard.writeText(window.location.href); toast.success('Link copiado!'); } }} title="Compartilhar"><Share2 className="w-5 h-5" /></button>
+                <button className="p-2 rounded-lg transition-colors text-muted-foreground hover:text-foreground hover:bg-muted" onClick={() => { if (navigator.share) { navigator.share({ title: store?.name || 'Cardápio', text: `Confira o cardápio de ${store?.name || 'nosso restaurante'}`, url: window.location.href }).catch(() => {}); } else { navigator.clipboard.writeText(window.location.href); toast.success('Link copiado!'); } }} title="Compartilhar"><Share2 className="w-5 h-5" /></button>
                 <ThemeToggle className="text-muted-foreground hover:text-foreground hover:bg-muted" />
                 <button className={`relative p-2 rounded-lg transition-all ${isAuthenticated ? 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`} onClick={() => isAuthenticated ? setShowCustomerProfile(true) : (window.location.href = `/login/cliente?returnUrl=${encodeURIComponent(window.location.pathname)}`)} title={isAuthenticated ? "Meu Perfil" : "Entrar"}><User className="w-5 h-5" />{isAuthenticated && <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-white dark:border-gray-900"></span>}</button>
                 <button className="p-2 rounded-lg relative transition-colors text-muted-foreground hover:text-foreground hover:bg-muted" onClick={() => setShowCartModal(true)}><ShoppingCart className="w-5 h-5" />{cart.length > 0 && <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">{cartItemsCount}</span>}</button>
@@ -782,7 +782,7 @@ export default function Cardapio() {
       )}
 
       {/* Category Tabs - Melhoradas */}
-      <div className={`bg-card border-b border-border sticky z-30 ${store.banner_image ? 'md:top-0 top-0' : 'md:top-[88px] top-[165px]'}`}>
+      <div className={`bg-card border-b border-border sticky z-30 ${store?.banner_image ? 'md:top-0 top-0' : 'md:top-[88px] top-[165px]'}`}>
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex items-center justify-between gap-3 md:py-3 py-4">
             <div className="flex gap-2 overflow-x-auto scrollbar-hide flex-1">
@@ -1067,9 +1067,9 @@ export default function Cardapio() {
             <Home className="w-6 h-6" />
           </button>
           
-          {store.whatsapp && (
-            <a
-              href={`https://wa.me/55${store.whatsapp.replace(/\D/g, '')}`}
+          {store?.whatsapp && (
+            <a 
+              href={`https://wa.me/55${store?.whatsapp?.replace(/\D/g, '') || ''}`}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-center flex-1 h-full text-green-500 hover:text-green-600 transition-all active:scale-95"
@@ -1120,26 +1120,26 @@ export default function Cardapio() {
             {/* Coluna 1: Info do Estabelecimento */}
             <div className="space-y-3">
               <div className="flex items-center gap-3">
-                {store.logo && (
-                  <img src={store.logo} alt={store.name} className="w-16 h-16 rounded-xl object-cover shadow-md border-2 border-white dark:border-gray-800" />
+                {store?.logo && (
+                  <img src={store?.logo} alt={store?.name || 'Restaurante'} className="w-16 h-16 rounded-xl object-cover shadow-md border-2 border-white dark:border-gray-800" />
                 )}
                 <div>
-                  <h3 className="font-bold text-xl text-gray-900 dark:text-white">{store.name}</h3>
-                  {store.slogan && (
-                    <p className="text-gray-600 dark:text-gray-400 text-sm italic mt-0.5">"{store.slogan}"</p>
+                  <h3 className="font-bold text-xl text-gray-900 dark:text-white">{store?.name || 'Restaurante'}</h3>
+                  {store?.slogan && (
+                    <p className="text-gray-600 dark:text-gray-400 text-sm italic mt-0.5">"{store?.slogan}"</p>
                   )}
                 </div>
               </div>
               
-              {store.address && (
+              {store?.address && (
                 <div className="flex items-start gap-2 text-gray-700 dark:text-gray-300">
                   <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: primaryColor }} />
-                  <p className="text-sm">{store.address}</p>
+                  <p className="text-sm">{store?.address}</p>
                 </div>
               )}
 
               {/* Horário de Funcionamento */}
-              {store.opening_time && store.closing_time && (
+              {store?.opening_time && store?.closing_time && (
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
                     <Clock className="w-4 h-4 flex-shrink-0" style={{ color: primaryColor }} />
@@ -1147,15 +1147,15 @@ export default function Cardapio() {
                   </div>
                   <div className="ml-6 space-y-1">
                     <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {store.opening_time} - {store.closing_time}
+                      {store?.opening_time} - {store?.closing_time}
                     </p>
-                    {store.working_days && store.working_days.length > 0 && (
+                    {store?.working_days && store.working_days.length > 0 && (
                       <div className="flex items-center gap-2">
                         <Calendar className="w-3.5 h-3.5 text-gray-500" />
                         <p className="text-xs text-gray-500 dark:text-gray-400">
                           {(() => {
                             const daysMap = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-                            const workingDayNames = store.working_days
+                            const workingDayNames = store?.working_days
                               .sort((a, b) => a - b)
                               .map(day => daysMap[day]);
                             
@@ -1191,9 +1191,9 @@ export default function Cardapio() {
               
               {/* Desktop: Ícones com texto */}
               <div className="hidden sm:flex flex-wrap gap-3">
-                {store.whatsapp && (
+                {store?.whatsapp && (
                   <a 
-                    href={`https://wa.me/55${store.whatsapp.replace(/\D/g, '')}`}
+                    href={`https://wa.me/55${store?.whatsapp?.replace(/\D/g, '') || ''}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="group flex items-center gap-2 px-4 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-full transition-all shadow-md hover:shadow-lg transform hover:scale-105"
@@ -1203,9 +1203,9 @@ export default function Cardapio() {
                     <span className="text-sm font-medium">WhatsApp</span>
                   </a>
                 )}
-                {store.instagram && (
+                {store?.instagram && (
                   <a 
-                    href={store.instagram.startsWith('http') ? store.instagram : `https://instagram.com/${store.instagram.replace(/^@/, '')}`}
+                    href={store?.instagram?.startsWith('http') ? store.instagram : `https://instagram.com/${store?.instagram?.replace(/^@/, '') || ''}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="group flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white rounded-full transition-all shadow-md hover:shadow-lg transform hover:scale-105"
@@ -1215,9 +1215,9 @@ export default function Cardapio() {
                     <span className="text-sm font-medium">Instagram</span>
                   </a>
                 )}
-                {store.facebook && (
+                {store?.facebook && (
                   <a 
-                    href={store.facebook.startsWith('http') ? store.facebook : `https://facebook.com/${store.facebook}`}
+                    href={store?.facebook?.startsWith('http') ? store.facebook : `https://facebook.com/${store?.facebook || ''}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="group flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-full transition-all shadow-md hover:shadow-lg transform hover:scale-105"
@@ -1227,9 +1227,9 @@ export default function Cardapio() {
                     <span className="text-sm font-medium">Facebook</span>
                   </a>
                 )}
-                {store.tiktok && (
+                {store?.tiktok && (
                   <a 
-                    href={store.tiktok.startsWith('http') ? store.tiktok : `https://tiktok.com/@${store.tiktok.replace(/^@/, '')}`}
+                    href={store?.tiktok?.startsWith('http') ? store.tiktok : `https://tiktok.com/@${store?.tiktok?.replace(/^@/, '') || ''}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="group flex items-center gap-2 px-4 py-2.5 bg-black hover:bg-gray-800 text-white rounded-full transition-all shadow-md hover:shadow-lg transform hover:scale-105"
@@ -1243,9 +1243,9 @@ export default function Cardapio() {
 
               {/* Mobile: Apenas ícones circulares */}
               <div className="flex sm:hidden gap-4 justify-center">
-                {store.whatsapp && (
+                {store?.whatsapp && (
                   <a 
-                    href={`https://wa.me/55${store.whatsapp.replace(/\D/g, '')}`}
+                    href={`https://wa.me/55${store?.whatsapp?.replace(/\D/g, '') || ''}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center justify-center w-12 h-12 bg-green-500 hover:bg-green-600 text-white rounded-full transition-all shadow-md hover:shadow-lg transform hover:scale-110"
@@ -1254,9 +1254,9 @@ export default function Cardapio() {
                     <MessageSquare className="w-6 h-6" />
                   </a>
                 )}
-                {store.instagram && (
+                {store?.instagram && (
                   <a 
-                    href={store.instagram.startsWith('http') ? store.instagram : `https://instagram.com/${store.instagram.replace(/^@/, '')}`}
+                    href={store?.instagram?.startsWith('http') ? store.instagram : `https://instagram.com/${store?.instagram?.replace(/^@/, '') || ''}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white rounded-full transition-all shadow-md hover:shadow-lg transform hover:scale-110"
@@ -1265,9 +1265,9 @@ export default function Cardapio() {
                     <Instagram className="w-6 h-6" />
                   </a>
                 )}
-                {store.facebook && (
+                {store?.facebook && (
                   <a 
-                    href={store.facebook.startsWith('http') ? store.facebook : `https://facebook.com/${store.facebook}`}
+                    href={store?.facebook?.startsWith('http') ? store.facebook : `https://facebook.com/${store?.facebook || ''}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center justify-center w-12 h-12 bg-blue-600 hover:bg-blue-700 text-white rounded-full transition-all shadow-md hover:shadow-lg transform hover:scale-110"
@@ -1276,9 +1276,9 @@ export default function Cardapio() {
                     <Facebook className="w-6 h-6" />
                   </a>
                 )}
-                {store.tiktok && (
+                {store?.tiktok && (
                   <a 
-                    href={store.tiktok.startsWith('http') ? store.tiktok : `https://tiktok.com/@${store.tiktok.replace(/^@/, '')}`}
+                    href={store?.tiktok?.startsWith('http') ? store.tiktok : `https://tiktok.com/@${store?.tiktok?.replace(/^@/, '') || ''}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center justify-center w-12 h-12 bg-black hover:bg-gray-800 text-white rounded-full transition-all shadow-md hover:shadow-lg transform hover:scale-110"
@@ -1290,13 +1290,13 @@ export default function Cardapio() {
               </div>
 
               {/* Telefone (se houver) */}
-              {store.phone && (
+              {store?.phone && (
                 <a 
-                  href={`tel:${store.phone.replace(/\D/g, '')}`}
+                  href={`tel:${store?.phone?.replace(/\D/g, '') || ''}`}
                   className="flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors mt-4"
                 >
                   <Phone className="w-4 h-4" style={{ color: primaryColor }} />
-                  <span className="text-sm">{store.phone}</span>
+                  <span className="text-sm">{store?.phone}</span>
                 </a>
               )}
             </div>
@@ -1305,7 +1305,7 @@ export default function Cardapio() {
           {/* Copyright */}
           <div className="border-t border-gray-200 dark:border-gray-800 mt-6 pt-4 text-center space-y-2">
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              © {new Date().getFullYear()} {store.name}. Todos os direitos reservados.
+              © {new Date().getFullYear()} {store?.name || 'Restaurante'}. Todos os direitos reservados.
             </p>
             <p className="text-xs text-gray-400 dark:text-gray-500">
               Powered by <span className="font-semibold" style={{ color: primaryColor }}>DigiMenu</span>
