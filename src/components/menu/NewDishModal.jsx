@@ -1,9 +1,30 @@
 import React, { useState, useEffect } from 'react';
-import { X, Check } from 'lucide-react';
+import { X, Check, Play } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from 'framer-motion';
+
+// Função para extrair ID do YouTube ou Vimeo
+const getVideoId = (url) => {
+  if (!url) return null;
+  
+  // YouTube
+  const youtubeRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
+  const youtubeMatch = url.match(youtubeRegex);
+  if (youtubeMatch) {
+    return { type: 'youtube', id: youtubeMatch[1] };
+  }
+  
+  // Vimeo
+  const vimeoRegex = /(?:vimeo\.com\/)(\d+)/;
+  const vimeoMatch = url.match(vimeoRegex);
+  if (vimeoMatch) {
+    return { type: 'vimeo', id: vimeoMatch[1] };
+  }
+  
+  return null;
+};
 
 export default function NewDishModal({ 
   isOpen, onClose, dish, complementGroups, onAddToCart, editingItem,
@@ -11,6 +32,8 @@ export default function NewDishModal({
 }) {
   const [selections, setSelections] = useState({});
   const [currentTotal, setCurrentTotal] = useState(0);
+  const [showVideo, setShowVideo] = useState(false);
+  const videoInfo = dish?.video_url ? getVideoId(dish.video_url) : null;
 
   // Filtra apenas os grupos vinculados ao prato
   // VALIDAÇÃO CRÍTICA: garantir que complementGroups seja array
@@ -28,6 +51,7 @@ export default function NewDishModal({
         setSelections({});
       }
       setCurrentTotal(dish.price || 0);
+      setShowVideo(false); // Reset video quando abre o modal
     }
   }, [isOpen, dish, editingItem]);
 
@@ -141,15 +165,45 @@ export default function NewDishModal({
           >
             {/* Mobile Image Header - Compacto */}
             <div className="md:hidden relative w-full h-36 flex-shrink-0">
-              {dish.image ? (
-                <img src={dish.image} alt={dish.name} className="w-full h-full object-cover" />
+              {showVideo && videoInfo ? (
+                <div className="w-full h-full bg-black">
+                  {videoInfo.type === 'youtube' ? (
+                    <iframe
+                      src={`https://www.youtube.com/embed/${videoInfo.id}?autoplay=1`}
+                      className="w-full h-full"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  ) : (
+                    <iframe
+                      src={`https://player.vimeo.com/video/${videoInfo.id}?autoplay=1`}
+                      className="w-full h-full"
+                      allow="autoplay; fullscreen; picture-in-picture"
+                      allowFullScreen
+                    />
+                  )}
+                </div>
+              ) : dish.image ? (
+                <div className="relative w-full h-full">
+                  <img src={dish.image} alt={dish.name} className="w-full h-full object-cover" />
+                  {videoInfo && (
+                    <button
+                      onClick={() => setShowVideo(true)}
+                      className="absolute inset-0 flex items-center justify-center bg-black/40 hover:bg-black/50 transition-colors group"
+                    >
+                      <div className="w-16 h-16 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                        <Play className="w-8 h-8 ml-1" style={{ color: primaryColor }} fill={primaryColor} />
+                      </div>
+                    </button>
+                  )}
+                </div>
               ) : (
                 <div className="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-800">
                   <span className="text-gray-400 text-xs">Sem imagem</span>
                 </div>
               )}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
-              <div className="absolute bottom-0 left-0 right-0 p-3">
+              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none" />
+              <div className="absolute bottom-0 left-0 right-0 p-3 pointer-events-none">
                 <h2 className="text-white text-lg font-bold mb-0.5 drop-shadow-lg">{dish.name}</h2>
                 {dish.description && (
                   <p className="text-gray-100 text-xs line-clamp-1 drop-shadow-md">{dish.description}</p>
@@ -159,10 +213,14 @@ export default function NewDishModal({
               <button 
                 onClick={(e) => {
                   e.stopPropagation();
-                  onClose();
+                  if (showVideo) {
+                    setShowVideo(false);
+                  } else {
+                    onClose();
+                  }
                 }}
                 className="absolute top-2 right-2 p-2.5 bg-black/60 hover:bg-black/80 rounded-full backdrop-blur-sm z-50 active:scale-95 transition-all touch-manipulation"
-                aria-label="Fechar"
+                aria-label={showVideo ? "Voltar" : "Fechar"}
               >
                 <X className="w-5 h-5 text-white" strokeWidth={2.5} />
               </button>
@@ -170,20 +228,59 @@ export default function NewDishModal({
 
             {/* Desktop Left - Image */}
             <div className="hidden md:block w-2/5 relative">
-              {dish.image ? (
-                <img src={dish.image} alt={dish.name} className="w-full h-full object-cover" />
+              {showVideo && videoInfo ? (
+                <div className="w-full h-full bg-black">
+                  {videoInfo.type === 'youtube' ? (
+                    <iframe
+                      src={`https://www.youtube.com/embed/${videoInfo.id}?autoplay=1`}
+                      className="w-full h-full"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  ) : (
+                    <iframe
+                      src={`https://player.vimeo.com/video/${videoInfo.id}?autoplay=1`}
+                      className="w-full h-full"
+                      allow="autoplay; fullscreen; picture-in-picture"
+                      allowFullScreen
+                    />
+                  )}
+                </div>
+              ) : dish.image ? (
+                <div className="relative w-full h-full">
+                  <img src={dish.image} alt={dish.name} className="w-full h-full object-cover" />
+                  {videoInfo && (
+                    <button
+                      onClick={() => setShowVideo(true)}
+                      className="absolute inset-0 flex items-center justify-center bg-black/30 hover:bg-black/40 transition-colors group"
+                    >
+                      <div className="w-20 h-20 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-xl group-hover:scale-110 transition-transform">
+                        <Play className="w-10 h-10 ml-1" style={{ color: primaryColor }} fill={primaryColor} />
+                      </div>
+                    </button>
+                  )}
+                </div>
               ) : (
                 <div className="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-800">
                   <span className="text-gray-400">Sem imagem</span>
                 </div>
               )}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
-              <div className="absolute bottom-0 left-0 right-0 p-6">
+              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none" />
+              <div className="absolute bottom-0 left-0 right-0 p-6 pointer-events-none">
                 <h2 className="text-white text-2xl font-bold mb-1 drop-shadow-lg">{dish.name}</h2>
                 {dish.description && (
                   <p className="text-gray-100 text-sm drop-shadow-md">{dish.description}</p>
                 )}
               </div>
+              {showVideo && (
+                <button
+                  onClick={() => setShowVideo(false)}
+                  className="absolute top-4 right-4 p-2 bg-black/60 hover:bg-black/80 rounded-full backdrop-blur-sm z-10 transition-colors"
+                  aria-label="Voltar"
+                >
+                  <X className="w-5 h-5 text-white" />
+                </button>
+              )}
             </div>
 
             {/* Right - Options */}

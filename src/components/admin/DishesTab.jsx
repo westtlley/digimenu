@@ -64,6 +64,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
     name: '', description: '', price: '', original_price: '', image: '', category_id: '', stock: '',
     portion: '', is_highlight: false, is_active: true, complement_groups: [], is_new: false, 
     is_popular: false, prep_time: '', tags: [], internal_notes: '', product_type: 'preparado',
+    video_url: '',
   });
   const [newCategoryName, setNewCategoryName] = useState('');
   const [complementMode, setComplementMode] = useState(null);
@@ -267,6 +268,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
         portion: dish.portion || '', is_new: dish.is_new || false, is_popular: dish.is_popular || false,
         prep_time: dish.prep_time?.toString() || '', tags: dish.tags || [], internal_notes: dish.internal_notes || '',
         product_type: dish.product_type || 'preparado',
+        video_url: dish.video_url || '',
       });
       setComplementMode(null);
     } else {
@@ -276,6 +278,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
         is_highlight: false, is_active: true, complement_groups: [], stock: '', portion: '',
         is_new: false, is_popular: false, prep_time: '', tags: [], internal_notes: '',
         product_type: productType,
+        video_url: '',
       });
       setComplementMode(null);
       setCopyFromDishId('');
@@ -1729,6 +1732,19 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
               <Label>Imagem</Label>
               <Input type="file" accept="image/*" onChange={handleImageUpload} />
               {dishFormData.image && <img src={dishFormData.image} alt="" className="mt-2 w-20 h-20 object-cover rounded" />}
+            </div>
+
+            <div>
+              <Label>Link do Vídeo (Opcional)</Label>
+              <Input 
+                type="url" 
+                value={dishFormData.video_url} 
+                onChange={(e) => setDishFormData(prev => ({ ...prev, video_url: e.target.value }))} 
+                placeholder="Ex: https://www.youtube.com/watch?v=..." 
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Adicione um link de vídeo do YouTube ou Vimeo para exibir um player na imagem do prato
+              </p>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
