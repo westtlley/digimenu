@@ -20,6 +20,7 @@ import OrderHistoryModal from '../components/menu/OrderHistoryModal';
 import UpsellModal from '../components/menu/UpsellModal';
 import DishSkeleton from '../components/menu/DishSkeleton';
 import DishCardWow from '../components/menu/DishCardWow';
+import MenuLayoutWrapper from '../components/menu/MenuLayoutWrapper';
 import PromotionBanner from '../components/menu/PromotionBanner';
 import RecentOrders from '../components/menu/RecentOrders';
 import UserAuthButton from '../components/atoms/UserAuthButton';
@@ -234,6 +235,7 @@ export default function Cardapio() {
   const primaryColor = store?.theme_primary_color || '#f97316';
   const headerBg = store?.theme_header_bg || '#ffffff';
   const headerText = store?.theme_header_text || '#000000';
+  const menuLayout = store?.menu_layout || 'grid'; // grid, list, carousel, magazine, masonry
 
   // Store Status
   const { isStoreUnavailable, isStoreClosed, isStorePaused, isAutoModeClosed, getNextOpenTime, getStatusDisplay } = useStoreStatus(store || {});
@@ -1043,49 +1045,15 @@ export default function Cardapio() {
                     })()
                   : categoriesResolved.find(c => c.id === selectedCategory)?.name || 'Pratos'}
           </h2>
-          {loadingDishes ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-3 lg:gap-4">
-              {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-                <DishSkeleton key={i} />
-              ))}
-            </div>
-          ) : (selectedCategory === 'beverages' || selectedCategory?.startsWith?.('bc_')) ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-3 lg:gap-4">
-              {filteredBeverages.map((dish, index) => {
-                const isOutOfStock = stockUtils.isOutOfStock(dish.stock);
-                const isLowStock = stockUtils.isLowStock(dish.stock);
-                return (
-                  <DishCardWow
-                    key={dish.id}
-                    dish={dish}
-                    onClick={handleDishClick}
-                    index={index}
-                    isOutOfStock={isOutOfStock}
-                    isLowStock={isLowStock}
-                    primaryColor={primaryColor}
-                  />
-                );
-              })}
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-3 lg:gap-4">
-              {filteredDishes.map((dish, index) => {
-                const isOutOfStock = stockUtils.isOutOfStock(dish.stock);
-                const isLowStock = stockUtils.isLowStock(dish.stock);
-                return (
-                  <DishCardWow
-                    key={dish.id}
-                    dish={dish}
-                    onClick={handleDishClick}
-                    index={index}
-                    isOutOfStock={isOutOfStock}
-                    isLowStock={isLowStock}
-                    primaryColor={primaryColor}
-                  />
-                );
-              })}
-            </div>
-          )}
+          <MenuLayoutWrapper
+            layout={menuLayout}
+            dishes={selectedCategory === 'beverages' || selectedCategory?.startsWith?.('bc_') ? filteredBeverages : filteredDishes}
+            onDishClick={handleDishClick}
+            primaryColor={primaryColor}
+            loading={loadingDishes}
+            stockUtils={stockUtils}
+            formatCurrency={(value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0)}
+          />
         </section>
 
         {!loadingDishes && (selectedCategory === 'beverages' || selectedCategory?.startsWith?.('bc_') ? filteredBeverages : filteredDishes).length === 0 && (

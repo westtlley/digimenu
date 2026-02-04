@@ -23,7 +23,10 @@ import {
   Upload,
   RotateCcw,
   Star,
-  Layers
+  Layers,
+  LayoutGrid,
+  Menu,
+  BookOpen
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useTheme, THEME_PRESETS } from '@/components/theme/ThemeProvider';
@@ -92,6 +95,7 @@ export default function ThemeTab() {
     theme_gradient_direction: 'to-r',
     theme_button_style: 'rounded',
     theme_shadow_enabled: true,
+    menu_layout: 'grid', // grid, list, carousel, magazine, masonry
   });
 
   const [customColors, setCustomColors] = useState({
@@ -128,6 +132,7 @@ export default function ThemeTab() {
         theme_gradient_direction: store.theme_gradient_direction || 'to-r',
         theme_button_style: store.theme_button_style || 'rounded',
         theme_shadow_enabled: store.theme_shadow_enabled !== false,
+        menu_layout: store.menu_layout || 'grid',
       });
     }
   }, [store]);
@@ -289,7 +294,7 @@ export default function ThemeTab() {
       </div>
 
       <Tabs defaultValue="presets" className="w-full">
-        <TabsList className="grid w-full grid-cols-4 mb-6" style={{ backgroundColor: activeTheme.colors.bgSecondary }}>
+        <TabsList className="grid w-full grid-cols-5 mb-6" style={{ backgroundColor: activeTheme.colors.bgSecondary }}>
           <TabsTrigger value="presets" className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800">
             <Star className="w-4 h-4 mr-2" />
             Temas
@@ -301,6 +306,10 @@ export default function ThemeTab() {
           <TabsTrigger value="gradient" className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800">
             <Sparkles className="w-4 h-4 mr-2" />
             Gradientes
+          </TabsTrigger>
+          <TabsTrigger value="layout" className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800">
+            <Layers className="w-4 h-4 mr-2" />
+            Layout
           </TabsTrigger>
           <TabsTrigger value="advanced" className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800">
             <Settings className="w-4 h-4 mr-2" />
@@ -855,6 +864,138 @@ export default function ThemeTab() {
                   style={{ backgroundColor: activeTheme.colors.accent }}
                 >
                   Sem Sombra
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="layout" className="space-y-6">
+          <Card style={{ backgroundColor: activeTheme.colors.bgCard, borderColor: activeTheme.colors.borderColor }}>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Layers className="w-5 h-5" />
+                Layout do Cardápio
+              </CardTitle>
+              <CardDescription>
+                Escolha como os pratos serão exibidos no cardápio digital
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label className="mb-3 block">Estilo de Apresentação</Label>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {/* Grid */}
+                  <button
+                    onClick={() => handleColorChange('menu_layout', 'grid')}
+                    className={`p-4 rounded-xl border-2 transition-all text-left ${
+                      colors.menu_layout === 'grid' 
+                        ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20' 
+                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <LayoutGrid className="w-5 h-5" />
+                      <span className="font-semibold">Grid (Padrão)</span>
+                    </div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Blocos lado a lado, ideal para visualização rápida
+                    </p>
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                      <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                      <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                      <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                    </div>
+                  </button>
+
+                  {/* Lista */}
+                  <button
+                    onClick={() => handleColorChange('menu_layout', 'list')}
+                    className={`p-4 rounded-xl border-2 transition-all text-left ${
+                      colors.menu_layout === 'list' 
+                        ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20' 
+                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <Menu className="w-5 h-5" />
+                      <span className="font-semibold">Lista</span>
+                    </div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Lista horizontal com imagens, mais compacta
+                    </p>
+                    <div className="mt-3 space-y-2">
+                      <div className="h-12 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                      <div className="h-12 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                    </div>
+                  </button>
+
+                  {/* Carrossel */}
+                  <button
+                    onClick={() => handleColorChange('menu_layout', 'carousel')}
+                    className={`p-4 rounded-xl border-2 transition-all text-left ${
+                      colors.menu_layout === 'carousel' 
+                        ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20' 
+                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <Eye className="w-5 h-5" />
+                      <span className="font-semibold">Carrossel</span>
+                    </div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Deslize horizontalmente pelos pratos
+                    </p>
+                    <div className="mt-3 flex gap-2 overflow-hidden">
+                      <div className="h-20 w-32 bg-gray-200 dark:bg-gray-700 rounded flex-shrink-0"></div>
+                      <div className="h-20 w-32 bg-gray-200 dark:bg-gray-700 rounded flex-shrink-0"></div>
+                    </div>
+                  </button>
+
+                  {/* Magazine */}
+                  <button
+                    onClick={() => handleColorChange('menu_layout', 'magazine')}
+                    className={`p-4 rounded-xl border-2 transition-all text-left ${
+                      colors.menu_layout === 'magazine' 
+                        ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20' 
+                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <BookOpen className="w-5 h-5" />
+                      <span className="font-semibold">Cardápio Impresso</span>
+                    </div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Como folhear um cardápio físico, página por página
+                    </p>
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                      <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                    </div>
+                  </button>
+
+                  {/* Masonry */}
+                  <button
+                    onClick={() => handleColorChange('menu_layout', 'masonry')}
+                    className={`p-4 rounded-xl border-2 transition-all text-left ${
+                      colors.menu_layout === 'masonry' 
+                        ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20' 
+                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <Layers className="w-5 h-5" />
+                      <span className="font-semibold">Masonry</span>
+                    </div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Layout estilo Pinterest, colunas com alturas variadas
+                    </p>
+                    <div className="mt-3 columns-2 gap-2">
+                      <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded mb-2"></div>
+                      <div className="h-24 bg-gray-200 dark:bg-gray-700 rounded mb-2"></div>
+                    </div>
+                  </button>
                 </div>
               </div>
             </CardContent>
