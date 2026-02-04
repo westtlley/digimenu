@@ -332,16 +332,16 @@ export default function Cardapio() {
     checkAuth();
   }, []);
 
-  // Splash/loading ao abrir o cardápio - só mostrar quando store estiver carregado
+  // Splash/loading ao abrir o cardápio - mostrar enquanto carrega
   useEffect(() => {
-    // Só mostrar splash se temos dados do restaurante carregados E não está mais carregando
-    if (store && store.name && !publicLoading && (publicData || !slug)) {
+    // Mostrar splash enquanto está carregando ou não tem dados do restaurante
+    if (publicLoading || !store || !store.name) {
+      setShowSplash(true);
+    } else if (store && store.name && !publicLoading && (publicData || !slug)) {
+      // Quando dados estiverem prontos, mostrar splash por um tempo e depois esconder
       setShowSplash(true);
       const t = setTimeout(() => setShowSplash(false), 1200);
       return () => clearTimeout(t);
-    } else {
-      // Se ainda não tem dados ou está carregando, não mostrar splash
-      setShowSplash(false);
     }
   }, [store, publicData, publicLoading, slug]);
 
@@ -585,6 +585,45 @@ export default function Cardapio() {
     );
   };
 
+  // Se ainda está carregando ou não tem dados, mostrar apenas splash
+  if (publicLoading || !store || !store.name) {
+    return (
+      <div className="min-h-screen min-h-screen-mobile bg-background">
+        <Toaster position="top-center" />
+        {/* Splash - logo do restaurante e cor principal */}
+        <motion.div
+          initial={{ opacity: 1 }}
+          animate={{ opacity: 1 }}
+          className="fixed inset-0 z-[9999] flex flex-col items-center justify-center"
+          style={{ backgroundColor: primaryColor }}
+        >
+          <motion.div
+            initial={{ scale: 0.85, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 0.3 }}
+            className="flex flex-col items-center gap-5 px-6"
+          >
+            {store?.logo && (
+              <img
+                src={store.logo}
+                alt={store.name || 'Restaurante'}
+                className="h-24 w-24 max-w-[280px] object-contain drop-shadow-lg rounded-xl"
+              />
+            )}
+            <p className="text-white font-semibold text-xl text-center drop-shadow-sm">
+              {store?.name || 'Carregando...'}
+            </p>
+            <motion.div
+              animate={{ opacity: [0.4, 1, 0.4] }}
+              transition={{ duration: 0.8, repeat: Infinity }}
+              className="h-1 w-24 rounded-full bg-white/70"
+            />
+          </motion.div>
+        </motion.div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen min-h-screen-mobile bg-background">
       <Toaster position="top-center" />
@@ -607,8 +646,8 @@ export default function Cardapio() {
             >
               {store?.logo && (
                 <img
-                  src={store?.logo}
-                  alt={store?.name || 'Restaurante'}
+                  src={store.logo}
+                  alt={store.name || 'Restaurante'}
                   className="h-24 w-24 max-w-[280px] object-contain drop-shadow-lg rounded-xl"
                 />
               )}
