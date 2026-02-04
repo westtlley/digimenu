@@ -4,10 +4,25 @@
  */
 
 /**
- * Converte hex para RGB
+ * Converte hex ou rgb para RGB
  */
-function hexToRgb(hex) {
-  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+function hexToRgb(color) {
+  if (!color) return null;
+  
+  // Se já é RGB
+  if (color.startsWith('rgb')) {
+    const matches = color.match(/\d+/g);
+    if (matches && matches.length >= 3) {
+      return {
+        r: parseInt(matches[0], 10),
+        g: parseInt(matches[1], 10),
+        b: parseInt(matches[2], 10)
+      };
+    }
+  }
+  
+  // Se é hex
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(color);
   return result ? {
     r: parseInt(result[1], 16),
     g: parseInt(result[2], 16),
