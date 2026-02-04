@@ -1698,6 +1698,36 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
               <Textarea value={dishFormData.description} onChange={(e) => setDishFormData(prev => ({ ...prev, description: e.target.value }))} rows={2} />
             </div>
 
+            {/* Campo de Vídeo - Movido para posição mais visível logo após descrição */}
+            <div className="p-4 border-2 border-orange-200 dark:border-orange-800 rounded-lg bg-orange-50/50 dark:bg-orange-900/20">
+              <Label htmlFor="video_url" className="text-base font-semibold mb-2 block text-orange-700 dark:text-orange-300">
+                🎥 Link do Vídeo (Opcional)
+              </Label>
+              <Input 
+                id="video_url"
+                type="url" 
+                value={dishFormData.video_url || ''} 
+                onChange={(e) => setDishFormData(prev => ({ ...prev, video_url: e.target.value }))} 
+                placeholder="Ex: https://www.youtube.com/watch?v=..." 
+                className="w-full bg-white dark:bg-gray-800"
+              />
+              <p className="text-xs text-orange-600 dark:text-orange-400 mt-2">
+                Adicione um link de vídeo do YouTube ou Vimeo para exibir um player na imagem do prato
+              </p>
+              {dishFormData.video_url && (
+                <div className="mt-4 flex items-center justify-between p-3 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <Label htmlFor="video_autoplay" className="cursor-pointer text-sm font-medium">
+                    Reprodução Automática
+                  </Label>
+                  <Switch
+                    id="video_autoplay"
+                    checked={dishFormData.video_autoplay !== false}
+                    onCheckedChange={(checked) => setDishFormData(prev => ({ ...prev, video_autoplay: checked }))}
+                  />
+                </div>
+              )}
+            </div>
+
             {dishFormData.product_type !== 'industrializado' && (
               <div>
                 <Label>Tempo de Preparo (minutos)</Label>
@@ -1735,36 +1765,6 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
               <Label>Imagem</Label>
               <Input type="file" accept="image/*" onChange={handleImageUpload} />
               {dishFormData.image && <img src={dishFormData.image} alt="" className="mt-2 w-20 h-20 object-cover rounded" />}
-            </div>
-
-            {/* Campo de Vídeo - Sempre visível e destacado */}
-            <div className="mt-6 p-4 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50/50 dark:bg-gray-800/50">
-              <Label htmlFor="video_url" className="text-base font-semibold mb-2 block">
-                🎥 Link do Vídeo (Opcional)
-              </Label>
-              <Input 
-                id="video_url"
-                type="url" 
-                value={dishFormData.video_url || ''} 
-                onChange={(e) => setDishFormData(prev => ({ ...prev, video_url: e.target.value }))} 
-                placeholder="Ex: https://www.youtube.com/watch?v=..." 
-                className="w-full"
-              />
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                Adicione um link de vídeo do YouTube ou Vimeo para exibir um player na imagem do prato
-              </p>
-              {dishFormData.video_url && (
-                <div className="mt-4 flex items-center justify-between p-3 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
-                  <Label htmlFor="video_autoplay" className="cursor-pointer text-sm font-medium">
-                    Reprodução Automática
-                  </Label>
-                  <Switch
-                    id="video_autoplay"
-                    checked={dishFormData.video_autoplay !== false}
-                    onCheckedChange={(checked) => setDishFormData(prev => ({ ...prev, video_autoplay: checked }))}
-                  />
-                </div>
-              )}
             </div>
 
             <div className="grid grid-cols-2 gap-4">
