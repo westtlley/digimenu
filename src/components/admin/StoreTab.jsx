@@ -33,7 +33,6 @@ export default function StoreTab() {
     name: '', logo: '', whatsapp: '', address: '', slogan: '', instagram: '', facebook: '', tiktok: '',
     is_open: null, accepting_orders: true, pause_message: '',
     opening_time: '08:00', closing_time: '18:00', working_days: [1, 2, 3, 4, 5],
-    pizza_board_image: '',
   });
 
   const queryClient = useQueryClient();
@@ -82,7 +81,6 @@ export default function StoreTab() {
         whatsapp: store.whatsapp || '',
         address: store.address || '',
         slogan: store.slogan || '',
-        pizza_board_image: store.pizza_board_image || '',
         instagram: store.instagram || '',
         facebook: store.facebook || '',
         is_open: store.is_open === null || store.is_open === undefined ? null : store.is_open,
@@ -250,27 +248,14 @@ export default function StoreTab() {
         const { uploadToCloudinary } = await import('@/utils/cloudinaryUpload');
         const url = await uploadToCloudinary(file, 'store');
         setFormData(prev => ({ ...prev, logo: url }));
+        toast.success('Logo atualizada! Ela será exibida no cardápio digital.');
       } catch (error) {
         console.error('Erro ao fazer upload:', error);
-        alert('Erro ao fazer upload do logotipo');
+        toast.error('Erro ao fazer upload do logotipo');
       }
     }
   };
 
-  const handlePizzaBoardUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      try {
-        const { uploadToCloudinary } = await import('@/utils/cloudinaryUpload');
-        const url = await uploadToCloudinary(file, 'store');
-        setFormData(prev => ({ ...prev, pizza_board_image: url }));
-        toast.success('Tábua de pizza atualizada com sucesso!');
-      } catch (error) {
-        console.error('Erro ao fazer upload:', error);
-        toast.error('Erro ao fazer upload da tábua de pizza');
-      }
-    }
-  };
 
   const toggleDay = (dayValue) => {
     setFormData(prev => {
@@ -402,62 +387,6 @@ export default function StoreTab() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Link do cardápio — cada assinante tem seu link /s/:slug */}
-          {!isMaster && subscriberData && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Link2 className="w-5 h-5" />
-                  Link do seu cardápio
-                </CardTitle>
-                <CardDescription>
-                  Este é o link que seus clientes usam para ver o cardápio. Compartilhe no WhatsApp, redes sociais, etc.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label>Seu link</Label>
-                  <div className="flex gap-2 mt-1">
-                    <Input
-                      readOnly
-                      value={typeof window !== 'undefined' ? `${window.location.origin}/s/${subscriberData?.slug || '...'}` : ''}
-                      className="font-mono text-sm"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      onClick={() => {
-                        const url = `${window.location.origin}/s/${subscriberData?.slug || ''}`;
-                        if (url && navigator.clipboard) navigator.clipboard.writeText(url).then(() => toast.success('Link copiado!'));
-                      }}
-                    >
-                      <Copy className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-                <div>
-                  <Label>Personalize o final do link (ex: meu-restaurante)</Label>
-                  <p className="text-xs text-gray-500 mb-1">Apenas letras minúsculas, números e hífen. Deixe em branco para remover.</p>
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="ex: meu-restaurante"
-                      value={slugEdit}
-                      onChange={(e) => setSlugEdit(e.target.value)}
-                      className="font-mono"
-                    />
-                    <Button
-                      type="button"
-                      onClick={() => slugSaveMutation.mutate(slugEdit)}
-                      disabled={slugSaveMutation.isPending}
-                    >
-                      {slugSaveMutation.isPending ? 'Salvando…' : 'Salvar'}
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
           {/* Seção: Identidade da Loja */}
           <Card>
             <CardHeader>
@@ -488,30 +417,7 @@ export default function StoreTab() {
                   Alterar Logotipo
                 </label>
                 <span className="text-xs text-gray-500 mt-1">Recomendado: 500x500px</span>
-              </div>
-
-              {/* Tábua de Pizza */}
-              <div className="flex flex-col items-center">
-                <div className="w-32 h-32 bg-gray-100 rounded-xl flex items-center justify-center mb-3 overflow-hidden border-2 border-dashed border-gray-300 hover:border-orange-400 transition-colors">
-                  {formData.pizza_board_image ? (
-                    <img src={formData.pizza_board_image} alt="Tábua de Pizza" className="w-full h-full object-cover rounded-full" />
-                  ) : (
-                    <div className="w-24 h-24 rounded-full bg-gradient-to-br from-amber-700 to-amber-900 flex items-center justify-center">
-                      <span className="text-white text-2xl">🍕</span>
-                    </div>
-                  )}
-                </div>
-                <label className="text-sm text-orange-600 cursor-pointer hover:text-orange-700 font-medium flex items-center gap-2">
-                  <ImageIcon className="w-4 h-4" />
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handlePizzaBoardUpload}
-                    className="hidden"
-                  />
-                  {formData.pizza_board_image ? 'Alterar Tábua' : 'Adicionar Tábua'}
-                </label>
-                <span className="text-xs text-gray-500 mt-1">Imagem da tábua de pizza</span>
+                <p className="text-xs text-gray-500 mt-1">Esta logo será exibida no cardápio digital</p>
               </div>
 
               <Separator />
@@ -822,6 +728,63 @@ export default function StoreTab() {
               )}
             </CardContent>
           </Card>
+
+          {/* Link do cardápio — cada assinante tem seu link /s/:slug - ÚLTIMA OPÇÃO */}
+          {!isMaster && subscriberData && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Link2 className="w-5 h-5" />
+                  Link do seu cardápio
+                </CardTitle>
+                <CardDescription>
+                  Este é o link que seus clientes usam para ver o cardápio. Compartilhe no WhatsApp, redes sociais, etc.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label>Seu link</Label>
+                  <div className="flex gap-2 mt-1">
+                    <Input
+                      readOnly
+                      value={typeof window !== 'undefined' ? `${window.location.origin}/s/${subscriberData?.slug || '...'}` : ''}
+                      className="font-mono text-sm"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => {
+                        const url = `${window.location.origin}/s/${subscriberData?.slug || ''}`;
+                        if (url && navigator.clipboard) navigator.clipboard.writeText(url).then(() => toast.success('Link copiado!'));
+                      }}
+                    >
+                      <Copy className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+                <div>
+                  <Label>Personalize o final do link (ex: meu-restaurante)</Label>
+                  <p className="text-xs text-gray-500 mb-1">Apenas letras minúsculas, números e hífen. Deixe em branco para remover.</p>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="ex: meu-restaurante"
+                      value={slugEdit}
+                      onChange={(e) => setSlugEdit(e.target.value)}
+                      className="font-mono"
+                    />
+                    <Button
+                      type="button"
+                      onClick={() => slugSaveMutation.mutate(slugEdit)}
+                      disabled={slugSaveMutation.isPending}
+                    >
+                      {slugSaveMutation.isPending ? 'Salvando…' : 'Salvar'}
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Botão Salvar */}
           <div className="sticky bottom-0 pt-4 pb-6 bg-gray-50 z-10">

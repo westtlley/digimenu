@@ -582,14 +582,15 @@ export default function Cardapio() {
     <div className="min-h-screen min-h-screen-mobile bg-background">
       <Toaster position="top-center" />
 
-      {/* Splash DigiMenu - logo e "Seu cardápio digital" */}
+      {/* Splash - logo do restaurante e cor principal */}
       <AnimatePresence>
         {showSplash && (
           <motion.div
             initial={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.35 }}
-            className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#F77F00]"
+            className="fixed inset-0 z-[9999] flex flex-col items-center justify-center"
+            style={{ backgroundColor: primaryColor }}
           >
             <motion.div
               initial={{ scale: 0.85, opacity: 0 }}
@@ -597,12 +598,22 @@ export default function Cardapio() {
               transition={{ duration: 0.3 }}
               className="flex flex-col items-center gap-5 px-6"
             >
-              <img
-                src="/images/digimenu-logo.svg"
-                alt="DigiMenu"
-                className="h-24 w-auto max-w-[280px] object-contain drop-shadow-lg"
-              />
-              <p className="text-white font-semibold text-xl text-center drop-shadow-sm">Seu cardápio digital</p>
+              {store?.logo ? (
+                <img
+                  src={store.logo}
+                  alt={store.name || 'Restaurante'}
+                  className="h-24 w-24 max-w-[280px] object-contain drop-shadow-lg rounded-xl"
+                />
+              ) : (
+                <img
+                  src="/images/digimenu-logo.svg"
+                  alt="DigiMenu"
+                  className="h-24 w-auto max-w-[280px] object-contain drop-shadow-lg"
+                />
+              )}
+              <p className="text-white font-semibold text-xl text-center drop-shadow-sm">
+                {store?.name || 'Seu cardápio digital'}
+              </p>
               <motion.div
                 animate={{ opacity: [0.4, 1, 0.4] }}
                 transition={{ duration: 0.8, repeat: Infinity }}
