@@ -53,23 +53,23 @@ export default function RecentOrders({ dishes = [], onSelectDish, primaryColor }
   };
 
   return (
-    <section className="mb-6 md:mb-8">
-      <div className="flex items-center gap-2 mb-4 md:mb-4">
-        <Clock className="w-5 h-5" style={{ color: primaryColor }} />
-        <h2 className="font-bold text-base md:text-lg text-foreground">Peça de Novo</h2>
+    <section className="mb-4">
+      <div className="flex items-center gap-2 mb-2">
+        <Clock className="w-4 h-4" style={{ color: primaryColor }} />
+        <h2 className="font-bold text-sm md:text-base text-foreground">Peça de Novo</h2>
       </div>
-      <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-2">
+      <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
         {recentDishes.map((dish) => {
           const quantity = getDishQuantity(dish.id);
           return (
             <motion.div
               key={dish.id}
-              whileHover={{ y: -4, scale: 1.05 }}
-              className="flex-shrink-0 w-36 bg-card rounded-2xl overflow-hidden shadow-md border border-border cursor-pointer"
+              whileHover={{ y: -2, scale: 1.02 }}
+              className="flex-shrink-0 w-28 md:w-32 bg-card rounded-xl overflow-hidden shadow-sm border border-border cursor-pointer"
               onClick={() => onSelectDish(dish)}
             >
-              {/* Thumbnail Circular */}
-              <div className="relative h-32 bg-gray-100 dark:bg-gray-800">
+              {/* Thumbnail */}
+              <div className="relative h-20 md:h-24 bg-gray-100 dark:bg-gray-800">
                 {dish.image ? (
                   <img 
                     src={dish.image} 
@@ -77,23 +77,22 @@ export default function RecentOrders({ dishes = [], onSelectDish, primaryColor }
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-2xl">🍽️</div>
+                  <div className="w-full h-full flex items-center justify-center text-xl">🍽️</div>
                 )}
                 {/* Badge de quantidade */}
                 {quantity > 1 && (
-                  <div className="absolute top-2 left-2 bg-black/60 text-white text-xs font-bold px-2 py-0.5 rounded-full backdrop-blur-sm">
+                  <div className="absolute top-1 left-1 bg-black/60 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full backdrop-blur-sm">
                     {quantity}x
                   </div>
                 )}
               </div>
-              <div className="p-3">
-                <h3 className="font-medium text-sm mb-2 line-clamp-2 min-h-[2.5rem] text-foreground">{dish.name}</h3>
+              <div className="p-2">
+                <h3 className="font-medium text-xs mb-1 line-clamp-2 min-h-[2rem] text-foreground">{dish.name}</h3>
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-base" style={{ color: primaryColor }}>
+                  <span className="font-bold text-sm" style={{ color: primaryColor }}>
                     {formatCurrency(dish.price)}
                   </span>
                 </div>
-                {/* Botão removido no mobile - card inteiro é clicável */}
               </div>
             </motion.div>
           );
