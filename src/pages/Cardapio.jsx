@@ -875,9 +875,9 @@ export default function Cardapio() {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-6 pb-24 md:pb-12 md:max-w-[1400px]">
         {/* Banners Configuráveis */}
-        {(Array.isArray(store.banners) ? store.banners : []).filter(b => b.active !== false && b.image).length > 0 && (
+        {(Array.isArray(store?.banners) ? store.banners : []).filter(b => b.active !== false && b.image).length > 0 && (
           <div className="mb-6 space-y-3">
-            {(Array.isArray(store.banners) ? store.banners : []).filter(b => b.active !== false && b.image).map((banner, index) => (
+            {(Array.isArray(store?.banners) ? store.banners : []).filter(b => b.active !== false && b.image).map((banner, index) => (
               <motion.div
                 key={index}
                 initial={{ opacity: 0, y: 20 }}
