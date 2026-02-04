@@ -1,12 +1,14 @@
 import React from 'react';
-import { X, Clock, Package, Truck, CheckCircle, Ban, Settings, MapPin } from 'lucide-react';
+import { X, Clock, Package, Truck, CheckCircle, Ban, Settings, MapPin, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
+import toast from 'react-hot-toast';
 
 const statusConfig = {
   new: { label: 'Novo', color: 'bg-blue-500', icon: Clock },
@@ -22,7 +24,7 @@ const statusConfig = {
   cancelled: { label: 'Cancelado', color: 'bg-red-500', icon: Ban }
 };
 
-export default function OrderHistoryModal({ isOpen, onClose, primaryColor = '#f97316' }) {
+export default function OrderHistoryModal({ isOpen, onClose, primaryColor = '#f97316', onReorder = null }) {
   const [isAdmin, setIsAdmin] = React.useState(false);
   const [showRatingModal, setShowRatingModal] = React.useState(null);
   const [restaurantRating, setRestaurantRating] = React.useState(0);
@@ -234,6 +236,27 @@ export default function OrderHistoryModal({ isOpen, onClose, primaryColor = '#f9
                         <div className="mt-2 text-xs text-gray-500 flex items-start gap-1">
                           <Truck className="w-3 h-3 mt-0.5 flex-shrink-0" />
                           <span className="line-clamp-1">{order.address}</span>
+                        </div>
+                      )}
+
+                      {/* 🔄 Botão Pedir Novamente */}
+                      {order.status === 'delivered' && onReorder && order.items && order.items.length > 0 && (
+                        <div className="mt-3 pt-3 border-t">
+                          <Button
+                            onClick={() => {
+                              if (onReorder) {
+                                onReorder(order);
+                                toast.success(`${order.items.length} itens adicionados ao carrinho!`);
+                                onClose();
+                              }
+                            }}
+                            variant="outline"
+                            size="sm"
+                            className="w-full"
+                          >
+                            <RefreshCw className="w-4 h-4 mr-2" />
+                            Pedir Novamente
+                          </Button>
                         </div>
                       )}
                     </div>

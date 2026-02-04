@@ -32,6 +32,8 @@ import ErrorBoundary from '../components/ErrorBoundary';
 import WhatsAppComandaToggle from '../components/admin/WhatsAppComandaToggle';
 import MasterSlugSettings from '../components/admin/MasterSlugSettings';
 import ServiceRequestsTab from '../components/admin/ServiceRequestsTab';
+import TablesTab from '../components/admin/TablesTab';
+import InventoryManagement from '../components/admin/InventoryManagement';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import InstallAppButton from '../components/InstallAppButton';
 import { createPageUrl } from '@/utils';
@@ -239,6 +241,10 @@ export default function Admin() {
         return hasModuleAccess('store') ? <StoreTab /> : <AccessDenied />;
       case 'payments':
         return hasModuleAccess('payments') ? <PaymentMethodsTab /> : <AccessDenied />;
+      case 'tables':
+        return hasModuleAccess('tables') ? <TablesTab /> : <AccessDenied />;
+      case 'inventory':
+        return hasModuleAccess('inventory') ? <InventoryManagement /> : <AccessDenied />;
       case 'service_requests':
         return isMaster ? <ServiceRequestsTab /> : <AccessDenied />;
       case 'pagina_assinar':

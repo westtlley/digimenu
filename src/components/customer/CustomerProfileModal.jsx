@@ -10,10 +10,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Separator } from "@/components/ui/separator";
 import { apiClient as base44 } from '@/api/apiClient';
 import CustomerOrdersHistory from './CustomerOrdersHistory';
+import LoyaltyDashboard from '../menu/LoyaltyDashboard';
 import { useQuery } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
+import { useSlugContext } from '@/hooks/useSlugContext';
 
-export default function CustomerProfileModal({ isOpen, onClose, primaryColor = '#f97316' }) {
+export default function CustomerProfileModal({ isOpen, onClose, primaryColor = '#f97316', slug = null }) {
+  const { slug: contextSlug } = useSlugContext();
+  const finalSlug = slug || contextSlug;
   const [user, setUser] = useState(null);
   const [activeTab, setActiveTab] = useState('profile');
   const [formData, setFormData] = useState({

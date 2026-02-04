@@ -26,6 +26,7 @@ import RastreioCliente from "./RastreioCliente";
 import TrackOrder from "./TrackOrder";
 import Cardapio from "./Cardapio";
 import Admin from "./Admin";
+import TableOrder from "./TableOrder";
 import PagamentoSucesso from "./pagamento/PagamentoSucesso";
 import PagamentoFalha from "./pagamento/PagamentoFalha";
 import PagamentoPendente from "./pagamento/PagamentoPendente";
@@ -117,6 +118,9 @@ function PagesContent() {
                 {/* Rastreamento público de pedidos */}
                 <Route path="/rastrear-pedido" element={<TrackOrder />} />
                 <Route path="/track-order" element={<TrackOrder />} />
+                
+                {/* Pedido por mesa (QR Code) */}
+                <Route path="/mesa/:tableNumber" element={<TableOrder />} />
                 
                 {/* Rotas de login separadas */}
                 <Route path="/login/cliente" element={<LoginCliente />} />

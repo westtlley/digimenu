@@ -17,6 +17,7 @@ import StatCard from '@/components/ui/StatCard';
 import { SkeletonStats } from '@/components/ui/skeleton';
 import DashboardMetrics from './DashboardMetrics';
 import DashboardCharts from './DashboardCharts';
+import DashboardAdvancedAnalytics from './DashboardAdvancedAnalytics';
 
 export default function DashboardTab({ user, subscriberData, onNavigateToTab }) {
   const [copiedLink, setCopiedLink] = useState(false);
@@ -39,6 +40,11 @@ export default function DashboardTab({ user, subscriberData, onNavigateToTab }) 
   const { data: dishes = [] } = useQuery({
     queryKey: ['dishes'],
     queryFn: () => base44.entities.Dish.list(),
+  });
+
+  const { data: categories = [] } = useQuery({
+    queryKey: ['categories'],
+    queryFn: () => base44.entities.Category.list('order'),
   });
 
   // Cálculos: exclui cancelados; faturamento só de entregues
@@ -122,6 +128,15 @@ export default function DashboardTab({ user, subscriberData, onNavigateToTab }) 
 
       {/* Gráficos de Vendas */}
       {(orders.length > 0 || pdvSales.length > 0) && <DashboardCharts orders={orders} pdvSales={pdvSales} />}
+
+      {/* Análises Avançadas */}
+      {orders.length > 0 && (
+        <DashboardAdvancedAnalytics 
+          orders={orders} 
+          dishes={dishes} 
+          categories={categories} 
+        />
+      )}
 
       {/* Stats Cards Rápidos */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

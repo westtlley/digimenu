@@ -7,7 +7,7 @@ export const gestorHomeContents = [
   {
     id: 'atalhos',
     title: 'Atalhos de teclado',
-    description: '1–4: mudar status no pedido aberto. Ctrl+F: buscar. Esc: fechar.',
+    description: 'K: Quadros | D: Entregadores | R: Resumo | S: Ajustes | H: Início | N: Só novos | 1-5: Status no modal | Ctrl+F: Buscar | Ctrl+R: Atualizar | Esc: Fechar',
     backgroundColor: '#f97316',
     contentFontColor: '#ffffff',
     internalRoute: null,

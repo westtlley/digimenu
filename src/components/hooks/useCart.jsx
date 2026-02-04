@@ -2,6 +2,11 @@ import { useState, useEffect, useCallback } from 'react';
 
 const CART_STORAGE_KEY = 'cardapio_cart';
 
+// Função para obter a chave do carrinho baseada no slug
+export const getCartStorageKey = (slug) => {
+  return slug ? `cardapio_cart_${slug}` : CART_STORAGE_KEY;
+};
+
 export function useCart() {
   const [cart, setCart] = useState(() => {
     try {
@@ -16,6 +21,14 @@ export function useCart() {
   useEffect(() => {
     try {
       localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
+      
+      // Também salvar com slug se disponível (para recuperação de carrinho abandonado)
+      const currentPath = window.location.pathname;
+      const slugMatch = currentPath.match(/\/s\/([^\/]+)/);
+      if (slugMatch && cart.length > 0) {
+        const slug = slugMatch[1];
+        localStorage.setItem(`cardapio_cart_${slug}`, JSON.stringify(cart));
+      }
     } catch (e) {
       console.error('Erro ao salvar carrinho:', e);
     }

@@ -14,7 +14,8 @@ export default function MenuLayoutWrapper({
   textSecondaryColor,
   loading,
   stockUtils,
-  formatCurrency
+  formatCurrency,
+  slug = null
 }) {
   const commonProps = {
     dishes,
@@ -24,7 +25,8 @@ export default function MenuLayoutWrapper({
     textSecondaryColor,
     loading,
     stockUtils,
-    formatCurrency
+    formatCurrency,
+    slug
   };
 
   switch (layout) {

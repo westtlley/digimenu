@@ -54,6 +54,9 @@ export default defineConfig({
   },
   build: {
     rollupOptions: {
+      input: {
+        main: path.resolve(__dirname, 'index.html'),
+      },
       onwarn(warning, warn) {
         // Ignorar avisos de extensões do navegador
         if (warning.code === 'UNRESOLVED_IMPORT' && warning.id?.includes('webpage_content_reporter')) {

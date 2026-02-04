@@ -185,6 +185,15 @@ export async function migrate() {
         } catch (e) {
           console.warn('⚠️ Aviso ao criar idx_entities_comanda (pode já existir):', e.message);
         }
+
+        // Migração: Sistema de Mesas e Gestão de Estoque Inteligente
+        try {
+          const migrationSQL = fs.readFileSync(path.join(__dirname, 'migrations', 'add_tables_and_inventory.sql'), 'utf8');
+          await query(migrationSQL);
+          console.log('✅ Migração de Mesas e Estoque concluída.');
+        } catch (e) {
+          console.warn('⚠️ Aviso ao executar migração de Mesas e Estoque (pode já existir):', e.message);
+        }
     
     console.log('✅ Migração concluída com sucesso!');
     return true;

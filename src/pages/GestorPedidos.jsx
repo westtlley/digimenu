@@ -277,28 +277,113 @@ export default function GestorPedidos() {
     } catch (_) {}
   };
 
-  // Atalhos de teclado: Esc, Ctrl+F, 1-4 (status no modal)
+  // Atalhos de teclado avançados
   useEffect(() => {
     const handleKeyDown = (e) => {
+      // Ignorar se estiver digitando em input/textarea
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) {
+        // Permitir apenas atalhos com Ctrl/Cmd mesmo em inputs
+        if (!(e.ctrlKey || e.metaKey)) return;
+      }
+
+      // Esc: Fechar modais/menus
       if (e.key === 'Escape') {
         if (selectedOrder) setSelectedOrder(null);
         if (showMobileMenu) setShowMobileMenu(false);
         return;
       }
+
+      // Ctrl/Cmd + F: Buscar
       if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
         e.preventDefault();
         document.querySelector('input[placeholder*="Buscar"]')?.focus();
         return;
       }
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-      if (selectedOrder && ['1', '2', '3', '4'].includes(e.key)) {
-        const map = { '1': 'accepted', '2': 'ready', '3': 'out_for_delivery', '4': 'delivered' };
+
+      // Ctrl/Cmd + R: Refresh (prevenir reload padrão)
+      if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
+        e.preventDefault();
+        queryClient.invalidateQueries({ queryKey: ['gestorOrders'] });
+        toast.success('Pedidos atualizados!');
+        return;
+      }
+
+      // Navegação entre views (apenas se não estiver em input)
+      if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA' && !e.target.isContentEditable) {
+        // K: Kanban
+        if (e.key === 'k' || e.key === 'K') {
+          e.preventDefault();
+          setViewMode('kanban');
+          toast.success('Quadros', { duration: 1000 });
+          return;
+        }
+        // D: Delivery
+        if (e.key === 'd' || e.key === 'D') {
+          e.preventDefault();
+          setViewMode('delivery');
+          toast.success('Entregadores', { duration: 1000 });
+          return;
+        }
+        // R: Resumo
+        if (e.key === 'r' || e.key === 'R') {
+          if (!(e.ctrlKey || e.metaKey)) {
+            e.preventDefault();
+            setViewMode('resumo');
+            toast.success('Resumo', { duration: 1000 });
+            return;
+          }
+        }
+        // S: Settings
+        if (e.key === 's' || e.key === 'S') {
+          if (!(e.ctrlKey || e.metaKey)) {
+            e.preventDefault();
+            setViewMode('settings');
+            toast.success('Ajustes', { duration: 1000 });
+            return;
+          }
+        }
+        // H: Home/Início
+        if (e.key === 'h' || e.key === 'H') {
+          e.preventDefault();
+          setViewMode('inicio');
+          toast.success('Início', { duration: 1000 });
+          return;
+        }
+        // N: Só novos
+        if (e.key === 'n' || e.key === 'N') {
+          e.preventDefault();
+          setOnlyNew(!onlyNew);
+          toast.success(onlyNew ? 'Mostrando todos' : 'Só novos', { duration: 1000 });
+          return;
+        }
+      }
+
+      // Atalhos numéricos para status (quando modal aberto)
+      if (selectedOrder && ['1', '2', '3', '4', '5'].includes(e.key)) {
+        const map = { 
+          '1': 'accepted', 
+          '2': 'preparing', 
+          '3': 'ready', 
+          '4': 'out_for_delivery', 
+          '5': 'delivered' 
+        };
         setQuickStatusKey(map[e.key]);
+        return;
+      }
+
+      // Atalhos com Shift
+      if (e.shiftKey) {
+        // Shift + F: Filtros
+        if (e.key === 'F') {
+          e.preventDefault();
+          document.querySelector('button:has(svg[class*="Filter"])')?.click();
+          return;
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedOrder, showMobileMenu]);
+  }, [selectedOrder, showMobileMenu, onlyNew, queryClient, viewMode]);
 
   // Aplicar filtros básicos (aba agora/agendados)
   const baseFilteredOrders = useMemo(() => {

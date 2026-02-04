@@ -16,12 +16,14 @@ console.log('🧪 ENV TEST:', {
 // 📦 IMPORTS
 // =======================
 import express from 'express';
+import http from 'http';
 import cors from 'cors';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import crypto from 'crypto';
+import { setupWebSocket, emitOrderUpdate, emitOrderCreated } from './services/websocket.js';
 
 import cloudinary from './config/cloudinary.js';
 import { upload } from './middlewares/upload.js';
@@ -1580,6 +1582,12 @@ app.post('/api/entities/:entity', authenticate, async (req, res) => {
     }
 
     console.log(`✅ [${entity}] Item criado:`, newItem.id, asSub ? `(suporte: ${asSub})` : (req.user?.is_master ? '(master)' : `(owner: ${data.owner_email})`));
+    
+    // ✅ EMITIR CRIAÇÃO VIA WEBSOCKET (se for pedido)
+    if (String(entity).toLowerCase() === 'order') {
+      emitOrderCreated(newItem);
+    }
+    
     res.status(201).json(newItem);
   } catch (error) {
     console.error('Erro ao criar entidade:', error);
@@ -1655,6 +1663,12 @@ app.put('/api/entities/:entity/:id', authenticate, async (req, res) => {
       return res.status(500).json({ error: 'Banco de dados não inicializado' });
     }
     console.log(`✅ [${entity}] Item atualizado:`, id, asSub ? `(suporte: ${asSub})` : '');
+    
+    // ✅ EMITIR ATUALIZAÇÃO VIA WEBSOCKET (se for pedido)
+    if (String(entity).toLowerCase() === 'order') {
+      emitOrderUpdate(updatedItem);
+    }
+    
     res.json(updatedItem);
   } catch (error) {
     console.error('Erro ao atualizar entidade:', error);
@@ -3015,10 +3029,23 @@ app.post('/api/setup-master-store', setupMasterStoreHandler);
 // =======================
 // 🚀 START SERVER
 // =======================
-app.listen(PORT, () => {
+// Criar servidor HTTP para WebSocket
+const server = http.createServer(app);
+
+// ✅ CONFIGURAR WEBSOCKETS
+const io = setupWebSocket(server);
+
+// Emitir atualizações quando pedido é atualizado
+const originalPutOrder = app._router?.stack?.find(layer => layer.route?.path === '/api/entities/Order/:id' && layer.route?.methods?.put);
+if (originalPutOrder) {
+  // A atualização já será feita nas rotas existentes
+}
+
+server.listen(PORT, () => {
   console.log(`🚀 Servidor rodando na porta ${PORT}`);
   console.log(`📡 http://localhost:${PORT}/api`);
   console.log(`🔒 Ambiente: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🔌 WebSocket ativo`);
   
   // 🔔 Inicializar cron jobs (notificações de expiração)
   initializeCronJobs();

@@ -9,6 +9,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import AddressMapPicker from './AddressMapPicker';
 import OrderConfirmationModal from './OrderConfirmationModal';
 import SavedAddresses from './SavedAddresses';
+import LoyaltyPointsDisplay from './LoyaltyPointsDisplay';
+import { useLoyalty } from '@/hooks/useLoyalty';
 import { orderService } from '@/components/services/orderService';
 import { buscarCEP } from '@/utils/cepService';
 import { Loader2, Search } from 'lucide-react';
@@ -71,9 +73,19 @@ export default function CheckoutView({
     );
   };
 
-  const discount = calculateDiscount();
+  // Hook de fidelidade
+  const { getDiscount: getLoyaltyDiscount } = useLoyalty(
+    customer.phone?.replace(/\D/g, ''),
+    userEmail,
+    slug
+  );
+
+  const couponDiscount = calculateDiscount();
+  const loyaltyDiscountPercent = getLoyaltyDiscount();
+  const loyaltyDiscountAmount = cartTotal * (loyaltyDiscountPercent / 100);
+  const totalDiscount = couponDiscount + loyaltyDiscountAmount;
   const deliveryFee = getDeliveryFee();
-  const total = cartTotal - discount + deliveryFee;
+  const total = cartTotal - totalDiscount + deliveryFee;
 
   const isFormValid = () => {
     const basicValid = customer.name && customer.phone && customer.paymentMethod &&
@@ -520,6 +532,19 @@ export default function CheckoutView({
                 )}
               </div>
             )}
+
+            {/* Pontos de Fidelidade */}
+            {(customer.phone || userEmail) && (
+              <div className="mt-4">
+                <LoyaltyPointsDisplay
+                  customerPhone={customer.phone?.replace(/\D/g, '')}
+                  customerEmail={userEmail}
+                  slug={slug}
+                  orderTotal={cartTotal}
+                  primaryColor={primaryColor}
+                />
+              </div>
+            )}
           </div>
 
           {/* Footer com Totais e Botão */}
@@ -530,10 +555,16 @@ export default function CheckoutView({
                 <span className="font-medium">{formatCurrency(cartTotal)}</span>
               </div>
               
-              {discount > 0 && (
+              {couponDiscount > 0 && (
                 <div className="flex justify-between text-sm text-green-600">
-                  <span>Desconto</span>
-                  <span className="font-medium">-{formatCurrency(discount)}</span>
+                  <span>Desconto (Cupom)</span>
+                  <span className="font-medium">-{formatCurrency(couponDiscount)}</span>
+                </div>
+              )}
+              {loyaltyDiscountAmount > 0 && (
+                <div className="flex justify-between text-sm text-green-600">
+                  <span>Desconto (Fidelidade)</span>
+                  <span className="font-medium">-{formatCurrency(loyaltyDiscountAmount)}</span>
                 </div>
               )}
               

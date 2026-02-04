@@ -8,7 +8,8 @@ export default function GridLayout({
   primaryColor,
   textPrimaryColor,
   loading = false,
-  stockUtils 
+  stockUtils,
+  slug = null
 }) {
   if (loading) {
     return (
@@ -35,6 +36,7 @@ export default function GridLayout({
             isLowStock={isLowStock}
             primaryColor={primaryColor}
             textPrimaryColor={textPrimaryColor}
+            slug={slug}
           />
         );
       })}

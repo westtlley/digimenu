@@ -1,7 +1,9 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Badge } from "@/components/ui/badge";
-import { Sparkles } from 'lucide-react';
+import { Button } from "@/components/ui/button";
+import { Sparkles, Heart } from 'lucide-react';
+import { useFavorites } from '@/hooks/useFavorites';
 
 /**
  * 🎯 DishCard com efeitos WOW épicos
@@ -18,8 +20,10 @@ export default function DishCardWow({
   isOutOfStock = false,
   isLowStock = false,
   primaryColor = '#f97316',
-  textPrimaryColor
+  textPrimaryColor,
+  slug = null
 }) {
+  const { toggleFavorite, isFavorite } = useFavorites(slug);
   const formatCurrency = (value) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
   };

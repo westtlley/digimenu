@@ -57,7 +57,7 @@ export default function MagazineLayout({
       x: 0,
       opacity: 1,
       rotateY: 0,
-    }),
+    },
     exit: (direction) => ({
       x: direction === 'next' ? '-100%' : '100%',
       opacity: 0,

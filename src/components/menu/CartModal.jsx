@@ -23,7 +23,7 @@ const statusConfig = {
   cancelled: { label: 'Cancelado', color: 'bg-red-500', icon: Ban }
 };
 
-export default function CartModal({ isOpen, onClose, cart, onUpdateQuantity, onRemoveItem, onCheckout, onEditItem, onEditPizza, darkMode = false, primaryColor = '#f97316' }) {
+export default function CartModal({ isOpen, onClose, cart, onUpdateQuantity, onRemoveItem, onCheckout, onEditItem, onEditPizza, darkMode = false, primaryColor = '#f97316', store = null, onReviewBonus = null }) {
   const [activeTab, setActiveTab] = useState('cart'); // 'cart' ou 'orders'
   const [showRatingModal, setShowRatingModal] = useState(null);
   const [restaurantRating, setRestaurantRating] = useState(0);
@@ -193,7 +193,7 @@ export default function CartModal({ isOpen, onClose, cart, onUpdateQuantity, onR
         rating_comment: ratings.comment
       });
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ['customerOrdersInCart'] });
       queryClient.invalidateQueries({ queryKey: ['myOrders'] });
       queryClient.invalidateQueries({ queryKey: ['customerOrders'] });
@@ -201,7 +201,23 @@ export default function CartModal({ isOpen, onClose, cart, onUpdateQuantity, onR
       setRestaurantRating(0);
       setDeliveryRating(0);
       setComment('');
-      toast.success('Avaliação enviada! Obrigado pelo feedback.');
+      
+      // Aplicar bônus de avaliação
+      if (onReviewBonus) {
+        try {
+          const result = await onReviewBonus();
+          if (result && result.success) {
+            toast.success(result.message, { duration: 5000 });
+          } else {
+            toast.success('Avaliação enviada! Obrigado pelo feedback.');
+          }
+        } catch (error) {
+          console.error('Erro ao aplicar bônus de avaliação:', error);
+          toast.success('Avaliação enviada! Obrigado pelo feedback.');
+        }
+      } else {
+        toast.success('Avaliação enviada! Obrigado pelo feedback.');
+      }
     },
     onError: (error) => {
       console.error('Erro ao enviar avaliação:', error);
@@ -523,6 +539,26 @@ export default function CartModal({ isOpen, onClose, cart, onUpdateQuantity, onR
           {/* Footer - Apenas para a aba do carrinho */}
           {activeTab === 'cart' && cart.length > 0 && (
             <div className={`border-t p-4 space-y-3 ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+              {/* 🚚 Barra de Progresso de Frete Grátis */}
+              {store?.free_delivery_min_value && cartTotal > 0 && cartTotal < store.free_delivery_min_value && (
+                <div className={`p-3 rounded-lg ${darkMode ? 'bg-blue-900/30 border border-blue-700' : 'bg-blue-50 border border-blue-200'}`}>
+                  <div className="flex justify-between text-sm mb-2">
+                    <span className={`font-medium ${darkMode ? 'text-blue-300' : 'text-blue-700'}`}>
+                      Frete grátis acima de {formatCurrency(store.free_delivery_min_value)}
+                    </span>
+                    <span className={`font-bold ${darkMode ? 'text-blue-200' : 'text-blue-800'}`}>
+                      Faltam {formatCurrency(store.free_delivery_min_value - cartTotal)}
+                    </span>
+                  </div>
+                  <div className={`h-2 rounded-full overflow-hidden ${darkMode ? 'bg-blue-800' : 'bg-blue-200'}`}>
+                    <div 
+                      className={`h-full transition-all duration-500 ${darkMode ? 'bg-gradient-to-r from-blue-500 to-blue-400' : 'bg-gradient-to-r from-blue-500 to-green-500'}`}
+                      style={{ width: `${Math.min((cartTotal / store.free_delivery_min_value) * 100, 100)}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+              
               <div className="flex items-center justify-between">
                 <span className={`font-medium ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Subtotal</span>
                 <span className="text-xl font-bold" style={{ color: primaryColor }}>

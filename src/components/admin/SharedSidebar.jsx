@@ -98,6 +98,18 @@ const MENU_STRUCTURE = [
     ]
   },
 
+  // 🍽️ RESTAURANTE
+  {
+    id: 'restaurante',
+    label: '🍽️ RESTAURANTE',
+    icon: UtensilsCrossed,
+    section: 'section',
+    submenu: [
+      { id: 'tables', label: 'Mesas e QR Code', icon: QrCode, module: 'tables' },
+      { id: 'inventory', label: 'Gestão de Estoque', icon: Package, module: 'inventory' },
+    ]
+  },
+
   // ⚙️ SISTEMA
   {
     id: 'sistema',

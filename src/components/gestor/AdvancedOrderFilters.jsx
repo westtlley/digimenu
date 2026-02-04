@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Search, Filter, X, Calendar, User, Phone, Package } from 'lucide-react';
+import { Search, Filter, X, Calendar, User, Phone, Package, DollarSign, Truck, CreditCard, Star, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Badge } from '@/components/ui/badge';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Label } from '@/components/ui/label';
 
 const STATUS_OPTIONS = [
   { value: 'all', label: 'Todos os Status' },
@@ -45,10 +46,28 @@ export default function AdvancedOrderFilters({
     searchType: 'code',
     entregador: 'all',
     scheduledHour: 'all',
+    paymentMethod: 'all',
+    deliveryType: 'all',
+    minValue: '',
+    maxValue: '',
+    dateStart: '',
+    dateEnd: '',
+    productName: '',
   });
 
-  const activeFiltersCount = [filters.status, filters.period, filters.entregador, filters.scheduledHour]
-    .filter(v => v !== 'all' && v !== 'today').length;
+  const activeFiltersCount = [
+    filters.status, 
+    filters.period, 
+    filters.entregador, 
+    filters.scheduledHour,
+    filters.paymentMethod,
+    filters.deliveryType,
+    filters.minValue,
+    filters.maxValue,
+    filters.dateStart,
+    filters.dateEnd,
+    filters.productName,
+  ].filter(v => v !== 'all' && v !== 'today' && v !== '').length;
 
   const handleFilterChange = (key, value) => {
     const newFilters = { ...filters, [key]: value };
@@ -105,6 +124,61 @@ export default function AdvancedOrderFilters({
       filtered = filtered.filter(o => o.scheduled_time && String(o.scheduled_time).slice(0, 2) === String(filterValues.scheduledHour));
     }
 
+    // Filtrar por método de pagamento
+    if (filterValues.paymentMethod && filterValues.paymentMethod !== 'all') {
+      filtered = filtered.filter(o => o.payment_method === filterValues.paymentMethod);
+    }
+
+    // Filtrar por tipo de entrega
+    if (filterValues.deliveryType && filterValues.deliveryType !== 'all') {
+      if (filterValues.deliveryType === 'delivery') {
+        filtered = filtered.filter(o => o.delivery_method === 'delivery');
+      } else if (filterValues.deliveryType === 'pickup') {
+        filtered = filtered.filter(o => o.delivery_method === 'pickup' || !o.delivery_method);
+      }
+    }
+
+    // Filtrar por valor mínimo
+    if (filterValues.minValue && !isNaN(parseFloat(filterValues.minValue))) {
+      const min = parseFloat(filterValues.minValue);
+      filtered = filtered.filter(o => (o.total || 0) >= min);
+    }
+
+    // Filtrar por valor máximo
+    if (filterValues.maxValue && !isNaN(parseFloat(filterValues.maxValue))) {
+      const max = parseFloat(filterValues.maxValue);
+      filtered = filtered.filter(o => (o.total || 0) <= max);
+    }
+
+    // Filtrar por intervalo de datas
+    if (filterValues.dateStart) {
+      const startDate = new Date(filterValues.dateStart);
+      startDate.setHours(0, 0, 0, 0);
+      filtered = filtered.filter(o => {
+        const orderDate = new Date(o.created_at || o.created_date);
+        return orderDate >= startDate;
+      });
+    }
+
+    if (filterValues.dateEnd) {
+      const endDate = new Date(filterValues.dateEnd);
+      endDate.setHours(23, 59, 59, 999);
+      filtered = filtered.filter(o => {
+        const orderDate = new Date(o.created_at || o.created_date);
+        return orderDate <= endDate;
+      });
+    }
+
+    // Filtrar por produto
+    if (filterValues.productName) {
+      filtered = filtered.filter(o => {
+        if (!o.items || !Array.isArray(o.items)) return false;
+        return o.items.some(item => 
+          item.dish?.name?.toLowerCase().includes(filterValues.productName.toLowerCase())
+        );
+      });
+    }
+
     // Aplicar busca se houver termo
     if (searchTerm) {
       if (filterValues.searchType === 'code') {
@@ -141,6 +215,13 @@ export default function AdvancedOrderFilters({
       searchType: 'code',
       entregador: 'all',
       scheduledHour: 'all',
+      paymentMethod: 'all',
+      deliveryType: 'all',
+      minValue: '',
+      maxValue: '',
+      dateStart: '',
+      dateEnd: '',
+      productName: '',
     };
     setFilters(defaultFilters);
     applyFilters(defaultFilters);
@@ -150,7 +231,21 @@ export default function AdvancedOrderFilters({
   React.useEffect(() => {
     applyFilters(filters);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orders, searchTerm, filters.status, filters.period, filters.entregador, filters.scheduledHour]);
+  }, [
+    orders, 
+    searchTerm, 
+    filters.status, 
+    filters.period, 
+    filters.entregador, 
+    filters.scheduledHour,
+    filters.paymentMethod,
+    filters.deliveryType,
+    filters.minValue,
+    filters.maxValue,
+    filters.dateStart,
+    filters.dateEnd,
+    filters.productName,
+  ]);
 
   return (
     <div className="flex items-center gap-2 flex-wrap">
@@ -206,9 +301,9 @@ export default function AdvancedOrderFilters({
             )}
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-80" align="end">
+        <PopoverContent className="w-96 max-h-[80vh] overflow-y-auto" align="end">
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between sticky top-0 bg-white pb-2 border-b">
               <h3 className="font-semibold text-sm">Filtros Avançados</h3>
               {activeFiltersCount > 0 && (
                 <Button 
@@ -297,6 +392,114 @@ export default function AdvancedOrderFilters({
               </Select>
             </div>
 
+            {/* Método de Pagamento */}
+            <div>
+              <label className="text-xs font-medium text-gray-700 mb-1.5 block flex items-center gap-1">
+                <CreditCard className="w-3 h-3" />
+                Método de Pagamento
+              </label>
+              <Select value={filters.paymentMethod} onValueChange={(v) => handleFilterChange('paymentMethod', v)}>
+                <SelectTrigger className="h-9"><SelectValue placeholder="Todos" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="pix">PIX</SelectItem>
+                  <SelectItem value="dinheiro">Dinheiro</SelectItem>
+                  <SelectItem value="cartao_credito">Cartão de Crédito</SelectItem>
+                  <SelectItem value="cartao_debito">Cartão de Débito</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Tipo de Entrega */}
+            <div>
+              <label className="text-xs font-medium text-gray-700 mb-1.5 block flex items-center gap-1">
+                <Truck className="w-3 h-3" />
+                Tipo de Entrega
+              </label>
+              <Select value={filters.deliveryType} onValueChange={(v) => handleFilterChange('deliveryType', v)}>
+                <SelectTrigger className="h-9"><SelectValue placeholder="Todos" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="delivery">Entrega</SelectItem>
+                  <SelectItem value="pickup">Retirada</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Valor Mínimo/Máximo */}
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-xs font-medium text-gray-700 mb-1.5 block flex items-center gap-1">
+                  <DollarSign className="w-3 h-3" />
+                  Valor Mín.
+                </Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={filters.minValue}
+                  onChange={(e) => handleFilterChange('minValue', e.target.value)}
+                  className="h-9 text-sm"
+                />
+              </div>
+              <div>
+                <Label className="text-xs font-medium text-gray-700 mb-1.5 block flex items-center gap-1">
+                  <DollarSign className="w-3 h-3" />
+                  Valor Máx.
+                </Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={filters.maxValue}
+                  onChange={(e) => handleFilterChange('maxValue', e.target.value)}
+                  className="h-9 text-sm"
+                />
+              </div>
+            </div>
+
+            {/* Intervalo de Datas */}
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-xs font-medium text-gray-700 mb-1.5 block flex items-center gap-1">
+                  <Calendar className="w-3 h-3" />
+                  Data Início
+                </Label>
+                <Input
+                  type="date"
+                  value={filters.dateStart}
+                  onChange={(e) => handleFilterChange('dateStart', e.target.value)}
+                  className="h-9 text-sm"
+                />
+              </div>
+              <div>
+                <Label className="text-xs font-medium text-gray-700 mb-1.5 block flex items-center gap-1">
+                  <Calendar className="w-3 h-3" />
+                  Data Fim
+                </Label>
+                <Input
+                  type="date"
+                  value={filters.dateEnd}
+                  onChange={(e) => handleFilterChange('dateEnd', e.target.value)}
+                  className="h-9 text-sm"
+                />
+              </div>
+            </div>
+
+            {/* Produto */}
+            <div>
+              <Label className="text-xs font-medium text-gray-700 mb-1.5 block flex items-center gap-1">
+                <Package className="w-3 h-3" />
+                Produto
+              </Label>
+              <Input
+                placeholder="Nome do produto..."
+                value={filters.productName}
+                onChange={(e) => handleFilterChange('productName', e.target.value)}
+                className="h-9 text-sm"
+              />
+            </div>
+
             {/* Badges de filtros ativos */}
             {activeFiltersCount > 0 && (
               <div className="pt-2 border-t">
@@ -329,6 +532,48 @@ export default function AdvancedOrderFilters({
                     <Badge variant="outline" className="text-xs">
                       {SCHEDULED_HOUR_OPTIONS.find(o => o.value === filters.scheduledHour)?.label}
                       <button onClick={() => handleFilterChange('scheduledHour', 'all')} className="ml-1 hover:text-red-600"><X className="w-3 h-3" /></button>
+                    </Badge>
+                  )}
+                  {filters.paymentMethod !== 'all' && (
+                    <Badge variant="outline" className="text-xs">
+                      {filters.paymentMethod === 'pix' ? 'PIX' : filters.paymentMethod === 'dinheiro' ? 'Dinheiro' : filters.paymentMethod === 'cartao_credito' ? 'Cartão Crédito' : 'Cartão Débito'}
+                      <button onClick={() => handleFilterChange('paymentMethod', 'all')} className="ml-1 hover:text-red-600"><X className="w-3 h-3" /></button>
+                    </Badge>
+                  )}
+                  {filters.deliveryType !== 'all' && (
+                    <Badge variant="outline" className="text-xs">
+                      {filters.deliveryType === 'delivery' ? 'Entrega' : 'Retirada'}
+                      <button onClick={() => handleFilterChange('deliveryType', 'all')} className="ml-1 hover:text-red-600"><X className="w-3 h-3" /></button>
+                    </Badge>
+                  )}
+                  {filters.minValue && (
+                    <Badge variant="outline" className="text-xs">
+                      Min: R$ {parseFloat(filters.minValue).toFixed(2)}
+                      <button onClick={() => handleFilterChange('minValue', '')} className="ml-1 hover:text-red-600"><X className="w-3 h-3" /></button>
+                    </Badge>
+                  )}
+                  {filters.maxValue && (
+                    <Badge variant="outline" className="text-xs">
+                      Máx: R$ {parseFloat(filters.maxValue).toFixed(2)}
+                      <button onClick={() => handleFilterChange('maxValue', '')} className="ml-1 hover:text-red-600"><X className="w-3 h-3" /></button>
+                    </Badge>
+                  )}
+                  {filters.dateStart && (
+                    <Badge variant="outline" className="text-xs">
+                      De: {new Date(filters.dateStart).toLocaleDateString('pt-BR')}
+                      <button onClick={() => handleFilterChange('dateStart', '')} className="ml-1 hover:text-red-600"><X className="w-3 h-3" /></button>
+                    </Badge>
+                  )}
+                  {filters.dateEnd && (
+                    <Badge variant="outline" className="text-xs">
+                      Até: {new Date(filters.dateEnd).toLocaleDateString('pt-BR')}
+                      <button onClick={() => handleFilterChange('dateEnd', '')} className="ml-1 hover:text-red-600"><X className="w-3 h-3" /></button>
+                    </Badge>
+                  )}
+                  {filters.productName && (
+                    <Badge variant="outline" className="text-xs">
+                      Produto: {filters.productName}
+                      <button onClick={() => handleFilterChange('productName', '')} className="ml-1 hover:text-red-600"><X className="w-3 h-3" /></button>
                     </Badge>
                   )}
                 </div>

@@ -29,6 +29,12 @@ import StoreClosedOverlay from '../components/menu/StoreClosedOverlay';
 import ThemeToggle from '../components/ui/ThemeToggle';
 import QuickSignupModal from '../components/menu/QuickSignupModal';
 import InstallAppButton from '../components/InstallAppButton';
+import WelcomeDiscountModal from '../components/menu/WelcomeDiscountModal';
+import SmartUpsell from '../components/menu/SmartUpsell';
+import LoyaltyDashboard from '../components/menu/LoyaltyDashboard';
+import LoyaltyPointsDisplay from '../components/menu/LoyaltyPointsDisplay';
+import { useLoyalty } from '@/hooks/useLoyalty';
+import { useWebSocket } from '@/hooks/useWebSocket';
 
 // Hooks
 import { useCart } from '@/components/hooks/useCart';
@@ -86,14 +92,62 @@ export default function Cardapio() {
   const [showCustomerProfile, setShowCustomerProfile] = useState(false);
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [showQuickSignup, setShowQuickSignup] = useState(false);
+  const [showWelcomeDiscount, setShowWelcomeDiscount] = useState(false);
+  const [showSmartUpsell, setShowSmartUpsell] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userEmail, setUserEmail] = useState(null);
   const [userProfilePicture, setUserProfilePicture] = useState(null);
   const [showSplash, setShowSplash] = useState(false);
 
+  const queryClient = useQueryClient();
+
   // Custom Hooks
   const { cart, addItem, updateItem, removeItem, updateQuantity, clearCart, cartTotal, cartItemsCount } = useCart();
   const { customer, setCustomer, clearCustomer } = useCustomer();
+
+  // Hook de fidelidade
+  const { 
+    addPoints, 
+    getDiscount: getLoyaltyDiscount, 
+    loyaltyData,
+    generateReferralCode,
+    applyReferralCode,
+    checkBirthdayBonus,
+    applyReviewBonus,
+    checkConsecutiveOrdersBonus
+  } = useLoyalty(
+    customer.phone?.replace(/\D/g, ''),
+    userEmail,
+    slug
+  );
+
+  // WebSocket para notificações em tempo real
+  useWebSocket({
+    customerEmail: userEmail,
+    customerPhone: customer.phone?.replace(/\D/g, ''),
+    enableNotifications: true,
+    onOrderUpdate: (order) => {
+      // Atualizar cache do React Query
+      queryClient.setQueryData(['customerOrders', userEmail], (old) => {
+        if (!old) return [order];
+        const index = old.findIndex(o => o.id === order.id);
+        if (index >= 0) {
+          const updated = [...old];
+          updated[index] = order;
+          return updated;
+        }
+        return [...old, order];
+      });
+    }
+  });
+
+  // Detectar promoções em pratos favoritos
+  useFavoritePromotions(
+    dishesResolved,
+    userEmail,
+    customer.phone?.replace(/\D/g, ''),
+    slug
+  );
 
   // Cardápio público por link (sem login) — /s/:slug
   const { data: publicData, isLoading: publicLoading, isError: publicError, error: publicErrorDetails } = useQuery({
@@ -366,6 +420,82 @@ export default function Cardapio() {
     }
   }, [store, publicData, publicLoading, slug]);
 
+  // 🛒 Recuperação de Carrinho Abandonado
+  useEffect(() => {
+    if (!slug || cart.length > 0) return;
+    
+    try {
+      const savedCartKey = `cardapio_cart_${slug}`;
+      const savedCart = localStorage.getItem(savedCartKey);
+      
+      if (savedCart) {
+        const parsedCart = JSON.parse(savedCart);
+        if (Array.isArray(parsedCart) && parsedCart.length > 0) {
+          // Aguardar um pouco para não mostrar imediatamente
+          const timer = setTimeout(() => {
+            toast(
+              (t) => (
+                <div className="flex flex-col gap-2">
+                  <p className="font-semibold">Você tinha itens no carrinho!</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Deseja recuperar seu pedido anterior?
+                  </p>
+                  <div className="flex gap-2 mt-2">
+                    <button
+                      onClick={() => {
+                        parsedCart.forEach(item => addItem(item));
+                        localStorage.removeItem(savedCartKey);
+                        toast.dismiss(t.id);
+                        toast.success('Carrinho recuperado!');
+                      }}
+                      className="px-4 py-2 bg-orange-500 text-white rounded-lg font-medium hover:bg-orange-600 transition-colors"
+                    >
+                      Sim, recuperar
+                    </button>
+                    <button
+                      onClick={() => {
+                        localStorage.removeItem(savedCartKey);
+                        toast.dismiss(t.id);
+                      }}
+                      className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg font-medium hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                    >
+                      Não, obrigado
+                    </button>
+                  </div>
+                </div>
+              ),
+              {
+                duration: 10000,
+                position: 'top-center',
+              }
+            );
+          }, 2000);
+          
+          return () => clearTimeout(timer);
+        }
+      }
+    } catch (e) {
+      console.error('Erro ao recuperar carrinho:', e);
+    }
+  }, [slug, cart.length, addItem]);
+
+  // 🎁 Modal de Boas-vindas com Cupom
+  useEffect(() => {
+    if (!slug || !store) return;
+    
+    const storageKey = `welcome_discount_${slug}`;
+    const hasSeen = localStorage.getItem(storageKey);
+    
+    if (!hasSeen) {
+      // Mostrar modal após 10 segundos
+      const timer = setTimeout(() => {
+        setShowWelcomeDiscount(true);
+      }, 10000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [slug, store]);
+
   // Se não há slug, mostrar página de entrada (sem forçar redirect que quebra navegação)
   if (!slug) {
     return <CardapioSemLink />;
@@ -391,6 +521,8 @@ export default function Cardapio() {
     addItem(item);
     setSelectedDish(null);
     setSelectedPizza(null);
+    
+    // Cross-sell será gerenciado pelo componente SmartUpsell baseado no carrinho
     
     // Rastrear combinação de pizza
     if (dish.product_type === 'pizza' && item.selections?.flavors) {
@@ -556,8 +688,11 @@ export default function Cardapio() {
       items: cart,
       subtotal: cartTotal,
       delivery_fee: calculatedDeliveryFee,
-      discount: discount,
+      discount: totalDiscount,
       coupon_code: appliedCoupon?.code,
+      loyalty_discount: loyaltyDiscountAmount,
+      loyalty_tier: loyaltyData?.tier || 'bronze',
+      loyalty_points_earned: Math.floor(total),
       total: total,
       status: 'new',
       ...((customer.customer_change_request || '').trim() && {
@@ -570,6 +705,39 @@ export default function Cardapio() {
 
     const order = await orderService.createOrder(orderData, createOrderMutation);
     await orderService.updateCouponUsage(appliedCoupon, updateCouponMutation);
+
+    // Adicionar pontos de fidelidade após pedido criado
+    if (customer.phone || userEmail) {
+      try {
+        const pointsToAdd = Math.floor(total); // 1 ponto por real gasto
+        const result = await addPoints(pointsToAdd, 'compra');
+        
+        // Verificar se é primeira compra (bônus)
+        if (!loyaltyData.lastOrderDate) {
+          await addPoints(50, 'primeira_compra');
+          toast.success('🎉 Bônus de primeira compra: +50 pontos!', { duration: 4000 });
+        }
+        
+        // Verificar bônus de aniversário
+        const birthdayBonus = await checkBirthdayBonus();
+        if (birthdayBonus && birthdayBonus.success) {
+          toast.success(birthdayBonus.message, { duration: 5000 });
+        }
+        
+        // Verificar bônus de compras consecutivas
+        const consecutiveBonus = await checkConsecutiveOrdersBonus();
+        if (consecutiveBonus && consecutiveBonus.success) {
+          toast.success(consecutiveBonus.message, { duration: 5000 });
+        }
+        
+        toast.success(
+          `✨ Você ganhou ${pointsToAdd} pontos! Total: ${result.points} pontos (${result.tier.name})`,
+          { duration: 5000 }
+        );
+      } catch (error) {
+        console.error('Erro ao adicionar pontos:', error);
+      }
+    }
 
     const shouldSend = whatsappService.shouldSendWhatsApp(store);
 
@@ -1397,6 +1565,8 @@ export default function Cardapio() {
           setCurrentView('checkout');
         }}
         primaryColor={primaryColor}
+        store={store}
+        onReviewBonus={applyReviewBonus}
       />
 
       <NewDishModal
@@ -1441,7 +1611,53 @@ export default function Cardapio() {
         isOpen={showOrderHistory}
         onClose={() => setShowOrderHistory(false)}
         primaryColor={primaryColor}
+        onReorder={(order) => {
+          // Adicionar todos os itens do pedido anterior ao carrinho
+          if (order.items && Array.isArray(order.items)) {
+            order.items.forEach(item => {
+              // Reconstruir o item no formato esperado pelo carrinho
+              const cartItem = {
+                dish: item.dish,
+                selections: item.selections || {},
+                totalPrice: item.totalPrice,
+                quantity: item.quantity || 1
+              };
+              addItem(cartItem);
+            });
+          }
+        }}
       />
+
+      <WelcomeDiscountModal
+        isOpen={showWelcomeDiscount}
+        onClose={() => setShowWelcomeDiscount(false)}
+        onApplyCoupon={(couponCode) => {
+          setCouponCode(couponCode);
+          handleApplyCoupon();
+        }}
+        primaryColor={primaryColor}
+        slug={slug}
+      />
+
+      <ReferralCodeModal
+        isOpen={showReferralCode}
+        onClose={() => setShowReferralCode(false)}
+        referralCode={loyaltyData?.referralCode || ''}
+        onApplyReferralCode={applyReferralCode}
+        primaryColor={primaryColor}
+      />
+
+      {/* 🎯 Cross-sell Inteligente */}
+      {currentView === 'menu' && (
+        <SmartUpsell
+          cart={cart}
+          dishes={dishesResolved}
+          onAddToCart={handleAddToCart}
+          primaryColor={primaryColor}
+          onClose={() => setShowSmartUpsell(false)}
+          store={store}
+        />
+      )}
 
       <CustomerProfileModal
         isOpen={showCustomerProfile}
@@ -1486,7 +1702,34 @@ export default function Cardapio() {
           deliveryZones={deliveryZonesResolved}
           store={store}
           primaryColor={primaryColor}
+          userEmail={userEmail}
+          slug={slug}
         />
+      )}
+
+      {/* 🛒 Botão Flutuante do Carrinho (Sticky) */}
+      {currentView === 'menu' && (
+        <motion.button
+          onClick={() => setShowCartModal(true)}
+          className="fixed bottom-20 right-4 z-40 bg-gradient-to-r from-orange-500 to-red-500 text-white p-4 rounded-full shadow-2xl flex items-center gap-2 hover:shadow-3xl transition-all"
+          animate={{ 
+            scale: cartItemsCount > 0 ? [1, 1.1, 1] : 1,
+          }}
+          transition={{ 
+            repeat: cartItemsCount > 0 ? Infinity : 0, 
+            duration: 2,
+            ease: "easeInOut"
+          }}
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.95 }}
+        >
+          <ShoppingCart className="w-6 h-6" />
+          {cartItemsCount > 0 && (
+            <span className="absolute -top-2 -right-2 bg-red-600 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-bold shadow-lg">
+              {cartItemsCount}
+            </span>
+          )}
+        </motion.button>
       )}
 
     </div>
