@@ -88,11 +88,13 @@ export default function CustomerProfileModal({ isOpen, onClose, primaryColor = '
           name: customer.name || '',
           phone: customer.phone || '',
           email: customer.email || userData.email || '',
-          address: customer.address || '',
-          complement: customer.complement || '',
+          zipcode: customer.zipcode || '',
+          address: customer.address || customer.address_street || '',
+          address_number: customer.address_number || '',
+          complement: customer.complement || customer.address_complement || '',
           neighborhood: customer.neighborhood || '',
           city: customer.city || '',
-          zipcode: customer.zipcode || '',
+          state: customer.state || '',
           profile_picture: customer.profile_picture || ''
         });
       } else {
