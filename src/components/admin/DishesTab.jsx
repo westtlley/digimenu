@@ -65,6 +65,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
     portion: '', is_highlight: false, is_active: true, complement_groups: [], is_new: false, 
     is_popular: false, prep_time: '', tags: [], internal_notes: '', product_type: 'preparado',
     video_url: '',
+    video_autoplay: true,
   });
   const [newCategoryName, setNewCategoryName] = useState('');
   const [complementMode, setComplementMode] = useState(null);
