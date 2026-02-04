@@ -257,6 +257,21 @@ export default function StoreTab() {
     }
   };
 
+  const handlePizzaBoardUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      try {
+        const { uploadToCloudinary } = await import('@/utils/cloudinaryUpload');
+        const url = await uploadToCloudinary(file, 'store');
+        setFormData(prev => ({ ...prev, pizza_board_image: url }));
+        toast.success('Tábua de pizza atualizada com sucesso!');
+      } catch (error) {
+        console.error('Erro ao fazer upload:', error);
+        toast.error('Erro ao fazer upload da tábua de pizza');
+      }
+    }
+  };
+
   const toggleDay = (dayValue) => {
     setFormData(prev => {
       const days = prev.working_days || [];
