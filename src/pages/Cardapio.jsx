@@ -333,10 +333,11 @@ export default function Cardapio() {
   }, []);
 
   // Splash/loading ao abrir o cardápio (animação rápida tipo "login")
+  // Aguardar um pouco para garantir que store esteja carregado
   useEffect(() => {
-    const t = setTimeout(() => setShowSplash(false), 1400);
+    const t = setTimeout(() => setShowSplash(false), 1500);
     return () => clearTimeout(t);
-  }, []);
+  }, [store]);
 
   // Se não há slug, mostrar página de entrada (sem forçar redirect que quebra navegação)
   if (!slug) {
