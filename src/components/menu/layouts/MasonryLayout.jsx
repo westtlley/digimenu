@@ -4,7 +4,9 @@ import { motion } from 'framer-motion';
 export default function MasonryLayout({ 
   dishes, 
   onDishClick, 
-  primaryColor, 
+  primaryColor,
+  textPrimaryColor,
+  textSecondaryColor,
   loading = false,
   stockUtils,
   formatCurrency 
@@ -97,11 +99,17 @@ export default function MasonryLayout({
 
             {/* Conteúdo - sempre visível */}
             <div className="p-3 md:p-4 bg-white dark:bg-gray-900">
-              <h3 className="font-bold text-sm md:text-base mb-2 text-gray-900 dark:text-white line-clamp-2">
+              <h3 
+                className="font-bold text-sm md:text-base mb-2 line-clamp-2"
+                style={{ color: textPrimaryColor || 'inherit' }}
+              >
                 {dish.name}
               </h3>
               {dish.description && (
-                <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 line-clamp-3 mb-3">
+                <p 
+                  className="text-xs md:text-sm line-clamp-3 mb-3"
+                  style={{ color: textSecondaryColor || 'inherit' }}
+                >
                   {dish.description}
                 </p>
               )}

@@ -7,7 +7,9 @@ import DishSkeleton from '../DishSkeleton';
 export default function CarouselLayout({ 
   dishes, 
   onDishClick, 
-  primaryColor, 
+  primaryColor,
+  textPrimaryColor,
+  textSecondaryColor,
   loading = false,
   stockUtils,
   formatCurrency 
@@ -113,11 +115,17 @@ export default function CarouselLayout({
 
                 {/* Conteúdo - Mobile com mais espaço */}
                 <div className="p-4 md:p-3">
-                  <h3 className="font-bold text-base md:text-sm mb-2 text-gray-900 dark:text-white line-clamp-2 min-h-[2.5rem] md:min-h-[2rem]">
+                  <h3 
+                    className="font-bold text-base md:text-sm mb-2 line-clamp-2 min-h-[2.5rem] md:min-h-[2rem]"
+                    style={{ color: textPrimaryColor || 'inherit' }}
+                  >
                     {dish.name}
                   </h3>
                   {dish.description && (
-                    <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 mb-3 md:mb-2">
+                    <p 
+                      className="text-xs line-clamp-2 mb-3 md:mb-2"
+                      style={{ color: textSecondaryColor || 'inherit' }}
+                    >
                       {dish.description}
                     </p>
                   )}

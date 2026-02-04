@@ -37,6 +37,7 @@ import { useUpsell } from '@/components/hooks/useUpsell';
 import { useCoupons } from '@/components/hooks/useCoupons';
 import { useCustomer } from '@/components/hooks/useCustomer';
 import { useDocumentHead } from '@/hooks/useDocumentHead';
+import { useAdaptedTheme } from '@/hooks/useAdaptedTheme';
 
 // Services & Utils
 import { orderService } from '@/components/services/orderService';
@@ -232,7 +233,12 @@ export default function Cardapio() {
     );
   }
 
-  const primaryColor = store?.theme_primary_color || '#f97316';
+  // Adaptar cores do tema para modo escuro
+  const adaptedTheme = useAdaptedTheme(store);
+  
+  const primaryColor = adaptedTheme.primary;
+  const textPrimaryColor = adaptedTheme.textPrimary;
+  const textSecondaryColor = adaptedTheme.textSecondary;
   const headerBg = store?.theme_header_bg || '#ffffff';
   const headerText = store?.theme_header_text || '#000000';
   const menuLayout = store?.menu_layout || 'grid'; // grid, list, carousel, magazine, masonry
@@ -1050,6 +1056,8 @@ export default function Cardapio() {
             dishes={selectedCategory === 'beverages' || selectedCategory?.startsWith?.('bc_') ? filteredBeverages : filteredDishes}
             onDishClick={handleDishClick}
             primaryColor={primaryColor}
+            textPrimaryColor={textPrimaryColor}
+            textSecondaryColor={textSecondaryColor}
             loading={loadingDishes}
             stockUtils={stockUtils}
             formatCurrency={(value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0)}

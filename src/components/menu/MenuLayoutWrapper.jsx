@@ -10,6 +10,8 @@ export default function MenuLayoutWrapper({
   dishes,
   onDishClick,
   primaryColor,
+  textPrimaryColor,
+  textSecondaryColor,
   loading,
   stockUtils,
   formatCurrency
@@ -18,6 +20,8 @@ export default function MenuLayoutWrapper({
     dishes,
     onDishClick,
     primaryColor,
+    textPrimaryColor,
+    textSecondaryColor,
     loading,
     stockUtils,
     formatCurrency

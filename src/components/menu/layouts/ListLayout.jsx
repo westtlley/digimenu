@@ -5,7 +5,9 @@ import { Plus } from 'lucide-react';
 export default function ListLayout({ 
   dishes, 
   onDishClick, 
-  primaryColor, 
+  primaryColor,
+  textPrimaryColor,
+  textSecondaryColor,
   loading = false,
   stockUtils,
   formatCurrency 
@@ -63,9 +65,12 @@ export default function ListLayout({
             </div>
 
             {/* Conteúdo */}
-            <div className="flex-1 min-w-0">
+              <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between gap-2 mb-1">
-                <h3 className="font-bold text-base md:text-lg text-gray-900 dark:text-white line-clamp-2">
+                <h3 
+                  className="font-bold text-base md:text-lg line-clamp-2"
+                  style={{ color: textPrimaryColor || 'inherit' }}
+                >
                   {dish.name}
                 </h3>
                 {dish.is_highlight && (
@@ -76,7 +81,10 @@ export default function ListLayout({
                 )}
               </div>
               {dish.description && (
-                <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 mb-2">
+                <p 
+                  className="text-sm line-clamp-2 mb-2"
+                  style={{ color: textSecondaryColor || 'inherit' }}
+                >
                   {dish.description}
                 </p>
               )}

@@ -5,7 +5,9 @@ import { ChevronLeft, ChevronRight, BookOpen } from 'lucide-react';
 export default function MagazineLayout({ 
   dishes, 
   onDishClick, 
-  primaryColor, 
+  primaryColor,
+  textPrimaryColor,
+  textSecondaryColor,
   loading = false,
   stockUtils,
   formatCurrency 
@@ -128,11 +130,17 @@ export default function MagazineLayout({
                 {/* Conteúdo lado direito */}
                 <div className="w-1/2 p-8 flex flex-col justify-between bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800">
                   <div>
-                    <h2 className="text-3xl font-bold mb-4 text-gray-900 dark:text-white">
+                    <h2 
+                      className="text-3xl font-bold mb-4"
+                      style={{ color: textPrimaryColor || 'inherit' }}
+                    >
                       {currentDish?.name}
                     </h2>
                     {currentDish?.description && (
-                      <p className="text-base text-gray-600 dark:text-gray-400 mb-6 leading-relaxed">
+                      <p 
+                        className="text-base mb-6 leading-relaxed"
+                        style={{ color: textSecondaryColor || 'inherit' }}
+                      >
                         {currentDish.description}
                       </p>
                     )}
@@ -228,11 +236,17 @@ export default function MagazineLayout({
                 {/* Conteúdo embaixo */}
                 <div className="flex-1 p-6 flex flex-col justify-between bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800">
                   <div>
-                    <h2 className="text-2xl font-bold mb-3 text-gray-900 dark:text-white">
+                    <h2 
+                      className="text-2xl font-bold mb-3"
+                      style={{ color: textPrimaryColor || 'inherit' }}
+                    >
                       {currentDish?.name}
                     </h2>
                     {currentDish?.description && (
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-4 leading-relaxed">
+                      <p 
+                        className="text-sm mb-4 leading-relaxed"
+                        style={{ color: textSecondaryColor || 'inherit' }}
+                      >
                         {currentDish.description}
                       </p>
                     )}
