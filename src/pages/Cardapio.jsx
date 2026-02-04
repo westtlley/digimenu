@@ -86,7 +86,7 @@ export default function Cardapio() {
   const [showQuickSignup, setShowQuickSignup] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userEmail, setUserEmail] = useState(null);
-  const [showSplash, setShowSplash] = useState(true);
+  const [showSplash, setShowSplash] = useState(false);
 
   // Custom Hooks
   const { cart, addItem, updateItem, removeItem, updateQuantity, clearCart, cartTotal, cartItemsCount } = useCart();
@@ -193,7 +193,7 @@ export default function Cardapio() {
 
   // Quando /s/:slug: usar dados da API pública; senão usar das queries
   const _pub = slug && publicData ? publicData : null;
-  const store = _pub?.store || stores?.[0] || { name: 'Sabor do Dia', is_open: true };
+  const store = _pub?.store || stores?.[0] || null;
   const dishesResolved = _pub?.dishes ?? dishes ?? [];
   const categoriesResolved = _pub?.categories ?? categories ?? [];
   const complementGroupsResolved = _pub?.complementGroups ?? complementGroups ?? [];
@@ -231,12 +231,12 @@ export default function Cardapio() {
     );
   }
 
-  const primaryColor = store.theme_primary_color || '#f97316';
-  const headerBg = store.theme_header_bg || '#ffffff';
-  const headerText = store.theme_header_text || '#000000';
+  const primaryColor = store?.theme_primary_color || '#f97316';
+  const headerBg = store?.theme_header_bg || '#ffffff';
+  const headerText = store?.theme_header_text || '#000000';
 
   // Store Status
-  const { isStoreUnavailable, isStoreClosed, isStorePaused, isAutoModeClosed, getNextOpenTime, getStatusDisplay } = useStoreStatus(store);
+  const { isStoreUnavailable, isStoreClosed, isStorePaused, isAutoModeClosed, getNextOpenTime, getStatusDisplay } = useStoreStatus(store || {});
   const isStoreOpen = !isStoreUnavailable && !isStoreClosed && !isStorePaused;
 
   // Coupons
@@ -332,12 +332,18 @@ export default function Cardapio() {
     checkAuth();
   }, []);
 
-  // Splash/loading ao abrir o cardápio (animação rápida tipo "login")
-  // Aguardar um pouco para garantir que store esteja carregado
+  // Splash/loading ao abrir o cardápio - só mostrar quando store estiver carregado
   useEffect(() => {
-    const t = setTimeout(() => setShowSplash(false), 1500);
-    return () => clearTimeout(t);
-  }, [store]);
+    // Só mostrar splash se temos dados do restaurante carregados E não está mais carregando
+    if (store && store.name && !publicLoading && (publicData || !slug)) {
+      setShowSplash(true);
+      const t = setTimeout(() => setShowSplash(false), 1200);
+      return () => clearTimeout(t);
+    } else {
+      // Se ainda não tem dados ou está carregando, não mostrar splash
+      setShowSplash(false);
+    }
+  }, [store, publicData, publicLoading, slug]);
 
   // Se não há slug, mostrar página de entrada (sem forçar redirect que quebra navegação)
   if (!slug) {
@@ -599,21 +605,15 @@ export default function Cardapio() {
               transition={{ duration: 0.3 }}
               className="flex flex-col items-center gap-5 px-6"
             >
-              {store?.logo ? (
+              {store?.logo && (
                 <img
                   src={store.logo}
                   alt={store.name || 'Restaurante'}
                   className="h-24 w-24 max-w-[280px] object-contain drop-shadow-lg rounded-xl"
                 />
-              ) : (
-                <img
-                  src="/images/digimenu-logo.svg"
-                  alt="DigiMenu"
-                  className="h-24 w-auto max-w-[280px] object-contain drop-shadow-lg"
-                />
               )}
               <p className="text-white font-semibold text-xl text-center drop-shadow-sm">
-                {store?.name || 'Seu cardápio digital'}
+                {store?.name || 'Carregando...'}
               </p>
               <motion.div
                 animate={{ opacity: [0.4, 1, 0.4] }}
