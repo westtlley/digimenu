@@ -31,7 +31,19 @@ export default function RecentOrders({ dishes = [], onSelectDish, primaryColor }
   });
 
   const safeDishes = Array.isArray(dishes) ? dishes : [];
-  const recentDishes = safeDishes.filter(d => recentDishIds.has(d.id)).slice(0, 4);
+  const recentDishes = safeDishes
+    .filter(d => {
+      // Só incluir se estiver nos pedidos recentes
+      if (!recentDishIds.has(d.id)) return false;
+      // Só incluir se estiver ativo/disponível
+      if (d.is_active === false) return false;
+      // Verificar se tem nome válido
+      if (!d.name || d.name.trim() === '') return false;
+      // Verificar se tem preço válido (exceto pizzas)
+      if (d.product_type !== 'pizza' && (d.price === null || d.price === undefined)) return false;
+      return true;
+    })
+    .slice(0, 4);
 
   if (recentDishes.length === 0) return null;
 
