@@ -1737,20 +1737,24 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
               {dishFormData.image && <img src={dishFormData.image} alt="" className="mt-2 w-20 h-20 object-cover rounded" />}
             </div>
 
-            <div className="space-y-2">
-              <Label>Link do Vídeo (Opcional)</Label>
-              <Input 
-                type="url" 
-                value={dishFormData.video_url || ''} 
-                onChange={(e) => setDishFormData(prev => ({ ...prev, video_url: e.target.value }))} 
-                placeholder="Ex: https://www.youtube.com/watch?v=..." 
-                className="w-full"
-              />
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Adicione um link de vídeo do YouTube ou Vimeo para exibir um player na imagem do prato
-              </p>
+            {/* Campo de Vídeo - Sempre visível */}
+            <div className="space-y-2 mt-4">
+              <div>
+                <Label htmlFor="video_url" className="text-sm font-medium">Link do Vídeo (Opcional)</Label>
+                <Input 
+                  id="video_url"
+                  type="url" 
+                  value={dishFormData.video_url || ''} 
+                  onChange={(e) => setDishFormData(prev => ({ ...prev, video_url: e.target.value }))} 
+                  placeholder="Ex: https://www.youtube.com/watch?v=..." 
+                  className="w-full mt-1.5"
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5">
+                  Adicione um link de vídeo do YouTube ou Vimeo para exibir um player na imagem do prato
+                </p>
+              </div>
               {dishFormData.video_url && (
-                <div className="mt-3 flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
                   <Label htmlFor="video_autoplay" className="cursor-pointer text-sm font-medium">
                     Reprodução Automática
                   </Label>
