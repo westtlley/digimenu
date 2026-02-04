@@ -269,6 +269,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
         prep_time: dish.prep_time?.toString() || '', tags: dish.tags || [], internal_notes: dish.internal_notes || '',
         product_type: dish.product_type || 'preparado',
         video_url: dish.video_url || '',
+        video_autoplay: dish.video_autoplay !== false, // default true
       });
       setComplementMode(null);
     } else {
@@ -279,6 +280,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
         is_new: false, is_popular: false, prep_time: '', tags: [], internal_notes: '',
         product_type: productType,
         video_url: '',
+        video_autoplay: true,
       });
       setComplementMode(null);
       setCopyFromDishId('');
@@ -1745,6 +1747,18 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
               <p className="text-xs text-gray-500 mt-1">
                 Adicione um link de vídeo do YouTube ou Vimeo para exibir um player na imagem do prato
               </p>
+              {dishFormData.video_url && (
+                <div className="mt-3 flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <Label htmlFor="video_autoplay" className="cursor-pointer">
+                    Reprodução Automática
+                  </Label>
+                  <Switch
+                    id="video_autoplay"
+                    checked={dishFormData.video_autoplay !== false}
+                    onCheckedChange={(checked) => setDishFormData(prev => ({ ...prev, video_autoplay: checked }))}
+                  />
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-4">

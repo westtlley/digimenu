@@ -166,17 +166,19 @@ export default function NewDishModal({
             {/* Mobile Image Header - Compacto */}
             <div className="md:hidden relative w-full h-36 flex-shrink-0">
               {showVideo && videoInfo ? (
-                <div className="w-full h-full bg-black">
+                <div className="w-full h-full bg-black relative">
                   {videoInfo.type === 'youtube' ? (
                     <iframe
-                      src={`https://www.youtube.com/embed/${videoInfo.id}?autoplay=1`}
+                      key={`mobile-youtube-${videoInfo.id}`}
+                      src={`https://www.youtube.com/embed/${videoInfo.id}${dish.video_autoplay !== false ? '?autoplay=1' : ''}`}
                       className="w-full h-full"
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                       allowFullScreen
                     />
                   ) : (
                     <iframe
-                      src={`https://player.vimeo.com/video/${videoInfo.id}?autoplay=1`}
+                      key={`mobile-vimeo-${videoInfo.id}`}
+                      src={`https://player.vimeo.com/video/${videoInfo.id}${dish.video_autoplay !== false ? '?autoplay=1' : ''}`}
                       className="w-full h-full"
                       allow="autoplay; fullscreen; picture-in-picture"
                       allowFullScreen
@@ -229,17 +231,19 @@ export default function NewDishModal({
             {/* Desktop Left - Image */}
             <div className="hidden md:block w-2/5 relative">
               {showVideo && videoInfo ? (
-                <div className="w-full h-full bg-black">
+                <div className="w-full h-full bg-black relative">
                   {videoInfo.type === 'youtube' ? (
                     <iframe
-                      src={`https://www.youtube.com/embed/${videoInfo.id}?autoplay=1`}
+                      key={`desktop-youtube-${videoInfo.id}`}
+                      src={`https://www.youtube.com/embed/${videoInfo.id}${dish.video_autoplay !== false ? '?autoplay=1' : ''}`}
                       className="w-full h-full"
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                       allowFullScreen
                     />
                   ) : (
                     <iframe
-                      src={`https://player.vimeo.com/video/${videoInfo.id}?autoplay=1`}
+                      key={`desktop-vimeo-${videoInfo.id}`}
+                      src={`https://player.vimeo.com/video/${videoInfo.id}${dish.video_autoplay !== false ? '?autoplay=1' : ''}`}
                       className="w-full h-full"
                       allow="autoplay; fullscreen; picture-in-picture"
                       allowFullScreen
