@@ -531,12 +531,12 @@ function PizzaModal({ isOpen, onClose, onSubmit, pizza, sizes, flavors, edges, e
             {!pizza && (
               <div className="space-y-4">
                 <div>
-                  <h4 className="font-semibold mb-1">Sabor Padrão da Pizza *</h4>
-                  <p className="text-xs text-gray-600 mb-3">Escolha qual sabor será o base desta pizza</p>
+                  <h4 className="font-semibold mb-1 text-gray-900 dark:text-gray-100">Sabor Padrão da Pizza *</h4>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">Escolha qual sabor será o base desta pizza</p>
                 </div>
                 
                 <div className="space-y-3">
-                  <h5 className="font-medium text-sm">🍕 Tradicionais</h5>
+                  <h5 className="font-medium text-sm text-gray-900 dark:text-gray-100">🍕 Tradicionais</h5>
                   <div className="grid grid-cols-2 gap-2">
                     {flavors.filter(f => f.category === 'tradicional' && f.is_active).map(flavor => (
                       <button
@@ -545,8 +545,8 @@ function PizzaModal({ isOpen, onClose, onSubmit, pizza, sizes, flavors, edges, e
                         onClick={() => handleDefaultFlavorSelect(flavor)}
                         className={`p-3 rounded-lg border-2 text-left transition-all ${
                           selectedDefaultFlavor?.id === flavor.id
-                            ? 'border-orange-500 bg-orange-50'
-                            : 'border-gray-200 hover:border-gray-300'
+                            ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/30 dark:border-orange-400'
+                            : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 bg-white dark:bg-gray-800'
                         }`}
                       >
                         <div className="flex items-center gap-2">
@@ -554,9 +554,9 @@ function PizzaModal({ isOpen, onClose, onSubmit, pizza, sizes, flavors, edges, e
                             <img src={flavor.image} alt={flavor.name} className="w-12 h-12 rounded object-cover" />
                           )}
                           <div className="flex-1 min-w-0">
-                            <p className="font-medium text-sm">{flavor.name}</p>
+                            <p className="font-medium text-sm text-gray-900 dark:text-gray-100">{flavor.name}</p>
                             {selectedDefaultFlavor?.id === flavor.id && (
-                              <Badge className="text-xs mt-1 bg-orange-500">Selecionado</Badge>
+                              <Badge className="text-xs mt-1 bg-orange-500 dark:bg-orange-600">Selecionado</Badge>
                             )}
                           </div>
                         </div>
@@ -566,7 +566,7 @@ function PizzaModal({ isOpen, onClose, onSubmit, pizza, sizes, flavors, edges, e
                 </div>
 
                 <div className="space-y-3">
-                  <h5 className="font-medium text-sm">⭐ Premium</h5>
+                  <h5 className="font-medium text-sm text-gray-900 dark:text-gray-100">⭐ Premium</h5>
                   <div className="grid grid-cols-2 gap-2">
                     {flavors.filter(f => f.category === 'premium' && f.is_active).map(flavor => (
                       <button
@@ -575,8 +575,8 @@ function PizzaModal({ isOpen, onClose, onSubmit, pizza, sizes, flavors, edges, e
                         onClick={() => handleDefaultFlavorSelect(flavor)}
                         className={`p-3 rounded-lg border-2 text-left transition-all ${
                           selectedDefaultFlavor?.id === flavor.id
-                            ? 'border-orange-500 bg-orange-50'
-                            : 'border-gray-200 hover:border-gray-300'
+                            ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/30 dark:border-orange-400'
+                            : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 bg-white dark:bg-gray-800'
                         }`}
                       >
                         <div className="flex items-center gap-2">
@@ -584,9 +584,9 @@ function PizzaModal({ isOpen, onClose, onSubmit, pizza, sizes, flavors, edges, e
                             <img src={flavor.image} alt={flavor.name} className="w-12 h-12 rounded object-cover" />
                           )}
                           <div className="flex-1 min-w-0">
-                            <p className="font-medium text-sm">{flavor.name}</p>
+                            <p className="font-medium text-sm text-gray-900 dark:text-gray-100">{flavor.name}</p>
                             {selectedDefaultFlavor?.id === flavor.id && (
-                              <Badge className="text-xs mt-1 bg-orange-500">Selecionado</Badge>
+                              <Badge className="text-xs mt-1 bg-orange-500 dark:bg-orange-600">Selecionado</Badge>
                             )}
                           </div>
                         </div>
@@ -600,9 +600,9 @@ function PizzaModal({ isOpen, onClose, onSubmit, pizza, sizes, flavors, edges, e
             {/* Informações Básicas */}
             {selectedDefaultFlavor && (
               <div className="space-y-4">
-                <h4 className="font-semibold">Informações da Pizza</h4>
-                <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
-                  <p className="text-sm text-orange-800">
+                <h4 className="font-semibold text-gray-900 dark:text-gray-100">Informações da Pizza</h4>
+                <div className="bg-orange-50 dark:bg-orange-900/30 border border-orange-200 dark:border-orange-800 rounded-lg p-3">
+                  <p className="text-sm text-orange-800 dark:text-orange-200">
                     ✓ Sabor base: <strong>{selectedDefaultFlavor.name}</strong>
                   </p>
                 </div>
@@ -637,7 +637,7 @@ function PizzaModal({ isOpen, onClose, onSubmit, pizza, sizes, flavors, edges, e
                         )}
                       </SelectContent>
                     </Select>
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                       {pizzaCategories.length ? 'Por tamanho e quantidade de sabores (Configuração > Categorias)' : 'Sem categorias de pizza. Crie em Configuração > Categorias'}
                     </p>
                   </div>
@@ -660,7 +660,7 @@ function PizzaModal({ isOpen, onClose, onSubmit, pizza, sizes, flavors, edges, e
                         </SelectItem>
                       </SelectContent>
                     </Select>
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                       {formData.division_mode === 'slices' 
                         ? 'Cliente escolhe quantas fatias de cada sabor'
                         : 'Divisão automática igual entre sabores'
@@ -685,28 +685,28 @@ function PizzaModal({ isOpen, onClose, onSubmit, pizza, sizes, flavors, edges, e
                   {formData.image && (
                     <img src={formData.image} alt="" className="mt-2 w-20 h-20 object-cover rounded" />
                   )}
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     Se não enviar, será usada a imagem do sabor base
                   </p>
                 </div>
 
                 <div className="grid grid-cols-3 gap-4">
-                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
-                    <Label>⭐ Destaque</Label>
+                  <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded">
+                    <Label className="text-gray-900 dark:text-gray-100">⭐ Destaque</Label>
                     <Switch
                       checked={formData.is_highlight}
                       onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_highlight: checked }))}
                     />
                   </div>
-                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
-                    <Label>✨ Novo</Label>
+                  <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded">
+                    <Label className="text-gray-900 dark:text-gray-100">✨ Novo</Label>
                     <Switch
                       checked={formData.is_new}
                       onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_new: checked }))}
                     />
                   </div>
-                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
-                    <Label>🔥 Popular</Label>
+                  <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded">
+                    <Label className="text-gray-900 dark:text-gray-100">🔥 Popular</Label>
                     <Switch
                       checked={formData.is_popular}
                       onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_popular: checked }))}
@@ -718,7 +718,7 @@ function PizzaModal({ isOpen, onClose, onSubmit, pizza, sizes, flavors, edges, e
 
             {/* Tamanhos */}
             <div className="space-y-3">
-              <h4 className="font-semibold">Tamanhos Disponíveis *</h4>
+              <h4 className="font-semibold text-gray-900 dark:text-gray-100">Tamanhos Disponíveis *</h4>
               <div className="grid gap-2">
                 {sizes.map(size => {
                   const isSelected = formData.pizza_config.sizes?.some(s => s.id === size.id);
@@ -726,19 +726,21 @@ function PizzaModal({ isOpen, onClose, onSubmit, pizza, sizes, flavors, edges, e
                     <label
                       key={size.id}
                       className={`flex items-center justify-between p-3 rounded-lg border-2 cursor-pointer transition-all ${
-                        isSelected ? 'border-orange-500 bg-orange-50' : 'border-gray-200 hover:border-gray-300'
+                        isSelected 
+                          ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/30 dark:border-orange-400' 
+                          : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 bg-white dark:bg-gray-800'
                       }`}
                       onClick={() => toggleSize(size)}
                     >
                       <div>
-                        <p className="font-medium">{size.name}</p>
-                        <p className="text-xs text-gray-600">
+                        <p className="font-medium text-gray-900 dark:text-gray-100">{size.name}</p>
+                        <p className="text-xs text-gray-600 dark:text-gray-400">
                           {size.slices} fatias • Até {size.max_flavors} sabores
                         </p>
                       </div>
                       <div className="text-sm">
-                        <p className="text-green-600">{formatCurrency(size.price_tradicional)}</p>
-                        <p className="text-orange-600">{formatCurrency(size.price_premium)}</p>
+                        <p className="text-green-600 dark:text-green-400 font-semibold">{formatCurrency(size.price_tradicional)}</p>
+                        <p className="text-orange-600 dark:text-orange-400 font-semibold">{formatCurrency(size.price_premium)}</p>
                       </div>
                     </label>
                   );
@@ -748,7 +750,7 @@ function PizzaModal({ isOpen, onClose, onSubmit, pizza, sizes, flavors, edges, e
 
             {/* Sabores */}
             <div className="space-y-3">
-              <h4 className="font-semibold">Sabores Disponíveis *</h4>
+              <h4 className="font-semibold text-gray-900 dark:text-gray-100">Sabores Disponíveis *</h4>
               <div className="grid grid-cols-2 gap-2">
                 {flavors.map(flavor => {
                   const isSelected = formData.pizza_config.flavor_ids?.includes(flavor.id);
@@ -756,7 +758,9 @@ function PizzaModal({ isOpen, onClose, onSubmit, pizza, sizes, flavors, edges, e
                     <label
                       key={flavor.id}
                       className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${
-                        isSelected ? 'border-orange-500 bg-orange-50' : 'border-gray-200 hover:border-gray-300'
+                        isSelected 
+                          ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/30 dark:border-orange-400' 
+                          : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 bg-white dark:bg-gray-800'
                       }`}
                       onClick={() => toggleFlavor(flavor.id)}
                     >
@@ -764,8 +768,8 @@ function PizzaModal({ isOpen, onClose, onSubmit, pizza, sizes, flavors, edges, e
                         <img src={flavor.image} alt={flavor.name} className="w-12 h-12 rounded object-cover" />
                       )}
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm">{flavor.name}</p>
-                        <Badge variant="outline" className="text-xs mt-1">
+                        <p className="font-medium text-sm text-gray-900 dark:text-gray-100">{flavor.name}</p>
+                        <Badge variant="outline" className="text-xs mt-1 dark:border-gray-600 dark:text-gray-300">
                           {flavor.category === 'premium' ? '⭐ Premium' : '🍕 Tradicional'}
                         </Badge>
                       </div>
@@ -778,7 +782,7 @@ function PizzaModal({ isOpen, onClose, onSubmit, pizza, sizes, flavors, edges, e
             {/* Bordas */}
             {edges.length > 0 && (
               <div className="space-y-3">
-                <h4 className="font-semibold">Bordas Disponíveis (opcional)</h4>
+                <h4 className="font-semibold text-gray-900 dark:text-gray-100">Bordas Disponíveis (opcional)</h4>
                 <div className="grid grid-cols-2 gap-2">
                   {edges.map(edge => {
                     const isSelected = formData.pizza_config.edges?.some(e => e.id === edge.id);
@@ -786,12 +790,14 @@ function PizzaModal({ isOpen, onClose, onSubmit, pizza, sizes, flavors, edges, e
                       <label
                         key={edge.id}
                         className={`flex items-center justify-between p-3 rounded-lg border-2 cursor-pointer transition-all ${
-                          isSelected ? 'border-orange-500 bg-orange-50' : 'border-gray-200 hover:border-gray-300'
+                          isSelected 
+                            ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/30 dark:border-orange-400' 
+                            : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 bg-white dark:bg-gray-800'
                         }`}
                         onClick={() => toggleEdge(edge)}
                       >
-                        <p className="font-medium text-sm">{edge.name}</p>
-                        <p className="text-sm text-orange-600">{formatCurrency(edge.price)}</p>
+                        <p className="font-medium text-sm text-gray-900 dark:text-gray-100">{edge.name}</p>
+                        <p className="text-sm text-orange-600 dark:text-orange-400 font-semibold">{formatCurrency(edge.price)}</p>
                       </label>
                     );
                   })}
@@ -802,7 +808,7 @@ function PizzaModal({ isOpen, onClose, onSubmit, pizza, sizes, flavors, edges, e
             {/* Extras */}
             {extras.length > 0 && (
               <div className="space-y-3">
-                <h4 className="font-semibold">Extras Disponíveis (opcional)</h4>
+                <h4 className="font-semibold text-gray-900 dark:text-gray-100">Extras Disponíveis (opcional)</h4>
                 <div className="grid grid-cols-2 gap-2">
                   {extras.map(extra => {
                     const isSelected = formData.pizza_config.extras?.some(e => e.id === extra.id);
@@ -810,12 +816,14 @@ function PizzaModal({ isOpen, onClose, onSubmit, pizza, sizes, flavors, edges, e
                       <label
                         key={extra.id}
                         className={`flex items-center justify-between p-3 rounded-lg border-2 cursor-pointer transition-all ${
-                          isSelected ? 'border-orange-500 bg-orange-50' : 'border-gray-200 hover:border-gray-300'
+                          isSelected 
+                            ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/30 dark:border-orange-400' 
+                            : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 bg-white dark:bg-gray-800'
                         }`}
                         onClick={() => toggleExtra(extra)}
                       >
-                        <p className="font-medium text-sm">{extra.name}</p>
-                        <p className="text-sm text-orange-600">{formatCurrency(extra.price)}</p>
+                        <p className="font-medium text-sm text-gray-900 dark:text-gray-100">{extra.name}</p>
+                        <p className="text-sm text-orange-600 dark:text-orange-400 font-semibold">{formatCurrency(extra.price)}</p>
                       </label>
                     );
                   })}
@@ -823,16 +831,16 @@ function PizzaModal({ isOpen, onClose, onSubmit, pizza, sizes, flavors, edges, e
               </div>
             )}
 
-            <div className="flex gap-3 pt-4 border-t">
+            <div className="flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
               <Button 
                 type="button" 
                 variant="outline" 
                 onClick={onClose} 
-                className="flex-1"
+                className="flex-1 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
               >
                 Cancelar
               </Button>
-              <Button type="submit" className="flex-1 bg-orange-500">
+              <Button type="submit" className="flex-1 bg-orange-500 hover:bg-orange-600 dark:bg-orange-600 dark:hover:bg-orange-700 text-white">
                 {pizza ? 'Salvar' : 'Criar Pizza'}
               </Button>
             </div>
