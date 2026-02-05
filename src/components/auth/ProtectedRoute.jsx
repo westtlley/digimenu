@@ -146,7 +146,7 @@ export default function ProtectedRoute({
                 Falar no WhatsApp
               </Button>
             </a>
-            <Link to={createPageUrl('Cardapio')} className="block">
+            <Link to={(user?.slug || subscriberData?.slug) ? `/s/${user?.slug || subscriberData?.slug}` : createPageUrl('Cardapio')} className="block">
               <Button variant="outline" className="w-full">
                 Ver Cardápio
               </Button>

@@ -34,7 +34,7 @@ const PAYMENT_LABELS = {
 
 const isOrderPDV = (o) => !!(o?.order_code?.startsWith('PDV-') || o?.delivery_method === 'balcao');
 
-export default function OrdersTab({ isMaster }) {
+export default function OrdersTab({ isMaster, user, subscriberData }) {
   const [dateFilter, setDateFilter] = useState('');
   const [filterType, setFilterType] = useState('all');
   const queryClient = useQueryClient();
@@ -155,7 +155,11 @@ export default function OrdersTab({ isMaster }) {
           title="Você ainda não possui pedidos"
           description="Os pedidos feitos pelos clientes aparecerão aqui automaticamente"
           actionLabel="Ir para o Cardápio"
-          action={() => window.open(createPageUrl('Cardapio'), '_blank')}
+          action={() => {
+            const slug = user?.is_master ? user?.slug : subscriberData?.slug;
+            const url = slug ? `/s/${slug}` : createPageUrl('Cardapio');
+            window.open(url, '_blank');
+          }}
         />
       </div>
     );

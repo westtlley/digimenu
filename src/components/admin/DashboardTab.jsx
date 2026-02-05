@@ -72,7 +72,11 @@ export default function DashboardTab({ user, subscriberData, onNavigateToTab }) 
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
   };
 
-  const menuLink = `${window.location.origin}${createPageUrl('Cardapio')}`;
+  // Determinar slug: master usa user.slug, assinante usa subscriberData.slug
+  const currentSlug = user?.is_master ? user?.slug : subscriberData?.slug;
+  const menuLink = currentSlug 
+    ? `${window.location.origin}/s/${currentSlug}`
+    : `${window.location.origin}${createPageUrl('Cardapio')}`;
 
   const copyLink = () => {
     navigator.clipboard.writeText(menuLink);
@@ -213,7 +217,7 @@ export default function DashboardTab({ user, subscriberData, onNavigateToTab }) 
       <Card style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-lg font-medium" style={{ color: 'var(--text-primary)' }}>Cardápio Digital</CardTitle>
-          <Link to={createPageUrl('Cardapio')} target="_blank">
+          <Link to={currentSlug ? `/s/${currentSlug}` : createPageUrl('Cardapio')} target="_blank">
             <Button variant="outline" size="sm">
               <ExternalLink className="w-4 h-4 mr-2" />
               Visualizar

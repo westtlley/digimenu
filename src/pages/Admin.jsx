@@ -162,7 +162,7 @@ export default function Admin() {
                 Falar no WhatsApp
               </Button>
             </a>
-            <Link to={createPageUrl('Cardapio')} className="block">
+            <Link to={(user?.slug || subscriberData?.slug) ? `/s/${user?.slug || subscriberData?.slug}` : createPageUrl('Cardapio')} className="block">
               <Button variant="outline" className="w-full">
                 Ver Cardápio
               </Button>
@@ -233,7 +233,7 @@ export default function Admin() {
       case 'theme':
         return hasModuleAccess('theme') ? <ThemeTab /> : <AccessDenied />;
       case 'orders':
-        return hasModuleAccess('orders') ? <OrdersTab /> : <AccessDenied />;
+        return hasModuleAccess('orders') ? <OrdersTab isMaster={user?.is_master} user={user} subscriberData={subscriberData} /> : <AccessDenied />;
       case 'history':
         return hasModuleAccess('history') ? <OrderHistoryTab /> : <AccessDenied />;
       case 'financial':
