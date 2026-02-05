@@ -163,13 +163,13 @@ export default function NewDishModal({
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
             className="relative flex flex-col md:flex-row w-full md:m-auto md:max-w-5xl md:h-[85vh] bg-white dark:bg-gray-900 backdrop-blur-xl md:rounded-3xl overflow-hidden shadow-2xl"
           >
-            {/* Mobile Image Header - Compacto */}
-            <div className="md:hidden relative w-full h-36 flex-shrink-0">
+            {/* Mídia (imagem ou vídeo) — um único iframe para evitar dupla reprodução */}
+            <div className="relative w-full h-36 md:h-full md:w-2/5 flex-shrink-0">
               {showVideo && videoInfo ? (
                 <div className="w-full h-full bg-black relative">
                   {videoInfo.type === 'youtube' ? (
                     <iframe
-                      key={`mobile-youtube-${videoInfo.id}`}
+                      key={`dish-video-youtube-${videoInfo.id}`}
                       src={`https://www.youtube.com/embed/${videoInfo.id}${dish.video_autoplay !== false ? '?autoplay=1' : ''}`}
                       className="w-full h-full"
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -177,7 +177,7 @@ export default function NewDishModal({
                     />
                   ) : (
                     <iframe
-                      key={`mobile-vimeo-${videoInfo.id}`}
+                      key={`dish-video-vimeo-${videoInfo.id}`}
                       src={`https://player.vimeo.com/video/${videoInfo.id}${dish.video_autoplay !== false ? '?autoplay=1' : ''}`}
                       className="w-full h-full"
                       allow="autoplay; fullscreen; picture-in-picture"
@@ -191,27 +191,27 @@ export default function NewDishModal({
                   {videoInfo && (
                     <button
                       onClick={() => setShowVideo(true)}
-                      className="absolute inset-0 flex items-center justify-center bg-black/40 hover:bg-black/50 transition-colors group"
+                      className="absolute inset-0 flex items-center justify-center bg-black/40 md:bg-black/30 hover:bg-black/50 md:hover:bg-black/40 transition-colors group"
                     >
-                      <div className="w-16 h-16 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-                        <Play className="w-8 h-8 ml-1" style={{ color: primaryColor }} fill={primaryColor} />
+                      <div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-lg md:shadow-xl group-hover:scale-110 transition-transform">
+                        <Play className="w-8 h-8 md:w-10 md:h-10 ml-1" style={{ color: primaryColor }} fill={primaryColor} />
                       </div>
                     </button>
                   )}
                 </div>
               ) : (
                 <div className="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-800">
-                  <span className="text-gray-400 text-xs">Sem imagem</span>
+                  <span className="text-gray-400 text-xs md:text-base">Sem imagem</span>
                 </div>
               )}
               <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none" />
-              <div className="absolute bottom-0 left-0 right-0 p-3 pointer-events-none">
-                <h2 className="text-white text-lg font-bold mb-0.5 drop-shadow-lg">{dish.name}</h2>
+              <div className="absolute bottom-0 left-0 right-0 p-3 md:p-6 pointer-events-none">
+                <h2 className="text-white text-lg md:text-2xl font-bold mb-0.5 md:mb-1 drop-shadow-lg">{dish.name}</h2>
                 {dish.description && (
-                  <p className="text-gray-100 text-xs line-clamp-1 drop-shadow-md">{dish.description}</p>
+                  <p className="text-gray-100 text-xs md:text-sm line-clamp-1 md:line-clamp-none drop-shadow-md">{dish.description}</p>
                 )}
               </div>
-              {/* Botão X fixo no mobile com melhor contraste e área de toque maior */}
+              {/* Botão X mobile: fecha vídeo ou modal */}
               <button 
                 onClick={(e) => {
                   e.stopPropagation();
@@ -221,65 +221,16 @@ export default function NewDishModal({
                     onClose();
                   }
                 }}
-                className="absolute top-2 right-2 p-2.5 bg-black/60 hover:bg-black/80 rounded-full backdrop-blur-sm z-50 active:scale-95 transition-all touch-manipulation"
+                className="absolute top-2 right-2 md:hidden p-2.5 bg-black/60 hover:bg-black/80 rounded-full backdrop-blur-sm z-50 active:scale-95 transition-all touch-manipulation"
                 aria-label={showVideo ? "Voltar" : "Fechar"}
               >
                 <X className="w-5 h-5 text-white" strokeWidth={2.5} />
               </button>
-            </div>
-
-            {/* Desktop Left - Image */}
-            <div className="hidden md:block w-2/5 relative">
-              {showVideo && videoInfo ? (
-                <div className="w-full h-full bg-black relative">
-                  {videoInfo.type === 'youtube' ? (
-                    <iframe
-                      key={`desktop-youtube-${videoInfo.id}`}
-                      src={`https://www.youtube.com/embed/${videoInfo.id}${dish.video_autoplay !== false ? '?autoplay=1' : ''}`}
-                      className="w-full h-full"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                    />
-                  ) : (
-                    <iframe
-                      key={`desktop-vimeo-${videoInfo.id}`}
-                      src={`https://player.vimeo.com/video/${videoInfo.id}${dish.video_autoplay !== false ? '?autoplay=1' : ''}`}
-                      className="w-full h-full"
-                      allow="autoplay; fullscreen; picture-in-picture"
-                      allowFullScreen
-                    />
-                  )}
-                </div>
-              ) : dish.image ? (
-                <div className="relative w-full h-full">
-                  <img src={dish.image} alt={dish.name} className="w-full h-full object-cover" />
-                  {videoInfo && (
-                    <button
-                      onClick={() => setShowVideo(true)}
-                      className="absolute inset-0 flex items-center justify-center bg-black/30 hover:bg-black/40 transition-colors group"
-                    >
-                      <div className="w-20 h-20 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-xl group-hover:scale-110 transition-transform">
-                        <Play className="w-10 h-10 ml-1" style={{ color: primaryColor }} fill={primaryColor} />
-                      </div>
-                    </button>
-                  )}
-                </div>
-              ) : (
-                <div className="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-800">
-                  <span className="text-gray-400">Sem imagem</span>
-                </div>
-              )}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none" />
-              <div className="absolute bottom-0 left-0 right-0 p-6 pointer-events-none">
-                <h2 className="text-white text-2xl font-bold mb-1 drop-shadow-lg">{dish.name}</h2>
-                {dish.description && (
-                  <p className="text-gray-100 text-sm drop-shadow-md">{dish.description}</p>
-                )}
-              </div>
+              {/* Botão Voltar (fechar vídeo) no desktop */}
               {showVideo && (
                 <button
                   onClick={() => setShowVideo(false)}
-                  className="absolute top-4 right-4 p-2 bg-black/60 hover:bg-black/80 rounded-full backdrop-blur-sm z-10 transition-colors"
+                  className="absolute top-4 right-4 hidden md:flex p-2 bg-black/60 hover:bg-black/80 rounded-full backdrop-blur-sm z-10 transition-colors items-center justify-center"
                   aria-label="Voltar"
                 >
                   <X className="w-5 h-5 text-white" />

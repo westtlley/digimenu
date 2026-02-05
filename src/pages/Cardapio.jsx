@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { apiClient as base44 } from '@/api/apiClient';
 import { createPageUrl } from '@/utils';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ShoppingCart, Search, Clock, Star, Share2, MapPin, Info, Home, Receipt, Gift, User, MessageSquare, UtensilsCrossed, Instagram, Facebook, Phone, Package, Music2, Calendar, Heart } from 'lucide-react';
+import { ShoppingCart, Search, Clock, Star, Share2, MapPin, Info, Home, Receipt, Gift, User, MessageSquare, UtensilsCrossed, Instagram, Facebook, Phone, Package, Music2, Calendar, Heart, LayoutGrid } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -105,6 +105,8 @@ export default function Cardapio() {
   const [showSplash, setShowSplash] = useState(false);
   const [showFavoritesList, setShowFavoritesList] = useState(false);
   const [showReferralCode, setShowReferralCode] = useState(false);
+  const [showFloatingMenu, setShowFloatingMenu] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
 
   const queryClient = useQueryClient();
 
@@ -1806,49 +1808,89 @@ export default function Cardapio() {
         </Sheet>
       )}
 
-      {/* Botão Flutuante Favoritos */}
-      {currentView === 'menu' && slug && (
-        <motion.button
-          onClick={() => setShowFavoritesList(true)}
-          className="fixed bottom-20 left-4 z-40 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 p-4 rounded-full shadow-xl border border-gray-200 dark:border-gray-700 flex items-center gap-2 hover:shadow-2xl transition-all"
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.95 }}
-          aria-label="Ver favoritos"
-        >
-          <Heart className="w-6 h-6 text-red-500" />
-        </motion.button>
-      )}
-
-      {/* 🛒 Botão Flutuante do Carrinho (Sticky) */}
+      {/* FAB único: ao clicar abre opções em vertical (Carrinho, Chat, Favoritos) */}
       {currentView === 'menu' && (
-        <motion.button
-          onClick={() => setShowCartModal(true)}
-          className="fixed bottom-20 right-4 z-40 bg-gradient-to-r from-orange-500 to-red-500 text-white p-4 rounded-full shadow-2xl flex items-center gap-2 hover:shadow-3xl transition-all"
-          animate={{ 
-            scale: cartItemsCount > 0 ? [1, 1.1, 1] : 1,
-          }}
-          transition={{ 
-            repeat: cartItemsCount > 0 ? Infinity : 0, 
-            duration: 2,
-            ease: "easeInOut"
-          }}
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.95 }}
-        >
-          <ShoppingCart className="w-6 h-6" />
-          {cartItemsCount > 0 && (
-            <span className="absolute -top-2 -right-2 bg-red-600 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-bold shadow-lg">
-              {cartItemsCount}
-            </span>
-          )}
-        </motion.button>
+        <div className="fixed bottom-24 right-4 z-40 flex flex-col items-center gap-2">
+          <AnimatePresence>
+            {showFloatingMenu && (
+              <>
+                {/* Favoritos (topo) */}
+                {slug && (
+                  <motion.button
+                    initial={{ opacity: 0, y: 8, scale: 0.8 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 8, scale: 0.8 }}
+                    transition={{ type: 'spring', damping: 20, stiffness: 300 }}
+                    onClick={() => {
+                      setShowFloatingMenu(false);
+                      setShowFavoritesList(true);
+                    }}
+                    className="bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 p-3 rounded-full shadow-xl border border-gray-200 dark:border-gray-700 flex items-center justify-center hover:shadow-2xl transition-all"
+                    aria-label="Favoritos"
+                  >
+                    <Heart className="w-6 h-6 text-red-500" />
+                  </motion.button>
+                )}
+                {/* Chat */}
+                <motion.button
+                  initial={{ opacity: 0, y: 8, scale: 0.8 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 8, scale: 0.8 }}
+                  transition={{ type: 'spring', damping: 20, stiffness: 300, delay: 0.05 }}
+                  onClick={() => {
+                    setShowFloatingMenu(false);
+                    setChatOpen(true);
+                  }}
+                  className="bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 p-3 rounded-full shadow-xl border border-gray-200 dark:border-gray-700 flex items-center justify-center hover:shadow-2xl transition-all"
+                  aria-label="Chat"
+                >
+                  <MessageSquare className="w-6 h-6" />
+                </motion.button>
+                {/* Carrinho */}
+                <motion.button
+                  initial={{ opacity: 0, y: 8, scale: 0.8 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 8, scale: 0.8 }}
+                  transition={{ type: 'spring', damping: 20, stiffness: 300, delay: 0.1 }}
+                  onClick={() => {
+                    setShowFloatingMenu(false);
+                    setShowCartModal(true);
+                  }}
+                  className="relative bg-gradient-to-r from-orange-500 to-red-500 text-white p-3 rounded-full shadow-xl flex items-center justify-center hover:shadow-2xl transition-all"
+                  aria-label="Carrinho"
+                >
+                  <ShoppingCart className="w-6 h-6" />
+                  {cartItemsCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs rounded-full min-w-[1.25rem] h-5 px-1 flex items-center justify-center font-bold shadow">
+                      {cartItemsCount}
+                    </span>
+                  )}
+                </motion.button>
+              </>
+            )}
+          </AnimatePresence>
+          {/* Botão principal: abre/fecha o menu */}
+          <motion.button
+            onClick={() => setShowFloatingMenu((v) => !v)}
+            className="bg-gradient-to-r from-orange-500 to-red-500 text-white p-4 rounded-full shadow-2xl flex items-center justify-center hover:shadow-orange-500/40 transition-all"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            aria-label={showFloatingMenu ? 'Fechar menu' : 'Abrir atalhos'}
+          >
+            <LayoutGrid className="w-6 h-6" />
+          </motion.button>
+        </div>
       )}
 
-      {/* 🤖 Chatbot com IA */}
+      {/* 🤖 Chatbot com IA (controlado pelo FAB) */}
       {currentView === 'menu' && (
         <AIChatbot
           dishes={dishesResolved}
           onAddToCart={handleAddToCart}
+          open={chatOpen}
+          onOpenChange={setChatOpen}
+          slug={slug}
+          storeName={store?.name}
         />
       )}
 

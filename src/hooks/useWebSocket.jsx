@@ -37,8 +37,8 @@ export function useWebSocket({
     socketRef.current = io(SOCKET_URL, {
       transports: ['websocket', 'polling'],
       reconnection: true,
-      reconnectionDelay: 1000,
-      reconnectionAttempts: 5
+      reconnectionDelay: 2000,
+      reconnectionAttempts: 2
     });
 
     const socket = socketRef.current;
@@ -58,8 +58,9 @@ export function useWebSocket({
       console.log('❌ WebSocket desconectado');
     });
 
-    socket.on('connect_error', (error) => {
-      console.error('❌ Erro de conexão WebSocket:', error);
+    socket.on('connect_error', () => {
+      // Falha esperada quando o backend não expõe WebSocket (ex.: Render cold start). Cardápio/API continuam funcionando.
+      console.warn('⚠️ WebSocket indisponível — notificações em tempo real desativadas. O restante do app funciona normalmente.');
     });
 
     // Ouvir atualizações de pedidos

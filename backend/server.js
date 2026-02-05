@@ -24,6 +24,7 @@ import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import crypto from 'crypto';
 import { setupWebSocket, emitOrderUpdate, emitOrderCreated } from './services/websocket.js';
+import { getAIResponse, isAIAvailable } from './services/chatAI.js';
 
 import cloudinary from './config/cloudinary.js';
 import { upload } from './middlewares/upload.js';
@@ -267,6 +268,7 @@ const publicRoutes = [
   '/api/auth/google',
   '/api/auth/google/callback',
   '/api/public/cardapio',  // /api/public/cardapio/:slug — link único do cardápio por assinante
+  '/api/public/chat',      // Chat do assistente (IA) — público para o cardápio
   '/api/entities/PaymentConfig',  // Configurações de pagamento públicas para o cardápio
   '/api/entities/MenuItem',  // Itens do menu públicos para o cardápio
   '/api/entities/Category',  // Categorias públicas para o cardápio
@@ -967,6 +969,28 @@ app.get('/api/public/cardapio/:slug', asyncHandler(async (req, res) => {
     coupons: Array.isArray(coupons) ? coupons : [],
     promotions: Array.isArray(promotions) ? promotions : []
   });
+}));
+
+// Chat do assistente com IA (público para o cardápio)
+app.post('/api/public/chat', asyncHandler(async (req, res) => {
+  const { message, slug, storeName, dishesSummary, history } = req.body || {};
+  if (!message || typeof message !== 'string' || !message.trim()) {
+    return res.status(400).json({ error: 'Campo message é obrigatório' });
+  }
+  const context = {
+    storeName: storeName || 'o estabelecimento',
+    dishesSummary: typeof dishesSummary === 'string' ? dishesSummary : '',
+    slug: slug || ''
+  };
+  const hist = Array.isArray(history) ? history.slice(-10) : [];
+  const result = await getAIResponse(message.trim(), context, hist);
+  if (!result) {
+    return res.status(503).json({
+      error: 'Assistente com IA indisponível',
+      hint: isAIAvailable() ? 'Tente novamente em instantes.' : 'Configure OPENAI_API_KEY no backend para ativar respostas inteligentes.'
+    });
+  }
+  res.json({ text: result.text, suggestions: result.suggestions || [] });
 }));
 
 // Pedido da mesa (público, sem login) — usado pela página /mesa/:numero?slug=xxx

@@ -18,8 +18,17 @@ import { toast } from 'react-hot-toast';
  * - Rastrear pedidos
  * - Sugestões inteligentes
  */
-export default function AIChatbot({ dishes = [], orders: ordersProp = [], onAddToCart }) {
-  const [isOpen, setIsOpen] = useState(false);
+const getChatApiUrl = () => {
+  const base = import.meta.env.VITE_API_BASE_URL || '';
+  if (base.endsWith('/api')) return `${base}/public/chat`;
+  return base ? `${base}/api/public/chat` : '/api/public/chat';
+};
+
+export default function AIChatbot({ dishes = [], orders: ordersProp = [], onAddToCart, open: controlledOpen, onOpenChange, slug, storeName }) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined && onOpenChange != null;
+  const isOpen = isControlled ? controlledOpen : internalOpen;
+  const setIsOpen = isControlled ? onOpenChange : setInternalOpen;
   const [messages, setMessages] = useState([
     {
       id: 1,
@@ -192,25 +201,62 @@ export default function AIChatbot({ dishes = [], orders: ordersProp = [], onAddT
     };
 
     setMessages(prev => [...prev, userMessage]);
+    const textToSend = inputText.trim();
     setInputText('');
     setIsTyping(true);
 
-    // Simular delay de processamento
-    setTimeout(async () => {
-      const response = await processMessage(inputText);
-      
-      const botMessage = {
-        id: Date.now() + 1,
-        type: 'bot',
-        text: response.text,
-        suggestions: response.suggestions || [],
-        dishes: response.dishes || [],
-        timestamp: new Date(),
-      };
+    const history = messages
+      .slice(-6)
+      .map((m) => ({ role: m.type === 'user' ? 'user' : 'assistant', content: m.text }));
+    const dishesSummary = dishes
+      .filter((d) => d.is_active !== false && d.name)
+      .slice(0, 40)
+      .map((d) => `${d.name} (R$ ${(d.price || 0).toFixed(2)})`)
+      .join('; ');
 
-      setMessages(prev => [...prev, botMessage]);
-      setIsTyping(false);
-    }, 1000);
+    try {
+      const res = await fetch(getChatApiUrl(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: textToSend,
+          slug: slug || '',
+          storeName: storeName || '',
+          dishesSummary,
+          history,
+        }),
+      });
+
+      const data = res.ok ? await res.json() : null;
+      if (data && data.text) {
+        const botMessage = {
+          id: Date.now() + 1,
+          type: 'bot',
+          text: data.text,
+          suggestions: data.suggestions || [],
+          dishes: [],
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, botMessage]);
+        setIsTyping(false);
+        return;
+      }
+    } catch (_) {
+      // Fallback para regras locais
+    }
+
+    // Fallback: regras locais (FAQ, pedido, rastreio, etc.)
+    const response = await processMessage(textToSend);
+    const botMessage = {
+      id: Date.now() + 1,
+      type: 'bot',
+      text: response.text,
+      suggestions: response.suggestions || [],
+      dishes: response.dishes || [],
+      timestamp: new Date(),
+    };
+    setMessages((prev) => [...prev, botMessage]);
+    setIsTyping(false);
   };
 
   const handleSuggestion = (suggestion) => {
@@ -234,8 +280,8 @@ export default function AIChatbot({ dishes = [], orders: ordersProp = [], onAddT
 
   return (
     <>
-      {/* Botão flutuante */}
-      {!isOpen && (
+      {/* Botão flutuante (só quando não controlado externamente, ex.: FAB único no Cardapio) */}
+      {!isControlled && !isOpen && (
         <motion.button
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
