@@ -171,9 +171,10 @@ export default function Cardapio() {
       }
     },
     enabled: !!slug,
-    retry: 1, // Tentar 1 vez em caso de erro
-    retryDelay: 2000, // Esperar 2 segundos antes de tentar novamente
-    staleTime: 5 * 60 * 1000, // Cache por 5 minutos
+    retry: 1,
+    retryDelay: 2000,
+    staleTime: 60 * 1000, // 1 minuto — evita logo/dados desatualizados após alteração no admin
+    refetchOnWindowFocus: true, // Atualiza ao voltar na aba (reflete logo/dados novos)
   });
 
   // Timeout de carregamento (8s) — evita ficar travado em "Carregando..."
@@ -439,14 +440,23 @@ export default function Cardapio() {
 
   // Splash/loading ao abrir o cardápio - mostrar enquanto carrega
   useEffect(() => {
-    // Mostrar splash enquanto está carregando ou não tem dados do restaurante
-    if (publicLoading || !store || !store.name) {
+    if (!slug) {
+      setShowSplash(false);
+      return;
+    }
+    // Com slug: mostrar splash enquanto está carregando
+    if (publicLoading) {
       setShowSplash(true);
-    } else if (store && store.name && !publicLoading && (publicData || !slug)) {
-      // Quando dados estiverem prontos, mostrar splash por um tempo e depois esconder
+      return;
+    }
+    // Dados prontos (publicData existe) — mostrar splash breve e depois esconder (não exige store.name para não travar)
+    if (publicData && publicData.store) {
       setShowSplash(true);
       const t = setTimeout(() => setShowSplash(false), 1200);
       return () => clearTimeout(t);
+    }
+    if (!publicData && !publicLoading) {
+      setShowSplash(false);
     }
   }, [store, publicData, publicLoading, slug]);
 
@@ -889,7 +899,7 @@ export default function Cardapio() {
                 />
               )}
             <p className="text-white font-semibold text-xl text-center drop-shadow-sm">
-              {store?.name || 'Carregando...'}
+              {store?.name || (publicLoading ? 'Carregando...' : 'Cardápio')}
             </p>
             {loadingTimeout && publicError && (
               <div className="mt-4 text-center max-w-sm">

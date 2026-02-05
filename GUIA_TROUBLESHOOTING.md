@@ -72,6 +72,12 @@ Remove-Item -Recurse -Force node_modules\.vite -ErrorAction SilentlyContinue
 **Causa:** Componente tentando acessar propriedade inexistente
 **Solução:** Verifique qual componente está causando o erro
 
+#### Erro 5: "Uncaught SyntaxError: Unexpected token 'export'" em `webpage_content_reporter.js` (Admin quebrado / menu some)
+**Causa:** **Não é código do DigiMenu.** É script **injetado por extensão do navegador** (tradutor, antivírus, SEO, acessibilidade, etc.). Essas extensões injetam JS que usa `export` em um contexto que não suporta ES Modules → o JavaScript para de executar e o React não termina de montar a aplicação.
+**Sintomas:** menu não aparece, seções somem, Admin renderiza “pela metade”.
+**Solução (recomendada):** Abrir o Admin em **aba anônima** (sem extensões) ou desativar extensões nesse domínio. Se o erro sumir e os menus voltarem, está confirmado.
+**Observação:** Erros de WebSocket no console (ex.: `socket.io` falhou) **não** são a causa — só afetam realtime/notificações; a API e o cardápio podem funcionar normalmente.
+
 ### Passo 4: Verificar a Aba Network
 
 1. Na aba **Network** (Rede)
