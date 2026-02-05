@@ -436,7 +436,17 @@ export default function CustomerProfileModal({ isOpen, onClose, primaryColor = '
                               id="address"
                               value={formData.address}
                               onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
-                              placeholder="Rua, número"
+                              placeholder="Rua"
+                              className="mt-1.5"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="address_number">Número</Label>
+                            <Input
+                              id="address_number"
+                              value={formData.address_number}
+                              onChange={(e) => setFormData(prev => ({ ...prev, address_number: e.target.value }))}
+                              placeholder="123"
                               className="mt-1.5"
                             />
                           </div>
@@ -458,6 +468,17 @@ export default function CustomerProfileModal({ isOpen, onClose, primaryColor = '
                               onChange={(e) => setFormData(prev => ({ ...prev, neighborhood: e.target.value }))}
                               placeholder="Bairro"
                               className="mt-1.5"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="state">Estado</Label>
+                            <Input
+                              id="state"
+                              value={formData.state}
+                              onChange={(e) => setFormData(prev => ({ ...prev, state: e.target.value.toUpperCase() }))}
+                              placeholder="UF"
+                              className="mt-1.5"
+                              maxLength={2}
                             />
                           </div>
                         </div>

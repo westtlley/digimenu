@@ -971,17 +971,19 @@ export async function listCustomers(subscriberEmail = null) {
 
 export async function createCustomer(customerData, subscriberEmail = null) {
   const result = await query(
-    `INSERT INTO customers (email, name, phone, address, complement, neighborhood, city, zipcode, subscriber_email, birth_date, cpf, password_hash)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+    `INSERT INTO customers (email, name, phone, address, address_number, complement, neighborhood, city, state, zipcode, subscriber_email, birth_date, cpf, password_hash)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
      RETURNING *`,
     [
       customerData.email,
       customerData.name,
       customerData.phone,
       customerData.address,
+      customerData.address_number || null,
       customerData.complement,
       customerData.neighborhood,
       customerData.city,
+      customerData.state || null,
       customerData.zipcode,
       subscriberEmail,
       customerData.birth_date || null,
@@ -995,18 +997,20 @@ export async function createCustomer(customerData, subscriberEmail = null) {
 export async function updateCustomer(id, customerData) {
   const result = await query(
     `UPDATE customers
-     SET email = $1, name = $2, phone = $3, address = $4, complement = $5, 
-         neighborhood = $6, city = $7, zipcode = $8, updated_at = CURRENT_TIMESTAMP
-     WHERE id = $9
+     SET email = $1, name = $2, phone = $3, address = $4, address_number = $5, complement = $6, 
+         neighborhood = $7, city = $8, state = $9, zipcode = $10, updated_at = CURRENT_TIMESTAMP
+     WHERE id = $11
      RETURNING *`,
     [
       customerData.email,
       customerData.name,
       customerData.phone,
       customerData.address,
+      customerData.address_number || null,
       customerData.complement,
       customerData.neighborhood,
       customerData.city,
+      customerData.state || null,
       customerData.zipcode,
       id
     ]

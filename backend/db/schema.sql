@@ -37,11 +37,16 @@ CREATE TABLE IF NOT EXISTS customers (
   name VARCHAR(255),
   phone VARCHAR(50),
   address TEXT,
+  address_number VARCHAR(50),
   complement VARCHAR(255),
   neighborhood VARCHAR(255),
   city VARCHAR(255),
+  state VARCHAR(50),
   zipcode VARCHAR(50),
   subscriber_email VARCHAR(255), -- Multi-tenancy
+  birth_date DATE,
+  cpf VARCHAR(20),
+  password_hash VARCHAR(255),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

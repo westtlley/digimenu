@@ -2588,21 +2588,17 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
           name: data.name.trim(),
           phone: data.phone ? data.phone.replace(/\D/g, '') : null,
           address: data.address || null,
-          complement: null,
-          neighborhood: null,
-          city: null,
-          zipcode: null,
+          address_number: data.address_number || null,
+          complement: data.complement || null,
+          neighborhood: data.neighborhood || null,
+          city: data.city || null,
+          state: data.state || null,
+          zipcode: data.zipcode ? data.zipcode.replace(/\D/g, '') : null,
           subscriber_email: subscriberEmail, // Vincular ao assinante se fornecido
           birth_date: data.birth_date || null,
           cpf: data.cpf ? data.cpf.replace(/\D/g, '') : null,
           password_hash: passwordHash
         };
-        
-        // Extrair dados do endereço se vier como string completa
-        if (data.address && typeof data.address === 'string') {
-          // Tentar extrair componentes do endereço se possível
-          // Por enquanto, apenas salvar como está
-        }
         
         let createdCustomer;
         if (usePostgreSQL) {
