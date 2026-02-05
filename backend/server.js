@@ -577,7 +577,11 @@ if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET) {
     }
   );
 
+  const callbackUrl = `${BACKEND_URL}/api/auth/google/callback`;
   console.log('✅ Google OAuth configurado');
+  console.log('🔗 URL de Callback:', callbackUrl);
+  console.log('📋 IMPORTANTE: Adicione esta URL exata no Google Cloud Console:');
+  console.log('   → URIs de redirecionamento autorizados:', callbackUrl);
 } else {
   console.log('⚠️ Google OAuth não configurado (GOOGLE_CLIENT_ID ou GOOGLE_CLIENT_SECRET não definidos)');
 }
