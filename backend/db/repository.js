@@ -615,6 +615,18 @@ export async function createSubscriber(subscriberData) {
     // slug: link do cardápio (ex: /s/meu-restaurante). Normalizar como em updateSubscriber.
     const rawSlug = subscriberData.slug;
     const slug = (rawSlug == null || rawSlug === '') ? null : (String(rawSlug).trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') || null);
+    
+    // Verificar se slug já existe (apenas se não for null/vazio)
+    if (slug) {
+      const existingSubscriber = await getSubscriberBySlug(slug);
+      if (existingSubscriber) {
+        // Se já existe e não é o mesmo email (upsert), lançar erro
+        if (existingSubscriber.email.toLowerCase() !== email.toLowerCase()) {
+          throw new Error(`Slug "${slug}" já está em uso por outro restaurante. Escolha outro slug.`);
+        }
+        // Se é o mesmo email (upsert), permitir atualização
+      }
+    }
     // linked_user_email: email personalizado para acesso ao painel
     const linked_user_email = (subscriberData.linked_user_email == null || String(subscriberData.linked_user_email || '').trim() === '') ? null : String(subscriberData.linked_user_email).trim();
     const phone = (subscriberData.phone == null || String(subscriberData.phone || '').trim() === '') ? null : String(subscriberData.phone).trim();
@@ -758,6 +770,27 @@ export async function cleanupExpiredTokens() {
 }
 
 export async function updateSubscriber(emailOrId, subscriberData) {
+  // Verificar se slug está sendo atualizado e se já existe em outro assinante
+  if (subscriberData.slug !== undefined) {
+    const raw = subscriberData.slug;
+    const newSlug = (raw === null || raw === '') ? null : (String(raw).trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') || null);
+    
+    if (newSlug) {
+      // Buscar assinante atual para comparar
+      const identifier = typeof emailOrId === 'number' ? emailOrId : emailOrId;
+      const isNumeric = !isNaN(identifier) && !isNaN(parseInt(identifier));
+      const currentSubscriber = isNumeric 
+        ? await getSubscriberById(identifier)
+        : await getSubscriberByEmail(identifier);
+      
+      // Verificar se slug já existe em outro assinante
+      const existingSubscriber = await getSubscriberBySlug(newSlug);
+      if (existingSubscriber && existingSubscriber.id !== currentSubscriber?.id) {
+        throw new Error(`Slug "${newSlug}" já está em uso por outro restaurante. Escolha outro slug.`);
+      }
+    }
+  }
+  
   const updates = [];
   const values = [];
   let paramIndex = 1;
