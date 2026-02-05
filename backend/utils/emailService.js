@@ -57,7 +57,7 @@ ${text || html?.replace(/<[^>]*>/g, '') || ''}
 /**
  * Enviar email de recuperação de senha
  */
-export async function sendPasswordResetEmail(email, resetToken) {
+async function sendPasswordResetEmail(email, resetToken) {
   const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${resetToken}`;
   
   const html = `
