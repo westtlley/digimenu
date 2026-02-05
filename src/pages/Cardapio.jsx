@@ -35,6 +35,7 @@ import LoyaltyDashboard from '../components/menu/LoyaltyDashboard';
 import LoyaltyPointsDisplay from '../components/menu/LoyaltyPointsDisplay';
 import AIChatbot from '../components/menu/AIChatbot';
 import FavoritesList from '../components/menu/FavoritesList';
+import ReferralCodeModal from '../components/menu/ReferralCodeModal';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useLoyalty } from '@/hooks/useLoyalty';
 import { useWebSocket } from '@/hooks/useWebSocket';
@@ -103,6 +104,7 @@ export default function Cardapio() {
   const [userProfilePicture, setUserProfilePicture] = useState(null);
   const [showSplash, setShowSplash] = useState(false);
   const [showFavoritesList, setShowFavoritesList] = useState(false);
+  const [showReferralCode, setShowReferralCode] = useState(false);
 
   const queryClient = useQueryClient();
 

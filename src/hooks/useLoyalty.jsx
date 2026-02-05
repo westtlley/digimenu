@@ -67,7 +67,8 @@ export function useLoyalty(customerPhone, customerEmail, slug) {
     referredBy: null,
     consecutiveDays: 0,
     firstReviewDate: null,
-    lastBirthdayBonus: null
+    lastBirthdayBonus: null,
+    lastConsecutiveBonusAt: 0
   });
 
   const [loading, setLoading] = useState(true);
@@ -102,7 +103,8 @@ export function useLoyalty(customerPhone, customerEmail, slug) {
               referredBy: data.referred_by,
               consecutiveDays: data.consecutive_days || 0,
               firstReviewDate: data.first_review_date,
-              lastBirthdayBonus: data.last_birthday_bonus
+              lastBirthdayBonus: data.last_birthday_bonus,
+              lastConsecutiveBonusAt: data.last_consecutive_bonus_at ?? 0
             });
             setLoading(false);
             return;
@@ -156,7 +158,8 @@ export function useLoyalty(customerPhone, customerEmail, slug) {
             referred_by: updated.referredBy,
             consecutive_days: updated.consecutiveDays || 0,
             first_review_date: updated.firstReviewDate,
-            last_birthday_bonus: updated.lastBirthdayBonus
+            last_birthday_bonus: updated.lastBirthdayBonus,
+            last_consecutive_bonus_at: updated.lastConsecutiveBonusAt ?? 0
           };
 
           if (loyaltyEntities && loyaltyEntities.length > 0) {
@@ -301,6 +304,24 @@ export function useLoyalty(customerPhone, customerEmail, slug) {
     await addBonus(20, 'avaliacao');
     return { success: true, message: 'Obrigado pela avaliação! Você ganhou 20 pontos!' };
   }, [addBonus]);
+
+  // Verificar e aplicar bônus de compras consecutivas (3 ou 7 dias)
+  const checkConsecutiveOrdersBonus = useCallback(async () => {
+    const consecutive = loyaltyData.consecutiveDays || 0;
+    const lastClaimed = loyaltyData.lastConsecutiveBonusAt ?? 0;
+
+    if (consecutive >= 7 && lastClaimed < 7) {
+      await addBonus(30, 'consecutivo_7');
+      await saveLoyaltyData({ lastConsecutiveBonusAt: 7 });
+      return { success: true, message: '🎉 7 pedidos seguidos! Você ganhou 30 pontos de bônus!' };
+    }
+    if (consecutive >= 3 && lastClaimed < 3) {
+      await addBonus(15, 'consecutivo_3');
+      await saveLoyaltyData({ lastConsecutiveBonusAt: 3 });
+      return { success: true, message: '🔥 3 pedidos seguidos! Você ganhou 15 pontos de bônus!' };
+    }
+    return { success: false };
+  }, [loyaltyData.consecutiveDays, loyaltyData.lastConsecutiveBonusAt, addBonus, saveLoyaltyData]);
 
   return {
     loyaltyData,
