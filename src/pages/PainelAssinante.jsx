@@ -257,45 +257,12 @@ export default function PainelAssinante() {
               />
             )}
             
-            {/* Mobile: Menu rápido em drawer */}
-            <div className="lg:hidden">
-              <MobileQuickMenu
-                isMaster={isMaster}
-                hasGestorAccess={hasModuleAccess('gestor_pedidos')}
-                slug={slug}
-              />
-            </div>
-
-            {/* Desktop: Botões individuais */}
-            <div className="hidden lg:flex items-center gap-2">
-              {hasModuleAccess('pdv') && (
-                <Link to={to('PDV')}>
-                  <Button size="sm" className="bg-white text-orange-600 hover:bg-orange-50 min-h-touch">
-                    <Calculator className="w-4 h-4 mr-2" />
-                    PDV
-                  </Button>
-                </Link>
-              )}
-              {hasModuleAccess('gestor_pedidos') ? (
-                <Link to={to('GestorPedidos')}>
-                  <Button size="sm" className="bg-white text-orange-600 hover:bg-orange-50 min-h-touch">
-                    <Settings className="w-4 h-4 mr-2" />
-                    Gestor
-                  </Button>
-                </Link>
-              ) : (
-                <Button size="sm" className="bg-white/50 text-orange-400 cursor-not-allowed" disabled title="Não disponível no seu plano">
-                  <Settings className="w-4 h-4 mr-2" />
-                  Gestor
-                </Button>
-              )}
-              <Link to={to('Cardapio')}>
-                <Button size="sm" className="bg-white text-orange-600 hover:bg-orange-50 min-h-touch">
-                  <UtensilsCrossed className="w-4 h-4 mr-2" />
-                  Cardápio
-                </Button>
-              </Link>
-            </div>
+            {/* Menu Rápido - Mobile e Desktop */}
+            <MobileQuickMenu
+              isMaster={isMaster}
+              hasGestorAccess={hasModuleAccess('gestor_pedidos')}
+              slug={slug}
+            />
 
             <AlertDialog>
               <AlertDialogTrigger asChild>

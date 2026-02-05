@@ -360,56 +360,12 @@ export default function Admin() {
               />
             )}
             
-            {/* Mobile: Menu rápido em drawer */}
-            <div className="lg:hidden">
-              <MobileQuickMenu
-                isMaster={isMaster}
-                hasGestorAccess={hasGestorAccess}
-                slug={user?.slug || subscriberData?.slug}
-              />
-            </div>
-
-            {/* Desktop: Botões individuais */}
-            <div className="hidden lg:flex items-center gap-2">
-              {isMaster && (
-                <>
-                  <Link to={createPageUrl('AdminMasterDashboard')}>
-                    <Button variant="ghost" size="icon" className="text-white bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 w-auto px-3 font-semibold shadow-lg min-h-touch" title="Dashboard Executivo">
-                      <BarChart3 className="w-4 h-4 mr-2" />
-                      <span>Dashboard</span>
-                    </Button>
-                  </Link>
-                  <Link to={createPageUrl('Assinantes')}>
-                    <Button variant="ghost" size="icon" className="text-white bg-purple-600 hover:bg-purple-700 w-auto px-3 min-h-touch">
-                      <Users className="w-4 h-4 mr-2" />
-                      <span>Assinantes</span>
-                    </Button>
-                  </Link>
-                </>
-              )}
-              <Link to={createPageUrl('PDV')}>
-                <Button variant="ghost" size="icon" className="text-white bg-blue-600 hover:bg-blue-700 w-auto px-3 min-h-touch" title="PDV">
-                  <Calculator className="w-4 h-4 mr-2" />
-                  <span>PDV</span>
-                </Button>
-              </Link>
-              {hasGestorAccess && (
-                <Link to={createPageUrl('GestorPedidos')}>
-                  <Button variant="ghost" size="icon" className="text-white bg-orange-600 hover:bg-orange-700 w-auto px-3 min-h-touch" title="Gestor de Pedidos">
-                    <Settings className="w-4 h-4 mr-2" />
-                    <span>Gestor</span>
-                  </Button>
-                </Link>
-              )}
-              {(user?.slug || subscriberData?.slug) && (
-                <Link to={createPageUrl('Cardapio', user?.slug || subscriberData?.slug)}>
-                  <Button variant="ghost" size="icon" className="text-white bg-green-600 hover:bg-green-700 w-auto px-3 min-h-touch" title="Cardápio">
-                    <UtensilsCrossed className="w-4 h-4 mr-2" />
-                    <span>Cardápio</span>
-                  </Button>
-                </Link>
-              )}
-            </div>
+            {/* Menu Rápido - Mobile e Desktop */}
+            <MobileQuickMenu
+              isMaster={isMaster}
+              hasGestorAccess={hasGestorAccess}
+              slug={user?.slug || subscriberData?.slug}
+            />
 
             {isMaster && (
               <Button variant="ghost" size="icon" className="text-white bg-amber-600/80 hover:bg-amber-600 sm:w-auto sm:px-3 min-h-touch min-w-touch" title="Alterar minha senha" onClick={() => setShowChangePassword(true)}>
