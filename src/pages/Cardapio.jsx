@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { apiClient as base44 } from '@/api/apiClient';
 import { createPageUrl } from '@/utils';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ShoppingCart, Search, Clock, Star, Share2, MapPin, Info, Home, Receipt, Gift, User, MessageSquare, UtensilsCrossed, Instagram, Facebook, Phone, Package, Music2, Calendar, Heart } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -47,6 +47,7 @@ import { useCoupons } from '@/components/hooks/useCoupons';
 import { useCustomer } from '@/components/hooks/useCustomer';
 import { useDocumentHead } from '@/hooks/useDocumentHead';
 import { useAdaptedTheme } from '@/hooks/useAdaptedTheme';
+import { useFavoritePromotions } from '@/hooks/useFavoritePromotions';
 
 // Services & Utils
 import { orderService } from '@/components/services/orderService';
@@ -144,14 +145,6 @@ export default function Cardapio() {
       });
     }
   });
-
-  // Detectar promoções em pratos favoritos
-  useFavoritePromotions(
-    dishesResolved,
-    userEmail,
-    customer.phone?.replace(/\D/g, ''),
-    slug
-  );
 
   // Estado para timeout de carregamento
   const [loadingTimeout, setLoadingTimeout] = useState(false);
@@ -293,6 +286,14 @@ export default function Cardapio() {
   const loadingDishes = slug ? publicLoading : dishesLoading;
 
   useDocumentHead(store);
+
+  // Detectar promoções em pratos favoritos (após dishesResolved estar definido)
+  useFavoritePromotions(
+    dishesResolved,
+    userEmail,
+    customer.phone?.replace(/\D/g, ''),
+    slug
+  );
 
   const createOrderMutation = useMutation({
     mutationFn: (data) => base44.entities.Order.create(data)
