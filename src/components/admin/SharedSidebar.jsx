@@ -78,11 +78,7 @@ const MENU_STRUCTURE = [
     icon: UtensilsCrossed,
     section: 'section',
     submenu: [
-      { id: 'restaurante_grp', label: 'Restaurante', icon: UtensilsCrossed, section: 'subsection', submenu: [
-        { id: 'dishes', label: 'Pratos', icon: UtensilsCrossed, module: 'dishes' },
-        { id: 'categories', label: 'Categorias', icon: Layers, module: 'dishes' },
-        { id: 'complements', label: 'Complementos', icon: LayoutGrid, module: 'dishes' },
-      ]},
+      { id: 'dishes', label: 'Restaurante', icon: UtensilsCrossed, module: 'dishes' },
       { id: 'pizza_config', label: 'Pizzaria', icon: Pizza, module: 'pizza_config' },
       { id: 'beverages', label: 'Bebidas', icon: Wine, module: 'dishes' },
     ]
@@ -157,7 +153,6 @@ export default function SharedSidebar({
     gestao: true,
     operacao: true,
     cardapio: true,
-    restaurante_grp: true,
     garcom: true, // Seção GARÇOM (Comandas e Mesas)
     delivery: true,
     sistema: true,

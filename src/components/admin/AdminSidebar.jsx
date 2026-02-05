@@ -71,9 +71,7 @@ const MENU_STRUCTURE = [
     icon: UtensilsCrossed,
     section: 'section',
     submenu: [
-      { id: 'restaurante_grp', label: 'Restaurante', icon: UtensilsCrossed, section: 'subsection', submenu: [
-        { id: 'dishes', label: 'Pratos (Categorias e Complementos)', icon: UtensilsCrossed, module: 'dishes' },
-      ]},
+      { id: 'dishes', label: 'Restaurante', icon: UtensilsCrossed, module: 'dishes' },
       { id: 'pizza_config', label: 'Pizzaria', icon: Pizza, module: 'pizza_config' },
       { id: 'beverages', label: 'Bebidas', icon: Wine, module: 'dishes' },
     ]
@@ -137,7 +135,6 @@ export default function AdminSidebar({ activeTab, setActiveTab, isMaster = false
     gestao: true,
     operacao: true,
     cardapio: true,
-    restaurante_grp: true,
     garcom: true, // Seção GARÇOM (Comandas e Mesas)
     delivery: true,
     sistema: true,
