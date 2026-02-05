@@ -56,17 +56,34 @@ O sistema valida automaticamente:
 3. **Slug antigo**: Fica disponível para outros assinantes usarem
 4. **URLs antigas**: Links antigos (`/s/restaurante-antigo`) **NÃO funcionam mais**
 
+### ✅ IMPORTANTE: Dados NÃO são Perdidos!
+
+**🎉 BOA NOTÍCIA: Todos os dados são preservados quando o slug muda!**
+
+Os dados estão vinculados ao **`subscriber_email`** (email do assinante), **NÃO ao slug**. Isso significa:
+
+- ✅ **Pratos**: Continuam salvos e acessíveis
+- ✅ **Pedidos**: Histórico completo preservado
+- ✅ **Clientes**: Base de clientes mantida
+- ✅ **Categorias**: Todas as categorias preservadas
+- ✅ **Configurações**: Loja, horários, etc. mantidos
+- ✅ **Promoções e Cupons**: Todos preservados
+
+**O slug é apenas um identificador da URL do cardápio público. A troca de slug não afeta os dados!**
+
 ### ⚠️ IMPORTANTE: URLs Antigas
 
 **Quando um assinante troca o slug:**
 - ❌ URLs antigas (`/s/slug-antigo`) **param de funcionar**
 - ✅ Nova URL (`/s/slug-novo`) funciona imediatamente
 - ⚠️ **Não há redirecionamento automático** da URL antiga para a nova
+- ✅ **Todos os dados permanecem acessíveis** pela nova URL
 
 **Recomendações:**
 - ⚠️ **Evite trocar o slug** se já compartilhou o link com clientes
 - 📱 **Comunique a mudança** aos clientes se necessário trocar
 - 🔗 **Atualize QR codes** e materiais impressos se o slug mudar
+- ✅ **Não se preocupe com perda de dados** - tudo é preservado!
 
 ## 🚫 O que acontece quando dois assinantes tentam usar o mesmo slug?
 
@@ -195,14 +212,21 @@ ALTER TABLE subscribers ADD COLUMN slug VARCHAR(100) UNIQUE;
 2. **Evite trocar o slug**
    - Se já compartilhou o link, trocar quebra os links antigos
    - Considere criar novo assinante se precisar de slug diferente
+   - **Mas lembre-se**: Se precisar trocar, seus dados estarão seguros!
 
 3. **Comunique mudanças**
    - Se precisar trocar, avise clientes
    - Atualize QR codes e materiais impressos
+   - Informe que a nova URL terá todos os dados preservados
 
 4. **Teste antes de publicar**
    - Verifique se o slug está disponível
    - Teste a URL antes de compartilhar
+
+5. **Tranquilidade sobre dados**
+   - Saiba que seus dados estão seguros mesmo ao trocar o slug
+   - O sistema usa `subscriber_email` como identificador principal
+   - Slug é apenas para URLs públicas
 
 ## 🐛 Troubleshooting
 
