@@ -32,7 +32,8 @@ import {
   Sparkles,
   UserCog,
   Key,
-  Shield
+  Shield,
+  Wine
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient as base44 } from '@/api/apiClient';
