@@ -6,11 +6,14 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { 
   Users, Search, Phone, Mail, DollarSign, ShoppingCart, 
   Clock, Ban, CheckCircle, MoreVertical, TrendingUp, Filter,
   Eye, Package, Calendar
 } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,11 +35,18 @@ export default function ClientsTab() {
   const [sortBy, setSortBy] = useState('recent'); // recent, spending, frequency
   const [selectedClient, setSelectedClient] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
   const queryClient = useQueryClient();
+  const isMobile = useIsMobile();
 
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ['clientOrders'],
     queryFn: () => base44.entities.Order.list('-created_date'),
+  });
+
+  // Pull to refresh
+  const { isRefreshing } = usePullToRefresh(() => {
+    return queryClient.invalidateQueries({ queryKey: ['clientOrders'] });
   });
 
   // Agrupar pedidos por cliente
@@ -107,11 +117,19 @@ export default function ClientsTab() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6 relative">
+      {/* Pull to refresh indicator */}
+      {isRefreshing && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-orange-500 text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2">
+          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          <span className="text-sm font-medium">Atualizando...</span>
+        </div>
+      )}
+
       {/* Header */}
       <div>
-        <h2 className="text-2xl font-bold text-gray-800 mb-2">Clientes</h2>
-        <p className="text-gray-600">Gerencie seus clientes e veja estatísticas</p>
+        <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-2">Clientes</h2>
+        <p className="text-sm sm:text-base text-gray-600">Gerencie seus clientes e veja estatísticas</p>
       </div>
 
       {/* Stats */}
@@ -147,28 +165,84 @@ export default function ClientsTab() {
         </Card>
       </div>
 
-      {/* Filtros */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <Input
-            placeholder="Buscar por nome, email ou telefone..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
+      {/* Filtros - Mobile: Sheet, Desktop: Inline */}
+      {isMobile ? (
+        <div className="flex items-center justify-between bg-white p-3 rounded-xl shadow-sm">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-gray-700">
+              {filteredClients.length} cliente(s)
+            </span>
+          </div>
+          <Sheet open={showFilters} onOpenChange={setShowFilters}>
+            <SheetTrigger asChild>
+              <Button variant="outline" size="sm" className="min-h-touch">
+                <Filter className="w-4 h-4 mr-2" />
+                Filtros
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="bottom" className="h-auto max-h-[80vh] rounded-t-2xl">
+              <SheetHeader>
+                <SheetTitle>Filtros</SheetTitle>
+              </SheetHeader>
+              <div className="space-y-4 mt-4 pb-safe">
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Buscar</label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Input
+                      placeholder="Nome, email ou telefone..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10 min-h-touch"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Ordenar por</label>
+                  <Select value={sortBy} onValueChange={setSortBy}>
+                    <SelectTrigger className="min-h-touch">
+                      <SelectValue placeholder="Ordenar por" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="recent">Mais Recentes</SelectItem>
+                      <SelectItem value="spending">Maior Gasto</SelectItem>
+                      <SelectItem value="frequency">Mais Pedidos</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button 
+                  onClick={() => setShowFilters(false)} 
+                  className="w-full min-h-touch"
+                >
+                  Aplicar Filtros
+                </Button>
+              </div>
+            </SheetContent>
+          </Sheet>
         </div>
-        <Select value={sortBy} onValueChange={setSortBy}>
-          <SelectTrigger className="w-full sm:w-48">
-            <SelectValue placeholder="Ordenar por" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="recent">Mais Recentes</SelectItem>
-            <SelectItem value="spending">Maior Gasto</SelectItem>
-            <SelectItem value="frequency">Mais Pedidos</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      ) : (
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Input
+              placeholder="Buscar por nome, email ou telefone..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <Select value={sortBy} onValueChange={setSortBy}>
+            <SelectTrigger className="w-full sm:w-48">
+              <SelectValue placeholder="Ordenar por" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="recent">Mais Recentes</SelectItem>
+              <SelectItem value="spending">Maior Gasto</SelectItem>
+              <SelectItem value="frequency">Mais Pedidos</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       {/* Lista de Clientes */}
       <div className="space-y-3">
@@ -273,58 +347,58 @@ export default function ClientsTab() {
       <Dialog open={showDetailModal} onOpenChange={setShowDetailModal}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Users className="w-5 h-5" />
-              {selectedClient?.name}
+            <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <Users className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span className="truncate">{selectedClient?.name}</span>
             </DialogTitle>
           </DialogHeader>
           {selectedClient && (
-            <div className="space-y-6 py-4">
+            <div className="space-y-4 sm:space-y-6 py-2 sm:py-4">
               {/* Informações do Cliente */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <Card>
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="w-16 h-16 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full flex items-center justify-center text-white font-bold text-2xl">
+                  <CardContent className="p-3 sm:p-4">
+                    <div className="flex items-center gap-2 sm:gap-3 mb-3">
+                      <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full flex items-center justify-center text-white font-bold text-xl sm:text-2xl flex-shrink-0">
                         {selectedClient.name.charAt(0).toUpperCase()}
                       </div>
-                      <div>
-                        <h3 className="font-bold text-lg">{selectedClient.name}</h3>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-bold text-base sm:text-lg truncate">{selectedClient.name}</h3>
                         {selectedClient.email !== 'sem-email' && (
-                          <p className="text-sm text-gray-600">{selectedClient.email}</p>
+                          <p className="text-xs sm:text-sm text-gray-600 truncate">{selectedClient.email}</p>
                         )}
                       </div>
                     </div>
                     {selectedClient.phone && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <Phone className="w-4 h-4 text-gray-400" />
-                        <span>{selectedClient.phone}</span>
+                      <div className="flex items-center gap-2 text-xs sm:text-sm">
+                        <Phone className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400 flex-shrink-0" />
+                        <span className="truncate">{selectedClient.phone}</span>
                       </div>
                     )}
                   </CardContent>
                 </Card>
 
                 <Card>
-                  <CardContent className="p-4">
-                    <div className="space-y-3">
+                  <CardContent className="p-3 sm:p-4">
+                    <div className="space-y-2 sm:space-y-3">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Total Gasto</span>
-                        <span className="text-2xl font-bold text-green-600">{formatCurrency(selectedClient.totalSpent)}</span>
+                        <span className="text-xs sm:text-sm text-gray-600">Total Gasto</span>
+                        <span className="text-lg sm:text-2xl font-bold text-green-600">{formatCurrency(selectedClient.totalSpent)}</span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Pedidos</span>
-                        <span className="text-xl font-semibold">{selectedClient.orders.length}</span>
+                        <span className="text-xs sm:text-sm text-gray-600">Pedidos</span>
+                        <span className="text-base sm:text-xl font-semibold">{selectedClient.orders.length}</span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Ticket Médio</span>
-                        <span className="text-lg font-semibold">
+                        <span className="text-xs sm:text-sm text-gray-600">Ticket Médio</span>
+                        <span className="text-sm sm:text-lg font-semibold">
                           {formatCurrency(selectedClient.orders.length > 0 ? selectedClient.totalSpent / selectedClient.orders.length : 0)}
                         </span>
                       </div>
                       {selectedClient.lastOrderDate && (
                         <div className="flex items-center justify-between pt-2 border-t">
-                          <span className="text-sm text-gray-600">Último Pedido</span>
-                          <span className="text-sm font-medium">{selectedClient.lastOrderDate.fromNow()}</span>
+                          <span className="text-xs sm:text-sm text-gray-600">Último Pedido</span>
+                          <span className="text-xs sm:text-sm font-medium">{selectedClient.lastOrderDate.fromNow()}</span>
                         </div>
                       )}
                     </div>
@@ -334,14 +408,14 @@ export default function ClientsTab() {
 
               {/* Histórico de Pedidos */}
               <div>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Package className="w-5 h-5" />
+                <CardHeader className="p-3 sm:p-6">
+                  <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                    <Package className="w-4 h-4 sm:w-5 sm:h-5" />
                     Histórico de Pedidos ({selectedClient.orders.length})
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="space-y-3 max-h-96 overflow-y-auto">
+                <CardContent className="p-3 sm:p-6 pt-0">
+                  <div className="space-y-2 sm:space-y-3 max-h-64 sm:max-h-96 overflow-y-auto">
                     {selectedClient.orders.length === 0 ? (
                       <p className="text-center text-gray-500 py-8">Nenhum pedido registrado</p>
                     ) : (

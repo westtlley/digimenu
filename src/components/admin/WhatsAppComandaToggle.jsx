@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { Switch } from '@/components/ui/switch';
+import { Button } from '@/components/ui/button';
+import { Power, PowerOff } from 'lucide-react';
 import { apiClient as base44 } from '@/api/apiClient';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 
 /**
- * Toggle "Comanda WhatsApp": se ativado, ao finalizar pedido no cardápio
+ * Botão liga/desliga "Comanda WhatsApp": se ativado, ao finalizar pedido no cardápio
  * além de registrar no gestor também envia a comanda formatada para o WhatsApp da loja.
  * Se desativado, apenas registra no gestor (não envia para o WhatsApp).
  * Usa store.send_whatsapp_commands ou subscriber.whatsapp_auto_enabled (Subscriber).
  */
-export default function WhatsAppComandaToggle({ store, subscriber }) {
+export default function WhatsAppComandaToggle({ store, subscriber, compact = false }) {
   const queryClient = useQueryClient();
   const useStore = !!store?.id;
   const useSub = !!subscriber?.id && !useStore;
@@ -51,17 +52,63 @@ export default function WhatsAppComandaToggle({ store, subscriber }) {
   });
 
   const mutation = useStore ? updateStore : updateSubscriber;
-  const handleChange = (checked) => { setLocalValue(checked); mutation.mutate(checked); };
+  const handleClick = () => {
+    const newValue = !localValue;
+    setLocalValue(newValue);
+    mutation.mutate(newValue);
+  };
 
   if (!useStore && !useSub) return null;
 
+  // Versão compacta (apenas ícone)
+  if (compact) {
+    return (
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={handleClick}
+        disabled={mutation.isPending}
+        className={`min-h-touch min-w-touch ${
+          localValue 
+            ? 'text-white bg-green-600/80 hover:bg-green-600' 
+            : 'text-white bg-gray-600/80 hover:bg-gray-600'
+        }`}
+        title={localValue ? 'Comanda WhatsApp: Ligado' : 'Comanda WhatsApp: Desligado'}
+      >
+        {localValue ? (
+          <Power className="w-4 h-4" />
+        ) : (
+          <PowerOff className="w-4 h-4" />
+        )}
+      </Button>
+    );
+  }
+
+  // Versão completa (com texto)
   return (
-    <div className="flex items-center gap-2 bg-white/10 px-3 py-2 rounded-lg">
-      <div className="flex-1 min-w-0">
-        <p className="text-xs font-medium text-white">Comanda WhatsApp</p>
-        <p className="text-[10px] text-orange-100">Enviar pedidos via WhatsApp</p>
-      </div>
-      <Switch checked={localValue} onCheckedChange={handleChange} disabled={mutation.isPending} />
-    </div>
+    <Button
+      variant="ghost"
+      size="sm"
+      onClick={handleClick}
+      disabled={mutation.isPending}
+      className={`min-h-touch ${
+        localValue 
+          ? 'text-white bg-green-600/80 hover:bg-green-600' 
+          : 'text-white bg-gray-600/80 hover:bg-gray-600'
+      }`}
+      title={localValue ? 'Desativar Comanda WhatsApp' : 'Ativar Comanda WhatsApp'}
+    >
+      {localValue ? (
+        <>
+          <Power className="w-4 h-4 mr-2" />
+          <span className="hidden sm:inline">WhatsApp ON</span>
+        </>
+      ) : (
+        <>
+          <PowerOff className="w-4 h-4 mr-2" />
+          <span className="hidden sm:inline">WhatsApp OFF</span>
+        </>
+      )}
+    </Button>
   );
 }

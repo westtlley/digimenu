@@ -519,32 +519,35 @@ function ComandaFormModal({
         <form onSubmit={handleSubmit} className="space-y-4">
           {!isClose && (
             <>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <Label>Mesa</Label>
+                  <Label className="text-sm font-medium mb-2 block">Mesa</Label>
                   <Input
                     value={table_name}
                     onChange={(e) => setTableName(e.target.value)}
                     placeholder="Ex: 1"
+                    className="min-h-touch"
                     style={{ backgroundColor: 'var(--bg-input)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}
                   />
                 </div>
                 <div>
-                  <Label>Cliente</Label>
+                  <Label className="text-sm font-medium mb-2 block">Cliente</Label>
                   <Input
                     value={customer_name}
                     onChange={(e) => setCustomerName(e.target.value)}
                     placeholder="Nome"
+                    className="min-h-touch"
                     style={{ backgroundColor: 'var(--bg-input)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}
                   />
                 </div>
               </div>
               <div>
-                <Label>Telefone</Label>
+                <Label className="text-sm font-medium mb-2 block">Telefone</Label>
                 <Input
                   value={customer_phone}
                   onChange={(e) => setCustomerPhone(e.target.value)}
                   placeholder="(00) 00000-0000"
+                  className="min-h-touch"
                   style={{ backgroundColor: 'var(--bg-input)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}
                 />
               </div>

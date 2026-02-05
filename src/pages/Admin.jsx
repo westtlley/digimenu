@@ -30,6 +30,7 @@ import FinancialTab from '../components/admin/FinancialTab';
 import OrderHistoryTab from '../components/admin/OrderHistoryTab';
 import ErrorBoundary from '../components/ErrorBoundary';
 import WhatsAppComandaToggle from '../components/admin/WhatsAppComandaToggle';
+import MobileQuickMenu from '../components/admin/MobileQuickMenu';
 import MasterSlugSettings from '../components/admin/MasterSlugSettings';
 import ServiceRequestsTab from '../components/admin/ServiceRequestsTab';
 import TablesTab from '../components/admin/TablesTab';
@@ -307,19 +308,19 @@ export default function Admin() {
       <div className="min-h-screen min-h-screen-mobile flex flex-col bg-gray-100 dark:bg-gray-900">
       {/* Header Profissional com Logo */}
       <header className="text-white flex-shrink-0 sticky top-0 z-50 bg-gradient-to-r from-gray-800 via-gray-900 to-gray-800 border-b border-gray-700 shadow-lg safe-top">
-        <div className="px-3 sm:px-4 py-2 sm:py-3 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0 shrink-0">
+        <div className="px-2 sm:px-4 py-2 sm:py-3 flex items-center justify-between gap-1 sm:gap-2 max-w-full overflow-hidden">
+          <div className="flex items-center gap-1.5 sm:gap-3 flex-1 min-w-0 shrink-0">
             <button
               onClick={() => setShowMobileSidebar(true)}
-              className="lg:hidden min-h-touch min-w-touch flex items-center justify-center p-2 -m-1 rounded-lg transition-colors hover:bg-white/10"
+              className="lg:hidden min-h-touch min-w-touch flex items-center justify-center p-2 -m-1 rounded-lg transition-colors hover:bg-white/10 flex-shrink-0"
               aria-label="Abrir menu"
             >
-              <Menu className="w-6 h-6" />
+              <Menu className="w-5 h-5 sm:w-6 sm:h-6" />
             </button>
             
             {/* Logo da Loja */}
             {store?.logo ? (
-              <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 border-2 border-white/20 shadow-md">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg overflow-hidden flex-shrink-0 border-2 border-white/20 shadow-md">
                 <img 
                   src={store.logo} 
                   alt={store.name || 'Loja'} 
@@ -332,64 +333,84 @@ export default function Admin() {
                   }}
                 />
                 <div className="w-full h-full bg-white/20 flex items-center justify-center hidden">
-                  <Settings className="w-6 h-6 text-white" />
+                  <Settings className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                 </div>
               </div>
             ) : (
-              <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0 border-2 border-white/20">
-                <Settings className="w-6 h-6 text-white" />
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0 border-2 border-white/20">
+                <Settings className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
               </div>
             )}
             
             <div className="flex-1 min-w-0">
-              <h1 className="font-semibold text-sm sm:text-base truncate">
+              <h1 className="font-semibold text-xs sm:text-sm md:text-base truncate">
                 {store?.name || 'Painel Admin'}
               </h1>
-              <p className="text-xs text-gray-300 truncate">Administração Master</p>
+              <p className="text-[10px] sm:text-xs text-gray-300 truncate">Administração Master</p>
             </div>
           </div>
           <div className="flex items-center gap-1 sm:gap-2 min-h-touch overflow-x-auto scrollbar-hide flex-shrink-0">
             <InstallAppButton pageName="Admin" compact />
             <ThemeToggle className="text-white hover:bg-gray-700 min-h-touch min-w-touch" />
-            {(store?.id || subscriberData?.id) && <WhatsAppComandaToggle store={store} subscriber={subscriberData} />}
-            {isMaster && (
-              <>
-                <Link to={createPageUrl('AdminMasterDashboard')}>
-                  <Button variant="ghost" size="icon" className="text-white bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 sm:w-auto sm:px-3 font-semibold shadow-lg min-h-touch min-w-touch" title="Dashboard Executivo">
-                    <BarChart3 className="w-4 h-4 sm:mr-2" />
-                    <span className="hidden sm:inline">Dashboard</span>
-                  </Button>
-                </Link>
-                <Link to={createPageUrl('Assinantes')}>
-                  <Button variant="ghost" size="icon" className="text-white bg-purple-600 hover:bg-purple-700 sm:w-auto sm:px-3 min-h-touch min-w-touch">
-                    <Users className="w-4 h-4 sm:mr-2" />
-                    <span className="hidden sm:inline">Assinantes</span>
-                  </Button>
-                </Link>
-              </>
+            {(store?.id || subscriberData?.id) && (
+              <WhatsAppComandaToggle 
+                store={store} 
+                subscriber={subscriberData} 
+                compact={true}
+              />
             )}
-            <Link to={createPageUrl('PDV')}>
-              <Button variant="ghost" size="icon" className="text-white bg-blue-600 hover:bg-blue-700 sm:w-auto sm:px-3 min-h-touch min-w-touch" title="PDV">
-                <Calculator className="w-4 h-4 sm:mr-2" />
-                <span className="hidden sm:inline">PDV</span>
-              </Button>
-            </Link>
-            {hasGestorAccess && (
-              <Link to={createPageUrl('GestorPedidos')}>
-                <Button variant="ghost" size="icon" className="text-white bg-orange-600 hover:bg-orange-700 sm:w-auto sm:px-3 min-h-touch min-w-touch" title="Gestor de Pedidos">
-                  <Settings className="w-4 h-4 sm:mr-2" />
-                  <span className="hidden sm:inline">Gestor</span>
+            
+            {/* Mobile: Menu rápido em drawer */}
+            <div className="lg:hidden">
+              <MobileQuickMenu
+                isMaster={isMaster}
+                hasGestorAccess={hasGestorAccess}
+                slug={user?.slug || subscriberData?.slug}
+              />
+            </div>
+
+            {/* Desktop: Botões individuais */}
+            <div className="hidden lg:flex items-center gap-2">
+              {isMaster && (
+                <>
+                  <Link to={createPageUrl('AdminMasterDashboard')}>
+                    <Button variant="ghost" size="icon" className="text-white bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 w-auto px-3 font-semibold shadow-lg min-h-touch" title="Dashboard Executivo">
+                      <BarChart3 className="w-4 h-4 mr-2" />
+                      <span>Dashboard</span>
+                    </Button>
+                  </Link>
+                  <Link to={createPageUrl('Assinantes')}>
+                    <Button variant="ghost" size="icon" className="text-white bg-purple-600 hover:bg-purple-700 w-auto px-3 min-h-touch">
+                      <Users className="w-4 h-4 mr-2" />
+                      <span>Assinantes</span>
+                    </Button>
+                  </Link>
+                </>
+              )}
+              <Link to={createPageUrl('PDV')}>
+                <Button variant="ghost" size="icon" className="text-white bg-blue-600 hover:bg-blue-700 w-auto px-3 min-h-touch" title="PDV">
+                  <Calculator className="w-4 h-4 mr-2" />
+                  <span>PDV</span>
                 </Button>
               </Link>
-            )}
-            {(user?.slug || subscriberData?.slug) && (
-              <Link to={createPageUrl('Cardapio', user?.slug || subscriberData?.slug)}>
-                <Button variant="ghost" size="icon" className="text-white bg-green-600 hover:bg-green-700 sm:w-auto sm:px-3 min-h-touch min-w-touch" title="Cardápio">
-                  <UtensilsCrossed className="w-4 h-4 sm:mr-2" />
-                  <span className="hidden sm:inline">Cardápio</span>
-                </Button>
-              </Link>
-            )}
+              {hasGestorAccess && (
+                <Link to={createPageUrl('GestorPedidos')}>
+                  <Button variant="ghost" size="icon" className="text-white bg-orange-600 hover:bg-orange-700 w-auto px-3 min-h-touch" title="Gestor de Pedidos">
+                    <Settings className="w-4 h-4 mr-2" />
+                    <span>Gestor</span>
+                  </Button>
+                </Link>
+              )}
+              {(user?.slug || subscriberData?.slug) && (
+                <Link to={createPageUrl('Cardapio', user?.slug || subscriberData?.slug)}>
+                  <Button variant="ghost" size="icon" className="text-white bg-green-600 hover:bg-green-700 w-auto px-3 min-h-touch" title="Cardápio">
+                    <UtensilsCrossed className="w-4 h-4 mr-2" />
+                    <span>Cardápio</span>
+                  </Button>
+                </Link>
+              )}
+            </div>
+
             {isMaster && (
               <Button variant="ghost" size="icon" className="text-white bg-amber-600/80 hover:bg-amber-600 sm:w-auto sm:px-3 min-h-touch min-w-touch" title="Alterar minha senha" onClick={() => setShowChangePassword(true)}>
                 <KeyRound className="w-4 h-4 sm:mr-2" />

@@ -5,15 +5,18 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Phone, MapPin, CreditCard, Trash2, Printer, Calendar, Filter, ShoppingCart } from 'lucide-react';
+import { Phone, MapPin, CreditCard, Trash2, Printer, Calendar, Filter, ShoppingCart, X } from 'lucide-react';
 import jsPDF from 'jspdf';
 import { getFullAddress } from '@/utils/gestorExport';
 import EmptyState from '@/components/ui/EmptyState';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import OrdersSkeleton from '../skeletons/OrdersSkeleton';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 
 const STATUS_CONFIG = {
   new: { label: 'Novo', color: 'bg-red-100 text-red-800' },
@@ -37,11 +40,18 @@ const isOrderPDV = (o) => !!(o?.order_code?.startsWith('PDV-') || o?.delivery_me
 export default function OrdersTab({ isMaster, user, subscriberData }) {
   const [dateFilter, setDateFilter] = useState('');
   const [filterType, setFilterType] = useState('all');
+  const [showFilters, setShowFilters] = useState(false);
   const queryClient = useQueryClient();
+  const isMobile = useIsMobile();
 
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ['orders'],
     queryFn: () => base44.entities.Order.list('-created_date'),
+  });
+
+  // Pull to refresh
+  const { isRefreshing } = usePullToRefresh(() => {
+    return queryClient.invalidateQueries({ queryKey: ['orders'] });
   });
 
   const updateMutation = useMutation({
@@ -166,32 +176,116 @@ export default function OrdersTab({ isMaster, user, subscriberData }) {
   }
 
   return (
-    <div className="p-4 sm:p-6">
-      {/* Filter */}
-      <div className="mb-4 sm:mb-6 flex flex-wrap items-center gap-2 sm:gap-4 bg-white p-3 sm:p-4 rounded-xl shadow-sm">
-        <div className="flex items-center gap-2">
-          <Filter className="w-4 h-4 text-gray-500" />
-          <span className="text-xs sm:text-sm text-gray-600">Data:</span>
+    <div className="p-4 sm:p-6 relative">
+      {/* Pull to refresh indicator */}
+      {isRefreshing && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-orange-500 text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2">
+          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          <span className="text-sm font-medium">Atualizando...</span>
         </div>
-        <Input
-          type="date"
-          value={dateFilter}
-          onChange={(e) => setDateFilter(e.target.value)}
-          className="w-auto text-sm"
-        />
-        {dateFilter && (
-          <Button variant="ghost" size="sm" onClick={() => setDateFilter('')} className="text-xs">
-            Limpar
-          </Button>
-        )}
-        <span className="text-xs sm:text-sm text-gray-400 ml-auto">
-          {filteredOrders.length} pedido(s)
-        </span>
-      </div>
+      )}
+
+      {/* Filter - Mobile: Sheet, Desktop: Inline */}
+      {isMobile ? (
+        <>
+          <div className="mb-4 flex items-center justify-between bg-white p-3 rounded-xl shadow-sm">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-gray-700">
+                {filteredOrders.length} pedido(s)
+              </span>
+            </div>
+            <Sheet open={showFilters} onOpenChange={setShowFilters}>
+              <SheetTrigger asChild>
+                <Button variant="outline" size="sm" className="min-h-touch">
+                  <Filter className="w-4 h-4 mr-2" />
+                  Filtros
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="bottom" className="h-auto max-h-[80vh] rounded-t-2xl">
+                <SheetHeader>
+                  <SheetTitle>Filtros</SheetTitle>
+                </SheetHeader>
+                <div className="space-y-4 mt-4 pb-safe">
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Data</label>
+                    <Input
+                      type="date"
+                      value={dateFilter}
+                      onChange={(e) => setDateFilter(e.target.value)}
+                      className="min-h-touch"
+                    />
+                    {dateFilter && (
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => setDateFilter('')} 
+                        className="mt-2 w-full"
+                      >
+                        <X className="w-4 h-4 mr-2" />
+                        Limpar Data
+                      </Button>
+                    )}
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Tipo</label>
+                    <Select value={filterType} onValueChange={setFilterType}>
+                      <SelectTrigger className="min-h-touch">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos</SelectItem>
+                        <SelectItem value="delivery">Delivery</SelectItem>
+                        <SelectItem value="pdv">PDV</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button 
+                    onClick={() => setShowFilters(false)} 
+                    className="w-full min-h-touch"
+                  >
+                    Aplicar Filtros
+                  </Button>
+                </div>
+              </SheetContent>
+            </Sheet>
+          </div>
+        </>
+      ) : (
+        <div className="mb-4 sm:mb-6 flex flex-wrap items-center gap-2 sm:gap-4 bg-white p-3 sm:p-4 rounded-xl shadow-sm">
+          <div className="flex items-center gap-2">
+            <Filter className="w-4 h-4 text-gray-500" />
+            <span className="text-xs sm:text-sm text-gray-600">Data:</span>
+          </div>
+          <Input
+            type="date"
+            value={dateFilter}
+            onChange={(e) => setDateFilter(e.target.value)}
+            className="w-auto text-sm"
+          />
+          <Select value={filterType} onValueChange={setFilterType}>
+            <SelectTrigger className="w-32">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              <SelectItem value="delivery">Delivery</SelectItem>
+              <SelectItem value="pdv">PDV</SelectItem>
+            </SelectContent>
+          </Select>
+          {dateFilter && (
+            <Button variant="ghost" size="sm" onClick={() => setDateFilter('')} className="text-xs">
+              Limpar
+            </Button>
+          )}
+          <span className="text-xs sm:text-sm text-gray-400 ml-auto">
+            {filteredOrders.length} pedido(s)
+          </span>
+        </div>
+      )}
 
       <div className="space-y-3 sm:space-y-4">
         {filteredOrders.map((order) => (
-          <div key={order.id} className="bg-white rounded-xl p-3 sm:p-5 shadow-sm border">
+          <div key={order.id} className="bg-white rounded-xl p-3 sm:p-5 shadow-sm border hover:shadow-md transition-shadow">
             <div className="flex flex-col sm:flex-row sm:items-start justify-between mb-3 sm:mb-4 gap-2">
               <div>
                 <div className="flex flex-wrap items-center gap-2 mb-1">
@@ -216,6 +310,7 @@ export default function OrdersTab({ isMaster, user, subscriberData }) {
                   variant="outline"
                   onClick={() => printOrder(order)}
                   title="Imprimir Comanda"
+                  className="min-h-touch min-w-touch"
                 >
                   <Printer className="w-4 h-4" />
                 </Button>
@@ -226,7 +321,7 @@ export default function OrdersTab({ isMaster, user, subscriberData }) {
                     data: { ...order, status: value },
                   })}
                 >
-                  <SelectTrigger className="w-28 sm:w-36 text-xs sm:text-sm">
+                  <SelectTrigger className="w-28 sm:w-36 text-xs sm:text-sm min-h-touch">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -238,7 +333,7 @@ export default function OrdersTab({ isMaster, user, subscriberData }) {
                 <Button
                   size="icon"
                   variant="ghost"
-                  className="text-red-500 hover:text-red-700"
+                  className="text-red-500 hover:text-red-700 min-h-touch min-w-touch"
                   onClick={() => {
                     if (confirm('Excluir este pedido?')) {
                       deleteMutation.mutate(order.id);
@@ -251,20 +346,20 @@ export default function OrdersTab({ isMaster, user, subscriberData }) {
             </div>
 
             {/* Info do cliente */}
-            <div className="grid md:grid-cols-3 gap-3 mb-4 text-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3 mb-4 text-xs sm:text-sm">
               <div className="flex items-center gap-2 text-gray-600">
-                <Phone className="w-4 h-4" />
-                <span>{order.customer_phone}</span>
+                <Phone className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+                <span className="truncate">{order.customer_phone}</span>
               </div>
               {order.address && (
                 <div className="flex items-center gap-2 text-gray-600">
-                  <MapPin className="w-4 h-4" />
-                  <span>{order.address}</span>
+                  <MapPin className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+                  <span className="truncate">{order.address}</span>
                 </div>
               )}
               <div className="flex items-center gap-2 text-gray-600">
-                <CreditCard className="w-4 h-4" />
-                <span>{PAYMENT_LABELS[order.payment_method] || order.payment_method}</span>
+                <CreditCard className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+                <span className="truncate">{PAYMENT_LABELS[order.payment_method] || order.payment_method}</span>
               </div>
             </div>
 
@@ -297,17 +392,19 @@ export default function OrdersTab({ isMaster, user, subscriberData }) {
             </div>
 
             {/* Totais */}
-            <div className="flex justify-end gap-6 text-sm">
-              <div className="text-gray-500">
-                Subtotal: {formatCurrency(order.subtotal)}
-              </div>
-              {order.delivery_fee > 0 && (
+            <div className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-6 text-xs sm:text-sm pt-3 border-t">
+              <div className="flex justify-between sm:justify-end gap-4 sm:gap-6">
                 <div className="text-gray-500">
-                  Entrega: {formatCurrency(order.delivery_fee)}
+                  Subtotal: {formatCurrency(order.subtotal)}
                 </div>
-              )}
-              <div className="font-bold text-green-600">
-                Total: {formatCurrency(order.total)}
+                {order.delivery_fee > 0 && (
+                  <div className="text-gray-500">
+                    Entrega: {formatCurrency(order.delivery_fee)}
+                  </div>
+                )}
+                <div className="font-bold text-green-600">
+                  Total: {formatCurrency(order.total)}
+                </div>
               </div>
             </div>
           </div>

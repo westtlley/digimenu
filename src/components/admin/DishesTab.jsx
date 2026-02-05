@@ -1625,15 +1625,20 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
           </DialogHeader>
 
           <form onSubmit={handleDishSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <Label>Nome *</Label>
-                <Input value={dishFormData.name} onChange={(e) => setDishFormData(prev => ({ ...prev, name: e.target.value }))} required />
+                <Label className="text-sm font-medium mb-2 block">Nome *</Label>
+                <Input 
+                  value={dishFormData.name} 
+                  onChange={(e) => setDishFormData(prev => ({ ...prev, name: e.target.value }))} 
+                  required 
+                  className="min-h-touch"
+                />
               </div>
               <div>
-                <Label>Categoria *</Label>
+                <Label className="text-sm font-medium mb-2 block">Categoria *</Label>
                 <Select value={dishFormData.category_id} onValueChange={(value) => setDishFormData(prev => ({ ...prev, category_id: value }))} required>
-                  <SelectTrigger>
+                  <SelectTrigger className="min-h-touch">
                     <SelectValue placeholder="Selecione" />
                   </SelectTrigger>
                 <SelectContent>
@@ -1643,20 +1648,35 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <Label>Preço de (R$)</Label>
-                <Input type="number" step="0.01" value={dishFormData.original_price} onChange={(e) => setDishFormData(prev => ({ ...prev, original_price: e.target.value }))} placeholder="Preço original" />
+                <Label className="text-sm font-medium mb-2 block">Preço de (R$)</Label>
+                <Input 
+                  type="number" 
+                  step="0.01" 
+                  value={dishFormData.original_price} 
+                  onChange={(e) => setDishFormData(prev => ({ ...prev, original_price: e.target.value }))} 
+                  placeholder="Preço original" 
+                  className="min-h-touch"
+                />
               </div>
               <div>
-                <Label>Por (R$) *</Label>
-                <Input type="number" step="0.01" value={dishFormData.price} onChange={(e) => setDishFormData(prev => ({ ...prev, price: e.target.value }))} required placeholder="Preço atual" />
+                <Label className="text-sm font-medium mb-2 block">Por (R$) *</Label>
+                <Input 
+                  type="number" 
+                  step="0.01" 
+                  value={dishFormData.price} 
+                  onChange={(e) => setDishFormData(prev => ({ ...prev, price: e.target.value }))} 
+                  required 
+                  placeholder="Preço atual" 
+                  className="min-h-touch"
+                />
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <Label>Estoque</Label>
+                <Label className="text-sm font-medium mb-2 block">Estoque</Label>
                 <div className="flex items-center gap-2">
                   <Input 
                     type="number" 
@@ -1664,7 +1684,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
                     onChange={(e) => setDishFormData(prev => ({ ...prev, stock: e.target.value }))} 
                     placeholder="Ex: 10" 
                     disabled={dishFormData.stock === ''}
-                    className={dishFormData.stock === '' ? 'bg-gray-100' : ''}
+                    className={`min-h-touch ${dishFormData.stock === '' ? 'bg-gray-100' : ''}`}
                   />
                   <div className="flex items-center gap-1 whitespace-nowrap">
                     <Switch 
@@ -1676,8 +1696,13 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
                 </div>
               </div>
               <div>
-                <Label>Porção</Label>
-                <Input value={dishFormData.portion} onChange={(e) => setDishFormData(prev => ({ ...prev, portion: e.target.value }))} placeholder="Ex: 180g, 500ml" />
+                <Label className="text-sm font-medium mb-2 block">Porção</Label>
+                <Input 
+                  value={dishFormData.portion} 
+                  onChange={(e) => setDishFormData(prev => ({ ...prev, portion: e.target.value }))} 
+                  placeholder="Ex: 180g, 500ml" 
+                  className="min-h-touch"
+                />
               </div>
             </div>
 
@@ -1696,14 +1721,25 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
             </div>
 
             <div>
-              <Label>Descrição</Label>
-              <Textarea value={dishFormData.description} onChange={(e) => setDishFormData(prev => ({ ...prev, description: e.target.value }))} rows={2} />
+              <Label className="text-sm font-medium mb-2 block">Descrição</Label>
+              <Textarea 
+                value={dishFormData.description} 
+                onChange={(e) => setDishFormData(prev => ({ ...prev, description: e.target.value }))} 
+                rows={3}
+                className="min-h-[80px]"
+              />
             </div>
 
             {dishFormData.product_type !== 'industrializado' && (
               <div>
-                <Label>Tempo de Preparo (minutos)</Label>
-                <Input type="number" value={dishFormData.prep_time} onChange={(e) => setDishFormData(prev => ({ ...prev, prep_time: e.target.value }))} placeholder="Ex: 30" />
+                <Label className="text-sm font-medium mb-2 block">Tempo de Preparo (minutos)</Label>
+                <Input 
+                  type="number" 
+                  value={dishFormData.prep_time} 
+                  onChange={(e) => setDishFormData(prev => ({ ...prev, prep_time: e.target.value }))} 
+                  placeholder="Ex: 30" 
+                  className="min-h-touch"
+                />
               </div>
             )}
 
@@ -1724,19 +1760,27 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
             </div>
 
             <div>
-              <Label>Observações Internas (não visíveis ao cliente)</Label>
+              <Label className="text-sm font-medium mb-2 block">Observações Internas (não visíveis ao cliente)</Label>
               <Textarea 
                 value={dishFormData.internal_notes} 
                 onChange={(e) => setDishFormData(prev => ({ ...prev, internal_notes: e.target.value }))} 
-                rows={2}
+                rows={3}
                 placeholder="Notas para a equipe..."
+                className="min-h-[80px]"
               />
             </div>
 
             <div>
-              <Label>Imagem</Label>
-              <Input type="file" accept="image/*" onChange={handleImageUpload} />
-              {dishFormData.image && <img src={dishFormData.image} alt="" className="mt-2 w-20 h-20 object-cover rounded" />}
+              <Label className="text-sm font-medium mb-2 block">Imagem</Label>
+              <Input 
+                type="file" 
+                accept="image/*" 
+                onChange={handleImageUpload} 
+                className="min-h-touch"
+              />
+              {dishFormData.image && (
+                <img src={dishFormData.image} alt="" className="mt-2 w-20 h-20 sm:w-24 sm:h-24 object-cover rounded" />
+              )}
             </div>
 
             {/* 🎥 Link do Vídeo — visível junto com Imagem e Destaques */}
@@ -1769,19 +1813,19 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
-                <Label>⭐ Destaque</Label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+              <div className="flex items-center justify-between p-3 sm:p-4 bg-gray-50 rounded min-h-touch">
+                <Label className="text-sm font-medium">⭐ Destaque</Label>
                 <Switch checked={dishFormData.is_highlight} onCheckedChange={(checked) => setDishFormData(prev => ({ ...prev, is_highlight: checked }))} />
               </div>
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
-                <Label>✨ Novo</Label>
+              <div className="flex items-center justify-between p-3 sm:p-4 bg-gray-50 rounded min-h-touch">
+                <Label className="text-sm font-medium">✨ Novo</Label>
                 <Switch checked={dishFormData.is_new} onCheckedChange={(checked) => setDishFormData(prev => ({ ...prev, is_new: checked }))} />
               </div>
             </div>
 
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
-              <Label>🔥 Mais Vendido</Label>
+            <div className="flex items-center justify-between p-3 sm:p-4 bg-gray-50 rounded min-h-touch">
+              <Label className="text-sm font-medium">🔥 Mais Vendido</Label>
               <Switch checked={dishFormData.is_popular} onCheckedChange={(checked) => setDishFormData(prev => ({ ...prev, is_popular: checked }))} />
             </div>
 
@@ -1818,9 +1862,9 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
               </div>
             )}
 
-            <div className="flex gap-3 pt-4">
-              <Button type="button" variant="outline" onClick={closeDishModal} className="flex-1">Cancelar</Button>
-              <Button type="submit" className="flex-1 bg-orange-500">{editingDish ? 'Salvar' : 'Adicionar'}</Button>
+            <div className="flex flex-col sm:flex-row gap-3 pt-4">
+              <Button type="button" variant="outline" onClick={closeDishModal} className="flex-1 min-h-touch">Cancelar</Button>
+              <Button type="submit" className="flex-1 min-h-touch bg-orange-500">{editingDish ? 'Salvar' : 'Adicionar'}</Button>
             </div>
           </form>
         </DialogContent>

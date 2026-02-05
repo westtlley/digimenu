@@ -111,17 +111,17 @@ export default function DashboardTab({ user, subscriberData, onNavigateToTab }) 
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6 p-4 sm:p-0">
       {/* Welcome */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <h2 className="text-xl sm:text-2xl font-bold truncate" style={{ color: 'var(--text-primary)' }}>
             Boa {moment().hour() < 12 ? 'dia' : moment().hour() < 18 ? 'tarde' : 'noite'}, {subscriberData?.name?.split(' ')[0] || user?.full_name?.split(' ')[0] || 'Usuário'}!
           </h2>
-          <p style={{ color: 'var(--text-secondary)' }}>{store?.name || 'Sua Loja'}</p>
+          <p className="text-sm sm:text-base truncate" style={{ color: 'var(--text-secondary)' }}>{store?.name || 'Sua Loja'}</p>
         </div>
         {daysRemaining !== null && (
-          <Badge className={`px-3 py-2 text-sm font-semibold ${daysRemaining <= 7 ? 'bg-red-500' : 'bg-green-500'} text-white`}>
+          <Badge className={`px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold ${daysRemaining <= 7 ? 'bg-red-500' : 'bg-green-500'} text-white flex-shrink-0`}>
             {daysRemaining > 0 ? `${daysRemaining} dias restantes` : 'Assinatura Expirada'}
           </Badge>
         )}
@@ -143,7 +143,7 @@ export default function DashboardTab({ user, subscriberData, onNavigateToTab }) 
       )}
 
       {/* Stats Cards Rápidos */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
         <StatCard
           icon={ShoppingCart}
           value={todayOrders.length}
@@ -183,7 +183,7 @@ export default function DashboardTab({ user, subscriberData, onNavigateToTab }) 
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
             <div className="rounded-lg p-4 text-center" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
               <p className="text-3xl font-bold text-blue-600">{newOrders}</p>
               <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>Novos</p>
@@ -201,13 +201,14 @@ export default function DashboardTab({ user, subscriberData, onNavigateToTab }) 
               <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>Em Entrega</p>
             </div>
           </div>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Link to={createPageUrl('GestorPedidos')} className="flex-1 min-w-[140px]">
-              <Button className="w-full">Ver Todos os Pedidos</Button>
+          <div className="mt-4 flex flex-col sm:flex-row gap-2">
+            <Link to={createPageUrl('GestorPedidos')} className="flex-1">
+              <Button className="w-full min-h-touch">Ver Todos os Pedidos</Button>
             </Link>
-            <Button variant="outline" onClick={exportOrdersCSV} className="flex-1 min-w-[140px]">
+            <Button variant="outline" onClick={exportOrdersCSV} className="flex-1 min-h-touch">
               <Download className="w-4 h-4 mr-2" />
-              Exportar CSV
+              <span className="hidden sm:inline">Exportar CSV</span>
+              <span className="sm:hidden">Exportar</span>
             </Button>
           </div>
         </CardContent>
@@ -229,36 +230,37 @@ export default function DashboardTab({ user, subscriberData, onNavigateToTab }) 
             <Input 
               value={menuLink} 
               readOnly 
-              className="flex-1"
+              className="flex-1 text-xs sm:text-sm min-h-touch"
               style={{ backgroundColor: 'var(--bg-tertiary)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}
             />
-            <Button variant="outline" size="icon" onClick={copyLink}>
+            <Button variant="outline" size="icon" onClick={copyLink} className="min-h-touch min-w-touch flex-shrink-0">
               {copiedLink ? <CheckCircle className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
             </Button>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={shareWhatsApp} className="flex-1">
+            <Button variant="outline" size="sm" onClick={shareWhatsApp} className="flex-1 min-h-touch">
               <Share2 className="w-4 h-4 mr-2" />
-              Compartilhar no WhatsApp
+              <span className="hidden sm:inline">Compartilhar no WhatsApp</span>
+              <span className="sm:hidden">WhatsApp</span>
             </Button>
           </div>
         </CardContent>
       </Card>
 
       {/* Atalhos Rápidos - ao clicar troca a aba (dishes, history, store) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
         <Card 
           className="hover:shadow-lg transition-shadow cursor-pointer" 
           onClick={() => onNavigateToTab ? onNavigateToTab('dishes') : (window.location.href = createPageUrl('Admin') + '?tab=dishes')} 
           style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}
         >
-          <CardContent className="p-6 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
-              <Package className="w-6 h-6 text-orange-600" />
+          <CardContent className="p-4 sm:p-6 flex items-center gap-3 sm:gap-4 min-h-touch">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
+              <Package className="w-5 h-5 sm:w-6 sm:h-6 text-orange-600" />
             </div>
-            <div>
-              <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>Gerenciar Cardápio</p>
-              <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Pratos, categorias e mais</p>
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-sm sm:text-base truncate" style={{ color: 'var(--text-primary)' }}>Gerenciar Cardápio</p>
+              <p className="text-xs sm:text-sm truncate" style={{ color: 'var(--text-secondary)' }}>Pratos, categorias e mais</p>
             </div>
           </CardContent>
         </Card>
@@ -268,13 +270,13 @@ export default function DashboardTab({ user, subscriberData, onNavigateToTab }) 
           onClick={() => onNavigateToTab ? onNavigateToTab('history') : (window.location.href = createPageUrl('Admin') + '?tab=history')} 
           style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}
         >
-          <CardContent className="p-6 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
-              <ShoppingCart className="w-6 h-6 text-blue-600" />
+          <CardContent className="p-4 sm:p-6 flex items-center gap-3 sm:gap-4 min-h-touch">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
+              <ShoppingCart className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
             </div>
-            <div>
-              <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>Ver Pedidos</p>
-              <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Histórico completo</p>
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-sm sm:text-base truncate" style={{ color: 'var(--text-primary)' }}>Ver Pedidos</p>
+              <p className="text-xs sm:text-sm truncate" style={{ color: 'var(--text-secondary)' }}>Histórico completo</p>
             </div>
           </CardContent>
         </Card>
@@ -284,28 +286,28 @@ export default function DashboardTab({ user, subscriberData, onNavigateToTab }) 
           onClick={() => onNavigateToTab ? onNavigateToTab('store') : (window.location.href = createPageUrl('Admin') + '?tab=store')} 
           style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}
         >
-          <CardContent className="p-6 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
-              <Users className="w-6 h-6 text-green-600" />
+          <CardContent className="p-4 sm:p-6 flex items-center gap-3 sm:gap-4 min-h-touch">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
+              <Users className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
             </div>
-            <div>
-              <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>Configurações</p>
-              <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Loja e pagamentos</p>
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-sm sm:text-base truncate" style={{ color: 'var(--text-primary)' }}>Configurações</p>
+              <p className="text-xs sm:text-sm truncate" style={{ color: 'var(--text-secondary)' }}>Loja e pagamentos</p>
             </div>
           </CardContent>
         </Card>
       </div>
 
       {/* Ajuda */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
         <Card style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
           <CardHeader className="flex flex-row items-center gap-2 space-y-0 pb-2">
             <Info className="w-5 h-5 text-blue-500" />
             <CardTitle className="text-lg font-medium" style={{ color: 'var(--text-primary)' }}>Ajuda - Manual</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>Está com alguma dúvida sobre como usar?</p>
-            <Button variant="outline" className="w-full">ACESSAR MANUAL</Button>
+            <p className="text-xs sm:text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>Está com alguma dúvida sobre como usar?</p>
+            <Button variant="outline" className="w-full min-h-touch text-xs sm:text-sm">ACESSAR MANUAL</Button>
           </CardContent>
         </Card>
         <Card style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
@@ -314,9 +316,9 @@ export default function DashboardTab({ user, subscriberData, onNavigateToTab }) 
             <CardTitle className="text-lg font-medium" style={{ color: 'var(--text-primary)' }}>Suporte</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>Abra um chamado e receberá um contato</p>
-            <a href="https://wa.me/5586988196114" target="_blank" rel="noopener noreferrer">
-              <Button className="w-full bg-green-600 hover:bg-green-700">ABRIR CHAMADO</Button>
+            <p className="text-xs sm:text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>Abra um chamado e receberá um contato</p>
+            <a href="https://wa.me/5586988196114" target="_blank" rel="noopener noreferrer" className="block">
+              <Button className="w-full bg-green-600 hover:bg-green-700 min-h-touch text-xs sm:text-sm">ABRIR CHAMADO</Button>
             </a>
           </CardContent>
         </Card>

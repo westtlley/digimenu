@@ -15,6 +15,7 @@ import SharedSidebar from '../components/admin/SharedSidebar';
 import InstallAppButton from '../components/InstallAppButton';
 import DashboardTab from '../components/admin/DashboardTab';
 import WhatsAppComandaToggle from '../components/admin/WhatsAppComandaToggle';
+import MobileQuickMenu from '../components/admin/MobileQuickMenu';
 import DishesTab from '../components/admin/DishesTab';
 import CategoriesTab from '../components/admin/CategoriesTab';
 import ComplementsTab from '../components/admin/ComplementsTab';
@@ -193,20 +194,20 @@ export default function PainelAssinante() {
   return (
     <div className="min-h-screen min-h-screen-mobile bg-gray-100 dark:bg-gray-900 flex flex-col">
       {/* Header Profissional com Logo */}
-      <header className="bg-gradient-to-r from-orange-600 via-orange-500 to-orange-600 text-white flex-shrink-0 sticky top-0 z-50 shadow-lg">
-        <div className="px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3 flex-1 min-w-0">
+      <header className="bg-gradient-to-r from-orange-600 via-orange-500 to-orange-600 text-white flex-shrink-0 sticky top-0 z-50 shadow-lg safe-top">
+        <div className="px-2 sm:px-4 py-2 sm:py-3 flex items-center justify-between gap-1 sm:gap-2 max-w-full overflow-hidden">
+          <div className="flex items-center gap-1.5 sm:gap-3 flex-1 min-w-0">
             <button
               onClick={() => setShowMobileSidebar(true)}
-              className="lg:hidden min-h-touch min-w-touch flex items-center justify-center p-2 -m-1 hover:bg-white/10 rounded-lg transition"
+              className="lg:hidden min-h-touch min-w-touch flex items-center justify-center p-2 -m-1 hover:bg-white/10 rounded-lg transition flex-shrink-0"
               aria-label="Abrir menu"
             >
-              <Menu className="w-6 h-6" />
+              <Menu className="w-5 h-5 sm:w-6 sm:h-6" />
             </button>
             
             {/* Logo da Loja */}
             {store?.logo ? (
-              <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 border-2 border-white/30 shadow-md">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg overflow-hidden flex-shrink-0 border-2 border-white/30 shadow-md">
                 <img 
                   src={store.logo} 
                   alt={store.name || 'Loja'} 
@@ -219,25 +220,25 @@ export default function PainelAssinante() {
                   }}
                 />
                 <div className="w-full h-full bg-white/20 flex items-center justify-center hidden">
-                  <Store className="w-6 h-6 text-white" />
+                  <Store className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                 </div>
               </div>
             ) : (
-              <div className="w-10 h-10 rounded-lg bg-white/20 flex items-center justify-center flex-shrink-0 border-2 border-white/30">
-                <Store className="w-6 h-6 text-white" />
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-white/20 flex items-center justify-center flex-shrink-0 border-2 border-white/30">
+                <Store className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
               </div>
             )}
             
             <div className="flex-1 min-w-0">
-              <h1 className="font-bold text-lg truncate">{store?.name || 'Meu Painel'}</h1>
-              <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="font-bold text-sm sm:text-base md:text-lg truncate">{store?.name || 'Meu Painel'}</h1>
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
                 {subscriberData?.plan && (
-                  <Badge className="bg-white/20 text-white text-[10px] px-1.5 py-0.5 border-white/30">
+                  <Badge className="bg-white/20 text-white text-[9px] sm:text-[10px] px-1 sm:px-1.5 py-0.5 border-white/30">
                     Plano {subscriberData.plan.charAt(0).toUpperCase() + subscriberData.plan.slice(1)}
                   </Badge>
                 )}
                 {daysRemaining !== null && (
-                  <Badge className={`text-[10px] px-1.5 py-0.5 ${
+                  <Badge className={`text-[9px] sm:text-[10px] px-1 sm:px-1.5 py-0.5 ${
                     daysRemaining <= 7 ? 'bg-red-500/80' : 'bg-green-500/80'
                   } text-white border-0`}>
                     {daysRemaining > 0 ? `${daysRemaining}d restantes` : 'Expirado'}
@@ -246,39 +247,59 @@ export default function PainelAssinante() {
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-2 flex-wrap overflow-x-auto scrollbar-hide">
+          <div className="flex items-center gap-1 sm:gap-2 flex-wrap overflow-x-auto scrollbar-hide">
             <InstallAppButton pageName="Painel" compact />
-            {hasModuleAccess('pdv') && (
-              <Link to={to('PDV')}>
-                <Button size="sm" className="bg-white text-orange-600 hover:bg-orange-50 min-h-touch">
-                  <Calculator className="w-4 h-4 mr-2" />
-                  PDV
-                </Button>
-              </Link>
+            {(store?.id || subscriberData?.id) && (
+              <WhatsAppComandaToggle 
+                store={store} 
+                subscriber={subscriberData} 
+                compact={true}
+              />
             )}
-            {hasModuleAccess('gestor_pedidos') ? (
-              <Link to={to('GestorPedidos')}>
-                <Button size="sm" className="bg-white text-orange-600 hover:bg-orange-50">
+            
+            {/* Mobile: Menu rápido em drawer */}
+            <div className="lg:hidden">
+              <MobileQuickMenu
+                isMaster={isMaster}
+                hasGestorAccess={hasModuleAccess('gestor_pedidos')}
+                slug={slug}
+              />
+            </div>
+
+            {/* Desktop: Botões individuais */}
+            <div className="hidden lg:flex items-center gap-2">
+              {hasModuleAccess('pdv') && (
+                <Link to={to('PDV')}>
+                  <Button size="sm" className="bg-white text-orange-600 hover:bg-orange-50 min-h-touch">
+                    <Calculator className="w-4 h-4 mr-2" />
+                    PDV
+                  </Button>
+                </Link>
+              )}
+              {hasModuleAccess('gestor_pedidos') ? (
+                <Link to={to('GestorPedidos')}>
+                  <Button size="sm" className="bg-white text-orange-600 hover:bg-orange-50 min-h-touch">
+                    <Settings className="w-4 h-4 mr-2" />
+                    Gestor
+                  </Button>
+                </Link>
+              ) : (
+                <Button size="sm" className="bg-white/50 text-orange-400 cursor-not-allowed" disabled title="Não disponível no seu plano">
                   <Settings className="w-4 h-4 mr-2" />
                   Gestor
                 </Button>
+              )}
+              <Link to={to('Cardapio')}>
+                <Button size="sm" className="bg-white text-orange-600 hover:bg-orange-50 min-h-touch">
+                  <UtensilsCrossed className="w-4 h-4 mr-2" />
+                  Cardápio
+                </Button>
               </Link>
-            ) : (
-              <Button size="sm" className="bg-white/50 text-orange-400 cursor-not-allowed" disabled title="Não disponível no seu plano">
-                <Settings className="w-4 h-4 mr-2" />
-                Gestor
-              </Button>
-            )}
-            <Link to={to('Cardapio')}>
-              <Button size="sm" className="bg-white text-orange-600 hover:bg-orange-50">
-                <UtensilsCrossed className="w-4 h-4 mr-2" />
-                Cardápio
-              </Button>
-            </Link>
-            {(store?.id || subscriberData?.id) && <WhatsAppComandaToggle store={store} subscriber={subscriberData} />}
+            </div>
+
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button size="sm" variant="ghost" className="text-white hover:bg-white/10 hidden sm:flex" title="Sair">
+                <Button size="sm" variant="ghost" className="text-white hover:bg-white/10 hidden sm:flex min-h-touch min-w-touch" title="Sair">
                   <Power className="w-4 h-4" />
                 </Button>
               </AlertDialogTrigger>

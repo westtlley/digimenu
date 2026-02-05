@@ -146,53 +146,53 @@ export default function FinancialDashboard({ orders = [], pdvSales = [] }) {
       </div>
 
       {/* Cards de Resumo */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-xl p-6 shadow-lg">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
+        <div className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-xl p-4 sm:p-6 shadow-lg">
           <div className="flex items-center justify-between mb-2">
-            <DollarSign className="w-8 h-8" />
-            <Badge className="bg-white/20">Hoje</Badge>
+            <DollarSign className="w-6 h-6 sm:w-8 sm:h-8" />
+            <Badge className="bg-white/20 text-xs">Hoje</Badge>
           </div>
-          <p className="text-sm opacity-80">Faturamento</p>
-          <p className="text-3xl font-bold">{formatCurrency(stats.totalRevenue)}</p>
+          <p className="text-xs sm:text-sm opacity-80">Faturamento</p>
+          <p className="text-2xl sm:text-3xl font-bold">{formatCurrency(stats.totalRevenue)}</p>
         </div>
 
-        <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl p-6 shadow-lg">
+        <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl p-4 sm:p-6 shadow-lg">
           <div className="flex items-center justify-between mb-2">
-            <ShoppingBag className="w-8 h-8" />
-            <Badge className="bg-white/20">Hoje</Badge>
+            <ShoppingBag className="w-6 h-6 sm:w-8 sm:h-8" />
+            <Badge className="bg-white/20 text-xs">Hoje</Badge>
           </div>
-          <p className="text-sm opacity-80">Total de Pedidos</p>
-          <p className="text-3xl font-bold">{stats.totalOrders}</p>
+          <p className="text-xs sm:text-sm opacity-80">Total de Pedidos</p>
+          <p className="text-2xl sm:text-3xl font-bold">{stats.totalOrders}</p>
         </div>
 
-        <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-xl p-6 shadow-lg">
+        <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-xl p-4 sm:p-6 shadow-lg sm:col-span-2 md:col-span-1">
           <div className="flex items-center justify-between mb-2">
-            <TrendingUp className="w-8 h-8" />
-            <Badge className="bg-white/20">Hoje</Badge>
+            <TrendingUp className="w-6 h-6 sm:w-8 sm:h-8" />
+            <Badge className="bg-white/20 text-xs">Hoje</Badge>
           </div>
-          <p className="text-sm opacity-80">Ticket Médio</p>
-          <p className="text-3xl font-bold">{formatCurrency(stats.avgTicket)}</p>
+          <p className="text-xs sm:text-sm opacity-80">Ticket Médio</p>
+          <p className="text-2xl sm:text-3xl font-bold">{formatCurrency(stats.avgTicket)}</p>
         </div>
       </div>
 
       {/* Por Forma de Pagamento */}
-      <div className="rounded-xl p-6 shadow-sm border" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+      <div className="rounded-xl p-4 sm:p-6 shadow-sm border" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
         <div className="flex items-center gap-2 mb-4">
-          <CreditCard className="w-5 h-5" />
-          <h3 className="font-bold text-lg" style={{ color: 'var(--text-primary)' }}>Por Forma de Pagamento</h3>
+          <CreditCard className="w-4 h-4 sm:w-5 sm:h-5" />
+          <h3 className="font-bold text-base sm:text-lg" style={{ color: 'var(--text-primary)' }}>Por Forma de Pagamento</h3>
         </div>
-        <div className="space-y-3">
+        <div className="space-y-2 sm:space-y-3">
           {Object.entries(stats.byPaymentMethod).map(([method, data]) => (
-            <div key={method} className="flex items-center justify-between p-3 rounded-lg" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
-              <div>
-                <p className="font-medium" style={{ color: 'var(--text-primary)' }}>{paymentMethodLabels[method] || method}</p>
-                <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{data.count} pedidos</p>
+            <div key={method} className="flex items-center justify-between p-3 sm:p-4 rounded-lg min-h-touch" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-sm sm:text-base truncate" style={{ color: 'var(--text-primary)' }}>{paymentMethodLabels[method] || method}</p>
+                <p className="text-xs sm:text-sm" style={{ color: 'var(--text-secondary)' }}>{data.count} pedidos</p>
               </div>
-              <p className="font-bold text-green-600 dark:text-green-400">{formatCurrency(data.total)}</p>
+              <p className="font-bold text-green-600 dark:text-green-400 text-sm sm:text-base ml-2 flex-shrink-0">{formatCurrency(data.total)}</p>
             </div>
           ))}
           {Object.keys(stats.byPaymentMethod).length === 0 && (
-            <p className="text-center py-4" style={{ color: 'var(--text-muted)' }}>Nenhum pedido hoje</p>
+            <p className="text-center py-8 text-sm sm:text-base" style={{ color: 'var(--text-muted)' }}>Nenhum pedido hoje</p>
           )}
         </div>
       </div>

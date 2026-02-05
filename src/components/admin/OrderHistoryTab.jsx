@@ -1,14 +1,18 @@
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
-import { useQuery } from '@tanstack/react-query';
-import { Search, Calendar, User, DollarSign, Filter, Download, Eye, X, Package } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Search, Calendar, User, DollarSign, Filter, Download, Eye, X, Package, Phone, MapPin, CreditCard } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Card, CardContent } from "@/components/ui/card";
 import { formatBrazilianDateTime, formatInputDate } from '../utils/dateUtils';
 import HistorySkeleton from '../skeletons/HistorySkeleton';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 
 const statusConfig = {
   new: { label: 'Novo', color: 'bg-blue-500' },
@@ -32,10 +36,18 @@ export default function OrderHistoryTab() {
   const [customDateEnd, setCustomDateEnd] = useState('');
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const queryClient = useQueryClient();
+  const isMobile = useIsMobile();
 
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ['orderHistory'],
     queryFn: () => base44.entities.Order.list('-created_date')
+  });
+
+  // Pull to refresh
+  const { isRefreshing } = usePullToRefresh(() => {
+    return queryClient.invalidateQueries({ queryKey: ['orderHistory'] });
   });
 
   const formatCurrency = (value) => {
@@ -121,18 +133,147 @@ export default function OrderHistoryTab() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6 relative">
+      {/* Pull to refresh indicator */}
+      {isRefreshing && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-orange-500 text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2">
+          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          <span className="text-sm font-medium">Atualizando...</span>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Histórico de Pedidos</h2>
-        <Button onClick={exportToCSV} variant="outline">
-          <Download className="w-4 h-4 mr-2" />
-          Exportar CSV
+        <h2 className="text-xl sm:text-2xl font-bold">Histórico de Pedidos</h2>
+        <Button onClick={exportToCSV} variant="outline" size="sm" className="min-h-touch">
+          <Download className="w-4 h-4 sm:mr-2" />
+          <span className="hidden sm:inline">Exportar CSV</span>
         </Button>
       </div>
 
-      {/* Filtros */}
-      <div className="bg-white rounded-xl p-4 shadow-sm border">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+      {/* Filtros - Mobile: Sheet, Desktop: Inline */}
+      {isMobile ? (
+        <div className="flex items-center justify-between bg-white p-3 rounded-xl shadow-sm">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-gray-700">
+              {filteredOrders.length} pedido(s)
+            </span>
+          </div>
+          <Sheet open={showFilters} onOpenChange={setShowFilters}>
+            <SheetTrigger asChild>
+              <Button variant="outline" size="sm" className="min-h-touch">
+                <Filter className="w-4 h-4 mr-2" />
+                Filtros
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="bottom" className="h-auto max-h-[85vh] rounded-t-2xl overflow-y-auto">
+              <SheetHeader>
+                <SheetTitle>Filtros</SheetTitle>
+              </SheetHeader>
+              <div className="space-y-4 mt-4 pb-safe">
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Buscar</label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Input
+                      placeholder="Cliente, código, telefone..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10 min-h-touch"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Período</label>
+                  <Select value={dateFilter} onValueChange={setDateFilter}>
+                    <SelectTrigger className="min-h-touch">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="today">Hoje</SelectItem>
+                      <SelectItem value="week">Últimos 7 dias</SelectItem>
+                      <SelectItem value="month">Último mês</SelectItem>
+                      <SelectItem value="custom">Período Customizado</SelectItem>
+                      <SelectItem value="all">Todos</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {dateFilter === 'custom' && (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">Data Inicial</label>
+                      <Input
+                        type="date"
+                        value={customDateStart}
+                        onChange={(e) => setCustomDateStart(e.target.value)}
+                        className="min-h-touch"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">Data Final</label>
+                      <Input
+                        type="date"
+                        value={customDateEnd}
+                        onChange={(e) => setCustomDateEnd(e.target.value)}
+                        className="min-h-touch"
+                      />
+                    </div>
+                  </div>
+                )}
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Status</label>
+                  <Select value={filterStatus} onValueChange={setFilterStatus}>
+                    <SelectTrigger className="min-h-touch">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      {Object.entries(statusConfig).map(([key, config]) => (
+                        <SelectItem key={key} value={key}>{config.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Pagamento</label>
+                  <Select value={filterPayment} onValueChange={setFilterPayment}>
+                    <SelectTrigger className="min-h-touch">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="pix">PIX</SelectItem>
+                      <SelectItem value="dinheiro">Dinheiro</SelectItem>
+                      <SelectItem value="cartao_credito">Cartão de Crédito</SelectItem>
+                      <SelectItem value="cartao_debito">Cartão de Débito</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Tipo</label>
+                  <Select value={filterType} onValueChange={setFilterType}>
+                    <SelectTrigger className="min-h-touch">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="delivery">Delivery</SelectItem>
+                      <SelectItem value="pdv">PDV</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button 
+                  onClick={() => setShowFilters(false)} 
+                  className="w-full min-h-touch"
+                >
+                  Aplicar Filtros
+                </Button>
+              </div>
+            </SheetContent>
+          </Sheet>
+        </div>
+      ) : (
+        <div className="bg-white rounded-xl p-4 shadow-sm border">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <div>
             <label className="text-sm font-medium mb-2 block">Buscar</label>
             <div className="relative">
@@ -208,28 +349,29 @@ export default function OrderHistoryTab() {
           </div>
         </div>
 
-        {/* Filtro de Data Customizada */}
-        {dateFilter === 'custom' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 pt-4 border-t">
-            <div>
-              <label className="text-sm font-medium mb-2 block">Data Inicial</label>
-              <Input
-                type="date"
-                value={customDateStart}
-                onChange={(e) => setCustomDateStart(e.target.value)}
-              />
+          {/* Filtro de Data Customizada */}
+          {dateFilter === 'custom' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 pt-4 border-t">
+              <div>
+                <label className="text-sm font-medium mb-2 block">Data Inicial</label>
+                <Input
+                  type="date"
+                  value={customDateStart}
+                  onChange={(e) => setCustomDateStart(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-2 block">Data Final</label>
+                <Input
+                  type="date"
+                  value={customDateEnd}
+                  onChange={(e) => setCustomDateEnd(e.target.value)}
+                />
+              </div>
             </div>
-            <div>
-              <label className="text-sm font-medium mb-2 block">Data Final</label>
-              <Input
-                type="date"
-                value={customDateEnd}
-                onChange={(e) => setCustomDateEnd(e.target.value)}
-              />
-            </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
       {/* Resumo */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -256,7 +398,82 @@ export default function OrderHistoryTab() {
             <Filter className="w-16 h-16 mx-auto mb-4 text-gray-300" />
             <p className="text-gray-500">Nenhum pedido encontrado</p>
           </div>
+        ) : isMobile ? (
+          /* Mobile: Cards */
+          <div className="p-3 sm:p-4 space-y-3">
+            {filteredOrders.map((order) => (
+              <Card 
+                key={order.id} 
+                className="hover:shadow-md transition-shadow cursor-pointer"
+                onClick={() => {
+                  setSelectedOrder(order);
+                  setShowDetailModal(true);
+                }}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between mb-3 gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 mb-2">
+                        <span className="text-xs font-mono bg-gray-100 px-2 py-1 rounded">
+                          #{order.order_code || order.id?.slice(-6)}
+                        </span>
+                        <Badge variant="outline" className={`text-xs ${isOrderPDV(order) ? 'border-orange-300 text-orange-700' : 'border-blue-300 text-blue-700'}`}>
+                          {isOrderPDV(order) ? 'PDV' : 'Delivery'}
+                        </Badge>
+                        <Badge className={`text-xs ${statusConfig[order.status]?.color || 'bg-gray-500'}`}>
+                          {statusConfig[order.status]?.label || order.status}
+                        </Badge>
+                      </div>
+                      <h3 className="font-bold text-sm mb-1 truncate">{order.customer_name}</h3>
+                      <p className="text-xs text-gray-500">
+                        {order.created_date && formatBrazilianDateTime(order.created_date)}
+                      </p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="flex-shrink-0 min-h-touch min-w-touch"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedOrder(order);
+                        setShowDetailModal(true);
+                      }}
+                    >
+                      <Eye className="w-4 h-4" />
+                    </Button>
+                  </div>
+                  
+                  <div className="space-y-2 text-xs mb-3">
+                    <div className="flex items-center gap-2 text-gray-600">
+                      <Phone className="w-3 h-3" />
+                      <span className="truncate">{order.customer_phone || '-'}</span>
+                    </div>
+                    {order.address && (
+                      <div className="flex items-center gap-2 text-gray-600">
+                        <MapPin className="w-3 h-3" />
+                        <span className="truncate">{order.address}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2 text-gray-600">
+                      <CreditCard className="w-3 h-3" />
+                      <span className="capitalize">{order.payment_method?.replace('_', ' ')}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-3 border-t">
+                    <div className="text-xs text-gray-500">
+                      {(order.items || []).length} item(ns)
+                    </div>
+                    <div className="font-bold text-green-600 text-sm">
+                      {formatCurrency(order.total)}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         ) : (
+          /* Desktop: Table */
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50 border-b">
@@ -346,40 +563,40 @@ export default function OrderHistoryTab() {
       <Dialog open={showDetailModal} onOpenChange={setShowDetailModal}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Package className="w-5 h-5" />
-              Detalhes do Pedido #{selectedOrder?.order_code || selectedOrder?.id?.slice(-6)}
+            <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <Package className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span className="truncate">Detalhes do Pedido #{selectedOrder?.order_code || selectedOrder?.id?.slice(-6)}</span>
             </DialogTitle>
           </DialogHeader>
           {selectedOrder && (
-            <div className="space-y-4 py-4">
+            <div className="space-y-3 sm:space-y-4 py-2 sm:py-4">
               {/* Informações do Cliente */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div>
-                  <p className="text-sm text-gray-600 mb-1">Cliente</p>
-                  <p className="font-semibold">{selectedOrder.customer_name}</p>
+                  <p className="text-xs sm:text-sm text-gray-600 mb-1">Cliente</p>
+                  <p className="font-semibold text-sm sm:text-base truncate">{selectedOrder.customer_name}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600 mb-1">Telefone</p>
-                  <p className="font-semibold">{selectedOrder.customer_phone || '-'}</p>
+                  <p className="text-xs sm:text-sm text-gray-600 mb-1">Telefone</p>
+                  <p className="font-semibold text-sm sm:text-base">{selectedOrder.customer_phone || '-'}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600 mb-1">Data</p>
-                  <p className="font-semibold">{formatBrazilianDateTime(selectedOrder.created_date)}</p>
+                  <p className="text-xs sm:text-sm text-gray-600 mb-1">Data</p>
+                  <p className="font-semibold text-xs sm:text-sm">{formatBrazilianDateTime(selectedOrder.created_date)}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600 mb-1">Status</p>
-                  <Badge className={statusConfig[selectedOrder.status]?.color || 'bg-gray-500'}>
+                  <p className="text-xs sm:text-sm text-gray-600 mb-1">Status</p>
+                  <Badge className={`text-xs ${statusConfig[selectedOrder.status]?.color || 'bg-gray-500'}`}>
                     {statusConfig[selectedOrder.status]?.label || selectedOrder.status}
                   </Badge>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600 mb-1">Pagamento</p>
-                  <p className="font-semibold capitalize">{selectedOrder.payment_method?.replace('_', ' ')}</p>
+                  <p className="text-xs sm:text-sm text-gray-600 mb-1">Pagamento</p>
+                  <p className="font-semibold text-sm sm:text-base capitalize">{selectedOrder.payment_method?.replace('_', ' ')}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600 mb-1">Tipo</p>
-                  <Badge variant="outline" className={isOrderPDV(selectedOrder) ? 'border-orange-300 text-orange-700' : 'border-blue-300 text-blue-700'}>
+                  <p className="text-xs sm:text-sm text-gray-600 mb-1">Tipo</p>
+                  <Badge variant="outline" className={`text-xs ${isOrderPDV(selectedOrder) ? 'border-orange-300 text-orange-700' : 'border-blue-300 text-blue-700'}`}>
                     {isOrderPDV(selectedOrder) ? 'PDV' : 'Delivery'}
                   </Badge>
                 </div>
@@ -387,16 +604,16 @@ export default function OrderHistoryTab() {
 
               {/* Itens */}
               <div>
-                <p className="text-sm font-semibold mb-2">Itens do Pedido</p>
+                <p className="text-xs sm:text-sm font-semibold mb-2">Itens do Pedido</p>
                 <div className="space-y-2">
                   {(selectedOrder.items || []).map((item, idx) => (
-                    <div key={idx} className="border rounded-lg p-3">
-                      <div className="flex justify-between items-start mb-2">
-                        <div>
-                          <p className="font-semibold">{item.quantity || 1}x {item.dish?.name || item.dish_name}</p>
-                          <p className="text-sm text-gray-600">{formatCurrency(item.unit_price || item.total_price)} un.</p>
+                    <div key={idx} className="border rounded-lg p-2 sm:p-3">
+                      <div className="flex justify-between items-start mb-2 gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-sm sm:text-base truncate">{item.quantity || 1}x {item.dish?.name || item.dish_name}</p>
+                          <p className="text-xs sm:text-sm text-gray-600">{formatCurrency(item.unit_price || item.total_price)} un.</p>
                         </div>
-                        <p className="font-bold text-green-600">
+                        <p className="font-bold text-green-600 text-sm sm:text-base flex-shrink-0">
                           {formatCurrency((item.total_price || item.unit_price || 0) * (item.quantity || 1))}
                         </p>
                       </div>
@@ -421,24 +638,24 @@ export default function OrderHistoryTab() {
               </div>
 
               {/* Totais */}
-              <div className="border-t pt-4 space-y-2">
-                <div className="flex justify-between">
+              <div className="border-t pt-3 sm:pt-4 space-y-2">
+                <div className="flex justify-between text-xs sm:text-sm">
                   <span>Subtotal</span>
                   <span className="font-semibold">{formatCurrency(selectedOrder.subtotal || selectedOrder.total)}</span>
                 </div>
                 {selectedOrder.delivery_fee > 0 && (
-                  <div className="flex justify-between">
+                  <div className="flex justify-between text-xs sm:text-sm">
                     <span>Taxa de Entrega</span>
                     <span className="font-semibold">{formatCurrency(selectedOrder.delivery_fee)}</span>
                   </div>
                 )}
                 {selectedOrder.discount > 0 && (
-                  <div className="flex justify-between text-red-600">
+                  <div className="flex justify-between text-red-600 text-xs sm:text-sm">
                     <span>Desconto</span>
                     <span className="font-semibold">-{formatCurrency(selectedOrder.discount)}</span>
                   </div>
                 )}
-                <div className="flex justify-between text-lg font-bold border-t pt-2">
+                <div className="flex justify-between text-base sm:text-lg font-bold border-t pt-2">
                   <span>Total</span>
                   <span className="text-green-600">{formatCurrency(selectedOrder.total)}</span>
                 </div>
@@ -447,14 +664,14 @@ export default function OrderHistoryTab() {
               {/* Endereço (se delivery) */}
               {selectedOrder.delivery_method === 'delivery' && selectedOrder.address && (
                 <div>
-                  <p className="text-sm font-semibold mb-2">Endereço de Entrega</p>
-                  <p className="text-sm text-gray-600">{selectedOrder.address}</p>
+                  <p className="text-xs sm:text-sm font-semibold mb-2">Endereço de Entrega</p>
+                  <p className="text-xs sm:text-sm text-gray-600 break-words">{selectedOrder.address}</p>
                 </div>
               )}
             </div>
           )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDetailModal(false)}>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setShowDetailModal(false)} className="w-full sm:w-auto min-h-touch">
               Fechar
             </Button>
           </DialogFooter>

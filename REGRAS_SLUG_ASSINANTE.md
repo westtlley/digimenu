@@ -253,3 +253,58 @@ ALTER TABLE subscribers ADD COLUMN slug VARCHAR(100) UNIQUE;
 - Use a nova URL com o novo slug
 - Atualize links compartilhados
 - Considere manter o slug antigo se possível
+- **Boa notícia**: Todos os seus dados estão preservados na nova URL!
+
+## 📊 Como os Dados são Vinculados?
+
+### Identificador Principal: `subscriber_email`
+
+Todos os dados do sistema são vinculados ao **email do assinante** (`subscriber_email`), não ao slug:
+
+- **Tabela `entities`**: Pratos, categorias, loja, etc. → `subscriber_email`
+- **Tabela `customers`**: Clientes cadastrados → `subscriber_email`
+- **Tabela `orders`**: Pedidos realizados → `owner_email` (que é o `subscriber_email`)
+- **Tabela `users`**: Usuários/colaboradores → `subscriber_email`
+
+### O Slug é Apenas para URLs
+
+O slug é usado apenas para:
+- ✅ Criar a URL pública do cardápio: `/s/:slug`
+- ✅ Identificar o assinante na URL pública
+- ✅ Buscar o `subscriber_email` baseado no slug
+
+**Quando o slug muda:**
+1. Sistema busca o assinante pelo novo slug
+2. Obtém o `subscriber_email` do assinante
+3. Busca todos os dados usando o `subscriber_email`
+4. **Resultado**: Todos os dados aparecem normalmente na nova URL!
+
+### Exemplo Prático
+
+```javascript
+// Assinante: restaurante@email.com
+// Slug antigo: "restaurante-antigo"
+// Slug novo: "restaurante-novo"
+
+// Dados no banco (NÃO mudam):
+entities: [
+  { id: 1, entity_type: 'Dish', subscriber_email: 'restaurante@email.com', ... },
+  { id: 2, entity_type: 'Category', subscriber_email: 'restaurante@email.com', ... }
+]
+
+// Antes da troca:
+GET /s/restaurante-antigo
+→ Busca subscriber por slug "restaurante-antigo"
+→ Encontra: { email: "restaurante@email.com", slug: "restaurante-antigo" }
+→ Busca entities com subscriber_email = "restaurante@email.com"
+→ Retorna todos os pratos ✅
+
+// Depois da troca:
+GET /s/restaurante-novo
+→ Busca subscriber por slug "restaurante-novo"
+→ Encontra: { email: "restaurante@email.com", slug: "restaurante-novo" }
+→ Busca entities com subscriber_email = "restaurante@email.com"
+→ Retorna todos os pratos ✅ (MESMOS DADOS!)
+```
+
+**Conclusão**: Os dados nunca são perdidos porque estão vinculados ao email, não ao slug!

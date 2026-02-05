@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
+import { MobileInput, MobileTextarea } from "@/components/ui/MobileFormField";
 import { Store, Save, Clock, Image as ImageIcon, MapPin, Instagram, Facebook, MessageSquare, AlertCircle, HelpCircle, Link2, Copy, CheckCircle2, XCircle, TrendingUp, Music2, Sparkles, ShoppingCart } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -362,63 +363,63 @@ export default function StoreTab() {
         )}
 
         {/* Status da Configuração */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6">
           <Card className={storeStatus.hasLogo ? 'border-green-200' : 'border-gray-200'}>
-            <CardContent className="p-4">
+            <CardContent className="p-3 sm:p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Logo</p>
-                  <p className="text-lg font-bold">{storeStatus.hasLogo ? '✓' : '✗'}</p>
+                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Logo</p>
+                  <p className="text-base sm:text-lg font-bold">{storeStatus.hasLogo ? '✓' : '✗'}</p>
                 </div>
                 {storeStatus.hasLogo ? (
-                  <CheckCircle2 className="w-6 h-6 text-green-500" />
+                  <CheckCircle2 className="w-5 h-5 sm:w-6 sm:h-6 text-green-500" />
                 ) : (
-                  <XCircle className="w-6 h-6 text-gray-400" />
+                  <XCircle className="w-5 h-5 sm:w-6 sm:h-6 text-gray-400" />
                 )}
               </div>
             </CardContent>
           </Card>
           <Card className={storeStatus.hasName ? 'border-green-200' : 'border-gray-200'}>
-            <CardContent className="p-4">
+            <CardContent className="p-3 sm:p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Nome</p>
-                  <p className="text-lg font-bold">{storeStatus.hasName ? '✓' : '✗'}</p>
+                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Nome</p>
+                  <p className="text-base sm:text-lg font-bold">{storeStatus.hasName ? '✓' : '✗'}</p>
                 </div>
                 {storeStatus.hasName ? (
-                  <CheckCircle2 className="w-6 h-6 text-green-500" />
+                  <CheckCircle2 className="w-5 h-5 sm:w-6 sm:h-6 text-green-500" />
                 ) : (
-                  <XCircle className="w-6 h-6 text-gray-400" />
+                  <XCircle className="w-5 h-5 sm:w-6 sm:h-6 text-gray-400" />
                 )}
               </div>
             </CardContent>
           </Card>
           <Card className={storeStatus.hasWhatsApp ? 'border-green-200' : 'border-gray-200'}>
-            <CardContent className="p-4">
+            <CardContent className="p-3 sm:p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">WhatsApp</p>
-                  <p className="text-lg font-bold">{storeStatus.hasWhatsApp ? '✓' : '✗'}</p>
+                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">WhatsApp</p>
+                  <p className="text-base sm:text-lg font-bold">{storeStatus.hasWhatsApp ? '✓' : '✗'}</p>
                 </div>
                 {storeStatus.hasWhatsApp ? (
-                  <CheckCircle2 className="w-6 h-6 text-green-500" />
+                  <CheckCircle2 className="w-5 h-5 sm:w-6 sm:h-6 text-green-500" />
                 ) : (
-                  <XCircle className="w-6 h-6 text-gray-400" />
+                  <XCircle className="w-5 h-5 sm:w-6 sm:h-6 text-gray-400" />
                 )}
               </div>
             </CardContent>
           </Card>
           <Card className={storeStatus.isOpen ? 'border-green-200' : 'border-red-200'}>
-            <CardContent className="p-4">
+            <CardContent className="p-3 sm:p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Status</p>
-                  <p className="text-lg font-bold">{storeStatus.isOpen ? 'Aberta' : 'Fechada'}</p>
+                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Status</p>
+                  <p className="text-xs sm:text-base font-bold">{storeStatus.isOpen ? 'Aberta' : 'Fechada'}</p>
                 </div>
                 {storeStatus.isOpen ? (
-                  <TrendingUp className="w-6 h-6 text-green-500" />
+                  <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 text-green-500" />
                 ) : (
-                  <XCircle className="w-6 h-6 text-red-500" />
+                  <XCircle className="w-5 h-5 sm:w-6 sm:h-6 text-red-500" />
                 )}
               </div>
             </CardContent>
@@ -478,7 +479,7 @@ export default function StoreTab() {
                       </Tooltip>
                     </TooltipProvider>
                   </Label>
-                  <Input
+                  <MobileInput
                     id="store-name"
                     value={formData.name}
                     onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
@@ -506,7 +507,7 @@ export default function StoreTab() {
                       </Tooltip>
                     </TooltipProvider>
                   </Label>
-                  <Input
+                  <MobileInput
                     id="whatsapp"
                     value={formData.whatsapp}
                     onChange={(e) => {
@@ -530,7 +531,7 @@ export default function StoreTab() {
                   <MapPin className="w-4 h-4 text-gray-500" />
                   Endereço
                 </Label>
-                <Input
+                <MobileInput
                   id="address"
                   value={formData.address}
                   onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
@@ -552,7 +553,7 @@ export default function StoreTab() {
                     </Tooltip>
                   </TooltipProvider>
                 </Label>
-                <Input
+                <MobileInput
                   id="slogan"
                   value={formData.slogan}
                   onChange={(e) => setFormData(prev => ({ ...prev, slogan: e.target.value }))}
@@ -560,13 +561,13 @@ export default function StoreTab() {
                 />
               </div>
 
-              <div className="grid sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
-                  <Label htmlFor="instagram" className="flex items-center gap-2 mb-2">
+                  <Label htmlFor="instagram" className="flex items-center gap-2 mb-2 text-sm font-medium">
                     <Instagram className="w-4 h-4 text-gray-500" />
                     Instagram
                   </Label>
-                  <Input
+                  <MobileInput
                     id="instagram"
                     value={formData.instagram}
                     onChange={(e) => setFormData(prev => ({ ...prev, instagram: e.target.value }))}
@@ -575,11 +576,11 @@ export default function StoreTab() {
                 </div>
 
                 <div>
-                  <Label htmlFor="facebook" className="flex items-center gap-2 mb-2">
+                  <Label htmlFor="facebook" className="flex items-center gap-2 mb-2 text-sm font-medium">
                     <Facebook className="w-4 h-4 text-gray-500" />
                     Facebook
                   </Label>
-                  <Input
+                  <MobileInput
                     id="facebook"
                     value={formData.facebook}
                     onChange={(e) => setFormData(prev => ({ ...prev, facebook: e.target.value }))}
@@ -588,11 +589,11 @@ export default function StoreTab() {
                 </div>
 
                 <div>
-                  <Label htmlFor="tiktok" className="flex items-center gap-2 mb-2">
+                  <Label htmlFor="tiktok" className="flex items-center gap-2 mb-2 text-sm font-medium">
                     <Music2 className="w-4 h-4 text-gray-500" />
                     TikTok
                   </Label>
-                  <Input
+                  <MobileInput
                     id="tiktok"
                     value={formData.tiktok}
                     onChange={(e) => setFormData(prev => ({ ...prev, tiktok: e.target.value }))}
@@ -1212,7 +1213,7 @@ export default function StoreTab() {
                     <Input
                       readOnly
                       value={typeof window !== 'undefined' ? `${window.location.origin}/s/${subscriberData?.slug || '...'}` : ''}
-                      className="font-mono text-sm"
+                      className="font-mono text-xs sm:text-sm min-h-touch"
                     />
                     <Button
                       type="button"
@@ -1222,6 +1223,7 @@ export default function StoreTab() {
                         const url = `${window.location.origin}/s/${subscriberData?.slug || ''}`;
                         if (url && navigator.clipboard) navigator.clipboard.writeText(url).then(() => toast.success('Link copiado!'));
                       }}
+                      className="min-h-touch min-w-touch"
                     >
                       <Copy className="w-4 h-4" />
                     </Button>
@@ -1231,7 +1233,7 @@ export default function StoreTab() {
                   <Label>Personalize o final do link (ex: meu-restaurante)</Label>
                   <p className="text-xs text-gray-500 mb-1">Apenas letras minúsculas, números e hífen. Deixe em branco para remover.</p>
                   <div className="flex gap-2">
-                    <Input
+                    <MobileInput
                       placeholder="ex: meu-restaurante"
                       value={slugEdit}
                       onChange={(e) => setSlugEdit(e.target.value)}
@@ -1241,6 +1243,7 @@ export default function StoreTab() {
                       type="button"
                       onClick={() => slugSaveMutation.mutate(slugEdit)}
                       disabled={slugSaveMutation.isPending}
+                      className="min-h-touch"
                     >
                       {slugSaveMutation.isPending ? 'Salvando…' : 'Salvar'}
                     </Button>
@@ -1252,14 +1255,16 @@ export default function StoreTab() {
 
           {/* Botão Salvar */}
           <div className="sticky bottom-0 pt-4 pb-6 bg-gray-50 z-10">
-            <Button 
-              type="submit" 
+            <Button
+              type="submit"
               size="lg"
-              className="w-full bg-orange-500 hover:bg-orange-600 shadow-lg"
+              className="w-full bg-orange-500 hover:bg-orange-600 shadow-lg min-h-touch"
               disabled={updateMutation.isPending || createMutation.isPending}
             >
-              <Save className={`w-5 h-5 mr-2 ${(updateMutation.isPending || createMutation.isPending) ? 'animate-spin' : ''}`} />
-              {(updateMutation.isPending || createMutation.isPending) ? 'Salvando...' : 'Salvar Alterações'}
+              <Save className={`w-4 h-4 sm:w-5 sm:h-5 mr-2 ${(updateMutation.isPending || createMutation.isPending) ? 'animate-spin' : ''}`} />
+              <span className="text-sm sm:text-base">
+                {(updateMutation.isPending || createMutation.isPending) ? 'Salvando...' : 'Salvar Alterações'}
+              </span>
             </Button>
           </div>
         </form>
