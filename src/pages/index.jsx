@@ -140,6 +140,7 @@ function PagesContent() {
                 <Route path="/setup-password" element={<DefinirSenha />} />
                 <Route path="/esqueci-senha" element={<EsqueciSenha />} />
                 <Route path="/redefinir-senha" element={<RedefinirSenha />} />
+                <Route path="/reset-password" element={<RedefinirSenha />} />
                 <Route path="/ajuda" element={<Ajuda />} />
                 
                 {/* Callback do Google OAuth */}
