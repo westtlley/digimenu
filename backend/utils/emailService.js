@@ -2,13 +2,20 @@ import { logger } from './logger.js';
 import sgMail from '@sendgrid/mail';
 
 // Configurar SendGrid
+let sendGridConfigured = false;
 if (process.env.SENDGRID_API_KEY) {
-  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-  
-  // Para envio na UE (Europa), descomente a linha abaixo:
-  // sgMail.setDataResidency('eu');
-  
-  logger.log('✅ SendGrid configurado');
+  try {
+    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+    
+    // Para envio na UE (Europa), descomente a linha abaixo:
+    // sgMail.setDataResidency('eu');
+    
+    sendGridConfigured = true;
+    logger.log('✅ SendGrid configurado');
+  } catch (error) {
+    logger.warn('⚠️ Erro ao configurar SendGrid:', error.message);
+    sendGridConfigured = false;
+  }
 } else {
   logger.warn('⚠️ SENDGRID_API_KEY não configurado. Emails não serão enviados.');
 }
@@ -18,7 +25,7 @@ if (process.env.SENDGRID_API_KEY) {
  */
 async function sendEmail({ to, from, subject, text, html }) {
   // Se não tiver SendGrid configurado, apenas logar
-  if (!process.env.SENDGRID_API_KEY) {
+  if (!sendGridConfigured || !process.env.SENDGRID_API_KEY) {
     logger.log(`
 📧 ===============================================
    EMAIL (MODO DESENVOLVIMENTO - NÃO ENVIADO)
