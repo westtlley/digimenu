@@ -239,6 +239,31 @@ export default function AdminSidebar({ activeTab, setActiveTab, isMaster = false
       );
     }
 
+    // Se for link externo, usar Link do react-router
+    if (item.external && item.to) {
+      const linkUrl = createPageUrl(item.to, slug);
+      return (
+        <Link
+          key={item.id}
+          to={linkUrl}
+          onClick={() => {
+            if (onClose) onClose();
+          }}
+          className={cn(
+            "w-full flex items-center gap-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+            indent,
+            "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+          )}
+        >
+          <Icon className={cn(
+            "w-4 h-4 flex-shrink-0",
+            "text-gray-500 dark:text-gray-400"
+          )} />
+          {!collapsed && <span className="truncate">{item.label}</span>}
+        </Link>
+      );
+    }
+
     return (
       <button
         key={item.id}
