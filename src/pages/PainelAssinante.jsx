@@ -307,6 +307,7 @@ export default function PainelAssinante() {
             activeTab={activeTab}
             setActiveTab={handleSetActiveTab}
             isMaster={isMaster}
+            slug={slug}
             permissions={permissions}
             plan={subscriberData?.plan}
             collapsed={sidebarCollapsed}

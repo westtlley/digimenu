@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { cn } from "@/lib/utils";
 import { 
   UtensilsCrossed, 
@@ -37,6 +38,7 @@ import {
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient as base44 } from '@/api/apiClient';
+import { createPageUrl } from '@/utils';
 
 /**
  * Estrutura de menu padronizada e profissional
@@ -91,6 +93,7 @@ const MENU_STRUCTURE = [
     icon: Receipt,
     section: 'section',
     submenu: [
+      { id: 'garcom_app', label: 'App do Garçom', icon: UserCog, module: 'garcom', external: true, to: 'Garcom' },
       { id: 'comandas', label: 'Comandas', icon: Receipt, module: 'comandas' },
       { id: 'tables', label: 'Mesas e QR Code', icon: QrCode, module: 'tables' },
     ]
@@ -147,7 +150,8 @@ export default function SharedSidebar({
   collapsed, 
   setCollapsed, 
   onClose,
-  showStoreLogo = true
+  showStoreLogo = true,
+  slug = null
 }) {
   const [expandedGroups, setExpandedGroups] = useState({
     gestao: true,
@@ -254,6 +258,31 @@ export default function SharedSidebar({
             </div>
           )}
         </div>
+      );
+    }
+
+    // Se for link externo, usar Link do react-router
+    if (item.external && item.to) {
+      const linkUrl = createPageUrl(item.to, slug);
+      return (
+        <Link
+          key={item.id}
+          to={linkUrl}
+          onClick={() => {
+            if (onClose) onClose();
+          }}
+          className={cn(
+            "w-full flex items-center gap-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
+            indent,
+            "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+          )}
+        >
+          <Icon className={cn(
+            "w-4 h-4 flex-shrink-0",
+            "text-gray-500 dark:text-gray-400"
+          )} />
+          {!collapsed && <span className="truncate">{item.label}</span>}
+        </Link>
       );
     }
 

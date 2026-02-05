@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Power, PowerOff } from 'lucide-react';
+import WhatsAppIcon from '@/components/ui/WhatsAppIcon';
 import { apiClient as base44 } from '@/api/apiClient';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
@@ -76,7 +77,7 @@ export default function WhatsAppComandaToggle({ store, subscriber, compact = fal
         title={localValue ? 'Comanda WhatsApp: Ligado' : 'Comanda WhatsApp: Desligado'}
       >
         {localValue ? (
-          <Power className="w-4 h-4" />
+          <WhatsAppIcon className="w-5 h-5" />
         ) : (
           <PowerOff className="w-4 h-4" />
         )}
@@ -100,7 +101,7 @@ export default function WhatsAppComandaToggle({ store, subscriber, compact = fal
     >
       {localValue ? (
         <>
-          <Power className="w-4 h-4 mr-2" />
+          <WhatsAppIcon className="w-4 h-4 mr-2" />
           <span className="hidden sm:inline">WhatsApp ON</span>
         </>
       ) : (

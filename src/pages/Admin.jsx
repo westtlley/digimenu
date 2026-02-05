@@ -368,9 +368,8 @@ export default function Admin() {
             />
 
             {isMaster && (
-              <Button variant="ghost" size="icon" className="text-white bg-amber-600/80 hover:bg-amber-600 sm:w-auto sm:px-3 min-h-touch min-w-touch" title="Alterar minha senha" onClick={() => setShowChangePassword(true)}>
-                <KeyRound className="w-4 h-4 sm:mr-2" />
-                <span className="hidden sm:inline">Senha</span>
+              <Button variant="ghost" size="icon" className="text-white bg-amber-600/80 hover:bg-amber-600 min-h-touch min-w-touch" title="Alterar minha senha" onClick={() => setShowChangePassword(true)}>
+                <KeyRound className="w-4 h-4" />
               </Button>
             )}
             <UserAuthButton className="text-white" />
@@ -404,6 +403,7 @@ export default function Admin() {
             isMaster={isMaster}
             permissions={permissions}
             collapsed={sidebarCollapsed}
+            slug={user?.slug || subscriberData?.slug}
             setCollapsed={setSidebarCollapsed}
             onClose={() => setShowMobileSidebar(false)}
           />

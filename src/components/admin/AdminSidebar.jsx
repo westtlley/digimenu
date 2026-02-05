@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { cn } from "@/lib/utils";
 import { 
   UtensilsCrossed, 
@@ -32,8 +33,10 @@ import {
   Receipt,
   Bell,
   Wine,
-  Package
+  Package,
+  UserCog
 } from 'lucide-react';
+import { createPageUrl } from '@/utils';
 
 const MENU_STRUCTURE = [
   // 📊 GESTÃO
@@ -84,6 +87,7 @@ const MENU_STRUCTURE = [
     icon: Receipt,
     section: 'section',
     submenu: [
+      { id: 'garcom_app', label: 'App do Garçom', icon: UserCog, module: 'garcom', external: true, to: 'Garcom' },
       { id: 'comandas', label: 'Comandas', icon: Receipt, module: 'comandas' },
       { id: 'tables', label: 'Mesas e QR Code', icon: QrCode, module: 'tables' },
     ]
@@ -130,7 +134,7 @@ const MENU_STRUCTURE = [
   }
 ];
 
-export default function AdminSidebar({ activeTab, setActiveTab, isMaster = false, permissions = {}, collapsed, setCollapsed, onClose }) {
+export default function AdminSidebar({ activeTab, setActiveTab, isMaster = false, permissions = {}, collapsed, setCollapsed, onClose, slug = null }) {
   const [expandedGroups, setExpandedGroups] = useState({
     gestao: true,
     operacao: true,
