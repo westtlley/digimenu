@@ -173,7 +173,7 @@ export default function PainelAssinante() {
       case 'promotions':
         return hasModuleAccess('promotions') ? <PromotionsTab /> : <AccessDenied />;
       case 'comandas':
-        return hasModuleAccess('comandas') ? <ComandasTab /> : <AccessDenied />;
+        return hasModuleAccess('comandas') ? <ComandasTab subscriberEmail={subscriberData?.email || subscriberEmail || user?.subscriber_email || user?.email} /> : <AccessDenied />;
       case 'theme':
         return hasModuleAccess('theme') ? <ThemeTab /> : <AccessDenied />;
       case 'store':

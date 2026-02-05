@@ -23,7 +23,7 @@ import jwt from 'jsonwebtoken';
 import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import crypto from 'crypto';
-import { setupWebSocket, emitOrderUpdate, emitOrderCreated } from './services/websocket.js';
+import { setupWebSocket, emitOrderUpdate, emitOrderCreated, emitComandaUpdate, emitComandaCreated, emitWaiterCall, emitTableUpdate } from './services/websocket.js';
 import { getAIResponse, isAIAvailable } from './services/chatAI.js';
 
 import cloudinary from './config/cloudinary.js';
@@ -1145,10 +1145,16 @@ app.post('/api/public/chamar-garcom', asyncHandler(async (req, res) => {
     table_id: tableId,
     table_number: tableNumber,
     status: 'pending',
-    created_at: new Date().toISOString()
+    created_at: new Date().toISOString(),
+    subscriber_email: se,
+    owner_email: se
   };
-  await repo.createEntity('WaiterCall', data, null, { forSubscriberEmail: se });
-  res.status(201).json({ ok: true, message: 'Garçom chamado!' });
+  const waiterCall = await repo.createEntity('WaiterCall', data, null, { forSubscriberEmail: se });
+  
+  // ✅ EMITIR CHAMADA DE GARÇOM VIA WEBSOCKET
+  emitWaiterCall(waiterCall);
+  
+  res.status(201).json({ ok: true, message: 'Garçom chamado!', call: waiterCall });
 }));
 
 app.get('/api/colaboradores', authenticate, async (req, res) => {
@@ -1771,9 +1777,24 @@ app.post('/api/entities/:entity', authenticate, async (req, res) => {
 
     console.log(`✅ [${entity}] Item criado:`, newItem.id, asSub ? `(suporte: ${asSub})` : (req.user?.is_master ? '(master)' : `(owner: ${data.owner_email})`));
     
-    // ✅ EMITIR CRIAÇÃO VIA WEBSOCKET (se for pedido)
+    // ✅ EMITIR CRIAÇÃO VIA WEBSOCKET
     if (String(entity).toLowerCase() === 'order') {
       emitOrderCreated(newItem);
+    } else if (String(entity).toLowerCase() === 'comanda') {
+      emitComandaCreated(newItem);
+      // Atualizar status da mesa para ocupada se houver table_id
+      if (newItem.table_id) {
+        try {
+          const table = await repo.getEntity('Table', newItem.table_id);
+          if (table && table.status === 'available') {
+            await repo.updateEntity('Table', newItem.table_id, { status: 'occupied' }, req.user);
+            const updatedTable = await repo.getEntity('Table', newItem.table_id);
+            emitTableUpdate(updatedTable);
+          }
+        } catch (e) {
+          console.error('Erro ao atualizar status da mesa:', e);
+        }
+      }
     }
     
     res.status(201).json(newItem);
@@ -1852,9 +1873,36 @@ app.put('/api/entities/:entity/:id', authenticate, async (req, res) => {
     }
     console.log(`✅ [${entity}] Item atualizado:`, id, asSub ? `(suporte: ${asSub})` : '');
     
-    // ✅ EMITIR ATUALIZAÇÃO VIA WEBSOCKET (se for pedido)
+    // ✅ EMITIR ATUALIZAÇÃO VIA WEBSOCKET
     if (String(entity).toLowerCase() === 'order') {
       emitOrderUpdate(updatedItem);
+    } else if (String(entity).toLowerCase() === 'comanda') {
+      emitComandaUpdate(updatedItem);
+      // Se comanda foi fechada, atualizar mesa para disponível
+      if (updatedItem.status === 'closed' && updatedItem.table_id) {
+        try {
+          // Verificar se há outras comandas abertas na mesa
+          const allComandas = await repo.listEntitiesForSubscriber('Comanda', asSub || updatedItem.owner_email, '-created_at');
+          const hasOpenComandas = allComandas.some(c => 
+            c.table_id === updatedItem.table_id && 
+            c.status === 'open' && 
+            c.id !== updatedItem.id
+          );
+          
+          if (!hasOpenComandas) {
+            const table = await repo.getEntity('Table', updatedItem.table_id);
+            if (table && table.status === 'occupied') {
+              await repo.updateEntity('Table', updatedItem.table_id, { status: 'available' }, req.user);
+              const updatedTable = await repo.getEntity('Table', updatedItem.table_id);
+              emitTableUpdate(updatedTable);
+            }
+          }
+        } catch (e) {
+          console.error('Erro ao atualizar status da mesa:', e);
+        }
+      }
+    } else if (String(entity).toLowerCase() === 'table') {
+      emitTableUpdate(updatedItem);
     }
     
     res.json(updatedItem);

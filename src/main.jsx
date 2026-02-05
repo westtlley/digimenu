@@ -10,6 +10,13 @@ import('./utils/sentry.js').catch(() => {
   // Sentry opcional, não bloquear se não disponível
 });
 
+// Registrar Service Worker para modo offline
+import('./utils/registerServiceWorker.js').then(({ registerServiceWorker }) => {
+  registerServiceWorker();
+}).catch(() => {
+  console.warn('Service Worker não disponível');
+});
+
 // Ignorar erros de extensões do navegador e shaders
 window.addEventListener('error', (event) => {
   // Ignorar erros de extensões do navegador

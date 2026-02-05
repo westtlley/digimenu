@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { QRCodeSVG } from 'qrcode.react';
-import { Plus, Edit, Trash2, QrCode, Bell, Download } from 'lucide-react';
+import { Plus, Edit, Trash2, QrCode, Bell, Download, Receipt, Calendar, Clock } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useTheme } from '@/components/theme/ThemeProvider';
 
@@ -33,10 +33,27 @@ export default function TablesTab() {
     location: ''
   });
   const [qrCodeTable, setQrCodeTable] = useState(null);
+  const [comandasModalOpen, setComandasModalOpen] = useState(false);
+  const [selectedTable, setSelectedTable] = useState(null);
+  const [reservationModalOpen, setReservationModalOpen] = useState(false);
+  const [tableToReserve, setTableToReserve] = useState(null);
+  const [reservationData, setReservationData] = useState({
+    customer_name: '',
+    customer_phone: '',
+    reservation_date: '',
+    reservation_time: '',
+    guests: 1
+  });
 
   const { data: tables = [] } = useQuery({
     queryKey: ['tables'],
     queryFn: () => base44.entities.Table.list(),
+  });
+
+  // Buscar comandas abertas
+  const { data: comandas = [] } = useQuery({
+    queryKey: ['Comanda'],
+    queryFn: () => base44.entities.Comanda.list('-created_at', { status: 'open' }),
   });
 
   // Slug do estabelecimento (master: user.slug; em contexto /s/:slug: currentSlug)
@@ -146,6 +163,22 @@ export default function TablesTab() {
     }
   };
 
+  const handleViewComandas = (table) => {
+    setSelectedTable(table);
+    setComandasModalOpen(true);
+  };
+
+  const getComandasByTable = (table) => {
+    return comandas.filter(c => 
+      (c.table_id && String(c.table_id) === String(table.id)) ||
+      (c.table_number && String(c.table_number) === String(table.table_number)) ||
+      (c.table_name && String(c.table_name) === String(table.table_number))
+    );
+  };
+
+  const formatCurrency = (v) =>
+    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
+
   return (
     <div className="space-y-6">
       {!effectiveSlug && (
@@ -240,6 +273,23 @@ export default function TablesTab() {
                 <div className="space-y-2 text-sm">
                   <div><strong>Capacidade:</strong> {table.capacity} pessoas</div>
                   {table.location && <div><strong>Localização:</strong> {table.location}</div>}
+                  {table.status === 'reserved' && table.reservation_date && (
+                    <div className="p-2 rounded bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 mt-2">
+                      <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300 text-xs">
+                        <Calendar className="w-3 h-3" />
+                        <span className="font-medium">Reservada</span>
+                      </div>
+                      {table.reservation_customer_name && (
+                        <p className="text-xs mt-1 text-blue-600 dark:text-blue-400">Cliente: {table.reservation_customer_name}</p>
+                      )}
+                      <p className="text-xs text-blue-600 dark:text-blue-400">
+                        {new Date(table.reservation_date).toLocaleDateString('pt-BR')} às {table.reservation_time || '--:--'}
+                      </p>
+                      {table.reservation_guests && (
+                        <p className="text-xs text-blue-600 dark:text-blue-400">Convidados: {table.reservation_guests}</p>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div className="flex gap-2">
                   <Button
@@ -258,6 +308,38 @@ export default function TablesTab() {
                     <QrCode className="w-4 h-4 mr-1" />
                     QR Code
                   </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleViewComandas(table)}
+                  >
+                    <Receipt className="w-4 h-4 mr-1" />
+                    Comandas
+                  </Button>
+                  {table.status !== 'reserved' && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleReserve(table)}
+                    >
+                      <Calendar className="w-4 h-4 mr-1" />
+                      Reservar
+                    </Button>
+                  )}
+                  {table.status === 'reserved' && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        if (window.confirm('Cancelar reserva desta mesa?')) {
+                          cancelReservationMutation.mutate(table);
+                        }
+                      }}
+                    >
+                      <X className="w-4 h-4 mr-1" />
+                      Cancelar
+                    </Button>
+                  )}
                   <Button
                     size="sm"
                     variant="destructive"
@@ -294,6 +376,180 @@ export default function TablesTab() {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Modal de Comandas por Mesa */}
+      <Dialog open={comandasModalOpen} onOpenChange={setComandasModalOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Comandas - Mesa {selectedTable?.table_number}</DialogTitle>
+          </DialogHeader>
+          {selectedTable && (
+            <div className="space-y-4">
+              <div className="p-3 rounded-lg border bg-gray-50 dark:bg-gray-800">
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div>
+                    <strong>Status:</strong> {TABLE_STATUSES[selectedTable.status]?.label || selectedTable.status}
+                  </div>
+                  <div>
+                    <strong>Capacidade:</strong> {selectedTable.capacity} pessoas
+                  </div>
+                  {selectedTable.location && (
+                    <div className="col-span-2">
+                      <strong>Localização:</strong> {selectedTable.location}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {(() => {
+                const tableComandas = getComandasByTable(selectedTable);
+                const totalValue = tableComandas.reduce((sum, c) => sum + (c.total || 0), 0);
+                const totalItems = tableComandas.reduce((sum, c) => 
+                  sum + (Array.isArray(c.items) ? c.items.length : 0), 0
+                );
+
+                return (
+                  <>
+                    <div className="grid grid-cols-3 gap-4 p-3 rounded-lg border bg-blue-50 dark:bg-blue-900/20">
+                      <div>
+                        <p className="text-xs text-gray-600 dark:text-gray-400">Comandas Abertas</p>
+                        <p className="text-lg font-bold">{tableComandas.length}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-600 dark:text-gray-400">Total de Itens</p>
+                        <p className="text-lg font-bold">{totalItems}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-600 dark:text-gray-400">Valor Total</p>
+                        <p className="text-lg font-bold">{formatCurrency(totalValue)}</p>
+                      </div>
+                    </div>
+
+                    {tableComandas.length === 0 ? (
+                      <div className="text-center py-8 text-gray-500">
+                        <Receipt className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                        <p>Nenhuma comanda aberta nesta mesa</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {tableComandas.map((comanda) => (
+                          <Card key={comanda.id} className="border">
+                            <CardHeader className="pb-2">
+                              <div className="flex items-center justify-between">
+                                <CardTitle className="text-base flex items-center gap-2">
+                                  <Receipt className="w-4 h-4" />
+                                  {comanda.code || `#${comanda.id}`}
+                                </CardTitle>
+                                <Badge className="bg-green-600">Aberta</Badge>
+                              </div>
+                            </CardHeader>
+                            <CardContent className="space-y-2">
+                              {comanda.customer_name && (
+                                <p className="text-sm text-gray-600 dark:text-gray-400">
+                                  Cliente: {comanda.customer_name}
+                                </p>
+                              )}
+                              <div className="text-sm">
+                                <p className="font-medium">Itens ({Array.isArray(comanda.items) ? comanda.items.length : 0}):</p>
+                                <ul className="list-disc list-inside text-gray-600 dark:text-gray-400 mt-1">
+                                  {Array.isArray(comanda.items) && comanda.items.slice(0, 3).map((item, idx) => (
+                                    <li key={idx} className="text-xs">
+                                      {item.quantity}x {item.dish_name || 'Item'} - {formatCurrency((item.quantity || 0) * (item.unit_price || 0))}
+                                    </li>
+                                  ))}
+                                  {comanda.items.length > 3 && (
+                                    <li className="text-xs text-gray-500">... e mais {comanda.items.length - 3} item(ns)</li>
+                                  )}
+                                </ul>
+                              </div>
+                              <div className="flex justify-between items-center pt-2 border-t">
+                                <span className="text-sm text-gray-600 dark:text-gray-400">Total:</span>
+                                <span className="text-lg font-bold">{formatCurrency(comanda.total || 0)}</span>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Reserva */}
+      <Dialog open={reservationModalOpen} onOpenChange={setReservationModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reservar Mesa {tableToReserve?.table_number}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={(e) => {
+            e.preventDefault();
+            if (!reservationData.customer_name || !reservationData.reservation_date || !reservationData.reservation_time) {
+              toast.error('Preencha todos os campos obrigatórios');
+              return;
+            }
+            createReservationMutation.mutate(reservationData);
+          }} className="space-y-4">
+            <div>
+              <Label>Nome do Cliente *</Label>
+              <Input
+                value={reservationData.customer_name}
+                onChange={(e) => setReservationData(prev => ({ ...prev, customer_name: e.target.value }))}
+                placeholder="Nome completo"
+                required
+              />
+            </div>
+            <div>
+              <Label>Telefone</Label>
+              <Input
+                value={reservationData.customer_phone}
+                onChange={(e) => setReservationData(prev => ({ ...prev, customer_phone: e.target.value }))}
+                placeholder="(00) 00000-0000"
+              />
+            </div>
+            <div>
+              <Label>Data da Reserva *</Label>
+              <Input
+                type="date"
+                value={reservationData.reservation_date}
+                onChange={(e) => setReservationData(prev => ({ ...prev, reservation_date: e.target.value }))}
+                min={new Date().toISOString().split('T')[0]}
+                required
+              />
+            </div>
+            <div>
+              <Label>Horário *</Label>
+              <Input
+                type="time"
+                value={reservationData.reservation_time}
+                onChange={(e) => setReservationData(prev => ({ ...prev, reservation_time: e.target.value }))}
+                required
+              />
+            </div>
+            <div>
+              <Label>Número de Convidados</Label>
+              <Input
+                type="number"
+                min="1"
+                max={tableToReserve?.capacity || 10}
+                value={reservationData.guests}
+                onChange={(e) => setReservationData(prev => ({ ...prev, guests: parseInt(e.target.value) || 1 }))}
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button type="button" variant="outline" onClick={() => setReservationModalOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={createReservationMutation.isPending}>
+                {createReservationMutation.isPending ? 'Salvando...' : 'Confirmar Reserva'}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

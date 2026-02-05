@@ -20,8 +20,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Receipt, Edit2, XCircle, History, Trash2, Search, X, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Plus, Receipt, Edit2, XCircle, History, Trash2, Search, X, AlertCircle, CheckCircle2, ArrowRight, Printer } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useComandaWebSocket } from '@/hooks/useComandaWebSocket';
+import TransferItemsModal from './TransferItemsModal';
 
 const PAYMENT_METHODS = [
   { value: 'pix', label: 'PIX' },
@@ -36,7 +38,7 @@ const formatCurrency = (v) =>
 const formatDate = (d) =>
   d ? new Date(d).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '';
 
-export default function ComandasTab() {
+export default function ComandasTab({ subscriberEmail = null }) {
   const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
@@ -46,6 +48,44 @@ export default function ComandasTab() {
   const [formMode, setFormMode] = useState('create'); // create | edit | close
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [comandaToClose, setComandaToClose] = useState(null);
+  const [transferOpen, setTransferOpen] = useState(false);
+  const [comandaToTransfer, setComandaToTransfer] = useState(null);
+
+  // Buscar subscriber_email se não fornecido
+  const [userEmail, setUserEmail] = useState(null);
+  useEffect(() => {
+    (async () => {
+      try {
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        setUserEmail(user?.subscriber_email || user?.email);
+      } catch (e) {
+        // Ignorar
+      }
+    })();
+  }, []);
+
+  const effectiveSubscriberEmail = subscriberEmail || userEmail;
+
+  // WebSocket para comandas em tempo real
+  useComandaWebSocket({
+    subscriberEmail: effectiveSubscriberEmail,
+    onComandaUpdate: (comanda) => {
+      queryClient.setQueryData(['Comanda', statusFilter], (old) => {
+        if (!old) return [comanda];
+        const index = old.findIndex(c => c.id === comanda.id);
+        if (index >= 0) {
+          const updated = [...old];
+          updated[index] = comanda;
+          return updated;
+        }
+        return [...old, comanda];
+      });
+    },
+    onComandaCreated: (comanda) => {
+      queryClient.invalidateQueries({ queryKey: ['Comanda'] });
+    },
+    enableNotifications: false // Não mostrar notificações no admin
+  });
 
   const { data: comandas = [], isLoading } = useQuery({
     queryKey: ['Comanda', statusFilter],
@@ -275,12 +315,22 @@ export default function ComandasTab() {
                           <XCircle className="w-3 h-3 mr-1" />
                           Fechar
                         </Button>
+                        <Button size="sm" variant="outline" onClick={() => handleTransfer(c)}>
+                          <ArrowRight className="w-3 h-3 mr-1" />
+                          Transferir
+                        </Button>
                       </>
                     )}
                     <Button size="sm" variant="ghost" onClick={() => handleHistory(c)}>
                       <History className="w-3 h-3 mr-1" />
                       Histórico
                     </Button>
+                    {isOpen && (
+                      <Button size="sm" variant="ghost" onClick={() => handlePrintComanda(c)}>
+                        <Printer className="w-3 h-3 mr-1" />
+                        Imprimir
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -362,6 +412,9 @@ function ComandaFormModal({
   const [customer_phone, setCustomerPhone] = useState('');
   const [items, setItems] = useState([]);
   const [payments, setPayments] = useState([{ method: 'pix', amount: '' }]);
+  const [tip, setTip] = useState({ type: 'none', value: '' }); // none, percent, fixed
+  const [splitCount, setSplitCount] = useState(1); // Número de pessoas para dividir
+  const [splitEnabled, setSplitEnabled] = useState(false);
   const user = JSON.parse(localStorage.getItem('user') || '{}');
 
   React.useEffect(() => {
@@ -386,8 +439,20 @@ function ComandaFormModal({
   }, [open, comanda]);
 
   const totalItems = items.reduce((s, i) => s + (Number(i.quantity) || 0) * (Number(i.unit_price) || 0), 0);
+  
+  // Calcular gorjeta
+  const tipAmount = tip.type === 'percent' 
+    ? (totalItems * (parseFloat(tip.value) || 0) / 100)
+    : tip.type === 'fixed'
+    ? (parseFloat(tip.value) || 0)
+    : 0;
+  
+  const totalWithTip = totalItems + tipAmount;
   const totalPaid = payments.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
-  const canClose = totalPaid >= totalItems && totalItems > 0;
+  const canClose = totalPaid >= totalWithTip && totalWithTip > 0;
+  
+  // Valor por pessoa se dividir conta
+  const perPersonAmount = splitEnabled && splitCount > 0 ? totalWithTip / splitCount : totalWithTip;
 
   const addItem = () => {
     const d = dishes[0];
@@ -473,7 +538,12 @@ function ComandaFormModal({
           created_at: new Date().toISOString(),
           created_by: user?.email,
         }));
-      const history = appendHistory(comanda.history || [], 'closed', { payments: payArr });
+      const history = appendHistory(comanda.history || [], 'closed', { 
+        payments: payArr,
+        tip: tipAmount > 0 ? tip : null,
+        tip_amount: tipAmount,
+        split_count: splitEnabled ? splitCount : null
+      });
       onUpdate({
         id: comanda.id,
         data: {
@@ -482,7 +552,10 @@ function ComandaFormModal({
           closed_at: new Date().toISOString(),
           closed_by: user?.email,
           payments: payArr,
-          total: totalItems,
+          total: totalWithTip,
+          tip: tipAmount > 0 ? tip : null,
+          tip_amount: tipAmount,
+          split_count: splitEnabled ? splitCount : null,
           history,
         },
       });
@@ -669,28 +742,46 @@ function ComandaFormModal({
               </div>
               <div className="space-y-2">
                 <div className="flex justify-between items-center p-2 rounded" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-                  <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Total:</span>
+                  <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Subtotal:</span>
                   <span className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(totalItems)}</span>
                 </div>
-                <div className="flex justify-between items-center p-2 rounded" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-                  <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Total pago:</span>
-                  <span className={`text-sm font-bold ${totalPaid >= totalItems ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                    {formatCurrency(totalPaid)}
-                  </span>
+                {tipAmount > 0 && (
+                  <div className="flex justify-between items-center p-2 rounded" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                    <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Gorjeta:</span>
+                    <span className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(tipAmount)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center p-2 rounded border-t" style={{ borderColor: 'var(--border-color)' }}>
+                  <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Total:</span>
+                  <span className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(totalWithTip)}</span>
                 </div>
-                {totalPaid > totalItems && (
-                  <div className="flex justify-between items-center p-2 rounded border border-green-200 dark:border-green-800" style={{ backgroundColor: 'rgba(34, 197, 94, 0.1)' }}>
-                    <span className="text-sm font-medium text-green-700 dark:text-green-300">Troco:</span>
-                    <span className="text-sm font-bold text-green-700 dark:text-green-300">
-                      {formatCurrency(totalPaid - totalItems)}
+                {splitEnabled && splitCount > 1 && (
+                  <div className="flex justify-between items-center p-2 rounded border border-blue-200 dark:border-blue-800" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)' }}>
+                    <span className="text-sm font-medium text-blue-700 dark:text-blue-300">Por pessoa ({splitCount}):</span>
+                    <span className="text-sm font-bold text-blue-700 dark:text-blue-300">
+                      {formatCurrency(perPersonAmount)}
                     </span>
                   </div>
                 )}
-                {!canClose && totalItems > 0 && (
+                <div className="flex justify-between items-center p-2 rounded" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                  <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Total pago:</span>
+                  <span className={`text-sm font-bold ${totalPaid >= totalWithTip ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                    {formatCurrency(totalPaid)}
+                  </span>
+                </div>
+                {totalPaid > totalWithTip && (
+                  <div className="flex justify-between items-center p-2 rounded border border-green-200 dark:border-green-800" style={{ backgroundColor: 'rgba(34, 197, 94, 0.1)' }}>
+                    <span className="text-sm font-medium text-green-700 dark:text-green-300">Troco:</span>
+                    <span className="text-sm font-bold text-green-700 dark:text-green-300">
+                      {formatCurrency(totalPaid - totalWithTip)}
+                    </span>
+                  </div>
+                )}
+                {!canClose && totalWithTip > 0 && (
                   <div className="flex items-center gap-2 p-2 rounded border border-red-200 dark:border-red-800" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)' }}>
                     <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400" />
                     <span className="text-xs text-red-600 dark:text-red-400">
-                      Valor pago insuficiente. Faltam {formatCurrency(totalItems - totalPaid)}
+                      Valor pago insuficiente. Faltam {formatCurrency(totalWithTip - totalPaid)}
                     </span>
                   </div>
                 )}

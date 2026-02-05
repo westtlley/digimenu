@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Receipt, Loader2, LogOut, Plus, Edit2, XCircle, History, Trash2, Filter, Search, X, AlertCircle, CheckCircle2, Calculator } from 'lucide-react';
+import { Receipt, Loader2, LogOut, Plus, Edit2, XCircle, History, Trash2, Filter, Search, X, AlertCircle, CheckCircle2, Calculator, Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,6 +23,10 @@ import {
 } from '@/components/ui/select';
 import toast from 'react-hot-toast';
 import InstallAppButton from '../components/InstallAppButton';
+import { useComandaWebSocket } from '@/hooks/useComandaWebSocket';
+import { useWaiterCallWebSocket } from '@/hooks/useWaiterCallWebSocket';
+import { useOfflineSync } from '@/hooks/useOfflineSync';
+import { saveComandaOffline, updateComandaOffline, getComandasOffline } from '@/utils/offlineStorage';
 
 const PAYMENT_METHODS = [
   { value: 'pix', label: 'PIX' },
@@ -50,6 +54,7 @@ export default function Garcom() {
   const [formMode, setFormMode] = useState('create');
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [comandaToClose, setComandaToClose] = useState(null);
+  const [historyCallsOpen, setHistoryCallsOpen] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -66,14 +71,25 @@ export default function Garcom() {
     })();
   }, []);
 
+  const { online, syncing } = useOfflineSync();
+  
   const { data: comandas = [], isLoading } = useQuery({
-    queryKey: ['Comanda', statusFilter],
-    queryFn: () => {
+    queryKey: ['Comanda', statusFilter, online],
+    queryFn: async () => {
       const params = statusFilter && statusFilter !== 'all' ? { status: statusFilter } : {};
-      return base44.entities.Comanda.list('-created_at', params);
+      if (online) {
+        return base44.entities.Comanda.list('-created_at', params);
+      } else {
+        // Buscar do IndexedDB quando offline
+        const offlineComandas = await getComandasOffline();
+        return offlineComandas.filter(c => {
+          if (statusFilter === 'all') return true;
+          return (c.status || 'open') === statusFilter;
+        });
+      }
     },
     enabled: allowed,
-    refetchInterval: 5000,
+    refetchInterval: online ? 5000 : false,
   });
 
   const { data: dishes = [] } = useQuery({
@@ -85,23 +101,42 @@ export default function Garcom() {
   const safeDishes = Array.isArray(dishes) ? dishes.filter((d) => d.is_active !== false) : [];
 
   const createMutation = useMutation({
-    mutationFn: (data) => base44.entities.Comanda.create(data),
+    mutationFn: async (data) => {
+      if (online) {
+        return await base44.entities.Comanda.create(data);
+      } else {
+        // Salvar offline
+        const offlineComanda = {
+          ...data,
+          id: `offline_${Date.now()}`,
+          code: data.code || `C-${Date.now().toString().slice(-6)}`
+        };
+        return await saveComandaOffline(offlineComanda);
+      }
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['Comanda'] });
       setFormOpen(false);
       setEditingComanda(null);
-      toast.success('Comanda criada com sucesso!');
+      toast.success(online ? 'Comanda criada com sucesso!' : 'Comanda salva offline. Será sincronizada quando voltar online.');
     },
     onError: (e) => toast.error(e?.message || 'Erro ao criar comanda'),
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.Comanda.update(id, data),
+    mutationFn: async ({ id, data }) => {
+      if (online) {
+        return await base44.entities.Comanda.update(id, data);
+      } else {
+        // Atualizar offline
+        return await updateComandaOffline({ ...data, id });
+      }
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['Comanda'] });
       setFormOpen(false);
       setEditingComanda(null);
-      toast.success('Comanda atualizada com sucesso!');
+      toast.success(online ? 'Comanda atualizada com sucesso!' : 'Comanda atualizada offline. Será sincronizada quando voltar online.');
     },
     onError: (e) => toast.error(e?.message || 'Erro ao atualizar comanda'),
   });
@@ -160,6 +195,103 @@ export default function Garcom() {
   const handleHistory = (c) => {
     setEditingComanda(c);
     setHistoryOpen(true);
+  };
+
+  const handlePrintComanda = (comanda) => {
+    const printWindow = window.open('', '_blank');
+    const items = Array.isArray(comanda.items) ? comanda.items : [];
+    const itemsHtml = items.map(item => {
+      const itemTotal = (Number(item.quantity) || 0) * (Number(item.unit_price) || 0);
+      return `
+        <div style="margin: 5px 0; padding: 5px 0; border-bottom: 1px dashed #ccc;">
+          <div style="display: flex; justify-content: space-between;">
+            <span><strong>${item.quantity}x</strong> ${item.dish_name || 'Item'}</span>
+            <span>${formatCurrency(itemTotal)}</span>
+          </div>
+          ${item.unit_price ? `<div style="font-size: 10px; color: #666;">Unit: ${formatCurrency(item.unit_price)}</div>` : ''}
+          ${item.observations ? `<div style="font-size: 10px; color: #666; font-style: italic;">Obs: ${item.observations}</div>` : ''}
+        </div>
+      `;
+    }).join('');
+
+    const total = comanda.total || items.reduce((sum, i) => sum + (Number(i.quantity) || 0) * (Number(i.unit_price) || 0), 0);
+    
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Comanda ${comanda.code || `#${comanda.id}`}</title>
+          <meta charset="utf-8">
+          <style>
+            @page {
+              size: 80mm auto;
+              margin: 5mm;
+            }
+            body {
+              font-family: 'Courier New', monospace;
+              font-size: 12px;
+              line-height: 1.4;
+              padding: 10px;
+              margin: 0;
+              max-width: 80mm;
+            }
+            .header {
+              text-align: center;
+              margin-bottom: 10px;
+              padding-bottom: 10px;
+              border-bottom: 2px dashed #000;
+            }
+            .info {
+              margin: 8px 0;
+              font-size: 11px;
+            }
+            .total {
+              border-top: 2px solid #000;
+              margin-top: 10px;
+              padding-top: 10px;
+              font-weight: bold;
+              font-size: 14px;
+              text-align: right;
+            }
+            .code {
+              background: #fff3cd;
+              border: 2px solid #ff9800;
+              padding: 8px;
+              margin: 10px 0;
+              text-align: center;
+              font-size: 18px;
+              font-weight: bold;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1 style="margin: 0; font-size: 18px;">COMANDA</h1>
+          </div>
+          <div class="code">${comanda.code || `#${comanda.id}`}</div>
+          <div class="info">
+            ${comanda.table_name ? `<strong>Mesa:</strong> ${comanda.table_name}<br>` : ''}
+            ${comanda.customer_name ? `<strong>Cliente:</strong> ${comanda.customer_name}<br>` : ''}
+            ${comanda.customer_phone ? `<strong>Telefone:</strong> ${comanda.customer_phone}<br>` : ''}
+            <strong>Data:</strong> ${comanda.created_at ? new Date(comanda.created_at).toLocaleString('pt-BR') : new Date().toLocaleString('pt-BR')}
+          </div>
+          <div style="margin: 15px 0;">
+            <strong>ITENS:</strong>
+            ${itemsHtml}
+          </div>
+          <div class="total">
+            TOTAL: ${formatCurrency(total)}
+          </div>
+          <div style="text-align: center; margin-top: 15px; font-size: 10px; color: #666;">
+            ${new Date().toLocaleString('pt-BR')}
+          </div>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+    setTimeout(() => {
+      printWindow.print();
+    }, 250);
   };
 
   const filtered = comandas.filter((c) => {
@@ -242,6 +374,96 @@ export default function Garcom() {
       </header>
 
       <main className="p-4 max-w-6xl mx-auto pb-24 safe-bottom">
+        {/* Notificação de chamadas de garçom */}
+        {waiterCalls.length > 0 && (
+          <div className="mb-4 p-4 bg-orange-50 dark:bg-orange-900/20 border-2 border-orange-500 rounded-2xl">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Bell className="w-6 h-6 text-orange-600 dark:text-orange-400 animate-pulse" />
+                <div>
+                  <p className="font-bold text-orange-900 dark:text-orange-100">
+                    {waiterCalls.length} {waiterCalls.length === 1 ? 'chamada pendente' : 'chamadas pendentes'}
+                  </p>
+                  <p className="text-sm text-orange-700 dark:text-orange-300">
+                    {waiterCalls.map(c => `Mesa ${c.table_number || c.table_id}`).join(', ')}
+                  </p>
+                </div>
+              </div>
+              <Button
+                size="sm"
+                onClick={() => setWaiterCalls([])}
+                className="bg-orange-600 hover:bg-orange-700 text-white"
+              >
+                Limpar
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Relatórios e Estatísticas */}
+        {!isLoading && comandas.length > 0 && (
+          <div className="mb-6">
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-3">Relatórios</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+              <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border-blue-200 dark:border-blue-800">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">Comandas Hoje</p>
+                      <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">
+                        {comandas.filter(c => {
+                          const today = new Date().toDateString();
+                          const created = c.created_at ? new Date(c.created_at).toDateString() : '';
+                          return created === today;
+                        }).length}
+                      </p>
+                    </div>
+                    <Receipt className="w-8 h-8 text-blue-600 dark:text-blue-400 opacity-50" />
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 border-green-200 dark:border-green-800">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-green-600 dark:text-green-400 font-medium">Valor Total Hoje</p>
+                      <p className="text-2xl font-bold text-green-700 dark:text-green-300">
+                        {formatCurrency(comandas.filter(c => {
+                          const today = new Date().toDateString();
+                          const created = c.created_at ? new Date(c.created_at).toDateString() : '';
+                          return created === today;
+                        }).reduce((sum, c) => sum + (c.total || 0), 0))}
+                      </p>
+                    </div>
+                    <Calculator className="w-8 h-8 text-green-600 dark:text-green-400 opacity-50" />
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 border-orange-200 dark:border-orange-800">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-orange-600 dark:text-orange-400 font-medium">Ticket Médio</p>
+                      <p className="text-2xl font-bold text-orange-700 dark:text-orange-300">
+                        {(() => {
+                          const todayComandas = comandas.filter(c => {
+                            const today = new Date().toDateString();
+                            const created = c.created_at ? new Date(c.created_at).toDateString() : '';
+                            return created === today;
+                          });
+                          const total = todayComandas.reduce((sum, c) => sum + (c.total || 0), 0);
+                          return formatCurrency(todayComandas.length > 0 ? total / todayComandas.length : 0);
+                        })()}
+                      </p>
+                    </div>
+                    <Calculator className="w-8 h-8 text-orange-600 dark:text-orange-400 opacity-50" />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        )}
+
         {/* Estatísticas rápidas */}
         {!isLoading && comandas.length > 0 && (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
@@ -502,6 +724,80 @@ export default function Garcom() {
         onOpenChange={setHistoryOpen}
         comanda={editingComanda}
       />
+
+      {/* Modal de Histórico de Chamadas */}
+      <Dialog open={historyCallsOpen} onOpenChange={setHistoryCallsOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto bg-white dark:bg-gray-800">
+          <DialogHeader>
+            <DialogTitle className="text-teal-700 dark:text-teal-300 flex items-center gap-2">
+              <Bell className="w-5 h-5" />
+              Histórico de Chamadas
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            {allWaiterCalls.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <Bell className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                <p>Nenhuma chamada registrada</p>
+              </div>
+            ) : (
+              allWaiterCalls.map((call) => {
+                const isPending = call.status === 'pending';
+                const callDate = call.created_at ? new Date(call.created_at).toLocaleString('pt-BR') : '';
+                const responseTime = call.answered_at && call.created_at
+                  ? Math.round((new Date(call.answered_at) - new Date(call.created_at)) / 1000)
+                  : null;
+                
+                return (
+                  <div
+                    key={call.id}
+                    className={`p-4 rounded-lg border ${
+                      isPending
+                        ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-300 dark:border-orange-700'
+                        : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Bell className={`w-5 h-5 ${isPending ? 'text-orange-600 dark:text-orange-400' : 'text-gray-400'}`} />
+                          <span className="font-bold text-lg">
+                            Mesa {call.table_number || call.table_id || 'N/A'}
+                          </span>
+                          {isPending && (
+                            <Badge className="bg-orange-600 text-white animate-pulse">Pendente</Badge>
+                          )}
+                          {!isPending && (
+                            <Badge className="bg-green-600 text-white">Atendida</Badge>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          Chamada: {callDate}
+                        </p>
+                        {call.answered_at && (
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            Atendida: {new Date(call.answered_at).toLocaleString('pt-BR')}
+                          </p>
+                        )}
+                        {responseTime !== null && (
+                          <p className="text-sm text-teal-600 dark:text-teal-400 font-medium">
+                            Tempo de resposta: {responseTime}s
+                          </p>
+                        )}
+                        {call.answered_by && (
+                          <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                            Atendido por: {call.answered_by}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Modal de confirmação de fechamento */}
       <Dialog open={showCloseConfirm} onOpenChange={setShowCloseConfirm}>
