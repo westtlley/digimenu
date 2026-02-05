@@ -238,7 +238,8 @@ export default function CadastroCliente() {
               if (slug) {
                 navigate(`/s/${slug}`);
               } else {
-                navigate(createPageUrl('Cardapio'));
+                // Sem slug, ir para cardápio geral (não /Assinar)
+                navigate('/Cardapio');
               }
             }, 1500);
           } else {
