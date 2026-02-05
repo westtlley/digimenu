@@ -2582,9 +2582,7 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
         }
         
         // Criar registro na tabela customers
-        // Se subscriber_email foi fornecido, vincular ao assinante específico
-        const subscriberEmail = data.subscriber_email || null;
-        
+        // Usar o mesmo subscriberEmail já declarado acima
         const customerData = {
           email: emailLower,
           name: data.name.trim(),
