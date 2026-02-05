@@ -938,8 +938,8 @@ export async function listCustomers(subscriberEmail = null) {
 
 export async function createCustomer(customerData, subscriberEmail = null) {
   const result = await query(
-    `INSERT INTO customers (email, name, phone, address, complement, neighborhood, city, zipcode, subscriber_email)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    `INSERT INTO customers (email, name, phone, address, complement, neighborhood, city, zipcode, subscriber_email, birth_date, cpf, password_hash)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
      RETURNING *`,
     [
       customerData.email,
@@ -950,7 +950,10 @@ export async function createCustomer(customerData, subscriberEmail = null) {
       customerData.neighborhood,
       customerData.city,
       customerData.zipcode,
-      subscriberEmail
+      subscriberEmail,
+      customerData.birth_date || null,
+      customerData.cpf || null,
+      customerData.password_hash || null
     ]
   );
   return result.rows[0];

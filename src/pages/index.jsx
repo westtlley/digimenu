@@ -8,6 +8,7 @@ import LoginCliente from "./auth/LoginCliente";
 import LoginAssinante from "./auth/LoginAssinante";
 import LoginAdmin from "./auth/LoginAdmin";
 import LoginColaborador from "./auth/LoginColaborador";
+import GoogleCallback from "./auth/GoogleCallback";
 import CadastroCliente from "./CadastroCliente";
 import DefinirSenha from "./DefinirSenha";
 import EsqueciSenha from "./EsqueciSenha";
@@ -138,6 +139,10 @@ function PagesContent() {
                 <Route path="/esqueci-senha" element={<EsqueciSenha />} />
                 <Route path="/redefinir-senha" element={<RedefinirSenha />} />
                 <Route path="/ajuda" element={<Ajuda />} />
+                
+                {/* Callback do Google OAuth */}
+                <Route path="/auth/callback" element={<GoogleCallback />} />
+                <Route path="/auth/google/callback" element={<GoogleCallback />} />
                 
                 <Route path="/Entregador" element={<ProtectedRoute requireActiveSubscription><Entregador /></ProtectedRoute>} />
                 <Route path="/EntregadorPanel" element={<ProtectedRoute requireActiveSubscription><EntregadorPanel /></ProtectedRoute>} />

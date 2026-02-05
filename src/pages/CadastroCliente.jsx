@@ -248,9 +248,28 @@ export default function CadastroCliente() {
   };
 
   const handleGoogleLogin = async () => {
-    // TODO: Implementar login com Google
-    // Por enquanto, apenas mostrar mensagem
-    toast.info('Login com Google em desenvolvimento. Use o cadastro tradicional.');
+    try {
+      // Obter URL base do backend (remover /api se existir)
+      let backendUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+      
+      // Se a URL termina com /api, remover para obter a URL base
+      if (backendUrl.endsWith('/api')) {
+        backendUrl = backendUrl.replace(/\/api$/, '');
+      }
+      
+      // Se não tem protocolo, adicionar http:// (desenvolvimento)
+      if (!backendUrl.startsWith('http://') && !backendUrl.startsWith('https://')) {
+        backendUrl = `http://${backendUrl}`;
+      }
+      
+      console.log('🔵 Redirecionando para Google OAuth:', `${backendUrl}/api/auth/google`);
+      
+      // Redirecionar para rota de autenticação Google
+      window.location.href = `${backendUrl}/api/auth/google`;
+    } catch (error) {
+      console.error('❌ Erro ao iniciar login Google:', error);
+      toast.error('Erro ao iniciar login com Google. Verifique a configuração do backend.');
+    }
   };
 
   if (success) {

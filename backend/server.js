@@ -272,7 +272,8 @@ const publicRoutes = [
   '/api/entities/PaymentConfig',  // Configurações de pagamento públicas para o cardápio
   '/api/entities/MenuItem',  // Itens do menu públicos para o cardápio
   '/api/entities/Category',  // Categorias públicas para o cardápio
-  '/api/entities/Subscriber'  // Info do assinante pública para o cardápio
+  '/api/entities/Subscriber',  // Info do assinante pública para o cardápio
+  '/api/functions/registerCustomer'  // Cadastro de clientes (público)
 ];
 
 const isPublicRoute = (path) => {
@@ -411,19 +412,42 @@ if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET) {
 
       // Buscar ou criar usuário
       let user;
+      const emailLower = email.toLowerCase();
+      
       if (usePostgreSQL) {
-        user = await repo.getUserByEmail(email);
+        user = await repo.getUserByEmail(emailLower);
         
         if (!user) {
-          // Criar novo usuário
+          // Criar novo usuário como cliente (role='customer')
           user = await repo.createUser({
-            email: email.toLowerCase(),
+            email: emailLower,
             full_name: name,
-            role: 'user',
+            role: 'customer', // Cliente por padrão quando faz login via Google
             is_master: false,
+            subscriber_email: null,
             google_id: googleId,
             google_photo: photo
           });
+          
+          // Criar também registro na tabela customers
+          try {
+            await repo.createCustomer({
+              email: emailLower,
+              name: name,
+              phone: null,
+              address: null,
+              complement: null,
+              neighborhood: null,
+              city: null,
+              zipcode: null,
+              subscriber_email: null,
+              birth_date: null,
+              cpf: null,
+              password_hash: null
+            }, null);
+          } catch (customerError) {
+            console.warn('⚠️ Erro ao criar customer via Google OAuth (não crítico):', customerError.message);
+          }
         } else if (!user.google_id) {
           // Atualizar usuário existente com dados do Google
           user = await repo.updateUser(user.id, {
@@ -432,22 +456,46 @@ if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET) {
           });
         }
       } else if (db && db.users) {
-        user = db.users.find(u => u.email === email.toLowerCase());
+        user = db.users.find(u => (u.email || '').toLowerCase() === emailLower);
         
         if (!user) {
-          // Criar novo usuário
+          // Criar novo usuário como cliente
           const newUser = {
             id: Date.now().toString(),
-            email: email.toLowerCase(),
+            email: emailLower,
             full_name: name,
-            role: 'user',
+            role: 'customer', // Cliente por padrão
             is_master: false,
+            subscriber_email: null,
             google_id: googleId,
             google_photo: photo,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
           };
           db.users.push(newUser);
+          
+          // Criar também registro na tabela customers
+          if (db.customers) {
+            const newCustomer = {
+              id: String(Date.now() + 1),
+              email: emailLower,
+              name: name,
+              phone: null,
+              address: null,
+              complement: null,
+              neighborhood: null,
+              city: null,
+              zipcode: null,
+              subscriber_email: null,
+              birth_date: null,
+              cpf: null,
+              password_hash: null,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            };
+            db.customers.push(newCustomer);
+          }
+          
           if (saveDatabaseDebounced) {
             saveDatabaseDebounced(db);
           }
@@ -825,8 +873,18 @@ app.post('/api/auth/forgot-password', validate(schemas.forgotPassword), asyncHan
   expiresAt.setHours(expiresAt.getHours() + 1);
   await repo.createPasswordResetToken(emailNorm, token, expiresAt);
   const link = `${FRONTEND_URL}/redefinir-senha?token=${token}`;
-  logger.log('🔐 [forgot-password] Link de redefinição (configure SMTP para enviar por email):', link);
-  // TODO: enviar email quando SMTP/Resend etc. estiver configurado
+  
+  // Enviar email de recuperação de senha
+  try {
+    const { sendPasswordResetEmail } = await import('./utils/emailService.js');
+    await sendPasswordResetEmail(emailNorm, token);
+    logger.log('✅ [forgot-password] Email de recuperação enviado para:', emailNorm);
+  } catch (emailError) {
+    logger.error('❌ [forgot-password] Erro ao enviar email:', emailError);
+    // Continuar mesmo se falhar (não crítico para segurança)
+    logger.log('🔐 [forgot-password] Link de redefinição (email não enviado):', link);
+  }
+  
   return res.json({ success: true, message: msg });
 }));
 
@@ -2451,6 +2509,132 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
         return res.status(500).json({ 
           error: 'Erro ao buscar perfil do assinante',
           details: error.message 
+        });
+      }
+    }
+    
+    if (name === 'registerCustomer') {
+      // Cadastro de clientes - rota pública
+      console.log('👤 [registerCustomer] Novo cadastro de cliente:', { email: data.email, name: data.name });
+      
+      try {
+        // Validações
+        if (!data.email || !data.email.includes('@')) {
+          return res.status(400).json({ error: 'Email válido é obrigatório' });
+        }
+        
+        if (!data.name || data.name.trim().length < 3) {
+          return res.status(400).json({ error: 'Nome deve ter no mínimo 3 caracteres' });
+        }
+        
+        if (!data.password || data.password.length < 6) {
+          return res.status(400).json({ error: 'Senha deve ter no mínimo 6 caracteres' });
+        }
+        
+        const emailLower = data.email.toLowerCase().trim();
+        
+        // Verificar se já existe usuário com esse email
+        let existingUser = null;
+        if (usePostgreSQL) {
+          existingUser = await repo.getUserByEmail(emailLower);
+        } else if (db && db.users) {
+          existingUser = db.users.find(u => (u.email || '').toLowerCase() === emailLower);
+        }
+        
+        if (existingUser) {
+          return res.status(400).json({ error: 'Email já cadastrado. Use outro email ou faça login.' });
+        }
+        
+        // Hash da senha
+        const passwordHash = await bcrypt.hash(data.password, 10);
+        
+        // Criar usuário na tabela users com role='customer'
+        const userData = {
+          email: emailLower,
+          full_name: data.name.trim(),
+          password: passwordHash,
+          role: 'customer',
+          is_master: false,
+          subscriber_email: null
+        };
+        
+        let createdUser;
+        if (usePostgreSQL) {
+          createdUser = await repo.createUser(userData);
+        } else if (db && db.users) {
+          createdUser = {
+            id: String(Date.now()),
+            ...userData,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          };
+          db.users.push(createdUser);
+          if (saveDatabaseDebounced) saveDatabaseDebounced(db);
+        } else {
+          return res.status(500).json({ error: 'Banco de dados não disponível' });
+        }
+        
+        // Criar registro na tabela customers
+        const customerData = {
+          email: emailLower,
+          name: data.name.trim(),
+          phone: data.phone ? data.phone.replace(/\D/g, '') : null,
+          address: data.address || null,
+          complement: null,
+          neighborhood: null,
+          city: null,
+          zipcode: null,
+          subscriber_email: null, // Cliente não está vinculado a um assinante específico
+          birth_date: data.birth_date || null,
+          cpf: data.cpf ? data.cpf.replace(/\D/g, '') : null,
+          password_hash: passwordHash
+        };
+        
+        // Extrair dados do endereço se vier como string completa
+        if (data.address && typeof data.address === 'string') {
+          // Tentar extrair componentes do endereço se possível
+          // Por enquanto, apenas salvar como está
+        }
+        
+        let createdCustomer;
+        if (usePostgreSQL) {
+          try {
+            createdCustomer = await repo.createCustomer(customerData, null);
+          } catch (customerError) {
+            // Se falhar ao criar customer, não é crítico - o usuário já foi criado
+            console.warn('⚠️ [registerCustomer] Erro ao criar customer (não crítico):', customerError.message);
+            createdCustomer = null;
+          }
+        } else if (db && db.customers) {
+          createdCustomer = {
+            id: String(Date.now() + 1),
+            ...customerData,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          };
+          db.customers.push(createdCustomer);
+          if (saveDatabaseDebounced) saveDatabaseDebounced(db);
+        }
+        
+        console.log('✅ [registerCustomer] Cliente cadastrado com sucesso:', emailLower);
+        
+        return res.json({
+          data: {
+            success: true,
+            user: {
+              id: createdUser.id,
+              email: createdUser.email,
+              full_name: createdUser.full_name,
+              role: createdUser.role
+            },
+            message: 'Cadastro realizado com sucesso!'
+          }
+        });
+      } catch (error) {
+        console.error('❌ [registerCustomer] Erro:', error);
+        return res.status(500).json({
+          error: 'Erro ao realizar cadastro',
+          details: error.message
         });
       }
     }

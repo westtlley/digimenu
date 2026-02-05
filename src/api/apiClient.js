@@ -114,8 +114,10 @@ class ApiClient {
             endpoint.includes('/public/') || 
             endpoint.includes('/api/public/') ||
             endpoint.startsWith('/public/') ||
+            endpoint.includes('/functions/registerCustomer') || // Cadastro de clientes é público
             url.includes('/public/') ||
-            url.includes('/api/public/');
+            url.includes('/api/public/') ||
+            url.includes('/functions/registerCustomer');
           
           // Verificar também se estamos em uma página pública (cardápio)
           const currentPath = window.location.pathname;

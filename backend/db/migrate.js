@@ -203,6 +203,33 @@ export async function migrate() {
         } catch (e) {
           console.warn('⚠️ Aviso ao executar migração de Funcionalidades Avançadas (pode já existir):', e.message);
         }
+
+        // Migração: Campos adicionais para customers (cadastro de clientes com senha)
+        try {
+          await query(`
+            DO $$ 
+            BEGIN
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                            WHERE table_name='customers' AND column_name='birth_date') THEN
+                ALTER TABLE customers ADD COLUMN birth_date DATE;
+                RAISE NOTICE 'Coluna birth_date adicionada em customers';
+              END IF;
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                            WHERE table_name='customers' AND column_name='cpf') THEN
+                ALTER TABLE customers ADD COLUMN cpf VARCHAR(14);
+                RAISE NOTICE 'Coluna cpf adicionada em customers';
+              END IF;
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                            WHERE table_name='customers' AND column_name='password_hash') THEN
+                ALTER TABLE customers ADD COLUMN password_hash VARCHAR(255);
+                RAISE NOTICE 'Coluna password_hash adicionada em customers';
+              END IF;
+            END $$;
+          `);
+          console.log('✅ Migração de colunas birth_date/cpf/password_hash em customers concluída.');
+        } catch (error) {
+          console.warn('⚠️ Aviso ao adicionar colunas em customers (pode já existir):', error.message);
+        }
     
     console.log('✅ Migração concluída com sucesso!');
     return true;

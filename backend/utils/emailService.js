@@ -1,11 +1,110 @@
 import { logger } from './logger.js';
+import sgMail from '@sendgrid/mail';
+
+// Configurar SendGrid
+if (process.env.SENDGRID_API_KEY) {
+  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+  
+  // Para envio na UE (Europa), descomente a linha abaixo:
+  // sgMail.setDataResidency('eu');
+  
+  logger.log('✅ SendGrid configurado');
+} else {
+  logger.warn('⚠️ SENDGRID_API_KEY não configurado. Emails não serão enviados.');
+}
 
 /**
- * Serviço de envio de emails
- * 
- * TODO: Integrar com serviço real de email (SendGrid, Mailgun, AWS SES, etc.)
- * Por enquanto, apenas loga no console para desenvolvimento
+ * Função genérica para enviar email
  */
+async function sendEmail({ to, from, subject, text, html }) {
+  // Se não tiver SendGrid configurado, apenas logar
+  if (!process.env.SENDGRID_API_KEY) {
+    logger.log(`
+📧 ===============================================
+   EMAIL (MODO DESENVOLVIMENTO - NÃO ENVIADO)
+================================================
+Para: ${to}
+De: ${from || process.env.EMAIL_FROM || 'noreply@digimenu.com'}
+Assunto: ${subject}
+
+${text || html?.replace(/<[^>]*>/g, '') || ''}
+================================================
+    `);
+    return { success: true, messageId: 'dev-mode' };
+  }
+  
+  const msg = {
+    to,
+    from: from || process.env.EMAIL_FROM || 'noreply@digimenu.com',
+    subject,
+    text: text || html?.replace(/<[^>]*>/g, '') || '',
+    html: html || text
+  };
+  
+  try {
+    await sgMail.send(msg);
+    logger.log(`✅ Email enviado via SendGrid para: ${to}`);
+    return { success: true };
+  } catch (error) {
+    logger.error('❌ Erro ao enviar email via SendGrid:', error);
+    if (error.response) {
+      logger.error('Detalhes do erro:', error.response.body);
+    }
+    throw error;
+  }
+}
+
+/**
+ * Enviar email de recuperação de senha
+ */
+export async function sendPasswordResetEmail(email, resetToken) {
+  const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${resetToken}`;
+  
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #f97316; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+        .content { background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }
+        .button { display: inline-block; padding: 12px 24px; background: #f97316; color: white; text-decoration: none; border-radius: 6px; margin: 20px 0; }
+        .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>🔐 Recuperação de Senha</h1>
+        </div>
+        <div class="content">
+          <p>Olá,</p>
+          <p>Você solicitou a recuperação de senha para sua conta no DigiMenu.</p>
+          <p>Clique no botão abaixo para redefinir sua senha:</p>
+          <p style="text-align: center;">
+            <a href="${resetUrl}" class="button">Redefinir Senha</a>
+          </p>
+          <p>Ou copie e cole este link no seu navegador:</p>
+          <p style="word-break: break-all; color: #666;">${resetUrl}</p>
+          <p><strong>Este link expira em 1 hora.</strong></p>
+          <p>Se você não solicitou esta recuperação, ignore este email.</p>
+        </div>
+        <div class="footer">
+          <p>DigiMenu - Sistema de Cardápio Digital</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+  
+  return sendEmail({
+    to: email,
+    subject: 'Recuperação de Senha - DigiMenu',
+    html
+  });
+}
 
 /**
  * Enviar email de boas-vindas para novo assinante
@@ -56,11 +155,19 @@ async function sendWelcomeEmail({ email, name, passwordToken, slug, plan }) {
     `
   };
   
-  // TODO: Implementar envio real
-  // await sendGridClient.send(emailData);
-  // await mailgunClient.send(emailData);
+  // Enviar email via SendGrid
+  try {
+    await sendEmail({
+      to: emailData.to,
+      subject: emailData.subject,
+      html: emailData.html
+    });
+  } catch (error) {
+    logger.error('Erro ao enviar email de boas-vindas:', error);
+    // Continuar mesmo se falhar (não crítico)
+  }
   
-  // Por enquanto, apenas log
+  // Log adicional para desenvolvimento
   logger.log(`
 📧 ===============================================
    EMAIL DE BOAS-VINDAS
@@ -123,6 +230,17 @@ async function sendRenewalEmail({ email, name, expires_at, amount }) {
       </div>
     `
   };
+  
+  // Enviar email via SendGrid
+  try {
+    await sendEmail({
+      to: emailData.to,
+      subject: emailData.subject,
+      html: emailData.html
+    });
+  } catch (error) {
+    logger.error('Erro ao enviar email de renovação:', error);
+  }
   
   logger.log(`
 📧 ===============================================
@@ -191,6 +309,17 @@ async function sendExpirationWarningEmail({ email, name, expires_at, daysRemaini
     `
   };
   
+  // Enviar email via SendGrid
+  try {
+    await sendEmail({
+      to: emailData.to,
+      subject: emailData.subject,
+      html: emailData.html
+    });
+  } catch (error) {
+    logger.error('Erro ao enviar email de expiração:', error);
+  }
+  
   logger.log(`
 📧 ===============================================
    EMAIL DE EXPIRAÇÃO (${daysRemaining} dias restantes)
@@ -255,6 +384,17 @@ async function sendExpiredEmail({ email, name, renewUrl }) {
     `
   };
   
+  // Enviar email via SendGrid
+  try {
+    await sendEmail({
+      to: emailData.to,
+      subject: emailData.subject,
+      html: emailData.html
+    });
+  } catch (error) {
+    logger.error('Erro ao enviar email de assinatura expirada:', error);
+  }
+  
   logger.log(`
 📧 ===============================================
    EMAIL DE ASSINATURA EXPIRADA
@@ -279,6 +419,7 @@ Equipe DigiMenu
 }
 
 export {
+  sendPasswordResetEmail,
   sendWelcomeEmail,
   sendRenewalEmail,
   sendExpirationWarningEmail,

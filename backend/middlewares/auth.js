@@ -19,6 +19,7 @@ const publicRoutes = [
   '/api/entities/MenuItem',
   '/api/entities/Category',
   '/api/entities/Subscriber',
+  '/api/functions/registerCustomer', // Cadastro de clientes (público)
   '/api/lgpd/request', // Solicitação LGPD pode ser pública
 ];
 
