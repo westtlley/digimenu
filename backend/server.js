@@ -954,8 +954,11 @@ app.get('/api/public/cardapio/:slug', asyncHandler(async (req, res) => {
   let isMaster = false;
   let se = null;
   
+  console.log(`🔍 [public/cardapio] Buscando cardápio para slug: "${slug}"`);
+  
   if (subscriber) {
     se = subscriber.email;
+    console.log(`✅ [public/cardapio] Encontrado subscriber: ${se}`);
   } else {
     // Se não encontrou subscriber, buscar usuário master pelo slug
     const { query } = await import('./db/postgres.js');
@@ -964,10 +967,17 @@ app.get('/api/public/cardapio/:slug', asyncHandler(async (req, res) => {
       [slug]
     );
     
+    console.log(`🔍 [public/cardapio] Buscando master com slug: "${slug}"`, {
+      encontrados: masterResult.rows.length,
+      resultados: masterResult.rows
+    });
+    
     if (masterResult.rows.length > 0) {
       isMaster = true;
       se = null; // Master usa subscriber_email = NULL
+      console.log(`✅ [public/cardapio] Encontrado master: ${masterResult.rows[0].email} (ID: ${masterResult.rows[0].id})`);
     } else {
+      console.log(`❌ [public/cardapio] Slug não encontrado nem como subscriber nem como master`);
       return res.status(404).json({ error: 'Link não encontrado' });
     }
   }
@@ -977,9 +987,16 @@ app.get('/api/public/cardapio/:slug', asyncHandler(async (req, res) => {
   if (isMaster) {
     // Para master, buscar entidades com subscriber_email IS NULL
     const { query } = await import('./db/postgres.js');
+    console.log(`🔍 [public/cardapio] Buscando entidades do master (subscriber_email IS NULL)`);
     [storeList, dishes, categories, complementGroups, pizzaSizes, pizzaFlavors, pizzaEdges, pizzaExtras, pizzaCategories, beverageCategories, deliveryZones, coupons, promotions, tables] = await Promise.all([
-      query(`SELECT id, data, created_at, updated_at FROM entities WHERE entity_type = 'Store' AND subscriber_email IS NULL`).then(r => r.rows.map(row => ({ id: row.id.toString(), ...row.data }))),
-      query(`SELECT id, data, created_at, updated_at FROM entities WHERE entity_type = 'Dish' AND subscriber_email IS NULL ORDER BY (data->>'order')::int NULLS LAST, created_at DESC`).then(r => r.rows.map(row => ({ id: row.id.toString(), ...row.data }))),
+      query(`SELECT id, data, created_at, updated_at FROM entities WHERE entity_type = 'Store' AND subscriber_email IS NULL`).then(r => {
+        console.log(`📦 [public/cardapio] Store encontrados: ${r.rows.length}`);
+        return r.rows.map(row => ({ id: row.id.toString(), ...row.data }));
+      }),
+      query(`SELECT id, data, created_at, updated_at FROM entities WHERE entity_type = 'Dish' AND subscriber_email IS NULL ORDER BY (data->>'order')::int NULLS LAST, created_at DESC`).then(r => {
+        console.log(`📦 [public/cardapio] Dishes encontrados: ${r.rows.length}`);
+        return r.rows.map(row => ({ id: row.id.toString(), ...row.data }));
+      }),
       query(`SELECT id, data, created_at, updated_at FROM entities WHERE entity_type = 'Category' AND subscriber_email IS NULL ORDER BY (data->>'order')::int NULLS LAST, created_at DESC`).then(r => r.rows.map(row => ({ id: row.id.toString(), ...row.data }))),
       query(`SELECT id, data, created_at, updated_at FROM entities WHERE entity_type = 'ComplementGroup' AND subscriber_email IS NULL ORDER BY (data->>'order')::int NULLS LAST, created_at DESC`).then(r => r.rows.map(row => ({ id: row.id.toString(), ...row.data }))),
       query(`SELECT id, data, created_at, updated_at FROM entities WHERE entity_type = 'PizzaSize' AND subscriber_email IS NULL ORDER BY (data->>'order')::int NULLS LAST, created_at DESC`).then(r => r.rows.map(row => ({ id: row.id.toString(), ...row.data }))),
@@ -1013,6 +1030,15 @@ app.get('/api/public/cardapio/:slug', asyncHandler(async (req, res) => {
     ]);
   }
   const store = Array.isArray(storeList) && storeList[0] ? storeList[0] : { name: 'Loja', is_open: true };
+  
+  console.log(`✅ [public/cardapio] Retornando dados:`, {
+    is_master: isMaster,
+    subscriber_email: se || 'master',
+    store_name: store?.name,
+    dishes_count: Array.isArray(dishes) ? dishes.length : 0,
+    categories_count: Array.isArray(categories) ? categories.length : 0
+  });
+  
   res.json({
     subscriber_email: se || 'master',
     is_master: isMaster,

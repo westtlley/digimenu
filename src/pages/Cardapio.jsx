@@ -276,6 +276,20 @@ export default function Cardapio() {
   // Quando /s/:slug: usar dados da API pública; senão usar das queries
   const _pub = slug && publicData ? publicData : null;
   const store = _pub?.store || stores?.[0] || null;
+  
+  // Debug: log dos dados recebidos
+  useEffect(() => {
+    if (slug && publicData) {
+      console.log('📊 [Cardapio] Dados do cardápio público:', {
+        slug,
+        is_master: publicData.is_master,
+        subscriber_email: publicData.subscriber_email,
+        store: store ? { name: store.name, logo: store.logo, primary_color: store.primary_color } : null,
+        dishes_count: publicData.dishes?.length || 0,
+        categories_count: publicData.categories?.length || 0
+      });
+    }
+  }, [slug, publicData, store]);
   const dishesResolved = _pub?.dishes ?? dishes ?? [];
   const categoriesResolved = _pub?.categories ?? categories ?? [];
   const complementGroupsResolved = _pub?.complementGroups ?? complementGroups ?? [];
