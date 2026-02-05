@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, Link, useParams, useSearchParams } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,8 +9,13 @@ import { createPageUrl } from '@/utils';
 import toast from 'react-hot-toast';
 import { validateCPF } from '@/utils/cpfValidator';
 import { buscarCEP } from '@/utils/cepService';
+import { useQuery } from '@tanstack/react-query';
 
 export default function CadastroCliente() {
+  const { slug: urlSlug } = useParams(); // Slug da URL: /s/:slug/cadastro-cliente
+  const [searchParams] = useSearchParams();
+  const querySlug = searchParams.get('slug'); // Slug via query: /cadastro-cliente?slug=meu-restaurante
+  const slug = urlSlug || querySlug; // Prioriza slug da URL, depois query param
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -34,6 +39,16 @@ export default function CadastroCliente() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const navigate = useNavigate();
+  
+  // Buscar subscriber_email baseado no slug (se houver)
+  const { data: publicData } = useQuery({
+    queryKey: ['publicCardapio', slug],
+    queryFn: () => base44.get(`/public/cardapio/${slug}`),
+    enabled: !!slug,
+    retry: false
+  });
+  
+  const subscriberEmail = publicData?.subscriber_email || null;
 
   const handleChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -203,7 +218,8 @@ export default function CadastroCliente() {
         phone: formData.phone.replace(/\D/g, ''),
         address: enderecoCompleto || formData.address.trim(),
         cpf: formData.cpf ? formData.cpf.replace(/\D/g, '') : null,
-        password: formData.password
+        password: formData.password,
+        subscriber_email: subscriberEmail // Vincular ao assinante se houver slug
       });
 
       console.log('📥 [CadastroCliente] Resposta recebida:', response);
@@ -218,7 +234,12 @@ export default function CadastroCliente() {
           if (loginResponse.token) {
             toast.success('Login realizado automaticamente!');
             setTimeout(() => {
-              navigate(createPageUrl('Cardapio'));
+              // Redirecionar para o cardápio do restaurante se houver slug
+              if (slug) {
+                navigate(`/s/${slug}`);
+              } else {
+                navigate(createPageUrl('Cardapio'));
+              }
             }, 1500);
           } else {
             // Se não conseguir fazer login automático, redirecionar para login

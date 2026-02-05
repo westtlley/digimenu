@@ -134,6 +134,8 @@ function PagesContent() {
                 <Route path="/Login" element={<Navigate to="/login/cliente" replace />} />
                 <Route path="/cadastro-cliente" element={<CadastroCliente />} />
                 <Route path="/cadastro/cliente" element={<CadastroCliente />} />
+                {/* Cadastro de cliente vinculado ao restaurante (slug) */}
+                <Route path="/s/:slug/cadastro-cliente" element={<CadastroCliente />} />
                 <Route path="/definir-senha" element={<DefinirSenha />} />
                 <Route path="/setup-password" element={<DefinirSenha />} />
                 <Route path="/esqueci-senha" element={<EsqueciSenha />} />

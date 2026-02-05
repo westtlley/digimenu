@@ -2553,13 +2553,16 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
         const passwordHash = await bcrypt.hash(data.password, 10);
         
         // Criar usuário na tabela users com role='customer'
+        // Se subscriber_email foi fornecido, vincular ao assinante específico
+        const subscriberEmail = data.subscriber_email || null;
+        
         const userData = {
           email: emailLower,
           full_name: data.name.trim(),
           password: passwordHash,
           role: 'customer',
           is_master: false,
-          subscriber_email: null
+          subscriber_email: subscriberEmail // Vincular ao assinante se fornecido
         };
         
         let createdUser;
@@ -2579,6 +2582,9 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
         }
         
         // Criar registro na tabela customers
+        // Se subscriber_email foi fornecido, vincular ao assinante específico
+        const subscriberEmail = data.subscriber_email || null;
+        
         const customerData = {
           email: emailLower,
           name: data.name.trim(),
@@ -2588,7 +2594,7 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
           neighborhood: null,
           city: null,
           zipcode: null,
-          subscriber_email: null, // Cliente não está vinculado a um assinante específico
+          subscriber_email: subscriberEmail, // Vincular ao assinante se fornecido
           birth_date: data.birth_date || null,
           cpf: data.cpf ? data.cpf.replace(/\D/g, '') : null,
           password_hash: passwordHash
@@ -2620,7 +2626,10 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
           if (saveDatabaseDebounced) saveDatabaseDebounced(db);
         }
         
-        console.log('✅ [registerCustomer] Cliente cadastrado com sucesso:', emailLower);
+        console.log('✅ [registerCustomer] Cliente cadastrado com sucesso:', {
+          email: emailLower,
+          subscriber_email: subscriberEmail || 'geral (não vinculado)'
+        });
         
         return res.json({
           data: {
