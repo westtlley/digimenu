@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { apiClient as base44 } from '@/api/apiClient';
 import { createPageUrl } from '@/utils';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { ShoppingCart, Search, Clock, Star, Share2, MapPin, Info, Home, Receipt, Gift, User, MessageSquare, UtensilsCrossed, Instagram, Facebook, Phone, Package, Music2, Calendar } from 'lucide-react';
+import { ShoppingCart, Search, Clock, Star, Share2, MapPin, Info, Home, Receipt, Gift, User, MessageSquare, UtensilsCrossed, Instagram, Facebook, Phone, Package, Music2, Calendar, Heart } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -34,6 +34,8 @@ import SmartUpsell from '../components/menu/SmartUpsell';
 import LoyaltyDashboard from '../components/menu/LoyaltyDashboard';
 import LoyaltyPointsDisplay from '../components/menu/LoyaltyPointsDisplay';
 import AIChatbot from '../components/menu/AIChatbot';
+import FavoritesList from '../components/menu/FavoritesList';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useLoyalty } from '@/hooks/useLoyalty';
 import { useWebSocket } from '@/hooks/useWebSocket';
 
@@ -99,6 +101,7 @@ export default function Cardapio() {
   const [userEmail, setUserEmail] = useState(null);
   const [userProfilePicture, setUserProfilePicture] = useState(null);
   const [showSplash, setShowSplash] = useState(false);
+  const [showFavoritesList, setShowFavoritesList] = useState(false);
 
   const queryClient = useQueryClient();
 
@@ -178,13 +181,13 @@ export default function Cardapio() {
     staleTime: 5 * 60 * 1000, // Cache por 5 minutos
   });
 
-  // Timeout de carregamento
+  // Timeout de carregamento (8s) — evita ficar travado em "Carregando..."
   useEffect(() => {
     if (slug && publicLoading) {
       const timer = setTimeout(() => {
         setLoadingTimeout(true);
         console.warn('⚠️ [Cardapio] Timeout de carregamento atingido');
-      }, 15000); // 15 segundos
+      }, 8000);
       return () => clearTimeout(timer);
     } else {
       setLoadingTimeout(false);
@@ -798,20 +801,10 @@ export default function Cardapio() {
     );
   };
 
-  // Se ainda está carregando ou não tem dados, mostrar apenas splash
-  // Mas adicionar timeout para não ficar carregando infinitamente
-  const [loadingTimeout, setLoadingTimeout] = useState(false);
-  
-  useEffect(() => {
-    if (slug && publicLoading) {
-      const timer = setTimeout(() => {
-        setLoadingTimeout(true);
-      }, 10000); // 10 segundos
-      return () => clearTimeout(timer);
-    }
-  }, [slug, publicLoading]);
+  // Timeout de carregamento: após 8s mostramos "Tentar novamente" (erro ou rede travada)
+  const showRetryAfterTimeout = slug && publicLoading && loadingTimeout;
 
-  if ((publicLoading && !loadingTimeout) || (!store || !store.name)) {
+  if ((publicLoading && !loadingTimeout) || (slug && !publicError && (!store || !store.name))) {
     return (
       <div className="min-h-screen min-h-screen-mobile bg-background">
         <Toaster position="top-center" />
@@ -838,14 +831,19 @@ export default function Cardapio() {
             <p className="text-white font-semibold text-xl text-center drop-shadow-sm">
               {store?.name || 'Carregando...'}
             </p>
-            {loadingTimeout && publicError && (
-              <div className="mt-4 text-center">
-                <p className="text-white/80 text-sm mb-2">Erro ao carregar cardápio</p>
+            {(showRetryAfterTimeout || publicError) && (
+              <div className="mt-4 text-center max-w-xs">
+                <p className="text-white/90 text-sm mb-2">
+                  {publicError ? 'Não foi possível carregar o cardápio.' : 'Está demorando mais que o normal.'}
+                </p>
                 <Button
-                  onClick={() => window.location.reload()}
+                  onClick={() => {
+                    setLoadingTimeout(false);
+                    queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
+                  }}
                   className="bg-white text-orange-500 hover:bg-gray-100"
                 >
-                  Tentar Novamente
+                  Tentar novamente
                 </Button>
               </div>
             )}
@@ -1770,6 +1768,44 @@ export default function Cardapio() {
         />
       )}
 
+      {/* ❤️ Favoritos - Lista em Sheet */}
+      {currentView === 'menu' && slug && (
+        <Sheet open={showFavoritesList} onOpenChange={setShowFavoritesList}>
+          <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
+            <SheetHeader>
+              <SheetTitle className="flex items-center gap-2">
+                <Heart className="w-5 h-5 text-red-500" />
+                Meus Favoritos
+              </SheetTitle>
+            </SheetHeader>
+            <div className="mt-6">
+              <FavoritesList
+                dishes={dishesResolved}
+                onDishClick={(dish) => {
+                  setShowFavoritesList(false);
+                  handleDishClick(dish);
+                }}
+                slug={slug}
+                primaryColor={primaryColor}
+              />
+            </div>
+          </SheetContent>
+        </Sheet>
+      )}
+
+      {/* Botão Flutuante Favoritos */}
+      {currentView === 'menu' && slug && (
+        <motion.button
+          onClick={() => setShowFavoritesList(true)}
+          className="fixed bottom-20 left-4 z-40 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 p-4 rounded-full shadow-xl border border-gray-200 dark:border-gray-700 flex items-center gap-2 hover:shadow-2xl transition-all"
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.95 }}
+          aria-label="Ver favoritos"
+        >
+          <Heart className="w-6 h-6 text-red-500" />
+        </motion.button>
+      )}
+
       {/* 🛒 Botão Flutuante do Carrinho (Sticky) */}
       {currentView === 'menu' && (
         <motion.button
@@ -1799,7 +1835,6 @@ export default function Cardapio() {
       {currentView === 'menu' && (
         <AIChatbot
           dishes={dishesResolved}
-          orders={[]}
           onAddToCart={handleAddToCart}
         />
       )}

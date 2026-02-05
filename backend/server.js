@@ -734,7 +734,8 @@ app.get('/api/auth/me', authenticate, async (req, res) => {
       is_master: req.user.is_master,
       role: req.user.role,
       subscriber_email: req.user.subscriber_email || null,
-      profile_role: req.user.profile_role || null
+      profile_role: req.user.profile_role || null,
+      slug: req.user.slug || null
     });
   } catch (error) {
     console.error('Erro ao obter usuário:', error);
@@ -906,13 +907,13 @@ app.get('/api/public/cardapio/:slug', asyncHandler(async (req, res) => {
       return res.status(404).json({ error: 'Link não encontrado' });
     }
   }
-  // Buscar entidades (para subscriber ou master)
-  let storeList, dishes, categories, complementGroups, pizzaSizes, pizzaFlavors, pizzaEdges, pizzaExtras, pizzaCategories, beverageCategories, deliveryZones, coupons, promotions;
+  // Buscar entidades (para subscriber ou master), incluindo mesas (Table)
+  let storeList, dishes, categories, complementGroups, pizzaSizes, pizzaFlavors, pizzaEdges, pizzaExtras, pizzaCategories, beverageCategories, deliveryZones, coupons, promotions, tables;
   
   if (isMaster) {
     // Para master, buscar entidades com subscriber_email IS NULL
     const { query } = await import('./db/postgres.js');
-    [storeList, dishes, categories, complementGroups, pizzaSizes, pizzaFlavors, pizzaEdges, pizzaExtras, pizzaCategories, beverageCategories, deliveryZones, coupons, promotions] = await Promise.all([
+    [storeList, dishes, categories, complementGroups, pizzaSizes, pizzaFlavors, pizzaEdges, pizzaExtras, pizzaCategories, beverageCategories, deliveryZones, coupons, promotions, tables] = await Promise.all([
       query(`SELECT id, data, created_at, updated_at FROM entities WHERE entity_type = 'Store' AND subscriber_email IS NULL`).then(r => r.rows.map(row => ({ id: row.id.toString(), ...row.data }))),
       query(`SELECT id, data, created_at, updated_at FROM entities WHERE entity_type = 'Dish' AND subscriber_email IS NULL ORDER BY (data->>'order')::int NULLS LAST, created_at DESC`).then(r => r.rows.map(row => ({ id: row.id.toString(), ...row.data }))),
       query(`SELECT id, data, created_at, updated_at FROM entities WHERE entity_type = 'Category' AND subscriber_email IS NULL ORDER BY (data->>'order')::int NULLS LAST, created_at DESC`).then(r => r.rows.map(row => ({ id: row.id.toString(), ...row.data }))),
@@ -925,11 +926,12 @@ app.get('/api/public/cardapio/:slug', asyncHandler(async (req, res) => {
       query(`SELECT id, data, created_at, updated_at FROM entities WHERE entity_type = 'BeverageCategory' AND subscriber_email IS NULL ORDER BY (data->>'order')::int NULLS LAST, created_at DESC`).then(r => r.rows.map(row => ({ id: row.id.toString(), ...row.data }))),
       query(`SELECT id, data, created_at, updated_at FROM entities WHERE entity_type = 'DeliveryZone' AND subscriber_email IS NULL`).then(r => r.rows.map(row => ({ id: row.id.toString(), ...row.data }))),
       query(`SELECT id, data, created_at, updated_at FROM entities WHERE entity_type = 'Coupon' AND subscriber_email IS NULL`).then(r => r.rows.map(row => ({ id: row.id.toString(), ...row.data }))),
-      query(`SELECT id, data, created_at, updated_at FROM entities WHERE entity_type = 'Promotion' AND subscriber_email IS NULL`).then(r => r.rows.map(row => ({ id: row.id.toString(), ...row.data })))
+      query(`SELECT id, data, created_at, updated_at FROM entities WHERE entity_type = 'Promotion' AND subscriber_email IS NULL`).then(r => r.rows.map(row => ({ id: row.id.toString(), ...row.data }))),
+      query(`SELECT id, data, created_at, updated_at FROM entities WHERE entity_type = 'Table' AND subscriber_email IS NULL ORDER BY (data->>'table_number')::int NULLS LAST, created_at ASC`).then(r => r.rows.map(row => ({ id: row.id.toString(), ...row.data })))
     ]);
   } else {
     // Para subscriber, usar a função existente
-    [storeList, dishes, categories, complementGroups, pizzaSizes, pizzaFlavors, pizzaEdges, pizzaExtras, pizzaCategories, beverageCategories, deliveryZones, coupons, promotions] = await Promise.all([
+    [storeList, dishes, categories, complementGroups, pizzaSizes, pizzaFlavors, pizzaEdges, pizzaExtras, pizzaCategories, beverageCategories, deliveryZones, coupons, promotions, tables] = await Promise.all([
       repo.listEntitiesForSubscriber('Store', se, null),
       repo.listEntitiesForSubscriber('Dish', se, 'order'),
       repo.listEntitiesForSubscriber('Category', se, 'order'),
@@ -942,7 +944,8 @@ app.get('/api/public/cardapio/:slug', asyncHandler(async (req, res) => {
       repo.listEntitiesForSubscriber('BeverageCategory', se, 'order'),
       repo.listEntitiesForSubscriber('DeliveryZone', se, null),
       repo.listEntitiesForSubscriber('Coupon', se, null),
-      repo.listEntitiesForSubscriber('Promotion', se, null)
+      repo.listEntitiesForSubscriber('Promotion', se, null),
+      repo.listEntitiesForSubscriber('Table', se, 'table_number')
     ]);
   }
   const store = Array.isArray(storeList) && storeList[0] ? storeList[0] : { name: 'Loja', is_open: true };
@@ -952,6 +955,7 @@ app.get('/api/public/cardapio/:slug', asyncHandler(async (req, res) => {
     store,
     dishes: Array.isArray(dishes) ? dishes : [],
     categories: Array.isArray(categories) ? categories : [],
+    tables: Array.isArray(tables) ? tables : [],
     beverageCategories: Array.isArray(beverageCategories) ? beverageCategories : [],
     complementGroups: Array.isArray(complementGroups) ? complementGroups : [],
     pizzaSizes: Array.isArray(pizzaSizes) ? pizzaSizes : [],
@@ -963,6 +967,76 @@ app.get('/api/public/cardapio/:slug', asyncHandler(async (req, res) => {
     coupons: Array.isArray(coupons) ? coupons : [],
     promotions: Array.isArray(promotions) ? promotions : []
   });
+}));
+
+// Pedido da mesa (público, sem login) — usado pela página /mesa/:numero?slug=xxx
+app.post('/api/public/pedido-mesa', asyncHandler(async (req, res) => {
+  if (!usePostgreSQL) return res.status(503).json({ error: 'Requer PostgreSQL' });
+  const slug = (req.body.slug || '').trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+  if (!slug) return res.status(400).json({ error: 'Slug obrigatório' });
+  let se = null;
+  const subscriber = await repo.getSubscriberBySlug(slug);
+  if (subscriber) {
+    se = subscriber.email;
+  } else {
+    const { query } = await import('./db/postgres.js');
+    const masterResult = await query('SELECT id FROM users WHERE slug = $1 AND is_master = TRUE', [slug]);
+    if (masterResult.rows.length === 0) return res.status(404).json({ error: 'Link não encontrado' });
+  }
+  const tableNumber = req.body.table_number;
+  const tableId = req.body.table_id;
+  const items = Array.isArray(req.body.items) ? req.body.items : [];
+  const total = Number(req.body.total) || 0;
+  const customerName = req.body.customer_name || '';
+  const customerPhone = (req.body.customer_phone || '').replace(/\D/g, '');
+  const customerEmail = req.body.customer_email || '';
+  const observations = req.body.observations || '';
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let code = '';
+  for (let i = 0; i < 6; i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
+  const order_code = `MESA-${tableNumber || '?'}-${code}`;
+  const orderData = {
+    order_code,
+    items,
+    total,
+    table_id: tableId,
+    table_number: tableNumber,
+    delivery_type: 'table',
+    status: 'new',
+    customer_name: customerName,
+    customer_phone: customerPhone || null,
+    customer_email: customerEmail || null,
+    observations: observations || null,
+    created_date: new Date().toISOString()
+  };
+  const newOrder = await repo.createEntity('Order', orderData, null, { forSubscriberEmail: se });
+  if (typeof emitOrderCreated === 'function') emitOrderCreated(newOrder);
+  res.status(201).json(newOrder);
+}));
+
+// Chamar garçom (público, sem login) — usado pela página /mesa/:numero?slug=xxx
+app.post('/api/public/chamar-garcom', asyncHandler(async (req, res) => {
+  if (!usePostgreSQL) return res.status(503).json({ error: 'Requer PostgreSQL' });
+  const slug = (req.body.slug || '').trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+  if (!slug) return res.status(400).json({ error: 'Slug obrigatório' });
+  let se = null;
+  const subscriber = await repo.getSubscriberBySlug(slug);
+  if (subscriber) se = subscriber.email;
+  else {
+    const { query } = await import('./db/postgres.js');
+    const masterResult = await query('SELECT id FROM users WHERE slug = $1 AND is_master = TRUE', [slug]);
+    if (masterResult.rows.length === 0) return res.status(404).json({ error: 'Link não encontrado' });
+  }
+  const tableId = req.body.table_id;
+  const tableNumber = req.body.table_number;
+  const data = {
+    table_id: tableId,
+    table_number: tableNumber,
+    status: 'pending',
+    created_at: new Date().toISOString()
+  };
+  await repo.createEntity('WaiterCall', data, null, { forSubscriberEmail: se });
+  res.status(201).json({ ok: true, message: 'Garçom chamado!' });
 }));
 
 app.get('/api/colaboradores', authenticate, async (req, res) => {

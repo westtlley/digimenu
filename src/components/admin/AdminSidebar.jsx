@@ -81,6 +81,18 @@ const MENU_STRUCTURE = [
     ]
   },
 
+  // 🍽️ RESTAURANTE (Mesas e QR Code, Estoque) — logo após CARDÁPIO para ficar visível
+  {
+    id: 'restaurante',
+    label: '🍽️ RESTAURANTE',
+    icon: UtensilsCrossed,
+    section: 'section',
+    submenu: [
+      { id: 'tables', label: 'Mesas e QR Code', icon: QrCode, module: 'tables' },
+      { id: 'inventory', label: 'Gestão de Estoque', icon: Package, module: 'inventory' },
+    ]
+  },
+
   // 🚚 DELIVERY
   {
     id: 'delivery',
@@ -90,18 +102,6 @@ const MENU_STRUCTURE = [
     submenu: [
       { id: 'delivery_zones', label: 'Zonas de Entrega', icon: MapPin, module: 'delivery_zones' },
       { id: 'payments', label: 'Métodos de Pagamento', icon: CreditCard, module: 'payments' },
-    ]
-  },
-
-  // 🍽️ RESTAURANTE
-  {
-    id: 'restaurante',
-    label: '🍽️ RESTAURANTE',
-    icon: UtensilsCrossed,
-    section: 'section',
-    submenu: [
-      { id: 'tables', label: 'Mesas e QR Code', icon: QrCode, module: 'tables' },
-      { id: 'inventory', label: 'Gestão de Estoque', icon: Package, module: 'inventory' },
     ]
   },
 

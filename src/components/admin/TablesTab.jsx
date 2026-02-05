@@ -39,13 +39,18 @@ export default function TablesTab() {
     queryFn: () => base44.entities.Table.list(),
   });
 
+  // Slug do estabelecimento (master: user.slug; em contexto /s/:slug: currentSlug)
+  const { data: authUser } = useQuery({
+    queryKey: ['authMe'],
+    queryFn: () => base44.auth.me(),
+  });
+  const effectiveSlug = authUser?.slug || (typeof localStorage !== 'undefined' ? localStorage.getItem('currentSlug') : '') || '';
+
   const createTableMutation = useMutation({
     mutationFn: async (data) => {
-      // Gerar QR Code único se não fornecido
       if (!data.qr_code) {
         const baseUrl = window.location.origin;
-        const slug = localStorage.getItem('currentSlug') || '';
-        data.qr_code = `${baseUrl}/mesa/${data.table_number}${slug ? `?slug=${slug}` : ''}`;
+        data.qr_code = `${baseUrl}/mesa/${data.table_number}${effectiveSlug ? `?slug=${effectiveSlug}` : ''}`;
       }
       return base44.entities.Table.create(data);
     },
@@ -143,6 +148,11 @@ export default function TablesTab() {
 
   return (
     <div className="space-y-6">
+      {!effectiveSlug && (
+        <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-3 text-sm text-amber-800 dark:text-amber-200">
+          <strong>Dica:</strong> Para o QR Code abrir o cardápio correto, defina o <strong>slug do estabelecimento</strong> (ex.: link do cardápio /s/meu-restaurante) em Loja ou no seu perfil. Assim o link da mesa ficará: /mesa/N?slug=meu-restaurante
+        </div>
+      )}
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold">Gestão de Mesas</h2>
@@ -271,7 +281,7 @@ export default function TablesTab() {
             <div className="flex flex-col items-center space-y-4">
               <div className="bg-white p-4 rounded-lg">
                 <QRCodeSVG
-                  value={qrCodeTable.qr_code || `${window.location.origin}/mesa/${qrCodeTable.table_number}`}
+                  value={qrCodeTable.qr_code || `${window.location.origin}/mesa/${qrCodeTable.table_number}${effectiveSlug ? `?slug=${effectiveSlug}` : ''}`}
                   size={200}
                   level="H"
                 />

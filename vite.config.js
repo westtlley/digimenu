@@ -2,11 +2,31 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
+import fs from 'fs'
+
+// Garante que o index.html do build tenha type="module" nos scripts (evita Unexpected token 'export')
+function enforceModuleScripts() {
+  return {
+    name: 'enforce-module-scripts',
+    writeBundle(_, bundle) {
+      const htmlPath = path.resolve(__dirname, 'dist/index.html')
+      if (!fs.existsSync(htmlPath)) return
+      let html = fs.readFileSync(htmlPath, 'utf-8')
+      // Garantir que todo <script src="..."> tenha type="module"
+      html = html.replace(/<script(\s+[^>]*?)src=/gi, (m) => {
+        if (m.includes('type="module"') || m.includes("type='module'")) return m
+        return m.replace('<script', '<script type="module"')
+      })
+      fs.writeFileSync(htmlPath, html)
+    },
+  }
+}
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
     react(),
+    enforceModuleScripts(),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico'],
@@ -53,9 +73,17 @@ export default defineConfig({
     },
   },
   build: {
+    // Evita "Unexpected token 'export'" — output compatível com navegadores que interpretam ESM
+    target: 'es2020',
+    // Garante que chunks sejam reconhecidos como módulos
+    modulePreload: { polyfill: true },
     rollupOptions: {
       input: {
         main: path.resolve(__dirname, 'index.html'),
+      },
+      output: {
+        // Chunks em formato ESM; o HTML deve carregar com type="module"
+        format: 'es',
       },
       onwarn(warning, warn) {
         // Ignorar avisos de extensões do navegador
@@ -69,7 +97,6 @@ export default defineConfig({
         warn(warning);
       },
     },
-    // Melhorar tratamento de erros no build
     commonjsOptions: {
       transformMixedEsModules: true,
     },

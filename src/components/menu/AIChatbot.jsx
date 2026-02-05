@@ -18,7 +18,7 @@ import { toast } from 'react-hot-toast';
  * - Rastrear pedidos
  * - Sugestões inteligentes
  */
-export default function AIChatbot({ dishes = [], orders = [], onAddToCart }) {
+export default function AIChatbot({ dishes = [], orders: ordersProp = [], onAddToCart }) {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([
     {
@@ -46,6 +46,29 @@ export default function AIChatbot({ dishes = [], orders = [], onAddToCart }) {
     queryKey: ['categories'],
     queryFn: () => base44.entities.Category.list('order'),
   });
+
+  // Buscar usuário e pedidos do cliente quando o chatbot está aberto (para "Rastrear pedido")
+  const { data: authUser } = useQuery({
+    queryKey: ['authMe'],
+    queryFn: () => base44.auth.me(),
+    enabled: isOpen,
+    retry: false,
+  });
+  const { data: customerOrdersFromApi = [] } = useQuery({
+    queryKey: ['customerOrdersForChatbot', authUser?.email],
+    queryFn: async () => {
+      const all = await base44.entities.Order.list('-created_date');
+      const email = (authUser?.email || '').toLowerCase();
+      if (!email) return [];
+      return all.filter(o => {
+        const byEmail = (o.customer_email || '').toLowerCase() === email || (o.created_by || '').toLowerCase() === email;
+        const active = o.status !== 'delivered' && o.status !== 'cancelled';
+        return byEmail && active;
+      });
+    },
+    enabled: isOpen && !!authUser?.email,
+  });
+  const orders = ordersProp.length > 0 ? ordersProp : customerOrdersFromApi;
 
   // Processar mensagem do usuário
   const processMessage = async (userMessage) => {

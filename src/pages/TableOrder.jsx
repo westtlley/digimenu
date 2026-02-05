@@ -2,16 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Bell, ShoppingCart, Users, Split } from 'lucide-react';
+import { Bell, ShoppingCart } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useCart } from '@/components/hooks/useCart';
 import DishCardWow from '@/components/menu/DishCardWow';
 import CartModal from '@/components/menu/CartModal';
 import CheckoutView from '@/components/menu/CheckoutView';
-import { useWebSocket } from '@/hooks/useWebSocket';
 
 export default function TableOrder() {
   const { tableNumber } = useParams();
@@ -23,32 +20,33 @@ export default function TableOrder() {
   const [table, setTable] = useState(null);
   const [waiterCallActive, setWaiterCallActive] = useState(false);
 
-  // Buscar mesa
-  const { data: tables = [] } = useQuery({
-    queryKey: ['tables'],
-    queryFn: () => base44.entities.Table.list(),
+  // Dados do cardápio e mesas via API pública (sem login) quando há slug
+  const { data: publicData, isLoading: publicLoading, error: publicError } = useQuery({
+    queryKey: ['publicCardapio', slug],
+    queryFn: () => base44.get(`/public/cardapio/${slug}`),
+    enabled: !!slug,
   });
 
+  const tables = publicData?.tables ?? [];
+  const dishes = publicData?.dishes ?? [];
+  const categories = publicData?.categories ?? [];
+  const store = publicData?.store ?? null;
+
   useEffect(() => {
-    const foundTable = tables.find(t => t.table_number === tableNumber);
+    const foundTable = tables.find(t => String(t.table_number) === String(tableNumber));
     setTable(foundTable);
   }, [tables, tableNumber]);
 
-  // Buscar pratos
-  const { data: dishes = [] } = useQuery({
-    queryKey: ['dishes', slug],
-    queryFn: () => base44.entities.Dish.list(),
-  });
-
-  // Buscar categorias
-  const { data: categories = [] } = useQuery({
-    queryKey: ['categories', slug],
-    queryFn: () => base44.entities.Category.list('order'),
-  });
-
-  // Chamar garçom
+  // Chamar garçom (endpoint público quando há slug)
   const callWaiterMutation = useMutation({
     mutationFn: async () => {
+      if (slug) {
+        return base44.post('/public/chamar-garcom', {
+          slug,
+          table_id: table?.id,
+          table_number: tableNumber
+        });
+      }
       return base44.entities.WaiterCall.create({
         table_id: table?.id,
         table_number: tableNumber,
@@ -59,16 +57,29 @@ export default function TableOrder() {
     onSuccess: () => {
       toast.success('Garçom chamado! Ele chegará em breve.');
       setWaiterCallActive(true);
-      setTimeout(() => setWaiterCallActive(false), 30000); // Reset após 30s
+      setTimeout(() => setWaiterCallActive(false), 30000);
     },
     onError: () => {
       toast.error('Erro ao chamar garçom');
     }
   });
 
-  // Criar pedido
+  // Criar pedido (endpoint público quando há slug, sem necessidade de login)
   const createOrderMutation = useMutation({
     mutationFn: async (orderData) => {
+      if (slug) {
+        return base44.post('/public/pedido-mesa', {
+          slug,
+          table_number: tableNumber,
+          table_id: table?.id,
+          items: orderData.items,
+          total: orderData.total,
+          customer_name: orderData.customer_name || '',
+          customer_phone: orderData.customer_phone || '',
+          customer_email: orderData.customer_email || '',
+          observations: orderData.observations || ''
+        });
+      }
       return base44.entities.Order.create({
         ...orderData,
         table_id: table?.id,
@@ -110,8 +121,44 @@ export default function TableOrder() {
 
   const dishesByCategory = categories.map(cat => ({
     ...cat,
-    dishes: dishes.filter(d => d.category_id === cat.id && d.is_active !== false)
+    dishes: dishes.filter(d => String(d.category_id) === String(cat.id) && d.is_active !== false)
   }));
+
+  // Sem slug: pedir para acessar pelo QR Code
+  if (!slug) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="text-center max-w-md">
+          <h1 className="text-xl font-bold text-gray-800 mb-2">Mesa {tableNumber}</h1>
+          <p className="text-gray-600 mb-4">
+            Acesse este cardápio pelo <strong>QR Code da mesa</strong> para fazer seu pedido.
+          </p>
+          <p className="text-sm text-gray-500">
+            O link deve conter o identificador do estabelecimento (ex.: .../mesa/{tableNumber}?slug=meu-restaurante).
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (publicLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <p className="text-gray-500">Carregando cardápio...</p>
+      </div>
+    );
+  }
+
+  if (publicError) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="text-center">
+          <p className="text-red-600 mb-2">Não foi possível carregar o cardápio.</p>
+          <p className="text-sm text-gray-500">Verifique se o link está correto ou tente novamente.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">

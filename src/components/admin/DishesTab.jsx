@@ -345,7 +345,9 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
       original_price: dishFormData.original_price ? parseFloat(dishFormData.original_price) : null,
       stock: dishFormData.stock === '' ? null : (dishFormData.stock ? parseFloat(dishFormData.stock) : null),
       prep_time: dishFormData.prep_time ? parseFloat(dishFormData.prep_time) : null,
-      complement_groups: finalComplementGroups 
+      complement_groups: finalComplementGroups,
+      video_url: dishFormData.video_url || '',
+      video_autoplay: dishFormData.video_autoplay !== false
     };
     
     if (editingDish) {
@@ -1698,36 +1700,6 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
               <Textarea value={dishFormData.description} onChange={(e) => setDishFormData(prev => ({ ...prev, description: e.target.value }))} rows={2} />
             </div>
 
-            {/* Campo de Vídeo - Posicionado logo após a descrição para maior visibilidade */}
-            <div className="p-4 border-2 border-orange-300 dark:border-orange-700 rounded-lg bg-orange-50 dark:bg-orange-900/30 shadow-sm">
-              <Label htmlFor="video_url" className="text-base font-semibold mb-2 block text-orange-700 dark:text-orange-300">
-                🎥 Link do Vídeo (Opcional)
-              </Label>
-              <Input 
-                id="video_url"
-                type="url" 
-                value={dishFormData.video_url || ''} 
-                onChange={(e) => setDishFormData(prev => ({ ...prev, video_url: e.target.value }))} 
-                placeholder="Ex: https://www.youtube.com/watch?v=..." 
-                className="w-full bg-white dark:bg-gray-800"
-              />
-              <p className="text-xs text-orange-600 dark:text-orange-400 mt-2">
-                Adicione um link de vídeo do YouTube ou Vimeo para exibir um player na imagem do prato no cardápio
-              </p>
-              {dishFormData.video_url && (
-                <div className="mt-4 flex items-center justify-between p-3 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
-                  <Label htmlFor="video_autoplay" className="cursor-pointer text-sm font-medium">
-                    Reprodução Automática
-                  </Label>
-                  <Switch
-                    id="video_autoplay"
-                    checked={dishFormData.video_autoplay !== false}
-                    onCheckedChange={(checked) => setDishFormData(prev => ({ ...prev, video_autoplay: checked }))}
-                  />
-                </div>
-              )}
-            </div>
-
             {dishFormData.product_type !== 'industrializado' && (
               <div>
                 <Label>Tempo de Preparo (minutos)</Label>
@@ -1765,6 +1737,36 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
               <Label>Imagem</Label>
               <Input type="file" accept="image/*" onChange={handleImageUpload} />
               {dishFormData.image && <img src={dishFormData.image} alt="" className="mt-2 w-20 h-20 object-cover rounded" />}
+            </div>
+
+            {/* 🎥 Link do Vídeo — visível junto com Imagem e Destaques */}
+            <div className="p-4 border-2 border-orange-300 dark:border-orange-700 rounded-lg bg-orange-50 dark:bg-orange-900/30 shadow-sm">
+              <Label htmlFor="video_url" className="text-base font-semibold mb-2 block text-orange-700 dark:text-orange-300">
+                🎥 Link do Vídeo (YouTube ou Vimeo)
+              </Label>
+              <Input 
+                id="video_url"
+                type="url" 
+                value={dishFormData.video_url || ''} 
+                onChange={(e) => setDishFormData(prev => ({ ...prev, video_url: e.target.value }))} 
+                placeholder="Ex: https://www.youtube.com/watch?v=..." 
+                className="w-full bg-white dark:bg-gray-800"
+              />
+              <p className="text-xs text-orange-600 dark:text-orange-400 mt-2">
+                O vídeo aparece no cardápio ao clicar na imagem do prato.
+              </p>
+              {dishFormData.video_url && (
+                <div className="mt-3 flex items-center justify-between p-3 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <Label htmlFor="video_autoplay" className="cursor-pointer text-sm font-medium">
+                    Reprodução automática
+                  </Label>
+                  <Switch
+                    id="video_autoplay"
+                    checked={dishFormData.video_autoplay !== false}
+                    onCheckedChange={(checked) => setDishFormData(prev => ({ ...prev, video_autoplay: checked }))}
+                  />
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-4">
