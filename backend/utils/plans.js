@@ -133,6 +133,7 @@ const BASIC_PERMISSIONS = {
     
     // Features Avançadas - NÃO INCLUÍDAS
     team_management: false,
+    colaboradores: false,
     delivery_app: false,
     orders_advanced: false,
     delivery_zones: false,
@@ -175,6 +176,7 @@ const PRO_PERMISSIONS = {
     
     // Equipe & Entregas
     team_management: true,
+    colaboradores: true, // Gestão de colaboradores
     team_roles: true, // Entregador, Cozinha, Atendente
     delivery_app: true, // App próprio para entregadores
     delivery_zones: true, // Configurar áreas de entrega
@@ -203,11 +205,27 @@ const PRO_PERMISSIONS = {
     pdv: false,
     cash_control: false,
     comandas_presencial: false,
+    comandas_split: false,
+    comandas_transfer: false,
+    comandas_tip: false,
+    comandas_print: false,
+    tables: false,
+    tables_reservations: false,
     waiter_app: false,
+    waiter_calls: false,
+    waiter_calls_notifications: false,
+    waiter_calls_history: false,
+    waiter_reports: false,
+    waiter_websocket: false,
+    waiter_offline: false,
     kitchen_display: false,
     fiscal_integration: false,
     api_webhooks: false,
     multi_location: false,
+    inventory: true, // Gestão de Estoque - PRO tem acesso
+    affiliates: true, // Programa de Afiliados - PRO tem acesso
+    lgpd: true, // Conformidade LGPD - PRO tem acesso
+    two_factor_auth: true, // Autenticação 2FA - PRO tem acesso
     
     // Admin - NÃO INCLUÍDO
     admin_users: false,
@@ -226,6 +244,7 @@ const ULTRA_PERMISSIONS = {
     orders_history_days: -1, // Ilimitado
     users_limit: 20, // Upgrade: Até 20 usuários
     orders_per_day: -1, // Ilimitado
+    colaboradores: true, // Gestão de colaboradores (já incluído via team_management)
     
     // PDV (Ponto de Venda) Completo
     pdv: true,
@@ -252,11 +271,27 @@ const ULTRA_PERMISSIONS = {
     comandas_close: true,
     comandas_split: true, // Dividir conta
     comandas_transfer: true, // Transferir items
+    comandas_tip: true, // Gorjeta
+    comandas_print: true, // Impressão
+    
+    // Mesas e QR Code
+    tables: true,
+    tables_create: true,
+    tables_edit: true,
+    tables_qr_code: true,
+    tables_reservations: true, // Reservas de mesa
+    tables_status_auto: true, // Status automático
     
     // App Garçom
     waiter_app: true,
     waiter_orders: true,
     waiter_table_management: true,
+    waiter_calls: true, // Chamadas de garçom
+    waiter_calls_notifications: true, // Notificações de chamadas
+    waiter_calls_history: true, // Histórico de chamadas
+    waiter_reports: true, // Relatórios de garçom
+    waiter_websocket: true, // WebSocket tempo real
+    waiter_offline: true, // Modo offline
     
     // Display Cozinha (KDS)
     kitchen_display: true,

@@ -13,6 +13,7 @@ import { formatBrazilianDateTime, formatInputDate } from '../utils/dateUtils';
 import HistorySkeleton from '../skeletons/HistorySkeleton';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
+import { usePermission } from '@/components/permissions/usePermission';
 
 const statusConfig = {
   new: { label: 'Novo', color: 'bg-blue-500' },
@@ -27,6 +28,7 @@ const statusConfig = {
 const isOrderPDV = (o) => !!(o?.order_code?.startsWith('PDV-') || o?.delivery_method === 'balcao');
 
 export default function OrderHistoryTab() {
+  const { subscriberData, isMaster } = usePermission();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterPayment, setFilterPayment] = useState('all');
@@ -39,6 +41,10 @@ export default function OrderHistoryTab() {
   const [showFilters, setShowFilters] = useState(false);
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
+  
+  // Verificar se tem acesso a funcionalidades avançadas (apenas Pro e Ultra)
+  const hasAdvancedAccess = isMaster || 
+    (subscriberData?.plan && ['pro', 'premium', 'ultra'].includes(subscriberData.plan.toLowerCase()));
 
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ['orderHistory'],
@@ -144,10 +150,12 @@ export default function OrderHistoryTab() {
 
       <div className="flex items-center justify-between">
         <h2 className="text-xl sm:text-2xl font-bold">Histórico de Pedidos</h2>
-        <Button onClick={exportToCSV} variant="outline" size="sm" className="min-h-touch">
-          <Download className="w-4 h-4 sm:mr-2" />
-          <span className="hidden sm:inline">Exportar CSV</span>
-        </Button>
+        {hasAdvancedAccess && (
+          <Button onClick={exportToCSV} variant="outline" size="sm" className="min-h-touch" title="Exportar CSV (apenas Pro e Ultra)">
+            <Download className="w-4 h-4 sm:mr-2" />
+            <span className="hidden sm:inline">Exportar CSV</span>
+          </Button>
+        )}
       </div>
 
       {/* Filtros - Mobile: Sheet, Desktop: Inline */}

@@ -115,6 +115,9 @@ const MENU_STRUCTURE = [
       { id: 'store', label: 'Loja', icon: Store, module: 'store' },
       { id: 'theme', label: 'Tema', icon: Palette, module: 'theme' },
       { id: 'printer', label: 'Impressora', icon: Printer, module: 'printer' },
+      { id: 'colaboradores', label: 'Colaboradores', icon: UserCog, module: 'colaboradores' },
+      { id: '2fa', label: 'Autenticação 2FA', icon: Key, module: '2fa' },
+      { id: 'lgpd', label: 'Conformidade LGPD', icon: Shield, module: 'lgpd' },
       { id: 'service_requests', label: 'Solicitações', icon: Bell, masterOnly: true },
       { id: 'pagina_assinar', label: 'Editar Página de Vendas', icon: Layout, masterOnly: true },
     ]

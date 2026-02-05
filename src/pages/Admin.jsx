@@ -38,6 +38,7 @@ import InventoryManagement from '../components/admin/InventoryManagement';
 import AffiliateProgram from '../components/admin/AffiliateProgram';
 import LGPDCompliance from '../components/admin/LGPDCompliance';
 import TwoFactorAuth from '../components/admin/TwoFactorAuth';
+import ColaboradoresTab from '../components/admin/ColaboradoresTab';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import InstallAppButton from '../components/InstallAppButton';
 import { createPageUrl } from '@/utils';
@@ -231,6 +232,12 @@ export default function Admin() {
         return hasModuleAccess('promotions') ? <PromotionsTab /> : <AccessDenied />;
       case 'comandas':
         return hasModuleAccess('comandas') ? <ComandasTab /> : <AccessDenied />;
+      case 'colaboradores':
+        return hasModuleAccess('colaboradores') ? <ColaboradoresTab /> : <AccessDenied />;
+      case '2fa':
+        return hasModuleAccess('2fa') ? <TwoFactorAuth /> : <AccessDenied />;
+      case 'lgpd':
+        return hasModuleAccess('lgpd') ? <LGPDCompliance /> : <AccessDenied />;
       case 'theme':
         return hasModuleAccess('theme') ? <ThemeTab /> : <AccessDenied />;
       case 'orders':

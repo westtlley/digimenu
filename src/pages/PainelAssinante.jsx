@@ -35,6 +35,8 @@ import PrinterConfig from '../components/gestor/PrinterConfig';
 import CaixaTab from '../components/admin/CaixaTab';
 import WhatsAppTab from '../components/admin/WhatsAppTab';
 import ColaboradoresTab from '../components/admin/ColaboradoresTab';
+import TwoFactorAuth from '../components/admin/TwoFactorAuth';
+import LGPDCompliance from '../components/admin/LGPDCompliance';
 
 function AccessDenied() {
   return (
@@ -186,6 +188,10 @@ export default function PainelAssinante() {
         return hasModuleAccess('whatsapp') ? <WhatsAppTab /> : <AccessDenied />;
       case 'colaboradores':
         return hasModuleAccess('colaboradores') ? <ColaboradoresTab /> : <AccessDenied />;
+      case '2fa':
+        return hasModuleAccess('2fa') ? <TwoFactorAuth user={user} /> : <AccessDenied />;
+      case 'lgpd':
+        return hasModuleAccess('lgpd') ? <LGPDCompliance /> : <AccessDenied />;
       default:
         return <DashboardTab user={user} subscriberData={subscriberData} onNavigateToTab={handleSetActiveTab} />;
     }

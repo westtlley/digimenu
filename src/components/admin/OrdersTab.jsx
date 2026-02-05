@@ -17,6 +17,7 @@ import { createPageUrl } from '@/utils';
 import OrdersSkeleton from '../skeletons/OrdersSkeleton';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
+import { usePermission } from '@/components/permissions/usePermission';
 
 const STATUS_CONFIG = {
   new: { label: 'Novo', color: 'bg-red-100 text-red-800' },
@@ -43,6 +44,12 @@ export default function OrdersTab({ isMaster, user, subscriberData }) {
   const [showFilters, setShowFilters] = useState(false);
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
+  const { subscriberData: subData, isMaster: isM } = usePermission();
+  
+  // Verificar se tem acesso a funcionalidades avançadas (apenas Pro e Ultra)
+  const plan = subscriberData?.plan || subData?.plan;
+  const planLower = (plan || '').toLowerCase();
+  const hasAdvancedAccess = isMaster || isM || ['pro', 'premium', 'ultra'].includes(planLower);
 
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ['orders'],
@@ -330,18 +337,21 @@ export default function OrdersTab({ isMaster, user, subscriberData }) {
                     ))}
                   </SelectContent>
                 </Select>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="text-red-500 hover:text-red-700 min-h-touch min-w-touch"
-                  onClick={() => {
-                    if (confirm('Excluir este pedido?')) {
-                      deleteMutation.mutate(order.id);
-                    }
-                  }}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
+                {hasAdvancedAccess && (
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="text-red-500 hover:text-red-700 min-h-touch min-w-touch"
+                    onClick={() => {
+                      if (confirm('Excluir este pedido?')) {
+                        deleteMutation.mutate(order.id);
+                      }
+                    }}
+                    title="Excluir pedido (apenas Pro e Ultra)"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                )}
               </div>
             </div>
 

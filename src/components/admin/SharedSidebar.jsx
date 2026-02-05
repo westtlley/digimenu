@@ -175,15 +175,29 @@ export default function SharedSidebar({
   const hasModuleAccess = (module) => {
     if (isMaster) return true;
     
-    // Módulos especiais que não dependem de permissões
-    if (module === 'colaboradores') return ['premium', 'pro'].includes((plan || '').toLowerCase());
+    const planLower = (plan || '').toLowerCase();
     
-    // Novos módulos avançados - disponíveis para todos os planos pagos
-    if (['affiliates', 'lgpd', '2fa', 'tables', 'inventory'].includes(module)) {
-      const planLower = (plan || '').toLowerCase();
+    // Módulos especiais que dependem do plano
+    if (module === 'colaboradores') {
+      return ['premium', 'pro', 'ultra'].includes(planLower);
+    }
+    
+    // Módulos de Garçom - apenas Ultra
+    if (['comandas', 'tables', 'garcom'].includes(module)) {
+      return planLower === 'ultra';
+    }
+    
+    // Módulos avançados - Pro e Ultra
+    if (['affiliates', 'lgpd', '2fa', 'inventory'].includes(module)) {
+      return ['pro', 'premium', 'ultra'].includes(planLower);
+    }
+    
+    // Módulos básicos - todos os planos pagos
+    if (['dashboard', 'dishes', 'orders', 'clients', 'whatsapp', 'store', 'theme', 'printer'].includes(module)) {
       return ['basic', 'pro', 'premium', 'ultra'].includes(planLower);
     }
     
+    // Verificar permissões do backend
     if (!permissions || typeof permissions !== 'object') return false;
     
     const modulePerms = permissions[module];
