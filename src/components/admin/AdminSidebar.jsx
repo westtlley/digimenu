@@ -60,36 +60,34 @@ const MENU_STRUCTURE = [
       { id: 'history', label: 'Histórico de Pedidos', icon: History, module: 'history' },
       { id: 'clients', label: 'Clientes', icon: Users, module: 'clients' },
       { id: 'whatsapp', label: 'WhatsApp', icon: MessageCircle, module: 'whatsapp' },
+      { id: 'inventory', label: 'Gestão de Estoque', icon: Package, module: 'inventory' },
     ]
   },
 
-  // CARDÁPIO: Restaurante (Pratos, Categorias, Complementos), Pizzas, Promoções, Cupons
+  // 🍽️ CARDÁPIO
   {
     id: 'cardapio',
-    label: 'CARDÁPIO',
+    label: '🍽️ CARDÁPIO',
     icon: UtensilsCrossed,
     section: 'section',
     submenu: [
       { id: 'restaurante_grp', label: 'Restaurante', icon: UtensilsCrossed, section: 'subsection', submenu: [
         { id: 'dishes', label: 'Pratos (Categorias e Complementos)', icon: UtensilsCrossed, module: 'dishes' },
       ]},
+      { id: 'pizza_config', label: 'Pizzaria', icon: Pizza, module: 'pizza_config' },
       { id: 'beverages', label: 'Bebidas', icon: Wine, module: 'dishes' },
-      { id: 'pizza_config', label: 'Pizzas', icon: Pizza, module: 'pizza_config' },
-      { id: 'promotions', label: 'Promoções', icon: Megaphone, module: 'promotions' },
-      { id: 'coupons', label: 'Cupons', icon: Ticket, module: 'coupons' },
-      { id: 'comandas', label: 'Comandas', icon: Receipt, module: 'comandas' },
     ]
   },
 
-  // 🍽️ RESTAURANTE (Mesas e QR Code, Estoque) — logo após CARDÁPIO para ficar visível
+  // 🧑‍🍳 GARÇOM
   {
-    id: 'restaurante',
-    label: '🍽️ RESTAURANTE',
-    icon: UtensilsCrossed,
+    id: 'garcom',
+    label: '🧑‍🍳 GARÇOM',
+    icon: Receipt,
     section: 'section',
     submenu: [
+      { id: 'comandas', label: 'Comandas', icon: Receipt, module: 'comandas' },
       { id: 'tables', label: 'Mesas e QR Code', icon: QrCode, module: 'tables' },
-      { id: 'inventory', label: 'Gestão de Estoque', icon: Package, module: 'inventory' },
     ]
   },
 
@@ -118,6 +116,19 @@ const MENU_STRUCTURE = [
       { id: 'service_requests', label: 'Solicitações', icon: Bell, masterOnly: true },
       { id: 'pagina_assinar', label: 'Editar Página de Vendas', icon: Layout, masterOnly: true },
     ]
+  },
+
+  // 💰 MARKETING
+  {
+    id: 'marketing',
+    label: '💰 MARKETING',
+    icon: TrendingUp,
+    section: 'section',
+    submenu: [
+      { id: 'promotions', label: 'Promoções', icon: Megaphone, module: 'promotions' },
+      { id: 'coupons', label: 'Cupons', icon: Ticket, module: 'coupons' },
+      { id: 'affiliates', label: 'Programa de Afiliados', icon: Users, module: 'affiliates' },
+    ]
   }
 ];
 
@@ -127,9 +138,10 @@ export default function AdminSidebar({ activeTab, setActiveTab, isMaster = false
     operacao: true,
     cardapio: true,
     restaurante_grp: true,
-    restaurante: true, // Seção RESTAURANTE (Mesas e Estoque)
+    garcom: true, // Seção GARÇOM (Comandas e Mesas)
     delivery: true,
-    sistema: true
+    sistema: true,
+    marketing: true // Seção MARKETING (Promoções, Cupons, Afiliados)
   });
 
   // ✅ CORREÇÃO: Blindado com Array.isArray
