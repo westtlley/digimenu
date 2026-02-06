@@ -228,8 +228,11 @@ export default function Admin() {
         }
         
         console.log('🍽️ [Admin] Renderizando DishesTab com ErrorBoundary...');
+        console.log('🍽️ [Admin] DishesTab importado?', typeof DishesTab);
+        console.log('🍽️ [Admin] Tentando criar elemento DishesTab...');
+        
         try {
-          return (
+          const dishesTabElement = (
             <ErrorBoundary>
               <DishesTab 
                 onNavigateToPizzas={() => handleSetActiveTab('pizza_config')}
@@ -237,12 +240,18 @@ export default function Admin() {
               />
             </ErrorBoundary>
           );
+          console.log('🍽️ [Admin] Elemento DishesTab criado com sucesso!', dishesTabElement);
+          return dishesTabElement;
         } catch (error) {
           console.error('🚨 [Admin] ERRO ao renderizar DishesTab:', error);
+          console.error('🚨 [Admin] Stack:', error?.stack);
           return (
             <div className="p-8 text-center">
               <p className="text-red-500 mb-2">Erro ao carregar cardápio</p>
               <p className="text-sm text-gray-400">{error?.message || 'Erro desconhecido'}</p>
+              <pre className="text-xs mt-2 text-left bg-gray-100 p-2 rounded overflow-auto">
+                {error?.stack}
+              </pre>
             </div>
           );
         }
