@@ -62,7 +62,7 @@ export function usePermission() {
         if (subscriber.plan === 'basic' && Array.isArray(perms.dishes) && perms.dishes.includes('view') && !perms.dishes.includes('create')) {
           perms = { ...perms, dishes: ['view', 'create', 'update', 'delete'] };
         }
-        if (['basic', 'pro', 'premium'].includes(subscriber.plan) && (!Array.isArray(perms.store) || perms.store.length === 0)) {
+        if (['basic', 'pro'].includes(subscriber.plan) && (!Array.isArray(perms.store) || perms.store.length === 0)) {
           perms = { ...perms, store: ['view', 'update'] };
         }
         setPermissions(perms);
@@ -103,7 +103,7 @@ export function usePermission() {
   /**
    * Verifica se o usuário tem acesso a um módulo
    * ✅ CORREÇÃO: Blindado com Array.isArray
-   * colaboradores: apenas planos Premium e Pro
+   * colaboradores: apenas planos Pro e Ultra
    */
   const hasModuleAccess = (module) => {
     if (isMaster) return true;
@@ -112,7 +112,7 @@ export function usePermission() {
     
     // Módulos especiais que dependem do plano
     if (module === 'colaboradores') {
-      return ['premium', 'pro', 'ultra'].includes(planLower);
+      return ['pro', 'ultra'].includes(planLower);
     }
     
     // Módulos de Garçom - apenas Ultra
@@ -122,12 +122,12 @@ export function usePermission() {
     
     // Módulos avançados - Pro e Ultra
     if (['affiliates', 'lgpd', '2fa', 'inventory'].includes(module)) {
-      return ['pro', 'premium', 'ultra'].includes(planLower);
+      return ['pro', 'ultra'].includes(planLower);
     }
     
     // Módulos básicos - todos os planos pagos
     if (['dashboard', 'dishes', 'orders', 'clients', 'whatsapp', 'store', 'theme', 'printer'].includes(module)) {
-      return ['basic', 'pro', 'premium', 'ultra'].includes(planLower);
+      return ['basic', 'pro', 'ultra'].includes(planLower);
     }
     
     // Verificar permissões do backend

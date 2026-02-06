@@ -46,6 +46,8 @@
 - ❌ `tables: false` (apenas Ultra)
 - ❌ `waiter_app: false` (apenas Ultra)
 
+**Nota:** Não existe plano "Premium". Os planos são: Basic, Pro e Ultra.
+
 #### Plano ULTRA
 - ✅ `colaboradores: true`
 - ✅ `comandas_presencial: true`
@@ -97,9 +99,9 @@
 - ✅ Cupons e Promoções
 - ✅ Zonas de Entrega
 - ✅ App Entregador
-- ❌ Comandas
-- ❌ Mesas e QR Code
-- ❌ App Garçom
+- ❌ Comandas (apenas Ultra)
+- ❌ Mesas e QR Code (apenas Ultra)
+- ❌ App Garçom (apenas Ultra)
 
 ### ULTRA (R$ 149,90/mês)
 - ✅ Tudo do Pro

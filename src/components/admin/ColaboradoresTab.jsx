@@ -99,7 +99,7 @@ export default function ColaboradoresTab() {
             Colaboradores
           </h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-            Perfis com acesso limitado: Entregador, Cozinha, PDV e Garçom. Apenas planos Premium e Pro.
+            Perfis com acesso limitado: Entregador, Cozinha, PDV e Garçom. Apenas planos Pro e Ultra.
           </p>
         </div>
         <Button onClick={openAdd} className="bg-orange-500 hover:bg-orange-600">

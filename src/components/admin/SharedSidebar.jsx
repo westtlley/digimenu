@@ -179,7 +179,7 @@ export default function SharedSidebar({
     
     // Módulos especiais que dependem do plano
     if (module === 'colaboradores') {
-      return ['premium', 'pro', 'ultra'].includes(planLower);
+      return ['pro', 'ultra'].includes(planLower);
     }
     
     // Módulos de Garçom - apenas Ultra
@@ -189,12 +189,12 @@ export default function SharedSidebar({
     
     // Módulos avançados - Pro e Ultra
     if (['affiliates', 'lgpd', '2fa', 'inventory'].includes(module)) {
-      return ['pro', 'premium', 'ultra'].includes(planLower);
+      return ['pro', 'ultra'].includes(planLower);
     }
     
     // Módulos básicos - todos os planos pagos
     if (['dashboard', 'dishes', 'orders', 'clients', 'whatsapp', 'store', 'theme', 'printer'].includes(module)) {
-      return ['basic', 'pro', 'premium', 'ultra'].includes(planLower);
+      return ['basic', 'pro', 'ultra'].includes(planLower);
     }
     
     // Verificar permissões do backend

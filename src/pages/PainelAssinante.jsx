@@ -37,6 +37,7 @@ import WhatsAppTab from '../components/admin/WhatsAppTab';
 import ColaboradoresTab from '../components/admin/ColaboradoresTab';
 import TwoFactorAuth from '../components/admin/TwoFactorAuth';
 import LGPDCompliance from '../components/admin/LGPDCompliance';
+import TablesTab from '../components/admin/TablesTab';
 
 function AccessDenied() {
   return (
@@ -176,6 +177,8 @@ export default function PainelAssinante() {
         return hasModuleAccess('promotions') ? <PromotionsTab /> : <AccessDenied />;
       case 'comandas':
         return hasModuleAccess('comandas') ? <ComandasTab subscriberEmail={subscriberData?.email || subscriberEmail || user?.subscriber_email || user?.email} /> : <AccessDenied />;
+      case 'tables':
+        return hasModuleAccess('tables') ? <TablesTab /> : <AccessDenied />;
       case 'theme':
         return hasModuleAccess('theme') ? <ThemeTab /> : <AccessDenied />;
       case 'store':

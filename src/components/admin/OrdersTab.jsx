@@ -49,7 +49,7 @@ export default function OrdersTab({ isMaster, user, subscriberData }) {
   // Verificar se tem acesso a funcionalidades avançadas (apenas Pro e Ultra)
   const plan = subscriberData?.plan || subData?.plan;
   const planLower = (plan || '').toLowerCase();
-  const hasAdvancedAccess = isMaster || isM || ['pro', 'premium', 'ultra'].includes(planLower);
+  const hasAdvancedAccess = isMaster || isM || ['pro', 'ultra'].includes(planLower);
 
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ['orders'],

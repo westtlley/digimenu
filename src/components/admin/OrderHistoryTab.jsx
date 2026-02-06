@@ -44,7 +44,7 @@ export default function OrderHistoryTab() {
   
   // Verificar se tem acesso a funcionalidades avançadas (apenas Pro e Ultra)
   const hasAdvancedAccess = isMaster || 
-    (subscriberData?.plan && ['pro', 'premium', 'ultra'].includes(subscriberData.plan.toLowerCase()));
+    (subscriberData?.plan && ['pro', 'ultra'].includes(subscriberData.plan.toLowerCase()));
 
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ['orderHistory'],
