@@ -23,8 +23,8 @@ import {
 } from '@/components/ui/select';
 import toast from 'react-hot-toast';
 import InstallAppButton from '../components/InstallAppButton';
-import { useComandaWebSocket } from '@/hooks/useComandaWebSocket';
-import { useWaiterCallWebSocket } from '@/hooks/useWaiterCallWebSocket';
+import { useComandaWebSocket } from '@/hooks/useComandaWebSocket.jsx';
+import { useWaiterCallWebSocket } from '@/hooks/useWaiterCallWebSocket.jsx';
 import { useOfflineSync } from '@/hooks/useOfflineSync';
 import { saveComandaOffline, updateComandaOffline, getComandasOffline } from '@/utils/offlineStorage';
 
