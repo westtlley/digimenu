@@ -37,12 +37,20 @@ export function usePermission() {
 
         log.permission.log('✅ [usePermission] Contexto recebido do backend:', {
           is_master: contextData.user.is_master,
-          menuContext: contextData.menuContext
+          menuContext: contextData.menuContext,
+          subscriberData: contextData.subscriberData,
+          plan: contextData.subscriberData?.plan
         });
 
         setUser(contextData.user);
         setPermissions(contextData.permissions || {});
-        setSubscriberData(contextData.subscriberData);
+        // ✅ Garantir que subscriberData sempre tenha plan e status
+        const subscriber = contextData.subscriberData ? {
+          ...contextData.subscriberData,
+          plan: contextData.subscriberData.plan || 'basic',
+          status: contextData.subscriberData.status || 'active'
+        } : null;
+        setSubscriberData(subscriber);
         
         // ✅ Criar contexto de usuário (backend já retornou menuContext, mas criamos aqui para consistência)
         const context = createUserContext(

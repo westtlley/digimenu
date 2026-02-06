@@ -181,7 +181,19 @@ export default function SharedSidebar({
       return true;
     }
     
+    // ✅ DEBUG: Log do plan recebido
+    console.log(`[SharedSidebar] hasModuleAccess(${module}): plan=${plan}, isMaster=${isMaster}, permissions=`, permissions);
+    
     const planLower = (plan || '').toLowerCase();
+    
+    // ✅ Se plan estiver vazio, tentar usar fallback de permissões
+    if (!planLower && permissions && typeof permissions === 'object') {
+      const modulePerms = permissions[module];
+      if (Array.isArray(modulePerms) && modulePerms.length > 0) {
+        console.log(`[SharedSidebar] hasModuleAccess(${module}): Usando permissões do backend (plan vazio)`);
+        return true;
+      }
+    }
     
     // Se for master (mesmo que venha como plan), sempre tem acesso
     if (planLower === 'master') {

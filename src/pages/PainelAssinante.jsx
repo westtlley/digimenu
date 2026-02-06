@@ -60,6 +60,13 @@ export default function PainelAssinante() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   
   const { loading, permissions, isMaster, hasModuleAccess, user, subscriberData } = usePermission();
+  
+  // ✅ DEBUG: Log do subscriberData para verificar se está carregando
+  React.useEffect(() => {
+    console.log('🔍 [PainelAssinante] subscriberData:', subscriberData);
+    console.log('🔍 [PainelAssinante] plan:', subscriberData?.plan);
+    console.log('🔍 [PainelAssinante] status:', subscriberData?.status);
+  }, [subscriberData]);
   const { slug, subscriberEmail, inSlugContext, loading: slugLoading, error: slugError } = useSlugContext();
   const asSub = (inSlugContext && isMaster && subscriberEmail) ? subscriberEmail : undefined;
   const canAccessSlug = !inSlugContext || isMaster || (user?.email || '').toLowerCase() === (subscriberEmail || '').toLowerCase() || (user?.subscriber_email || '').toLowerCase() === (subscriberEmail || '').toLowerCase();
@@ -320,7 +327,7 @@ export default function PainelAssinante() {
             isMaster={isMaster}
             slug={slug}
             permissions={permissions}
-            plan={subscriberData?.plan}
+            plan={subscriberData?.plan || 'basic'} // ✅ Garantir que sempre tenha um valor padrão
             collapsed={sidebarCollapsed}
             setCollapsed={setSidebarCollapsed}
             onClose={() => setShowMobileSidebar(false)}
