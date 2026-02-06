@@ -38,6 +38,7 @@ import {
   DialogContent, 
   DialogHeader, 
   DialogTitle,
+  DialogDescription,
   DialogFooter 
 } from "@/components/ui/dialog";
 import {
@@ -614,7 +615,9 @@ export default function Assinantes() {
     logger.log('📂 Abrindo modal para:', subscriber);
     const initialState = {
       ...subscriber,
-      permissions: subscriber.permissions || {}
+      permissions: subscriber.permissions || {},
+      plan: subscriber.plan || 'basic', // ✅ Garantir que plan sempre tenha valor
+      status: subscriber.status || 'active' // ✅ Garantir que status sempre tenha valor
     };
     logger.log('📂 Estado inicial editingSubscriber:', initialState);
     setEditingSubscriber(initialState);
@@ -1490,6 +1493,9 @@ export default function Assinantes() {
               <Edit className="w-5 h-5 text-orange-500" />
               Editar Assinante
             </DialogTitle>
+            <DialogDescription>
+              Edite as informações e permissões do assinante
+            </DialogDescription>
           </DialogHeader>
 
 

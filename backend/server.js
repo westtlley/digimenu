@@ -863,7 +863,7 @@ app.get('/api/user/context', authenticate, asyncHandler(async (req, res) => {
       subscriberData: user.is_master ? null : (subscriber ? {
         email: subscriber.email,
         plan: subscriber.plan,
-        status: subscriber.status,
+        status: subscriber.status || 'active', // ✅ Garantir que status sempre tenha valor
         permissions: subscriber.permissions || {}
       } : null)
     });

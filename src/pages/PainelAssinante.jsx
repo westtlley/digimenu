@@ -104,7 +104,9 @@ export default function PainelAssinante() {
   }
 
   // Master pode acessar, mas assinantes precisam de assinatura ativa
-  if (!isMaster && (!subscriberData || subscriberData.status !== 'active')) {
+  // ✅ CORREÇÃO: Verificar se subscriberData existe e se status é 'active'
+  // Se subscriberData for null mas o usuário não é master, pode ser que ainda não carregou
+  if (!isMaster && subscriberData && subscriberData.status !== 'active') {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md text-center">
