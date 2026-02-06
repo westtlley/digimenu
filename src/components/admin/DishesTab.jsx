@@ -127,49 +127,73 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
     queryFn: async () => {
       try {
         console.log('🍽️ [DishesTab] Buscando pratos...');
-        const result = await base44.entities.Dish.list();
+        // ✅ Timeout de segurança para evitar loading infinito
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Timeout ao buscar pratos')), 10000)
+        );
+        const fetchPromise = base44.entities.Dish.list();
+        const result = await Promise.race([fetchPromise, timeoutPromise]);
         console.log('🍽️ [DishesTab] Pratos recebidos:', Array.isArray(result) ? result.length : 'não é array', result);
         return Array.isArray(result) ? result : [];
       } catch (error) {
         console.error('🍽️ [DishesTab] Erro ao buscar pratos:', error);
+        // ✅ Retornar array vazio em caso de erro para não travar
         return [];
       }
     },
     initialData: [],
     retry: 1,
     refetchOnMount: 'always', // evita cache vazio ao abrir Pratos e não mostrar itens cadastrados
+    staleTime: 30000, // 30 segundos
+    gcTime: 60000, // 1 minuto
   });
 
   const { data: categories = [], isLoading: categoriesLoading, error: categoriesError } = useQuery({
     queryKey: ['categories'],
     queryFn: async () => {
       try {
-        const result = await base44.entities.Category.list('order');
+        console.log('🍽️ [DishesTab] Buscando categorias...');
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Timeout ao buscar categorias')), 10000)
+        );
+        const fetchPromise = base44.entities.Category.list('order');
+        const result = await Promise.race([fetchPromise, timeoutPromise]);
+        console.log('🍽️ [DishesTab] Categorias recebidas:', Array.isArray(result) ? result.length : 'não é array');
         return Array.isArray(result) ? result : [];
       } catch (error) {
-        console.error('Erro ao buscar categorias:', error);
+        console.error('🍽️ [DishesTab] Erro ao buscar categorias:', error);
         return [];
       }
     },
     initialData: [],
     retry: 1,
     refetchOnMount: 'always', // evita cache vazio ao abrir Pratos e não mostrar itens cadastrados
+    staleTime: 30000,
+    gcTime: 60000,
   });
 
   const { data: complementGroups = [], isLoading: groupsLoading, error: groupsError } = useQuery({
     queryKey: ['complementGroups'],
     queryFn: async () => {
       try {
-        const groups = await base44.entities.ComplementGroup.list('order');
+        console.log('🍽️ [DishesTab] Buscando grupos de complementos...');
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Timeout ao buscar grupos')), 10000)
+        );
+        const fetchPromise = base44.entities.ComplementGroup.list('order');
+        const groups = await Promise.race([fetchPromise, timeoutPromise]);
+        console.log('🍽️ [DishesTab] Grupos recebidos:', Array.isArray(groups) ? groups.length : 'não é array');
         return Array.isArray(groups) ? groups : [];
       } catch (error) {
-        console.error('Erro ao buscar grupos de complementos:', error);
+        console.error('🍽️ [DishesTab] Erro ao buscar grupos de complementos:', error);
         return [];
       }
     },
     initialData: [],
     retry: 2,
     refetchOnMount: 'always', // evita cache vazio: complementos voltam a aparecer após refresh
+    staleTime: 30000,
+    gcTime: 60000,
   });
 
   // ========= MUTATIONS =========
@@ -794,6 +818,16 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
   const isLoading = dishesLoading || categoriesLoading || groupsLoading;
   const hasError = dishesError || categoriesError || groupsError;  // Nota: safeDishes, safeCategories, safeComplementGroups já foram declarados acima, após as queries
 
+  // ✅ LOG CRÍTICO: Verificar se passou das validações
+  console.log('🍽️ [DishesTab] render', {
+    user,
+    isMaster: user?.is_master,
+    subscriber: user?.subscriber_email,
+    slug: user?.slug,
+    email: user?.email,
+    userLoaded: !!user
+  });
+
   console.log('🍽️ [DishesTab] Estado:', {
     isLoading,
     hasError,
@@ -804,6 +838,8 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
     categoriesCount: categories?.length || 0,
     groupsCount: complementGroups?.length || 0
   });
+
+  console.log('🍽️ [DishesTab] passou das validações - chegou no render');
 
   if (isLoading) {
     console.log('🍽️ [DishesTab] Mostrando skeleton (loading)...');
