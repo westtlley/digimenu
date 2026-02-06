@@ -293,10 +293,6 @@ export default function Admin() {
         return hasModuleAccess('inventory') ? <InventoryManagement /> : <AccessDenied />;
       case 'affiliates':
         return hasModuleAccess('affiliates') ? <AffiliateProgram /> : <AccessDenied />;
-      case 'lgpd':
-        return hasModuleAccess('lgpd') ? <LGPDCompliance /> : <AccessDenied />;
-      case '2fa':
-        return hasModuleAccess('2fa') ? <TwoFactorAuth user={user} /> : <AccessDenied />;
       case 'service_requests':
         return isMaster ? <ServiceRequestsTab /> : <AccessDenied />;
       case 'pagina_assinar':
