@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/select';
 import { Plus, Receipt, Edit2, XCircle, History, Trash2, Search, X, AlertCircle, CheckCircle2, ArrowRight, Printer } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { useComandaWebSocket } from '@/hooks/useComandaWebSocket.jsx';
+import { useComandaWebSocket } from '@/hooks/useComandaWebSocket';
 import TransferItemsModal from './TransferItemsModal';
 
 const PAYMENT_METHODS = [
