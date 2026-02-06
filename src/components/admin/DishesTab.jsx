@@ -46,6 +46,8 @@ const formatCurrency = (value) => {
 
 // ========= COMPONENT =========
 export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' }) {
+  console.log('🍽️ [DishesTab] Componente montado, initialTab:', initialTab);
+  
   const [user, setUser] = React.useState(null);
   const [showDishModal, setShowDishModal] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
@@ -95,13 +97,23 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
   const hasPizzaService = hasModuleAccess('pizza_config');
   const canEdit = canUpdate('dishes');
   
+  console.log('🍽️ [DishesTab] Permissões:', {
+    canCreate: canCreate('dishes'),
+    canUpdate: canUpdate('dishes'),
+    canDelete: canDelete('dishes'),
+    hasPizzaService,
+    canEdit
+  });
+  
   React.useEffect(() => {
     const loadUser = async () => {
       try {
+        console.log('🍽️ [DishesTab] Carregando usuário...');
         const userData = await base44.auth.me();
+        console.log('🍽️ [DishesTab] Usuário carregado:', userData?.email);
         setUser(userData);
       } catch (e) {
-        console.error('Error loading user:', e);
+        console.error('🍽️ [DishesTab] Error loading user:', e);
       }
     };
     loadUser();
@@ -114,10 +126,12 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
     queryKey: ['dishes'],
     queryFn: async () => {
       try {
+        console.log('🍽️ [DishesTab] Buscando pratos...');
         const result = await base44.entities.Dish.list();
+        console.log('🍽️ [DishesTab] Pratos recebidos:', Array.isArray(result) ? result.length : 'não é array', result);
         return Array.isArray(result) ? result : [];
       } catch (error) {
-        console.error('Erro ao buscar pratos:', error);
+        console.error('🍽️ [DishesTab] Erro ao buscar pratos:', error);
         return [];
       }
     },
@@ -780,7 +794,19 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
   const isLoading = dishesLoading || categoriesLoading || groupsLoading;
   const hasError = dishesError || categoriesError || groupsError;  // Nota: safeDishes, safeCategories, safeComplementGroups já foram declarados acima, após as queries
 
+  console.log('🍽️ [DishesTab] Estado:', {
+    isLoading,
+    hasError,
+    dishesLoading,
+    categoriesLoading,
+    groupsLoading,
+    dishesCount: dishes?.length || 0,
+    categoriesCount: categories?.length || 0,
+    groupsCount: complementGroups?.length || 0
+  });
+
   if (isLoading) {
+    console.log('🍽️ [DishesTab] Mostrando skeleton (loading)...');
     return (
       <div className="min-h-screen bg-gray-50">
         <DishesSkeleton />
@@ -789,10 +815,18 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
   }
 
   if (hasError) {
+    console.error('🍽️ [DishesTab] Erro detectado:', {
+      dishesError,
+      categoriesError,
+      groupsError
+    });
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-8">
         <div className="text-center">
           <p className="text-red-500 mb-4">Erro ao carregar dados</p>
+          <p className="text-sm text-gray-400 mb-4">
+            {dishesError?.message || categoriesError?.message || groupsError?.message || 'Erro desconhecido'}
+          </p>
           <Button onClick={() => window.location.reload()}>Recarregar página</Button>
         </div>
       </div>
