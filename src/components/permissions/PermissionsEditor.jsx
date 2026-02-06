@@ -68,37 +68,39 @@ export default function PermissionsEditor({ permissions, onChange, selectedPlan 
   const [showComparison, setShowComparison] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
 
-  const { data: plans = [], isLoading: plansLoading } = useQuery({
+  // ✅ Planos padrão sempre disponíveis (não dependem do banco)
+  const defaultPlans = [
+    { id: 'free', slug: 'free', name: 'Gratuito', description: 'Plano gratuito para uso pessoal', is_active: true, order: 0 },
+    { id: 'basic', slug: 'basic', name: 'Básico', description: 'Plano básico com funcionalidades essenciais', is_active: true, order: 1 },
+    { id: 'pro', slug: 'pro', name: 'Pro', description: 'Plano profissional com recursos avançados', is_active: true, order: 2 },
+    { id: 'ultra', slug: 'ultra', name: 'Ultra', description: 'Plano ultra com todos os recursos', is_active: true, order: 3 }
+  ];
+
+  const { data: plans = defaultPlans, isLoading: plansLoading } = useQuery({
     queryKey: ['plans'],
     queryFn: async () => {
       try {
         const allPlans = await base44.entities.Plan.list('order');
-        const activePlans = allPlans.filter(p => p.is_active !== false);
-        console.log('📋 Planos carregados:', activePlans.length, activePlans);
+        const activePlans = Array.isArray(allPlans) ? allPlans.filter(p => p.is_active !== false) : [];
+        console.log('📋 Planos carregados do banco:', activePlans.length, activePlans);
         
         // Se não houver planos cadastrados, retornar planos padrão
         if (activePlans.length === 0) {
-          console.log('⚠️ Nenhum plano cadastrado, usando planos padrão');
-          return [
-            { id: 'free', slug: 'free', name: 'Gratuito', description: 'Plano gratuito para uso pessoal', is_active: true, order: 0 },
-            { id: 'basic', slug: 'basic', name: 'Básico', description: 'Plano básico com funcionalidades essenciais', is_active: true, order: 1 },
-            { id: 'pro', slug: 'pro', name: 'Pro', description: 'Plano profissional com recursos avançados', is_active: true, order: 2 },
-            { id: 'ultra', slug: 'ultra', name: 'Ultra', description: 'Plano ultra com todos os recursos', is_active: true, order: 3 }
-          ];
+          console.log('⚠️ Nenhum plano no banco, retornando planos padrão (PermissionsEditor)');
+          return defaultPlans;
         }
         
         return activePlans;
       } catch (error) {
         console.error('❌ Erro ao carregar planos:', error);
-        // Retornar planos padrão em caso de erro
-        return [
-          { id: 'free', slug: 'free', name: 'Gratuito', description: 'Plano gratuito para uso pessoal', is_active: true, order: 0 },
-          { id: 'basic', slug: 'basic', name: 'Básico', description: 'Plano básico com funcionalidades essenciais', is_active: true, order: 1 },
-          { id: 'pro', slug: 'pro', name: 'Pro', description: 'Plano profissional com recursos avançados', is_active: true, order: 2 },
-          { id: 'ultra', slug: 'ultra', name: 'Ultra', description: 'Plano ultra com todos os recursos', is_active: true, order: 3 }
-        ];
+        // ✅ Sempre retornar planos padrão em caso de erro (não quebrar o componente)
+        return defaultPlans;
       }
-    }
+    },
+    // ✅ Sempre usar planos padrão como fallback
+    initialData: defaultPlans,
+    retry: 1,
+    staleTime: 5 * 60 * 1000, // 5 minutos
   });
   
   // Garantir que selectedPlan tenha um valor válido
