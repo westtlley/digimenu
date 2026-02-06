@@ -97,6 +97,7 @@ export default function Admin() {
   }, [searchParams]);
 
   const handleSetActiveTab = (tab) => {
+    console.log('🍽️ [Admin] handleSetActiveTab chamado com tab:', tab);
     setActiveTab(tab);
     setShowMobileSidebar(false);
     setSearchParams({ tab }, { replace: true });
@@ -183,6 +184,7 @@ export default function Admin() {
 
   // Renderizar abas
   const renderTabContent = () => {
+    console.log('🍽️ [Admin] renderTabContent chamado, activeTab:', activeTab);
     switch (activeTab) {
       case 'dashboard':
         return <DashboardTab user={user} subscriberData={subscriberData} onNavigateToTab={handleSetActiveTab} />;
@@ -195,6 +197,13 @@ export default function Admin() {
       case 'dishes':
       case 'categories': // ✅ Redirecionar para dishes (categorias dentro de pratos)
       case 'complements': // ✅ Redirecionar para dishes (complementos dentro de pratos)
+        console.log('🍽️ [Admin] CASE DISHES EXECUTADO!', {
+          activeTab,
+          isMaster,
+          loading,
+          user: user?.email,
+          subscriberData: subscriberData?.plan
+        });
         // ✅ Master sempre tem acesso, mesmo se hasModuleAccess falhar temporariamente
         const hasDishesAccess = isMaster || hasModuleAccess('dishes');
         console.log('🍽️ [Admin] Renderizando DishesTab:', {
@@ -205,20 +214,27 @@ export default function Admin() {
           permissions,
           permissionsType: typeof permissions
         });
-        return hasDishesAccess ? (
+        
+        if (!hasDishesAccess) {
+          console.error('🍽️ [Admin] ACESSO NEGADO ao DishesTab!');
+          return (
+            <div className="p-8 text-center">
+              <p className="text-red-500 mb-2">Acesso negado ao módulo de pratos</p>
+              <p className="text-sm text-gray-400">
+                isMaster: {String(isMaster)} | hasModuleAccess: {String(hasModuleAccess('dishes'))}
+              </p>
+            </div>
+          );
+        }
+        
+        console.log('🍽️ [Admin] Renderizando DishesTab com ErrorBoundary...');
+        return (
           <ErrorBoundary>
             <DishesTab 
               onNavigateToPizzas={() => handleSetActiveTab('pizza_config')}
               initialTab={activeTab === 'categories' ? 'categories' : activeTab === 'complements' ? 'complements' : 'dishes'}
             />
           </ErrorBoundary>
-        ) : (
-          <div className="p-8 text-center">
-            <p className="text-red-500 mb-2">Acesso negado ao módulo de pratos</p>
-            <p className="text-sm text-gray-400">
-              isMaster: {String(isMaster)} | hasModuleAccess: {String(hasModuleAccess('dishes'))}
-            </p>
-          </div>
         );
       case 'beverages':
         return hasModuleAccess('dishes') ? <BeveragesTab /> : <AccessDenied />;
