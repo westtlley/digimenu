@@ -797,6 +797,82 @@ app.get('/api/auth/me', authenticate, async (req, res) => {
   }
 });
 
+// ✅ NOVO: Endpoint que retorna contexto completo do usuário (menuContext + permissions)
+app.get('/api/user/context', authenticate, asyncHandler(async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Não autenticado' });
+    }
+
+    const user = req.user;
+    let subscriber = null;
+    let permissions = {};
+    let menuContext = null;
+
+    // Se for master, criar contexto com slug
+    if (user.is_master === true) {
+      menuContext = {
+        type: 'slug',
+        value: user.slug || null
+      };
+      permissions = {}; // Master tem todas as permissões (vazio = acesso total)
+    } else {
+      // Buscar subscriber
+      if (usePostgreSQL) {
+        if (user.subscriber_email) {
+          subscriber = await repo.getSubscriberByEmail(user.subscriber_email);
+        }
+      } else if (db && db.subscribers && user.subscriber_email) {
+        subscriber = db.subscribers.find(s => s.email?.toLowerCase() === user.subscriber_email?.toLowerCase());
+      }
+
+      if (subscriber) {
+        menuContext = {
+          type: 'subscriber',
+          value: subscriber.email
+        };
+        permissions = subscriber.permissions || {};
+        
+        // Ajustes de permissões padrão para planos básicos
+        if (subscriber.plan === 'basic' && Array.isArray(permissions.dishes) && permissions.dishes.includes('view') && !permissions.dishes.includes('create')) {
+          permissions = { ...permissions, dishes: ['view', 'create', 'update', 'delete'] };
+        }
+        if (['basic', 'pro'].includes(subscriber.plan) && (!Array.isArray(permissions.store) || permissions.store.length === 0)) {
+          permissions = { ...permissions, store: ['view', 'update'] };
+        }
+      } else {
+        // Fallback: usar email do usuário
+        menuContext = {
+          type: 'subscriber',
+          value: user.email
+        };
+      }
+    }
+
+    return res.json({
+      user: {
+        id: user.id,
+        email: user.email,
+        full_name: user.full_name,
+        is_master: user.is_master,
+        role: user.role,
+        slug: user.slug || null
+      },
+      menuContext,
+      permissions,
+      subscriberData: user.is_master ? null : (subscriber ? {
+        email: subscriber.email,
+        plan: subscriber.plan,
+        status: subscriber.status,
+        permissions: subscriber.permissions || {}
+      } : null)
+    });
+  } catch (error) {
+    console.error('❌ [user/context] Erro ao obter contexto:', error);
+    return res.status(500).json({ error: 'Erro interno no servidor' });
+  }
+}));
+
 // Alterar própria senha (requer autenticação)
 app.post('/api/auth/change-password', authenticate, validate(schemas.changePassword), asyncHandler(async (req, res) => {
   try {

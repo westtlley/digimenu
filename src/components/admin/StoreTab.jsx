@@ -17,6 +17,7 @@ import toast from 'react-hot-toast';
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import MasterSlugSettings from './MasterSlugSettings';
+import { useMenuDishes } from '@/hooks/useMenuData';
 
 const DAYS_OF_WEEK = [
   { value: 0, label: 'Dom' },
@@ -101,10 +102,8 @@ export default function StoreTab() {
     queryFn: () => base44.entities.Store.list(),
   });
 
-  const { data: dishes = [] } = useQuery({
-    queryKey: ['dishesForCrossSell'],
-    queryFn: () => base44.entities.Dish.list(),
-  });
+  // ✅ NOVO: Usar useMenuDishes para buscar pratos (usado em cross-sell)
+  const { data: dishes = [] } = useMenuDishes();
 
   const store = stores[0];
   

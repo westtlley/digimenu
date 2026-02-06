@@ -19,74 +19,91 @@ export function usePermission() {
 
   const loadPermissions = useCallback(async () => {
     try {
-      log.permission.log('🔄 [usePermission] Carregando permissões...');
-      const currentUser = await base44.auth.me();
-      log.permission.log('👤 [usePermission] Usuário recebido, is_master:', currentUser?.is_master);
-
-      if (!currentUser) {
-        log.permission.warn('⚠️ [usePermission] Usuário não encontrado');
-        setPermissions({});
-        setUser(null);
-        setSubscriberData(null);
-        setUserContext(null);
-        setLoading(false);
-        return;
-      }
-
-      setUser(currentUser);
-
-      // ✅ CORREÇÃO DEFINITIVA: NUNCA mais usar 'FULL_ACCESS'
-      if (currentUser.is_master === true) {
-        log.permission.log('✅ [usePermission] Usuário é master - concedendo acesso total');
-        const perms = {}; // sempre objeto
-        const subscriber = {
-          email: currentUser.email,
-          plan: 'master',
-          status: 'active',
-          permissions: {}
-        };
-        setPermissions(perms);
-        setSubscriberData(subscriber);
+      log.permission.log('🔄 [usePermission] Carregando contexto do usuário...');
+      
+      // ✅ NOVO: Usar endpoint /api/user/context que retorna tudo pronto
+      try {
+        const contextData = await base44.get('/user/context');
         
-        // ✅ Criar contexto de usuário
-        const context = createUserContext(currentUser, subscriber, perms);
+        if (!contextData || !contextData.user) {
+          log.permission.warn('⚠️ [usePermission] Contexto não retornado pelo backend');
+          setPermissions({});
+          setUser(null);
+          setSubscriberData(null);
+          setUserContext(null);
+          setLoading(false);
+          return;
+        }
+
+        log.permission.log('✅ [usePermission] Contexto recebido do backend:', {
+          is_master: contextData.user.is_master,
+          menuContext: contextData.menuContext
+        });
+
+        setUser(contextData.user);
+        setPermissions(contextData.permissions || {});
+        setSubscriberData(contextData.subscriberData);
+        
+        // ✅ Criar contexto de usuário (backend já retornou menuContext, mas criamos aqui para consistência)
+        const context = createUserContext(
+          contextData.user,
+          contextData.subscriberData,
+          contextData.permissions || {}
+        );
         setUserContext(context);
         log.permission.log('✅ [usePermission] Contexto criado:', context.menuContext);
-        setLoading(false);
-        return;
-      }
-
-      log.permission.log('📋 [usePermission] Usuário não é master - verificando assinatura...');
-
-      const result = await base44.functions.invoke('checkSubscriptionStatus', {
-        user_email: currentUser.email
-      });
-
-      log.permission.log('📋 [usePermission] Resultado checkSubscriptionStatus');
-
-      // Verificar se encontrou assinante (mesmo que inativo, ainda tem dados)
-      if (result.data?.subscriber) {
-        const subscriber = result.data.subscriber;
-        log.permission.log('✅ [usePermission] Assinante encontrado:', subscriber?.email, subscriber?.plan);
-        let perms = subscriber.permissions || {};
-        if (subscriber.plan === 'basic' && Array.isArray(perms.dishes) && perms.dishes.includes('view') && !perms.dishes.includes('create')) {
-          perms = { ...perms, dishes: ['view', 'create', 'update', 'delete'] };
-        }
-        if (['basic', 'pro'].includes(subscriber.plan) && (!Array.isArray(perms.store) || perms.store.length === 0)) {
-          perms = { ...perms, store: ['view', 'update'] };
-        }
-        setPermissions(perms);
-        setSubscriberData(subscriber);
+      } catch (contextError) {
+        // Fallback: se o endpoint novo não existir, usar método antigo
+        log.permission.warn('⚠️ [usePermission] Endpoint /user/context não disponível, usando fallback');
         
-        // ✅ Criar contexto de usuário
-        const context = createUserContext(currentUser, subscriber, perms);
-        setUserContext(context);
-        log.permission.log('✅ [usePermission] Contexto criado:', context.menuContext);
-      } else {
-        log.permission.warn('⚠️ [usePermission] Nenhum assinante encontrado para:', currentUser.email);
-        setPermissions({});
-        setSubscriberData(null);
-        setUserContext(null);
+        const currentUser = await base44.auth.me();
+        if (!currentUser) {
+          log.permission.warn('⚠️ [usePermission] Usuário não encontrado');
+          setPermissions({});
+          setUser(null);
+          setSubscriberData(null);
+          setUserContext(null);
+          setLoading(false);
+          return;
+        }
+
+        setUser(currentUser);
+
+        if (currentUser.is_master === true) {
+          const perms = {};
+          const subscriber = {
+            email: currentUser.email,
+            plan: 'master',
+            status: 'active',
+            permissions: {}
+          };
+          setPermissions(perms);
+          setSubscriberData(subscriber);
+          const context = createUserContext(currentUser, subscriber, perms);
+          setUserContext(context);
+        } else {
+          const result = await base44.functions.invoke('checkSubscriptionStatus', {
+            user_email: currentUser.email
+          });
+          if (result.data?.subscriber) {
+            const subscriber = result.data.subscriber;
+            let perms = subscriber.permissions || {};
+            if (subscriber.plan === 'basic' && Array.isArray(perms.dishes) && perms.dishes.includes('view') && !perms.dishes.includes('create')) {
+              perms = { ...perms, dishes: ['view', 'create', 'update', 'delete'] };
+            }
+            if (['basic', 'pro'].includes(subscriber.plan) && (!Array.isArray(perms.store) || perms.store.length === 0)) {
+              perms = { ...perms, store: ['view', 'update'] };
+            }
+            setPermissions(perms);
+            setSubscriberData(subscriber);
+            const context = createUserContext(currentUser, subscriber, perms);
+            setUserContext(context);
+          } else {
+            setPermissions({});
+            setSubscriberData(null);
+            setUserContext(null);
+          }
+        }
       }
     } catch (e) {
       log.permission.error('Error loading permissions:', e);
