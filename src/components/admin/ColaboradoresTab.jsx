@@ -64,13 +64,24 @@ export default function ColaboradoresTab() {
   const openAdd = () => {
     setEditing(null);
     setForm({ name: '', email: '', password: '', role: 'pdv' });
+    setShowPass(false);
     setShowModal(true);
   };
 
   const openEdit = (row) => {
     setEditing(row);
     setForm({ name: row.full_name || '', email: row.email || '', password: '', role: (row.profile_role || 'pdv').toLowerCase() });
+    setShowPass(false);
     setShowModal(true);
+  };
+
+  const handleCloseModal = (open) => {
+    setShowModal(open);
+    if (!open) {
+      setEditing(null);
+      setForm({ name: '', email: '', password: '', role: 'pdv' });
+      setShowPass(false);
+    }
   };
 
   const submit = () => {
@@ -158,7 +169,7 @@ export default function ColaboradoresTab() {
         </div>
       )}
 
-      <Dialog open={showModal} onOpenChange={setShowModal}>
+      <Dialog open={showModal} onOpenChange={handleCloseModal}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{editing ? 'Editar colaborador' : 'Adicionar colaborador'}</DialogTitle>
@@ -185,7 +196,9 @@ export default function ColaboradoresTab() {
             <div>
               <Label>Perfil</Label>
               <Select value={form.role} onValueChange={(v) => setForm((f) => ({ ...f, role: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o perfil" />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="entregador">Entregador</SelectItem>
                   <SelectItem value="cozinha">Cozinha</SelectItem>

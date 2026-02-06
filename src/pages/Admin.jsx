@@ -233,11 +233,11 @@ export default function Admin() {
       case 'comandas':
         return hasModuleAccess('comandas') ? <ComandasTab /> : <AccessDenied />;
       case 'colaboradores':
-        return hasModuleAccess('colaboradores') ? <ColaboradoresTab /> : <AccessDenied />;
+        return (isMaster || hasModuleAccess('colaboradores')) ? <ColaboradoresTab /> : <AccessDenied />;
       case '2fa':
-        return hasModuleAccess('2fa') ? <TwoFactorAuth /> : <AccessDenied />;
+        return (isMaster || hasModuleAccess('2fa')) ? <TwoFactorAuth /> : <AccessDenied />;
       case 'lgpd':
-        return hasModuleAccess('lgpd') ? <LGPDCompliance /> : <AccessDenied />;
+        return (isMaster || hasModuleAccess('lgpd')) ? <LGPDCompliance /> : <AccessDenied />;
       case 'theme':
         return hasModuleAccess('theme') ? <ThemeTab /> : <AccessDenied />;
       case 'orders':
@@ -253,7 +253,7 @@ export default function Admin() {
       case 'payments':
         return hasModuleAccess('payments') ? <PaymentMethodsTab /> : <AccessDenied />;
       case 'tables':
-        return hasModuleAccess('tables') ? <TablesTab /> : <AccessDenied />;
+        return (isMaster || hasModuleAccess('tables')) ? <TablesTab /> : <AccessDenied />;
       case 'inventory':
         return hasModuleAccess('inventory') ? <InventoryManagement /> : <AccessDenied />;
       case 'affiliates':
@@ -409,6 +409,8 @@ export default function Admin() {
             setActiveTab={handleSetActiveTab} 
             isMaster={isMaster}
             permissions={permissions}
+            plan={subscriberData?.plan}
+            subscriberData={subscriberData}
             collapsed={sidebarCollapsed}
             slug={user?.slug || subscriberData?.slug}
             setCollapsed={setSidebarCollapsed}

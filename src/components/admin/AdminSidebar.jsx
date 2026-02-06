@@ -34,7 +34,9 @@ import {
   Bell,
   Wine,
   Package,
-  UserCog
+  UserCog,
+  Key,
+  Shield
 } from 'lucide-react';
 import { createPageUrl } from '@/utils';
 
@@ -137,7 +139,7 @@ const MENU_STRUCTURE = [
   }
 ];
 
-export default function AdminSidebar({ activeTab, setActiveTab, isMaster = false, permissions = {}, collapsed, setCollapsed, onClose, slug = null }) {
+export default function AdminSidebar({ activeTab, setActiveTab, isMaster = false, permissions = {}, plan, subscriberData, collapsed, setCollapsed, onClose, slug = null }) {
   const [expandedGroups, setExpandedGroups] = useState({
     gestao: true,
     operacao: true,
@@ -148,23 +150,39 @@ export default function AdminSidebar({ activeTab, setActiveTab, isMaster = false
     marketing: true // Seção MARKETING (Promoções, Cupons, Afiliados)
   });
 
-  // ✅ CORREÇÃO: Blindado com Array.isArray
+  // ✅ CORREÇÃO: Verificação correta de permissões incluindo plan
   const hasModuleAccess = (module) => {
+    // Master sempre tem acesso a tudo
     if (isMaster) return true;
     
-    // Módulos especiais que não dependem de permissões
+    // Usar plan do subscriberData se não foi passado como prop
+    const userPlan = plan || subscriberData?.plan || '';
+    const planLower = (userPlan || '').toLowerCase();
+    
+    // Se for master (mesmo que venha como plan), sempre tem acesso
+    if (planLower === 'master') return true;
+    
+    // Módulos especiais que dependem do plano
     if (module === 'colaboradores') {
-      // Verificar se tem permissão ou plano adequado
-      return true; // Master sempre tem acesso
+      return ['pro', 'ultra'].includes(planLower);
     }
     
-    // Novos módulos avançados - disponíveis para todos os planos pagos
-    // Nota: AdminSidebar é usado apenas por master, mas mantemos a lógica para consistência
-    if (['affiliates', 'lgpd', '2fa', 'tables', 'inventory'].includes(module)) {
-      // Master sempre tem acesso
-      return true;
+    // Módulos de Garçom - apenas Ultra
+    if (['comandas', 'tables', 'garcom'].includes(module)) {
+      return planLower === 'ultra';
     }
     
+    // Módulos avançados - Pro e Ultra
+    if (['affiliates', 'lgpd', '2fa', 'inventory'].includes(module)) {
+      return ['pro', 'ultra'].includes(planLower);
+    }
+    
+    // Módulos básicos - todos os planos pagos
+    if (['dashboard', 'dishes', 'orders', 'clients', 'whatsapp', 'store', 'theme', 'printer'].includes(module)) {
+      return ['basic', 'pro', 'ultra'].includes(planLower);
+    }
+    
+    // Verificar permissões do backend
     if (!permissions || typeof permissions !== 'object') return false;
     
     const modulePerms = permissions[module];
