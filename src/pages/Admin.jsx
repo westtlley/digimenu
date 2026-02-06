@@ -228,14 +228,24 @@ export default function Admin() {
         }
         
         console.log('🍽️ [Admin] Renderizando DishesTab com ErrorBoundary...');
-        return (
-          <ErrorBoundary>
-            <DishesTab 
-              onNavigateToPizzas={() => handleSetActiveTab('pizza_config')}
-              initialTab={activeTab === 'categories' ? 'categories' : activeTab === 'complements' ? 'complements' : 'dishes'}
-            />
-          </ErrorBoundary>
-        );
+        try {
+          return (
+            <ErrorBoundary>
+              <DishesTab 
+                onNavigateToPizzas={() => handleSetActiveTab('pizza_config')}
+                initialTab={activeTab === 'categories' ? 'categories' : activeTab === 'complements' ? 'complements' : 'dishes'}
+              />
+            </ErrorBoundary>
+          );
+        } catch (error) {
+          console.error('🚨 [Admin] ERRO ao renderizar DishesTab:', error);
+          return (
+            <div className="p-8 text-center">
+              <p className="text-red-500 mb-2">Erro ao carregar cardápio</p>
+              <p className="text-sm text-gray-400">{error?.message || 'Erro desconhecido'}</p>
+            </div>
+          );
+        }
       case 'beverages':
         return hasModuleAccess('dishes') ? <BeveragesTab /> : <AccessDenied />;
       case 'pizza_config':

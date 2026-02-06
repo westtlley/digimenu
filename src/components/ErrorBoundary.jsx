@@ -14,6 +14,13 @@ class ErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, errorInfo) {
+    console.error('🚨 [ErrorBoundary] ERRO CAPTURADO!', {
+      error: error?.message || error,
+      stack: error?.stack,
+      componentStack: errorInfo?.componentStack,
+      errorInfo
+    });
+    
     this.setState({
       error,
       errorInfo
@@ -29,8 +36,6 @@ class ErrorBoundary extends React.Component {
         }
       });
     }
-    
-    console.error('ErrorBoundary capturou um erro:', error, errorInfo);
   }
 
   handleReset = () => {
