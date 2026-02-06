@@ -39,27 +39,16 @@ import AffiliateProgram from '../components/admin/AffiliateProgram';
 import LGPDCompliance from '../components/admin/LGPDCompliance';
 import TwoFactorAuth from '../components/admin/TwoFactorAuth';
 import ColaboradoresTab from '../components/admin/ColaboradoresTab';
+import AccessDenied, { LoadingError } from '../components/admin/AccessDenied';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import InstallAppButton from '../components/InstallAppButton';
 import { createPageUrl } from '@/utils';
-import { logger } from '@/utils/logger';
+import { log } from '@/utils/logger';
 import { usePermission } from '../components/permissions/usePermission';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { useDocumentHead } from '@/hooks/useDocumentHead';
 
-function AccessDenied() {
-  return (
-    <div className="flex items-center justify-center h-96">
-      <div className="p-8 rounded-xl shadow text-center" style={{ backgroundColor: 'var(--bg-card)', border: `1px solid var(--border-color)` }}>
-        <Lock className="w-10 h-10 text-red-500 mx-auto mb-3" />
-        <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Acesso não permitido</h2>
-        <p className="text-sm mt-2" style={{ color: 'var(--text-secondary)' }}>
-          Esta funcionalidade não faz parte do seu plano.
-        </p>
-      </div>
-    </div>
-  );
-}
+// ✅ AccessDenied agora é importado de components/admin/AccessDenied.jsx
 
 export default function Admin() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -97,7 +86,7 @@ export default function Admin() {
   }, [searchParams]);
 
   const handleSetActiveTab = (tab) => {
-    console.log('🍽️ [Admin] handleSetActiveTab chamado com tab:', tab);
+    log.admin.log('🍽️ [Admin] handleSetActiveTab chamado com tab:', tab);
     setActiveTab(tab);
     setShowMobileSidebar(false);
     setSearchParams({ tab }, { replace: true });
@@ -182,133 +171,118 @@ export default function Admin() {
     );
   }
 
-  // Renderizar abas
+  // ✅ Renderizar abas - orquestração limpa, sem decisões de permissão aqui
   const renderTabContent = () => {
-    console.log('🍽️ [Admin] renderTabContent chamado, activeTab:', activeTab);
+    log.admin.log('🍽️ [Admin] renderTabContent chamado, activeTab:', activeTab);
+    
     switch (activeTab) {
       case 'dashboard':
         return <DashboardTab user={user} subscriberData={subscriberData} onNavigateToTab={handleSetActiveTab} />;
+      
       case 'caixa':
         return hasModuleAccess('caixa') ? <CaixaTab /> : <AccessDenied />;
+      
       case 'whatsapp':
         return hasModuleAccess('whatsapp') ? <WhatsAppTab /> : <AccessDenied />;
+      
       case 'clients':
         return hasModuleAccess('clients') ? <ClientsTab /> : <AccessDenied />;
+      
       case 'dishes':
       case 'categories': // ✅ Redirecionar para dishes (categorias dentro de pratos)
       case 'complements': // ✅ Redirecionar para dishes (complementos dentro de pratos)
-        console.log('🍽️ [Admin] CASE DISHES EXECUTADO!', {
-          activeTab,
-          isMaster,
-          loading,
-          user: user?.email,
-          subscriberData: subscriberData?.plan
-        });
-        // ✅ Master sempre tem acesso, mesmo se hasModuleAccess falhar temporariamente
-        const hasDishesAccess = isMaster || hasModuleAccess('dishes');
-        console.log('🍽️ [Admin] Renderizando DishesTab:', {
-          activeTab,
-          isMaster,
-          hasModuleAccess: hasModuleAccess('dishes'),
-          hasDishesAccess,
-          permissions,
-          permissionsType: typeof permissions
-        });
-        
-        if (!hasDishesAccess) {
-          console.error('🍽️ [Admin] ACESSO NEGADO ao DishesTab!');
-          return (
-            <div className="p-8 text-center">
-              <p className="text-red-500 mb-2">Acesso negado ao módulo de pratos</p>
-              <p className="text-sm text-gray-400">
-                isMaster: {String(isMaster)} | hasModuleAccess: {String(hasModuleAccess('dishes'))}
-              </p>
-            </div>
-          );
+        // ✅ Master sempre tem acesso
+        if (!isMaster && !hasModuleAccess('dishes')) {
+          log.admin.warn('🍽️ [Admin] ACESSO NEGADO ao DishesTab');
+          return <AccessDenied message="Você não tem acesso ao módulo de pratos." />;
         }
         
-        console.log('🍽️ [Admin] Renderizando DishesTab com ErrorBoundary...');
-        console.log('🍽️ [Admin] DishesTab importado?', typeof DishesTab);
-        console.log('🍽️ [Admin] Tentando criar elemento DishesTab...');
-        
-        try {
-          const dishesTabElement = (
-            <ErrorBoundary>
-              <DishesTab 
-                onNavigateToPizzas={() => handleSetActiveTab('pizza_config')}
-                initialTab={activeTab === 'categories' ? 'categories' : activeTab === 'complements' ? 'complements' : 'dishes'}
-              />
-            </ErrorBoundary>
-          );
-          console.log('🍽️ [Admin] Elemento DishesTab criado com sucesso!', dishesTabElement);
-          return dishesTabElement;
-        } catch (error) {
-          console.error('🚨 [Admin] ERRO ao renderizar DishesTab:', error);
-          console.error('🚨 [Admin] Stack:', error?.stack);
-          return (
-            <div className="p-8 text-center">
-              <p className="text-red-500 mb-2">Erro ao carregar cardápio</p>
-              <p className="text-sm text-gray-400">{error?.message || 'Erro desconhecido'}</p>
-              <pre className="text-xs mt-2 text-left bg-gray-100 p-2 rounded overflow-auto">
-                {error?.stack}
-              </pre>
-            </div>
-          );
-        }
+        // ✅ Renderizar com ErrorBoundary para capturar erros
+        return (
+          <ErrorBoundary>
+            <DishesTab 
+              onNavigateToPizzas={() => handleSetActiveTab('pizza_config')}
+              initialTab={activeTab === 'categories' ? 'categories' : activeTab === 'complements' ? 'complements' : 'dishes'}
+            />
+          </ErrorBoundary>
+        );
       case 'beverages':
         return hasModuleAccess('dishes') ? <BeveragesTab /> : <AccessDenied />;
+      
       case 'pizza_config':
         return hasModuleAccess('pizza_config') ? <PizzaConfigTab /> : <AccessDenied />;
+      
       case 'delivery_zones':
         return hasModuleAccess('delivery_zones') ? <DeliveryZonesTab /> : <AccessDenied />;
+      
       case 'coupons':
         return hasModuleAccess('coupons') ? <CouponsTab /> : <AccessDenied />;
+      
       case 'promotions':
         return hasModuleAccess('promotions') ? <PromotionsTab /> : <AccessDenied />;
+      
       case 'comandas':
         return hasModuleAccess('comandas') ? <ComandasTab /> : <AccessDenied />;
+      
       case 'colaboradores':
-        return (isMaster || hasModuleAccess('colaboradores')) ? <ColaboradoresTab /> : <AccessDenied />;
+        return (isMaster || hasModuleAccess('colaboradores')) ? <ColaboradoresTab /> : <AccessDenied showUpgrade={true} />;
+      
       case '2fa':
         return (isMaster || hasModuleAccess('2fa')) ? <TwoFactorAuth /> : <AccessDenied />;
+      
       case 'lgpd':
         return (isMaster || hasModuleAccess('lgpd')) ? <LGPDCompliance /> : <AccessDenied />;
+      
       case 'theme':
         return hasModuleAccess('theme') ? <ThemeTab /> : <AccessDenied />;
+      
       case 'orders':
         return hasModuleAccess('orders') ? <OrdersTab isMaster={user?.is_master} user={user} subscriberData={subscriberData} /> : <AccessDenied />;
+      
       case 'history':
         return hasModuleAccess('history') ? <OrderHistoryTab /> : <AccessDenied />;
+      
       case 'financial':
         return hasModuleAccess('financial') ? <FinancialTab /> : <AccessDenied />;
+      
       case 'printer':
         return hasModuleAccess('printer') ? <PrinterConfig /> : <AccessDenied />;
+      
       case 'store':
         return hasModuleAccess('store') ? <StoreTab /> : <AccessDenied />;
+      
       case 'payments':
         return hasModuleAccess('payments') ? <PaymentMethodsTab /> : <AccessDenied />;
+      
       case 'tables':
         return (isMaster || hasModuleAccess('tables')) ? <TablesTab /> : <AccessDenied />;
+      
       case 'inventory':
         return hasModuleAccess('inventory') ? <InventoryManagement /> : <AccessDenied />;
+      
       case 'affiliates':
         return hasModuleAccess('affiliates') ? <AffiliateProgram /> : <AccessDenied />;
+      
       case 'service_requests':
-        return isMaster ? <ServiceRequestsTab /> : <AccessDenied />;
+        return isMaster ? <ServiceRequestsTab /> : <AccessDenied message="Apenas administradores master podem acessar esta funcionalidade." />;
+      
       case 'pagina_assinar':
-        return isMaster ? <AssinarPageEditorTab /> : <AccessDenied />;
+        return isMaster ? <AssinarPageEditorTab /> : <AccessDenied message="Apenas administradores master podem acessar esta funcionalidade." />;
+      
       case 'graficos':
         return hasModuleAccess('graficos') ? (
           <div className="flex items-center justify-center h-96">
             <p className="text-gray-500">Gráficos em desenvolvimento</p>
           </div>
         ) : <AccessDenied />;
+      
       case 'mais':
         return hasModuleAccess('mais') ? (
           <div className="flex items-center justify-center h-96">
             <p className="text-gray-500">Mais funcionalidades em breve</p>
           </div>
         ) : <AccessDenied />;
+      
       default:
         return <DashboardTab user={user} subscriberData={subscriberData} onNavigateToTab={handleSetActiveTab} />;
     }
@@ -316,11 +290,9 @@ export default function Admin() {
 
   const hasGestorAccess = isMaster || hasModuleAccess('gestor_pedidos');
 
-  // Garantir que é master antes de renderizar
+  // ✅ Garantir que é master antes de renderizar
   if (!isMaster) {
-    console.error('❌ [Admin] Tentativa de renderizar Admin sem ser master!');
-    console.error('❌ [Admin] isMaster:', isMaster);
-    console.error('❌ [Admin] user:', user);
+    log.admin.error('❌ [Admin] Tentativa de renderizar Admin sem ser master!');
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-900">
         <div className="text-center text-white p-8">
@@ -337,9 +309,7 @@ export default function Admin() {
     );
   }
 
-  console.log('✅ [Admin] Renderizando Admin para master');
-  console.log('✅ [Admin] activeTab:', activeTab);
-  console.log('✅ [Admin] user:', user);
+  log.admin.log('✅ [Admin] Renderizando Admin para master', { activeTab, user: user?.email });
   
   try {
     return (

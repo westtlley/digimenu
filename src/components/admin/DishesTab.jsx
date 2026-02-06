@@ -4,6 +4,8 @@ import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
 import { usePermission } from '../permissions/usePermission';
+import { fetchAdminDishes, fetchAdminCategories, fetchAdminComplementGroups } from '@/services/adminMenuService';
+import { log } from '@/utils/logger';
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -46,7 +48,7 @@ const formatCurrency = (value) => {
 
 // ========= COMPONENT =========
 export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' }) {
-  console.log('🍽️ [DishesTab] Componente montado, initialTab:', initialTab);
+  log.admin.log('🍽️ [DishesTab] Componente montado, initialTab:', initialTab);
   
   const [user, setUser] = React.useState(null);
   const [showDishModal, setShowDishModal] = useState(false);
@@ -93,105 +95,109 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
     }
   }, [initialTab]);
 
-  const { canCreate, canUpdate, canDelete, hasModuleAccess, subscriberData } = usePermission();
+  // ✅ NOVO: Usar menuContext do usePermission
+  const { canCreate, canUpdate, canDelete, hasModuleAccess, subscriberData, menuContext, user: permissionUser } = usePermission();
   const hasPizzaService = hasModuleAccess('pizza_config');
   const canEdit = canUpdate('dishes');
   
-  console.log('🍽️ [DishesTab] Permissões:', {
+  log.admin.log('🍽️ [DishesTab] Permissões:', {
     canCreate: canCreate('dishes'),
     canUpdate: canUpdate('dishes'),
     canDelete: canDelete('dishes'),
     hasPizzaService,
-    canEdit
+    canEdit,
+    menuContext
   });
   
+  // ✅ Usar user do usePermission se disponível, senão carregar
   React.useEffect(() => {
-    const loadUser = async () => {
-      try {
-        console.log('🍽️ [DishesTab] Carregando usuário...');
-        const userData = await base44.auth.me();
-        console.log('🍽️ [DishesTab] Usuário carregado:', userData?.email);
-        setUser(userData);
-      } catch (e) {
-        console.error('🍽️ [DishesTab] Error loading user:', e);
-      }
-    };
-    loadUser();
-  }, []);
+    if (permissionUser) {
+      setUser(permissionUser);
+      log.admin.log('🍽️ [DishesTab] Usuário do usePermission:', permissionUser?.email);
+    } else {
+      const loadUser = async () => {
+        try {
+          log.admin.log('🍽️ [DishesTab] Carregando usuário...');
+          const userData = await base44.auth.me();
+          log.admin.log('🍽️ [DishesTab] Usuário carregado:', userData?.email);
+          setUser(userData);
+        } catch (e) {
+          log.admin.error('🍽️ [DishesTab] Error loading user:', e);
+        }
+      };
+      loadUser();
+    }
+  }, [permissionUser]);
   
   const queryClient = useQueryClient();
 
-  // ========= BUSCAR DADOS =========
+  // ✅ Helper para obter subscriber_email correto baseado no contexto
+  const getSubscriberEmail = () => {
+    if (!menuContext) return user?.email || null;
+    
+    // Se for subscriber, usar o value do menuContext
+    if (menuContext.type === 'subscriber' && menuContext.value) {
+      return menuContext.value;
+    }
+    
+    // Master pode não ter subscriber_email (null é válido)
+    if (menuContext.type === 'slug') {
+      return null; // Master usa dados próprios
+    }
+    
+    // Fallback
+    return user?.email || null;
+  };
+
+  // ========= BUSCAR DADOS COM CONTEXTO =========
+  // ✅ Usar menuContext para buscar dados no contexto correto
   const { data: dishes = [], isLoading: dishesLoading, error: dishesError } = useQuery({
-    queryKey: ['dishes'],
+    queryKey: ['dishes', menuContext?.type, menuContext?.value],
     queryFn: async () => {
-      try {
-        console.log('🍽️ [DishesTab] Buscando pratos...');
-        // ✅ Timeout de segurança para evitar loading infinito
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Timeout ao buscar pratos')), 10000)
-        );
-        const fetchPromise = base44.entities.Dish.list();
-        const result = await Promise.race([fetchPromise, timeoutPromise]);
-        console.log('🍽️ [DishesTab] Pratos recebidos:', Array.isArray(result) ? result.length : 'não é array', result);
-        return Array.isArray(result) ? result : [];
-      } catch (error) {
-        console.error('🍽️ [DishesTab] Erro ao buscar pratos:', error);
-        // ✅ Retornar array vazio em caso de erro para não travar
+      if (!menuContext) {
+        log.admin.warn('🍽️ [DishesTab] menuContext não disponível, retornando array vazio');
         return [];
       }
+      return await fetchAdminDishes(menuContext);
     },
+    enabled: !!menuContext, // ✅ Só busca se tiver contexto
     initialData: [],
     retry: 1,
-    refetchOnMount: 'always', // evita cache vazio ao abrir Pratos e não mostrar itens cadastrados
-    staleTime: 30000, // 30 segundos
-    gcTime: 60000, // 1 minuto
+    refetchOnMount: 'always',
+    staleTime: 30000,
+    gcTime: 60000,
   });
 
   const { data: categories = [], isLoading: categoriesLoading, error: categoriesError } = useQuery({
-    queryKey: ['categories'],
+    queryKey: ['categories', menuContext?.type, menuContext?.value],
     queryFn: async () => {
-      try {
-        console.log('🍽️ [DishesTab] Buscando categorias...');
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Timeout ao buscar categorias')), 10000)
-        );
-        const fetchPromise = base44.entities.Category.list('order');
-        const result = await Promise.race([fetchPromise, timeoutPromise]);
-        console.log('🍽️ [DishesTab] Categorias recebidas:', Array.isArray(result) ? result.length : 'não é array');
-        return Array.isArray(result) ? result : [];
-      } catch (error) {
-        console.error('🍽️ [DishesTab] Erro ao buscar categorias:', error);
+      if (!menuContext) {
+        log.admin.warn('🍽️ [DishesTab] menuContext não disponível, retornando array vazio');
         return [];
       }
+      return await fetchAdminCategories(menuContext);
     },
+    enabled: !!menuContext,
     initialData: [],
     retry: 1,
-    refetchOnMount: 'always', // evita cache vazio ao abrir Pratos e não mostrar itens cadastrados
+    refetchOnMount: 'always',
     staleTime: 30000,
     gcTime: 60000,
   });
 
   const { data: complementGroups = [], isLoading: groupsLoading, error: groupsError } = useQuery({
-    queryKey: ['complementGroups'],
+    queryKey: ['complementGroups', menuContext?.type, menuContext?.value],
     queryFn: async () => {
-      try {
-        console.log('🍽️ [DishesTab] Buscando grupos de complementos...');
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Timeout ao buscar grupos')), 10000)
-        );
-        const fetchPromise = base44.entities.ComplementGroup.list('order');
-        const groups = await Promise.race([fetchPromise, timeoutPromise]);
-        console.log('🍽️ [DishesTab] Grupos recebidos:', Array.isArray(groups) ? groups.length : 'não é array');
-        return Array.isArray(groups) ? groups : [];
-      } catch (error) {
-        console.error('🍽️ [DishesTab] Erro ao buscar grupos de complementos:', error);
+      if (!menuContext) {
+        log.admin.warn('🍽️ [DishesTab] menuContext não disponível, retornando array vazio');
         return [];
       }
+      return await fetchAdminComplementGroups(menuContext);
     },
+    enabled: !!menuContext,
     initialData: [],
     retry: 2,
-    refetchOnMount: 'always', // evita cache vazio: complementos voltam a aparecer após refresh
+    refetchOnMount: 'always',
     staleTime: 30000,
     gcTime: 60000,
   });
@@ -199,14 +205,15 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
   // ========= MUTATIONS =========
   const createDishMutation = useMutation({
     mutationFn: async (data) => {
+      const subscriberEmail = getSubscriberEmail();
       const dishData = {
         ...data,
-        subscriber_email: user?.subscriber_email || user?.email
+        ...(subscriberEmail && { subscriber_email: subscriberEmail })
       };
       return base44.entities.Dish.create(dishData);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['dishes'] });
+      queryClient.invalidateQueries({ queryKey: ['dishes', menuContext?.type, menuContext?.value] });
       toast.success('Prato adicionado com sucesso!');
       closeDishModal();
     },
@@ -218,7 +225,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
   const updateDishMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.Dish.update(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['dishes'] });
+      queryClient.invalidateQueries({ queryKey: ['dishes', menuContext?.type, menuContext?.value] });
       toast.success('Prato atualizado!');
     },
     onError: () => toast.error('Erro ao atualizar prato')
@@ -227,7 +234,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
   const deleteDishMutation = useMutation({
     mutationFn: (id) => base44.entities.Dish.delete(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['dishes'] });
+      queryClient.invalidateQueries({ queryKey: ['dishes', menuContext?.type, menuContext?.value] });
       toast.success('Prato excluído');
     },
     onError: () => toast.error('Erro ao excluir prato')
@@ -235,13 +242,14 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
 
   const createCategoryMutation = useMutation({
     mutationFn: async (data) => {
+      const subscriberEmail = getSubscriberEmail();
       return base44.entities.Category.create({
         ...data,
-        subscriber_email: user?.subscriber_email || user?.email
+        ...(subscriberEmail && { subscriber_email: subscriberEmail })
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['categories'] });
+      queryClient.invalidateQueries({ queryKey: ['categories', menuContext?.type, menuContext?.value] });
       toast.success('Categoria criada com sucesso!');
       setShowCategoryModal(false);
       setEditingCategory(null);
@@ -252,7 +260,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
   const updateCategoryMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.Category.update(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['categories'] });
+      queryClient.invalidateQueries({ queryKey: ['categories', menuContext?.type, menuContext?.value] });
       toast.success('Categoria atualizada!');
       setShowCategoryModal(false);
       setEditingCategory(null);
@@ -263,8 +271,8 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
   const deleteCategoryMutation = useMutation({
     mutationFn: (id) => base44.entities.Category.delete(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['categories'] });
-      queryClient.invalidateQueries({ queryKey: ['dishes'] });
+      queryClient.invalidateQueries({ queryKey: ['categories', menuContext?.type, menuContext?.value] });
+      queryClient.invalidateQueries({ queryKey: ['dishes', menuContext?.type, menuContext?.value] });
       toast.success('Categoria excluída');
     },
     onError: () => toast.error('Erro ao excluir categoria')
@@ -272,20 +280,21 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
 
   const createComplementGroupMutation = useMutation({
     mutationFn: async (data) => {
+      const subscriberEmail = getSubscriberEmail();
       return base44.entities.ComplementGroup.create({
         ...data,
-        subscriber_email: user?.subscriber_email || user?.email
+        ...(subscriberEmail && { subscriber_email: subscriberEmail })
       });
     },
     onSuccess: (newGroup) => {
-      queryClient.invalidateQueries({ queryKey: ['complementGroups'] });
+      queryClient.invalidateQueries({ queryKey: ['complementGroups', menuContext?.type, menuContext?.value] });
       return newGroup;
     },
   });
 
   const updateComplementGroupMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.ComplementGroup.update(id, data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['complementGroups'] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['complementGroups', menuContext?.type, menuContext?.value] }),
   });
 
   // Validações de segurança - DECLARADAS AQUI PARA ESTAREM DISPONÍVEIS EM TODAS AS FUNÇÕES
@@ -593,7 +602,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
     ];
     updateDishMutation.mutate(
       { id: dishId, data: { ...dish, complement_groups: updatedGroups } },
-      { onSettled: () => queryClient.invalidateQueries({ queryKey: ['complementGroups'] }) }
+      { onSettled: () => queryClient.invalidateQueries({ queryKey: ['complementGroups', menuContext?.type, menuContext?.value] }) }
     );
   };
 
@@ -661,10 +670,11 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
   };
 
   const duplicateDish = async (dish) => {
+    const subscriberEmail = getSubscriberEmail();
     const newDish = {
       ...dish,
       name: `${dish.name} (Cópia)`,
-      subscriber_email: user?.subscriber_email || user?.email,
+      ...(subscriberEmail && { subscriber_email: subscriberEmail }),
       id: undefined,
       created_date: undefined,
       updated_date: undefined,
@@ -673,10 +683,11 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
   };
 
   const duplicateCategory = async (category) => {
+    const subscriberEmail = getSubscriberEmail();
     createCategoryMutation.mutate({
       name: `${category.name} (Cópia)`,
       order: safeCategories.length,
-      subscriber_email: user?.subscriber_email || user?.email
+      ...(subscriberEmail && { subscriber_email: subscriberEmail })
     });
   };
 

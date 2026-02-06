@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { base44 } from '@/api/base44Client';
-import { logger } from '@/utils/logger';
+import { log } from '@/utils/logger';
+import { createUserContext, isValidContext } from '@/utils/userContext';
 
 /**
  * Hook para verificar permissões do usuário atual
@@ -14,18 +15,20 @@ export function usePermission() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
   const [subscriberData, setSubscriberData] = useState(null);
+  const [userContext, setUserContext] = useState(null);
 
   const loadPermissions = useCallback(async () => {
     try {
-      logger.log('🔄 [usePermission] Carregando permissões...');
+      log.permission.log('🔄 [usePermission] Carregando permissões...');
       const currentUser = await base44.auth.me();
-      logger.log('👤 [usePermission] Usuário recebido, is_master:', currentUser?.is_master);
+      log.permission.log('👤 [usePermission] Usuário recebido, is_master:', currentUser?.is_master);
 
       if (!currentUser) {
-        logger.log('⚠️ [usePermission] Usuário não encontrado');
+        log.permission.warn('⚠️ [usePermission] Usuário não encontrado');
         setPermissions({});
         setUser(null);
         setSubscriberData(null);
+        setUserContext(null);
         setLoading(false);
         return;
       }
@@ -34,30 +37,37 @@ export function usePermission() {
 
       // ✅ CORREÇÃO DEFINITIVA: NUNCA mais usar 'FULL_ACCESS'
       if (currentUser.is_master === true) {
-        logger.log('✅ [usePermission] Usuário é master - concedendo acesso total');
-        setPermissions({}); // sempre objeto
-        setSubscriberData({
+        log.permission.log('✅ [usePermission] Usuário é master - concedendo acesso total');
+        const perms = {}; // sempre objeto
+        const subscriber = {
           email: currentUser.email,
           plan: 'master',
           status: 'active',
           permissions: {}
-        });
+        };
+        setPermissions(perms);
+        setSubscriberData(subscriber);
+        
+        // ✅ Criar contexto de usuário
+        const context = createUserContext(currentUser, subscriber, perms);
+        setUserContext(context);
+        log.permission.log('✅ [usePermission] Contexto criado:', context.menuContext);
         setLoading(false);
         return;
       }
 
-      logger.log('📋 [usePermission] Usuário não é master - verificando assinatura...');
+      log.permission.log('📋 [usePermission] Usuário não é master - verificando assinatura...');
 
       const result = await base44.functions.invoke('checkSubscriptionStatus', {
         user_email: currentUser.email
       });
 
-      logger.log('📋 [usePermission] Resultado checkSubscriptionStatus');
+      log.permission.log('📋 [usePermission] Resultado checkSubscriptionStatus');
 
       // Verificar se encontrou assinante (mesmo que inativo, ainda tem dados)
       if (result.data?.subscriber) {
         const subscriber = result.data.subscriber;
-        logger.log('✅ [usePermission] Assinante encontrado:', subscriber?.email, subscriber?.plan);
+        log.permission.log('✅ [usePermission] Assinante encontrado:', subscriber?.email, subscriber?.plan);
         let perms = subscriber.permissions || {};
         if (subscriber.plan === 'basic' && Array.isArray(perms.dishes) && perms.dishes.includes('view') && !perms.dishes.includes('create')) {
           perms = { ...perms, dishes: ['view', 'create', 'update', 'delete'] };
@@ -67,15 +77,22 @@ export function usePermission() {
         }
         setPermissions(perms);
         setSubscriberData(subscriber);
+        
+        // ✅ Criar contexto de usuário
+        const context = createUserContext(currentUser, subscriber, perms);
+        setUserContext(context);
+        log.permission.log('✅ [usePermission] Contexto criado:', context.menuContext);
       } else {
-        logger.warn('⚠️ [usePermission] Nenhum assinante encontrado para:', currentUser.email);
+        log.permission.warn('⚠️ [usePermission] Nenhum assinante encontrado para:', currentUser.email);
         setPermissions({});
         setSubscriberData(null);
+        setUserContext(null);
       }
     } catch (e) {
-      logger.error('Error loading permissions:', e);
+      log.permission.error('Error loading permissions:', e);
       setPermissions({});
       setSubscriberData(null);
+      setUserContext(null);
     } finally {
       setLoading(false);
     }
@@ -189,6 +206,9 @@ export function usePermission() {
     canUpdate,
     canDelete,
     canView,
-    refresh
+    refresh,
+    // ✅ Novo: contexto de usuário pronto para uso
+    userContext,
+    menuContext: userContext?.menuContext || null,
   };
 }
