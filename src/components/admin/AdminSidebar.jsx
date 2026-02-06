@@ -153,18 +153,30 @@ export default function AdminSidebar({ activeTab, setActiveTab, isMaster = false
   // ✅ CORREÇÃO: Verificação correta de permissões incluindo plan
   const hasModuleAccess = (module) => {
     // Master sempre tem acesso a tudo
-    if (isMaster) return true;
+    if (isMaster) {
+      if (module === 'colaboradores') {
+        console.log('[AdminSidebar] Colaboradores: isMaster=true, acesso permitido');
+      }
+      return true;
+    }
     
     // Usar plan do subscriberData se não foi passado como prop
     const userPlan = plan || subscriberData?.plan || '';
     const planLower = (userPlan || '').toLowerCase();
     
     // Se for master (mesmo que venha como plan), sempre tem acesso
-    if (planLower === 'master') return true;
+    if (planLower === 'master') {
+      if (module === 'colaboradores') {
+        console.log('[AdminSidebar] Colaboradores: plan=master, acesso permitido');
+      }
+      return true;
+    }
     
     // Módulos especiais que dependem do plano
     if (module === 'colaboradores') {
-      return ['pro', 'ultra'].includes(planLower);
+      const hasAccess = ['pro', 'ultra'].includes(planLower);
+      console.log(`[AdminSidebar] Colaboradores: plan=${planLower}, isMaster=${isMaster}, hasAccess=${hasAccess}, plan prop=${plan}, subscriberData.plan=${subscriberData?.plan}`);
+      return hasAccess;
     }
     
     // Módulos de Garçom - apenas Ultra

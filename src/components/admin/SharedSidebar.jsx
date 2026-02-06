@@ -173,13 +173,29 @@ export default function SharedSidebar({
   const store = stores[0];
 
   const hasModuleAccess = (module) => {
-    if (isMaster) return true;
+    // Master sempre tem acesso a tudo
+    if (isMaster) {
+      if (module === 'colaboradores') {
+        console.log('[SharedSidebar] Colaboradores: isMaster=true, acesso permitido');
+      }
+      return true;
+    }
     
     const planLower = (plan || '').toLowerCase();
     
+    // Se for master (mesmo que venha como plan), sempre tem acesso
+    if (planLower === 'master') {
+      if (module === 'colaboradores') {
+        console.log('[SharedSidebar] Colaboradores: plan=master, acesso permitido');
+      }
+      return true;
+    }
+    
     // Módulos especiais que dependem do plano
     if (module === 'colaboradores') {
-      return ['pro', 'ultra'].includes(planLower);
+      const hasAccess = ['pro', 'ultra'].includes(planLower);
+      console.log(`[SharedSidebar] Colaboradores: plan=${planLower}, isMaster=${isMaster}, hasAccess=${hasAccess}`);
+      return hasAccess;
     }
     
     // Módulos de Garçom - apenas Ultra
@@ -195,6 +211,15 @@ export default function SharedSidebar({
     // Módulos básicos - todos os planos pagos
     if (['dashboard', 'dishes', 'orders', 'clients', 'whatsapp', 'store', 'theme', 'printer'].includes(module)) {
       return ['basic', 'pro', 'ultra'].includes(planLower);
+    }
+    
+    // Se não tem plan, verificar permissões do backend como fallback
+    if (!plan) {
+      if (permissions && typeof permissions === 'object') {
+        const modulePerms = permissions[module];
+        return Array.isArray(modulePerms) && modulePerms.length > 0;
+      }
+      return false;
     }
     
     // Verificar permissões do backend
