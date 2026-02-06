@@ -301,6 +301,7 @@ export default function AdminSidebar({ activeTab, setActiveTab, isMaster = false
       <button
         key={item.id}
         onClick={() => {
+          console.log('🍽️ [AdminSidebar] Clicou no item do menu:', item.id, item.label);
           setActiveTab(item.id);
           if (onClose) onClose();
         }}
