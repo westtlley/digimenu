@@ -225,20 +225,38 @@ export default function SharedSidebar({
       return ['basic', 'pro', 'ultra'].includes(planLower);
     }
     
-    // Se não tem plan, verificar permissões do backend como fallback
-    if (!plan) {
+    // ✅ Se não tem plan válido, verificar permissões do backend como fallback
+    if (!planLower || planLower === 'basic') {
       if (permissions && typeof permissions === 'object') {
         const modulePerms = permissions[module];
-        return Array.isArray(modulePerms) && modulePerms.length > 0;
+        const hasPerms = Array.isArray(modulePerms) && modulePerms.length > 0;
+        if (hasPerms) {
+          console.log(`[SharedSidebar] hasModuleAccess(${module}): Usando permissões do backend (plan=${planLower})`);
+          return true;
+        }
       }
+      // Se não tem permissões e plan é vazio/basic, negar acesso para módulos avançados
+      if (!planLower) {
+        console.log(`[SharedSidebar] hasModuleAccess(${module}): Plan vazio e sem permissões, negando acesso`);
+        return false;
+      }
+    }
+    
+    // Verificar permissões do backend como validação adicional
+    if (permissions && typeof permissions === 'object') {
+      const modulePerms = permissions[module];
+      if (Array.isArray(modulePerms) && modulePerms.length > 0) {
+        return true;
+      }
+    }
+    
+    // Se chegou aqui e não tem plan válido, negar
+    if (!planLower) {
       return false;
     }
     
-    // Verificar permissões do backend
-    if (!permissions || typeof permissions !== 'object') return false;
-    
-    const modulePerms = permissions[module];
-    return Array.isArray(modulePerms) && modulePerms.length > 0;
+    // Por padrão, se tem plan válido, permitir acesso aos módulos básicos
+    return true;
   };
 
   const toggleGroup = (groupId) => {
