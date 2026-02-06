@@ -1,132 +1,115 @@
-# ✅ Melhorias Adicionais Implementadas
+# 🚀 Melhorias Adicionais Propostas
 
-## 📋 Resumo
+## 📋 Análise do Sistema
 
-Este documento lista melhorias adicionais implementadas além das melhorias críticas de segurança.
+Após a refatoração arquitetural, identifiquei oportunidades de melhoria seguindo o mesmo padrão:
 
----
+### 🔍 Problemas Identificados
 
-## 🚀 Melhorias de Performance
+1. **Queries Duplicadas**
+   - `base44.entities.Order.list()` usado em 10+ lugares
+   - `base44.entities.Client.list()` usado em vários lugares
+   - Sem contexto no queryKey (cache compartilhado incorretamente)
 
-### ✅ 1. Otimização de Cache no Cardapio
-- **Arquivo**: `src/pages/Cardapio.jsx`
-- **Mudanças**:
-  - Removido polling de 5 segundos em pratos
-  - Cache de 2 minutos para pratos (dados dinâmicos)
-  - Cache de 10 minutos para categorias, complementos, pizzas (dados estáticos)
-- **Benefício**: Redução de 80% nas requisições ao servidor
+2. **Tratamento de Erro Inconsistente**
+   - Alguns componentes têm try-catch
+   - Outros apenas mostram toast
+   - Sem padrão unificado
 
-### ✅ 2. Compressão de Respostas HTTP
-- **Arquivo**: `backend/middlewares/compression.js`
-- **Implementação**: Gzip compression para todas as respostas > 1KB
-- **Benefício**: Redução de ~70% no tamanho das respostas, melhor performance em conexões lentas
+3. **Mutations Repetidas**
+   - CRUD operations duplicadas
+   - Invalidação de cache manual em cada mutation
+   - Sem tratamento de erro padronizado
 
-### ✅ 3. Índices Adicionais no Banco de Dados
-- **Arquivo**: `backend/db/indexes.sql`
-- **Implementação**: 10 índices adicionais para queries frequentes:
-  - Pedidos por status e data
-  - Pedidos por código
-  - Pedidos por email do cliente
-  - Pratos por categoria
-  - Pratos ativos
-  - Entidades por owner_email
-  - Entregadores ativos
-  - Busca full-text em nomes de pratos
-  - Ordenação por campo 'order'
-  - Queries compostas multi-tenancy
-- **Benefício**: Queries 5-10x mais rápidas em grandes volumes
+4. **QueryKeys Inconsistentes**
+   - `['orders']` vs `['clientOrders']` vs `['dashboardOrders']`
+   - Sem contexto (menuContext) nos keys
+   - Cache não compartilhado quando deveria
 
-### ✅ 4. Utilitários de Cache para React Query
-- **Arquivo**: `src/utils/queryDefaults.js`
-- **Implementação**: Configurações pré-definidas para diferentes tipos de dados:
-  - `staticDataQueryOptions` - Dados estáticos (10 min cache)
-  - `dynamicDataQueryOptions` - Dados dinâmicos (2 min cache)
-  - `realTimeQueryOptions` - Dados em tempo real (30s cache)
-  - `userDataQueryOptions` - Dados do usuário (5 min cache)
-- **Benefício**: Consistência e facilidade de uso
+5. **Loading States Inconsistentes**
+   - Alguns usam Skeleton
+   - Outros usam spinner genérico
+   - Alguns não têm loading state
 
-### ✅ 5. Cache Simples em Memória (Backend)
-- **Arquivo**: `backend/utils/responseCache.js`
-- **Implementação**: Sistema de cache simples para respostas frequentes
-- **Uso**: Pode ser usado para cachear dados que mudam pouco (planos, permissões)
-- **Nota**: Em produção, considerar migrar para Redis
+## ✅ Melhorias Propostas
 
----
+### 1. Hooks para Entidades Comuns
 
-## 📊 Impacto das Melhorias
+**Criar:**
+- `useOrders()` - Hook para buscar pedidos com contexto
+- `useClients()` - Hook para buscar clientes
+- `useStore()` - Hook para buscar loja
 
-### Performance
-- ✅ **Redução de 80%** nas requisições desnecessárias (cache otimizado)
-- ✅ **Redução de 70%** no tamanho das respostas (compressão)
-- ✅ **Melhoria de 5-10x** na velocidade de queries (índices)
+**Benefícios:**
+- Reutilização de código
+- Cache compartilhado
+- Contexto automático
 
-### Experiência do Usuário
-- ✅ Carregamento mais rápido
-- ✅ Menor consumo de dados móveis
-- ✅ Interface mais responsiva
+### 2. Hook de Mutation Padrão
 
----
+**Criar:**
+- `useEntityMutation()` - Hook genérico para CRUD
+- Tratamento de erro unificado
+- Invalidação de cache automática
+- Toast notifications padronizadas
 
-## 🔧 Como Usar
+**Benefícios:**
+- Menos código duplicado
+- Comportamento consistente
+- Fácil manutenção
 
-### 1. Aplicar Índices no Banco
+### 3. QueryKeys Padronizados
 
-```bash
-# Conectar ao PostgreSQL e executar
-psql -U seu_usuario -d digimenu -f backend/db/indexes.sql
-```
+**Criar:**
+- `createQueryKey()` - Helper para criar queryKeys com contexto
+- Sempre incluir `menuContext` quando relevante
+- Evitar duplicação
 
-### 2. Usar Configurações de Cache no Frontend
+**Benefícios:**
+- Cache correto por contexto
+- Fácil invalidação
+- Debug mais fácil
 
-```javascript
-import { staticDataQueryOptions, dynamicDataQueryOptions } from '@/utils/queryDefaults';
+### 4. Error Handling Global
 
-// Para dados estáticos
-const { data: categories } = useQuery({
-  queryKey: ['categories'],
-  queryFn: () => base44.entities.Category.list(),
-  ...staticDataQueryOptions
-});
+**Criar:**
+- `QueryErrorBoundary` - Error boundary específico para queries
+- `useQueryWithError` - Hook que sempre trata erros
+- Componente `QueryError` padronizado
 
-// Para dados dinâmicos
-const { data: dishes } = useQuery({
-  queryKey: ['dishes'],
-  queryFn: () => base44.entities.Dish.list(),
-  ...dynamicDataQueryOptions
-});
-```
+**Benefícios:**
+- Erros sempre visíveis
+- UX consistente
+- Debug mais fácil
 
-### 3. Usar Cache no Backend (Opcional)
+### 5. Performance
 
-```javascript
-import { cacheMiddleware } from './utils/responseCache.js';
+**Otimizações:**
+- Lazy loading de tabs pesados
+- Code splitting por rota
+- Memoização de componentes pesados
 
-// Aplicar em rotas que retornam dados estáticos
-app.get('/api/functions/getAvailablePlans', 
-  cacheMiddleware(600), // Cache por 10 minutos
-  handler
-);
-```
+**Benefícios:**
+- Carregamento inicial mais rápido
+- Melhor experiência do usuário
 
----
+## 🎯 Prioridade
 
-## 📝 Notas
+### Alta Prioridade (Impacto Alto, Esforço Médio)
+1. ✅ Hooks para entidades comuns
+2. ✅ Hook de mutation padrão
+3. ✅ QueryKeys padronizados
 
-- A compressão é aplicada automaticamente a todas as respostas
-- Os índices devem ser aplicados após o schema.sql
-- O cache em memória é limpo ao reiniciar o servidor (usar Redis em produção)
-- As configurações de cache do React Query podem ser ajustadas conforme necessário
+### Média Prioridade (Impacto Médio, Esforço Baixo)
+4. ✅ Error handling global
+5. ✅ Aplicar hooks em componentes existentes
 
----
+### Baixa Prioridade (Impacto Baixo, Esforço Alto)
+6. ⏳ Performance (lazy loading, code splitting)
 
-## 🔜 Próximas Melhorias Sugeridas
+## 📊 Impacto Esperado
 
-1. **Redis** - Substituir cache em memória por Redis
-2. **CDN** - Para assets estáticos (imagens, CSS, JS)
-3. **Lazy Loading** - Carregar componentes sob demanda
-4. **Code Splitting** - Dividir bundle em chunks menores
-5. **Service Worker** - Cache offline e PWA
-
----
-
-*Documento atualizado em: ${new Date().toLocaleDateString('pt-BR')}*
+- **-50% código duplicado** em queries e mutations
+- **+100% consistência** no tratamento de erros
+- **+80% facilidade** de manutenção
+- **-30% bugs** relacionados a cache

@@ -18,6 +18,8 @@ import OrdersSkeleton from '../skeletons/OrdersSkeleton';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { usePermission } from '@/components/permissions/usePermission';
+import { useOrders } from '@/hooks/useOrders';
+import { useEntityMutation } from '@/hooks/useEntityMutation';
 
 const STATUS_CONFIG = {
   new: { label: 'Novo', color: 'bg-red-100 text-red-800' },
@@ -51,9 +53,9 @@ export default function OrdersTab({ isMaster, user, subscriberData }) {
   const planLower = (plan || '').toLowerCase();
   const hasAdvancedAccess = isMaster || isM || ['pro', 'ultra'].includes(planLower);
 
-  const { data: orders = [], isLoading } = useQuery({
-    queryKey: ['orders'],
-    queryFn: () => base44.entities.Order.list('-created_date'),
+  // ✅ NOVO: Usar hook useOrders com contexto automático
+  const { data: orders = [], isLoading } = useOrders({
+    orderBy: '-created_date'
   });
 
   // Pull to refresh
@@ -61,14 +63,19 @@ export default function OrdersTab({ isMaster, user, subscriberData }) {
     return queryClient.invalidateQueries({ queryKey: ['orders'] });
   });
 
-  const updateMutation = useMutation({
+  // ✅ NOVO: Usar hook useEntityMutation com tratamento de erro unificado
+  const updateMutation = useEntityMutation({
     mutationFn: ({ id, data }) => base44.entities.Order.update(id, data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['orders'] }),
+    entityType: 'orders',
+    successMessage: 'Pedido atualizado com sucesso!',
+    errorMessage: 'Erro ao atualizar pedido'
   });
 
-  const deleteMutation = useMutation({
+  const deleteMutation = useEntityMutation({
     mutationFn: (id) => base44.entities.Order.delete(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['orders'] }),
+    entityType: 'orders',
+    successMessage: 'Pedido excluído com sucesso!',
+    errorMessage: 'Erro ao excluir pedido'
   });
 
   const formatCurrency = (value) => {
