@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Receipt, Loader2, LogOut, Plus, XCircle, History, Filter, Search, X, AlertCircle, CheckCircle2, Bell, User } from 'lucide-react';
+import { Receipt, Loader2, LogOut, Plus, XCircle, History, Filter, Search, X, AlertCircle, CheckCircle2, Bell, User, DollarSign } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -15,6 +15,7 @@ import { useDebounce } from '@/hooks/useDebounce';
 import { formatCurrency, formatDate } from '@/utils/formatters';
 import { COMANDA_STATUS, DEBOUNCE_DELAYS } from '@/utils/constants';
 import ColaboradorProfile from '../components/colaboradores/ColaboradorProfile';
+import TipsView from '../components/garcom/TipsView';
 import ComandaFormModal from '../components/garcom/ComandaFormModal';
 import ComandaHistoryModal from '../components/garcom/ComandaHistoryModal';
 import ComandaCard from '../components/garcom/ComandaCard';
@@ -36,6 +37,7 @@ export default function Garcom() {
   const [comandaToClose, setComandaToClose] = useState(null);
   const [historyCallsOpen, setHistoryCallsOpen] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  const [showTips, setShowTips] = useState(false);
 
   // Debounce da busca
   const debouncedSearchTerm = useDebounce(searchTerm, DEBOUNCE_DELAYS.SEARCH);

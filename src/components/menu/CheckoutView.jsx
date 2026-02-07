@@ -31,12 +31,15 @@ export default function CheckoutView({
   onRemoveCoupon,
   deliveryZones,
   store,
-  primaryColor = '#f97316'
+  primaryColor = '#f97316',
+  isTableOrder = false // Indica se é pedido de mesa
 }) {
   const [showSchedule, setShowSchedule] = useState(false);
   const [showMapPicker, setShowMapPicker] = useState(false);
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [loadingCEP, setLoadingCEP] = useState(false);
+  const [tipType, setTipType] = useState('none'); // none, percent, fixed
+  const [tipValue, setTipValue] = useState('');
 
   const formatPhoneMask = (value) => {
     const cleaned = value.replace(/\D/g, '');
@@ -85,7 +88,15 @@ export default function CheckoutView({
   const loyaltyDiscountAmount = cartTotal * (loyaltyDiscountPercent / 100);
   const totalDiscount = couponDiscount + loyaltyDiscountAmount;
   const deliveryFee = getDeliveryFee();
-  const total = cartTotal - totalDiscount + deliveryFee;
+  
+  // Calcular gorjeta (apenas para mesas)
+  const tipAmount = isTableOrder && tipType !== 'none' 
+    ? (tipType === 'percent' 
+        ? cartTotal * (parseFloat(tipValue || 0) / 100)
+        : parseFloat(tipValue || 0))
+    : 0;
+  
+  const total = cartTotal - totalDiscount + deliveryFee + tipAmount;
 
   const isFormValid = () => {
     const basicValid = customer.name && customer.phone && customer.paymentMethod &&
@@ -545,6 +556,116 @@ export default function CheckoutView({
                 />
               </div>
             )}
+
+            {/* Gorjeta (apenas para mesas) */}
+            {isTableOrder && (
+              <section className="bg-purple-50 rounded-xl p-4 border border-purple-200">
+                <h2 className="font-bold text-sm mb-3">💵 Gorjeta (Opcional)</h2>
+                <div className="space-y-3">
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTipType('none');
+                        setTipValue('');
+                      }}
+                      className={`px-3 py-2 rounded-lg text-sm font-medium transition ${
+                        tipType === 'none'
+                          ? 'bg-gray-200 text-gray-700'
+                          : 'bg-white text-gray-600 hover:bg-gray-100'
+                      }`}
+                    >
+                      Sem gorjeta
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTipType('percent');
+                        setTipValue('10');
+                      }}
+                      className={`px-3 py-2 rounded-lg text-sm font-medium transition ${
+                        tipType === 'percent'
+                          ? 'bg-purple-500 text-white'
+                          : 'bg-white text-gray-600 hover:bg-gray-100'
+                      }`}
+                    >
+                      Percentual
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTipType('fixed');
+                        setTipValue('');
+                      }}
+                      className={`px-3 py-2 rounded-lg text-sm font-medium transition ${
+                        tipType === 'fixed'
+                          ? 'bg-purple-500 text-white'
+                          : 'bg-white text-gray-600 hover:bg-gray-100'
+                      }`}
+                    >
+                      Valor fixo
+                    </button>
+                  </div>
+
+                  {tipType === 'percent' && (
+                    <div>
+                      <Label htmlFor="tip_percent" className="text-xs text-gray-600">Percentual (%)</Label>
+                      <div className="flex gap-2 mt-1">
+                        {[5, 10, 15, 20].map(p => (
+                          <button
+                            key={p}
+                            type="button"
+                            onClick={() => setTipValue(p.toString())}
+                            className={`px-3 py-2 rounded-lg text-sm font-medium transition ${
+                              tipValue === p.toString()
+                                ? 'bg-purple-500 text-white'
+                                : 'bg-white text-gray-600 hover:bg-gray-100'
+                            }`}
+                          >
+                            {p}%
+                          </button>
+                        ))}
+                        <Input
+                          id="tip_percent"
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="0.1"
+                          placeholder="Outro %"
+                          value={tipValue}
+                          onChange={(e) => setTipValue(e.target.value)}
+                          className="flex-1 h-10"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {tipType === 'fixed' && (
+                    <div>
+                      <Label htmlFor="tip_fixed" className="text-xs text-gray-600">Valor (R$)</Label>
+                      <Input
+                        id="tip_fixed"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="Ex: 10.00"
+                        value={tipValue}
+                        onChange={(e) => setTipValue(e.target.value)}
+                        className="mt-1 h-10"
+                      />
+                    </div>
+                  )}
+
+                  {tipAmount > 0 && (
+                    <div className="p-2 bg-purple-100 rounded-lg">
+                      <p className="text-sm font-medium text-purple-700">
+                        Gorjeta: {formatCurrency(tipAmount)}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </section>
+            )}
           </div>
 
           {/* Footer com Totais e Botão */}
@@ -572,6 +693,13 @@ export default function CheckoutView({
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Taxa de entrega</span>
                   <span className="font-medium">{formatCurrency(deliveryFee)}</span>
+                </div>
+              )}
+              
+              {tipAmount > 0 && (
+                <div className="flex justify-between text-sm text-purple-600">
+                  <span>Gorjeta</span>
+                  <span className="font-medium">{formatCurrency(tipAmount)}</span>
                 </div>
               )}
               

@@ -24,6 +24,7 @@ import ErrorBoundary from '@/components/ErrorBoundary';
 
 import DeliveryMap from '../components/entregador/DeliveryMap';
 import EarningsReport from '../components/entregador/EarningsReport';
+import EarningsView from '../components/entregador/EarningsView';
 import DeliveryProofModal from '../components/entregador/DeliveryProofModal';
 import RatingModal from '../components/entregador/RatingModal';
 import TutorialModal from '../components/entregador/TutorialModal';
