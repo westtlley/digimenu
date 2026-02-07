@@ -15,15 +15,30 @@ function calculateBearing(from, to) {
   return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
 }
 
-/** Gera data URL do ícone da moto rotacionado (bearing: 0=Norte, 90=Leste). */
-function getMotoIconUrl(bearingDeg = 0) {
+/** Gera data URL do ícone da moto rotacionado com sombra animada (bearing: 0=Norte, 90=Leste). */
+function getMotoIconUrl(bearingDeg = 0, pulse = false) {
   const rotation = bearingDeg - 90;
+  const pulseOpacity = pulse ? 0.3 : 0.2;
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 56">
     <defs>
       <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#f97316"/><stop offset="100%" stop-color="#ea580c"/></linearGradient>
+      <filter id="shadow">
+        <feGaussianBlur in="SourceAlpha" stdDeviation="2"/>
+        <feOffset dx="0" dy="2" result="offsetblur"/>
+        <feComponentTransfer>
+          <feFuncA type="linear" slope="0.3"/>
+        </feComponentTransfer>
+        <feMerge>
+          <feMergeNode/>
+          <feMergeNode in="SourceGraphic"/>
+        </feMerge>
+      </filter>
     </defs>
     <g transform="rotate(${rotation} 28 28)">
-      <path d="M14 34 Q16 28 22 26 L34 26 Q40 26 44 28 L48 32 L46 34 L42 30 Q38 28 34 28 L22 28 Q18 30 16 34 Z" fill="url(#g)" stroke="#c2410c" stroke-width="1"/>
+      <!-- Sombra animada (pulso) -->
+      <circle cx="28" cy="28" r="20" fill="#000" opacity="${pulseOpacity}" filter="url(#shadow)"/>
+      <!-- Moto -->
+      <path d="M14 34 Q16 28 22 26 L34 26 Q40 26 44 28 L48 32 L46 34 L42 30 Q38 28 34 28 L22 28 Q18 30 16 34 Z" fill="url(#g)" stroke="#c2410c" stroke-width="1" filter="url(#shadow)"/>
       <ellipse cx="28" cy="26" rx="6" ry="2.5" fill="#fef3c7" stroke="#c2410c"/>
       <circle cx="48" cy="30" r="2" fill="#fef9c3"/>
       <circle cx="14" cy="40" r="6" fill="#475569" stroke="#1e293b" stroke-width="1"/>
@@ -33,9 +48,15 @@ function getMotoIconUrl(bearingDeg = 0) {
   return 'data:image/svg+xml,' + encodeURIComponent(svg);
 }
 
-/** Interpolação suave do marcador entre dois pontos (estilo iFood) — requestAnimationFrame.
- *  cancelRef.current = fn para cancelar a animação em andamento. */
-function animateMarker(marker, from, to, durationMs = 2000, cancelRef) {
+/** Easing function para animação suave (estilo Uber/iFood) */
+function easeInOutCubic(t) {
+  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+}
+
+/** Interpolação suave do marcador entre dois pontos (estilo Uber/iFood/99) — requestAnimationFrame.
+ *  cancelRef.current = fn para cancelar a animação em andamento.
+ *  onProgress = callback chamado durante a animação com progresso e posição atual. */
+function animateMarker(marker, from, to, durationMs = 2000, cancelRef, onProgress = null) {
   if (!marker || !from || !to) return;
   let rafId;
   const start = performance.now();
@@ -43,12 +64,65 @@ function animateMarker(marker, from, to, durationMs = 2000, cancelRef) {
   if (cancelRef) cancelRef.current = cancel;
 
   function frame(time) {
-    const progress = Math.min((time - start) / durationMs, 1);
-    const ease = 1 - Math.pow(1 - progress, 1.5);
-    const lat = from.lat + (to.lat - from.lat) * ease;
-    const lng = from.lng + (to.lng - from.lng) * ease;
+    const elapsed = time - start;
+    const progress = Math.min(elapsed / durationMs, 1);
+    const eased = easeInOutCubic(progress);
+    
+    const lat = from.lat + (to.lat - from.lat) * eased;
+    const lng = from.lng + (to.lng - from.lng) * eased;
+    
     marker.setPosition({ lat, lng });
-    if (progress < 1) rafId = requestAnimationFrame(frame);
+    
+    if (onProgress) {
+      onProgress({ progress, eased, position: { lat, lng } });
+    }
+    
+    if (progress < 1) {
+      rafId = requestAnimationFrame(frame);
+    }
+  }
+  rafId = requestAnimationFrame(frame);
+}
+
+/** Anima marcador ao longo de uma rota (array de pontos) - estilo Uber/iFood */
+function animateMarkerAlongRoute(marker, route, durationMs = 3000, cancelRef, onProgress = null) {
+  if (!marker || !route || route.length < 2) return;
+  
+  let rafId;
+  const start = performance.now();
+  const cancel = () => { if (rafId != null) { cancelAnimationFrame(rafId); rafId = null; } };
+  if (cancelRef) cancelRef.current = cancel;
+
+  function frame(time) {
+    const elapsed = time - start;
+    const progress = Math.min(elapsed / durationMs, 1);
+    const eased = easeInOutCubic(progress);
+    
+    const totalSegments = route.length - 1;
+    const segmentProgress = eased * totalSegments;
+    const segmentIndex = Math.floor(segmentProgress);
+    const segmentT = segmentProgress - segmentIndex;
+    
+    if (segmentIndex >= totalSegments) {
+      marker.setPosition(route[route.length - 1]);
+      if (onProgress) onProgress({ progress: 1, eased: 1, position: route[route.length - 1] });
+      return;
+    }
+    
+    const from = route[segmentIndex];
+    const to = route[segmentIndex + 1];
+    const lat = from.lat + (to.lat - from.lat) * segmentT;
+    const lng = from.lng + (to.lng - from.lng) * segmentT;
+    
+    marker.setPosition({ lat, lng });
+    
+    if (onProgress) {
+      onProgress({ progress, eased, position: { lat, lng }, segmentIndex, segmentT });
+    }
+    
+    if (progress < 1) {
+      rafId = requestAnimationFrame(frame);
+    }
   }
   rafId = requestAnimationFrame(frame);
 }
@@ -84,8 +158,11 @@ export default function GoogleDeliveryMap({
   const markerCustomerRef = useRef(null);
   const markerEntregadorRef = useRef(null);
   const routePolylineRef = useRef(null);
+  const trailPolylineRef = useRef(null);
   const lastPosRef = useRef(null);
   const cancelAnimRef = useRef(null);
+  const trailHistoryRef = useRef([]);
+  const pulseIntervalRef = useRef(null);
 
   const [mapLoaded, setMapLoaded] = useState(false);
   const [loadError, setLoadError] = useState(null);
@@ -178,12 +255,25 @@ export default function GoogleDeliveryMap({
           geodesic: true,
         });
 
+        // Polyline para rastro/trail do entregador (estilo Uber/iFood)
+        const trailPoly = new g.Polyline({
+          map,
+          path: [],
+          strokeColor: '#f97316',
+          strokeOpacity: 0.4,
+          strokeWeight: 3,
+          geodesic: true,
+          zIndex: 1,
+        });
+
         mapInstanceRef.current = map;
         markerStoreRef.current = mkStore;
         markerCustomerRef.current = mkCustomer;
         markerEntregadorRef.current = mkEntregador;
         routePolylineRef.current = poly;
+        trailPolylineRef.current = trailPoly;
         lastPosRef.current = entregadorLocation ? { ...entregadorLocation } : null;
+        trailHistoryRef.current = entregadorLocation ? [{ ...entregadorLocation }] : [];
         setMapLoaded(true);
       } catch (err) {
         setLoadError(err?.message || 'Erro ao carregar Google Maps');
@@ -192,11 +282,14 @@ export default function GoogleDeliveryMap({
 
     return () => {
       cancelAnimRef.current?.();
+      if (pulseIntervalRef.current) clearInterval(pulseIntervalRef.current);
       routePolylineRef.current?.setMap(null);
+      trailPolylineRef.current?.setMap(null);
       markerStoreRef.current?.setMap(null);
       markerCustomerRef.current?.setMap(null);
       markerEntregadorRef.current?.setMap(null);
       mapInstanceRef.current = null;
+      trailHistoryRef.current = [];
       setMapLoaded(false);
     };
   }, [apiKey, hasLocations, darkMode]);
@@ -270,39 +363,134 @@ export default function GoogleDeliveryMap({
     p.setPath(route.map((r) => ({ lat: r.lat, lng: r.lng })));
   }, [mapLoaded, route]);
 
-  // Animação do entregador (estilo iFood: interpolação + rotação)
+  // Animação do entregador (estilo Uber/iFood/99: interpolação suave + rotação + rastro)
   useEffect(() => {
     if (!mapLoaded || !markerEntregadorRef.current) return;
     const mk = markerEntregadorRef.current;
+    const g = typeof google !== 'undefined' ? google.maps : null;
+    if (!g) return;
 
     if (!entregadorLocation) {
       mk.setVisible(false);
       lastPosRef.current = null;
+      trailHistoryRef.current = [];
+      if (trailPolylineRef.current) trailPolylineRef.current.setPath([]);
+      if (pulseIntervalRef.current) clearInterval(pulseIntervalRef.current);
       return;
     }
 
     const from = lastPosRef.current;
     const to = { lat: entregadorLocation.lat, lng: entregadorLocation.lng };
 
+    // Primeira vez: posicionar sem animação
     if (!from) {
       mk.setPosition(to);
-      mk.setIcon({ url: getMotoIconUrl(0), scaledSize: new google.maps.Size(44, 44), anchor: new google.maps.Point(22, 22) });
+      mk.setIcon({ url: getMotoIconUrl(0, false), scaledSize: new g.Size(48, 48), anchor: new g.Point(24, 24) });
       mk.setVisible(true);
       lastPosRef.current = { ...to };
+      trailHistoryRef.current = [{ ...to }];
+      
+      // Iniciar pulso do marcador
+      if (pulseIntervalRef.current) clearInterval(pulseIntervalRef.current);
+      let pulseState = false;
+      pulseIntervalRef.current = setInterval(() => {
+        if (!mk.getVisible()) return;
+        pulseState = !pulseState;
+        const currentAngle = lastPosRef.current ? calculateBearing(lastPosRef.current, to) : 0;
+        mk.setIcon({ url: getMotoIconUrl(currentAngle, pulseState), scaledSize: new g.Size(48, 48), anchor: new g.Point(24, 24) });
+      }, 1000);
       return;
     }
 
+    // Calcular distância e duração da animação
     const dist = Math.hypot(to.lat - from.lat, to.lng - from.lng);
-    const duration = Math.min(2500, Math.max(800, dist * 80000));
+    // Velocidade baseada na distância (mais rápido para distâncias maiores)
+    const baseSpeed = 0.0001; // graus por ms
+    const duration = Math.min(3000, Math.max(500, dist / baseSpeed));
 
+    // Calcular ângulo de direção
     const angle = calculateBearing(from, to);
-    mk.setIcon({ url: getMotoIconUrl(angle), scaledSize: new google.maps.Size(44, 44), anchor: new google.maps.Point(22, 22) });
-    mk.setVisible(true);
+    
+    // Se temos uma rota calculada, animar ao longo dela
+    if (route.length >= 2) {
+      // Encontrar o ponto mais próximo na rota para o entregador
+      let closestRouteIndex = 0;
+      let minDist = Infinity;
+      route.forEach((point, idx) => {
+        const d = Math.hypot(point.lat - to.lat, point.lng - to.lng);
+        if (d < minDist) {
+          minDist = d;
+          closestRouteIndex = idx;
+        }
+      });
+      
+      // Animar ao longo da rota a partir do ponto mais próximo
+      const routeSegment = route.slice(Math.max(0, closestRouteIndex - 1), Math.min(route.length, closestRouteIndex + 3));
+      if (routeSegment.length >= 2) {
+        cancelAnimRef.current?.();
+        animateMarkerAlongRoute(
+          mk,
+          routeSegment,
+          duration,
+          cancelAnimRef,
+          ({ position }) => {
+            // Atualizar rastro durante a animação
+            trailHistoryRef.current.push({ ...position });
+            if (trailHistoryRef.current.length > 20) {
+              trailHistoryRef.current.shift();
+            }
+            if (trailPolylineRef.current && trailHistoryRef.current.length >= 2) {
+              trailPolylineRef.current.setPath(trailHistoryRef.current.map(p => ({ lat: p.lat, lng: p.lng })));
+            }
+            
+            // Atualizar rotação durante movimento
+            if (trailHistoryRef.current.length >= 2) {
+              const prev = trailHistoryRef.current[trailHistoryRef.current.length - 2];
+              const curr = position;
+              const moveAngle = calculateBearing(prev, curr);
+              mk.setIcon({ url: getMotoIconUrl(moveAngle, false), scaledSize: new g.Size(48, 48), anchor: new g.Point(24, 24) });
+            }
+          }
+        );
+      } else {
+        // Fallback: animação linear
+        cancelAnimRef.current?.();
+        animateMarker(mk, from, to, duration, cancelAnimRef, ({ position }) => {
+          trailHistoryRef.current.push({ ...position });
+          if (trailHistoryRef.current.length > 20) trailHistoryRef.current.shift();
+          if (trailPolylineRef.current && trailHistoryRef.current.length >= 2) {
+            trailPolylineRef.current.setPath(trailHistoryRef.current.map(p => ({ lat: p.lat, lng: p.lng })));
+          }
+        });
+      }
+    } else {
+      // Sem rota: animação linear simples
+      cancelAnimRef.current?.();
+      animateMarker(mk, from, to, duration, cancelAnimRef, ({ position }) => {
+        trailHistoryRef.current.push({ ...position });
+        if (trailHistoryRef.current.length > 20) trailHistoryRef.current.shift();
+        if (trailPolylineRef.current && trailHistoryRef.current.length >= 2) {
+          trailPolylineRef.current.setPath(trailHistoryRef.current.map(p => ({ lat: p.lat, lng: p.lng })));
+        }
+      });
+    }
 
-    cancelAnimRef.current?.();
-    animateMarker(mk, from, to, duration, cancelAnimRef);
+    // Atualizar ícone com rotação
+    mk.setIcon({ url: getMotoIconUrl(angle, false), scaledSize: new g.Size(48, 48), anchor: new g.Point(24, 24) });
+    mk.setVisible(true);
     lastPosRef.current = { ...to };
-  }, [mapLoaded, entregadorLocation]);
+    
+    // Adicionar ao histórico de rastro
+    trailHistoryRef.current.push({ ...to });
+    if (trailHistoryRef.current.length > 20) {
+      trailHistoryRef.current.shift();
+    }
+    
+    // Atualizar polyline do rastro
+    if (trailPolylineRef.current && trailHistoryRef.current.length >= 2) {
+      trailPolylineRef.current.setPath(trailHistoryRef.current.map(p => ({ lat: p.lat, lng: p.lng })));
+    }
+  }, [mapLoaded, entregadorLocation, route]);
 
   // Centralizar no entregador quando ele se move (opcional, suave)
   useEffect(() => {
