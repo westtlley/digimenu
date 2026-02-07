@@ -875,16 +875,6 @@ app.get('/api/user/context', authenticate, asyncHandler(async (req, res) => {
         status: subscriber.status || 'active', // ✅ Garantir que status sempre tenha valor
         permissions: subscriber.permissions || {}
       } : null)
-    
-    // ✅ DEBUG: Log do subscriberData que será retornado
-    console.log('📤 [user/context] Retornando subscriberData:', {
-      is_master: user.is_master,
-      subscriberData: user.is_master ? null : (subscriber ? {
-        email: subscriber.email,
-        plan: subscriber.plan || 'basic',
-        status: subscriber.status || 'active'
-      } : null)
-    });
     });
   } catch (error) {
     console.error('❌ [user/context] Erro ao obter contexto:', error);
