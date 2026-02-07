@@ -1,20 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { apiClient as base44 } from '@/api/apiClient';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ChefHat, Loader2, LogOut, Check, Clock, Package } from 'lucide-react';
+import { ChefHat, Loader2, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Link } from 'react-router-dom';
-import { createPageUrl } from '@/utils';
 import { useSlugContext } from '@/hooks/useSlugContext';
 import toast from 'react-hot-toast';
-
-const STATUS_LABEL = {
-  new: 'Novo',
-  accepted: 'Aceito',
-  preparing: 'Em preparo',
-  ready: 'Pronto',
-};
+import KitchenDisplay from '@/components/cozinha/KitchenDisplay';
 
 export default function Cozinha() {
   const [user, setUser] = useState(null);
@@ -59,24 +50,27 @@ export default function Cozinha() {
     ? orders.filter(o => ['new', 'accepted', 'preparing', 'ready'].includes(o.status))
     : [];
 
-  const handleAccept = (o) => {
-    if (o.status !== 'new') return;
-    updateMu.mutate({
-      id: o.id,
-      updates: { status: 'accepted', accepted_at: new Date().toISOString(), prep_time: 15 },
-    });
-  };
+  // Tempo de preparo padrão (pode vir de configurações)
+  const defaultPrepTime = 30;
 
-  const handleStartPrep = (o) => {
-    if (o.status !== 'accepted') return;
-    updateMu.mutate({ id: o.id, updates: { status: 'preparing' } });
-  };
-
-  const handleReady = (o) => {
-    if (o.status !== 'preparing') return;
+  const handleStatusChange = (order, newStatus) => {
+    const updates = {};
+    
+    if (newStatus === 'accepted') {
+      updates.status = 'accepted';
+      updates.accepted_at = new Date().toISOString();
+      updates.prep_time = order.prep_time || defaultPrepTime;
+    } else if (newStatus === 'preparing') {
+      updates.status = 'preparing';
+      updates.preparing_at = new Date().toISOString();
+    } else if (newStatus === 'ready') {
+      updates.status = 'ready';
+      updates.ready_at = new Date().toISOString();
+    }
+    
     updateMu.mutate({
-      id: o.id,
-      updates: { status: 'ready', ready_at: new Date().toISOString() },
+      id: order.id,
+      updates
     });
   };
 
@@ -105,71 +99,26 @@ export default function Cozinha() {
   }
 
   return (
-    <div className="min-h-screen min-h-screen-mobile bg-gray-100 dark:bg-gray-900">
-      <header className="bg-orange-600 text-white sticky top-0 z-10 shadow">
-        <div className="px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <ChefHat className="w-6 h-6" />
-            <h1 className="font-bold text-lg">Cozinha</h1>
-          </div>
-          <Button variant="ghost" size="sm" className="text-white hover:bg-orange-500" onClick={() => base44.auth.logout()}>
-            <LogOut className="w-4 h-4 mr-1" />
-            Sair
-          </Button>
-        </div>
-      </header>
-
-      <main className="p-4 max-w-2xl mx-auto">
-        {ordersLoading ? (
-          <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-orange-500" /></div>
-        ) : kitchenOrders.length === 0 ? (
-          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-8 text-center">
-            <Clock className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-            <p className="text-gray-500 dark:text-gray-400">Nenhum pedido em preparo no momento.</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {kitchenOrders.map((o) => (
-              <div
-                key={o.id}
-                className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div>
-                    <p className="font-semibold text-gray-900 dark:text-white">#{o.order_code || o.id}</p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {o.items?.map(i => i.name || i.quantity + 'x').join(', ') || '—'}
-                    </p>
-                    <Badge className="mt-1" variant={o.status === 'ready' ? 'default' : 'secondary'}>
-                      {STATUS_LABEL[o.status] || o.status}
-                    </Badge>
-                  </div>
-                  <div className="flex flex-wrap gap-1 justify-end">
-                    {o.status === 'new' && (
-                      <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => handleAccept(o)} disabled={updateMu.isPending}>
-                        <Check className="w-4 h-4 mr-1" />
-                        Aceitar
-                      </Button>
-                    )}
-                    {o.status === 'accepted' && (
-                      <Button size="sm" className="bg-orange-600 hover:bg-orange-700" onClick={() => handleStartPrep(o)} disabled={updateMu.isPending}>
-                        <ChefHat className="w-4 h-4 mr-1" />
-                        Em preparo
-                      </Button>
-                    )}
-                    {o.status === 'preparing' && (
-                      <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => handleReady(o)} disabled={updateMu.isPending}>
-                        <Package className="w-4 h-4 mr-1" />
-                        Pronto
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </main>
+    <div className="min-h-screen min-h-screen-mobile">
+      <KitchenDisplay
+        orders={kitchenOrders}
+        onStatusChange={handleStatusChange}
+        prepTime={defaultPrepTime}
+        isLoading={ordersLoading}
+      />
+      
+      {/* Botão de logout fixo */}
+      <div className="fixed bottom-4 right-4 z-50">
+        <Button
+          variant="outline"
+          size="sm"
+          className="bg-white dark:bg-gray-800 shadow-lg"
+          onClick={() => base44.auth.logout()}
+        >
+          <LogOut className="w-4 h-4 mr-2" />
+          Sair
+        </Button>
+      </div>
     </div>
   );
 }
