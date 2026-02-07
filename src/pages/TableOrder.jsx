@@ -110,7 +110,9 @@ export default function TableOrder() {
       })),
       total: cart.reduce((sum, item) => sum + (item.price * item.quantity), 0),
       table_id: table?.id,
-      table_number: tableNumber
+      table_number: tableNumber,
+      // Incluir dados de gorjeta se houver
+      tip: checkoutData.tip || null
     };
     createOrderMutation.mutate(orderData);
   };

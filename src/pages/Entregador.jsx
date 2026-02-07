@@ -1398,16 +1398,14 @@ export default function Entregador() {
         />
       )}
 
-      {showEarnings && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowEarnings(false)}>
-          <div onClick={(e) => e.stopPropagation()} className="max-w-2xl w-full">
-            <EarningsReport
-              entregador={entregador}
-              orders={completedOrders}
-              darkMode={darkMode}
-            />
-          </div>
-        </div>
+      {/* Earnings Modal */}
+      {showEarnings && entregador?.id && (
+        <EarningsView
+          entregadorId={entregador.id}
+          darkMode={darkMode}
+          isOpen={showEarnings}
+          onClose={() => setShowEarnings(false)}
+        />
       )}
 
       {/* Critical Notifications - New Orders */}
