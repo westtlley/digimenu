@@ -9,6 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Download, Trash2, Shield, FileText, AlertTriangle, CheckCircle } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { usePermission } from '../permissions/usePermission';
+import { useOrders } from '@/hooks/useOrders';
 
 /**
  * LGPDCompliance - Conformidade com LGPD
@@ -20,17 +22,25 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
  */
 export default function LGPDCompliance() {
   const queryClient = useQueryClient();
+  const { menuContext } = usePermission();
   const [selectedCustomer, setSelectedCustomer] = useState(null);
 
+  // ✅ CORREÇÃO: Buscar clientes com contexto do slug
   const { data: customers = [] } = useQuery({
-    queryKey: ['customers'],
-    queryFn: () => base44.entities.Customer.list(),
+    queryKey: ['customers', menuContext?.type, menuContext?.value],
+    queryFn: async () => {
+      if (!menuContext) return [];
+      const opts = {};
+      if (menuContext.type === 'subscriber' && menuContext.value) {
+        opts.as_subscriber = menuContext.value;
+      }
+      return base44.entities.Customer.list(null, opts);
+    },
+    enabled: !!menuContext,
   });
 
-  const { data: orders = [] } = useQuery({
-    queryKey: ['orders'],
-    queryFn: () => base44.entities.Order.list(),
-  });
+  // ✅ CORREÇÃO: Usar hook com contexto automático
+  const { data: orders = [] } = useOrders();
 
   // Exportar dados do cliente
   const exportCustomerDataMutation = useMutation({

@@ -11,6 +11,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Copy, Share2, TrendingUp, DollarSign, Users, Settings } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { usePermission } from '../permissions/usePermission';
+import { useOrders } from '@/hooks/useOrders';
 
 /**
  * AffiliateProgram - Programa de Afiliados
@@ -22,6 +24,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
  */
 export default function AffiliateProgram() {
   const queryClient = useQueryClient();
+  const { menuContext } = usePermission();
   
   // Carregar configurações do localStorage ou usar padrões
   const loadSettings = () => {
@@ -43,19 +46,37 @@ export default function AffiliateProgram() {
 
   const [settings, setSettings] = useState(loadSettings());
 
+  // ✅ CORREÇÃO: Buscar afiliados com contexto do slug
   const { data: affiliates = [] } = useQuery({
-    queryKey: ['affiliates'],
-    queryFn: () => base44.entities.Affiliate.list(),
+    queryKey: ['affiliates', menuContext?.type, menuContext?.value],
+    queryFn: async () => {
+      if (!menuContext) return [];
+      const opts = {};
+      if (menuContext.type === 'subscriber' && menuContext.value) {
+        opts.as_subscriber = menuContext.value;
+      }
+      return base44.entities.Affiliate.list(null, opts);
+    },
+    enabled: !!menuContext,
   });
 
+  // ✅ CORREÇÃO: Buscar referrals com contexto do slug
   const { data: referrals = [] } = useQuery({
-    queryKey: ['referrals'],
-    queryFn: () => base44.entities.Referral.list(),
+    queryKey: ['referrals', menuContext?.type, menuContext?.value],
+    queryFn: async () => {
+      if (!menuContext) return [];
+      const opts = {};
+      if (menuContext.type === 'subscriber' && menuContext.value) {
+        opts.as_subscriber = menuContext.value;
+      }
+      return base44.entities.Referral.list(null, opts);
+    },
+    enabled: !!menuContext,
   });
 
-  const { data: orders = [] } = useQuery({
-    queryKey: ['orders'],
-    queryFn: () => base44.entities.Order.list('-created_date'),
+  // ✅ CORREÇÃO: Usar hook com contexto automático
+  const { data: orders = [] } = useOrders({
+    orderBy: '-created_date'
   });
 
   // Calcular estatísticas
