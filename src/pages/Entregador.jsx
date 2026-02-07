@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
@@ -12,8 +12,15 @@ import { Input } from "@/components/ui/input";
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { useSlugContext } from '@/hooks/useSlugContext';
+import { useEntregador } from '@/hooks/useEntregador';
+import { useDeliveryOrders } from '@/hooks/useDeliveryOrders';
+import { useGeocoding } from '@/hooks/useGeocoding';
+import { useDebounce } from '@/hooks/useDebounce';
+import { formatCurrency, formatPhone, formatRelativeTime } from '@/utils/formatters';
+import { VEHICLE_ICONS, ORDER_STATUS, DEBOUNCE_DELAYS } from '@/utils/constants';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
+import ErrorBoundary from '@/components/ErrorBoundary';
 
 import DeliveryMap from '../components/entregador/DeliveryMap';
 import EarningsReport from '../components/entregador/EarningsReport';
@@ -40,10 +47,6 @@ import OrderItemsDetail from '../components/entregador/OrderItemsDetail';
 import DeliveryDashboard from '../components/entregador/DeliveryDashboard';
 
 export default function Entregador() {
-  const [user, setUser] = useState(null);
-  const [entregador, setEntregador] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [hasAccess, setHasAccess] = useState(true);
   const [deliveryCodeInput, setDeliveryCodeInput] = useState({});
   const [pickupCodeInput, setPickupCodeInput] = useState({});
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -65,110 +68,42 @@ export default function Entregador() {
   
   const audioRef = useRef(null);
   const queryClient = useQueryClient();
-  const { slug, subscriberEmail, inSlugContext } = useSlugContext();
-  const asSub = (inSlugContext && user?.is_master && subscriberEmail) ? subscriberEmail : undefined;
+  const { slug } = useSlugContext();
+  
+  // Hook customizado para entregador
+  const { user, entregador, loading, hasAccess, asSubscriber, isMaster } = useEntregador();
+  
+  // Hook customizado para pedidos
+  const { orders: displayOrders, activeOrders, completedOrders, completedOrdersToday, stats: orderStats } = useDeliveryOrders(
+    entregador?.id,
+    asSubscriber,
+    isMaster
+  );
 
   // Critical Notifications System
   const criticalNotifications = useCriticalNotifications(entregador?.id);
 
+  // Efeito para dark mode
   useEffect(() => {
-    const loadUser = async () => {
-      try {
-        const userData = await base44.auth.me();
-        setUser(userData);
-        const asSub = (inSlugContext && userData?.is_master && subscriberEmail) ? subscriberEmail : undefined;
+    if (entregador) {
+      setDarkMode(entregador.dark_mode || false);
+    }
+  }, [entregador]);
 
-        // Colaborador com perfil Entregador tem acesso direto
-        if (userData.profile_role === 'entregador') {
-          setHasAccess(true);
-        } else {
-          const subscribers = await base44.entities.Subscriber.list();
-          const subscriber = subscribers.find(s => 
-            s.email === userData.subscriber_email || s.email === userData.email
-          );
-          if (subscriber) {
-            const hasPermission = subscriber.permissions?.gestor_pedidos?.length > 0;
-            setHasAccess(hasPermission);
-            if (!hasPermission) {
-              setLoading(false);
-              return;
-            }
-          }
-        }
-        
-        // Master, is_entregador ou perfil colaborador Entregador
-        if (userData.is_master || userData.is_entregador || userData.profile_role === 'entregador') {
-          const allEntregadores = await base44.entities.Entregador.list(null, asSub ? { as_subscriber: asSub } : {});
-          const matchedEntregador = allEntregadores.find(e => 
-            e.email?.toLowerCase().trim() === userData.email?.toLowerCase().trim()
-          );
-          
-          if (matchedEntregador) {
-            setEntregador(matchedEntregador);
-            setDarkMode(matchedEntregador.dark_mode || false);
-          } else {
-            const virtualEntregador = {
-              id: userData.is_master ? 'master-' + userData.email : 'user-' + userData.email,
-              name: userData.full_name || userData.email.split('@')[0],
-              email: userData.email,
-              phone: userData.phone || '(00) 00000-0000',
-              status: 'available',
-              total_deliveries: 0,
-              total_earnings: 0,
-              rating: 5,
-              dark_mode: false,
-              sound_enabled: true,
-              notifications_enabled: true,
-              vibration_enabled: true,
-              _isMaster: userData.is_master,
-              _isVirtual: true,
-              _subscriberEmail: userData.subscriber_email || userData.email
-            };
-            setEntregador(virtualEntregador);
-            setDarkMode(false);
-          }
-        }
-      } catch (e) {
-        base44.auth.redirectToLogin();
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadUser();
-
-    // Verificar se é primeira vez e mostrar tutorial
+  // Verificar se é primeira vez e mostrar tutorial
+  useEffect(() => {
     const hasSeenTutorial = localStorage.getItem('entregador_tutorial_seen');
     const neverShowAgain = localStorage.getItem('entregador_tutorial_never_show');
-    if (!hasSeenTutorial && !neverShowAgain) {
+    if (!hasSeenTutorial && !neverShowAgain && entregador) {
       setTimeout(() => setShowTutorial(true), 1000);
     }
-  }, [inSlugContext, subscriberEmail]);
+  }, [entregador]);
 
   const prevOrderCountRef = useRef(0);
 
-  const { data: orders = [] } = useQuery({
-    queryKey: ['deliveryOrders', entregador?.id, asSub ?? 'me'],
-    queryFn: () => base44.entities.Order.filter({ entregador_id: entregador?.id, ...(asSub && { as_subscriber: asSub }) }),
-    enabled: !!entregador?.id && !entregador?._isMaster,
-    refetchInterval: 5000,
-  });
-
-  // Para master, buscar todos os pedidos out_for_delivery
-  const { data: allOrders = [] } = useQuery({
-    queryKey: ['allDeliveryOrders', asSub ?? 'me'],
-    queryFn: async () => {
-      const orders = await base44.entities.Order.list(null, asSub ? { as_subscriber: asSub } : {});
-      return orders.filter(o => ['going_to_store', 'arrived_at_store', 'picked_up', 'out_for_delivery', 'arrived_at_customer'].includes(o.status));
-    },
-    enabled: !!entregador?._isMaster,
-    refetchInterval: 5000,
-  });
-
-  const displayOrders = entregador?._isMaster ? allOrders : orders;
-
   // Tocar som quando novo pedido chega
   useEffect(() => {
-    const activeCount = displayOrders.filter(o => o.status === 'out_for_delivery').length;
+    const activeCount = activeOrders.filter(o => o.status === ORDER_STATUS.OUT_FOR_DELIVERY).length;
     if (activeCount > prevOrderCountRef.current && entregador?.sound_enabled !== false) {
       if (audioRef.current) {
         audioRef.current.volume = 1.0;
@@ -180,24 +115,14 @@ export default function Entregador() {
       }
     }
     prevOrderCountRef.current = activeCount;
-  }, [displayOrders, entregador]);
+  }, [activeOrders, entregador]);
 
-  const activeOrders = displayOrders.filter(o => ['going_to_store', 'arrived_at_store', 'picked_up', 'out_for_delivery', 'arrived_at_customer'].includes(o.status));
-  const completedOrders = displayOrders.filter(o => o.status === 'delivered');
+  // Hook para geocodificação do endereço do cliente
+  const activeOrder = activeOrders[0];
+  const { coordinates: geocodedLocation } = useGeocoding(activeOrder?.address);
   
-  // Entregas concluídas hoje
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const completedOrdersToday = completedOrders.filter(o => {
-    if (!o.delivered_at) return false;
-    const deliveredDate = new Date(o.delivered_at);
-    deliveredDate.setHours(0, 0, 0, 0);
-    return deliveredDate.getTime() === today.getTime();
-  });
-
   // Configurar localização do cliente do pedido ativo
   useEffect(() => {
-    const activeOrder = activeOrders[0];
     if (!activeOrder) {
       setCustomerLocation(null);
       return;
@@ -212,33 +137,16 @@ export default function Entregador() {
       return;
     }
 
-    // Senão, geocodificar o endereço
-    if (activeOrder.address) {
-      fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(activeOrder.address)}&limit=1`)
-        .then(res => res.json())
-        .then(data => {
-          if (data && data.length > 0) {
-            setCustomerLocation({
-              lat: parseFloat(data[0].lat),
-              lng: parseFloat(data[0].lon)
-            });
-          } else {
-            setCustomerLocation(activeOrder.store_latitude != null && activeOrder.store_longitude != null
-              ? { lat: activeOrder.store_latitude, lng: activeOrder.store_longitude }
-              : { lat: -15.7942, lng: -47.8822 });
-          }
-        })
-        .catch(() => {
-          setCustomerLocation(activeOrder.store_latitude != null && activeOrder.store_longitude != null
-            ? { lat: activeOrder.store_latitude, lng: activeOrder.store_longitude }
-            : { lat: -15.7942, lng: -47.8822 });
-        });
-    } else {
-      setCustomerLocation(activeOrder.store_latitude != null && activeOrder.store_longitude != null
-        ? { lat: activeOrder.store_latitude, lng: activeOrder.store_longitude }
-        : { lat: -15.7942, lng: -47.8822 });
+    // Usar geocodificação
+    if (geocodedLocation) {
+      setCustomerLocation(geocodedLocation);
+    } else if (activeOrder.store_latitude != null && activeOrder.store_longitude != null) {
+      setCustomerLocation({
+        lat: activeOrder.store_latitude,
+        lng: activeOrder.store_longitude
+      });
     }
-  }, [activeOrders]);
+  }, [activeOrder, geocodedLocation]);
 
   const updateStatusMutation = useMutation({
     mutationFn: ({ orderId, status }) => base44.entities.Order.update(orderId, { 
@@ -342,14 +250,6 @@ export default function Entregador() {
 
 
 
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
-  };
-
-  const formatPhone = (phone) => {
-    if (!phone) return '';
-    return phone.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
-  };
 
   const handlePause = (duration, reason) => {
     setIsPaused(true);
@@ -387,11 +287,6 @@ export default function Entregador() {
     window.location.href = `tel:${phone}`;
   };
 
-  const vehicleIcons = {
-    bike: '🚴',
-    motorcycle: '🏍️',
-    car: '🚗'
-  };
 
   if (loading) {
     return (
@@ -440,7 +335,8 @@ export default function Entregador() {
   }
 
   return (
-    <div className={`min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
+    <ErrorBoundary>
+      <div className={`min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-blue-50 via-indigo-50 to-blue-50'}`}>
       <audio ref={audioRef} preload="auto" volume="1.0">
         <source src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" type="audio/mpeg" />
       </audio>
@@ -484,7 +380,7 @@ export default function Entregador() {
                 </h1>
                 <div className="flex items-center gap-2">
                   {entregador.vehicle_type && (
-                    <span className="text-base">{vehicleIcons[entregador.vehicle_type]}</span>
+                    <span className="text-base">{VEHICLE_ICONS[entregador.vehicle_type] || '🚗'}</span>
                   )}
                   <div className="flex items-center gap-1 bg-yellow-100 px-2 py-0.5 rounded-full">
                     <Star className="w-3 h-3 text-yellow-600 fill-yellow-600" />
