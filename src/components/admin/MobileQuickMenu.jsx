@@ -10,7 +10,8 @@ import {
   Menu,
   X,
   Bike,
-  UserCheck
+  UserCheck,
+  ChefHat
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -19,7 +20,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 
 /**
  * Menu rápido - Drawer flutuante com ícones de navegação
- * Agrupa: Dashboard, Assinantes, Cardápio, PDV, Gestor de Pedidos, Entregador, Garçom
+ * Agrupa: Dashboard, Assinantes, Cardápio, PDV, Gestor de Pedidos, Entregador, Garçom, Cozinha
  * Versão mobile e desktop com efeitos modernos
  */
 export default function MobileQuickMenu({ 
@@ -94,6 +95,14 @@ export default function MobileQuickMenu({
       to: createPageUrl('Garcom'),
       color: 'from-indigo-600 to-indigo-700',
       hoverColor: 'hover:from-indigo-700 hover:to-indigo-800'
+    }] : []),
+    ...(can('colaboradores') ? [{
+      id: 'cozinha',
+      label: 'Cozinha',
+      icon: ChefHat,
+      to: createPageUrl('Cozinha'),
+      color: 'from-orange-500 to-orange-600',
+      hoverColor: 'hover:from-orange-600 hover:to-orange-700'
     }] : [])
   ];
 
