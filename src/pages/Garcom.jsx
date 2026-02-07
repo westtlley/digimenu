@@ -845,6 +845,19 @@ export default function Garcom() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Modal de Perfil */}
+      {showProfile && user && (
+        <ColaboradorProfile
+          user={user}
+          profileRole="garcom"
+          onClose={() => setShowProfile(false)}
+          onUpdate={(updatedUser) => {
+            setUser(updatedUser);
+            queryClient.invalidateQueries({ queryKey: ['Comanda'] });
+          }}
+        />
+      )}
     </div>
   );
 }
