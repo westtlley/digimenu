@@ -10,6 +10,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Plus, Trash2, GripVertical, ChevronUp, ChevronDown, Menu, FolderPlus, Search, Package } from 'lucide-react';
 import EmptyState from '@/components/ui/EmptyState';
 import toast from 'react-hot-toast';
+import { usePermission } from '../permissions/usePermission';
+import { useMenuCategories, useMenuDishes } from '@/hooks/useMenuData';
 
 export default function CategoriesTab() {
   const [user, setUser] = React.useState(null);
@@ -18,6 +20,7 @@ export default function CategoriesTab() {
   const [searchTerm, setSearchTerm] = useState('');
 
   const queryClient = useQueryClient();
+  const { menuContext } = usePermission();
 
   React.useEffect(() => {
     const loadUser = async () => {
@@ -31,16 +34,9 @@ export default function CategoriesTab() {
     loadUser();
   }, []);
 
-  const { data: categories = [] } = useQuery({
-    queryKey: ['categories'],
-    queryFn: () => base44.entities.Category.list('order'),
-    refetchOnMount: 'always',
-  });
-
-  const { data: dishesRaw = [] } = useQuery({
-    queryKey: ['dishes'],
-    queryFn: () => base44.entities.Dish.list(),
-  });
+  // ✅ CORREÇÃO: Usar hooks com contexto automático
+  const { data: categories = [] } = useMenuCategories({ refetchOnMount: 'always' });
+  const { data: dishesRaw = [] } = useMenuDishes();
   const dishes = (Array.isArray(dishesRaw) ? dishesRaw : []).filter(d => d.product_type !== 'pizza');
 
   // Filtrar categorias

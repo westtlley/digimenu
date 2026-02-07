@@ -13,6 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { cn } from "@/lib/utils";
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import toast from 'react-hot-toast';
+import { usePermission } from '../permissions/usePermission';
+import { useMenuDishes } from '@/hooks/useMenuData';
 
 // Componente separado para opção individual com estado local
 function OptionItem({ option, group, optionIndex, provided, snapshot, onUpdate, onToggle, onRemove, canEdit }) {
@@ -241,25 +243,31 @@ export default function ComplementsTab() {
     loadUser();
   }, []);
 
+  // ✅ CORREÇÃO: Usar hook com contexto automático
+  const { menuContext } = usePermission();
   const { data: groups = [] } = useQuery({
-    queryKey: ['complementGroups'],
+    queryKey: ['complementGroups', menuContext?.type, menuContext?.value],
     queryFn: async () => {
+      if (!menuContext) return [];
       try {
-        const result = await base44.entities.ComplementGroup.list('order');
+        const opts = {};
+        if (menuContext.type === 'subscriber' && menuContext.value) {
+          opts.as_subscriber = menuContext.value;
+        }
+        const result = await base44.entities.ComplementGroup.list('order', opts);
         return Array.isArray(result) ? result : [];
       } catch (error) {
         console.error('Erro ao buscar grupos:', error);
         return [];
       }
     },
+    enabled: !!menuContext,
     initialData: [],
     refetchOnMount: 'always',
   });
 
-  const { data: dishes = [] } = useQuery({
-    queryKey: ['dishes'],
-    queryFn: () => base44.entities.Dish.list(),
-  });
+  // ✅ CORREÇÃO: Usar hook com contexto automático
+  const { data: dishes = [] } = useMenuDishes();
 
   // Filtrar grupos
   const filteredGroups = useMemo(() => {

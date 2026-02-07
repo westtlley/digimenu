@@ -11,9 +11,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { AlertTriangle, Plus, Edit, Trash2, Package, TrendingDown, ShoppingCart } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { usePermission } from '../permissions/usePermission';
+import { useMenuDishes } from '@/hooks/useMenuData';
 
 export default function InventoryManagement() {
   const queryClient = useQueryClient();
+  const { menuContext } = usePermission();
   const [isIngredientDialogOpen, setIsIngredientDialogOpen] = useState(false);
   const [isDishIngredientDialogOpen, setIsDishIngredientDialogOpen] = useState(false);
   const [editingIngredient, setEditingIngredient] = useState(null);
@@ -31,19 +34,35 @@ export default function InventoryManagement() {
     quantity: 1
   });
 
+  // ✅ CORREÇÃO: Buscar ingredientes com contexto do slug
   const { data: ingredients = [] } = useQuery({
-    queryKey: ['ingredients'],
-    queryFn: () => base44.entities.Ingredient.list(),
+    queryKey: ['ingredients', menuContext?.type, menuContext?.value],
+    queryFn: async () => {
+      if (!menuContext) return [];
+      const opts = {};
+      if (menuContext.type === 'subscriber' && menuContext.value) {
+        opts.as_subscriber = menuContext.value;
+      }
+      return base44.entities.Ingredient.list(null, opts);
+    },
+    enabled: !!menuContext,
   });
 
-  const { data: dishes = [] } = useQuery({
-    queryKey: ['dishes'],
-    queryFn: () => base44.entities.Dish.list(),
-  });
+  // ✅ CORREÇÃO: Usar hook com contexto automático
+  const { data: dishes = [] } = useMenuDishes();
 
+  // ✅ CORREÇÃO: Buscar dishIngredients com contexto do slug
   const { data: dishIngredients = [] } = useQuery({
-    queryKey: ['dishIngredients'],
-    queryFn: () => base44.entities.DishIngredient.list(),
+    queryKey: ['dishIngredients', menuContext?.type, menuContext?.value],
+    queryFn: async () => {
+      if (!menuContext) return [];
+      const opts = {};
+      if (menuContext.type === 'subscriber' && menuContext.value) {
+        opts.as_subscriber = menuContext.value;
+      }
+      return base44.entities.DishIngredient.list(null, opts);
+    },
+    enabled: !!menuContext,
   });
 
   // Calcular estoque disponível considerando uso em pratos
