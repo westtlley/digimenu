@@ -23,8 +23,18 @@ export default function Cozinha() {
       try {
         const me = await base44.auth.me();
         setUser(me);
+        if (!me) {
+          base44.auth.redirectToLogin('/Cozinha');
+          return;
+        }
+        // Verificar se tem perfil de cozinha ou é master
         const hasProfileAccess = me?.profile_role === 'cozinha' || me?.is_master === true;
         setAllowed(hasProfileAccess);
+        
+        if (!hasProfileAccess) {
+          setLoading(false);
+          return;
+        }
         
         // Verificar plano (PRO ou Ultra)
         if (hasProfileAccess && !me?.is_master) {
@@ -39,8 +49,6 @@ export default function Cozinha() {
         } else {
           setPlanCheck({ loading: false, hasAccess: false });
         }
-        
-        if (!me) base44.auth.redirectToLogin('/Cozinha');
       } catch (e) {
         base44.auth.redirectToLogin('/Cozinha');
       } finally {

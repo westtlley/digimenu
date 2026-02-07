@@ -23,6 +23,9 @@ import { usePDVHotkeys } from '../utils/pdvFunctions';
 import InstallAppButton from '../components/InstallAppButton';
 
 export default function PDV() {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [allowed, setAllowed] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [cart, setCart] = useState([]);
@@ -46,6 +49,31 @@ export default function PDV() {
   const { isMaster } = usePermission();
   const { slug, subscriberEmail, inSlugContext, loading: slugLoading, error: slugError } = useSlugContext();
   const asSub = (inSlugContext && isMaster && subscriberEmail) ? subscriberEmail : undefined;
+
+  // Verificar autenticação e permissão
+  useEffect(() => {
+    (async () => {
+      try {
+        const me = await base44.auth.me();
+        setUser(me);
+        if (!me) {
+          base44.auth.redirectToLogin('/PDV');
+          return;
+        }
+        // Verificar se tem perfil de PDV ou é master
+        const hasAccess = me?.profile_role === 'pdv' || me?.is_master === true;
+        setAllowed(hasAccess);
+        if (!hasAccess) {
+          setLoading(false);
+          return;
+        }
+      } catch (e) {
+        base44.auth.redirectToLogin('/PDV');
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
   
   // Define página de volta baseado no tipo de usuário
   const backPage = isMaster ? 'Admin' : 'PainelAssinante';
@@ -285,6 +313,34 @@ export default function PDV() {
   const discountFromPercent = subtotal * (parseFloat(discountPercent || 0) / 100);
   const totalDiscount = parseFloat(discountReais || 0) + discountFromPercent;
   const total = Math.max(0, subtotal - totalDiscount);
+
+  // Verificar loading e acesso
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-orange-500 mx-auto mb-4" />
+          <p className="text-sm text-gray-600 dark:text-gray-400">Carregando...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!allowed) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 bg-gray-50 dark:bg-gray-900">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8 max-w-md text-center">
+          <CreditCard className="w-16 h-16 text-orange-500 mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Acesso restrito</h2>
+          <p className="text-gray-500 dark:text-gray-400 mb-6">Esta tela é apenas para o perfil PDV.</p>
+          <Button onClick={() => base44.auth.logout()} className="bg-orange-600 hover:bg-orange-700 text-white">
+            <LogOut className="w-4 h-4 mr-2" />
+            Sair
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   const handleOpenCaixa = () => {
     const amount = parseFloat(openingAmount);

@@ -70,7 +70,8 @@ export function useEntregador() {
           }
         }
       } catch (e) {
-        base44.auth.redirectToLogin();
+        // Redirecionar para login de colaboradores
+        base44.auth.redirectToLogin('/Entregador');
       } finally {
         setLoading(false);
       }

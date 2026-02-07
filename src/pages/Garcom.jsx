@@ -45,8 +45,17 @@ export default function Garcom() {
       try {
         const me = await base44.auth.me();
         setUser(me);
-        setAllowed(me?.profile_role === 'garcom' || me?.is_master === true);
-        if (!me) base44.auth.redirectToLogin('/Garcom');
+        if (!me) {
+          base44.auth.redirectToLogin('/Garcom');
+          return;
+        }
+        // Verificar se tem perfil de garçom ou é master
+        const hasAccess = me?.profile_role === 'garcom' || me?.is_master === true;
+        setAllowed(hasAccess);
+        if (!hasAccess) {
+          setLoading(false);
+          return;
+        }
       } catch (e) {
         base44.auth.redirectToLogin('/Garcom');
       } finally {
