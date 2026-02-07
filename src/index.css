@@ -300,25 +300,61 @@ button:focus-visible {
   }
   
   /* Garantir que todos os DialogContent no desktop sejam centralizados e não cortados */
-  [role="dialog"] {
+  [role="dialog"],
+  [data-radix-dialog-content] {
     max-height: 90vh !important;
     overflow-y: auto !important;
     overflow-x: hidden !important;
+    box-sizing: border-box !important;
+    position: fixed !important;
   }
   
   /* Garantir que o conteúdo interno dos modais não seja cortado */
-  [role="dialog"] > * {
+  [role="dialog"] > *,
+  [data-radix-dialog-content] > * {
     max-width: 100% !important;
     overflow-x: hidden !important;
+    box-sizing: border-box !important;
+  }
+  
+  /* Forçar que modais com classes customizadas sejam centralizados */
+  [role="dialog"][class*="max-w"],
+  [data-radix-dialog-content][class*="max-w"] {
+    left: 50% !important;
+    top: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    margin: 0 !important;
+    right: auto !important;
+    bottom: auto !important;
   }
 }
 
 /* Garantir que modais não sejam cortados em qualquer resolução */
-[role="dialog"] {
+[role="dialog"],
+[data-radix-dialog-content] {
   box-sizing: border-box !important;
+  position: fixed !important;
 }
 
-/* Garantir que o overlay não interfira */
+/* Garantir que o overlay não interfira e tenha z-index correto */
 [data-radix-dialog-overlay] {
   overflow: hidden !important;
+  z-index: 50 !important;
+  position: fixed !important;
+}
+
+/* Garantir que o portal dos modais tenha z-index alto */
+[data-radix-portal] {
+  z-index: 50 !important;
+}
+
+/* Garantir que containers com overflow-hidden não cortem modais */
+body:has([role="dialog"]) {
+  overflow: hidden !important;
+}
+
+/* Garantir que modais sempre apareçam acima de tudo */
+[role="dialog"],
+[data-radix-dialog-content] {
+  z-index: 50 !important;
 }
