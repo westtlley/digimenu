@@ -2136,6 +2136,43 @@ app.post('/api/entities/:entity', authenticate, async (req, res) => {
       emitOrderCreated(newItem);
     } else if (String(entity).toLowerCase() === 'comanda') {
       emitComandaCreated(newItem);
+      // Criar Order na cozinha quando comanda é criada
+      try {
+        const ownerEmail = createOpts.forSubscriberEmail || data.owner_email || (req.user?.subscriber_email || req.user?.email);
+        const orderCode = `COMANDA-${newItem.code || newItem.id}`;
+        const orderData = {
+          order_code: orderCode,
+          customer_name: newItem.customer_name || 'Cliente',
+          customer_phone: newItem.customer_phone || null,
+          customer_email: newItem.customer_email || null,
+          delivery_method: 'dine_in',
+          items: Array.isArray(newItem.items) ? newItem.items.map(item => ({
+            name: item.dish_name || item.name || 'Item',
+            quantity: item.quantity || 1,
+            unit_price: item.unit_price || 0,
+            total_price: (item.unit_price || 0) * (item.quantity || 1),
+            observations: item.observations || null,
+            complements: item.complements || null,
+            selections: item.selections || null
+          })) : [],
+          total: newItem.total || 0,
+          subtotal: newItem.subtotal || newItem.total || 0,
+          status: 'new',
+          table_id: newItem.table_id || null,
+          table_number: newItem.table_number || null,
+          table_name: newItem.table_name || null,
+          observations: newItem.observations || null,
+          comanda_id: newItem.id,
+          comanda_code: newItem.code,
+          created_date: newItem.created_at || new Date().toISOString(),
+          source: 'comanda'
+        };
+        const kitchenOrder = await repo.createEntity('Order', orderData, req.user, createOpts);
+        emitOrderCreated(kitchenOrder);
+        console.log(`✅ [Cozinha] Order criado a partir da comanda ${newItem.code || newItem.id}`);
+      } catch (e) {
+        console.error('Erro ao criar Order na cozinha a partir da comanda:', e);
+      }
       // Atualizar status da mesa para ocupada se houver table_id
       if (newItem.table_id) {
         try {
@@ -2148,6 +2185,44 @@ app.post('/api/entities/:entity', authenticate, async (req, res) => {
         } catch (e) {
           console.error('Erro ao atualizar status da mesa:', e);
         }
+      }
+    } else if (String(entity).toLowerCase() === 'pedidopdv') {
+      // Criar Order na cozinha quando PedidoPDV é criado (se for dine_in)
+      // Nota: PedidoPDV não tem campo delivery_method, então assumimos que todos são dine_in
+      try {
+        const ownerEmail = createOpts.forSubscriberEmail || data.owner_email || (req.user?.subscriber_email || req.user?.email);
+        const orderCode = `PDV-${newItem.order_code || newItem.id}`;
+        const orderData = {
+          order_code: orderCode,
+          customer_name: newItem.customer_name || 'Cliente Balcão',
+          customer_phone: newItem.customer_phone || null,
+          customer_email: null,
+          delivery_method: 'dine_in',
+          items: Array.isArray(newItem.items) ? newItem.items.map(item => ({
+            name: item.dish_name || item.name || 'Item',
+            quantity: item.quantity || 1,
+            unit_price: item.unit_price || 0,
+            total_price: (item.unit_price || 0) * (item.quantity || 1),
+            observations: null,
+            complements: null,
+            selections: item.selections || null
+          })) : [],
+          total: newItem.total || 0,
+          subtotal: newItem.subtotal || newItem.total || 0,
+          status: 'new',
+          table_id: null,
+          table_number: null,
+          observations: null,
+          pedido_pdv_id: newItem.id,
+          pedido_pdv_code: newItem.order_code,
+          created_date: newItem.created_at || new Date().toISOString(),
+          source: 'pdv'
+        };
+        const kitchenOrder = await repo.createEntity('Order', orderData, req.user, createOpts);
+        emitOrderCreated(kitchenOrder);
+        console.log(`✅ [Cozinha] Order criado a partir do PDV ${newItem.order_code || newItem.id}`);
+      } catch (e) {
+        console.error('Erro ao criar Order na cozinha a partir do PDV:', e);
       }
     }
     
@@ -2232,6 +2307,85 @@ app.put('/api/entities/:entity/:id', authenticate, async (req, res) => {
       emitOrderUpdate(updatedItem);
     } else if (String(entity).toLowerCase() === 'comanda') {
       emitComandaUpdate(updatedItem);
+      // Atualizar Order na cozinha quando comanda é atualizada
+      try {
+        const ownerEmail = asSub || updatedItem.owner_email || (req.user?.subscriber_email || req.user?.email);
+        // Buscar Order relacionado à comanda
+        const allOrders = await repo.listEntitiesForSubscriber('Order', ownerEmail, '-created_date');
+        const relatedOrder = allOrders.find(o => 
+          (o.comanda_id && String(o.comanda_id) === String(updatedItem.id)) ||
+          (o.comanda_code && o.comanda_code === updatedItem.code)
+        );
+        
+        if (relatedOrder) {
+          // Atualizar Order com dados da comanda
+          const orderUpdates = {
+            items: Array.isArray(updatedItem.items) ? updatedItem.items.map(item => ({
+              name: item.dish_name || item.name || 'Item',
+              quantity: item.quantity || 1,
+              unit_price: item.unit_price || 0,
+              total_price: (item.unit_price || 0) * (item.quantity || 1),
+              observations: item.observations || null,
+              complements: item.complements || null,
+              selections: item.selections || null
+            })) : [],
+            total: updatedItem.total || 0,
+            subtotal: updatedItem.subtotal || updatedItem.total || 0,
+            customer_name: updatedItem.customer_name || relatedOrder.customer_name,
+            customer_phone: updatedItem.customer_phone || relatedOrder.customer_phone,
+            table_id: updatedItem.table_id || relatedOrder.table_id,
+            table_number: updatedItem.table_number || relatedOrder.table_number,
+            table_name: updatedItem.table_name || relatedOrder.table_name,
+            observations: updatedItem.observations || relatedOrder.observations
+          };
+          
+          // Se comanda foi fechada, marcar pedido como ready na cozinha
+          if (updatedItem.status === 'closed' && relatedOrder.status !== 'ready' && relatedOrder.status !== 'delivered') {
+            orderUpdates.status = 'ready';
+            orderUpdates.ready_at = new Date().toISOString();
+          }
+          
+          const updatedKitchenOrder = await repo.updateEntity('Order', relatedOrder.id, orderUpdates, req.user);
+          emitOrderUpdate(updatedKitchenOrder);
+          console.log(`✅ [Cozinha] Order atualizado a partir da comanda ${updatedItem.code || updatedItem.id}`);
+        } else if (updatedItem.status === 'open' && Array.isArray(updatedItem.items) && updatedItem.items.length > 0) {
+          // Se não existe Order e comanda está aberta com itens, criar
+          const orderCode = `COMANDA-${updatedItem.code || updatedItem.id}`;
+          const orderData = {
+            order_code: orderCode,
+            customer_name: updatedItem.customer_name || 'Cliente',
+            customer_phone: updatedItem.customer_phone || null,
+            customer_email: updatedItem.customer_email || null,
+            delivery_method: 'dine_in',
+            items: updatedItem.items.map(item => ({
+              name: item.dish_name || item.name || 'Item',
+              quantity: item.quantity || 1,
+              unit_price: item.unit_price || 0,
+              total_price: (item.unit_price || 0) * (item.quantity || 1),
+              observations: item.observations || null,
+              complements: item.complements || null,
+              selections: item.selections || null
+            })),
+            total: updatedItem.total || 0,
+            subtotal: updatedItem.subtotal || updatedItem.total || 0,
+            status: 'new',
+            table_id: updatedItem.table_id || null,
+            table_number: updatedItem.table_number || null,
+            table_name: updatedItem.table_name || null,
+            observations: updatedItem.observations || null,
+            comanda_id: updatedItem.id,
+            comanda_code: updatedItem.code,
+            created_date: updatedItem.created_at || new Date().toISOString(),
+            source: 'comanda'
+          };
+          const createOpts = { forSubscriberEmail: ownerEmail };
+          const kitchenOrder = await repo.createEntity('Order', orderData, req.user, createOpts);
+          emitOrderCreated(kitchenOrder);
+          console.log(`✅ [Cozinha] Order criado a partir da atualização da comanda ${updatedItem.code || updatedItem.id}`);
+        }
+      } catch (e) {
+        console.error('Erro ao atualizar Order na cozinha a partir da comanda:', e);
+      }
       // Se comanda foi fechada, atualizar mesa para disponível
       if (updatedItem.status === 'closed' && updatedItem.table_id) {
         try {

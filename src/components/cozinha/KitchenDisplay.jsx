@@ -112,12 +112,27 @@ function OrderCard({ order, onStatusChange, prepTime }) {
         {/* Conteúdo */}
         <div className="p-4 space-y-3">
           {/* Tipo de entrega e cliente */}
-          <div className="flex items-center gap-2 text-sm">
+          <div className="flex items-center gap-2 text-sm flex-wrap">
             <DeliveryIcon className="w-4 h-4 text-gray-500" />
             <span className="text-gray-600 dark:text-gray-400 capitalize">
               {order.delivery_method === 'delivery' ? 'Entrega' : 
-               order.delivery_method === 'pickup' ? 'Retirada' : 'Presencial'}
+               order.delivery_method === 'pickup' ? 'Retirada' : 
+               order.delivery_method === 'dine_in' ? 'Presencial' : 'Presencial'}
             </span>
+            {order.source && (
+              <>
+                <span className="text-gray-300">•</span>
+                <Badge variant="outline" className="text-xs">
+                  {order.source === 'comanda' ? 'Comanda' : order.source === 'pdv' ? 'PDV' : 'Online'}
+                </Badge>
+              </>
+            )}
+            {order.table_name && (
+              <>
+                <span className="text-gray-300">•</span>
+                <span className="text-gray-600 dark:text-gray-400">Mesa: {order.table_name}</span>
+              </>
+            )}
             {order.customer_name && (
               <>
                 <span className="text-gray-300">•</span>
@@ -283,10 +298,43 @@ export default function KitchenDisplay({
       if (a.status === 'new' && b.status !== 'new') return -1;
       if (b.status === 'new' && a.status !== 'new') return 1;
       
-      // Depois por tempo de espera (mais antigos primeiro)
-      const aTime = a.accepted_at ? new Date(a.accepted_at).getTime() : 0;
-      const bTime = b.accepted_at ? new Date(b.accepted_at).getTime() : 0;
-      return aTime - bTime;
+      // Se ambos são novos, ordenar por data de criação (mais antigos primeiro)
+      if (a.status === 'new' && b.status === 'new') {
+        const aCreated = a.created_date || a.created_at ? new Date(a.created_date || a.created_at).getTime() : 0;
+        const bCreated = b.created_date || b.created_at ? new Date(b.created_date || b.created_at).getTime() : 0;
+        return aCreated - bCreated;
+      }
+      
+      // Para pedidos aceitos/preparando: calcular urgência
+      const aPrepTime = a.prep_time || prepTime;
+      const bPrepTime = b.prep_time || prepTime;
+      const aAccepted = a.accepted_at ? new Date(a.accepted_at).getTime() : 0;
+      const bAccepted = b.accepted_at ? new Date(b.accepted_at).getTime() : 0;
+      
+      if (aAccepted > 0 && bAccepted > 0) {
+        const now = new Date().getTime();
+        const aElapsed = (now - aAccepted) / (1000 * 60); // minutos
+        const bElapsed = (now - bAccepted) / (1000 * 60);
+        const aRemaining = aPrepTime - aElapsed;
+        const bRemaining = bPrepTime - bElapsed;
+        
+        // Atrasados primeiro (negativos)
+        if (aRemaining < 0 && bRemaining >= 0) return -1;
+        if (bRemaining < 0 && aRemaining >= 0) return 1;
+        
+        // Se ambos atrasados, mais atrasado primeiro
+        if (aRemaining < 0 && bRemaining < 0) {
+          return aRemaining - bRemaining; // mais negativo = mais atrasado
+        }
+        
+        // Se ambos no prazo, mais urgente primeiro (menos tempo restante)
+        return aRemaining - bRemaining;
+      }
+      
+      // Fallback: por data de criação
+      const aCreated = a.created_date || a.created_at ? new Date(a.created_date || a.created_at).getTime() : 0;
+      const bCreated = b.created_date || b.created_at ? new Date(b.created_date || b.created_at).getTime() : 0;
+      return aCreated - bCreated;
     });
   }, [orders, filter, deliveryFilter]);
 
