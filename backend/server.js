@@ -644,6 +644,76 @@ app.post('/api/auth/login', validate(schemas.login), asyncHandler(async (req, re
         
         if (isValid) {
           console.log('✅ [login] Login bem-sucedido para:', user.email);
+          
+          // Verificar se é assinante e garantir acesso automático aos perfis do plano
+          let subscriber = null;
+          const subscriberEmail = user.subscriber_email || user.email;
+          if (usePostgreSQL) {
+            subscriber = await repo.getSubscriberByEmail(subscriberEmail);
+          } else if (db?.subscribers) {
+            subscriber = db.subscribers.find(s => (s.email || '').toLowerCase().trim() === subscriberEmail.toLowerCase().trim());
+          }
+          
+          // Se for assinante e não for colaborador, garantir acesso automático aos perfis do plano
+          if (subscriber && !user.profile_role && !user.is_master) {
+            const { getPlanPermissions } = await import('./utils/plans.js');
+            const planPerms = getPlanPermissions(subscriber.plan || 'basic');
+            
+            // Verificar quais perfis o plano permite
+            const allowedRoles = [];
+            if (planPerms.delivery_app || planPerms.team_management) allowedRoles.push('entregador');
+            if (planPerms.kitchen_display) allowedRoles.push('cozinha');
+            if (planPerms.pdv) allowedRoles.push('pdv');
+            if (planPerms.waiter_app) allowedRoles.push('garcom');
+            
+            // Criar registros de colaborador para os perfis permitidos se não existirem
+            if (allowedRoles.length > 0) {
+              for (const role of allowedRoles) {
+                // Verificar se já existe colaborador com este email e perfil
+                let existingColab = null;
+                if (usePostgreSQL) {
+                  const all = await repo.listColaboradores(subscriberEmail);
+                  existingColab = all.find(c => 
+                    (c.email || '').toLowerCase().trim() === subscriberEmail.toLowerCase().trim() &&
+                    (c.profile_role || '').toLowerCase().trim() === role
+                  );
+                } else if (db?.users) {
+                  existingColab = db.users.find(u => 
+                    (u.email || '').toLowerCase().trim() === subscriberEmail.toLowerCase().trim() &&
+                    (u.subscriber_email || '').toLowerCase().trim() === subscriberEmail.toLowerCase().trim() &&
+                    (u.profile_role || '').toLowerCase().trim() === role
+                  );
+                }
+                
+                // Se não existe, criar
+                if (!existingColab) {
+                  const userData = {
+                    email: subscriberEmail,
+                    full_name: user.full_name || subscriber.name || subscriberEmail.split('@')[0],
+                    password: user.password, // Usar mesma senha
+                    is_master: false,
+                    role: 'user',
+                    subscriber_email: subscriberEmail,
+                    profile_role: role
+                  };
+                  
+                  if (usePostgreSQL) {
+                    await repo.createUser(userData);
+                  } else if (db?.users) {
+                    const newColab = {
+                      id: String(Date.now() + Math.random()),
+                      ...userData,
+                      created_at: new Date().toISOString(),
+                      updated_at: new Date().toISOString()
+                    };
+                    db.users.push(newColab);
+                  }
+                }
+              }
+              if (typeof saveDatabaseDebounced === 'function') saveDatabaseDebounced(db);
+            }
+          }
+          
           const token = jwt.sign(
             {
               id: user.id,
@@ -1263,7 +1333,41 @@ app.get('/api/colaboradores', authenticate, async (req, res) => {
         .filter(u => (u.subscriber_email || '').toLowerCase().trim() === owner && (u.profile_role || '').trim())
         .map(u => ({ id: u.id, email: u.email, full_name: u.full_name, profile_role: u.profile_role, created_at: u.created_at, updated_at: u.updated_at }));
     }
-    return res.json(list);
+    
+    // Agrupar por email para mostrar múltiplos perfis
+    const grouped = {};
+    list.forEach(item => {
+      const email = item.email.toLowerCase().trim();
+      if (!grouped[email]) {
+        grouped[email] = {
+          email: item.email,
+          full_name: item.full_name,
+          roles: [],
+          ids: [],
+          created_at: item.created_at,
+          updated_at: item.updated_at
+        };
+      }
+      if (!grouped[email].roles.includes(item.profile_role)) {
+        grouped[email].roles.push(item.profile_role);
+      }
+      if (!grouped[email].ids.includes(item.id)) {
+        grouped[email].ids.push(item.id);
+      }
+    });
+    
+    // Converter para array e manter compatibilidade com formato antigo
+    const result = Object.values(grouped).map(item => ({
+      email: item.email,
+      full_name: item.full_name,
+      profile_role: item.roles[0], // Primeiro perfil para compatibilidade
+      profile_roles: item.roles, // Array de perfis
+      ids: item.ids, // IDs dos registros
+      created_at: item.created_at,
+      updated_at: item.updated_at
+    }));
+    
+    return res.json(result);
   } catch (e) {
     console.error('GET /api/colaboradores:', e);
     return res.status(500).json({ error: e?.message || 'Erro ao listar colaboradores' });
@@ -1277,46 +1381,185 @@ app.post('/api/colaboradores', authenticate, validate(schemas.createColaborador)
     if (!canUseColaboradores(subscriber, req.user?.is_master)) {
       return res.status(403).json({ error: 'Colaboradores disponível apenas nos planos Premium e Pro' });
     }
-    const { name, email, password, role } = req.body || {};
-    const roleNorm = (role || '').toLowerCase().trim();
-    if (!COLAB_ROLES.includes(roleNorm)) return res.status(400).json({ error: 'Perfil inválido. Use: entregador, cozinha, pdv ou garcom' });
+    const { name, email, password, roles, role } = req.body || {};
+    
+    // Suportar roles (array) ou role (string) para compatibilidade
+    let rolesToCreate = [];
+    if (roles && Array.isArray(roles) && roles.length > 0) {
+      rolesToCreate = roles.map(r => String(r).toLowerCase().trim()).filter(r => COLAB_ROLES.includes(r));
+    } else if (role) {
+      const roleNorm = String(role).toLowerCase().trim();
+      if (COLAB_ROLES.includes(roleNorm)) {
+        rolesToCreate = [roleNorm];
+      }
+    }
+    
+    if (rolesToCreate.length === 0) return res.status(400).json({ error: 'Selecione pelo menos um perfil válido: entregador, cozinha, pdv ou garcom' });
     if (!(email && String(email).trim())) return res.status(400).json({ error: 'Email é obrigatório' });
     if (!(password && String(password).length >= 6)) return res.status(400).json({ error: 'Senha com no mínimo 6 caracteres' });
     const emailNorm = String(email).toLowerCase().trim();
 
-    let existing = usePostgreSQL ? await repo.getUserByEmail(emailNorm) : db?.users?.find(u => (u.email || '').toLowerCase().trim() === emailNorm);
-    if (existing) return res.status(400).json({ error: 'Este email já está em uso' });
+    // Verificar se já existe colaborador com este email e subscriber
+    let existingColabs = [];
+    if (usePostgreSQL) {
+      const all = await repo.listColaboradores(owner);
+      existingColabs = all.filter(c => (c.email || '').toLowerCase().trim() === emailNorm);
+    } else if (db?.users) {
+      existingColabs = db.users.filter(u => 
+        (u.email || '').toLowerCase().trim() === emailNorm && 
+        (u.subscriber_email || '').toLowerCase().trim() === owner && 
+        (u.profile_role || '').trim()
+      );
+    }
+    
+    // Verificar se algum dos perfis já existe para este email
+    const existingRoles = existingColabs.map(c => (c.profile_role || '').toLowerCase().trim());
+    const duplicateRoles = rolesToCreate.filter(r => existingRoles.includes(r));
+    if (duplicateRoles.length > 0) {
+      return res.status(400).json({ error: `Este email já possui os perfis: ${duplicateRoles.join(', ')}. Remova os perfis duplicados ou use perfis diferentes.` });
+    }
 
     const hashed = await bcrypt.hash(String(password), 10);
-    const userData = {
-      email: emailNorm,
-      full_name: (name || emailNorm.split('@')[0] || '').trim() || 'Colaborador',
-      password: hashed,
-      is_master: false,
-      role: 'user',
-      subscriber_email: owner,
-      profile_role: roleNorm
-    };
-
-    let created;
-    if (usePostgreSQL) {
-      created = await repo.createUser(userData);
-    } else if (db?.users) {
-      created = {
-        id: String(Date.now()),
-        ...userData,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+    const fullName = (name || emailNorm.split('@')[0] || '').trim() || 'Colaborador';
+    
+    // Criar um registro para cada perfil
+    const created = [];
+    for (const roleNorm of rolesToCreate) {
+      const userData = {
+        email: emailNorm,
+        full_name: fullName,
+        password: hashed,
+        is_master: false,
+        role: 'user',
+        subscriber_email: owner,
+        profile_role: roleNorm
       };
-      db.users.push(created);
-      if (typeof saveDatabaseDebounced === 'function') saveDatabaseDebounced(db);
-    } else {
-      return res.status(500).json({ error: 'Banco não disponível' });
+
+      let newUser;
+      if (usePostgreSQL) {
+        newUser = await repo.createUser(userData);
+      } else if (db?.users) {
+        newUser = {
+          id: String(Date.now() + Math.random()),
+          ...userData,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+        db.users.push(newUser);
+      } else {
+        return res.status(500).json({ error: 'Banco não disponível' });
+      }
+      created.push(newUser);
     }
-    const out = { id: created.id, email: created.email, full_name: created.full_name, profile_role: created.profile_role, created_at: created.created_at, updated_at: created.updated_at };
+    
+    if (typeof saveDatabaseDebounced === 'function') saveDatabaseDebounced(db);
+    
+    // Retornar formato agrupado
+    const out = {
+      email: created[0].email,
+      full_name: created[0].full_name,
+      profile_role: created[0].profile_role, // Para compatibilidade
+      profile_roles: created.map(c => c.profile_role), // Array de perfis
+      ids: created.map(c => c.id), // IDs dos registros
+      created_at: created[0].created_at,
+      updated_at: created[0].updated_at
+    };
     return res.status(201).json(out);
   } catch (e) {
     console.error('POST /api/colaboradores:', sanitizeForLog({ error: e?.message }));
+    throw e;
+  }
+}));
+
+// Endpoint para adicionar perfis a um colaborador existente
+app.post('/api/colaboradores/:email/add-roles', authenticate, asyncHandler(async (req, res) => {
+  try {
+    const { owner, subscriber } = await getOwnerAndSubscriber(req);
+    if (!owner) return res.status(400).json({ error: 'Contexto do assinante necessário' });
+    if (!canUseColaboradores(subscriber, req.user?.is_master)) return res.status(403).json({ error: 'Colaboradores disponível apenas nos planos Premium e Pro' });
+    const { roles } = req.body || {};
+    const email = req.params.email;
+    const emailNorm = String(email).toLowerCase().trim();
+    
+    if (!roles || !Array.isArray(roles) || roles.length === 0) {
+      return res.status(400).json({ error: 'Selecione pelo menos um perfil para adicionar' });
+    }
+    
+    const rolesToAdd = roles.map(r => String(r).toLowerCase().trim()).filter(r => COLAB_ROLES.includes(r));
+    if (rolesToAdd.length === 0) return res.status(400).json({ error: 'Perfis inválidos' });
+    
+    // Buscar colaboradores existentes com este email
+    let existingColabs = [];
+    if (usePostgreSQL) {
+      const all = await repo.listColaboradores(owner);
+      existingColabs = all.filter(c => (c.email || '').toLowerCase().trim() === emailNorm);
+    } else if (db?.users) {
+      existingColabs = db.users.filter(u => 
+        (u.email || '').toLowerCase().trim() === emailNorm && 
+        (u.subscriber_email || '').toLowerCase().trim() === owner && 
+        (u.profile_role || '').trim()
+      );
+    }
+    
+    if (existingColabs.length === 0) {
+      return res.status(404).json({ error: 'Colaborador não encontrado. Crie o colaborador primeiro.' });
+    }
+    
+    const existingRoles = existingColabs.map(c => (c.profile_role || '').toLowerCase().trim());
+    const newRoles = rolesToAdd.filter(r => !existingRoles.includes(r));
+    
+    if (newRoles.length === 0) {
+      return res.status(400).json({ error: 'Todos os perfis selecionados já existem para este colaborador' });
+    }
+    
+    // Buscar usuário base para pegar senha e nome
+    const baseUser = existingColabs[0];
+    let userBase = null;
+    if (usePostgreSQL) {
+      userBase = await repo.getUserById(baseUser.id);
+    } else if (db?.users) {
+      userBase = db.users.find(u => String(u.id) === String(baseUser.id));
+    }
+    
+    if (!userBase) return res.status(404).json({ error: 'Usuário base não encontrado' });
+    
+    // Criar novos registros para os perfis adicionais
+    const created = [];
+    for (const role of newRoles) {
+      const userData = {
+        email: emailNorm,
+        full_name: userBase.full_name || baseUser.full_name,
+        password: userBase.password, // Mesma senha
+        is_master: false,
+        role: 'user',
+        subscriber_email: owner,
+        profile_role: role
+      };
+      
+      let newUser;
+      if (usePostgreSQL) {
+        newUser = await repo.createUser(userData);
+      } else if (db?.users) {
+        newUser = {
+          id: String(Date.now() + Math.random()),
+          ...userData,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+        db.users.push(newUser);
+      }
+      created.push(newUser);
+    }
+    
+    if (typeof saveDatabaseDebounced === 'function') saveDatabaseDebounced(db);
+    
+    return res.json({ 
+      success: true, 
+      message: `Perfis adicionados: ${newRoles.join(', ')}`,
+      added_roles: newRoles
+    });
+  } catch (e) {
+    console.error('POST /api/colaboradores/:email/add-roles:', sanitizeForLog({ error: e?.message }));
     throw e;
   }
 }));
@@ -1326,7 +1569,7 @@ app.patch('/api/colaboradores/:id', authenticate, asyncHandler(async (req, res) 
     const { owner, subscriber } = await getOwnerAndSubscriber(req);
     if (!owner) return res.status(400).json({ error: 'Contexto do assinante necessário' });
     if (!canUseColaboradores(subscriber, req.user?.is_master)) return res.status(403).json({ error: 'Colaboradores disponível apenas nos planos Premium e Pro' });
-    const { name, role, newPassword } = req.body || {};
+    const { name, role, roles, newPassword } = req.body || {};
     const id = req.params.id;
 
     let u = null;
@@ -1344,7 +1587,27 @@ app.patch('/api/colaboradores/:id', authenticate, asyncHandler(async (req, res) 
       const r = String(role).toLowerCase().trim();
       if (COLAB_ROLES.includes(r)) up.profile_role = r;
     }
-    if (newPassword !== undefined && String(newPassword).length >= 6) up.password = await bcrypt.hash(String(newPassword), 10);
+    if (newPassword !== undefined && String(newPassword).length >= 6) {
+      up.password = await bcrypt.hash(String(newPassword), 10);
+      // Atualizar senha em todos os registros do mesmo email
+      const emailNorm = (u.email || '').toLowerCase().trim();
+      if (usePostgreSQL) {
+        const all = await repo.listColaboradores(owner);
+        const sameEmail = all.filter(c => (c.email || '').toLowerCase().trim() === emailNorm);
+        for (const colab of sameEmail) {
+          await repo.updateUser(colab.id, { password: up.password });
+        }
+      } else if (db?.users) {
+        db.users.forEach(user => {
+          if ((user.email || '').toLowerCase().trim() === emailNorm && 
+              (user.subscriber_email || '').toLowerCase().trim() === owner && 
+              (user.profile_role || '').trim()) {
+            user.password = up.password;
+            user.updated_at = new Date().toISOString();
+          }
+        });
+      }
+    }
 
     if (Object.keys(up).length === 0) return res.json({ id: u.id, email: u.email, full_name: u.full_name, profile_role: u.profile_role });
 

@@ -5,17 +5,21 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { UserCog, Plus, Pencil, Trash2, Truck, ChefHat, CreditCard, Receipt, Loader2, Eye, EyeOff } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { UserCog, Plus, Pencil, Trash2, Truck, ChefHat, CreditCard, Receipt, Loader2, Eye, EyeOff, UserPlus } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const ROLE_LABELS = { entregador: 'Entregador', cozinha: 'Cozinha', pdv: 'PDV', garcom: 'Garçom' };
 const ROLE_ICONS = { entregador: Truck, cozinha: ChefHat, pdv: CreditCard, garcom: Receipt };
+const ALL_ROLES = ['entregador', 'cozinha', 'pdv', 'garcom'];
 
 export default function ColaboradoresTab() {
   const [showModal, setShowModal] = useState(false);
+  const [showAddRolesModal, setShowAddRolesModal] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'pdv' });
+  const [addingRolesTo, setAddingRolesTo] = useState(null);
+  const [form, setForm] = useState({ name: '', email: '', password: '', roles: ['pdv'] });
+  const [addRolesForm, setAddRolesForm] = useState({ roles: [] });
   const [showPass, setShowPass] = useState(false);
   const queryClient = useQueryClient();
 
@@ -23,29 +27,70 @@ export default function ColaboradoresTab() {
     queryKey: ['colaboradores'],
     queryFn: () => base44.get('/colaboradores').then(r => (Array.isArray(r) ? r : r.data || [])),
   });
+  
+  // Agrupar por email para mostrar múltiplos perfis
+  const groupedList = React.useMemo(() => {
+    const grouped = {};
+    list.forEach(item => {
+      const email = (item.email || '').toLowerCase().trim();
+      if (!grouped[email]) {
+        grouped[email] = {
+          email: item.email,
+          full_name: item.full_name,
+          roles: item.profile_roles || [item.profile_role].filter(Boolean),
+          ids: item.ids || [item.id].filter(Boolean),
+          created_at: item.created_at,
+          updated_at: item.updated_at
+        };
+      } else {
+        // Adicionar roles únicos
+        const existingRoles = grouped[email].roles;
+        const newRoles = item.profile_roles || [item.profile_role].filter(Boolean);
+        newRoles.forEach(role => {
+          if (!existingRoles.includes(role)) {
+            existingRoles.push(role);
+          }
+        });
+      }
+    });
+    return Object.values(grouped);
+  }, [list]);
 
   const createMu = useMutation({
     mutationFn: (body) => base44.post('/colaboradores', body),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['colaboradores'] });
       setShowModal(false);
-      setForm({ name: '', email: '', password: '', role: 'pdv' });
+      setForm({ name: '', email: '', password: '', roles: ['pdv'] });
       setEditing(null);
       toast.success('Colaborador adicionado.');
     },
     onError: (e) => toast.error(e?.message || 'Erro ao criar'),
   });
+  
+  const addRolesMu = useMutation({
+    mutationFn: ({ email, roles }) => base44.post(`/colaboradores/${encodeURIComponent(email)}/add-roles`, { roles }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['colaboradores'] });
+      setShowAddRolesModal(false);
+      setAddingRolesTo(null);
+      setAddRolesForm({ roles: [] });
+      toast.success('Perfis adicionados com sucesso.');
+    },
+    onError: (e) => toast.error(e?.message || 'Erro ao adicionar perfis'),
+  });
 
   const updateMu = useMutation({
     mutationFn: ({ id, ...body }) => {
-      const b = { name: body.name, role: body.role };
+      const b = { name: body.name };
+      if (body.role) b.role = body.role; // Para compatibilidade
       if (body.newPassword) b.newPassword = body.newPassword;
       return base44.patch(`/colaboradores/${id}`, b);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['colaboradores'] });
       setShowModal(false);
-      setForm({ name: '', email: '', password: '', role: 'pdv' });
+      setForm({ name: '', email: '', password: '', roles: ['pdv'] });
       setEditing(null);
       toast.success('Colaborador atualizado.');
     },
@@ -63,42 +108,95 @@ export default function ColaboradoresTab() {
 
   const openAdd = () => {
     setEditing(null);
-    setForm({ name: '', email: '', password: '', role: 'pdv' });
+    setForm({ name: '', email: '', password: '', roles: ['pdv'] });
     setShowPass(false);
     setShowModal(true);
   };
 
   const openEdit = (row) => {
     setEditing(row);
-    setForm({ name: row.full_name || '', email: row.email || '', password: '', role: (row.profile_role || 'pdv').toLowerCase() });
+    setForm({ 
+      name: row.full_name || '', 
+      email: row.email || '', 
+      password: '', 
+      roles: row.roles || [row.profile_role].filter(Boolean) 
+    });
     setShowPass(false);
     setShowModal(true);
+  };
+  
+  const openAddRoles = (row) => {
+    setAddingRolesTo(row);
+    const existingRoles = row.roles || [];
+    const availableRoles = ALL_ROLES.filter(r => !existingRoles.includes(r));
+    setAddRolesForm({ roles: [] });
+    setShowAddRolesModal(true);
   };
 
   const handleCloseModal = (open) => {
     setShowModal(open);
     if (!open) {
       setEditing(null);
-      setForm({ name: '', email: '', password: '', role: 'pdv' });
+      setForm({ name: '', email: '', password: '', roles: ['pdv'] });
       setShowPass(false);
+    }
+  };
+  
+  const handleCloseAddRolesModal = (open) => {
+    setShowAddRolesModal(open);
+    if (!open) {
+      setAddingRolesTo(null);
+      setAddRolesForm({ roles: [] });
     }
   };
 
   const submit = () => {
     if (editing) {
-      const up = { name: form.name, role: form.role };
+      const up = { name: form.name };
       if (form.password) up.newPassword = form.password;
-      updateMu.mutate({ id: editing.id, ...up });
+      // Para edição, manter compatibilidade com role único
+      if (form.roles && form.roles.length > 0) {
+        up.role = form.roles[0]; // Primeiro perfil para compatibilidade
+      }
+      updateMu.mutate({ id: editing.ids?.[0] || editing.id, ...up });
     } else {
       if (!form.email?.trim()) { toast.error('Email é obrigatório'); return; }
       if (!form.password || form.password.length < 6) { toast.error('Senha com no mínimo 6 caracteres'); return; }
-      createMu.mutate({ name: form.name, email: form.email.trim(), password: form.password, role: form.role });
+      if (!form.roles || form.roles.length === 0) { toast.error('Selecione pelo menos um perfil'); return; }
+      createMu.mutate({ name: form.name, email: form.email.trim(), password: form.password, roles: form.roles });
     }
+  };
+  
+  const submitAddRoles = () => {
+    if (!addingRolesTo) return;
+    if (!addRolesForm.roles || addRolesForm.roles.length === 0) {
+      toast.error('Selecione pelo menos um perfil para adicionar');
+      return;
+    }
+    addRolesMu.mutate({ email: addingRolesTo.email, roles: addRolesForm.roles });
   };
 
   const remove = (id) => {
-    if (!confirm('Remover este colaborador? Ele perderá o acesso.')) return;
+    if (!confirm('Remover este perfil? O colaborador perderá acesso a este perfil específico.')) return;
     deleteMu.mutate(id);
+  };
+  
+  const toggleRole = (role) => {
+    setForm(f => ({
+      ...f,
+      roles: f.roles.includes(role) 
+        ? f.roles.filter(r => r !== role)
+        : [...f.roles, role]
+    }));
+  };
+  
+  const toggleAddRole = (role) => {
+    setAddRolesForm(f => ({
+      ...f,
+      roles: f.roles.includes(role) 
+        ? f.roles.filter(r => r !== role)
+        : [...f.roles, role]
+    }));
   };
 
   return (
@@ -110,7 +208,7 @@ export default function ColaboradoresTab() {
             Colaboradores
           </h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-            Perfis com acesso limitado: Entregador, Cozinha, PDV e Garçom. Apenas planos Pro e Ultra.
+            Perfis com acesso limitado: Entregador, Cozinha, PDV e Garçom. Apenas planos Pro e Ultra. Você pode adicionar múltiplos perfis ao mesmo colaborador.
           </p>
         </div>
         <Button onClick={openAdd} className="bg-orange-500 hover:bg-orange-600">
@@ -135,32 +233,43 @@ export default function ColaboradoresTab() {
         </div>
       ) : (
         <div className="grid gap-3">
-          {list.map((row) => {
-            const Icon = ROLE_ICONS[row.profile_role] || UserCog;
+          {groupedList.map((row) => {
             return (
               <div
-                key={row.id}
+                key={row.email}
                 className="flex flex-wrap items-center justify-between gap-3 p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700"
               >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center">
-                    <Icon className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <div className="w-10 h-10 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center flex-shrink-0">
+                    <UserCog className="w-5 h-5 text-orange-600 dark:text-orange-400" />
                   </div>
-                  <div>
-                    <p className="font-medium text-gray-900 dark:text-white">{row.full_name || row.email}</p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">{row.email}</p>
-                    <span className="inline-block mt-1 text-xs font-medium px-2 py-0.5 rounded bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300">
-                      {ROLE_LABELS[row.profile_role] || row.profile_role}
-                    </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-gray-900 dark:text-white truncate">{row.full_name || row.email}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{row.email}</p>
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {row.roles.map(role => {
+                        const Icon = ROLE_ICONS[role] || UserCog;
+                        return (
+                          <span 
+                            key={role}
+                            className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300"
+                          >
+                            <Icon className="w-3 h-3" />
+                            {ROLE_LABELS[role] || role}
+                          </span>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-shrink-0">
+                  <Button variant="outline" size="sm" onClick={() => openAddRoles(row)} disabled={row.roles.length >= ALL_ROLES.length}>
+                    <UserPlus className="w-4 h-4 mr-1" />
+                    Adicionar Perfis
+                  </Button>
                   <Button variant="outline" size="sm" onClick={() => openEdit(row)}>
                     <Pencil className="w-4 h-4 mr-1" />
                     Editar
-                  </Button>
-                  <Button variant="outline" size="sm" className="text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20" onClick={() => remove(row.id)}>
-                    <Trash2 className="w-4 h-4" />
                   </Button>
                 </div>
               </div>
@@ -194,18 +303,31 @@ export default function ColaboradoresTab() {
               />
             </div>
             <div>
-              <Label>Perfil</Label>
-              <Select value={form.role} onValueChange={(v) => setForm((f) => ({ ...f, role: v }))}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o perfil" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="entregador">Entregador</SelectItem>
-                  <SelectItem value="cozinha">Cozinha</SelectItem>
-                  <SelectItem value="pdv">PDV</SelectItem>
-                  <SelectItem value="garcom">Garçom</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label>Perfis (selecione um ou mais)</Label>
+              <div className="space-y-2 mt-2">
+                {ALL_ROLES.map(role => {
+                  const Icon = ROLE_ICONS[role];
+                  return (
+                    <div key={role} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`role-${role}`}
+                        checked={form.roles.includes(role)}
+                        onCheckedChange={() => toggleRole(role)}
+                      />
+                      <Label 
+                        htmlFor={`role-${role}`}
+                        className="flex items-center gap-2 cursor-pointer flex-1"
+                      >
+                        <Icon className="w-4 h-4" />
+                        {ROLE_LABELS[role]}
+                      </Label>
+                    </div>
+                  );
+                })}
+              </div>
+              {form.roles.length === 0 && (
+                <p className="text-sm text-red-500 mt-1">Selecione pelo menos um perfil</p>
+              )}
             </div>
             <div>
               <Label>{editing ? 'Nova senha (deixe em branco para não alterar)' : 'Senha (mín. 6)'}</Label>
@@ -227,6 +349,58 @@ export default function ColaboradoresTab() {
             <Button onClick={submit} disabled={createMu.isPending || updateMu.isPending} className="bg-orange-500 hover:bg-orange-600">
               {(createMu.isPending || updateMu.isPending) && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               {editing ? 'Salvar' : 'Adicionar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Modal para adicionar perfis */}
+      <Dialog open={showAddRolesModal} onOpenChange={handleCloseAddRolesModal}>
+        <DialogContent className="sm:max-w-lg max-w-[90vw] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Adicionar perfis a {addingRolesTo?.full_name || addingRolesTo?.email}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Perfis atuais: {addingRolesTo?.roles?.map(r => ROLE_LABELS[r]).join(', ') || 'Nenhum'}
+            </p>
+            <div>
+              <Label>Selecione os perfis para adicionar</Label>
+              <div className="space-y-2 mt-2">
+                {ALL_ROLES.filter(role => !addingRolesTo?.roles?.includes(role)).map(role => {
+                  const Icon = ROLE_ICONS[role];
+                  return (
+                    <div key={role} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`add-role-${role}`}
+                        checked={addRolesForm.roles.includes(role)}
+                        onCheckedChange={() => toggleAddRole(role)}
+                      />
+                      <Label 
+                        htmlFor={`add-role-${role}`}
+                        className="flex items-center gap-2 cursor-pointer flex-1"
+                      >
+                        <Icon className="w-4 h-4" />
+                        {ROLE_LABELS[role]}
+                      </Label>
+                    </div>
+                  );
+                })}
+              </div>
+              {ALL_ROLES.filter(role => !addingRolesTo?.roles?.includes(role)).length === 0 && (
+                <p className="text-sm text-gray-500 mt-2">Este colaborador já possui todos os perfis disponíveis.</p>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddRolesModal(false)}>Cancelar</Button>
+            <Button 
+              onClick={submitAddRoles} 
+              disabled={addRolesMu.isPending || addRolesForm.roles.length === 0} 
+              className="bg-orange-500 hover:bg-orange-600"
+            >
+              {addRolesMu.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Adicionar Perfis
             </Button>
           </DialogFooter>
         </DialogContent>

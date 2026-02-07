@@ -84,14 +84,16 @@ export const schemas = {
     name: z.string().min(1, 'Nome é obrigatório'),
     email: z.string().email('Email inválido').toLowerCase().trim(),
     password: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres'),
-    role: z.enum(['entregador', 'cozinha', 'pdv'], {
-      errorMap: () => ({ message: 'Perfil inválido. Use: entregador, cozinha ou pdv' })
-    })
+    roles: z.array(z.enum(['entregador', 'cozinha', 'pdv', 'garcom'])).min(1, 'Selecione pelo menos um perfil'),
+    // Manter role para compatibilidade com versões antigas
+    role: z.enum(['entregador', 'cozinha', 'pdv', 'garcom']).optional()
   }),
   
   updateColaborador: z.object({
     name: z.string().min(1).optional(),
-    role: z.enum(['entregador', 'cozinha', 'pdv']).optional(),
+    roles: z.array(z.enum(['entregador', 'cozinha', 'pdv', 'garcom'])).optional(),
+    // Manter role para compatibilidade
+    role: z.enum(['entregador', 'cozinha', 'pdv', 'garcom']).optional(),
     newPassword: z.string().min(6).optional()
   })
 };
