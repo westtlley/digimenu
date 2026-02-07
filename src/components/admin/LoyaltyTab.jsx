@@ -25,15 +25,34 @@ export default function LoyaltyTab() {
   });
 
   const queryClient = useQueryClient();
+  const { menuContext } = usePermission();
 
+  // ✅ CORREÇÃO: Buscar configurações de fidelidade com contexto do slug
   const { data: loyaltyConfigs = [] } = useQuery({
-    queryKey: ['loyaltyConfig'],
-    queryFn: () => base44.entities.LoyaltyConfig.list()
+    queryKey: ['loyaltyConfig', menuContext?.type, menuContext?.value],
+    queryFn: async () => {
+      if (!menuContext) return [];
+      const opts = {};
+      if (menuContext.type === 'subscriber' && menuContext.value) {
+        opts.as_subscriber = menuContext.value;
+      }
+      return base44.entities.LoyaltyConfig.list(null, opts);
+    },
+    enabled: !!menuContext,
   });
 
+  // ✅ CORREÇÃO: Buscar recompensas com contexto do slug
   const { data: rewards = [] } = useQuery({
-    queryKey: ['loyaltyRewards'],
-    queryFn: () => base44.entities.LoyaltyReward.list()
+    queryKey: ['loyaltyRewards', menuContext?.type, menuContext?.value],
+    queryFn: async () => {
+      if (!menuContext) return [];
+      const opts = {};
+      if (menuContext.type === 'subscriber' && menuContext.value) {
+        opts.as_subscriber = menuContext.value;
+      }
+      return base44.entities.LoyaltyReward.list(null, opts);
+    },
+    enabled: !!menuContext,
   });
 
   const config = loyaltyConfigs[0] || { points_per_real: 1, min_order_value: 0, is_active: false };
