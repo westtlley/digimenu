@@ -173,16 +173,7 @@ export default function SharedSidebar({
   const store = stores[0];
 
   const hasModuleAccess = (module) => {
-    // Master sempre tem acesso a tudo
-    if (isMaster) {
-      if (module === 'colaboradores') {
-        console.log('[SharedSidebar] Colaboradores: isMaster=true, acesso permitido');
-      }
-      return true;
-    }
-    
-    // ✅ DEBUG: Log do plan recebido
-    console.log(`[SharedSidebar] hasModuleAccess(${module}): plan=${plan}, isMaster=${isMaster}, permissions=`, permissions);
+    if (isMaster) return true;
     
     const planLower = (plan || '').toLowerCase();
     
@@ -205,9 +196,7 @@ export default function SharedSidebar({
     
     // Módulos especiais que dependem do plano
     if (module === 'colaboradores') {
-      const hasAccess = ['pro', 'ultra'].includes(planLower);
-      console.log(`[SharedSidebar] Colaboradores: plan=${planLower}, isMaster=${isMaster}, hasAccess=${hasAccess}`);
-      return hasAccess;
+      return ['pro', 'ultra'].includes(planLower);
     }
     
     // Módulos de Garçom - apenas Ultra
@@ -220,29 +209,7 @@ export default function SharedSidebar({
       return ['pro', 'ultra'].includes(planLower);
     }
     
-    // Módulos básicos - todos os planos pagos
-    if (['dashboard', 'dishes', 'orders', 'clients', 'whatsapp', 'store', 'theme', 'printer'].includes(module)) {
-      return ['basic', 'pro', 'ultra'].includes(planLower);
-    }
-    
-    // ✅ Se não tem plan válido, verificar permissões do backend como fallback
-    if (!planLower || planLower === 'basic') {
-      if (permissions && typeof permissions === 'object') {
-        const modulePerms = permissions[module];
-        const hasPerms = Array.isArray(modulePerms) && modulePerms.length > 0;
-        if (hasPerms) {
-          console.log(`[SharedSidebar] hasModuleAccess(${module}): Usando permissões do backend (plan=${planLower})`);
-          return true;
-        }
-      }
-      // Se não tem permissões e plan é vazio/basic, negar acesso para módulos avançados
-      if (!planLower) {
-        console.log(`[SharedSidebar] hasModuleAccess(${module}): Plan vazio e sem permissões, negando acesso`);
-        return false;
-      }
-    }
-    
-    // Verificar permissões do backend como validação adicional
+    // Fonte da verdade: permissões do backend (respeita plano básico pratos vs pizzaria e planos custom)
     if (permissions && typeof permissions === 'object') {
       const modulePerms = permissions[module];
       if (Array.isArray(modulePerms) && modulePerms.length > 0) {
@@ -250,28 +217,25 @@ export default function SharedSidebar({
       }
     }
     
-    // Se chegou aqui e não tem plan válido, negar
-    if (!planLower) {
-      return false;
-    }
-    
-    // Por padrão, se tem plan válido, permitir acesso aos módulos básicos
-    return true;
+    return false;
   };
 
   const toggleGroup = (groupId) => {
     setExpandedGroups(prev => ({ ...prev, [groupId]: !prev[groupId] }));
   };
 
+  // Plano Básico: mostrar só Restaurante OU Pizzaria (nunca os dois)
   const hideDishesBasicPizzas = (sub) =>
     plan === 'basic' && sub.id === 'dishes' && hasModuleAccess('pizza_config');
+  const hidePizzaConfigBasicRestaurant = (sub) =>
+    plan === 'basic' && sub.id === 'pizza_config' && hasModuleAccess('dishes') && !hasModuleAccess('pizza_config');
 
   const getLeafItems = (it) => {
     if (!it.submenu) return [];
     return it.submenu.flatMap(s =>
       s.section === 'subsection'
-        ? (s.submenu || []).filter(x => x.module && hasModuleAccess(x.module) && !hideDishesBasicPizzas(x))
-        : (s.module && hasModuleAccess(s.module) && !hideDishesBasicPizzas(s) ? [s] : [])
+        ? (s.submenu || []).filter(x => x.module && hasModuleAccess(x.module) && !hideDishesBasicPizzas(x) && !hidePizzaConfigBasicRestaurant(x))
+        : (s.module && hasModuleAccess(s.module) && !hideDishesBasicPizzas(s) && !hidePizzaConfigBasicRestaurant(s) ? [s] : [])
     );
   };
 
@@ -291,8 +255,8 @@ export default function SharedSidebar({
       const isExpanded = expandedGroups[item.id];
       const visibleSubmenu = (item.submenu || []).filter(sub => {
         if (sub.section === 'subsection')
-          return (sub.submenu || []).some(s => s.module && hasModuleAccess(s.module) && !hideDishesBasicPizzas(s));
-        return sub.module && hasModuleAccess(sub.module) && !hideDishesBasicPizzas(sub);
+          return (sub.submenu || []).some(s => s.module && hasModuleAccess(s.module) && !hideDishesBasicPizzas(s) && !hidePizzaConfigBasicRestaurant(s));
+        return sub.module && hasModuleAccess(sub.module) && !hideDishesBasicPizzas(sub) && !hidePizzaConfigBasicRestaurant(sub);
       });
       if (visibleSubmenu.length === 0) return null;
 

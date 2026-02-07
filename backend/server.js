@@ -817,31 +817,30 @@ app.get('/api/user/context', authenticate, asyncHandler(async (req, res) => {
       };
       permissions = {}; // Master tem todas as permissões (vazio = acesso total)
     } else {
-      // Buscar subscriber
+      const emailToFind = user.subscriber_email || user.email;
       if (usePostgreSQL) {
-        if (user.subscriber_email) {
-          subscriber = await repo.getSubscriberByEmail(user.subscriber_email);
+        if (emailToFind) {
+          subscriber = await repo.getSubscriberByEmail(emailToFind);
         }
-      } else if (db && db.subscribers && user.subscriber_email) {
-        subscriber = db.subscribers.find(s => s.email?.toLowerCase() === user.subscriber_email?.toLowerCase());
+      } else if (db && db.subscribers && emailToFind) {
+        subscriber = db.subscribers.find(s => (s.email || '').toLowerCase() === (emailToFind || '').toLowerCase());
       }
 
       if (subscriber) {
-        // ✅ DEBUG: Log do subscriber encontrado
-        console.log('🔍 [user/context] Subscriber encontrado:', {
-          email: subscriber.email,
-          plan: subscriber.plan,
-          status: subscriber.status
-        });
-        
         menuContext = {
           type: 'subscriber',
           value: subscriber.email
         };
-        permissions = subscriber.permissions || {};
-        
-        // Ajustes de permissões padrão para planos básicos
-        if (subscriber.plan === 'basic' && Array.isArray(permissions.dishes) && permissions.dishes.includes('view') && !permissions.dishes.includes('create')) {
+        let raw = subscriber.permissions;
+        if (typeof raw === 'string') {
+          try {
+            raw = JSON.parse(raw);
+          } catch (e) {
+            raw = {};
+          }
+        }
+        permissions = (raw && typeof raw === 'object') ? raw : {};
+        if (subscriber.plan === 'basic' && Array.isArray(permissions.dishes) && permissions.dishes?.includes('view') && !permissions.dishes?.includes('create')) {
           permissions = { ...permissions, dishes: ['view', 'create', 'update', 'delete'] };
         }
         if (['basic', 'pro'].includes(subscriber.plan) && (!Array.isArray(permissions.store) || permissions.store.length === 0)) {
@@ -869,12 +868,19 @@ app.get('/api/user/context', authenticate, asyncHandler(async (req, res) => {
       },
       menuContext,
       permissions,
-      subscriberData: user.is_master ? null : (subscriber ? {
-        email: subscriber.email,
-        plan: subscriber.plan || 'basic', // ✅ Garantir que plan sempre tenha valor (default: 'basic')
-        status: subscriber.status || 'active', // ✅ Garantir que status sempre tenha valor
-        permissions: subscriber.permissions || {}
-      } : null)
+      subscriberData: user.is_master ? null : (subscriber ? (() => {
+        let p = subscriber.permissions;
+        if (typeof p === 'string') {
+          try { p = JSON.parse(p); } catch (e) { p = {}; }
+        }
+        return {
+          email: subscriber.email,
+          plan: subscriber.plan || 'basic',
+          status: subscriber.status || 'active',
+          expires_at: subscriber.expires_at || null,
+          permissions: (p && typeof p === 'object') ? p : {}
+        };
+      })() : null)
     });
   } catch (error) {
     console.error('❌ [user/context] Erro ao obter contexto:', error);

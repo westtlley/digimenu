@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { base44 } from '@/api/base44Client';
 import { log } from '@/utils/logger';
 import { createUserContext, isValidContext } from '@/utils/userContext';
+import { getPlanPermissions } from '@/components/permissions/PlanPresets';
 
 /**
  * Hook para verificar permissões do usuário atual
@@ -23,7 +24,7 @@ export function usePermission() {
       
       // ✅ NOVO: Usar endpoint /api/user/context que retorna tudo pronto
       try {
-        const contextData = await base44.get('/user/context');
+        const contextData = await base44.get('/user/context', { _t: Date.now() });
         
         if (!contextData || !contextData.user) {
           log.permission.warn('⚠️ [usePermission] Contexto não retornado pelo backend');
@@ -43,7 +44,23 @@ export function usePermission() {
         });
 
         setUser(contextData.user);
-        setPermissions(contextData.permissions || {});
+
+        let perms = contextData.permissions;
+        if (typeof perms === 'string') {
+          try {
+            perms = JSON.parse(perms);
+          } catch (e) {
+            perms = {};
+          }
+        }
+        if (!perms || typeof perms !== 'object') perms = {};
+        const planSlug = contextData.subscriberData?.plan || 'basic';
+        const isEmpty = Object.keys(perms).length === 0;
+        if (!contextData.user.is_master && ['free', 'basic', 'pro', 'ultra'].includes(planSlug) && isEmpty) {
+          perms = { ...(getPlanPermissions(planSlug) || {}), ...perms };
+        }
+        setPermissions(perms);
+
         // ✅ Garantir que subscriberData sempre tenha plan e status
         const subscriber = contextData.subscriberData ? {
           ...contextData.subscriberData,
@@ -51,12 +68,12 @@ export function usePermission() {
           status: contextData.subscriberData.status || 'active'
         } : null;
         setSubscriberData(subscriber);
-        
+
         // ✅ Criar contexto de usuário (backend já retornou menuContext, mas criamos aqui para consistência)
         const context = createUserContext(
           contextData.user,
           contextData.subscriberData,
-          contextData.permissions || {}
+          perms
         );
         setUserContext(context);
         log.permission.log('✅ [usePermission] Contexto criado:', context.menuContext);
@@ -152,31 +169,18 @@ export function usePermission() {
     
     const planLower = (subscriberData?.plan || '').toLowerCase();
     
-    // Módulos especiais que dependem do plano
-    if (module === 'colaboradores') {
-      return ['pro', 'ultra'].includes(planLower);
+    // Fonte da verdade: permissões do backend (respeita básico pratos/pizzaria e custom)
+    if (permissions && typeof permissions === 'object') {
+      const modulePerms = permissions[module];
+      if (Array.isArray(modulePerms) && modulePerms.length > 0) return true;
     }
     
-    // Módulos de Garçom - apenas Ultra
-    if (['comandas', 'tables', 'garcom'].includes(module)) {
-      return planLower === 'ultra';
-    }
+    // Regras por plano só para negar (ex.: colaboradores só Pro/Ultra)
+    if (module === 'colaboradores') return ['pro', 'ultra'].includes(planLower);
+    if (['comandas', 'tables', 'garcom'].includes(module)) return planLower === 'ultra';
+    if (['affiliates', 'lgpd', '2fa', 'inventory'].includes(module)) return ['pro', 'ultra'].includes(planLower);
     
-    // Módulos avançados - Pro e Ultra
-    if (['affiliates', 'lgpd', '2fa', 'inventory'].includes(module)) {
-      return ['pro', 'ultra'].includes(planLower);
-    }
-    
-    // Módulos básicos - todos os planos pagos
-    if (['dashboard', 'dishes', 'orders', 'clients', 'whatsapp', 'store', 'theme', 'printer'].includes(module)) {
-      return ['basic', 'pro', 'ultra'].includes(planLower);
-    }
-    
-    // Verificar permissões do backend
-    if (!permissions || typeof permissions !== 'object') return false;
-    
-    const modulePerms = permissions[module];
-    return Array.isArray(modulePerms) && modulePerms.length > 0;
+    return false;
   };
 
   /**

@@ -25,11 +25,14 @@ import { useIsMobile } from '@/hooks/use-mobile';
 export default function MobileQuickMenu({ 
   isMaster, 
   hasGestorAccess, 
+  hasModuleAccess,
   slug,
   className = '' 
 }) {
   const [open, setOpen] = useState(false);
   const isMobile = useIsMobile();
+
+  const can = (module) => (typeof hasModuleAccess === 'function' ? hasModuleAccess(module) : true);
 
   const menuItems = [
     ...(isMaster ? [
@@ -58,14 +61,14 @@ export default function MobileQuickMenu({
       color: 'from-green-600 to-green-700',
       hoverColor: 'hover:from-green-700 hover:to-green-800'
     },
-    {
+    ...(can('pdv') ? [{
       id: 'pdv',
       label: 'PDV',
       icon: Calculator,
       to: createPageUrl('PDV'),
       color: 'from-blue-600 to-blue-700',
       hoverColor: 'hover:from-blue-700 hover:to-blue-800'
-    },
+    }] : []),
     ...(hasGestorAccess ? [
       {
         id: 'gestor',
@@ -76,22 +79,22 @@ export default function MobileQuickMenu({
         hoverColor: 'hover:from-orange-700 hover:to-orange-800'
       }
     ] : []),
-    {
+    ...(can('orders') ? [{
       id: 'entregador',
       label: 'Entregador',
       icon: Bike,
       to: createPageUrl('Entregador'),
       color: 'from-cyan-600 to-cyan-700',
       hoverColor: 'hover:from-cyan-700 hover:to-cyan-800'
-    },
-    {
+    }] : []),
+    ...(can('garcom') ? [{
       id: 'garcom',
       label: 'Garçom',
       icon: UserCheck,
       to: createPageUrl('Garcom'),
       color: 'from-indigo-600 to-indigo-700',
       hoverColor: 'hover:from-indigo-700 hover:to-indigo-800'
-    }
+    }] : [])
   ];
 
   if (menuItems.length === 0) return null;

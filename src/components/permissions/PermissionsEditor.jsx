@@ -134,8 +134,10 @@ export default function PermissionsEditor({ permissions, onChange, selectedPlan 
     const next = { ...permissions, store: permissions?.store?.length ? permissions.store : ['view', 'update'] };
     if (mode === 'pizzas') {
       next.pizza_config = ['view', 'create', 'update', 'delete'];
+      next.dishes = []; // Básico Pizzaria: só pizzas, sem módulo pratos
     } else {
       next.pizza_config = [];
+      next.dishes = ['view', 'create', 'update', 'delete']; // Básico Restaurante: só pratos
     }
     onChange(next);
   };
@@ -253,11 +255,14 @@ export default function PermissionsEditor({ permissions, onChange, selectedPlan 
         </Select>
       </div>
 
-      {/* 2) No Básico: Pratos ou Pizzas */}
+      {/* 2) No Básico: Restaurante (pratos) ou Pizzaria (pizzas) - escolha obrigatória */}
       {currentPlan === 'basic' && (
-        <div className="flex items-center gap-3 p-3 rounded-lg bg-amber-50 border border-amber-200">
-          <Label className="text-sm shrink-0">No Básico:</Label>
-          <div className="flex gap-2">
+        <div className="flex flex-col gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+          <Label className="text-sm font-medium">Plano Básico: tipo de estabelecimento</Label>
+          <p className="text-xs text-amber-700 dark:text-amber-400">
+            No plano Básico o cardápio é apenas <strong>Restaurante (pratos)</strong> ou <strong>Pizzaria (pizzas)</strong>. Nos planos Pro e Ultra os dois estão disponíveis.
+          </p>
+          <div className="flex gap-2 flex-wrap">
             <Button
               type="button"
               size="sm"
@@ -265,7 +270,7 @@ export default function PermissionsEditor({ permissions, onChange, selectedPlan 
               className={basicCardapioMode === 'pratos' ? 'bg-orange-500 hover:bg-orange-600' : ''}
               onClick={() => handleBasicCardapioChoice('pratos')}
             >
-              <UtensilsCrossed className="w-4 h-4 mr-1" /> Pratos
+              <UtensilsCrossed className="w-4 h-4 mr-1" /> Restaurante (pratos)
             </Button>
             <Button
               type="button"
@@ -274,10 +279,9 @@ export default function PermissionsEditor({ permissions, onChange, selectedPlan 
               className={basicCardapioMode === 'pizzas' ? 'bg-orange-500 hover:bg-orange-600' : ''}
               onClick={() => handleBasicCardapioChoice('pizzas')}
             >
-              <Pizza className="w-4 h-4 mr-1" /> Pizzas
+              <Pizza className="w-4 h-4 mr-1" /> Pizzaria (pizzas)
             </Button>
           </div>
-          <span className="text-xs text-amber-700">Premium e Pro: Pratos e Pizzas.</span>
         </div>
       )}
 

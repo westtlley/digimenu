@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Loader2, Lock, LogOut, Menu, X, Store, Package, Receipt, Users, Settings, BarChart3, FileText, MapPin, Tag, Palette, CreditCard, Printer, MessageSquare, DollarSign, Power, Calculator, Truck, UtensilsCrossed } from 'lucide-react';
+import { Loader2, Lock, LogOut, Menu, X, Store, Package, Receipt, Users, Settings, BarChart3, FileText, MapPin, Tag, Palette, CreditCard, Printer, MessageSquare, DollarSign, Power, Calculator, Truck, UtensilsCrossed, Calendar, Crown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
@@ -7,6 +7,8 @@ import { apiClient as base44 } from '@/api/apiClient';
 import { Link, useSearchParams } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { usePermission } from '../components/permissions/usePermission';
+import { PLAN_PRESETS } from '../components/permissions/PlanPresets';
+import { formatBrazilianDate } from '../components/utils/dateUtils';
 import { useSlugContext } from '@/hooks/useSlugContext';
 import { useQuery } from '@tanstack/react-query';
 import { useDocumentHead } from '@/hooks/useDocumentHead';
@@ -59,14 +61,26 @@ export default function PainelAssinante() {
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   
-  const { loading, permissions, isMaster, hasModuleAccess, user, subscriberData } = usePermission();
-  
-  // ✅ DEBUG: Log do subscriberData para verificar se está carregando
-  React.useEffect(() => {
-    console.log('🔍 [PainelAssinante] subscriberData:', subscriberData);
-    console.log('🔍 [PainelAssinante] plan:', subscriberData?.plan);
-    console.log('🔍 [PainelAssinante] status:', subscriberData?.status);
-  }, [subscriberData]);
+  const { loading, permissions, isMaster, hasModuleAccess, user, subscriberData, refresh: refreshPermissions } = usePermission();
+
+  // Recarregar contexto ao abrir o painel do assinante para aplicar alterações feitas pelo admin
+  useEffect(() => {
+    if (!isMaster && typeof refreshPermissions === 'function') {
+      refreshPermissions();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const daysRemaining = subscriberData?.expires_at
+    ? Math.ceil((new Date(subscriberData.expires_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+    : null;
+  const planDisplayName = subscriberData?.plan ? (PLAN_PRESETS[subscriberData.plan]?.name || subscriberData.plan.charAt(0).toUpperCase() + subscriberData.plan.slice(1)) : '';
+  const periodLabel = subscriberData?.expires_at
+    ? (daysRemaining !== null && daysRemaining <= 0)
+      ? `Expirado em ${formatBrazilianDate(subscriberData.expires_at)}`
+      : `Válido até ${formatBrazilianDate(subscriberData.expires_at)}${daysRemaining !== null && daysRemaining > 0 ? ` (${daysRemaining} dias restantes)` : ''}`
+    : 'Permanente';
+
   const { slug, subscriberEmail, inSlugContext, loading: slugLoading, error: slugError } = useSlugContext();
   const asSub = (inSlugContext && isMaster && subscriberEmail) ? subscriberEmail : undefined;
   const canAccessSlug = !inSlugContext || isMaster || (user?.email || '').toLowerCase() === (subscriberEmail || '').toLowerCase() || (user?.subscriber_email || '').toLowerCase() === (subscriberEmail || '').toLowerCase();
@@ -96,11 +110,6 @@ export default function PainelAssinante() {
   const handleLogout = () => {
     base44.auth.logout();
   };
-
-  // Calcular dias restantes
-  const daysRemaining = subscriberData?.expires_at
-    ? Math.ceil((new Date(subscriberData.expires_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
-    : null;
 
   if (loading) {
     return (
@@ -278,7 +287,8 @@ export default function PainelAssinante() {
             {/* Menu Rápido - Mobile e Desktop */}
             <MobileQuickMenu
               isMaster={isMaster}
-              hasGestorAccess={hasModuleAccess('gestor_pedidos')}
+              hasGestorAccess={hasModuleAccess('orders')}
+              hasModuleAccess={hasModuleAccess}
               slug={slug}
             />
 
@@ -336,8 +346,32 @@ export default function PainelAssinante() {
         </div>
 
         {/* Content */}
-        <main className="flex-1 overflow-y-auto bg-gray-50">
+        <main className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900">
           <div className="p-4 lg:p-6">
+            {/* Card Plano ativo + Período (só para assinante, não master) */}
+            {!isMaster && subscriberData && (
+              <div className="mb-4 p-3 sm:p-4 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm flex flex-wrap items-center gap-3 sm:gap-4">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-orange-100 dark:bg-orange-900/40">
+                    <Crown className="w-4 h-4 sm:w-5 sm:h-5 text-orange-600 dark:text-orange-400" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Plano ativo</p>
+                    <p className="font-semibold text-gray-900 dark:text-white">{planDisplayName || '—'}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 border-l border-gray-200 dark:border-gray-600 pl-3 sm:pl-4">
+                  <Calendar className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Período</p>
+                    <p className="font-medium text-gray-800 dark:text-gray-200">{periodLabel}</p>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 ml-auto">
+                  As ferramentas ao lado são as incluídas no seu plano pelo administrador.
+                </p>
+              </div>
+            )}
             {renderContent()}
           </div>
         </main>
