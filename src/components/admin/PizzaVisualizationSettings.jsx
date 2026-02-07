@@ -8,6 +8,7 @@ import { Sparkles, Zap, Star, Flame, Info, Image } from 'lucide-react';
 import { apiClient as base44 } from '@/api/apiClient';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
+import { usePermission } from '../permissions/usePermission';
 
 /**
  * PAINEL DE CONFIGURAÇÃO DE VISUALIZAÇÃO DE PIZZA
@@ -17,11 +18,21 @@ import toast from 'react-hot-toast';
  */
 export default function PizzaVisualizationSettings() {
   const queryClient = useQueryClient();
+  const { menuContext } = usePermission();
 
-  // Buscar configuração atual da loja
+  // ✅ CORREÇÃO: Buscar configuração atual da loja com contexto do slug
   const { data: store, isLoading: loadingStore } = useQuery({
-    queryKey: ['store'],
-    queryFn: () => base44.entities.Store.list().then(stores => stores[0])
+    queryKey: ['store', menuContext?.type, menuContext?.value],
+    queryFn: async () => {
+      if (!menuContext) return null;
+      const opts = {};
+      if (menuContext.type === 'subscriber' && menuContext.value) {
+        opts.as_subscriber = menuContext.value;
+      }
+      const stores = await base44.entities.Store.list(null, opts);
+      return stores[0];
+    },
+    enabled: !!menuContext,
   });
 
 
@@ -30,14 +41,13 @@ export default function PizzaVisualizationSettings() {
     if (store !== undefined) setPremiumMode(store?.enable_premium_pizza_visualization !== false);
   }, [store?.enable_premium_pizza_visualization]);
 
-  // Mutation para salvar configuração
+  // ✅ CORREÇÃO: Mutation para salvar configuração com contexto
   const saveMutation = useMutation({
     mutationFn: async (enabled) => {
-      const storeToUpdate = await base44.entities.Store.list().then(stores => stores[0]);
-      if (!storeToUpdate) {
+      if (!store?.id) {
         throw new Error('Loja não encontrada');
       }
-      return await base44.entities.Store.update(storeToUpdate.id, {
+      return await base44.entities.Store.update(store.id, {
         enable_premium_pizza_visualization: enabled
       });
     },

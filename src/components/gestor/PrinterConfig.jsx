@@ -11,14 +11,25 @@ import { Badge } from "@/components/ui/badge";
 import { Printer, Save, TestTube, Eye, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import toast from 'react-hot-toast';
+import { usePermission } from '../permissions/usePermission';
 
 export default function PrinterConfig() {
   const [showPreview, setShowPreview] = useState(false);
   const queryClient = useQueryClient();
+  const { menuContext } = usePermission();
 
+  // ✅ CORREÇÃO: Buscar configurações de impressora com contexto do slug
   const { data: configs = [] } = useQuery({
-    queryKey: ['printerConfig'],
-    queryFn: () => base44.entities.PrinterConfig.list()
+    queryKey: ['printerConfig', menuContext?.type, menuContext?.value],
+    queryFn: async () => {
+      if (!menuContext) return [];
+      const opts = {};
+      if (menuContext.type === 'subscriber' && menuContext.value) {
+        opts.as_subscriber = menuContext.value;
+      }
+      return base44.entities.PrinterConfig.list(null, opts);
+    },
+    enabled: !!menuContext,
   });
 
   const config = configs[0] || {

@@ -101,9 +101,19 @@ export default function ComplementTemplates({ isOpen, onClose, onUseTemplate }) 
   const [selectedGroups, setSelectedGroups] = useState([]);
   const queryClient = useQueryClient();
 
+  // ✅ CORREÇÃO: Buscar grupos de complementos com contexto do slug
+  const { menuContext } = usePermission();
   const { data: complementGroups = [] } = useQuery({
-    queryKey: ['complementGroups'],
-    queryFn: () => base44.entities.ComplementGroup.list('order'),
+    queryKey: ['complementGroups', menuContext?.type, menuContext?.value],
+    queryFn: async () => {
+      if (!menuContext) return [];
+      const opts = {};
+      if (menuContext.type === 'subscriber' && menuContext.value) {
+        opts.as_subscriber = menuContext.value;
+      }
+      return base44.entities.ComplementGroup.list('order', opts);
+    },
+    enabled: !!menuContext,
     refetchOnMount: 'always',
   });
 
