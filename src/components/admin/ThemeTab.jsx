@@ -44,6 +44,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { extractColorsFromImage } from '@/utils/extractColorsFromImage';
 import { Image as ImageIcon } from 'lucide-react';
+import { usePermission } from '../permissions/usePermission';
 
 const PRESET_COLORS = [
   { name: 'Laranja', primary: '#f97316', secondary: '#1f2937', accent: '#eab308' },
@@ -112,10 +113,20 @@ export default function ThemeTab() {
   const [hasChanges, setHasChanges] = useState(false);
 
   const queryClient = useQueryClient();
+  const { menuContext } = usePermission();
 
+  // ✅ CORREÇÃO: Buscar store com contexto do slug
   const { data: stores = [] } = useQuery({
-    queryKey: ['store'],
-    queryFn: () => base44.entities.Store.list(),
+    queryKey: ['store', menuContext?.type, menuContext?.value],
+    queryFn: async () => {
+      if (!menuContext) return [];
+      const opts = {};
+      if (menuContext.type === 'subscriber' && menuContext.value) {
+        opts.as_subscriber = menuContext.value;
+      }
+      return base44.entities.Store.list(null, opts);
+    },
+    enabled: !!menuContext,
   });
 
   const store = stores[0];

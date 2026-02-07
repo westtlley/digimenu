@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Trash2, Ticket, Percent, DollarSign, Calendar, Copy, Search, Filter, TrendingUp } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
+import { usePermission } from '../permissions/usePermission';
 
 export default function CouponsTab() {
   const [showModal, setShowModal] = useState(false);
@@ -29,10 +30,20 @@ export default function CouponsTab() {
   });
 
   const queryClient = useQueryClient();
+  const { menuContext } = usePermission();
 
+  // ✅ CORREÇÃO: Buscar cupons com contexto do slug
   const { data: coupons = [] } = useQuery({
-    queryKey: ['coupons'],
-    queryFn: () => base44.entities.Coupon.list('-created_date'),
+    queryKey: ['coupons', menuContext?.type, menuContext?.value],
+    queryFn: async () => {
+      if (!menuContext) return [];
+      const opts = {};
+      if (menuContext.type === 'subscriber' && menuContext.value) {
+        opts.as_subscriber = menuContext.value;
+      }
+      return base44.entities.Coupon.list('-created_date', opts);
+    },
+    enabled: !!menuContext,
   });
 
   const createMutation = useMutation({

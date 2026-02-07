@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Trash2, MapPin, Search, Filter, TrendingUp, Package } from 'lucide-react';
 import EmptyState from '@/components/ui/EmptyState';
 import toast from 'react-hot-toast';
+import { usePermission } from '../permissions/usePermission';
 
 export default function DeliveryZonesTab() {
   const [showModal, setShowModal] = useState(false);
@@ -28,8 +29,21 @@ export default function DeliveryZonesTab() {
   });
 
   const queryClient = useQueryClient();
+  const { menuContext } = usePermission();
 
-  const { data: stores = [] } = useQuery({ queryKey: ['store'], queryFn: () => base44.entities.Store.list() });
+  // ✅ CORREÇÃO: Buscar store com contexto do slug
+  const { data: stores = [] } = useQuery({ 
+    queryKey: ['store', menuContext?.type, menuContext?.value], 
+    queryFn: async () => {
+      if (!menuContext) return [];
+      const opts = {};
+      if (menuContext.type === 'subscriber' && menuContext.value) {
+        opts.as_subscriber = menuContext.value;
+      }
+      return base44.entities.Store.list(null, opts);
+    },
+    enabled: !!menuContext,
+  });
   const store = stores[0];
 
   useEffect(() => {
@@ -54,17 +68,24 @@ export default function DeliveryZonesTab() {
     onError: (e) => toast.error(e?.message || 'Erro ao salvar'),
   });
 
+  // ✅ CORREÇÃO: Buscar zonas com contexto do slug
   const { data: zones = [] } = useQuery({
-    queryKey: ['deliveryZones'],
+    queryKey: ['deliveryZones', menuContext?.type, menuContext?.value],
     queryFn: async () => {
+      if (!menuContext) return [];
       try {
-        const result = await base44.entities.DeliveryZone.list('neighborhood');
+        const opts = {};
+        if (menuContext.type === 'subscriber' && menuContext.value) {
+          opts.as_subscriber = menuContext.value;
+        }
+        const result = await base44.entities.DeliveryZone.list('neighborhood', opts);
         return Array.isArray(result) ? result : [];
       } catch (error) {
         console.error('Erro ao buscar zonas:', error);
         return [];
       }
     },
+    enabled: !!menuContext,
     initialData: [],
     refetchOnMount: 'always',
   });

@@ -12,6 +12,7 @@ import EmptyState from '@/components/ui/EmptyState';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import toast from 'react-hot-toast';
+import { usePermission } from '../permissions/usePermission';
 
 const DEFAULT_PAYMENT_METHODS = [
   { id: 'dinheiro', name: 'Dinheiro', icon: '💵', type: 'presencial', active: true },
@@ -43,7 +44,21 @@ export default function PaymentMethodsTab() {
   const [storeNewPm, setStoreNewPm] = useState({ name: '', image: '' });
 
   const qc = useQueryClient();
-  const { data: stores = [] } = useQuery({ queryKey: ['store'], queryFn: () => base44.entities.Store.list() });
+  const { menuContext } = usePermission();
+  
+  // ✅ CORREÇÃO: Buscar store com contexto do slug
+  const { data: stores = [] } = useQuery({ 
+    queryKey: ['store', menuContext?.type, menuContext?.value], 
+    queryFn: async () => {
+      if (!menuContext) return [];
+      const opts = {};
+      if (menuContext.type === 'subscriber' && menuContext.value) {
+        opts.as_subscriber = menuContext.value;
+      }
+      return base44.entities.Store.list(null, opts);
+    },
+    enabled: !!menuContext,
+  });
   const store = stores[0];
   const storePaymentMethods = Array.isArray(store?.payment_methods) ? store.payment_methods : [];
 

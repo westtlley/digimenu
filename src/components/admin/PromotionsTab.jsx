@@ -13,6 +13,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Plus, Trash2, Zap, ArrowUpRight, RefreshCw, Search, Filter, TrendingUp, Gift, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 import ComboModalUnified from './ComboModalUnified';
+import { usePermission } from '../permissions/usePermission';
+import { useMenuDishes } from '@/hooks/useMenuData';
 
 export default function PromotionsTab() {
   const [showModal, setShowModal] = useState(false);
@@ -33,23 +35,52 @@ export default function PromotionsTab() {
   });
 
   const queryClient = useQueryClient();
+  const { menuContext } = usePermission();
 
+  // ✅ CORREÇÃO: Buscar promoções com contexto do slug
   const { data: promotions = [] } = useQuery({
-    queryKey: ['promotions'],
-    queryFn: () => base44.entities.Promotion.list(),
+    queryKey: ['promotions', menuContext?.type, menuContext?.value],
+    queryFn: async () => {
+      if (!menuContext) return [];
+      const opts = {};
+      if (menuContext.type === 'subscriber' && menuContext.value) {
+        opts.as_subscriber = menuContext.value;
+      }
+      return base44.entities.Promotion.list(null, opts);
+    },
+    enabled: !!menuContext,
   });
 
-  const { data: dishes = [] } = useQuery({
-    queryKey: ['dishes'],
-    queryFn: () => base44.entities.Dish.list(),
-  });
+  // ✅ CORREÇÃO: Usar hook com contexto automático
+  const { data: dishes = [] } = useMenuDishes();
 
+  // ✅ CORREÇÃO: Buscar combos com contexto do slug
   const { data: combos = [] } = useQuery({
-    queryKey: ['combos'],
-    queryFn: () => base44.entities.Combo.list(),
+    queryKey: ['combos', menuContext?.type, menuContext?.value],
+    queryFn: async () => {
+      if (!menuContext) return [];
+      const opts = {};
+      if (menuContext.type === 'subscriber' && menuContext.value) {
+        opts.as_subscriber = menuContext.value;
+      }
+      return base44.entities.Combo.list(null, opts);
+    },
+    enabled: !!menuContext,
   });
 
-  const { data: stores = [] } = useQuery({ queryKey: ['store'], queryFn: () => base44.entities.Store.list() });
+  // ✅ CORREÇÃO: Buscar store com contexto do slug
+  const { data: stores = [] } = useQuery({ 
+    queryKey: ['store', menuContext?.type, menuContext?.value], 
+    queryFn: async () => {
+      if (!menuContext) return [];
+      const opts = {};
+      if (menuContext.type === 'subscriber' && menuContext.value) {
+        opts.as_subscriber = menuContext.value;
+      }
+      return base44.entities.Store.list(null, opts);
+    },
+    enabled: !!menuContext,
+  });
   const store = stores[0];
   const storeBanners = Array.isArray(store?.banners) ? store.banners : [];
 

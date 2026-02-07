@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
@@ -24,6 +24,8 @@ import { Plus, Receipt, Edit2, XCircle, History, Trash2, Search, X, AlertCircle,
 import toast from 'react-hot-toast';
 import { useComandaWebSocket } from '@/hooks/useComandaWebSocket';
 import TransferItemsModal from './TransferItemsModal';
+import { usePermission } from '../permissions/usePermission';
+import { useMenuDishes } from '@/hooks/useMenuData';
 
 const PAYMENT_METHODS = [
   { value: 'pix', label: 'PIX' },
@@ -51,26 +53,24 @@ export default function ComandasTab({ subscriberEmail = null }) {
   const [transferOpen, setTransferOpen] = useState(false);
   const [comandaToTransfer, setComandaToTransfer] = useState(null);
 
-  // Buscar subscriber_email se não fornecido
-  const [userEmail, setUserEmail] = useState(null);
-  useEffect(() => {
-    (async () => {
-      try {
-        const user = JSON.parse(localStorage.getItem('user') || '{}');
-        setUserEmail(user?.subscriber_email || user?.email);
-      } catch (e) {
-        // Ignorar
-      }
-    })();
-  }, []);
+  const { menuContext } = usePermission();
+  
+  // ✅ CORREÇÃO: Obter subscriberEmail do menuContext quando disponível
+  const getSubscriberEmail = () => {
+    if (subscriberEmail) return subscriberEmail;
+    if (menuContext?.type === 'subscriber' && menuContext.value) {
+      return menuContext.value;
+    }
+    return null;
+  };
 
-  const effectiveSubscriberEmail = subscriberEmail || userEmail;
+  const effectiveSubscriberEmail = getSubscriberEmail();
 
   // WebSocket para comandas em tempo real
   useComandaWebSocket({
     subscriberEmail: effectiveSubscriberEmail,
     onComandaUpdate: (comanda) => {
-      queryClient.setQueryData(['Comanda', statusFilter], (old) => {
+      queryClient.setQueryData(['Comanda', menuContext?.type, menuContext?.value, statusFilter], (old) => {
         if (!old) return [comanda];
         const index = old.findIndex(c => c.id === comanda.id);
         if (index >= 0) {
@@ -82,23 +82,27 @@ export default function ComandasTab({ subscriberEmail = null }) {
       });
     },
     onComandaCreated: (comanda) => {
-      queryClient.invalidateQueries({ queryKey: ['Comanda'] });
+      queryClient.invalidateQueries({ queryKey: ['Comanda', menuContext?.type, menuContext?.value] });
     },
     enableNotifications: false // Não mostrar notificações no admin
   });
 
+  // ✅ CORREÇÃO: Buscar comandas com contexto do slug
   const { data: comandas = [], isLoading } = useQuery({
-    queryKey: ['Comanda', statusFilter],
-    queryFn: () => {
+    queryKey: ['Comanda', menuContext?.type, menuContext?.value, statusFilter],
+    queryFn: async () => {
+      if (!menuContext) return [];
       const params = statusFilter && statusFilter !== 'all' ? { status: statusFilter } : {};
+      if (menuContext.type === 'subscriber' && menuContext.value) {
+        params.as_subscriber = menuContext.value;
+      }
       return base44.entities.Comanda.list('-created_at', params);
     },
+    enabled: !!menuContext,
   });
 
-  const { data: dishes = [] } = useQuery({
-    queryKey: ['Dish'],
-    queryFn: () => base44.entities.Dish.list(),
-  });
+  // ✅ CORREÇÃO: Usar hook com contexto automático
+  const { data: dishes = [] } = useMenuDishes();
 
   const safeDishes = Array.isArray(dishes) ? dishes.filter((d) => d.is_active !== false) : [];
 

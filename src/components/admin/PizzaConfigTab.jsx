@@ -15,6 +15,7 @@ import { Plus, Trash2, Pencil, Star, Settings, Search, ChevronUp, ChevronDown } 
 import toast, { Toaster } from 'react-hot-toast';
 import PizzaVisualizationSettings from './PizzaVisualizationSettings';
 import MyPizzasTab from './MyPizzasTab';
+import { usePermission } from '../permissions/usePermission';
 
 const formatCurrency = (value) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
@@ -40,6 +41,7 @@ export default function PizzaConfigTab() {
   const [editingCategory, setEditingCategory] = useState(null);
 
   const queryClient = useQueryClient();
+  const { menuContext } = usePermission();
 
   React.useEffect(() => {
     const loadUser = async () => {
@@ -53,30 +55,70 @@ export default function PizzaConfigTab() {
     loadUser();
   }, []);
 
-  // Queries
+  // ✅ CORREÇÃO: Queries com contexto do slug
   const { data: sizes = [] } = useQuery({
-    queryKey: ['pizzaSizes'],
-    queryFn: () => apiClient.entities.PizzaSize.list('order'),
+    queryKey: ['pizzaSizes', menuContext?.type, menuContext?.value],
+    queryFn: async () => {
+      if (!menuContext) return [];
+      const opts = {};
+      if (menuContext.type === 'subscriber' && menuContext.value) {
+        opts.as_subscriber = menuContext.value;
+      }
+      return apiClient.entities.PizzaSize.list('order', opts);
+    },
+    enabled: !!menuContext,
   });
 
   const { data: flavors = [] } = useQuery({
-    queryKey: ['pizzaFlavors'],
-    queryFn: () => apiClient.entities.PizzaFlavor.list('order'),
+    queryKey: ['pizzaFlavors', menuContext?.type, menuContext?.value],
+    queryFn: async () => {
+      if (!menuContext) return [];
+      const opts = {};
+      if (menuContext.type === 'subscriber' && menuContext.value) {
+        opts.as_subscriber = menuContext.value;
+      }
+      return apiClient.entities.PizzaFlavor.list('order', opts);
+    },
+    enabled: !!menuContext,
   });
 
   const { data: edges = [] } = useQuery({
-    queryKey: ['pizzaEdges'],
-    queryFn: () => apiClient.entities.PizzaEdge.list('order'),
+    queryKey: ['pizzaEdges', menuContext?.type, menuContext?.value],
+    queryFn: async () => {
+      if (!menuContext) return [];
+      const opts = {};
+      if (menuContext.type === 'subscriber' && menuContext.value) {
+        opts.as_subscriber = menuContext.value;
+      }
+      return apiClient.entities.PizzaEdge.list('order', opts);
+    },
+    enabled: !!menuContext,
   });
 
   const { data: extras = [] } = useQuery({
-    queryKey: ['pizzaExtras'],
-    queryFn: () => apiClient.entities.PizzaExtra.list('order'),
+    queryKey: ['pizzaExtras', menuContext?.type, menuContext?.value],
+    queryFn: async () => {
+      if (!menuContext) return [];
+      const opts = {};
+      if (menuContext.type === 'subscriber' && menuContext.value) {
+        opts.as_subscriber = menuContext.value;
+      }
+      return apiClient.entities.PizzaExtra.list('order', opts);
+    },
+    enabled: !!menuContext,
   });
 
   const { data: pizzaCategories = [] } = useQuery({
-    queryKey: ['pizzaCategories'],
-    queryFn: () => apiClient.entities.PizzaCategory.list('order'),
+    queryKey: ['pizzaCategories', menuContext?.type, menuContext?.value],
+    queryFn: async () => {
+      if (!menuContext) return [];
+      const opts = {};
+      if (menuContext.type === 'subscriber' && menuContext.value) {
+        opts.as_subscriber = menuContext.value;
+      }
+      return apiClient.entities.PizzaCategory.list('order', opts);
+    },
+    enabled: !!menuContext,
   });
 
   // Mutations - Sizes

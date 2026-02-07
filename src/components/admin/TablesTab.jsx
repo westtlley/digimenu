@@ -12,6 +12,8 @@ import { QRCodeSVG } from 'qrcode.react';
 import { Plus, Edit, Trash2, QrCode, Bell, Download, Receipt, Calendar, Clock } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useTheme } from '@/components/theme/ThemeProvider';
+import { usePermission } from '../permissions/usePermission';
+import { useSlugContext } from '@/hooks/useSlugContext';
 
 const TABLE_STATUSES = {
   available: { label: 'Disponível', color: 'bg-green-500' },
@@ -23,6 +25,8 @@ const TABLE_STATUSES = {
 export default function TablesTab() {
   const { isDark } = useTheme();
   const queryClient = useQueryClient();
+  const { menuContext } = usePermission();
+  const { slug: urlSlug } = useSlugContext();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTable, setEditingTable] = useState(null);
   const [tableFormData, setTableFormData] = useState({
@@ -45,23 +49,36 @@ export default function TablesTab() {
     guests: 1
   });
 
+  // ✅ CORREÇÃO: Buscar mesas com contexto do slug
   const { data: tables = [] } = useQuery({
-    queryKey: ['tables'],
-    queryFn: () => base44.entities.Table.list(),
+    queryKey: ['tables', menuContext?.type, menuContext?.value],
+    queryFn: async () => {
+      if (!menuContext) return [];
+      const opts = {};
+      if (menuContext.type === 'subscriber' && menuContext.value) {
+        opts.as_subscriber = menuContext.value;
+      }
+      return base44.entities.Table.list(null, opts);
+    },
+    enabled: !!menuContext,
   });
 
-  // Buscar comandas abertas
+  // ✅ CORREÇÃO: Buscar comandas com contexto do slug
   const { data: comandas = [] } = useQuery({
-    queryKey: ['Comanda'],
-    queryFn: () => base44.entities.Comanda.list('-created_at', { status: 'open' }),
+    queryKey: ['Comanda', menuContext?.type, menuContext?.value],
+    queryFn: async () => {
+      if (!menuContext) return [];
+      const opts = { status: 'open' };
+      if (menuContext.type === 'subscriber' && menuContext.value) {
+        opts.as_subscriber = menuContext.value;
+      }
+      return base44.entities.Comanda.list('-created_at', opts);
+    },
+    enabled: !!menuContext,
   });
 
-  // Slug do estabelecimento (master: user.slug; em contexto /s/:slug: currentSlug)
-  const { data: authUser } = useQuery({
-    queryKey: ['authMe'],
-    queryFn: () => base44.auth.me(),
-  });
-  const effectiveSlug = authUser?.slug || (typeof localStorage !== 'undefined' ? localStorage.getItem('currentSlug') : '') || '';
+  // ✅ CORREÇÃO: Usar slug do contexto quando disponível
+  const effectiveSlug = urlSlug || '';
 
   const createTableMutation = useMutation({
     mutationFn: async (data) => {

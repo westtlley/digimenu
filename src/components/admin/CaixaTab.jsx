@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import moment from 'moment';
 import toast, { Toaster } from 'react-hot-toast';
+import { usePermission } from '../permissions/usePermission';
 
 export default function CaixaTab() {
   const [showOpenModal, setShowOpenModal] = useState(false);
@@ -32,15 +33,34 @@ export default function CaixaTab() {
   const [closingCashAmount, setClosingCashAmount] = useState('');
 
   const queryClient = useQueryClient();
+  const { menuContext } = usePermission();
 
+  // ✅ CORREÇÃO: Buscar caixas com contexto do slug
   const { data: caixas = [] } = useQuery({
-    queryKey: ['caixas'],
-    queryFn: () => base44.entities.Caixa.list('-opening_date'),
+    queryKey: ['caixas', menuContext?.type, menuContext?.value],
+    queryFn: async () => {
+      if (!menuContext) return [];
+      const opts = {};
+      if (menuContext.type === 'subscriber' && menuContext.value) {
+        opts.as_subscriber = menuContext.value;
+      }
+      return base44.entities.Caixa.list('-opening_date', opts);
+    },
+    enabled: !!menuContext,
   });
 
+  // ✅ CORREÇÃO: Buscar operações com contexto do slug
   const { data: operations = [] } = useQuery({
-    queryKey: ['caixaOperations'],
-    queryFn: () => base44.entities.CaixaOperation.list('-date'),
+    queryKey: ['caixaOperations', menuContext?.type, menuContext?.value],
+    queryFn: async () => {
+      if (!menuContext) return [];
+      const opts = {};
+      if (menuContext.type === 'subscriber' && menuContext.value) {
+        opts.as_subscriber = menuContext.value;
+      }
+      return base44.entities.CaixaOperation.list('-date', opts);
+    },
+    enabled: !!menuContext,
   });
 
   const openCaixaMutation = useMutation({
