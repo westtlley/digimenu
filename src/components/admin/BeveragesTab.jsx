@@ -50,12 +50,23 @@ export default function BeveragesTab() {
     base44.auth.me().then(setUser).catch(() => {});
   }, []);
 
-  const { data: dishesRaw = [] } = useQuery({ queryKey: ['dishes'], queryFn: () => base44.entities.Dish.list('order') });
+  // ✅ CORREÇÃO: Usar hook com contexto automático
+  const { menuContext } = usePermission();
+  const { data: dishesRaw = [] } = useMenuDishes();
   const beverages = useMemo(() => (dishesRaw || []).filter(d => d.product_type === 'beverage'), [dishesRaw]);
 
+  // ✅ CORREÇÃO: Buscar categorias de bebidas com contexto do slug
   const { data: beverageCategories = [] } = useQuery({
-    queryKey: ['beverageCategories'],
-    queryFn: () => base44.entities.BeverageCategory.list('order'),
+    queryKey: ['beverageCategories', menuContext?.type, menuContext?.value],
+    queryFn: async () => {
+      if (!menuContext) return [];
+      const opts = {};
+      if (menuContext.type === 'subscriber' && menuContext.value) {
+        opts.as_subscriber = menuContext.value;
+      }
+      return base44.entities.BeverageCategory.list('order', opts);
+    },
+    enabled: !!menuContext,
   });
 
   const createBeverageMutation = useMutation({

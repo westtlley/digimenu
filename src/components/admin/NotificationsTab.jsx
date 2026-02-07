@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Bell, Send, Megaphone, Package, AlertCircle } from 'lucide-react';
 import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { usePermission } from '../permissions/usePermission';
 
 export default function NotificationsTab() {
   const [notificationForm, setNotificationForm] = useState({
@@ -19,10 +20,20 @@ export default function NotificationsTab() {
   });
 
   const queryClient = useQueryClient();
+  const { menuContext } = usePermission();
 
+  // ✅ CORREÇÃO: Buscar notificações com contexto do slug
   const { data: notifications = [] } = useQuery({
-    queryKey: ['notifications'],
-    queryFn: () => base44.entities.Notification.list('-created_date', 50)
+    queryKey: ['notifications', menuContext?.type, menuContext?.value],
+    queryFn: async () => {
+      if (!menuContext) return [];
+      const opts = {};
+      if (menuContext.type === 'subscriber' && menuContext.value) {
+        opts.as_subscriber = menuContext.value;
+      }
+      return base44.entities.Notification.list('-created_date', 50, opts);
+    },
+    enabled: !!menuContext,
   });
 
   const sendNotificationMutation = useMutation({
