@@ -339,6 +339,7 @@ export default function PainelAssinante() {
             activeTab={activeTab}
             setActiveTab={handleSetActiveTab}
             isMaster={isMaster}
+            isGerente={isGerente}
             slug={slug}
             permissions={permissions}
             plan={subscriberData?.plan || 'basic'} // ✅ Garantir que sempre tenha um valor padrão
