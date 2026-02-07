@@ -97,12 +97,22 @@ const DEFAULTS = {
 
 export default function AssinarPageEditorTab() {
   const queryClient = useQueryClient();
+  const { menuContext } = usePermission();
   const [form, setForm] = useState({ ...DEFAULTS });
   const [newFeature, setNewFeature] = useState('');
 
+  // ✅ CORREÇÃO: Buscar configurações de pagamento com contexto do slug
   const { data: list = [], isLoading } = useQuery({
-    queryKey: ['paymentConfig'],
-    queryFn: () => base44.entities.PaymentConfig.list(),
+    queryKey: ['paymentConfig', menuContext?.type, menuContext?.value],
+    queryFn: async () => {
+      if (!menuContext) return [];
+      const opts = {};
+      if (menuContext.type === 'subscriber' && menuContext.value) {
+        opts.as_subscriber = menuContext.value;
+      }
+      return base44.entities.PaymentConfig.list(null, opts);
+    },
+    enabled: !!menuContext,
   });
 
   const config = list[0] || null;
