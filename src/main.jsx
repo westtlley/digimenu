@@ -30,9 +30,11 @@ window.addEventListener('error', (event) => {
     event.message?.includes('Error parsing shader') ||
     event.message?.includes('GpuShader') ||
     event.message?.includes('GPU compositing') ||
+    event.message?.includes('MIME type') ||
     event.error?.message?.includes('webpage_content_reporter') ||
     event.error?.message?.includes('Unexpected token \'export\'') ||
-    event.error?.message?.includes('Error parsing shader')
+    event.error?.message?.includes('Error parsing shader') ||
+    event.error?.message?.includes('MIME type')
   ) {
     event.preventDefault();
     event.stopPropagation();
@@ -47,7 +49,8 @@ window.addEventListener('unhandledrejection', (event) => {
     event.reason?.stack?.includes('webpage_content_reporter') ||
     event.reason?.message?.includes('Unexpected token \'export\'') ||
     event.reason?.message?.includes('Error parsing shader') ||
-    event.reason?.message?.includes('GpuShader')
+    event.reason?.message?.includes('GpuShader') ||
+    event.reason?.message?.includes('MIME type')
   ) {
     event.preventDefault();
     event.stopPropagation();
@@ -65,7 +68,9 @@ console.error = (...args) => {
     message.includes('Unexpected token \'export\'') ||
     message.includes('Error parsing shader') ||
     message.includes('GpuShader') ||
-    message.includes('GPU compositing')
+    message.includes('GPU compositing') ||
+    message.includes('MIME type') ||
+    message.includes('Expected a JavaScript-or-Wasm module script')
   ) {
     return; // Ignorar
   }

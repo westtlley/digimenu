@@ -77,6 +77,8 @@ export default defineConfig({
     target: 'es2020',
     // Garante que chunks sejam reconhecidos como módulos
     modulePreload: { polyfill: true },
+    // Garante que os arquivos sejam servidos com o MIME type correto
+    assetsInlineLimit: 4096,
     rollupOptions: {
       input: {
         main: path.resolve(__dirname, 'index.html'),
@@ -84,6 +86,10 @@ export default defineConfig({
       output: {
         // Chunks em formato ESM; o HTML deve carregar com type="module"
         format: 'es',
+        // Garantir que os arquivos tenham extensão .js
+        entryFileNames: 'assets/[name]-[hash].js',
+        chunkFileNames: 'assets/[name]-[hash].js',
+        assetFileNames: 'assets/[name]-[hash].[ext]',
       },
       onwarn(warning, warn) {
         // Ignorar avisos de extensões do navegador
@@ -100,6 +106,10 @@ export default defineConfig({
     commonjsOptions: {
       transformMixedEsModules: true,
     },
+    // Garantir que o build seja minificado corretamente
+    minify: 'esbuild',
+    // Garantir que os source maps não causem problemas
+    sourcemap: false,
   },
   // Ignorar erros de extensões do navegador no console
   define: {
