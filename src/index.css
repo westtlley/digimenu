@@ -283,3 +283,17 @@ button:focus-visible {
     border-color: hsl(var(--border)) !important;
   }
 }
+
+/* Modal grande (ex.: Editar Assinante) – forçar tamanho/posição no desktop */
+@media (min-width: 640px) {
+  [data-dialog-size="large"] {
+    left: 50% !important;
+    top: 50% !important;
+    right: auto !important;
+    bottom: auto !important;
+    width: min(90vw, 72rem) !important;
+    max-width: 72rem !important;
+    max-height: 90vh !important;
+    transform: translate(-50%, -50%) !important;
+  }
+}

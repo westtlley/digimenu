@@ -25,16 +25,19 @@ const DialogOverlay = React.forwardRef(({ className, ...props }, ref) => (
 ))
 DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
 
-const DialogContent = React.forwardRef(({ className, children, ...props }, ref) => (
+const DialogContent = React.forwardRef(({ className, children, size, ...props }, ref) => (
   <DialogPortal>
     <DialogOverlay />
     <DialogPrimitive.Content
       ref={ref}
+      data-dialog-size={size === "large" ? "large" : undefined}
       className={cn(
         // Mobile: Fullscreen
         "fixed inset-0 z-50 grid w-full h-full max-w-full max-h-full gap-4 border-0 bg-background p-4 shadow-2xl duration-300 overflow-y-auto",
-        // Desktop: Centered modal
-        "sm:left-[50%] sm:top-[50%] sm:inset-auto sm:w-[calc(100%-1rem)] sm:max-w-lg sm:max-h-[85dvh] sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-xl sm:p-6",
+        // Desktop: Centered modal (tamanho padrão)
+        !size || size === "default"
+          ? "sm:left-[50%] sm:top-[50%] sm:inset-auto sm:w-[calc(100%-1rem)] sm:max-w-lg sm:max-h-[85dvh] sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-xl sm:p-6"
+          : "sm:left-[50%] sm:top-[50%] sm:inset-auto sm:w-[min(90vw,72rem)] sm:max-w-6xl sm:max-h-[90vh] sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-xl sm:p-6",
         // Animations
         "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
         "data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",

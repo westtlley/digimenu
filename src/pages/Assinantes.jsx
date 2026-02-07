@@ -1485,9 +1485,9 @@ export default function Assinantes() {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Modal - largura explícita em desktop para não herdar sm:max-w-lg do Dialog */}
+      {/* Edit Modal - size="large" para exibir em largura correta no desktop */}
       <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
-        <DialogContent className="w-[95vw] sm:w-[90vw] sm:max-w-6xl md:w-[85vw] lg:w-[80vw] xl:w-[75vw] max-w-6xl max-h-[95vh] overflow-y-auto animate-in fade-in-0 zoom-in-95 duration-200">
+        <DialogContent size="large" className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Edit className="w-5 h-5 text-orange-500" />
