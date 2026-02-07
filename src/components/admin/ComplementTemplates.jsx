@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Bookmark, Trash2, Plus, Copy, Edit2, Check, X } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { usePermission } from '../permissions/usePermission';
 
 // ✅ Componente para item de template com edição de nome
 function TemplateItem({ template, displayName, onUse, onDelete, onEdit }) {
