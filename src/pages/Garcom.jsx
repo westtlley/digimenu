@@ -1297,4 +1297,4 @@ function ComandaHistoryModal({ open, onOpenChange, comanda }) {
       </DialogContent>
     </Dialog>
   );
-}
+
