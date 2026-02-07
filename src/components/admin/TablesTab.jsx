@@ -498,7 +498,7 @@ export default function TablesTab() {
 
       {/* Modal de Reserva */}
       <Dialog open={reservationModalOpen} onOpenChange={setReservationModalOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="sm:max-w-md max-w-[95vw]">
           <DialogHeader>
             <DialogTitle>Reservar Mesa {tableToReserve?.table_number}</DialogTitle>
           </DialogHeader>
