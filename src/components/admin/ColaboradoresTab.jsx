@@ -8,6 +8,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Checkbox } from '@/components/ui/checkbox';
 import { UserCog, Plus, Pencil, Trash2, Truck, ChefHat, CreditCard, Receipt, Loader2, Eye, EyeOff, UserPlus } from 'lucide-react';
 import toast from 'react-hot-toast';
+import ColaboradorProfileView from '../colaboradores/ColaboradorProfileView';
+import ColaboradorProfile from '../colaboradores/ColaboradorProfile';
 
 const ROLE_LABELS = { entregador: 'Entregador', cozinha: 'Cozinha', pdv: 'PDV', garcom: 'Garçom' };
 const ROLE_ICONS = { entregador: Truck, cozinha: ChefHat, pdv: CreditCard, garcom: Receipt };
@@ -16,6 +18,9 @@ const ALL_ROLES = ['entregador', 'cozinha', 'pdv', 'garcom'];
 export default function ColaboradoresTab() {
   const [showModal, setShowModal] = useState(false);
   const [showAddRolesModal, setShowAddRolesModal] = useState(false);
+  const [showProfileView, setShowProfileView] = useState(false);
+  const [showProfileEdit, setShowProfileEdit] = useState(false);
+  const [selectedColaborador, setSelectedColaborador] = useState(null);
   const [editing, setEditing] = useState(null);
   const [addingRolesTo, setAddingRolesTo] = useState(null);
   const [form, setForm] = useState({ name: '', email: '', password: '', roles: ['pdv'] });
@@ -263,6 +268,27 @@ export default function ColaboradoresTab() {
                   </div>
                 </div>
                 <div className="flex gap-2 flex-shrink-0">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={async () => {
+                      // Buscar dados completos do colaborador
+                      try {
+                        const colaboradores = await base44.get('/colaboradores');
+                        const colaborador = Array.isArray(colaboradores) 
+                          ? colaboradores.find(c => (c.email || '').toLowerCase().trim() === (row.email || '').toLowerCase().trim())
+                          : colaboradores.data?.find(c => (c.email || '').toLowerCase().trim() === (row.email || '').toLowerCase().trim());
+                        setSelectedColaborador(colaborador || row);
+                        setShowProfileView(true);
+                      } catch (e) {
+                        setSelectedColaborador(row);
+                        setShowProfileView(true);
+                      }
+                    }}
+                  >
+                    <Eye className="w-4 h-4 mr-1" />
+                    Ver Perfil
+                  </Button>
                   <Button variant="outline" size="sm" onClick={() => openAddRoles(row)} disabled={row.roles.length >= ALL_ROLES.length}>
                     <UserPlus className="w-4 h-4 mr-1" />
                     Adicionar Perfis
@@ -405,6 +431,68 @@ export default function ColaboradoresTab() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Modal de visualização de perfil */}
+      {showProfileView && selectedColaborador && (
+        <Dialog open={showProfileView} onOpenChange={setShowProfileView}>
+          <DialogContent className="sm:max-w-4xl max-w-[95vw] max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Perfil do Colaborador</DialogTitle>
+            </DialogHeader>
+            <ColaboradorProfileView
+              colaboradorEmail={selectedColaborador.email}
+              onClose={() => {
+                setShowProfileView(false);
+                setSelectedColaborador(null);
+              }}
+              onEdit={async () => {
+                // Buscar dados completos do usuário
+                try {
+                  const colaboradores = await base44.get('/colaboradores');
+                  const colaborador = Array.isArray(colaboradores) 
+                    ? colaboradores.find(c => (c.email || '').toLowerCase().trim() === (selectedColaborador.email || '').toLowerCase().trim())
+                    : colaboradores.data?.find(c => (c.email || '').toLowerCase().trim() === (selectedColaborador.email || '').toLowerCase().trim());
+                  
+                  // Buscar dados completos do usuário pelo ID
+                  if (colaborador?.id || colaborador?.ids?.[0]) {
+                    const userId = colaborador.id || colaborador.ids[0];
+                    const userData = await base44.get(`/colaboradores`).then(r => {
+                      const list = Array.isArray(r) ? r : r.data || [];
+                      return list.find(u => String(u.id) === String(userId));
+                    });
+                    setSelectedColaborador(userData || colaborador);
+                  } else {
+                    setSelectedColaborador(colaborador || selectedColaborador);
+                  }
+                  
+                  setShowProfileView(false);
+                  setShowProfileEdit(true);
+                } catch (e) {
+                  setShowProfileView(false);
+                  setShowProfileEdit(true);
+                }
+              }}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Modal de edição de perfil */}
+      {showProfileEdit && selectedColaborador && (
+        <ColaboradorProfile
+          user={selectedColaborador}
+          profileRole={selectedColaborador.profile_role || selectedColaborador.roles?.[0]}
+          onClose={() => {
+            setShowProfileEdit(false);
+            setSelectedColaborador(null);
+            queryClient.invalidateQueries({ queryKey: ['colaboradores'] });
+          }}
+          onUpdate={(updatedUser) => {
+            setSelectedColaborador(updatedUser);
+            queryClient.invalidateQueries({ queryKey: ['colaboradores'] });
+          }}
+        />
+      )}
     </div>
   );
 }

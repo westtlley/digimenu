@@ -508,6 +508,34 @@ export async function updateUser(id, userData) {
     updates.push(`subscriber_email = $${paramIndex++}`);
     values.push(userData.subscriber_email);
   }
+  if (userData.photo !== undefined) {
+    updates.push(`photo = $${paramIndex++}`);
+    values.push(userData.photo);
+  }
+  if (userData.phone !== undefined) {
+    updates.push(`phone = $${paramIndex++}`);
+    values.push(userData.phone);
+  }
+  if (userData.address !== undefined) {
+    updates.push(`address = $${paramIndex++}`);
+    values.push(userData.address);
+  }
+  if (userData.city !== undefined) {
+    updates.push(`city = $${paramIndex++}`);
+    values.push(userData.city);
+  }
+  if (userData.state !== undefined) {
+    updates.push(`state = $${paramIndex++}`);
+    values.push(userData.state);
+  }
+  if (userData.birth_date !== undefined) {
+    updates.push(`birth_date = $${paramIndex++}`);
+    values.push(userData.birth_date);
+  }
+  if (userData.document !== undefined) {
+    updates.push(`document = $${paramIndex++}`);
+    values.push(userData.document);
+  }
 
   if (updates.length === 0) {
     return await getUserById(id);

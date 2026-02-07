@@ -1564,6 +1564,64 @@ app.post('/api/colaboradores/:email/add-roles', authenticate, asyncHandler(async
   }
 }));
 
+// Endpoint para atualizar perfil do usuário (colaborador)
+app.patch('/api/users/:id', authenticate, asyncHandler(async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updateData = req.body || {};
+    
+    // Verificar se o usuário pode atualizar este perfil
+    let u = null;
+    if (usePostgreSQL) {
+      u = await repo.getUserById(parseInt(id));
+    } else if (db?.users) {
+      u = db.users.find(x => String(x.id) === String(id));
+    }
+    
+    if (!u) return res.status(404).json({ error: 'Usuário não encontrado' });
+    
+    // Verificar permissão: só pode atualizar próprio perfil ou ser master/admin
+    const isOwnProfile = String(u.id) === String(req.user?.id);
+    const isMaster = req.user?.is_master;
+    const isAdmin = req.user?.role === 'admin';
+    
+    if (!isOwnProfile && !isMaster && !isAdmin) {
+      return res.status(403).json({ error: 'Sem permissão para atualizar este perfil' });
+    }
+    
+    // Campos permitidos para atualização
+    const allowedFields = ['full_name', 'photo', 'phone', 'address', 'city', 'state', 'birth_date', 'document'];
+    const up = {};
+    
+    for (const field of allowedFields) {
+      if (updateData[field] !== undefined) {
+        if (updateData[field] === '' || updateData[field] === null) {
+          up[field] = null;
+        } else {
+          up[field] = String(updateData[field]).trim();
+        }
+      }
+    }
+    
+    if (Object.keys(up).length === 0) {
+      return res.json(u);
+    }
+    
+    if (usePostgreSQL) {
+      await repo.updateUser(parseInt(id), up);
+      const updated = await repo.getUserById(parseInt(id));
+      return res.json(updated);
+    }
+    
+    Object.assign(u, up, { updated_at: new Date().toISOString() });
+    if (typeof saveDatabaseDebounced === 'function') saveDatabaseDebounced(db);
+    return res.json(u);
+  } catch (e) {
+    console.error('PATCH /api/users/:id:', sanitizeForLog({ error: e?.message }));
+    throw e;
+  }
+}));
+
 app.patch('/api/colaboradores/:id', authenticate, asyncHandler(async (req, res) => {
   try {
     const { owner, subscriber } = await getOwnerAndSubscriber(req);

@@ -20,7 +20,7 @@ import EarningsReport from '../components/entregador/EarningsReport';
 import DeliveryProofModal from '../components/entregador/DeliveryProofModal';
 import RatingModal from '../components/entregador/RatingModal';
 import TutorialModal from '../components/entregador/TutorialModal';
-import ProfileModal from '../components/entregador/ProfileModal';
+import ColaboradorProfile from '../components/colaboradores/ColaboradorProfile';
 import SettingsModal from '../components/entregador/SettingsModal';
 import PushNotifications from '../components/entregador/PushNotifications';
 import CriticalMessageModal from '../components/entregador/CriticalMessageModal';
@@ -1478,11 +1478,18 @@ export default function Entregador() {
         />
       )}
 
-      {showProfile && (
-        <ProfileModal
-          entregador={entregador}
+      {showProfile && user && (
+        <ColaboradorProfile
+          user={user}
+          profileRole="entregador"
           onClose={() => setShowProfile(false)}
-          darkMode={darkMode}
+          onUpdate={(updatedUser) => {
+            setUser(updatedUser);
+            if (entregador) {
+              setEntregador({ ...entregador, ...updatedUser });
+            }
+            queryClient.invalidateQueries({ queryKey: ['entregador'] });
+          }}
         />
       )}
 

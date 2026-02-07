@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Receipt, Loader2, LogOut, Plus, Edit2, XCircle, History, Trash2, Filter, Search, X, AlertCircle, CheckCircle2, Calculator, Bell } from 'lucide-react';
+import { Receipt, Loader2, LogOut, Plus, Edit2, XCircle, History, Trash2, Filter, Search, X, AlertCircle, CheckCircle2, Calculator, Bell, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -27,6 +27,7 @@ import { useComandaWebSocket } from '@/hooks/useComandaWebSocket';
 import { useWaiterCallWebSocket } from '@/hooks/useWaiterCallWebSocket';
 import { useOfflineSync } from '@/hooks/useOfflineSync';
 import { saveComandaOffline, updateComandaOffline, getComandasOffline } from '@/utils/offlineStorage';
+import ColaboradorProfile from '../components/colaboradores/ColaboradorProfile';
 
 const PAYMENT_METHODS = [
   { value: 'pix', label: 'PIX' },
@@ -55,6 +56,7 @@ export default function Garcom() {
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [comandaToClose, setComandaToClose] = useState(null);
   const [historyCallsOpen, setHistoryCallsOpen] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -360,6 +362,15 @@ export default function Garcom() {
           </div>
           <div className="flex items-center gap-2">
             <InstallAppButton pageName="Garçom" compact />
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="text-white hover:bg-white/20 min-h-touch" 
+              onClick={() => setShowProfile(true)}
+            >
+              <User className="w-5 h-5 mr-1" />
+              <span className="hidden sm:inline">Perfil</span>
+            </Button>
             <Button 
               variant="ghost" 
               size="sm" 

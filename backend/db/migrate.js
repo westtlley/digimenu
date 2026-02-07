@@ -230,6 +230,53 @@ export async function migrate() {
         } catch (error) {
           console.warn('⚠️ Aviso ao adicionar colunas em customers (pode já existir):', error.message);
         }
+
+        // Migração: Campos de perfil para colaboradores (users)
+        try {
+          await query(`
+            DO $$ 
+            BEGIN
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                            WHERE table_name='users' AND column_name='photo') THEN
+                ALTER TABLE users ADD COLUMN photo TEXT;
+                RAISE NOTICE 'Coluna photo adicionada em users';
+              END IF;
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                            WHERE table_name='users' AND column_name='phone') THEN
+                ALTER TABLE users ADD COLUMN phone VARCHAR(50);
+                RAISE NOTICE 'Coluna phone adicionada em users';
+              END IF;
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                            WHERE table_name='users' AND column_name='address') THEN
+                ALTER TABLE users ADD COLUMN address TEXT;
+                RAISE NOTICE 'Coluna address adicionada em users';
+              END IF;
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                            WHERE table_name='users' AND column_name='city') THEN
+                ALTER TABLE users ADD COLUMN city VARCHAR(255);
+                RAISE NOTICE 'Coluna city adicionada em users';
+              END IF;
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                            WHERE table_name='users' AND column_name='state') THEN
+                ALTER TABLE users ADD COLUMN state VARCHAR(50);
+                RAISE NOTICE 'Coluna state adicionada em users';
+              END IF;
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                            WHERE table_name='users' AND column_name='birth_date') THEN
+                ALTER TABLE users ADD COLUMN birth_date DATE;
+                RAISE NOTICE 'Coluna birth_date adicionada em users';
+              END IF;
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                            WHERE table_name='users' AND column_name='document') THEN
+                ALTER TABLE users ADD COLUMN document VARCHAR(30);
+                RAISE NOTICE 'Coluna document adicionada em users';
+              END IF;
+            END $$;
+          `);
+          console.log('✅ Migração de colunas de perfil (photo/phone/address/city/state/birth_date/document) em users concluída.');
+        } catch (error) {
+          console.warn('⚠️ Aviso ao adicionar colunas de perfil em users (pode já existir):', error.message);
+        }
     
     console.log('✅ Migração concluída com sucesso!');
     return true;
