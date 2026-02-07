@@ -23,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { usePermission } from '../permissions/usePermission';
 
 export default function PaymentConfigTab() {
   const [config, setConfig] = useState({
@@ -37,10 +38,20 @@ export default function PaymentConfigTab() {
   const [newFeature, setNewFeature] = useState('');
 
   const queryClient = useQueryClient();
+  const { menuContext } = usePermission();
 
+  // ✅ CORREÇÃO: Buscar configurações de pagamento com contexto do slug
   const { data: paymentConfigs = [], isLoading } = useQuery({
-    queryKey: ['paymentConfig'],
-    queryFn: () => base44.entities.PaymentConfig.list(),
+    queryKey: ['paymentConfig', menuContext?.type, menuContext?.value],
+    queryFn: async () => {
+      if (!menuContext) return [];
+      const opts = {};
+      if (menuContext.type === 'subscriber' && menuContext.value) {
+        opts.as_subscriber = menuContext.value;
+      }
+      return base44.entities.PaymentConfig.list(null, opts);
+    },
+    enabled: !!menuContext,
   });
 
   useEffect(() => {
