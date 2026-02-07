@@ -42,7 +42,7 @@ export default function CategoryForm({ isOpen, onClose, onSubmit, category = nul
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="sm:max-w-lg max-w-[95vw]">
         <DialogHeader>
           <DialogTitle>{category ? 'Editar Categoria' : 'Nova Categoria'}</DialogTitle>
         </DialogHeader>

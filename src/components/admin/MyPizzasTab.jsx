@@ -544,7 +544,7 @@ function PizzaModal({ isOpen, onClose, onSubmit, pizza, sizes, flavors, edges, e
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-3xl max-w-[95vw] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{pizza ? 'Editar' : 'Nova'} Pizza</DialogTitle>
         </DialogHeader>

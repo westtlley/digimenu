@@ -23,7 +23,7 @@ export default function SetupLinkModal({ open, onClose, setupUrl, subscriberName
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-w-[95vw]">
         <DialogHeader>
           <DialogTitle className="text-green-700 dark:text-green-400">
             Assinante criado com sucesso!

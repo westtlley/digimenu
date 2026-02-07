@@ -572,7 +572,7 @@ function SizeModal({ isOpen, onClose, onSubmit, size }) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="sm:max-w-md max-w-[95vw]">
         <DialogHeader>
           <DialogTitle>{size ? 'Editar' : 'Novo'} Tamanho</DialogTitle>
         </DialogHeader>
@@ -745,7 +745,7 @@ function FlavorModal({ isOpen, onClose, onSubmit, flavor }) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="sm:max-w-md max-w-[95vw]">
         <DialogHeader>
           <DialogTitle>{flavor ? 'Editar' : 'Novo'} Sabor</DialogTitle>
         </DialogHeader>
@@ -908,7 +908,7 @@ function EdgeModal({ isOpen, onClose, onSubmit, edge }) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="sm:max-w-md max-w-[95vw]">
         <DialogHeader>
           <DialogTitle>{edge ? 'Editar' : 'Nova'} Borda</DialogTitle>
         </DialogHeader>
@@ -1036,7 +1036,7 @@ function ExtraModal({ isOpen, onClose, onSubmit, extra }) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="sm:max-w-md max-w-[95vw]">
         <DialogHeader>
           <DialogTitle>{extra ? 'Editar' : 'Novo'} Extra</DialogTitle>
         </DialogHeader>
@@ -1124,7 +1124,7 @@ function CategoryModal({ isOpen, onClose, onSubmit, category, sizes = [] }) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="sm:max-w-md max-w-[95vw]">
         <DialogHeader>
           <DialogTitle>{category ? 'Editar' : 'Nova'} Categoria</DialogTitle>
         </DialogHeader>

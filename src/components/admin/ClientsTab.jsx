@@ -346,7 +346,7 @@ export default function ClientsTab() {
 
       {/* Modal de Detalhes do Cliente */}
       <Dialog open={showDetailModal} onOpenChange={setShowDetailModal}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-4xl max-w-[95vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
               <Users className="w-4 h-4 sm:w-5 sm:h-5" />

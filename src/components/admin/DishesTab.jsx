@@ -1700,7 +1700,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
 
       {/* Modal Adicionar/Editar Prato */}
       <Dialog open={showDishModal} onOpenChange={setShowDishModal}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-2xl max-w-[95vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingDish ? 'Editar Prato' : 'Adicionar Prato'}</DialogTitle>
           </DialogHeader>
@@ -1970,7 +1970,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
 
       {/* Modal Configurações do Grupo */}
       <Dialog open={showGroupSettingsModal} onOpenChange={setShowGroupSettingsModal}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="sm:max-w-md max-w-[95vw]">
           <DialogHeader>
             <DialogTitle>Configurações do Grupo</DialogTitle>
           </DialogHeader>

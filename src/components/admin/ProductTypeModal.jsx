@@ -82,7 +82,7 @@ export default function ProductTypeModal({ isOpen, onClose, onSelectType, catego
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="sm:max-w-2xl max-w-[95vw]">
         <DialogHeader>
           <DialogTitle>Escolha um tipo de produto</DialogTitle>
         </DialogHeader>

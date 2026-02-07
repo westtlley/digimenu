@@ -63,7 +63,7 @@ export default function TransferItemsModal({ open, onOpenChange, sourceComanda, 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-lg max-w-[95vw] max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Transferir Itens - {sourceComanda.code || `#${sourceComanda.id}`}</DialogTitle>
         </DialogHeader>

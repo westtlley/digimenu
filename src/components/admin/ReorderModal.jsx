@@ -128,7 +128,7 @@ export default function ReorderModal({ isOpen, onClose, categories, dishes, comp
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[85vh] overflow-hidden">
+      <DialogContent size="large" className="sm:max-w-6xl max-w-[95vw] max-h-[85vh] overflow-hidden">
         <DialogHeader>
           <DialogTitle>Reordenar cardápio</DialogTitle>
           <p className="text-sm text-gray-500">

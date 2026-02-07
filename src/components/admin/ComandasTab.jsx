@@ -585,7 +585,7 @@ function ComandaFormModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+      <DialogContent className="sm:max-w-lg max-w-[95vw] max-h-[85vh] overflow-y-auto" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
         <DialogHeader>
           <DialogTitle style={{ color: 'var(--text-primary)' }}>
             {mode === 'create' && 'Nova Comanda'}
@@ -838,7 +838,7 @@ function ComandaHistoryModal({ open, onOpenChange, comanda }) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+      <DialogContent className="sm:max-w-md max-w-[95vw] max-h-[85vh] overflow-y-auto" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
         <DialogHeader>
           <DialogTitle style={{ color: 'var(--text-primary)' }} className="flex items-center gap-2">
             <History className="w-5 h-5" />

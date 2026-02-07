@@ -30,7 +30,7 @@ export default function ReuseGroupModal({ isOpen, onClose, onSelect, availableGr
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+      <DialogContent className="sm:max-w-2xl max-w-[95vw] max-h-[80vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Copiar grupo</DialogTitle>
           <p className="text-sm text-gray-500">Selecione um ou mais grupos para reutilizar</p>

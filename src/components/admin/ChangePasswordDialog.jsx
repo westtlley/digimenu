@@ -59,7 +59,7 @@ export default function ChangePasswordDialog({ open, onOpenChange }) {
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-md" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+      <DialogContent className="sm:max-w-md max-w-[95vw]" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
             <KeyRound className="w-5 h-5 text-amber-500" />

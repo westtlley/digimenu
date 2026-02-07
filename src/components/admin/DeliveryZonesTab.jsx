@@ -368,7 +368,7 @@ export default function DeliveryZonesTab() {
 
       {/* Modal */}
       <Dialog open={showModal} onOpenChange={setShowModal}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="sm:max-w-sm max-w-[95vw]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <MapPin className="w-5 h-5" />

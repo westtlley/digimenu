@@ -342,7 +342,7 @@ export default function PaymentMethodsTab() {
 
       {/* Modal Online Config */}
       <Dialog open={showOnlineConfig} onOpenChange={setShowOnlineConfig}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="sm:max-w-2xl max-w-[95vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Extrato Pagamento Online</DialogTitle>
           </DialogHeader>

@@ -561,7 +561,7 @@ export default function ComplementsTab() {
 
       {/* Modal Criar Grupo */}
       <Dialog open={showModal} onOpenChange={setShowModal}>
-        <DialogContent className="max-w-sm mx-4">
+        <DialogContent className="sm:max-w-sm max-w-[95vw]">
           <DialogHeader>
             <DialogTitle>Criar Novo Grupo</DialogTitle>
           </DialogHeader>

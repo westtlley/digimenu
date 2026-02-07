@@ -255,7 +255,7 @@ export default function InventoryManagement() {
               Novo Ingrediente
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-md">
+          <DialogContent className="sm:max-w-md max-w-[95vw]">
             <DialogHeader>
               <DialogTitle>{editingIngredient ? 'Editar Ingrediente' : 'Novo Ingrediente'}</DialogTitle>
             </DialogHeader>

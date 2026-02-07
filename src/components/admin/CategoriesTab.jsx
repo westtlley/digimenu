@@ -244,7 +244,7 @@ export default function CategoriesTab() {
 
       {/* Modal */}
       <Dialog open={showModal} onOpenChange={setShowModal}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="sm:max-w-sm max-w-[95vw]">
           <DialogHeader>
             <DialogTitle>Adicionar Categoria</DialogTitle>
           </DialogHeader>

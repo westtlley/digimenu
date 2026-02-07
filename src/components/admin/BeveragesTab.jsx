@@ -265,7 +265,7 @@ export default function BeveragesTab() {
 
       {/* Modal Bebida */}
       <Dialog open={showBeverageModal} onOpenChange={(v) => !v && closeBeverageModal()}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-2xl max-w-[95vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingBeverage ? 'Editar Bebida' : 'Nova Bebida'}</DialogTitle>
           </DialogHeader>

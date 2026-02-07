@@ -494,7 +494,7 @@ export default function PromotionsTab() {
       />
 
       <Dialog open={showModal} onOpenChange={setShowModal}>
-        <DialogContent className="max-w-md mx-4">
+        <DialogContent className="sm:max-w-md max-w-[95vw]">
           <DialogHeader>
             <DialogTitle>Nova Promoção Upsell</DialogTitle>
           </DialogHeader>

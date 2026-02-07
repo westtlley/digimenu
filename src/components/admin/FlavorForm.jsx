@@ -136,7 +136,7 @@ export default function FlavorForm({ isOpen, onClose, onSubmit, flavor = null, c
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="sm:max-w-2xl max-w-[95vw] max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle>
             {flavor ? 'Editar Sabor' : 'Criar Novo Sabor'}

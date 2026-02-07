@@ -310,7 +310,7 @@ export default function PizzaForm({ isOpen, onClose, onSubmit, pizza = null, cat
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent size="large" className="sm:max-w-6xl max-w-[95vw] max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             🍕 {pizza ? 'Editar Pizza' : 'Montar Nova Pizza'}

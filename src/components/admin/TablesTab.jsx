@@ -215,7 +215,7 @@ export default function TablesTab() {
               Nova Mesa
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-md">
+          <DialogContent className="sm:max-w-md max-w-[95vw]">
             <DialogHeader>
               <DialogTitle>{editingTable ? 'Editar Mesa' : 'Nova Mesa'}</DialogTitle>
             </DialogHeader>
@@ -373,7 +373,7 @@ export default function TablesTab() {
 
       {qrCodeTable && (
         <Dialog open={!!qrCodeTable} onOpenChange={() => setQrCodeTable(null)}>
-          <DialogContent className="max-w-sm">
+          <DialogContent className="sm:max-w-sm max-w-[95vw]">
             <DialogHeader>
               <DialogTitle>QR Code - Mesa {qrCodeTable.table_number}</DialogTitle>
             </DialogHeader>
@@ -396,7 +396,7 @@ export default function TablesTab() {
 
       {/* Modal de Comandas por Mesa */}
       <Dialog open={comandasModalOpen} onOpenChange={setComandasModalOpen}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-2xl max-w-[95vw] max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Comandas - Mesa {selectedTable?.table_number}</DialogTitle>
           </DialogHeader>

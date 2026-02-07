@@ -792,7 +792,7 @@ export default function SubscriberDataViewer({ subscriber, onBack }) {
 
       {/* Modal Prato (suporte) - experiência completa */}
       <Dialog open={dishFormOpen} onOpenChange={(open) => { if (!open) { setDishFormOpen(false); setEditingDish(null); } }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-2xl max-w-[95vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingDish ? 'Editar prato' : 'Novo prato'}</DialogTitle>
           </DialogHeader>
@@ -920,7 +920,7 @@ export default function SubscriberDataViewer({ subscriber, onBack }) {
 
       {/* Modal Grupo de Complementos */}
       <Dialog open={groupFormOpen} onOpenChange={(o) => { if (!o) { setGroupFormOpen(false); setEditingGroup(null); } }}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="sm:max-w-md max-w-[95vw]">
           <DialogHeader>
             <DialogTitle>{editingGroup ? 'Editar grupo' : 'Novo grupo de complementos'}</DialogTitle>
           </DialogHeader>
@@ -947,7 +947,7 @@ export default function SubscriberDataViewer({ subscriber, onBack }) {
 
       {/* Modal Complemento */}
       <Dialog open={complementFormOpen} onOpenChange={(o) => { if (!o) { setComplementFormOpen(false); setEditingComplement(null); } }}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="sm:max-w-md max-w-[95vw]">
           <DialogHeader>
             <DialogTitle>{editingComplement ? 'Editar complemento' : 'Novo complemento'}</DialogTitle>
           </DialogHeader>

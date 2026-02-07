@@ -196,7 +196,7 @@ export default function ComplementTemplates({ isOpen, onClose, onUseTemplate }) 
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl max-w-[95vw] max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Bookmark className="w-5 h-5 text-orange-500" />

@@ -94,7 +94,7 @@ export default function ComboModal({ isOpen, onClose, onSubmit, combo, dishes = 
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-3xl max-w-[95vw] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{combo ? 'Editar Combo' : 'Criar Combo'}</DialogTitle>
         </DialogHeader>
