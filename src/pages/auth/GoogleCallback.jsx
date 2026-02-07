@@ -57,6 +57,8 @@ export default function GoogleCallback() {
             navigate('/PDV', { replace: true });
           } else if (user.profile_role === 'garcom') {
             navigate('/Garcom', { replace: true });
+          } else if (user.profile_role === 'gerente') {
+            navigate('/PainelAssinante', { replace: true });
           } else if (user.is_master) {
             navigate('/Admin', { replace: true });
           } else {

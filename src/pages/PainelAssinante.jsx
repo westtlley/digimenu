@@ -119,10 +119,14 @@ export default function PainelAssinante() {
     );
   }
 
+  // Verificar se é gerente (pode acessar mesmo sem assinatura ativa)
+  const isGerente = user?.profile_role === 'gerente';
+  
   // Master pode acessar, mas assinantes precisam de assinatura ativa
   // ✅ CORREÇÃO: Verificar se subscriberData existe e se status é 'active'
   // Se subscriberData for null mas o usuário não é master, pode ser que ainda não carregou
-  if (!isMaster && subscriberData && subscriberData.status !== 'active') {
+  // Gerente pode acessar mesmo sem assinatura ativa
+  if (!isMaster && !isGerente && subscriberData && subscriberData.status !== 'active') {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md text-center">

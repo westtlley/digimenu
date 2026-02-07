@@ -33,7 +33,8 @@ export default function LoginColaborador() {
             entregador: '/Entregador',
             cozinha: '/Cozinha',
             pdv: '/PDV',
-            garcom: '/Garcom'
+            garcom: '/Garcom',
+            gerente: '/PainelAssinante'
           };
           const route = roleRoutes[me.profile_role];
           if (route) navigate(route);
@@ -74,6 +75,8 @@ export default function LoginColaborador() {
           redirectUrl = '/PDV';
         } else if (userData?.profile_role === 'garcom') {
           redirectUrl = '/Garcom';
+        } else if (userData?.profile_role === 'gerente') {
+          redirectUrl = '/PainelAssinante';
         } else if (!redirectUrl) {
           redirectUrl = '/';
         }

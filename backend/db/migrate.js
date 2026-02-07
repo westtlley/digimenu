@@ -277,6 +277,91 @@ export async function migrate() {
         } catch (error) {
           console.warn('⚠️ Aviso ao adicionar colunas de perfil em users (pode já existir):', error.message);
         }
+
+        // Migração: Tabelas para ganhos de entregadores, gorjetas de garçons e feedbacks
+        try {
+          // Tabela de configuração de ganhos dos entregadores
+          await query(`
+            CREATE TABLE IF NOT EXISTS delivery_earnings_config (
+              id SERIAL PRIMARY KEY,
+              subscriber_email VARCHAR(255) NOT NULL,
+              remuneration_type VARCHAR(50) NOT NULL CHECK (remuneration_type IN ('fixed', 'per_delivery', 'per_distance', 'percentage')),
+              fixed_amount DECIMAL(10,2),
+              per_delivery_amount DECIMAL(10,2),
+              per_km_amount DECIMAL(10,2),
+              percentage DECIMAL(5,2),
+              min_amount DECIMAL(10,2),
+              max_amount DECIMAL(10,2),
+              active BOOLEAN DEFAULT true,
+              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              UNIQUE(subscriber_email)
+            );
+          `);
+          
+          // Tabela de ganhos registrados dos entregadores
+          await query(`
+            CREATE TABLE IF NOT EXISTS delivery_earnings (
+              id SERIAL PRIMARY KEY,
+              entregador_id INTEGER NOT NULL,
+              order_id VARCHAR(255),
+              amount DECIMAL(10,2) NOT NULL,
+              calculation_type VARCHAR(50) NOT NULL,
+              distance_km DECIMAL(10,2),
+              delivered_at TIMESTAMP NOT NULL,
+              paid BOOLEAN DEFAULT false,
+              paid_at TIMESTAMP,
+              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              FOREIGN KEY (entregador_id) REFERENCES users(id) ON DELETE CASCADE
+            );
+          `);
+          
+          // Tabela de gorjetas dos garçons
+          await query(`
+            CREATE TABLE IF NOT EXISTS waiter_tips (
+              id SERIAL PRIMARY KEY,
+              garcom_id INTEGER NOT NULL,
+              comanda_id VARCHAR(255),
+              order_id VARCHAR(255),
+              table_id VARCHAR(255),
+              amount DECIMAL(10,2) NOT NULL,
+              tip_type VARCHAR(20) NOT NULL CHECK (tip_type IN ('percent', 'fixed')),
+              tip_percentage DECIMAL(5,2),
+              customer_name VARCHAR(255),
+              paid_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              FOREIGN KEY (garcom_id) REFERENCES users(id) ON DELETE CASCADE
+            );
+          `);
+          
+          // Tabela de feedbacks dos clientes
+          await query(`
+            CREATE TABLE IF NOT EXISTS customer_feedback (
+              id SERIAL PRIMARY KEY,
+              customer_email VARCHAR(255) NOT NULL,
+              subscriber_email VARCHAR(255) NOT NULL,
+              feedback_type VARCHAR(50) NOT NULL CHECK (feedback_type IN ('suggestion', 'complaint', 'praise', 'general')),
+              rating INTEGER CHECK (rating >= 1 AND rating <= 5),
+              message TEXT NOT NULL,
+              order_id VARCHAR(255),
+              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+          `);
+          
+          // Índices para performance
+          await query(`
+            CREATE INDEX IF NOT EXISTS idx_delivery_earnings_entregador ON delivery_earnings(entregador_id);
+            CREATE INDEX IF NOT EXISTS idx_delivery_earnings_delivered_at ON delivery_earnings(delivered_at);
+            CREATE INDEX IF NOT EXISTS idx_waiter_tips_garcom ON waiter_tips(garcom_id);
+            CREATE INDEX IF NOT EXISTS idx_waiter_tips_paid_at ON waiter_tips(paid_at);
+            CREATE INDEX IF NOT EXISTS idx_customer_feedback_subscriber ON customer_feedback(subscriber_email);
+            CREATE INDEX IF NOT EXISTS idx_customer_feedback_created_at ON customer_feedback(created_at);
+          `);
+          
+          console.log('✅ Migração de tabelas de ganhos, gorjetas e feedbacks concluída.');
+        } catch (error) {
+          console.warn('⚠️ Aviso ao criar tabelas de ganhos/gorjetas/feedbacks (pode já existir):', error.message);
+        }
     
     console.log('✅ Migração concluída com sucesso!');
     return true;

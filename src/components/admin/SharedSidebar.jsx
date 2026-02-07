@@ -144,7 +144,8 @@ const MENU_STRUCTURE = [
 export default function SharedSidebar({ 
   activeTab, 
   setActiveTab, 
-  isMaster = false, 
+  isMaster = false,
+  isGerente = false,
   permissions = {}, 
   plan,
   collapsed, 
@@ -174,6 +175,19 @@ export default function SharedSidebar({
 
   const hasModuleAccess = (module) => {
     if (isMaster) return true;
+    
+    // Gerente tem acesso a quase tudo, exceto configurações financeiras avançadas
+    if (isGerente) {
+      // Gerente NÃO pode acessar:
+      // - financial (configurações financeiras avançadas)
+      // - subscriptions (gerenciamento de assinatura)
+      const restrictedModules = ['financial'];
+      if (restrictedModules.includes(module)) {
+        return false;
+      }
+      // Gerente PODE acessar tudo mais
+      return true;
+    }
     
     const planLower = (plan || '').toLowerCase();
     

@@ -66,6 +66,10 @@ export default function SmartRedirect() {
           navigate('/Garcom', { replace: true });
           return;
         }
+        if (userData?.profile_role === 'gerente') {
+          navigate('/PainelAssinante', { replace: true });
+          return;
+        }
 
         // Assinante (não master) → Painel do Assinante
         navigate('/PainelAssinante', { replace: true });
