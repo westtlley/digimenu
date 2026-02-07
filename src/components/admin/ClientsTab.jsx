@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/select";
 import moment from 'moment';
 import ClientsSkeleton from '../skeletons/ClientsSkeleton';
+import { useOrders } from '@/hooks/useOrders';
 
 export default function ClientsTab() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -39,9 +40,9 @@ export default function ClientsTab() {
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
 
-  const { data: orders = [], isLoading } = useQuery({
-    queryKey: ['clientOrders'],
-    queryFn: () => base44.entities.Order.list('-created_date'),
+  // ✅ CORREÇÃO: Usar hook useOrders com contexto automático
+  const { data: orders = [], isLoading } = useOrders({
+    orderBy: '-created_date'
   });
 
   // Pull to refresh

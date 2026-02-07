@@ -3,6 +3,7 @@ import { base44 } from '@/api/base44Client';
 import { log } from '@/utils/logger';
 import { createUserContext, isValidContext } from '@/utils/userContext';
 import { getPlanPermissions } from '@/components/permissions/PlanPresets';
+import { useSlugContext } from '@/hooks/useSlugContext';
 
 /**
  * Hook para verificar permissões do usuário atual
@@ -17,6 +18,9 @@ export function usePermission() {
   const [user, setUser] = useState(null);
   const [subscriberData, setSubscriberData] = useState(null);
   const [userContext, setUserContext] = useState(null);
+
+  // ✅ NOVO: Obter contexto do slug quando estiver em /s/:slug
+  const { subscriberEmail: slugSubscriberEmail, inSlugContext } = useSlugContext();
 
   const loadPermissions = useCallback(async () => {
     try {
@@ -62,19 +66,75 @@ export function usePermission() {
         setPermissions(perms);
 
         // ✅ Garantir que subscriberData sempre tenha plan e status
-        const subscriber = contextData.subscriberData ? {
+        let finalSubscriberData = contextData.subscriberData ? {
           ...contextData.subscriberData,
           plan: contextData.subscriberData.plan || 'basic',
           status: contextData.subscriberData.status || 'active'
         } : null;
-        setSubscriberData(subscriber);
 
-        // ✅ Criar contexto de usuário (backend já retornou menuContext, mas criamos aqui para consistência)
-        const context = createUserContext(
-          contextData.user,
-          contextData.subscriberData,
-          perms
-        );
+        // ✅ CORREÇÃO: Se estiver em contexto de slug, usar subscriberEmail do slug
+        // Isso garante que os dados sejam buscados do assinante correto baseado no slug
+        if (inSlugContext && slugSubscriberEmail && !contextData.user.is_master) {
+          // Se o subscriberEmail do slug for diferente do usuário logado, buscar dados do assinante do slug
+          if (slugSubscriberEmail.toLowerCase() !== (contextData.user.email || '').toLowerCase() &&
+              slugSubscriberEmail.toLowerCase() !== (contextData.user.subscriber_email || '').toLowerCase()) {
+            try {
+              // Buscar dados do assinante baseado no slug
+              const slugSubscriberResult = await base44.functions.invoke('checkSubscriptionStatus', {
+                user_email: slugSubscriberEmail
+              });
+              if (slugSubscriberResult.data?.subscriber) {
+                const slugSubscriber = slugSubscriberResult.data.subscriber;
+                finalSubscriberData = {
+                  ...slugSubscriber,
+                  plan: slugSubscriber.plan || 'basic',
+                  status: slugSubscriber.status || 'active'
+                };
+                // Atualizar permissões também
+                let slugPerms = slugSubscriber.permissions || {};
+                if (typeof slugPerms === 'string') {
+                  try {
+                    slugPerms = JSON.parse(slugPerms);
+                  } catch (e) {
+                    slugPerms = {};
+                  }
+                }
+                if (!slugPerms || typeof slugPerms !== 'object') slugPerms = {};
+                const slugPlanSlug = slugSubscriber.plan || 'basic';
+                const slugIsEmpty = Object.keys(slugPerms).length === 0;
+                if (['free', 'basic', 'pro', 'ultra'].includes(slugPlanSlug) && slugIsEmpty) {
+                  slugPerms = { ...(getPlanPermissions(slugPlanSlug) || {}), ...slugPerms };
+                }
+                setPermissions(slugPerms);
+                log.permission.log('✅ [usePermission] Usando dados do assinante do slug:', slugSubscriberEmail);
+              }
+            } catch (e) {
+              log.permission.warn('⚠️ [usePermission] Erro ao buscar dados do assinante do slug:', e);
+            }
+          }
+        }
+
+        setSubscriberData(finalSubscriberData);
+
+        // ✅ Criar contexto de usuário com subscriberEmail correto (do slug se disponível)
+        // Se estiver em contexto de slug, usar subscriberEmail do slug para menuContext
+        let menuContextToUse = contextData.menuContext;
+        if (inSlugContext && slugSubscriberEmail && !contextData.user.is_master) {
+          // Sobrescrever menuContext para usar subscriberEmail do slug
+          menuContextToUse = {
+            type: 'subscriber',
+            value: slugSubscriberEmail
+          };
+          log.permission.log('✅ [usePermission] Usando subscriberEmail do slug no menuContext:', slugSubscriberEmail);
+        }
+
+        const context = {
+          user: contextData.user,
+          menuContext: menuContextToUse,
+          permissions: perms,
+          isMaster: contextData.user.is_master === true,
+          subscriberData: contextData.user.is_master ? null : finalSubscriberData
+        };
         setUserContext(context);
         log.permission.log('✅ [usePermission] Contexto criado:', context.menuContext);
       } catch (contextError) {
@@ -154,7 +214,7 @@ export function usePermission() {
       window.removeEventListener('focus', onFocus);
       clearTimeout(t);
     };
-  }, [loadPermissions]);
+  }, [loadPermissions, inSlugContext, slugSubscriberEmail]);
 
   // ✅ isMaster baseado APENAS em user.is_master (definido ANTES das funções que o usam)
   const isMaster = user?.is_master === true;

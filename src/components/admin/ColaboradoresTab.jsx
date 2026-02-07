@@ -170,7 +170,7 @@ export default function ColaboradoresTab() {
       )}
 
       <Dialog open={showModal} onOpenChange={handleCloseModal}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg max-w-[90vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editing ? 'Editar colaborador' : 'Adicionar colaborador'}</DialogTitle>
           </DialogHeader>

@@ -18,34 +18,52 @@ import { SkeletonStats } from '@/components/ui/skeleton';
 import DashboardMetrics from './DashboardMetrics';
 import DashboardCharts from './DashboardCharts';
 import DashboardAdvancedAnalytics from './DashboardAdvancedAnalytics';
+import { usePermission } from '../permissions/usePermission';
+import { useOrders } from '@/hooks/useOrders';
+import { useMenuDishes, useMenuCategories } from '@/hooks/useMenuData';
+import { useSlugContext } from '@/hooks/useSlugContext';
 
 export default function DashboardTab({ user, subscriberData, onNavigateToTab }) {
   const [copiedLink, setCopiedLink] = useState(false);
+  const { menuContext } = usePermission();
 
-  const { data: store } = useQuery({
-    queryKey: ['store'],
-    queryFn: () => base44.entities.Store.list().then(stores => stores[0]),
+  // ✅ CORREÇÃO: Usar menuContext para buscar dados do assinante correto
+  const { data: stores = [] } = useQuery({
+    queryKey: ['store', menuContext?.type, menuContext?.value],
+    queryFn: async () => {
+      if (!menuContext) return [];
+      const opts = {};
+      if (menuContext.type === 'subscriber' && menuContext.value) {
+        opts.as_subscriber = menuContext.value;
+      }
+      return base44.entities.Store.list(null, opts);
+    },
+    enabled: !!menuContext,
+  });
+  const store = stores[0];
+
+  // ✅ CORREÇÃO: Usar hook useOrders com contexto automático
+  const { data: orders = [] } = useOrders({
+    orderBy: '-created_date'
   });
 
-  const { data: orders = [] } = useQuery({
-    queryKey: ['dashboardOrders'],
-    queryFn: () => base44.entities.Order.list('-created_date'),
-  });
-
+  // ✅ CORREÇÃO: Buscar pdvSales com contexto
   const { data: pdvSales = [] } = useQuery({
-    queryKey: ['dashboardPDVSales'],
-    queryFn: () => base44.entities.PedidoPDV.list('-created_date'),
+    queryKey: ['dashboardPDVSales', menuContext?.type, menuContext?.value],
+    queryFn: async () => {
+      if (!menuContext) return [];
+      const opts = {};
+      if (menuContext.type === 'subscriber' && menuContext.value) {
+        opts.as_subscriber = menuContext.value;
+      }
+      return base44.entities.PedidoPDV.list('-created_date', opts);
+    },
+    enabled: !!menuContext,
   });
 
-  const { data: dishes = [] } = useQuery({
-    queryKey: ['dishes'],
-    queryFn: () => base44.entities.Dish.list(),
-  });
-
-  const { data: categories = [] } = useQuery({
-    queryKey: ['categories'],
-    queryFn: () => base44.entities.Category.list('order'),
-  });
+  // ✅ CORREÇÃO: Usar hooks com contexto automático
+  const { data: dishes = [] } = useMenuDishes();
+  const { data: categories = [] } = useMenuCategories();
 
   // Cálculos: exclui cancelados; faturamento só de entregues
   const today = moment().startOf('day');
@@ -72,8 +90,9 @@ export default function DashboardTab({ user, subscriberData, onNavigateToTab }) 
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
   };
 
-  // Determinar slug: master usa user.slug, assinante usa subscriberData.slug
-  const currentSlug = user?.is_master ? user?.slug : subscriberData?.slug;
+  // ✅ CORREÇÃO: Determinar slug usando useSlugContext quando disponível
+  const { slug: urlSlug } = useSlugContext();
+  const currentSlug = urlSlug || (user?.is_master ? user?.slug : subscriberData?.slug);
   const menuLink = currentSlug 
     ? `${window.location.origin}/s/${currentSlug}`
     : `${window.location.origin}${createPageUrl('Cardapio')}`;

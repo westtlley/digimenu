@@ -14,6 +14,7 @@ import HistorySkeleton from '../skeletons/HistorySkeleton';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { usePermission } from '@/components/permissions/usePermission';
+import { useOrders } from '@/hooks/useOrders';
 
 const statusConfig = {
   new: { label: 'Novo', color: 'bg-blue-500' },
@@ -46,9 +47,9 @@ export default function OrderHistoryTab() {
   const hasAdvancedAccess = isMaster || 
     (subscriberData?.plan && ['pro', 'ultra'].includes(subscriberData.plan.toLowerCase()));
 
-  const { data: orders = [], isLoading } = useQuery({
-    queryKey: ['orderHistory'],
-    queryFn: () => base44.entities.Order.list('-created_date')
+  // ✅ CORREÇÃO: Usar hook useOrders com contexto automático
+  const { data: orders = [], isLoading } = useOrders({
+    orderBy: '-created_date'
   });
 
   // Pull to refresh

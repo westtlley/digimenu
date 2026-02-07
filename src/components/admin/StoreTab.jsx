@@ -97,9 +97,19 @@ export default function StoreTab() {
     onError: (e) => toast.error(e?.message || 'Erro ao salvar link'),
   });
 
+  // ✅ CORREÇÃO: Buscar store com contexto do slug
+  const { menuContext } = usePermission();
   const { data: stores = [] } = useQuery({
-    queryKey: ['store'],
-    queryFn: () => base44.entities.Store.list(),
+    queryKey: ['store', menuContext?.type, menuContext?.value],
+    queryFn: async () => {
+      if (!menuContext) return [];
+      const opts = {};
+      if (menuContext.type === 'subscriber' && menuContext.value) {
+        opts.as_subscriber = menuContext.value;
+      }
+      return base44.entities.Store.list(null, opts);
+    },
+    enabled: !!menuContext,
   });
 
   // ✅ NOVO: Usar useMenuDishes para buscar pratos (usado em cross-sell)
