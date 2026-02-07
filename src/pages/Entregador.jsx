@@ -1447,7 +1447,7 @@ export default function Entregador() {
         entregador={entregador}
         darkMode={darkMode}
       />
-
       </div>
-      );
-      }
+    </ErrorBoundary>
+  );
+}
