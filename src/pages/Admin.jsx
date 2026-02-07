@@ -396,7 +396,7 @@ export default function Admin() {
       )}
 
       {/* Main Layout with Sidebar */}
-      <div className="flex flex-1 overflow-hidden relative">
+      <div className="flex flex-1 overflow-x-hidden overflow-y-auto relative">
         {/* Sidebar */}
         <div
           className={`

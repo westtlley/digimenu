@@ -284,8 +284,9 @@ button:focus-visible {
   }
 }
 
-/* Modal grande (ex.: Editar Assinante) – forçar tamanho/posição no desktop */
+/* Correção global para modais no desktop - garantir que não sejam cortados */
 @media (min-width: 640px) {
+  /* Modal grande (ex.: Editar Assinante) – forçar tamanho/posição no desktop */
   [data-dialog-size="large"] {
     left: 50% !important;
     top: 50% !important;
@@ -295,5 +296,29 @@ button:focus-visible {
     max-width: 72rem !important;
     max-height: 90vh !important;
     transform: translate(-50%, -50%) !important;
+    overflow-y: auto !important;
   }
+  
+  /* Garantir que todos os DialogContent no desktop sejam centralizados e não cortados */
+  [role="dialog"] {
+    max-height: 90vh !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+  }
+  
+  /* Garantir que o conteúdo interno dos modais não seja cortado */
+  [role="dialog"] > * {
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+  }
+}
+
+/* Garantir que modais não sejam cortados em qualquer resolução */
+[role="dialog"] {
+  box-sizing: border-box !important;
+}
+
+/* Garantir que o overlay não interfira */
+[data-radix-dialog-overlay] {
+  overflow: hidden !important;
 }

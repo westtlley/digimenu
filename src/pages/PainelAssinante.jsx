@@ -322,7 +322,7 @@ export default function PainelAssinante() {
       )}
 
       {/* Main Layout */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-x-hidden overflow-y-auto">
         {/* Sidebar Profissional Categorizado */}
         <div
           className={`
