@@ -1442,7 +1442,7 @@ app.get('/api/colaboradores', authenticate, async (req, res) => {
     } else if (db?.users) {
       list = db.users
         .filter(u => (u.subscriber_email || '').toLowerCase().trim() === owner && (u.profile_role || '').trim())
-        .map(u => ({ id: u.id, email: u.email, full_name: u.full_name, profile_role: u.profile_role, created_at: u.created_at, updated_at: u.updated_at }));
+        .map(u => ({ id: u.id, email: u.email, full_name: u.full_name, profile_role: u.profile_role, active: u.active !== false, created_at: u.created_at, updated_at: u.updated_at }));
     }
     
     // Agrupar por email para mostrar múltiplos perfis
@@ -1455,9 +1455,14 @@ app.get('/api/colaboradores', authenticate, async (req, res) => {
           full_name: item.full_name,
           roles: [],
           ids: [],
+          active: item.active !== false, // Default true se não especificado
           created_at: item.created_at,
           updated_at: item.updated_at
         };
+      }
+      // Se algum perfil estiver desativado, marcar como desativado
+      if (item.active === false) {
+        grouped[email].active = false;
       }
       if (!grouped[email].roles.includes(item.profile_role)) {
         grouped[email].roles.push(item.profile_role);
@@ -1474,6 +1479,7 @@ app.get('/api/colaboradores', authenticate, async (req, res) => {
       profile_role: item.roles[0], // Primeiro perfil para compatibilidade
       profile_roles: item.roles, // Array de perfis
       ids: item.ids, // IDs dos registros
+      active: item.active !== false, // Default true se não especificado
       created_at: item.created_at,
       updated_at: item.updated_at
     }));

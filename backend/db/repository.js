@@ -563,7 +563,7 @@ export async function updateUser(id, userData) {
 /** Lista colaboradores (usuários com profile_role) de um assinante */
 export async function listColaboradores(ownerEmail) {
   const result = await query(
-    `SELECT id, email, full_name, profile_role, created_at, updated_at
+    `SELECT id, email, full_name, profile_role, COALESCE(active, true) as active, created_at, updated_at
      FROM users
      WHERE LOWER(TRIM(subscriber_email)) = LOWER(TRIM($1)) AND profile_role IS NOT NULL
      ORDER BY full_name`,
