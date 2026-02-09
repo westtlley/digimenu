@@ -64,8 +64,49 @@ export default function ProtectedRoute({
           return;
         }
 
+        // Verificar se é gerente ou colaborador (podem acessar mesmo sem assinatura ativa)
+        const roles = userData?.profile_roles?.length ? userData.profile_roles : userData?.profile_role ? [userData.profile_role] : [];
+        const isGerente = roles.includes('gerente');
+        const isColaborador = roles.length > 0; // Qualquer colaborador (entregador, cozinha, pdv, garcom, gerente)
+
         // Verificar assinatura ativa
         if (requireActiveSubscription) {
+          // Gerente pode acessar mesmo sem assinatura ativa (cargo de confiança)
+          if (isGerente) {
+            setAuthorized(true);
+            setLoading(false);
+            return;
+          }
+
+          // Colaboradores (entregador, cozinha, pdv, garcom) podem acessar seus apps mesmo sem assinatura ativa
+          // Mas apenas se estiverem acessando a rota correta para seu perfil
+          // NOTA: Gerente já foi verificado acima e pode acessar tudo
+          if (isColaborador && !isGerente) {
+            const path = location.pathname.toLowerCase();
+            const role = roles[0]; // Pega o primeiro role
+            
+            // Verificar se está acessando a rota correta para seu perfil
+            // Suporta rotas com e sem slug (ex: /Entregador ou /s/slug/Entregador)
+            const roleRouteMap = {
+              'entregador': ['entregador', 'entregadorpanel'],
+              'cozinha': ['cozinha'],
+              'pdv': ['pdv'],
+              'garcom': ['garcom']
+            };
+            
+            const allowedRoutes = roleRouteMap[role] || [];
+            const isAccessingCorrectRoute = allowedRoutes.some(route => 
+              path.includes(`/${route}`) || path.endsWith(`/${route}`)
+            );
+            
+            // Se for colaborador acessando sua rota específica, permitir
+            if (isAccessingCorrectRoute) {
+              setAuthorized(true);
+              setLoading(false);
+              return;
+            }
+          }
+
           try {
             const result = await base44.functions.invoke('checkSubscriptionStatus', {
               user_email: userData.email

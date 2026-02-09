@@ -7,10 +7,11 @@ import { Loader2 } from 'lucide-react';
  * Componente que redireciona inteligentemente baseado no perfil do usuário
  * 
  * GOVERNANÇA DE REDIRECIONAMENTOS:
- * 1. Cliente (customer) → Último cardápio visitado ou /Assinar
+ * 1. Cliente (customer) → Último cardápio visitado ou página inicial
  * 2. Assinante (autenticado, não master) → /PainelAssinante
  * 3. Admin Master → /Admin
- * 4. NÃO autenticado → /Assinar
+ * 4. Colaborador → /colaborador
+ * 5. NÃO autenticado → Página inicial (não /Assinar)
  */
 export default function SmartRedirect() {
   const [checking, setChecking] = useState(true);
@@ -23,8 +24,15 @@ export default function SmartRedirect() {
         const isAuth = await base44.auth.isAuthenticated();
         
         if (!isAuth) {
-          // Não autenticado → Página de vendas
-          navigate('/Assinar', { replace: true });
+          // Não autenticado → Página inicial (não redirecionar para /Assinar)
+          // Se houver último cardápio visitado, ir para lá
+          const lastVisitedSlug = localStorage.getItem('lastVisitedSlug');
+          if (lastVisitedSlug) {
+            navigate(`/s/${lastVisitedSlug}`, { replace: true });
+          } else {
+            // Página inicial simples, sem forçar /Assinar
+            navigate('/', { replace: true });
+          }
           return;
         }
 
@@ -37,14 +45,14 @@ export default function SmartRedirect() {
           return;
         }
 
-        // Cliente (customer) → Assinar (para escolher um cardápio)
+        // Cliente (customer) → Último cardápio visitado ou página inicial
         if (userData?.role === 'customer') {
-          // Verificar se há um último cardápio visitado no localStorage
           const lastVisitedSlug = localStorage.getItem('lastVisitedSlug');
           if (lastVisitedSlug) {
             navigate(`/s/${lastVisitedSlug}`, { replace: true });
           } else {
-            navigate('/Assinar', { replace: true });
+            // Não redirecionar para /Assinar, apenas ficar na página inicial
+            navigate('/', { replace: true });
           }
           return;
         }
@@ -60,8 +68,13 @@ export default function SmartRedirect() {
 
       } catch (error) {
         console.error('Erro ao verificar autenticação:', error);
-        // Em caso de erro, redirecionar para /Assinar
-        navigate('/Assinar', { replace: true });
+        // Em caso de erro, não redirecionar para /Assinar, apenas página inicial
+        const lastVisitedSlug = localStorage.getItem('lastVisitedSlug');
+        if (lastVisitedSlug) {
+          navigate(`/s/${lastVisitedSlug}`, { replace: true });
+        } else {
+          navigate('/', { replace: true });
+        }
       } finally {
         setChecking(false);
       }
