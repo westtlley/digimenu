@@ -434,10 +434,26 @@ export async function createEntitiesBulk(entityType, items, user = null) {
 
 export async function getUserByEmail(email) {
   if (!email) return null;
-  // Normalizar email para busca case-insensitive
   const emailLower = email.toLowerCase().trim();
   const result = await query(
     'SELECT * FROM users WHERE LOWER(TRIM(email)) = $1',
+    [emailLower]
+  );
+  return result.rows[0] || null;
+}
+
+/**
+ * Retorna o usuário a usar no login quando há múltiplos registros com o mesmo email.
+ * Prioriza a linha de colaborador (profile_role preenchido) para que o front redirecione
+ * gerente/colaborador para /colaborador em vez do painel do assinante.
+ */
+export async function getLoginUserByEmail(email) {
+  if (!email) return null;
+  const emailLower = email.toLowerCase().trim();
+  const result = await query(
+    `SELECT * FROM users WHERE LOWER(TRIM(email)) = $1
+     ORDER BY (CASE WHEN profile_role IS NOT NULL AND profile_role != '' THEN 0 ELSE 1 END), id
+     LIMIT 1`,
     [emailLower]
   );
   return result.rows[0] || null;

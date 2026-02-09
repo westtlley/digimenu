@@ -1,7 +1,7 @@
 /**
- * Páginas de login por estabelecimento (slug): tema e logo do estabelecimento.
- * Rotas: /s/:slug/login (assinante), /s/:slug/login/cliente, /s/:slug/login/colaborador.
- * Evita conflito entre estabelecimentos: cada um tem sua URL e identidade visual.
+ * Login unificado por estabelecimento (slug): uma única tela para dono, gerente, colaborador e cliente.
+ * Rotas: /s/:slug/login (entrada principal), /s/:slug/login/cliente e /s/:slug/login/colaborador (atalhos).
+ * O redirecionamento após o login é sempre pelo perfil retornado pelo backend.
  */
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useSearchParams, Link } from 'react-router-dom';
@@ -57,26 +57,27 @@ export default function LoginBySlug({ type: propType }) {
         if (!ok) return;
         const me = await base44.auth.me();
         if (!me) return;
-        
-        if (loginType === 'cliente' && me?.role === 'customer') {
+        // Redirecionamento único por perfil (independente do tipo de atalho na URL)
+        if (me?.role === 'customer') {
           navigate(slug ? `/s/${slug}` : '/', { replace: true });
           return;
         }
-        if (loginType === 'colaborador' && (me?.profile_role || me?.profile_roles?.length)) {
-          // Colaborador (incluindo gerente) → Home do colaborador com botões para escolher acesso
+        const roles = me?.profile_roles?.length ? me.profile_roles : me?.profile_role ? [me.profile_role] : [];
+        if (roles.length > 0) {
           navigate('/colaborador', { replace: true });
           return;
         }
-        if (loginType === 'assinante' && me && !me.is_master) {
-          navigate(slug ? `/s/${slug}/PainelAssinante` : '/PainelAssinante', { replace: true });
+        if (me?.is_master) {
+          navigate('/Admin', { replace: true });
           return;
         }
+        navigate(slug ? `/s/${slug}/PainelAssinante` : '/PainelAssinante', { replace: true });
       } catch (e) {
-        // não autenticado - não fazer nada, deixar usuário fazer login
+        // não autenticado - deixar usuário fazer login
       }
     };
     checkAuth();
-  }, [loginType, slug, navigate]);
+  }, [slug, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -156,9 +157,15 @@ export default function LoginBySlug({ type: propType }) {
     );
   }
 
-  const isAssinante = loginType === 'assinante';
+  const isUnified = loginType === 'assinante';
   const isCliente = loginType === 'cliente';
   const isColaborador = loginType === 'colaborador';
+
+  const subtitleText = isUnified
+    ? 'Entrar — Dono, gerente, colaborador ou cliente'
+    : isCliente
+      ? 'Entrar como cliente'
+      : 'Acesso colaborador — Entregador, Cozinha, PDV, Garçom ou Gerente';
 
   return (
     <div
@@ -169,7 +176,6 @@ export default function LoginBySlug({ type: propType }) {
     >
       <div className="w-full max-w-md">
         <div className="rounded-2xl shadow-2xl overflow-hidden bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-          {/* Header com tema do estabelecimento */}
           <div
             className="p-6 text-white text-center"
             style={{ background: `linear-gradient(135deg, ${theme.primary} 0%, ${theme.secondary} 100%)` }}
@@ -190,17 +196,13 @@ export default function LoginBySlug({ type: propType }) {
               </div>
             )}
             <h1 className="text-xl font-bold truncate">{storeName}</h1>
-            <p className="text-sm text-white/90 mt-1">
-              {isAssinante && 'Acesso ao painel do estabelecimento'}
-              {isCliente && 'Entrar na sua conta'}
-              {isColaborador && 'Acesso colaborador'}
-            </p>
+            <p className="text-sm text-white/90 mt-1">{subtitleText}</p>
           </div>
 
           <div className="p-6">
-            {isColaborador && (
+            {isUnified && (
               <p className="text-xs text-gray-500 dark:text-gray-400 text-center mb-4">
-                Entregador, Cozinha, PDV, Garçom ou Gerente
+                Use seu e-mail e senha. Você será direcionado ao painel correto conforme seu perfil.
               </p>
             )}
 
@@ -210,7 +212,7 @@ export default function LoginBySlug({ type: propType }) {
                 <Input
                   id="email"
                   type="email"
-                  placeholder={isCliente ? 'seu@email.com' : 'email@exemplo.com'}
+                  placeholder="seu@email.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   disabled={loading}
@@ -267,10 +269,28 @@ export default function LoginBySlug({ type: propType }) {
             <div className="mt-6 space-y-3 text-center">
               <Link
                 to="/esqueci-senha"
-                className="text-sm text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
+                className="block text-sm text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
               >
                 Esqueci minha senha
               </Link>
+              {isUnified && (
+                <>
+                  <div>
+                    <Link
+                      to={`${basePath}/cadastro-cliente`}
+                      className="text-sm font-medium"
+                      style={{ color: theme.primary }}
+                    >
+                      Não tem conta? Cadastre-se (cliente)
+                    </Link>
+                  </div>
+                  <div>
+                    <Link to="/Assinar" className="text-sm font-medium" style={{ color: theme.primary }}>
+                      Não tem conta? Assine agora (estabelecimento)
+                    </Link>
+                  </div>
+                </>
+              )}
               {isCliente && (
                 <div>
                   <Link
@@ -282,7 +302,7 @@ export default function LoginBySlug({ type: propType }) {
                   </Link>
                 </div>
               )}
-              {isAssinante && (
+              {isColaborador && (
                 <div>
                   <Link to="/Assinar" className="text-sm font-medium" style={{ color: theme.primary }}>
                     Não tem conta? Assine agora
@@ -290,7 +310,7 @@ export default function LoginBySlug({ type: propType }) {
                 </div>
               )}
               <div>
-                <Link to={basePath || '/'} className="text-sm text-gray-500 hover:text-gray-700">
+                <Link to={basePath || '/'} className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
                   ← Voltar ao cardápio
                 </Link>
               </div>

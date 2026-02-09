@@ -124,14 +124,16 @@ export default function PainelAssinante() {
   const isGerente = roles.length > 0 && roles.includes('gerente');
   const isColaborador = roles.length > 0;
   
-  // ✅ CORREÇÃO: Gerente/colaborador não deve acessar PainelAssinante diretamente
-  // Deve ir para /colaborador para escolher qual acesso usar
-  // Só redirecionar se user estiver carregado e não for master
+  // Só o dono (assinante) pode acessar o Painel do Assinante. Gerente/colaborador que não é dono → /colaborador
+  const ownerEmail = (subscriberData?.email || '').toLowerCase().trim();
+  const isOwner = ownerEmail && (user?.email || '').toLowerCase().trim() === ownerEmail;
+  const mustRedirectToColaborador = !isMaster && user && ((isColaborador && !isOwner) || (!isOwner && ownerEmail));
+
   useEffect(() => {
-    if (!loading && user && isColaborador && !isMaster) {
+    if (!loading && mustRedirectToColaborador) {
       navigate('/colaborador', { replace: true });
     }
-  }, [loading, user, isColaborador, isMaster, navigate]);
+  }, [loading, mustRedirectToColaborador, navigate]);
 
   if (loading) {
     return (
@@ -141,15 +143,14 @@ export default function PainelAssinante() {
     );
   }
   
-  // Mostrar loading enquanto verifica se é colaborador
-  if (user && isColaborador && !isMaster) {
+  if (user && mustRedirectToColaborador) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
       </div>
     );
   }
-  
+
   // Master pode acessar, mas assinantes precisam de assinatura ativa
   // ✅ CORREÇÃO: Verificar se subscriberData existe e se status é 'active'
   // Se subscriberData for null mas o usuário não é master, pode ser que ainda não carregou

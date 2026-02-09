@@ -600,19 +600,22 @@ app.post('/api/auth/login', validate(schemas.login), asyncHandler(async (req, re
       return res.status(400).json({ error: 'Email e senha são obrigatórios' });
     }
 
-    // Buscar usuário no banco
+    // Buscar usuário no banco (prioriza linha de colaborador quando mesmo email tem 2 registros)
     const emailLower = email.toLowerCase().trim();
     console.log('🔍 [login] Buscando usuário com email:', emailLower);
     
     let user;
     if (usePostgreSQL) {
-      user = await repo.getUserByEmail(emailLower);
+      user = await repo.getLoginUserByEmail(emailLower);
       if (!user) {
         console.log('⚠️ [login] Usuário não encontrado com email normalizado. Tentando busca alternativa...');
-        // Tentar buscar diretamente com o email original (caso tenha diferença de case)
         try {
           const { query } = await import('./db/postgres.js');
-          const result = await query('SELECT * FROM users WHERE LOWER(TRIM(email)) = LOWER(TRIM($1)) OR email ILIKE $2', [emailLower, `%${emailLower}%`]);
+          const result = await query(
+            `SELECT * FROM users WHERE LOWER(TRIM(email)) = LOWER(TRIM($1)) OR email ILIKE $2
+             ORDER BY (CASE WHEN profile_role IS NOT NULL AND profile_role != '' THEN 0 ELSE 1 END), id LIMIT 1`,
+            [emailLower, `%${emailLower}%`]
+          );
           if (result.rows.length > 0) {
             user = result.rows[0];
             console.log('✅ [login] Usuário encontrado com busca alternativa:', user.email);

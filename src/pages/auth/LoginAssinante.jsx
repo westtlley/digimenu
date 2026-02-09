@@ -55,14 +55,17 @@ export default function LoginAssinante() {
       if (response.token) {
         toast.success('Login realizado com sucesso!');
 
-        let redirectUrl = returnUrl;
-        
-        // Assinante → PainelAssinante
-        if (!userData?.is_master) {
-          redirectUrl = '/PainelAssinante';
-        } else {
-          // Master tentando acessar como assinante → Admin
+        const roles = userData?.profile_roles?.length ? userData.profile_roles : (userData?.profile_role ? [userData.profile_role] : []);
+        const isColaborador = roles.length > 0;
+        let redirectUrl;
+
+        if (userData?.is_master) {
           redirectUrl = '/Admin';
+        } else if (isColaborador) {
+          // Colaborador (incluindo gerente) → home do colaborador; nunca painel do assinante
+          redirectUrl = '/colaborador';
+        } else {
+          redirectUrl = returnUrl && returnUrl.includes('PainelAssinante') ? returnUrl : '/PainelAssinante';
         }
 
         setTimeout(() => navigate(redirectUrl), 400);

@@ -43,7 +43,7 @@ export const authenticate = async (req, res, next) => {
         const usePostgreSQL = !!process.env.DATABASE_URL;
         let user;
         if (usePostgreSQL) {
-          user = await repo.getUserByEmail(decoded.email);
+          user = await repo.getLoginUserByEmail(decoded.email);
         }
         if (user) {
           req.user = user;
@@ -76,9 +76,9 @@ export const authenticate = async (req, res, next) => {
     const usePostgreSQL = !!process.env.DATABASE_URL;
     let user;
     if (usePostgreSQL) {
-      user = await repo.getUserByEmail(decoded.email);
+      user = await repo.getLoginUserByEmail(decoded.email);
       if (!user) {
-        user = await repo.getUserByEmail('admin@digimenu.com');
+        user = await repo.getUserByEmail(decoded.email) || await repo.getUserByEmail('admin@digimenu.com');
       }
     }
     

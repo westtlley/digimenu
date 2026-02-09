@@ -106,7 +106,7 @@ function PagesContent() {
                 <Route path="/s/:slug/Entregador" element={<ProtectedRoute requireActiveSubscription><Entregador /></ProtectedRoute>} />
                 <Route path="/s/:slug/EntregadorPanel" element={<ProtectedRoute requireActiveSubscription><EntregadorPanel /></ProtectedRoute>} />
                 <Route path="/s/:slug/Garcom" element={<ProtectedRoute requireActiveSubscription><Garcom /></ProtectedRoute>} />
-                {/* Logins por estabelecimento: tema e logo do slug; evita conflito entre estabelecimentos */}
+                {/* Login unificado: /s/:slug/login (dono, gerente, colaborador, cliente). Atalhos: /s/:slug/login/cliente e /s/:slug/login/colaborador */}
                 <Route path="/s/:slug/login/:type" element={<LoginBySlug />} />
                 <Route path="/s/:slug/login" element={<LoginBySlug />} />
                 <Route path="/s/:slug" element={<Cardapio />} />
