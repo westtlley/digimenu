@@ -80,6 +80,9 @@ class ApiClient {
         ...options.headers,
       },
     };
+    if (options.signal) {
+      config.signal = options.signal;
+    }
 
     if (this.token) {
       config.headers.Authorization = `Bearer ${this.token}`;
@@ -253,6 +256,7 @@ class ApiClient {
     return {
       /**
        * Verifica se o usuário está autenticado
+       * Timeout de 15s para evitar tela "Verificando acesso..." infinita se o backend não responder.
        */
       isAuthenticated: async () => {
         const token = localStorage.getItem('auth_token');
@@ -261,18 +265,23 @@ class ApiClient {
           return false;
         }
         
-        // Garantir que o token da instância está atualizado
         if (self.token !== token) {
           self.token = token;
         }
         
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
         try {
-          const user = await self.get('/auth/me');
+          const user = await self.get('/auth/me', {}, { signal: controller.signal });
+          clearTimeout(timeoutId);
           logger.log('✅ [isAuthenticated] Usuário autenticado:', user?.email);
           return true;
         } catch (error) {
+          clearTimeout(timeoutId);
           logger.log('❌ [isAuthenticated] Erro:', error.message);
-          // Se o erro for 401, limpar o token inválido
+          if (error.name === 'AbortError') {
+            logger.warn('[isAuthenticated] Timeout - backend não respondeu em 15s');
+          }
           if (error.message?.includes('401') || error.message?.includes('expirada')) {
             self.removeToken();
           }
@@ -281,13 +290,21 @@ class ApiClient {
       },
 
       /**
-       * Obtém dados do usuário atual
+       * Obtém dados do usuário atual.
+       * Timeout de 15s para evitar loading infinito se o backend não responder.
        */
       me: async () => {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
         try {
-          return await self.get('/auth/me');
+          const data = await self.get('/auth/me', {}, { signal: controller.signal });
+          clearTimeout(timeoutId);
+          return data;
         } catch (error) {
-          // Não redirecionar em caso de erro, apenas lançar
+          clearTimeout(timeoutId);
+          if (error.name === 'AbortError') {
+            logger.warn('[auth.me] Timeout - backend não respondeu em 15s');
+          }
           throw error;
         }
       },

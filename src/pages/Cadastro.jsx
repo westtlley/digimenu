@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Eye, EyeOff, ArrowLeft, Loader2, Check, Sparkles } from 'lucide-react';
+import { SYSTEM_LOGO_URL, SYSTEM_NAME } from '@/config/branding';
 
 const PLAN_INFO = {
   free: { name: 'Gratuito', color: 'green', price: 'R$ 0/mês', trial: '' },
@@ -116,8 +117,8 @@ export default function Cadastro() {
         
         {/* Header */}
         <div className="text-center mb-8">
-          <img src="/images/digimenu-logo.svg" alt="DigiMenu" className="h-14 w-auto mx-auto mb-3 drop-shadow-md" />
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">DigiMenu</h1>
+          <img src={SYSTEM_LOGO_URL} alt={SYSTEM_NAME} className="h-14 w-auto mx-auto mb-3 drop-shadow-md" />
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">{SYSTEM_NAME}</h1>
           <p className="text-gray-600">Crie sua conta e comece agora</p>
         </div>
 
@@ -279,7 +280,7 @@ export default function Cadastro() {
 
         {/* Footer */}
         <div className="text-center mt-8 text-xs text-gray-400">
-          DigiMenu © {new Date().getFullYear()} - Todos os direitos reservados
+          {SYSTEM_NAME} © {new Date().getFullYear()} - Todos os direitos reservados
         </div>
       </div>
     </div>

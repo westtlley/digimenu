@@ -36,6 +36,12 @@ export default function ColaboradorHome() {
 
   useEffect(() => {
     let cancelled = false;
+    const safetyTimer = setTimeout(() => {
+      if (!cancelled) {
+        setLoading(false);
+        setUser(null);
+      }
+    }, 20000);
     (async () => {
       try {
         const ok = await base44.auth.isAuthenticated();
@@ -53,11 +59,33 @@ export default function ColaboradorHome() {
       } catch (e) {
         if (!cancelled) navigate('/', { replace: true });
       } finally {
+        clearTimeout(safetyTimer);
         if (!cancelled) setLoading(false);
       }
     })();
-    return () => { cancelled = true; };
+    return () => { cancelled = true; clearTimeout(safetyTimer); };
   }, [navigate]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 dark:from-gray-900 dark:to-gray-800">
+        <Loader2 className="w-10 h-10 animate-spin text-orange-500" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 dark:from-gray-900 dark:to-gray-800 p-4">
+        <p className="text-gray-600 dark:text-gray-400 mb-4 text-center">
+          Não foi possível carregar. Verifique sua conexão ou acesse pelo link do seu restaurante.
+        </p>
+        <Button variant="outline" onClick={() => navigate('/', { replace: true })}>
+          Voltar ao início
+        </Button>
+      </div>
+    );
+  }
 
   const roles = user?.profile_roles?.length
     ? user.profile_roles
@@ -74,14 +102,6 @@ export default function ColaboradorHome() {
     base44.auth.logout();
     navigate('/', { replace: true });
   };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 dark:from-gray-900 dark:to-gray-800">
-        <Loader2 className="w-10 h-10 animate-spin text-orange-500" />
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-gray-900 dark:to-gray-800 p-4 pb-8">

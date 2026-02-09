@@ -26,10 +26,20 @@ export default function ProtectedRoute({
   const [authorized, setAuthorized] = useState(false);
   const [user, setUser] = useState(null);
   const [subscriberData, setSubscriberData] = useState(null);
+  const [accessTimeout, setAccessTimeout] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
+    setAccessTimeout(false);
+    const CHECK_TIMEOUT_MS = 20000;
+    const timeoutId = setTimeout(() => {
+      setAccessTimeout(true);
+      setLoading(false);
+      setAuthorized(false);
+    }, CHECK_TIMEOUT_MS);
+
     const checkAccess = async () => {
       try {
         // Verificar se está autenticado
@@ -180,12 +190,14 @@ export default function ProtectedRoute({
         logger.error('Error checking access:', error);
         setAuthorized(false);
       } finally {
+        clearTimeout(timeoutId);
         setLoading(false);
       }
     };
 
     checkAccess();
-  }, [requireMaster, requireActiveSubscription, requiredRole, location.pathname]);
+    return () => clearTimeout(timeoutId);
+  }, [requireMaster, requireActiveSubscription, requiredRole, location.pathname, retryCount]);
 
   if (loading) {
     return (
@@ -199,6 +211,7 @@ export default function ProtectedRoute({
   }
 
   if (!authorized) {
+    const isTimeout = accessTimeout;
     return (
       <div className="min-h-screen flex items-center justify-center p-4" style={{ backgroundColor: 'var(--bg-primary)' }}>
         <div className="rounded-2xl shadow-lg p-8 max-w-md text-center" style={{ backgroundColor: 'var(--bg-card)', border: `1px solid var(--border-color)` }}>
@@ -206,10 +219,12 @@ export default function ProtectedRoute({
             <Lock className="w-8 h-8 text-red-500" />
           </div>
           <h2 className="text-2xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>
-            Acesso Não Autorizado
+            {isTimeout ? 'Verificação demorou demais' : 'Acesso Não Autorizado'}
           </h2>
           <p className="mb-6" style={{ color: 'var(--text-secondary)' }}>
-            {requireMaster 
+            {isTimeout
+              ? 'O servidor não respondeu a tempo. Verifique sua conexão ou tente acessar pelo link do seu restaurante (ex.: /s/seu-restaurante/login).'
+              : requireMaster
               ? 'Apenas administradores master podem acessar esta página.'
               : requireActiveSubscription
               ? 'Você precisa de uma assinatura ativa para acessar esta página.'
@@ -223,6 +238,15 @@ export default function ProtectedRoute({
             </div>
           )}
           <div className="space-y-3">
+            {isTimeout && (
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => { setAccessTimeout(false); setLoading(true); setRetryCount(c => c + 1); }}
+              >
+                Tentar novamente
+              </Button>
+            )}
             <a 
               href="https://wa.me/5586988196114" 
               target="_blank" 

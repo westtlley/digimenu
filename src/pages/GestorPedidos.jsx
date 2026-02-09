@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
+import { SYSTEM_NAME } from '@/config/branding';
 import toast, { Toaster } from 'react-hot-toast';
 
 import EnhancedKanbanBoard from '../components/gestor/EnhancedKanbanBoard';
@@ -954,7 +955,7 @@ export default function GestorPedidos() {
       <footer className="hidden lg:block flex-shrink-0 border-t border-gray-200 bg-gray-100 py-2 px-4">
         <div className="max-w-screen-2xl mx-auto flex items-center justify-center gap-2 text-sm text-gray-600">
           <Check className="w-4 h-4 text-green-600" />
-          <span>DigiMenu • Gestor de Pedidos</span>
+          <span>{SYSTEM_NAME} • Gestor de Pedidos</span>
         </div>
       </footer>
 

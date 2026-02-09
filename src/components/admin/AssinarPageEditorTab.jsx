@@ -1,5 +1,5 @@
 /**
- * Edição da Página Assinar (venda do DigiMenu) — apenas Admin Master.
+ * Edição da Página Assinar (venda do sistema) — apenas Admin Master. Nome do sistema em @/config/branding.
  * Centraliza: hero, destaques, preços, benefícios, pagamento (PIX/link), CTA, selos e WhatsApp.
  * Persiste em PaymentConfig (campos adicionais para conteúdo da página).
  */
@@ -45,6 +45,7 @@ import {
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import toast from 'react-hot-toast';
+import { SYSTEM_NAME } from '@/config/branding';
 
 const ICON_OPTS = [
   { value: 'Smartphone', label: 'Smartphone' },
@@ -224,7 +225,7 @@ export default function AssinarPageEditorTab() {
             Página Assinar
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Edite textos, preços e formas de pagamento da página de venda do DigiMenu.
+            Edite textos, preços e formas de pagamento da página de venda do {SYSTEM_NAME}.
           </p>
         </div>
         <div className="flex gap-2">

@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Eye, EyeOff, LogIn, Loader2, Settings, Shield, Lock } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { SYSTEM_LOGO_URL, SYSTEM_NAME } from '@/config/branding';
 
 export default function LoginAdmin() {
   const [email, setEmail] = useState('');
@@ -78,7 +79,7 @@ export default function LoginAdmin() {
         <div className="rounded-2xl shadow-2xl p-8 bg-gray-800 dark:bg-gray-900 border border-gray-700">
           {/* Header - Logo DigiMenu + Admin Master */}
           <div className="text-center mb-8">
-            <img src="/images/digimenu-logo.svg" alt="DigiMenu" className="h-12 w-auto mx-auto mb-3 drop-shadow-lg" />
+            <img src={SYSTEM_LOGO_URL} alt={SYSTEM_NAME} className="h-12 w-auto mx-auto mb-3 drop-shadow-lg" />
             <div className="flex items-center justify-center gap-2 mb-2">
               <Shield className="w-5 h-5 text-amber-400" />
               <h1 className="text-3xl font-bold text-white">

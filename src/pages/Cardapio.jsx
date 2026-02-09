@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { apiClient as base44 } from '@/api/apiClient';
 import { createPageUrl } from '@/utils';
+import { SYSTEM_LOGO_URL, SYSTEM_NAME } from '@/config/branding';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ShoppingCart, Search, Clock, Star, Share2, MapPin, Info, Home, Receipt, Gift, User, MessageSquare, UtensilsCrossed, Instagram, Facebook, Phone, Package, Music2, Calendar, Heart, LayoutGrid } from 'lucide-react';
 import { Input } from "@/components/ui/input";
@@ -61,8 +62,8 @@ function CardapioSemLink() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
       <div className="text-center max-w-md p-8 rounded-2xl bg-white dark:bg-gray-800 shadow-xl border border-gray-200 dark:border-gray-700">
-        <img src="/images/digimenu-logo.svg" alt="DigiMenu" className="h-16 w-auto mx-auto mb-4 drop-shadow-md" />
-        <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">DigiMenu</h1>
+        <img src={SYSTEM_LOGO_URL} alt={SYSTEM_NAME} className="h-16 w-auto mx-auto mb-4 drop-shadow-md" />
+        <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">{SYSTEM_NAME}</h1>
         <p className="mt-3 text-gray-600 dark:text-gray-400">
           O cardápio digital é acessado pelo link do estabelecimento: <strong>/s/nome-do-restaurante</strong>
         </p>
@@ -74,7 +75,7 @@ function CardapioSemLink() {
         </p>
         <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
           <Link to="/assinar" className="px-4 py-2.5 rounded-lg bg-orange-500 text-white font-medium hover:bg-orange-600 transition-colors">
-            Assinar DigiMenu
+            Assinar {SYSTEM_NAME}
           </Link>
           <Link to="/" className="px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
             Voltar ao início
@@ -353,7 +354,7 @@ export default function Cardapio() {
           >
             Tentar novamente
           </Button>
-          <Link to="/assinar" className="mt-4 block text-sm text-orange-600 hover:underline">Assinar DigiMenu</Link>
+          <Link to="/assinar" className="mt-4 block text-sm text-orange-600 hover:underline">Assinar {SYSTEM_NAME}</Link>
         </div>
       </div>
     );
@@ -1638,7 +1639,7 @@ export default function Cardapio() {
               © {new Date().getFullYear()} {store?.name || 'Restaurante'}. Todos os direitos reservados.
             </p>
             <p className="text-xs text-gray-400 dark:text-gray-500">
-              Powered by <span className="font-semibold" style={{ color: primaryColor }}>DigiMenu</span>
+              Powered by <span className="font-semibold" style={{ color: primaryColor }}>{SYSTEM_NAME}</span>
             </p>
           </div>
         </div>

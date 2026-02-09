@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Shield, Smartphone, Key, CheckCircle, AlertCircle } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { SYSTEM_NAME_SHORT } from '@/config/branding';
 // Importação dinâmica do qrcode (backend)
 // No frontend, usamos qrcode.react que já está instalado
 
@@ -59,7 +60,7 @@ export default function TwoFactorAuth({ user }) {
     mutationFn: async () => {
       // Gerar secret usando biblioteca TOTP (simulado)
       const secret = generateSecret();
-      const issuer = 'DigiMenu';
+      const issuer = SYSTEM_NAME_SHORT;
       const accountName = user?.email || 'user';
       const otpAuthUrl = `otpauth://totp/${issuer}:${accountName}?secret=${secret}&issuer=${issuer}`;
 

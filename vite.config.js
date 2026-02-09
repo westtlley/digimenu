@@ -32,6 +32,7 @@ export default defineConfig({
       registerType: 'autoUpdate',
       injectRegister: null,
       includeAssets: ['favicon.ico'],
+      // Nome/título do app: manter em sync com src/config/branding.js (SYSTEM_NAME / SYSTEM_NAME_SHORT)
       manifest: {
         name: 'DigiMenu - Gestão de Restaurante',
         short_name: 'DigiMenu',

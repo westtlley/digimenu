@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { DEFAULT_COORDINATES } from '@/utils/constants';
+import { SYSTEM_NAME_SHORT } from '@/config/branding';
 
 /**
  * Hook para geocodificação de endereços
@@ -23,7 +24,7 @@ export function useGeocoding(address) {
         `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addr)}&limit=1`,
         {
           headers: {
-            'User-Agent': 'DigiMenu/1.0'
+            'User-Agent': `${SYSTEM_NAME_SHORT}/1.0`
           }
         }
       );

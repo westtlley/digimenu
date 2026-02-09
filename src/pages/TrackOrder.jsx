@@ -4,6 +4,7 @@ import { ArrowLeft, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import OrderTracking from '@/components/customer/OrderTracking';
 import ThemeToggle from '@/components/ui/ThemeToggle';
+import { SYSTEM_NAME } from '@/config/branding';
 
 export default function TrackOrder() {
   return (
@@ -56,7 +57,7 @@ export default function TrackOrder() {
       <footer className="mt-12 py-6 border-t border-gray-200 dark:border-gray-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 text-center">
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            © {new Date().getFullYear()} DigiMenu. Todos os direitos reservados.
+            © {new Date().getFullYear()} {SYSTEM_NAME}. Todos os direitos reservados.
           </p>
         </div>
       </footer>

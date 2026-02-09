@@ -15,60 +15,60 @@ import { Loader2 } from 'lucide-react';
  */
 export default function SmartRedirect() {
   const [checking, setChecking] = useState(true);
+  const [timedOut, setTimedOut] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
+    setTimedOut(false);
+    const SAFETY_TIMEOUT_MS = 18000;
+    const safetyTimer = setTimeout(() => {
+      setTimedOut(true);
+      setChecking(false);
+    }, SAFETY_TIMEOUT_MS);
+
     const checkAndRedirect = async () => {
       try {
-        // Verificar se está autenticado
         const isAuth = await base44.auth.isAuthenticated();
         
         if (!isAuth) {
-          // Não autenticado → Página inicial (não redirecionar para /Assinar)
-          // Se houver último cardápio visitado, ir para lá
+          clearTimeout(safetyTimer);
           const lastVisitedSlug = localStorage.getItem('lastVisitedSlug');
           if (lastVisitedSlug) {
             navigate(`/s/${lastVisitedSlug}`, { replace: true });
           } else {
-            // Página inicial simples, sem forçar /Assinar
             navigate('/', { replace: true });
           }
           return;
         }
 
-        // Obter dados do usuário
         const userData = await base44.auth.me();
+        clearTimeout(safetyTimer);
 
-        // Admin Master → Admin
         if (userData?.is_master) {
           navigate('/Admin', { replace: true });
           return;
         }
 
-        // Cliente (customer) → Último cardápio visitado ou página inicial
         if (userData?.role === 'customer') {
           const lastVisitedSlug = localStorage.getItem('lastVisitedSlug');
           if (lastVisitedSlug) {
             navigate(`/s/${lastVisitedSlug}`, { replace: true });
           } else {
-            // Não redirecionar para /Assinar, apenas ficar na página inicial
             navigate('/', { replace: true });
           }
           return;
         }
 
-        // Colaborador (incluindo gerente) → Home do colaborador com botões para escolher acesso
         if (userData?.profile_role || userData?.profile_roles?.length) {
           navigate('/colaborador', { replace: true });
           return;
         }
 
-        // Assinante (não master) → Painel do Assinante
         navigate('/PainelAssinante', { replace: true });
 
       } catch (error) {
         console.error('Erro ao verificar autenticação:', error);
-        // Em caso de erro, não redirecionar para /Assinar, apenas página inicial
+        clearTimeout(safetyTimer);
         const lastVisitedSlug = localStorage.getItem('lastVisitedSlug');
         if (lastVisitedSlug) {
           navigate(`/s/${lastVisitedSlug}`, { replace: true });
@@ -81,7 +81,32 @@ export default function SmartRedirect() {
     };
 
     checkAndRedirect();
+    return () => clearTimeout(safetyTimer);
   }, [navigate]);
+
+  if (timedOut) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-orange-50 to-white dark:from-gray-900 dark:to-gray-950 p-4">
+        <div className="text-center max-w-md">
+          <p className="text-gray-600 dark:text-gray-400 mb-4">
+            O servidor demorou para responder. Acesse pelo link do seu restaurante (ex.: /s/seu-restaurante/login) ou tente novamente.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <button
+              type="button"
+              onClick={() => { setTimedOut(false); setChecking(true); window.location.reload(); }}
+              className="px-4 py-2 rounded-lg bg-orange-500 text-white font-medium hover:bg-orange-600"
+            >
+              Tentar novamente
+            </button>
+            <a href="/assinar" className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-700 inline-block">
+              Ver planos
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (checking) {
     return (

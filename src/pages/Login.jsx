@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Eye, EyeOff, LogIn, Loader2, Lock, Store, Settings, User } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { SYSTEM_NAME } from '@/config/branding';
 
 /**
  * Página de Login única. O formulário é o mesmo para todos.
@@ -220,7 +221,7 @@ export default function Login() {
             </p>
             <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
               <strong>Restaurante:</strong>{' '}
-              <Link to="/assinar" className="text-orange-500 hover:text-orange-600 font-medium">Assinar DigiMenu</Link>
+              <Link to="/assinar" className="text-orange-500 hover:text-orange-600 font-medium">Assinar {SYSTEM_NAME}</Link>
               {' — '}Painel, PDV e gestão.
             </p>
             <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>

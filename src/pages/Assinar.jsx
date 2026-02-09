@@ -30,6 +30,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Link } from 'react-router-dom';
+import { SYSTEM_NAME } from '@/config/branding';
 
 // Planos alinhados ao backend (backend/utils/plans.js)
 const PLANS_DATA = {
@@ -191,7 +192,7 @@ export default function Assinar() {
           </Link>
           <Link to="/" className="flex items-center gap-2 font-bold text-slate-800">
             <LayoutDashboard className="w-6 h-6 text-orange-500" />
-            <span>DigiMenu</span>
+            <span>{SYSTEM_NAME}</span>
           </Link>
         </div>
       </header>
@@ -201,7 +202,7 @@ export default function Assinar() {
         <div className="max-w-6xl mx-auto flex justify-center">
           <Badge variant="secondary" className="px-5 py-2 text-sm font-medium bg-orange-50 text-orange-700 border border-orange-200">
             <Sparkles className="w-4 h-4 mr-2 inline" />
-            Milhares de restaurantes já usam o DigiMenu
+            Milhares de restaurantes já usam o {SYSTEM_NAME}
           </Badge>
         </div>
       </div>
@@ -413,7 +414,7 @@ export default function Assinar() {
       {/* Footer */}
       <footer className="py-8 px-4 border-t border-slate-200 bg-white">
         <div className="max-w-6xl mx-auto text-center">
-          <p className="text-sm text-slate-500 mb-3">© {new Date().getFullYear()} DigiMenu</p>
+          <p className="text-sm text-slate-500 mb-3">© {new Date().getFullYear()} {SYSTEM_NAME}</p>
           <div className="flex justify-center gap-6 text-sm text-slate-500">
             <a href="/termos" className="hover:text-orange-600">Termos</a>
             <a href="/privacidade" className="hover:text-orange-600">Privacidade</a>

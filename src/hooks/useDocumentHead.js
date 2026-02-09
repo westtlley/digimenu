@@ -1,7 +1,5 @@
 import { useEffect } from 'react';
-
-const DEFAULT_FAVICON = '/images/digimenu-logo.svg';
-const DEFAULT_TITLE = 'DigiMenu';
+import { SYSTEM_FAVICON_URL, SYSTEM_NAME } from '@/config/branding';
 
 /**
  * Atualiza o título da página e o favicon com os dados da loja/restaurante.
@@ -13,7 +11,7 @@ export function useDocumentHead(store) {
   const logo = store?.logo;
 
   useEffect(() => {
-    document.title = name && String(name).trim() ? String(name).trim() : DEFAULT_TITLE;
+    document.title = name && String(name).trim() ? String(name).trim() : SYSTEM_NAME;
   }, [name]);
 
   useEffect(() => {
@@ -27,7 +25,7 @@ export function useDocumentHead(store) {
       link.href = logo;
       link.type = logo.toLowerCase().includes('.svg') ? 'image/svg+xml' : 'image/png';
     } else {
-      link.href = DEFAULT_FAVICON;
+      link.href = SYSTEM_FAVICON_URL;
       link.type = 'image/svg+xml';
     }
   }, [logo]);
