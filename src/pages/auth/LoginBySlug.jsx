@@ -50,6 +50,13 @@ export default function LoginBySlug({ type: propType }) {
   const theme = getThemeStyles(loginInfo);
   const basePath = slug ? `/s/${slug}` : '';
 
+  // Marcar estabelecimento como "página de origem" para redirecionar / sempre ao cardápio/login dele
+  useEffect(() => {
+    if (slug && typeof localStorage !== 'undefined') {
+      localStorage.setItem('lastVisitedSlug', slug);
+    }
+  }, [slug]);
+
   useEffect(() => {
     const checkAuth = async () => {
       try {

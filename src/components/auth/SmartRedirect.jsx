@@ -1,25 +1,26 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { apiClient as base44 } from '@/api/apiClient';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Package, ArrowRight } from 'lucide-react';
+import { SYSTEM_NAME, SYSTEM_LOGO_URL } from '@/config/branding';
 
 /**
- * Componente que redireciona inteligentemente baseado no perfil do usuário
- * 
- * GOVERNANÇA DE REDIRECIONAMENTOS:
- * 1. Cliente (customer) → Último cardápio visitado ou página inicial
- * 2. Assinante (autenticado, não master) → /PainelAssinante
- * 3. Admin Master → /Admin
- * 4. Colaborador → /colaborador
- * 5. NÃO autenticado → Página inicial (não /Assinar)
+ * Redireciona por perfil. A URL / só mostra a landing quando acessada diretamente (sem lastVisitedSlug).
+ *
+ * - lastVisitedSlug é gravado ao visitar /s/:slug (cardápio) ou /s/:slug/login.
+ * - Não autenticado + lastVisitedSlug → redireciona para /s/:slug (cardápio do cliente).
+ * - Não autenticado + sem lastVisitedSlug → mostra landing em / (só quem acessa a raiz diretamente).
+ * - Autenticado: Master → /Admin; cliente → /s/slug ou landing; colaborador → /colaborador; assinante → /PainelAssinante.
  */
 export default function SmartRedirect() {
   const [checking, setChecking] = useState(true);
   const [timedOut, setTimedOut] = useState(false);
+  const [showLanding, setShowLanding] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
     setTimedOut(false);
+    setShowLanding(false);
     const SAFETY_TIMEOUT_MS = 18000;
     const safetyTimer = setTimeout(() => {
       setTimedOut(true);
@@ -36,8 +37,9 @@ export default function SmartRedirect() {
           if (lastVisitedSlug) {
             navigate(`/s/${lastVisitedSlug}`, { replace: true });
           } else {
-            navigate('/', { replace: true });
+            setShowLanding(true);
           }
+          setChecking(false);
           return;
         }
 
@@ -54,8 +56,9 @@ export default function SmartRedirect() {
           if (lastVisitedSlug) {
             navigate(`/s/${lastVisitedSlug}`, { replace: true });
           } else {
-            navigate('/', { replace: true });
+            setShowLanding(true);
           }
+          setChecking(false);
           return;
         }
 
@@ -73,8 +76,9 @@ export default function SmartRedirect() {
         if (lastVisitedSlug) {
           navigate(`/s/${lastVisitedSlug}`, { replace: true });
         } else {
-          navigate('/', { replace: true });
+          setShowLanding(true);
         }
+        setChecking(false);
       } finally {
         setChecking(false);
       }
@@ -83,6 +87,47 @@ export default function SmartRedirect() {
     checkAndRedirect();
     return () => clearTimeout(safetyTimer);
   }, [navigate]);
+
+  if (showLanding) {
+    return (
+      <div className="min-h-screen flex flex-col bg-gradient-to-b from-orange-50 via-white to-slate-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-950">
+        <div className="flex-1 flex flex-col items-center justify-center px-4 py-12">
+          <Link to="/" className="flex items-center gap-2 mb-8">
+            <img src={SYSTEM_LOGO_URL} alt={SYSTEM_NAME} className="h-12 w-auto" />
+            <span className="font-bold text-xl text-slate-800 dark:text-white">{SYSTEM_NAME}</span>
+          </Link>
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white text-center mb-2">
+            Bem-vindo
+          </h1>
+          <p className="text-slate-600 dark:text-slate-400 text-center max-w-md mb-8">
+            Cardápio digital, pedidos e gestão para seu restaurante. Acesse pelo link do seu estabelecimento ou conheça os planos.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 w-full max-w-sm">
+            <Link
+              to="/assinar"
+              className="flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-semibold shadow-lg transition-colors"
+            >
+              Conhecer planos
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+            <Link
+              to="/rastrear-pedido"
+              className="flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl border-2 border-slate-200 dark:border-gray-600 text-slate-700 dark:text-slate-300 font-medium hover:bg-slate-50 dark:hover:bg-gray-800 transition-colors"
+            >
+              <Package className="w-4 h-4" />
+              Rastrear pedido
+            </Link>
+          </div>
+          <p className="mt-8 text-sm text-slate-500 dark:text-slate-400 text-center max-w-md">
+            Já tem o link do seu restaurante? Acesse pelo endereço que você recebeu (ex.: {typeof window !== 'undefined' ? window.location.host + '/s/nome-do-restaurante' : 'seusite.com/s/nome-do-restaurante'}).
+          </p>
+          <Link to="/assinar" className="mt-6 text-sm text-orange-600 dark:text-orange-400 hover:underline">
+            Restaurante? Cadastre-se e comece grátis
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   if (timedOut) {
     return (

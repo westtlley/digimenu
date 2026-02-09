@@ -270,6 +270,7 @@ const publicRoutes = [
   '/api/public/cardapio',  // /api/public/cardapio/:slug — link único do cardápio por assinante
   '/api/public/login-info', // /api/public/login-info/:slug — dados para página de login por estabelecimento
   '/api/public/chat',      // Chat do assistente (IA) — público para o cardápio
+  '/api/public/assinar-config',   // Config da página de vendas (planos, preços, trial) para /assinar
   '/api/entities/PaymentConfig',  // Configurações de pagamento públicas para o cardápio
   '/api/entities/MenuItem',  // Itens do menu públicos para o cardápio
   '/api/entities/Category',  // Categorias públicas para o cardápio
@@ -1268,6 +1269,22 @@ app.get('/api/public/login-info/:slug', asyncHandler(async (req, res) => {
     theme_primary_color: theme_primary,
     theme_secondary_color: theme_secondary,
     theme_accent_color: theme_accent,
+  });
+}));
+
+// =======================
+// 🔗 CONFIG DA PÁGINA DE VENDAS /assinar (planos, preços, trial) — público
+// =======================
+app.get('/api/public/assinar-config', asyncHandler(async (req, res) => {
+  if (!usePostgreSQL) {
+    return res.json({ plans_override: null });
+  }
+  const config = await repo.getFirstPaymentConfigGlobal();
+  if (!config) {
+    return res.json({ plans_override: null });
+  }
+  return res.json({
+    plans_override: config.plans_override || null,
   });
 }));
 

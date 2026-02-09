@@ -90,6 +90,14 @@ function CardapioSemLink() {
 export default function Cardapio() {
   const { slug } = useParams(); // link do assinante: /s/meu-restaurante
   const navigate = useNavigate();
+
+  // Marcar este estabelecimento como "página de origem" do cliente (para / redirecionar sempre ao cardápio ou login dele)
+  useEffect(() => {
+    if (slug && typeof localStorage !== 'undefined') {
+      localStorage.setItem('lastVisitedSlug', slug);
+    }
+  }, [slug]);
+
   const [selectedDish, setSelectedDish] = useState(null);
   const [selectedPizza, setSelectedPizza] = useState(null);
   const [editingCartItem, setEditingCartItem] = useState(null);

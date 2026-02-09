@@ -361,6 +361,28 @@ export async function deleteEntity(entityType, id, user = null) {
 }
 
 /**
+ * Retorna a primeira PaymentConfig global (subscriber_email IS NULL).
+ * Usado pela página pública /assinar para exibir preços e dias de trial editados pelo admin.
+ */
+export async function getFirstPaymentConfigGlobal() {
+  try {
+    const result = await query(`
+      SELECT id, data, created_at, updated_at
+      FROM entities
+      WHERE entity_type = 'PaymentConfig' AND subscriber_email IS NULL
+      ORDER BY updated_at DESC NULLS LAST
+      LIMIT 1
+    `);
+    if (!result.rows.length) return null;
+    const row = result.rows[0];
+    return { id: row.id.toString(), ...row.data, created_at: row.created_at, updated_at: row.updated_at };
+  } catch (error) {
+    console.error('Erro ao buscar PaymentConfig global:', error);
+    throw error;
+  }
+}
+
+/**
  * Retorna o próximo número para código de Comanda (ex: C-001, C-002).
  * owner: subscriber_email do assinante ou null para master (subscriber_email IS NULL).
  */

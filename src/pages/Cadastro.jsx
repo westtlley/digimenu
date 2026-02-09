@@ -231,16 +231,17 @@ export default function Cadastro() {
 
           {/* Botões */}
           <div className="flex gap-3 pt-4">
+            <Link to="/" className="flex-1">
             <Button 
               type="button"
               variant="outline" 
-              onClick={() => window.location.href = '/assinar'}
               disabled={loading}
-              className="flex-1"
+              className="w-full"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
               Voltar
             </Button>
+          </Link>
             <Button 
               type="submit"
               disabled={loading}
@@ -272,7 +273,7 @@ export default function Cadastro() {
         <div className="mt-6 pt-6 border-t text-center text-sm">
           <p className="text-gray-600">
             Já tem uma conta?{' '}
-            <Link to={slug ? `/s/${slug}/login/cliente` : '/'} className="text-orange-600 hover:text-orange-700 font-semibold hover:underline">
+            <Link to={slug ? `/s/${slug}/login` : '/'} className="text-orange-600 hover:text-orange-700 font-semibold hover:underline">
               Fazer login
             </Link>
           </p>

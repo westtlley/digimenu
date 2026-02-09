@@ -2,8 +2,10 @@
  * Página de vendas de planos — URL canônica: /assinar
  * Apenas para divulgação e conversão; não é página de login.
  * Redirecionamentos para esta página: apenas links explícitos (ex.: afiliados no futuro).
+ * Preços, trial e textos dos planos podem ser editados no Admin → Editar página de vendas.
  */
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   Check,
   Smartphone,
@@ -32,8 +34,13 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Link } from 'react-router-dom';
 import { SYSTEM_NAME } from '@/config/branding';
 
-// Planos alinhados ao backend (backend/utils/plans.js)
-const PLANS_DATA = {
+const getApiBase = () => {
+  const u = import.meta.env.VITE_API_BASE_URL || '';
+  return u.endsWith('/api') ? u : u ? `${u.replace(/\/$/, '')}/api` : '';
+};
+
+// Planos base (alinhados ao backend). Valores editáveis são sobrescritos por plans_override da API.
+const PLANS_DATA_BASE = {
   free: {
     name: 'Grátis',
     tagline: 'Para uso pessoal e testes',
@@ -171,8 +178,47 @@ const FAQ = [
   { q: 'Preciso de cartão para testar?', a: 'No plano Grátis não. Nos planos pagos, o cartão só é cobrado após o fim do trial.' },
 ];
 
+function mergePlansWithOverride(base, override) {
+  if (!override || typeof override !== 'object') return base;
+  const keys = ['free', 'basic', 'pro', 'ultra'];
+  const next = { ...base };
+  keys.forEach((key) => {
+    if (!base[key] || !override[key]) return;
+    const o = override[key];
+    next[key] = {
+      ...base[key],
+      name: o.name !== undefined && o.name !== null ? String(o.name) : base[key].name,
+      tagline: o.tagline !== undefined && o.tagline !== null ? String(o.tagline) : base[key].tagline,
+      monthly: o.monthly !== undefined && o.monthly !== null ? Number(o.monthly) : base[key].monthly,
+      yearly: o.yearly !== undefined && o.yearly !== null ? Number(o.yearly) : base[key].yearly,
+      trialDays: o.trial_days !== undefined && o.trial_days !== null ? Number(o.trial_days) : base[key].trialDays,
+      badge: o.badge !== undefined && o.badge !== null ? String(o.badge) : base[key].badge,
+      cta: o.cta !== undefined && o.cta !== null ? String(o.cta) : base[key].cta,
+      popular: !!o.popular,
+    };
+  });
+  return next;
+}
+
 export default function Assinar() {
   const [selectedInterval, setSelectedInterval] = useState('monthly');
+
+  const { data: assinarConfig } = useQuery({
+    queryKey: ['public', 'assinar-config'],
+    queryFn: async () => {
+      const base = getApiBase();
+      if (!base) return { plans_override: null };
+      const res = await fetch(`${base}/public/assinar-config`);
+      if (!res.ok) return { plans_override: null };
+      return res.json();
+    },
+    staleTime: 60 * 1000,
+  });
+
+  const PLANS_DATA = useMemo(
+    () => mergePlansWithOverride(PLANS_DATA_BASE, assinarConfig?.plans_override),
+    [assinarConfig?.plans_override]
+  );
 
   const handleSubscribe = (planKey) => {
     window.location.href = `/cadastro?plan=${planKey}&interval=${selectedInterval}`;

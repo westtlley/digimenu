@@ -42,6 +42,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import toast from 'react-hot-toast';
@@ -96,10 +97,24 @@ const DEFAULTS = {
   ],
 };
 
+// Valores padrão dos 4 planos (alinhados ao backend e à página /assinar)
+const PLANS_OVERRIDE_DEFAULTS = {
+  free: { name: 'Grátis', tagline: 'Para uso pessoal e testes', monthly: 0, yearly: 0, trial_days: 0, badge: 'Sem cartão', cta: 'Começar grátis', popular: false },
+  basic: { name: 'Básico', tagline: 'Comece a vender online hoje', monthly: 39.9, yearly: 399, trial_days: 10, badge: '10 dias grátis', cta: 'Testar 10 dias grátis', popular: false },
+  pro: { name: 'Pro', tagline: 'Expanda entregas e equipe', monthly: 79.9, yearly: 799, trial_days: 7, badge: '7 dias grátis', cta: 'Escolher Pro', popular: true },
+  ultra: { name: 'Ultra', tagline: 'Online + presencial + fiscal', monthly: 149.9, yearly: 1499, trial_days: 7, badge: '7 dias grátis', cta: 'Escolher Ultra', popular: false },
+};
+
+const PLAN_KEYS = ['free', 'basic', 'pro', 'ultra'];
+const PLAN_LABELS = { free: 'Grátis', basic: 'Básico', pro: 'Pro', ultra: 'Ultra' };
+
 export default function AssinarPageEditorTab() {
   const queryClient = useQueryClient();
   const { menuContext } = usePermission();
-  const [form, setForm] = useState({ ...DEFAULTS });
+  const [form, setForm] = useState({
+    ...DEFAULTS,
+    plans_override: JSON.parse(JSON.stringify(PLANS_OVERRIDE_DEFAULTS)),
+  });
   const [newFeature, setNewFeature] = useState('');
 
   // ✅ CORREÇÃO: Buscar configurações de pagamento com contexto do slug
@@ -120,6 +135,21 @@ export default function AssinarPageEditorTab() {
 
   useEffect(() => {
     if (!config) return;
+    const mergedPlans = {};
+    PLAN_KEYS.forEach((key) => {
+      const def = PLANS_OVERRIDE_DEFAULTS[key];
+      const saved = config.plans_override && config.plans_override[key] ? config.plans_override[key] : {};
+      mergedPlans[key] = {
+        name: saved.name ?? def.name,
+        tagline: saved.tagline ?? def.tagline,
+        monthly: saved.monthly !== undefined && saved.monthly !== null ? Number(saved.monthly) : def.monthly,
+        yearly: saved.yearly !== undefined && saved.yearly !== null ? Number(saved.yearly) : def.yearly,
+        trial_days: saved.trial_days !== undefined && saved.trial_days !== null ? Number(saved.trial_days) : def.trial_days,
+        badge: saved.badge ?? def.badge,
+        cta: saved.cta ?? def.cta,
+        popular: !!saved.popular,
+      };
+    });
     setForm({
       hero_badge: config.hero_badge ?? DEFAULTS.hero_badge,
       hero_title: config.hero_title ?? DEFAULTS.hero_title,
@@ -149,15 +179,31 @@ export default function AssinarPageEditorTab() {
       pix_key_type: config.pix_key_type ?? 'cpf',
       pix_beneficiary: config.pix_beneficiary ?? '',
       payment_link: config.payment_link ?? '',
+      plans_override: mergedPlans,
     });
   }, [config]);
 
   const saveMutation = useMutation({
     mutationFn: async (data) => {
-      const payload = {
+      const plansOverride = {};
+    PLAN_KEYS.forEach((key) => {
+      const p = (data.plans_override && data.plans_override[key]) || PLANS_OVERRIDE_DEFAULTS[key];
+      plansOverride[key] = {
+        name: p.name || PLANS_OVERRIDE_DEFAULTS[key].name,
+        tagline: p.tagline ?? PLANS_OVERRIDE_DEFAULTS[key].tagline,
+        monthly: key === 'free' ? 0 : (Number(p.monthly) || 0),
+        yearly: key === 'free' ? 0 : (Number(p.yearly) || 0),
+        trial_days: Math.max(0, parseInt(p.trial_days, 10) || 0),
+        badge: p.badge ?? PLANS_OVERRIDE_DEFAULTS[key].badge,
+        cta: p.cta ?? PLANS_OVERRIDE_DEFAULTS[key].cta,
+        popular: !!p.popular,
+      };
+    });
+    const payload = {
         monthly_price: Number(data.monthly_price) || 0,
         yearly_price: Number(data.yearly_price) || 0,
         features: data.features || [],
+        plans_override: plansOverride,
         pix_key: data.pix_key || '',
         pix_key_type: data.pix_key_type || 'cpf',
         pix_beneficiary: data.pix_beneficiary || '',
@@ -332,13 +378,130 @@ export default function AssinarPageEditorTab() {
         </CardContent>
       </Card>
 
-      {/* Preços e plano */}
+      {/* Planos (Grátis, Básico, Pro, Ultra) — preços, trial e CTAs */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
             <DollarSign className="w-5 h-5 text-green-600" />
-            Preços e nome do plano
+            Planos da página de vendas
           </CardTitle>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            Edite nome, preço mensal/anual, dias de bônus (trial), badge e texto do botão de cada plano. Estes valores aparecem na página /assinar.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {(form.plans_override ? PLAN_KEYS : []).map((key) => {
+            const plan = form.plans_override[key] || PLANS_OVERRIDE_DEFAULTS[key];
+            const setPlan = (updates) => setForm((f) => ({
+              ...f,
+              plans_override: {
+                ...(f.plans_override || PLANS_OVERRIDE_DEFAULTS),
+                [key]: { ...(f.plans_override?.[key] || PLANS_OVERRIDE_DEFAULTS[key]), ...updates },
+              },
+            }));
+            const setPopular = (checked) => {
+              setForm((f) => {
+                const next = { ...(f.plans_override || PLANS_OVERRIDE_DEFAULTS) };
+                PLAN_KEYS.forEach((k) => { next[k] = { ...(next[k] || PLANS_OVERRIDE_DEFAULTS[k]), popular: k === key ? checked : false }; });
+                return { ...f, plans_override: next };
+              });
+            };
+            return (
+              <div key={key} className="p-4 rounded-xl border border-gray-200 dark:border-gray-700 space-y-4">
+                <h4 className="font-semibold text-gray-900 dark:text-white flex items-center justify-between">
+                  {PLAN_LABELS[key]}
+                  <label className="flex items-center gap-2 text-sm font-normal text-gray-500">
+                    <Switch
+                      checked={!!plan.popular}
+                      onCheckedChange={setPopular}
+                    />
+                    Mais popular
+                  </label>
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <Label>Nome exibido</Label>
+                    <Input
+                      value={plan.name || ''}
+                      onChange={(e) => setPlan({ name: e.target.value })}
+                      placeholder="Ex: Básico"
+                    />
+                  </div>
+                  <div>
+                    <Label>Tagline (subtítulo)</Label>
+                    <Input
+                      value={plan.tagline || ''}
+                      onChange={(e) => setPlan({ tagline: e.target.value })}
+                      placeholder="Ex: Comece a vender online hoje"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  <div>
+                    <Label>Preço mensal (R$)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={key === 'free' ? '0' : (plan.monthly ?? '')}
+                      onChange={(e) => setPlan({ monthly: key === 'free' ? 0 : (parseFloat(e.target.value) || 0) })}
+                      disabled={key === 'free'}
+                    />
+                  </div>
+                  <div>
+                    <Label>Preço anual (R$)</Label>
+                    <Input
+                      type="number"
+                      step="1"
+                      min="0"
+                      value={key === 'free' ? '0' : (plan.yearly ?? '')}
+                      onChange={(e) => setPlan({ yearly: key === 'free' ? 0 : (parseFloat(e.target.value) || 0) })}
+                      disabled={key === 'free'}
+                    />
+                  </div>
+                  <div>
+                    <Label>Dias de bônus (trial)</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      value={plan.trial_days ?? ''}
+                      onChange={(e) => setPlan({ trial_days: Math.max(0, parseInt(e.target.value, 10) || 0) })}
+                      disabled={key === 'free'}
+                    />
+                  </div>
+                  <div>
+                    <Label>Badge (ex: 10 dias grátis)</Label>
+                    <Input
+                      value={plan.badge || ''}
+                      onChange={(e) => setPlan({ badge: e.target.value })}
+                      placeholder={key === 'free' ? 'Sem cartão' : '10 dias grátis'}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label>Texto do botão (CTA)</Label>
+                  <Input
+                    value={plan.cta || ''}
+                    onChange={(e) => setPlan({ cta: e.target.value })}
+                    placeholder={key === 'free' ? 'Começar grátis' : 'Escolher plano'}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </CardContent>
+      </Card>
+
+      {/* Preços e nome do plano (legado — plano único para fluxos antigos) */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <DollarSign className="w-5 h-5 text-gray-500" />
+            Preços e nome do plano (uso legado)
+          </CardTitle>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            Usado em fluxos que exibem um único plano. Para a página /assinar use os 4 planos acima.
+          </p>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
