@@ -57,13 +57,7 @@ export default function SmartRedirect() {
           return;
         }
 
-        // Gerente → PainelGerente (painel próprio do gerente)
-        if (userData?.profile_role === 'gerente' || userData?.profile_roles?.includes('gerente')) {
-          navigate('/PainelGerente', { replace: true });
-          return;
-        }
-
-        // Colaborador (outros perfis) → Home do colaborador com botões
+        // Colaborador (incluindo gerente) → Home do colaborador com botões para escolher acesso
         if (userData?.profile_role || userData?.profile_roles?.length) {
           navigate('/colaborador', { replace: true });
           return;

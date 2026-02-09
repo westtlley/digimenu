@@ -1537,6 +1537,21 @@ app.post('/api/colaboradores', authenticate, validate(schemas.createColaborador)
       return res.status(400).json({ error: `Este email já possui os perfis: ${duplicateRoles.join(', ')}. Remova os perfis duplicados ou use perfis diferentes.` });
     }
 
+    // Verificar se o email já existe como cliente (role='customer')
+    // Se for cliente, permitir criar colaborador mesmo assim (mesmo email pode ser cliente e colaborador)
+    let existingUserAsCustomer = null;
+    if (usePostgreSQL) {
+      const existingUser = await repo.getUserByEmail(emailNorm);
+      if (existingUser && existingUser.role === 'customer') {
+        existingUserAsCustomer = existingUser;
+      }
+    } else if (db?.users) {
+      existingUserAsCustomer = db.users.find(u => 
+        (u.email || '').toLowerCase().trim() === emailNorm && 
+        u.role === 'customer'
+      ) || null;
+    }
+
     const hashed = await bcrypt.hash(String(password), 10);
     const fullName = (name || emailNorm.split('@')[0] || '').trim() || 'Colaborador';
     const roleNorm = rolesToCreate[0];
@@ -1553,20 +1568,64 @@ app.post('/api/colaboradores', authenticate, validate(schemas.createColaborador)
     let newUser;
     try {
       if (usePostgreSQL) {
+        // Se é cliente, o banco vai dar erro de constraint única
+        // Mas vamos tentar criar mesmo assim e tratar o erro
         newUser = await repo.createUser(userData);
       } else if (db?.users) {
-        newUser = {
-          id: String(Date.now() + Math.random()),
-          ...userData,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        };
-        db.users.push(newUser);
+        // Para JSON, verificar se já existe
+        const existingUser = db.users.find(u => (u.email || '').toLowerCase().trim() === emailNorm);
+        if (existingUser) {
+          // Se é cliente, permitir criar colaborador mesmo assim
+          if (existingUser.role === 'customer') {
+            // É cliente - permitir criar colaborador com mesmo email
+            newUser = {
+              id: String(Date.now() + Math.random()),
+              ...userData,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            };
+            db.users.push(newUser);
+          } else {
+            // Não é cliente - já existe como outro tipo, não pode criar
+            return res.status(400).json({ error: 'Este email já está cadastrado no sistema. Use outro email ou adicione perfis ao colaborador existente em Colaboradores.' });
+          }
+        } else {
+          // Não existe - criar normalmente
+          newUser = {
+            id: String(Date.now() + Math.random()),
+            ...userData,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          };
+          db.users.push(newUser);
+        }
       } else {
         return res.status(500).json({ error: 'Banco não disponível' });
       }
     } catch (createErr) {
+      // Se o erro for constraint única
       if (createErr?.code === '23505' || (createErr?.message && createErr.message.includes('unique constraint'))) {
+        // Verificar novamente se é cliente (pode ter mudado desde a primeira verificação)
+        let isCustomer = false;
+        if (usePostgreSQL) {
+          const existingUser = await repo.getUserByEmail(emailNorm);
+          isCustomer = existingUser && existingUser.role === 'customer';
+        } else if (db?.users) {
+          const existingUser = db.users.find(u => (u.email || '').toLowerCase().trim() === emailNorm);
+          isCustomer = existingUser && existingUser.role === 'customer';
+        }
+        
+        if (isCustomer) {
+          // É cliente - permitir criar colaborador mesmo assim
+          // O banco tem constraint UNIQUE no email, então não podemos criar dois registros
+          // Mas vamos retornar uma mensagem informando que é permitido em teoria
+          // Na prática, precisamos modificar o schema do banco para permitir múltiplos registros com o mesmo email
+          // Por enquanto, vamos permitir criar mesmo assim (vai dar erro, mas vamos tratar)
+          // NOTA: Para funcionar completamente, precisamos remover a constraint UNIQUE do email no schema
+          return res.status(400).json({ 
+            error: 'Este email já está cadastrado como cliente. O sistema permite que o mesmo email seja cliente e colaborador, mas há uma limitação técnica no banco de dados (constraint única no email). Para resolver isso, é necessário modificar o schema do banco de dados. Por favor, use um email diferente temporariamente ou contate o suporte.' 
+          });
+        }
         return res.status(400).json({ error: 'Este email já está cadastrado no sistema. Use outro email ou adicione perfis ao colaborador existente em Colaboradores.' });
       }
       throw createErr;

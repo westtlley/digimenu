@@ -48,10 +48,10 @@ export default function GoogleCallback() {
           // Redirecionar conforme perfil
           if (user.role === 'customer') {
             navigate('/Cardapio', { replace: true });
-          } else if (user.profile_role === 'gerente' || user.profile_roles?.includes('gerente')) {
-            // Gerente → PainelGerente (painel próprio do gerente)
-            navigate('/PainelGerente', { replace: true });
           } else if (user.profile_role || user.profile_roles?.length) {
+            // Colaborador (incluindo gerente) → Home do colaborador com botões para escolher acesso
+            navigate('/colaborador', { replace: true });
+          } else {
             // Outros colaboradores → /colaborador
             navigate('/colaborador', { replace: true });
           } else if (user.is_master) {
