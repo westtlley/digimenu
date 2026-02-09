@@ -61,6 +61,7 @@ function AccessDenied() {
 
 export default function PainelAssinante() {
   // ✅ TODOS OS HOOKS DEVEM VIR ANTES DE QUALQUER RETURN CONDICIONAL
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const tabFromUrl = searchParams.get('tab');
   const [activeTab, setActiveTab] = useState(() => tabFromUrl || 'dashboard');
