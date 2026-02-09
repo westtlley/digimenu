@@ -467,17 +467,33 @@ export async function createUser(userData) {
     cols.push('profile_role');
     vals.push(userData.profile_role);
   }
-  // Adicionar campo active se fornecido (default true)
+  // Adicionar campo active se fornecido (default true) - opcional; se a coluna não existir, tentar sem ela
   if (userData.active !== undefined) {
     cols.push('active');
     vals.push(userData.active !== false); // Default true
   }
   const placeholders = vals.map((_, i) => `$${i + 1}`).join(', ');
-  const result = await query(
-    `INSERT INTO users (${cols.join(', ')}) VALUES (${placeholders}) RETURNING *`,
-    vals
-  );
-  return result.rows[0];
+  try {
+    const result = await query(
+      `INSERT INTO users (${cols.join(', ')}) VALUES (${placeholders}) RETURNING *`,
+      vals
+    );
+    return result.rows[0];
+  } catch (err) {
+    // Se a coluna "active" não existir (migration não aplicada), tentar novamente sem ela
+    const isActiveColumnError = err?.code === '42703' || (err?.message && /column "active" does not exist/i.test(err.message));
+    if (isActiveColumnError && userData.active !== undefined) {
+      const colsWithoutActive = cols.filter(c => c !== 'active');
+      const valsWithoutActive = vals.filter((_, i) => cols[i] !== 'active');
+      const placeholdersRetry = valsWithoutActive.map((_, i) => `$${i + 1}`).join(', ');
+      const result = await query(
+        `INSERT INTO users (${colsWithoutActive.join(', ')}) VALUES (${placeholdersRetry}) RETURNING *`,
+        valsWithoutActive
+      );
+      return result.rows[0];
+    }
+    throw err;
+  }
 }
 
 export async function updateUser(id, userData) {
@@ -616,9 +632,11 @@ export async function listSubscribers() {
 }
 
 export async function getSubscriberByEmail(email) {
+  if (!email || String(email).trim() === '') return null;
+  const emailNorm = String(email).toLowerCase().trim();
   const result = await query(
-    'SELECT * FROM subscribers WHERE email = $1',
-    [email]
+    'SELECT * FROM subscribers WHERE LOWER(TRIM(email)) = $1',
+    [emailNorm]
   );
   return result.rows[0] || null;
 }

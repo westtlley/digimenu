@@ -640,6 +640,16 @@ app.post('/api/auth/login', validate(schemas.login), asyncHandler(async (req, re
 
     if (!user) {
       console.log('❌ [login] Usuário não encontrado:', emailLower);
+      // Se for assinante (existe em subscribers mas não em users), orientar a definir senha
+      if (usePostgreSQL) {
+        const subscriber = await repo.getSubscriberByEmail(emailLower);
+        if (subscriber) {
+          return res.status(401).json({
+            error: 'Conta encontrada, mas ainda não há senha definida. Use o link "Definir senha" enviado ao seu e-mail ou clique em "Esqueci minha senha" para solicitar um novo.',
+            code: 'PASSWORD_NOT_SET'
+          });
+        }
+      }
       return res.status(401).json({ error: 'Credenciais inválidas' });
     }
     
