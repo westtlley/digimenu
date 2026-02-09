@@ -51,9 +51,6 @@ export default function GoogleCallback() {
           } else if (user.profile_role || user.profile_roles?.length) {
             // Colaborador (incluindo gerente) → Home do colaborador com botões para escolher acesso
             navigate('/colaborador', { replace: true });
-          } else {
-            // Outros colaboradores → /colaborador
-            navigate('/colaborador', { replace: true });
           } else if (user.is_master) {
             navigate('/Admin', { replace: true });
           } else {
