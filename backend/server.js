@@ -702,18 +702,24 @@ app.post('/api/auth/login', validate(schemas.login), asyncHandler(async (req, re
               for (const role of allowedRoles) {
                 // Verificar se já existe colaborador com este email e perfil
                 let existingColab = null;
-                if (usePostgreSQL) {
-                  const all = await repo.listColaboradores(subscriberEmail);
-                  existingColab = all.find(c => 
-                    (c.email || '').toLowerCase().trim() === subscriberEmail.toLowerCase().trim() &&
-                    (c.profile_role || '').toLowerCase().trim() === role
-                  );
-                } else if (db?.users) {
-                  existingColab = db.users.find(u => 
-                    (u.email || '').toLowerCase().trim() === subscriberEmail.toLowerCase().trim() &&
-                    (u.subscriber_email || '').toLowerCase().trim() === subscriberEmail.toLowerCase().trim() &&
-                    (u.profile_role || '').toLowerCase().trim() === role
-                  );
+                try {
+                  if (usePostgreSQL) {
+                    const all = await repo.listColaboradores(subscriberEmail);
+                    existingColab = all.find(c => 
+                      (c.email || '').toLowerCase().trim() === subscriberEmail.toLowerCase().trim() &&
+                      (c.profile_role || '').toLowerCase().trim() === role
+                    );
+                  } else if (db?.users) {
+                    existingColab = db.users.find(u => 
+                      (u.email || '').toLowerCase().trim() === subscriberEmail.toLowerCase().trim() &&
+                      (u.subscriber_email || '').toLowerCase().trim() === subscriberEmail.toLowerCase().trim() &&
+                      (u.profile_role || '').toLowerCase().trim() === role
+                    );
+                  }
+                } catch (listError) {
+                  console.warn('⚠️ [login] Erro ao listar colaboradores (não crítico):', listError.message);
+                  // Continuar sem verificar colaboradores existentes
+                  existingColab = null;
                 }
                 
                 // Se não existe, criar (só se ainda não houver usuário com este email — evita duplicate key)

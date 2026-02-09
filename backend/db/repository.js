@@ -570,8 +570,23 @@ export async function updateUser(id, userData) {
 
 /** Lista colaboradores (usuários com profile_role) de um assinante */
 export async function listColaboradores(ownerEmail) {
+  // Verificar se a coluna active existe antes de usá-la
+  let includeActive = false;
+  try {
+    const checkResult = await query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'users' AND column_name = 'active'
+    `);
+    includeActive = checkResult.rows.length > 0;
+  } catch (e) {
+    // Se falhar, usar sem active
+    console.warn('⚠️ [listColaboradores] Não foi possível verificar coluna active, usando sem ela');
+  }
+  
+  const activeField = includeActive ? ', COALESCE(active, true) as active' : '';
   const result = await query(
-    `SELECT id, email, full_name, profile_role, COALESCE(active, true) as active, created_at, updated_at
+    `SELECT id, email, full_name, profile_role${activeField}, created_at, updated_at
      FROM users
      WHERE LOWER(TRIM(subscriber_email)) = LOWER(TRIM($1)) AND profile_role IS NOT NULL
      ORDER BY full_name`,
