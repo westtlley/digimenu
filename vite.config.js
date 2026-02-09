@@ -25,10 +25,12 @@ function enforceModuleScripts() {
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
-    react(),
+    // Inclui .js para que arquivos com JSX (ex.: useManagerialAuth) sejam transformados no build
+    react({ include: /\.[jt]sx?$/ }),
     enforceModuleScripts(),
     VitePWA({
       registerType: 'autoUpdate',
+      injectRegister: null,
       includeAssets: ['favicon.ico'],
       manifest: {
         name: 'DigiMenu - Gestão de Restaurante',
@@ -63,7 +65,8 @@ export default defineConfig({
       '@api': path.resolve(__dirname, './src/api'),
       '@styles': path.resolve(__dirname, './src/styles'),
     },
-    extensions: ['.mjs', '.js', '.jsx', '.ts', '.tsx', '.json']
+    // .jsx antes de .js para evitar usar .js com JSX (causa "Expression expected" no build)
+    extensions: ['.mjs', '.jsx', '.js', '.ts', '.tsx', '.json']
   },
   optimizeDeps: {
     esbuildOptions: {

@@ -12,11 +12,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { 
   DollarSign, TrendingUp, TrendingDown, CheckCircle, 
   AlertTriangle, ArrowLeft, ArrowRight, Banknote, CreditCard,
-  Search, X, Filter
+  Search, X, Filter, Calculator
 } from 'lucide-react';
 import moment from 'moment';
 import toast, { Toaster } from 'react-hot-toast';
 import { usePermission } from '../permissions/usePermission';
+import { useManagerialAuth } from '@/hooks/useManagerialAuth';
 
 export default function CaixaTab() {
   const [showOpenModal, setShowOpenModal] = useState(false);
@@ -34,6 +35,7 @@ export default function CaixaTab() {
 
   const queryClient = useQueryClient();
   const { menuContext } = usePermission();
+  const { requireAuthorization, modal } = useManagerialAuth();
 
   // ✅ CORREÇÃO: Buscar caixas com contexto do slug
   const { data: caixas = [] } = useQuery({
@@ -62,6 +64,21 @@ export default function CaixaTab() {
     },
     enabled: !!menuContext,
   });
+
+  // Sessões PDV ativas (multi-PDV: quem está em qual terminal)
+  const { data: pdvSessionsRaw = [] } = useQuery({
+    queryKey: ['pdvSessions', menuContext?.type, menuContext?.value],
+    queryFn: async () => {
+      if (!menuContext) return [];
+      const opts = { ended_at: 'null' };
+      if (menuContext.type === 'subscriber' && menuContext.value) {
+        opts.as_subscriber = menuContext.value;
+      }
+      return base44.entities.PDVSession.list('-created_at', opts).catch(() => []);
+    },
+    enabled: !!menuContext,
+  });
+  const activePdvSessions = Array.isArray(pdvSessionsRaw) ? pdvSessionsRaw.filter(s => !s.ended_at) : [];
 
   const openCaixaMutation = useMutation({
     mutationFn: async (data) => {
@@ -357,7 +374,11 @@ export default function CaixaTab() {
                 <h2 className="text-2xl font-bold">Detalhes do Caixa</h2>
                 <p className="text-sm text-gray-600">
                   Aberto em {moment(selectedCaixa.opening_date).format('DD/MM/YYYY HH:mm')}
+                  {selectedCaixa.opened_by && <> por {selectedCaixa.opened_by}</>}
                 </p>
+                {isClosed && selectedCaixa.closed_by && (
+                  <p className="text-sm text-gray-500">Fechado por: {selectedCaixa.closed_by}</p>
+                )}
               </div>
             </div>
             <Badge className={isClosed ? 'bg-gray-500' : 'bg-green-500'}>
@@ -463,14 +484,14 @@ export default function CaixaTab() {
                 {!isClosed && (
                   <div className="grid grid-cols-2 gap-3">
                     <Button
-                      onClick={() => setShowSupplyModal(true)}
+                      onClick={() => requireAuthorization('suprimento', () => setShowSupplyModal(true))}
                       className="bg-orange-500 hover:bg-orange-600 h-12"
                     >
                       <TrendingUp className="w-4 h-4 mr-2" />
                       Suprimento
                     </Button>
                     <Button
-                      onClick={() => setShowWithdrawalModal(true)}
+                      onClick={() => requireAuthorization('sangria', () => setShowWithdrawalModal(true))}
                       className="bg-red-500 hover:bg-red-600 h-12"
                     >
                       <TrendingDown className="w-4 h-4 mr-2" />
@@ -494,7 +515,7 @@ export default function CaixaTab() {
 
                 {!isClosed && (
                   <Button
-                    onClick={() => setShowCloseModal(true)}
+                    onClick={() => requireAuthorization('fechar_caixa', () => setShowCloseModal(true))}
                     className="w-full bg-gray-900 hover:bg-gray-800 h-14 text-lg"
                   >
                     🔒 Fechar Caixa
@@ -524,6 +545,7 @@ export default function CaixaTab() {
                           <p className="font-medium text-sm">{op.description}</p>
                           <p className="text-xs text-gray-500">
                             {moment(op.date).format('DD/MM HH:mm')}
+                            {op.operator && <> · Operador: {op.operator}</>}
                           </p>
                           {op.type === 'venda_pdv' && (
                             <div className="text-xs text-gray-600 mt-1 space-y-0.5">
@@ -741,7 +763,7 @@ export default function CaixaTab() {
             <p className="text-gray-600">Gerencie abertura, fechamento e movimentações diárias</p>
           </div>
           <Button
-            onClick={() => setShowOpenModal(true)}
+            onClick={() => requireAuthorization('abrir_caixa', () => setShowOpenModal(true))}
             disabled={openCaixas.length > 0}
             className="bg-green-600 hover:bg-green-700 h-12"
           >
@@ -749,6 +771,38 @@ export default function CaixaTab() {
             Abrir Caixa
           </Button>
         </div>
+
+        {/* Sessões PDV ativas (multi-PDV: quem está em qual terminal) */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Calculator className="w-5 h-5" />
+              Sessões PDV ativas
+            </CardTitle>
+            <p className="text-sm text-gray-600">Colaboradores logados em cada terminal PDV</p>
+          </CardHeader>
+          <CardContent>
+            {activePdvSessions.length === 0 ? (
+              <p className="text-gray-500 text-sm">Nenhuma sessão PDV ativa no momento.</p>
+            ) : (
+              <ul className="space-y-2">
+                {activePdvSessions.map((s) => (
+                  <li key={s.id} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
+                    <div>
+                      <span className="font-medium">{s.terminal_name || s.terminal_id || 'PDV'}</span>
+                      <span className="text-gray-600 text-sm ml-2">
+                        — {s.operator_name || s.operator_email || 'Operador'}
+                      </span>
+                    </div>
+                    <span className="text-xs text-gray-500">
+                      desde {s.started_at ? moment(s.started_at).format('DD/MM HH:mm') : '-'}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
 
         {openCaixas.length > 0 && (
           <Card className="border-green-500 border-2 bg-green-50">
@@ -762,6 +816,7 @@ export default function CaixaTab() {
                     <Badge className="bg-green-500 mb-2">✅ Caixa Aberto</Badge>
                     <p className="text-sm text-gray-600">
                       Aberto em {moment(activeCaixa.opening_date).format('DD/MM/YYYY HH:mm')}
+                      {activeCaixa.opened_by && <> por {activeCaixa.opened_by}</>}
                     </p>
                     <p className="text-xl font-bold text-green-600">
                       Fundo Inicial: {formatCurrency(activeCaixa.opening_amount_cash)}
@@ -832,6 +887,13 @@ export default function CaixaTab() {
                     <p className="text-sm text-gray-600 mb-2">
                       {moment(caixa.opening_date).format('DD/MM/YYYY')}
                     </p>
+                    {(caixa.opened_by || caixa.closed_by) && (
+                      <p className="text-xs text-gray-500 mb-2">
+                        {caixa.opened_by && <>Aberto por: {caixa.opened_by}</>}
+                        {caixa.opened_by && caixa.closed_by && ' · '}
+                        {caixa.closed_by && <>Fechado por: {caixa.closed_by}</>}
+                      </p>
+                    )}
                     <div className="space-y-2">
                       <div className="flex justify-between text-sm">
                         <span>Vendas</span>
@@ -898,6 +960,7 @@ export default function CaixaTab() {
           </DialogContent>
         </Dialog>
       </div>
+      {modal}
     </>
   );
 }

@@ -47,18 +47,9 @@ export default function GoogleCallback() {
           
           // Redirecionar conforme perfil
           if (user.role === 'customer') {
-            // Cliente → Cardápio
             navigate('/Cardapio', { replace: true });
-          } else if (user.profile_role === 'entregador') {
-            navigate('/Entregador', { replace: true });
-          } else if (user.profile_role === 'cozinha') {
-            navigate('/Cozinha', { replace: true });
-          } else if (user.profile_role === 'pdv') {
-            navigate('/PDV', { replace: true });
-          } else if (user.profile_role === 'garcom') {
-            navigate('/Garcom', { replace: true });
-          } else if (user.profile_role === 'gerente') {
-            navigate('/PainelAssinante', { replace: true });
+          } else if (user.profile_role || user.profile_roles?.length) {
+            navigate('/colaborador', { replace: true });
           } else if (user.is_master) {
             navigate('/Admin', { replace: true });
           } else {

@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { QRCodeSVG } from 'qrcode.react';
-import { Plus, Edit, Trash2, QrCode, Bell, Download, Receipt, Calendar, Clock } from 'lucide-react';
+import { Plus, Edit, Trash2, QrCode, Bell, Download, Receipt, Calendar, Clock, X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useTheme } from '@/components/theme/ThemeProvider';
 import { usePermission } from '../permissions/usePermission';
@@ -126,6 +126,61 @@ export default function TablesTab() {
       toast.error('Erro ao deletar mesa: ' + (error.message || 'Erro desconhecido'));
     }
   });
+
+  const createReservationMutation = useMutation({
+    mutationFn: async ({ tableId, ...data }) => {
+      return base44.entities.Table.update(tableId, {
+        status: 'reserved',
+        reservation_date: data.reservation_date,
+        reservation_time: data.reservation_time,
+        reservation_customer_name: data.customer_name,
+        reservation_customer_phone: data.customer_phone || '',
+        reservation_guests: data.guests || 1
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['tables']);
+      toast.success('Reserva confirmada!');
+      setReservationModalOpen(false);
+      setTableToReserve(null);
+      setReservationData({ customer_name: '', customer_phone: '', reservation_date: '', reservation_time: '', guests: 1 });
+    },
+    onError: (error) => {
+      toast.error('Erro ao criar reserva: ' + (error.message || 'Erro desconhecido'));
+    }
+  });
+
+  const cancelReservationMutation = useMutation({
+    mutationFn: async (table) => {
+      return base44.entities.Table.update(table.id, {
+        status: 'available',
+        reservation_date: null,
+        reservation_time: null,
+        reservation_customer_name: null,
+        reservation_customer_phone: null,
+        reservation_guests: null
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['tables']);
+      toast.success('Reserva cancelada.');
+    },
+    onError: (error) => {
+      toast.error('Erro ao cancelar reserva: ' + (error.message || 'Erro desconhecido'));
+    }
+  });
+
+  const handleReserve = (table) => {
+    setTableToReserve(table);
+    setReservationData({
+      customer_name: '',
+      customer_phone: '',
+      reservation_date: '',
+      reservation_time: '',
+      guests: 1
+    });
+    setReservationModalOpen(true);
+  };
 
   const resetForm = () => {
     setTableFormData({
@@ -508,7 +563,11 @@ export default function TablesTab() {
               toast.error('Preencha todos os campos obrigatórios');
               return;
             }
-            createReservationMutation.mutate(reservationData);
+            if (!tableToReserve?.id) {
+              toast.error('Mesa não identificada.');
+              return;
+            }
+            createReservationMutation?.mutate?.({ tableId: tableToReserve.id, ...reservationData });
           }} className="space-y-4">
             <div>
               <Label>Nome do Cliente *</Label>
@@ -560,8 +619,8 @@ export default function TablesTab() {
               <Button type="button" variant="outline" onClick={() => setReservationModalOpen(false)}>
                 Cancelar
               </Button>
-              <Button type="submit" disabled={createReservationMutation.isPending}>
-                {createReservationMutation.isPending ? 'Salvando...' : 'Confirmar Reserva'}
+              <Button type="submit" disabled={createReservationMutation?.isPending}>
+                {createReservationMutation?.isPending ? 'Salvando...' : 'Confirmar Reserva'}
               </Button>
             </div>
           </form>

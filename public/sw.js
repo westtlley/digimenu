@@ -1,8 +1,8 @@
 // Service Worker para modo offline
-const CACHE_NAME = 'digimenu-garcom-v1';
+const CACHE_NAME = 'digimenu-garcom-v2';
 const OFFLINE_URL = '/offline.html';
 
-// Recursos estáticos para cache
+// Recursos estáticos para cache (não cachear /assets/ para evitar layout quebrado)
 const STATIC_ASSETS = [
   '/',
   '/Garcom',
@@ -51,6 +51,12 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Nunca usar cache para /assets/ (JS/CSS do app) — evita layout quebrado
+  if (url.pathname.startsWith('/assets/')) {
+    event.respondWith(fetch(request));
+    return;
+  }
+
   event.respondWith(
     caches.match(request)
       .then((response) => {
@@ -62,8 +68,8 @@ self.addEventListener('fetch', (event) => {
         // Tentar buscar da rede
         return fetch(request)
           .then((response) => {
-            // Cachear apenas respostas válidas
-            if (response && response.status === 200) {
+            // Não cachear /assets/ (JS/CSS) para evitar servir HTML por engano
+            if (response && response.status === 200 && !url.pathname.startsWith('/assets/')) {
               const responseToCache = response.clone();
               caches.open(CACHE_NAME).then((cache) => {
                 cache.put(request, responseToCache);

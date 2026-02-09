@@ -72,7 +72,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { HelpCircle } from 'lucide-react';
+import { HelpCircle, ExternalLink } from 'lucide-react';
 import UserAuthButton from '../components/atoms/UserAuthButton';
 import PermissionsEditor from '../components/permissions/PermissionsEditor';
 import SubscriberDataViewer from '../components/admin/SubscriberDataViewer';
@@ -1179,6 +1179,14 @@ export default function Assinantes() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                          {subscriber.slug && (
+                            <DropdownMenuItem
+                              onClick={() => window.open(`/s/${subscriber.slug}`, '_blank', 'noopener')}
+                            >
+                              <ExternalLink className="w-4 h-4 mr-2" />
+                              Abrir cardápio
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem onClick={() => setViewingSubscriber(subscriber)}>
                             <Package className="w-4 h-4 mr-2" />
                             Ver Dados Completos

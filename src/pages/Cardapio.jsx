@@ -69,12 +69,15 @@ function CardapioSemLink() {
         <p className="mt-2 text-sm text-gray-500 dark:text-gray-500">
           Ex.: /s/raiz-maranhense
         </p>
+        <p className="mt-3 text-xs text-gray-500 dark:text-gray-400 border-t border-gray-200 dark:border-gray-600 pt-3">
+          <strong>Master:</strong> abra o cardápio em <strong>Admin → Assinantes</strong> e use <strong>⋮ → Abrir cardápio</strong> no assinante desejado. <strong>Assinante:</strong> use o link do seu painel ou Loja.
+        </p>
         <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
           <Link to="/Assinar" className="px-4 py-2.5 rounded-lg bg-orange-500 text-white font-medium hover:bg-orange-600 transition-colors">
             Assinar DigiMenu
           </Link>
-          <Link to="/login/assinante" className="px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-            Já tenho conta
+          <Link to="/" className="px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+            Voltar ao início
           </Link>
         </div>
         <a href="/" className="mt-4 inline-block text-sm text-gray-500 dark:text-gray-400 hover:text-orange-500">Voltar ao início</a>
@@ -157,35 +160,41 @@ export default function Cardapio() {
   const { data: publicData, isLoading: publicLoading, isError: publicError, error: publicErrorDetails } = useQuery({
     queryKey: ['publicCardapio', slug],
     queryFn: async () => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout (evita travar se backend estiver lento/off)
       try {
-        // O base44.get já adiciona /api automaticamente
-        const result = await base44.get(`/public/cardapio/${slug}`);
+        const result = await base44.get(`/public/cardapio/${slug}`, {}, { signal: controller.signal });
+        clearTimeout(timeoutId);
         console.log('✅ [Cardapio] Dados recebidos:', result);
         setLoadingTimeout(false);
         return result;
       } catch (error) {
+        clearTimeout(timeoutId);
+        if (error?.name === 'AbortError') {
+          const err = new Error('O servidor demorou para responder. Tente novamente.');
+          err.isTimeout = true;
+          throw err;
+        }
         console.error('❌ [Cardapio] Erro ao buscar cardápio público:', error);
-        console.error('❌ [Cardapio] Slug:', slug);
-        console.error('❌ [Cardapio] Endpoint completo:', `/api/public/cardapio/${slug}`);
-        console.error('❌ [Cardapio] Erro completo:', error.message, error.stack);
         setLoadingTimeout(true);
         throw error;
       }
     },
     enabled: !!slug,
-    retry: 1,
-    retryDelay: 2000,
-    staleTime: 60 * 1000, // 1 minuto — evita logo/dados desatualizados após alteração no admin
-    refetchOnWindowFocus: true, // Atualiza ao voltar na aba (reflete logo/dados novos)
+    retry: 2,
+    retryDelay: 1500,
+    staleTime: 60 * 1000,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
   });
 
-  // Timeout de carregamento (8s) — evita ficar travado em "Carregando..."
+  // Timeout de carregamento (3s) — mostra "Tentar novamente" cedo se a rede/backend estiver lento
   useEffect(() => {
     if (slug && publicLoading) {
       const timer = setTimeout(() => {
         setLoadingTimeout(true);
         console.warn('⚠️ [Cardapio] Timeout de carregamento atingido');
-      }, 8000);
+      }, 3000);
       return () => clearTimeout(timer);
     } else {
       setLoadingTimeout(false);
@@ -275,7 +284,9 @@ export default function Cardapio() {
 
   // Quando /s/:slug: usar dados da API pública; senão usar das queries
   const _pub = slug && publicData ? publicData : null;
-  const store = _pub?.store || stores?.[0] || null;
+  const _rawStore = _pub?.store || stores?.[0] || null;
+  // Garantir nome sempre definido para não travar em "Carregando..." (ex.: loja antiga com logo mas name vazio)
+  const store = _rawStore ? { ..._rawStore, name: _rawStore.name || 'Loja' } : null;
   
   // Debug: log dos dados recebidos
   useEffect(() => {
@@ -322,14 +333,27 @@ export default function Cardapio() {
     mutationFn: ({ id, data }) => base44.entities.Coupon.update(id, data)
   });
 
-  // Link /s/:slug inválido (404, 429, 503, etc.)
+  // Erro ao carregar (404, timeout, rede, etc.)
   if (slug && publicError) {
+    const isTimeoutOrNetwork = publicErrorDetails?.isTimeout || publicErrorDetails?.message?.includes('fetch') || publicErrorDetails?.message?.includes('rede');
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
         <div className="text-center max-w-md p-6 rounded-xl bg-white dark:bg-gray-800 shadow-lg border border-gray-200 dark:border-gray-700">
-          <p className="text-xl font-medium text-gray-800 dark:text-gray-100">Link não encontrado</p>
-          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Este cardápio não existe ou o link está incorreto. Verifique com o estabelecimento.</p>
-          <Link to="/Assinar" className="mt-6 inline-block px-4 py-2 rounded-lg bg-orange-500 text-white font-medium hover:bg-orange-600">Assinar DigiMenu</Link>
+          <p className="text-xl font-medium text-gray-800 dark:text-gray-100">
+            {isTimeoutOrNetwork ? 'Não foi possível carregar' : 'Link não encontrado'}
+          </p>
+          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+            {isTimeoutOrNetwork
+              ? 'O servidor pode estar iniciando ou a conexão falhou. Tente novamente em alguns segundos.'
+              : 'Este cardápio não existe ou o link está incorreto. Verifique com o estabelecimento.'}
+          </p>
+          <Button
+            onClick={() => queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] })}
+            className="mt-4 bg-orange-500 text-white hover:bg-orange-600"
+          >
+            Tentar novamente
+          </Button>
+          <Link to="/Assinar" className="mt-4 block text-sm text-orange-600 hover:underline">Assinar DigiMenu</Link>
         </div>
       </div>
     );
@@ -454,27 +478,29 @@ export default function Cardapio() {
     checkAuth();
   }, []);
 
-  // Splash/loading ao abrir o cardápio - mostrar enquanto carrega
+  // Splash breve só quando os dados chegam pela primeira vez (não reabrir em refetch — evitava travar na tela amarela)
+  const splashShownForSlugRef = React.useRef(null);
   useEffect(() => {
     if (!slug) {
       setShowSplash(false);
+      splashShownForSlugRef.current = null;
       return;
     }
-    // Com slug: mostrar splash enquanto está carregando
-    if (publicLoading) {
-      setShowSplash(true);
-      return;
-    }
-    // Dados prontos (publicData existe) — mostrar splash breve e depois esconder (não exige store.name para não travar)
+    if (publicLoading) return;
     if (publicData && publicData.store) {
-      setShowSplash(true);
-      const t = setTimeout(() => setShowSplash(false), 1200);
-      return () => clearTimeout(t);
+      if (splashShownForSlugRef.current !== slug) {
+        splashShownForSlugRef.current = slug;
+        setShowSplash(true);
+        const t = setTimeout(() => setShowSplash(false), 1200);
+        return () => clearTimeout(t);
+      }
+      return;
     }
     if (!publicData && !publicLoading) {
       setShowSplash(false);
+      splashShownForSlugRef.current = null;
     }
-  }, [store, publicData, publicLoading, slug]);
+  }, [publicData, publicLoading, slug]);
 
   // 🛒 Recuperação de Carrinho Abandonado
   useEffect(() => {
@@ -830,59 +856,36 @@ export default function Cardapio() {
     );
   };
 
-  // Timeout de carregamento: após 8s mostramos "Tentar novamente" (erro ou rede travada)
+  // Timeout de carregamento: após 5s mostramos "Tentar novamente" (evita ficar travado)
   const showRetryAfterTimeout = slug && publicLoading && loadingTimeout;
 
-  if ((publicLoading && !loadingTimeout) || (slug && !publicError && (!store || !store.name))) {
+  // Carregamento mínimo (sem tela laranja): só spinner neutro; ao carregar, vai direto para a tela principal do restaurante
+  if (slug && publicLoading) {
     return (
-      <div className="min-h-screen min-h-screen-mobile bg-background">
+      <div className="min-h-screen min-h-screen-mobile flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-900">
         <Toaster position="top-center" />
-        {/* Splash - logo do restaurante e cor principal */}
-        <motion.div
-          initial={{ opacity: 1 }}
-          animate={{ opacity: 1 }}
-          className="fixed inset-0 z-[9999] flex flex-col items-center justify-center"
-          style={{ backgroundColor: primaryColor || '#f97316' }}
-        >
-          <motion.div
-            initial={{ scale: 0.85, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.3 }}
-            className="flex flex-col items-center gap-5 px-6"
-          >
-            {store?.logo && (
-              <img
-                src={store.logo}
-                alt={store.name || 'Restaurante'}
-                className="h-24 w-24 max-w-[280px] object-contain drop-shadow-lg rounded-xl"
-              />
-            )}
-            <p className="text-white font-semibold text-xl text-center drop-shadow-sm">
-              {store?.name || 'Carregando...'}
+        {!(showRetryAfterTimeout || publicError) && (
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
+            <p className="text-sm text-gray-500 dark:text-gray-400">Carregando cardápio...</p>
+          </div>
+        )}
+        {(showRetryAfterTimeout || publicError) && (
+          <div className="text-center max-w-xs px-4">
+            <p className="text-gray-700 dark:text-gray-300 text-sm mb-3">
+              {publicError ? (publicErrorDetails?.isTimeout ? 'O servidor demorou para responder.' : 'Não foi possível carregar o cardápio. Verifique o link e a conexão.') : 'Está demorando mais que o normal.'}
             </p>
-            {(showRetryAfterTimeout || publicError) && (
-              <div className="mt-4 text-center max-w-xs">
-                <p className="text-white/90 text-sm mb-2">
-                  {publicError ? 'Não foi possível carregar o cardápio.' : 'Está demorando mais que o normal.'}
-                </p>
-                <Button
-                  onClick={() => {
-                    setLoadingTimeout(false);
-                    queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
-                  }}
-                  className="bg-white text-orange-500 hover:bg-gray-100"
-                >
-                  Tentar novamente
-                </Button>
-              </div>
-            )}
-            <motion.div
-              animate={{ opacity: [0.4, 1, 0.4] }}
-              transition={{ duration: 0.8, repeat: Infinity }}
-              className="h-1 w-24 rounded-full bg-white/70"
-            />
-          </motion.div>
-        </motion.div>
+            <Button
+              onClick={() => {
+                setLoadingTimeout(false);
+                queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
+              }}
+              className="bg-orange-500 text-white hover:bg-orange-600"
+            >
+              Tentar novamente
+            </Button>
+          </div>
+        )}
       </div>
     );
   }
@@ -1028,7 +1031,7 @@ export default function Cardapio() {
                 className={`p-0.5 rounded-full backdrop-blur-sm transition-all ${isAuthenticated ? 'bg-green-500/90 hover:bg-green-600' : 'bg-white/20 hover:bg-white/30'} text-white relative`}
                 onClick={() => {
                   if (isAuthenticated) setShowCustomerProfile(true);
-                  else window.location.href = `/login/cliente?returnUrl=${encodeURIComponent(window.location.pathname)}`;
+                  else window.location.href = slug ? `/s/${slug}/login/cliente?returnUrl=${encodeURIComponent(window.location.pathname)}` : `/?returnUrl=${encodeURIComponent(window.location.pathname)}`;
                 }}
                 title={isAuthenticated ? "Meu Perfil" : "Entrar / Cadastrar"}
               >
@@ -1087,7 +1090,7 @@ export default function Cardapio() {
                   <ThemeToggle />
                   <button 
                     className={`p-0.5 rounded-lg relative ${isAuthenticated ? 'text-green-600' : 'text-muted-foreground'}`} 
-                    onClick={() => isAuthenticated ? setShowCustomerProfile(true) : (window.location.href = `/login/cliente?returnUrl=${encodeURIComponent(window.location.pathname)}`)}
+                    onClick={() => isAuthenticated ? setShowCustomerProfile(true) : (window.location.href = slug ? `/s/${slug}/login/cliente?returnUrl=${encodeURIComponent(window.location.pathname)}` : `/?returnUrl=${encodeURIComponent(window.location.pathname)}`)}
                   >
                     {isAuthenticated && userProfilePicture ? (
                       <img 
@@ -1113,7 +1116,7 @@ export default function Cardapio() {
                 <ThemeToggle className="text-muted-foreground hover:text-foreground hover:bg-muted" />
                 <button 
                   className={`relative p-0.5 rounded-lg transition-all ${isAuthenticated ? 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`} 
-                  onClick={() => isAuthenticated ? setShowCustomerProfile(true) : (window.location.href = `/login/cliente?returnUrl=${encodeURIComponent(window.location.pathname)}`)} 
+                  onClick={() => isAuthenticated ? setShowCustomerProfile(true) : (window.location.href = slug ? `/s/${slug}/login/cliente?returnUrl=${encodeURIComponent(window.location.pathname)}` : `/?returnUrl=${encodeURIComponent(window.location.pathname)}`)} 
                   title={isAuthenticated ? "Meu Perfil" : "Entrar"}
                 >
                   {isAuthenticated && userProfilePicture ? (

@@ -449,20 +449,25 @@ export async function getUserById(id) {
 }
 
 export async function createUser(userData) {
+  const cols = ['email', 'full_name', 'password', 'is_master', 'role', 'subscriber_email', 'google_id', 'google_photo'];
+  const vals = [
+    userData.email,
+    userData.full_name,
+    userData.password || null,
+    userData.is_master || false,
+    userData.role || 'user',
+    userData.subscriber_email || null,
+    userData.google_id || null,
+    userData.google_photo || null
+  ];
+  if (userData.profile_role !== undefined && userData.profile_role !== null) {
+    cols.push('profile_role');
+    vals.push(userData.profile_role);
+  }
+  const placeholders = vals.map((_, i) => `$${i + 1}`).join(', ');
   const result = await query(
-    `INSERT INTO users (email, full_name, password, is_master, role, subscriber_email, google_id, google_photo)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-     RETURNING *`,
-    [
-      userData.email,
-      userData.full_name,
-      userData.password || null,
-      userData.is_master || false,
-      userData.role || 'user',
-      userData.subscriber_email || null,
-      userData.google_id || null,
-      userData.google_photo || null
-    ]
+    `INSERT INTO users (${cols.join(', ')}) VALUES (${placeholders}) RETURNING *`,
+    vals
   );
   return result.rows[0];
 }
@@ -1110,5 +1115,79 @@ export async function listPayments(subscriberEmail) {
   } catch (error) {
     logger.error('❌ Erro ao listar pagamentos:', error);
     return [];
+  }
+}
+
+// -----------------------
+// Autorização gerencial (matrícula + senha para controle de ações sensíveis)
+// -----------------------
+
+/**
+ * Busca configuração de autorização de um assinante para um role (assinante ou gerente).
+ */
+export async function getManagerialAuthorization(subscriberEmail, role) {
+  try {
+    const r = await query(
+      `SELECT id, subscriber_email, role, matricula, expires_at, created_at, updated_at
+       FROM managerial_authorizations
+       WHERE LOWER(TRIM(subscriber_email)) = LOWER(TRIM($1)) AND role = $2`,
+      [subscriberEmail, role]
+    );
+    if (!r.rows[0]) return null;
+    const row = r.rows[0];
+    return {
+      id: row.id,
+      subscriber_email: row.subscriber_email,
+      role: row.role,
+      matricula: row.matricula,
+      expires_at: row.expires_at,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      has_password: true,
+    };
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
+ * Cria ou atualiza autorização gerencial. Apenas o assinante (dono) deve chamar.
+ */
+export async function setManagerialAuthorization(subscriberEmail, role, { matricula, passwordHash, expiresAt }) {
+  const normalized = (subscriberEmail || '').toString().trim();
+  const roleNorm = role === 'gerente' ? 'gerente' : 'assinante';
+  if (!normalized || !matricula || !passwordHash) {
+    throw new Error('subscriber_email, matricula e senha são obrigatórios');
+  }
+  await query(
+    `INSERT INTO managerial_authorizations (subscriber_email, role, matricula, password_hash, expires_at, updated_at)
+     VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
+     ON CONFLICT (subscriber_email, role)
+     DO UPDATE SET matricula = EXCLUDED.matricula, password_hash = EXCLUDED.password_hash,
+                   expires_at = EXCLUDED.expires_at, updated_at = CURRENT_TIMESTAMP`,
+    [normalized, roleNorm, String(matricula).trim(), passwordHash, expiresAt || null]
+  );
+  return getManagerialAuthorization(normalized, roleNorm);
+}
+
+/**
+ * Valida matrícula e senha para o role do usuário no estabelecimento.
+ * Retorna true se válido (e não expirado).
+ */
+export async function validateManagerialAuthorization(subscriberEmail, role, matricula, passwordPlain) {
+  if (!subscriberEmail || !role || !matricula || !passwordPlain) return false;
+  try {
+    const r = await query(
+      `SELECT id, password_hash, expires_at FROM managerial_authorizations
+       WHERE LOWER(TRIM(subscriber_email)) = LOWER(TRIM($1)) AND role = $2 AND LOWER(TRIM(matricula)) = LOWER(TRIM($3))`,
+      [subscriberEmail, role, String(matricula).trim()]
+    );
+    if (!r.rows[0]) return false;
+    const row = r.rows[0];
+    if (row.expires_at && new Date(row.expires_at) < new Date()) return false;
+    const bcrypt = await import('bcrypt');
+    return await bcrypt.compare(String(passwordPlain), row.password_hash);
+  } catch (e) {
+    return false;
   }
 }

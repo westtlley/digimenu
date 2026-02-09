@@ -38,6 +38,7 @@ import InventoryManagement from '../components/admin/InventoryManagement';
 import AffiliateProgram from '../components/admin/AffiliateProgram';
 import LGPDCompliance from '../components/admin/LGPDCompliance';
 import TwoFactorAuth from '../components/admin/TwoFactorAuth';
+import ManagerialAuthTab from '../components/admin/ManagerialAuthTab';
 import ColaboradoresTab from '../components/admin/ColaboradoresTab';
 import AccessDenied, { LoadingError } from '../components/admin/AccessDenied';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
@@ -154,11 +155,19 @@ export default function Admin() {
                 Falar no WhatsApp
               </Button>
             </a>
-            <Link to={(user?.slug || subscriberData?.slug) ? `/s/${user?.slug || subscriberData?.slug}` : createPageUrl('Cardapio')} className="block">
-              <Button variant="outline" className="w-full">
-                Ver Cardápio
-              </Button>
-            </Link>
+            {user?.is_master && !user?.slug && !subscriberData?.slug ? (
+              <Link to="/Assinantes" className="block">
+                <Button variant="outline" className="w-full" title="Como master, abra o cardápio pelo menu Assinantes (Abrir cardápio no assinante desejado).">
+                  Ver Cardápio (ir a Assinantes)
+                </Button>
+              </Link>
+            ) : (
+              <Link to={(user?.slug || subscriberData?.slug) ? `/s/${user?.slug || subscriberData?.slug}` : createPageUrl('Cardapio')} className="block">
+                <Button variant="outline" className="w-full">
+                  Ver Cardápio
+                </Button>
+              </Link>
+            )}
             {user && (
               <Button variant="ghost" onClick={handleLogout} className="w-full text-gray-400 hover:text-white hover:bg-[#2a2a2a]">
                 <LogOut className="w-4 h-4 mr-2" />
@@ -232,6 +241,8 @@ export default function Admin() {
       
       case 'lgpd':
         return (isMaster || hasModuleAccess('lgpd')) ? <LGPDCompliance /> : <AccessDenied />;
+      case 'managerial_auth':
+        return hasModuleAccess('store') ? <ManagerialAuthTab /> : <AccessDenied />;
       
       case 'theme':
         return hasModuleAccess('theme') ? <ThemeTab /> : <AccessDenied />;
@@ -420,9 +431,11 @@ export default function Admin() {
         </div>
 
         {/* Content */}
-        <main className="flex-1 overflow-y-auto">
-          <div className="p-3 sm:p-4 lg:p-6">
-            {renderTabContent()}
+        <main className="flex-1 min-w-0 overflow-y-auto bg-gray-50 dark:bg-gray-900">
+          <div className="p-3 sm:p-4 lg:p-6 min-h-[60vh]">
+            <ErrorBoundary>
+              {renderTabContent()}
+            </ErrorBoundary>
           </div>
         </main>
       </div>

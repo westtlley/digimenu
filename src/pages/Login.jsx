@@ -35,11 +35,7 @@ export default function Login() {
         let to = returnUrl;
         if (!returnUrl || returnUrl === '/' || returnUrl === '/login') {
           if (me?.role === 'customer') to = '/Cardapio';
-          else if (me?.profile_role === 'entregador') to = '/Entregador';
-          else if (me?.profile_role === 'cozinha') to = '/Cozinha';
-          else if (me?.profile_role === 'pdv') to = '/PDV';
-          else if (me?.profile_role === 'garcom') to = '/Garcom';
-          else if (me?.profile_role === 'gerente') to = '/PainelAssinante';
+          else if (me?.profile_role || me?.profile_roles?.length) to = '/colaborador';
           else to = me?.is_master ? '/Admin' : '/PainelAssinante';
         }
         navigate(to);
@@ -74,17 +70,9 @@ export default function Login() {
         if (userData?.role === 'customer') {
           redirectUrl = '/Cardapio';
         }
-        // Colaborador (perfil limitado) → Entregador, Cozinha, PDV, Garçom ou Gerente
-        else if (userData?.profile_role === 'entregador') {
-          redirectUrl = '/Entregador';
-        } else if (userData?.profile_role === 'cozinha') {
-          redirectUrl = '/Cozinha';
-        } else if (userData?.profile_role === 'pdv') {
-          redirectUrl = '/PDV';
-        } else if (userData?.profile_role === 'garcom') {
-          redirectUrl = '/Garcom';
-        } else if (userData?.profile_role === 'gerente') {
-          redirectUrl = '/PainelAssinante';
+        // Colaborador (qualquer perfil) → Home do colaborador com botões
+        else if (userData?.profile_role || userData?.profile_roles?.length) {
+          redirectUrl = '/colaborador';
         }
         // Assinante tentando Admin → PainelAssinante
         else if (!userData?.is_master && (returnUrl.includes('/Admin') || returnUrl === '/Admin')) {
@@ -98,16 +86,8 @@ export default function Login() {
         else if (!returnUrl || returnUrl === '/' || returnUrl === '/login') {
           if (userData?.role === 'customer') {
             redirectUrl = '/Cardapio';
-          } else if (userData?.profile_role === 'entregador') {
-            redirectUrl = '/Entregador';
-          } else if (userData?.profile_role === 'cozinha') {
-            redirectUrl = '/Cozinha';
-          } else if (userData?.profile_role === 'pdv') {
-            redirectUrl = '/PDV';
-          } else if (userData?.profile_role === 'garcom') {
-            redirectUrl = '/Garcom';
-          } else if (userData?.profile_role === 'gerente') {
-            redirectUrl = '/PainelAssinante';
+          } else if (userData?.profile_role || userData?.profile_roles?.length) {
+            redirectUrl = '/colaborador';
           } else {
             redirectUrl = userData?.is_master ? '/Admin' : '/PainelAssinante';
           }

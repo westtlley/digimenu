@@ -49,25 +49,9 @@ export default function SmartRedirect() {
           return;
         }
 
-        // Colaborador → Seu painel específico
-        if (userData?.profile_role === 'entregador') {
-          navigate('/Entregador', { replace: true });
-          return;
-        }
-        if (userData?.profile_role === 'cozinha') {
-          navigate('/Cozinha', { replace: true });
-          return;
-        }
-        if (userData?.profile_role === 'pdv') {
-          navigate('/PDV', { replace: true });
-          return;
-        }
-        if (userData?.profile_role === 'garcom') {
-          navigate('/Garcom', { replace: true });
-          return;
-        }
-        if (userData?.profile_role === 'gerente') {
-          navigate('/PainelAssinante', { replace: true });
+        // Colaborador (qualquer perfil) → Home do colaborador com botões
+        if (userData?.profile_role || userData?.profile_roles?.length) {
+          navigate('/colaborador', { replace: true });
           return;
         }
 

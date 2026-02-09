@@ -8,6 +8,8 @@ import LoginCliente from "./auth/LoginCliente";
 import LoginAssinante from "./auth/LoginAssinante";
 import LoginAdmin from "./auth/LoginAdmin";
 import LoginColaborador from "./auth/LoginColaborador";
+import LoginBySlug from "./auth/LoginBySlug";
+import ColaboradorHome from "./ColaboradorHome";
 import GoogleCallback from "./auth/GoogleCallback";
 import CadastroCliente from "./CadastroCliente";
 import DefinirSenha from "./DefinirSenha";
@@ -23,6 +25,7 @@ import PDV from "./PDV";
 import Cozinha from "./Cozinha";
 import Garcom from "./Garcom";
 import PainelAssinante from "./PainelAssinante";
+import PainelGerente from "./PainelGerente";
 import RastreioCliente from "./RastreioCliente";
 import TrackOrder from "./TrackOrder";
 import Cardapio from "./Cardapio";
@@ -102,6 +105,10 @@ function PagesContent() {
                 <Route path="/s/:slug/PDV" element={<ProtectedRoute requireActiveSubscription><PDV /></ProtectedRoute>} />
                 <Route path="/s/:slug/Entregador" element={<ProtectedRoute requireActiveSubscription><Entregador /></ProtectedRoute>} />
                 <Route path="/s/:slug/EntregadorPanel" element={<ProtectedRoute requireActiveSubscription><EntregadorPanel /></ProtectedRoute>} />
+                <Route path="/s/:slug/Garcom" element={<ProtectedRoute requireActiveSubscription><Garcom /></ProtectedRoute>} />
+                {/* Logins por estabelecimento: tema e logo do slug; evita conflito entre estabelecimentos */}
+                <Route path="/s/:slug/login/:type" element={<LoginBySlug />} />
+                <Route path="/s/:slug/login" element={<LoginBySlug />} />
                 <Route path="/s/:slug" element={<Cardapio />} />
                 
                 {/* GOVERNANÇA DE REDIRECIONAMENTOS: SmartRedirect decide baseado no perfil do usuário */}
@@ -123,15 +130,17 @@ function PagesContent() {
                 {/* Pedido por mesa (QR Code) */}
                 <Route path="/mesa/:tableNumber" element={<TableOrder />} />
                 
-                {/* Rotas de login separadas */}
-                <Route path="/login/cliente" element={<LoginCliente />} />
-                <Route path="/login/assinante" element={<LoginAssinante />} />
+                {/* Logins genéricos desativados: redirecionam para / (uso dos logins por slug: /s/:slug/login...) */}
+                <Route path="/login/cliente" element={<Navigate to="/" replace />} />
+                <Route path="/login/assinante" element={<Navigate to="/" replace />} />
+                <Route path="/login/colaborador" element={<Navigate to="/" replace />} />
                 <Route path="/login/admin" element={<LoginAdmin />} />
-                <Route path="/login/colaborador" element={<LoginColaborador />} />
+                <Route path="/colaborador" element={<ColaboradorHome />} />
                 
-                {/* Rota antiga - redireciona para login de cliente (compatibilidade) */}
-                <Route path="/login" element={<Navigate to="/login/cliente" replace />} />
-                <Route path="/Login" element={<Navigate to="/login/cliente" replace />} />
+                {/* /login e /assinante: redirecionam para início (acesso pelo link do estabelecimento) */}
+                <Route path="/login" element={<Navigate to="/" replace />} />
+                <Route path="/Login" element={<Navigate to="/" replace />} />
+                <Route path="/assinante" element={<Navigate to="/" replace />} />
                 <Route path="/cadastro-cliente" element={<CadastroCliente />} />
                 <Route path="/cadastro/cliente" element={<CadastroCliente />} />
                 {/* Cadastro de cliente vinculado ao restaurante (slug) */}
@@ -156,6 +165,7 @@ function PagesContent() {
                 <Route path="/Cozinha" element={<ProtectedRoute requireActiveSubscription><Cozinha /></ProtectedRoute>} />
                 <Route path="/Garcom" element={<ProtectedRoute requireActiveSubscription><Garcom /></ProtectedRoute>} />
                 <Route path="/PainelAssinante" element={<ProtectedRoute requireActiveSubscription><PainelAssinante /></ProtectedRoute>} />
+                <Route path="/PainelGerente" element={<ProtectedRoute><PainelGerente /></ProtectedRoute>} />
                 <Route path="/RastreioCliente" element={<RastreioCliente />} />
                 <Route path="/Admin" element={<ProtectedRoute requireMaster><Admin /></ProtectedRoute>} />
                 

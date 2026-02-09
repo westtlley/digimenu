@@ -93,7 +93,11 @@ export const PLAN_PRESETS = {
       financial: ['view'],
       printer: [],
       mais: ['view'],
-      comandas: []
+      comandas: [],
+      inventory: ['view', 'create', 'update', 'delete'],
+      affiliates: ['view', 'create', 'update', 'delete'],
+      lgpd: ['view', 'update'],
+      '2fa': ['view', 'update']
     }
   },
   
@@ -121,7 +125,13 @@ export const PLAN_PRESETS = {
       financial: ['view'],
       printer: ['view', 'update'],
       mais: ['view'],
-      comandas: ['view', 'create', 'update', 'close', 'history']
+      comandas: ['view', 'create', 'update', 'close', 'history'],
+      inventory: ['view', 'create', 'update', 'delete'],
+      affiliates: ['view', 'create', 'update', 'delete'],
+      lgpd: ['view', 'update'],
+      '2fa': ['view', 'update'],
+      tables: ['view', 'create', 'update', 'delete'],
+      garcom: ['view']
     }
   },
   
@@ -150,7 +160,13 @@ export const PLAN_PRESETS = {
       financial: ['view'],
       printer: ['view', 'update'],
       mais: ['view'],
-      comandas: ['view', 'create', 'update', 'close', 'history']
+      comandas: ['view', 'create', 'update', 'close', 'history'],
+      inventory: ['view', 'create', 'update', 'delete'],
+      affiliates: ['view', 'create', 'update', 'delete'],
+      lgpd: ['view', 'update'],
+      '2fa': ['view', 'update'],
+      tables: ['view', 'create', 'update', 'delete'],
+      garcom: ['view']
     }
   }
 };
@@ -159,11 +175,11 @@ export const PLAN_PRESETS = {
  * Retorna as permissões de um plano
  */
 export function getPlanPermissions(plan) {
-  // Para plano custom, retornar vazio - será configurado manualmente
-  if (plan === 'custom') {
+  const key = (plan || '').toString().toLowerCase().trim();
+  if (key === 'custom') {
     return PLAN_PRESETS.custom.permissions;
   }
-  return PLAN_PRESETS[plan]?.permissions || PLAN_PRESETS.basic.permissions;
+  return PLAN_PRESETS[key]?.permissions || PLAN_PRESETS.basic.permissions;
 }
 
 /**

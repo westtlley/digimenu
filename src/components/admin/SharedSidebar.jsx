@@ -124,6 +124,7 @@ const MENU_STRUCTURE = [
       { id: 'colaboradores', label: 'Colaboradores', icon: UserCog, module: 'colaboradores' },
       { id: '2fa', label: 'Autenticação 2FA', icon: Key, module: '2fa' },
       { id: 'lgpd', label: 'Conformidade LGPD', icon: Shield, module: 'lgpd' },
+      { id: 'managerial_auth', label: 'Autorização gerencial', icon: Key, module: 'store' },
     ]
   },
 
@@ -152,7 +153,9 @@ export default function SharedSidebar({
   setCollapsed, 
   onClose,
   showStoreLogo = true,
-  slug = null
+  slug = null,
+  /** Item extra no topo do menu (ex.: { id: 'meu_perfil', label: 'Meu perfil', icon: User }) para Painel do Gerente */
+  extraTopItem = null
 }) {
   const [expandedGroups, setExpandedGroups] = useState({
     gestao: true,
@@ -176,59 +179,28 @@ export default function SharedSidebar({
   const hasModuleAccess = (module) => {
     if (isMaster) return true;
     
-    // Gerente tem acesso a quase tudo, exceto configurações financeiras avançadas
-    if (isGerente) {
-      // Gerente NÃO pode acessar:
-      // - financial (configurações financeiras avançadas)
-      // - subscriptions (gerenciamento de assinatura)
-      const restrictedModules = ['financial'];
-      if (restrictedModules.includes(module)) {
-        return false;
-      }
-      // Gerente PODE acessar tudo mais
-      return true;
+    // Gerente: cargo de confiança, acesso a todas as ferramentas (igual ao assinante)
+    if (isGerente) return true;
+    
+    // ✅ Fonte da verdade: permissões do backend primeiro (gestor de estoque, bebidas, garçom, mesas, afiliados, etc.)
+    if (permissions && typeof permissions === 'object') {
+      const modulePerms = permissions[module];
+      if (Array.isArray(modulePerms) && modulePerms.length > 0) return true;
     }
     
     const planLower = (plan || '').toLowerCase();
     
-    // ✅ Se plan estiver vazio, tentar usar fallback de permissões
-    if (!planLower && permissions && typeof permissions === 'object') {
-      const modulePerms = permissions[module];
-      if (Array.isArray(modulePerms) && modulePerms.length > 0) {
-        console.log(`[SharedSidebar] hasModuleAccess(${module}): Usando permissões do backend (plan vazio)`);
-        return true;
-      }
-    }
-    
     // Se for master (mesmo que venha como plan), sempre tem acesso
-    if (planLower === 'master') {
-      if (module === 'colaboradores') {
-        console.log('[SharedSidebar] Colaboradores: plan=master, acesso permitido');
-      }
-      return true;
-    }
+    if (planLower === 'master') return true;
     
-    // Módulos especiais que dependem do plano
-    if (module === 'colaboradores') {
-      return ['pro', 'ultra'].includes(planLower);
-    }
+    // Módulos especiais que dependem do plano (quando backend não retornou permissão explícita)
+    if (module === 'colaboradores') return ['pro', 'ultra'].includes(planLower);
+    if (['comandas', 'tables', 'garcom'].includes(module)) return planLower === 'ultra';
+    if (['affiliates', 'lgpd', '2fa', 'inventory'].includes(module)) return ['pro', 'ultra'].includes(planLower);
     
-    // Módulos de Garçom - apenas Ultra
-    if (['comandas', 'tables', 'garcom'].includes(module)) {
-      return planLower === 'ultra';
-    }
-    
-    // Módulos avançados - Pro e Ultra
-    if (['affiliates', 'lgpd', '2fa', 'inventory'].includes(module)) {
-      return ['pro', 'ultra'].includes(planLower);
-    }
-    
-    // Fonte da verdade: permissões do backend (respeita plano básico pratos vs pizzaria e planos custom)
-    if (permissions && typeof permissions === 'object') {
-      const modulePerms = permissions[module];
-      if (Array.isArray(modulePerms) && modulePerms.length > 0) {
-        return true;
-      }
+    // Módulos básicos - todos os planos pagos
+    if (['dashboard', 'dishes', 'orders', 'clients', 'whatsapp', 'store', 'theme', 'printer', 'financial', 'caixa', 'history', 'delivery_zones', 'payments', 'promotions', 'coupons'].includes(module)) {
+      return ['basic', 'pro', 'ultra'].includes(planLower);
     }
     
     return false;
@@ -414,6 +386,25 @@ export default function SharedSidebar({
       
       {/* Menu de Navegação */}
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+        {extraTopItem && (() => {
+          const ItemIcon = extraTopItem.icon;
+          const isActive = activeTab === extraTopItem.id;
+          return (
+            <div className="mb-4">
+              <button
+                type="button"
+                onClick={() => { setActiveTab(extraTopItem.id); onClose?.(); }}
+                className={cn(
+                  "w-full flex items-center gap-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
+                  isActive ? "bg-orange-500 text-white shadow-md" : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+                )}
+              >
+                <ItemIcon className={cn("w-4 h-4 flex-shrink-0", isActive ? "text-white" : "text-gray-500 dark:text-gray-400")} />
+                {!collapsed && <span className="truncate">{extraTopItem.label}</span>}
+              </button>
+            </div>
+          );
+        })()}
         {MENU_STRUCTURE.map(item => renderMenuItem(item))}
       </nav>
 

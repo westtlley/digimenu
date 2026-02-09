@@ -1,28 +1,49 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "headers": [
-    {
-      "source": "/assets/(.*)",
-      "headers": [
-        {
-          "key": "Content-Type",
-          "value": "application/javascript"
-        }
-      ]
-    },
-    {
-      "source": "/(.*\\.js)",
-      "headers": [
-        {
-          "key": "Content-Type",
-          "value": "application/javascript"
-        }
-      ]
-    }
+    { "source": "/", "headers": [{ "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate" }] },
+    { "source": "/index.html", "headers": [{ "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate" }] },
+    { "source": "/Admin", "headers": [{ "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate" }] },
+    { "source": "/PainelAssinante", "headers": [{ "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate" }] },
+    { "source": "/Login", "headers": [{ "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate" }] },
+    { "source": "/login", "headers": [{ "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate" }] },
+    { "source": "/login/(.*)", "headers": [{ "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate" }] },
+    { "source": "/colaborador", "headers": [{ "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate" }] },
+    { "source": "/Garcom", "headers": [{ "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate" }] },
+    { "source": "/PDV", "headers": [{ "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate" }] },
+    { "source": "/Cardapio", "headers": [{ "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate" }] },
+    { "source": "/cardapio", "headers": [{ "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate" }] },
+    { "source": "/Cozinha", "headers": [{ "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate" }] },
+    { "source": "/Entregador", "headers": [{ "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate" }] },
+    { "source": "/EntregadorPanel", "headers": [{ "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate" }] },
+    { "source": "/GestorPedidos", "headers": [{ "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate" }] },
+    { "source": "/Assinantes", "headers": [{ "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate" }] },
+    { "source": "/Assinar", "headers": [{ "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate" }] },
+    { "source": "/Cadastro", "headers": [{ "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate" }] },
+    { "source": "/cadastro-cliente", "headers": [{ "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate" }] },
+    { "source": "/esqueci-senha", "headers": [{ "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate" }] },
+    { "source": "/redefinir-senha", "headers": [{ "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate" }] },
+    { "source": "/definir-senha", "headers": [{ "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate" }] },
+    { "source": "/Home", "headers": [{ "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate" }] },
+    { "source": "/MeusPedidos", "headers": [{ "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate" }] },
+    { "source": "/ajuda", "headers": [{ "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate" }] },
+    { "source": "/rastrear-pedido", "headers": [{ "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate" }] },
+    { "source": "/pagamento/(.*)", "headers": [{ "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate" }] },
+    { "source": "/s/(.*)", "headers": [{ "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate" }] },
+    { "source": "/mesa/(.*)", "headers": [{ "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate" }] },
+    { "source": "/auth/(.*)", "headers": [{ "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate" }] },
+    { "source": "/assets/(.*)", "headers": [{ "key": "Content-Type", "value": "application/javascript" }] },
+    { "source": "/(.*).js", "headers": [{ "key": "Content-Type", "value": "application/javascript" }] },
+    { "source": "/(.*).css", "headers": [{ "key": "Content-Type", "value": "text/css" }] }
   ],
   "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
-    }
+    { "source": "/assets/:path*", "destination": "/assets/:path*" },
+    { "source": "/images/:path*", "destination": "/images/:path*" },
+    { "source": "/favicon.ico", "destination": "/favicon.ico" },
+    { "source": "/sw.js", "destination": "/sw.js" },
+    { "source": "/manifest.webmanifest", "destination": "/manifest.webmanifest" },
+    { "source": "/manifest.json", "destination": "/manifest.json" },
+    { "source": "/icon.svg", "destination": "/icon.svg" },
+    { "source": "/:path*", "destination": "/index.html" }
   ]
 }

@@ -268,6 +268,7 @@ const publicRoutes = [
   '/api/auth/google',
   '/api/auth/google/callback',
   '/api/public/cardapio',  // /api/public/cardapio/:slug — link único do cardápio por assinante
+  '/api/public/login-info', // /api/public/login-info/:slug — dados para página de login por estabelecimento
   '/api/public/chat',      // Chat do assistente (IA) — público para o cardápio
   '/api/entities/PaymentConfig',  // Configurações de pagamento públicas para o cardápio
   '/api/entities/MenuItem',  // Itens do menu públicos para o cardápio
@@ -685,7 +686,7 @@ app.post('/api/auth/login', validate(schemas.login), asyncHandler(async (req, re
                   );
                 }
                 
-                // Se não existe, criar
+                // Se não existe, criar (só se ainda não houver usuário com este email — evita duplicate key)
                 if (!existingColab) {
                   const userData = {
                     email: subscriberEmail,
@@ -698,7 +699,8 @@ app.post('/api/auth/login', validate(schemas.login), asyncHandler(async (req, re
                   };
                   
                   if (usePostgreSQL) {
-                    await repo.createUser(userData);
+                    const existingUser = await repo.getUserByEmail(subscriberEmail);
+                    if (!existingUser) await repo.createUser(userData);
                   } else if (db?.users) {
                     const newColab = {
                       id: String(Date.now() + Math.random()),
@@ -851,7 +853,7 @@ app.get('/api/auth/me', authenticate, async (req, res) => {
     if (!req.user) {
       return res.status(401).json({ error: 'Não autenticado' });
     }
-    return res.json({
+    const payload = {
       id: req.user.id,
       email: req.user.email,
       full_name: req.user.full_name,
@@ -860,7 +862,29 @@ app.get('/api/auth/me', authenticate, async (req, res) => {
       subscriber_email: req.user.subscriber_email || null,
       profile_role: req.user.profile_role || null,
       slug: req.user.slug || null
-    });
+    };
+    // Colaborador: retornar todos os perfis (profile_roles) deste email no mesmo assinante
+    if (req.user.profile_role && req.user.subscriber_email) {
+      try {
+        let list = [];
+        if (usePostgreSQL && repo.listColaboradores) {
+          list = await repo.listColaboradores(req.user.subscriber_email);
+        } else if (db?.users) {
+          list = db.users
+            .filter(u => (u.subscriber_email || '').toLowerCase().trim() === (req.user.subscriber_email || '').toLowerCase().trim() && (u.profile_role || '').trim())
+            .map(u => ({ email: u.email, profile_role: u.profile_role }));
+        }
+        const myRoles = list
+          .filter(u => (u.email || '').toLowerCase().trim() === (req.user.email || '').toLowerCase().trim())
+          .map(u => (u.profile_role || '').toLowerCase().trim())
+          .filter(Boolean);
+        const unique = [...new Set(myRoles)];
+        if (unique.length) payload.profile_roles = unique;
+      } catch (e) {
+        payload.profile_roles = [req.user.profile_role].filter(Boolean);
+      }
+    }
+    return res.json(payload);
   } catch (error) {
     console.error('Erro ao obter usuário:', error);
     return res.status(500).json({ error: 'Erro interno no servidor' });
@@ -927,6 +951,11 @@ app.get('/api/user/context', authenticate, asyncHandler(async (req, res) => {
       }
     }
 
+    // Colaborador: incluir profile_role e profile_roles para o frontend (ex.: Painel do Gerente)
+    let profileRoles = [];
+    if (user.profile_role) profileRoles = [user.profile_role];
+    if (Array.isArray(user.profile_roles) && user.profile_roles.length) profileRoles = [...new Set(user.profile_roles)];
+
     return res.json({
       user: {
         id: user.id,
@@ -934,7 +963,12 @@ app.get('/api/user/context', authenticate, asyncHandler(async (req, res) => {
         full_name: user.full_name,
         is_master: user.is_master,
         role: user.role,
-        slug: user.slug || null
+        slug: user.slug || null,
+        subscriber_email: user.subscriber_email || null,
+        profile_role: user.profile_role || null,
+        profile_roles: profileRoles.length ? profileRoles : null,
+        photo: user.photo || null,
+        google_photo: user.google_photo || null
       },
       menuContext,
       permissions,
@@ -948,7 +982,8 @@ app.get('/api/user/context', authenticate, asyncHandler(async (req, res) => {
           plan: subscriber.plan || 'basic',
           status: subscriber.status || 'active',
           expires_at: subscriber.expires_at || null,
-          permissions: (p && typeof p === 'object') ? p : {}
+          permissions: (p && typeof p === 'object') ? p : {},
+          slug: subscriber.slug || null
         };
       })() : null)
     });
@@ -1091,14 +1126,71 @@ async function getOwnerAndSubscriber(req) {
 }
 
 function canUseColaboradores(subscriber, isMaster) {
-  if (isMaster && subscriber) {
-    const p = (subscriber.plan || '').toLowerCase();
-    return p === 'pro' || p === 'ultra';
-  }
+  if (isMaster) return true; // Master tem acesso a tudo
   if (!subscriber) return false;
   const p = (subscriber.plan || '').toLowerCase();
   return p === 'pro' || p === 'ultra';
 }
+
+/** Retorna true se o usuário autenticado é um colaborador com perfil Gerente (não master/dono). */
+function isRequesterGerente(req) {
+  if (!req?.user) return false;
+  if (req.user.is_master) return false;
+  const pr = (req.user.profile_role || '').toLowerCase().trim();
+  const roles = req.user.profile_roles || (pr ? [pr] : []);
+  return roles.includes('gerente');
+}
+
+// =======================
+// 🔗 INFORMAÇÕES PÚBLICAS PARA PÁGINA DE LOGIN POR SLUG (logo, tema, nome)
+// =======================
+app.get('/api/public/login-info/:slug', asyncHandler(async (req, res) => {
+  if (!usePostgreSQL) {
+    return res.status(503).json({ found: false, error: 'Requer PostgreSQL' });
+  }
+  const slug = (req.params.slug || '').trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+  if (!slug) return res.status(400).json({ found: false, error: 'Slug inválido' });
+
+  let subscriber = await repo.getSubscriberBySlug(slug);
+  let isMaster = false;
+  let se = null;
+  if (subscriber) {
+    se = subscriber.email;
+  } else {
+    const { query } = await import('./db/postgres.js');
+    const masterResult = await query('SELECT id, email, slug FROM users WHERE slug = $1 AND is_master = TRUE', [slug]);
+    if (masterResult.rows.length > 0) {
+      isMaster = true;
+      se = null;
+    } else {
+      return res.json({ found: false, slug });
+    }
+  }
+
+  let storeList = [];
+  if (isMaster) {
+    const { query } = await import('./db/postgres.js');
+    const rows = await query(`SELECT id, data FROM entities WHERE entity_type = 'Store' AND subscriber_email IS NULL ORDER BY updated_at DESC NULLS LAST LIMIT 1`);
+    storeList = rows.rows.map(row => ({ id: row.id.toString(), ...row.data }));
+  } else {
+    storeList = await repo.listEntitiesForSubscriber('Store', se, null);
+  }
+  const raw = Array.isArray(storeList) && storeList[0] ? storeList[0] : {};
+  const name = raw.name || 'Estabelecimento';
+  const logo = raw.logo || null;
+  const theme_primary = raw.theme_primary_color || raw.primary_color || null;
+  const theme_secondary = raw.theme_secondary_color || raw.secondary_color || null;
+  const theme_accent = raw.theme_accent_color || raw.accent_color || null;
+  return res.json({
+    found: true,
+    slug,
+    name,
+    logo,
+    theme_primary_color: theme_primary,
+    theme_secondary_color: theme_secondary,
+    theme_accent_color: theme_accent,
+  });
+}));
 
 // =======================
 // 🔗 CARDÁPIO PÚBLICO POR LINK (slug) — cada assinante tem seu link ex: /s/meu-restaurante
@@ -1150,7 +1242,7 @@ app.get('/api/public/cardapio/:slug', asyncHandler(async (req, res) => {
     const { query } = await import('./db/postgres.js');
     console.log(`🔍 [public/cardapio] Buscando entidades do master (subscriber_email IS NULL)`);
     [storeList, dishes, categories, complementGroups, pizzaSizes, pizzaFlavors, pizzaEdges, pizzaExtras, pizzaCategories, beverageCategories, deliveryZones, coupons, promotions, tables] = await Promise.all([
-      query(`SELECT id, data, created_at, updated_at FROM entities WHERE entity_type = 'Store' AND subscriber_email IS NULL`).then(r => {
+      query(`SELECT id, data, created_at, updated_at FROM entities WHERE entity_type = 'Store' AND subscriber_email IS NULL ORDER BY updated_at DESC NULLS LAST, created_at DESC`).then(r => {
         console.log(`📦 [public/cardapio] Store encontrados: ${r.rows.length}`);
         return r.rows.map(row => ({ id: row.id.toString(), ...row.data }));
       }),
@@ -1190,7 +1282,19 @@ app.get('/api/public/cardapio/:slug', asyncHandler(async (req, res) => {
       repo.listEntitiesForSubscriber('Table', se, 'table_number')
     ]);
   }
-  const store = Array.isArray(storeList) && storeList[0] ? storeList[0] : { name: 'Loja', is_open: true };
+  const _rawStore = Array.isArray(storeList) && storeList[0] ? storeList[0] : {};
+  // Garantir tema e nome: normalizar theme_* (Admin/ThemeTab) e fallback primary_color (legado)
+  const store = {
+    name: 'Loja',
+    is_open: true,
+    ..._rawStore,
+    name: _rawStore.name || 'Loja',
+    theme_primary_color: _rawStore.theme_primary_color || _rawStore.primary_color,
+    theme_secondary_color: _rawStore.theme_secondary_color || _rawStore.secondary_color,
+    theme_accent_color: _rawStore.theme_accent_color || _rawStore.accent_color,
+    theme_header_bg: _rawStore.theme_header_bg,
+    theme_header_text: _rawStore.theme_header_text,
+  };
   
   console.log(`✅ [public/cardapio] Retornando dados:`, {
     is_master: isMaster,
@@ -1320,11 +1424,18 @@ app.post('/api/public/chamar-garcom', asyncHandler(async (req, res) => {
 
 app.get('/api/colaboradores', authenticate, async (req, res) => {
   try {
-    const { owner, subscriber } = await getOwnerAndSubscriber(req);
-    if (!owner) return res.status(400).json({ error: 'Contexto do assinante necessário' });
-    if (!canUseColaboradores(subscriber, req.user?.is_master)) {
-      return res.status(403).json({ error: 'Colaboradores disponível apenas nos planos Premium e Pro' });
+    let { owner, subscriber } = await getOwnerAndSubscriber(req);
+    // Gerente só pode ver colaboradores do próprio estabelecimento
+    if (isRequesterGerente(req)) {
+      owner = (req.user?.subscriber_email || '').toLowerCase().trim();
+      if (!owner) return res.json([]);
+      subscriber = usePostgreSQL && repo.getSubscriberByEmail ? await repo.getSubscriberByEmail(owner) : (db?.subscribers ? db.subscribers.find(s => (s.email || '').toLowerCase().trim() === owner) || null : null);
     }
+    if (!canUseColaboradores(subscriber, req.user?.is_master)) {
+      return res.status(403).json({ error: 'Colaboradores disponível apenas nos planos Pro e Ultra' });
+    }
+    if (!owner && !req.user?.is_master) return res.status(400).json({ error: 'Contexto do assinante necessário' });
+    if (!owner) return res.json([]); // Master sem as_subscriber: lista vazia
     let list = [];
     if (usePostgreSQL && repo.listColaboradores) {
       list = await repo.listColaboradores(owner);
@@ -1377,9 +1488,9 @@ app.get('/api/colaboradores', authenticate, async (req, res) => {
 app.post('/api/colaboradores', authenticate, validate(schemas.createColaborador), createLimiter, asyncHandler(async (req, res) => {
   try {
     const { owner, subscriber } = await getOwnerAndSubscriber(req);
-    if (!owner) return res.status(400).json({ error: 'Contexto do assinante necessário' });
+    if (!owner) return res.status(400).json({ error: 'Informe o assinante (selecione o estabelecimento) para adicionar colaborador.' });
     if (!canUseColaboradores(subscriber, req.user?.is_master)) {
-      return res.status(403).json({ error: 'Colaboradores disponível apenas nos planos Premium e Pro' });
+      return res.status(403).json({ error: 'Colaboradores disponível apenas nos planos Pro e Ultra' });
     }
     const { name, email, password, roles, role } = req.body || {};
     
@@ -1395,6 +1506,13 @@ app.post('/api/colaboradores', authenticate, validate(schemas.createColaborador)
     }
     
     if (rolesToCreate.length === 0) return res.status(400).json({ error: 'Selecione pelo menos um perfil válido: entregador, cozinha, pdv, garcom ou gerente' });
+    // Gerente não pode criar outro perfil Gerente — apenas Entregador, Cozinha, PDV, Garçom
+    if (isRequesterGerente(req)) {
+      const ownerGerente = (req.user?.subscriber_email || '').toLowerCase().trim();
+      if (owner && owner.toLowerCase().trim() !== ownerGerente) return res.status(403).json({ error: 'Você só pode adicionar colaboradores do seu estabelecimento.' });
+      rolesToCreate = rolesToCreate.filter(r => r !== 'gerente');
+      if (rolesToCreate.length === 0) return res.status(400).json({ error: 'Gerente não pode criar perfil Gerente. Selecione: Entregador, Cozinha, PDV ou Garçom.' });
+    }
     if (!(email && String(email).trim())) return res.status(400).json({ error: 'Email é obrigatório' });
     if (!(password && String(password).length >= 6)) return res.status(400).json({ error: 'Senha com no mínimo 6 caracteres' });
     const emailNorm = String(email).toLowerCase().trim();
@@ -1421,21 +1539,19 @@ app.post('/api/colaboradores', authenticate, validate(schemas.createColaborador)
 
     const hashed = await bcrypt.hash(String(password), 10);
     const fullName = (name || emailNorm.split('@')[0] || '').trim() || 'Colaborador';
-    
-    // Criar um registro para cada perfil
-    const created = [];
-    for (const roleNorm of rolesToCreate) {
-      const userData = {
-        email: emailNorm,
-        full_name: fullName,
-        password: hashed,
-        is_master: false,
-        role: 'user',
-        subscriber_email: owner,
-        profile_role: roleNorm
-      };
+    const roleNorm = rolesToCreate[0];
+    const userData = {
+      email: emailNorm,
+      full_name: fullName,
+      password: hashed,
+      is_master: false,
+      role: 'user',
+      subscriber_email: owner,
+      profile_role: roleNorm
+    };
 
-      let newUser;
+    let newUser;
+    try {
       if (usePostgreSQL) {
         newUser = await repo.createUser(userData);
       } else if (db?.users) {
@@ -1449,21 +1565,27 @@ app.post('/api/colaboradores', authenticate, validate(schemas.createColaborador)
       } else {
         return res.status(500).json({ error: 'Banco não disponível' });
       }
-      created.push(newUser);
+    } catch (createErr) {
+      if (createErr?.code === '23505' || (createErr?.message && createErr.message.includes('unique constraint'))) {
+        return res.status(400).json({ error: 'Este email já está cadastrado no sistema. Use outro email ou adicione perfis ao colaborador existente em Colaboradores.' });
+      }
+      throw createErr;
     }
-    
+
     if (typeof saveDatabaseDebounced === 'function') saveDatabaseDebounced(db);
-    
-    // Retornar formato agrupado
+
     const out = {
-      email: created[0].email,
-      full_name: created[0].full_name,
-      profile_role: created[0].profile_role, // Para compatibilidade
-      profile_roles: created.map(c => c.profile_role), // Array de perfis
-      ids: created.map(c => c.id), // IDs dos registros
-      created_at: created[0].created_at,
-      updated_at: created[0].updated_at
+      email: newUser.email,
+      full_name: newUser.full_name,
+      profile_role: newUser.profile_role,
+      profile_roles: [newUser.profile_role],
+      ids: [newUser.id],
+      created_at: newUser.created_at,
+      updated_at: newUser.updated_at
     };
+    if (rolesToCreate.length > 1) {
+      out.message = 'Colaborador criado. Adicione os outros perfis em "Adicionar perfis".';
+    }
     return res.status(201).json(out);
   } catch (e) {
     console.error('POST /api/colaboradores:', sanitizeForLog({ error: e?.message }));
@@ -1475,8 +1597,8 @@ app.post('/api/colaboradores', authenticate, validate(schemas.createColaborador)
 app.post('/api/colaboradores/:email/add-roles', authenticate, asyncHandler(async (req, res) => {
   try {
     const { owner, subscriber } = await getOwnerAndSubscriber(req);
-    if (!owner) return res.status(400).json({ error: 'Contexto do assinante necessário' });
-    if (!canUseColaboradores(subscriber, req.user?.is_master)) return res.status(403).json({ error: 'Colaboradores disponível apenas nos planos Premium e Pro' });
+    if (!owner) return res.status(400).json({ error: 'Informe o assinante (selecione o estabelecimento) para adicionar perfis.' });
+    if (!canUseColaboradores(subscriber, req.user?.is_master)) return res.status(403).json({ error: 'Colaboradores disponível apenas nos planos Pro e Ultra' });
     const { roles } = req.body || {};
     const email = req.params.email;
     const emailNorm = String(email).toLowerCase().trim();
@@ -1485,8 +1607,13 @@ app.post('/api/colaboradores/:email/add-roles', authenticate, asyncHandler(async
       return res.status(400).json({ error: 'Selecione pelo menos um perfil para adicionar' });
     }
     
-    const rolesToAdd = roles.map(r => String(r).toLowerCase().trim()).filter(r => COLAB_ROLES.includes(r));
+    let rolesToAdd = roles.map(r => String(r).toLowerCase().trim()).filter(r => COLAB_ROLES.includes(r));
     if (rolesToAdd.length === 0) return res.status(400).json({ error: 'Perfis inválidos' });
+    // Gerente não pode adicionar perfil Gerente a ninguém
+    if (isRequesterGerente(req)) {
+      rolesToAdd = rolesToAdd.filter(r => r !== 'gerente');
+      if (rolesToAdd.length === 0) return res.status(400).json({ error: 'Gerente não pode atribuir perfil Gerente. Use: Entregador, Cozinha, PDV ou Garçom.' });
+    }
     
     // Buscar colaboradores existentes com este email
     let existingColabs = [];
@@ -1523,41 +1650,41 @@ app.post('/api/colaboradores/:email/add-roles', authenticate, asyncHandler(async
     
     if (!userBase) return res.status(404).json({ error: 'Usuário base não encontrado' });
     
-    // Criar novos registros para os perfis adicionais
-    const created = [];
+    // Criar novos registros para os perfis adicionais (pode falhar se email já existir - 1 por email no BD)
+    const added = [];
     for (const role of newRoles) {
       const userData = {
         email: emailNorm,
         full_name: userBase.full_name || baseUser.full_name,
-        password: userBase.password, // Mesma senha
+        password: userBase.password,
         is_master: false,
         role: 'user',
         subscriber_email: owner,
         profile_role: role
       };
-      
-      let newUser;
-      if (usePostgreSQL) {
-        newUser = await repo.createUser(userData);
-      } else if (db?.users) {
-        newUser = {
-          id: String(Date.now() + Math.random()),
-          ...userData,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        };
-        db.users.push(newUser);
+      try {
+        if (usePostgreSQL) {
+          await repo.createUser(userData);
+          added.push(role);
+        } else if (db?.users) {
+          const newUser = {
+            id: String(Date.now() + Math.random()),
+            ...userData,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          };
+          db.users.push(newUser);
+          added.push(role);
+        }
+      } catch (err) {
+        if (err?.code === '23505' || (err?.message && err.message.includes('unique constraint'))) {
+          return res.status(400).json({ error: 'O sistema permite um perfil por email por estabelecimento. Este email já está em uso aqui.' });
+        }
+        throw err;
       }
-      created.push(newUser);
     }
-    
     if (typeof saveDatabaseDebounced === 'function') saveDatabaseDebounced(db);
-    
-    return res.json({ 
-      success: true, 
-      message: `Perfis adicionados: ${newRoles.join(', ')}`,
-      added_roles: newRoles
-    });
+    return res.json({ success: true, message: added.length ? `Perfis adicionados: ${added.join(', ')}` : 'Nenhum perfil novo adicionado.', added_roles: added });
   } catch (e) {
     console.error('POST /api/colaboradores/:email/add-roles:', sanitizeForLog({ error: e?.message }));
     throw e;
@@ -1626,7 +1753,7 @@ app.patch('/api/colaboradores/:id', authenticate, asyncHandler(async (req, res) 
   try {
     const { owner, subscriber } = await getOwnerAndSubscriber(req);
     if (!owner) return res.status(400).json({ error: 'Contexto do assinante necessário' });
-    if (!canUseColaboradores(subscriber, req.user?.is_master)) return res.status(403).json({ error: 'Colaboradores disponível apenas nos planos Premium e Pro' });
+    if (!canUseColaboradores(subscriber, req.user?.is_master)) return res.status(403).json({ error: 'Colaboradores disponível apenas nos planos Pro e Ultra' });
     const { name, role, roles, newPassword } = req.body || {};
     const id = req.params.id;
 
@@ -1638,11 +1765,16 @@ app.patch('/api/colaboradores/:id', authenticate, asyncHandler(async (req, res) 
       u = db.users.find(x => String(x.id) === String(id) && (x.subscriber_email || '').toLowerCase().trim() === owner && (x.profile_role || '').trim());
     }
     if (!u) return res.status(404).json({ error: 'Colaborador não encontrado' });
+    // Gerente não pode editar outro colaborador que tenha perfil Gerente
+    if (isRequesterGerente(req) && (u.profile_role || '').toLowerCase().trim() === 'gerente') {
+      return res.status(403).json({ error: 'Apenas o dono do estabelecimento pode editar outro Gerente.' });
+    }
 
     const up = {};
     if (name !== undefined) up.full_name = String(name).trim() || u.full_name;
     if (role !== undefined) {
       const r = String(role).toLowerCase().trim();
+      if (isRequesterGerente(req) && r === 'gerente') return res.status(403).json({ error: 'Gerente não pode atribuir perfil Gerente a outros.' });
       if (COLAB_ROLES.includes(r)) up.profile_role = r;
     }
     if (newPassword !== undefined && String(newPassword).length >= 6) {
@@ -1687,8 +1819,19 @@ app.delete('/api/colaboradores/:id', authenticate, asyncHandler(async (req, res)
   try {
     const { owner, subscriber } = await getOwnerAndSubscriber(req);
     if (!owner) return res.status(400).json({ error: 'Contexto do assinante necessário' });
-    if (!canUseColaboradores(subscriber, req.user?.is_master)) return res.status(403).json({ error: 'Colaboradores disponível apenas nos planos Premium e Pro' });
+    if (!canUseColaboradores(subscriber, req.user?.is_master)) return res.status(403).json({ error: 'Colaboradores disponível apenas nos planos Pro e Ultra' });
     const id = req.params.id;
+    // Gerente não pode remover outro colaborador que tenha perfil Gerente
+    let targetColab = null;
+    if (usePostgreSQL && repo.listColaboradores) {
+      const all = await repo.listColaboradores(owner);
+      targetColab = all.find(x => String(x.id) === String(id));
+    } else if (db?.users) {
+      targetColab = db.users.find(x => String(x.id) === String(id) && (x.subscriber_email || '').toLowerCase().trim() === owner && (x.profile_role || '').trim());
+    }
+    if (targetColab && isRequesterGerente(req) && (targetColab.profile_role || '').toLowerCase().trim() === 'gerente') {
+      return res.status(403).json({ error: 'Apenas o dono do estabelecimento pode remover um Gerente.' });
+    }
 
     if (usePostgreSQL) {
       const ok = await repo.deleteColaborador(id, owner);
@@ -1706,6 +1849,85 @@ app.delete('/api/colaboradores/:id', authenticate, asyncHandler(async (req, res)
     console.error('DELETE /api/colaboradores:', sanitizeForLog({ error: e?.message }));
     throw e;
   }
+}));
+
+// -----------------------
+// Autorização gerencial (matrícula + senha para validar ações sensíveis)
+// Apenas assinante (dono) pode criar/alterar; assinante e gerente validam com sua matrícula/senha.
+// -----------------------
+function getManagerialSubscriberAndRole(req) {
+  const owner = (req.body?.as_subscriber || req.query.as_subscriber || req.user?._contextForSubscriber || req.user?.subscriber_email || req.user?.email || '').toString().toLowerCase().trim();
+  const isGerente = isRequesterGerente(req);
+  const role = req.user?.is_master ? null : (isGerente ? 'gerente' : 'assinante');
+  return { owner, role };
+}
+
+app.get('/api/managerial-auth', authenticate, asyncHandler(async (req, res) => {
+  if (!usePostgreSQL || !repo.getManagerialAuthorization) {
+    return res.status(503).json({ error: 'Autorização gerencial requer PostgreSQL' });
+  }
+  const { owner, role } = getManagerialSubscriberAndRole(req);
+  if (!owner) return res.status(400).json({ error: 'Contexto do estabelecimento necessário' });
+  // Assinante (dono) ou master (com contexto as_subscriber) pode ver/gerir; gerente não pode ver matrícula do outro
+  const isOwner = (req.user?.is_master && owner) || (!req.user?.is_master && (req.user?.email || '').toLowerCase().trim() === owner);
+  if (!isOwner) {
+    const authGerente = await repo.getManagerialAuthorization(owner, 'gerente');
+    return res.json({
+      assinante: null,
+      gerente: authGerente ? { configured: true, expires_at: authGerente.expires_at } : { configured: false },
+    });
+  }
+  const [authAssinante, authGerente] = await Promise.all([
+    repo.getManagerialAuthorization(owner, 'assinante'),
+    repo.getManagerialAuthorization(owner, 'gerente'),
+  ]);
+  return res.json({
+    assinante: authAssinante ? { configured: true, matricula: authAssinante.matricula, expires_at: authAssinante.expires_at } : { configured: false },
+    gerente: authGerente ? { configured: true, matricula: authGerente.matricula, expires_at: authGerente.expires_at } : { configured: false },
+  });
+}));
+
+app.post('/api/managerial-auth', authenticate, asyncHandler(async (req, res) => {
+  if (!usePostgreSQL || !repo.setManagerialAuthorization) {
+    return res.status(503).json({ error: 'Autorização gerencial requer PostgreSQL' });
+  }
+  const { owner, role } = getManagerialSubscriberAndRole(req);
+  if (!owner) return res.status(400).json({ error: 'Contexto do estabelecimento necessário' });
+  const isOwner = (req.user?.is_master && owner) || (!req.user?.is_master && (req.user?.email || '').toLowerCase().trim() === owner);
+  if (!isOwner) return res.status(403).json({ error: 'Apenas o dono do estabelecimento pode criar ou alterar autorizações.' });
+  const { role: bodyRole, matricula, password, expirable, expires_at } = req.body || {};
+  const targetRole = bodyRole === 'gerente' ? 'gerente' : 'assinante';
+  if (!matricula || !password || String(password).length < 6) {
+    return res.status(400).json({ error: 'Matrícula e senha (mín. 6 caracteres) são obrigatórios.' });
+  }
+  const expiresAt = expirable && expires_at ? new Date(expires_at) : null;
+  const passwordHash = await bcrypt.hash(String(password), 10);
+  await repo.setManagerialAuthorization(owner, targetRole, {
+    matricula: String(matricula).trim(),
+    passwordHash,
+    expiresAt: expiresAt || null,
+  });
+  const updated = await repo.getManagerialAuthorization(owner, targetRole);
+  return res.json({
+    success: true,
+    role: targetRole,
+    configured: true,
+    expires_at: updated?.expires_at ?? null,
+  });
+}));
+
+app.post('/api/managerial-auth/validate', authenticate, asyncHandler(async (req, res) => {
+  if (!usePostgreSQL || !repo.validateManagerialAuthorization) {
+    return res.status(503).json({ error: 'Autorização gerencial requer PostgreSQL' });
+  }
+  const { owner, role } = getManagerialSubscriberAndRole(req);
+  if (!owner || !role) return res.status(400).json({ error: 'Acesso não permitido para este perfil.' });
+  const { matricula, password } = req.body || {};
+  if (!matricula || !password) {
+    return res.status(400).json({ error: 'Matrícula e senha são obrigatórios.' });
+  }
+  const valid = await repo.validateManagerialAuthorization(owner, role, matricula, password);
+  return res.json({ valid: !!valid });
 }));
 
 // Rota para definir senha usando token (NÃO requer autenticação - pública)
@@ -2018,17 +2240,17 @@ app.get('/api/entities/:entity', authenticate, asyncHandler(async (req, res) => 
 
     let result;
     if (usePostgreSQL) {
-      if (!req.user?.is_master && !filters.owner_email) {
+      if (req.user && !req.user?.is_master && !filters.owner_email) {
         const subscriber = await repo.getSubscriberByEmail(req.user.email);
         if (subscriber) filters.owner_email = subscriber.email;
       }
-      result = await repo.listEntities(entity, filters, order_by, req.user, pagination);
+      result = await repo.listEntities(entity, filters, order_by, req.user || null, pagination);
     } else if (db && db.entities) {
       let items = db.entities[entity] || [];
 
       if (req.user?.is_master && as_subscriber) {
         items = items.filter(item => item.owner_email === as_subscriber);
-      } else if (req.user?.is_master) {
+      } else if (req.user?.is_master || !req.user) {
         items = items.filter(item => !item.owner_email);
       } else {
         const subscriber = db.subscribers?.find(s => s.email === req.user.email);
@@ -3039,10 +3261,19 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
     
     if (name === 'checkSubscriptionStatus') {
       console.log('📋 [checkSubscriptionStatus] Verificando assinatura para:', data.user_email);
-      
-      const subscriber = usePostgreSQL
-        ? await repo.getSubscriberByEmail(data.user_email)
-        : (db && db.subscribers ? db.subscribers.find(s => s.email?.toLowerCase() === data.user_email?.toLowerCase()) : null);
+      let subscriber = null;
+      if (usePostgreSQL) {
+        const user = await repo.getUserByEmail(data.user_email);
+        if (user?.subscriber_email && user?.profile_role) {
+          subscriber = await repo.getSubscriberByEmail(user.subscriber_email);
+        } else {
+          subscriber = await repo.getSubscriberByEmail(data.user_email);
+        }
+      } else if (db?.subscribers) {
+        const u = db.users?.find(x => (x.email || '').toLowerCase() === (data.user_email || '').toLowerCase());
+        const emailToFind = (u?.subscriber_email && u?.profile_role) ? u.subscriber_email : data.user_email;
+        subscriber = db.subscribers.find(s => (s.email || '').toLowerCase() === (emailToFind || '').toLowerCase()) || null;
+      }
       
       console.log('📋 [checkSubscriptionStatus] Assinante encontrado:', subscriber ? {
         email: subscriber.email,

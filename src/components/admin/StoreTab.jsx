@@ -18,6 +18,7 @@ import { Separator } from "@/components/ui/separator";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import MasterSlugSettings from './MasterSlugSettings';
 import { useMenuDishes } from '@/hooks/useMenuData';
+import { extractColorsFromImage } from '@/utils/extractColorsFromImage';
 
 const DAYS_OF_WEEK = [
   { value: 0, label: 'Dom' },
@@ -35,6 +36,7 @@ export default function StoreTab() {
   const [slugEdit, setSlugEdit] = useState('');
   const [formData, setFormData] = useState({
     name: '', logo: '', whatsapp: '', address: '', slogan: '', instagram: '', facebook: '', tiktok: '',
+    theme_primary_color: '', theme_secondary_color: '', theme_accent_color: '',
     is_open: null, accepting_orders: true, pause_message: '',
     opening_time: '08:00', closing_time: '18:00', working_days: [1, 2, 3, 4, 5],
     cross_sell_config: {
@@ -132,6 +134,9 @@ export default function StoreTab() {
         slogan: store.slogan || '',
         instagram: store.instagram || '',
         facebook: store.facebook || '',
+        theme_primary_color: store.theme_primary_color || '',
+        theme_secondary_color: store.theme_secondary_color || '',
+        theme_accent_color: store.theme_accent_color || '',
         is_open: store.is_open === null || store.is_open === undefined ? null : store.is_open,
         accepting_orders: store.accepting_orders === false ? false : true,
         pause_message: store.pause_message || '',
@@ -292,16 +297,41 @@ export default function StoreTab() {
 
   const handleLogoUpload = async (e) => {
     const file = e.target.files?.[0];
-    if (file) {
+    if (!file) return;
+    try {
+      const { uploadToCloudinary } = await import('@/utils/cloudinaryUpload');
+      const url = await uploadToCloudinary(file, 'store');
+      setFormData(prev => ({ ...prev, logo: url }));
+
+      // Extrair cores da logo e aplicar ao tema (Admin master e Painel assinante)
       try {
-        const { uploadToCloudinary } = await import('@/utils/cloudinaryUpload');
-        const url = await uploadToCloudinary(file, 'store');
-        setFormData(prev => ({ ...prev, logo: url }));
+        const extracted = await extractColorsFromImage(url);
+        const themeUpdate = {
+          theme_primary_color: extracted.primary,
+          theme_secondary_color: extracted.secondary,
+          theme_accent_color: extracted.accent,
+        };
+        setFormData(prev => ({ ...prev, logo: url, ...themeUpdate }));
+
+        if (store?.id) {
+          const updateOpts = menuContext?.type === 'subscriber' && menuContext?.value
+            ? { as_subscriber: menuContext.value }
+            : {};
+          await base44.entities.Store.update(store.id, { logo: url, ...themeUpdate }, updateOpts);
+          queryClient.invalidateQueries({ queryKey: ['store'] });
+          queryClient.invalidateQueries({ queryKey: ['stores'] });
+          queryClient.invalidateQueries({ queryKey: ['store', menuContext?.type, menuContext?.value] });
+          toast.success('Logo e cores do tema atualizados a partir da logo.');
+        } else {
+          toast.success('Logo atualizada. Cores do tema serão aplicadas ao salvar.');
+        }
+      } catch (extractErr) {
+        console.warn('Extração de cores da logo:', extractErr);
         toast.success('Logo atualizada! Ela será exibida no cardápio digital.');
-      } catch (error) {
-        console.error('Erro ao fazer upload:', error);
-        toast.error('Erro ao fazer upload do logotipo');
       }
+    } catch (error) {
+      console.error('Erro ao fazer upload:', error);
+      toast.error('Erro ao fazer upload do logotipo');
     }
   };
 

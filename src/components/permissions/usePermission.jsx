@@ -58,17 +58,17 @@ export function usePermission() {
           }
         }
         if (!perms || typeof perms !== 'object') perms = {};
-        const planSlug = contextData.subscriberData?.plan || 'basic';
-        const isEmpty = Object.keys(perms).length === 0;
-        if (!contextData.user.is_master && ['free', 'basic', 'pro', 'ultra'].includes(planSlug) && isEmpty) {
+        const planSlug = (contextData.subscriberData?.plan || 'basic').toString().toLowerCase().trim();
+        // Sempre mesclar padrão do plano primeiro (plano em minúsculo para bater com PlanPresets), depois backend
+        if (!contextData.user.is_master && ['free', 'basic', 'pro', 'ultra', 'premium'].includes(planSlug)) {
           perms = { ...(getPlanPermissions(planSlug) || {}), ...perms };
         }
         setPermissions(perms);
 
-        // ✅ Garantir que subscriberData sempre tenha plan e status
+        // ✅ Garantir que subscriberData sempre tenha plan (minúsculo) e status
         let finalSubscriberData = contextData.subscriberData ? {
           ...contextData.subscriberData,
-          plan: contextData.subscriberData.plan || 'basic',
+          plan: planSlug,
           status: contextData.subscriberData.status || 'active'
         } : null;
 
@@ -87,7 +87,7 @@ export function usePermission() {
                 const slugSubscriber = slugSubscriberResult.data.subscriber;
                 finalSubscriberData = {
                   ...slugSubscriber,
-                  plan: slugSubscriber.plan || 'basic',
+                  plan: slugPlanSlug,
                   status: slugSubscriber.status || 'active'
                 };
                 // Atualizar permissões também
@@ -100,9 +100,8 @@ export function usePermission() {
                   }
                 }
                 if (!slugPerms || typeof slugPerms !== 'object') slugPerms = {};
-                const slugPlanSlug = slugSubscriber.plan || 'basic';
-                const slugIsEmpty = Object.keys(slugPerms).length === 0;
-                if (['free', 'basic', 'pro', 'ultra'].includes(slugPlanSlug) && slugIsEmpty) {
+                const slugPlanSlug = (slugSubscriber.plan || 'basic').toString().toLowerCase().trim();
+                if (['free', 'basic', 'pro', 'ultra', 'premium'].includes(slugPlanSlug)) {
                   slugPerms = { ...(getPlanPermissions(slugPlanSlug) || {}), ...slugPerms };
                 }
                 setPermissions(slugPerms);
@@ -173,6 +172,14 @@ export function usePermission() {
           if (result.data?.subscriber) {
             const subscriber = result.data.subscriber;
             let perms = subscriber.permissions || {};
+            if (typeof perms === 'string') {
+              try { perms = JSON.parse(perms); } catch (e) { perms = {}; }
+            }
+            if (!perms || typeof perms !== 'object') perms = {};
+            const planSlug = (subscriber.plan || 'basic').toString().toLowerCase().trim();
+            if (['free', 'basic', 'pro', 'ultra', 'premium'].includes(planSlug)) {
+              perms = { ...(getPlanPermissions(planSlug) || {}), ...perms };
+            }
             if (subscriber.plan === 'basic' && Array.isArray(perms.dishes) && perms.dishes.includes('view') && !perms.dishes.includes('create')) {
               perms = { ...perms, dishes: ['view', 'create', 'update', 'delete'] };
             }
@@ -227,18 +234,20 @@ export function usePermission() {
   const hasModuleAccess = (module) => {
     if (isMaster) return true;
     
-    const planLower = (subscriberData?.plan || '').toLowerCase();
+    const planLower = (subscriberData?.plan || '').toString().toLowerCase().trim();
     
-    // Fonte da verdade: permissões do backend (respeita básico pratos/pizzaria e custom)
+    // 1) Permissões explícitas (merge plano + backend já feito no load)
     if (permissions && typeof permissions === 'object') {
       const modulePerms = permissions[module];
       if (Array.isArray(modulePerms) && modulePerms.length > 0) return true;
     }
     
-    // Regras por plano só para negar (ex.: colaboradores só Pro/Ultra)
+    // 2) Fallback por plano quando permissões não têm o módulo
     if (module === 'colaboradores') return ['pro', 'ultra'].includes(planLower);
     if (['comandas', 'tables', 'garcom'].includes(module)) return planLower === 'ultra';
     if (['affiliates', 'lgpd', '2fa', 'inventory'].includes(module)) return ['pro', 'ultra'].includes(planLower);
+    const basicModules = ['dashboard', 'dishes', 'orders', 'history', 'clients', 'whatsapp', 'store', 'theme', 'printer', 'financial', 'caixa', 'delivery_zones', 'payments', 'promotions', 'coupons', 'pizza_config'];
+    if (basicModules.includes(module)) return ['basic', 'pro', 'ultra'].includes(planLower);
     
     return false;
   };

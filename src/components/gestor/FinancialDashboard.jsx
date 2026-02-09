@@ -4,8 +4,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useManagerialAuth } from '@/hooks/useManagerialAuth';
 
 export default function FinancialDashboard({ orders = [], pdvSales = [] }) {
+  const { requireAuthorization, modal } = useManagerialAuth();
   const [periodFilter, setPeriodFilter] = useState('today'); // today, week, month, custom
 
   const stats = useMemo(() => {
@@ -122,6 +124,7 @@ export default function FinancialDashboard({ orders = [], pdvSales = [] }) {
   };
 
   return (
+    <>
     <div className="space-y-6 p-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <h2 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
@@ -138,7 +141,7 @@ export default function FinancialDashboard({ orders = [], pdvSales = [] }) {
               <SelectItem value="month">Últimos 30 dias</SelectItem>
             </SelectContent>
           </Select>
-          <Button onClick={exportData} variant="outline" size="sm">
+          <Button onClick={() => requireAuthorization('exportar', exportData)} variant="outline" size="sm">
             <Download className="w-4 h-4 mr-2" />
             Exportar
           </Button>
@@ -197,5 +200,7 @@ export default function FinancialDashboard({ orders = [], pdvSales = [] }) {
         </div>
       </div>
     </div>
+    {modal}
+    </>
   );
 }

@@ -35,6 +35,7 @@ import MobileDishComplementsSheet from './mobile/MobileDishComplementsSheet';
 import toast from 'react-hot-toast';
 import { Toaster } from 'react-hot-toast';
 import EmptyState from '../atoms/EmptyState';
+import { useManagerialAuth } from '@/hooks/useManagerialAuth';
 import DishesSkeleton from '../skeletons/DishesSkeleton';
 import { uploadToCloudinary } from '@/utils/cloudinaryUpload';
 
@@ -45,6 +46,536 @@ const formatCurrency = (value) => {
     currency: 'BRL'
   }).format(value || 0);
 };
+
+// ========= DishRow (extraído para evitar erro de parser no build) =========
+export function DishRow({ dish, complementGroups, expanded, onToggleExpand, onEdit, onDelete, onDuplicate, onUpdate, onToggleOption, onUpdateOptionName, onUpdateOptionImage, onUpdateOptionPrice, onRemoveOption, onAddOption, onAddGroup, onReuseGroup, onRemoveGroup, onOpenReuseModal, allComplementGroups, allDishes, onEditGroup, getGroupUsageInfo, formatCurrency, updateDishMutation, updateComplementGroupMutation, createComplementGroupMutation, isSelected, onToggleSelection, canEdit, canCreate, canDelete, setBulkEditGroup, setShowBulkEditModal }) {
+  const [editingOptionId, setEditingOptionId] = useState(null);
+  const [editingOptionValue, setEditingOptionValue] = useState('');
+  const [editingOptionPrice, setEditingOptionPrice] = useState(null);
+  const [editingPriceValue, setEditingPriceValue] = useState('');
+  const [uploadingImageForOption, setUploadingImageForOption] = useState(null);
+  const [editingDishPrice, setEditingDishPrice] = useState(false);
+  const [editingDishStock, setEditingDishStock] = useState(false);
+  const [tempPrice, setTempPrice] = useState('');
+  const [tempStock, setTempStock] = useState('');
+
+  const safeComplementGroupsProp = Array.isArray(complementGroups) ? complementGroups : [];
+  const linkedGroups = (dish.complement_groups || [])
+    .map(cg => safeComplementGroupsProp.find(g => g.id === cg.group_id))
+    .filter(Boolean);
+
+  const isOutOfStock = dish.stock !== null && dish.stock !== undefined && dish.stock !== '' && dish.stock <= 0;
+  const hasDiscount = dish.original_price && dish.original_price > dish.price;
+
+  return (
+    <>
+    <div className={`bg-white border rounded-lg overflow-hidden hover:shadow-sm transition-shadow ${isSelected ? 'ring-2 ring-blue-500' : ''}`}>
+      <div className="flex items-center gap-3 p-3">
+        <input
+          type="checkbox"
+          checked={isSelected}
+          onChange={onToggleSelection}
+          className="w-4 h-4 rounded"
+          onClick={(e) => e.stopPropagation()}
+        />
+        <div className="w-16 h-16 flex-shrink-0 bg-gray-100 rounded overflow-hidden relative">
+          {dish.image ? (
+            <img src={dish.image} alt={dish.name} className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">Sem foto</div>
+          )}
+          {isOutOfStock && (
+            <div className="absolute inset-0 bg-red-500/80 flex items-center justify-center">
+              <span className="text-white text-xs font-bold">Esgotado</span>
+            </div>
+          )}
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start gap-2 mb-1">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <h3 className="font-medium text-sm">{dish.name} {dish.portion && <span className="text-gray-400">({dish.portion})</span>}</h3>
+                {dish.is_new && <Badge variant="outline" className="text-xs bg-green-50 text-green-700">✨ Novo</Badge>}
+                {dish.is_popular && <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700">🔥 Popular</Badge>}
+              </div>
+              <p className="text-xs text-gray-500 line-clamp-1">{dish.description}</p>
+              {dish.tags && dish.tags.length > 0 && (
+                <div className="flex gap-1 mt-1">
+                  {dish.tags.slice(0, 3).map(tag => (
+                    <span key={tag} className="text-xs px-1 py-0.5 bg-gray-100 rounded">
+                      {tag}
+                    </span>
+                  ))}
+                  {dish.tags.length > 3 && <span className="text-xs text-gray-400">+{dish.tags.length - 3}</span>}
+                </div>
+              )}
+              {dish.internal_notes && (
+                <p className="text-xs text-orange-600 mt-1">📝 {dish.internal_notes}</p>
+              )}
+            </div>
+            <Badge 
+              className={`text-xs ${canEdit ? 'cursor-pointer hover:bg-yellow-200' : 'cursor-default'} transition-all ${dish.is_highlight ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-500'}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (canEdit) onUpdate({ is_highlight: !dish.is_highlight });
+              }}
+            >
+              {dish.is_highlight ? '⭐ Destaque' : 'Destaque'}
+            </Badge>
+          </div>
+          <div className="flex items-center gap-3 text-xs text-gray-500">
+            {(dish.stock !== null && dish.stock !== undefined && dish.stock !== '') && (
+              <span>Estoque: {dish.stock}</span>
+            )}
+            {(dish.stock === null || dish.stock === undefined || dish.stock === '') && (
+              <span className="text-green-600">Estoque: Ilimitado</span>
+            )}
+            {dish.prep_time && (
+              <span>⏱️ {dish.prep_time}min</span>
+            )}
+          </div>
+        </div>
+
+        <button 
+          onClick={onToggleExpand} 
+          className="flex items-center gap-1 px-2 sm:px-3 py-1.5 text-sm border rounded hover:bg-gray-50"
+        >
+          <Layers className="w-4 h-4" />
+          <span className="hidden sm:inline text-xs">Complementos</span>
+          <Badge variant="outline" className="text-xs">{linkedGroups.length}</Badge>
+          {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+        </button>
+
+        <div className="flex flex-col items-end gap-1">
+          {hasDiscount && (
+            <span className="text-xs text-gray-400 line-through">{formatCurrency(dish.original_price)}</span>
+          )}
+          {editingDishPrice ? (
+            <Input
+              type="number"
+              step="0.01"
+              value={tempPrice}
+              onChange={(e) => setTempPrice(e.target.value)}
+              onBlur={() => {
+                onUpdate({ price: parseFloat(tempPrice) || dish.price });
+                setEditingDishPrice(false);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  onUpdate({ price: parseFloat(tempPrice) || dish.price });
+                  setEditingDishPrice(false);
+                }
+                if (e.key === 'Escape') {
+                  setEditingDishPrice(false);
+                }
+              }}
+              className="h-7 w-24 text-sm"
+              autoFocus
+            />
+          ) : (
+            <span 
+              className={`font-semibold text-sm whitespace-nowrap ${canEdit ? 'cursor-pointer hover:bg-gray-100' : ''} px-2 py-1 rounded ${hasDiscount ? 'text-green-600' : ''}`}
+              onClick={() => {
+                if (!canEdit) return;
+                setTempPrice(dish.price?.toString() || '0');
+                setEditingDishPrice(true);
+              }}
+              title={canEdit ? "Clique para editar" : ""}
+            >
+              {formatCurrency(dish.price)}
+            </span>
+          )}
+          {(dish.stock !== null && dish.stock !== undefined && dish.stock !== '') && (
+            editingDishStock ? (
+              <Input
+                type="number"
+                value={tempStock}
+                onChange={(e) => setTempStock(e.target.value)}
+                onBlur={() => {
+                  onUpdate({ stock: parseFloat(tempStock) || 0 });
+                  setEditingDishStock(false);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    onUpdate({ stock: parseFloat(tempStock) || 0 });
+                    setEditingDishStock(false);
+                  }
+                  if (e.key === 'Escape') {
+                    setEditingDishStock(false);
+                  }
+                }}
+                className="h-6 w-20 text-xs"
+                autoFocus
+              />
+            ) : (
+              <span 
+                className={`text-xs text-gray-500 ${canEdit ? 'cursor-pointer hover:bg-gray-100' : ''} px-2 py-0.5 rounded`}
+                onClick={() => {
+                  if (!canEdit) return;
+                  setTempStock(dish.stock?.toString() || '0');
+                  setEditingDishStock(true);
+                }}
+                title={canEdit ? "Clique para editar estoque" : ""}
+              >
+                Est: {dish.stock}
+              </span>
+            )
+          )}
+        </div>
+
+        <Switch 
+          checked={dish.is_active !== false} 
+          onCheckedChange={(checked) => {
+            if (canEdit) onUpdate({ is_active: checked });
+          }} 
+          disabled={!canEdit}
+        />
+        
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <MoreVertical className="w-4 h-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {canEdit && (
+              <DropdownMenuItem onClick={onEdit}>
+                <Pencil className="w-4 h-4 mr-2" />
+                Editar item
+              </DropdownMenuItem>
+            )}
+            {canCreate && (
+              <DropdownMenuItem onClick={onDuplicate}>
+                <Files className="w-4 h-4 mr-2" />
+                Duplicar item
+              </DropdownMenuItem>
+            )}
+            {(canEdit || canCreate || canDelete) && <DropdownMenuSeparator />}
+            {canDelete && (
+              <DropdownMenuItem onClick={() => confirm('Excluir?') && onDelete()} className="text-red-600">
+                <Trash2 className="w-4 h-4 mr-2" />
+                Remover item
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      {expanded && (
+        <div className="border-t bg-gray-50 p-4 space-y-3">
+          <DragDropContext onDragEnd={(result) => {
+            if (!canEdit) return;
+            if (!result.destination) return;
+            if (result.source.index === result.destination.index) return;
+            
+            const items = Array.from(dish.complement_groups || []);
+            const [reordered] = items.splice(result.source.index, 1);
+            items.splice(result.destination.index, 0, reordered);
+            
+            updateDishMutation.mutate({
+              id: dish.id,
+              data: { complement_groups: items }
+            });
+          }}>
+            <Droppable droppableId={`dish-groups-${dish.id}`}>
+              {(provided) => (
+                <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-3">
+                  {linkedGroups.map((group, groupIndex) => {
+                    const linked = dish.complement_groups?.find(cg => cg.group_id === group.id);
+                    const usageInfo = getGroupUsageInfo(group.id);
+                    const isOriginal = usageInfo.firstDishId === dish.id;
+                    
+                    return (
+                      <Draggable key={group.id} draggableId={`group-${dish.id}-${group.id}`} index={groupIndex}>
+                        {(provided, snapshot) => (
+                          <div 
+                           ref={provided.innerRef}
+                           {...provided.draggableProps}
+                           className={`bg-white rounded-lg p-3 border transition-all ${
+                             snapshot.isDragging ? 'shadow-lg ring-2 ring-orange-500' : ''
+                           }`}
+                          >
+                           <div className="flex items-center gap-2 mb-3">
+                             {canEdit && (
+                               <div {...provided.dragHandleProps} className="cursor-grab active:cursor-grabbing">
+                                 <GripVertical className="w-5 h-5 text-gray-400" />
+                               </div>
+                             )}
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-semibold text-sm">{group.name}</span>
+                      <Badge 
+                        variant="outline" 
+                        className={`text-xs ${canEdit ? 'cursor-pointer hover:bg-red-200' : 'cursor-default'} transition-colors ${linked?.is_required ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'}`}
+                        onClick={(e) => {
+                          if (!canEdit) return;
+                          e.stopPropagation();
+                          const updatedGroups = (dish.complement_groups || []).map(cg =>
+                            cg.group_id === group.id ? { ...cg, is_required: !linked?.is_required } : cg
+                          );
+                          updateDishMutation.mutate({ 
+                            id: dish.id, 
+                            data: { complement_groups: updatedGroups }
+                          });
+                        }}
+                      >
+                        {linked?.is_required ? '✓ Obrigatório' : 'Opcional'}
+                      </Badge>
+                                  {isOriginal ? (
+                                    <Badge variant="outline" className="text-xs bg-green-50 text-green-700">Original</Badge>
+                                  ) : (
+                                    <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700">Reutilizado</Badge>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex gap-1">
+                                {canEdit && (
+                                  <Button variant="ghost" size="sm" onClick={() => onEditGroup(group)} title="Configurações">
+                                    <Settings className="w-4 h-4" />
+                                  </Button>
+                                )}
+                                {canEdit && (
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    onClick={() => {
+                                      setBulkEditGroup(group);
+                                      setShowBulkEditModal(true);
+                                    }} 
+                                    title="Edição em massa"
+                                  >
+                                    <EditIcon className="w-4 h-4" />
+                                  </Button>
+                                )}
+                                {canCreate && (
+                                  <Button variant="ghost" size="sm" onClick={() => onAddOption(group.id)} title="Adicionar opção">
+                                    <Plus className="w-4 h-4" />
+                                  </Button>
+                                )}
+                                {canCreate && (
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    onClick={async () => {
+                                      const newGroup = {
+                                        name: `${group.name} (Cópia)`,
+                                        is_required: group.is_required,
+                                        max_selection: group.max_selection,
+                                        options: group.options || [],
+                                        order: allComplementGroups.length
+                                      };
+                                      await createComplementGroupMutation.mutateAsync(newGroup);
+                                    }}
+                                    title="Duplicar grupo"
+                                  >
+                                    <Copy className="w-4 h-4" />
+                                  </Button>
+                                )}
+                                {canDelete && (
+                                  <Button variant="ghost" size="sm" onClick={() => onRemoveGroup(group.id)} className="text-red-500 hover:text-red-700" title="Remover grupo">
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+
+                <DragDropContext onDragEnd={(result) => {
+                  if (!canEdit) return;
+                  if (!result.destination) return;
+                  const items = Array.from(group.options || []);
+                  const [reordered] = items.splice(result.source.index, 1);
+                  items.splice(result.destination.index, 0, reordered);
+                  updateComplementGroupMutation.mutate({
+                    id: group.id,
+                    data: { ...group, options: items }
+                  });
+                }}>
+                  <Droppable droppableId={`options-${group.id}`}>
+                    {(provided) => (
+                      <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-2">
+                        {(group.options || []).map((opt, optIndex) => (
+                          <Draggable key={opt.id} draggableId={opt.id} index={optIndex}>
+                            {(provided, snapshot) => (
+                              <div 
+                                ref={provided.innerRef}
+                                {...provided.draggableProps}
+                                {...provided.dragHandleProps}
+                                className={`flex items-center gap-3 p-2 rounded transition-all ${
+                                snapshot.isDragging ? 'shadow-lg' : ''
+                                } ${opt.is_active !== false ? 'bg-white' : 'bg-red-50'}`}
+                                >
+                                {canEdit && (
+                                 <GripVertical className="w-4 h-4 text-gray-400 flex-shrink-0 cursor-grab active:cursor-grabbing" />
+                                )}
+                      {canEdit ? (
+                        <label className="cursor-pointer relative">
+                          {opt.image ? (
+                            <img src={opt.image} alt={opt.name} className="w-12 h-12 rounded object-cover" />
+                          ) : (
+                            <div className="w-12 h-12 rounded bg-gray-200 flex items-center justify-center text-gray-400 text-xs">
+                              +
+                            </div>
+                          )}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                setUploadingImageForOption(opt.id);
+                                onUpdateOptionImage(group.id, opt.id, file).then(() => {
+                                  setUploadingImageForOption(null);
+                                });
+                              }
+                            }}
+                          />
+                        </label>
+                      ) : (
+                        opt.image ? (
+                          <img src={opt.image} alt={opt.name} className="w-12 h-12 rounded object-cover" />
+                        ) : (
+                          <div className="w-12 h-12 rounded bg-gray-200 flex items-center justify-center text-gray-400 text-xs">
+                            -
+                          </div>
+                        )
+                      )}
+                      
+                      <div className="flex-1 min-w-0">
+                        {editingOptionId === opt.id ? (
+                          <Input 
+                            value={editingOptionValue}
+                            onChange={(e) => setEditingOptionValue(e.target.value)}
+                            onBlur={() => {
+                              onUpdateOptionName(group.id, opt.id, editingOptionValue);
+                              setEditingOptionId(null);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                onUpdateOptionName(group.id, opt.id, editingOptionValue);
+                                setEditingOptionId(null);
+                              }
+                            }}
+                            className="h-8 text-sm"
+                            autoFocus
+                          />
+                        ) : (
+                          <div>
+                            <span 
+                               className={`text-sm font-medium ${canEdit ? 'cursor-pointer hover:text-blue-600' : ''} block`}
+                               onClick={() => {
+                                 if (!canEdit) return;
+                                 setEditingOptionId(opt.id);
+                                 setEditingOptionValue(opt.name);
+                               }}
+                             >
+                               {opt.name}
+                             </span>
+                            {editingOptionPrice === opt.id ? (
+                              <div className="flex items-center gap-1 mt-1">
+                                <span className="text-xs text-gray-500">R$</span>
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  value={editingPriceValue}
+                                  onChange={(e) => setEditingPriceValue(e.target.value)}
+                                  onBlur={() => {
+                                    onUpdateOptionPrice(group.id, opt.id, editingPriceValue);
+                                    setEditingOptionPrice(null);
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      onUpdateOptionPrice(group.id, opt.id, editingPriceValue);
+                                      setEditingOptionPrice(null);
+                                    }
+                                  }}
+                                  className="h-6 w-20 text-xs"
+                                  autoFocus
+                                />
+                              </div>
+                            ) : (
+                              <span 
+                                className={`text-xs text-gray-500 ${canEdit ? 'cursor-pointer hover:text-blue-600' : ''}`}
+                                onClick={() => {
+                                  if (!canEdit) return;
+                                  setEditingOptionPrice(opt.id);
+                                  setEditingPriceValue((opt.price || 0).toString());
+                                }}
+                              >
+                                {opt.price > 0 ? formatCurrency(opt.price) : '+ Adicionar preço'}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        <Switch 
+                          checked={opt.is_active !== false} 
+                          onCheckedChange={() => {
+                            if (canEdit) onToggleOption(group.id, opt.id, opt.is_active !== false);
+                          }}
+                          disabled={!canEdit}
+                        />
+                        {canDelete && (
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => onRemoveOption(group.id, opt.id)}
+                            className="text-red-500 hover:text-red-700 h-8 w-8 p-0"
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        )}
+                                </div>
+                              </div>
+                            )}
+                          </Draggable>
+                        ))}
+                        {provided.placeholder}
+                      </div>
+                    )}
+                  </Droppable>
+                </DragDropContext>
+                          </div>
+                        )}
+                      </Draggable>
+                    );
+                  })}
+                  {provided.placeholder}
+                </div>
+              )}
+            </Droppable>
+          </DragDropContext>
+
+          {canCreate && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="w-full">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Adicionar Grupo de Complementos
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56">
+                <DropdownMenuItem onClick={onAddGroup}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Criar novo grupo
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={onOpenReuseModal}>
+                  <Copy className="w-4 h-4 mr-2" />
+                  Copiar grupo existente
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
+      )}
+    </div>
+    </>
+  );
+}
 
 // ========= COMPONENT =========
 export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' }) {
@@ -276,6 +807,20 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
       toast.success('Categoria excluída');
     },
     onError: () => toast.error('Erro ao excluir categoria')
+  });
+
+  const { requireAuthorization, modal } = useManagerialAuth();
+  const handleDeleteDishWithAuth = (id) => requireAuthorization('excluir', () => {
+    if (confirm('Excluir este prato?')) deleteDishMutation.mutate(id);
+  });
+  const handleDeleteCategoryWithAuth = (id) => requireAuthorization('excluir', () => {
+    if (confirm('Excluir categoria e seus pratos?')) deleteCategoryMutation.mutate(id);
+  });
+  const handleBulkDeleteWithAuth = () => requireAuthorization('excluir', () => {
+    if (selectedDishes.length === 0) return;
+    if (!confirm(`Excluir ${selectedDishes.length} pratos selecionados?`)) return;
+    selectedDishes.forEach(dishId => deleteDishMutation.mutate(dishId));
+    setSelectedDishes([]);
   });
 
   const createComplementGroupMutation = useMutation({
@@ -825,35 +1370,11 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
   };
 
   const activeFilters = getActiveFilters();
-  
+
   const isLoading = dishesLoading || categoriesLoading || groupsLoading;
-  const hasError = dishesError || categoriesError || groupsError;  // Nota: safeDishes, safeCategories, safeComplementGroups já foram declarados acima, após as queries
-
-  // ✅ LOG CRÍTICO: Verificar se passou das validações
-  console.log('🍽️ [DishesTab] render', {
-    user,
-    isMaster: user?.is_master,
-    subscriber: user?.subscriber_email,
-    slug: user?.slug,
-    email: user?.email,
-    userLoaded: !!user
-  });
-
-  console.log('🍽️ [DishesTab] Estado:', {
-    isLoading,
-    hasError,
-    dishesLoading,
-    categoriesLoading,
-    groupsLoading,
-    dishesCount: dishes?.length || 0,
-    categoriesCount: categories?.length || 0,
-    groupsCount: complementGroups?.length || 0
-  });
-
-  console.log('🍽️ [DishesTab] passou das validações - chegou no render');
+  const hasError = dishesError || categoriesError || groupsError;
 
   if (isLoading) {
-    console.log('🍽️ [DishesTab] Mostrando skeleton (loading)...');
     return (
       <div className="min-h-screen bg-gray-50">
         <DishesSkeleton />
@@ -862,11 +1383,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
   }
 
   if (hasError) {
-    console.error('🍽️ [DishesTab] Erro detectado:', {
-      dishesError,
-      categoriesError,
-      groupsError
-    });
+    log.admin.error('🍽️ [DishesTab] Erro ao carregar:', { dishesError, categoriesError, groupsError });
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-8">
         <div className="text-center">
@@ -882,6 +1399,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
 
   // ========= RENDER =========
   return (
+    <>
     <div className="min-h-screen bg-gray-50">
       <Toaster position="top-center" />
       {/* Mobile Header */}
@@ -1154,7 +1672,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
             <Button variant="outline" size="sm" onClick={() => handleBulkStatusChange(false)}>
               Desativar
             </Button>
-            <Button variant="outline" size="sm" onClick={handleBulkDelete} className="text-red-600">
+            <Button variant="outline" size="sm" onClick={handleBulkDeleteWithAuth} className="text-red-600">
               Excluir
             </Button>
             <Button variant="ghost" size="sm" onClick={() => setSelectedDishes([])}>
@@ -1186,7 +1704,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
                 onEdit={() => openDishModal(dish)}
                 onDuplicate={() => duplicateDish(dish)}
                 onDelete={() => {
-                  if (confirm('Excluir este prato?')) deleteDishMutation.mutate(dish.id);
+                  handleDeleteDishWithAuth(dish.id);
                 }}
                 onToggleActive={(checked) => {
                   if (!canUpdate('dishes')) return;
@@ -1218,11 +1736,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
               onAddDish={() => handleOpenProductTypeModal(category.id)}
               onEdit={() => editCategory(category)}
               onDuplicate={() => duplicateCategory(category)}
-              onDelete={() => {
-                if (confirm('Excluir categoria e seus pratos?')) {
-                  deleteCategoryMutation.mutate(category.id);
-                }
-              }}
+              onDelete={() => handleDeleteCategoryWithAuth(category.id)}
             >
               {categoryDishes.length === 0 ? (
                 <div className="text-center py-8 text-gray-400 text-sm">
@@ -1235,11 +1749,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
                     dish={dish}
                     onEdit={() => openDishModal(dish)}
                     onDuplicate={() => duplicateDish(dish)}
-                    onDelete={() => {
-                      if (confirm('Excluir este prato?')) {
-                        deleteDishMutation.mutate(dish.id);
-                      }
-                    }}
+                    onDelete={() => handleDeleteDishWithAuth(dish.id)}
                     onToggleActive={(checked) => {
                       if (!canUpdate('dishes')) return;
                       updateDishMutation.mutate({ 
@@ -1319,7 +1829,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
                     expanded={expandedDishes[dish.id]}
                     onToggleExpand={() => toggleDishExpansion(dish.id)}
                     onEdit={() => openDishModal(dish)}
-                    onDelete={() => deleteDishMutation.mutate(dish.id)}
+                    onDelete={() => handleDeleteDishWithAuth(dish.id)}
                     onDuplicate={() => duplicateDish(dish)}
                     onUpdate={(data) => updateDishMutation.mutate({ id: dish.id, data })}
                     onToggleOption={toggleComplementOption}
@@ -1422,11 +1932,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
                       {canDelete('dishes') && (
                         <>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={() => {
-                            if (confirm('Excluir categoria e seus pratos?')) {
-                              deleteCategoryMutation.mutate(category.id);
-                            }
-                          }} className="text-red-600">
+                          <DropdownMenuItem onClick={() => handleDeleteCategoryWithAuth(category.id)} className="text-red-600">
                             <Trash2 className="w-4 h-4 mr-2" />
                             Remover categoria
                           </DropdownMenuItem>
@@ -1455,7 +1961,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
                       expanded={expandedDishes[dish.id]}
                       onToggleExpand={() => toggleDishExpansion(dish.id)}
                       onEdit={() => openDishModal(dish)}
-                      onDelete={() => deleteDishMutation.mutate(dish.id)}
+                      onDelete={() => handleDeleteDishWithAuth(dish.id)}
                       onDuplicate={() => duplicateDish(dish)}
                       onUpdate={(data) => updateDishMutation.mutate({ id: dish.id, data })}
                       onToggleOption={toggleComplementOption}
@@ -2059,532 +2565,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
         />
       )}
     </div>
-  );
-}
-
-function DishRow({ dish, complementGroups, expanded, onToggleExpand, onEdit, onDelete, onDuplicate, onUpdate, onToggleOption, onUpdateOptionName, onUpdateOptionImage, onUpdateOptionPrice, onRemoveOption, onAddOption, onAddGroup, onReuseGroup, onRemoveGroup, onOpenReuseModal, allComplementGroups, allDishes, onEditGroup, getGroupUsageInfo, formatCurrency, updateDishMutation, updateComplementGroupMutation, createComplementGroupMutation, isSelected, onToggleSelection, canEdit, canCreate, canDelete: canDeleteProp, setBulkEditGroup, setShowBulkEditModal }) {
-  const [editingOptionId, setEditingOptionId] = useState(null);
-  const [editingOptionValue, setEditingOptionValue] = useState('');
-  const [editingOptionPrice, setEditingOptionPrice] = useState(null);
-  const [editingPriceValue, setEditingPriceValue] = useState('');
-  const [uploadingImageForOption, setUploadingImageForOption] = useState(null);
-  const [editingDishPrice, setEditingDishPrice] = useState(false);
-  const [editingDishStock, setEditingDishStock] = useState(false);
-  const [tempPrice, setTempPrice] = useState('');
-  const [tempStock, setTempStock] = useState('');
-
-  const safeComplementGroupsProp = Array.isArray(complementGroups) ? complementGroups : [];
-  const linkedGroups = (dish.complement_groups || [])
-    .map(cg => safeComplementGroupsProp.find(g => g.id === cg.group_id))
-    .filter(Boolean);
-
-  const isOutOfStock = dish.stock !== null && dish.stock !== undefined && dish.stock !== '' && dish.stock <= 0;
-  const hasDiscount = dish.original_price && dish.original_price > dish.price;
-
-  return (
-    <div className={`bg-white border rounded-lg overflow-hidden hover:shadow-sm transition-shadow ${isSelected ? 'ring-2 ring-blue-500' : ''}`}>
-      <div className="flex items-center gap-3 p-3">
-        <input
-          type="checkbox"
-          checked={isSelected}
-          onChange={onToggleSelection}
-          className="w-4 h-4 rounded"
-          onClick={(e) => e.stopPropagation()}
-        />
-        <div className="w-16 h-16 flex-shrink-0 bg-gray-100 rounded overflow-hidden relative">
-          {dish.image ? (
-            <img src={dish.image} alt={dish.name} className="w-full h-full object-cover" />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">Sem foto</div>
-          )}
-          {isOutOfStock && (
-            <div className="absolute inset-0 bg-red-500/80 flex items-center justify-center">
-              <span className="text-white text-xs font-bold">Esgotado</span>
-            </div>
-          )}
-        </div>
-
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start gap-2 mb-1">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
-                <h3 className="font-medium text-sm">{dish.name} {dish.portion && <span className="text-gray-400">({dish.portion})</span>}</h3>
-                {dish.is_new && <Badge variant="outline" className="text-xs bg-green-50 text-green-700">✨ Novo</Badge>}
-                {dish.is_popular && <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700">🔥 Popular</Badge>}
-              </div>
-              <p className="text-xs text-gray-500 line-clamp-1">{dish.description}</p>
-              {dish.tags && dish.tags.length > 0 && (
-                <div className="flex gap-1 mt-1">
-                  {dish.tags.slice(0, 3).map(tag => (
-                    <span key={tag} className="text-xs px-1 py-0.5 bg-gray-100 rounded">
-                      {tag}
-                    </span>
-                  ))}
-                  {dish.tags.length > 3 && <span className="text-xs text-gray-400">+{dish.tags.length - 3}</span>}
-                </div>
-              )}
-              {dish.internal_notes && (
-                <p className="text-xs text-orange-600 mt-1">📝 {dish.internal_notes}</p>
-              )}
-            </div>
-            <Badge 
-              className={`text-xs ${canEdit ? 'cursor-pointer hover:bg-yellow-200' : 'cursor-default'} transition-all ${dish.is_highlight ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-500'}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                if (canEdit) onUpdate({ is_highlight: !dish.is_highlight });
-              }}
-            >
-              {dish.is_highlight ? '⭐ Destaque' : 'Destaque'}
-            </Badge>
-          </div>
-          <div className="flex items-center gap-3 text-xs text-gray-500">
-            {(dish.stock !== null && dish.stock !== undefined && dish.stock !== '') && (
-              <span>Estoque: {dish.stock}</span>
-            )}
-            {(dish.stock === null || dish.stock === undefined || dish.stock === '') && (
-              <span className="text-green-600">Estoque: Ilimitado</span>
-            )}
-            {dish.prep_time && (
-              <span>⏱️ {dish.prep_time}min</span>
-            )}
-          </div>
-        </div>
-
-        <button 
-          onClick={onToggleExpand} 
-          className="flex items-center gap-1 px-2 sm:px-3 py-1.5 text-sm border rounded hover:bg-gray-50"
-        >
-          <Layers className="w-4 h-4" />
-          <span className="hidden sm:inline text-xs">Complementos</span>
-          <Badge variant="outline" className="text-xs">{linkedGroups.length}</Badge>
-          {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-        </button>
-
-        <div className="flex flex-col items-end gap-1">
-          {hasDiscount && (
-            <span className="text-xs text-gray-400 line-through">{formatCurrency(dish.original_price)}</span>
-          )}
-          {editingDishPrice ? (
-            <Input
-              type="number"
-              step="0.01"
-              value={tempPrice}
-              onChange={(e) => setTempPrice(e.target.value)}
-              onBlur={() => {
-                onUpdate({ price: parseFloat(tempPrice) || dish.price });
-                setEditingDishPrice(false);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  onUpdate({ price: parseFloat(tempPrice) || dish.price });
-                  setEditingDishPrice(false);
-                }
-                if (e.key === 'Escape') {
-                  setEditingDishPrice(false);
-                }
-              }}
-              className="h-7 w-24 text-sm"
-              autoFocus
-            />
-          ) : (
-            <span 
-              className={`font-semibold text-sm whitespace-nowrap ${canEdit ? 'cursor-pointer hover:bg-gray-100' : ''} px-2 py-1 rounded ${hasDiscount ? 'text-green-600' : ''}`}
-              onClick={() => {
-                if (!canEdit) return;
-                setTempPrice(dish.price?.toString() || '0');
-                setEditingDishPrice(true);
-              }}
-              title={canEdit ? "Clique para editar" : ""}
-            >
-              {formatCurrency(dish.price)}
-            </span>
-          )}
-          {(dish.stock !== null && dish.stock !== undefined && dish.stock !== '') && (
-            editingDishStock ? (
-              <Input
-                type="number"
-                value={tempStock}
-                onChange={(e) => setTempStock(e.target.value)}
-                onBlur={() => {
-                  onUpdate({ stock: parseFloat(tempStock) || 0 });
-                  setEditingDishStock(false);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    onUpdate({ stock: parseFloat(tempStock) || 0 });
-                    setEditingDishStock(false);
-                  }
-                  if (e.key === 'Escape') {
-                    setEditingDishStock(false);
-                  }
-                }}
-                className="h-6 w-20 text-xs"
-                autoFocus
-              />
-            ) : (
-              <span 
-                className={`text-xs text-gray-500 ${canEdit ? 'cursor-pointer hover:bg-gray-100' : ''} px-2 py-0.5 rounded`}
-                onClick={() => {
-                  if (!canEdit) return;
-                  setTempStock(dish.stock?.toString() || '0');
-                  setEditingDishStock(true);
-                }}
-                title={canEdit ? "Clique para editar estoque" : ""}
-              >
-                Est: {dish.stock}
-              </span>
-            )
-          )}
-        </div>
-
-        <Switch 
-          checked={dish.is_active !== false} 
-          onCheckedChange={(checked) => {
-            if (canEdit) onUpdate({ is_active: checked });
-          }} 
-          disabled={!canEdit}
-        />
-        
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <MoreVertical className="w-4 h-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {canEdit && (
-              <DropdownMenuItem onClick={onEdit}>
-                <Pencil className="w-4 h-4 mr-2" />
-                Editar item
-              </DropdownMenuItem>
-            )}
-            {canCreate && (
-              <DropdownMenuItem onClick={onDuplicate}>
-                <Files className="w-4 h-4 mr-2" />
-                Duplicar item
-              </DropdownMenuItem>
-            )}
-            {(canEdit || canCreate || canDeleteProp) && <DropdownMenuSeparator />}
-            {canDeleteProp && (
-              <DropdownMenuItem onClick={() => confirm('Excluir?') && onDelete()} className="text-red-600">
-                <Trash2 className="w-4 h-4 mr-2" />
-                Remover item
-              </DropdownMenuItem>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-
-      {expanded && (
-        <div className="border-t bg-gray-50 p-4 space-y-3">
-          <DragDropContext onDragEnd={(result) => {
-            if (!canEdit) return;
-            if (!result.destination) return;
-            if (result.source.index === result.destination.index) return;
-            
-            const items = Array.from(dish.complement_groups || []);
-            const [reordered] = items.splice(result.source.index, 1);
-            items.splice(result.destination.index, 0, reordered);
-            
-            updateDishMutation.mutate({
-              id: dish.id,
-              data: { complement_groups: items }
-            });
-          }}>
-            <Droppable droppableId={`dish-groups-${dish.id}`}>
-              {(provided) => (
-                <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-3">
-                  {linkedGroups.map((group, groupIndex) => {
-                    const linked = dish.complement_groups?.find(cg => cg.group_id === group.id);
-                    const usageInfo = getGroupUsageInfo(group.id);
-                    const isOriginal = usageInfo.firstDishId === dish.id;
-                    
-                    return (
-                      <Draggable key={group.id} draggableId={`group-${dish.id}-${group.id}`} index={groupIndex}>
-                        {(provided, snapshot) => (
-                          <div 
-                           ref={provided.innerRef}
-                           {...provided.draggableProps}
-                           className={`bg-white rounded-lg p-3 border transition-all ${
-                             snapshot.isDragging ? 'shadow-lg ring-2 ring-orange-500' : ''
-                           }`}
-                          >
-                           <div className="flex items-center gap-2 mb-3">
-                             {canEdit && (
-                               <div {...provided.dragHandleProps} className="cursor-grab active:cursor-grabbing">
-                                 <GripVertical className="w-5 h-5 text-gray-400" />
-                               </div>
-                             )}
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2">
-                                  <span className="font-semibold text-sm">{group.name}</span>
-                      <Badge 
-                        variant="outline" 
-                        className={`text-xs ${canEdit ? 'cursor-pointer hover:bg-red-200' : 'cursor-default'} transition-colors ${linked?.is_required ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'}`}
-                        onClick={(e) => {
-                          if (!canEdit) return;
-                          e.stopPropagation();
-                          const updatedGroups = (dish.complement_groups || []).map(cg =>
-                            cg.group_id === group.id ? { ...cg, is_required: !linked?.is_required } : cg
-                          );
-                          updateDishMutation.mutate({ 
-                            id: dish.id, 
-                            data: { complement_groups: updatedGroups } 
-                          });
-                        }}
-                      >
-                        {linked?.is_required ? '✓ Obrigatório' : 'Opcional'}
-                      </Badge>
-                                  {isOriginal ? (
-                                    <Badge variant="outline" className="text-xs bg-green-50 text-green-700">Original</Badge>
-                                  ) : (
-                                    <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700">Reutilizado</Badge>
-                                  )}
-                                </div>
-                              </div>
-                              <div className="flex gap-1">
-                                {canEdit && (
-                                  <Button variant="ghost" size="sm" onClick={() => onEditGroup(group)} title="Configurações">
-                                    <Settings className="w-4 h-4" />
-                                  </Button>
-                                )}
-                                {canEdit && (
-                                  <Button 
-                                    variant="ghost" 
-                                    size="sm" 
-                                    onClick={() => {
-                                      setBulkEditGroup(group);
-                                      setShowBulkEditModal(true);
-                                    }} 
-                                    title="Edição em massa"
-                                  >
-                                    <EditIcon className="w-4 h-4" />
-                                  </Button>
-                                )}
-                                {canCreate && (
-                                  <Button variant="ghost" size="sm" onClick={() => onAddOption(group.id)} title="Adicionar opção">
-                                    <Plus className="w-4 h-4" />
-                                  </Button>
-                                )}
-                                {canCreate && (
-                                  <Button 
-                                    variant="ghost" 
-                                    size="sm" 
-                                    onClick={async () => {
-                                      const newGroup = {
-                                        name: `${group.name} (Cópia)`,
-                                        is_required: group.is_required,
-                                        max_selection: group.max_selection,
-                                        options: group.options || [],
-                                        order: allComplementGroups.length
-                                      };
-                                      await createComplementGroupMutation.mutateAsync(newGroup);
-                                    }}
-                                    title="Duplicar grupo"
-                                  >
-                                    <Copy className="w-4 h-4" />
-                                  </Button>
-                                )}
-                                {canDeleteProp && (
-                                  <Button variant="ghost" size="sm" onClick={() => onRemoveGroup(group.id)} className="text-red-500 hover:text-red-700" title="Remover grupo">
-                                    <Trash2 className="w-4 h-4" />
-                                  </Button>
-                                )}
-                              </div>
-                            </div>
-
-                <DragDropContext onDragEnd={(result) => {
-                  if (!canEdit) return;
-                  if (!result.destination) return;
-                  const items = Array.from(group.options || []);
-                  const [reordered] = items.splice(result.source.index, 1);
-                  items.splice(result.destination.index, 0, reordered);
-                  updateComplementGroupMutation.mutate({
-                    id: group.id,
-                    data: { ...group, options: items }
-                  });
-                }}>
-                  <Droppable droppableId={`options-${group.id}`}>
-                    {(provided) => (
-                      <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-2">
-                        {(group.options || []).map((opt, optIndex) => (
-                          <Draggable key={opt.id} draggableId={opt.id} index={optIndex}>
-                            {(provided, snapshot) => (
-                              <div 
-                                ref={provided.innerRef}
-                                {...provided.draggableProps}
-                                {...provided.dragHandleProps}
-                                className={`flex items-center gap-3 p-2 rounded transition-all ${
-                                snapshot.isDragging ? 'shadow-lg' : ''
-                                } ${opt.is_active !== false ? 'bg-white' : 'bg-red-50'}`}
-                                >
-                                {canEdit && (
-                                 <GripVertical className="w-4 h-4 text-gray-400 flex-shrink-0 cursor-grab active:cursor-grabbing" />
-                                )}
-                      {canEdit ? (
-                        <label className="cursor-pointer relative">
-                          {opt.image ? (
-                            <img src={opt.image} alt={opt.name} className="w-12 h-12 rounded object-cover" />
-                          ) : (
-                            <div className="w-12 h-12 rounded bg-gray-200 flex items-center justify-center text-gray-400 text-xs">
-                              +
-                            </div>
-                          )}
-                          <input
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) {
-                                setUploadingImageForOption(opt.id);
-                                onUpdateOptionImage(group.id, opt.id, file).then(() => {
-                                  setUploadingImageForOption(null);
-                                });
-                              }
-                            }}
-                          />
-                        </label>
-                      ) : (
-                        opt.image ? (
-                          <img src={opt.image} alt={opt.name} className="w-12 h-12 rounded object-cover" />
-                        ) : (
-                          <div className="w-12 h-12 rounded bg-gray-200 flex items-center justify-center text-gray-400 text-xs">
-                            -
-                          </div>
-                        )
-                      )}
-                      
-                      <div className="flex-1 min-w-0">
-                        {editingOptionId === opt.id ? (
-                          <Input 
-                            value={editingOptionValue}
-                            onChange={(e) => setEditingOptionValue(e.target.value)}
-                            onBlur={() => {
-                              onUpdateOptionName(group.id, opt.id, editingOptionValue);
-                              setEditingOptionId(null);
-                            }}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                onUpdateOptionName(group.id, opt.id, editingOptionValue);
-                                setEditingOptionId(null);
-                              }
-                            }}
-                            className="h-8 text-sm"
-                            autoFocus
-                          />
-                        ) : (
-                          <div>
-                            <span 
-                               className={`text-sm font-medium ${canEdit ? 'cursor-pointer hover:text-blue-600' : ''} block`}
-                               onClick={() => {
-                                 if (!canEdit) return;
-                                 setEditingOptionId(opt.id);
-                                 setEditingOptionValue(opt.name);
-                               }}
-                             >
-                               {opt.name}
-                             </span>
-                            {editingOptionPrice === opt.id ? (
-                              <div className="flex items-center gap-1 mt-1">
-                                <span className="text-xs text-gray-500">R$</span>
-                                <Input
-                                  type="number"
-                                  step="0.01"
-                                  value={editingPriceValue}
-                                  onChange={(e) => setEditingPriceValue(e.target.value)}
-                                  onBlur={() => {
-                                    onUpdateOptionPrice(group.id, opt.id, editingPriceValue);
-                                    setEditingOptionPrice(null);
-                                  }}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                      onUpdateOptionPrice(group.id, opt.id, editingPriceValue);
-                                      setEditingOptionPrice(null);
-                                    }
-                                  }}
-                                  className="h-6 w-20 text-xs"
-                                  autoFocus
-                                />
-                              </div>
-                            ) : (
-                              <span 
-                                className={`text-xs text-gray-500 ${canEdit ? 'cursor-pointer hover:text-blue-600' : ''}`}
-                                onClick={() => {
-                                  if (!canEdit) return;
-                                  setEditingOptionPrice(opt.id);
-                                  setEditingPriceValue((opt.price || 0).toString());
-                                }}
-                              >
-                                {opt.price > 0 ? formatCurrency(opt.price) : '+ Adicionar preço'}
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                      
-                      <div className="flex items-center gap-2">
-                        <Switch 
-                          checked={opt.is_active !== false} 
-                          onCheckedChange={() => {
-                            if (canEdit) onToggleOption(group.id, opt.id, opt.is_active !== false);
-                          }}
-                          disabled={!canEdit}
-                        />
-                        {canDeleteProp && (
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            onClick={() => onRemoveOption(group.id, opt.id)}
-                            className="text-red-500 hover:text-red-700 h-8 w-8 p-0"
-                          >
-                            <X className="w-4 h-4" />
-                          </Button>
-                        )}
-                                </div>
-                              </div>
-                            )}
-                          </Draggable>
-                        ))}
-                        {provided.placeholder}
-                      </div>
-                    )}
-                  </Droppable>
-                </DragDropContext>
-                          </div>
-                        )}
-                      </Draggable>
-                    );
-                  })}
-                  {provided.placeholder}
-                </div>
-              )}
-            </Droppable>
-          </DragDropContext>
-
-          {canCreate && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="w-full">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Adicionar Grupo de Complementos
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56">
-                <DropdownMenuItem onClick={onAddGroup}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Criar novo grupo
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={onOpenReuseModal}>
-                  <Copy className="w-4 h-4 mr-2" />
-                  Copiar grupo existente
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-        </div>
-      )}
-    </div>
+    {modal}
+    </>
   );
 }

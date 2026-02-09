@@ -155,13 +155,31 @@ export function downloadOrdersCSV(orders, filename) {
 }
 
 /**
- * Gera e baixa PDF do relatório do dia
+ * Gera e baixa PDF do relatório (dia, semana ou mês)
+ * @param {Array} orders - lista de pedidos
+ * @param {'today'|'week'|'month'} period - período do relatório
  */
-export function exportGestorReportPDF(orders) {
-  const today = new Date().toDateString();
+export function exportGestorReportPDF(orders, period = 'today') {
+  const now = new Date();
+  let startDate;
+  let title = 'Relatório do Dia';
+  if (period === 'week') {
+    startDate = new Date(now);
+    startDate.setDate(now.getDate() - 7);
+    title = 'Relatório - Últimos 7 dias';
+  } else if (period === 'month') {
+    startDate = new Date(now);
+    startDate.setDate(now.getDate() - 30);
+    title = 'Relatório - Últimos 30 dias';
+  } else {
+    startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    title = 'Relatório do Dia';
+  }
   const list = orders.filter(o => {
     const dt = o.created_at || o.created_date;
-    return dt && new Date(dt).toDateString() === today && o.status !== 'cancelled';
+    if (!dt || o.status === 'cancelled') return false;
+    const d = new Date(dt);
+    return !isNaN(d.getTime()) && d >= startDate;
   });
   const totalRevenue = list.reduce((s, o) => s + (o.total || 0), 0);
   const byStatus = list.reduce((a, o) => { a[o.status] = (a[o.status]||0)+1; return a; }, {});
@@ -172,7 +190,7 @@ export function exportGestorReportPDF(orders) {
 
   const doc = new jsPDF();
   doc.setFontSize(18);
-  doc.text('Relatório do Dia - Gestor de Pedidos', 14, 20);
+  doc.text(`${title} - Gestor de Pedidos`, 14, 20);
   doc.setFontSize(10);
   doc.text(formatBrazilianDateTime(new Date().toISOString()), 14, 28);
   doc.setFontSize(12);
@@ -194,5 +212,6 @@ export function exportGestorReportPDF(orders) {
     y += 5;
   });
   if (list.length > 30) doc.text(`... e mais ${list.length - 30} pedidos`, 14, y);
-  doc.save(`relatorio_gestor_${new Date().toISOString().slice(0, 10)}.pdf`);
+  const suffix = period === 'today' ? new Date().toISOString().slice(0, 10) : `${period}_${new Date().toISOString().slice(0, 10)}`;
+  doc.save(`relatorio_gestor_${suffix}.pdf`);
 }

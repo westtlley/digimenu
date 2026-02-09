@@ -44,9 +44,10 @@ export function useAdaptedTheme(storeTheme) {
     };
   }, []);
   
-  const primaryColor = storeTheme?.theme_primary_color || '#f97316';
-  const secondaryColor = storeTheme?.theme_secondary_color || '#1f2937';
-  const accentColor = storeTheme?.theme_accent_color || '#eab308';
+  // theme_* vem do Admin (ThemeTab); primary_color é legado
+  const primaryColor = storeTheme?.theme_primary_color || storeTheme?.primary_color || '#f97316';
+  const secondaryColor = storeTheme?.theme_secondary_color || storeTheme?.secondary_color || '#1f2937';
+  const accentColor = storeTheme?.theme_accent_color || storeTheme?.accent_color || '#eab308';
   
   return useMemo(() => {
     if (!isDark) {

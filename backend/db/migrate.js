@@ -204,6 +204,15 @@ export async function migrate() {
           console.warn('⚠️ Aviso ao executar migração de Funcionalidades Avançadas (pode já existir):', e.message);
         }
 
+        // Migração: Autorização gerencial (matrícula + senha para assinante e gerente)
+        try {
+          const migrationSQL = fs.readFileSync(path.join(__dirname, 'migrations', 'add_managerial_authorizations.sql'), 'utf8');
+          await query(migrationSQL);
+          console.log('✅ Migração de Autorização gerencial concluída.');
+        } catch (e) {
+          console.warn('⚠️ Aviso ao executar migração de Autorização gerencial (pode já existir):', e.message);
+        }
+
         // Migração: Campos adicionais para customers (cadastro de clientes com senha)
         try {
           await query(`

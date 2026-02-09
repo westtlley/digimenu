@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Search, Receipt, ShoppingCart, AlertTriangle, ArrowLeft, Trash2, Plus, Minus, X, History, Clock, Loader2, LogOut, CreditCard } from 'lucide-react';
+import { Search, Receipt, ShoppingCart, AlertTriangle, ArrowLeft, Trash2, Plus, Minus, X, History, Clock, Loader2, LogOut, CreditCard, Wallet, TrendingUp, TrendingDown, Lock } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -18,9 +18,11 @@ import PaymentModal from '../components/pdv/PaymentModal';
 import SaleSuccessModal from '../components/pdv/SaleSuccessModal';
 import UpsellModal from '../components/menu/UpsellModal';
 import { usePermission } from '../components/permissions/usePermission';
+import { useManagerialAuth } from '@/hooks/useManagerialAuth';
 import { useUpsell } from '../components/hooks/useUpsell';
 import { usePDVHotkeys } from '../utils/pdvFunctions';
 import InstallAppButton from '../components/InstallAppButton';
+import FechamentoCaixaModal from '../components/pdv/FechamentoCaixaModal';
 
 export default function PDV() {
   const [user, setUser] = useState(null);
@@ -44,11 +46,26 @@ export default function PDV() {
   const [lockThreshold, setLockThreshold] = useState('');
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [selectedPizza, setSelectedPizza] = useState(null);
+  const [pdvSession, setPdvSession] = useState(null);
+  const [pdvTerminalId, setPdvTerminalId] = useState('');
+  const [pdvTerminalName, setPdvTerminalName] = useState('');
+  const [showTerminalModal, setShowTerminalModal] = useState(false);
 
   const queryClient = useQueryClient();
   const { isMaster } = usePermission();
+  const { requireAuthorization, modal: authModal } = useManagerialAuth();
   const { slug, subscriberEmail, inSlugContext, loading: slugLoading, error: slugError } = useSlugContext();
   const asSub = (inSlugContext && isMaster && subscriberEmail) ? subscriberEmail : undefined;
+
+  const [showMenuVendas, setShowMenuVendas] = useState(false);
+  const [showFechamentoModal, setShowFechamentoModal] = useState(false);
+  const [showSangriaModal, setShowSangriaModal] = useState(false);
+  const [showSuprimentoModal, setShowSuprimentoModal] = useState(false);
+  const [showCloseCaixaDialog, setShowCloseCaixaDialog] = useState(false);
+  const [sangriaData, setSangriaData] = useState({ amount: '', reason: '' });
+  const [suprimentoData, setSuprimentoData] = useState({ amount: '', reason: '' });
+  const [closingCashAmount, setClosingCashAmount] = useState('');
+  const [closingNotes, setClosingNotes] = useState('');
 
   // Verificar autenticação e permissão
   useEffect(() => {
@@ -102,6 +119,15 @@ export default function PDV() {
     refetchInterval: 5000,
   });
 
+  const { data: caixaOperationsAll = [] } = useQuery({
+    queryKey: ['caixaOperations', asSub ?? 'me'],
+    queryFn: () => base44.entities.CaixaOperation.list('-date', opts).catch(() => []),
+    enabled: !!user && allowed,
+  });
+  const caixaOperations = (openCaixa && Array.isArray(caixaOperationsAll))
+    ? caixaOperationsAll.filter((op) => String(op.caixa_id) === String(openCaixa.id))
+    : [];
+
   const { data: pdvSales = [] } = useQuery({
     queryKey: ['pedidosPDV', asSub ?? 'me'],
     queryFn: () => base44.entities.PedidoPDV.list('-created_date', opts).catch(() => []),
@@ -112,6 +138,17 @@ export default function PDV() {
     queryFn: () => base44.entities.Store.list(opts),
   });
   const store = storeList[0] || { theme_primary_color: '#f97316' };
+
+  const pdvTerminals = (Array.isArray(store?.pdv_terminals) && store.pdv_terminals.length > 0)
+    ? store.pdv_terminals
+    : ['PDV 1', 'PDV 2', 'PDV 3'];
+
+  const { data: pdvSessionsRaw = [] } = useQuery({
+    queryKey: ['pdvSessions', asSub ?? 'me'],
+    queryFn: () => base44.entities.PDVSession.list('-created_at', { ...opts, ended_at: 'null' }).catch(() => []),
+    enabled: !!user && allowed,
+  });
+  const activePdvSessions = Array.isArray(pdvSessionsRaw) ? pdvSessionsRaw.filter(s => !s.ended_at) : [];
 
   const { data: pizzaSizes = [] } = useQuery({
     queryKey: ['pizzaSizes', asSub ?? 'me'],
@@ -156,6 +193,41 @@ export default function PDV() {
     else setShowOpenCaixaModal(false);
   }, [caixas, caixasLoading]);
 
+  const createPdvSessionMutation = useMutation({
+    mutationFn: async (payload) => base44.entities.PDVSession.create(payload),
+    onSuccess: (session) => {
+      queryClient.invalidateQueries({ queryKey: ['pdvSessions'] });
+      setPdvSession(session);
+      setPdvTerminalId(session.terminal_id ?? session.terminal_name ?? '');
+      setPdvTerminalName(session.terminal_name ?? session.terminal_id ?? '');
+      setShowTerminalModal(false);
+    },
+  });
+
+  const endPdvSessionMutation = useMutation({
+    mutationFn: async (sessionId) => base44.entities.PDVSession.update(sessionId, { ended_at: new Date().toISOString() }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pdvSessions'] });
+      setPdvSession(null);
+      setPdvTerminalId('');
+      setPdvTerminalName('');
+      setShowTerminalModal(true);
+    },
+  });
+
+  useEffect(() => {
+    if (!user || !allowed || pdvSession) return;
+    const mySession = activePdvSessions.find(s => s.operator_email === user.email);
+    if (mySession) {
+      setPdvSession(mySession);
+      setPdvTerminalId(mySession.terminal_id ?? mySession.terminal_name ?? '');
+      setPdvTerminalName(mySession.terminal_name ?? mySession.terminal_id ?? '');
+      setShowTerminalModal(false);
+    } else {
+      setShowTerminalModal(true);
+    }
+  }, [user, allowed, activePdvSessions, pdvSession]);
+
   const createPedidoMutation = useMutation({
     mutationFn: (data) => base44.entities.PedidoPDV.create(data),
     onSuccess: () => {
@@ -196,7 +268,139 @@ export default function PDV() {
     },
   });
 
+  const closeCaixaMutation = useMutation({
+    mutationFn: async ({ id, freshCaixa, totals, closingCash, closingNotes }) => {
+      const u = await base44.auth.me();
+      const updateData = {
+        ...freshCaixa,
+        opening_amount_cash: Number(freshCaixa.opening_amount_cash) || 0,
+        status: 'closed',
+        total_cash: totals.cash,
+        total_pix: totals.pix,
+        total_debit: totals.debit,
+        total_credit: totals.credit,
+        total_other: totals.other,
+        closing_amount_cash: Number(closingCash) || 0,
+        closing_notes: closingNotes || '',
+        closed_by: u.email,
+        closing_date: new Date().toISOString()
+      };
+      delete updateData.id;
+      delete updateData.created_date;
+      delete updateData.updated_date;
+      delete updateData.created_by;
+      return base44.entities.Caixa.update(id, updateData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['caixas'] });
+      setShowCloseCaixaDialog(false);
+      setShowFechamentoModal(false);
+      setClosingCashAmount('');
+      setClosingNotes('');
+      toast.success('✅ Caixa fechado com sucesso!');
+    },
+  });
+
   const isCaixaLocked = !!(openCaixa?.lock_threshold != null && (Number(openCaixa?.total_cash) || 0) >= (Number(openCaixa?.lock_threshold) || 0));
+
+  const handleSangriaFromPDV = async () => {
+    if (!openCaixa || !sangriaData.amount || !sangriaData.reason) {
+      toast.error('Preencha valor e motivo');
+      return;
+    }
+    const amount = parseFloat(sangriaData.amount);
+    const vendas = caixaOperations.filter((op) => op.type === 'venda_pdv');
+    const sangrias = caixaOperations.filter((op) => op.type === 'sangria');
+    const suprimentos = caixaOperations.filter((op) => op.type === 'suprimento');
+    const cashVendas = vendas.filter((op) => op.payment_method === 'dinheiro').reduce((s, op) => s + op.amount, 0);
+    const totalSangrias = sangrias.reduce((s, op) => s + op.amount, 0);
+    const totalSuprimentos = suprimentos.reduce((s, op) => s + op.amount, 0);
+    const saldoAtual = (openCaixa.opening_amount_cash || 0) + cashVendas + totalSuprimentos - totalSangrias;
+    if (amount > saldoAtual) {
+      toast.error('Saldo insuficiente no caixa');
+      return;
+    }
+    await createOperationMutation.mutateAsync({
+      caixa_id: openCaixa.id,
+      type: 'sangria',
+      description: `Sangria: ${sangriaData.reason}`,
+      amount,
+      payment_method: 'dinheiro',
+      reason: sangriaData.reason
+    });
+    const freshCaixas = await base44.entities.Caixa.list('-opening_date', opts);
+    const freshCaixa = Array.isArray(freshCaixas) ? freshCaixas.find((c) => String(c.id) === String(openCaixa.id)) : null;
+    if (freshCaixa) {
+      const updateData = { ...freshCaixa, withdrawals: (freshCaixa.withdrawals || 0) + amount };
+      delete updateData.id;
+      delete updateData.created_date;
+      delete updateData.updated_date;
+      delete updateData.created_by;
+      await base44.entities.Caixa.update(openCaixa.id, updateData);
+    }
+    queryClient.invalidateQueries({ queryKey: ['caixas', 'caixaOperations'] });
+    setShowSangriaModal(false);
+    setSangriaData({ amount: '', reason: '' });
+    toast.success('Sangria registrada');
+  };
+
+  const handleSuprimentoFromPDV = async () => {
+    if (!openCaixa || !suprimentoData.amount || !suprimentoData.reason) {
+      toast.error('Preencha valor e motivo');
+      return;
+    }
+    const amount = parseFloat(suprimentoData.amount);
+    await createOperationMutation.mutateAsync({
+      caixa_id: openCaixa.id,
+      type: 'suprimento',
+      description: `Suprimento: ${suprimentoData.reason}`,
+      amount,
+      payment_method: 'dinheiro',
+      reason: suprimentoData.reason
+    });
+    const freshCaixas = await base44.entities.Caixa.list('-opening_date', opts);
+    const freshCaixa = Array.isArray(freshCaixas) ? freshCaixas.find((c) => String(c.id) === String(openCaixa.id)) : null;
+    if (freshCaixa) {
+      const updateData = { ...freshCaixa, supplies: (freshCaixa.supplies || 0) + amount };
+      delete updateData.id;
+      delete updateData.created_date;
+      delete updateData.updated_date;
+      delete updateData.created_by;
+      await base44.entities.Caixa.update(openCaixa.id, updateData);
+    }
+    queryClient.invalidateQueries({ queryKey: ['caixas', 'caixaOperations'] });
+    setShowSuprimentoModal(false);
+    setSuprimentoData({ amount: '', reason: '' });
+    toast.success('Suprimento registrado');
+  };
+
+  const handleCloseCaixaFromPDV = async () => {
+    if (!openCaixa || !closingCashAmount) {
+      toast.error('Informe o valor em dinheiro ao fechar');
+      return;
+    }
+    const vendas = caixaOperations.filter((op) => op.type === 'venda_pdv');
+    const totals = {
+      cash: vendas.filter((op) => op.payment_method === 'dinheiro').reduce((s, op) => s + op.amount, 0),
+      pix: vendas.filter((op) => op.payment_method === 'pix').reduce((s, op) => s + op.amount, 0),
+      debit: vendas.filter((op) => op.payment_method === 'debito').reduce((s, op) => s + op.amount, 0),
+      credit: vendas.filter((op) => op.payment_method === 'credito').reduce((s, op) => s + op.amount, 0),
+      other: vendas.filter((op) => op.payment_method === 'outro').reduce((s, op) => s + op.amount, 0)
+    };
+    const freshCaixas = await base44.entities.Caixa.list('-opening_date', opts);
+    const freshCaixa = Array.isArray(freshCaixas) ? freshCaixas.find((c) => String(c.id) === String(openCaixa.id)) : null;
+    if (!freshCaixa) {
+      toast.error('Caixa não encontrado');
+      return;
+    }
+    closeCaixaMutation.mutate({
+      id: openCaixa.id,
+      freshCaixa,
+      totals,
+      closingCash: parseFloat(closingCashAmount),
+      closingNotes
+    });
+  };
 
   const safeDishes = Array.isArray(dishes) ? dishes : [];
   const activeDishes = safeDishes.filter(d => d && d.is_active !== false);
@@ -303,6 +507,8 @@ export default function PDV() {
   };
 
   usePDVHotkeys({
+    onOpenMenuVendas: () => pdvSession && setShowMenuVendas(true),
+    onOpenFechamento: () => pdvSession && openCaixa && setShowFechamentoModal(true),
     onCancelSale: clearCart,
     onFinishSale: () => {
       if (cart.length > 0 && !isCaixaLocked && openCaixa) setShowPaymentModal(true);
@@ -404,7 +610,10 @@ export default function PDV() {
       change: paymentData.change,
       caixa_id: openCaixa.id,
       seller_email: user.email,
-      seller_name: user.full_name
+      seller_name: user.full_name,
+      ...(pdvTerminalId && { pdv_terminal_id: pdvTerminalId }),
+      ...(pdvTerminalName && { pdv_terminal_name: pdvTerminalName }),
+      ...(pdvSession?.id && { pdv_session_id: pdvSession.id })
     };
 
     await createPedidoMutation.mutateAsync(pedidoData);
@@ -508,7 +717,8 @@ export default function PDV() {
   return (
     <div className="min-h-screen min-h-screen-mobile h-screen flex flex-col bg-gray-50">
       <Toaster position="top-center" />
-      
+      {authModal}
+
       {/* Header Fixo */}
       <div className="bg-gray-900 text-white h-14 sm:h-16 flex-shrink-0 border-b border-gray-700 safe-top">
         <div className="h-full px-3 sm:px-4 flex items-center justify-between max-w-[2000px] mx-auto gap-2">
@@ -542,18 +752,247 @@ export default function PDV() {
             <Button
               variant="ghost"
               size="sm"
+              onClick={() => pdvSession && setShowMenuVendas(true)}
+              className="text-white hover:bg-gray-800 h-10 hidden sm:flex"
+              title="Menu de Vendas (F2) - Suprimento, Sangria, Fechamento"
+            >
+              <Wallet className="w-4 h-4 mr-2" />
+              Menu
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => setShowHistoryModal(true)}
               className="text-white hover:bg-gray-800 h-10 hidden sm:flex"
             >
               <History className="w-4 h-4 mr-2" />
               Histórico
             </Button>
+            {pdvSession && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => endPdvSessionMutation.mutate(pdvSession.id)}
+                disabled={endPdvSessionMutation.isPending}
+                className="text-white hover:bg-gray-800 h-10 hidden sm:flex"
+                title="Sair deste PDV (encerra sua sessão)"
+              >
+                {endPdvSessionMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogOut className="w-4 h-4 mr-2" />}
+                Sair do PDV
+              </Button>
+            )}
+            {pdvSession && (
+              <Badge variant="outline" className="text-white border-gray-500 h-8 font-normal">
+                {pdvTerminalName}
+              </Badge>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Layout Principal - Grid Fixo */}
+      {/* Modal: Selecionar terminal (multi-PDV) */}
+      <Dialog open={showTerminalModal} onOpenChange={setShowTerminalModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Selecionar terminal PDV</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-gray-600">Em qual PDV você está operando?</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 py-2">
+            {pdvTerminals.map((name, i) => (
+              <Button
+                key={i}
+                variant="outline"
+                className="h-12"
+                disabled={createPdvSessionMutation.isPending}
+                onClick={async () => {
+                  const me = await base44.auth.me();
+                  await createPdvSessionMutation.mutateAsync({
+                    terminal_id: String(i + 1),
+                    terminal_name: typeof name === 'string' ? name : `PDV ${i + 1}`,
+                    operator_email: me?.email,
+                    operator_name: me?.full_name,
+                    started_at: new Date().toISOString()
+                  });
+                }}
+              >
+                {typeof name === 'string' ? name : `PDV ${i + 1}`}
+              </Button>
+            ))}
+          </div>
+          <DialogFooter />
+        </DialogContent>
+      </Dialog>
+
+      {/* Menu de Vendas (F2) - Suprimento, Sangria, Fechamento */}
+      <Dialog open={showMenuVendas} onOpenChange={setShowMenuVendas}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Menu de Vendas</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-3 py-2">
+            <Button
+              variant="outline"
+              className="h-14 flex flex-col gap-1"
+              onClick={() => {
+                setShowMenuVendas(false);
+                requireAuthorization('suprimento', () => setShowSuprimentoModal(true));
+              }}
+            >
+              <TrendingUp className="w-6 h-6 text-green-600" />
+              <span>Suprimento (F2)</span>
+              <span className="text-xs text-gray-500">Adicionar troco</span>
+            </Button>
+            <Button
+              variant="outline"
+              className="h-14 flex flex-col gap-1"
+              onClick={() => {
+                setShowMenuVendas(false);
+                requireAuthorization('sangria', () => setShowSangriaModal(true));
+              }}
+            >
+              <TrendingDown className="w-6 h-6 text-red-600" />
+              <span>Sangria (F3)</span>
+              <span className="text-xs text-gray-500">Retirada</span>
+            </Button>
+            <Button
+              variant="outline"
+              className="h-14 flex flex-col gap-1 col-span-2"
+              onClick={() => {
+                setShowMenuVendas(false);
+                setShowFechamentoModal(true);
+              }}
+            >
+              <Lock className="w-6 h-6" />
+              <span>Fechamento (F4)</span>
+              <span className="text-xs text-gray-500">Relatório e fechar caixa</span>
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal Fechamento de Caixa (relatório igual aos prints) */}
+      <FechamentoCaixaModal
+        open={showFechamentoModal}
+        onOpenChange={setShowFechamentoModal}
+        caixa={openCaixa}
+        operations={caixaOperationsAll || []}
+        storeName={store?.name}
+        operatorName={user?.full_name || user?.email}
+        terminalName={pdvTerminalName}
+        onFecharClick={
+          openCaixa?.status === 'open'
+            ? () => requireAuthorization('fechar_caixa', () => { setShowFechamentoModal(false); setShowCloseCaixaDialog(true); })
+            : undefined
+        }
+      />
+
+      {/* Dialog valor ao fechar caixa (após autorização) */}
+      <Dialog open={showCloseCaixaDialog} onOpenChange={setShowCloseCaixaDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Fechar caixa</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <Label>Valor em dinheiro ao fechar (R$)</Label>
+            <Input
+              type="number"
+              step="0.01"
+              value={closingCashAmount}
+              onChange={(e) => setClosingCashAmount(e.target.value)}
+              placeholder="0,00"
+            />
+            <Label>Observações (opcional)</Label>
+            <Input
+              value={closingNotes}
+              onChange={(e) => setClosingNotes(e.target.value)}
+              placeholder="Observações do fechamento"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCloseCaixaDialog(false)}>Cancelar</Button>
+            <Button
+              onClick={handleCloseCaixaFromPDV}
+              disabled={!closingCashAmount || closeCaixaMutation.isPending}
+            >
+              {closeCaixaMutation.isPending ? 'Fechando...' : 'Confirmar Fechamento'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal Sangria */}
+      <Dialog open={showSangriaModal} onOpenChange={setShowSangriaModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Registrar Sangria (retirada)</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label>Valor (R$)</Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={sangriaData.amount}
+                onChange={(e) => setSangriaData((s) => ({ ...s, amount: e.target.value }))}
+                placeholder="0,00"
+              />
+            </div>
+            <div>
+              <Label>Motivo</Label>
+              <Input
+                value={sangriaData.reason}
+                onChange={(e) => setSangriaData((s) => ({ ...s, reason: e.target.value }))}
+                placeholder="Ex: Depósito bancário"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSangriaModal(false)}>Cancelar</Button>
+            <Button className="bg-red-600" onClick={handleSangriaFromPDV}>Registrar Sangria</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal Suprimento */}
+      <Dialog open={showSuprimentoModal} onOpenChange={setShowSuprimentoModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Registrar Suprimento (adicionar troco)</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label>Valor (R$)</Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={suprimentoData.amount}
+                onChange={(e) => setSuprimentoData((s) => ({ ...s, amount: e.target.value }))}
+                placeholder="0,00"
+              />
+            </div>
+            <div>
+              <Label>Motivo</Label>
+              <Input
+                value={suprimentoData.reason}
+                onChange={(e) => setSuprimentoData((s) => ({ ...s, reason: e.target.value }))}
+                placeholder="Ex: Reforço de caixa"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSuprimentoModal(false)}>Cancelar</Button>
+            <Button className="bg-orange-600" onClick={handleSuprimentoFromPDV}>Registrar Suprimento</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Layout Principal - Grid Fixo (só após selecionar terminal em multi-PDV) */}
       <div className="flex-1 overflow-hidden">
+        {!pdvSession && allowed ? (
+          <div className="flex items-center justify-center h-full p-8">
+            <p className="text-gray-500">Selecione o terminal PDV acima para continuar.</p>
+          </div>
+        ) : (
         <div className="h-full max-w-[2000px] mx-auto grid grid-cols-1 lg:grid-cols-[1fr_480px]">
           
           {/* COLUNA ESQUERDA - PRODUTOS (70%) */}
@@ -803,9 +1242,21 @@ export default function PDV() {
           </div>
 
         </div>
+        )}
       </div>
 
-      {/* Botão Flutuante Mobile */}
+      {/* Barra de atalhos (F2, F4, F9, F11) - desktop */}
+      {pdvSession && (
+        <div className="hidden lg:flex flex-shrink-0 px-4 py-2 bg-gray-800 border-t border-gray-700 text-gray-400 text-xs justify-center gap-6 flex-wrap">
+          <span><kbd className="px-1.5 py-0.5 bg-gray-700 rounded">F2</kbd> Menu de Vendas</span>
+          <span><kbd className="px-1.5 py-0.5 bg-gray-700 rounded">F4</kbd> Fechamento</span>
+          <span><kbd className="px-1.5 py-0.5 bg-gray-700 rounded">F9</kbd> Cancelar venda</span>
+          <span><kbd className="px-1.5 py-0.5 bg-gray-700 rounded">F11</kbd> Recebimento</span>
+        </div>
+      )}
+
+      {/* Botão Flutuante Mobile (só com sessão PDV) */}
+      {pdvSession && (
       <div className="lg:hidden fixed bottom-0 left-0 right-0 p-4 pb-[max(1rem,env(safe-area-inset-bottom,0px))] bg-gray-900 border-t border-gray-700">
         <Button
           onClick={() => setShowMobileCart(true)}
@@ -817,6 +1268,7 @@ export default function PDV() {
           {cart.length > 0 && <span className="ml-2">• {formatCurrency(total)}</span>}
         </Button>
       </div>
+      )}
 
       {/* Modal Comanda Mobile */}
       {showMobileCart && (
@@ -1158,7 +1610,7 @@ export default function PDV() {
               </Link>
             )}
             <Button
-              onClick={handleOpenCaixa}
+              onClick={() => requireAuthorization('abrir_caixa', () => handleOpenCaixa())}
               disabled={!openingAmount || parseFloat(openingAmount) < 0 || openCaixaMutation.isPending}
               className="bg-green-600 hover:bg-green-700 font-semibold w-full sm:w-auto"
             >

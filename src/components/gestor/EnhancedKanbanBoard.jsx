@@ -128,6 +128,13 @@ export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = 
       filtered = filtered.filter(o => o.delivery_method === filterMethod);
     }
     
+    // Ordenar: mais antigo primeiro (por data de criação)
+    filtered = [...filtered].sort((a, b) => {
+      const da = new Date(a.created_at || a.created_date || 0).getTime();
+      const db = new Date(b.created_at || b.created_date || 0).getTime();
+      return da - db;
+    });
+    
     return filtered;
   };
 
@@ -156,6 +163,22 @@ export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = 
     if (!dt) return false;
     return differenceInMinutes(new Date(now), new Date(dt)) > 45 && 
            !['delivered', 'cancelled'].includes(order.status);
+  };
+
+  // Urgência por tempo de preparo (aceitos / em preparo): amarelo perto do limite, vermelho passou
+  const prepMinutesElapsed = (order) => {
+    if (!order.accepted_at) return null;
+    return differenceInMinutes(new Date(now), new Date(order.accepted_at));
+  };
+  const isPrepUrgent = (order) => {
+    const mins = prepMinutesElapsed(order);
+    const prep = order.prep_time || 30;
+    return mins != null && mins >= prep - 5 && mins < prep && !['delivered', 'cancelled'].includes(order.status);
+  };
+  const isPrepLate = (order) => {
+    const mins = prepMinutesElapsed(order);
+    const prep = order.prep_time || 30;
+    return mins != null && mins >= prep && !['delivered', 'cancelled'].includes(order.status);
   };
 
   const toggleColumn = (columnId) => {
@@ -384,10 +407,12 @@ export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = 
                                     } rounded-md hover:shadow-md transition-all cursor-pointer border-l-2 ${
                                       compact ? 'p-1.5' : 'p-2.5'
                                     } ${
-                                      isVeryLate(order)
+                                      isVeryLate(order) || isPrepLate(order)
                                         ? 'border-red-600 bg-red-100/50 dark:bg-red-900/30 ring-1 ring-red-300'
                                         : isLate(order) 
                                         ? 'border-red-500 bg-red-50/30 dark:bg-red-900/20' 
+                                        : isPrepUrgent(order)
+                                        ? 'border-amber-500 bg-amber-50/50 dark:bg-amber-900/20'
                                         : order.priority === 'alta'
                                         ? 'border-orange-400 dark:border-orange-500'
                                         : darkMode ? 'border-gray-600' : 'border-gray-200'
@@ -395,39 +420,36 @@ export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = 
                                   >
                                     {/* Header */}
                                     <div className="flex items-start justify-between mb-1.5">
-                                      <div className="flex-1">
+                                      <div className="flex-1 min-w-0">
                                         <p className={`font-semibold text-[11px] ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                                           #{order.order_code || order.id?.slice(-6)}
                                         </p>
-                                        {isLate(order) && (
-                                          <Badge className="bg-red-500 text-white text-[8px] h-3.5 mt-0.5 px-1 flex items-center gap-0.5">
+                                        {(isLate(order) || isPrepLate(order)) && (
+                                          <Badge className="bg-red-500 text-white text-[8px] h-3.5 mt-0.5 px-1 flex items-center gap-0.5 w-fit">
                                             {isVeryLate(order) && <Bell className="w-2.5 h-2.5" />}
                                             Atrasado
                                           </Badge>
                                         )}
+                                        {isPrepUrgent(order) && !isPrepLate(order) && (
+                                          <Badge className="bg-amber-500 text-white text-[8px] h-3.5 mt-0.5 px-1 flex items-center w-fit">
+                                            Quase no limite
+                                          </Badge>
+                                        )}
                                       </div>
-                                      <span className="text-[11px]">
+                                      <span className="text-[11px] flex-shrink-0" title={order.delivery_method === 'delivery' ? 'Entrega' : 'Retirada'}>
                                         {order.delivery_method === 'delivery' ? '🚴' : '🏪'}
                                       </span>
                                     </div>
 
-                                    <p className={`text-[11px] font-medium ${darkMode ? 'text-gray-200' : 'text-gray-700'} mb-1.5 truncate`}>
+                                    <p className={`text-[11px] font-medium ${darkMode ? 'text-gray-200' : 'text-gray-700'} mb-1 truncate`}>
                                       {order.customer_name}
                                     </p>
 
-                                    {/* Items Summary */}
-                                    <div className={`text-[10px] ${darkMode ? 'text-gray-400' : 'text-gray-500'} mb-1.5 space-y-0.5`}>
-                                      {(order.items || []).slice(0, 2).map((item, idx) => (
-                                        <p key={idx} className="truncate">
-                                          {item.quantity}x {item.dish?.name}
-                                        </p>
-                                      ))}
-                                      {(order.items || []).length > 2 && (
-                                        <p className={darkMode ? 'text-gray-500' : 'text-gray-400'}>
-                                          +{(order.items || []).length - 2} mais
-                                        </p>
-                                      )}
-                                    </div>
+                                    {/* Items: uma linha */}
+                                    <p className={`text-[10px] ${darkMode ? 'text-gray-400' : 'text-gray-500'} mb-1.5 truncate`}>
+                                      {(order.items || []).slice(0, 3).map((item, idx) => `${item.quantity}x ${item.dish?.name || 'Item'}`).join(', ')}
+                                      {(order.items || []).length > 3 && ` +${(order.items || []).length - 3}`}
+                                    </p>
 
                                     {/* Footer */}
                                     <div className={`flex items-center justify-between pt-1.5 border-t ${

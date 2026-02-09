@@ -13,45 +13,77 @@ import { validatePermissions, getPlanPermissions } from './PlanPresets';
 import PermissionPreview from '../admin/subscribers/PermissionPreview';
 import PlanComparison from '../admin/subscribers/PlanComparison';
 
+// Alinhado às categorias do menu (GESTÃO, OPERAÇÃO, CARDÁPIO, GARÇOM, DELIVERY, SISTEMA, MARKETING)
 const MODULE_GROUPS = [
   {
-    id: 'ferramentas',
-    name: 'Ferramentas Principais',
+    id: 'gestao',
+    name: '📊 GESTÃO',
     modules: [
-      { id: 'dashboard', name: 'Home', actions: ['view'] },
-      { id: 'pdv', name: 'PDV', actions: ['view', 'create', 'update'] },
-      { id: 'gestor_pedidos', name: 'Gestor de Pedidos', actions: ['view', 'create', 'update', 'delete'] },
+      { id: 'dashboard', name: 'Dashboard', actions: ['view'] },
+      { id: 'financial', name: 'Financeiro', actions: ['view'] },
       { id: 'caixa', name: 'Caixa', actions: ['view', 'create', 'update'] },
-      { id: 'whatsapp', name: 'WhatsApp', actions: ['view'] }
+      { id: 'pdv', name: 'PDV', actions: ['view', 'create', 'update'] },
+      { id: 'gestor_pedidos', name: 'Gestor de Pedidos', actions: ['view', 'create', 'update', 'delete'] }
+    ]
+  },
+  {
+    id: 'operacao',
+    name: '🧾 OPERAÇÃO',
+    modules: [
+      { id: 'orders', name: 'Gestor de Pedidos (lista)', actions: ['view', 'create', 'update', 'delete'] },
+      { id: 'history', name: 'Histórico de Pedidos', actions: ['view'] },
+      { id: 'clients', name: 'Clientes', actions: ['view', 'create', 'update', 'delete'] },
+      { id: 'whatsapp', name: 'WhatsApp', actions: ['view'] },
+      { id: 'inventory', name: 'Gestão de Estoque', actions: ['view', 'create', 'update', 'delete'] }
     ]
   },
   {
     id: 'cardapio',
-    name: 'Cardápio',
+    name: '🍽️ CARDÁPIO',
     modules: [
-      { id: 'dishes', name: 'Pratos e Bebidas', actions: ['view', 'create', 'update', 'delete'] },
-      { id: 'pizza_config', name: 'Pizzas', actions: ['view', 'create', 'update', 'delete'] },
-      { id: 'comandas', name: 'Comandas', actions: ['view', 'create', 'update', 'close', 'history'] },
-      { id: 'delivery_zones', name: 'Zonas de Entrega', actions: ['view', 'create', 'update', 'delete'] },
-      { id: 'coupons', name: 'Cupons', actions: ['view', 'create', 'update', 'delete'] },
-      { id: 'promotions', name: 'Promoções', actions: ['view', 'create', 'update', 'delete'] },
+      { id: 'dishes', name: 'Restaurante (pratos e bebidas)', actions: ['view', 'create', 'update', 'delete'] },
+      { id: 'pizza_config', name: 'Pizzaria', actions: ['view', 'create', 'update', 'delete'] },
       { id: 'theme', name: 'Tema', actions: ['view', 'update'] },
-      { id: 'store', name: 'Loja (todos os planos)', actions: ['view', 'update'] },
-      { id: 'payments', name: 'Pagamentos', actions: ['view', 'update'] }
+      { id: 'store', name: 'Loja', actions: ['view', 'update'] }
+    ]
+  },
+  {
+    id: 'garcom',
+    name: '🧑‍🍳 GARÇOM',
+    modules: [
+      { id: 'garcom', name: 'App do Garçom', actions: ['view'] },
+      { id: 'comandas', name: 'Comandas', actions: ['view', 'create', 'update', 'close', 'history'] },
+      { id: 'tables', name: 'Mesas e QR Code', actions: ['view', 'create', 'update', 'delete'] }
+    ]
+  },
+  {
+    id: 'delivery',
+    name: '🚚 DELIVERY',
+    modules: [
+      { id: 'delivery_zones', name: 'Zonas de Entrega', actions: ['view', 'create', 'update', 'delete'] },
+      { id: 'payments', name: 'Métodos de Pagamento', actions: ['view', 'update'] }
+    ]
+  },
+  {
+    id: 'sistema',
+    name: '⚙️ SISTEMA',
+    modules: [
+      { id: 'printer', name: 'Impressora', actions: ['view', 'update'] },
+      { id: 'colaboradores', name: 'Colaboradores', actions: ['view', 'create', 'update', 'delete'] },
+      { id: '2fa', name: 'Autenticação 2FA', actions: ['view', 'update'] },
+      { id: 'lgpd', name: 'Conformidade LGPD', actions: ['view', 'update'] }
+    ]
+  },
+  {
+    id: 'marketing',
+    name: '💰 MARKETING',
+    modules: [
+      { id: 'promotions', name: 'Promoções', actions: ['view', 'create', 'update', 'delete'] },
+      { id: 'coupons', name: 'Cupons', actions: ['view', 'create', 'update', 'delete'] },
+      { id: 'affiliates', name: 'Programa de Afiliados', actions: ['view', 'create', 'update', 'delete'] }
     ]
   },
   { id: 'graficos_section', name: 'Gráficos', modules: [{ id: 'graficos', name: 'Gráficos', actions: ['view'] }] },
-  {
-    id: 'gestao',
-    name: 'Gestão',
-    modules: [
-      { id: 'orders', name: 'Pedidos', actions: ['view', 'create', 'update', 'delete'] },
-      { id: 'history', name: 'Histórico', actions: ['view'] },
-      { id: 'clients', name: 'Clientes', actions: ['view', 'create', 'update', 'delete'] },
-      { id: 'financial', name: 'Financeiro', actions: ['view'] },
-      { id: 'printer', name: 'Impressora', actions: ['view', 'update'] }
-    ]
-  },
   { id: 'mais_funcoes', name: 'Mais Funções', modules: [{ id: 'mais', name: 'Mais Funções', actions: ['view'] }] }
 ];
 
@@ -63,8 +95,8 @@ const ACTION_LABELS = {
 };
 
 export default function PermissionsEditor({ permissions, onChange, selectedPlan = 'basic', onPlanChange }) {
-  const [expandedGroups, setExpandedGroups] = useState(new Set(['ferramentas', 'cardapio', 'gestao']));
-  const [expandedModules, setExpandedModules] = useState(new Set(['dashboard', 'dishes', 'orders']));
+  const [expandedGroups, setExpandedGroups] = useState(new Set(['gestao', 'operacao', 'cardapio', 'garcom', 'delivery', 'sistema', 'marketing']));
+  const [expandedModules, setExpandedModules] = useState(new Set(['dashboard', 'dishes', 'orders', 'inventory', 'garcom', 'tables', 'affiliates']));
   const [showComparison, setShowComparison] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
 

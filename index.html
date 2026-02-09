@@ -2,6 +2,9 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
     <link rel="icon" type="image/svg+xml" href="/images/digimenu-logo.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#0f172a" media="(prefers-color-scheme: dark)" />
@@ -11,7 +14,31 @@
   </head>
   <body>
     <div id="root"></div>
-    <!-- Obrigatório: type="module" para evitar "Unexpected token 'export'" no build -->
+    <!-- Remove SW antigo na primeira carga para navegadores que ainda estavam com cache -->
+    <script>
+      (function(){
+        if (typeof navigator === 'undefined') return;
+        function maybeReload(hadSwOrCache) {
+          if (!hadSwOrCache || sessionStorage.getItem('digimenu-sw-cleared')) return;
+          sessionStorage.setItem('digimenu-sw-cleared', '1');
+          window.location.reload();
+        }
+        if (navigator.serviceWorker) {
+          navigator.serviceWorker.getRegistrations().then(function(regs) {
+            var hadSw = regs.length > 0;
+            regs.forEach(function(r) { r.unregister(); });
+            if (typeof caches !== 'undefined') {
+              caches.keys().then(function(keys) {
+                keys.forEach(function(k) { caches.delete(k); });
+                maybeReload(hadSw || keys.length > 0);
+              }).catch(function() { maybeReload(hadSw); });
+            } else {
+              maybeReload(hadSw);
+            }
+          });
+        }
+      })();
+    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

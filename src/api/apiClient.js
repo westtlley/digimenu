@@ -168,11 +168,14 @@ class ApiClient {
 
   /**
    * GET request
+   * @param {string} endpoint - Caminho (ex: /public/cardapio/slug)
+   * @param {object} params - Query string (opcional)
+   * @param {object} options - { signal } para AbortController (timeout no cardápio)
    */
-  async get(endpoint, params = {}) {
+  async get(endpoint, params = {}, options = {}) {
     const queryString = new URLSearchParams(params).toString();
     const url = queryString ? `${endpoint}?${queryString}` : endpoint;
-    return this.request(url, { method: 'GET' });
+    return this.request(url, { method: 'GET', ...options });
   }
 
   /**
@@ -301,55 +304,72 @@ class ApiClient {
       },
 
       /**
-       * Faz logout
-       * Se estiver em um cardápio (/s/:slug), recarrega a página para manter no cardápio
-       * Caso contrário, redireciona para login de cliente
+       * Extrai slug da URL quando no formato /s/:slug/...
+       */
+      _getSlugFromPath: (path) => {
+        const m = (path || '').match(/^\/s\/([a-z0-9-]+)(?:\/|$)/i);
+        return m ? m[1] : null;
+      },
+
+      /**
+       * Faz logout. Redireciona para os logins por estabelecimento (/s/:slug/login...) quando há slug.
+       * URLs genéricas (/login/assinante, /login/cliente, /login/colaborador) não são mais usadas.
        */
       logout: () => {
         self.removeToken();
         const currentPath = window.location.pathname;
-        
-        // Se está em um cardápio, apenas recarrega para manter na página
-        if (currentPath.startsWith('/s/')) {
-          window.location.reload();
-        } 
-        // Se está em página administrativa
-        else if (currentPath.includes('/Admin') || currentPath.includes('/Assinantes')) {
+        const slug = self.auth._getSlugFromPath(currentPath);
+
+        if (slug) {
+          // Com slug: sempre redirecionar para o login do estabelecimento
+          if (currentPath.includes('/PainelAssinante') || currentPath.includes('/GestorPedidos')) {
+            window.location.href = `/s/${slug}/login?returnUrl=${encodeURIComponent(currentPath)}`;
+          } else if (currentPath.includes('/Entregador') || currentPath.includes('/Cozinha') ||
+                     currentPath.includes('/PDV') || currentPath.includes('/Garcom')) {
+            window.location.href = `/s/${slug}/login/colaborador?returnUrl=${encodeURIComponent(currentPath)}`;
+          } else {
+            // Cardápio /s/slug: recarrega para ficar no cardápio deslogado
+            window.location.reload();
+          }
+          return;
+        }
+        // Sem slug: não usar mais /login/assinante, /login/cliente, /login/colaborador
+        if (currentPath.includes('/Admin') || currentPath.includes('/Assinantes')) {
           window.location.href = '/login/admin';
-        }
-        // Se está em painel de assinante
-        else if (currentPath.includes('/PainelAssinante') || currentPath.includes('/GestorPedidos')) {
-          window.location.href = '/login/assinante';
-        }
-        // Se está em área de colaborador
-        else if (currentPath.includes('/Entregador') || currentPath.includes('/Cozinha') || 
-                 currentPath.includes('/PDV') || currentPath.includes('/Garcom')) {
-          window.location.href = '/login/colaborador';
-        }
-        // Cliente ou página pública - não redireciona, apenas recarrega
-        else {
+        } else if (currentPath.includes('/PainelAssinante') || currentPath.includes('/GestorPedidos') ||
+                   currentPath.includes('/Entregador') || currentPath.includes('/Cozinha') ||
+                   currentPath.includes('/PDV') || currentPath.includes('/Garcom') ||
+                   currentPath.includes('/colaborador') || currentPath.includes('/PainelGerente')) {
+          window.location.href = '/';
+        } else {
           window.location.reload();
         }
       },
 
       /**
-       * Redireciona para página de login apropriada
-       * Detecta automaticamente o contexto ou usa a página de cliente por padrão
+       * Redireciona para a página de login. Usa /s/:slug/login... quando returnUrl contém slug.
+       * URLs genéricas não são mais usadas; sem slug redireciona para /.
        */
       redirectToLogin: (returnUrl = '/') => {
-        // Detectar contexto pela URL de retorno
-        let loginPath = '/login/cliente'; // Padrão: cliente
-        
+        const slug = self.auth._getSlugFromPath(returnUrl);
         if (returnUrl.includes('/Admin') || returnUrl.includes('/Assinantes')) {
-          loginPath = '/login/admin';
-        } else if (returnUrl.includes('/PainelAssinante') || returnUrl.includes('/Assinar')) {
-          loginPath = '/login/assinante';
-        } else if (returnUrl.includes('/Entregador') || returnUrl.includes('/Cozinha') || 
-                   returnUrl.includes('/PDV') || returnUrl.includes('/Garcom')) {
-          loginPath = '/login/colaborador';
+          window.location.href = '/login/admin';
+          return;
         }
-        
-        window.location.href = `${loginPath}?returnUrl=${encodeURIComponent(returnUrl)}`;
+        if (slug) {
+          let loginPath;
+          if (returnUrl.includes('/PainelAssinante') || returnUrl.includes('/GestorPedidos')) {
+            loginPath = `/s/${slug}/login`;
+          } else if (returnUrl.includes('/Entregador') || returnUrl.includes('/Cozinha') ||
+                     returnUrl.includes('/PDV') || returnUrl.includes('/Garcom')) {
+            loginPath = `/s/${slug}/login/colaborador`;
+          } else {
+            loginPath = `/s/${slug}/login/cliente`;
+          }
+          window.location.href = `${loginPath}?returnUrl=${encodeURIComponent(returnUrl)}`;
+          return;
+        }
+        window.location.href = returnUrl && returnUrl !== '/' ? `/?returnUrl=${encodeURIComponent(returnUrl)}` : '/';
       },
 
       /**

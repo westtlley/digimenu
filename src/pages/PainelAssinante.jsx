@@ -40,6 +40,10 @@ import ColaboradoresTab from '../components/admin/ColaboradoresTab';
 import TwoFactorAuth from '../components/admin/TwoFactorAuth';
 import LGPDCompliance from '../components/admin/LGPDCompliance';
 import TablesTab from '../components/admin/TablesTab';
+import ManagerialAuthTab from '../components/admin/ManagerialAuthTab';
+import BeveragesTab from '../components/admin/BeveragesTab';
+import InventoryManagement from '../components/admin/InventoryManagement';
+import AffiliateProgram from '../components/admin/AffiliateProgram';
 
 function AccessDenied() {
   return (
@@ -57,10 +61,12 @@ function AccessDenied() {
 
 export default function PainelAssinante() {
   // ✅ TODOS OS HOOKS DEVEM VIR ANTES DE QUALQUER RETURN CONDICIONAL
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabFromUrl = searchParams.get('tab');
+  const [activeTab, setActiveTab] = useState(() => tabFromUrl || 'dashboard');
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  
+
   const { loading, permissions, isMaster, hasModuleAccess, user, subscriberData, refresh: refreshPermissions } = usePermission();
 
   // Recarregar contexto ao abrir o painel do assinante para aplicar alterações feitas pelo admin
@@ -94,12 +100,10 @@ export default function PainelAssinante() {
 
   useDocumentHead(store);
 
-  // Abrir aba via ?tab= na URL - ao mudar aba, atualiza URL para persistir no refresh
-  const [searchParams, setSearchParams] = useSearchParams();
+  // Sincronizar aba com ?tab= na URL (ex.: refresh com ?tab=inventory)
   useEffect(() => {
-    const tab = searchParams.get('tab');
-    if (tab) setActiveTab(tab);
-  }, [searchParams]);
+    if (tabFromUrl && tabFromUrl !== activeTab) setActiveTab(tabFromUrl);
+  }, [tabFromUrl]);
 
   const handleSetActiveTab = (tab) => {
     setActiveTab(tab);
@@ -191,12 +195,18 @@ export default function PainelAssinante() {
         ) : <AccessDenied />;
       case 'pizza_config':
         return hasModuleAccess('pizza_config') ? <PizzaConfigTab /> : <AccessDenied />;
+      case 'beverages':
+        return hasModuleAccess('dishes') ? <BeveragesTab /> : <AccessDenied />;
+      case 'inventory':
+        return hasModuleAccess('inventory') ? <InventoryManagement /> : <AccessDenied />;
       case 'delivery_zones':
         return hasModuleAccess('delivery_zones') ? <DeliveryZonesTab /> : <AccessDenied />;
       case 'coupons':
         return hasModuleAccess('coupons') ? <CouponsTab /> : <AccessDenied />;
       case 'promotions':
         return hasModuleAccess('promotions') ? <PromotionsTab /> : <AccessDenied />;
+      case 'affiliates':
+        return hasModuleAccess('affiliates') ? <AffiliateProgram /> : <AccessDenied />;
       case 'comandas':
         return hasModuleAccess('comandas') ? <ComandasTab subscriberEmail={subscriberData?.email || subscriberEmail || user?.subscriber_email || user?.email} /> : <AccessDenied />;
       case 'tables':
@@ -217,6 +227,8 @@ export default function PainelAssinante() {
         return hasModuleAccess('2fa') ? <TwoFactorAuth user={user} /> : <AccessDenied />;
       case 'lgpd':
         return hasModuleAccess('lgpd') ? <LGPDCompliance /> : <AccessDenied />;
+      case 'managerial_auth':
+        return hasModuleAccess('store') ? <ManagerialAuthTab /> : <AccessDenied />;
       default:
         return <DashboardTab user={user} subscriberData={subscriberData} onNavigateToTab={handleSetActiveTab} />;
     }

@@ -1,5 +1,8 @@
-import React, { useState } from 'react';
-import { Search, Filter, X, Calendar, User, Phone, Package, DollarSign, Truck, CreditCard, Star, Save } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Search, Filter, X, Calendar, User, Phone, Package, DollarSign, Truck, CreditCard, Star, Save, Bookmark } from 'lucide-react';
+import toast from 'react-hot-toast';
+
+const SAVED_FILTERS_KEY = 'gestor_saved_filters';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -40,6 +43,8 @@ export default function AdvancedOrderFilters({
   entregadores = [],
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [savedFilters, setSavedFilters] = useState([]);
+  const [saveFilterName, setSaveFilterName] = useState('');
   const [filters, setFilters] = useState({
     status: 'all',
     period: 'today',
@@ -208,23 +213,61 @@ export default function AdvancedOrderFilters({
     onFilterChange(filtered);
   };
 
+  const defaultFilters = {
+    status: 'all',
+    period: 'today',
+    searchType: 'code',
+    entregador: 'all',
+    scheduledHour: 'all',
+    paymentMethod: 'all',
+    deliveryType: 'all',
+    minValue: '',
+    maxValue: '',
+    dateStart: '',
+    dateEnd: '',
+    productName: '',
+  };
+
   const clearFilters = () => {
-    const defaultFilters = {
-      status: 'all',
-      period: 'today',
-      searchType: 'code',
-      entregador: 'all',
-      scheduledHour: 'all',
-      paymentMethod: 'all',
-      deliveryType: 'all',
-      minValue: '',
-      maxValue: '',
-      dateStart: '',
-      dateEnd: '',
-      productName: '',
-    };
     setFilters(defaultFilters);
     applyFilters(defaultFilters);
+  };
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(SAVED_FILTERS_KEY);
+      if (raw) {
+        const list = JSON.parse(raw);
+        setSavedFilters(Array.isArray(list) ? list : []);
+      }
+    } catch (_) {}
+  }, []);
+
+  const saveCurrentFilters = () => {
+    const name = (saveFilterName || '').trim();
+    if (!name) {
+      toast.error('Digite um nome para a combinação');
+      return;
+    }
+    const list = [...savedFilters.filter(s => s.name !== name), { name, filters: { ...filters } }];
+    setSavedFilters(list);
+    localStorage.setItem(SAVED_FILTERS_KEY, JSON.stringify(list));
+    setSaveFilterName('');
+    toast.success('Filtros salvos');
+  };
+
+  const applySavedFilter = (saved) => {
+    setFilters(saved.filters);
+    applyFilters(saved.filters);
+    setIsOpen(false);
+    toast.success(`Aplicado: ${saved.name}`);
+  };
+
+  const removeSavedFilter = (name) => {
+    const list = savedFilters.filter(s => s.name !== name);
+    setSavedFilters(list);
+    localStorage.setItem(SAVED_FILTERS_KEY, JSON.stringify(list));
+    toast.success('Combinação removida');
   };
 
   // Aplicar filtros quando orders, searchTerm ou filtros mudarem
@@ -234,6 +277,7 @@ export default function AdvancedOrderFilters({
   }, [
     orders, 
     searchTerm, 
+    filters.searchType,
     filters.status, 
     filters.period, 
     filters.entregador, 
@@ -498,6 +542,48 @@ export default function AdvancedOrderFilters({
                 onChange={(e) => handleFilterChange('productName', e.target.value)}
                 className="h-9 text-sm"
               />
+            </div>
+
+            {/* Filtros salvos */}
+            <div className="pt-2 border-t space-y-2">
+              <Label className="text-xs font-medium text-gray-700 flex items-center gap-1">
+                <Bookmark className="w-3 h-3" />
+                Combinações salvas
+              </Label>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Nome da combinação"
+                  value={saveFilterName}
+                  onChange={(e) => setSaveFilterName(e.target.value)}
+                  className="h-9 text-sm flex-1"
+                />
+                <Button type="button" size="sm" variant="outline" className="h-9 shrink-0" onClick={saveCurrentFilters}>
+                  <Save className="w-3 h-3 mr-1" /> Salvar
+                </Button>
+              </div>
+              {savedFilters.length > 0 && (
+                <ul className="space-y-1">
+                  {savedFilters.map((s) => (
+                    <li key={s.name} className="flex items-center justify-between gap-2 text-sm py-1">
+                      <button
+                        type="button"
+                        onClick={() => applySavedFilter(s)}
+                        className="text-left truncate flex-1 text-orange-600 hover:underline"
+                      >
+                        {s.name}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => removeSavedFilter(s.name)}
+                        className="text-gray-400 hover:text-red-600 p-0.5"
+                        title="Excluir"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
 
             {/* Badges de filtros ativos */}

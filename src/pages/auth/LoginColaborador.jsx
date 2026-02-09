@@ -8,7 +8,7 @@ import { apiClient as base44 } from '@/api/apiClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Eye, EyeOff, LogIn, Loader2, Users, ChefHat, Truck, CreditCard, Receipt } from 'lucide-react';
+import { Eye, EyeOff, LogIn, Loader2, Users, ChefHat, Truck, CreditCard, Receipt, LayoutDashboard } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function LoginColaborador() {
@@ -27,17 +27,8 @@ export default function LoginColaborador() {
         const ok = await base44.auth.isAuthenticated();
         if (!ok) return;
         const me = await base44.auth.me();
-        if (me?.profile_role) {
-          // Redirecionar conforme perfil
-          const roleRoutes = {
-            entregador: '/Entregador',
-            cozinha: '/Cozinha',
-            pdv: '/PDV',
-            garcom: '/Garcom',
-            gerente: '/PainelAssinante'
-          };
-          const route = roleRoutes[me.profile_role];
-          if (route) navigate(route);
+        if (me?.profile_role || me?.profile_roles?.length) {
+          navigate('/colaborador', { replace: true });
         }
       } catch (e) {
         // Não autenticado
@@ -63,24 +54,7 @@ export default function LoginColaborador() {
 
       if (response.token) {
         toast.success('Login realizado com sucesso!');
-
-        let redirectUrl = returnUrl;
-
-        // Redirecionar conforme perfil do colaborador
-        if (userData?.profile_role === 'entregador') {
-          redirectUrl = '/Entregador';
-        } else if (userData?.profile_role === 'cozinha') {
-          redirectUrl = '/Cozinha';
-        } else if (userData?.profile_role === 'pdv') {
-          redirectUrl = '/PDV';
-        } else if (userData?.profile_role === 'garcom') {
-          redirectUrl = '/Garcom';
-        } else if (userData?.profile_role === 'gerente') {
-          redirectUrl = '/PainelAssinante';
-        } else if (!redirectUrl) {
-          redirectUrl = '/';
-        }
-
+        const redirectUrl = returnUrl || '/colaborador';
         setTimeout(() => navigate(redirectUrl), 400);
       } else {
         setError('Erro ao fazer login. Tente novamente.');
@@ -107,27 +81,31 @@ export default function LoginColaborador() {
               Acesso Colaborador
             </h1>
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              Entregador, Cozinha, PDV ou Garçom
+              Entregador, Cozinha, PDV, Garçom ou Gerente
             </p>
           </div>
 
           {/* Ícones dos perfis */}
-          <div className="grid grid-cols-4 gap-2 mb-6">
-            <div className="flex flex-col items-center p-2 rounded-lg bg-blue-50 dark:bg-blue-900/20">
-              <Truck className="w-5 h-5 text-blue-600 dark:text-blue-400 mb-1" />
-              <span className="text-xs text-blue-700 dark:text-blue-300">Entregador</span>
+          <div className="grid grid-cols-5 gap-1.5 mb-6">
+            <div className="flex flex-col items-center p-1.5 rounded-lg bg-violet-50 dark:bg-violet-900/20">
+              <LayoutDashboard className="w-4 h-4 text-violet-600 dark:text-violet-400 mb-0.5" />
+              <span className="text-[10px] text-violet-700 dark:text-violet-300">Gerente</span>
             </div>
-            <div className="flex flex-col items-center p-2 rounded-lg bg-orange-50 dark:bg-orange-900/20">
-              <ChefHat className="w-5 h-5 text-orange-600 dark:text-orange-400 mb-1" />
-              <span className="text-xs text-orange-700 dark:text-orange-300">Cozinha</span>
+            <div className="flex flex-col items-center p-1.5 rounded-lg bg-blue-50 dark:bg-blue-900/20">
+              <Truck className="w-4 h-4 text-blue-600 dark:text-blue-400 mb-0.5" />
+              <span className="text-[10px] text-blue-700 dark:text-blue-300">Entregador</span>
             </div>
-            <div className="flex flex-col items-center p-2 rounded-lg bg-green-50 dark:bg-green-900/20">
-              <CreditCard className="w-5 h-5 text-green-600 dark:text-green-400 mb-1" />
-              <span className="text-xs text-green-700 dark:text-green-300">PDV</span>
+            <div className="flex flex-col items-center p-1.5 rounded-lg bg-orange-50 dark:bg-orange-900/20">
+              <ChefHat className="w-4 h-4 text-orange-600 dark:text-orange-400 mb-0.5" />
+              <span className="text-[10px] text-orange-700 dark:text-orange-300">Cozinha</span>
             </div>
-            <div className="flex flex-col items-center p-2 rounded-lg bg-purple-50 dark:bg-purple-900/20">
-              <Receipt className="w-5 h-5 text-purple-600 dark:text-purple-400 mb-1" />
-              <span className="text-xs text-purple-700 dark:text-purple-300">Garçom</span>
+            <div className="flex flex-col items-center p-1.5 rounded-lg bg-green-50 dark:bg-green-900/20">
+              <CreditCard className="w-4 h-4 text-green-600 dark:text-green-400 mb-0.5" />
+              <span className="text-[10px] text-green-700 dark:text-green-300">PDV</span>
+            </div>
+            <div className="flex flex-col items-center p-1.5 rounded-lg bg-purple-50 dark:bg-purple-900/20">
+              <Receipt className="w-4 h-4 text-purple-600 dark:text-purple-400 mb-0.5" />
+              <span className="text-[10px] text-purple-700 dark:text-purple-300">Garçom</span>
             </div>
           </div>
 

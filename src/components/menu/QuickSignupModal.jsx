@@ -122,7 +122,10 @@ export default function QuickSignupModal({ isOpen, onClose, onSuccess, returnUrl
             // Se não conseguir fazer login automático, redirecionar para login
             onClose();
             setTimeout(() => {
-              window.location.href = `/login/cliente?returnUrl=${encodeURIComponent(returnUrl || window.location.pathname)}`;
+              const path = returnUrl || window.location.pathname;
+              const m = path.match(/^\/s\/([a-z0-9-]+)(?:\/|$)/i);
+              const loginUrl = m ? `/s/${m[1]}/login/cliente?returnUrl=${encodeURIComponent(path)}` : `/?returnUrl=${encodeURIComponent(path)}`;
+              window.location.href = loginUrl;
             }, 1000);
           }
         } catch (loginError) {
@@ -130,7 +133,10 @@ export default function QuickSignupModal({ isOpen, onClose, onSuccess, returnUrl
           // Redirecionar para login mesmo assim
           onClose();
           setTimeout(() => {
-            window.location.href = `/login/cliente?returnUrl=${encodeURIComponent(returnUrl || window.location.pathname)}`;
+            const path = returnUrl || window.location.pathname;
+            const m = path.match(/^\/s\/([a-z0-9-]+)(?:\/|$)/i);
+            const loginUrl = m ? `/s/${m[1]}/login/cliente?returnUrl=${encodeURIComponent(path)}` : `/?returnUrl=${encodeURIComponent(path)}`;
+            window.location.href = loginUrl;
           }, 1000);
         }
       } else {

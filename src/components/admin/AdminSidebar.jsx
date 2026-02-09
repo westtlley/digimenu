@@ -120,6 +120,7 @@ const MENU_STRUCTURE = [
       { id: 'colaboradores', label: 'Colaboradores', icon: UserCog, module: 'colaboradores' },
       { id: '2fa', label: 'Autenticação 2FA', icon: Key, module: '2fa' },
       { id: 'lgpd', label: 'Conformidade LGPD', icon: Shield, module: 'lgpd' },
+      { id: 'managerial_auth', label: 'Autorização gerencial', icon: Key, module: 'store' },
       { id: 'service_requests', label: 'Solicitações', icon: Bell, masterOnly: true },
       { id: 'pagina_assinar', label: 'Editar Página de Vendas', icon: Layout, masterOnly: true },
     ]
@@ -150,55 +151,28 @@ export default function AdminSidebar({ activeTab, setActiveTab, isMaster = false
     marketing: true // Seção MARKETING (Promoções, Cupons, Afiliados)
   });
 
-  // ✅ CORREÇÃO: Verificação correta de permissões incluindo plan
+  // ✅ Master sempre tem acesso a tudo; para contexto assinante, priorizar permissões do backend
   const hasModuleAccess = (module) => {
-    // Master sempre tem acesso a tudo
-    if (isMaster) {
-      if (module === 'colaboradores') {
-        console.log('[AdminSidebar] Colaboradores: isMaster=true, acesso permitido');
-      }
-      return true;
+    if (isMaster) return true;
+    
+    // Fonte da verdade: permissões do backend primeiro
+    if (permissions && typeof permissions === 'object') {
+      const modulePerms = permissions[module];
+      if (Array.isArray(modulePerms) && modulePerms.length > 0) return true;
     }
     
-    // Usar plan do subscriberData se não foi passado como prop
     const userPlan = plan || subscriberData?.plan || '';
     const planLower = (userPlan || '').toLowerCase();
+    if (planLower === 'master') return true;
     
-    // Se for master (mesmo que venha como plan), sempre tem acesso
-    if (planLower === 'master') {
-      if (module === 'colaboradores') {
-        console.log('[AdminSidebar] Colaboradores: plan=master, acesso permitido');
-      }
-      return true;
-    }
-    
-    // Módulos especiais que dependem do plano
-    if (module === 'colaboradores') {
-      const hasAccess = ['pro', 'ultra'].includes(planLower);
-      console.log(`[AdminSidebar] Colaboradores: plan=${planLower}, isMaster=${isMaster}, hasAccess=${hasAccess}, plan prop=${plan}, subscriberData.plan=${subscriberData?.plan}`);
-      return hasAccess;
-    }
-    
-    // Módulos de Garçom - apenas Ultra
-    if (['comandas', 'tables', 'garcom'].includes(module)) {
-      return planLower === 'ultra';
-    }
-    
-    // Módulos avançados - Pro e Ultra
-    if (['affiliates', 'lgpd', '2fa', 'inventory'].includes(module)) {
-      return ['pro', 'ultra'].includes(planLower);
-    }
-    
-    // Módulos básicos - todos os planos pagos
-    if (['dashboard', 'dishes', 'orders', 'clients', 'whatsapp', 'store', 'theme', 'printer'].includes(module)) {
+    if (module === 'colaboradores') return ['pro', 'ultra'].includes(planLower);
+    if (['comandas', 'tables', 'garcom'].includes(module)) return planLower === 'ultra';
+    if (['affiliates', 'lgpd', '2fa', 'inventory'].includes(module)) return ['pro', 'ultra'].includes(planLower);
+    if (['dashboard', 'dishes', 'orders', 'clients', 'whatsapp', 'store', 'theme', 'printer', 'financial', 'caixa', 'history', 'delivery_zones', 'payments', 'promotions', 'coupons'].includes(module)) {
       return ['basic', 'pro', 'ultra'].includes(planLower);
     }
     
-    // Verificar permissões do backend
-    if (!permissions || typeof permissions !== 'object') return false;
-    
-    const modulePerms = permissions[module];
-    return Array.isArray(modulePerms) && modulePerms.length > 0;
+    return false;
   };
 
 
@@ -301,7 +275,6 @@ export default function AdminSidebar({ activeTab, setActiveTab, isMaster = false
       <button
         key={item.id}
         onClick={() => {
-          console.log('🍽️ [AdminSidebar] Clicou no item do menu:', item.id, item.label);
           setActiveTab(item.id);
           if (onClose) onClose();
         }}

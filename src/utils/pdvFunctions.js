@@ -6,6 +6,8 @@ import React from 'react';
  */
 
 export const PDV_HOTKEYS = {
+  F2: 'menu_vendas',
+  F4: 'fechamento',
   F9: 'cancel_sale',
   F11: 'finish_sale',
 };
@@ -18,6 +20,14 @@ export function usePDVHotkeys(handlers) {
     const handleKeyDown = (e) => {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
       switch (e.key) {
+        case 'F2':
+          e.preventDefault();
+          ref.current?.onOpenMenuVendas?.();
+          break;
+        case 'F4':
+          e.preventDefault();
+          ref.current?.onOpenFechamento?.();
+          break;
         case 'F9':
           e.preventDefault();
           ref.current?.onCancelSale?.();

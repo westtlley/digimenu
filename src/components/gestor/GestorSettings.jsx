@@ -34,6 +34,8 @@ export default function GestorSettings() {
     are_you_there_enabled: false,
     are_you_there_minutes: 15,
     prep_time_manual_enabled: true,
+    auto_cancel_mode: 'off', // 'off' | 'alert' | 'cancel'
+    auto_cancel_minutes: 10,
   });
 
   const queryClient = useQueryClient();
@@ -202,6 +204,35 @@ export default function GestorSettings() {
                 </select>
               </div>
             )}
+
+            <div className="p-3 bg-gray-50 rounded-lg space-y-3">
+              <div>
+                <Label className="text-sm font-medium text-gray-900">Pedidos atrasados (após tempo de preparo)</Label>
+                <p className="text-xs text-gray-500 mt-0.5">Quando o pedido passar do tempo de preparo + margem, o que fazer?</p>
+              </div>
+              <select
+                value={settings.auto_cancel_mode || 'off'}
+                onChange={(e) => setSettings(prev => ({ ...prev, auto_cancel_mode: e.target.value }))}
+                className="border rounded-md px-2.5 py-1.5 text-sm w-full max-w-xs"
+              >
+                <option value="off">Desligado</option>
+                <option value="alert">Só alertar (toast)</option>
+                <option value="cancel">Cancelar automaticamente</option>
+              </select>
+              {(settings.auto_cancel_mode === 'alert' || settings.auto_cancel_mode === 'cancel') && (
+                <div className="flex items-center gap-2">
+                  <Label className="text-sm text-gray-700">Margem após o tempo de preparo (min):</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={60}
+                    value={settings.auto_cancel_minutes ?? 10}
+                    onChange={(e) => setSettings(prev => ({ ...prev, auto_cancel_minutes: parseInt(e.target.value) || 10 }))}
+                    className="w-20 h-9 text-center"
+                  />
+                </div>
+              )}
+            </div>
 
             <Button onClick={saveSettings} className="bg-orange-500 hover:bg-orange-600">
               <Save className="w-4 h-4 mr-2" /> Salvar

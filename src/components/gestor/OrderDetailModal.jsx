@@ -881,8 +881,62 @@ export default function OrderDetailModal({
                 </>
               )}
 
+              {/* Status rápido: botões em destaque para toque */}
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-2 border-t border-gray-200">
+                <Button
+                  size="sm"
+                  variant={order.status === 'new' ? 'default' : 'outline'}
+                  className="min-h-touch bg-green-600 hover:bg-green-700 text-white border-0"
+                  disabled={order.status !== 'new' || updateMutation.isPending}
+                  onClick={() => { const p = canAlterPrepPerOrder ? prepTime : (suggestedPrepTime || 30); updateMutation.mutate({ id: order.id, updates: { status: 'accepted', accepted_at: new Date().toISOString(), prep_time: p } }); }}
+                >
+                  Aceitar
+                </Button>
+                <Button
+                  size="sm"
+                  variant={['accepted', 'preparing'].includes(order.status) ? 'default' : 'outline'}
+                  className="min-h-touch bg-yellow-600 hover:bg-yellow-700 text-white border-0"
+                  disabled={!['accepted', 'preparing'].includes(order.status) || updateMutation.isPending}
+                  onClick={() => updateMutation.mutate({ id: order.id, updates: { status: 'preparing' } })}
+                >
+                  Preparo
+                </Button>
+                <Button
+                  size="sm"
+                  variant={order.status === 'ready' ? 'default' : 'outline'}
+                  className="min-h-touch bg-emerald-600 hover:bg-emerald-700 text-white border-0"
+                  disabled={!['accepted', 'preparing'].includes(order.status) || updateMutation.isPending}
+                  onClick={() => {
+                    const u = { status: 'ready', ready_at: new Date().toISOString() };
+                    if (!order.pickup_code) u.pickup_code = Math.floor(1000 + Math.random() * 9000).toString();
+                    if (!order.delivery_code && order.delivery_method === 'delivery') u.delivery_code = Math.floor(1000 + Math.random() * 9000).toString();
+                    updateMutation.mutate({ id: order.id, updates: u });
+                  }}
+                >
+                  Pronto
+                </Button>
+                <Button
+                  size="sm"
+                  variant={order.status === 'out_for_delivery' ? 'default' : 'outline'}
+                  className="min-h-touch bg-blue-600 hover:bg-blue-700 text-white border-0"
+                  disabled={!['ready', 'picked_up'].includes(order.status) || updateMutation.isPending}
+                  onClick={() => updateMutation.mutate({ id: order.id, updates: { status: 'out_for_delivery' } })}
+                >
+                  Saiu
+                </Button>
+                <Button
+                  size="sm"
+                  variant={order.status === 'delivered' ? 'default' : 'outline'}
+                  className="min-h-touch bg-gray-700 hover:bg-gray-800 text-white border-0"
+                  disabled={!['ready', 'out_for_delivery', 'arrived_at_customer'].includes(order.status) || updateMutation.isPending}
+                  onClick={() => updateMutation.mutate({ id: order.id, updates: { status: 'delivered', delivered_at: new Date().toISOString() } })}
+                >
+                  Entregue
+                </Button>
+              </div>
+
               <div className="grid grid-cols-2 gap-2">
-                <Button onClick={handlePrint} variant="outline" size="sm" className="rounded uppercase font-bold transition-all duration-100">
+                <Button onClick={handlePrint} variant="outline" size="sm" className="rounded uppercase font-bold transition-all duration-100 min-h-touch">
                   <Printer className="w-4 h-4 mr-1" /> Imprimir
                 </Button>
                 {onAddToPrintQueue && (
@@ -923,7 +977,7 @@ export default function OrderDetailModal({
           <div className="space-y-4">
             <DialogTitle className="font-bold text-lg text-red-600">⚠️ Rejeitar Pedido</DialogTitle>
             <DialogDescription className="text-sm text-gray-600">
-              Selecione o motivo da rejeição. Esta ação não pode ser desfeita.
+              Tem certeza? Selecione o motivo da rejeição. Esta ação não pode ser desfeita.
             </DialogDescription>
             <div className="space-y-2">
               {REJECTION_REASONS.map(reason => (

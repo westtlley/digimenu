@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import { useSearchParams, useParams, Link } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,6 +14,7 @@ const PLAN_INFO = {
 
 export default function Cadastro() {
   const [searchParams] = useSearchParams();
+  const { slug } = useParams();
   const planKey = searchParams.get('plan') || 'free';
   const interval = searchParams.get('interval') || 'monthly';
   const plan = PLAN_INFO[planKey] || PLAN_INFO.free;
@@ -73,9 +74,9 @@ export default function Cadastro() {
           throw new Error(data.error || 'Erro ao criar conta gratuita');
         }
         
-        // Redirecionar para login
+        // Redirecionar para login (por slug quando disponível)
         alert('✅ Conta gratuita criada com sucesso!\n\nFaça login para acessar seu painel.');
-        window.location.href = '/login/cliente';
+        window.location.href = slug ? `/s/${slug}/login/cliente` : '/';
       } else {
         // Para planos pagos, criar assinatura no Mercado Pago
         const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}/api/mercadopago/create-subscription`, {
@@ -270,7 +271,7 @@ export default function Cadastro() {
         <div className="mt-6 pt-6 border-t text-center text-sm">
           <p className="text-gray-600">
             Já tem uma conta?{' '}
-            <Link to="/login/cliente" className="text-orange-600 hover:text-orange-700 font-semibold hover:underline">
+            <Link to={slug ? `/s/${slug}/login/cliente` : '/'} className="text-orange-600 hover:text-orange-700 font-semibold hover:underline">
               Fazer login
             </Link>
           </p>

@@ -10,12 +10,14 @@ import('./utils/sentry.js').catch(() => {
   // Sentry opcional, não bloquear se não disponível
 });
 
-// Registrar Service Worker para modo offline
-import('./utils/registerServiceWorker.js').then(({ registerServiceWorker }) => {
-  registerServiceWorker();
-}).catch(() => {
-  console.warn('Service Worker não disponível');
-});
+// Service Worker desativado. Garante desregistro após load (redundante com script inline no HTML).
+if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.getRegistrations().then((regs) => {
+      regs.forEach((r) => r.unregister());
+    });
+  });
+}
 
 // Ignorar erros de extensões do navegador e shaders
 window.addEventListener('error', (event) => {

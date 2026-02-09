@@ -1,21 +1,25 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient as base44 } from '@/api/apiClient';
+import { usePermission } from '@/components/permissions/usePermission';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
-import { UserCog, Plus, Pencil, Trash2, Truck, ChefHat, CreditCard, Receipt, Loader2, Eye, EyeOff, UserPlus } from 'lucide-react';
+import { UserCog, Plus, Pencil, Trash2, Truck, ChefHat, CreditCard, Receipt, Loader2, Eye, EyeOff, UserPlus, LayoutDashboard } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ColaboradorProfileView from '../colaboradores/ColaboradorProfileView';
 import ColaboradorProfile from '../colaboradores/ColaboradorProfile';
 
-const ROLE_LABELS = { entregador: 'Entregador', cozinha: 'Cozinha', pdv: 'PDV', garcom: 'Garçom' };
-const ROLE_ICONS = { entregador: Truck, cozinha: ChefHat, pdv: CreditCard, garcom: Receipt };
-const ALL_ROLES = ['entregador', 'cozinha', 'pdv', 'garcom'];
+const ROLE_LABELS = { entregador: 'Entregador', cozinha: 'Cozinha', pdv: 'PDV', garcom: 'Garçom', gerente: 'Gerente' };
+const ROLE_ICONS = { entregador: Truck, cozinha: ChefHat, pdv: CreditCard, garcom: Receipt, gerente: LayoutDashboard };
+const ALL_ROLES = ['entregador', 'cozinha', 'pdv', 'garcom', 'gerente'];
 
-export default function ColaboradoresTab() {
+/** Quando true (painel do gerente), o gerente não pode criar/atribuir perfil Gerente — apenas Entregador, Cozinha, PDV, Garçom */
+const ROLES_FOR_GERENTE_PANEL = ALL_ROLES.filter((r) => r !== 'gerente');
+
+export default function ColaboradoresTab({ isGerentePanel = false }) {
   const [showModal, setShowModal] = useState(false);
   const [showAddRolesModal, setShowAddRolesModal] = useState(false);
   const [showProfileView, setShowProfileView] = useState(false);
@@ -27,10 +31,13 @@ export default function ColaboradoresTab() {
   const [addRolesForm, setAddRolesForm] = useState({ roles: [] });
   const [showPass, setShowPass] = useState(false);
   const queryClient = useQueryClient();
+  const { menuContext, isMaster } = usePermission();
+  const asSub = isGerentePanel ? null : (menuContext?.type === 'subscriber' ? menuContext?.value : null);
+  const selectableRoles = isGerentePanel ? ROLES_FOR_GERENTE_PANEL : ALL_ROLES;
 
   const { data: list = [], isLoading } = useQuery({
-    queryKey: ['colaboradores'],
-    queryFn: () => base44.get('/colaboradores').then(r => (Array.isArray(r) ? r : r.data || [])),
+    queryKey: ['colaboradores', asSub],
+    queryFn: () => base44.get('/colaboradores', asSub ? { as_subscriber: asSub } : {}).then(r => (Array.isArray(r) ? r : r.data || [])),
   });
   
   // Agrupar por email para mostrar múltiplos perfis
@@ -62,7 +69,10 @@ export default function ColaboradoresTab() {
   }, [list]);
 
   const createMu = useMutation({
-    mutationFn: (body) => base44.post('/colaboradores', body),
+    mutationFn: (body) => {
+      const url = asSub ? `/colaboradores?as_subscriber=${encodeURIComponent(asSub)}` : '/colaboradores';
+      return base44.post(url, body);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['colaboradores'] });
       setShowModal(false);
@@ -74,7 +84,10 @@ export default function ColaboradoresTab() {
   });
   
   const addRolesMu = useMutation({
-    mutationFn: ({ email, roles }) => base44.post(`/colaboradores/${encodeURIComponent(email)}/add-roles`, { roles }),
+    mutationFn: ({ email, roles }) => {
+      const q = asSub ? `?as_subscriber=${encodeURIComponent(asSub)}` : '';
+      return base44.post(`/colaboradores/${encodeURIComponent(email)}/add-roles${q}`, { roles });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['colaboradores'] });
       setShowAddRolesModal(false);
@@ -213,8 +226,13 @@ export default function ColaboradoresTab() {
             Colaboradores
           </h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-            Perfis com acesso limitado: Entregador, Cozinha, PDV e Garçom. Apenas planos Pro e Ultra. Você pode adicionar múltiplos perfis ao mesmo colaborador.
+            Perfis com acesso limitado: Entregador, Cozinha, PDV, Garçom e Gerente. Apenas planos Pro e Ultra. Os colaboradores são sempre do estabelecimento (assinante) com seu slug — liberados pelo assinante.
           </p>
+          {isMaster && !asSub && (
+            <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+              Como master: selecione um estabelecimento em Assinantes (Ver dados completos ou editar) para listar e adicionar colaboradores desse estabelecimento.
+            </p>
+          )}
         </div>
         <Button onClick={openAdd} className="bg-orange-500 hover:bg-orange-600">
           <Plus className="w-4 h-4 mr-2" />
@@ -229,12 +247,18 @@ export default function ColaboradoresTab() {
       ) : list.length === 0 ? (
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-8 text-center">
           <UserCog className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-          <p className="text-gray-500 dark:text-gray-400">Nenhum colaborador cadastrado.</p>
-          <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Adicione perfis para funcionários acessarem Entregador, Cozinha, PDV ou Garçom.</p>
-          <Button onClick={openAdd} className="mt-4 bg-orange-500 hover:bg-orange-600">
-            <Plus className="w-4 h-4 mr-2" />
-            Adicionar colaborador
-          </Button>
+          <p className="text-gray-500 dark:text-gray-400">
+            {isMaster && !asSub ? 'Selecione um estabelecimento em Assinantes para ver os colaboradores.' : 'Nenhum colaborador cadastrado.'}
+          </p>
+          <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
+            {isMaster && !asSub ? 'O acesso de colaboradores é liberado pelo assinante (estabelecimento) com seu slug.' : 'Adicione perfis para funcionários acessarem Entregador, Cozinha, PDV, Garçom ou Gerente.'}
+          </p>
+          {asSub && (
+            <Button onClick={openAdd} className="mt-4 bg-orange-500 hover:bg-orange-600">
+              <Plus className="w-4 h-4 mr-2" />
+              Adicionar colaborador
+            </Button>
+          )}
         </div>
       ) : (
         <div className="grid gap-3">
@@ -289,14 +313,16 @@ export default function ColaboradoresTab() {
                     <Eye className="w-4 h-4 mr-1" />
                     Ver Perfil
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => openAddRoles(row)} disabled={row.roles.length >= ALL_ROLES.length}>
+                  <Button variant="outline" size="sm" onClick={() => openAddRoles(row)} disabled={row.roles.length >= selectableRoles.length}>
                     <UserPlus className="w-4 h-4 mr-1" />
                     Adicionar Perfis
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => openEdit(row)}>
-                    <Pencil className="w-4 h-4 mr-1" />
-                    Editar
-                  </Button>
+                  {!(isGerentePanel && row.roles.includes('gerente')) && (
+                    <Button variant="outline" size="sm" onClick={() => openEdit(row)}>
+                      <Pencil className="w-4 h-4 mr-1" />
+                      Editar
+                    </Button>
+                  )}
                 </div>
               </div>
             );
@@ -331,7 +357,7 @@ export default function ColaboradoresTab() {
             <div>
               <Label>Perfis (selecione um ou mais)</Label>
               <div className="space-y-2 mt-2">
-                {ALL_ROLES.map(role => {
+                {selectableRoles.map(role => {
                   const Icon = ROLE_ICONS[role];
                   return (
                     <div key={role} className="flex items-center space-x-2">
@@ -388,12 +414,12 @@ export default function ColaboradoresTab() {
           </DialogHeader>
           <div className="space-y-4 py-2">
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Perfis atuais: {addingRolesTo?.roles?.map(r => ROLE_LABELS[r]).join(', ') || 'Nenhum'}
+              Perfis atuais: {addingRolesTo?.roles?.map(r => ROLE_LABELS[r] || r).join(', ') || 'Nenhum'}
             </p>
             <div>
               <Label>Selecione os perfis para adicionar</Label>
               <div className="space-y-2 mt-2">
-                {ALL_ROLES.filter(role => !addingRolesTo?.roles?.includes(role)).map(role => {
+                {selectableRoles.filter(role => !addingRolesTo?.roles?.includes(role)).map(role => {
                   const Icon = ROLE_ICONS[role];
                   return (
                     <div key={role} className="flex items-center space-x-2">
@@ -413,7 +439,7 @@ export default function ColaboradoresTab() {
                   );
                 })}
               </div>
-              {ALL_ROLES.filter(role => !addingRolesTo?.roles?.includes(role)).length === 0 && (
+              {selectableRoles.filter(role => !addingRolesTo?.roles?.includes(role)).length === 0 && (
                 <p className="text-sm text-gray-500 mt-2">Este colaborador já possui todos os perfis disponíveis.</p>
               )}
             </div>
