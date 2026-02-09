@@ -670,10 +670,11 @@ app.post('/api/auth/login', validate(schemas.login), asyncHandler(async (req, re
     if (user.password) {
       try {
         // Tentar comparar com bcrypt primeiro
+        console.log('🔐 [login] Verificando senha para:', user.email);
         const isValid = await bcrypt.compare(password, user.password);
         
         if (isValid) {
-          console.log('✅ [login] Login bem-sucedido para:', user.email);
+          console.log('✅ [login] Senha válida! Login bem-sucedido para:', user.email);
           
           // Verificar se é assinante e garantir acesso automático aos perfis do plano
           let subscriber = null;
@@ -774,13 +775,23 @@ app.post('/api/auth/login', validate(schemas.login), asyncHandler(async (req, re
         
         // Se não passou, senha está incorreta
         console.log('❌ [login] Senha incorreta para:', user.email);
+        console.log('🔍 [login] Detalhes da verificação:', {
+          email: user.email,
+          passwordProvided: password ? 'SIM' : 'NÃO',
+          passwordLength: password ? password.length : 0,
+          passwordHashInDB: user.password ? 'SIM' : 'NÃO',
+          hashLength: user.password ? user.password.length : 0,
+          hashStartsWith$2: user.password ? user.password.startsWith('$2') : false
+        });
       } catch (bcryptError) {
         // Se bcrypt falhar, pode ser senha antiga sem hash
         // Neste caso, hash a senha antiga e atualize no banco
-        console.warn('⚠️ [login] Senha sem hash detectada, atualizando...');
+        console.warn('⚠️ [login] Erro ao comparar com bcrypt:', bcryptError.message);
+        console.warn('⚠️ [login] Tentando verificar se senha está em texto plano...');
         
         // Verificar se a senha antiga (texto plano) corresponde
         if (user.password === password) {
+          console.log('✅ [login] Senha em texto plano corresponde. Convertendo para hash...');
           // Hash a senha e atualize no banco
           const hashed = await bcrypt.hash(password, 10);
           
