@@ -1608,7 +1608,8 @@ app.post('/api/colaboradores', authenticate, validate(schemas.createColaborador)
       is_master: false,
       role: 'user',
       subscriber_email: owner,
-      profile_role: roleNorm
+      profile_role: roleNorm,
+      active: true // Colaboradores são criados ativos por padrão
     };
 
     let newUser;
