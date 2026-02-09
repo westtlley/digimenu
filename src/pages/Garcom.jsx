@@ -51,8 +51,9 @@ export default function Garcom() {
           base44.auth.redirectToLogin('/Garcom');
           return;
         }
-        // Verificar se tem perfil de garçom ou é master
-        const hasAccess = me?.profile_role === 'garcom' || me?.is_master === true;
+        // Verificar se tem perfil de garçom, é master, ou é assinante (acesso livre)
+        const isAssinante = me?.subscriber_email && (me?.email || '').toLowerCase().trim() === (me?.subscriber_email || '').toLowerCase().trim();
+        const hasAccess = me?.profile_role === 'garcom' || me?.is_master === true || isAssinante;
         setAllowed(hasAccess);
         if (!hasAccess) {
           setLoading(false);

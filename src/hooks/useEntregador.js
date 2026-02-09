@@ -19,8 +19,11 @@ export function useEntregador() {
         setUser(userData);
         const asSub = (inSlugContext && userData?.is_master && subscriberEmail) ? subscriberEmail : undefined;
 
-        // Colaborador com perfil Entregador tem acesso direto
-        if (userData.profile_role === 'entregador') {
+        // Verificar se é assinante (acesso livre a todas as ferramentas)
+        const isAssinante = userData?.subscriber_email && (userData?.email || '').toLowerCase().trim() === (userData?.subscriber_email || '').toLowerCase().trim();
+        
+        // Colaborador com perfil Entregador, master, ou assinante tem acesso direto
+        if (userData.profile_role === 'entregador' || userData.is_master || isAssinante) {
           setHasAccess(true);
         } else {
           const subscribers = await base44.entities.Subscriber.list();
@@ -37,8 +40,8 @@ export function useEntregador() {
           }
         }
         
-        // Master, is_entregador ou perfil colaborador Entregador
-        if (userData.is_master || userData.is_entregador || userData.profile_role === 'entregador') {
+        // Master, is_entregador, perfil colaborador Entregador, ou assinante
+        if (userData.is_master || userData.is_entregador || userData.profile_role === 'entregador' || isAssinante) {
           const allEntregadores = await base44.entities.Entregador.list(null, asSub ? { as_subscriber: asSub } : {});
           const matchedEntregador = allEntregadores.find(e => 
             e.email?.toLowerCase().trim() === userData.email?.toLowerCase().trim()

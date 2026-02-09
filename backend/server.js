@@ -1910,6 +1910,57 @@ app.delete('/api/colaboradores/:id', authenticate, asyncHandler(async (req, res)
   }
 }));
 
+// Endpoint para ativar/desativar colaborador
+app.patch('/api/colaboradores/:id/toggle-active', authenticate, asyncHandler(async (req, res) => {
+  try {
+    const { owner, subscriber } = await getOwnerAndSubscriber(req);
+    if (!owner) return res.status(400).json({ error: 'Contexto do assinante necessário' });
+    if (!canUseColaboradores(subscriber, req.user?.is_master)) return res.status(403).json({ error: 'Colaboradores disponível apenas nos planos Pro e Ultra' });
+    const id = req.params.id;
+    const { active } = req.body;
+    
+    if (typeof active !== 'boolean') {
+      return res.status(400).json({ error: 'Campo "active" deve ser true ou false' });
+    }
+
+    // Buscar colaborador
+    let targetColab = null;
+    if (usePostgreSQL && repo.listColaboradores) {
+      const all = await repo.listColaboradores(owner);
+      targetColab = all.find(x => String(x.id) === String(id));
+    } else if (db?.users) {
+      targetColab = db.users.find(x => String(x.id) === String(id) && (x.subscriber_email || '').toLowerCase().trim() === owner && (x.profile_role || '').trim());
+    }
+    
+    if (!targetColab) {
+      return res.status(404).json({ error: 'Colaborador não encontrado' });
+    }
+
+    // Gerente não pode desativar outro colaborador que tenha perfil Gerente
+    if (!active && isRequesterGerente(req) && (targetColab.profile_role || '').toLowerCase().trim() === 'gerente') {
+      return res.status(403).json({ error: 'Apenas o dono do estabelecimento pode desativar um Gerente.' });
+    }
+
+    // Atualizar status
+    if (usePostgreSQL) {
+      await repo.updateUser(id, { active });
+    } else if (db?.users) {
+      const idx = db.users.findIndex(x => String(x.id) === String(id) && (x.subscriber_email || '').toLowerCase().trim() === owner && (x.profile_role || '').trim());
+      if (idx === -1) return res.status(404).json({ error: 'Colaborador não encontrado' });
+      db.users[idx].active = active;
+      db.users[idx].updated_at = new Date().toISOString();
+      if (typeof saveDatabaseDebounced === 'function') saveDatabaseDebounced(db);
+    } else {
+      return res.status(500).json({ error: 'Banco não disponível' });
+    }
+    
+    return res.json({ success: true, active });
+  } catch (e) {
+    console.error('PATCH /api/colaboradores/:id/toggle-active:', sanitizeForLog({ error: e?.message }));
+    throw e;
+  }
+}));
+
 // -----------------------
 // Autorização gerencial (matrícula + senha para validar ações sensíveis)
 // Apenas assinante (dono) pode criar/alterar; assinante e gerente validam com sua matrícula/senha.

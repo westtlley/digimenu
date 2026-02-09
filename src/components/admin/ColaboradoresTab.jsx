@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
-import { UserCog, Plus, Pencil, Trash2, Truck, ChefHat, CreditCard, Receipt, Loader2, Eye, EyeOff, UserPlus, LayoutDashboard } from 'lucide-react';
+import { UserCog, Plus, Pencil, Trash2, Truck, ChefHat, CreditCard, Receipt, Loader2, Eye, EyeOff, UserPlus, LayoutDashboard, Ban, CheckCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ColaboradorProfileView from '../colaboradores/ColaboradorProfileView';
 import ColaboradorProfile from '../colaboradores/ColaboradorProfile';
@@ -52,7 +52,9 @@ export default function ColaboradoresTab({ isGerentePanel = false }) {
           roles: item.profile_roles || [item.profile_role].filter(Boolean),
           ids: item.ids || [item.id].filter(Boolean),
           created_at: item.created_at,
-          updated_at: item.updated_at
+          updated_at: item.updated_at,
+          active: item.active !== false, // Default true se não especificado
+          id: item.id // Para operações individuais
         };
       } else {
         // Adicionar roles únicos
@@ -63,6 +65,14 @@ export default function ColaboradoresTab({ isGerentePanel = false }) {
             existingRoles.push(role);
           }
         });
+        // Se algum perfil estiver desativado, marcar como desativado
+        if (item.active === false) {
+          grouped[email].active = false;
+        }
+        // Se algum perfil estiver desativado, marcar como desativado
+        if (item.active === false) {
+          grouped[email].active = false;
+        }
       }
     });
     return Object.values(grouped);
@@ -318,10 +328,49 @@ export default function ColaboradoresTab({ isGerentePanel = false }) {
                     Adicionar Perfis
                   </Button>
                   {!(isGerentePanel && row.roles.includes('gerente')) && (
-                    <Button variant="outline" size="sm" onClick={() => openEdit(row)}>
-                      <Pencil className="w-4 h-4 mr-1" />
-                      Editar
-                    </Button>
+                    <>
+                      <Button variant="outline" size="sm" onClick={() => openEdit(row)}>
+                        <Pencil className="w-4 h-4 mr-1" />
+                        Editar
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => {
+                          const firstId = row.ids?.[0] || row.id;
+                          if (firstId) {
+                            toggleActiveMu.mutate({ id: firstId, active: !row.active });
+                          }
+                        }}
+                        className={row.active ? 'text-orange-600 hover:text-orange-700' : 'text-green-600 hover:text-green-700'}
+                      >
+                        {row.active ? (
+                          <>
+                            <Ban className="w-4 h-4 mr-1" />
+                            Desativar
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle className="w-4 h-4 mr-1" />
+                            Ativar
+                          </>
+                        )}
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => {
+                          const firstId = row.ids?.[0] || row.id;
+                          if (firstId && confirm(`Tem certeza que deseja excluir o acesso de ${row.full_name || row.email}? Esta ação não pode ser desfeita.`)) {
+                            deleteMu.mutate(firstId);
+                          }
+                        }}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Trash2 className="w-4 h-4 mr-1" />
+                        Excluir
+                      </Button>
+                    </>
                   )}
                 </div>
               </div>

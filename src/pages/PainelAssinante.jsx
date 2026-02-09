@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { apiClient as base44 } from '@/api/apiClient';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { usePermission } from '../components/permissions/usePermission';
 import { PLAN_PRESETS } from '../components/permissions/PlanPresets';
@@ -127,12 +127,28 @@ export default function PainelAssinante() {
   // Suporta tanto profile_role (string) quanto profile_roles (array)
   const roles = user?.profile_roles?.length ? user.profile_roles : user?.profile_role ? [user.profile_role] : [];
   const isGerente = roles.includes('gerente');
+  const isColaborador = roles.length > 0;
+  
+  // ✅ CORREÇÃO: Gerente/colaborador não deve acessar PainelAssinante diretamente
+  // Deve ir para /colaborador para escolher qual acesso usar
+  useEffect(() => {
+    if (isColaborador && !isMaster && !loading) {
+      navigate('/colaborador', { replace: true });
+    }
+  }, [isColaborador, isMaster, loading, navigate]);
+  
+  if (isColaborador && !isMaster && !loading) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+      </div>
+    );
+  }
   
   // Master pode acessar, mas assinantes precisam de assinatura ativa
   // ✅ CORREÇÃO: Verificar se subscriberData existe e se status é 'active'
   // Se subscriberData for null mas o usuário não é master, pode ser que ainda não carregou
-  // Gerente pode acessar mesmo sem assinatura ativa
-  if (!isMaster && !isGerente && subscriberData && subscriberData.status !== 'active') {
+  if (!isMaster && subscriberData && subscriberData.status !== 'active') {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md text-center">
