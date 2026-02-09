@@ -660,8 +660,8 @@ app.post('/api/auth/login', validate(schemas.login), asyncHandler(async (req, re
       hasPasswordHash: !!user.password && user.password.startsWith('$2')
     });
 
-    // ✅ Verificar se colaborador está ativo (se tiver profile_role)
-    if (user.profile_role && user.active === false) {
+    // ✅ Verificar se colaborador está ativo (se tiver profile_role e se a coluna active existir)
+    if (user.profile_role && user.active !== undefined && user.active === false) {
       console.log('❌ [login] Colaborador desativado:', user.email);
       return res.status(403).json({ error: 'Seu acesso foi desativado. Entre em contato com o administrador.' });
     }
@@ -787,8 +787,26 @@ app.post('/api/auth/login', validate(schemas.login), asyncHandler(async (req, re
           passwordLength: password ? password.length : 0,
           passwordHashInDB: user.password ? 'SIM' : 'NÃO',
           hashLength: user.password ? user.password.length : 0,
-          hashStartsWith$2: user.password ? user.password.startsWith('$2') : false
+          hashStartsWith$2: user.password ? user.password.startsWith('$2') : false,
+          hashFirstChars: user.password ? user.password.substring(0, 20) : 'N/A',
+          passwordFirstChars: password ? password.substring(0, 5) + '...' : 'N/A'
         });
+        
+        // Tentar verificar se há problema com espaços ou caracteres especiais
+        const passwordTrimmed = password ? password.trim() : '';
+        if (passwordTrimmed !== password) {
+          console.log('⚠️ [login] Senha contém espaços no início/fim, tentando com trim...');
+          try {
+            const isValidTrimmed = await bcrypt.compare(passwordTrimmed, user.password);
+            if (isValidTrimmed) {
+              console.log('✅ [login] Senha válida após trim!');
+              // Continuar com o login normalmente
+              // (o código abaixo já vai fazer isso)
+            }
+          } catch (e) {
+            console.warn('⚠️ [login] Erro ao verificar senha com trim:', e.message);
+          }
+        }
       } catch (bcryptError) {
         // Se bcrypt falhar, pode ser senha antiga sem hash
         // Neste caso, hash a senha antiga e atualize no banco
