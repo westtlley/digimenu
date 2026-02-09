@@ -467,6 +467,11 @@ export async function createUser(userData) {
     cols.push('profile_role');
     vals.push(userData.profile_role);
   }
+  // Adicionar campo active se fornecido (default true)
+  if (userData.active !== undefined) {
+    cols.push('active');
+    vals.push(userData.active !== false); // Default true
+  }
   const placeholders = vals.map((_, i) => `$${i + 1}`).join(', ');
   const result = await query(
     `INSERT INTO users (${cols.join(', ')}) VALUES (${placeholders}) RETURNING *`,
