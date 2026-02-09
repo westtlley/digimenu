@@ -5,5 +5,5 @@
  */
 export const SYSTEM_NAME = 'WF-Menu';
 export const SYSTEM_NAME_SHORT = 'WF-Menu';
-export const SYSTEM_LOGO_URL = '/images/digimenu-logo.svg';
-export const SYSTEM_FAVICON_URL = '/images/digimenu-logo.svg';
+export const SYSTEM_LOGO_URL = '/images/digimenu-logo.png';
+export const SYSTEM_FAVICON_URL = '/images/digimenu-logo.png';
