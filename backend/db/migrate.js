@@ -371,6 +371,36 @@ export async function migrate() {
         } catch (error) {
           console.warn('⚠️ Aviso ao criar tabelas de ganhos/gorjetas/feedbacks (pode já existir):', error.message);
         }
+
+        // Migração: Campo active em users (para desativar colaboradores)
+        try {
+          const migrationSQL = fs.readFileSync(path.join(__dirname, 'migrations', 'add_active_field_to_users.sql'), 'utf8');
+          await query(migrationSQL);
+          console.log('✅ Migração de coluna active em users concluída.');
+        } catch (e) {
+          // Se o arquivo não existir, tentar adicionar diretamente
+          try {
+            await query(`
+              DO $$ 
+              BEGIN
+                IF NOT EXISTS (
+                  SELECT 1 
+                  FROM information_schema.columns 
+                  WHERE table_name = 'users' 
+                  AND column_name = 'active'
+                ) THEN
+                  ALTER TABLE users ADD COLUMN active BOOLEAN DEFAULT TRUE;
+                  UPDATE users SET active = TRUE WHERE active IS NULL;
+                  RAISE NOTICE 'Coluna active adicionada em users';
+                END IF;
+              END $$;
+              CREATE INDEX IF NOT EXISTS idx_users_active ON users(active) WHERE active = false;
+            `);
+            console.log('✅ Migração de coluna active em users concluída.');
+          } catch (error) {
+            console.warn('⚠️ Aviso ao adicionar coluna active em users (pode já existir):', error.message);
+          }
+        }
     
     console.log('✅ Migração concluída com sucesso!');
     return true;
