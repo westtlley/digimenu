@@ -32,15 +32,17 @@ export default function Login() {
         const ok = await base44.auth.isAuthenticated();
         if (!ok) return;
         const me = await base44.auth.me();
+        if (!me) return;
+        
         let to = returnUrl;
         if (!returnUrl || returnUrl === '/' || returnUrl === '/login') {
           if (me?.role === 'customer') to = '/Cardapio';
           else if (me?.profile_role || me?.profile_roles?.length) to = '/colaborador';
           else to = me?.is_master ? '/Admin' : '/PainelAssinante';
         }
-        navigate(to);
+        navigate(to, { replace: true });
       } catch (e) {
-        // Não autenticado ou falha em me()
+        // Não autenticado ou falha em me() - não fazer nada, deixar usuário fazer login
       }
     };
     checkAuth();

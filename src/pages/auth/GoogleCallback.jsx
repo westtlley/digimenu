@@ -39,25 +39,25 @@ export default function GoogleCallback() {
         // Buscar dados do usuário
         const user = await apiClient.auth.me();
         
-        if (user) {
-          // Salvar dados do usuário
-          localStorage.setItem('user', JSON.stringify(user));
-          
-          toast.success(`Bem-vindo, ${user.full_name || name || 'Usuário'}!`);
-          
-          // Redirecionar conforme perfil
-          if (user.role === 'customer') {
-            navigate('/Cardapio', { replace: true });
-          } else if (user.profile_role || user.profile_roles?.length) {
-            // Colaborador (incluindo gerente) → Home do colaborador com botões para escolher acesso
-            navigate('/colaborador', { replace: true });
-          } else if (user.is_master) {
-            navigate('/Admin', { replace: true });
-          } else {
-            navigate('/PainelAssinante', { replace: true });
-          }
-        } else {
+        if (!user) {
           throw new Error('Dados do usuário não encontrados');
+        }
+        
+        // Salvar dados do usuário
+        localStorage.setItem('user', JSON.stringify(user));
+        
+        toast.success(`Bem-vindo, ${user.full_name || name || 'Usuário'}!`);
+        
+        // Redirecionar conforme perfil
+        if (user.role === 'customer') {
+          navigate('/Cardapio', { replace: true });
+        } else if (user.profile_role || user.profile_roles?.length) {
+          // Colaborador (incluindo gerente) → Home do colaborador com botões para escolher acesso
+          navigate('/colaborador', { replace: true });
+        } else if (user.is_master) {
+          navigate('/Admin', { replace: true });
+        } else {
+          navigate('/PainelAssinante', { replace: true });
         }
       } catch (err) {
         console.error('Erro ao processar callback:', err);

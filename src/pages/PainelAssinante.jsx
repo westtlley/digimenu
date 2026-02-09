@@ -127,9 +127,9 @@ export default function PainelAssinante() {
   // Verificar se é gerente (pode acessar mesmo sem assinatura ativa)
   // Suporta tanto profile_role (string) quanto profile_roles (array)
   // Só verificar se user estiver carregado
-  const roles = user && (user?.profile_roles?.length ? user.profile_roles : user?.profile_role ? [user.profile_role] : []);
-  const isGerente = roles && roles.includes('gerente');
-  const isColaborador = roles && roles.length > 0;
+  const roles = user ? (user?.profile_roles?.length ? user.profile_roles : user?.profile_role ? [user.profile_role] : []) : [];
+  const isGerente = roles.length > 0 && roles.includes('gerente');
+  const isColaborador = roles.length > 0;
   
   // ✅ CORREÇÃO: Gerente/colaborador não deve acessar PainelAssinante diretamente
   // Deve ir para /colaborador para escolher qual acesso usar

@@ -64,6 +64,9 @@ export default function ProtectedRoute({
           return;
         }
 
+        // Verificar se é assinante (acesso livre a todas as ferramentas)
+        const isAssinante = userData?.subscriber_email && (userData?.email || '').toLowerCase().trim() === (userData?.subscriber_email || '').toLowerCase().trim();
+        
         // Verificar se é gerente ou colaborador (podem acessar mesmo sem assinatura ativa)
         const roles = userData?.profile_roles?.length ? userData.profile_roles : userData?.profile_role ? [userData.profile_role] : [];
         const isGerente = roles.includes('gerente');
@@ -71,6 +74,13 @@ export default function ProtectedRoute({
 
         // Verificar assinatura ativa
         if (requireActiveSubscription) {
+          // Assinante tem acesso livre a todas as ferramentas
+          if (isAssinante) {
+            setAuthorized(true);
+            setLoading(false);
+            return;
+          }
+          
           // Gerente pode acessar mesmo sem assinatura ativa (cargo de confiança)
           if (isGerente) {
             setAuthorized(true);

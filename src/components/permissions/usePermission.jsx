@@ -246,7 +246,8 @@ export function usePermission() {
     if (module === 'colaboradores') return ['pro', 'ultra'].includes(planLower);
     if (['comandas', 'tables', 'garcom'].includes(module)) return planLower === 'ultra';
     if (['affiliates', 'lgpd', '2fa', 'inventory'].includes(module)) return ['pro', 'ultra'].includes(planLower);
-    const basicModules = ['dashboard', 'dishes', 'orders', 'history', 'clients', 'whatsapp', 'store', 'theme', 'printer', 'financial', 'caixa', 'delivery_zones', 'payments', 'promotions', 'coupons', 'pizza_config'];
+    // gestor_pedidos é um módulo básico disponível para todos os planos pagos
+    const basicModules = ['dashboard', 'dishes', 'orders', 'history', 'clients', 'whatsapp', 'store', 'theme', 'printer', 'financial', 'caixa', 'delivery_zones', 'payments', 'promotions', 'coupons', 'pizza_config', 'gestor_pedidos'];
     if (basicModules.includes(module)) return ['basic', 'pro', 'ultra'].includes(planLower);
     
     return false;

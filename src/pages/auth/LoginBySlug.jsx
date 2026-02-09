@@ -56,6 +56,8 @@ export default function LoginBySlug({ type: propType }) {
         const ok = await base44.auth.isAuthenticated();
         if (!ok) return;
         const me = await base44.auth.me();
+        if (!me) return;
+        
         if (loginType === 'cliente' && me?.role === 'customer') {
           navigate(slug ? `/s/${slug}` : '/', { replace: true });
           return;
@@ -70,7 +72,7 @@ export default function LoginBySlug({ type: propType }) {
           return;
         }
       } catch (e) {
-        // não autenticado
+        // não autenticado - não fazer nada, deixar usuário fazer login
       }
     };
     checkAuth();

@@ -77,8 +77,9 @@ export default function PDV() {
           base44.auth.redirectToLogin('/PDV');
           return;
         }
-        // Verificar se tem perfil de PDV ou é master
-        const hasAccess = me?.profile_role === 'pdv' || me?.is_master === true;
+        // Verificar se tem perfil de PDV, é master, ou é assinante (acesso livre)
+        const isAssinante = me?.subscriber_email && (me?.email || '').toLowerCase().trim() === (me?.subscriber_email || '').toLowerCase().trim();
+        const hasAccess = me?.profile_role === 'pdv' || me?.is_master === true || isAssinante;
         setAllowed(hasAccess);
         if (!hasAccess) {
           setLoading(false);
