@@ -637,6 +637,12 @@ app.post('/api/auth/login', validate(schemas.login), asyncHandler(async (req, re
       hasPasswordHash: !!user.password && user.password.startsWith('$2')
     });
 
+    // ✅ Verificar se colaborador está ativo (se tiver profile_role)
+    if (user.profile_role && user.active === false) {
+      console.log('❌ [login] Colaborador desativado:', user.email);
+      return res.status(403).json({ error: 'Seu acesso foi desativado. Entre em contato com o administrador.' });
+    }
+
     // ✅ SEMPRE usar bcrypt para verificar senhas
     if (user.password) {
       try {
