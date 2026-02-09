@@ -126,19 +126,22 @@ export default function PainelAssinante() {
 
   // Verificar se é gerente (pode acessar mesmo sem assinatura ativa)
   // Suporta tanto profile_role (string) quanto profile_roles (array)
-  const roles = user?.profile_roles?.length ? user.profile_roles : user?.profile_role ? [user.profile_role] : [];
-  const isGerente = roles.includes('gerente');
-  const isColaborador = roles.length > 0;
+  // Só verificar se user estiver carregado
+  const roles = user && (user?.profile_roles?.length ? user.profile_roles : user?.profile_role ? [user.profile_role] : []);
+  const isGerente = roles && roles.includes('gerente');
+  const isColaborador = roles && roles.length > 0;
   
   // ✅ CORREÇÃO: Gerente/colaborador não deve acessar PainelAssinante diretamente
   // Deve ir para /colaborador para escolher qual acesso usar
+  // Só redirecionar se user estiver carregado e não for master
   useEffect(() => {
-    if (isColaborador && !isMaster && !loading) {
+    if (!loading && user && isColaborador && !isMaster) {
       navigate('/colaborador', { replace: true });
     }
-  }, [isColaborador, isMaster, loading, navigate]);
+  }, [loading, user, isColaborador, isMaster, navigate]);
   
-  if (isColaborador && !isMaster && !loading) {
+  // Mostrar loading enquanto verifica se é colaborador
+  if (loading || (user && isColaborador && !isMaster)) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
