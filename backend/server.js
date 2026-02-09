@@ -1616,7 +1616,9 @@ app.post('/api/colaboradores', authenticate, validate(schemas.createColaborador)
       if (usePostgreSQL) {
         // Se é cliente, o banco vai dar erro de constraint única
         // Mas vamos tentar criar mesmo assim e tratar o erro
+        console.log('🔍 [POST /api/colaboradores] Criando usuário no PostgreSQL:', { email: emailNorm, profile_role: roleNorm, subscriber_email: owner });
         newUser = await repo.createUser(userData);
+        console.log('✅ [POST /api/colaboradores] Usuário criado com sucesso:', { id: newUser.id, email: newUser.email });
       } else if (db?.users) {
         // Para JSON, verificar se já existe
         const existingUser = db.users.find(u => (u.email || '').toLowerCase().trim() === emailNorm);
@@ -1649,6 +1651,13 @@ app.post('/api/colaboradores', authenticate, validate(schemas.createColaborador)
         return res.status(500).json({ error: 'Banco não disponível' });
       }
     } catch (createErr) {
+      console.error('❌ [POST /api/colaboradores] Erro ao criar usuário:', {
+        error: createErr?.message,
+        code: createErr?.code,
+        stack: createErr?.stack,
+        email: emailNorm,
+        subscriber_email: owner
+      });
       // Se o erro for constraint única
       if (createErr?.code === '23505' || (createErr?.message && createErr.message.includes('unique constraint'))) {
         // Verificar novamente se é cliente (pode ter mudado desde a primeira verificação)
