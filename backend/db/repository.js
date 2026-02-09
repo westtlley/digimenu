@@ -433,9 +433,12 @@ export async function createEntitiesBulk(entityType, items, user = null) {
 // =======================
 
 export async function getUserByEmail(email) {
+  if (!email) return null;
+  // Normalizar email para busca case-insensitive
+  const emailLower = email.toLowerCase().trim();
   const result = await query(
-    'SELECT * FROM users WHERE email = $1',
-    [email]
+    'SELECT * FROM users WHERE LOWER(TRIM(email)) = $1',
+    [emailLower]
   );
   return result.rows[0] || null;
 }

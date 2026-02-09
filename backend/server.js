@@ -607,6 +607,20 @@ app.post('/api/auth/login', validate(schemas.login), asyncHandler(async (req, re
     let user;
     if (usePostgreSQL) {
       user = await repo.getUserByEmail(emailLower);
+      if (!user) {
+        console.log('⚠️ [login] Usuário não encontrado com email normalizado. Tentando busca alternativa...');
+        // Tentar buscar diretamente com o email original (caso tenha diferença de case)
+        try {
+          const { query } = await import('./db/postgres.js');
+          const result = await query('SELECT * FROM users WHERE LOWER(TRIM(email)) = LOWER(TRIM($1)) OR email ILIKE $2', [emailLower, `%${emailLower}%`]);
+          if (result.rows.length > 0) {
+            user = result.rows[0];
+            console.log('✅ [login] Usuário encontrado com busca alternativa:', user.email);
+          }
+        } catch (err) {
+          console.error('❌ [login] Erro na busca alternativa:', err.message);
+        }
+      }
     } else if (db && db.users) {
       // Buscar com diferentes variações do email
       user = db.users.find(u => {
@@ -628,6 +642,15 @@ app.post('/api/auth/login', validate(schemas.login), asyncHandler(async (req, re
       console.log('❌ [login] Usuário não encontrado:', emailLower);
       return res.status(401).json({ error: 'Credenciais inválidas' });
     }
+    
+    console.log('✅ [login] Usuário encontrado:', {
+      id: user.id,
+      email: user.email,
+      is_master: user.is_master,
+      profile_role: user.profile_role,
+      subscriber_email: user.subscriber_email,
+      role: user.role
+    });
     
     console.log('✅ [login] Usuário encontrado:', {
       id: user.id,
