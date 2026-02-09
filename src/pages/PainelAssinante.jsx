@@ -124,7 +124,9 @@ export default function PainelAssinante() {
   }
 
   // Verificar se é gerente (pode acessar mesmo sem assinatura ativa)
-  const isGerente = user?.profile_role === 'gerente';
+  // Suporta tanto profile_role (string) quanto profile_roles (array)
+  const roles = user?.profile_roles?.length ? user.profile_roles : user?.profile_role ? [user.profile_role] : [];
+  const isGerente = roles.includes('gerente');
   
   // Master pode acessar, mas assinantes precisam de assinatura ativa
   // ✅ CORREÇÃO: Verificar se subscriberData existe e se status é 'active'

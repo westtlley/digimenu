@@ -48,7 +48,11 @@ export default function GoogleCallback() {
           // Redirecionar conforme perfil
           if (user.role === 'customer') {
             navigate('/Cardapio', { replace: true });
+          } else if (user.profile_role === 'gerente' || user.profile_roles?.includes('gerente')) {
+            // Gerente → PainelAssinante (cargo de confiança)
+            navigate('/PainelAssinante', { replace: true });
           } else if (user.profile_role || user.profile_roles?.length) {
+            // Outros colaboradores → /colaborador
             navigate('/colaborador', { replace: true });
           } else if (user.is_master) {
             navigate('/Admin', { replace: true });

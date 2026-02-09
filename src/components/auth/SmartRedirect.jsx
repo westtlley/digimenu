@@ -57,7 +57,13 @@ export default function SmartRedirect() {
           return;
         }
 
-        // Colaborador (qualquer perfil) → Home do colaborador com botões
+        // Gerente → PainelAssinante (cargo de confiança, acesso ao painel)
+        if (userData?.profile_role === 'gerente' || userData?.profile_roles?.includes('gerente')) {
+          navigate('/PainelAssinante', { replace: true });
+          return;
+        }
+
+        // Colaborador (outros perfis) → Home do colaborador com botões
         if (userData?.profile_role || userData?.profile_roles?.length) {
           navigate('/colaborador', { replace: true });
           return;
