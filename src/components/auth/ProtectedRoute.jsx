@@ -74,17 +74,17 @@ export default function ProtectedRoute({
           return;
         }
 
-        // Verificar se é assinante (acesso livre a todas as ferramentas)
-        const isAssinante = userData?.subscriber_email && (userData?.email || '').toLowerCase().trim() === (userData?.subscriber_email || '').toLowerCase().trim();
-        
-        // Verificar se é gerente ou colaborador (podem acessar mesmo sem assinatura ativa)
+        // Verificar se é assinante/dono (acesso livre a todas as ferramentas)
+        const hasSubscriberEmailMatch = userData?.subscriber_email && (userData?.email || '').toLowerCase().trim() === (userData?.subscriber_email || '').toLowerCase().trim();
         const roles = userData?.profile_roles?.length ? userData.profile_roles : userData?.profile_role ? [userData.profile_role] : [];
         const isGerente = roles.includes('gerente');
-        const isColaborador = roles.length > 0; // Qualquer colaborador (entregador, cozinha, pdv, garcom, gerente)
+        const isColaborador = roles.length > 0;
+        // Dono do estabelecimento: email === subscriber_email OU (sem perfil de colaborador e não é cliente)
+        const isAssinante = hasSubscriberEmailMatch || (roles.length === 0 && userData?.role !== 'customer' && !userData?.is_master);
 
         // Verificar assinatura ativa
         if (requireActiveSubscription) {
-          // Assinante tem acesso livre a todas as ferramentas
+          // Assinante/dono tem acesso total aos apps conforme o plano
           if (isAssinante) {
             setAuthorized(true);
             setLoading(false);

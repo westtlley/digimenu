@@ -13,6 +13,8 @@ import { Plus, Trash2, Pencil, Wine, Droplets, Search, ThermometerSnowflake, The
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import toast from 'react-hot-toast';
 import { uploadToCloudinary } from '@/utils/cloudinaryUpload';
+import { usePermission } from '@/components/permissions/usePermission';
+import { useMenuDishes } from '@/hooks/useMenuData';
 
 const formatCurrency = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
 
