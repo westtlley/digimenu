@@ -1660,30 +1660,41 @@ app.post('/api/colaboradores', authenticate, validate(schemas.createColaborador)
         subscriber_email: owner
       });
       // Se o erro for constraint única
-      if (createErr?.code === '23505' || (createErr?.message && createErr.message.includes('unique constraint'))) {
-        // Verificar novamente se é cliente (pode ter mudado desde a primeira verificação)
-        let isCustomer = false;
+      if (createErr?.code === '23505' || (createErr?.message && createErr.message.includes('unique constraint')) || (createErr?.message && createErr.message.includes('duplicate key'))) {
+        console.log('⚠️ [POST /api/colaboradores] Erro de constraint única detectado. Verificando usuário existente...');
+        // Verificar novamente se é cliente ou colaborador existente
+        let existingUser = null;
         if (usePostgreSQL) {
-          const existingUser = await repo.getUserByEmail(emailNorm);
-          isCustomer = existingUser && existingUser.role === 'customer';
+          // Buscar todos os usuários com este email
+          const { query } = await import('./db/postgres.js');
+          const result = await query('SELECT * FROM users WHERE LOWER(TRIM(email)) = LOWER(TRIM($1))', [emailNorm]);
+          existingUser = result.rows[0] || null;
         } else if (db?.users) {
-          const existingUser = db.users.find(u => (u.email || '').toLowerCase().trim() === emailNorm);
-          isCustomer = existingUser && existingUser.role === 'customer';
+          existingUser = db.users.find(u => (u.email || '').toLowerCase().trim() === emailNorm) || null;
         }
         
-        if (isCustomer) {
-          // É cliente - permitir criar colaborador mesmo assim
-          // O banco tem constraint UNIQUE no email, então não podemos criar dois registros
-          // Mas vamos retornar uma mensagem informando que é permitido em teoria
-          // Na prática, precisamos modificar o schema do banco para permitir múltiplos registros com o mesmo email
-          // Por enquanto, vamos permitir criar mesmo assim (vai dar erro, mas vamos tratar)
-          // NOTA: Para funcionar completamente, precisamos remover a constraint UNIQUE do email no schema
-          return res.status(400).json({ 
-            error: 'Este email já está cadastrado como cliente. O sistema permite que o mesmo email seja cliente e colaborador, mas há uma limitação técnica no banco de dados (constraint única no email). Para resolver isso, é necessário modificar o schema do banco de dados. Por favor, use um email diferente temporariamente ou contate o suporte.' 
-          });
+        if (existingUser) {
+          const isCustomer = existingUser.role === 'customer';
+          const isColaborador = existingUser.profile_role && existingUser.subscriber_email === owner;
+          
+          if (isCustomer) {
+            // É cliente - tentar criar colaborador mesmo assim (pode funcionar se a migration foi aplicada)
+            // Mas se ainda der erro, informar que precisa usar email diferente
+            return res.status(400).json({ 
+              error: 'Este email já está cadastrado como cliente. O sistema permite que o mesmo email seja cliente e colaborador, mas pode haver uma limitação técnica no banco de dados. Por favor, use um email diferente ou contate o suporte para verificar se a migration foi aplicada corretamente.' 
+            });
+          } else if (isColaborador) {
+            // Já é colaborador deste estabelecimento
+            return res.status(400).json({ error: 'Este email já está cadastrado como colaborador deste estabelecimento. Use outro email ou adicione perfis ao colaborador existente em Colaboradores.' });
+          } else {
+            // É outro tipo de usuário
+            return res.status(400).json({ error: 'Este email já está cadastrado no sistema com outro perfil. Use outro email ou adicione perfis ao colaborador existente em Colaboradores.' });
+          }
         }
         return res.status(400).json({ error: 'Este email já está cadastrado no sistema. Use outro email ou adicione perfis ao colaborador existente em Colaboradores.' });
       }
+      // Se não for erro de constraint, relançar o erro para ser tratado pelo errorHandler
+      console.error('❌ [POST /api/colaboradores] Erro inesperado ao criar colaborador:', createErr);
       throw createErr;
     }
 
