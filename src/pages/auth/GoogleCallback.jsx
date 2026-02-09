@@ -49,8 +49,8 @@ export default function GoogleCallback() {
           if (user.role === 'customer') {
             navigate('/Cardapio', { replace: true });
           } else if (user.profile_role === 'gerente' || user.profile_roles?.includes('gerente')) {
-            // Gerente → PainelAssinante (cargo de confiança)
-            navigate('/PainelAssinante', { replace: true });
+            // Gerente → PainelGerente (painel próprio do gerente)
+            navigate('/PainelGerente', { replace: true });
           } else if (user.profile_role || user.profile_roles?.length) {
             // Outros colaboradores → /colaborador
             navigate('/colaborador', { replace: true });

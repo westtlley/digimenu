@@ -61,9 +61,9 @@ export default function LoginBySlug({ type: propType }) {
           return;
         }
         if (loginType === 'colaborador' && (me?.profile_role || me?.profile_roles?.length)) {
-          // Gerente vai para PainelAssinante, outros colaboradores para /colaborador
+          // Gerente vai para PainelGerente, outros colaboradores para /colaborador
           if (me?.profile_role === 'gerente' || me?.profile_roles?.includes('gerente')) {
-            navigate(slug ? `/s/${slug}/PainelAssinante` : '/PainelAssinante', { replace: true });
+            navigate('/PainelGerente', { replace: true });
           } else {
             navigate('/colaborador', { replace: true });
           }
@@ -98,9 +98,9 @@ export default function LoginBySlug({ type: propType }) {
           const safeReturn = returnUrl && returnUrl.startsWith('/') && !returnUrl.startsWith('//') ? returnUrl : (slug ? `/s/${slug}` : '/');
           navigate(safeReturn, { replace: true });
         } else if (loginType === 'colaborador') {
-          // Gerente vai para PainelAssinante, outros colaboradores para /colaborador
+          // Gerente vai para PainelGerente, outros colaboradores para /colaborador
           if (userData?.profile_role === 'gerente' || userData?.profile_roles?.includes('gerente')) {
-            navigate(slug ? `/s/${slug}/PainelAssinante` : '/PainelAssinante', { replace: true });
+            navigate('/PainelGerente', { replace: true });
           } else {
             navigate('/colaborador', { replace: true });
           }

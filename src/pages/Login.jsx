@@ -70,9 +70,9 @@ export default function Login() {
         if (userData?.role === 'customer') {
           redirectUrl = '/Cardapio';
         }
-        // Gerente → PainelAssinante (cargo de confiança, acesso ao painel)
+        // Gerente → PainelGerente (painel próprio do gerente)
         else if (userData?.profile_role === 'gerente' || userData?.profile_roles?.includes('gerente')) {
-          redirectUrl = '/PainelAssinante';
+          redirectUrl = '/PainelGerente';
         }
         // Colaborador (outros perfis) → Home do colaborador com botões
         else if (userData?.profile_role || userData?.profile_roles?.length) {
@@ -91,7 +91,7 @@ export default function Login() {
           if (userData?.role === 'customer') {
             redirectUrl = '/Cardapio';
           } else if (userData?.profile_role === 'gerente' || userData?.profile_roles?.includes('gerente')) {
-            redirectUrl = '/PainelAssinante';
+            redirectUrl = '/PainelGerente';
           } else if (userData?.profile_role || userData?.profile_roles?.length) {
             redirectUrl = '/colaborador';
           } else {

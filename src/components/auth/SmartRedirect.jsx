@@ -57,9 +57,9 @@ export default function SmartRedirect() {
           return;
         }
 
-        // Gerente → PainelAssinante (cargo de confiança, acesso ao painel)
+        // Gerente → PainelGerente (painel próprio do gerente)
         if (userData?.profile_role === 'gerente' || userData?.profile_roles?.includes('gerente')) {
-          navigate('/PainelAssinante', { replace: true });
+          navigate('/PainelGerente', { replace: true });
           return;
         }
 
