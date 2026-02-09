@@ -90,15 +90,25 @@ export default function LoginBySlug({ type: propType }) {
       const userData = response.user || response;
       if (response.token) {
         toast.success('Login realizado com sucesso!');
-        if (loginType === 'cliente') {
+        
+        // Priorizar verificação do userData sobre loginType para determinar redirecionamento
+        // Verificar se é colaborador (incluindo gerente) pelo userData
+        const roles = userData?.profile_roles?.length ? userData.profile_roles : (userData?.profile_role ? [userData.profile_role] : []);
+        const isColaborador = roles.length > 0;
+        
+        if (userData?.role === 'customer') {
+          // Cliente → Cardápio
           const safeReturn = returnUrl && returnUrl.startsWith('/') && !returnUrl.startsWith('//') ? returnUrl : (slug ? `/s/${slug}` : '/');
           navigate(safeReturn, { replace: true });
-        } else if (loginType === 'colaborador') {
+        } else if (isColaborador) {
           // Colaborador (incluindo gerente) → Home do colaborador com botões para escolher acesso
           navigate('/colaborador', { replace: true });
+        } else if (userData?.is_master) {
+          // Master → Admin
+          navigate('/Admin', { replace: true });
         } else {
-          if (userData?.is_master) navigate('/Admin', { replace: true });
-          else navigate(slug ? `/s/${slug}/PainelAssinante` : '/PainelAssinante', { replace: true });
+          // Assinante → PainelAssinante
+          navigate(slug ? `/s/${slug}/PainelAssinante` : '/PainelAssinante', { replace: true });
         }
       } else {
         setError('Erro ao fazer login. Tente novamente.');
