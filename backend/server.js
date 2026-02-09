@@ -671,7 +671,9 @@ app.post('/api/auth/login', validate(schemas.login), asyncHandler(async (req, re
       try {
         // Tentar comparar com bcrypt primeiro
         console.log('🔐 [login] Verificando senha para:', user.email);
-        const isValid = await bcrypt.compare(password, user.password);
+        // Garantir que a senha não tenha espaços extras
+        const passwordClean = (password || '').trim();
+        const isValid = await bcrypt.compare(passwordClean, user.password);
         
         if (isValid) {
           console.log('✅ [login] Senha válida! Login bem-sucedido para:', user.email);
