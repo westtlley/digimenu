@@ -285,7 +285,7 @@ export default function LoginBySlug({ type: propType }) {
                     </Link>
                   </div>
                   <div>
-                    <Link to="/Assinar" className="text-sm font-medium" style={{ color: theme.primary }}>
+                    <Link to="/assinar" className="text-sm font-medium" style={{ color: theme.primary }}>
                       Não tem conta? Assine agora (estabelecimento)
                     </Link>
                   </div>
@@ -304,7 +304,7 @@ export default function LoginBySlug({ type: propType }) {
               )}
               {isColaborador && (
                 <div>
-                  <Link to="/Assinar" className="text-sm font-medium" style={{ color: theme.primary }}>
+                  <Link to="/assinar" className="text-sm font-medium" style={{ color: theme.primary }}>
                     Não tem conta? Assine agora
                   </Link>
                 </div>

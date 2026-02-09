@@ -170,7 +170,7 @@ export default function LoginAssinante() {
           <div className="mt-6 space-y-3">
             <div className="text-center">
               <Link
-                to="/Assinar"
+                to="/assinar"
                 className="inline-flex items-center text-sm font-medium text-orange-600 hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300"
               >
                 Não tem conta? Assine agora

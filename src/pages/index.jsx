@@ -119,7 +119,9 @@ function PagesContent() {
                 <Route path="/Assinantes" element={<ProtectedRoute requireMaster><Assinantes /></ProtectedRoute>} />
                 <Route path="/AdminMasterDashboard" element={<ProtectedRoute requireMaster><AdminMasterDashboard /></ProtectedRoute>} />
                 
-                <Route path="/Assinar" element={<Assinar />} />
+                {/* Página de vendas de planos — URL canônica /assinar; sem redirecionamento automático (exceto afiliados no futuro) */}
+                <Route path="/assinar" element={<Assinar />} />
+                <Route path="/Assinar" element={<Navigate to="/assinar" replace />} />
                 
                 <Route path="/Cadastro" element={<Cadastro />} />
                 

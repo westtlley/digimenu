@@ -73,7 +73,7 @@ function CardapioSemLink() {
           <strong>Master:</strong> abra o cardápio em <strong>Admin → Assinantes</strong> e use <strong>⋮ → Abrir cardápio</strong> no assinante desejado. <strong>Assinante:</strong> use o link do seu painel ou Loja.
         </p>
         <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
-          <Link to="/Assinar" className="px-4 py-2.5 rounded-lg bg-orange-500 text-white font-medium hover:bg-orange-600 transition-colors">
+          <Link to="/assinar" className="px-4 py-2.5 rounded-lg bg-orange-500 text-white font-medium hover:bg-orange-600 transition-colors">
             Assinar DigiMenu
           </Link>
           <Link to="/" className="px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
@@ -353,7 +353,7 @@ export default function Cardapio() {
           >
             Tentar novamente
           </Button>
-          <Link to="/Assinar" className="mt-4 block text-sm text-orange-600 hover:underline">Assinar DigiMenu</Link>
+          <Link to="/assinar" className="mt-4 block text-sm text-orange-600 hover:underline">Assinar DigiMenu</Link>
         </div>
       </div>
     );

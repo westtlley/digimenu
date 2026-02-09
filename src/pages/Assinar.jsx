@@ -1,15 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { base44 } from '@/api/base44Client';
-import { useMutation } from '@tanstack/react-query';
+/**
+ * Página de vendas de planos — URL canônica: /assinar
+ * Apenas para divulgação e conversão; não é página de login.
+ * Redirecionamentos para esta página: apenas links explícitos (ex.: afiliados no futuro).
+ */
+import React, { useState } from 'react';
 import {
   Check,
   Smartphone,
   ArrowLeft,
   Sparkles,
-  Users,
-  TrendingUp,
   Crown,
-  Gift,
   X,
   Zap,
   Shield,
@@ -20,27 +20,28 @@ import {
   Clock,
   CreditCard,
   Headphones,
-  TrendingUp as ChartIcon,
+  Truck,
+  Store,
+  Receipt,
+  LayoutDashboard,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Link } from 'react-router-dom';
-import { createPageUrl } from '@/utils';
-import UserAuthButton from '../components/atoms/UserAuthButton';
 
+// Planos alinhados ao backend (backend/utils/plans.js)
 const PLANS_DATA = {
   free: {
-    name: 'Teste Grátis',
-    tagline: 'Teste sem cartão',
-    subtitle: '10 dias de teste',
-    icon: Gift,
-    iconColor: 'text-emerald-500',
-    bgGradient: 'from-emerald-500 to-green-600',
+    name: 'Grátis',
+    tagline: 'Para uso pessoal e testes',
+    icon: Sparkles,
+    iconColor: 'text-emerald-600',
+    bgGradient: 'from-emerald-500 to-teal-600',
     monthly: 0,
     yearly: 0,
-    badge: '10 dias grátis',
+    badge: 'Sem cartão',
     popular: false,
     features: [
       'Cardápio digital básico',
@@ -52,63 +53,56 @@ const PLANS_DATA = {
       '1 usuário',
     ],
     limitations: [
-      'Personalização',
+      'Personalização visual',
       'Dashboard avançado',
       'App entregadores',
       'Cupons e promoções',
-      'Relatórios',
+      'Relatórios detalhados',
     ],
-    cta: 'Testar 10 Dias Grátis',
-    trialDays: 10,
+    cta: 'Começar grátis',
+    trialDays: 0,
   },
   basic: {
     name: 'Básico',
     tagline: 'Comece a vender online hoje',
-    subtitle: 'Primeiro mês: 40 dias',
     icon: Smartphone,
-    iconColor: 'text-blue-500',
-    bgGradient: 'from-blue-500 to-blue-600',
-    monthly: 39.90,
-    yearly: 399.00,
-    badge: '1º mês: 40 dias',
+    iconColor: 'text-blue-600',
+    bgGradient: 'from-blue-500 to-indigo-600',
+    monthly: 39.9,
+    yearly: 399,
+    badge: '10 dias grátis',
     popular: false,
-    bonusDays: 10,
     features: [
-      'Cardápio digital ilimitado',
+      'Cardápio digital',
       'Até 100 produtos',
       'Pedidos via WhatsApp',
       'Gestor de pedidos básico',
-      'Personalização completa',
+      'Personalização (logo, cores)',
       'Dashboard básico',
       'Histórico 30 dias',
       'Até 50 pedidos/dia',
       '1 usuário',
     ],
-    limitations: [
-      'App entregadores',
-      'Cupons e promoções',
-      'Relatórios avançados',
-    ],
-    cta: 'Começar Teste Grátis',
+    limitations: ['App entregadores', 'Cupons e promoções', 'Relatórios avançados'],
+    cta: 'Testar 10 dias grátis',
+    trialDays: 10,
   },
   pro: {
     name: 'Pro',
-    tagline: 'Expanda suas entregas',
-    subtitle: 'Tudo do Básico +',
-    icon: TrendingUp,
-    iconColor: 'text-orange-500',
-    bgGradient: 'from-orange-500 to-orange-600',
-    monthly: 79.90,
-    yearly: 799.00,
-    badge: '1º mês: 40 dias',
+    tagline: 'Expanda entregas e equipe',
+    icon: Truck,
+    iconColor: 'text-orange-600',
+    bgGradient: 'from-orange-500 to-amber-600',
+    monthly: 79.9,
+    yearly: 799,
+    badge: '7 dias grátis',
     popular: true,
-    bonusDays: 10,
     features: [
       'Tudo do Básico +',
       'Até 500 produtos',
       'App para entregadores',
       'Zonas e taxas de entrega',
-      'Rastreamento tempo real',
+      'Rastreamento em tempo real',
       'Cupons e promoções',
       'Relatórios avançados',
       'Gestão de equipe (até 5)',
@@ -118,264 +112,209 @@ const PLANS_DATA = {
     ],
     limitations: [],
     cta: 'Escolher Pro',
+    trialDays: 7,
   },
   ultra: {
     name: 'Ultra',
-    tagline: 'Gestão completa: online + presencial',
-    subtitle: 'Completo',
+    tagline: 'Online + presencial + fiscal',
     icon: Crown,
-    iconColor: 'text-purple-500',
-    bgGradient: 'from-purple-600 to-indigo-600',
-    monthly: 149.90,
-    yearly: 1499.00,
-    badge: '1º mês: 40 dias',
+    iconColor: 'text-violet-600',
+    bgGradient: 'from-violet-600 to-purple-700',
+    monthly: 149.9,
+    yearly: 1499,
+    badge: '7 dias grátis',
     popular: false,
-    bonusDays: 10,
     features: [
       'Tudo do Pro +',
       'Produtos ilimitados',
       'PDV completo',
+      'Controle de caixa',
       'Comandas presenciais',
-      'App para garçons',
-      'Display para cozinha',
-      'Emissão fiscal (NFC-e)',
-      'API & Webhooks',
-      'Multi-localização (5 lojas)',
+      'App garçom',
+      'Display cozinha (KDS)',
+      'Emissão NFC-e / SAT',
+      'API e Webhooks',
+      'Até 5 localizações',
       'Pedidos ilimitados',
       'Até 20 usuários',
       'Suporte VIP',
     ],
     limitations: [],
     cta: 'Escolher Ultra',
+    trialDays: 7,
   },
 };
 
 const TESTIMONIALS = [
-  {
-    name: 'Maria Silva',
-    restaurant: 'Pizzaria do Bairro',
-    plan: 'Pro',
-    stars: 5,
-    text: 'Aumentei minhas vendas em 40% no primeiro mês. O sistema é muito fácil de usar!',
-    avatar: '👩‍🍳',
-  },
-  {
-    name: 'João Santos',
-    restaurant: 'Burger House',
-    plan: 'Pro',
-    stars: 5,
-    text: 'O app de entregadores mudou completamente nossa operação. Recomendo demais!',
-    avatar: '👨‍🍳',
-  },
-  {
-    name: 'Ana Costa',
-    restaurant: 'Restaurante Sabor & Arte',
-    plan: 'Ultra',
-    stars: 5,
-    text: 'Com o plano Ultra, consegui unificar delivery e presencial. Perfeito!',
-    avatar: '👩‍💼',
-  },
+  { name: 'Maria Silva', restaurant: 'Pizzaria do Bairro', plan: 'Pro', stars: 5, text: 'Aumentei minhas vendas em 40% no primeiro mês. O sistema é muito fácil de usar!', avatar: '👩‍🍳' },
+  { name: 'João Santos', restaurant: 'Burger House', plan: 'Pro', stars: 5, text: 'O app de entregadores mudou nossa operação. Recomendo!', avatar: '👨‍🍳' },
+  { name: 'Ana Costa', restaurant: 'Sabor & Arte', plan: 'Ultra', stars: 5, text: 'Com o Ultra unifiquei delivery e presencial. Perfeito para nosso restaurante.', avatar: '👩‍💼' },
+];
+
+const BENEFITS = [
+  { icon: Shield, title: 'Seguro', desc: 'SSL e LGPD' },
+  { icon: Zap, title: 'Rápido', desc: 'Resposta em tempo real' },
+  { icon: Smartphone, title: 'Responsivo', desc: 'Qualquer tela' },
+  { icon: BarChart3, title: 'Relatórios', desc: 'Métricas em tempo real' },
+  { icon: Clock, title: 'Disponível', desc: 'Uptime 99.9%' },
+  { icon: CreditCard, title: 'Pagamentos', desc: 'PIX, cartão' },
+  { icon: Headphones, title: 'Suporte', desc: 'Quando precisar' },
+  { icon: Store, title: 'Escalável', desc: 'Cresce com você' },
+];
+
+const FAQ = [
+  { q: 'Posso mudar de plano depois?', a: 'Sim! Upgrade ou downgrade a qualquer momento pelo painel. O valor é ajustado proporcionalmente.' },
+  { q: 'Como funciona o plano anual?', a: 'Você paga o ano com cerca de 17% de desconto. Ótima opção para quem quer economizar.' },
+  { q: 'Posso cancelar quando quiser?', a: 'Sim. Sem multas. Você mantém acesso até o fim do período já pago.' },
+  { q: 'Há período de teste?', a: 'Básico: 10 dias grátis. Pro e Ultra: 7 dias grátis. O plano Grátis não exige cartão.' },
+  { q: 'Preciso de cartão para testar?', a: 'No plano Grátis não. Nos planos pagos, o cartão só é cobrado após o fim do trial.' },
 ];
 
 export default function Assinar() {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [selectedInterval, setSelectedInterval] = useState('monthly');
 
-  useEffect(() => {
-    const loadUser = async () => {
-      try {
-        const userData = await base44.auth.me();
-        setUser(userData);
-      } catch (e) {
-        /* não logado — ok */
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadUser();
-  }, []);
-
   const handleSubscribe = (planKey) => {
-    // Todos redirecionam para cadastro
     window.location.href = `/cadastro?plan=${planKey}&interval=${selectedInterval}`;
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-amber-50/30">
-      {/* Header */}
-      <header className="sticky top-0 z-50 border-b border-gray-200/80 bg-white/95 backdrop-blur-lg shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
-          <Link to={createPageUrl('Cardapio')} className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors group">
-            <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-            <span className="text-sm font-medium">Voltar</span>
+    <div className="min-h-screen bg-slate-50 text-slate-900">
+      {/* Header — sem botão de login */}
+      <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/95 backdrop-blur-md shadow-sm">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+          <Link
+            to="/"
+            className="flex items-center gap-2 text-slate-600 hover:text-slate-900 transition-colors group"
+          >
+            <ArrowLeft className="w-5 h-5 group-hover:-translate-x-0.5 transition-transform" />
+            <span className="text-sm font-medium">Voltar ao início</span>
           </Link>
-          <UserAuthButton />
+          <Link to="/" className="flex items-center gap-2 font-bold text-slate-800">
+            <LayoutDashboard className="w-6 h-6 text-orange-500" />
+            <span>DigiMenu</span>
+          </Link>
         </div>
       </header>
 
-      {/* Badge de Social Proof */}
-      <div className="pt-8 pb-4 px-4">
-        <div className="max-w-7xl mx-auto flex justify-center">
-          <Badge className="px-6 py-2.5 text-sm font-semibold bg-orange-100 text-orange-700 border border-orange-200 shadow-sm hover:shadow-md transition-shadow">
-            <Sparkles className="w-4 h-4 mr-2 inline animate-pulse" />
-            Mais de 2.000 restaurantes confiam em nós
+      {/* Social proof */}
+      <div className="pt-8 pb-2 px-4">
+        <div className="max-w-6xl mx-auto flex justify-center">
+          <Badge variant="secondary" className="px-5 py-2 text-sm font-medium bg-orange-50 text-orange-700 border border-orange-200">
+            <Sparkles className="w-4 h-4 mr-2 inline" />
+            Milhares de restaurantes já usam o DigiMenu
           </Badge>
         </div>
       </div>
 
-      {/* Hero Section */}
-      <section className="py-8 sm:py-12 px-4">
-        <div className="max-w-5xl mx-auto text-center">
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-gray-900 tracking-tight mb-4 leading-tight">
-            O plano perfeito para
+      {/* Hero */}
+      <section className="py-10 sm:py-14 px-4">
+        <div className="max-w-4xl mx-auto text-center">
+          <h1 className="text-4xl sm:text-5xl font-extrabold text-slate-900 tracking-tight mb-4">
+            O plano certo para o seu negócio
           </h1>
-          <h2 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold mb-6 leading-tight">
-            <span className="text-orange-500">o seu negócio </span>
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-purple-600">crescer</span>
-          </h2>
-          <p className="text-lg sm:text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
-            Do plano gratuito à gestão completa com PDV, fiscal e muito mais. Comece grátis e evolua conforme seu negócio cresce.
+          <p className="text-lg sm:text-xl text-slate-600 max-w-2xl mx-auto">
+            Do cardápio digital ao PDV completo. Comece grátis e evolua quando quiser.
           </p>
         </div>
       </section>
 
-      {/* Toggle Mensal/Anual */}
-      <section className="py-6 px-4">
-        <div className="max-w-7xl mx-auto">
-          <Tabs value={selectedInterval} onValueChange={setSelectedInterval} className="flex justify-center">
-            <TabsList className="grid w-full max-w-md grid-cols-2 bg-gray-200 p-1.5 rounded-2xl shadow-inner">
-              <TabsTrigger 
-                value="monthly" 
-                className="rounded-xl data-[state=active]:bg-white data-[state=active]:text-gray-900 data-[state=active]:shadow-md font-semibold transition-all"
-              >
+      {/* Toggle Mensal / Anual */}
+      <section className="py-4 px-4">
+        <div className="max-w-6xl mx-auto flex justify-center">
+          <Tabs value={selectedInterval} onValueChange={setSelectedInterval} className="w-full max-w-xs">
+            <TabsList className="grid grid-cols-2 bg-slate-200 p-1 rounded-xl">
+              <TabsTrigger value="monthly" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow font-medium">
                 Mensal
               </TabsTrigger>
-              <TabsTrigger 
-                value="yearly" 
-                className="rounded-xl data-[state=active]:bg-white data-[state=active]:text-gray-900 data-[state=active]:shadow-md font-semibold transition-all"
-              >
+              <TabsTrigger value="yearly" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow font-medium">
                 Anual
-                <Badge className="ml-2 bg-emerald-500 text-white text-[10px] px-2 shadow-sm">-17%</Badge>
+                <Badge className="ml-1.5 bg-emerald-500 text-white text-[10px] px-1.5">-17%</Badge>
               </TabsTrigger>
             </TabsList>
           </Tabs>
         </div>
       </section>
 
-      {/* Cards dos Planos */}
-      <section className="py-8 px-4">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+      {/* Cards dos planos */}
+      <section className="py-8 sm:py-12 px-4">
+        <div className="max-w-6xl mx-auto">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {Object.entries(PLANS_DATA).map(([key, plan]) => {
               const Icon = plan.icon;
-              const price = selectedInterval === 'monthly' ? plan.monthly : plan.yearly / 12;
-              
+              const price = selectedInterval === 'monthly' ? plan.monthly : (plan.yearly / 12);
               return (
-                <Card 
-                  key={key} 
-                  className={`relative border-2 group hover:shadow-2xl hover:-translate-y-2 transition-all duration-300 ${
-                    plan.popular 
-                      ? 'border-orange-500 shadow-xl shadow-orange-100 lg:scale-105 bg-gradient-to-b from-orange-50/50 to-white' 
-                      : 'border-gray-200 shadow-lg hover:border-orange-300 bg-white'
-                  } overflow-hidden rounded-2xl`}
+                <Card
+                  key={key}
+                  className={`relative overflow-hidden rounded-2xl border-2 transition-all duration-300 hover:shadow-xl ${
+                    plan.popular
+                      ? 'border-orange-500 shadow-lg shadow-orange-100/50 bg-white'
+                      : 'border-slate-200 bg-white hover:border-slate-300'
+                  }`}
                 >
-                  {/* Badge "Mais Popular" */}
                   {plan.popular && (
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
-                      <Badge className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-4 py-1.5 font-bold shadow-lg text-xs uppercase">
-                        <Crown className="w-3 h-3 inline mr-1" />
-                        Mais Popular
-                      </Badge>
+                    <div className="absolute top-0 left-0 right-0 py-1.5 bg-gradient-to-r from-orange-500 to-amber-500 text-white text-center text-xs font-bold">
+                      Mais popular
                     </div>
                   )}
-                  
-                  <CardContent className="pt-8 pb-7 px-6">
-                    {/* Ícone e Nome */}
-                    <div className="text-center mb-6">
-                      <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${plan.bgGradient} flex items-center justify-center mb-4 mx-auto text-white shadow-lg group-hover:scale-110 transition-transform duration-300`}>
-                        <Icon className="w-7 h-7" />
+                  <CardContent className={`pt-6 pb-6 px-5 ${plan.popular ? 'pt-10' : ''}`}>
+                    <div className="text-center mb-5">
+                      <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${plan.bgGradient} flex items-center justify-center mx-auto text-white shadow-md`}>
+                        <Icon className="w-6 h-6" />
                       </div>
-                      <h3 className="text-2xl font-bold text-gray-900 mb-1">{plan.name}</h3>
-                      <p className="text-xs text-gray-600">{plan.tagline}</p>
+                      <h3 className="text-xl font-bold text-slate-900 mt-3">{plan.name}</h3>
+                      <p className="text-xs text-slate-500 mt-0.5">{plan.tagline}</p>
                       {plan.badge && (
-                        <Badge className="mt-2 bg-emerald-100 text-emerald-700 border-emerald-200 text-xs font-semibold">
+                        <Badge className="mt-2 bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-medium">
                           {plan.badge}
                         </Badge>
                       )}
                     </div>
 
-              {/* Preço */}
-              <div className="text-center mb-6 pb-6 border-b-2 border-gray-100">
-                {key === 'free' ? (
-                  <>
-                    <div className="flex flex-col items-center justify-center gap-1 mb-1">
-                      <span className="text-5xl font-extrabold text-emerald-600">
-                        10 dias
-                      </span>
-                      <span className="text-2xl font-bold text-emerald-600">
-                        GRÁTIS
-                      </span>
-                    </div>
-                    <p className="text-sm text-gray-600 font-medium mt-2">Sem cartão de crédito</p>
-                  </>
-                ) : (
-                  <>
-                    <div className="flex items-baseline justify-center gap-1 mb-1">
-                      <span className="text-xl text-gray-600 font-medium">R$</span>
-                      <span className="text-5xl font-extrabold text-gray-900">
-                        {price.toFixed(2).replace('.', ',')}
-                      </span>
-                    </div>
-                    <p className="text-sm text-gray-500 font-medium">/mês</p>
-                    {selectedInterval === 'yearly' && price > 0 && (
-                      <p className="text-xs text-emerald-600 font-semibold mt-2">
-                        💰 Economize R$ {(plan.monthly * 2).toFixed(2).replace('.', ',')} por ano
-                      </p>
-                    )}
-                  </>
-                )}
-              </div>
-
-                    {/* Features */}
-                    <div className="space-y-3 mb-6 min-h-[280px]">
-                      {plan.features.map((feature, i) => (
-                        <div key={i} className="flex items-start gap-2.5 group/item">
-                          <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0 mt-0.5 group-hover/item:bg-emerald-500 transition-colors">
-                            <Check className="w-3 h-3 text-emerald-600 group-hover/item:text-white transition-colors" />
-                          </div>
-                          <span className="text-sm text-gray-700 leading-relaxed">
-                            {feature}
-                          </span>
-                        </div>
-                      ))}
-                      {plan.limitations.length > 0 && (
+                    <div className="text-center mb-5 pb-5 border-b border-slate-100">
+                      {key === 'free' ? (
                         <>
-                          {plan.limitations.map((limitation, i) => (
-                            <div key={`lim-${i}`} className="flex items-start gap-2.5">
-                              <div className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                                <X className="w-3 h-3 text-gray-400" />
-                              </div>
-                              <span className="text-sm text-gray-400 line-through leading-relaxed">
-                                {limitation}
-                              </span>
-                            </div>
-                          ))}
+                          <span className="text-3xl font-extrabold text-emerald-600">Grátis</span>
+                          <p className="text-xs text-slate-500 mt-1">Sem cartão de crédito</p>
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex items-baseline justify-center gap-0.5">
+                            <span className="text-lg text-slate-500">R$</span>
+                            <span className="text-4xl font-extrabold text-slate-900">
+                              {price.toFixed(2).replace('.', ',')}
+                            </span>
+                          </div>
+                          <p className="text-sm text-slate-500">/mês</p>
+                          {selectedInterval === 'yearly' && plan.monthly > 0 && (
+                            <p className="text-xs text-emerald-600 font-medium mt-1">
+                              Economia no ano
+                            </p>
+                          )}
                         </>
                       )}
                     </div>
 
-                    {/* CTA Button */}
-                    <Button 
+                    <ul className="space-y-2.5 mb-6 min-h-[260px]">
+                      {plan.features.map((f, i) => (
+                        <li key={i} className="flex items-start gap-2 text-sm text-slate-700">
+                          <Check className="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" />
+                          <span>{f}</span>
+                        </li>
+                      ))}
+                      {plan.limitations?.map((l, i) => (
+                        <li key={`lim-${i}`} className="flex items-start gap-2 text-sm text-slate-400">
+                          <X className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                          <span className="line-through">{l}</span>
+                        </li>
+                      ))}
+                    </ul>
+
+                    <Button
                       onClick={() => handleSubscribe(key)}
-                      className={`w-full font-bold shadow-lg text-base py-6 rounded-xl transition-all duration-300 ${
-                        plan.popular 
-                          ? `bg-gradient-to-r ${plan.bgGradient} hover:shadow-2xl hover:scale-105 text-white border-2 border-transparent` 
-                          : `bg-gradient-to-r ${plan.bgGradient} hover:shadow-xl hover:scale-105 text-white`
-                      }`}
+                      className={`w-full font-semibold py-6 rounded-xl bg-gradient-to-r ${plan.bgGradient} hover:opacity-95 text-white border-0 shadow-md`}
                     >
                       {plan.cta}
-                      <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
+                      <ArrowRight className="w-4 h-4 ml-2" />
                     </Button>
                   </CardContent>
                 </Card>
@@ -386,41 +325,29 @@ export default function Assinar() {
       </section>
 
       {/* Depoimentos */}
-      <section className="py-16 px-4 bg-gradient-to-br from-gray-50 to-white">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-3">Quem usa, recomenda</h2>
-            <p className="text-gray-600">Veja o que nossos clientes dizem sobre a plataforma</p>
-          </div>
-          
+      <section className="py-14 px-4 bg-white border-y border-slate-200">
+        <div className="max-w-6xl mx-auto">
+          <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 text-center mb-2">Quem usa recomenda</h2>
+          <p className="text-slate-600 text-center mb-10">O que nossos clientes dizem</p>
           <div className="grid md:grid-cols-3 gap-6">
-            {TESTIMONIALS.map((testimonial, i) => (
-              <Card key={i} className="border-2 border-gray-200 hover:border-orange-300 hover:shadow-xl transition-all duration-300 bg-white group">
-                <CardContent className="pt-6 pb-6 px-6">
-                  {/* Stars */}
-                  <div className="flex gap-1 mb-4">
-                    {[...Array(testimonial.stars)].map((_, i) => (
-                      <Star key={i} className="w-5 h-5 fill-amber-400 text-amber-400" />
+            {TESTIMONIALS.map((t, i) => (
+              <Card key={i} className="border border-slate-200 bg-slate-50/50">
+                <CardContent className="pt-5 pb-5 px-5">
+                  <div className="flex gap-1 mb-3">
+                    {[...Array(t.stars)].map((_, j) => (
+                      <Star key={j} className="w-4 h-4 fill-amber-400 text-amber-400" />
                     ))}
                   </div>
-                  
-                  {/* Texto */}
-                  <p className="text-gray-700 mb-6 leading-relaxed text-sm italic">
-                    "{testimonial.text}"
-                  </p>
-                  
-                  {/* Avatar e Nome */}
+                  <p className="text-slate-700 text-sm italic mb-4">"{t.text}"</p>
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-400 to-pink-500 flex items-center justify-center text-2xl shadow-lg group-hover:scale-110 transition-transform">
-                      {testimonial.avatar}
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-pink-500 flex items-center justify-center text-lg">
+                      {t.avatar}
                     </div>
-                    <div className="flex-1">
-                      <p className="font-bold text-gray-900">{testimonial.name}</p>
-                      <p className="text-xs text-gray-600">{testimonial.restaurant}</p>
+                    <div>
+                      <p className="font-semibold text-slate-900 text-sm">{t.name}</p>
+                      <p className="text-xs text-slate-500">{t.restaurant}</p>
                     </div>
-                    <Badge className="bg-orange-100 text-orange-700 text-xs font-semibold">
-                      {testimonial.plan}
-                    </Badge>
+                    <Badge variant="secondary" className="text-xs ml-auto">{t.plan}</Badge>
                   </div>
                 </CardContent>
               </Card>
@@ -429,31 +356,19 @@ export default function Assinar() {
         </div>
       </section>
 
-      {/* Tudo que você precisa */}
-      <section className="py-16 px-4 bg-gradient-to-br from-slate-900 to-slate-800 text-white">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl sm:text-4xl font-bold mb-3">Tudo que você precisa em um só lugar</h2>
-            <p className="text-gray-300">Funcionalidades premium incluídas em todos os planos pagos</p>
-          </div>
-          
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {[
-              { icon: Shield, title: 'Seguro', desc: 'SSL e proteção de dados LGPD' },
-              { icon: Zap, title: 'Ultra Rápido', desc: 'Carregamento em milissegundos' },
-              { icon: Smartphone, title: '100% Responsivo', desc: 'Perfeito em qualquer tela' },
-              { icon: BarChart3, title: 'Analytics', desc: 'Métricas em tempo real' },
-              { icon: Clock, title: 'Uptime 99.9%', desc: 'Sempre disponível' },
-              { icon: CreditCard, title: 'Pagamentos', desc: 'PIX, cartão e mais' },
-              { icon: Headphones, title: 'Suporte', desc: 'Ajuda quando precisar' },
-              { icon: ChartIcon, title: 'Escalável', desc: 'Cresce com você' },
-            ].map((item, i) => (
-              <div key={i} className="text-center group hover:scale-105 transition-transform duration-300">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center mb-4 mx-auto shadow-lg group-hover:shadow-2xl transition-shadow">
-                  <item.icon className="w-8 h-8 text-white" />
+      {/* Benefícios */}
+      <section className="py-14 px-4 bg-slate-800 text-white">
+        <div className="max-w-6xl mx-auto">
+          <h2 className="text-2xl sm:text-3xl font-bold text-center mb-2">Tudo que você precisa</h2>
+          <p className="text-slate-300 text-center mb-10">Incluído nos planos pagos</p>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+            {BENEFITS.map((b, i) => (
+              <div key={i} className="text-center">
+                <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center mx-auto mb-3">
+                  <b.icon className="w-6 h-6 text-orange-400" />
                 </div>
-                <h3 className="font-bold text-lg mb-2">{item.title}</h3>
-                <p className="text-sm text-gray-400">{item.desc}</p>
+                <h3 className="font-semibold text-sm">{b.title}</h3>
+                <p className="text-xs text-slate-400 mt-0.5">{b.desc}</p>
               </div>
             ))}
           </div>
@@ -461,86 +376,48 @@ export default function Assinar() {
       </section>
 
       {/* FAQ */}
-      <section className="py-16 px-4">
-        <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-3">Perguntas Frequentes</h2>
-            <p className="text-gray-600">Tire suas dúvidas antes de começar</p>
-          </div>
-          
-          <div className="space-y-4">
-            {[
-              {
-                q: 'Posso mudar de plano depois?',
-                a: 'Sim! Você pode fazer upgrade ou downgrade a qualquer momento pelo painel. As mudanças são aplicadas imediatamente e o valor é ajustado proporcionalmente.'
-              },
-              {
-                q: 'Como funciona a cobrança anual?',
-                a: 'Na cobrança anual você paga o valor completo do ano (com 17% de desconto) de uma vez. É uma ótima opção para economizar!'
-              },
-              {
-                q: 'Posso cancelar a qualquer momento?',
-                a: 'Sim! Sem multas, taxas ou burocracias. Você pode cancelar quando quiser pelo painel administrativo e manter acesso até o fim do período pago.'
-              },
-              {
-                q: 'Vocês oferecem período de teste?',
-                a: 'Sim! O plano Básico tem 10 dias grátis, e os planos Pro e Ultra têm 7 dias. O plano Gratuito é grátis para sempre e não precisa de cartão.'
-              },
-              {
-                q: 'Preciso de cartão de crédito para testar?',
-                a: 'Para o plano Gratuito não! É 100% grátis sem cartão. Para planos pagos, você precisa cadastrar um cartão, mas só será cobrado após o período de teste.'
-              },
-            ].map((faq, i) => (
-              <details key={i} className="group bg-white border-2 border-gray-200 rounded-2xl p-5 hover:border-orange-300 hover:shadow-lg transition-all duration-300">
-                <summary className="font-bold text-gray-900 cursor-pointer flex items-center justify-between text-lg">
-                  {faq.q}
-                  <ChevronDown className="w-5 h-5 text-orange-500 group-open:rotate-180 transition-transform flex-shrink-0 ml-4" />
+      <section className="py-14 px-4 bg-slate-50">
+        <div className="max-w-2xl mx-auto">
+          <h2 className="text-2xl font-bold text-slate-900 text-center mb-8">Perguntas frequentes</h2>
+          <div className="space-y-3">
+            {FAQ.map((item, i) => (
+              <details key={i} className="group bg-white border border-slate-200 rounded-xl px-5 py-4 hover:border-slate-300">
+                <summary className="font-semibold text-slate-900 cursor-pointer flex items-center justify-between list-none">
+                  {item.q}
+                  <ChevronDown className="w-5 h-5 text-orange-500 group-open:rotate-180 transition-transform flex-shrink-0 ml-2" />
                 </summary>
-                <p className="mt-4 text-gray-600 leading-relaxed pl-1">{faq.a}</p>
+                <p className="mt-3 text-slate-600 text-sm leading-relaxed">{item.a}</p>
               </details>
             ))}
           </div>
         </div>
       </section>
 
-      {/* CTA Final */}
-      <section className="py-20 px-4 bg-gradient-to-r from-orange-500 via-pink-500 to-purple-600 text-white relative overflow-hidden">
-        {/* Decorative Elements */}
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48cGF0aCBkPSJNMzYgMzRjMC0yIDItNCAyLTRzLTIgMi00IDJjLTIgMC00LTItNC0yczIgMiA0IDJjMiAwIDQgMiA0IDJ6Ii8+PC9nPjwvZz48L3N2Zz4=')] opacity-20"></div>
-        
-        <div className="max-w-4xl mx-auto text-center relative z-10">
-          <h2 className="text-3xl sm:text-5xl font-extrabold mb-6">
-            Pronto para transformar seu negócio?
-          </h2>
-          <p className="text-xl mb-10 text-white/90">
-            Junte-se a milhares de restaurantes que já estão vendendo mais com nossa plataforma.
-          </p>
-          
-          <Button 
+      {/* CTA final */}
+      <section className="py-16 px-4 bg-gradient-to-r from-orange-500 via-orange-600 to-amber-600 text-white">
+        <div className="max-w-2xl mx-auto text-center">
+          <h2 className="text-2xl sm:text-3xl font-bold mb-4">Pronto para começar?</h2>
+          <p className="text-white/90 mb-8">Cadastre-se em segundos e teste sem cartão.</p>
+          <Button
             onClick={() => handleSubscribe('free')}
             size="lg"
-            className="bg-white text-orange-600 hover:bg-gray-50 font-bold text-lg px-10 py-7 rounded-2xl shadow-2xl hover:shadow-3xl hover:scale-105 transition-all duration-300 group"
+            className="bg-white text-orange-600 hover:bg-slate-50 font-bold text-base px-8 py-6 rounded-xl shadow-xl"
           >
-            Começar Grátis
-            <ArrowRight className="w-6 h-6 ml-3 group-hover:translate-x-2 transition-transform" />
+            Começar grátis
+            <ArrowRight className="w-5 h-5 ml-2" />
           </Button>
-          
-          <p className="text-sm mt-6 text-white/80">
-            Sem cartão de crédito • Cancele quando quiser
-          </p>
+          <p className="text-sm text-white/80 mt-4">Sem cartão • Cancele quando quiser</p>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="py-8 px-4 border-t border-gray-200 bg-white">
-        <div className="max-w-7xl mx-auto text-center">
-          <p className="text-sm text-gray-600 mb-4">
-            © {new Date().getFullYear()} DigiMenu - Todos os direitos reservados
-          </p>
-          <div className="flex items-center justify-center gap-8 text-sm text-gray-500">
-            <a href="/termos" className="hover:text-orange-600 transition-colors font-medium">Termos de Uso</a>
-            <a href="/privacidade" className="hover:text-orange-600 transition-colors font-medium">Privacidade</a>
-            <a href="/contato" className="hover:text-orange-600 transition-colors font-medium">Contato</a>
+      <footer className="py-8 px-4 border-t border-slate-200 bg-white">
+        <div className="max-w-6xl mx-auto text-center">
+          <p className="text-sm text-slate-500 mb-3">© {new Date().getFullYear()} DigiMenu</p>
+          <div className="flex justify-center gap-6 text-sm text-slate-500">
+            <a href="/termos" className="hover:text-orange-600">Termos</a>
+            <a href="/privacidade" className="hover:text-orange-600">Privacidade</a>
+            <a href="/contato" className="hover:text-orange-600">Contato</a>
           </div>
         </div>
       </footer>

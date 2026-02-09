@@ -220,7 +220,7 @@ export default function Login() {
             </p>
             <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
               <strong>Restaurante:</strong>{' '}
-              <Link to="/Assinar" className="text-orange-500 hover:text-orange-600 font-medium">Assinar DigiMenu</Link>
+              <Link to="/assinar" className="text-orange-500 hover:text-orange-600 font-medium">Assinar DigiMenu</Link>
               {' — '}Painel, PDV e gestão.
             </p>
             <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
