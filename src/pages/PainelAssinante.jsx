@@ -116,14 +116,7 @@ export default function PainelAssinante() {
     base44.auth.logout();
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
-      </div>
-    );
-  }
-
+  // ✅ MOVER CÁLCULO DE ROLES ANTES DE QUALQUER RETURN CONDICIONAL
   // Verificar se é gerente (pode acessar mesmo sem assinatura ativa)
   // Suporta tanto profile_role (string) quanto profile_roles (array)
   // Só verificar se user estiver carregado
@@ -139,9 +132,17 @@ export default function PainelAssinante() {
       navigate('/colaborador', { replace: true });
     }
   }, [loading, user, isColaborador, isMaster, navigate]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+      </div>
+    );
+  }
   
   // Mostrar loading enquanto verifica se é colaborador
-  if (loading || (user && isColaborador && !isMaster)) {
+  if (user && isColaborador && !isMaster) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
