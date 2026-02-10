@@ -49,10 +49,22 @@ export default function ColaboradorHome() {
           if (!cancelled) navigate('/', { replace: true });
           return;
         }
-        const me = await base44.auth.me();
+        let me = await base44.auth.me();
         if (cancelled) return;
-        // Não redirecionar para / quando me() não traz profile_roles (evita loop com SmartRedirect).
-        // Exibe a página com "Nenhuma função disponível" se roles virem vazios.
+        // Se me() não trouxer profile_roles, buscar /user/context (retorna user com profile_roles)
+        const hasRoles = (me?.profile_roles?.length) || (me?.profile_role && me.profile_role.trim() !== '');
+        if (!hasRoles && me?.email) {
+          try {
+            const ctx = await base44.get('/user/context', { _t: Date.now() });
+            if (ctx?.user) {
+              me = { ...me, ...ctx.user };
+              if (ctx.user.profile_roles?.length) me.profile_roles = ctx.user.profile_roles;
+              if (ctx.user.profile_role) me.profile_role = ctx.user.profile_role;
+            }
+          } catch (_) {
+            // mantém me do auth.me()
+          }
+        }
         setUser(me);
       } catch (e) {
         if (!cancelled) navigate('/', { replace: true });
@@ -90,7 +102,9 @@ export default function ColaboradorHome() {
     : user?.profile_role
       ? [user.profile_role]
       : [];
-  const isGerente = roles.includes('gerente');
+  // Gerente: acesso a todas as funções. Assinante (dono): também acesso total.
+  const isDono = user?.subscriber_email && (user?.email || '').toLowerCase().trim() === (user?.subscriber_email || '').toLowerCase().trim();
+  const isGerente = roles.includes('gerente') || isDono;
 
   const visibleButtons = isGerente
     ? APP_BUTTONS

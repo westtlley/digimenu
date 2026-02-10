@@ -293,9 +293,10 @@ const authenticate = async (req, res, next) => {
         const decoded = jwt.verify(token, JWT_SECRET);
         let user;
         if (usePostgreSQL) {
-          user = await repo.getUserByEmail(decoded.email);
+          user = await repo.getLoginUserByEmail(decoded.email);
         } else if (db && db.users) {
-          user = db.users.find(u => u.email === decoded.email);
+          const matches = db.users.filter(u => (u.email || '').toLowerCase() === (decoded.email || '').toLowerCase());
+          user = matches.find(u => u.profile_role) || matches[0];
         }
         if (user) {
           req.user = user;
@@ -335,12 +336,13 @@ const authenticate = async (req, res, next) => {
     
     let user;
     if (usePostgreSQL) {
-      user = await repo.getUserByEmail(decoded.email);
+      user = await repo.getLoginUserByEmail(decoded.email);
       if (!user) {
         user = await repo.getUserByEmail('admin@digimenu.com');
       }
     } else if (db && db.users) {
-      user = db.users.find(u => u.email === decoded.email) || db.users[0];
+      const matches = db.users.filter(u => (u.email || '').toLowerCase() === (decoded.email || '').toLowerCase());
+      user = matches.find(u => u.profile_role) || matches[0] || db.users[0];
     } else {
       return res.status(401).json({ error: 'Banco de dados não inicializado' });
     }
@@ -359,12 +361,13 @@ const authenticate = async (req, res, next) => {
     if (email) {
       let user;
       if (usePostgreSQL) {
-        user = await repo.getUserByEmail(email);
+        user = await repo.getLoginUserByEmail(email);
         if (!user) {
           user = await repo.getUserByEmail('admin@digimenu.com');
         }
       } else if (db && db.users) {
-        user = db.users.find(u => u.email === email) || db.users[0];
+        const matches = db.users.filter(u => (u.email || '').toLowerCase() === (email || '').toLowerCase());
+        user = matches.find(u => u.profile_role) || matches[0] || db.users[0];
       } else {
         return res.status(401).json({ error: 'Banco de dados não inicializado' });
       }
