@@ -16,24 +16,50 @@ import { buscarCEP } from '@/utils/cepService';
 import { Loader2, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
 
+const DEFAULT_CUSTOMER = {
+  name: '',
+  phone: '',
+  deliveryMethod: 'pickup',
+  address_street: '',
+  address_number: '',
+  address_complement: '',
+  address: '',
+  paymentMethod: '',
+  neighborhood: '',
+  cep: '',
+  city: '',
+  state: '',
+  latitude: null,
+  longitude: null,
+  scheduled_date: '',
+  scheduled_time: '',
+  needs_change: false,
+  change_amount: null
+};
+
 export default function CheckoutView({ 
   cart, 
-  customer, 
-  setCustomer, 
+  customer: customerProp, 
+  setCustomer: setCustomerProp, 
   onBack, 
   onSendWhatsApp,
+  onSubmit,
   onGeneratePDF,
-  couponCode,
-  setCouponCode,
-  appliedCoupon,
-  couponError,
-  onApplyCoupon,
-  onRemoveCoupon,
-  deliveryZones,
+  couponCode = '',
+  setCouponCode = () => {},
+  appliedCoupon = null,
+  couponError = '',
+  onApplyCoupon = () => {},
+  onRemoveCoupon = () => {},
+  deliveryZones = [],
   store,
   primaryColor = '#f97316',
-  isTableOrder = false // Indica se é pedido de mesa
+  isTableOrder = false, // Indica se é pedido de mesa
+  userEmail = null,
+  slug = null
 }) {
+  const customer = customerProp ?? DEFAULT_CUSTOMER;
+  const setCustomer = setCustomerProp ?? (() => {});
   const [showSchedule, setShowSchedule] = useState(false);
   const [showMapPicker, setShowMapPicker] = useState(false);
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
@@ -770,7 +796,23 @@ export default function CheckoutView({
           onClose={() => setShowConfirmationModal(false)}
           onConfirm={() => {
             setShowConfirmationModal(false);
-            onSendWhatsApp();
+            if (typeof onSubmit === 'function') {
+              onSubmit({
+                customer_name: customer.name,
+                customer_phone: customer.phone?.replace(/\D/g, '') || '',
+                customer_email: customer.email || userEmail || '',
+                observations: customer.observations || '',
+                tip: isTableOrder && tipType !== 'none' ? (tipType === 'percent' ? parseFloat(tipValue || 0) : parseFloat(tipValue || 0)) : null,
+                total,
+                cartTotal,
+                discount: totalDiscount,
+                deliveryFee,
+                appliedCoupon,
+                customer
+              });
+            } else if (typeof onSendWhatsApp === 'function') {
+              onSendWhatsApp();
+            }
           }}
           onEdit={() => {
             setShowConfirmationModal(false);
@@ -778,7 +820,7 @@ export default function CheckoutView({
           cart={cart}
           customer={customer}
           cartTotal={cartTotal}
-          discount={discount}
+          discount={totalDiscount}
           deliveryFee={deliveryFee}
           total={total}
           appliedCoupon={appliedCoupon}

@@ -2,37 +2,39 @@ import { useState, useEffect, useCallback } from 'react';
 
 const CART_STORAGE_KEY = 'cardapio_cart';
 
-// Função para obter a chave do carrinho baseada no slug
+// Função para obter a chave do carrinho baseada no slug (um carrinho por estabelecimento)
 export const getCartStorageKey = (slug) => {
   return slug ? `cardapio_cart_${slug}` : CART_STORAGE_KEY;
 };
 
-export function useCart() {
-  const [cart, setCart] = useState(() => {
-    try {
-      const saved = localStorage.getItem(CART_STORAGE_KEY);
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+function loadCartFromStorage(slug) {
+  try {
+    const key = getCartStorageKey(slug);
+    const saved = localStorage.getItem(key);
+    return saved ? JSON.parse(saved) : [];
+  } catch {
+    return [];
+  }
+}
 
-  // Persistir no localStorage sempre que mudar
+export function useCart(slug = null) {
+  const storageKey = getCartStorageKey(slug);
+  const [cart, setCart] = useState(() => loadCartFromStorage(slug));
+
+  // Ao trocar de estabelecimento (slug), carregar o carrinho correto para não misturar pedidos
+  useEffect(() => {
+    setCart(loadCartFromStorage(slug));
+  }, [slug]);
+
+  // Persistir no localStorage sempre que o carrinho mudar (sempre na chave do slug atual)
   useEffect(() => {
     try {
-      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
-      
-      // Também salvar com slug se disponível (para recuperação de carrinho abandonado)
-      const currentPath = window.location.pathname;
-      const slugMatch = currentPath.match(/\/s\/([^\/]+)/);
-      if (slugMatch && cart.length > 0) {
-        const slug = slugMatch[1];
-        localStorage.setItem(`cardapio_cart_${slug}`, JSON.stringify(cart));
-      }
+      localStorage.setItem(storageKey, JSON.stringify(cart));
+      if (!slug) localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
     } catch (e) {
       console.error('Erro ao salvar carrinho:', e);
     }
-  }, [cart]);
+  }, [cart, storageKey, slug]);
 
   const addItem = useCallback((item) => {
     setCart(prev => [...prev, { ...item, quantity: 1, id: `${item.dish.id}_${Date.now()}` }]);

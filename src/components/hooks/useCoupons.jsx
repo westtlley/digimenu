@@ -2,11 +2,16 @@ import { useState, useCallback, useEffect } from 'react';
 
 const COUPON_STORAGE_KEY = 'cardapio_applied_coupon';
 
-export function useCoupons(coupons, cartTotal) {
+function getCouponStorageKey(slug) {
+  return slug ? `cardapio_applied_coupon_${slug}` : COUPON_STORAGE_KEY;
+}
+
+export function useCoupons(coupons, cartTotal, slug = null) {
+  const storageKey = getCouponStorageKey(slug);
   const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState(() => {
     try {
-      const saved = localStorage.getItem(COUPON_STORAGE_KEY);
+      const saved = localStorage.getItem(storageKey);
       return saved ? JSON.parse(saved) : null;
     } catch {
       return null;
@@ -14,58 +19,77 @@ export function useCoupons(coupons, cartTotal) {
   });
   const [couponError, setCouponError] = useState('');
 
-  // Persistir cupom aplicado
+  // Ao trocar de estabelecimento, recarregar cupom do slug atual
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(getCouponStorageKey(slug));
+      setAppliedCoupon(saved ? JSON.parse(saved) : null);
+    } catch {
+      setAppliedCoupon(null);
+    }
+  }, [slug]);
+
+  // Persistir cupom aplicado (por slug)
   useEffect(() => {
     try {
       if (appliedCoupon) {
-        localStorage.setItem(COUPON_STORAGE_KEY, JSON.stringify(appliedCoupon));
+        localStorage.setItem(storageKey, JSON.stringify(appliedCoupon));
       } else {
-        localStorage.removeItem(COUPON_STORAGE_KEY);
+        localStorage.removeItem(storageKey);
       }
     } catch (e) {
       console.error('Erro ao salvar cupom:', e);
     }
-  }, [appliedCoupon]);
+  }, [appliedCoupon, storageKey]);
 
-  const validateAndApply = useCallback(() => {
+  const validateAndApply = useCallback((overrideCode) => {
     setCouponError('');
-    const code = couponCode.toUpperCase().trim();
+    const code = (overrideCode !== undefined && overrideCode !== null ? String(overrideCode) : couponCode).toUpperCase().trim();
     
     if (!code) {
-      setCouponError('Digite um código de cupom');
-      return false;
+      const msg = 'Digite um código de cupom';
+      setCouponError(msg);
+      return { success: false, error: msg };
     }
 
     const coupon = coupons.find((c) => c.code === code);
     
     if (!coupon) {
-      setCouponError('Cupom não encontrado');
-      return false;
+      const msg = 'Cupom não encontrado';
+      setCouponError(msg);
+      return { success: false, error: msg };
     }
     
     if (!coupon.is_active) {
-      setCouponError('Cupom inativo');
-      return false;
+      const msg = 'Cupom inativo';
+      setCouponError(msg);
+      return { success: false, error: msg };
     }
     
     if (coupon.expires_at && new Date(coupon.expires_at) < new Date()) {
-      setCouponError('Cupom expirado');
-      return false;
+      const msg = 'Cupom expirado';
+      setCouponError(msg);
+      return { success: false, error: msg };
     }
     
     if (coupon.max_uses > 0 && (coupon.current_uses || 0) >= coupon.max_uses) {
-      setCouponError('Cupom esgotado');
-      return false;
+      const msg = 'Cupom esgotado';
+      setCouponError(msg);
+      return { success: false, error: msg };
     }
     
     if (coupon.min_order_value && cartTotal < coupon.min_order_value) {
-      setCouponError(`Pedido mínimo: R$ ${coupon.min_order_value.toFixed(2)}`);
-      return false;
+      const msg = `Pedido mínimo: R$ ${coupon.min_order_value.toFixed(2)}`;
+      setCouponError(msg);
+      return { success: false, error: msg };
     }
     
     setAppliedCoupon(coupon);
     setCouponCode('');
-    return true;
+    const discount = coupon.discount_type === 'percentage'
+      ? cartTotal * coupon.discount_value / 100
+      : coupon.discount_value;
+    return { success: true, error: null, discount };
   }, [couponCode, coupons, cartTotal]);
 
   const removeCoupon = useCallback(() => {

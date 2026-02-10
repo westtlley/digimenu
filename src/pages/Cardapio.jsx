@@ -123,7 +123,7 @@ export default function Cardapio() {
   const queryClient = useQueryClient();
 
   // Custom Hooks
-  const { cart, addItem, updateItem, removeItem, updateQuantity, clearCart, cartTotal, cartItemsCount } = useCart();
+  const { cart, addItem, updateItem, removeItem, updateQuantity, clearCart, cartTotal, cartItemsCount } = useCart(slug);
   const { customer, setCustomer, clearCustomer } = useCustomer();
 
   // Hook de fidelidade
@@ -383,7 +383,7 @@ export default function Cardapio() {
   const isStoreOpen = !isStoreUnavailable && !isStoreClosed && !isStorePaused;
 
   // Coupons
-  const { couponCode, setCouponCode, appliedCoupon, couponError, validateAndApply, removeCoupon, calculateDiscount } = useCoupons(couponsResolved, cartTotal);
+  const { couponCode, setCouponCode, appliedCoupon, couponError, validateAndApply, removeCoupon, calculateDiscount } = useCoupons(couponsResolved, cartTotal, slug);
 
   // Upsell
   const { showUpsellModal, upsellPromotions, checkUpsell, resetUpsell, closeUpsell } = useUpsell(promotionsResolved, cartTotal);
@@ -665,18 +665,18 @@ export default function Cardapio() {
     updateQuantity(itemId, delta);
   };
 
-  const handleApplyCoupon = () => {
-    const success = validateAndApply();
-    if (success) {
-      const discount = calculateDiscount();
+  const handleApplyCoupon = (codeFromModal) => {
+    const result = validateAndApply(codeFromModal);
+    if (result.success) {
+      const discount = result.discount ?? calculateDiscount();
       toast.success(
         <div>
           <p className="font-bold">🎉 Cupom aplicado!</p>
           <p className="text-sm">Você economizou {formatCurrency(discount)}</p>
         </div>
       );
-    } else {
-      toast.error(couponError);
+    } else if (result.error) {
+      toast.error(result.error);
     }
   };
 
@@ -1733,10 +1733,7 @@ export default function Cardapio() {
       <WelcomeDiscountModal
         isOpen={showWelcomeDiscount}
         onClose={() => setShowWelcomeDiscount(false)}
-        onApplyCoupon={(couponCode) => {
-          setCouponCode(couponCode);
-          handleApplyCoupon();
-        }}
+        onApplyCoupon={(code) => handleApplyCoupon(code)}
         primaryColor={primaryColor}
         slug={slug}
       />

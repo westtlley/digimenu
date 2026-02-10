@@ -239,8 +239,10 @@ export default function TableOrder() {
               cart={cart}
               onBack={() => setCurrentView('cart')}
               onSubmit={handleCheckout}
-              store={null}
+              store={store}
               primaryColor="#22c55e"
+              isTableOrder
+              slug={slug || undefined}
             />
           </div>
         )}
