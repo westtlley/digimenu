@@ -51,10 +51,8 @@ export default function ColaboradorHome() {
         }
         const me = await base44.auth.me();
         if (cancelled) return;
-        if (!me?.profile_role && !me?.profile_roles?.length) {
-          navigate('/', { replace: true });
-          return;
-        }
+        // Não redirecionar para / quando me() não traz profile_roles (evita loop com SmartRedirect).
+        // Exibe a página com "Nenhuma função disponível" se roles virem vazios.
         setUser(me);
       } catch (e) {
         if (!cancelled) navigate('/', { replace: true });

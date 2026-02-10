@@ -85,6 +85,7 @@ export function usePermission() {
               });
               if (slugSubscriberResult.data?.subscriber) {
                 const slugSubscriber = slugSubscriberResult.data.subscriber;
+                const slugPlanSlug = (slugSubscriber.plan || 'basic').toString().toLowerCase().trim();
                 finalSubscriberData = {
                   ...slugSubscriber,
                   plan: slugPlanSlug,
@@ -100,7 +101,6 @@ export function usePermission() {
                   }
                 }
                 if (!slugPerms || typeof slugPerms !== 'object') slugPerms = {};
-                const slugPlanSlug = (slugSubscriber.plan || 'basic').toString().toLowerCase().trim();
                 if (['free', 'basic', 'pro', 'ultra', 'premium'].includes(slugPlanSlug)) {
                   slugPerms = { ...(getPlanPermissions(slugPlanSlug) || {}), ...slugPerms };
                 }
@@ -202,6 +202,7 @@ export function usePermission() {
       setPermissions({});
       setSubscriberData(null);
       setUserContext(null);
+      setLoading(false);
     } finally {
       setLoading(false);
     }

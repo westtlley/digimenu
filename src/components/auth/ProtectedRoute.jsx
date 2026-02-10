@@ -91,7 +91,13 @@ export default function ProtectedRoute({
             return;
           }
           
-          // Gerente pode acessar mesmo sem assinatura ativa (cargo de confiança)
+          // Gerente que acessa PainelAssinante → redirecionar para /colaborador (evita loop e loading duplo)
+          if (isGerente && !isAssinante && location.pathname.toLowerCase().includes('painelassinante')) {
+            navigate('/colaborador', { replace: true });
+            setLoading(false);
+            return;
+          }
+          // Gerente em outras rotas protegidas (ex.: GestorPedidos) pode acessar
           if (isGerente) {
             setAuthorized(true);
             setLoading(false);
