@@ -626,8 +626,8 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
     }
   }, [initialTab]);
 
-  // ✅ NOVO: Usar menuContext do usePermission
-  const { canCreate, canUpdate, canDelete, hasModuleAccess, subscriberData, menuContext, user: permissionUser } = usePermission();
+  // ✅ NOVO: Usar menuContext do usePermission (loading: aguardar contexto antes de buscar pratos)
+  const { canCreate, canUpdate, canDelete, hasModuleAccess, subscriberData, menuContext, user: permissionUser, loading: permissionLoading } = usePermission();
   const hasPizzaService = hasModuleAccess('pizza_config');
   const canEdit = canUpdate('dishes');
   
@@ -1371,7 +1371,8 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
 
   const activeFilters = getActiveFilters();
 
-  const isLoading = dishesLoading || categoriesLoading || groupsLoading;
+  // Mostrar skeleton enquanto contexto não carregou OU enquanto dados estão sendo buscados (evita tela vazia ao abrir)
+  const isLoading = permissionLoading || !menuContext || dishesLoading || categoriesLoading || groupsLoading;
   const hasError = dishesError || categoriesError || groupsError;
 
   if (isLoading) {

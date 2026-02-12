@@ -60,6 +60,7 @@ export default function ColaboradorHome() {
               me = { ...me, ...ctx.user };
               if (ctx.user.profile_roles?.length) me.profile_roles = ctx.user.profile_roles;
               if (ctx.user.profile_role) me.profile_role = ctx.user.profile_role;
+              if (ctx.user.is_owner !== undefined) me.is_owner = ctx.user.is_owner; // Assinante (dono) vê todos os apps
             }
           } catch (_) {
             // mantém me do auth.me()
