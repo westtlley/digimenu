@@ -16,11 +16,28 @@ export async function migrate() {
     if (!connected) {
       throw new Error('Não foi possível conectar ao PostgreSQL');
     }
-    
+
+    // Pré-migração: garantir coluna password_hash em users (evita erro em banco antigo no Render)
+    try {
+      await query(`
+        DO $$
+        BEGIN
+          IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'users')
+             AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'password_hash') THEN
+            ALTER TABLE users ADD COLUMN password_hash VARCHAR(255);
+            RAISE NOTICE 'Coluna password_hash adicionada em users';
+          END IF;
+        END $$;
+      `);
+      console.log('✅ Pré-migração (password_hash em users) concluída.');
+    } catch (e) {
+      console.warn('⚠️ Pré-migração password_hash (pode ser banco novo):', e?.message || e);
+    }
+
     // Ler arquivo SQL
     const schemaPath = path.join(__dirname, 'schema.sql');
     const schemaSQL = fs.readFileSync(schemaPath, 'utf8');
-    
+
     // Executar schema
     await query(schemaSQL);
     
