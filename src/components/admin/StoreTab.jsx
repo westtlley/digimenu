@@ -86,6 +86,33 @@ export default function StoreTab() {
     if (subscriberData?.slug != null) setSlugEdit(subscriberData.slug);
   }, [subscriberData?.slug]);
 
+  const slugSaveMutation = useMutation({
+    mutationFn: async (val) => {
+      const s = String(val || '').trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+      await base44.put(`/subscribers/${subscriberData.id}`, { slug: s || null });
+    },
+    onSuccess: () => {
+      refresh();
+      toast.success('Link do cardápio atualizado.');
+    },
+    onError: (e) => toast.error(e?.message || 'Erro ao salvar link'),
+  });
+
+  // ✅ CORREÇÃO: Buscar store com contexto do slug
+  const { data: stores = [] } = useQuery({
+    queryKey: ['store', menuContext?.type, menuContext?.value],
+    queryFn: async () => {
+      if (!menuContext) return [];
+      const opts = {};
+      if (menuContext.type === 'subscriber' && menuContext.value) {
+        opts.as_subscriber = menuContext.value;
+      }
+      return base44.entities.Store.list(null, opts);
+    },
+    enabled: !!menuContext,
+  });
+
+  const store = stores[0];
   const storeBanners = Array.isArray(store?.banners) ? store.banners : [];
 
   const updateStoreBannersMutation = useMutation({
@@ -141,34 +168,6 @@ export default function StoreTab() {
     }
   };
 
-  const slugSaveMutation = useMutation({
-    mutationFn: async (val) => {
-      const s = String(val || '').trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-      await base44.put(`/subscribers/${subscriberData.id}`, { slug: s || null });
-    },
-    onSuccess: () => {
-      refresh();
-      toast.success('Link do cardápio atualizado.');
-    },
-    onError: (e) => toast.error(e?.message || 'Erro ao salvar link'),
-  });
-
-  // ✅ CORREÇÃO: Buscar store com contexto do slug
-  const { data: stores = [] } = useQuery({
-    queryKey: ['store', menuContext?.type, menuContext?.value],
-    queryFn: async () => {
-      if (!menuContext) return [];
-      const opts = {};
-      if (menuContext.type === 'subscriber' && menuContext.value) {
-        opts.as_subscriber = menuContext.value;
-      }
-      return base44.entities.Store.list(null, opts);
-    },
-    enabled: !!menuContext,
-  });
-
-  const store = stores[0];
-  
   const formatCurrency = (value) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
   };

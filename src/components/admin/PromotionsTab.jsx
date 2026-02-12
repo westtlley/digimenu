@@ -122,6 +122,7 @@ export default function PromotionsTab() {
 
   const updateCrossSellConfigMutation = useMutation({
     mutationFn: async (data) => {
+      if (!store?.id) throw new Error('Loja não encontrada');
       const opts = menuContext?.type === 'subscriber' && menuContext?.value ? { as_subscriber: menuContext.value } : {};
       return base44.entities.Store.update(store.id, { cross_sell_config: data }, opts);
     },
