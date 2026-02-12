@@ -738,6 +738,13 @@ entitiesAndManagerialRouter.get('/entities/:entity/:id', authenticate, async (re
     res.status(500).json({ error: 'Erro interno no servidor' });
   }
 });
+// Colaboradores (evitar 404 em produção - front espera /api/colaboradores)
+entitiesAndManagerialRouter.get('/colaboradores', authenticate, usersController.listColaboradores);
+entitiesAndManagerialRouter.post('/colaboradores', authenticate, validate(schemas.createColaborador), createLimiter, usersController.createColaborador);
+entitiesAndManagerialRouter.post('/colaboradores/:email/add-roles', authenticate, usersController.addRolesToColaborador);
+entitiesAndManagerialRouter.patch('/colaboradores/:id', authenticate, usersController.updateColaborador);
+entitiesAndManagerialRouter.delete('/colaboradores/:id', authenticate, usersController.deleteColaborador);
+entitiesAndManagerialRouter.patch('/colaboradores/:id/toggle-active', authenticate, usersController.toggleActiveColaborador);
 app.use('/api', entitiesAndManagerialRouter);
 
 // =======================
