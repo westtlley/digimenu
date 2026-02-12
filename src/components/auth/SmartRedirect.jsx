@@ -121,20 +121,30 @@ export default function SmartRedirect() {
           <p className="mt-8 text-sm text-slate-500 dark:text-slate-400 text-center max-w-md">
             Já tem o link do seu restaurante? Acesse pelo endereço que você recebeu (ex.: {typeof window !== 'undefined' ? window.location.host + '/s/nome-do-restaurante' : 'seusite.com/s/nome-do-restaurante'}).
           </p>
-          <Link to="/assinar" className="mt-6 text-sm text-orange-600 dark:text-orange-400 hover:underline">
-            Restaurante? Cadastre-se e comece grátis
-          </Link>
+          <div className="mt-4 flex flex-wrap gap-4 justify-center">
+            <Link to="/login/admin" className="text-sm text-orange-600 dark:text-orange-400 hover:underline">
+              Login Admin (master)
+            </Link>
+            <Link to="/assinar" className="text-sm text-orange-600 dark:text-orange-400 hover:underline">
+              Restaurante? Cadastre-se e comece grátis
+            </Link>
+          </div>
         </div>
       </div>
     );
   }
 
   if (timedOut) {
+    const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-orange-50 to-white dark:from-gray-900 dark:to-gray-950 p-4">
-        <div className="text-center max-w-md">
-          <p className="text-gray-600 dark:text-gray-400 mb-4">
-            O servidor demorou para responder. Acesse pelo link do seu restaurante (ex.: /s/seu-restaurante/login) ou tente novamente.
+        <div className="text-center max-w-lg">
+          <p className="text-gray-600 dark:text-gray-400 mb-2">
+            O servidor demorou para responder. Se estiver em desenvolvimento local, verifique se o backend está rodando e se <code className="text-xs bg-gray-100 dark:bg-gray-700 px-1 rounded">VITE_API_BASE_URL</code> aponta para ele.
+          </p>
+          <p className="text-sm text-gray-500 dark:text-gray-500 mb-4">
+            <strong>Login:</strong> {baseUrl}/login/admin ou {baseUrl}/s/seu-slug/login<br />
+            <strong>Cardápio:</strong> {baseUrl}/s/seu-slug
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <button
@@ -144,6 +154,9 @@ export default function SmartRedirect() {
             >
               Tentar novamente
             </button>
+            <a href="/login/admin" className="px-4 py-2 rounded-lg border border-orange-300 bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 font-medium hover:bg-orange-100 dark:hover:bg-orange-900/30 inline-block">
+              Login Admin
+            </a>
             <a href="/assinar" className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-700 inline-block">
               Ver planos
             </a>

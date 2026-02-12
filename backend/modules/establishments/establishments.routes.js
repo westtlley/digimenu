@@ -13,6 +13,8 @@ const router = express.Router();
 router.get('/subscribers', authenticate, requireMaster, establishmentsController.listSubscribers);
 router.post('/subscribers', authenticate, requireMaster, establishmentsController.createSubscriber);
 router.put('/subscribers/:id', authenticate, establishmentsController.updateSubscriber);
+// Rota para quando o router é montado em /api/subscribers (path fica /:id)
+router.put('/:id', authenticate, establishmentsController.updateSubscriber);
 router.get('/delete-subscriber-by-slug', authenticate, requireMaster, establishmentsController.deleteSubscriberBySlug);
 router.post('/delete-subscriber-by-slug', authenticate, requireMaster, establishmentsController.deleteSubscriberBySlug);
 

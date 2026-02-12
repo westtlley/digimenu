@@ -76,6 +76,9 @@ export default function CategoriesTab() {
         ...data,
         owner_email: user?.subscriber_email || user?.email
       };
+      if (menuContext?.type === 'subscriber' && menuContext?.value) {
+        categoryData.as_subscriber = menuContext.value;
+      }
       return base44.entities.Category.create(categoryData);
     },
     onSuccess: () => {
@@ -85,15 +88,20 @@ export default function CategoriesTab() {
       setNewCategoryName('');
       toast.success('✅ Categoria criada!');
     },
+    onError: (err) => {
+      toast.error(err?.message || 'Erro ao criar categoria');
+    },
   });
 
+  const getEntityOpts = () => (menuContext?.type === 'subscriber' && menuContext?.value) ? { as_subscriber: menuContext.value } : {};
+
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.Category.update(id, data),
+    mutationFn: ({ id, data }) => base44.entities.Category.update(id, data, getEntityOpts()),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['categories'] }),
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.Category.delete(id),
+    mutationFn: (id) => base44.entities.Category.delete(id, getEntityOpts()),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['categories'] }),
   });
 

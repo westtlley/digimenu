@@ -739,7 +739,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
       const subscriberEmail = getSubscriberEmail();
       const dishData = {
         ...data,
-        ...(subscriberEmail && { subscriber_email: subscriberEmail })
+        ...(subscriberEmail && { as_subscriber: subscriberEmail, owner_email: subscriberEmail })
       };
       return base44.entities.Dish.create(dishData);
     },
@@ -754,7 +754,10 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
   });
 
   const updateDishMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.Dish.update(id, data),
+    mutationFn: ({ id, data }) => {
+      const opts = getSubscriberEmail() ? { as_subscriber: getSubscriberEmail() } : {};
+      return base44.entities.Dish.update(id, data, opts);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['dishes', menuContext?.type, menuContext?.value] });
       toast.success('Prato atualizado!');
@@ -763,7 +766,10 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
   });
 
   const deleteDishMutation = useMutation({
-    mutationFn: (id) => base44.entities.Dish.delete(id),
+    mutationFn: (id) => {
+      const opts = getSubscriberEmail() ? { as_subscriber: getSubscriberEmail() } : {};
+      return base44.entities.Dish.delete(id, opts);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['dishes', menuContext?.type, menuContext?.value] });
       toast.success('Prato excluído');
@@ -776,7 +782,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
       const subscriberEmail = getSubscriberEmail();
       return base44.entities.Category.create({
         ...data,
-        ...(subscriberEmail && { subscriber_email: subscriberEmail })
+        ...(subscriberEmail && { as_subscriber: subscriberEmail, owner_email: subscriberEmail })
       });
     },
     onSuccess: () => {
@@ -789,7 +795,10 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
   });
 
   const updateCategoryMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.Category.update(id, data),
+    mutationFn: ({ id, data }) => {
+      const opts = getSubscriberEmail() ? { as_subscriber: getSubscriberEmail() } : {};
+      return base44.entities.Category.update(id, data, opts);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories', menuContext?.type, menuContext?.value] });
       toast.success('Categoria atualizada!');
@@ -800,7 +809,10 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
   });
 
   const deleteCategoryMutation = useMutation({
-    mutationFn: (id) => base44.entities.Category.delete(id),
+    mutationFn: (id) => {
+      const opts = getSubscriberEmail() ? { as_subscriber: getSubscriberEmail() } : {};
+      return base44.entities.Category.delete(id, opts);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories', menuContext?.type, menuContext?.value] });
       queryClient.invalidateQueries({ queryKey: ['dishes', menuContext?.type, menuContext?.value] });
@@ -828,7 +840,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
       const subscriberEmail = getSubscriberEmail();
       return base44.entities.ComplementGroup.create({
         ...data,
-        ...(subscriberEmail && { subscriber_email: subscriberEmail })
+        ...(subscriberEmail && { as_subscriber: subscriberEmail, owner_email: subscriberEmail })
       });
     },
     onSuccess: (newGroup) => {
@@ -838,7 +850,10 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
   });
 
   const updateComplementGroupMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.ComplementGroup.update(id, data),
+    mutationFn: ({ id, data }) => {
+      const opts = getSubscriberEmail() ? { as_subscriber: getSubscriberEmail() } : {};
+      return base44.entities.ComplementGroup.update(id, data, opts);
+    },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['complementGroups', menuContext?.type, menuContext?.value] }),
   });
 
@@ -1219,7 +1234,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
     const newDish = {
       ...dish,
       name: `${dish.name} (Cópia)`,
-      ...(subscriberEmail && { subscriber_email: subscriberEmail }),
+      ...(subscriberEmail && { as_subscriber: subscriberEmail, owner_email: subscriberEmail }),
       id: undefined,
       created_date: undefined,
       updated_date: undefined,
@@ -1232,7 +1247,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
     createCategoryMutation.mutate({
       name: `${category.name} (Cópia)`,
       order: safeCategories.length,
-      ...(subscriberEmail && { subscriber_email: subscriberEmail })
+      ...(subscriberEmail && { as_subscriber: subscriberEmail, owner_email: subscriberEmail })
     });
   };
 

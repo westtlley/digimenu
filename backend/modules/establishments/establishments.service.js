@@ -208,7 +208,7 @@ export async function updateSubscriber(id, updateData, currentUser) {
     if (!canEditEstablishment(currentUser, sub.email)) {
       throw new Error('Só é possível editar seu próprio link');
     }
-    const allowedForOwner = ['name', 'slug', 'phone', 'cnpj_cpf', 'notes'];
+    const allowedForOwner = ['name', 'slug', 'phone', 'cnpj_cpf', 'notes', 'send_whatsapp_commands'];
     const filtered = {};
     for (const key of allowedForOwner) {
       if (updateData[key] !== undefined) filtered[key] = updateData[key];
