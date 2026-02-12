@@ -601,6 +601,146 @@ app.use('/api/establishments', establishmentsRoutes);
 app.use('/api/subscribers', establishmentsRoutes);
 
 // =======================
+// 📦 ENTITIES + MANAGERIAL-AUTH (registrar antes de menus/orders para evitar 404)
+// =======================
+function getManagerialSubscriberAndRole(req) {
+  const owner = (req.body?.as_subscriber || req.query?.as_subscriber || req.user?._contextForSubscriber || req.user?.subscriber_email || req.user?.email || '').toString().toLowerCase().trim();
+  const isGerente = isRequesterGerente(req);
+  const role = req.user?.is_master ? null : (isGerente ? 'gerente' : 'assinante');
+  return { owner, role };
+}
+const entitiesAndManagerialRouter = express.Router();
+entitiesAndManagerialRouter.get('/managerial-auth', authenticate, asyncHandler(async (req, res) => {
+  if (!usePostgreSQL || !repo.getManagerialAuthorization) {
+    return res.status(503).json({ error: 'Autorização gerencial requer PostgreSQL' });
+  }
+  const { owner, role } = getManagerialSubscriberAndRole(req);
+  if (!owner) return res.status(400).json({ error: 'Contexto do estabelecimento necessário' });
+  const isOwner = (req.user?.is_master && owner) || (!req.user?.is_master && (req.user?.email || '').toLowerCase().trim() === owner);
+  if (!isOwner) {
+    const authGerente = await repo.getManagerialAuthorization(owner, 'gerente');
+    return res.json({
+      assinante: null,
+      gerente: authGerente ? { configured: true, expires_at: authGerente.expires_at } : { configured: false },
+    });
+  }
+  const [authAssinante, authGerente] = await Promise.all([
+    repo.getManagerialAuthorization(owner, 'assinante'),
+    repo.getManagerialAuthorization(owner, 'gerente'),
+  ]);
+  return res.json({
+    assinante: authAssinante ? { configured: true, matricula: authAssinante.matricula, expires_at: authAssinante.expires_at } : { configured: false },
+    gerente: authGerente ? { configured: true, matricula: authGerente.matricula, expires_at: authGerente.expires_at } : { configured: false },
+  });
+}));
+entitiesAndManagerialRouter.post('/managerial-auth', authenticate, asyncHandler(async (req, res) => {
+  if (!usePostgreSQL || !repo.setManagerialAuthorization) {
+    return res.status(503).json({ error: 'Autorização gerencial requer PostgreSQL' });
+  }
+  const { owner, role } = getManagerialSubscriberAndRole(req);
+  if (!owner) return res.status(400).json({ error: 'Contexto do estabelecimento necessário' });
+  const isOwner = (req.user?.is_master && owner) || (!req.user?.is_master && (req.user?.email || '').toLowerCase().trim() === owner);
+  if (!isOwner) return res.status(403).json({ error: 'Apenas o dono do estabelecimento pode criar ou alterar autorizações.' });
+  const { role: bodyRole, matricula, password, expirable, expires_at } = req.body || {};
+  const targetRole = bodyRole === 'gerente' ? 'gerente' : 'assinante';
+  if (!matricula || !password || String(password).length < 6) {
+    return res.status(400).json({ error: 'Matrícula e senha (mín. 6 caracteres) são obrigatórios.' });
+  }
+  const expiresAt = expirable && expires_at ? new Date(expires_at) : null;
+  const passwordHash = await bcrypt.hash(String(password), 10);
+  await repo.setManagerialAuthorization(owner, targetRole, {
+    matricula: String(matricula).trim(),
+    passwordHash,
+    expiresAt: expiresAt || null,
+  });
+  const updated = await repo.getManagerialAuthorization(owner, targetRole);
+  return res.json({
+    success: true,
+    role: targetRole,
+    configured: true,
+    expires_at: updated?.expires_at ?? null,
+  });
+}));
+entitiesAndManagerialRouter.post('/managerial-auth/validate', authenticate, asyncHandler(async (req, res) => {
+  if (!usePostgreSQL || !repo.validateManagerialAuthorization) {
+    return res.status(503).json({ error: 'Autorização gerencial requer PostgreSQL' });
+  }
+  const { owner, role } = getManagerialSubscriberAndRole(req);
+  if (!owner || !role) return res.status(400).json({ error: 'Acesso não permitido para este perfil.' });
+  const { matricula, password } = req.body || {};
+  if (!matricula || !password) {
+    return res.status(400).json({ error: 'Matrícula e senha são obrigatórios.' });
+  }
+  const valid = await repo.validateManagerialAuthorization(owner, role, matricula, password);
+  return res.json({ valid: !!valid });
+}));
+// Listar entidades (evitar 404 em produção quando rotas são testadas antes de menus/orders)
+entitiesAndManagerialRouter.get('/entities/:entity', authenticate, asyncHandler(async (req, res) => {
+  try {
+    const { entity } = req.params;
+    const { order_by, as_subscriber, page, limit, ...filters } = req.query;
+    if (req.user?.is_master && as_subscriber) req.user._contextForSubscriber = as_subscriber;
+    const pagination = { page: page ? parseInt(page) : 1, limit: limit ? parseInt(limit) : 50 };
+    let result;
+    if (usePostgreSQL) {
+      if (req.user && !req.user?.is_master && !filters.owner_email) {
+        const subscriber = await repo.getSubscriberByEmail(req.user.email);
+        if (subscriber) filters.owner_email = subscriber.email;
+      }
+      result = await repo.listEntities(entity, filters, order_by, req.user || null, pagination);
+    } else if (db && db.entities) {
+      let items = db.entities[entity] || [];
+      if (req.user?.is_master && as_subscriber) items = items.filter(item => item.owner_email === as_subscriber);
+      else if (req.user?.is_master || !req.user) items = items.filter(item => !item.owner_email);
+      else {
+        const subscriber = db.subscribers?.find(s => s.email === req.user.email);
+        items = subscriber ? items.filter(item => !item.owner_email || item.owner_email === subscriber.email) : [];
+      }
+      if (Object.keys(filters).length > 0) {
+        items = items.filter(item => Object.entries(filters).every(([key, value]) =>
+          (value === 'null' || value === null) ? (item[key] === null || item[key] === undefined) : item[key] == value
+        ));
+      }
+      if (order_by) {
+        items.sort((a, b) => { const aVal = a[order_by]; const bVal = b[order_by]; if (aVal < bVal) return -1; if (aVal > bVal) return 1; return 0; });
+      }
+      const total = items.length;
+      const start = (pagination.page - 1) * pagination.limit;
+      const totalPages = Math.ceil(total / pagination.limit);
+      result = {
+        items: items.slice(start, start + pagination.limit),
+        pagination: { page: pagination.page, limit: pagination.limit, total, totalPages, hasNext: pagination.page < totalPages, hasPrev: pagination.page > 1 }
+      };
+    } else {
+      return res.status(500).json({ error: 'Banco de dados não inicializado' });
+    }
+    res.json(result);
+  } catch (error) {
+    console.error('Erro ao listar entidades:', sanitizeForLog({ error: error.message }));
+    throw error;
+  }
+}));
+entitiesAndManagerialRouter.get('/entities/:entity/:id', authenticate, async (req, res) => {
+  try {
+    const { entity, id } = req.params;
+    const asSub = req.query.as_subscriber;
+    if (req.user?.is_master && asSub) req.user._contextForSubscriber = asSub;
+    let item;
+    if (usePostgreSQL) item = await repo.getEntityById(entity, id, req.user);
+    else if (db?.entities?.[entity]) {
+      const arr = db.entities[entity];
+      item = arr.find(i => (i.id === id || i.id === String(id)) && (!asSub || i.owner_email === asSub)) || null;
+    } else item = null;
+    if (!item) return res.status(404).json({ error: 'Entidade não encontrada' });
+    res.json(item);
+  } catch (error) {
+    console.error('Erro ao obter entidade:', error);
+    res.status(500).json({ error: 'Erro interno no servidor' });
+  }
+});
+app.use('/api', entitiesAndManagerialRouter);
+
+// =======================
 // 📋 MENUS MODULE
 // =======================
 // Registrar rotas do módulo de menus
@@ -2103,86 +2243,6 @@ app.patch('/api/colaboradores/:id/toggle-active', authenticate, asyncHandler(asy
   }
 }));
 
-// -----------------------
-// Autorização gerencial (matrícula + senha para validar ações sensíveis)
-// Apenas assinante (dono) pode criar/alterar; assinante e gerente validam com sua matrícula/senha.
-// -----------------------
-function getManagerialSubscriberAndRole(req) {
-  const owner = (req.body?.as_subscriber || req.query.as_subscriber || req.user?._contextForSubscriber || req.user?.subscriber_email || req.user?.email || '').toString().toLowerCase().trim();
-  // ✅ isRequesterGerente importado de: backend/modules/users/users.utils.js
-  const isGerente = isRequesterGerente(req);
-  const role = req.user?.is_master ? null : (isGerente ? 'gerente' : 'assinante');
-  return { owner, role };
-}
-
-app.get('/api/managerial-auth', authenticate, asyncHandler(async (req, res) => {
-  if (!usePostgreSQL || !repo.getManagerialAuthorization) {
-    return res.status(503).json({ error: 'Autorização gerencial requer PostgreSQL' });
-  }
-  const { owner, role } = getManagerialSubscriberAndRole(req);
-  if (!owner) return res.status(400).json({ error: 'Contexto do estabelecimento necessário' });
-  // Assinante (dono) ou master (com contexto as_subscriber) pode ver/gerir; gerente não pode ver matrícula do outro
-  const isOwner = (req.user?.is_master && owner) || (!req.user?.is_master && (req.user?.email || '').toLowerCase().trim() === owner);
-  if (!isOwner) {
-    const authGerente = await repo.getManagerialAuthorization(owner, 'gerente');
-    return res.json({
-      assinante: null,
-      gerente: authGerente ? { configured: true, expires_at: authGerente.expires_at } : { configured: false },
-    });
-  }
-  const [authAssinante, authGerente] = await Promise.all([
-    repo.getManagerialAuthorization(owner, 'assinante'),
-    repo.getManagerialAuthorization(owner, 'gerente'),
-  ]);
-  return res.json({
-    assinante: authAssinante ? { configured: true, matricula: authAssinante.matricula, expires_at: authAssinante.expires_at } : { configured: false },
-    gerente: authGerente ? { configured: true, matricula: authGerente.matricula, expires_at: authGerente.expires_at } : { configured: false },
-  });
-}));
-
-app.post('/api/managerial-auth', authenticate, asyncHandler(async (req, res) => {
-  if (!usePostgreSQL || !repo.setManagerialAuthorization) {
-    return res.status(503).json({ error: 'Autorização gerencial requer PostgreSQL' });
-  }
-  const { owner, role } = getManagerialSubscriberAndRole(req);
-  if (!owner) return res.status(400).json({ error: 'Contexto do estabelecimento necessário' });
-  const isOwner = (req.user?.is_master && owner) || (!req.user?.is_master && (req.user?.email || '').toLowerCase().trim() === owner);
-  if (!isOwner) return res.status(403).json({ error: 'Apenas o dono do estabelecimento pode criar ou alterar autorizações.' });
-  const { role: bodyRole, matricula, password, expirable, expires_at } = req.body || {};
-  const targetRole = bodyRole === 'gerente' ? 'gerente' : 'assinante';
-  if (!matricula || !password || String(password).length < 6) {
-    return res.status(400).json({ error: 'Matrícula e senha (mín. 6 caracteres) são obrigatórios.' });
-  }
-  const expiresAt = expirable && expires_at ? new Date(expires_at) : null;
-  const passwordHash = await bcrypt.hash(String(password), 10);
-  await repo.setManagerialAuthorization(owner, targetRole, {
-    matricula: String(matricula).trim(),
-    passwordHash,
-    expiresAt: expiresAt || null,
-  });
-  const updated = await repo.getManagerialAuthorization(owner, targetRole);
-  return res.json({
-    success: true,
-    role: targetRole,
-    configured: true,
-    expires_at: updated?.expires_at ?? null,
-  });
-}));
-
-app.post('/api/managerial-auth/validate', authenticate, asyncHandler(async (req, res) => {
-  if (!usePostgreSQL || !repo.validateManagerialAuthorization) {
-    return res.status(503).json({ error: 'Autorização gerencial requer PostgreSQL' });
-  }
-  const { owner, role } = getManagerialSubscriberAndRole(req);
-  if (!owner || !role) return res.status(400).json({ error: 'Acesso não permitido para este perfil.' });
-  const { matricula, password } = req.body || {};
-  if (!matricula || !password) {
-    return res.status(400).json({ error: 'Matrícula e senha são obrigatórios.' });
-  }
-  const valid = await repo.validateManagerialAuthorization(owner, role, matricula, password);
-  return res.json({ valid: !!valid });
-}));
-
 // Rota para definir senha usando token (NÃO requer autenticação - pública)
 app.post('/api/auth/set-password', validate(schemas.setPassword), asyncHandler(async (req, res) => {
   try {
@@ -2470,126 +2530,6 @@ app.get('/api/service-requests', authenticate, requireMaster, asyncHandler(async
   const items = usePostgreSQL ? await repo.listAllServiceRequests() : [];
   res.json({ items });
 }));
-
-// =======================
-// 📦 ENTITIES (CRUD GENÉRICO)
-// =======================
-// Listar entidades
-app.get('/api/entities/:entity', authenticate, asyncHandler(async (req, res) => {
-  try {
-    const { entity } = req.params;
-    const { order_by, as_subscriber, page, limit, ...filters } = req.query;
-
-    // Modo suporte: master atuando em nome de um assinante (só em Assinantes > Ver dados completos)
-    if (req.user?.is_master && as_subscriber) {
-      req.user._contextForSubscriber = as_subscriber;
-    }
-
-    // ✅ PAGINAÇÃO
-    const pagination = {
-      page: page ? parseInt(page) : 1,
-      limit: limit ? parseInt(limit) : 50
-    };
-
-    let result;
-    if (usePostgreSQL) {
-      if (req.user && !req.user?.is_master && !filters.owner_email) {
-        const subscriber = await repo.getSubscriberByEmail(req.user.email);
-        if (subscriber) filters.owner_email = subscriber.email;
-      }
-      result = await repo.listEntities(entity, filters, order_by, req.user || null, pagination);
-    } else if (db && db.entities) {
-      let items = db.entities[entity] || [];
-
-      if (req.user?.is_master && as_subscriber) {
-        items = items.filter(item => item.owner_email === as_subscriber);
-      } else if (req.user?.is_master || !req.user) {
-        items = items.filter(item => !item.owner_email);
-      } else {
-        const subscriber = db.subscribers?.find(s => s.email === req.user.email);
-        if (subscriber) {
-          items = items.filter(item => !item.owner_email || item.owner_email === subscriber.email);
-        } else {
-          items = [];
-        }
-      }
-
-      // Aplicar filtros adicionais
-      if (Object.keys(filters).length > 0) {
-        items = items.filter(item => {
-          return Object.entries(filters).every(([key, value]) => {
-            if (value === 'null' || value === null) {
-              return item[key] === null || item[key] === undefined;
-            }
-            return item[key] == value;
-          });
-        });
-      }
-
-      // Ordenar
-      if (order_by) {
-        items.sort((a, b) => {
-          const aVal = a[order_by];
-          const bVal = b[order_by];
-          if (aVal < bVal) return -1;
-          if (aVal > bVal) return 1;
-          return 0;
-        });
-      }
-      
-      // ✅ PAGINAÇÃO (fallback JSON)
-      const total = items.length;
-      const start = (pagination.page - 1) * pagination.limit;
-      const end = start + pagination.limit;
-      const paginatedItems = items.slice(start, end);
-      const totalPages = Math.ceil(total / pagination.limit);
-      
-      result = {
-        items: paginatedItems,
-        pagination: {
-          page: pagination.page,
-          limit: pagination.limit,
-          total,
-          totalPages,
-          hasNext: pagination.page < totalPages,
-          hasPrev: pagination.page > 1
-        }
-      };
-    } else {
-      return res.status(500).json({ error: 'Banco de dados não inicializado' });
-    }
-    
-    res.json(result);
-  } catch (error) {
-    console.error('Erro ao listar entidades:', sanitizeForLog({ error: error.message }));
-    throw error;
-  }
-}));
-
-// Obter entidade por ID
-app.get('/api/entities/:entity/:id', authenticate, async (req, res) => {
-  try {
-    const { entity, id } = req.params;
-    const asSub = req.query.as_subscriber;
-    if (req.user?.is_master && asSub) req.user._contextForSubscriber = asSub;
-
-    let item;
-    if (usePostgreSQL) {
-      item = await repo.getEntityById(entity, id, req.user);
-    } else if (db?.entities?.[entity]) {
-      const arr = db.entities[entity];
-      item = arr.find(i => (i.id === id || i.id === String(id)) && (!asSub || i.owner_email === asSub)) || null;
-    } else {
-      item = null;
-    }
-
-    if (!item) return res.status(404).json({ error: 'Entidade não encontrada' });
-    res.json(item);
-  } catch (error) {
-    console.error('Erro ao obter entidade:', error);
-    res.status(500).json({ error: 'Erro interno no servidor' });
-  }
-});
 
 // Criar entidade
 app.post('/api/entities/:entity', authenticate, async (req, res) => {
