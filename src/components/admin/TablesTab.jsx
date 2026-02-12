@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { QRCodeSVG } from 'qrcode.react';
 import { Plus, Edit, Trash2, QrCode, Bell, Download, Receipt, Calendar, Clock, X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
@@ -273,6 +273,7 @@ export default function TablesTab() {
           <DialogContent className="sm:max-w-md max-w-[95vw]">
             <DialogHeader>
               <DialogTitle>{editingTable ? 'Editar Mesa' : 'Nova Mesa'}</DialogTitle>
+              <DialogDescription className="sr-only">Formulário para criar ou editar uma mesa.</DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>

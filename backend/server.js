@@ -745,6 +745,136 @@ entitiesAndManagerialRouter.post('/colaboradores/:email/add-roles', authenticate
 entitiesAndManagerialRouter.patch('/colaboradores/:id', authenticate, usersController.updateColaborador);
 entitiesAndManagerialRouter.delete('/colaboradores/:id', authenticate, usersController.deleteColaborador);
 entitiesAndManagerialRouter.patch('/colaboradores/:id/toggle-active', authenticate, usersController.toggleActiveColaborador);
+
+// Entities CRUD - must run BEFORE entitiesAndManagerialRouter (which returns 404 for unmatched methods)
+app.post('/api/entities/:entity', authenticate, createLimiter, asyncHandler(async (req, res) => {
+  const { entity } = req.params;
+  let data = { ...req.body };
+  const asSub = data.as_subscriber || req.query.as_subscriber;
+  let createOpts = {};
+  if (req.user?.is_master && asSub) {
+    req.user._contextForSubscriber = asSub;
+    delete data.as_subscriber;
+    data.owner_email = asSub;
+    createOpts.forSubscriberEmail = asSub;
+  }
+  if (!req.user?.is_master) {
+    const subEmail = req.user?.subscriber_email || req.user?.email;
+    const subscriber = usePostgreSQL ? await repo.getSubscriberByEmail(subEmail) : db?.subscribers?.find(s => (s.email || '').toLowerCase() === (subEmail || '').toLowerCase());
+    if (subscriber) {
+      if (!data.owner_email) data.owner_email = subscriber.email;
+      createOpts.forSubscriberEmail = subscriber.email;
+    }
+  }
+  if (data.owner_email && !createOpts.forSubscriberEmail) {
+    const ownerSub = usePostgreSQL ? await repo.getSubscriberByEmail(data.owner_email) : db?.subscribers?.find(s => (s.email || '').toLowerCase() === (data.owner_email || '').toLowerCase());
+    if (ownerSub) createOpts.forSubscriberEmail = data.owner_email;
+    else if (String(entity).toLowerCase() === 'order') return res.status(400).json({ error: 'owner_email não é um assinante válido. Pedido do cardápio por link precisa do dono do cardápio.' });
+  }
+  if (String(entity).toLowerCase() === 'dish' && !req.user?.is_master) {
+    const subscriberEmail = createOpts.forSubscriberEmail || data.owner_email || (req.user?.subscriber_email || req.user?.email);
+    if (subscriberEmail) {
+      const { validateProductsLimit } = await import('./services/planValidation.service.js');
+      const productLimit = await validateProductsLimit(subscriberEmail, null, req.user?.is_master);
+      if (!productLimit.valid) return res.status(403).json({ error: productLimit.error || `Limite de produtos excedido.`, code: 'PRODUCT_LIMIT_EXCEEDED', limit: productLimit.limit, current: productLimit.current });
+    }
+  }
+  if (String(entity).toLowerCase() === 'order' && !req.user?.is_master) {
+    const subscriberEmail = createOpts.forSubscriberEmail || data.owner_email || (req.user?.subscriber_email || req.user?.email);
+    if (subscriberEmail) {
+      const { validateOrdersPerDayLimit } = await import('./services/planValidation.service.js');
+      const orderLimit = await validateOrdersPerDayLimit(subscriberEmail, req.user?.is_master);
+      if (!orderLimit.valid) return res.status(403).json({ error: orderLimit.error || `Limite de pedidos por dia excedido.`, code: 'ORDER_LIMIT_EXCEEDED', limit: orderLimit.limit, current: orderLimit.current });
+    }
+  }
+  if (String(entity) === 'Comanda' && !(data.code && String(data.code).trim())) {
+    const owner = createOpts.forSubscriberEmail || data.owner_email || null;
+    data.code = (usePostgreSQL && repo.getNextComandaCode) ? await repo.getNextComandaCode(owner) : 'C-001';
+  }
+  let newItem;
+  if (usePostgreSQL) {
+    newItem = await repo.createEntity(entity, data, req.user, createOpts);
+  } else if (db && db.entities) {
+    if (!db.entities[entity]) db.entities[entity] = [];
+    const now = new Date().toISOString();
+    newItem = { id: String(Date.now()), ...data, created_at: now, created_date: now, updated_at: now };
+    db.entities[entity].push(newItem);
+    if (typeof saveDatabaseDebounced === 'function') saveDatabaseDebounced(db);
+  } else return res.status(500).json({ error: 'Banco de dados não inicializado' });
+  if (String(entity).toLowerCase() === 'order') emitOrderCreated(newItem);
+  else if (String(entity).toLowerCase() === 'comanda') emitComandaCreated(newItem);
+  console.log(`✅ [${entity}] Item criado:`, newItem.id);
+  res.status(201).json(newItem);
+}));
+app.put('/api/entities/:entity/:id', authenticate, asyncHandler(async (req, res) => {
+  const { entity, id } = req.params;
+  let data = req.body;
+  const asSub = req.query.as_subscriber;
+  if (req.user?.is_master && asSub) req.user._contextForSubscriber = asSub;
+  if (String(entity).toLowerCase() === 'subscriber') {
+    const idVal = /^\d+$/.test(String(id)) ? parseInt(id, 10) : id;
+    const updated = usePostgreSQL ? await repo.updateSubscriber(idVal, data) : (() => { const idx = db?.subscribers?.findIndex(s => s.id == idVal); if (idx < 0) throw new Error('Assinante não encontrado'); const e = db.subscribers[idx]; const m = { ...e, ...data, send_whatsapp_commands: data.send_whatsapp_commands ?? e.whatsapp_auto_enabled }; db.subscribers[idx] = m; if (saveDatabaseDebounced) saveDatabaseDebounced(db); return { ...m, send_whatsapp_commands: m.whatsapp_auto_enabled }; })();
+    return res.json(updated);
+  }
+  if (String(entity).toLowerCase() === 'order' && data.status) {
+    const currentOrder = usePostgreSQL ? await repo.getEntityById('Order', id, req.user) : db?.entities?.Order?.find(i => i.id === id || i.id === String(id));
+    if (currentOrder?.status) {
+      const { validateStatusTransition } = await import('./services/orderStatusValidation.service.js');
+      const v = validateStatusTransition(currentOrder.status, data.status, { isMaster: req.user?.is_master, userRole: req.user?.profile_role || req.user?.role });
+      if (!v.valid) return res.status(400).json({ error: v.message, code: 'INVALID_STATUS_TRANSITION' });
+    }
+  }
+  let updatedItem;
+  if (usePostgreSQL) {
+    updatedItem = await repo.updateEntity(entity, id, data, req.user);
+    if (!updatedItem) return res.status(404).json({ error: 'Entidade não encontrada' });
+  } else if (db?.entities) {
+    const items = db.entities[entity] || [];
+    const idx = items.findIndex(i => (i.id === id || i.id === String(id)) && (!asSub || i.owner_email === asSub));
+    if (idx === -1) return res.status(404).json({ error: 'Entidade não encontrada' });
+    updatedItem = { ...items[idx], ...data, id: items[idx].id, updated_at: new Date().toISOString() };
+    items[idx] = updatedItem;
+    if (typeof saveDatabaseDebounced === 'function') saveDatabaseDebounced(db);
+  } else return res.status(500).json({ error: 'Banco de dados não inicializado' });
+  if (String(entity).toLowerCase() === 'order') emitOrderUpdate(updatedItem);
+  else if (String(entity).toLowerCase() === 'comanda') emitComandaUpdate(updatedItem);
+  else if (String(entity).toLowerCase() === 'table') emitTableUpdate(updatedItem);
+  console.log(`✅ [${entity}] Item atualizado:`, id);
+  res.json(updatedItem);
+}));
+app.delete('/api/entities/:entity/:id', authenticate, asyncHandler(async (req, res) => {
+  const { entity, id } = req.params;
+  const asSub = req.query.as_subscriber;
+  if (req.user?.is_master && asSub) req.user._contextForSubscriber = asSub;
+  let deleted = false;
+  if (usePostgreSQL) deleted = await repo.deleteEntity(entity, id, req.user);
+  else if (db?.entities) {
+    const items = db.entities[entity] || [];
+    const idx = items.findIndex(i => (i.id === id || i.id === String(id)) && (!asSub || i.owner_email === asSub));
+    if (idx === -1) return res.status(404).json({ error: 'Entidade não encontrada' });
+    items.splice(idx, 1);
+    deleted = true;
+    if (typeof saveDatabaseDebounced === 'function') saveDatabaseDebounced(db);
+  } else return res.status(500).json({ error: 'Banco de dados não inicializado' });
+  if (!deleted) return res.status(404).json({ error: 'Entidade não encontrada' });
+  console.log(`✅ [${entity}] Item deletado:`, id);
+  res.json({ success: true });
+}));
+app.post('/api/entities/:entity/bulk', authenticate, createLimiter, asyncHandler(async (req, res) => {
+  const { entity } = req.params;
+  const { items: itemsToCreate } = req.body || {};
+  let newItems;
+  if (usePostgreSQL) newItems = await repo.createEntitiesBulk(entity, itemsToCreate, req.user);
+  else if (db?.entities) {
+    if (!db.entities[entity]) db.entities[entity] = [];
+    newItems = (itemsToCreate || []).map(d => ({ id: String(Date.now()) + Math.random().toString(36).substr(2, 9), ...d, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }));
+    db.entities[entity].push(...newItems);
+    if (saveDatabaseDebounced) saveDatabaseDebounced(db);
+  } else return res.status(500).json({ error: 'Banco de dados não inicializado' });
+  console.log(`✅ [${entity}] ${newItems?.length || 0} itens criados`);
+  res.status(201).json(newItems || []);
+}));
+
 app.use('/api', entitiesAndManagerialRouter);
 
 // =======================
@@ -2549,503 +2679,9 @@ app.get('/api/service-requests', authenticate, requireMaster, asyncHandler(async
   res.json({ items });
 }));
 
-// Criar entidade
-app.post('/api/entities/:entity', authenticate, async (req, res) => {
-  try {
-    const { entity } = req.params;
-    let data = { ...req.body };
-    const asSub = data.as_subscriber || req.query.as_subscriber;
-    let createOpts = {};
+// ✅ Entities CRUD (POST/PUT/DELETE/bulk) - movido para antes de app.use('/api') linha ~749 para corrigir 404
 
-    if (req.user?.is_master && asSub) {
-      req.user._contextForSubscriber = asSub;
-      delete data.as_subscriber;
-      data.owner_email = asSub;
-      createOpts.forSubscriberEmail = asSub;
-    }
-
-    if (!req.user?.is_master) {
-      const subEmail = req.user?.subscriber_email || req.user?.email;
-      const subscriber = usePostgreSQL ? await repo.getSubscriberByEmail(subEmail) : db?.subscribers?.find(s => (s.email || '').toLowerCase() === (subEmail || '').toLowerCase());
-      if (subscriber) {
-        if (!data.owner_email) data.owner_email = subscriber.email;
-        createOpts.forSubscriberEmail = subscriber.email;
-      }
-    }
-
-    // Pedido do cardápio público /s/:slug: owner_email no body indica o assinante (restaurante).
-    // Garante que o pedido caia no Gestor do assinante, não no do master.
-    if (data.owner_email && !createOpts.forSubscriberEmail) {
-      const ownerSub = usePostgreSQL ? await repo.getSubscriberByEmail(data.owner_email) : db?.subscribers?.find(s => (s.email || '').toLowerCase() === (data.owner_email || '').toLowerCase());
-      if (ownerSub) {
-        createOpts.forSubscriberEmail = data.owner_email;
-      } else if (String(entity).toLowerCase() === 'order') {
-        return res.status(400).json({ error: 'owner_email não é um assinante válido. Pedido do cardápio por link precisa do dono do cardápio.' });
-      }
-    }
-
-    // ✅ VALIDAÇÃO DE LIMITE DE PRODUTOS (Dish)
-    if (String(entity).toLowerCase() === 'dish' && !req.user?.is_master) {
-      const subscriberEmail = createOpts.forSubscriberEmail || data.owner_email || (req.user?.subscriber_email || req.user?.email);
-      if (subscriberEmail) {
-        const { validateProductsLimit } = await import('./services/planValidation.service.js');
-        const productLimit = await validateProductsLimit(subscriberEmail, null, req.user?.is_master);
-        if (!productLimit.valid) {
-          return res.status(403).json({ 
-            error: `Limite de produtos excedido. Você já tem ${productLimit.current} produto(s). ` +
-                   `Seu plano permite ${productLimit.limit} produto(s). ` +
-                   `Faça upgrade do plano para aumentar o limite.`,
-            code: 'PRODUCT_LIMIT_EXCEEDED',
-            limit: productLimit.limit,
-            current: productLimit.current
-          });
-        }
-      }
-    }
-
-    // ✅ VALIDAÇÃO DE LIMITE DE PEDIDOS POR DIA (Order)
-    if (String(entity).toLowerCase() === 'order' && !req.user?.is_master) {
-      const subscriberEmail = createOpts.forSubscriberEmail || data.owner_email || (req.user?.subscriber_email || req.user?.email);
-      if (subscriberEmail) {
-        const { validateOrdersPerDayLimit } = await import('./services/planValidation.service.js');
-        const orderLimit = await validateOrdersPerDayLimit(subscriberEmail, req.user?.is_master);
-        if (!orderLimit.valid) {
-          return res.status(403).json({ 
-            error: `Limite de pedidos por dia excedido. Você já criou ${orderLimit.current} pedido(s) hoje. ` +
-                   `Seu plano permite ${orderLimit.limit} pedido(s) por dia. ` +
-                   `Faça upgrade do plano para aumentar o limite.`,
-            code: 'ORDER_LIMIT_EXCEEDED',
-            limit: orderLimit.limit,
-            current: orderLimit.current
-          });
-        }
-      }
-    }
-
-    // Comanda: gerar código (C-001, C-002...) se não informado
-    if (String(entity) === 'Comanda' && !(data.code && String(data.code).trim())) {
-      const owner = createOpts.forSubscriberEmail || data.owner_email || null;
-      if (usePostgreSQL && repo.getNextComandaCode) {
-        data.code = await repo.getNextComandaCode(owner);
-      } else if (db && db.entities) {
-        const list = (db.entities.Comanda || []).filter(c => !owner || (String(c.owner_email || '').toLowerCase() === String(owner).toLowerCase()));
-        const max = list.reduce((m, c) => {
-          const n = parseInt(String(c.code || '').replace(/^[^0-9]+/i, ''), 10);
-          return isNaN(n) ? m : Math.max(m, n);
-        }, 0);
-        data.code = 'C-' + String(max + 1).padStart(3, '0');
-      } else {
-        data.code = 'C-001';
-      }
-    }
-
-    let newItem;
-    if (usePostgreSQL) {
-      newItem = await repo.createEntity(entity, data, req.user, createOpts);
-    } else if (db && db.entities) {
-      if (!db.entities[entity]) db.entities[entity] = [];
-      const now = new Date().toISOString();
-      newItem = {
-        id: String(Date.now()),
-        ...data,
-        created_at: now,
-        created_date: now,
-        updated_at: now
-      };
-      db.entities[entity].push(newItem);
-      if (typeof saveDatabaseDebounced === 'function') saveDatabaseDebounced(db);
-    } else {
-      return res.status(500).json({ error: 'Banco de dados não inicializado' });
-    }
-
-    console.log(`✅ [${entity}] Item criado:`, newItem.id, asSub ? `(suporte: ${asSub})` : (req.user?.is_master ? '(master)' : `(owner: ${data.owner_email})`));
-    
-    // ✅ EMITIR CRIAÇÃO VIA WEBSOCKET
-    if (String(entity).toLowerCase() === 'order') {
-      emitOrderCreated(newItem);
-    } else if (String(entity).toLowerCase() === 'comanda') {
-      emitComandaCreated(newItem);
-      // Criar Order na cozinha quando comanda é criada
-      try {
-        const ownerEmail = createOpts.forSubscriberEmail || data.owner_email || (req.user?.subscriber_email || req.user?.email);
-        const orderCode = `COMANDA-${newItem.code || newItem.id}`;
-        const orderData = {
-          order_code: orderCode,
-          customer_name: newItem.customer_name || 'Cliente',
-          customer_phone: newItem.customer_phone || null,
-          customer_email: newItem.customer_email || null,
-          delivery_method: 'dine_in',
-          items: Array.isArray(newItem.items) ? newItem.items.map(item => ({
-            name: item.dish_name || item.name || 'Item',
-            quantity: item.quantity || 1,
-            unit_price: item.unit_price || 0,
-            total_price: (item.unit_price || 0) * (item.quantity || 1),
-            observations: item.observations || null,
-            complements: item.complements || null,
-            selections: item.selections || null
-          })) : [],
-          total: newItem.total || 0,
-          subtotal: newItem.subtotal || newItem.total || 0,
-          status: 'new',
-          table_id: newItem.table_id || null,
-          table_number: newItem.table_number || null,
-          table_name: newItem.table_name || null,
-          observations: newItem.observations || null,
-          comanda_id: newItem.id,
-          comanda_code: newItem.code,
-          created_date: newItem.created_at || new Date().toISOString(),
-          source: 'comanda'
-        };
-        const kitchenOrder = await repo.createEntity('Order', orderData, req.user, createOpts);
-        emitOrderCreated(kitchenOrder);
-        console.log(`✅ [Cozinha] Order criado a partir da comanda ${newItem.code || newItem.id}`);
-      } catch (e) {
-        console.error('Erro ao criar Order na cozinha a partir da comanda:', e);
-      }
-      // Atualizar status da mesa para ocupada se houver table_id
-      if (newItem.table_id) {
-        try {
-          const table = await repo.getEntity('Table', newItem.table_id);
-          if (table && table.status === 'available') {
-            await repo.updateEntity('Table', newItem.table_id, { status: 'occupied' }, req.user);
-            const updatedTable = await repo.getEntity('Table', newItem.table_id);
-            emitTableUpdate(updatedTable);
-          }
-        } catch (e) {
-          console.error('Erro ao atualizar status da mesa:', e);
-        }
-      }
-    } else if (String(entity).toLowerCase() === 'pedidopdv') {
-      // Criar Order na cozinha quando PedidoPDV é criado (se for dine_in)
-      // Nota: PedidoPDV não tem campo delivery_method, então assumimos que todos são dine_in
-      try {
-        const ownerEmail = createOpts.forSubscriberEmail || data.owner_email || (req.user?.subscriber_email || req.user?.email);
-        const orderCode = `PDV-${newItem.order_code || newItem.id}`;
-        const orderData = {
-          order_code: orderCode,
-          customer_name: newItem.customer_name || 'Cliente Balcão',
-          customer_phone: newItem.customer_phone || null,
-          customer_email: null,
-          delivery_method: 'dine_in',
-          items: Array.isArray(newItem.items) ? newItem.items.map(item => ({
-            name: item.dish_name || item.name || 'Item',
-            quantity: item.quantity || 1,
-            unit_price: item.unit_price || 0,
-            total_price: (item.unit_price || 0) * (item.quantity || 1),
-            observations: null,
-            complements: null,
-            selections: item.selections || null
-          })) : [],
-          total: newItem.total || 0,
-          subtotal: newItem.subtotal || newItem.total || 0,
-          status: 'new',
-          table_id: null,
-          table_number: null,
-          observations: null,
-          pedido_pdv_id: newItem.id,
-          pedido_pdv_code: newItem.order_code,
-          created_date: newItem.created_at || new Date().toISOString(),
-          source: 'pdv'
-        };
-        const kitchenOrder = await repo.createEntity('Order', orderData, req.user, createOpts);
-        emitOrderCreated(kitchenOrder);
-        console.log(`✅ [Cozinha] Order criado a partir do PDV ${newItem.order_code || newItem.id}`);
-      } catch (e) {
-        console.error('Erro ao criar Order na cozinha a partir do PDV:', e);
-      }
-    }
-    
-    res.status(201).json(newItem);
-  } catch (error) {
-    console.error('Erro ao criar entidade:', error);
-    res.status(500).json({ error: 'Erro interno no servidor' });
-  }
-});
-
-// Atualizar entidade
-app.put('/api/entities/:entity/:id', authenticate, async (req, res) => {
-  try {
-    const { entity, id } = req.params;
-    let data = req.body;
-    const asSub = req.query.as_subscriber;
-    if (req.user?.is_master && asSub) req.user._contextForSubscriber = asSub;
-
-    // Subscriber fica na tabela subscribers, não em entities — rotear para repo.updateSubscriber
-    if (String(entity).toLowerCase() === 'subscriber') {
-      try {
-        const idVal = /^\d+$/.test(String(id)) ? parseInt(id, 10) : id;
-        let updated;
-        if (usePostgreSQL) {
-          updated = await repo.updateSubscriber(idVal, data);
-        } else if (db && db.subscribers) {
-          const idx = db.subscribers.findIndex(s => s.id == idVal || String(s.id) === String(idVal));
-          if (idx === -1) return res.status(404).json({ error: 'Assinante não encontrado' });
-          const existing = db.subscribers[idx];
-          const toMerge = { ...data };
-          if (data.send_whatsapp_commands !== undefined) toMerge.whatsapp_auto_enabled = !!data.send_whatsapp_commands;
-          const merged = { ...existing, ...toMerge, id: existing.id, updated_at: new Date().toISOString() };
-          db.subscribers[idx] = merged;
-          if (typeof saveDatabaseDebounced === 'function') saveDatabaseDebounced(db);
-          updated = merged;
-        } else {
-          return res.status(404).json({ error: 'Assinante não encontrado' });
-        }
-        if (!updated) return res.status(404).json({ error: 'Assinante não encontrado' });
-        const out = { ...updated, send_whatsapp_commands: updated.whatsapp_auto_enabled };
-        console.log('✅ [Subscriber] Assinante atualizado (PUT entities):', id);
-        return res.json(out);
-      } catch (e) {
-        console.error('Erro ao atualizar assinante (PUT entities/Subscriber):', e);
-        return res.status(500).json({ error: 'Erro interno no servidor' });
-      }
-    }
-
-    // ✅ VALIDAÇÃO DE TRANSIÇÃO DE STATUS DE PEDIDO
-    if (String(entity).toLowerCase() === 'order' && data.status) {
-      // Buscar pedido atual para obter status atual
-      let currentOrder = null;
-      if (usePostgreSQL) {
-        currentOrder = await repo.getEntityById('Order', id, req.user);
-      } else if (db && db.entities && db.entities.Order) {
-        currentOrder = db.entities.Order.find(i => (i.id === id || i.id === String(id)));
-      }
-
-      if (currentOrder && currentOrder.status) {
-        const { validateStatusTransition } = await import('./services/orderStatusValidation.service.js');
-        const validation = validateStatusTransition(
-          currentOrder.status,
-          data.status,
-          {
-            isMaster: req.user?.is_master || false,
-            userRole: req.user?.profile_role || req.user?.role || null
-          }
-        );
-
-        if (!validation.valid) {
-          return res.status(400).json({
-            error: validation.message || 'Transição de status inválida',
-            code: 'INVALID_STATUS_TRANSITION',
-            current_status: currentOrder.status,
-            attempted_status: data.status
-          });
-        }
-      }
-    }
-
-    // MULTI-TENANCY: Verificar se assinante pode atualizar apenas seus próprios dados
-    if (!req.user?.is_master && db && db.entities && db.entities[entity]) {
-      const item = db.entities[entity].find(i => i.id === id);
-      if (item && item.owner_email && item.owner_email !== req.user.email) {
-        // Verificar se o usuário é o dono via assinante
-        const subscriber = db.subscribers?.find(s => s.email === req.user.email);
-        if (!subscriber || item.owner_email !== subscriber.email) {
-          return res.status(403).json({ error: 'Você não tem permissão para atualizar este item' });
-        }
-      }
-    }
-    
-    let updatedItem;
-    if (usePostgreSQL) {
-      updatedItem = await repo.updateEntity(entity, id, data, req.user);
-      if (!updatedItem) {
-        return res.status(404).json({ error: 'Entidade não encontrada' });
-      }
-    } else if (db && db.entities) {
-      const items = db.entities[entity] || [];
-      const index = items.findIndex(i => (i.id === id || i.id === String(id)) && (!asSub || i.owner_email === asSub));
-      if (index === -1) return res.status(404).json({ error: 'Entidade não encontrada' });
-      if (!data.owner_email) data = { ...data, owner_email: items[index].owner_email };
-      updatedItem = { ...items[index], ...data, id: items[index].id, updated_at: new Date().toISOString() };
-      items[index] = updatedItem;
-      if (typeof saveDatabaseDebounced === 'function') saveDatabaseDebounced(db);
-    } else {
-      return res.status(500).json({ error: 'Banco de dados não inicializado' });
-    }
-    console.log(`✅ [${entity}] Item atualizado:`, id, asSub ? `(suporte: ${asSub})` : '');
-    
-    // ✅ EMITIR ATUALIZAÇÃO VIA WEBSOCKET
-    if (String(entity).toLowerCase() === 'order') {
-      emitOrderUpdate(updatedItem);
-    } else if (String(entity).toLowerCase() === 'comanda') {
-      emitComandaUpdate(updatedItem);
-      // Atualizar Order na cozinha quando comanda é atualizada
-      try {
-        const ownerEmail = asSub || updatedItem.owner_email || (req.user?.subscriber_email || req.user?.email);
-        // Buscar Order relacionado à comanda
-        const allOrders = await repo.listEntitiesForSubscriber('Order', ownerEmail, '-created_date');
-        const relatedOrder = allOrders.find(o => 
-          (o.comanda_id && String(o.comanda_id) === String(updatedItem.id)) ||
-          (o.comanda_code && o.comanda_code === updatedItem.code)
-        );
-        
-        if (relatedOrder) {
-          // Atualizar Order com dados da comanda
-          const orderUpdates = {
-            items: Array.isArray(updatedItem.items) ? updatedItem.items.map(item => ({
-              name: item.dish_name || item.name || 'Item',
-              quantity: item.quantity || 1,
-              unit_price: item.unit_price || 0,
-              total_price: (item.unit_price || 0) * (item.quantity || 1),
-              observations: item.observations || null,
-              complements: item.complements || null,
-              selections: item.selections || null
-            })) : [],
-            total: updatedItem.total || 0,
-            subtotal: updatedItem.subtotal || updatedItem.total || 0,
-            customer_name: updatedItem.customer_name || relatedOrder.customer_name,
-            customer_phone: updatedItem.customer_phone || relatedOrder.customer_phone,
-            table_id: updatedItem.table_id || relatedOrder.table_id,
-            table_number: updatedItem.table_number || relatedOrder.table_number,
-            table_name: updatedItem.table_name || relatedOrder.table_name,
-            observations: updatedItem.observations || relatedOrder.observations
-          };
-          
-          // Se comanda foi fechada, marcar pedido como ready na cozinha
-          if (updatedItem.status === 'closed' && relatedOrder.status !== 'ready' && relatedOrder.status !== 'delivered') {
-            orderUpdates.status = 'ready';
-            orderUpdates.ready_at = new Date().toISOString();
-          }
-          
-          const updatedKitchenOrder = await repo.updateEntity('Order', relatedOrder.id, orderUpdates, req.user);
-          emitOrderUpdate(updatedKitchenOrder);
-          console.log(`✅ [Cozinha] Order atualizado a partir da comanda ${updatedItem.code || updatedItem.id}`);
-        } else if (updatedItem.status === 'open' && Array.isArray(updatedItem.items) && updatedItem.items.length > 0) {
-          // Se não existe Order e comanda está aberta com itens, criar
-          const orderCode = `COMANDA-${updatedItem.code || updatedItem.id}`;
-          const orderData = {
-            order_code: orderCode,
-            customer_name: updatedItem.customer_name || 'Cliente',
-            customer_phone: updatedItem.customer_phone || null,
-            customer_email: updatedItem.customer_email || null,
-            delivery_method: 'dine_in',
-            items: updatedItem.items.map(item => ({
-              name: item.dish_name || item.name || 'Item',
-              quantity: item.quantity || 1,
-              unit_price: item.unit_price || 0,
-              total_price: (item.unit_price || 0) * (item.quantity || 1),
-              observations: item.observations || null,
-              complements: item.complements || null,
-              selections: item.selections || null
-            })),
-            total: updatedItem.total || 0,
-            subtotal: updatedItem.subtotal || updatedItem.total || 0,
-            status: 'new',
-            table_id: updatedItem.table_id || null,
-            table_number: updatedItem.table_number || null,
-            table_name: updatedItem.table_name || null,
-            observations: updatedItem.observations || null,
-            comanda_id: updatedItem.id,
-            comanda_code: updatedItem.code,
-            created_date: updatedItem.created_at || new Date().toISOString(),
-            source: 'comanda'
-          };
-          const createOpts = { forSubscriberEmail: ownerEmail };
-          const kitchenOrder = await repo.createEntity('Order', orderData, req.user, createOpts);
-          emitOrderCreated(kitchenOrder);
-          console.log(`✅ [Cozinha] Order criado a partir da atualização da comanda ${updatedItem.code || updatedItem.id}`);
-        }
-      } catch (e) {
-        console.error('Erro ao atualizar Order na cozinha a partir da comanda:', e);
-      }
-      // Se comanda foi fechada, atualizar mesa para disponível
-      if (updatedItem.status === 'closed' && updatedItem.table_id) {
-        try {
-          // Verificar se há outras comandas abertas na mesa
-          const allComandas = await repo.listEntitiesForSubscriber('Comanda', asSub || updatedItem.owner_email, '-created_at');
-          const hasOpenComandas = allComandas.some(c => 
-            c.table_id === updatedItem.table_id && 
-            c.status === 'open' && 
-            c.id !== updatedItem.id
-          );
-          
-          if (!hasOpenComandas) {
-            const table = await repo.getEntity('Table', updatedItem.table_id);
-            if (table && table.status === 'occupied') {
-              await repo.updateEntity('Table', updatedItem.table_id, { status: 'available' }, req.user);
-              const updatedTable = await repo.getEntity('Table', updatedItem.table_id);
-              emitTableUpdate(updatedTable);
-            }
-          }
-        } catch (e) {
-          console.error('Erro ao atualizar status da mesa:', e);
-        }
-      }
-    } else if (String(entity).toLowerCase() === 'table') {
-      emitTableUpdate(updatedItem);
-    }
-    
-    res.json(updatedItem);
-  } catch (error) {
-    console.error('Erro ao atualizar entidade:', error);
-    res.status(500).json({ error: 'Erro interno no servidor' });
-  }
-});
-
-// Deletar entidade
-app.delete('/api/entities/:entity/:id', authenticate, async (req, res) => {
-  try {
-    const { entity, id } = req.params;
-    const asSub = req.query.as_subscriber;
-    if (req.user?.is_master && asSub) req.user._contextForSubscriber = asSub;
-
-    let deleted = false;
-    if (usePostgreSQL) {
-      deleted = await repo.deleteEntity(entity, id, req.user);
-    } else if (db && db.entities) {
-      const items = db.entities[entity] || [];
-      const index = items.findIndex(i => (i.id === id || i.id === String(id)) && (!asSub || i.owner_email === asSub));
-      if (index === -1) return res.status(404).json({ error: 'Entidade não encontrada' });
-      items.splice(index, 1);
-      deleted = true;
-      if (typeof saveDatabaseDebounced === 'function') saveDatabaseDebounced(db);
-    } else {
-      return res.status(500).json({ error: 'Banco de dados não inicializado' });
-    }
-    if (!deleted) return res.status(404).json({ error: 'Entidade não encontrada' });
-    console.log(`✅ [${entity}] Item deletado:`, id, asSub ? `(suporte: ${asSub})` : '');
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Erro ao deletar entidade:', error);
-    res.status(500).json({ error: 'Erro interno no servidor' });
-  }
-});
-
-// Criar múltiplas entidades
-app.post('/api/entities/:entity/bulk', authenticate, async (req, res) => {
-  try {
-    const { entity } = req.params;
-    const { items: itemsToCreate } = req.body;
-    
-    let newItems;
-    if (usePostgreSQL) {
-      newItems = await repo.createEntitiesBulk(entity, itemsToCreate, req.user);
-    } else if (db && db.entities) {
-      if (!db.entities[entity]) {
-        db.entities[entity] = [];
-      }
-      
-      newItems = itemsToCreate.map(data => ({
-        id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-        ...data,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      }));
-      
-      db.entities[entity].push(...newItems);
-      if (saveDatabaseDebounced) {
-        saveDatabaseDebounced(db);
-      }
-    } else {
-      return res.status(500).json({ error: 'Banco de dados não inicializado' });
-    }
-    
-    console.log(`✅ [${entity}] ${newItems.length} itens criados`);
-    res.status(201).json(newItems);
-  } catch (error) {
-    console.error('Erro ao criar entidades em bulk:', error);
-    res.status(500).json({ error: 'Erro interno no servidor' });
-  }
-});
+// REMOVIDO: handlers duplicados app.post/put/delete entities (agora registrados antes do router)
 
 // ✅ Rota movida para: /api/establishments/subscribers/:id ou /api/subscribers/:id
 // app.put('/api/subscribers/:id', authenticate, async (req, res) => { ... });

@@ -3,7 +3,7 @@ import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -255,6 +255,7 @@ export default function CategoriesTab() {
         <DialogContent className="sm:max-w-sm max-w-[95vw]">
           <DialogHeader>
             <DialogTitle>Adicionar Categoria</DialogTitle>
+            <DialogDescription className="sr-only">Formulário para criar uma nova categoria de produtos.</DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleSubmit} className="space-y-4">

@@ -8,7 +8,7 @@ import { fetchAdminDishes, fetchAdminCategories, fetchAdminComplementGroups } fr
 import { log } from '@/utils/logger';
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -2225,6 +2225,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
         <DialogContent className="sm:max-w-2xl max-w-[95vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingDish ? 'Editar Prato' : 'Adicionar Prato'}</DialogTitle>
+            <DialogDescription className="sr-only">Formulário para adicionar ou editar um prato do cardápio.</DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleDishSubmit} className="space-y-4">
@@ -2495,6 +2496,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
         <DialogContent className="sm:max-w-md max-w-[95vw]">
           <DialogHeader>
             <DialogTitle>Configurações do Grupo</DialogTitle>
+            <DialogDescription className="sr-only">Configurações do grupo de complementos.</DialogDescription>
           </DialogHeader>
           {editingGroup && (
             <div className="space-y-4">
