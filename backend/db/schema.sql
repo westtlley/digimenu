@@ -6,12 +6,33 @@ CREATE TABLE IF NOT EXISTS users (
   id SERIAL PRIMARY KEY,
   email VARCHAR(255) UNIQUE NOT NULL,
   full_name VARCHAR(255),
-  password VARCHAR(255),
+
+  -- auth
+  password_hash VARCHAR(255),        -- ✅ necessário pros testes
+  password VARCHAR(255),             -- (legado) pode remover depois com migração
+  has_password BOOLEAN DEFAULT FALSE,
+  password_token VARCHAR(255),
+  token_expires_at TIMESTAMP,
+
+  -- roles / multi tenancy
   is_master BOOLEAN DEFAULT FALSE,
   role VARCHAR(50) DEFAULT 'user',
+  profile_role VARCHAR(50),
   subscriber_email VARCHAR(255),
+
+  -- google oauth / profile
   google_id VARCHAR(255),
   google_photo TEXT,
+  phone VARCHAR(50),
+  address TEXT,
+  city VARCHAR(255),
+  state VARCHAR(50),
+  birth_date DATE,
+  document VARCHAR(50),
+
+  -- active flag
+  active BOOLEAN DEFAULT TRUE,
+
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -21,11 +42,30 @@ CREATE TABLE IF NOT EXISTS subscribers (
   id SERIAL PRIMARY KEY,
   email VARCHAR(255) UNIQUE NOT NULL,
   name VARCHAR(255),
-  plan VARCHAR(50) DEFAULT 'basic', -- 'basic', 'premium', 'pro', 'admin'
-  status VARCHAR(50) DEFAULT 'active', -- 'active', 'inactive', 'suspended', 'expired'
+
+  -- plano
+  plan VARCHAR(50) DEFAULT 'basic',
+  status VARCHAR(50) DEFAULT 'active',
   expires_at TIMESTAMP,
-  permissions JSONB DEFAULT '{}', -- Permissões customizadas (opcional, sobrescreve padrão do plano)
-  whatsapp_auto_enabled BOOLEAN DEFAULT true, -- Comanda automática WhatsApp (pode desativar)
+  permissions JSONB DEFAULT '{}',
+
+  -- ✅ necessário pros testes / sistema
+  slug VARCHAR(255) UNIQUE,
+  whatsapp_auto_enabled BOOLEAN DEFAULT true,
+
+  -- password/setup reset (migrado no runtime)
+  linked_user_email VARCHAR(255),
+  has_password BOOLEAN DEFAULT FALSE,
+  password_token VARCHAR(255),
+  token_expires_at TIMESTAMP,
+
+  -- dados extras (migrado no runtime)
+  phone VARCHAR(50),
+  cnpj_cpf VARCHAR(30),
+  notes TEXT,
+  origem VARCHAR(100),
+  tags TEXT,
+
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -68,8 +108,10 @@ CREATE INDEX IF NOT EXISTS idx_entities_subscriber ON entities(subscriber_email)
 CREATE INDEX IF NOT EXISTS idx_entities_type_subscriber ON entities(entity_type, subscriber_email);
 CREATE INDEX IF NOT EXISTS idx_customers_subscriber ON customers(subscriber_email);
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_users_subscriber_email ON users(subscriber_email);
 CREATE INDEX IF NOT EXISTS idx_subscribers_email ON subscribers(email);
 CREATE INDEX IF NOT EXISTS idx_subscribers_status ON subscribers(status);
+CREATE INDEX IF NOT EXISTS idx_subscribers_slug ON subscribers(slug);
 
 -- Índice GIN para busca em JSONB
 CREATE INDEX IF NOT EXISTS idx_entities_data_gin ON entities USING GIN (data);
@@ -112,6 +154,6 @@ CREATE TRIGGER update_entities_updated_at
   EXECUTE FUNCTION update_updated_at_column();
 
 -- Inserir usuário admin padrão
-INSERT INTO users (email, full_name, is_master, role, password)
+INSERT INTO users (email, full_name, is_master, role, password_hash)
 VALUES ('admin@digimenu.com', 'Administrador', TRUE, 'admin', 'admin123')
 ON CONFLICT (email) DO NOTHING;

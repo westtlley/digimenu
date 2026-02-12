@@ -5,11 +5,12 @@ O chatbot do cardápio pode usar **OpenAI** para respostas inteligentes. Sem a c
 ## Configuração
 
 1. Crie uma chave de API em [OpenAI API Keys](https://platform.openai.com/api-keys).
-2. No **backend**, crie ou edite o arquivo `.env` na pasta `backend/` e adicione:
+2. No **backend**, crie ou edite o arquivo `.env` na pasta `backend/` e adicione (qualquer um dos nomes funciona):
 
 ```env
 OPENAI_API_KEY=sk-sua-chave-aqui
 ```
+   Ou: `OPENAI_CHATBOT_KEY=sk-sua-chave-aqui`
 
 3. (Opcional) Para usar outro modelo:
 
@@ -19,7 +20,9 @@ OPENAI_CHAT_MODEL=gpt-4o-mini
 
 Padrão: `gpt-3.5-turbo`.
 
-4. Reinicie o backend.
+4. Reinicie o backend. No console deve aparecer algo como `OpenAI assistente: ✅ Ativado` no bloco ENV VALIDATED.
+
+5. **Em desenvolvimento:** o frontend (Vite) faz proxy de `/api` para `http://localhost:3000`. Mantenha o backend rodando (ex.: `npm run dev` na pasta `backend`) para o assistente com IA responder.
 
 ## Comportamento
 

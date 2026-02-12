@@ -88,6 +88,9 @@ export function sanitizeUrl(url) {
 
 /**
  * Validar e sanitizar número de telefone brasileiro
+ * Aceita:
+ * - 10-11 dígitos (DDD + número)
+ * - 12-13 dígitos começando com 55 (DDI Brasil)
  */
 export function sanitizePhone(phone) {
   if (!phone || typeof phone !== 'string') {
@@ -97,12 +100,18 @@ export function sanitizePhone(phone) {
   // Remover tudo que não é dígito
   const digits = phone.replace(/\D/g, '');
   
-  // Validar formato brasileiro (10 ou 11 dígitos)
-  if (digits.length < 10 || digits.length > 11) {
-    return null;
+  // Validar formato brasileiro
+  // 10-11 dígitos: DDD (2) + número (8-9 dígitos)
+  // 12-13 dígitos: DDI 55 (2) + DDD (2) + número (8-9 dígitos)
+  if (digits.length >= 10 && digits.length <= 11) {
+    // Formato sem DDI (10-11 dígitos)
+    return digits;
+  } else if (digits.length >= 12 && digits.length <= 13 && digits.startsWith('55')) {
+    // Formato com DDI Brasil (12-13 dígitos)
+    return digits;
   }
   
-  return digits;
+  return null;
 }
 
 /**

@@ -8,7 +8,7 @@ const publicRoutes = [
   '/api/health',
   '/api/upload-image',
   '/api/auth/login',
-  '/api/auth/me',
+  // /api/auth/me REMOVIDO - deve exigir autenticação
   '/api/auth/set-password',
   '/api/auth/forgot-password',
   '/api/auth/reset-password',
@@ -58,8 +58,13 @@ export const authenticate = async (req, res, next) => {
   const token = extractTokenFromRequest(req);
   
   if (!token) {
+    // Em TEST, sempre exigir token (não permitir fallback)
+    if (process.env.NODE_ENV === 'test') {
+      return res.status(401).json({ error: 'Token de autenticação necessário' });
+    }
+    
     if (process.env.NODE_ENV !== 'production') {
-      // Em desenvolvimento, permitir sem token
+      // Em desenvolvimento (não test), permitir sem token como fallback
       const usePostgreSQL = !!process.env.DATABASE_URL;
       if (usePostgreSQL) {
         req.user = await repo.getUserByEmail('admin@digimenu.com');

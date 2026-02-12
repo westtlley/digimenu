@@ -97,11 +97,12 @@ export default function ColaboradorHome() {
     );
   }
 
-  const roles = user?.profile_roles?.length
+  let roles = user?.profile_roles?.length
     ? user.profile_roles
     : user?.profile_role
       ? [user.profile_role]
       : [];
+  if (roles.length === 0 && user?.profile_role) roles = [String(user.profile_role).toLowerCase().trim()].filter(Boolean);
   // Gerente: acesso a todas as funções. Assinante (dono): também acesso total.
   const isDono = user?.subscriber_email && (user?.email || '').toLowerCase().trim() === (user?.subscriber_email || '').toLowerCase().trim();
   const isGerente = roles.includes('gerente') || isDono;

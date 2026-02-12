@@ -114,6 +114,58 @@ async function sendPasswordResetEmail(email, resetToken) {
 }
 
 /**
+ * Enviar email de configuração de senha (setup)
+ */
+async function sendPasswordSetupEmail(email, passwordToken) {
+  const setupUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/definir-senha?token=${passwordToken}`;
+  
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #f97316; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+        .content { background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }
+        .button { display: inline-block; padding: 12px 24px; background: #f97316; color: white; text-decoration: none; border-radius: 6px; margin: 20px 0; }
+        .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>🔐 Configure sua Senha</h1>
+        </div>
+        <div class="content">
+          <p>Olá,</p>
+          <p>Bem-vindo ao DigiMenu! Para começar a usar sua conta, você precisa definir uma senha.</p>
+          <p>Clique no botão abaixo para configurar sua senha:</p>
+          <p style="text-align: center;">
+            <a href="${setupUrl}" class="button">Definir Senha</a>
+          </p>
+          <p>Ou copie e cole este link no seu navegador:</p>
+          <p style="word-break: break-all; color: #666;">${setupUrl}</p>
+          <p><strong>Este link expira em 5 minutos.</strong></p>
+          <p>Se você não solicitou este cadastro, ignore este email.</p>
+        </div>
+        <div class="footer">
+          <p>DigiMenu - Sistema de Cardápio Digital</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+  
+  return sendEmail({
+    to: email,
+    subject: 'Configure sua senha - DigiMenu',
+    html
+  });
+}
+
+/**
  * Enviar email de boas-vindas para novo assinante
  */
 async function sendWelcomeEmail({ email, name, passwordToken, slug, plan }) {
@@ -427,6 +479,7 @@ Equipe DigiMenu
 
 export {
   sendPasswordResetEmail,
+  sendPasswordSetupEmail,
   sendWelcomeEmail,
   sendRenewalEmail,
   sendExpirationWarningEmail,

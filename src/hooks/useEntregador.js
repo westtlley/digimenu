@@ -4,12 +4,13 @@ import { useSlugContext } from './useSlugContext';
 
 /**
  * Hook para gerenciar dados do entregador
+ * ✅ SIMPLIFICADO: Removida lógica de negócio de verificação de permissões
+ * Backend é responsável por validar acesso (retorna 403 se não autorizado)
  */
 export function useEntregador() {
   const [user, setUser] = useState(null);
   const [entregador, setEntregador] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [hasAccess, setHasAccess] = useState(true);
   const { slug, subscriberEmail, inSlugContext } = useSlugContext();
 
   useEffect(() => {
@@ -19,29 +20,9 @@ export function useEntregador() {
         setUser(userData);
         const asSub = (inSlugContext && userData?.is_master && subscriberEmail) ? subscriberEmail : undefined;
 
-        // Verificar se é assinante (acesso livre a todas as ferramentas)
-        const isAssinante = userData?.subscriber_email && (userData?.email || '').toLowerCase().trim() === (userData?.subscriber_email || '').toLowerCase().trim();
-        
-        // Colaborador com perfil Entregador, master, ou assinante tem acesso direto
-        if (userData.profile_role === 'entregador' || userData.is_master || isAssinante) {
-          setHasAccess(true);
-        } else {
-          const subscribers = await base44.entities.Subscriber.list();
-          const subscriber = subscribers.find(s => 
-            s.email === userData.subscriber_email || s.email === userData.email
-          );
-          if (subscriber) {
-            const hasPermission = subscriber.permissions?.gestor_pedidos?.length > 0;
-            setHasAccess(hasPermission);
-            if (!hasPermission) {
-              setLoading(false);
-              return;
-            }
-          }
-        }
-        
-        // Master, is_entregador, perfil colaborador Entregador, ou assinante
-        if (userData.is_master || userData.is_entregador || userData.profile_role === 'entregador' || isAssinante) {
+        // ✅ SIMPLIFICADO: Tentar buscar entregador - backend valida permissões
+        // Se não tiver acesso, backend retorna 403 e o erro será tratado pelo componente
+        try {
           const allEntregadores = await base44.entities.Entregador.list(null, asSub ? { as_subscriber: asSub } : {});
           const matchedEntregador = allEntregadores.find(e => 
             e.email?.toLowerCase().trim() === userData.email?.toLowerCase().trim()
@@ -49,8 +30,8 @@ export function useEntregador() {
           
           if (matchedEntregador) {
             setEntregador(matchedEntregador);
-          } else {
-            // Criar entregador virtual para master/usuários sem perfil
+          } else if (userData.is_master || userData.profile_role === 'entregador') {
+            // Criar entregador virtual para master/entregadores sem perfil cadastrado
             const virtualEntregador = {
               id: userData.is_master ? 'master-' + userData.email : 'user-' + userData.email,
               name: userData.full_name || userData.email.split('@')[0],
@@ -71,9 +52,14 @@ export function useEntregador() {
             };
             setEntregador(virtualEntregador);
           }
+        } catch (accessError) {
+          // Backend retornou erro (403, 404, etc) - componente tratará
+          // Não definir entregador, deixar componente mostrar erro de acesso
+          console.warn('Erro ao buscar entregador (backend valida acesso):', accessError);
         }
       } catch (e) {
-        // Redirecionar para login de colaboradores
+        // Erro de autenticação - redirecionar para login
+        console.error('Erro de autenticação:', e);
         base44.auth.redirectToLogin('/Entregador');
       } finally {
         setLoading(false);
@@ -86,7 +72,7 @@ export function useEntregador() {
     user,
     entregador,
     loading,
-    hasAccess,
+    // ✅ REMOVIDO: hasAccess - backend valida acesso via 403
     asSubscriber: (inSlugContext && user?.is_master && subscriberEmail) ? subscriberEmail : undefined,
     isMaster: user?.is_master || false
   };

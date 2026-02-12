@@ -41,7 +41,7 @@ const FREE_PERMISSIONS = {
     menu_edit: true,
     menu_delete: true,
     categories_unlimited: true,
-    products_limit: 20, // Apenas 20 produtos
+    products_limit: 30, // Apenas 30 produtos
     
     // Dashboard Básico
     dashboard_view: true,
@@ -67,7 +67,8 @@ const FREE_PERMISSIONS = {
     
     // Limites rígidos
     users_limit: 1,
-    orders_per_day: 10, // Apenas 10 pedidos/dia
+    orders_per_day: null, // Não usado no Free (usa orders_per_month)
+    orders_per_month: 20, // Apenas 20 pedidos/mês
     
     // TUDO MAIS BLOQUEADO
     team_management: false,
@@ -162,10 +163,11 @@ const BASIC_PERMISSIONS = {
 const PRO_PERMISSIONS = {
     // Tudo do Básico (com upgrades)
     ...BASIC_PERMISSIONS,
-    products_limit: 500, // Upgrade: 500 produtos
+    products_limit: -1, // Ilimitado
     orders_history_days: 365, // Upgrade: Histórico de 1 ano
     users_limit: 5, // Upgrade: Até 5 usuários
-    orders_per_day: 200, // Upgrade: 200 pedidos/dia
+    orders_per_day: -1, // Ilimitado
+    orders_per_month: -1, // Ilimitado
     
     // Gestor de Pedidos Avançado
     orders_advanced: true,
@@ -449,18 +451,18 @@ export function getPlanInfo(plan) {
       trial_days: 0,
       features: [
         'Cardápio digital básico',
-        'Até 20 produtos',
+        'Até 30 produtos',
         'Pedidos via WhatsApp',
         'Gestor de pedidos simples',
         'Histórico 7 dias',
-        'Até 10 pedidos/dia',
+        'Até 20 pedidos/mês',
         '1 usuário',
         'Sem personalização visual',
         'Sem cupons ou promoções'
       ],
       limits: {
-        products: 20,
-        orders_per_day: 10,
+        products: 30,
+        orders_per_month: 20,
         users: 1,
         history_days: 7
       },
@@ -502,7 +504,7 @@ export function getPlanInfo(plan) {
       popular: true, // Badge "Mais Popular"
       features: [
         '✅ Tudo do Básico, mais:',
-        'Até 500 produtos',
+        'Produtos ilimitados',
         'App próprio para entregadores',
         'Zonas e taxas de entrega',
         'Rastreamento em tempo real',
@@ -510,12 +512,13 @@ export function getPlanInfo(plan) {
         'Relatórios avançados',
         'Gestão de equipe (até 5)',
         'Histórico 1 ano',
-        'Até 200 pedidos/dia',
+        'Pedidos ilimitados',
         'Suporte prioritário'
       ],
       limits: {
-        products: 500,
-        orders_per_day: 200,
+        products: -1, // Ilimitado
+        orders_per_day: -1, // Ilimitado
+        orders_per_month: -1, // Ilimitado
         users: 5,
         history_days: 365
       }

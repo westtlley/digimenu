@@ -6,6 +6,7 @@
 
 import { hasPermission, hasAccess, PLAN_PERMISSIONS, PLANS } from '../utils/plans.js';
 import * as repo from '../db/repository.js';
+import { usePostgreSQL, getDb } from '../config/appConfig.js';
 
 /**
  * Verifica se uma permissão customizada está presente
@@ -45,12 +46,15 @@ async function getUserPlan(user, usePostgreSQL, db) {
   // Buscar assinante do usuário
   let subscriber = null;
   
+  // Para colaboradores, usar subscriber_email do usuário
+  const subscriberEmail = user?.subscriber_email || user?.email;
+  
   if (usePostgreSQL) {
-    if (user?.subscriber_email) {
-      subscriber = await repo.getSubscriberByEmail(user.subscriber_email);
+    if (subscriberEmail) {
+      subscriber = await repo.getSubscriberByEmail(subscriberEmail);
     }
-  } else if (db && db.subscribers && user?.subscriber_email) {
-    subscriber = db.subscribers.find(s => s.email === user.subscriber_email);
+  } else if (db && db.subscribers && subscriberEmail) {
+    subscriber = db.subscribers.find(s => (s.email || '').toLowerCase() === (subscriberEmail || '').toLowerCase());
   }
   
   // Se não tem assinante, retorna null (sem acesso)
@@ -96,13 +100,7 @@ export function requirePermission(permission) {
       }
       
       // Obter plano do usuário
-      const usePostgreSQL = !!process.env.DATABASE_URL;
-      let db = null;
-      if (!usePostgreSQL) {
-        const persistence = await import('../db/persistence.js');
-        db = persistence.loadDatabase();
-      }
-      
+      const db = getDb();
       const plan = await getUserPlan(user, usePostgreSQL, db);
       
       if (!plan) {
@@ -114,12 +112,8 @@ export function requirePermission(permission) {
       
       // Verificar permissão
       if (!hasPermission(plan, permission)) {
-        return res.status(403).json({ 
-          error: 'Permissão negada',
-          code: 'PERMISSION_DENIED',
-          required: permission,
-          current_plan: plan
-        });
+        const { forbiddenResponse } = await import('../src/utils/response.js');
+        return forbiddenResponse(res, 'Permissão negada');
       }
       
       // Adicionar plano ao request para uso posterior
@@ -128,7 +122,8 @@ export function requirePermission(permission) {
       next();
     } catch (error) {
       console.error('Erro ao verificar permissão:', error);
-      res.status(500).json({ error: 'Erro ao verificar permissão' });
+      const { errorResponse } = await import('../src/utils/response.js');
+      return errorResponse(res, 'Erro ao verificar permissão', 500, 'INTERNAL_ERROR');
     }
   };
 }
@@ -151,30 +146,18 @@ export function requireAccess(resource) {
       }
       
       // Obter plano do usuário
-      const usePostgreSQL = !!process.env.DATABASE_URL;
-      let db = null;
-      if (!usePostgreSQL) {
-        const persistence = await import('../db/persistence.js');
-        db = persistence.loadDatabase();
-      }
-      
+      const db = getDb();
       const plan = await getUserPlan(user, usePostgreSQL, db);
       
       if (!plan) {
-        return res.status(403).json({ 
-          error: 'Assinatura não encontrada ou inativa',
-          code: 'SUBSCRIPTION_INACTIVE'
-        });
+        const { forbiddenResponse } = await import('../src/utils/response.js');
+        return forbiddenResponse(res, 'Assinatura não encontrada ou inativa');
       }
       
       // Verificar acesso
       if (!hasAccess(plan, resource)) {
-        return res.status(403).json({ 
-          error: 'Acesso negado a este recurso',
-          code: 'ACCESS_DENIED',
-          required: resource,
-          current_plan: plan
-        });
+        const { forbiddenResponse } = await import('../src/utils/response.js');
+        return forbiddenResponse(res, 'Acesso negado a este recurso');
       }
       
       // Adicionar plano ao request
@@ -183,7 +166,8 @@ export function requireAccess(resource) {
       next();
     } catch (error) {
       console.error('Erro ao verificar acesso:', error);
-      res.status(500).json({ error: 'Erro ao verificar acesso' });
+      const { errorResponse } = await import('../src/utils/response.js');
+      return errorResponse(res, 'Erro ao verificar acesso', 500, 'INTERNAL_ERROR');
     }
   };
 }

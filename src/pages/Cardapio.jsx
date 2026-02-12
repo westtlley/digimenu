@@ -170,7 +170,7 @@ export default function Cardapio() {
     queryKey: ['publicCardapio', slug],
     queryFn: async () => {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout (evita travar se backend estiver lento/off)
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
       try {
         const result = await base44.get(`/public/cardapio/${slug}`, {}, { signal: controller.signal });
         clearTimeout(timeoutId);
@@ -324,6 +324,7 @@ export default function Cardapio() {
   const promotionsResolved = _pub?.promotions ?? promotions ?? [];
   const loadingDishes = slug ? publicLoading : dishesLoading;
 
+  // ✅ CORREÇÃO: Todos os hooks devem ser chamados ANTES de qualquer return condicional
   useDocumentHead(store);
 
   // Detectar promoções em pratos favoritos (após dishesResolved estar definido)
@@ -341,32 +342,6 @@ export default function Cardapio() {
   const updateCouponMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.Coupon.update(id, data)
   });
-
-  // Erro ao carregar (404, timeout, rede, etc.)
-  if (slug && publicError) {
-    const isTimeoutOrNetwork = publicErrorDetails?.isTimeout || publicErrorDetails?.message?.includes('fetch') || publicErrorDetails?.message?.includes('rede');
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
-        <div className="text-center max-w-md p-6 rounded-xl bg-white dark:bg-gray-800 shadow-lg border border-gray-200 dark:border-gray-700">
-          <p className="text-xl font-medium text-gray-800 dark:text-gray-100">
-            {isTimeoutOrNetwork ? 'Não foi possível carregar' : 'Link não encontrado'}
-          </p>
-          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-            {isTimeoutOrNetwork
-              ? 'O servidor pode estar iniciando ou a conexão falhou. Tente novamente em alguns segundos.'
-              : 'Este cardápio não existe ou o link está incorreto. Verifique com o estabelecimento.'}
-          </p>
-          <Button
-            onClick={() => queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] })}
-            className="mt-4 bg-orange-500 text-white hover:bg-orange-600"
-          >
-            Tentar novamente
-          </Button>
-          <Link to="/assinar" className="mt-4 block text-sm text-orange-600 hover:underline">Assinar {SYSTEM_NAME}</Link>
-        </div>
-      </div>
-    );
-  }
 
   // Adaptar cores do tema para modo escuro
   const adaptedTheme = useAdaptedTheme(store);
@@ -443,6 +418,8 @@ export default function Cardapio() {
       return matchesSearch && matchesCategory;
     });
   }, [activeBeverages, searchTerm, selectedCategory]);
+
+  // (Return de erro movido para depois de TODOS os hooks — ver bloco "Erro ao carregar" mais abaixo)
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -587,7 +564,33 @@ export default function Cardapio() {
     }
   }, [slug, store]);
 
-  // Se não há slug, mostrar página de entrada (sem forçar redirect que quebra navegação)
+  // ✅ Erro ao carregar cardápio (404, 500, timeout, rede) — depois de TODOS os hooks
+  if (slug && publicError) {
+    const isTimeoutOrNetwork = publicErrorDetails?.isTimeout || publicErrorDetails?.message?.includes('fetch') || publicErrorDetails?.message?.includes('rede');
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
+        <div className="text-center max-w-md p-6 rounded-xl bg-white dark:bg-gray-800 shadow-lg border border-gray-200 dark:border-gray-700">
+          <p className="text-xl font-medium text-gray-800 dark:text-gray-100">
+            {isTimeoutOrNetwork ? 'Não foi possível carregar' : 'Link não encontrado'}
+          </p>
+          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+            {isTimeoutOrNetwork
+              ? 'O servidor pode estar iniciando ou a conexão falhou. Tente novamente em alguns segundos.'
+              : 'Este cardápio não existe ou o link está incorreto. Verifique com o estabelecimento.'}
+          </p>
+          <Button
+            onClick={() => queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] })}
+            className="mt-4 bg-orange-500 text-white hover:bg-orange-600"
+          >
+            Tentar novamente
+          </Button>
+          <Link to="/assinar" className="mt-4 block text-sm text-orange-600 hover:underline">Assinar {SYSTEM_NAME}</Link>
+        </div>
+      </div>
+    );
+  }
+
+  // Se não há slug, mostrar página de entrada
   if (!slug) {
     return <CardapioSemLink />;
   }
@@ -1909,6 +1912,10 @@ export default function Cardapio() {
       {currentView === 'menu' && (
         <AIChatbot
           dishes={dishesResolved}
+          categories={categoriesResolved}
+          complementGroups={complementGroupsResolved}
+          deliveryZones={deliveryZonesResolved}
+          store={store}
           onAddToCart={handleAddToCart}
           open={chatOpen}
           onOpenChange={setChatOpen}

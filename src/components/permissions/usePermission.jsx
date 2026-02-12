@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { base44 } from '@/api/base44Client';
 import { log } from '@/utils/logger';
 import { createUserContext, isValidContext } from '@/utils/userContext';
-import { getPlanPermissions } from '@/components/permissions/PlanPresets';
+// ✅ REMOVIDO: getPlanPermissions - Backend é a única fonte de verdade para permissões
 import { useSlugContext } from '@/hooks/useSlugContext';
 
 /**
@@ -59,10 +59,8 @@ export function usePermission() {
         }
         if (!perms || typeof perms !== 'object') perms = {};
         const planSlug = (contextData.subscriberData?.plan || 'basic').toString().toLowerCase().trim();
-        // Sempre mesclar padrão do plano primeiro (plano em minúsculo para bater com PlanPresets), depois backend
-        if (!contextData.user.is_master && ['free', 'basic', 'pro', 'ultra', 'premium'].includes(planSlug)) {
-          perms = { ...(getPlanPermissions(planSlug) || {}), ...perms };
-        }
+        // ✅ SIMPLIFICADO: Usar apenas permissões do backend (fonte única de verdade)
+        // Backend já retorna permissões mescladas com o plano
         setPermissions(perms);
 
         // ✅ Garantir que subscriberData sempre tenha plan (minúsculo) e status
@@ -101,9 +99,7 @@ export function usePermission() {
                   }
                 }
                 if (!slugPerms || typeof slugPerms !== 'object') slugPerms = {};
-                if (['free', 'basic', 'pro', 'ultra', 'premium'].includes(slugPlanSlug)) {
-                  slugPerms = { ...(getPlanPermissions(slugPlanSlug) || {}), ...slugPerms };
-                }
+                // ✅ SIMPLIFICADO: Usar apenas permissões do backend
                 setPermissions(slugPerms);
                 log.permission.log('✅ [usePermission] Usando dados do assinante do slug:', slugSubscriberEmail);
               }
@@ -176,16 +172,8 @@ export function usePermission() {
               try { perms = JSON.parse(perms); } catch (e) { perms = {}; }
             }
             if (!perms || typeof perms !== 'object') perms = {};
-            const planSlug = (subscriber.plan || 'basic').toString().toLowerCase().trim();
-            if (['free', 'basic', 'pro', 'ultra', 'premium'].includes(planSlug)) {
-              perms = { ...(getPlanPermissions(planSlug) || {}), ...perms };
-            }
-            if (subscriber.plan === 'basic' && Array.isArray(perms.dishes) && perms.dishes.includes('view') && !perms.dishes.includes('create')) {
-              perms = { ...perms, dishes: ['view', 'create', 'update', 'delete'] };
-            }
-            if (['basic', 'pro'].includes(subscriber.plan) && (!Array.isArray(perms.store) || perms.store.length === 0)) {
-              perms = { ...perms, store: ['view', 'update'] };
-            }
+            // ✅ SIMPLIFICADO: Usar apenas permissões do backend (sem lógica de negócio no frontend)
+            // Backend já retorna permissões corretas mescladas com o plano
             setPermissions(perms);
             setSubscriberData(subscriber);
             const context = createUserContext(currentUser, subscriber, perms);
@@ -229,28 +217,19 @@ export function usePermission() {
 
   /**
    * Verifica se o usuário tem acesso a um módulo
-   * ✅ CORREÇÃO: Blindado com Array.isArray
-   * colaboradores: apenas planos Pro e Ultra
+   * ✅ SIMPLIFICADO: Apenas verifica permissões do backend (sem lógica de negócio)
+   * Backend é a única fonte de verdade para permissões e limites
    */
   const hasModuleAccess = (module) => {
     if (isMaster) return true;
     
-    const planLower = (subscriberData?.plan || '').toString().toLowerCase().trim();
-    
-    // 1) Permissões explícitas (merge plano + backend já feito no load)
+    // ✅ Apenas verificar permissões explícitas do backend
     if (permissions && typeof permissions === 'object') {
       const modulePerms = permissions[module];
       if (Array.isArray(modulePerms) && modulePerms.length > 0) return true;
     }
     
-    // 2) Fallback por plano quando permissões não têm o módulo
-    if (module === 'colaboradores') return ['pro', 'ultra'].includes(planLower);
-    if (['comandas', 'tables', 'garcom'].includes(module)) return planLower === 'ultra';
-    if (['affiliates', 'lgpd', '2fa', 'inventory'].includes(module)) return ['pro', 'ultra'].includes(planLower);
-    // gestor_pedidos é um módulo básico disponível para todos os planos pagos
-    const basicModules = ['dashboard', 'dishes', 'orders', 'history', 'clients', 'whatsapp', 'store', 'theme', 'printer', 'financial', 'caixa', 'delivery_zones', 'payments', 'promotions', 'coupons', 'pizza_config', 'gestor_pedidos'];
-    if (basicModules.includes(module)) return ['basic', 'pro', 'ultra'].includes(planLower);
-    
+    // ✅ Sem fallback por plano - backend já retorna permissões corretas
     return false;
   };
 

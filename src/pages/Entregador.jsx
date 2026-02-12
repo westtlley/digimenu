@@ -72,7 +72,8 @@ export default function Entregador() {
   const { slug } = useSlugContext();
   
   // Hook customizado para entregador
-  const { user, entregador, loading, hasAccess, asSubscriber, isMaster } = useEntregador();
+  // ✅ SIMPLIFICADO: Backend valida acesso - se entregador não existir e não for master/entregador, mostrar erro
+  const { user, entregador, loading, asSubscriber, isMaster } = useEntregador();
   
   // Hook customizado para pedidos
   const { orders: displayOrders, activeOrders, completedOrders, completedOrdersToday, stats: orderStats } = useDeliveryOrders(
@@ -297,7 +298,9 @@ export default function Entregador() {
     );
   }
 
-  if (!hasAccess) {
+  // ✅ SIMPLIFICADO: Verificar acesso baseado em entregador disponível
+  // Backend já validou permissões - se não tiver entregador e não for master/entregador, mostrar erro
+  if (!loading && !entregador && !isMaster && user?.profile_role !== 'entregador') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="bg-white p-8 rounded-xl shadow-lg text-center max-w-md">

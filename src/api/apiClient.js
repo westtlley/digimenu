@@ -90,7 +90,7 @@ class ApiClient {
 
     try {
       const response = await fetch(url, config);
-      
+
       // Tenta fazer parse JSON, mas não falha se não for JSON
       let data;
       const contentType = response.headers.get('content-type');
@@ -162,6 +162,16 @@ class ApiClient {
 
       return data;
     } catch (error) {
+      // ✅ MELHORADO: Tratamento específico para "Failed to fetch" (CORS/rede)
+      if (error.name === 'TypeError' && error.message === 'Failed to fetch') {
+        const friendlyError = new Error('Não foi possível conectar ao servidor. Verifique sua conexão ou tente novamente em alguns instantes.');
+        friendlyError.name = 'NetworkError';
+        friendlyError.originalError = error;
+        if (!this.isLoggingOut) {
+          logger.error('API Network Error (CORS/rede):', { endpoint, url, error: error.message });
+        }
+        throw friendlyError;
+      }
       if (!this.isLoggingOut) {
         logger.error('API Request Error:', error, 'URL:', url);
       }

@@ -1,6 +1,10 @@
 /**
  * Presets de planos de assinatura
- * Define as permissões padrão para cada nível de plano
+ * ⚠️ ATENÇÃO: Este arquivo é APENAS para referência/exibição na UI.
+ * NÃO deve ser usado para lógica de negócio ou validação de permissões.
+ * 
+ * O backend é a única fonte de verdade para permissões e limites.
+ * O frontend apenas consome e exibe as permissões retornadas pelo backend.
  */
 
 export const PLAN_PRESETS = {

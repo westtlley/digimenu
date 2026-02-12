@@ -1,6 +1,8 @@
 node_modules/
 .env
+.env.test
 *.log
 db/data/
 .DS_Store
 scripts/setup-master-*.sql
+logs/

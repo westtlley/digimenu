@@ -24,7 +24,65 @@ const getChatApiUrl = () => {
   return base ? `${base}/api/public/chat` : '/api/public/chat';
 };
 
-export default function AIChatbot({ dishes = [], orders: ordersProp = [], onAddToCart, open: controlledOpen, onOpenChange, slug, storeName }) {
+/** Monta texto do cardápio para a IA: categorias, pratos com preço, complementos e extras */
+function buildMenuFull(dishes = [], categories = [], complementGroups = []) {
+  const lines = [];
+  const sortedCats = [...(categories || [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  sortedCats.forEach(cat => {
+    const items = (dishes || []).filter(d => d.category_id === cat.id && d.is_active !== false && d.name);
+    if (items.length === 0) return;
+    lines.push(`\n## ${cat.name}`);
+    items.forEach(d => {
+      let line = `- ${d.name}: R$ ${(d.price ?? 0).toFixed(2)}`;
+      if (d.description) line += ` — ${(d.description || '').slice(0, 80)}`;
+      const groupIds = (d.complement_groups || []).map(cg => cg.group_id);
+      const groups = (complementGroups || []).filter(g => groupIds.includes(g.id));
+      if (groups.length) {
+        const opts = groups.flatMap(g => (g.complements || []).filter(c => c.is_active !== false).map(c => `${c.name} (R$ ${(c.price || 0).toFixed(2)})`));
+        if (opts.length) line += ` [complementos: ${opts.join(', ')}]`;
+      }
+      if (d.extras && d.extras.length) {
+        const ex = d.extras.filter(e => e.is_active !== false).map(e => `${e.name} (R$ ${(e.price || 0).toFixed(2)})`);
+        if (ex.length) line += ` [extras: ${ex.join(', ')}]`;
+      }
+      lines.push(line);
+    });
+  });
+  const semCat = (dishes || []).filter(d => !d.category_id && d.is_active !== false && d.name);
+  if (semCat.length) {
+    lines.push('\n## Outros');
+    semCat.forEach(d => {
+      lines.push(`- ${d.name}: R$ ${(d.price ?? 0).toFixed(2)}`);
+    });
+  }
+  return lines.join('\n') || 'Cardápio não disponível.';
+}
+
+/** Regras de entrega e taxa para a IA */
+function buildDeliveryInfo(deliveryZones = [], store = null) {
+  const parts = [];
+  if (store?.delivery_fee_mode === 'distance') {
+    parts.push('Taxa por distância (km).');
+    if (store.delivery_base_fee != null) parts.push(`Taxa base: R$ ${Number(store.delivery_base_fee).toFixed(2)}.`);
+    if (store.delivery_free_distance) parts.push(`Entrega grátis até ${store.delivery_free_distance} km.`);
+  } else {
+    const defaultFee = store?.delivery_fee ?? 0;
+    parts.push(`Taxa padrão: R$ ${Number(defaultFee).toFixed(2)}.`);
+    const zones = (deliveryZones || []).filter(z => z.is_active !== false && z.neighborhood);
+    if (zones.length) {
+      parts.push('Por bairro: ' + zones.slice(0, 15).map(z => `${z.neighborhood} R$ ${Number(z.fee || 0).toFixed(2)}`).join('; '));
+    }
+  }
+  if (store?.delivery_min_order) parts.push(`Pedido mínimo: R$ ${Number(store.delivery_min_order).toFixed(2)}.`);
+  return parts.join(' ') || 'Entrega conforme combinar com o cliente.';
+}
+
+const PAYMENT_LABELS = { pix: 'PIX', dinheiro: 'Dinheiro', cartao_credito: 'Cartão de Crédito', cartao_debito: 'Cartão de Débito' };
+function buildPaymentOptions() {
+  return Object.entries(PAYMENT_LABELS).map(([value, label]) => `${label}`).join(', ');
+}
+
+export default function AIChatbot({ dishes = [], categories: categoriesProp = [], complementGroups = [], deliveryZones = [], store = null, orders: ordersProp = [], onAddToCart, open: controlledOpen, onOpenChange, slug, storeName }) {
   const [internalOpen, setInternalOpen] = useState(false);
   const isControlled = controlledOpen !== undefined && onOpenChange != null;
   const isOpen = isControlled ? controlledOpen : internalOpen;
@@ -50,11 +108,14 @@ export default function AIChatbot({ dishes = [], orders: ordersProp = [], onAddT
     scrollToBottom();
   }, [messages]);
 
-  // Buscar pratos e categorias para contexto
-  const { data: categories = [] } = useQuery({
+  // Buscar categorias só quando não vieram pela prop (evita 404 em página pública sem login)
+  const hasCategoriesProp = categoriesProp && categoriesProp.length > 0;
+  const { data: categoriesFromApi = [] } = useQuery({
     queryKey: ['categories'],
     queryFn: () => base44.entities.Category.list('order'),
+    enabled: !hasCategoriesProp,
   });
+  const categories = hasCategoriesProp ? categoriesProp : categoriesFromApi;
 
   // Buscar usuário e pedidos do cliente quando o chatbot está aberto (para "Rastrear pedido")
   const { data: authUser } = useQuery({
@@ -79,12 +140,32 @@ export default function AIChatbot({ dishes = [], orders: ordersProp = [], onAddT
   });
   const orders = ordersProp.length > 0 ? ordersProp : customerOrdersFromApi;
 
-  // Processar mensagem do usuário
+  // Processar mensagem do usuário (fallback quando a IA não está disponível)
   const processMessage = async (userMessage) => {
-    const lowerMessage = userMessage.toLowerCase();
-    
+    const lowerMessage = userMessage.toLowerCase().trim();
+    const normalized = lowerMessage.replace(/\s+/g, ' ');
+
+    // Intenções dos botões de sugestão (evitar loop genérico)
+    if (normalized.includes('ver cardápio') || normalized.includes('ver cardapio')) {
+      const total = (dishes || []).filter(d => d.is_active !== false && d.name).length;
+      const text = total > 0
+        ? `O cardápio está logo acima nesta página! 📋 Role para cima para ver as categorias e ${total} pratos. Quer que eu recomende algo popular?`
+        : 'O cardápio está na página — role para cima para ver as opções. 📋';
+      return {
+        text,
+        suggestions: ['Recomendar pratos', 'Fazer pedido', 'Ver horários']
+      };
+    }
+    if (normalized.includes('fazer pedido')) {
+      return {
+        text: 'Para fazer seu pedido: use o cardápio acima para escolher os itens e adicionar ao carrinho. 🛒 Ou me diga o que deseja (ex.: "quero 1 pizza de calabresa").',
+        suggestions: ['Ver cardápio', 'Recomendar pratos', 'Ver horários']
+      };
+    }
+    // "Rastrear pedido" / "Ver meus pedidos" caem no bloco de rastreio abaixo
+
     // FAQ - Perguntas frequentes
-    if (lowerMessage.includes('horário') || lowerMessage.includes('aberto') || lowerMessage.includes('funciona')) {
+    if (lowerMessage.includes('horário') || lowerMessage.includes('horários') || lowerMessage.includes('aberto') || lowerMessage.includes('funciona')) {
       return {
         text: 'Estamos abertos de segunda a domingo, das 11h às 23h. 🕐',
         suggestions: ['Ver cardápio', 'Fazer pedido']
@@ -183,26 +264,27 @@ export default function AIChatbot({ dishes = [], orders: ordersProp = [], onAddT
       };
     }
 
-    // Resposta padrão com sugestões
+    // Resposta padrão: texto curto e sugestões (evitar duplicar lista em texto e botões)
     return {
-      text: 'Entendi! Como posso ajudar? Você pode:\n\n• Ver o cardápio 📋\n• Fazer um pedido 🛒\n• Rastrear seu pedido 📦\n• Ver horários e informações 🕐',
+      text: 'Como posso ajudar? Escolha uma opção abaixo.',
       suggestions: ['Ver cardápio', 'Fazer pedido', 'Rastrear pedido', 'Ver horários']
     };
   };
 
-  const handleSendMessage = async () => {
-    if (!inputText.trim()) return;
+  /** Envia mensagem. Se textOverride for passado (ex.: clique em sugestão), usa esse texto. */
+  const handleSendMessage = async (textOverride = null) => {
+    const textToSend = (textOverride != null && String(textOverride).trim()) ? String(textOverride).trim() : inputText.trim();
+    if (!textToSend) return;
 
     const userMessage = {
       id: Date.now(),
       type: 'user',
-      text: inputText,
+      text: textToSend,
       timestamp: new Date(),
     };
 
     setMessages(prev => [...prev, userMessage]);
-    const textToSend = inputText.trim();
-    setInputText('');
+    if (!textOverride) setInputText('');
     setIsTyping(true);
 
     const history = messages
@@ -213,6 +295,9 @@ export default function AIChatbot({ dishes = [], orders: ordersProp = [], onAddT
       .slice(0, 40)
       .map((d) => `${d.name} (R$ ${(d.price || 0).toFixed(2)})`)
       .join('; ');
+    const menuFull = buildMenuFull(dishes, categories, complementGroups);
+    const deliveryInfo = buildDeliveryInfo(deliveryZones, store);
+    const paymentOptions = buildPaymentOptions();
 
     try {
       const res = await fetch(getChatApiUrl(), {
@@ -223,6 +308,9 @@ export default function AIChatbot({ dishes = [], orders: ordersProp = [], onAddT
           slug: slug || '',
           storeName: storeName || '',
           dishesSummary,
+          menuFull,
+          deliveryInfo,
+          paymentOptions,
           history,
         }),
       });
@@ -234,6 +322,7 @@ export default function AIChatbot({ dishes = [], orders: ordersProp = [], onAddT
           type: 'bot',
           text: data.text,
           suggestions: data.suggestions || [],
+          step: data.step || null,
           dishes: [],
           timestamp: new Date(),
         };
@@ -273,8 +362,7 @@ export default function AIChatbot({ dishes = [], orders: ordersProp = [], onAddT
         }]);
       }
     } else {
-      setInputText(suggestion);
-      setTimeout(() => handleSendMessage(), 100);
+      handleSendMessage(suggestion);
     }
   };
 

@@ -1,4 +1,5 @@
-import { query } from './postgres.js';
+// Importar postgres.js diretamente (compatibilidade)
+import { query, getClient } from './postgres.js';
 
 /**
  * Repositório genérico para entidades
@@ -246,6 +247,18 @@ export async function getEntityById(entityType, id, user = null) {
 export async function createEntity(entityType, data, user = null, options = {}) {
   try {
     const subscriberEmail = options.forSubscriberEmail ?? getSubscriberEmail(user);
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/4f86e4d7-f8a1-4c85-8a5d-50b822226133',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'repository.js:249',message:'[H2] createEntity called',data:{entityType,subscriberEmail:subscriberEmail||null,userId:user?.id,isMaster:user?.is_master},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+    
+    // Se subscriberEmail é null/undefined e não é master, tentar obter do user
+    let finalSubscriberEmail = subscriberEmail;
+    if (!finalSubscriberEmail && user && !user.is_master) {
+      finalSubscriberEmail = user.subscriber_email || user.email;
+    }
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/4f86e4d7-f8a1-4c85-8a5d-50b822226133',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'repository.js:254',message:'[H2] Final subscriberEmail determined',data:{finalSubscriberEmail:finalSubscriberEmail||null},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     
     const sql = `
       INSERT INTO entities (entity_type, data, subscriber_email)
@@ -256,8 +269,11 @@ export async function createEntity(entityType, data, user = null, options = {}) 
     const result = await query(sql, [
       entityType,
       JSON.stringify(data),
-      subscriberEmail
+      finalSubscriberEmail // Pode ser null para master
     ]);
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/4f86e4d7-f8a1-4c85-8a5d-50b822226133',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'repository.js:268',message:'[H2] Entity created successfully',data:{entityType,entityId:result.rows[0]?.id},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     
     const row = result.rows[0];
     return {
@@ -268,6 +284,9 @@ export async function createEntity(entityType, data, user = null, options = {}) 
       updated_at: row.updated_at
     };
   } catch (error) {
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/4f86e4d7-f8a1-4c85-8a5d-50b822226133',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'repository.js:277',message:'[H2] Error in createEntity',data:{entityType,errorMessage:error.message,errorCode:error.code,errorStack:error.stack?.substring(0,300)},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     console.error(`Erro ao criar ${entityType}:`, error);
     throw error;
   }

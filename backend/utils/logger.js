@@ -8,6 +8,7 @@ const noop = () => {};
 
 export const logger = {
   log: isDev ? (...args) => console.log(...args) : noop,
+  info: isDev ? (...args) => console.log(...args) : noop, // Alias para log
   warn: isDev ? (...args) => console.warn(...args) : noop,
   error: (...args) => console.error(...args), // sempre, para monitoramento em prod
 };

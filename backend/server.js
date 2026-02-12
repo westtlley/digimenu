@@ -1,15 +1,22 @@
 // =======================
-// 🌱 ENV CONFIG (OBRIGATÓRIO SER O PRIMEIRO)
+// 🌱 ENV CONFIG
 // =======================
-import { config } from 'dotenv';
-config({ path: new URL('./.env', import.meta.url) });
+// NOTA: As variáveis de ambiente já foram carregadas pelo bootstrap.js
+// Se este arquivo for executado diretamente (sem bootstrap), 
+// o loadEnv.js será importado automaticamente via side-effect quando necessário
+// (módulos que precisam de env importam loadEnv.js no topo)
 
-console.log('🧪 ENV TEST:', {
-  CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME,
-  CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY,
-  CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET ? 'OK' : 'MISSING',
-  JWT_SECRET: process.env.JWT_SECRET ? 'OK' : 'MISSING (usando padrão)',
-  FRONTEND_URL: process.env.FRONTEND_URL
+// Log de validação (após env carregado)
+// Usar setImmediate para garantir que env foi carregado (se executado diretamente)
+setImmediate(() => {
+  const openaiKey = process.env.OPENAI_API_KEY || process.env.OPENAI_CHATBOT_KEY || '';
+  console.log('🧪 ENV VALIDATED:', {
+    DATABASE_URL: process.env.DATABASE_URL ? '✅ Configurado' : '❌ Não configurado',
+    JWT_SECRET: process.env.JWT_SECRET ? '✅ Configurado' : '❌ Não configurado',
+    NODE_ENV: process.env.NODE_ENV || 'development',
+    FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:5173',
+    'OpenAI assistente': (openaiKey && openaiKey.trim()) ? '✅ Ativado' : '⚠️ Não configurado (use OPENAI_API_KEY no .env)'
+  });
 });
 
 // =======================
@@ -47,6 +54,15 @@ import mercadopagoRoutes from './routes/mercadopago.routes.js';
 import metricsRoutes from './routes/metrics.routes.js';
 import affiliatesRoutes from './routes/affiliates.routes.js';
 import lgpdRoutes from './routes/lgpd.routes.js';
+import authRoutes, { getUserContext } from './modules/auth/auth.routes.js';
+import * as authController from './modules/auth/auth.controller.js';
+import usersRoutes from './modules/users/users.routes.js';
+import * as usersController from './modules/users/users.controller.js';
+import { isRequesterGerente } from './modules/users/users.utils.js';
+import establishmentsRoutes from './modules/establishments/establishments.routes.js';
+import menusRoutes from './modules/menus/menus.routes.js';
+import ordersRoutes from './modules/orders/orders.routes.js';
+import { initializeAppConfig } from './config/appConfig.js';
 import { loginLimiter, apiLimiter, createLimiter } from './middlewares/rateLimit.js';
 import { validate, schemas } from './middlewares/validation.js';
 import { errorHandler, asyncHandler } from './middlewares/errorHandler.js';
@@ -62,9 +78,19 @@ const PORT = process.env.PORT || 3000;
 const JWT_SECRET = validateJWTSecret();
 
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
+// ✅ CORREÇÃO: Em desenvolvimento, permitir qualquer porta localhost para facilitar desenvolvimento
 const CORS_ORIGINS = process.env.CORS_ORIGINS
   ? process.env.CORS_ORIGINS.split(',').map(s => s.trim()).filter(Boolean)
-  : [FRONTEND_URL, 'http://localhost:5173', 'http://127.0.0.1:5173'];
+  : process.env.NODE_ENV === 'production'
+    ? [FRONTEND_URL]
+    : [
+        FRONTEND_URL,
+        'http://localhost:5173',
+        'http://127.0.0.1:5173',
+        // Permitir qualquer porta localhost em desenvolvimento
+        /^http:\/\/localhost:\d+$/,
+        /^http:\/\/127\.0\.0\.1:\d+$/
+      ];
 const BACKEND_URL = process.env.BACKEND_URL || `http://localhost:${PORT}`;
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
@@ -78,8 +104,31 @@ setupHelmet(app);
 // ✅ COMPRESSÃO DE RESPOSTAS (reduz tamanho em ~70%)
 app.use(compressionMiddleware);
 
+// ✅ CORREÇÃO: Suporte para regex em CORS (desenvolvimento)
 app.use(cors({
-  origin: CORS_ORIGINS.length === 1 ? CORS_ORIGINS[0] : CORS_ORIGINS,
+  origin: (origin, callback) => {
+    // Se não há origin (ex: requisição do mesmo domínio), permitir
+    if (!origin) {
+      return callback(null, true);
+    }
+    
+    // Verificar se origin está na lista permitida
+    const isAllowed = CORS_ORIGINS.some(allowed => {
+      if (typeof allowed === 'string') {
+        return allowed === origin;
+      }
+      if (allowed instanceof RegExp) {
+        return allowed.test(origin);
+      }
+      return false;
+    });
+    
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true
 }));
 app.use(express.json({ limit: '10mb' }));
@@ -174,79 +223,8 @@ if (!usePostgreSQL) {
 const activeTokens = {};
 const passwordTokens = {};
 
-// Função para gerar token de senha para assinante
-function generatePasswordTokenForSubscriber(subscriberEmail, subscriberId = null) {
-  // Gerar token único
-  const token = crypto.randomBytes(32).toString('hex');
-  
-  // Expira em 5 minutos
-  const expiresAt = new Date();
-  expiresAt.setMinutes(expiresAt.getMinutes() + 5);
-  
-  // Armazenar token em memória
-  const key = subscriberId || subscriberEmail;
-  passwordTokens[key] = {
-    token,
-    email: subscriberEmail,
-    expires_at: expiresAt.toISOString(),
-    created_at: new Date().toISOString()
-  };
-  
-  console.log('🔑 [generateToken] Token gerado e armazenado em memória:', {
-    key,
-    email: subscriberEmail,
-    token: token.substring(0, 20) + '...',
-    expires_at: expiresAt.toISOString()
-  });
-  
-  // Também salvar token no assinante no banco de dados (JSON apenas, PostgreSQL é salvo depois)
-  if (db && db.subscribers) {
-    const subscriberIndex = db.subscribers.findIndex(s => {
-      if (subscriberId) {
-        return s.id === subscriberId || s.id === String(subscriberId) || String(s.id) === String(subscriberId);
-      }
-      return s.email === subscriberEmail || s.email?.toLowerCase() === subscriberEmail?.toLowerCase();
-    });
-    
-    if (subscriberIndex >= 0) {
-      db.subscribers[subscriberIndex].password_token = token;
-      db.subscribers[subscriberIndex].token_expires_at = expiresAt.toISOString();
-      db.subscribers[subscriberIndex].updated_at = new Date().toISOString();
-      
-      console.log('💾 [generateToken] Token salvo no assinante (JSON):', {
-        index: subscriberIndex,
-        email: db.subscribers[subscriberIndex].email,
-        id: db.subscribers[subscriberIndex].id,
-        token: token.substring(0, 20) + '...',
-        expires_at: expiresAt.toISOString()
-      });
-      
-      // Salvar imediatamente (não usar debounce aqui para garantir que seja salvo)
-      if (saveDatabaseDebounced) {
-        saveDatabaseDebounced(db);
-      }
-    } else {
-      console.warn('⚠️ [generateToken] Assinante não encontrado para salvar token:', { 
-        subscriberId, 
-        subscriberEmail,
-        totalSubscribers: db.subscribers.length,
-        subscribers: db.subscribers.map(s => ({ id: s.id, email: s.email }))
-      });
-    }
-  }
-  
-  // Gerar URL de setup
-  const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
-  const setup_url = `${FRONTEND_URL}/definir-senha?token=${token}&email=${encodeURIComponent(subscriberEmail)}`;
-  
-  console.log('🔑 [generateToken] Token de senha gerado para:', subscriberEmail, 'Expira em:', expiresAt.toISOString());
-  
-  return {
-    token,
-    setup_url,
-    expires_at: expiresAt.toISOString()
-  };
-}
+// ✅ Função generatePasswordTokenForSubscriber movida para: backend/modules/auth/auth.service.js
+// Importar quando necessário: import { generatePasswordTokenForSubscriber } from './modules/auth/auth.service.js';
 
 // =======================
 // 🔐 AUTH HELPERS
@@ -592,8 +570,54 @@ if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET) {
 }
 
 // =======================
-// 🔐 AUTHENTICATION
+// 🔐 AUTHENTICATION MODULE
 // =======================
+// Inicializar controller com referências globais
+authController.initializeAuthController(db, saveDatabaseDebounced);
+
+// Registrar rotas do módulo de autenticação
+app.use('/api/auth', authRoutes);
+
+// Rota de contexto do usuário (separada)
+app.get('/api/user/context', authenticate, getUserContext);
+
+// =======================
+// 👥 USERS MODULE
+// =======================
+// Inicializar controller com referências globais
+usersController.initializeUsersController(db, saveDatabaseDebounced);
+
+// Registrar rotas do módulo de usuários
+app.use('/api/users', usersRoutes);
+// Nota: Rotas de colaboradores estão em /api/users/colaboradores
+// Para compatibilidade com frontend, pode ser necessário adicionar redirect ou alias futuro
+
+// =======================
+// 🏪 ESTABLISHMENTS MODULE
+// =======================
+// Registrar rotas do módulo de estabelecimentos
+app.use('/api/establishments', establishmentsRoutes);
+// Alias para compatibilidade
+app.use('/api/subscribers', establishmentsRoutes);
+
+// =======================
+// 📋 MENUS MODULE
+// =======================
+// Registrar rotas do módulo de menus
+app.use('/api', menusRoutes);
+
+// =======================
+// 🛒 ORDERS MODULE
+// =======================
+// Registrar rotas do módulo de pedidos
+app.use('/api', ordersRoutes);
+
+// =======================
+// 🔐 AUTHENTICATION (LEGADO - REMOVIDO)
+// =======================
+// ✅ Código migrado para: backend/modules/auth/
+// Rotas registradas em: app.use('/api/auth', authRoutes);
+/*
 app.post('/api/auth/login', validate(schemas.login), asyncHandler(async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -967,6 +991,7 @@ app.get('/api/auth/me', authenticate, async (req, res) => {
         payload.profile_roles = [req.user.profile_role].filter(Boolean);
       }
     }
+    if (req.user.profile_role && !payload.profile_roles) payload.profile_roles = [req.user.profile_role].filter(Boolean);
     return res.json(payload);
   } catch (error) {
     console.error('Erro ao obter usuário:', error);
@@ -1195,34 +1220,11 @@ app.post('/api/auth/reset-password', validate(schemas.resetPassword), asyncHandl
 // -----------------------
 // Colaboradores (Premium/Pro): perfis limitados Entregador, Cozinha, PDV
 // -----------------------
-const COLAB_ROLES = ['entregador', 'cozinha', 'pdv', 'garcom', 'gerente'];
-
-async function getOwnerAndSubscriber(req) {
-  const owner = (req.query.as_subscriber || req.user?._contextForSubscriber || req.user?.subscriber_email || req.user?.email || '').toString().toLowerCase().trim();
-  let subscriber = null;
-  if (usePostgreSQL) {
-    subscriber = await repo.getSubscriberByEmail(owner);
-  } else if (db?.subscribers) {
-    subscriber = db.subscribers.find(s => (s.email || '').toLowerCase().trim() === owner) || null;
-  }
-  return { owner, subscriber };
-}
-
-function canUseColaboradores(subscriber, isMaster) {
-  if (isMaster) return true; // Master tem acesso a tudo
-  if (!subscriber) return false;
-  const p = (subscriber.plan || '').toLowerCase();
-  return p === 'pro' || p === 'ultra';
-}
-
-/** Retorna true se o usuário autenticado é um colaborador com perfil Gerente (não master/dono). */
-function isRequesterGerente(req) {
-  if (!req?.user) return false;
-  if (req.user.is_master) return false;
-  const pr = (req.user.profile_role || '').toLowerCase().trim();
-  const roles = req.user.profile_roles || (pr ? [pr] : []);
-  return roles.includes('gerente');
-}
+// ✅ FUNÇÕES AUXILIARES MOVIDAS PARA: backend/modules/users/users.utils.js
+// - getOwnerAndSubscriber
+// - canUseColaboradores
+// - isRequesterGerente
+// - COLAB_ROLES
 
 // =======================
 // 🔗 INFORMAÇÕES PÚBLICAS PARA PÁGINA DE LOGIN POR SLUG (logo, tema, nome)
@@ -1294,6 +1296,8 @@ app.get('/api/public/assinar-config', asyncHandler(async (req, res) => {
 // =======================
 // 🔗 CARDÁPIO PÚBLICO POR LINK (slug) — cada assinante tem seu link ex: /s/meu-restaurante
 // =======================
+// ✅ Rota movida para: /api/public/cardapio/:slug (via módulo de menus)
+/*
 app.get('/api/public/cardapio/:slug', asyncHandler(async (req, res) => {
   if (!usePostgreSQL) {
     return res.status(503).json({ error: 'Cardápio por link requer PostgreSQL. Configure DATABASE_URL.' });
@@ -1422,16 +1426,20 @@ app.get('/api/public/cardapio/:slug', asyncHandler(async (req, res) => {
     promotions: Array.isArray(promotions) ? promotions : []
   });
 }));
+*/
 
 // Chat do assistente com IA (público para o cardápio)
 app.post('/api/public/chat', asyncHandler(async (req, res) => {
-  const { message, slug, storeName, dishesSummary, history } = req.body || {};
+  const { message, slug, storeName, dishesSummary, menuFull, deliveryInfo, paymentOptions, history } = req.body || {};
   if (!message || typeof message !== 'string' || !message.trim()) {
     return res.status(400).json({ error: 'Campo message é obrigatório' });
   }
   const context = {
     storeName: storeName || 'o estabelecimento',
     dishesSummary: typeof dishesSummary === 'string' ? dishesSummary : '',
+    menuFull: typeof menuFull === 'string' ? menuFull : '',
+    deliveryInfo: typeof deliveryInfo === 'string' ? deliveryInfo : '',
+    paymentOptions: typeof paymentOptions === 'string' ? paymentOptions : '',
     slug: slug || ''
   };
   const hist = Array.isArray(history) ? history.slice(-10) : [];
@@ -1442,10 +1450,14 @@ app.post('/api/public/chat', asyncHandler(async (req, res) => {
       hint: isAIAvailable() ? 'Tente novamente em instantes.' : 'Configure OPENAI_API_KEY no backend para ativar respostas inteligentes.'
     });
   }
-  res.json({ text: result.text, suggestions: result.suggestions || [] });
+  const payload = { text: result.text, suggestions: result.suggestions || [] };
+  if (result.step) payload.step = result.step;
+  res.json(payload);
 }));
 
+// ✅ Rota movida para: /api/public/pedido-mesa (via módulo de pedidos)
 // Pedido da mesa (público, sem login) — usado pela página /mesa/:numero?slug=xxx
+/*
 app.post('/api/public/pedido-mesa', asyncHandler(async (req, res) => {
   if (!usePostgreSQL) return res.status(503).json({ error: 'Requer PostgreSQL' });
   const slug = (req.body.slug || '').trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
@@ -1521,6 +1533,10 @@ app.post('/api/public/chamar-garcom', asyncHandler(async (req, res) => {
   res.status(201).json({ ok: true, message: 'Garçom chamado!', call: waiterCall });
 }));
 
+// =======================
+// 👥 USERS (LEGADO - REMOVER APÓS TESTES)
+// =======================
+/*
 app.get('/api/colaboradores', authenticate, async (req, res) => {
   try {
     let { owner, subscriber } = await getOwnerAndSubscriber(req);
@@ -2093,6 +2109,7 @@ app.patch('/api/colaboradores/:id/toggle-active', authenticate, asyncHandler(asy
 // -----------------------
 function getManagerialSubscriberAndRole(req) {
   const owner = (req.body?.as_subscriber || req.query.as_subscriber || req.user?._contextForSubscriber || req.user?.subscriber_email || req.user?.email || '').toString().toLowerCase().trim();
+  // ✅ isRequesterGerente importado de: backend/modules/users/users.utils.js
   const isGerente = isRequesterGerente(req);
   const role = req.user?.is_master ? null : (isGerente ? 'gerente' : 'assinante');
   return { owner, role };
@@ -2609,6 +2626,44 @@ app.post('/api/entities/:entity', authenticate, async (req, res) => {
       }
     }
 
+    // ✅ VALIDAÇÃO DE LIMITE DE PRODUTOS (Dish)
+    if (String(entity).toLowerCase() === 'dish' && !req.user?.is_master) {
+      const subscriberEmail = createOpts.forSubscriberEmail || data.owner_email || (req.user?.subscriber_email || req.user?.email);
+      if (subscriberEmail) {
+        const { validateProductsLimit } = await import('./services/planValidation.service.js');
+        const productLimit = await validateProductsLimit(subscriberEmail, null, req.user?.is_master);
+        if (!productLimit.valid) {
+          return res.status(403).json({ 
+            error: `Limite de produtos excedido. Você já tem ${productLimit.current} produto(s). ` +
+                   `Seu plano permite ${productLimit.limit} produto(s). ` +
+                   `Faça upgrade do plano para aumentar o limite.`,
+            code: 'PRODUCT_LIMIT_EXCEEDED',
+            limit: productLimit.limit,
+            current: productLimit.current
+          });
+        }
+      }
+    }
+
+    // ✅ VALIDAÇÃO DE LIMITE DE PEDIDOS POR DIA (Order)
+    if (String(entity).toLowerCase() === 'order' && !req.user?.is_master) {
+      const subscriberEmail = createOpts.forSubscriberEmail || data.owner_email || (req.user?.subscriber_email || req.user?.email);
+      if (subscriberEmail) {
+        const { validateOrdersPerDayLimit } = await import('./services/planValidation.service.js');
+        const orderLimit = await validateOrdersPerDayLimit(subscriberEmail, req.user?.is_master);
+        if (!orderLimit.valid) {
+          return res.status(403).json({ 
+            error: `Limite de pedidos por dia excedido. Você já criou ${orderLimit.current} pedido(s) hoje. ` +
+                   `Seu plano permite ${orderLimit.limit} pedido(s) por dia. ` +
+                   `Faça upgrade do plano para aumentar o limite.`,
+            code: 'ORDER_LIMIT_EXCEEDED',
+            limit: orderLimit.limit,
+            current: orderLimit.current
+          });
+        }
+      }
+    }
+
     // Comanda: gerar código (C-001, C-002...) se não informado
     if (String(entity) === 'Comanda' && !(data.code && String(data.code).trim())) {
       const owner = createOpts.forSubscriberEmail || data.owner_email || null;
@@ -2784,6 +2839,38 @@ app.put('/api/entities/:entity/:id', authenticate, async (req, res) => {
       } catch (e) {
         console.error('Erro ao atualizar assinante (PUT entities/Subscriber):', e);
         return res.status(500).json({ error: 'Erro interno no servidor' });
+      }
+    }
+
+    // ✅ VALIDAÇÃO DE TRANSIÇÃO DE STATUS DE PEDIDO
+    if (String(entity).toLowerCase() === 'order' && data.status) {
+      // Buscar pedido atual para obter status atual
+      let currentOrder = null;
+      if (usePostgreSQL) {
+        currentOrder = await repo.getEntityById('Order', id, req.user);
+      } else if (db && db.entities && db.entities.Order) {
+        currentOrder = db.entities.Order.find(i => (i.id === id || i.id === String(id)));
+      }
+
+      if (currentOrder && currentOrder.status) {
+        const { validateStatusTransition } = await import('./services/orderStatusValidation.service.js');
+        const validation = validateStatusTransition(
+          currentOrder.status,
+          data.status,
+          {
+            isMaster: req.user?.is_master || false,
+            userRole: req.user?.profile_role || req.user?.role || null
+          }
+        );
+
+        if (!validation.valid) {
+          return res.status(400).json({
+            error: validation.message || 'Transição de status inválida',
+            code: 'INVALID_STATUS_TRANSITION',
+            current_status: currentOrder.status,
+            attempted_status: data.status
+          });
+        }
       }
     }
 
@@ -3002,49 +3089,8 @@ app.post('/api/entities/:entity/bulk', authenticate, async (req, res) => {
   }
 });
 
-// Atualizar assinante por ID (PATCH parcial) — evita rota entities/Subscriber
-app.put('/api/subscribers/:id', authenticate, async (req, res) => {
-  try {
-    const { id } = req.params;
-    let data = req.body;
-    const idVal = /^\d+$/.test(String(id)) ? parseInt(id, 10) : id;
-
-    // Assinante só pode alterar o próprio — e apenas o campo slug (link do cardápio)
-    if (!req.user?.is_master) {
-      let sub = null;
-      if (usePostgreSQL && repo.getSubscriberById) sub = await repo.getSubscriberById(idVal);
-      else if (db?.subscribers) sub = db.subscribers.find(s => s.id == idVal || String(s.id) === String(idVal));
-      if (!sub) return res.status(404).json({ error: 'Assinante não encontrado' });
-      const own = (s) => (s || '').toLowerCase() === (req.user?.subscriber_email || req.user?.email || '').toLowerCase();
-      if (!own(sub.email)) return res.status(403).json({ error: 'Só é possível editar seu próprio link' });
-      data = { slug: data.slug };
-    }
-
-    let updated;
-    if (usePostgreSQL) {
-      updated = await repo.updateSubscriber(idVal, data);
-    } else if (db && db.subscribers) {
-      const idx = db.subscribers.findIndex(s => s.id == idVal || String(s.id) === String(idVal));
-      if (idx === -1) return res.status(404).json({ error: 'Assinante não encontrado' });
-      const existing = db.subscribers[idx];
-      const toMerge = { ...data };
-      if (data.send_whatsapp_commands !== undefined) toMerge.whatsapp_auto_enabled = !!data.send_whatsapp_commands;
-      const merged = { ...existing, ...toMerge, id: existing.id, updated_at: new Date().toISOString() };
-      db.subscribers[idx] = merged;
-      if (typeof saveDatabaseDebounced === 'function') saveDatabaseDebounced(db);
-      updated = merged;
-    } else {
-      return res.status(404).json({ error: 'Assinante não encontrado' });
-    }
-    if (!updated) return res.status(404).json({ error: 'Assinante não encontrado' });
-    const out = { ...updated, send_whatsapp_commands: updated.whatsapp_auto_enabled };
-    console.log('✅ [PUT /subscribers/:id] Assinante atualizado:', id);
-    return res.json(out);
-  } catch (e) {
-    console.error('Erro em PUT /api/subscribers/:id:', e);
-    return res.status(500).json({ error: 'Erro interno no servidor' });
-  }
-});
+// ✅ Rota movida para: /api/establishments/subscribers/:id ou /api/subscribers/:id
+// app.put('/api/subscribers/:id', authenticate, async (req, res) => { ... });
 
 // =======================
 // 🔧 FUNCTIONS (FUNÇÕES CUSTOMIZADAS)
@@ -3054,82 +3100,19 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
     const { name } = req.params;
     const data = req.body;
     
-    // Atualizar slug do master
-    if (name === 'updateMasterSlug') {
-      if (!req.user?.is_master) {
-        return res.status(403).json({ error: 'Apenas master pode atualizar slug' });
-      }
-      
-      try {
-        const cleanSlug = data.slug ? String(data.slug).trim().toLowerCase()
-          .replace(/\s+/g, '-')
-          .replace(/[^a-z0-9-]/g, '') : null;
-        
-        const updated = await repo.updateUser(req.user.id, { slug: cleanSlug });
-        
-        return res.json({ 
-          data: { 
-            user: updated,
-            message: 'Slug atualizado com sucesso' 
-          } 
-        });
-      } catch (error) {
-        console.error('❌ Erro ao atualizar slug do master:', error);
-        return res.status(500).json({ 
-          error: 'Erro ao atualizar slug',
-          details: error.message 
-        });
-      }
-    }
+    // ✅ updateMasterSlug movido para: /api/users/functions/updateMasterSlug
+    // ✅ registerCustomer movido para: /api/users/functions/registerCustomer
     
     console.log(`🔧 Função chamada: ${name}`, data);
     
-    // Funções de assinantes
-    if (name === 'getSubscribers') {
-      // Apenas master pode ver todos os assinantes
-      if (!req.user?.is_master) {
-        return res.status(403).json({ error: 'Acesso negado' });
-      }
-      
-      try {
-        const subscribers = usePostgreSQL 
-          ? await repo.listSubscribers()
-          : (db && db.subscribers ? db.subscribers : []);
-        
-        console.log('📋 [BACKEND] getSubscribers - Retornando', subscribers.length, 'assinantes');
-        console.log('📋 [BACKEND] getSubscribers - IDs:', subscribers.map(s => s.id || s.email));
-        
-        // Garantir que todos os assinantes retornados têm setup_url se tiverem token
-        const subscribersWithTokens = subscribers.map(sub => {
-          // Se não tiver setup_url mas tiver password_token, construir
-          if (!sub.setup_url && sub.password_token) {
-            const baseUrl = FRONTEND_URL || 'http://localhost:5173';
-            sub.setup_url = `${baseUrl}/definir-senha?token=${sub.password_token}`;
-          }
-          return sub;
-        });
-        
-        return res.json({ data: { subscribers: subscribersWithTokens } });
-      } catch (error) {
-        console.error('❌ [BACKEND] Erro em getSubscribers:', error);
-        return res.status(500).json({ error: 'Erro ao buscar assinantes', details: error.message });
-      }
-    }
+    // ✅ Funções de assinantes movidas para: /api/establishments/functions/*
+    // - getSubscribers → /api/establishments/functions/getSubscribers
+    // - getPlanInfo → /api/establishments/functions/getPlanInfo
+    // - getAvailablePlans → /api/establishments/functions/getAvailablePlans
+    // - createSubscriber → /api/establishments/functions/createSubscriber
     
-    if (name === 'getPlanInfo') {
-      const { plan } = data;
-      const planInfo = getPlanInfo(plan);
-      return res.json({ data: planInfo });
-    }
-    
-    if (name === 'getAvailablePlans') {
-      const { getAvailablePlans } = await import('./utils/plans.js');
-      const plans = getAvailablePlans();
-      const plansInfo = plans.map(plan => getPlanInfo(plan));
-      return res.json({ data: plansInfo });
-    }
-    
-    if (name === 'createSubscriber') {
+    // ✅ createSubscriber movido para: /api/establishments/functions/createSubscriber
+    if (false && name === 'createSubscriber') { // Desabilitado - movido para módulo
       // Apenas master pode criar assinantes
       if (!req.user?.is_master) {
         return res.status(403).json({ error: 'Acesso negado' });
@@ -3275,7 +3258,8 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
       }
     }
     
-    if (name === 'updateSubscriber') {
+    // ✅ updateSubscriber movido para: /api/establishments/subscribers/:id
+    if (false && name === 'updateSubscriber') { // Desabilitado - movido para módulo
       // Apenas master pode atualizar assinantes
       if (!req.user?.is_master) {
         return res.status(403).json({ error: 'Acesso negado' });
@@ -3624,134 +3608,7 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
       }
     }
     
-    if (name === 'registerCustomer') {
-      // Cadastro de clientes - rota pública
-      console.log('👤 [registerCustomer] Novo cadastro de cliente:', { email: data.email, name: data.name });
-      
-      try {
-        // Validações
-        if (!data.email || !data.email.includes('@')) {
-          return res.status(400).json({ error: 'Email válido é obrigatório' });
-        }
-        
-        if (!data.name || data.name.trim().length < 3) {
-          return res.status(400).json({ error: 'Nome deve ter no mínimo 3 caracteres' });
-        }
-        
-        if (!data.password || data.password.length < 6) {
-          return res.status(400).json({ error: 'Senha deve ter no mínimo 6 caracteres' });
-        }
-        
-        const emailLower = data.email.toLowerCase().trim();
-        
-        // Verificar se já existe usuário com esse email
-        let existingUser = null;
-        if (usePostgreSQL) {
-          existingUser = await repo.getUserByEmail(emailLower);
-        } else if (db && db.users) {
-          existingUser = db.users.find(u => (u.email || '').toLowerCase() === emailLower);
-        }
-        
-        if (existingUser) {
-          return res.status(400).json({ error: 'Email já cadastrado. Use outro email ou faça login.' });
-        }
-        
-        // Hash da senha
-        const passwordHash = await bcrypt.hash(data.password, 10);
-        
-        // Criar usuário na tabela users com role='customer'
-        // Se subscriber_email foi fornecido, vincular ao assinante específico
-        const subscriberEmail = data.subscriber_email || null;
-        
-        const userData = {
-          email: emailLower,
-          full_name: data.name.trim(),
-          password: passwordHash,
-          role: 'customer',
-          is_master: false,
-          subscriber_email: subscriberEmail // Vincular ao assinante se fornecido
-        };
-        
-        let createdUser;
-        if (usePostgreSQL) {
-          createdUser = await repo.createUser(userData);
-        } else if (db && db.users) {
-          createdUser = {
-            id: String(Date.now()),
-            ...userData,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          };
-          db.users.push(createdUser);
-          if (saveDatabaseDebounced) saveDatabaseDebounced(db);
-        } else {
-          return res.status(500).json({ error: 'Banco de dados não disponível' });
-        }
-        
-        // Criar registro na tabela customers
-        // Usar o mesmo subscriberEmail já declarado acima
-        const customerData = {
-          email: emailLower,
-          name: data.name.trim(),
-          phone: data.phone ? data.phone.replace(/\D/g, '') : null,
-          address: data.address || null,
-          address_number: data.address_number || null,
-          complement: data.complement || null,
-          neighborhood: data.neighborhood || null,
-          city: data.city || null,
-          state: data.state || null,
-          zipcode: data.zipcode ? data.zipcode.replace(/\D/g, '') : null,
-          subscriber_email: subscriberEmail, // Vincular ao assinante se fornecido
-          birth_date: data.birth_date || null,
-          cpf: data.cpf ? data.cpf.replace(/\D/g, '') : null,
-          password_hash: passwordHash
-        };
-        
-        let createdCustomer;
-        if (usePostgreSQL) {
-          try {
-            createdCustomer = await repo.createCustomer(customerData, null);
-          } catch (customerError) {
-            // Se falhar ao criar customer, não é crítico - o usuário já foi criado
-            console.warn('⚠️ [registerCustomer] Erro ao criar customer (não crítico):', customerError.message);
-            createdCustomer = null;
-          }
-        } else if (db && db.customers) {
-          createdCustomer = {
-            id: String(Date.now() + 1),
-            ...customerData,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          };
-          db.customers.push(createdCustomer);
-          if (saveDatabaseDebounced) saveDatabaseDebounced(db);
-        }
-        
-        console.log('✅ [registerCustomer] Cliente cadastrado com sucesso:', {
-          email: emailLower,
-          subscriber_email: subscriberEmail || 'geral (não vinculado)'
-        });
-        
-        return res.json({
-          data: {
-            success: true,
-            user: {
-              id: createdUser.id,
-              email: createdUser.email,
-              full_name: createdUser.full_name,
-              role: createdUser.role
-            },
-            message: 'Cadastro realizado com sucesso!'
-          }
-        });
-      } catch (error) {
-        console.error('❌ [registerCustomer] Erro:', error);
-        return res.status(500).json({
-          error: 'Erro ao realizar cadastro',
-          details: error.message
-        });
-      }
-    }
+    // ✅ registerCustomer movido para: /api/users/functions/registerCustomer
     
     // Função padrão (mock)
     res.json({ 
@@ -4127,91 +3984,11 @@ app.get('/api/cleanup-master', cleanupMasterHandler);
 app.post('/api/cleanup-master', cleanupMasterHandler);
 
 // =======================
-// 🗑️ ENDPOINT PARA DELETAR SUBSCRIBER ESPECÍFICO POR SLUG
+// 🗑️ ENDPOINT PARA DELETAR SUBSCRIBER ESPECÍFICO POR SLUG (LEGADO - MOVIDO PARA MÓDULO)
 // =======================
-const deleteSubscriberBySlugHandler = asyncHandler(async (req, res) => {
-  if (!usePostgreSQL) {
-    return res.status(503).json({ error: 'Deleção requer PostgreSQL' });
-  }
-
-  // Validação simples
-  const secretKey = req.headers['x-delete-key'] || req.query.key;
-  if (secretKey !== process.env.CLEANUP_SECRET_KEY) {
-    return res.status(403).json({ error: 'Não autorizado. Configure CLEANUP_SECRET_KEY.' });
-  }
-
-  const slugToDelete = req.query.slug || req.body.slug;
-  if (!slugToDelete) {
-    return res.status(400).json({ error: 'Parâmetro "slug" é obrigatório' });
-  }
-
-  try {
-    console.log(`🗑️ Procurando subscriber com slug: ${slugToDelete}`);
-    
-    // Importar query do postgres
-    const { query } = await import('./db/postgres.js');
-    
-    // 1. Buscar subscriber pelo slug
-    const subscriberResult = await query(
-      'SELECT id, email, name, slug, plan, status FROM subscribers WHERE slug = $1',
-      [slugToDelete]
-    );
-    
-    if (subscriberResult.rows.length === 0) {
-      return res.json({
-        success: false,
-        message: `Nenhum subscriber encontrado com o slug "${slugToDelete}"`,
-        slug: slugToDelete
-      });
-    }
-    
-    const subscriber = subscriberResult.rows[0];
-    console.log(`⚠️ Subscriber encontrado:`, subscriber);
-    
-    // 2. Deletar todas as entidades do subscriber
-    console.log(`  → Deletando entidades do subscriber ${subscriber.email}...`);
-    const entitiesResult = await query(
-      'DELETE FROM entities WHERE subscriber_email = $1',
-      [subscriber.email]
-    );
-    console.log(`  ✓ ${entitiesResult.rowCount} entidades deletadas`);
-    
-    // 3. Deletar o subscriber
-    console.log(`  → Deletando subscriber ${subscriber.email}...`);
-    await query(
-      'DELETE FROM subscribers WHERE email = $1',
-      [subscriber.email]
-    );
-    console.log(`  ✓ Subscriber deletado`);
-    
-    console.log('✅ Deleção concluída!');
-    
-    res.json({
-      success: true,
-      message: `Subscriber "${subscriber.name}" deletado com sucesso!`,
-      deleted_subscriber: {
-        email: subscriber.email,
-        name: subscriber.name,
-        slug: subscriber.slug,
-        plan: subscriber.plan,
-        status: subscriber.status
-      },
-      entities_deleted: entitiesResult.rowCount
-    });
-
-  } catch (error) {
-    console.error('❌ Erro ao deletar subscriber:', error);
-    res.status(500).json({ 
-      error: 'Erro ao deletar subscriber',
-      message: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    });
-  }
-});
-
-// Registrar para GET e POST
-app.get('/api/delete-subscriber-by-slug', deleteSubscriberBySlugHandler);
-app.post('/api/delete-subscriber-by-slug', deleteSubscriberBySlugHandler);
+// ✅ Handler movido para: backend/modules/establishments/establishments.service.js
+// ✅ Rotas movidas para: /api/establishments/delete-subscriber-by-slug
+*/
 
 // =======================
 // 🔧 ENDPOINT PARA EXECUTAR MIGRAÇÃO SQL
