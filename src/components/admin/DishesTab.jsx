@@ -689,7 +689,11 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
         log.admin.warn('🍽️ [DishesTab] menuContext não disponível, retornando array vazio');
         return [];
       }
-      return await fetchAdminDishes(menuContext);
+      const result = await fetchAdminDishes(menuContext);
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/f18c0e00-5c91-42a3-87eb-dd9db415f5ec', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ hypothesisId: 'H4', location: 'DishesTab.jsx:dishesFetch', message: 'dishes fetch completed', data: { count: Array.isArray(result) ? result.length : 0, menuContextType: menuContext?.type }, timestamp: Date.now() }) }).catch(() => {});
+      // #endregion
+      return result;
     },
     enabled: !!menuContext, // ✅ Só busca se tiver contexto
     initialData: [],
@@ -735,6 +739,13 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
     staleTime: 30000,
     gcTime: 60000,
   });
+
+  // #region agent log
+  const queriesEnabled = !!menuContext;
+  React.useEffect(() => {
+    fetch('http://127.0.0.1:7244/ingest/f18c0e00-5c91-42a3-87eb-dd9db415f5ec', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ hypothesisId: 'H1', location: 'DishesTab.jsx:queriesState', message: 'DishesTab queries state', data: { menuContextType: menuContext?.type, menuContextValue: menuContext?.value, queriesEnabled, dishesCount: (dishes || []).length, categoriesCount: (categories || []).length, dishesLoading, categoriesLoading, permissionLoading, isLoading: permissionLoading || !menuContext || dishesLoading || categoriesLoading || groupsLoading }, timestamp: Date.now() }) }).catch(() => {});
+  }, [menuContext?.type, menuContext?.value, queriesEnabled, dishes, categories, dishesLoading, categoriesLoading, permissionLoading, groupsLoading]);
+  // #endregion
 
   // ========= MUTATIONS =========
   const createDishMutation = useMutation({
@@ -804,6 +815,9 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
       });
     },
     onSuccess: () => {
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/f18c0e00-5c91-42a3-87eb-dd9db415f5ec', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ hypothesisId: 'H5', location: 'DishesTab.jsx:createCategorySuccess', message: 'createCategory invalidate', data: { menuContextType: menuContext?.type, menuContextValue: menuContext?.value }, timestamp: Date.now() }) }).catch(() => {});
+      // #endregion
       queryClient.invalidateQueries({ queryKey: ['categories', menuContext?.type, menuContext?.value] });
       toast.success('Categoria criada com sucesso!');
       setShowCategoryModal(false);
