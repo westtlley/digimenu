@@ -25,11 +25,12 @@ const DialogOverlay = React.forwardRef(({ className, ...props }, ref) => (
 ))
 DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
 
-const DialogContent = React.forwardRef(({ className, children, size, ...props }, ref) => (
+const DialogContent = React.forwardRef(({ className, children, size, "aria-describedby": ariaDescribedby, ...props }, ref) => (
   <DialogPortal>
     <DialogOverlay />
     <DialogPrimitive.Content
       ref={ref}
+      aria-describedby={ariaDescribedby ?? undefined}
       data-dialog-size={size === "large" ? "large" : undefined}
       className={cn(
         // Mobile: Fullscreen

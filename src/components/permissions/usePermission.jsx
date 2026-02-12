@@ -27,9 +27,24 @@ export function usePermission() {
       log.permission.log('🔄 [usePermission] Carregando contexto do usuário...');
       
       // ✅ NOVO: Usar endpoint /api/user/context que retorna tudo pronto
+      // Retry em caso de erro de rede (backend pode estar acordando no Render)
+      let contextData = null;
+      const maxRetries = 3;
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          contextData = await base44.get('/user/context', { _t: Date.now() });
+          break;
+        } catch (err) {
+          const isNetworkError = err?.message?.includes('CONNECTION') || err?.message?.includes('Failed to fetch') || err?.message?.includes('NetworkError') || err?.name === 'TypeError';
+          if (isNetworkError && attempt < maxRetries) {
+            log.permission.warn(`⚠️ [usePermission] Tentativa ${attempt}/${maxRetries} falhou (rede), aguardando 2s...`);
+            await new Promise((r) => setTimeout(r, 2000));
+          } else {
+            throw err;
+          }
+        }
+      }
       try {
-        const contextData = await base44.get('/user/context', { _t: Date.now() });
-        
         if (!contextData || !contextData.user) {
           log.permission.warn('⚠️ [usePermission] Contexto não retornado pelo backend');
           setPermissions({});
@@ -162,26 +177,39 @@ export function usePermission() {
           const context = createUserContext(currentUser, subscriber, perms);
           setUserContext(context);
         } else {
-          const result = await base44.functions.invoke('checkSubscriptionStatus', {
-            user_email: currentUser.email
-          });
-          if (result.data?.subscriber) {
+          let result;
+          try {
+            result = await base44.functions.invoke('checkSubscriptionStatus', {
+              user_email: currentUser.email
+            });
+          } catch (fnErr) {
+            log.permission.warn('⚠️ [usePermission] checkSubscriptionStatus falhou, usando contexto mínimo:', fnErr?.message);
+            result = null;
+          }
+          if (result?.data?.subscriber) {
             const subscriber = result.data.subscriber;
             let perms = subscriber.permissions || {};
             if (typeof perms === 'string') {
               try { perms = JSON.parse(perms); } catch (e) { perms = {}; }
             }
             if (!perms || typeof perms !== 'object') perms = {};
-            // ✅ SIMPLIFICADO: Usar apenas permissões do backend (sem lógica de negócio no frontend)
-            // Backend já retorna permissões corretas mescladas com o plano
             setPermissions(perms);
             setSubscriberData(subscriber);
             const context = createUserContext(currentUser, subscriber, perms);
             setUserContext(context);
           } else {
+            const subscriberEmail = currentUser.subscriber_email || currentUser.email;
+            const minimalSubscriber = {
+              email: subscriberEmail,
+              plan: 'basic',
+              status: 'active',
+              permissions: {}
+            };
             setPermissions({});
-            setSubscriberData(null);
-            setUserContext(null);
+            setSubscriberData(minimalSubscriber);
+            const context = createUserContext(currentUser, minimalSubscriber, {});
+            setUserContext(context);
+            log.permission.warn('⚠️ [usePermission] Usando contexto mínimo (checkSubscriptionStatus indisponível)');
           }
         }
       }
