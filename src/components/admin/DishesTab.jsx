@@ -1,7 +1,7 @@
 // ========= IMPORTS =========
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
 import { usePermission } from '../permissions/usePermission';
 import { fetchAdminDishes, fetchAdminCategories, fetchAdminComplementGroups } from '@/services/adminMenuService';
@@ -693,6 +693,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
     },
     enabled: !!menuContext, // ✅ Só busca se tiver contexto
     initialData: [],
+    placeholderData: keepPreviousData, // ✅ Evita lista sumir durante refetch
     retry: 1,
     refetchOnMount: 'always',
     staleTime: 30000,
@@ -710,6 +711,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
     },
     enabled: !!menuContext,
     initialData: [],
+    placeholderData: keepPreviousData, // ✅ Evita categorias sumirem durante refetch
     retry: 1,
     refetchOnMount: 'always',
     staleTime: 30000,
@@ -727,6 +729,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
     },
     enabled: !!menuContext,
     initialData: [],
+    placeholderData: keepPreviousData, // ✅ Evita complementos sumirem durante refetch
     retry: 2,
     refetchOnMount: 'always',
     staleTime: 30000,
@@ -758,11 +761,26 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
       const opts = getSubscriberEmail() ? { as_subscriber: getSubscriberEmail() } : {};
       return base44.entities.Dish.update(id, data, opts);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['dishes', menuContext?.type, menuContext?.value] });
-      toast.success('Prato atualizado!');
+    onMutate: async ({ id, data }) => {
+      const key = ['dishes', menuContext?.type, menuContext?.value];
+      await queryClient.cancelQueries({ queryKey: key });
+      const prev = queryClient.getQueryData(key);
+      queryClient.setQueryData(key, (old) => {
+        if (!Array.isArray(old)) return old;
+        return old.map((d) => (d.id === id || String(d.id) === String(id)) ? { ...d, ...data } : d);
+      });
+      return { prev };
     },
-    onError: () => toast.error('Erro ao atualizar prato')
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) {
+        queryClient.setQueryData(['dishes', menuContext?.type, menuContext?.value], ctx.prev);
+      }
+      toast.error('Erro ao atualizar prato');
+    },
+    onSuccess: () => toast.success('Prato atualizado!'),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['dishes', menuContext?.type, menuContext?.value] });
+    }
   });
 
   const deleteDishMutation = useMutation({
