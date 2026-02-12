@@ -79,3 +79,32 @@ export async function getPublicMenuBySlug(slug) {
     promotions: Array.isArray(promotions) ? promotions : []
   };
 }
+
+/**
+ * Obtém dados públicos do estabelecimento por slug para a página de login (logo, tema, nome).
+ * Usado em GET /api/public/login-info/:slug
+ */
+export async function getPublicLoginInfo(slug) {
+  const normalizedSlug = (slug || '').trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+  if (!normalizedSlug) {
+    return { found: false, error: 'Slug inválido' };
+  }
+
+  const { subscriber, isMaster, subscriberEmail } = await getSubscriberOrMasterBySlug(normalizedSlug);
+  if (!subscriber && !isMaster) {
+    return { found: false, slug: normalizedSlug };
+  }
+
+  const { storeList } = await getMenuEntities(subscriberEmail, isMaster);
+  const store = normalizeStoreData(storeList);
+  const raw = store || {};
+  return {
+    found: true,
+    slug: normalizedSlug,
+    name: raw.name || 'Estabelecimento',
+    logo: raw.logo || null,
+    theme_primary_color: raw.theme_primary_color || raw.primary_color || null,
+    theme_secondary_color: raw.theme_secondary_color || raw.secondary_color || null,
+    theme_accent_color: raw.theme_accent_color || raw.accent_color || null,
+  };
+}

@@ -9,6 +9,18 @@ import { logger } from '../../utils/logger.js';
 import { usePostgreSQL } from '../../config/appConfig.js';
 
 /**
+ * Dados públicos para a página de login por estabelecimento (logo, tema, nome).
+ */
+export const getPublicLoginInfo = asyncHandler(async (req, res) => {
+  if (!usePostgreSQL) {
+    return res.status(503).json({ found: false, error: 'Requer PostgreSQL' });
+  }
+  const slug = (req.params.slug || '').trim();
+  const data = await menusService.getPublicLoginInfo(slug);
+  res.json(data);
+});
+
+/**
  * Obtém cardápio público por slug
  */
 export const getPublicMenuBySlug = asyncHandler(async (req, res) => {

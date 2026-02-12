@@ -9,5 +9,6 @@ const router = express.Router();
 
 // Rotas públicas
 router.get('/public/cardapio/:slug', menusController.getPublicMenuBySlug);
+router.get('/public/login-info/:slug', menusController.getPublicLoginInfo);
 
 export default router;
