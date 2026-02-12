@@ -1139,6 +1139,13 @@ app.get('/api/auth/me', authenticate, async (req, res) => {
       }
     }
     if (req.user.profile_role && !payload.profile_roles) payload.profile_roles = [req.user.profile_role].filter(Boolean);
+    // Assinante (dono): tem acesso total ao painel colaborador — marcar is_owner quando email está em subscribers
+    if (!req.user.is_master && req.user.email) {
+      try {
+        const sub = usePostgreSQL ? await repo.getSubscriberByEmail(req.user.email) : (db?.subscribers?.find(s => (s.email || '').toLowerCase().trim() === (req.user.email || '').toLowerCase().trim()) || null);
+        if (sub) payload.is_owner = true;
+      } catch (_) {}
+    }
     return res.json(payload);
   } catch (error) {
     console.error('Erro ao obter usuário:', error);
@@ -1208,8 +1215,11 @@ app.get('/api/user/context', authenticate, asyncHandler(async (req, res) => {
 
     // Colaborador: incluir profile_role e profile_roles para o frontend (ex.: Painel do Gerente)
     let profileRoles = [];
-    if (user.profile_role) profileRoles = [user.profile_role];
-    if (Array.isArray(user.profile_roles) && user.profile_roles.length) profileRoles = [...new Set(user.profile_roles)];
+    if (user.profile_role) profileRoles = [String(user.profile_role).toLowerCase().trim()];
+    if (Array.isArray(user.profile_roles) && user.profile_roles.length) profileRoles = [...new Set(user.profile_roles.map(r => String(r).toLowerCase().trim()))];
+
+    // Assinante (dono): is_owner = true quando email está em subscribers
+    const isOwner = !user.is_master && subscriber && (subscriber.email || '').toLowerCase().trim() === (user.email || '').toLowerCase().trim();
 
     return res.json({
       user: {
@@ -1222,6 +1232,7 @@ app.get('/api/user/context', authenticate, asyncHandler(async (req, res) => {
         subscriber_email: user.subscriber_email || null,
         profile_role: user.profile_role || null,
         profile_roles: profileRoles.length ? profileRoles : null,
+        is_owner: !!isOwner,
         photo: user.photo || null,
         google_photo: user.google_photo || null
       },

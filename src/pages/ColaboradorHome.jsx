@@ -98,13 +98,13 @@ export default function ColaboradorHome() {
   }
 
   let roles = user?.profile_roles?.length
-    ? user.profile_roles
+    ? user.profile_roles.map(r => String(r).toLowerCase().trim())
     : user?.profile_role
-      ? [user.profile_role]
+      ? [String(user.profile_role).toLowerCase().trim()]
       : [];
   if (roles.length === 0 && user?.profile_role) roles = [String(user.profile_role).toLowerCase().trim()].filter(Boolean);
-  // Gerente: acesso a todas as funções. Assinante (dono): também acesso total.
-  const isDono = user?.subscriber_email && (user?.email || '').toLowerCase().trim() === (user?.subscriber_email || '').toLowerCase().trim();
+  // Gerente: acesso a todas as funções. Assinante (dono): também acesso total (is_owner do backend ou subscriber_email === email).
+  const isDono = user?.is_owner || (user?.subscriber_email && (user?.email || '').toLowerCase().trim() === (user?.subscriber_email || '').toLowerCase().trim());
   const isGerente = roles.includes('gerente') || isDono;
 
   const visibleButtons = isGerente
