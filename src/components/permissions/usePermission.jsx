@@ -22,12 +22,6 @@ export function usePermission() {
   // ✅ NOVO: Obter contexto do slug quando estiver em /s/:slug
   const { subscriberEmail: slugSubscriberEmail, inSlugContext } = useSlugContext();
 
-  // #region agent log
-  useEffect(() => {
-    fetch('http://127.0.0.1:7244/ingest/f18c0e00-5c91-42a3-87eb-dd9db415f5ec', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ hypothesisId: 'H2', location: 'usePermission.jsx:slugInputs', message: 'slugInputs changed', data: { inSlugContext, slugSubscriberEmail, hasSlugEmail: !!slugSubscriberEmail }, timestamp: Date.now() }) }).catch(() => {});
-  }, [inSlugContext, slugSubscriberEmail]);
-  // #endregion
-
   const loadPermissions = useCallback(async () => {
     try {
       log.permission.log('🔄 [usePermission] Carregando contexto do usuário...');
@@ -153,9 +147,6 @@ export function usePermission() {
         };
         setUserContext(context);
         log.permission.log('✅ [usePermission] Contexto criado:', context.menuContext);
-        // #region agent log
-        fetch('http://127.0.0.1:7244/ingest/f18c0e00-5c91-42a3-87eb-dd9db415f5ec', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ hypothesisId: 'H1', location: 'usePermission.jsx:setUserContext', message: 'menuContext set', data: { menuContext: menuContextToUse, inSlugContext, slugSubscriberEmail, fromSlugOverride: !!(inSlugContext && slugSubscriberEmail) }, timestamp: Date.now() }) }).catch(() => {});
-        // #endregion
       } catch (contextError) {
         // Fallback: se o endpoint novo não existir, usar método antigo
         log.permission.warn('⚠️ [usePermission] Endpoint /user/context não disponível, usando fallback');
@@ -231,12 +222,9 @@ export function usePermission() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [inSlugContext, slugSubscriberEmail]);
 
   useEffect(() => {
-    // #region agent log
-    fetch('http://127.0.0.1:7244/ingest/f18c0e00-5c91-42a3-87eb-dd9db415f5ec', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ hypothesisId: 'H3', location: 'usePermission.jsx:effectRun', message: 'loadPermissions effect triggered', data: { inSlugContext, slugSubscriberEmail }, timestamp: Date.now() }) }).catch(() => {});
-    // #endregion
     loadPermissions();
     // 5 min para reduzir requisições; recarregar também ao ganhar foco na janela
     const interval = setInterval(loadPermissions, 5 * 60 * 1000);

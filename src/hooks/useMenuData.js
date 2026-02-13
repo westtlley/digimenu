@@ -3,7 +3,7 @@
  * Usa menuContext automaticamente e aplica safeFetch
  */
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { fetchAdminDishes, fetchAdminCategories, fetchAdminComplementGroups } from '@/services/adminMenuService';
 import { log } from '@/utils/logger';
 import { usePermission } from '@/components/permissions/usePermission';
@@ -28,6 +28,7 @@ export function useMenuDishes(options = {}) {
     },
     enabled: !!menuContext && (options.enabled !== false),
     initialData: [],
+    placeholderData: keepPreviousData,
     retry: 1,
     refetchOnMount: 'always',
     staleTime: 30000,
@@ -53,6 +54,7 @@ export function useMenuCategories(options = {}) {
     },
     enabled: !!menuContext && (options.enabled !== false),
     initialData: [],
+    placeholderData: keepPreviousData,
     retry: 1,
     refetchOnMount: 'always',
     staleTime: 30000,
@@ -78,6 +80,7 @@ export function useMenuComplementGroups(options = {}) {
     },
     enabled: !!menuContext && (options.enabled !== false),
     initialData: [],
+    placeholderData: keepPreviousData,
     retry: 2,
     refetchOnMount: 'always',
     staleTime: 30000,

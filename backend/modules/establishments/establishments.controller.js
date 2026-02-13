@@ -39,7 +39,15 @@ export const createSubscriber = asyncHandler(async (req, res) => {
 
   try {
     const subscriber = await establishmentsService.createSubscriber(req.body);
-    return createdResponse(res, subscriber, 'Assinante criado com sucesso');
+    return res.status(201).json({
+      success: true,
+      message: 'Assinante criado com sucesso',
+      data: {
+        subscriber,
+        setup_url: subscriber?.setup_url,
+        password_token: subscriber?.password_token
+      }
+    });
   } catch (error) {
     logger.error('❌ Erro ao criar assinante:', sanitizeForLog({ error: error.message }));
     if (error.message.includes('Plano inválido') || error.message.includes('permissões definidas') || error.message.includes('obrigatório')) {
@@ -56,7 +64,11 @@ export const updateSubscriber = asyncHandler(async (req, res) => {
   try {
     const { id } = req.params;
     const updated = await establishmentsService.updateSubscriber(id, req.body, req.user);
-    return successResponse(res, updated, 'Assinante atualizado com sucesso');
+    return res.status(200).json({
+      success: true,
+      message: 'Assinante atualizado com sucesso',
+      data: { subscriber: updated }
+    });
   } catch (error) {
     logger.error('Erro em PUT /api/subscribers/:id:', sanitizeForLog({ error: error.message }));
     if (error.message.includes('não encontrado')) {

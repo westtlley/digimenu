@@ -2709,6 +2709,30 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
       return;
     }
     
+    // ✅ createSubscriber: delegar ao establishments (frontend chama /api/functions/createSubscriber)
+    if (name === 'createSubscriber') {
+      if (!req.user?.is_master) {
+        return res.status(403).json({ error: 'Acesso negado' });
+      }
+      await establishmentsController.createSubscriber(req, res, () => {});
+      return;
+    }
+    
+    // ✅ updateSubscriber: delegar ao establishments (frontend envia { id, data, originalData })
+    if (name === 'updateSubscriber') {
+      if (!req.user?.is_master) {
+        return res.status(403).json({ error: 'Acesso negado' });
+      }
+      const { id, data: updateData, originalData } = data || {};
+      if (!id) {
+        return res.status(400).json({ error: 'id é obrigatório' });
+      }
+      req.params = { ...req.params, id: String(id) };
+      req.body = updateData || data || {};
+      await establishmentsController.updateSubscriber(req, res, () => {});
+      return;
+    }
+    
     // ✅ Funções de assinantes movidas para: /api/establishments/functions/*
     // - getSubscribers também disponível em /api/functions/getSubscribers (acima)
     // - getPlanInfo → /api/establishments/functions/getPlanInfo
