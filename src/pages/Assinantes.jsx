@@ -152,24 +152,20 @@ export default function Assinantes() {
     queryFn: async () => {
       logger.log('🔄 Buscando assinantes...');
       try {
-        const response = await base44.functions.invoke('getSubscribers');
-        logger.log('📥 Resposta getSubscribers RAW:', response);
-        logger.log('📥 Resposta getSubscribers STRINGIFIED:', JSON.stringify(response, null, 2));
+        // Usar GET /api/establishments/subscribers (rota REST existente) em vez de POST /api/functions/getSubscribers
+        const response = await base44.get('/establishments/subscribers');
         
-        // Verificar diferentes formatos de resposta
         let subscribersList = [];
-        
         if (response?.data?.subscribers) {
-          // Formato: { data: { subscribers: [...] } }
           subscribersList = response.data.subscribers;
         } else if (response?.data && Array.isArray(response.data)) {
-          // Formato: { data: [...] }
           subscribersList = response.data;
         } else if (Array.isArray(response)) {
-          // Formato: [...]
           subscribersList = response;
         } else if (response?.data?.error) {
           throw new Error(response.data.error);
+        } else if (response?.subscribers) {
+          subscribersList = response.subscribers;
         } else {
           console.warn('⚠️ Formato de resposta inesperado:', response);
           subscribersList = [];
