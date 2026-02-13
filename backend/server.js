@@ -60,6 +60,7 @@ import usersRoutes from './modules/users/users.routes.js';
 import * as usersController from './modules/users/users.controller.js';
 import { isRequesterGerente } from './modules/users/users.utils.js';
 import establishmentsRoutes from './modules/establishments/establishments.routes.js';
+import * as establishmentsController from './modules/establishments/establishments.controller.js';
 import menusRoutes from './modules/menus/menus.routes.js';
 import ordersRoutes from './modules/orders/orders.routes.js';
 import { initializeAppConfig } from './config/appConfig.js';
@@ -2699,8 +2700,17 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
     
     console.log(`🔧 Função chamada: ${name}`, data);
     
+    // ✅ getSubscribers: delegar ao establishments (frontend chama /api/functions/getSubscribers)
+    if (name === 'getSubscribers') {
+      if (!req.user?.is_master) {
+        return res.status(403).json({ error: 'Acesso negado' });
+      }
+      await establishmentsController.listSubscribers(req, res, () => {});
+      return;
+    }
+    
     // ✅ Funções de assinantes movidas para: /api/establishments/functions/*
-    // - getSubscribers → /api/establishments/functions/getSubscribers
+    // - getSubscribers também disponível em /api/functions/getSubscribers (acima)
     // - getPlanInfo → /api/establishments/functions/getPlanInfo
     // - getAvailablePlans → /api/establishments/functions/getAvailablePlans
     // - createSubscriber → /api/establishments/functions/createSubscriber
