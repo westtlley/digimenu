@@ -1022,7 +1022,7 @@ export default function Assinantes() {
             <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
               <p className="text-red-600 font-medium mb-2">Erro ao carregar assinantes</p>
               <p className="text-gray-500 text-sm mb-4 max-w-md">
-                {subscribersErrorDetails?.response?.data?.message ?? subscribersErrorDetails?.message ?? 'Tente novamente em instantes.'}
+                {subscribersErrorDetails?.response?.data?.message ?? subscribersErrorDetails?.message ?? 'Verifique sua conexão ou tente novamente em instantes.'}
               </p>
               <Button onClick={() => refetchSubscribers()} variant="outline" className="gap-2">
                 <RefreshCw className="w-4 h-4" />

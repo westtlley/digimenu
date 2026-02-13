@@ -83,7 +83,7 @@ const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 const CORS_ORIGINS = process.env.CORS_ORIGINS
   ? process.env.CORS_ORIGINS.split(',').map(s => s.trim()).filter(Boolean)
   : process.env.NODE_ENV === 'production'
-    ? [FRONTEND_URL]
+    ? [FRONTEND_URL, 'http://localhost:5173', 'http://localhost:5174', 'http://127.0.0.1:5173', 'http://127.0.0.1:5174']
     : [
         FRONTEND_URL,
         'http://localhost:5173',
@@ -600,6 +600,8 @@ app.use('/api/users', usersRoutes);
 app.use('/api/establishments', establishmentsRoutes);
 // Alias para compatibilidade
 app.use('/api/subscribers', establishmentsRoutes);
+// Alias GET /api/admin/subscribers para listagem de assinantes (Admin Master)
+app.get('/api/admin/subscribers', authenticate, requireMaster, establishmentsController.listSubscribers);
 
 // =======================
 // 📦 ENTITIES + MANAGERIAL-AUTH (registrar antes de menus/orders para evitar 404)

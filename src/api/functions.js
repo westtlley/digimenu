@@ -13,7 +13,11 @@ export const updateSubscriber = base44.functions.updateSubscriber;
 
 export const deleteSubscriber = base44.functions.deleteSubscriber;
 
-export const getSubscribers = base44.functions.getSubscribers;
+/** Chama GET /establishments/subscribers e retorna array de assinantes (rota REST confiável) */
+export const getSubscribers = async () => {
+  const res = await base44.get('/establishments/subscribers');
+  return res?.data?.subscribers ?? res?.subscribers ?? [];
+};
 
 export const getGoogleMapsRoute = base44.functions.getGoogleMapsRoute;
 
