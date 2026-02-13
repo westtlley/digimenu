@@ -265,7 +265,7 @@ export default function Assinantes() {
       logger.log('📤 [FRONTEND] Enviando dados para criar assinante:', JSON.stringify(data, null, 2));
       
       try {
-        const response = await base44.functions.invoke('createSubscriber', data);
+        const response = await base44.post('/establishments/subscribers', data);
         
         logger.log('📥 [FRONTEND] Resposta RAW recebida:', response);
         logger.log('📥 [FRONTEND] Tipo da resposta:', typeof response);
