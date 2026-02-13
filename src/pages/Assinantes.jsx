@@ -147,12 +147,12 @@ export default function Assinantes() {
     loadUser();
   }, []);
 
-  const { data: subscribers = [], isLoading: subscribersLoading, refetch: refetchSubscribers } = useQuery({
+  const { data: subscribers = [], isLoading: subscribersLoading, isError: subscribersError, error: subscribersErrorDetails, refetch: refetchSubscribers } = useQuery({
     queryKey: ['subscribers'],
     queryFn: async () => {
       logger.log('🔄 Buscando assinantes...');
       try {
-        // Usar GET /api/establishments/subscribers (rota REST existente) em vez de POST /api/functions/getSubscribers
+        // Usar GET /api/establishments/subscribers (rota REST existente)
         const response = await base44.get('/establishments/subscribers');
         
         let subscribersList = [];
@@ -172,9 +172,7 @@ export default function Assinantes() {
         }
         
         logger.log('📋 Assinantes retornados:', subscribersList.length);
-        logger.log('📋 IDs dos assinantes:', subscribersList.map(s => s.id || s.email));
         
-        // Atualizar cache de tokens
         const tokensMap = {};
         subscribersList.forEach(sub => {
           if (sub.setup_url || sub.password_token) {
@@ -196,7 +194,14 @@ export default function Assinantes() {
     enabled: !!user?.is_master,
     refetchOnWindowFocus: true,
     refetchOnMount: true,
-    // Atualizar automaticamente a cada 5 minutos para garantir tokens válidos
+    retry: (failureCount, error) => {
+      // Não retentar em 401/403/404 — falha rápido para mostrar UI de erro
+      const status = error?.response?.status;
+      if (status === 401 || status === 403 || status === 404) return false;
+      const msg = error?.message || '';
+      if (msg.includes('401') || msg.includes('403') || msg.includes('404') || msg.includes('Acesso negado')) return false;
+      return failureCount < 2;
+    },
     refetchInterval: 5 * 60 * 1000
   });
 
@@ -759,7 +764,7 @@ export default function Assinantes() {
     return 'bg-gray-100 text-gray-700';
   };
 
-  if (loading || subscribersLoading) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
@@ -1012,7 +1017,18 @@ export default function Assinantes() {
             />
           )}
 
-          {subscribersLoading ? (
+          {subscribersError ? (
+            <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+              <p className="text-red-600 font-medium mb-2">Erro ao carregar assinantes</p>
+              <p className="text-gray-500 text-sm mb-4 max-w-md">
+                {subscribersErrorDetails?.response?.data?.message ?? subscribersErrorDetails?.message ?? 'Tente novamente em instantes.'}
+              </p>
+              <Button onClick={() => refetchSubscribers()} variant="outline" className="gap-2">
+                <RefreshCw className="w-4 h-4" />
+                Tentar novamente
+              </Button>
+            </div>
+          ) : subscribersLoading ? (
             <div className="divide-y divide-gray-100">
               {Array.from({ length: 3 }).map((_, i) => (
                 <SkeletonCard key={i} />
