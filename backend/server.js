@@ -818,11 +818,24 @@ app.put('/api/entities/:entity/:id', authenticate, asyncHandler(async (req, res)
     return res.json(updated);
   }
   if (String(entity).toLowerCase() === 'order' && data.status) {
+    // Verificar permissão para alterar status (apenas admin, gestor_pedidos ou master)
+    if (!req.user?.is_master) {
+      const allowedRoles = ['admin', 'gestor_pedidos'];
+      const userRole = req.user?.profile_role || req.user?.role;
+      if (!allowedRoles.includes(userRole)) {
+        return res.status(403).json({
+          success: false,
+          error: 'Sem permissão para alterar status do pedido. Apenas administradores e gestores de pedidos podem alterar o status.',
+          message: 'Sem permissão para alterar status do pedido. Apenas administradores e gestores de pedidos podem alterar o status.',
+          code: 'PERMISSION_DENIED'
+        });
+      }
+    }
     const currentOrder = usePostgreSQL ? await repo.getEntityById('Order', id, req.user) : db?.entities?.Order?.find(i => i.id === id || i.id === String(id));
     if (currentOrder?.status) {
       const { validateStatusTransition } = await import('./services/orderStatusValidation.service.js');
       const v = validateStatusTransition(currentOrder.status, data.status, { isMaster: req.user?.is_master, userRole: req.user?.profile_role || req.user?.role });
-      if (!v.valid) return res.status(400).json({ error: v.message, code: 'INVALID_STATUS_TRANSITION' });
+      if (!v.valid) return res.status(400).json({ success: false, error: v.message, message: v.message, code: 'INVALID_STATUS_TRANSITION' });
     }
   }
   let updatedItem;
@@ -2690,6 +2703,8 @@ app.get('/api/service-requests', authenticate, requireMaster, asyncHandler(async
 // =======================
 // 🔧 FUNCTIONS (FUNÇÕES CUSTOMIZADAS)
 // =======================
+// Rota: POST /api/functions/:name (getSubscribers, createSubscriber, updateSubscriber, etc.)
+// Frontend preferencial: GET /api/establishments/subscribers
 app.post('/api/functions/:name', authenticate, async (req, res) => {
   try {
     const { name } = req.params;
@@ -3851,6 +3866,7 @@ server.listen(PORT, () => {
   console.log(`📡 http://localhost:${PORT}/api`);
   console.log(`🔒 Ambiente: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🔌 WebSocket ativo`);
+  console.log(`🔧 Functions router: POST /api/functions/:name montado`);
   
   // 🔔 Inicializar cron jobs (notificações de expiração)
   initializeCronJobs();

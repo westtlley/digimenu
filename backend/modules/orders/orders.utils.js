@@ -4,6 +4,7 @@
 
 import * as repo from '../../db/repository.js';
 import { usePostgreSQL } from '../../config/appConfig.js';
+import { agentLog } from '../../utils/agentLog.js';
 
 /**
  * Gera código único para pedido de mesa
@@ -32,9 +33,7 @@ export async function getSubscriberOrMasterBySlug(slug) {
 
   // Se não encontrou subscriber, não há master com slug (slug é apenas para subscribers)
   // CORREÇÃO H1: users não tem coluna slug, apenas subscribers. Remover busca inválida.
-  // #region agent log
-  fetch('http://127.0.0.1:7243/ingest/4f86e4d7-f8a1-4c85-8a5d-50b822226133',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'orders.utils.js:33',message:'[H1] No subscriber found, returning null (master users do not have slugs)',data:{slug},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
+  agentLog({ location: 'orders.utils.js:33', message: '[H1] No subscriber found, returning null (master users do not have slugs)', data: { slug }, timestamp: Date.now() });
 
   return { subscriber: null, isMaster: false, subscriberEmail: null };
 }

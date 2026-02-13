@@ -181,9 +181,12 @@ export async function createTableOrder(orderData, slug) {
   } catch (error) {
     if (transactionClient) {
       await transactionClient.query('ROLLBACK').catch(() => {});
+    }
+    throw error;
+  } finally {
+    if (transactionClient) {
       transactionClient.release();
       transactionClient = null;
     }
-    throw error;
   }
 }

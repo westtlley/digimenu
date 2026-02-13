@@ -387,10 +387,11 @@ export default function Assinantes() {
     },
     mutationFn: async ({ id, data, originalData }) => {
       const response = await base44.functions.invoke('updateSubscriber', { id, data, originalData });
-      if (response.data.error) {
+      if (response.data?.error) {
         throw new Error(response.data.error);
       }
-      return response.data.subscriber;
+      // Suporta data.subscriber (legado) ou data direto (novo padrão)
+      return response.data?.subscriber ?? response.data;
     },
     onError: (error, variables, context) => {
       // Rollback em caso de erro

@@ -9,6 +9,7 @@ import * as repo from '../../db/repository.js';
 import { asyncHandler } from '../middlewares/errorHandler.js';
 import { logger } from '../utils/logger.js';
 import { successResponse, errorResponse, createdResponse, notFoundResponse } from '../utils/response.js';
+import { agentLog } from '../../utils/agentLog.js';
 import { validateProductsLimit, validateOrdersPerDayLimit } from '../../services/planValidation.service.js';
 import { validateStatusTransition } from '../../services/orderStatusValidation.service.js';
 import { emitOrderCreated, emitOrderUpdate, emitComandaCreated } from '../../services/websocket.js';
@@ -143,15 +144,11 @@ router.post('/:entity', asyncHandler(async (req, res) => {
   // Validar limite de produtos
   if (String(entity).toLowerCase() === 'dish' && !req.user?.is_master) {
     const subscriberEmail = createOpts.forSubscriberEmail || data.owner_email || (req.user?.subscriber_email || req.user?.email);
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/4f86e4d7-f8a1-4c85-8a5d-50b822226133',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'entities.routes.js:144',message:'[H2] Validating product limit',data:{entity,subscriberEmail,isMaster:req.user?.is_master},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
+    agentLog({ location: 'entities.routes.js:144', message: '[H2] Validating product limit', data: { entity, subscriberEmail, isMaster: req.user?.is_master }, timestamp: Date.now() });
     if (subscriberEmail) {
       try {
         const productLimit = await validateProductsLimit(subscriberEmail, null, req.user?.is_master);
-        // #region agent log
-        fetch('http://127.0.0.1:7243/ingest/4f86e4d7-f8a1-4c85-8a5d-50b822226133',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'entities.routes.js:149',message:'[H2] Product limit validation result',data:{valid:productLimit.valid,limit:productLimit.limit,current:productLimit.current,error:productLimit.error},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
+        agentLog({ location: 'entities.routes.js:149', message: '[H2] Product limit validation result', data: { valid: productLimit.valid, limit: productLimit.limit, current: productLimit.current, error: productLimit.error }, timestamp: Date.now() });
         if (!productLimit.valid) {
           return errorResponse(res, 
             productLimit.error || `Limite de produtos excedido. Você já tem ${productLimit.current} produto(s). Seu plano permite ${productLimit.limit} produto(s).`,
@@ -161,9 +158,7 @@ router.post('/:entity', asyncHandler(async (req, res) => {
           );
         }
       } catch (error) {
-        // #region agent log
-        fetch('http://127.0.0.1:7243/ingest/4f86e4d7-f8a1-4c85-8a5d-50b822226133',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'entities.routes.js:157',message:'[H2] Error validating product limit',data:{errorMessage:error.message,errorStack:error.stack?.substring(0,200)},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
+        agentLog({ location: 'entities.routes.js:157', message: '[H2] Error validating product limit', data: { errorMessage: error.message, errorStack: error.stack?.substring(0, 200) }, timestamp: Date.now() });
         logger.error('Erro ao validar limite de produtos:', error);
         return errorResponse(res, 'Erro ao validar limite de produtos', 500, 'VALIDATION_ERROR');
       }
@@ -193,15 +188,11 @@ router.post('/:entity', asyncHandler(async (req, res) => {
   
   // Criar entidade
   let newItem;
-  // #region agent log
-  fetch('http://127.0.0.1:7243/ingest/4f86e4d7-f8a1-4c85-8a5d-50b822226133',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'entities.routes.js:177',message:'[H1] Creating entity',data:{entity,subscriberEmail:createOpts.forSubscriberEmail||data.owner_email||req.user?.subscriber_email,usePostgreSQL:usePostgreSQL()},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
+  agentLog({ location: 'entities.routes.js:177', message: '[H1] Creating entity', data: { entity, subscriberEmail: createOpts.forSubscriberEmail || data.owner_email || req.user?.subscriber_email, usePostgreSQL: usePostgreSQL() }, timestamp: Date.now() });
   try {
     if (usePostgreSQL()) {
       newItem = await repo.createEntity(entity, data, req.user, createOpts);
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/4f86e4d7-f8a1-4c85-8a5d-50b822226133',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'entities.routes.js:181',message:'[H1] Entity created successfully',data:{entity,newItemId:newItem?.id},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
+      agentLog({ location: 'entities.routes.js:181', message: '[H1] Entity created successfully', data: { entity, newItemId: newItem?.id }, timestamp: Date.now() });
     } else {
       const { getDb, getSaveDatabaseDebounced } = await import('../../config/appConfig.js');
       const db = getDb();
@@ -224,17 +215,13 @@ router.post('/:entity', asyncHandler(async (req, res) => {
       }
     }
   } catch (error) {
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/4f86e4d7-f8a1-4c85-8a5d-50b822226133',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'entities.routes.js:199',message:'[H1] Error creating entity',data:{entity,errorMessage:error.message,errorStack:error.stack?.substring(0,200)},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
+    agentLog({ location: 'entities.routes.js:199', message: '[H1] Error creating entity', data: { entity, errorMessage: error.message, errorStack: error.stack?.substring(0, 200) }, timestamp: Date.now() });
     logger.error(`❌ Erro ao criar ${entity}:`, error);
     throw error; // Re-throw para o errorHandler
   }
   
   // Emitir eventos WebSocket (não bloqueante - não deve falhar a criação)
-  // #region agent log
-  fetch('http://127.0.0.1:7243/ingest/4f86e4d7-f8a1-4c85-8a5d-50b822226133',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'entities.routes.js:234',message:'[H2] Before WebSocket emit',data:{entity,newItemId:newItem?.id},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
+  agentLog({ location: 'entities.routes.js:234', message: '[H2] Before WebSocket emit', data: { entity, newItemId: newItem?.id }, timestamp: Date.now() });
   try {
     if (String(entity).toLowerCase() === 'order') {
       emitOrderCreated(newItem);
@@ -242,26 +229,20 @@ router.post('/:entity', asyncHandler(async (req, res) => {
       emitComandaCreated(newItem);
     }
   } catch (wsError) {
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/4f86e4d7-f8a1-4c85-8a5d-50b822226133',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'entities.routes.js:240',message:'[H2] WebSocket error caught',data:{entity,errorMessage:wsError.message},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
+    agentLog({ location: 'entities.routes.js:240', message: '[H2] WebSocket error caught', data: { entity, errorMessage: wsError.message }, timestamp: Date.now() });
     // Log mas não falhar a criação por causa do WebSocket
     logger.warn(`⚠️ Erro ao emitir evento WebSocket para ${entity}:`, wsError.message);
   }
   
   logger.info(`✅ [${entity}] Item criado:`, { id: newItem.id });
-  
-  // #region agent log
-  fetch('http://127.0.0.1:7243/ingest/4f86e4d7-f8a1-4c85-8a5d-50b822226133',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'entities.routes.js:254',message:'[H2] Before createdResponse',data:{entity,newItemId:newItem?.id,newItemKeys:Object.keys(newItem||{}),newItemType:typeof newItem,hasCircular:JSON.stringify(newItem).includes('"[Circular]"')},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
+
+  agentLog({ location: 'entities.routes.js:254', message: '[H2] Before createdResponse', data: { entity, newItemId: newItem?.id, newItemKeys: Object.keys(newItem || {}), newItemType: typeof newItem, hasCircular: JSON.stringify(newItem).includes('"[Circular]"') }, timestamp: Date.now() });
   try {
     // Tentar serializar newItem para verificar se há problema
     JSON.stringify(newItem);
     return createdResponse(res, newItem);
   } catch (responseError) {
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/4f86e4d7-f8a1-4c85-8a5d-50b822226133',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'entities.routes.js:260',message:'[H2] Error serializing or sending response',data:{entity,errorMessage:responseError.message,errorStack:responseError.stack?.substring(0,200),errorName:responseError.name},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
+    agentLog({ location: 'entities.routes.js:260', message: '[H2] Error serializing or sending response', data: { entity, errorMessage: responseError.message, errorStack: responseError.stack?.substring(0, 200), errorName: responseError.name }, timestamp: Date.now() });
     logger.error(`❌ Erro ao enviar resposta de criação para ${entity}:`, responseError);
     throw responseError; // Re-throw para o errorHandler
   }
@@ -281,21 +262,15 @@ router.put('/:entity/:id', asyncHandler(async (req, res) => {
   
   // Validar transição de status para pedidos
   if (String(entity).toLowerCase() === 'order' && data.status) {
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/4f86e4d7-f8a1-4c85-8a5d-50b822226133',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'entities.routes.js:237',message:'[H4] Validating order status transition',data:{orderId:id,newStatus:data.status,userRole:req.user?.profile_role,isMaster:req.user?.is_master},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
-    
+    agentLog({ location: 'entities.routes.js:237', message: '[H4] Validating order status transition', data: { orderId: id, newStatus: data.status, userRole: req.user?.profile_role, isMaster: req.user?.is_master }, timestamp: Date.now() });
+
     // Verificar permissão para alterar status (apenas admin, gestor_pedidos ou master)
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/4f86e4d7-f8a1-4c85-8a5d-50b822226133',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'entities.routes.js:255',message:'[H3] Checking permission for status change',data:{isMaster:req.user?.is_master,profileRole:req.user?.profile_role,userId:req.user?.id},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
+    agentLog({ location: 'entities.routes.js:255', message: '[H3] Checking permission for status change', data: { isMaster: req.user?.is_master, profileRole: req.user?.profile_role, userId: req.user?.id }, timestamp: Date.now() });
     if (!req.user?.is_master) {
       const allowedRoles = ['admin', 'gestor_pedidos'];
       const userRole = req.user?.profile_role;
       if (!allowedRoles.includes(userRole)) {
-        // #region agent log
-        fetch('http://127.0.0.1:7243/ingest/4f86e4d7-f8a1-4c85-8a5d-50b822226133',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'entities.routes.js:260',message:'[H3] Permission denied for status change',data:{userRole,allowedRoles},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
+        agentLog({ location: 'entities.routes.js:260', message: '[H3] Permission denied for status change', data: { userRole, allowedRoles }, timestamp: Date.now() });
         return errorResponse(res, 'Acesso negado. Apenas administradores e gestores de pedidos podem alterar o status.', 403, 'PERMISSION_DENIED');
       }
     }
@@ -303,9 +278,7 @@ router.put('/:entity/:id', asyncHandler(async (req, res) => {
     const oldOrder = await repo.getEntityById(entity, id, req.user);
     if (oldOrder && oldOrder.status !== data.status) {
       const validation = validateStatusTransition(oldOrder.status, data.status, { isMaster: req.user?.is_master, userRole: req.user?.profile_role });
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/4f86e4d7-f8a1-4c85-8a5d-50b822226133',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'entities.routes.js:250',message:'[H4] Status transition validation result',data:{oldStatus:oldOrder.status,newStatus:data.status,valid:validation.valid,message:validation.message},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
+      agentLog({ location: 'entities.routes.js:250', message: '[H4] Status transition validation result', data: { oldStatus: oldOrder.status, newStatus: data.status, valid: validation.valid, message: validation.message }, timestamp: Date.now() });
       if (!validation.valid) {
         return errorResponse(res, validation.message, 400, 'INVALID_STATUS_TRANSITION');
       }

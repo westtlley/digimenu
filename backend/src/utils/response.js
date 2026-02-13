@@ -16,10 +16,12 @@ export function successResponse(res, data = null, message = 'Operação realizad
 
 /**
  * Resposta de erro
+ * Padrão: { success: false, error: "msg", message: "msg", code?, details? }
  */
 export function errorResponse(res, message = 'Erro na operação', statusCode = 400, code = null, details = null) {
   const response = {
     success: false,
+    error: message,
     message,
     ...(code && { code }),
     ...(details && { details })

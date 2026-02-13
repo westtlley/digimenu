@@ -67,7 +67,7 @@ export const updateSubscriber = asyncHandler(async (req, res) => {
     return res.status(200).json({
       success: true,
       message: 'Assinante atualizado com sucesso',
-      data: { subscriber: updated }
+      data: updated
     });
   } catch (error) {
     logger.error('Erro em PUT /api/subscribers/:id:', sanitizeForLog({ error: error.message }));

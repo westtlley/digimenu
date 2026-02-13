@@ -5,6 +5,7 @@
 
 import * as repo from '../../db/repository.js';
 import { logger } from '../../utils/logger.js';
+import { agentLog } from '../../utils/agentLog.js';
 import { getPlanInfo } from '../../utils/plans.js';
 import { generatePasswordTokenForSubscriber } from '../auth/auth.service.js';
 import { isValidPlan, normalizeSlug, canEditEstablishment } from './establishments.utils.js';
@@ -106,9 +107,7 @@ export async function createSubscriber(subscriberData) {
 
   // Gerar token de senha automaticamente para novos assinantes
   let passwordTokenData = null;
-  // #region agent log
-  fetch('http://127.0.0.1:7243/ingest/4f86e4d7-f8a1-4c85-8a5d-50b822226133',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'establishments.service.js:105',message:'[H3] Starting password token generation',data:{subscriberEmail:subscriber.email,subscriberId:subscriber.id,isNewSubscriber:!subscriberData.id},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
+  agentLog({ location: 'establishments.service.js:105', message: '[H3] Starting password token generation', data: { subscriberEmail: subscriber.email, subscriberId: subscriber.id, isNewSubscriber: !subscriberData.id }, timestamp: Date.now() });
   try {
     const isNewSubscriber = !subscriberData.id; // Se não tem ID, é novo
 
@@ -161,14 +160,10 @@ export async function createSubscriber(subscriberData) {
       }
 
       logger.log('🔑 Token de senha gerado automaticamente para:', subscriber.email);
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/4f86e4d7-f8a1-4c85-8a5d-50b822226133',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'establishments.service.js:159',message:'[H3] Password token generated successfully',data:{subscriberEmail:subscriber.email},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
+      agentLog({ location: 'establishments.service.js:159', message: '[H3] Password token generated successfully', data: { subscriberEmail: subscriber.email }, timestamp: Date.now() });
     }
   } catch (tokenError) {
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/4f86e4d7-f8a1-4c85-8a5d-50b822226133',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'establishments.service.js:162',message:'[H3] Error generating password token',data:{errorMessage:tokenError.message},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
+    agentLog({ location: 'establishments.service.js:162', message: '[H3] Error generating password token', data: { errorMessage: tokenError.message }, timestamp: Date.now() });
     logger.warn('⚠️ Erro ao gerar token de senha (não crítico):', tokenError.message);
     // Não falhar a criação do assinante se o token falhar
   }
