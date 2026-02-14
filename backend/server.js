@@ -79,21 +79,20 @@ const PORT = process.env.PORT || 3000;
 const JWT_SECRET = validateJWTSecret();
 
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
-// CORS: múltiplas origens via ENV. Admin SaaS deve funcionar local + produção sem trocar código.
-const _envOrigins = process.env.CORS_ORIGINS
+// CORS: allowedOrigins Set (evita cb(new Error) que causa pending/canceled)
+const _envList = process.env.CORS_ORIGINS
   ? process.env.CORS_ORIGINS.split(',').map(s => s.trim()).filter(Boolean)
   : [];
-const _localhostDefaults = [
+const allowedOrigins = new Set([
+  'https://digimenu-chi.vercel.app',
+  'https://digimenu.vercel.app',
   'http://localhost:5173',
   'http://localhost:5174',
   'http://127.0.0.1:5173',
-  'http://127.0.0.1:5174'
-];
-const CORS_ORIGINS = _envOrigins.length > 0
-  ? [...new Set([..._envOrigins, ..._localhostDefaults])]
-  : process.env.NODE_ENV === 'production'
-    ? [FRONTEND_URL, ..._localhostDefaults]
-    : [FRONTEND_URL, 'http://localhost:5173', 'http://127.0.0.1:5173', /^http:\/\/localhost:\d+$/, /^http:\/\/127\.0\.0\.1:\d+$/];
+  'http://127.0.0.1:5174',
+  FRONTEND_URL,
+  ..._envList
+].filter(Boolean));
 const BACKEND_URL = process.env.BACKEND_URL || `http://localhost:${PORT}`;
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
@@ -107,34 +106,21 @@ setupHelmet(app);
 // ✅ COMPRESSÃO DE RESPOSTAS (reduz tamanho em ~70%)
 app.use(compressionMiddleware);
 
-// ✅ CORREÇÃO: Suporte para regex em CORS (desenvolvimento)
+// ✅ CORS: cb(null, false) em vez de Error (evita crash/pending no browser)
 app.use(cors({
-  origin: (origin, callback) => {
-    // Se não há origin (ex: requisição do mesmo domínio), permitir
-    if (!origin) {
-      return callback(null, true);
-    }
-    
-    // Verificar se origin está na lista permitida
-    const isAllowed = CORS_ORIGINS.some(allowed => {
-      if (typeof allowed === 'string') {
-        return allowed === origin;
-      }
-      if (allowed instanceof RegExp) {
-        return allowed.test(origin);
-      }
-      return false;
-    });
-    
-    if (isAllowed) {
-      callback(null, true);
-    } else {
-      console.error('❌ CORS bloqueado para origem:', origin, '| Permitidas:', CORS_ORIGINS.filter(o => typeof o === 'string'));
-      callback(new Error('Not allowed by CORS'));
-    }
+  origin: (origin, cb) => {
+    if (!origin) return cb(null, true);
+    if (allowedOrigins.has(origin)) return cb(null, true);
+    console.warn('⚠️ CORS: origem não permitida:', origin);
+    return cb(null, false);
   },
-  credentials: true
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  exposedHeaders: ['Authorization'],
+  credentials: false,
+  optionsSuccessStatus: 204
 }));
+app.options('*', cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 

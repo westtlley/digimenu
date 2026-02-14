@@ -72,11 +72,13 @@ class ApiClient {
       }
     }
     
+    const method = (options.method || 'GET').toUpperCase();
+    const needsJsonBody = ['POST', 'PUT', 'PATCH'].includes(method) && body;
     const config = {
       ...options,
       body: body,
       headers: {
-        ...(!isFormData && { 'Content-Type': 'application/json' }),
+        ...(needsJsonBody && !isFormData && { 'Content-Type': 'application/json' }),
         ...options.headers,
       },
     };
