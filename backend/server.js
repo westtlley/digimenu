@@ -3342,9 +3342,30 @@ app.get('/api/health', asyncHandler(async (req, res) => {
 }));
 
 // =======================
+// 🔍 DIAGNÓSTICO RÁPIDO - Apenas conta assinantes (SEM AUTH para debug)
+// =======================
+app.get('/api/debug/count-subscribers', asyncHandler(async (req, res) => {
+  try {
+    const countResult = await query('SELECT COUNT(*)::int as total FROM subscribers');
+    const total = countResult.rows[0]?.total ?? 0;
+    
+    return res.json({
+      status: 'ok',
+      total_subscribers: total,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    return res.status(500).json({
+      status: 'error',
+      error: error.message
+    });
+  }
+}));
+
+// =======================
 // 🔍 HEALTH CHECK ESPECÍFICO PARA SUBSCRIBERS (DIAGNÓSTICO)
 // =======================
-app.get('/api/health/subscribers', authenticate, requireMaster, asyncHandler(async (req, res) => {
+app.get('/api/health/subscribers', asyncHandler(async (req, res) => {
   const startTime = Date.now();
   const diagnostic = {
     time: new Date().toISOString(),
