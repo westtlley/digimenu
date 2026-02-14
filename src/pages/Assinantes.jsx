@@ -1678,7 +1678,7 @@ export default function Assinantes() {
 
       {/* Edit Modal - size="large" para exibir em largura correta no desktop */}
       <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
-        <DialogContent size="large" className="max-h-[90vh] overflow-y-auto">
+        <DialogContent size="large" className="max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Edit className="w-5 h-5 text-orange-500" />
@@ -1689,10 +1689,8 @@ export default function Assinantes() {
             </DialogDescription>
           </DialogHeader>
 
-
-
           {editingSubscriber && (
-            <div className="space-y-4 py-4">
+            <div className="flex-1 overflow-y-auto space-y-4 py-4">
               <div className="space-y-4">
                 <div>
                   <label className="text-sm font-medium text-gray-700 mb-1 block">Email da Assinatura</label>

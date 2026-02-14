@@ -43,6 +43,7 @@ export default function LoginBySlug({ type: propType }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true); // Padrão: SIM
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -58,7 +59,12 @@ export default function LoginBySlug({ type: propType }) {
   }, [slug]);
 
   useEffect(() => {
+    // Verificar se deve fazer auto-login
+    const shouldAutoLogin = localStorage.getItem('auto_login_enabled') !== 'false';
+    
     const checkAuth = async () => {
+      if (!shouldAutoLogin) return; // Não fazer auto-login se desabilitado
+      
       try {
         const ok = await base44.auth.isAuthenticated();
         if (!ok) return;
@@ -99,6 +105,9 @@ export default function LoginBySlug({ type: propType }) {
       const response = await base44.auth.login(email.trim(), password);
       const userData = response.user || response;
       if (response.token) {
+        // Salvar preferência de auto-login
+        localStorage.setItem('auto_login_enabled', rememberMe ? 'true' : 'false');
+        
         toast.success('Login realizado com sucesso!');
         
         // Priorizar verificação do userData sobre loginType para determinar redirecionamento
@@ -252,6 +261,21 @@ export default function LoginBySlug({ type: propType }) {
                   </button>
                 </div>
               </div>
+              
+              {/* Checkbox Manter Conectado */}
+              <div className="flex items-center">
+                <input
+                  id="remember-me"
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                />
+                <label htmlFor="remember-me" className="ml-2 text-sm text-gray-600 dark:text-gray-400">
+                  Manter conectado
+                </label>
+              </div>
+              
               {error && (
                 <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
                   <p className="text-sm text-red-600 dark:text-red-400">{error}</p>

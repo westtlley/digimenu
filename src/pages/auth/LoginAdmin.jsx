@@ -16,6 +16,7 @@ export default function LoginAdmin() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true); // Padrão: SIM
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
@@ -23,7 +24,12 @@ export default function LoginAdmin() {
   const returnUrl = searchParams.get('returnUrl') || '/Admin';
 
   useEffect(() => {
+    // Verificar se deve fazer auto-login
+    const shouldAutoLogin = localStorage.getItem('auto_login_enabled') !== 'false';
+    
     const checkAuth = async () => {
+      if (!shouldAutoLogin) return; // Não fazer auto-login se desabilitado
+      
       try {
         const ok = await base44.auth.isAuthenticated();
         if (!ok) return;
@@ -54,6 +60,9 @@ export default function LoginAdmin() {
       const userData = response.user || response;
 
       if (response.token) {
+        // Salvar preferência de auto-login
+        localStorage.setItem('auto_login_enabled', rememberMe ? 'true' : 'false');
+        
         if (userData?.is_master) {
           toast.success('Acesso autorizado');
           setTimeout(() => navigate('/Admin'), 400);
@@ -135,6 +144,21 @@ export default function LoginAdmin() {
                 </button>
               </div>
             </div>
+            
+            {/* Checkbox Manter Conectado */}
+            <div className="flex items-center">
+              <input
+                id="remember-me"
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-amber-600 focus:ring-amber-500 focus:ring-offset-gray-800"
+              />
+              <label htmlFor="remember-me" className="ml-2 text-sm text-gray-300">
+                Manter conectado (fazer login automaticamente)
+              </label>
+            </div>
+            
             {error && (
               <div className="p-3 rounded-lg bg-red-900/30 border border-red-800">
                 <p className="text-sm text-red-300">{error}</p>
