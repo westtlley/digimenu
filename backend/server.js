@@ -970,6 +970,61 @@ app.post('/api/entities/:entity/bulk', authenticate, createLimiter, asyncHandler
   res.status(201).json(newItems || []);
 }));
 
+// =======================
+// 🔧 FUNCTIONS - Rotas específicas ANTES dos routers (evitar 404)
+// =======================
+// updateSubscriber via /api/functions/updateSubscriber
+app.post('/api/functions/updateSubscriber', authenticate, async (req, res) => {
+  try {
+    console.log('🔧 [updateSubscriber] Chamado por:', req.user?.email, 'is_master:', req.user?.is_master);
+    
+    if (!req.user?.is_master) {
+      return res.status(403).json({ error: 'Acesso negado' });
+    }
+    
+    const { id, data: updateData, originalData } = req.body || {};
+    console.log('🔧 [updateSubscriber] ID:', id, 'tem data:', !!updateData);
+    
+    if (!id) {
+      return res.status(400).json({ error: 'id é obrigatório' });
+    }
+    
+    req.params = { ...req.params, id: String(id) };
+    req.body = updateData || req.body || {};
+    
+    await establishmentsController.updateSubscriber(req, res, () => {});
+  } catch (error) {
+    console.error('❌ [updateSubscriber] Erro:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// createSubscriber via /api/functions/createSubscriber
+app.post('/api/functions/createSubscriber', authenticate, async (req, res) => {
+  try {
+    if (!req.user?.is_master) {
+      return res.status(403).json({ error: 'Acesso negado' });
+    }
+    await establishmentsController.createSubscriber(req, res, () => {});
+  } catch (error) {
+    console.error('❌ [createSubscriber] Erro:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// getSubscribers via /api/functions/getSubscribers
+app.post('/api/functions/getSubscribers', authenticate, async (req, res) => {
+  try {
+    if (!req.user?.is_master) {
+      return res.status(403).json({ error: 'Acesso negado' });
+    }
+    await establishmentsController.listSubscribers(req, res, () => {});
+  } catch (error) {
+    console.error('❌ [getSubscribers] Erro:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.use('/api', entitiesAndManagerialRouter);
 
 // =======================
