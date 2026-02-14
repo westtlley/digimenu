@@ -3342,6 +3342,71 @@ app.get('/api/health', asyncHandler(async (req, res) => {
 }));
 
 // =======================
+// 🔍 HEALTH CHECK ESPECÍFICO PARA SUBSCRIBERS (DIAGNÓSTICO)
+// =======================
+app.get('/api/health/subscribers', authenticate, requireMaster, asyncHandler(async (req, res) => {
+  const startTime = Date.now();
+  const diagnostic = {
+    time: new Date().toISOString(),
+    steps: []
+  };
+
+  try {
+    // Passo 1: Testar conexão
+    diagnostic.steps.push({ step: 1, action: 'Testando conexão PostgreSQL...', time: Date.now() - startTime });
+    const connected = await testConnection();
+    diagnostic.steps.push({ step: 1, result: connected ? 'conectado' : 'falhou', time: Date.now() - startTime });
+    
+    if (!connected) {
+      return res.status(503).json({ ...diagnostic, error: 'PostgreSQL não conectado' });
+    }
+
+    // Passo 2: Contar assinantes
+    diagnostic.steps.push({ step: 2, action: 'Executando COUNT(*)...', time: Date.now() - startTime });
+    const countResult = await query('SELECT COUNT(*)::int as total FROM subscribers');
+    const total = countResult.rows[0]?.total ?? 0;
+    diagnostic.steps.push({ step: 2, result: `${total} assinantes`, time: Date.now() - startTime });
+
+    // Passo 3: Buscar 5 assinantes de exemplo
+    diagnostic.steps.push({ step: 3, action: 'Buscando 5 assinantes...', time: Date.now() - startTime });
+    const sampleResult = await query(`
+      SELECT id, email, name, plan, status, created_at
+      FROM subscribers
+      ORDER BY created_at DESC
+      LIMIT 5
+    `);
+    diagnostic.steps.push({ step: 3, result: `${sampleResult.rows.length} retornados`, time: Date.now() - startTime });
+
+    const totalTime = Date.now() - startTime;
+    
+    return res.json({
+      status: 'ok',
+      totalTime: `${totalTime}ms`,
+      totalSubscribers: total,
+      sampleSubscribers: sampleResult.rows.map(s => ({
+        id: s.id,
+        email: s.email,
+        name: s.name,
+        plan: s.plan,
+        status: s.status
+      })),
+      diagnostic
+    });
+
+  } catch (error) {
+    const totalTime = Date.now() - startTime;
+    diagnostic.steps.push({ step: 'ERROR', error: error.message, time: totalTime });
+    
+    return res.status(500).json({
+      status: 'error',
+      error: error.message,
+      totalTime: `${totalTime}ms`,
+      diagnostic
+    });
+  }
+}));
+
+// =======================
 // 📊 ROTAS DE ANALYTICS, BACKUP, MERCADOPAGO E METRICS
 // =======================
 app.use('/api/analytics', analyticsRoutes);
