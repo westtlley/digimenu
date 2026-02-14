@@ -496,7 +496,9 @@ export default function Entregador() {
               </button>
               <button
                 onClick={() => base44.auth.logout()}
-                className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left text-red-500 hover:bg-red-50"
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left text-red-500 ${
+                  darkMode ? 'hover:bg-red-900/20' : 'hover:bg-red-50'
+                }`}
               >
                 <LogOut className="w-5 h-5" />
                 <span>Sair</span>
