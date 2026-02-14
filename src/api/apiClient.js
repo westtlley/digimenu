@@ -105,6 +105,10 @@ class ApiClient {
         }
       }
 
+      if (response.status === 204) {
+        return { success: true, data: { subscribers: [] } };
+      }
+
       if (!response.ok) {
         // Tratamento de erro 401 (não autorizado) - redirecionar para login
         // MAS NÃO redirecionar se for uma rota pública (ex: /public/cardapio)

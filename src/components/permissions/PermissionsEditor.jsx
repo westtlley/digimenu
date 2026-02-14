@@ -429,7 +429,7 @@ export default function PermissionsEditor({ permissions, onChange, selectedPlan 
                               {module.actions.map(action => (
                                 <label key={action} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
                                   <Checkbox
-                                    checked={hasPermission(module.id, action)}
+                                    checked={!!hasPermission(module.id, action)}
                                     onCheckedChange={(checked) => handlePermissionChange(module.id, action, checked)}
                                   />
                                   <span className="text-sm">{ACTION_LABELS[action]}</span>

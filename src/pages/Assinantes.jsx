@@ -126,6 +126,7 @@ export default function Assinantes() {
   const [setupLinkModal, setSetupLinkModal] = useState({ open: false, url: null, name: null });
   const [subscriberToDelete, setSubscriberToDelete] = useState(null);
   const [showPlanCards, setShowPlanCards] = useState(false); // Toggle para mostrar cards visuais
+  const [loadingStuck, setLoadingStuck] = useState(false); // Fallback: loading passou de 18s
 
   const queryClient = useQueryClient();
 
@@ -152,9 +153,12 @@ export default function Assinantes() {
     queryFn: async () => {
       logger.log('🔄 Buscando assinantes...');
       try {
-        // Usar GET /api/establishments/subscribers (rota REST existente)
         const response = await base44.get('/establishments/subscribers');
-        
+
+        if (response == null || (typeof response === 'object' && response.data === undefined && !Array.isArray(response) && !response.subscribers)) {
+          throw new Error('Resposta inválida do servidor (sem data). Tente novamente.');
+        }
+
         let subscribersList = [];
         if (response?.data?.subscribers) {
           subscribersList = response.data.subscribers;
@@ -167,7 +171,11 @@ export default function Assinantes() {
         } else if (response?.subscribers) {
           subscribersList = response.subscribers;
         } else {
-          console.warn('⚠️ Formato de resposta inesperado:', response);
+          const keys = response ? Object.keys(response) : [];
+          logger.warn('⚠️ Formato de resposta inesperado:', { keys, hasData: !!response?.data });
+          if (response?.data && typeof response.data === 'object' && !Array.isArray(response.data) && !response.data.subscribers) {
+            throw new Error('Resposta do servidor sem lista de assinantes. Tente novamente.');
+          }
           subscribersList = [];
         }
         
@@ -192,18 +200,21 @@ export default function Assinantes() {
       }
     },
     enabled: !!user?.is_master,
-    refetchOnWindowFocus: true,
+    refetchOnWindowFocus: false,
     refetchOnMount: true,
-    retry: (failureCount, error) => {
-      // Não retentar em 401/403/404 — falha rápido para mostrar UI de erro
-      const status = error?.response?.status;
-      if (status === 401 || status === 403 || status === 404) return false;
-      const msg = error?.message || '';
-      if (msg.includes('401') || msg.includes('403') || msg.includes('404') || msg.includes('Acesso negado')) return false;
-      return failureCount < 2;
-    },
-    refetchInterval: 5 * 60 * 1000
+    retry: 0,
+    refetchInterval: false
   });
+
+  // Fallback: se loading passar de 15s, mostrar "Tentar novamente" (cold start Render)
+  useEffect(() => {
+    if (!subscribersLoading) {
+      setLoadingStuck(false);
+      return;
+    }
+    const t = setTimeout(() => setLoadingStuck(true), 15000);
+    return () => clearTimeout(t);
+  }, [subscribersLoading]);
 
   const { data: plans = [] } = useQuery({
     queryKey: ['plans'],
@@ -870,8 +881,17 @@ export default function Assinantes() {
 
       {/* Stats */}
       <div className="max-w-6xl mx-auto px-4 -mt-4">
-        {subscribersLoading ? (
+        {subscribersLoading && !loadingStuck ? (
           <SkeletonStats count={4} />
+        ) : subscribersLoading && loadingStuck ? (
+          <div className="flex flex-col items-center justify-center py-12 px-4 text-center bg-amber-50 rounded-xl border-2 border-amber-200">
+            <p className="text-amber-800 font-medium mb-2">Carregando demorou mais do que o esperado</p>
+            <p className="text-amber-700 text-sm mb-4">O servidor pode estar lento. Tente novamente.</p>
+            <Button onClick={() => { setLoadingStuck(false); refetchSubscribers(); }} variant="outline" className="gap-2 border-amber-400">
+              <RefreshCw className="w-4 h-4" />
+              Tentar novamente
+            </Button>
+          </div>
         ) : (
           <SubscriberStats subscribers={subscribers} />
         )}
@@ -1025,6 +1045,15 @@ export default function Assinantes() {
                 {subscribersErrorDetails?.response?.data?.message ?? subscribersErrorDetails?.message ?? 'Verifique sua conexão ou tente novamente em instantes.'}
               </p>
               <Button onClick={() => refetchSubscribers()} variant="outline" className="gap-2">
+                <RefreshCw className="w-4 h-4" />
+                Tentar novamente
+              </Button>
+            </div>
+          ) : subscribersLoading && loadingStuck ? (
+            <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+              <p className="text-amber-700 font-medium mb-2">Carregando demorou mais do que o esperado</p>
+              <p className="text-gray-500 text-sm mb-4">O servidor pode estar lento ou indisponível.</p>
+              <Button onClick={() => { setLoadingStuck(false); refetchSubscribers(); }} variant="outline" className="gap-2">
                 <RefreshCw className="w-4 h-4" />
                 Tentar novamente
               </Button>

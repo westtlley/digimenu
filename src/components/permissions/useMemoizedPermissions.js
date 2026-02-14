@@ -37,10 +37,10 @@ export function useMemoizedPermissions(permissions) {
       }
     });
 
-    // Função memoizada para verificar permissão
+    // Função memoizada para verificar permissão (sempre retorna boolean para Checkbox controlled)
     const hasPermission = (moduleId, action) => {
       const modulePerms = permissionsByModule[moduleId];
-      return modulePerms && modulePerms.actions.includes(action);
+      return !!(modulePerms && Array.isArray(modulePerms.actions) && modulePerms.actions.includes(action));
     };
 
     return {

@@ -11,18 +11,28 @@ import { requireMaster } from '../../middlewares/permissions.js';
 import { successResponse, createdResponse, errorResponse, notFoundResponse, forbiddenResponse } from '../../src/utils/response.js';
 
 /**
- * Lista todos os assinantes (apenas master)
+ * Lista todos os assinantes (apenas master).
+ * Sempre retorna 200 com { data: { subscribers } } — nunca 204.
  */
 export const listSubscribers = asyncHandler(async (req, res) => {
+  console.log('[SUBSCRIBERS]', { is_master: req.user?.is_master, user_id: req.user?.id, email: req.user?.email });
+
   if (!req.user?.is_master) {
     return forbiddenResponse(res, 'Acesso negado');
   }
 
   try {
     const subscribers = await establishmentsService.listSubscribers();
+    console.log('[SUBSCRIBERS RESULT]', subscribers.length);
+
     logger.log('📋 [BACKEND] getSubscribers - Retornando', subscribers.length, 'assinantes');
     logger.log('📋 [BACKEND] getSubscribers - IDs:', subscribers.map(s => s.id || s.email));
-    return successResponse(res, { subscribers });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Lista de assinantes',
+      data: { subscribers: Array.isArray(subscribers) ? subscribers : [] }
+    });
   } catch (error) {
     logger.error('❌ [BACKEND] Erro em getSubscribers:', error);
     return errorResponse(res, 'Erro ao buscar assinantes', 500, 'INTERNAL_ERROR', { details: error.message });
