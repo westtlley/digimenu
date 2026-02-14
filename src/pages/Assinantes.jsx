@@ -180,7 +180,7 @@ export default function Assinantes() {
     queryFn: async ({ signal: querySignal }) => {
       logger.log('🔄 Buscando assinantes...');
       
-      const fetchWithTimeout = async (timeoutMs = 45000) => {
+      const fetchWithTimeout = async (timeoutMs = 120000, attemptNumber = 1) => {
         const controller = new AbortController();
         let timeoutId;
         
@@ -193,73 +193,118 @@ export default function Assinantes() {
         }
 
         timeoutId = setTimeout(() => {
-          logger.warn(`⏱️ Timeout de ${timeoutMs/1000}s atingido`);
+          logger.warn(`⏱️ Timeout de ${timeoutMs/1000}s atingido (tentativa ${attemptNumber})`);
           controller.abort();
         }, timeoutMs);
 
         try {
-          logger.log(`📡 Iniciando requisição (timeout: ${timeoutMs/1000}s)...`);
+          logger.log(`📡 Tentativa ${attemptNumber} - Iniciando requisição (timeout: ${timeoutMs/1000}s)...`);
           const response = await base44.get('/establishments/subscribers', { page, limit }, { signal: controller.signal });
           clearTimeout(timeoutId);
-          logger.log('✅ Resposta recebida com sucesso!');
+          logger.log(`✅ Resposta recebida com sucesso na tentativa ${attemptNumber}!`);
           return response;
         } catch (error) {
           clearTimeout(timeoutId);
-          logger.error('❌ Erro na requisição:', error.name, error.message);
+          logger.error(`❌ Erro na tentativa ${attemptNumber}:`, error.name, error.message);
           throw error;
         }
       };
 
       try {
-        // Timeout único de 60s (suficiente após warmup)
-        const response = await fetchWithTimeout(60000);
-
-        if (response == null || (typeof response === 'object' && response.data === undefined && !Array.isArray(response) && !response.subscribers)) {
-          throw new Error('Resposta inválida do servidor (sem data). Tente novamente.');
-        }
-
-        let subscribersList = [];
-        let pagination = null;
-        if (response?.data?.subscribers) {
-          subscribersList = response.data.subscribers;
-          pagination = response.data.pagination ?? null;
-        } else if (response?.data && Array.isArray(response.data)) {
-          subscribersList = response.data;
-        } else if (Array.isArray(response)) {
-          subscribersList = response;
-        } else if (response?.data?.error) {
-          throw new Error(response.data.error);
-        } else if (response?.subscribers) {
-          subscribersList = response.subscribers;
-          pagination = response.pagination ?? null;
-        } else {
-          const keys = response ? Object.keys(response) : [];
-          logger.warn('⚠️ Formato de resposta inesperado:', { keys, hasData: !!response?.data });
-          if (response?.data && typeof response.data === 'object' && !Array.isArray(response.data) && !response.data.subscribers) {
-            throw new Error('Resposta do servidor sem lista de assinantes. Tente novamente.');
+        // Tentativa 1: Timeout de 120s para cold start do Render
+        try {
+          const response = await fetchWithTimeout(120000, 1);
+          
+          if (response == null || (typeof response === 'object' && response.data === undefined && !Array.isArray(response) && !response.subscribers)) {
+            throw new Error('Resposta inválida do servidor (sem data). Tentando novamente...');
           }
-          subscribersList = [];
-        }
-        
-        logger.log('📋 Assinantes retornados:', subscribersList.length, pagination ? `(página ${pagination.page}/${pagination.totalPages})` : '');
-        
-        const tokensMap = {};
-        subscribersList.forEach(sub => {
-          if (sub.setup_url || sub.password_token) {
-            tokensMap[sub.id || sub.email] = {
-              token: sub.password_token,
-              setup_url: sub.setup_url,
-              expires_at: sub.token_expires_at
-            };
+
+          let subscribersList = [];
+          let pagination = null;
+          if (response?.data?.subscribers) {
+            subscribersList = response.data.subscribers;
+            pagination = response.data.pagination ?? null;
+          } else if (response?.data && Array.isArray(response.data)) {
+            subscribersList = response.data;
+          } else if (Array.isArray(response)) {
+            subscribersList = response;
+          } else if (response?.data?.error) {
+            throw new Error(response.data.error);
+          } else if (response?.subscribers) {
+            subscribersList = response.subscribers;
+            pagination = response.pagination ?? null;
+          } else {
+            const keys = response ? Object.keys(response) : [];
+            logger.warn('⚠️ Formato de resposta inesperado:', { keys, hasData: !!response?.data });
+            if (response?.data && typeof response.data === 'object' && !Array.isArray(response.data) && !response.data.subscribers) {
+              throw new Error('Resposta do servidor sem lista de assinantes. Tentando novamente...');
+            }
+            subscribersList = [];
           }
-        });
-        setPasswordTokens(tokensMap);
-        
-        return { subscribers: subscribersList, pagination };
+          
+          logger.log('📋 Assinantes retornados:', subscribersList.length, pagination ? `(página ${pagination.page}/${pagination.totalPages})` : '');
+          
+          const tokensMap = {};
+          subscribersList.forEach(sub => {
+            if (sub.setup_url || sub.password_token) {
+              tokensMap[sub.id || sub.email] = {
+                token: sub.password_token,
+                setup_url: sub.setup_url,
+                expires_at: sub.token_expires_at
+              };
+            }
+          });
+          setPasswordTokens(tokensMap);
+          
+          return { subscribers: subscribersList, pagination };
+        } catch (firstError) {
+          // Se primeira tentativa falhar, aguardar 3s e tentar novamente (servidor pode estar quase pronto)
+          logger.warn('⚠️ Primeira tentativa falhou, aguardando 3s para retry...', firstError.message);
+          await new Promise(resolve => setTimeout(resolve, 3000));
+          
+          logger.log('🔄 Tentativa 2...');
+          const response = await fetchWithTimeout(90000, 2);
+          
+          if (response == null || (typeof response === 'object' && response.data === undefined && !Array.isArray(response) && !response.subscribers)) {
+            throw new Error('Resposta inválida do servidor após retry. Tente recarregar a página.');
+          }
+
+          let subscribersList = [];
+          let pagination = null;
+          if (response?.data?.subscribers) {
+            subscribersList = response.data.subscribers;
+            pagination = response.data.pagination ?? null;
+          } else if (response?.data && Array.isArray(response.data)) {
+            subscribersList = response.data;
+          } else if (Array.isArray(response)) {
+            subscribersList = response;
+          } else if (response?.subscribers) {
+            subscribersList = response.subscribers;
+            pagination = response.pagination ?? null;
+          } else {
+            subscribersList = [];
+          }
+          
+          logger.log('✅ Retry bem-sucedido! Assinantes:', subscribersList.length);
+          
+          const tokensMap = {};
+          subscribersList.forEach(sub => {
+            if (sub.setup_url || sub.password_token) {
+              tokensMap[sub.id || sub.email] = {
+                token: sub.password_token,
+                setup_url: sub.setup_url,
+                expires_at: sub.token_expires_at
+              };
+            }
+          });
+          setPasswordTokens(tokensMap);
+          
+          return { subscribers: subscribersList, pagination };
+        }
       } catch (error) {
-        logger.error('❌ Erro ao buscar assinantes:', error);
+        logger.error('❌ Erro final ao buscar assinantes:', error);
         if (error?.name === 'AbortError') {
-          throw new Error('Servidor não respondeu em 60 segundos. Tente novamente.');
+          throw new Error('Servidor não respondeu após 2 minutos. O servidor pode estar inativo (cold start) ou com problema. Aguarde alguns instantes e clique em "Tentar novamente".');
         }
         throw error;
       }
@@ -267,7 +312,7 @@ export default function Assinantes() {
     enabled: !!user?.is_master && !serverWarming, // Só buscar após warmup
     refetchOnWindowFocus: false,
     refetchOnMount: true,
-    retry: 0, // Sem retry automático para evitar múltiplas chamadas
+    retry: 0, // Retry manual implementado na queryFn
     refetchInterval: false,
     staleTime: 30000 // Considera dados válidos por 30s
   });
@@ -281,13 +326,13 @@ export default function Assinantes() {
 
   const pagination = subscribersResult?.pagination ?? null;
 
-  // Fallback: se loading passar de 40s, mostrar "Tentar novamente"
+  // Fallback: se loading passar de 80s, mostrar "Tentar novamente" (cold start pode demorar até 2min)
   useEffect(() => {
     if (!subscribersLoading) {
       setLoadingStuck(false);
       return;
     }
-    const t = setTimeout(() => setLoadingStuck(true), 40000);
+    const t = setTimeout(() => setLoadingStuck(true), 80000);
     return () => clearTimeout(t);
   }, [subscribersLoading]);
 
@@ -936,7 +981,7 @@ export default function Assinantes() {
         ) : subscribersLoading && loadingStuck ? (
           <div className="flex flex-col items-center justify-center py-12 px-4 text-center bg-amber-50 rounded-xl border-2 border-amber-200">
             <p className="text-amber-800 font-medium mb-2">Carregando demorou mais do que o esperado</p>
-            <p className="text-amber-700 text-sm mb-4">O servidor pode estar lento. Tente novamente.</p>
+            <p className="text-amber-700 text-sm mb-4">O servidor pode estar em cold start (até 2 min). Aguarde ou tente novamente.</p>
             <Button onClick={() => { setLoadingStuck(false); refetchSubscribers(); }} variant="outline" className="gap-2 border-amber-400">
               <RefreshCw className="w-4 h-4" />
               Tentar novamente
@@ -1116,7 +1161,7 @@ export default function Assinantes() {
             <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
               <Loader2 className="w-12 h-12 text-orange-500 animate-spin mb-4" />
               <p className="text-amber-700 font-medium mb-2">Aguardando resposta do servidor...</p>
-              <p className="text-gray-500 text-sm mb-4">O servidor está iniciando (cold start). Aguarde ou clique abaixo.</p>
+              <p className="text-gray-500 text-sm mb-4">O servidor está iniciando (cold start). Isso pode demorar até 2 minutos na primeira vez. Aguarde ou clique abaixo.</p>
               <Button onClick={() => { setLoadingStuck(false); refetchSubscribers(); }} variant="outline" className="gap-2">
                 <RefreshCw className="w-4 h-4" />
                 Tentar novamente
@@ -1126,7 +1171,7 @@ export default function Assinantes() {
             <div className="flex flex-col items-center justify-center py-16 px-4">
               <Loader2 className="w-12 h-12 text-orange-500 animate-spin mb-4" />
               <p className="text-gray-600">Carregando assinantes...</p>
-              <p className="text-gray-400 text-sm mt-2">Aguarde até 60 segundos</p>
+              <p className="text-gray-400 text-sm mt-2">Aguarde até 2 minutos (cold start do servidor)</p>
             </div>
           ) : filteredSubscribers.length === 0 ? (
             <EmptyState
