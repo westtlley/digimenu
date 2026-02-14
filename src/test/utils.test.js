@@ -2,7 +2,7 @@
  * Testes básicos de utilitários
  */
 import { describe, it, expect } from 'vitest';
-import { formatCurrency } from '../components/utils/formatters';
+import { formatCurrency } from '../utils/formatters';
 
 describe('Formatters', () => {
   it('deve formatar moeda corretamente', () => {

@@ -12,27 +12,50 @@ import { isValidPlan, normalizeSlug, canEditEstablishment } from './establishmen
 import { usePostgreSQL, FRONTEND_URL, getDb, getSaveDatabaseDebounced } from '../../config/appConfig.js';
 
 /**
- * Lista todos os assinantes (apenas master)
+ * Lista assinantes com paginação opcional (apenas master).
+ * @param {Object} options - { page, limit, orderBy, orderDir }
+ * @returns {Object|Array} - Com options: { data, pagination }. Sem options: array de assinantes (retrocompat).
  */
-export async function listSubscribers() {
+export async function listSubscribers(options = {}) {
   const db = getDb();
-  let subscribers = [];
+  let rawResult;
   if (usePostgreSQL) {
-    subscribers = await repo.listSubscribers();
+    rawResult = await repo.listSubscribers(options);
   } else if (db?.subscribers) {
-    subscribers = db.subscribers;
+    const page = Math.max(1, parseInt(options.page, 10) || 1);
+    const limit = Math.min(100, Math.max(10, parseInt(options.limit, 10) || 50));
+    const usePagination = options.page != null || options.limit != null;
+
+    if (usePagination) {
+      const total = db.subscribers.length;
+      const offset = (page - 1) * limit;
+      const slice = db.subscribers.slice(offset, offset + limit);
+      rawResult = {
+        data: slice,
+        pagination: { page, limit, total, totalPages: Math.ceil(total / limit) || 1 }
+      };
+    } else {
+      rawResult = db.subscribers;
+    }
+  } else {
+    rawResult = options.page != null || options.limit != null ? { data: [], pagination: { page: 1, limit: 50, total: 0, totalPages: 0 } } : [];
   }
 
-  // Garantir que todos os assinantes retornados têm setup_url se tiverem token
-  const subscribersWithTokens = subscribers.map(sub => {
+  const addSetupUrl = (sub) => {
     if (!sub.setup_url && sub.password_token) {
       const baseUrl = FRONTEND_URL || 'http://localhost:5173';
       sub.setup_url = `${baseUrl}/definir-senha?token=${sub.password_token}`;
     }
     return sub;
-  });
+  };
 
-  return subscribersWithTokens;
+  if (rawResult && typeof rawResult === 'object' && rawResult.data && rawResult.pagination) {
+    return {
+      data: rawResult.data.map(addSetupUrl),
+      pagination: rawResult.pagination
+    };
+  }
+  return (Array.isArray(rawResult) ? rawResult : []).map(addSetupUrl);
 }
 
 /**

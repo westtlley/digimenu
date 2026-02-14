@@ -19,10 +19,6 @@ export default function SmartUpsell({
   const [suggestion, setSuggestion] = useState(null);
   const [dismissedSuggestions, setDismissedSuggestions] = useState(new Set());
 
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
-  };
-
   useEffect(() => {
     // Verificar se cross-sell está habilitado
     if (!store?.cross_sell_config?.enabled) {

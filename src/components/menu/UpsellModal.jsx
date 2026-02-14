@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Badge } from "@/components/ui/badge";
 import { Plus, RefreshCw, X, Zap } from 'lucide-react';
+import { formatCurrency } from '@/utils/formatters';
 
 export default function UpsellModal({ 
   isOpen, 
@@ -18,9 +19,6 @@ export default function UpsellModal({
 
   const promotion = promotions[currentIndex];
   const dish = dishes.find(d => d.id === promotion?.offer_dish_id);
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
-  };
 
   if (!promotion || !dish) return null;
 

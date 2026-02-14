@@ -11,27 +11,43 @@ import { requireMaster } from '../../middlewares/permissions.js';
 import { successResponse, createdResponse, errorResponse, notFoundResponse, forbiddenResponse } from '../../src/utils/response.js';
 
 /**
- * Lista todos os assinantes (apenas master).
- * Sempre retorna 200 com { data: { subscribers } } — nunca 204.
+ * Lista assinantes com paginação opcional (apenas master).
+ * Query params: page, limit, orderBy, orderDir.
+ * Sempre retorna 200 com { data: { subscribers, pagination? } } — nunca 204.
  */
 export const listSubscribers = asyncHandler(async (req, res) => {
-  console.log('[SUBSCRIBERS]', { is_master: req.user?.is_master, user_id: req.user?.id, email: req.user?.email });
-
-  if (!req.user?.is_master) {
-    return forbiddenResponse(res, 'Acesso negado');
-  }
+  const { page, limit, orderBy, orderDir } = req.query;
+  const options = {};
+  if (page != null) options.page = page;
+  if (limit != null) options.limit = limit;
+  if (orderBy != null) options.orderBy = orderBy;
+  if (orderDir != null) options.orderDir = orderDir;
 
   try {
-    const subscribers = await establishmentsService.listSubscribers();
-    console.log('[SUBSCRIBERS RESULT]', subscribers.length);
+    const result = await establishmentsService.listSubscribers(options);
 
-    logger.log('📋 [BACKEND] getSubscribers - Retornando', subscribers.length, 'assinantes');
-    logger.log('📋 [BACKEND] getSubscribers - IDs:', subscribers.map(s => s.id || s.email));
+    if (result && typeof result === 'object' && result.data && result.pagination) {
+      if (process.env.NODE_ENV !== 'production') {
+        logger.log('📋 [BACKEND] getSubscribers - Retornando', result.data.length, 'de', result.pagination.total, 'assinantes');
+      }
+      return res.status(200).json({
+        success: true,
+        message: 'Lista de assinantes',
+        data: {
+          subscribers: Array.isArray(result.data) ? result.data : [],
+          pagination: result.pagination
+        }
+      });
+    }
 
+    const subscribers = Array.isArray(result) ? result : [];
+    if (process.env.NODE_ENV !== 'production') {
+      logger.log('📋 [BACKEND] getSubscribers - Retornando', subscribers.length, 'assinantes');
+    }
     return res.status(200).json({
       success: true,
       message: 'Lista de assinantes',
-      data: { subscribers: Array.isArray(subscribers) ? subscribers : [] }
+      data: { subscribers }
     });
   } catch (error) {
     logger.error('❌ [BACKEND] Erro em getSubscribers:', error);
@@ -43,9 +59,7 @@ export const listSubscribers = asyncHandler(async (req, res) => {
  * Cria um novo assinante (apenas master)
  */
 export const createSubscriber = asyncHandler(async (req, res) => {
-  if (!req.user?.is_master) {
-    return forbiddenResponse(res, 'Acesso negado');
-  }
+  // Middleware requireMaster já verificou is_master
 
   try {
     const subscriber = await establishmentsService.createSubscriber(req.body);
@@ -95,9 +109,7 @@ export const updateSubscriber = asyncHandler(async (req, res) => {
  * Deleta um assinante por slug (apenas master)
  */
 export const deleteSubscriberBySlug = asyncHandler(async (req, res) => {
-  if (!req.user?.is_master) {
-    return res.status(403).json({ error: 'Acesso negado' });
-  }
+  // Middleware requireMaster já verificou is_master
 
   const slug = req.query.slug || req.body.slug;
   if (!slug) {

@@ -14,6 +14,7 @@ import { toast } from 'react-hot-toast';
 import { useTheme } from '@/components/theme/ThemeProvider';
 import { usePermission } from '../permissions/usePermission';
 import { useSlugContext } from '@/hooks/useSlugContext';
+import { formatCurrency } from '@/utils/formatters';
 
 const TABLE_STATUSES = {
   available: { label: 'Disponível', color: 'bg-green-500' },
@@ -247,9 +248,6 @@ export default function TablesTab() {
       (c.table_name && String(c.table_name) === String(table.table_number))
     );
   };
-
-  const formatCurrency = (v) =>
-    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
 
   return (
     <div className="space-y-6">

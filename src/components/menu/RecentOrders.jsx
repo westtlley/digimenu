@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Clock, Plus } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { formatCurrency } from '@/utils/formatters';
 
 export default function RecentOrders({ dishes = [], onSelectDish, primaryColor }) {
   const { data: orders = [] } = useQuery({
@@ -46,10 +47,6 @@ export default function RecentOrders({ dishes = [], onSelectDish, primaryColor }
     .slice(0, 4);
 
   if (recentDishes.length === 0) return null;
-
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
-  };
 
   // Agrupar pratos por pedido para mostrar quantidade
   const getDishQuantity = (dishId) => {

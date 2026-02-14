@@ -1,6 +1,2 @@
-export const formatCurrency = (value) => {
-  return new Intl.NumberFormat('pt-BR', { 
-    style: 'currency', 
-    currency: 'BRL' 
-  }).format(value || 0);
-};
+/** Reexporta formatters de utils para compatibilidade com imports antigos */
+export { formatCurrency, formatDate, formatDateOnly, formatTime, formatRelativeTime, formatDuration, formatPhone } from '@/utils/formatters';

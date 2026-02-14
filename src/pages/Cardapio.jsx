@@ -55,7 +55,7 @@ import { useFavoritePromotions } from '@/hooks/useFavoritePromotions';
 import { orderService } from '@/components/services/orderService';
 import { whatsappService } from '@/components/services/whatsappService';
 import { stockUtils } from '@/components/utils/stockUtils';
-import { formatCurrency } from '@/components/utils/formatters';
+import { formatCurrency } from '@/utils/formatters';
 
 /** Landing quando não há slug: / ou /cardapio — não exibe cardápio de nenhum estabelecimento. */
 function CardapioSemLink() {
@@ -1387,7 +1387,7 @@ export default function Cardapio() {
             textSecondaryColor={textSecondaryColor}
             loading={loadingDishes}
             stockUtils={stockUtils}
-            formatCurrency={(value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0)}
+            formatCurrency={formatCurrency}
           />
         </section>
 

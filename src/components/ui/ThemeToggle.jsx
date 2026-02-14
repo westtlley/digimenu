@@ -23,6 +23,7 @@ export default function ThemeToggle({
       size={size}
       className={cn(className)}
       title={isDark ? 'Alternar para modo claro' : 'Alternar para modo escuro'}
+      aria-label={isDark ? 'Alternar para modo claro' : 'Alternar para modo escuro'}
     >
       {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
       {showLabel && (

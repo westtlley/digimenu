@@ -6,9 +6,9 @@
  */
 
 import { formatBrazilianDateTime, formatScheduledDateTime } from '@/components/utils/dateUtils';
+import { formatCurrency } from './formatters';
 import jsPDF from 'jspdf';
 
-const formatCurrency = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
 const PAYMENT_LABELS = { pix: 'PIX', dinheiro: 'Dinheiro', cartao_credito: 'Cartão de Crédito', cartao_debito: 'Cartão de Débito' };
 
 /** Endereço completo (evita cortes) - igual ao WhatsApp - exportado para uso em PDF/impressão */

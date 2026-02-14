@@ -10,10 +10,7 @@ import PizzaVisualizationPremium from './PizzaVisualizationPremium';
 import PizzaBuilderMobile from './PizzaBuilderMobile';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient as base44 } from '@/api/apiClient';
-
-const formatCurrency = (value) => {
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
-};
+import { formatCurrency } from '@/utils/formatters';
 
 export default function PizzaBuilder({ 
   dish, 

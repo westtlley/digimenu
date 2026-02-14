@@ -34,6 +34,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import InstallAppButton from '../components/InstallAppButton';
 import { useManagerialAuth } from '@/hooks/useManagerialAuth';
+import { useLocalStorage } from '@/hooks/useLocalStorage';
 
 export default function GestorPedidos() {
   const [activeTab, setActiveTab] = useState('now'); // now, scheduled
@@ -53,10 +54,7 @@ export default function GestorPedidos() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredOrders, setFilteredOrders] = useState([]);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
-    const saved = localStorage.getItem('gestor-sidebar-collapsed');
-    return saved === 'true';
-  });
+  const [sidebarCollapsed, setSidebarCollapsed] = useLocalStorage('gestor-sidebar-collapsed', false);
   const [onlyNew, setOnlyNew] = useState(false);
   const [printQueue, setPrintQueue] = useState([]);
   const [quickStatusKey, setQuickStatusKey] = useState(null);
@@ -434,11 +432,7 @@ export default function GestorPedidos() {
 
   const handleLogout = () => base44.auth.logout();
 
-  const toggleSidebar = () => {
-    const newState = !sidebarCollapsed;
-    setSidebarCollapsed(newState);
-    localStorage.setItem('gestor-sidebar-collapsed', newState.toString());
-  };
+  const toggleSidebar = () => setSidebarCollapsed(prev => !prev);
 
   if (permLoading) {
     return <GestorLoading />;

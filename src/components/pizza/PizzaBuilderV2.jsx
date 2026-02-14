@@ -19,10 +19,7 @@ import {
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-
-const formatCurrency = (value) => {
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
-};
+import { formatCurrency } from '@/utils/formatters';
 
 // Imagem da borda: coloque sua borda realista em public/images/pizza-borda.png
 const LOCAL_EDGE_IMAGE = '/images/pizza-borda.png';

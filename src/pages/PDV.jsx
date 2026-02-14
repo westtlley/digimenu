@@ -23,6 +23,7 @@ import { useUpsell } from '../components/hooks/useUpsell';
 import { usePDVHotkeys } from '../utils/pdvFunctions';
 import InstallAppButton from '../components/InstallAppButton';
 import FechamentoCaixaModal from '../components/pdv/FechamentoCaixaModal';
+import { formatCurrency } from '@/utils/formatters';
 
 export default function PDV() {
   const [user, setUser] = useState(null);
@@ -709,10 +710,6 @@ export default function PDV() {
     `);
     printWindow.document.close();
     printWindow.print();
-  };
-
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
   };
 
   return (

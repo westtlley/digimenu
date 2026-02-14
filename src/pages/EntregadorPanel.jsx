@@ -5,6 +5,7 @@ import { Package, MapPin, CheckCircle, Truck, ArrowLeft, User, Phone } from 'luc
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import UserAuthButton from '../components/atoms/UserAuthButton';
+import { formatCurrency } from '@/utils/formatters';
 
 export default function EntregadorPanel() {
   const [entregador, setEntregador] = useState(null);
@@ -47,10 +48,6 @@ export default function EntregadorPanel() {
       loadEntregador();
     }
   });
-
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
-  };
 
   const handleAcceptDelivery = (order) => {
     if (!entregador) return;

@@ -2,6 +2,8 @@ import React from 'react';
 import { Badge } from "@/components/ui/badge";
 import { Star, TrendingUp } from 'lucide-react';
 
+import { formatCurrency } from '@/utils/formatters';
+
 export default function PopularCombinations({ pizza, onSelectCombination }) {
   const combinations = pizza?.pizza_config?.popular_combinations || [];
   const flavors = pizza?.pizza_config?.flavors || [];
@@ -9,10 +11,6 @@ export default function PopularCombinations({ pizza, onSelectCombination }) {
   if (combinations.length === 0) return null;
 
   const topCombinations = combinations.slice(0, 3);
-
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
-  };
 
   return (
     <div className="mb-6">

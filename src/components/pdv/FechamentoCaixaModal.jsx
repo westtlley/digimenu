@@ -2,9 +2,7 @@ import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Printer, Lock, LogOut } from 'lucide-react';
-
-const formatCurrency = (value) =>
-  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
+import { formatCurrency } from '@/utils/formatters';
 
 /**
  * Modal de Fechamento de Caixa – modelo igual aos prints (relatório + formas de pagamento + adicionais).

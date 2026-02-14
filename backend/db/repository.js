@@ -478,15 +478,17 @@ export async function getUserByEmail(email) {
 
 /**
  * Retorna o usuário a usar no login quando há múltiplos registros com o mesmo email.
- * Prioriza a linha de colaborador (profile_role preenchido) para que o front redirecione
- * gerente/colaborador para /colaborador em vez do painel do assinante.
+ * Prioriza: 1) master (is_master=true) para garantir acesso Admin/Assinantes; 2) colaborador (profile_role).
  */
 export async function getLoginUserByEmail(email) {
   if (!email) return null;
   const emailLower = email.toLowerCase().trim();
   const result = await query(
     `SELECT * FROM users WHERE LOWER(TRIM(email)) = $1
-     ORDER BY (CASE WHEN profile_role IS NOT NULL AND profile_role != '' THEN 0 ELSE 1 END), id
+     ORDER BY
+       (CASE WHEN is_master = TRUE THEN 0 ELSE 1 END),
+       (CASE WHEN profile_role IS NOT NULL AND profile_role != '' THEN 0 ELSE 1 END),
+       id
      LIMIT 1`,
     [emailLower]
   );
@@ -676,8 +678,62 @@ export async function deleteColaborador(id, ownerEmail) {
 // SUBSCRIBERS
 // =======================
 
-export async function listSubscribers() {
-  const result = await query('SELECT * FROM subscribers ORDER BY created_at DESC');
+/**
+ * Lista assinantes com paginação opcional.
+ * @param {Object} options - { page, limit, orderBy, orderDir }
+ * @returns {Array|Object} - Sem options: array de rows. Com page/limit: { data, pagination }.
+ */
+export async function listSubscribers(options = {}) {
+  const page = Math.max(1, parseInt(options.page, 10) || 1);
+  const limit = Math.min(100, Math.max(10, parseInt(options.limit, 10) || 50));
+  const orderBy = options.orderBy || 'created_at';
+  const orderDir = (options.orderDir || 'DESC').toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+  const usePagination = options.page != null || options.limit != null;
+
+  const orderCol = ['created_at', 'updated_at', 'email', 'name', 'plan', 'status'].includes(orderBy)
+    ? orderBy
+    : 'created_at';
+
+  let dataRows;
+  let total = 0;
+
+  if (usePagination) {
+    const countResult = await query('SELECT COUNT(*)::int as total FROM subscribers');
+    total = countResult.rows[0]?.total ?? 0;
+    const offset = (page - 1) * limit;
+
+    const result = await query(
+      `
+      SELECT id, email, name, plan, status, slug, created_at, updated_at,
+             password_token, token_expires_at, has_password, linked_user_email,
+             phone, cnpj_cpf, notes, origem, tags, permissions, expires_at, whatsapp_auto_enabled
+      FROM subscribers 
+      ORDER BY ${orderCol} ${orderDir}
+      LIMIT $1 OFFSET $2
+      `,
+      [limit, offset]
+    );
+    dataRows = result.rows;
+
+    return {
+      data: dataRows,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit) || 1
+      }
+    };
+  }
+
+  const result = await query(`
+    SELECT id, email, name, plan, status, slug, created_at, updated_at,
+           password_token, token_expires_at, has_password, linked_user_email,
+           phone, cnpj_cpf, notes, origem, tags, permissions, expires_at, whatsapp_auto_enabled
+    FROM subscribers 
+    ORDER BY ${orderCol} ${orderDir}
+    LIMIT 1000
+  `);
   return result.rows;
 }
 

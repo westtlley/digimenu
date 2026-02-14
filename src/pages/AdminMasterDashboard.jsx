@@ -23,6 +23,7 @@ import UserAuthButton from '../components/atoms/UserAuthButton';
 import ThemeToggle from '../components/ui/ThemeToggle';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
+import { formatCurrency } from '@/utils/formatters';
 
 export default function AdminMasterDashboard() {
   const [user, setUser] = useState(null);
@@ -90,14 +91,6 @@ export default function AdminMasterDashboard() {
   if (!user?.is_master) {
     return null;
   }
-
-  const formatCurrency = (value) => {
-    if (typeof value !== 'number' || isNaN(value)) return 'R$ 0,00';
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(value);
-  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-orange-50/20">

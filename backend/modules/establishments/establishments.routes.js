@@ -21,7 +21,5 @@ router.post('/delete-subscriber-by-slug', authenticate, requireMaster, establish
 // Rotas de funções customizadas relacionadas a planos
 router.post('/functions/getPlanInfo', authenticate, establishmentsController.getPlanInfo);
 router.post('/functions/getAvailablePlans', authenticate, establishmentsController.getAvailablePlans);
-router.post('/functions/getSubscribers', authenticate, requireMaster, establishmentsController.listSubscribers);
-router.post('/functions/createSubscriber', authenticate, requireMaster, establishmentsController.createSubscriber);
 
 export default router;

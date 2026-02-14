@@ -1,42 +1,43 @@
+import React, { Suspense, lazy } from 'react';
 import Layout from "./Layout.jsx";
-import Assinantes from "./Assinantes";
-import AdminMasterDashboard from "./AdminMasterDashboard";
-import Assinar from "./Assinar";
-import Cadastro from "./Cadastro";
-import Login from "./Login";
-import LoginCliente from "./auth/LoginCliente";
-import LoginAssinante from "./auth/LoginAssinante";
-import LoginAdmin from "./auth/LoginAdmin";
-import LoginColaborador from "./auth/LoginColaborador";
-import LoginBySlug from "./auth/LoginBySlug";
-import ColaboradorHome from "./ColaboradorHome";
-import GoogleCallback from "./auth/GoogleCallback";
-import CadastroCliente from "./CadastroCliente";
-import DefinirSenha from "./DefinirSenha";
-import EsqueciSenha from "./EsqueciSenha";
-import RedefinirSenha from "./RedefinirSenha";
-import Ajuda from "./Ajuda";
-import Entregador from "./Entregador";
-import EntregadorPanel from "./EntregadorPanel";
-import GestorPedidos from "./GestorPedidos";
-import Home from "./Home";
-import MeusPedidos from "./MeusPedidos";
-import PDV from "./PDV";
-import Cozinha from "./Cozinha";
-import Garcom from "./Garcom";
-import PainelAssinante from "./PainelAssinante";
-import PainelGerente from "./PainelGerente";
-import RastreioCliente from "./RastreioCliente";
-import TrackOrder from "./TrackOrder";
-import Cardapio from "./Cardapio";
-import Admin from "./Admin";
-import TableOrder from "./TableOrder";
-import PagamentoSucesso from "./pagamento/PagamentoSucesso";
-import PagamentoFalha from "./pagamento/PagamentoFalha";
-import PagamentoPendente from "./pagamento/PagamentoPendente";
 import ProtectedRoute from "../components/auth/ProtectedRoute";
 import SmartRedirect from "../components/auth/SmartRedirect";
+import { LoadingPage } from "../components/shared/LoadingState";
 import { BrowserRouter as Router, Route, Routes, useLocation, Navigate } from 'react-router-dom';
+
+const Assinantes = lazy(() => import("./Assinantes"));
+const AdminMasterDashboard = lazy(() => import("./AdminMasterDashboard"));
+const Assinar = lazy(() => import("./Assinar"));
+const Cadastro = lazy(() => import("./Cadastro"));
+const Login = lazy(() => import("./Login"));
+const LoginAdmin = lazy(() => import("./auth/LoginAdmin"));
+const LoginBySlug = lazy(() => import("./auth/LoginBySlug"));
+const ColaboradorHome = lazy(() => import("./ColaboradorHome"));
+const GoogleCallback = lazy(() => import("./auth/GoogleCallback"));
+const CadastroCliente = lazy(() => import("./CadastroCliente"));
+const DefinirSenha = lazy(() => import("./DefinirSenha"));
+const EsqueciSenha = lazy(() => import("./EsqueciSenha"));
+const RedefinirSenha = lazy(() => import("./RedefinirSenha"));
+const Ajuda = lazy(() => import("./Ajuda"));
+const Entregador = lazy(() => import("./Entregador"));
+const EntregadorPanel = lazy(() => import("./EntregadorPanel"));
+const GestorPedidos = lazy(() => import("./GestorPedidos"));
+const Home = lazy(() => import("./Home"));
+const MeusPedidos = lazy(() => import("./MeusPedidos"));
+const PDV = lazy(() => import("./PDV"));
+const Cozinha = lazy(() => import("./Cozinha"));
+const Garcom = lazy(() => import("./Garcom"));
+const PainelAssinante = lazy(() => import("./PainelAssinante"));
+const PainelGerente = lazy(() => import("./PainelGerente"));
+const RastreioCliente = lazy(() => import("./RastreioCliente"));
+const TrackOrder = lazy(() => import("./TrackOrder"));
+const Cardapio = lazy(() => import("./Cardapio"));
+const Admin = lazy(() => import("./Admin"));
+const TableOrder = lazy(() => import("./TableOrder"));
+const PagamentoSucesso = lazy(() => import("./pagamento/PagamentoSucesso"));
+const PagamentoFalha = lazy(() => import("./pagamento/PagamentoFalha"));
+const PagamentoPendente = lazy(() => import("./pagamento/PagamentoPendente"));
+
 
 const PAGES = {
     
@@ -96,6 +97,7 @@ function PagesContent() {
     
     return (
         <Layout currentPageName={currentPage}>
+            <Suspense fallback={<LoadingPage />}>
             <Routes>
                 {/* Link único por assinante: /s/meu-restaurante — cardápio público sem login */}
                 {/* Páginas do assinante sob o link: /s/raiz-maranhense/GestorPedidos, etc. */}
@@ -177,6 +179,7 @@ function PagesContent() {
                 <Route path="/pagamento/pendente" element={<PagamentoPendente />} />
                 
             </Routes>
+            </Suspense>
         </Layout>
     );
 }

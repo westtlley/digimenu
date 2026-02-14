@@ -6,10 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Check, ChevronRight, X, ChevronDown, ChevronUp } from 'lucide-react';
 import PizzaVisualization from './PizzaVisualization';
 import PizzaVisualizationPremium from './PizzaVisualizationPremium';
-
-const formatCurrency = (value) => {
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
-};
+import { formatCurrency } from '@/utils/formatters';
 
 export default function PizzaBuilderMobile({
   dish,

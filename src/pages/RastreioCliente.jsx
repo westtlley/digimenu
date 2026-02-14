@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import DeliveryProgress from '../components/delivery/DeliveryProgress';
 import DeliveryStatusCard from '../components/delivery/DeliveryStatusCard';
+import { formatCurrency } from '@/utils/formatters';
 
 /**
  * Página de rastreamento para o cliente
@@ -75,13 +76,6 @@ export default function RastreioCliente() {
     const interval = setInterval(fetchETA, 30000);
     return () => clearInterval(interval);
   }, [order, entregador]);
-
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat('pt-BR', { 
-      style: 'currency', 
-      currency: 'BRL' 
-    }).format(value || 0);
-  };
 
   if (isLoading) {
     return (

@@ -45,6 +45,10 @@ CREATE INDEX IF NOT EXISTS idx_entities_order
 ON entities((data->>'order')) 
 WHERE (data->>'order') IS NOT NULL;
 
+-- Índice para ordenação de subscribers por data de criação
+CREATE INDEX IF NOT EXISTS idx_subscribers_created_at 
+ON subscribers(created_at DESC);
+
 -- Índice composto para queries de pedidos por assinante e status
 CREATE INDEX IF NOT EXISTS idx_orders_subscriber_status 
 ON entities(subscriber_email, (data->>'status'), created_at DESC) 

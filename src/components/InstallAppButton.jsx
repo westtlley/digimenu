@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Download, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useLocalStorage } from '@/hooks/useLocalStorage';
 
 const STORAGE_KEY = 'digimenu_install_dismissed';
 const DISMISS_DAYS = 7;
@@ -44,22 +45,13 @@ export function useInstallPrompt() {
 
 export default function InstallAppButton({ pageName = 'App', compact = false }) {
   const { deferredPrompt, isInstalled, isSupported, install } = useInstallPrompt();
-  const [dismissed, setDismissed] = useState(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (!saved) return false;
-      const { until } = JSON.parse(saved);
-      return until && Date.now() < until;
-    } catch {
-      return false;
-    }
-  });
+  const [dismissedData, setDismissedData] = useLocalStorage(STORAGE_KEY, null);
+  const dismissed = dismissedData?.until && Date.now() < dismissedData.until;
 
   const handleDismiss = () => {
-    setDismissed(true);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+    setDismissedData({
       until: Date.now() + DISMISS_DAYS * 24 * 60 * 60 * 1000
-    }));
+    });
   };
 
   if (!isSupported || isInstalled || dismissed || !deferredPrompt) return null;

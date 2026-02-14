@@ -27,7 +27,9 @@ import {
   BarChart3,
   Phone,
   Building2,
-  Tag
+  Tag,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -127,8 +129,33 @@ export default function Assinantes() {
   const [subscriberToDelete, setSubscriberToDelete] = useState(null);
   const [showPlanCards, setShowPlanCards] = useState(false); // Toggle para mostrar cards visuais
   const [loadingStuck, setLoadingStuck] = useState(false); // Fallback: loading passou de 18s
+  const [serverWarming, setServerWarming] = useState(true); // Servidor está aquecendo
+  const [page, setPage] = useState(1);
+  const [limit] = useState(50);
 
   const queryClient = useQueryClient();
+
+  // Warmup do servidor antes de buscar assinantes
+  useEffect(() => {
+    const warmupServer = async () => {
+      try {
+        logger.log('🔥 Aquecendo servidor...');
+        // Usar baseURL do apiClient para compatibilidade multi-ambiente
+        const baseURL = import.meta.env.VITE_API_BASE_URL || 'https://digimenu-backend-3m6t.onrender.com/api';
+        const warmupURL = baseURL.replace('/api', ''); // Rota raiz
+        await fetch(warmupURL, {
+          method: 'GET',
+          signal: AbortSignal.timeout(60000) // 60s para warmup
+        });
+        logger.log('✅ Servidor aquecido!');
+        setServerWarming(false);
+      } catch (e) {
+        logger.warn('⚠️ Warmup falhou, mas continuando...', e.message);
+        setServerWarming(false);
+      }
+    };
+    warmupServer();
+  }, []);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -148,20 +175,54 @@ export default function Assinantes() {
     loadUser();
   }, []);
 
-  const { data: subscribers = [], isLoading: subscribersLoading, isError: subscribersError, error: subscribersErrorDetails, refetch: refetchSubscribers } = useQuery({
-    queryKey: ['subscribers'],
-    queryFn: async () => {
+  const { data: subscribersResult, isLoading: subscribersLoading, isError: subscribersError, error: subscribersErrorDetails, refetch: refetchSubscribers } = useQuery({
+    queryKey: ['subscribers', page, limit],
+    queryFn: async ({ signal: querySignal }) => {
       logger.log('🔄 Buscando assinantes...');
+      
+      const fetchWithTimeout = async (timeoutMs = 45000) => {
+        const controller = new AbortController();
+        let timeoutId;
+        
+        // Conectar o signal do React Query ao nosso controller
+        if (querySignal) {
+          querySignal.addEventListener('abort', () => {
+            if (timeoutId) clearTimeout(timeoutId);
+            controller.abort();
+          }, { once: true });
+        }
+
+        timeoutId = setTimeout(() => {
+          logger.warn(`⏱️ Timeout de ${timeoutMs/1000}s atingido`);
+          controller.abort();
+        }, timeoutMs);
+
+        try {
+          logger.log(`📡 Iniciando requisição (timeout: ${timeoutMs/1000}s)...`);
+          const response = await base44.get('/establishments/subscribers', { page, limit }, { signal: controller.signal });
+          clearTimeout(timeoutId);
+          logger.log('✅ Resposta recebida com sucesso!');
+          return response;
+        } catch (error) {
+          clearTimeout(timeoutId);
+          logger.error('❌ Erro na requisição:', error.name, error.message);
+          throw error;
+        }
+      };
+
       try {
-        const response = await base44.get('/establishments/subscribers');
+        // Timeout único de 60s (suficiente após warmup)
+        const response = await fetchWithTimeout(60000);
 
         if (response == null || (typeof response === 'object' && response.data === undefined && !Array.isArray(response) && !response.subscribers)) {
           throw new Error('Resposta inválida do servidor (sem data). Tente novamente.');
         }
 
         let subscribersList = [];
+        let pagination = null;
         if (response?.data?.subscribers) {
           subscribersList = response.data.subscribers;
+          pagination = response.data.pagination ?? null;
         } else if (response?.data && Array.isArray(response.data)) {
           subscribersList = response.data;
         } else if (Array.isArray(response)) {
@@ -170,6 +231,7 @@ export default function Assinantes() {
           throw new Error(response.data.error);
         } else if (response?.subscribers) {
           subscribersList = response.subscribers;
+          pagination = response.pagination ?? null;
         } else {
           const keys = response ? Object.keys(response) : [];
           logger.warn('⚠️ Formato de resposta inesperado:', { keys, hasData: !!response?.data });
@@ -179,7 +241,7 @@ export default function Assinantes() {
           subscribersList = [];
         }
         
-        logger.log('📋 Assinantes retornados:', subscribersList.length);
+        logger.log('📋 Assinantes retornados:', subscribersList.length, pagination ? `(página ${pagination.page}/${pagination.totalPages})` : '');
         
         const tokensMap = {};
         subscribersList.forEach(sub => {
@@ -193,26 +255,39 @@ export default function Assinantes() {
         });
         setPasswordTokens(tokensMap);
         
-        return subscribersList;
+        return { subscribers: subscribersList, pagination };
       } catch (error) {
         logger.error('❌ Erro ao buscar assinantes:', error);
+        if (error?.name === 'AbortError') {
+          throw new Error('Servidor não respondeu em 60 segundos. Tente novamente.');
+        }
         throw error;
       }
     },
-    enabled: !!user?.is_master,
+    enabled: !!user?.is_master && !serverWarming, // Só buscar após warmup
     refetchOnWindowFocus: false,
     refetchOnMount: true,
-    retry: 0,
-    refetchInterval: false
+    retry: 0, // Sem retry automático para evitar múltiplas chamadas
+    refetchInterval: false,
+    staleTime: 30000 // Considera dados válidos por 30s
   });
 
-  // Fallback: se loading passar de 15s, mostrar "Tentar novamente" (cold start Render)
+  const subscribers = useMemo(() => {
+    const r = subscribersResult;
+    if (!r) return [];
+    if (Array.isArray(r)) return r;
+    return r.subscribers ?? [];
+  }, [subscribersResult]);
+
+  const pagination = subscribersResult?.pagination ?? null;
+
+  // Fallback: se loading passar de 40s, mostrar "Tentar novamente"
   useEffect(() => {
     if (!subscribersLoading) {
       setLoadingStuck(false);
       return;
     }
-    const t = setTimeout(() => setLoadingStuck(true), 15000);
+    const t = setTimeout(() => setLoadingStuck(true), 40000);
     return () => clearTimeout(t);
   }, [subscribersLoading]);
 
@@ -251,13 +326,9 @@ export default function Assinantes() {
   const createMutation = useMutation({
     // Optimistic Update: Atualiza UI imediatamente antes da resposta do servidor
     onMutate: async (newSubscriberData) => {
-      // Cancelar queries em andamento
+      const qk = ['subscribers', page, limit];
       await queryClient.cancelQueries({ queryKey: ['subscribers'] });
-      
-      // Snapshot do estado anterior
-      const previousSubscribers = queryClient.getQueryData(['subscribers']);
-      
-      // Criar assinante temporário otimista
+      const prev = queryClient.getQueryData(qk);
       const optimisticSubscriber = {
         id: `temp-${Date.now()}`,
         ...newSubscriberData,
@@ -266,11 +337,12 @@ export default function Assinantes() {
         updated_at: new Date().toISOString(),
         _optimistic: true
       };
-      
-      // Atualizar cache otimisticamente
-      queryClient.setQueryData(['subscribers'], (old = []) => [...old, optimisticSubscriber]);
-      
-      return { previousSubscribers };
+      queryClient.setQueryData(qk, (old) => {
+        const list = Array.isArray(old) ? old : (old?.subscribers ?? []);
+        const next = { subscribers: [...list, optimisticSubscriber], pagination: old?.pagination ?? null };
+        return next;
+      });
+      return { previousData: prev };
     },
     mutationFn: async (data) => {
       logger.log('📤 [FRONTEND] Enviando dados para criar assinante:', JSON.stringify(data, null, 2));
@@ -363,14 +435,10 @@ export default function Assinantes() {
       
       toast.success(setupUrl ? 'Assinante criado! Link copiado.' : 'Assinante criado com sucesso!');
       setSetupLinkModal({ open: true, url: setupUrl, name: data.name || data.email });
-      
-      queryClient.invalidateQueries({ queryKey: ['subscribers'] });
-      setTimeout(() => refetchSubscribers().catch(() => {}), 500);
     },
     onError: (error, newSubscriberData, context) => {
-      // Rollback: reverter para estado anterior em caso de erro
-      if (context?.previousSubscribers) {
-        queryClient.setQueryData(['subscribers'], context.previousSubscribers);
+      if (context?.previousData != null) {
+        queryClient.setQueryData(['subscribers', page, limit], context.previousData);
       }
       
       logger.error('❌ Erro completo ao criar assinante:', error);
@@ -378,23 +446,21 @@ export default function Assinantes() {
       toast.error(`Erro ao adicionar assinante: ${errorMessage}`);
     },
     onSettled: () => {
-      // Invalidar queries após sucesso ou erro para sincronizar com servidor
       queryClient.invalidateQueries({ queryKey: ['subscribers'] });
     }
   });
 
   const updateMutation = useMutation({
-    // Optimistic Update para edição
     onMutate: async ({ id, data }) => {
+      const qk = ['subscribers', page, limit];
       await queryClient.cancelQueries({ queryKey: ['subscribers'] });
-      const previousSubscribers = queryClient.getQueryData(['subscribers']);
-      
-      // Atualizar otimisticamente
-      queryClient.setQueryData(['subscribers'], (old = []) =>
-        old.map(sub => sub.id === id ? { ...sub, ...data, _optimistic: true } : sub)
-      );
-      
-      return { previousSubscribers };
+      const prev = queryClient.getQueryData(qk);
+      queryClient.setQueryData(qk, (old) => {
+        const list = Array.isArray(old) ? old : (old?.subscribers ?? []);
+        const next = list.map(sub => sub.id === id ? { ...sub, ...data, _optimistic: true } : sub);
+        return { subscribers: next, pagination: old?.pagination ?? null };
+      });
+      return { previousData: prev };
     },
     mutationFn: async ({ id, data, originalData }) => {
       const response = await base44.functions.invoke('updateSubscriber', { id, data, originalData });
@@ -405,9 +471,8 @@ export default function Assinantes() {
       return response.data?.subscriber ?? response.data;
     },
     onError: (error, variables, context) => {
-      // Rollback em caso de erro
-      if (context?.previousSubscribers) {
-        queryClient.setQueryData(['subscribers'], context.previousSubscribers);
+      if (context?.previousData != null) {
+        queryClient.setQueryData(['subscribers', page, limit], context.previousData);
       }
       const errorMessage = error?.message || error?.toString() || 'Erro ao atualizar assinante';
       toast.error(errorMessage);
@@ -418,17 +483,16 @@ export default function Assinantes() {
   });
 
   const deleteMutation = useMutation({
-    // Optimistic Update para exclusão
     onMutate: async (id) => {
+      const qk = ['subscribers', page, limit];
       await queryClient.cancelQueries({ queryKey: ['subscribers'] });
-      const previousSubscribers = queryClient.getQueryData(['subscribers']);
-      
-      // Remover otimisticamente
-      queryClient.setQueryData(['subscribers'], (old = []) =>
-        old.filter(sub => sub.id !== id)
-      );
-      
-      return { previousSubscribers };
+      const prev = queryClient.getQueryData(qk);
+      queryClient.setQueryData(qk, (old) => {
+        const list = Array.isArray(old) ? old : (old?.subscribers ?? []);
+        const next = list.filter(sub => sub.id !== id);
+        return { subscribers: next, pagination: old?.pagination ?? null };
+      });
+      return { previousData: prev };
     },
     mutationFn: async (id) => {
       const response = await base44.functions.invoke('deleteSubscriber', { id });
@@ -438,9 +502,8 @@ export default function Assinantes() {
       return response.data;
     },
     onError: (error, id, context) => {
-      // Rollback em caso de erro
-      if (context?.previousSubscribers) {
-        queryClient.setQueryData(['subscribers'], context.previousSubscribers);
+      if (context?.previousData != null) {
+        queryClient.setQueryData(['subscribers', page, limit], context.previousData);
       }
       toast.error('Erro ao excluir assinante');
     },
@@ -480,19 +543,6 @@ export default function Assinantes() {
         ...prev,
         [key]: tokenInfo
       }));
-      
-      // Invalidar e refetch imediatamente
-      queryClient.invalidateQueries({ queryKey: ['subscribers'] });
-      
-      // Refetch após um pequeno delay para garantir
-      setTimeout(async () => {
-        try {
-          await refetchSubscribers();
-          logger.log('🔄 Lista de assinantes atualizada após gerar token');
-        } catch (error) {
-          logger.error('❌ Erro ao refetch após gerar token:', error);
-        }
-      }, 300);
       
       // Se tiver setup_url, copiar automaticamente e mostrar
       const setupUrl = data.setup_url || data.data?.setup_url;
@@ -810,7 +860,7 @@ export default function Assinantes() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Link to={createPageUrl('Admin')}>
-                <Button variant="ghost" size="icon" className="text-white hover:bg-white/10">
+                <Button variant="ghost" size="icon" className="text-white hover:bg-white/10" aria-label="Voltar para Admin">
                   <ArrowLeft className="w-5 h-5" />
                 </Button>
               </Link>
@@ -914,6 +964,7 @@ export default function Assinantes() {
                 placeholder="Buscar por email ou nome..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                aria-label="Buscar assinantes por email ou nome"
                 className="pl-11 h-11 border-gray-300 focus:border-orange-500 focus:ring-orange-500 transition-all duration-200"
               />
             </motion.div>
@@ -1042,27 +1093,40 @@ export default function Assinantes() {
             <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
               <p className="text-red-600 font-medium mb-2">Erro ao carregar assinantes</p>
               <p className="text-gray-500 text-sm mb-4 max-w-md">
-                {subscribersErrorDetails?.response?.data?.message ?? subscribersErrorDetails?.message ?? 'Verifique sua conexão ou tente novamente em instantes.'}
+                {(() => {
+                  const msg = String(subscribersErrorDetails?.message ?? '');
+                  const is403 = msg.includes('Acesso negado') || msg.includes('MASTER_ONLY') || msg.includes('administradores master');
+                  return is403
+                    ? 'Acesso negado. Verifique se sua conta possui permissão de Admin Master.'
+                    : (msg || 'Verifique sua conexão ou tente novamente em instantes.');
+                })()}
               </p>
               <Button onClick={() => refetchSubscribers()} variant="outline" className="gap-2">
                 <RefreshCw className="w-4 h-4" />
                 Tentar novamente
               </Button>
             </div>
+          ) : serverWarming ? (
+            <div className="flex flex-col items-center justify-center py-16 px-4">
+              <Loader2 className="w-12 h-12 text-blue-500 animate-spin mb-4" />
+              <p className="text-blue-600 font-medium">Iniciando servidor...</p>
+              <p className="text-gray-400 text-sm mt-2">Aguarde, isso pode levar até 60 segundos na primeira vez</p>
+            </div>
           ) : subscribersLoading && loadingStuck ? (
             <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
-              <p className="text-amber-700 font-medium mb-2">Carregando demorou mais do que o esperado</p>
-              <p className="text-gray-500 text-sm mb-4">O servidor pode estar lento ou indisponível.</p>
+              <Loader2 className="w-12 h-12 text-orange-500 animate-spin mb-4" />
+              <p className="text-amber-700 font-medium mb-2">Aguardando resposta do servidor...</p>
+              <p className="text-gray-500 text-sm mb-4">O servidor está iniciando (cold start). Aguarde ou clique abaixo.</p>
               <Button onClick={() => { setLoadingStuck(false); refetchSubscribers(); }} variant="outline" className="gap-2">
                 <RefreshCw className="w-4 h-4" />
                 Tentar novamente
               </Button>
             </div>
           ) : subscribersLoading ? (
-            <div className="divide-y divide-gray-100">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <SkeletonCard key={i} />
-              ))}
+            <div className="flex flex-col items-center justify-center py-16 px-4">
+              <Loader2 className="w-12 h-12 text-orange-500 animate-spin mb-4" />
+              <p className="text-gray-600">Carregando assinantes...</p>
+              <p className="text-gray-400 text-sm mt-2">Aguarde até 60 segundos</p>
             </div>
           ) : filteredSubscribers.length === 0 ? (
             <EmptyState
@@ -1076,6 +1140,7 @@ export default function Assinantes() {
               actionLabel="Adicionar Assinante"
             />
           ) : (
+            <>
             <div className="divide-y divide-gray-100">
               {filteredSubscribers.map((subscriber, index) => {
                 const isSelected = selectedSubscriberIds.has(subscriber.id);
@@ -1203,6 +1268,7 @@ export default function Assinantes() {
                         </div>
                       </div>
                     </div>
+                    </div>
                     
                     <div className="flex items-center gap-2">
                       <Badge className={cn(
@@ -1216,7 +1282,7 @@ export default function Assinantes() {
 
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Menu de opções">
                             <MoreVertical className="w-4 h-4" />
                           </Button>
                         </DropdownMenuTrigger>
@@ -1277,6 +1343,7 @@ export default function Assinantes() {
                           <DropdownMenuItem 
                             onClick={() => setSubscriberToDelete(subscriber)}
                             className="text-red-600"
+                            aria-label={`Excluir assinante ${subscriber.name || subscriber.email}`}
                           >
                             <Trash2 className="w-4 h-4 mr-2" />
                             Excluir
@@ -1284,12 +1351,41 @@ export default function Assinantes() {
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
-                    </div>
                   </div>
                   </motion.div>
                 );
               })}
             </div>
+            {pagination && pagination.totalPages > 1 && (
+              <div className="flex items-center justify-between px-5 py-4 border-t border-gray-200 bg-gray-50/50">
+                <p className="text-sm text-gray-600">
+                  Página {pagination.page} de {pagination.totalPages} ({pagination.total} assinantes)
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                    disabled={pagination.page <= 1 || subscribersLoading}
+                    aria-label="Página anterior"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                    Anterior
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage(p => Math.min(pagination.totalPages, p + 1))}
+                    disabled={pagination.page >= pagination.totalPages || subscribersLoading}
+                    aria-label="Próxima página"
+                  >
+                    Próxima
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+            </>
           )}
         </div>
       </div>

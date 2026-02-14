@@ -2,13 +2,10 @@ import React from 'react';
 import { Badge } from "@/components/ui/badge";
 import { Zap, Percent, Truck } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { formatCurrency } from '@/utils/formatters';
 
 export default function PromotionBanner({ promotions = [], dishes = [], primaryColor, onSelectPromotion, store }) {
   if (promotions.length === 0) return null;
-
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
-  };
 
   // Verificar se há promoção de entrega grátis
   const hasFreeDelivery = store?.free_delivery_threshold && store.free_delivery_threshold > 0;

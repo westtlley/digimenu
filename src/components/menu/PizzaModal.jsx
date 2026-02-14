@@ -9,6 +9,7 @@ import PizzaVisualizer from './PizzaVisualizer';
 import PizzaVisualization from '@/components/pizza/PizzaVisualization';
 import PizzaCustomization from './PizzaCustomization';
 import PopularCombinations from './PopularCombinations';
+import { formatCurrency } from '@/utils/formatters';
 
 const STEPS = ['size', 'flavors', 'extras', 'review'];
 
@@ -181,10 +182,6 @@ export default function PizzaModal({ isOpen, onClose, pizza, onAddToCart, primar
 
     onAddToCart(item, editingItemId !== null);
     onClose();
-  };
-
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
   };
 
   const FlavorBadges = ({ flavor }) => (

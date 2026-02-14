@@ -38,14 +38,7 @@ import EmptyState from '../atoms/EmptyState';
 import { useManagerialAuth } from '@/hooks/useManagerialAuth';
 import DishesSkeleton from '../skeletons/DishesSkeleton';
 import { uploadToCloudinary } from '@/utils/cloudinaryUpload';
-
-// ========= HELPERS =========
-const formatCurrency = (value) => {
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL'
-  }).format(value || 0);
-};
+import { formatCurrency } from '@/utils/formatters';
 
 // ========= DishRow (extraído para evitar erro de parser no build) =========
 export function DishRow({ dish, complementGroups, expanded, onToggleExpand, onEdit, onDelete, onDuplicate, onUpdate, onToggleOption, onUpdateOptionName, onUpdateOptionImage, onUpdateOptionPrice, onRemoveOption, onAddOption, onAddGroup, onReuseGroup, onRemoveGroup, onOpenReuseModal, allComplementGroups, allDishes, onEditGroup, getGroupUsageInfo, formatCurrency, updateDishMutation, updateComplementGroupMutation, createComplementGroupMutation, isSelected, onToggleSelection, canEdit, canCreate, canDelete, setBulkEditGroup, setShowBulkEditModal }) {

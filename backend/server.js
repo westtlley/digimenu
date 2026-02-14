@@ -106,8 +106,8 @@ setupHelmet(app);
 // ✅ COMPRESSÃO DE RESPOSTAS (reduz tamanho em ~70%)
 app.use(compressionMiddleware);
 
-// ✅ CORS: cb(null, false) em vez de Error (evita crash/pending no browser)
-app.use(cors({
+// ✅ CORS: preflight consistente (mesmo config para use e options)
+const corsOptions = {
   origin: (origin, cb) => {
     if (!origin) return cb(null, true);
     if (allowedOrigins.has(origin)) return cb(null, true);
@@ -119,8 +119,9 @@ app.use(cors({
   exposedHeaders: ['Authorization'],
   credentials: false,
   optionsSuccessStatus: 204
-}));
-app.options('*', cors());
+};
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
@@ -585,12 +586,22 @@ app.use('/api/users', usersRoutes);
 // =======================
 // 🏪 ESTABLISHMENTS MODULE
 // =======================
-// Registrar rotas do módulo de estabelecimentos
+// Registrar rotas do módulo de estabelecimentos (incluindo GET /subscribers com requireMaster)
 app.use('/api/establishments', establishmentsRoutes);
 // Alias para compatibilidade
 app.use('/api/subscribers', establishmentsRoutes);
-// Alias GET /api/admin/subscribers para listagem de assinantes (Admin Master)
-app.get('/api/admin/subscribers', authenticate, requireMaster, establishmentsController.listSubscribers);
+
+// Diagnóstico: qual usuário está associado ao token (apenas dev ou DEBUG_ME_ENABLED)
+app.get('/api/debug/me', authenticate, (req, res) => {
+  const enabled = process.env.NODE_ENV !== 'production' || process.env.DEBUG_ME_ENABLED === 'true';
+  if (!enabled) return res.status(404).json({ error: 'Not found' });
+  res.json({
+    email: req.user?.email,
+    is_master: req.user?.is_master,
+    profile_role: req.user?.profile_role,
+    source: 'authenticate'
+  });
+});
 
 // =======================
 // 📦 ENTITIES + MANAGERIAL-AUTH (registrar antes de menus/orders para evitar 404)
