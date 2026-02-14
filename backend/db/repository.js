@@ -684,6 +684,7 @@ export async function deleteColaborador(id, ownerEmail) {
  * @returns {Array|Object} - Sem options: array de rows. Com page/limit: { data, pagination }.
  */
 export async function listSubscribers(options = {}) {
+  console.log('🔍 [repository.listSubscribers] Iniciando query no PostgreSQL...');
   const page = Math.max(1, parseInt(options.page, 10) || 1);
   const limit = Math.min(100, Math.max(10, parseInt(options.limit, 10) || 50));
   const orderBy = options.orderBy || 'created_at';
@@ -694,14 +695,20 @@ export async function listSubscribers(options = {}) {
     ? orderBy
     : 'created_at';
 
+  console.log('🔍 [repository.listSubscribers] usePagination:', usePagination, 'page:', page, 'limit:', limit);
+
   let dataRows;
   let total = 0;
 
   if (usePagination) {
+    console.log('🔍 [repository.listSubscribers] Executando COUNT...');
     const countResult = await query('SELECT COUNT(*)::int as total FROM subscribers');
     total = countResult.rows[0]?.total ?? 0;
+    console.log('✅ [repository.listSubscribers] Total de assinantes:', total);
+    
     const offset = (page - 1) * limit;
 
+    console.log('🔍 [repository.listSubscribers] Executando SELECT com LIMIT/OFFSET...');
     const result = await query(
       `
       SELECT id, email, name, plan, status, slug, created_at, updated_at,
@@ -714,6 +721,7 @@ export async function listSubscribers(options = {}) {
       [limit, offset]
     );
     dataRows = result.rows;
+    console.log('✅ [repository.listSubscribers] Retornando', dataRows.length, 'assinantes');
 
     return {
       data: dataRows,
@@ -726,6 +734,7 @@ export async function listSubscribers(options = {}) {
     };
   }
 
+  console.log('🔍 [repository.listSubscribers] Executando SELECT sem paginação...');
   const result = await query(`
     SELECT id, email, name, plan, status, slug, created_at, updated_at,
            password_token, token_expires_at, has_password, linked_user_email,

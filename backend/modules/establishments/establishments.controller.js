@@ -16,6 +16,10 @@ import { successResponse, createdResponse, errorResponse, notFoundResponse, forb
  * Sempre retorna 200 com { data: { subscribers, pagination? } } — nunca 204.
  */
 export const listSubscribers = asyncHandler(async (req, res) => {
+  console.log('🔍 [listSubscribers] Iniciando requisição...');
+  console.log('🔍 [listSubscribers] Query params:', req.query);
+  console.log('🔍 [listSubscribers] User:', req.user?.email, 'is_master:', req.user?.is_master);
+  
   const { page, limit, orderBy, orderDir } = req.query;
   const options = {};
   if (page != null) options.page = page;
@@ -24,12 +28,16 @@ export const listSubscribers = asyncHandler(async (req, res) => {
   if (orderDir != null) options.orderDir = orderDir;
 
   try {
+    console.log('🔍 [listSubscribers] Chamando service com options:', options);
+    const startTime = Date.now();
+    
     const result = await establishmentsService.listSubscribers(options);
+    
+    const elapsed = Date.now() - startTime;
+    console.log(`✅ [listSubscribers] Service respondeu em ${elapsed}ms`);
 
     if (result && typeof result === 'object' && result.data && result.pagination) {
-      if (process.env.NODE_ENV !== 'production') {
-        logger.log('📋 [BACKEND] getSubscribers - Retornando', result.data.length, 'de', result.pagination.total, 'assinantes');
-      }
+      console.log('✅ [listSubscribers] Retornando', result.data.length, 'de', result.pagination.total, 'assinantes');
       return res.status(200).json({
         success: true,
         message: 'Lista de assinantes',
@@ -41,9 +49,7 @@ export const listSubscribers = asyncHandler(async (req, res) => {
     }
 
     const subscribers = Array.isArray(result) ? result : [];
-    if (process.env.NODE_ENV !== 'production') {
-      logger.log('📋 [BACKEND] getSubscribers - Retornando', subscribers.length, 'assinantes');
-    }
+    console.log('✅ [listSubscribers] Retornando', subscribers.length, 'assinantes (sem paginação)');
     return res.status(200).json({
       success: true,
       message: 'Lista de assinantes',
