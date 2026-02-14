@@ -629,6 +629,39 @@ app.get('/api/debug/count-subscribers', asyncHandler(async (req, res) => {
   }
 }));
 
+// Teste DIRETO do repository.listSubscribers (SEM AUTH, para debug)
+app.get('/api/debug/list-subscribers-direct', asyncHandler(async (req, res) => {
+  try {
+    console.log('🔍 [debug/list-subscribers-direct] Iniciando teste direto...');
+    const startTime = Date.now();
+    
+    const result = await repo.listSubscribers({ page: 1, limit: 50 });
+    
+    const elapsed = Date.now() - startTime;
+    console.log(`✅ [debug/list-subscribers-direct] Completou em ${elapsed}ms`);
+    
+    return res.json({
+      status: 'ok',
+      elapsed_ms: elapsed,
+      total: result.pagination?.total || result.data?.length || 0,
+      returned: result.data?.length || 0,
+      sample: result.data?.slice(0, 2).map(s => ({
+        id: s.id,
+        email: s.email,
+        name: s.name,
+        plan: s.plan
+      })) || []
+    });
+  } catch (error) {
+    console.error('❌ [debug/list-subscribers-direct] Erro:', error);
+    return res.status(500).json({
+      status: 'error',
+      error: error.message,
+      stack: error.stack
+    });
+  }
+}));
+
 // Diagnóstico: qual usuário está associado ao token (apenas dev ou DEBUG_ME_ENABLED)
 app.get('/api/debug/me', authenticate, (req, res) => {
   const enabled = process.env.NODE_ENV !== 'production' || process.env.DEBUG_ME_ENABLED === 'true';
