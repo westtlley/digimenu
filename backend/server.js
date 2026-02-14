@@ -612,6 +612,7 @@ app.use('/api/users', usersRoutes);
 // Diagnóstico rápido - Apenas conta assinantes (SEM AUTH para debug)
 app.get('/api/debug/count-subscribers', asyncHandler(async (req, res) => {
   try {
+    const { query } = await import('./db/postgres.js');
     const countResult = await query('SELECT COUNT(*)::int as total FROM subscribers');
     const total = countResult.rows[0]?.total ?? 0;
     
@@ -3374,6 +3375,8 @@ app.get('/api/health/subscribers', asyncHandler(async (req, res) => {
   };
 
   try {
+    const { query } = await import('./db/postgres.js');
+    
     // Passo 1: Testar conexão
     diagnostic.steps.push({ step: 1, action: 'Testando conexão PostgreSQL...', time: Date.now() - startTime });
     const connected = await testConnection();
