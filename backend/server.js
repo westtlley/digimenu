@@ -607,12 +607,26 @@ app.use('/api/users', usersRoutes);
 // Para compatibilidade com frontend, pode ser necessário adicionar redirect ou alias futuro
 
 // =======================
-// 🏪 ESTABLISHMENTS MODULE
+// 🔍 ROTAS DE DEBUG (ANTES das outras para evitar 404)
 // =======================
-// Registrar rotas do módulo de estabelecimentos (incluindo GET /subscribers com requireMaster)
-app.use('/api/establishments', establishmentsRoutes);
-// Alias para compatibilidade
-app.use('/api/subscribers', establishmentsRoutes);
+// Diagnóstico rápido - Apenas conta assinantes (SEM AUTH para debug)
+app.get('/api/debug/count-subscribers', asyncHandler(async (req, res) => {
+  try {
+    const countResult = await query('SELECT COUNT(*)::int as total FROM subscribers');
+    const total = countResult.rows[0]?.total ?? 0;
+    
+    return res.json({
+      status: 'ok',
+      total_subscribers: total,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    return res.status(500).json({
+      status: 'error',
+      error: error.message
+    });
+  }
+}));
 
 // Diagnóstico: qual usuário está associado ao token (apenas dev ou DEBUG_ME_ENABLED)
 app.get('/api/debug/me', authenticate, (req, res) => {
@@ -625,6 +639,14 @@ app.get('/api/debug/me', authenticate, (req, res) => {
     source: 'authenticate'
   });
 });
+
+// =======================
+// 🏪 ESTABLISHMENTS MODULE
+// =======================
+// Registrar rotas do módulo de estabelecimentos (incluindo GET /subscribers com requireMaster)
+app.use('/api/establishments', establishmentsRoutes);
+// Alias para compatibilidade
+app.use('/api/subscribers', establishmentsRoutes);
 
 // =======================
 // 📦 ENTITIES + MANAGERIAL-AUTH (registrar antes de menus/orders para evitar 404)
@@ -3339,27 +3361,6 @@ app.get('/api/health', asyncHandler(async (req, res) => {
   
   const statusCode = health.database === 'connected' || health.database === 'fallback_json' ? 200 : 503;
   res.status(statusCode).json(health);
-}));
-
-// =======================
-// 🔍 DIAGNÓSTICO RÁPIDO - Apenas conta assinantes (SEM AUTH para debug)
-// =======================
-app.get('/api/debug/count-subscribers', asyncHandler(async (req, res) => {
-  try {
-    const countResult = await query('SELECT COUNT(*)::int as total FROM subscribers');
-    const total = countResult.rows[0]?.total ?? 0;
-    
-    return res.json({
-      status: 'ok',
-      total_subscribers: total,
-      timestamp: new Date().toISOString()
-    });
-  } catch (error) {
-    return res.status(500).json({
-      status: 'error',
-      error: error.message
-    });
-  }
 }));
 
 // =======================
