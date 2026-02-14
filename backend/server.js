@@ -2791,10 +2791,11 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
     const { name } = req.params;
     const data = req.body;
     
+    console.log(`🔧 [/api/functions/${name}] Função chamada por:`, req.user?.email, 'is_master:', req.user?.is_master);
+    console.log(`🔧 [/api/functions/${name}] Body:`, JSON.stringify(data).substring(0, 200));
+    
     // ✅ updateMasterSlug movido para: /api/users/functions/updateMasterSlug
     // ✅ registerCustomer movido para: /api/users/functions/registerCustomer
-    
-    console.log(`🔧 Função chamada: ${name}`, data);
     
     // ✅ getSubscribers: delegar ao establishments (frontend chama /api/functions/getSubscribers)
     if (name === 'getSubscribers') {
