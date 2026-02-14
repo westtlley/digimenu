@@ -109,16 +109,39 @@ app.use(compressionMiddleware);
 // ✅ CORS: preflight consistente (mesmo config para use e options)
 const corsOptions = {
   origin: (origin, cb) => {
+    // Permitir requisições sem origin (ex: mobile apps, Postman, curl)
     if (!origin) return cb(null, true);
-    if (allowedOrigins.has(origin)) return cb(null, true);
-    console.warn('⚠️ CORS: origem não permitida:', origin);
+    
+    // Log para debug em desenvolvimento
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('🔍 CORS: Verificando origem:', origin);
+    }
+    
+    if (allowedOrigins.has(origin)) {
+      console.log('✅ CORS: origem permitida:', origin);
+      return cb(null, true);
+    }
+    
+    console.warn('⚠️ CORS: origem NÃO permitida:', origin);
+    console.warn('📋 CORS: origens permitidas:', Array.from(allowedOrigins));
+    
+    // Retornar false sem erro (não bloqueia, apenas não adiciona headers CORS)
     return cb(null, false);
   },
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  exposedHeaders: ['Authorization'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'X-Requested-With',
+    'Accept',
+    'Origin',
+    'Cache-Control',
+    'X-File-Name'
+  ],
+  exposedHeaders: ['Authorization', 'Content-Length', 'X-Request-Id'],
   credentials: false,
-  optionsSuccessStatus: 204
+  optionsSuccessStatus: 204,
+  maxAge: 86400 // 24h cache do preflight
 };
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
