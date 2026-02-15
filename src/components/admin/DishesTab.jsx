@@ -682,7 +682,10 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
         log.admin.warn('🍽️ [DishesTab] menuContext não disponível, retornando array vazio');
         return [];
       }
-      return await fetchAdminDishes(menuContext);
+      log.admin.log('🔍 [DishesTab] Buscando pratos com menuContext:', menuContext);
+      const result = await fetchAdminDishes(menuContext);
+      log.admin.log('✅ [DishesTab] Pratos retornados:', result.length, 'pratos');
+      return result;
     },
     enabled: !!menuContext, // ✅ Só busca se tiver contexto
     initialData: [],
@@ -691,6 +694,13 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
     refetchOnMount: false, // ✅ Não refetch ao montar (evita aparecer/desaparecer)
     staleTime: 60000, // 1 minuto
     gcTime: 120000, // 2 minutos
+  });
+
+  log.admin.log('🍽️ [DishesTab] Estado atual:', {
+    menuContext,
+    dishesCount: dishes.length,
+    dishesLoading,
+    dishesError: dishesError?.message
   });
 
   const { data: categories = [], isLoading: categoriesLoading, error: categoriesError } = useQuery({

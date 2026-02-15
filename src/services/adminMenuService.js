@@ -25,14 +25,17 @@ export async function fetchAdminDishes(menuContext) {
     // Se for subscriber, usar as_subscriber
     if (menuContext.type === 'subscriber' && menuContext.value) {
       opts.as_subscriber = menuContext.value;
+      log.menu.log('✅ [adminMenuService] Passando as_subscriber:', menuContext.value);
     }
     // Se for slug, usar slug (se o backend suportar)
     // Por enquanto, master sem slug usa dados próprios (sem opts)
 
+    log.menu.log('📤 [adminMenuService] Chamando Dish.list com opts:', opts);
     const promise = base44.entities.Dish.list('order', opts);
     const result = await safeFetch(promise, 10000, 'Timeout ao buscar pratos');
     
-    log.menu.log('✅ [adminMenuService] Pratos recebidos:', ensureArray(result).length);
+    log.menu.log('✅ [adminMenuService] Pratos recebidos:', ensureArray(result).length, 'pratos');
+    log.menu.log('📋 [adminMenuService] Amostra:', ensureArray(result).slice(0, 3).map(d => d.name));
     return ensureArray(result);
   } catch (error) {
     log.menu.error('❌ [adminMenuService] Erro ao buscar pratos:', error);
