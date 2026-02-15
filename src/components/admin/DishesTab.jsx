@@ -688,9 +688,9 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
     initialData: [],
     placeholderData: keepPreviousData, // ✅ Evita lista sumir durante refetch
     retry: 1,
-    refetchOnMount: 'always',
-    staleTime: 30000,
-    gcTime: 60000,
+    refetchOnMount: false, // ✅ Não refetch ao montar (evita aparecer/desaparecer)
+    staleTime: 60000, // 1 minuto
+    gcTime: 120000, // 2 minutos
   });
 
   const { data: categories = [], isLoading: categoriesLoading, error: categoriesError } = useQuery({
@@ -706,9 +706,9 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
     initialData: [],
     placeholderData: keepPreviousData, // ✅ Evita categorias sumirem durante refetch
     retry: 1,
-    refetchOnMount: 'always',
-    staleTime: 30000,
-    gcTime: 60000,
+    refetchOnMount: false, // ✅ Não refetch ao montar
+    staleTime: 60000,
+    gcTime: 120000,
   });
 
   const { data: complementGroups = [], isLoading: groupsLoading, error: groupsError } = useQuery({
@@ -724,9 +724,9 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
     initialData: [],
     placeholderData: keepPreviousData, // ✅ Evita complementos sumirem durante refetch
     retry: 2,
-    refetchOnMount: 'always',
-    staleTime: 30000,
-    gcTime: 60000,
+    refetchOnMount: false, // ✅ Não refetch ao montar
+    staleTime: 60000,
+    gcTime: 120000,
   });
 
   // ========= MUTATIONS =========

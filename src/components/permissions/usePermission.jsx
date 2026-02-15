@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { log } from '@/utils/logger';
 import { createUserContext, isValidContext } from '@/utils/userContext';
@@ -238,7 +238,7 @@ export function usePermission() {
       window.removeEventListener('focus', onFocus);
       clearTimeout(t);
     };
-  }, [loadPermissions, inSlugContext, slugSubscriberEmail]);
+  }, [loadPermissions]);
 
   // ✅ isMaster baseado APENAS em user.is_master (definido ANTES das funções que o usam)
   const isMaster = user?.is_master === true;
@@ -300,6 +300,11 @@ export function usePermission() {
     setLoading(true);
     loadPermissions();
   };
+
+  // ✅ Estabilizar menuContext para evitar rerenders desnecessários nas queries
+  const stableMenuContext = useMemo(() => {
+    return userContext?.menuContext || null;
+  }, [userContext?.menuContext?.type, userContext?.menuContext?.value]);
   
   return {
     permissions,
@@ -316,6 +321,6 @@ export function usePermission() {
     refresh,
     // ✅ Novo: contexto de usuário pronto para uso
     userContext,
-    menuContext: userContext?.menuContext || null,
+    menuContext: stableMenuContext,
   };
 }
