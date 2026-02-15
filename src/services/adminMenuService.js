@@ -11,6 +11,57 @@ import { safeFetch, ensureArray } from '@/utils/safeFetch';
 import { log } from '@/utils/logger';
 
 /**
+ * Obtém o slug mais confiável para fallback público
+ * Prioridade: subscriberData.slug (banco) > user.slug > menuContext.value (se slug) > URL
+ * 
+ * @param {Object} menuContext - Contexto do menu atual
+ * @returns {Promise<string|null>}
+ */
+async function getReliableSlug(menuContext) {
+  const user = await base44.auth.me();
+  
+  // Tentar obter subscriberData do sessionStorage (salvo pelo usePermission)
+  let subscriberSlug = null;
+  try {
+    const contextData = sessionStorage.getItem('userContext');
+    if (contextData) {
+      const parsed = JSON.parse(contextData);
+      subscriberSlug = parsed?.subscriberData?.slug || null;
+    }
+  } catch (e) {
+    // Ignorar erro
+  }
+  
+  let slugToUse = null;
+  
+  // Prioridade 1: subscriberSlug (do banco via sessionStorage)
+  if (subscriberSlug) {
+    slugToUse = subscriberSlug;
+    log.menu.log('✅ [getReliableSlug] Usando slug do subscriberData:', slugToUse);
+  }
+  // Prioridade 2: user.slug
+  else if (user?.slug) {
+    slugToUse = user.slug;
+    log.menu.log('✅ [getReliableSlug] Usando slug do user:', slugToUse);
+  }
+  // Prioridade 3: menuContext.value (se type for 'slug')
+  else if (menuContext?.type === 'slug' && menuContext.value) {
+    slugToUse = menuContext.value;
+    log.menu.log('✅ [getReliableSlug] Usando slug do menuContext:', slugToUse);
+  }
+  // Prioridade 4 (último recurso): extrair da URL
+  else {
+    const urlMatch = window.location.pathname.match(/\/s\/([^/]+)/);
+    if (urlMatch) {
+      slugToUse = urlMatch[1];
+      log.menu.log('⚠️ [getReliableSlug] Usando slug da URL (último recurso):', slugToUse);
+    }
+  }
+  
+  return slugToUse;
+}
+
+/**
  * Busca pratos no contexto do admin
  * 
  * @param {Object} menuContext - Contexto do menu { type: 'slug'|'subscriber', value: string }
@@ -41,18 +92,7 @@ export async function fetchAdminDishes(menuContext) {
       if (ensureArray(result).length === 0) {
         log.menu.warn('⚠️ [adminMenuService] Rota admin retornou 0 pratos, tentando fallback público');
         
-        // Tentar obter slug do usuário E do contexto da URL
-        const user = await base44.auth.me();
-        
-        // ✅ CORREÇÃO: Tentar obter slug da URL atual (window.location)
-        let slugToUse = user?.slug;
-        if (!slugToUse) {
-          const urlMatch = window.location.pathname.match(/\/s\/([^/]+)/);
-          if (urlMatch) {
-            slugToUse = urlMatch[1];
-            log.menu.log('✅ [adminMenuService] Slug obtido da URL:', slugToUse);
-          }
-        }
+        const slugToUse = await getReliableSlug(menuContext);
         
         if (slugToUse) {
           try {
@@ -103,17 +143,8 @@ export async function fetchAdminCategories(menuContext) {
       // Se a rota admin retornar vazio, tentar fallback público
       if (ensureArray(result).length === 0) {
         log.menu.warn('⚠️ [adminMenuService] Rota admin retornou 0 categorias, tentando fallback público');
-        const user = await base44.auth.me();
         
-        // ✅ CORREÇÃO: Tentar obter slug da URL atual (window.location)
-        let slugToUse = user?.slug;
-        if (!slugToUse) {
-          const urlMatch = window.location.pathname.match(/\/s\/([^/]+)/);
-          if (urlMatch) {
-            slugToUse = urlMatch[1];
-            log.menu.log('✅ [adminMenuService] Slug obtido da URL:', slugToUse);
-          }
-        }
+        const slugToUse = await getReliableSlug(menuContext);
         
         if (slugToUse) {
           const publicData = await base44.get(`/public/cardapio/${slugToUse}`);
@@ -125,17 +156,8 @@ export async function fetchAdminCategories(menuContext) {
     } catch (adminError) {
       // ✅ FALLBACK: Tentar rota pública
       log.menu.warn('⚠️ [adminMenuService] Rota admin falhou, tentando fallback público');
-      const user = await base44.auth.me();
       
-      // ✅ CORREÇÃO: Tentar obter slug da URL atual (window.location)
-      let slugToUse = user?.slug;
-      if (!slugToUse) {
-        const urlMatch = window.location.pathname.match(/\/s\/([^/]+)/);
-        if (urlMatch) {
-          slugToUse = urlMatch[1];
-          log.menu.log('✅ [adminMenuService] Slug obtido da URL:', slugToUse);
-        }
-      }
+      const slugToUse = await getReliableSlug(menuContext);
       
       if (slugToUse) {
         const publicData = await base44.get(`/public/cardapio/${slugToUse}`);
@@ -173,17 +195,8 @@ export async function fetchAdminComplementGroups(menuContext) {
       // Se a rota admin retornar vazio, tentar fallback público
       if (ensureArray(result).length === 0) {
         log.menu.warn('⚠️ [adminMenuService] Rota admin retornou 0 grupos, tentando fallback público');
-        const user = await base44.auth.me();
         
-        // ✅ CORREÇÃO: Tentar obter slug da URL atual (window.location)
-        let slugToUse = user?.slug;
-        if (!slugToUse) {
-          const urlMatch = window.location.pathname.match(/\/s\/([^/]+)/);
-          if (urlMatch) {
-            slugToUse = urlMatch[1];
-            log.menu.log('✅ [adminMenuService] Slug obtido da URL:', slugToUse);
-          }
-        }
+        const slugToUse = await getReliableSlug(menuContext);
         
         if (slugToUse) {
           const publicData = await base44.get(`/public/cardapio/${slugToUse}`);
@@ -195,17 +208,8 @@ export async function fetchAdminComplementGroups(menuContext) {
     } catch (adminError) {
       // ✅ FALLBACK: Tentar rota pública
       log.menu.warn('⚠️ [adminMenuService] Rota admin falhou, tentando fallback público');
-      const user = await base44.auth.me();
       
-      // ✅ CORREÇÃO: Tentar obter slug da URL atual (window.location)
-      let slugToUse = user?.slug;
-      if (!slugToUse) {
-        const urlMatch = window.location.pathname.match(/\/s\/([^/]+)/);
-        if (urlMatch) {
-          slugToUse = urlMatch[1];
-          log.menu.log('✅ [adminMenuService] Slug obtido da URL:', slugToUse);
-        }
-      }
+      const slugToUse = await getReliableSlug(menuContext);
       
       if (slugToUse) {
         const publicData = await base44.get(`/public/cardapio/${slugToUse}`);

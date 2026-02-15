@@ -146,6 +146,17 @@ export function usePermission() {
           subscriberData: contextData.user.is_master ? null : finalSubscriberData
         };
         setUserContext(context);
+        
+        // ✅ NOVO: Salvar contexto no sessionStorage para acesso em outros serviços
+        try {
+          sessionStorage.setItem('userContext', JSON.stringify({
+            subscriberData: finalSubscriberData,
+            menuContext: menuContextToUse
+          }));
+        } catch (e) {
+          // Ignorar erro de sessionStorage
+        }
+        
         log.permission.log('✅ [usePermission] Contexto criado:', context.menuContext);
       } catch (contextError) {
         // Fallback: se o endpoint novo não existir, usar método antigo
