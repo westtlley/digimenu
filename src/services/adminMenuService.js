@@ -45,19 +45,29 @@ export async function fetchAdminDishes(menuContext) {
       if (ensureArray(result).length === 0) {
         log.menu.warn('⚠️ [adminMenuService] Rota admin retornou 0 pratos, tentando fallback público');
         
-        // Tentar obter slug do usuário
+        // Tentar obter slug do usuário E do contexto da URL
         const user = await base44.auth.me();
         
         // #region agent log H3
         fetch('http://127.0.0.1:7242/ingest/ccefc2e4-c9d6-41c0-a239-092136d59e5b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'adminMenuService.js:49',message:'User data for fallback',data:{user_email:user?.email,user_slug:user?.slug,user_subscriber_email:user?.subscriber_email},timestamp:Date.now(),hypothesisId:'H3'})}).catch(()=>{});
         // #endregion
         
-        if (user?.slug) {
+        // ✅ CORREÇÃO: Tentar obter slug da URL atual (window.location)
+        let slugToUse = user?.slug;
+        if (!slugToUse) {
+          const urlMatch = window.location.pathname.match(/\/s\/([^/]+)/);
+          if (urlMatch) {
+            slugToUse = urlMatch[1];
+            log.menu.log('✅ [adminMenuService] Slug obtido da URL:', slugToUse);
+          }
+        }
+        
+        if (slugToUse) {
           try {
-            const publicData = await base44.get(`/public/cardapio/${user.slug}`);
+            const publicData = await base44.get(`/public/cardapio/${slugToUse}`);
             
             // #region agent log H4-H5
-            fetch('http://127.0.0.1:7242/ingest/ccefc2e4-c9d6-41c0-a239-092136d59e5b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'adminMenuService.js:59',message:'Public API response',data:{slug:user.slug,public_dishes_count:publicData.dishes?.length||0,public_subscriber_email:publicData.subscriber_email,sample_public_dishes:ensureArray(publicData.dishes).slice(0,3).map(d=>({id:d.id,name:d.name,subscriber_email:d.subscriber_email,owner_email:d.owner_email}))},timestamp:Date.now(),hypothesisId:'H4-H5'})}).catch(()=>{});
+            fetch('http://127.0.0.1:7242/ingest/ccefc2e4-c9d6-41c0-a239-092136d59e5b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'adminMenuService.js:68',message:'Public API response',data:{slug:slugToUse,public_dishes_count:publicData.dishes?.length||0,public_subscriber_email:publicData.subscriber_email,sample_public_dishes:ensureArray(publicData.dishes).slice(0,3).map(d=>({id:d.id,name:d.name,subscriber_email:d.subscriber_email,owner_email:d.owner_email}))},timestamp:Date.now(),hypothesisId:'H4-H5'})}).catch(()=>{});
             // #endregion
             
             log.menu.log('✅ [adminMenuService] Dados públicos como fallback:', publicData.dishes?.length || 0, 'pratos');
@@ -65,6 +75,8 @@ export async function fetchAdminDishes(menuContext) {
           } catch (publicError) {
             log.menu.error('❌ [adminMenuService] Fallback público também falhou:', publicError);
           }
+        } else {
+          log.menu.error('❌ [adminMenuService] Sem slug disponível para fallback');
         }
       }
       
