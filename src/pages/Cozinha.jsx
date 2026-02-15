@@ -37,6 +37,21 @@ export default function Cozinha() {
         const isOwner = !me.subscriber_email || (me.email && me.subscriber_email && me.email.toLowerCase().trim() === me.subscriber_email.toLowerCase().trim());
         
         const hasProfileAccess = isCozinha || me?.is_master === true || isAssinante || isGerente || isOwner;
+        
+        console.log('[Cozinha] Verificando acesso:', {
+          email: me.email,
+          subscriber_email: me.subscriber_email,
+          profile_role: me.profile_role,
+          profile_roles: me.profile_roles,
+          is_master: me.is_master,
+          isAssinante,
+          isGerente,
+          isCozinha,
+          isOwner,
+          hasProfileAccess,
+          subscriberData: subscriberData
+        });
+        
         setAllowed(hasProfileAccess);
         
         if (!hasProfileAccess) {
@@ -44,18 +59,20 @@ export default function Cozinha() {
           return;
         }
         
-        // Verificar plano (PRO ou Ultra)
-        if (hasProfileAccess && !me?.is_master) {
+        // Verificar plano (PRO ou Ultra) - mas apenas para funcionários, não para assinante/gerente/master
+        if (hasProfileAccess && !me?.is_master && !isAssinante && !isGerente && !isOwner) {
+          // Apenas funcionários precisam verificar o plano
           const plan = (subscriberData?.plan || '').toLowerCase();
           const hasPlanAccess = plan === 'pro' || plan === 'ultra';
+          console.log('[Cozinha] Verificando plano para funcionário:', { plan, hasPlanAccess });
           setPlanCheck({ loading: false, hasAccess: hasPlanAccess });
           if (!hasPlanAccess) {
             setAllowed(false);
           }
-        } else if (me?.is_master) {
-          setPlanCheck({ loading: false, hasAccess: true });
         } else {
-          setPlanCheck({ loading: false, hasAccess: false });
+          // Master, assinante, gerente sempre têm acesso (independente do plano)
+          console.log('[Cozinha] Usuário privilegiado (master/assinante/gerente) - acesso liberado');
+          setPlanCheck({ loading: false, hasAccess: true });
         }
       } catch (e) {
         base44.auth.redirectToLogin('/Cozinha');

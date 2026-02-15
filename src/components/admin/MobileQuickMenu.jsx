@@ -96,7 +96,7 @@ export default function MobileQuickMenu({
       color: 'from-indigo-600 to-indigo-700',
       hoverColor: 'hover:from-indigo-700 hover:to-indigo-800'
     }] : []),
-    ...(can('colaboradores') ? [{
+    ...(can('orders') || can('cozinha') ? [{
       id: 'cozinha',
       label: 'Cozinha',
       icon: ChefHat,

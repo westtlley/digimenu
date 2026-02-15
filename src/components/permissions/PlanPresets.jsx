@@ -101,7 +101,10 @@ export const PLAN_PRESETS = {
       inventory: ['view', 'create', 'update', 'delete'],
       affiliates: ['view', 'create', 'update', 'delete'],
       lgpd: ['view', 'update'],
-      '2fa': ['view', 'update']
+      '2fa': ['view', 'update'],
+      cozinha: ['view'],
+      garcom: ['view'],
+      colaboradores: ['view', 'create', 'update', 'delete']
     }
   },
   
@@ -135,7 +138,9 @@ export const PLAN_PRESETS = {
       lgpd: ['view', 'update'],
       '2fa': ['view', 'update'],
       tables: ['view', 'create', 'update', 'delete'],
-      garcom: ['view']
+      garcom: ['view'],
+      cozinha: ['view'],
+      colaboradores: ['view', 'create', 'update', 'delete']
     }
   },
   
@@ -170,7 +175,9 @@ export const PLAN_PRESETS = {
       lgpd: ['view', 'update'],
       '2fa': ['view', 'update'],
       tables: ['view', 'create', 'update', 'delete'],
-      garcom: ['view']
+      garcom: ['view'],
+      cozinha: ['view'],
+      colaboradores: ['view', 'create', 'update', 'delete']
     }
   }
 };
