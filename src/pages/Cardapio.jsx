@@ -175,6 +175,11 @@ export default function Cardapio() {
         const result = await base44.get(`/public/cardapio/${slug}`, {}, { signal: controller.signal });
         clearTimeout(timeoutId);
         console.log('✅ [Cardapio] Dados recebidos:', result);
+        
+        // #region agent log H6
+        fetch('http://127.0.0.1:7242/ingest/ccefc2e4-c9d6-41c0-a239-092136d59e5b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Cardapio.jsx:177',message:'Public cardapio data',data:{slug:slug,subscriber_email:result.subscriber_email,is_master:result.is_master,dishes_count:result.dishes?.length||0,sample_dishes:result.dishes?.slice(0,3).map(d=>({id:d.id,name:d.name,subscriber_email:d.subscriber_email,owner_email:d.owner_email}))||[]},timestamp:Date.now(),hypothesisId:'H6'})}).catch(()=>{});
+        // #endregion
+        
         setLoadingTimeout(false);
         return result;
       } catch (error) {
