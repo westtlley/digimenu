@@ -183,25 +183,10 @@ export default function SharedSidebar({
     // Gerente: cargo de confiança, acesso a todas as ferramentas (igual ao assinante)
     if (isGerente) return true;
     
-    // ✅ Fonte da verdade: permissões do backend primeiro (gestor de estoque, bebidas, garçom, mesas, afiliados, etc.)
+    // ✅ Backend é a única fonte de verdade para permissões (já filtradas por plano)
     if (permissions && typeof permissions === 'object') {
       const modulePerms = permissions[module];
       if (Array.isArray(modulePerms) && modulePerms.length > 0) return true;
-    }
-    
-    const planLower = (plan || '').toLowerCase();
-    
-    // Se for master (mesmo que venha como plan), sempre tem acesso
-    if (planLower === 'master') return true;
-    
-    // Módulos especiais que dependem do plano (quando backend não retornou permissão explícita)
-    if (module === 'colaboradores') return ['pro', 'ultra'].includes(planLower);
-    if (['comandas', 'tables', 'garcom'].includes(module)) return planLower === 'ultra';
-    if (['affiliates', 'lgpd', '2fa', 'inventory'].includes(module)) return ['pro', 'ultra'].includes(planLower);
-    
-    // Módulos básicos - todos os planos pagos
-    if (['dashboard', 'dishes', 'orders', 'clients', 'whatsapp', 'store', 'theme', 'printer', 'financial', 'caixa', 'history', 'delivery_zones', 'payments', 'promotions', 'coupons'].includes(module)) {
-      return ['basic', 'pro', 'ultra'].includes(planLower);
     }
     
     return false;

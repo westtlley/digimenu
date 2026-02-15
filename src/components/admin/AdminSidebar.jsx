@@ -152,25 +152,14 @@ export default function AdminSidebar({ activeTab, setActiveTab, isMaster = false
     marketing: true // Seção MARKETING (Promoções, Cupons, Afiliados)
   });
 
-  // ✅ Master sempre tem acesso a tudo; para contexto assinante, priorizar permissões do backend
+  // ✅ Backend é a única fonte de verdade para permissões
   const hasModuleAccess = (module) => {
     if (isMaster) return true;
     
-    // Fonte da verdade: permissões do backend primeiro
+    // Verificar permissões do backend (já filtradas por plano no getUserContext)
     if (permissions && typeof permissions === 'object') {
       const modulePerms = permissions[module];
       if (Array.isArray(modulePerms) && modulePerms.length > 0) return true;
-    }
-    
-    const userPlan = plan || subscriberData?.plan || '';
-    const planLower = (userPlan || '').toLowerCase();
-    if (planLower === 'master') return true;
-    
-    if (module === 'colaboradores') return ['pro', 'ultra'].includes(planLower);
-    if (['comandas', 'tables', 'garcom'].includes(module)) return planLower === 'ultra';
-    if (['affiliates', 'lgpd', '2fa', 'inventory'].includes(module)) return ['pro', 'ultra'].includes(planLower);
-    if (['dashboard', 'dishes', 'orders', 'clients', 'whatsapp', 'store', 'theme', 'printer', 'financial', 'caixa', 'history', 'delivery_zones', 'payments', 'promotions', 'coupons'].includes(module)) {
-      return ['basic', 'pro', 'ultra'].includes(planLower);
     }
     
     return false;
