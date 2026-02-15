@@ -224,7 +224,27 @@ export default function PDV() {
   );
 
   useEffect(() => {
+    console.log('[PDV] Lista de caixas recebida:', {
+      total: caixas?.length || 0,
+      caixas: caixas?.map(c => ({
+        id: c.id,
+        status: c.status,
+        opening_date: c.opening_date,
+        terminal_id: c.terminal_id,
+        subscriber_email: c.subscriber_email,
+        owner_email: c.owner_email
+      }))
+    });
+    
     const activeCaixa = (caixas || []).find(c => c && c.status === 'open');
+    
+    console.log('[PDV] Caixa aberto encontrado:', activeCaixa ? {
+      id: activeCaixa.id,
+      status: activeCaixa.status,
+      opening_amount: activeCaixa.opening_amount_cash,
+      terminal_id: activeCaixa.terminal_id
+    } : 'NENHUM');
+    
     setOpenCaixa(activeCaixa || null);
     if (caixasLoading) return;
     if (!activeCaixa) setShowOpenCaixaModal(true);
@@ -294,16 +314,26 @@ export default function PDV() {
       return base44.entities.Caixa.create({
         ...data,
         subscriber_email: user?.subscriber_email || user?.email,
-        opened_by: user.email
+        owner_email: user?.subscriber_email || user?.email,
+        opened_by: user.email,
+        terminal_id: pdvTerminalId || null,
+        terminal_name: pdvTerminalName || null
       });
     },
     onSuccess: async (newCaixa) => {
+      console.log('[PDV] Caixa criado com sucesso:', newCaixa);
+      
       // Invalidar e refetch imediato
       await queryClient.invalidateQueries({ queryKey: ['caixas'] });
       await queryClient.refetchQueries({ queryKey: ['caixas'] });
       
       // Definir o caixa aberto imediatamente
       setOpenCaixa(newCaixa);
+      
+      console.log('[PDV] Estado openCaixa definido para:', {
+        id: newCaixa.id,
+        status: newCaixa.status
+      });
       
       setShowOpenCaixaModal(false);
       setOpeningAmount('');
@@ -614,6 +644,14 @@ export default function PDV() {
       toast.error('Valor limite de travamento deve ser maior que zero ou vazio');
       return;
     }
+    
+    console.log('[PDV] Abrindo caixa com dados:', {
+      opening_amount_cash: amount,
+      terminal_id: pdvTerminalId,
+      terminal_name: pdvTerminalName,
+      lock_threshold: lock
+    });
+    
     openCaixaMutation.mutate({
       opening_amount_cash: amount,
       opening_date: new Date().toISOString(),

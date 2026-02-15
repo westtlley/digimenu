@@ -85,6 +85,7 @@ export default function CaixaTab() {
       const user = await base44.auth.me();
       return base44.entities.Caixa.create({
         ...data,
+        subscriber_email: user.subscriber_email || user.email,
         owner_email: user.subscriber_email || user.email,
         opened_by: user.email
       });
