@@ -86,6 +86,16 @@ export async function listEntities(entityType, filters = {}, orderBy = null, use
     const offset = (page - 1) * limit;
     const subscriberEmail = getSubscriberEmail(user);
     
+    // ✅ LOG: Ver o que está sendo usado como filtro
+    console.log('🔍 [listEntities]', {
+      entityType,
+      subscriberEmail,
+      user_email: user?.email,
+      user_is_master: user?.is_master,
+      user_contextForSubscriber: user?._contextForSubscriber,
+      filters_count: Object.keys(filters).length
+    });
+    
     // Query principal com paginação
     let sql = `
       SELECT id, data, created_at, updated_at
@@ -98,11 +108,14 @@ export async function listEntities(entityType, filters = {}, orderBy = null, use
     if (subscriberEmail) {
       sql += ` AND subscriber_email = $${params.length + 1}`;
       params.push(subscriberEmail);
+      console.log('✅ [listEntities] Filtrando por subscriber_email:', subscriberEmail);
     } else if (user?.is_master) {
       // Master: apenas seus próprios (subscriber_email IS NULL)
       sql += ` AND subscriber_email IS NULL`;
+      console.log('✅ [listEntities] Master sem contexto: filtrando por NULL');
     } else {
       sql += ` AND subscriber_email IS NULL`;
+      console.log('✅ [listEntities] Sem user: filtrando por NULL');
     }
     
     // Aplicar filtros do JSONB

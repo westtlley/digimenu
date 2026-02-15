@@ -26,13 +26,20 @@ router.get('/:entity', asyncHandler(async (req, res) => {
   const { entity } = req.params;
   const { order, page = 1, limit = 50, as_subscriber, ...filters } = req.query;
   
+  // ✅ LOG: Ver o que está chegando
+  logger.info(`🔍 [GET /:entity] ${entity}`, { 
+    as_subscriber, 
+    order,
+    user_email: req.user?.email,
+    is_master: req.user?.is_master,
+    filters 
+  });
+  
   // ✅ Configurar contexto para master atuando como assinante
   if (req.user?.is_master && as_subscriber) {
     req.user._contextForSubscriber = as_subscriber;
     logger.info(`🔍 [GET /:entity] Master atuando como assinante: ${as_subscriber}`);
   }
-  
-  logger.info(`🔍 [GET /:entity] entity=${entity}, as_subscriber=${as_subscriber}, is_master=${req.user?.is_master}, user_email=${req.user?.email}`);
   
   let items = [];
   
@@ -40,7 +47,11 @@ router.get('/:entity', asyncHandler(async (req, res) => {
     // ✅ listEntities retorna { items: [...], pagination: {...} }
     const result = await repo.listEntities(entity, filters, order, req.user);
     items = result.items || result || []; // Suportar ambos os formatos
-    logger.info(`🔍 [GET /:entity] Retornou ${items.length} items de ${entity}`);
+    logger.info(`🔍 [GET /:entity] Retornou ${items.length} items de ${entity}`, {
+      has_pagination: !!result.pagination,
+      total: result.pagination?.total,
+      subscriber_email_used: req.user?._contextForSubscriber || req.user?.subscriber_email || req.user?.email
+    });
   } else {
     // Fallback JSON - manter compatibilidade
     const { getDb } = await import('../../config/appConfig.js');
