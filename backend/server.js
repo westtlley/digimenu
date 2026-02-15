@@ -662,6 +662,110 @@ app.get('/api/debug/list-subscribers-direct', asyncHandler(async (req, res) => {
   }
 }));
 
+// Debug: Listar pratos diretamente (sem filtros de usuário)
+app.get('/api/debug/list-dishes-direct', asyncHandler(async (req, res) => {
+  try {
+    console.log('🔍 [debug/list-dishes-direct] Iniciando teste direto...');
+    const startTime = Date.now();
+    
+    // Query SQL direta para ver TODOS os pratos
+    const { query } = await import('./db/postgres.js');
+    const result = await query(`
+      SELECT 
+        id,
+        entity_type,
+        subscriber_email,
+        data->>'name' as name,
+        data->>'owner_email' as owner_email,
+        created_at
+      FROM entities
+      WHERE entity_type = 'Dish'
+      ORDER BY created_at DESC
+      LIMIT 50
+    `);
+    
+    const elapsed = Date.now() - startTime;
+    console.log(`✅ [debug/list-dishes-direct] Completou em ${elapsed}ms`);
+    
+    // Agrupar por subscriber_email
+    const bySubscriber = {};
+    result.rows.forEach(dish => {
+      const sub = dish.subscriber_email || 'NULL';
+      if (!bySubscriber[sub]) bySubscriber[sub] = [];
+      bySubscriber[sub].push(dish);
+    });
+    
+    return res.json({
+      status: 'ok',
+      elapsed_ms: elapsed,
+      total: result.rows.length,
+      by_subscriber: Object.entries(bySubscriber).map(([email, dishes]) => ({
+        subscriber_email: email,
+        count: dishes.length,
+        sample: dishes.slice(0, 2).map(d => ({
+          id: d.id,
+          name: d.name,
+          owner_email: d.owner_email
+        }))
+      })),
+      sample_all: result.rows.slice(0, 3).map(d => ({
+        id: d.id,
+        name: d.name,
+        subscriber_email: d.subscriber_email,
+        owner_email: d.owner_email
+      }))
+    });
+  } catch (error) {
+    console.error('❌ [debug/list-dishes-direct] Erro:', error);
+    return res.status(500).json({
+      status: 'error',
+      error: error.message,
+      stack: error.stack
+    });
+  }
+}));
+
+// Debug: Testar listEntities com as_subscriber
+app.get('/api/debug/test-list-dishes', asyncHandler(async (req, res) => {
+  try {
+    const { as_subscriber } = req.query;
+    console.log('🔍 [debug/test-list-dishes] Testando listEntities...', { as_subscriber });
+    const startTime = Date.now();
+    
+    // Simular usuário master
+    const mockUser = {
+      email: 'master@system.com',
+      is_master: true,
+      _contextForSubscriber: as_subscriber || null
+    };
+    
+    // Chamar listEntities como a rota faz
+    const items = await repo.listEntities('Dish', {}, 'order', mockUser);
+    
+    const elapsed = Date.now() - startTime;
+    console.log(`✅ [debug/test-list-dishes] Completou em ${elapsed}ms`);
+    
+    return res.json({
+      status: 'ok',
+      elapsed_ms: elapsed,
+      as_subscriber: as_subscriber || null,
+      total: items.length,
+      sample: items.slice(0, 5).map(d => ({
+        id: d.id,
+        name: d.name,
+        owner_email: d.owner_email
+      }))
+    });
+  } catch (error) {
+    console.error('❌ [debug/test-list-dishes] Erro:', error);
+    return res.status(500).json({
+      status: 'error',
+      error: error.message,
+      stack: error.stack
+    });
+  }
+}));
+
 // Diagnóstico: qual usuário está associado ao token (apenas dev ou DEBUG_ME_ENABLED)
 app.get('/api/debug/me', authenticate, (req, res) => {
   const enabled = process.env.NODE_ENV !== 'production' || process.env.DEBUG_ME_ENABLED === 'true';
