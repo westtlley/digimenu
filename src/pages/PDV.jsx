@@ -135,7 +135,9 @@ export default function PDV() {
   const backUrl = createPageUrl(backPage, isMaster ? undefined : slug || undefined);
 
   // Garantir que opts sempre tenha o identificador correto do assinante
-  const opts = asSub ? { as_subscriber: asSub } : (user?.subscriber_email ? { as_subscriber: user.subscriber_email } : {});
+  // Prioridade: asSub (master em contexto slug) > subscriber_email > email
+  const subscriberIdentifier = asSub || user?.subscriber_email || user?.email;
+  const opts = subscriberIdentifier ? { as_subscriber: subscriberIdentifier } : {};
   const { data: dishes = [] } = useQuery({
     queryKey: ['dishes', asSub ?? 'me'],
     queryFn: () => base44.entities.Dish.list(null, opts),
