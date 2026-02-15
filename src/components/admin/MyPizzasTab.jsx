@@ -12,7 +12,8 @@ import { Plus, Trash2, Pencil, Star, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { usePermission } from '../permissions/usePermission';
-import { useMenuDishes } from '@/hooks/useMenuData';
+import { fetchAdminDishes } from '@/services/adminMenuService';
+import { keepPreviousData } from '@tanstack/react-query';
 
 const formatCurrency = (value) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
@@ -38,64 +39,104 @@ export default function MyPizzasTab() {
     loadUser();
   }, []);
 
-  // ✅ CORREÇÃO: Usar hook com contexto automático para pratos
-  const { data: dishesRaw = [] } = useMenuDishes();
+  const slug = menuContext?.type === 'slug' ? menuContext?.value : null;
+  
+  // ✅ Para master (slug): buscar TUDO do cardápio público de uma vez (pizzas + complementos)
+  const { data: publicCardapio } = useQuery({
+    queryKey: ['publicCardapio', slug],
+    queryFn: async () => {
+      if (!slug) return null;
+      return await apiClient.get(`/public/cardapio/${slug}`);
+    },
+    enabled: !!slug,
+    staleTime: 30000,
+    gcTime: 60000,
+  });
+
+  // ✅ Admin API para pratos (com fallback interno); quando temos publicCardapio, usamos ele para exibir
+  const { data: adminDishesRaw = [], refetch: refetchDishes, isLoading: dishesLoading } = useQuery({
+    queryKey: ['dishes', menuContext?.type, menuContext?.value],
+    queryFn: async () => {
+      if (!menuContext) return [];
+      return await fetchAdminDishes(menuContext);
+    },
+    enabled: !!menuContext,
+    placeholderData: keepPreviousData,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: false,
+    staleTime: 30000,
+    gcTime: 60000,
+  });
+  
+  React.useEffect(() => {
+    if (menuContext && adminDishesRaw.length === 0 && !dishesLoading && !publicCardapio?.dishes?.length) {
+      refetchDishes();
+    }
+  }, [menuContext?.type, menuContext?.value]);
+  
+  // Fonte de pratos: público (slug) ou admin
+  const dishesRaw = (slug && publicCardapio?.dishes) ? publicCardapio.dishes : (adminDishesRaw || []);
   const pizzas = (dishesRaw || []).filter(d => d.product_type === 'pizza');
 
-  // ✅ CORREÇÃO: Queries com contexto do slug
-  const { data: sizes = [] } = useQuery({
+  // ✅ Tamanhos: público (slug) ou admin
+  const { data: adminSizes = [] } = useQuery({
     queryKey: ['pizzaSizes', menuContext?.type, menuContext?.value],
     queryFn: async () => {
       if (!menuContext) return [];
-      const opts = {};
-      if (menuContext.type === 'subscriber' && menuContext.value) {
-        opts.as_subscriber = menuContext.value;
-      }
+      const opts = menuContext.type === 'subscriber' && menuContext.value ? { as_subscriber: menuContext.value } : {};
       return apiClient.entities.PizzaSize.list('order', opts);
     },
-    enabled: !!menuContext,
+    enabled: !!menuContext && !slug,
   });
+  const sizes = (slug && publicCardapio?.pizzaSizes?.length) ? publicCardapio.pizzaSizes : (adminSizes || []);
 
-  const { data: flavors = [] } = useQuery({
+  // ✅ Sabores: público (slug) ou admin
+  const { data: adminFlavors = [] } = useQuery({
     queryKey: ['pizzaFlavors', menuContext?.type, menuContext?.value],
     queryFn: async () => {
       if (!menuContext) return [];
-      const opts = {};
-      if (menuContext.type === 'subscriber' && menuContext.value) {
-        opts.as_subscriber = menuContext.value;
-      }
+      const opts = menuContext.type === 'subscriber' && menuContext.value ? { as_subscriber: menuContext.value } : {};
       return apiClient.entities.PizzaFlavor.list('order', opts);
     },
-    enabled: !!menuContext,
+    enabled: !!menuContext && !slug,
   });
+  const flavors = (slug && publicCardapio?.pizzaFlavors?.length) ? publicCardapio.pizzaFlavors : (adminFlavors || []);
 
-  const { data: edges = [] } = useQuery({
+  // ✅ Bordas: público (slug) ou admin
+  const { data: adminEdges = [] } = useQuery({
     queryKey: ['pizzaEdges', menuContext?.type, menuContext?.value],
     queryFn: async () => {
       if (!menuContext) return [];
-      const opts = {};
-      if (menuContext.type === 'subscriber' && menuContext.value) {
-        opts.as_subscriber = menuContext.value;
-      }
+      const opts = menuContext.type === 'subscriber' && menuContext.value ? { as_subscriber: menuContext.value } : {};
       return apiClient.entities.PizzaEdge.list('order', opts);
     },
-    enabled: !!menuContext,
+    enabled: !!menuContext && !slug,
   });
+  const edges = (slug && publicCardapio?.pizzaEdges?.length) ? publicCardapio.pizzaEdges : (adminEdges || []);
 
-  const { data: extras = [] } = useQuery({
+  const { data: adminExtras = [] } = useQuery({
     queryKey: ['pizzaExtras'],
     queryFn: () => apiClient.entities.PizzaExtra.list('order'),
+    enabled: !slug,
   });
+  const extras = (slug && publicCardapio?.pizzaExtras?.length) ? publicCardapio.pizzaExtras : (adminExtras || []);
 
   const { data: categories = [] } = useQuery({
     queryKey: ['categories'],
     queryFn: () => apiClient.entities.Category.list('order'),
   });
 
-  const { data: pizzaCategories = [] } = useQuery({
-    queryKey: ['pizzaCategories'],
-    queryFn: () => apiClient.entities.PizzaCategory.list('order'),
+  // ✅ Categorias de pizza: público (slug) ou admin
+  const { data: adminPizzaCategories = [] } = useQuery({
+    queryKey: ['pizzaCategories', menuContext?.type, menuContext?.value],
+    queryFn: async () => {
+      if (!menuContext) return [];
+      const opts = menuContext.type === 'subscriber' && menuContext.value ? { as_subscriber: menuContext.value } : {};
+      return apiClient.entities.PizzaCategory.list('order', opts);
+    },
+    enabled: !!menuContext && !slug,
   });
+  const pizzaCategories = (slug && publicCardapio?.pizzaCategories?.length) ? publicCardapio.pizzaCategories : (adminPizzaCategories || []);
 
   // Mutations
   const createPizzaMutation = useMutation({
@@ -107,6 +148,7 @@ export default function MyPizzasTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzas'] });
       queryClient.invalidateQueries({ queryKey: ['dishes'] });
+      if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
       toast.success('Pizza criada!');
       setShowPizzaModal(false);
       setEditingPizza(null);
@@ -118,6 +160,7 @@ export default function MyPizzasTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzas'] });
       queryClient.invalidateQueries({ queryKey: ['dishes'] });
+      if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
       toast.success('Pizza atualizada!');
       setShowPizzaModal(false);
       setEditingPizza(null);
@@ -129,6 +172,7 @@ export default function MyPizzasTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzas'] });
       queryClient.invalidateQueries({ queryKey: ['dishes'] });
+      if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
       toast.success('Pizza excluída!');
     },
   });

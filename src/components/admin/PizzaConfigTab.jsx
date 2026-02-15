@@ -42,6 +42,7 @@ export default function PizzaConfigTab() {
 
   const queryClient = useQueryClient();
   const { menuContext } = usePermission();
+  const slug = menuContext?.type === 'slug' ? menuContext?.value : null;
 
   React.useEffect(() => {
     const loadUser = async () => {
@@ -55,71 +56,73 @@ export default function PizzaConfigTab() {
     loadUser();
   }, []);
 
-  // ✅ CORREÇÃO: Queries com contexto do slug
-  const { data: sizes = [] } = useQuery({
+  // ✅ Para master (slug): buscar complementos do cardápio público (mesma fonte que MyPizzasTab)
+  const { data: publicCardapio } = useQuery({
+    queryKey: ['publicCardapio', slug],
+    queryFn: async () => {
+      if (!slug) return null;
+      return await apiClient.get(`/public/cardapio/${slug}`);
+    },
+    enabled: !!slug,
+    staleTime: 30000,
+    gcTime: 60000,
+  });
+
+  // ✅ Admin API (usada quando não há slug); com slug usamos publicCardapio para exibir
+  const { data: adminSizes = [] } = useQuery({
     queryKey: ['pizzaSizes', menuContext?.type, menuContext?.value],
     queryFn: async () => {
       if (!menuContext) return [];
-      const opts = {};
-      if (menuContext.type === 'subscriber' && menuContext.value) {
-        opts.as_subscriber = menuContext.value;
-      }
+      const opts = menuContext.type === 'subscriber' && menuContext.value ? { as_subscriber: menuContext.value } : {};
       return apiClient.entities.PizzaSize.list('order', opts);
     },
-    enabled: !!menuContext,
+    enabled: !!menuContext && !slug,
   });
+  const sizes = (slug && Array.isArray(publicCardapio?.pizzaSizes)) ? publicCardapio.pizzaSizes : (adminSizes || []);
 
-  const { data: flavors = [] } = useQuery({
+  const { data: adminFlavors = [] } = useQuery({
     queryKey: ['pizzaFlavors', menuContext?.type, menuContext?.value],
     queryFn: async () => {
       if (!menuContext) return [];
-      const opts = {};
-      if (menuContext.type === 'subscriber' && menuContext.value) {
-        opts.as_subscriber = menuContext.value;
-      }
+      const opts = menuContext.type === 'subscriber' && menuContext.value ? { as_subscriber: menuContext.value } : {};
       return apiClient.entities.PizzaFlavor.list('order', opts);
     },
-    enabled: !!menuContext,
+    enabled: !!menuContext && !slug,
   });
+  const flavors = (slug && Array.isArray(publicCardapio?.pizzaFlavors)) ? publicCardapio.pizzaFlavors : (adminFlavors || []);
 
-  const { data: edges = [] } = useQuery({
+  const { data: adminEdges = [] } = useQuery({
     queryKey: ['pizzaEdges', menuContext?.type, menuContext?.value],
     queryFn: async () => {
       if (!menuContext) return [];
-      const opts = {};
-      if (menuContext.type === 'subscriber' && menuContext.value) {
-        opts.as_subscriber = menuContext.value;
-      }
+      const opts = menuContext.type === 'subscriber' && menuContext.value ? { as_subscriber: menuContext.value } : {};
       return apiClient.entities.PizzaEdge.list('order', opts);
     },
-    enabled: !!menuContext,
+    enabled: !!menuContext && !slug,
   });
+  const edges = (slug && Array.isArray(publicCardapio?.pizzaEdges)) ? publicCardapio.pizzaEdges : (adminEdges || []);
 
-  const { data: extras = [] } = useQuery({
+  const { data: adminExtras = [] } = useQuery({
     queryKey: ['pizzaExtras', menuContext?.type, menuContext?.value],
     queryFn: async () => {
       if (!menuContext) return [];
-      const opts = {};
-      if (menuContext.type === 'subscriber' && menuContext.value) {
-        opts.as_subscriber = menuContext.value;
-      }
+      const opts = menuContext.type === 'subscriber' && menuContext.value ? { as_subscriber: menuContext.value } : {};
       return apiClient.entities.PizzaExtra.list('order', opts);
     },
-    enabled: !!menuContext,
+    enabled: !!menuContext && !slug,
   });
+  const extras = (slug && Array.isArray(publicCardapio?.pizzaExtras)) ? publicCardapio.pizzaExtras : (adminExtras || []);
 
-  const { data: pizzaCategories = [] } = useQuery({
+  const { data: adminPizzaCategories = [] } = useQuery({
     queryKey: ['pizzaCategories', menuContext?.type, menuContext?.value],
     queryFn: async () => {
       if (!menuContext) return [];
-      const opts = {};
-      if (menuContext.type === 'subscriber' && menuContext.value) {
-        opts.as_subscriber = menuContext.value;
-      }
+      const opts = menuContext.type === 'subscriber' && menuContext.value ? { as_subscriber: menuContext.value } : {};
       return apiClient.entities.PizzaCategory.list('order', opts);
     },
-    enabled: !!menuContext,
+    enabled: !!menuContext && !slug,
   });
+  const pizzaCategories = (slug && Array.isArray(publicCardapio?.pizzaCategories)) ? publicCardapio.pizzaCategories : (adminPizzaCategories || []);
 
   // Mutations - Sizes
   const createSizeMutation = useMutation({
@@ -129,6 +132,7 @@ export default function PizzaConfigTab() {
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzaSizes'] });
+      if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
       toast.success('Tamanho criado!');
       setShowSizeModal(false);
       setEditingSize(null);
@@ -139,6 +143,7 @@ export default function PizzaConfigTab() {
     mutationFn: ({ id, data }) => apiClient.entities.PizzaSize.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzaSizes'] });
+      if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
       toast.success('Tamanho atualizado!');
       setShowSizeModal(false);
       setEditingSize(null);
@@ -149,6 +154,7 @@ export default function PizzaConfigTab() {
     mutationFn: (id) => apiClient.entities.PizzaSize.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzaSizes'] });
+      if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
       toast.success('Tamanho excluído!');
     },
   });
@@ -161,6 +167,7 @@ export default function PizzaConfigTab() {
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzaFlavors'] });
+      if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
       toast.success('Sabor criado!');
       setShowFlavorModal(false);
       setEditingFlavor(null);
@@ -171,6 +178,7 @@ export default function PizzaConfigTab() {
     mutationFn: ({ id, data }) => apiClient.entities.PizzaFlavor.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzaFlavors'] });
+      if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
       toast.success('Sabor atualizado!');
       setShowFlavorModal(false);
       setEditingFlavor(null);
@@ -181,6 +189,7 @@ export default function PizzaConfigTab() {
     mutationFn: (id) => apiClient.entities.PizzaFlavor.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzaFlavors'] });
+      if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
       toast.success('Sabor excluído!');
     },
   });
@@ -193,6 +202,7 @@ export default function PizzaConfigTab() {
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzaEdges'] });
+      if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
       toast.success('Borda criada!');
       setShowEdgeModal(false);
       setEditingEdge(null);
@@ -203,6 +213,7 @@ export default function PizzaConfigTab() {
     mutationFn: ({ id, data }) => apiClient.entities.PizzaEdge.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzaEdges'] });
+      if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
       toast.success('Borda atualizada!');
       setShowEdgeModal(false);
       setEditingEdge(null);
@@ -213,6 +224,7 @@ export default function PizzaConfigTab() {
     mutationFn: (id) => apiClient.entities.PizzaEdge.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzaEdges'] });
+      if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
       toast.success('Borda excluída!');
     },
   });
@@ -225,6 +237,7 @@ export default function PizzaConfigTab() {
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzaExtras'] });
+      if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
       toast.success('Extra criado!');
       setShowExtraModal(false);
       setEditingExtra(null);
@@ -235,6 +248,7 @@ export default function PizzaConfigTab() {
     mutationFn: ({ id, data }) => apiClient.entities.PizzaExtra.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzaExtras'] });
+      if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
       toast.success('Extra atualizado!');
       setShowExtraModal(false);
       setEditingExtra(null);
@@ -245,6 +259,7 @@ export default function PizzaConfigTab() {
     mutationFn: (id) => apiClient.entities.PizzaExtra.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzaExtras'] });
+      if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
       toast.success('Extra excluído!');
     },
   });
@@ -257,6 +272,7 @@ export default function PizzaConfigTab() {
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzaCategories'] });
+      if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
       toast.success('Categoria criada!');
       setShowCategoryModal(false);
       setEditingCategory(null);
@@ -267,6 +283,7 @@ export default function PizzaConfigTab() {
     mutationFn: ({ id, data }) => apiClient.entities.PizzaCategory.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzaCategories'] });
+      if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
       toast.success('Categoria atualizada!');
       setShowCategoryModal(false);
       setEditingCategory(null);
@@ -277,6 +294,7 @@ export default function PizzaConfigTab() {
     mutationFn: (id) => apiClient.entities.PizzaCategory.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzaCategories'] });
+      if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
       toast.success('Categoria excluída!');
     },
   });
