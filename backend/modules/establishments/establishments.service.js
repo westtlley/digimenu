@@ -9,6 +9,7 @@ import { agentLog } from '../../utils/agentLog.js';
 import { getPlanInfo } from '../../utils/plans.js';
 import { generatePasswordTokenForSubscriber } from '../auth/auth.service.js';
 import { isValidPlan, normalizeSlug, canEditEstablishment } from './establishments.utils.js';
+import { getPermissionsForPlan } from '../../utils/planPresetsForContext.js';
 import { usePostgreSQL, FRONTEND_URL, getDb, getSaveDatabaseDebounced } from '../../config/appConfig.js';
 
 /**
@@ -232,6 +233,15 @@ export async function updateSubscriber(id, updateData, currentUser) {
       if (updateData[key] !== undefined) filtered[key] = updateData[key];
     }
     updateData = filtered;
+  }
+
+  // Ao trocar para plano fixo (free, basic, pro, ultra), sobrescrever permissions
+  if (updateData.plan != null && updateData.plan !== 'custom') {
+    const plan = String(updateData.plan).toLowerCase().trim();
+    const planPerms = getPermissionsForPlan(plan);
+    if (planPerms) {
+      updateData = { ...updateData, permissions: planPerms };
+    }
   }
 
   let updated;

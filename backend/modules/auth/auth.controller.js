@@ -160,21 +160,27 @@ export const getUserContext = asyncHandler(async (req, res) => {
         type: 'subscriber',
         value: subscriber.email
       };
-      let raw = subscriber.permissions;
-      if (typeof raw === 'string') {
-        try {
-          raw = JSON.parse(raw);
-        } catch (e) {
-          raw = {};
+      const plan = (subscriber.plan || 'basic').toString().toLowerCase().trim();
+
+      // Para planos fixos (free, basic, pro, ultra), SEMPRE usar permissões do plano
+      const { getPermissionsForPlan } = await import('../../utils/planPresetsForContext.js');
+      const planPermissions = getPermissionsForPlan(plan);
+
+      if (planPermissions) {
+        permissions = planPermissions;
+      } else {
+        let raw = subscriber.permissions;
+        if (typeof raw === 'string') {
+          try { raw = JSON.parse(raw); } catch (e) { raw = {}; }
         }
+        permissions = (raw && typeof raw === 'object') ? raw : {};
       }
-      permissions = (raw && typeof raw === 'object') ? raw : {};
-      
+
       // Ajustes de compatibilidade
-      if (subscriber.plan === 'basic' && Array.isArray(permissions.dishes) && permissions.dishes?.includes('view') && !permissions.dishes?.includes('create')) {
+      if (plan === 'basic' && Array.isArray(permissions.dishes) && permissions.dishes?.includes('view') && !permissions.dishes?.includes('create')) {
         permissions = { ...permissions, dishes: ['view', 'create', 'update', 'delete'] };
       }
-      if (['basic', 'pro'].includes(subscriber.plan) && (!Array.isArray(permissions.store) || permissions.store.length === 0)) {
+      if (['basic', 'pro'].includes(plan) && (!Array.isArray(permissions.store) || permissions.store.length === 0)) {
         permissions = { ...permissions, store: ['view', 'update'] };
       }
     } else {
@@ -206,20 +212,14 @@ export const getUserContext = asyncHandler(async (req, res) => {
     },
     menuContext,
     permissions,
-    subscriberData: user.is_master ? null : (subscriber ? (() => {
-      let p = subscriber.permissions;
-      if (typeof p === 'string') {
-        try { p = JSON.parse(p); } catch (e) { p = {}; }
-      }
-      return {
-        email: subscriber.email,
-        plan: subscriber.plan || 'basic',
-        status: subscriber.status || 'active',
-        expires_at: subscriber.expires_at || null,
-        permissions: (p && typeof p === 'object') ? p : {},
-        slug: subscriber.slug || null
-      };
-    })() : null)
+    subscriberData: user.is_master ? null : (subscriber ? {
+      email: subscriber.email,
+      plan: subscriber.plan || 'basic',
+      status: subscriber.status || 'active',
+      expires_at: subscriber.expires_at || null,
+      permissions,
+      slug: subscriber.slug || null
+    } : null)
   });
 });
 
