@@ -880,7 +880,20 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
   });
 
   // Validações de segurança - DECLARADAS AQUI PARA ESTAREM DISPONÍVEIS EM TODAS AS FUNÇÕES
+  // ✅ DEBUG: Log para verificar dados brutos
+  log.admin.log('🍽️ [DishesTab] Dados brutos:', {
+    total_dishes: Array.isArray(dishes) ? dishes.length : 0,
+    dishes_sample: Array.isArray(dishes) ? dishes.slice(0, 3).map(d => ({ id: d.id, name: d.name, product_type: d.product_type })) : []
+  });
+  
   const safeDishes = (Array.isArray(dishes) ? dishes : []).filter(d => d.product_type !== 'pizza');
+  
+  // ✅ DEBUG: Log após filtro
+  log.admin.log('🍽️ [DishesTab] Após filtro de pizza:', {
+    total_safe_dishes: safeDishes.length,
+    removed_pizzas: (Array.isArray(dishes) ? dishes.length : 0) - safeDishes.length
+  });
+  
   const safeCategories = Array.isArray(categories) ? categories : [];
   const safeComplementGroups = Array.isArray(complementGroups) ? complementGroups : [];
 
