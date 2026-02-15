@@ -740,7 +740,8 @@ app.get('/api/debug/test-list-dishes', asyncHandler(async (req, res) => {
     };
     
     // Chamar listEntities como a rota faz
-    const items = await repo.listEntities('Dish', {}, 'order', mockUser);
+    const result = await repo.listEntities('Dish', {}, 'order', mockUser);
+    const items = result.items || result || [];
     
     const elapsed = Date.now() - startTime;
     console.log(`✅ [debug/test-list-dishes] Completou em ${elapsed}ms`);
@@ -749,6 +750,7 @@ app.get('/api/debug/test-list-dishes', asyncHandler(async (req, res) => {
       status: 'ok',
       elapsed_ms: elapsed,
       as_subscriber: as_subscriber || null,
+      has_pagination: !!result.pagination,
       total: items.length,
       sample: items.slice(0, 5).map(d => ({
         id: d.id,

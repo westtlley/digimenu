@@ -37,8 +37,9 @@ router.get('/:entity', asyncHandler(async (req, res) => {
   let items = [];
   
   if (usePostgreSQL()) {
-    // ✅ Corrigir ordem dos parâmetros: (entityType, filters, orderBy, user, pagination)
-    items = await repo.listEntities(entity, filters, order, req.user);
+    // ✅ listEntities retorna { items: [...], pagination: {...} }
+    const result = await repo.listEntities(entity, filters, order, req.user);
+    items = result.items || result || []; // Suportar ambos os formatos
     logger.info(`🔍 [GET /:entity] Retornou ${items.length} items de ${entity}`);
   } else {
     // Fallback JSON - manter compatibilidade
