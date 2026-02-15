@@ -3,6 +3,7 @@
  * Usa menuContext automaticamente e aplica safeFetch
  */
 
+import React from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { fetchAdminDishes, fetchAdminCategories, fetchAdminComplementGroups } from '@/services/adminMenuService';
 import { log } from '@/utils/logger';
