@@ -442,7 +442,7 @@ class ApiClient {
 
         filter: async (filters = {}, orderBy = null) => {
           const params = { ...filters };
-          if (orderBy) params.order_by = orderBy;
+          if (orderBy) params.order = orderBy; // ✅ Backend espera 'order', não 'order_by'
           const result = await self.get(`/entities/${entityName}`, params);
           if (result && typeof result === 'object' && Array.isArray(result.items)) return result.items;
           return Array.isArray(result) ? result : [];
