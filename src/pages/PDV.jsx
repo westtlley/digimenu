@@ -297,8 +297,14 @@ export default function PDV() {
         opened_by: user.email
       });
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['caixas'] });
+    onSuccess: async (newCaixa) => {
+      // Invalidar e refetch imediato
+      await queryClient.invalidateQueries({ queryKey: ['caixas'] });
+      await queryClient.refetchQueries({ queryKey: ['caixas'] });
+      
+      // Definir o caixa aberto imediatamente
+      setOpenCaixa(newCaixa);
+      
       setShowOpenCaixaModal(false);
       setOpeningAmount('');
       setLockThreshold('');
