@@ -29,12 +29,17 @@ router.get('/:entity', asyncHandler(async (req, res) => {
   // ✅ Configurar contexto para master atuando como assinante
   if (req.user?.is_master && as_subscriber) {
     req.user._contextForSubscriber = as_subscriber;
+    logger.info(`🔍 [GET /:entity] Master atuando como assinante: ${as_subscriber}`);
   }
+  
+  logger.info(`🔍 [GET /:entity] entity=${entity}, as_subscriber=${as_subscriber}, is_master=${req.user?.is_master}, user_email=${req.user?.email}`);
   
   let items = [];
   
   if (usePostgreSQL()) {
-    items = await repo.listEntities(entity, req.user, order);
+    // ✅ Corrigir ordem dos parâmetros: (entityType, filters, orderBy, user, pagination)
+    items = await repo.listEntities(entity, filters, order, req.user);
+    logger.info(`🔍 [GET /:entity] Retornou ${items.length} items de ${entity}`);
   } else {
     // Fallback JSON - manter compatibilidade
     const { getDb } = await import('../../config/appConfig.js');
