@@ -299,8 +299,18 @@ export default function Entregador() {
   }
 
   // ✅ SIMPLIFICADO: Verificar acesso baseado em entregador disponível
-  // Backend já validou permissões - se não tiver entregador e não for master/entregador, mostrar erro
-  if (!loading && !entregador && !isMaster && user?.profile_role !== 'entregador') {
+  // Backend já validou permissões - se não tiver entregador e não for master/entregador/gerente/assinante, mostrar erro
+  const roles = user?.profile_roles?.length ? user.profile_roles : user?.profile_role ? [user.profile_role] : [];
+  const isGerente = roles.includes('gerente');
+  const isEntregador = user?.profile_role === 'entregador' || roles.includes('entregador');
+  const isAssinante = user?.subscriber_email && (user?.email || '').toLowerCase().trim() === (user?.subscriber_email || '').toLowerCase().trim();
+  
+  // Se não tem subscriber_email mas tem email, pode ser o próprio assinante
+  const isOwner = !user?.subscriber_email || (user?.email && user?.subscriber_email && user?.email.toLowerCase().trim() === user?.subscriber_email.toLowerCase().trim());
+  
+  const hasAccess = isMaster || isEntregador || isGerente || isAssinante || isOwner;
+  
+  if (!loading && !entregador && !hasAccess) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="bg-white p-8 rounded-xl shadow-lg text-center max-w-md">

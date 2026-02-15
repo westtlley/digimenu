@@ -23,7 +23,11 @@ import { useUpsell } from '../components/hooks/useUpsell';
 import { usePDVHotkeys } from '../utils/pdvFunctions';
 import InstallAppButton from '../components/InstallAppButton';
 import FechamentoCaixaModal from '../components/pdv/FechamentoCaixaModal';
+import MenuVendasModal from '../components/pdv/MenuVendasModal';
+import AtalhosHelpModal from '../components/pdv/AtalhosHelpModal';
+import ReimpressaoVendaModal from '../components/pdv/ReimpressaoVendaModal';
 import { formatCurrency } from '@/utils/formatters';
+import { printReceipt, printCashClosingReport } from '@/utils/thermalPrint';
 
 export default function PDV() {
   const [user, setUser] = useState(null);
@@ -63,10 +67,16 @@ export default function PDV() {
   const [showSangriaModal, setShowSangriaModal] = useState(false);
   const [showSuprimentoModal, setShowSuprimentoModal] = useState(false);
   const [showCloseCaixaDialog, setShowCloseCaixaDialog] = useState(false);
+  const [showAtalhosHelp, setShowAtalhosHelp] = useState(false);
+  const [showReimpressaoModal, setShowReimpressaoModal] = useState(false);
   const [sangriaData, setSangriaData] = useState({ amount: '', reason: '' });
   const [suprimentoData, setSuprimentoData] = useState({ amount: '', reason: '' });
   const [closingCashAmount, setClosingCashAmount] = useState('');
   const [closingNotes, setClosingNotes] = useState('');
+  
+  // Tracking de cancelamentos em tela (para relatório de fechamento)
+  const [canceledInScreenCount, setCanceledInScreenCount] = useState(0);
+  const [canceledInScreenTotal, setCanceledInScreenTotal] = useState(0);
 
   // Verificar autenticação e permissão
   useEffect(() => {
@@ -78,15 +88,41 @@ export default function PDV() {
           base44.auth.redirectToLogin('/PDV');
           return;
         }
-        // Verificar se tem perfil de PDV, é master, ou é assinante (acesso livre)
+        
+        console.log('[PDV] Verificando acesso para usuário:', {
+          email: me.email,
+          subscriber_email: me.subscriber_email,
+          profile_role: me.profile_role,
+          profile_roles: me.profile_roles,
+          is_master: me.is_master
+        });
+        
+        // Verificar se tem perfil de PDV, é master, é assinante ou é gerente (acesso total)
         const isAssinante = me?.subscriber_email && (me?.email || '').toLowerCase().trim() === (me?.subscriber_email || '').toLowerCase().trim();
-        const hasAccess = me?.profile_role === 'pdv' || me?.is_master === true || isAssinante;
+        const roles = me?.profile_roles?.length ? me.profile_roles : me?.profile_role ? [me.profile_role] : [];
+        const isGerente = roles.includes('gerente');
+        const isPDV = me?.profile_role === 'pdv' || roles.includes('pdv');
+        
+        // Se não tem subscriber_email mas tem email, pode ser o próprio assinante
+        const isOwner = !me.subscriber_email || (me.email && me.subscriber_email && me.email.toLowerCase().trim() === me.subscriber_email.toLowerCase().trim());
+        
+        const hasAccess = isPDV || me?.is_master === true || isAssinante || isGerente || isOwner;
+        
+        console.log('[PDV] Resultado da verificação:', {
+          isAssinante,
+          isGerente,
+          isPDV,
+          isOwner,
+          hasAccess
+        });
+        
         setAllowed(hasAccess);
         if (!hasAccess) {
           setLoading(false);
           return;
         }
       } catch (e) {
+        console.error('[PDV] Erro ao verificar permissões:', e);
         base44.auth.redirectToLogin('/PDV');
       } finally {
         setLoading(false);
@@ -499,23 +535,34 @@ export default function PDV() {
 
   const clearCart = () => {
     if (cart.length === 0) return;
+    
+    // Tracking de cancelamento em tela para relatório
+    const cartTotal = calculateTotal();
+    setCanceledInScreenCount(prev => prev + 1);
+    setCanceledInScreenTotal(prev => prev + cartTotal);
+    
     setCart([]);
     setDiscountReais('');
     setDiscountPercent('');
     setCustomerName('Cliente Balcão');
     setCustomerPhone('');
     resetUpsell();
-    toast.success('Venda limpa');
+    toast.success('Venda cancelada (F9)');
   };
 
   usePDVHotkeys({
+    onOpenHelp: () => setShowAtalhosHelp(true),
     onOpenMenuVendas: () => pdvSession && setShowMenuVendas(true),
-    onOpenFechamento: () => pdvSession && openCaixa && setShowFechamentoModal(true),
+    onOpenFechamento: () => {
+      if (pdvSession && openCaixa) {
+        requireAuthorization('fechar_caixa', () => setShowFechamentoModal(true));
+      }
+    },
     onCancelSale: clearCart,
     onFinishSale: () => {
       if (cart.length > 0 && !isCaixaLocked && openCaixa) setShowPaymentModal(true);
     },
-  });
+  }, showMenuVendas);
 
   const subtotal = cart.reduce((sum, item) => sum + (item.totalPrice * item.quantity), 0);
   const discountFromPercent = subtotal * (parseFloat(discountPercent || 0) / 100);
@@ -655,61 +702,12 @@ export default function PDV() {
     setShowSuccessModal(true);
   };
 
-  const handlePrintReceipt = () => {
-    if (!lastSale) return;
+  const handlePrintReceipt = (saleData = null) => {
+    const sale = saleData || lastSale;
+    if (!sale) return;
 
-    const printWindow = window.open('', '', 'width=300,height=600');
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Cupom #${lastSale.orderCode}</title>
-          <style>
-            body { 
-              font-family: 'Courier New', monospace; 
-              font-size: 12px; 
-              padding: 10px;
-              margin: 0;
-            }
-            .center { text-align: center; }
-            .bold { font-weight: bold; }
-            .line { border-top: 1px dashed #000; margin: 10px 0; }
-            .item { display: flex; justify-content: space-between; margin: 5px 0; }
-            .total { font-size: 16px; margin-top: 10px; }
-          </style>
-        </head>
-        <body>
-          <div class="center bold">CUPOM NÃO FISCAL</div>
-          <div class="center">PDV - Venda Presencial</div>
-          <div class="line"></div>
-          <div>Pedido: #${lastSale.orderCode}</div>
-          <div>Data: ${new Date().toLocaleString('pt-BR')}</div>
-          <div>Cliente: ${lastSale.customerName}</div>
-          <div class="line"></div>
-          ${lastSale.items.map(item => {
-            const details = item.flavors?.length ? ` (${item.size?.name || ''} ${item.flavors.map(f => f.name).join(' + ')})` : '';
-            return `
-            <div class="item">
-              <span>${item.quantity}x ${item.dish.name}${details || ''}</span>
-              <span>${formatCurrency(item.totalPrice * item.quantity)}</span>
-            </div>
-          `}).join('')}
-          <div class="line"></div>
-          <div class="item bold total">
-            <span>TOTAL</span>
-            <span>${formatCurrency(lastSale.total)}</span>
-          </div>
-          <div class="line"></div>
-          ${lastSale.payments.map(p => `
-            <div>${p.methodLabel}: ${formatCurrency(p.amount)}</div>
-          `).join('')}
-          ${lastSale.change > 0 ? `<div>Troco: ${formatCurrency(lastSale.change)}</div>` : ''}
-          <div class="line"></div>
-          <div class="center">Obrigado pela preferência!</div>
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
-    printWindow.print();
+    // Usar função de impressão térmica
+    printReceipt(sale, store, 'css');
   };
 
   return (
@@ -877,11 +875,51 @@ export default function PDV() {
         storeName={store?.name}
         operatorName={user?.full_name || user?.email}
         terminalName={pdvTerminalName}
+        canceledInScreenCount={canceledInScreenCount}
+        canceledInScreenTotal={canceledInScreenTotal}
         onFecharClick={
           openCaixa?.status === 'open'
             ? () => requireAuthorization('fechar_caixa', () => { setShowFechamentoModal(false); setShowCloseCaixaDialog(true); })
             : undefined
         }
+      />
+
+      {/* Modal Menu de Vendas (F2) */}
+      <MenuVendasModal
+        open={showMenuVendas}
+        onOpenChange={setShowMenuVendas}
+        onSuprimento={() => { 
+          setShowMenuVendas(false); 
+          requireAuthorization('suprimento', () => setShowSuprimentoModal(true)); 
+        }}
+        onSangria={() => { 
+          setShowMenuVendas(false); 
+          requireAuthorization('sangria', () => setShowSangriaModal(true)); 
+        }}
+        onReimpressao={() => { setShowMenuVendas(false); setShowReimpressaoModal(true); }}
+        onFechamento={() => { 
+          setShowMenuVendas(false); 
+          requireAuthorization('fechar_caixa', () => setShowFechamentoModal(true)); 
+        }}
+        onAbertura={() => { 
+          setShowMenuVendas(false); 
+          requireAuthorization('abrir_caixa', () => setShowOpenCaixaModal(true)); 
+        }}
+        onCancelarVenda={() => { setShowMenuVendas(false); clearCart(); }}
+        caixaAberto={!!openCaixa}
+      />
+
+      {/* Modal de Ajuda com Atalhos (F1) */}
+      <AtalhosHelpModal
+        open={showAtalhosHelp}
+        onOpenChange={setShowAtalhosHelp}
+      />
+
+      {/* Modal de Reimpressão de Venda */}
+      <ReimpressaoVendaModal
+        open={showReimpressaoModal}
+        onOpenChange={setShowReimpressaoModal}
+        onPrintReceipt={handlePrintReceipt}
       />
 
       {/* Dialog valor ao fechar caixa (após autorização) */}

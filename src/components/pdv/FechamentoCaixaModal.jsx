@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '@/components/ui/button';
 import { Printer, Lock, LogOut } from 'lucide-react';
 import { formatCurrency } from '@/utils/formatters';
+import { printCashClosingReport } from '@/utils/thermalPrint';
 
 /**
  * Modal de Fechamento de Caixa – modelo igual aos prints (relatório + formas de pagamento + adicionais).
@@ -17,6 +18,8 @@ export default function FechamentoCaixaModal({
   storeName = 'Estabelecimento',
   operatorName = '',
   terminalName = '',
+  canceledInScreenCount = 0,
+  canceledInScreenTotal = 0,
   onPrint,
   onFecharClick,
 }) {
@@ -56,17 +59,39 @@ export default function FechamentoCaixaModal({
       onPrint();
       return;
     }
-    const content = refImprimir.current;
-    if (!content) return;
-    const win = window.open('', '_blank');
-    win.document.write(`
-      <!DOCTYPE html><html><head><meta charset="utf-8"><title>Fechamento de Caixa</title>
-      <style>body{ font-family: monospace; padding: 16px; font-size: 12px; } .line{border-bottom:1px solid #000; margin:4px 0;} .center{text-align:center;} table{width:100%;} td:nth-child(2){text-align:right;}</style>
-      </head><body>${content.innerHTML}</body></html>
-    `);
-    win.document.close();
-    win.print();
-    win.close();
+
+    // Preparar dados para impressão térmica
+    const reportData = {
+      operatorName,
+      terminalName,
+      dhInicial,
+      dhFinal,
+      abertura,
+      totalVendas,
+      qtdVendas: vendas.length,
+      totalSangrias,
+      qtdSangrias: sangrias.length,
+      totalSuprimentos,
+      qtdSuprimentos: suprimentos.length,
+      saldoEmCaixa,
+      totalCredito,
+      qtdCredito: vendas.filter(op => op.payment_method === 'credito').length,
+      totalDebito,
+      qtdDebito: vendas.filter(op => op.payment_method === 'debito').length,
+      totalDinheiro,
+      qtdDinheiro: vendas.filter(op => op.payment_method === 'dinheiro').length,
+      totalPix,
+      qtdPix: vendas.filter(op => op.payment_method === 'pix').length,
+      totalTroco,
+      totalDesconto: 0, // TODO: calcular se houver desconto nas vendas
+      totalAcrescimo: 0, // TODO: calcular se houver acréscimo nas vendas
+      qtdeCupons,
+      canceladosEmTela: canceledInScreenCount,
+      canceladosEmTelaValor: canceledInScreenTotal
+    };
+
+    // Usar função de impressão térmica
+    printCashClosingReport(reportData, 'css');
   };
 
   return (

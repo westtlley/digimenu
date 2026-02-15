@@ -262,6 +262,11 @@ export function usePermission() {
   const hasModuleAccess = (module) => {
     if (isMaster) return true;
     
+    // Gerente: cargo de confiança, acesso a todas as ferramentas (igual ao assinante)
+    const roles = user?.profile_roles?.length ? user.profile_roles : user?.profile_role ? [user.profile_role] : [];
+    const isGerente = roles.includes('gerente');
+    if (isGerente) return true;
+    
     // ✅ Apenas verificar permissões explícitas do backend
     if (permissions && typeof permissions === 'object') {
       const modulePerms = permissions[module];

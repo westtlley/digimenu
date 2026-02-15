@@ -27,9 +27,16 @@ export default function Cozinha() {
           base44.auth.redirectToLogin('/Cozinha');
           return;
         }
-        // Verificar se tem perfil de cozinha, é master, ou é assinante (acesso livre)
+        // Verificar se tem perfil de cozinha, é master, é assinante ou é gerente (acesso total)
         const isAssinante = me?.subscriber_email && (me?.email || '').toLowerCase().trim() === (me?.subscriber_email || '').toLowerCase().trim();
-        const hasProfileAccess = me?.profile_role === 'cozinha' || me?.is_master === true || isAssinante;
+        const roles = me?.profile_roles?.length ? me.profile_roles : me?.profile_role ? [me.profile_role] : [];
+        const isGerente = roles.includes('gerente');
+        const isCozinha = me?.profile_role === 'cozinha' || roles.includes('cozinha');
+        
+        // Se não tem subscriber_email mas tem email, pode ser o próprio assinante
+        const isOwner = !me.subscriber_email || (me.email && me.subscriber_email && me.email.toLowerCase().trim() === me.subscriber_email.toLowerCase().trim());
+        
+        const hasProfileAccess = isCozinha || me?.is_master === true || isAssinante || isGerente || isOwner;
         setAllowed(hasProfileAccess);
         
         if (!hasProfileAccess) {

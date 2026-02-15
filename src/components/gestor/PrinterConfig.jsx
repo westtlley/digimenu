@@ -44,7 +44,8 @@ export default function PrinterConfig() {
     line_spacing: 1.5,
     font_size: 12,
     auto_cut: true,
-    open_drawer: false
+    open_drawer: false,
+    print_method: 'css'
   };
 
   const [formData, setFormData] = useState(config);
@@ -218,6 +219,30 @@ Espaçamento: ${formData.line_spacing}
             </Select>
           </div>
 
+          {/* Método de Impressão */}
+          <div>
+            <Label>Método de Impressão</Label>
+            <Select
+              value={formData.print_method || 'css'}
+              onValueChange={(value) => setFormData({ ...formData, print_method: value })}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="css">CSS (window.print)</SelectItem>
+                <SelectItem value="escpos">ESC/POS (Web Serial)</SelectItem>
+                <SelectItem value="hybrid">Híbrido (tenta ESC/POS)</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-gray-500 mt-1">
+              {formData.print_method === 'css' && 'Impressão via navegador (padrão)'}
+              {formData.print_method === 'escpos' && 'Comandos diretos via Web Serial API'}
+              {formData.print_method === 'hybrid' && 'Tenta ESC/POS, fallback para CSS'}
+            </p>
+          </div>
+        </div>
+
           {/* Largura */}
           <div>
             <Label>Largura do Papel</Label>
@@ -235,7 +260,6 @@ Espaçamento: ${formData.line_spacing}
               </SelectContent>
             </Select>
           </div>
-        </div>
 
         {/* Margens */}
         <div>
