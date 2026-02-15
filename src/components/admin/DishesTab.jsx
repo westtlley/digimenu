@@ -675,7 +675,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
 
   // ========= BUSCAR DADOS COM CONTEXTO =========
   // ✅ Usar menuContext para buscar dados no contexto correto
-  const { data: dishes = [], isLoading: dishesLoading, error: dishesError } = useQuery({
+  const { data: dishes = [], isLoading: dishesLoading, error: dishesError, refetch: refetchDishes } = useQuery({
     queryKey: ['dishes', menuContext?.type, menuContext?.value],
     queryFn: async () => {
       if (!menuContext) {
@@ -696,6 +696,14 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
     staleTime: 30000, // ✅ 30s - dados são considerados frescos por este período
     gcTime: 60000, // ✅ 60s - cache mantido por 1 minuto
   });
+
+  // ✅ CRÍTICO: Refetch quando menuContext mudar de null para válido
+  useEffect(() => {
+    if (menuContext && dishes.length === 0 && !dishesLoading) {
+      log.admin.log('🔄 [DishesTab] menuContext mudou, forçando refetch...');
+      refetchDishes();
+    }
+  }, [menuContext?.type, menuContext?.value]);
 
   log.admin.log('🍽️ [DishesTab] Estado atual:', {
     menuContext,
