@@ -23,11 +23,11 @@ export default function MobileCategoryAccordion({
   return (
     <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100">
       {/* Header */}
-      <button
-        onClick={onToggle}
-        className="w-full flex items-center justify-between p-4 active:bg-gray-50 transition-colors"
-      >
-        <div className="flex items-center gap-3 flex-1 min-w-0">
+      <div className="w-full flex items-center justify-between p-4 active:bg-gray-50 transition-colors">
+        <button
+          onClick={onToggle}
+          className="flex items-center gap-3 flex-1 min-w-0"
+        >
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-100 to-orange-50 flex items-center justify-center flex-shrink-0">
             <span className="text-lg">📁</span>
           </div>
@@ -39,7 +39,7 @@ export default function MobileCategoryAccordion({
               {dishCount} {dishCount === 1 ? 'item' : 'itens'}
             </p>
           </div>
-        </div>
+        </button>
 
         <div className="flex items-center gap-2 flex-shrink-0">
           <DropdownMenu>
@@ -71,14 +71,16 @@ export default function MobileCategoryAccordion({
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <motion.div
-            animate={{ rotate: isExpanded ? 180 : 0 }}
-            transition={{ duration: 0.2 }}
-          >
-            <ChevronDown className="w-5 h-5 text-gray-400" />
-          </motion.div>
+          <button onClick={onToggle} className="flex items-center justify-center">
+            <motion.div
+              animate={{ rotate: isExpanded ? 180 : 0 }}
+              transition={{ duration: 0.2 }}
+            >
+              <ChevronDown className="w-5 h-5 text-gray-400" />
+            </motion.div>
+          </button>
         </div>
-      </button>
+      </div>
 
       {/* Content */}
       <AnimatePresence>

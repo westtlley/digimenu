@@ -679,13 +679,9 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
     queryKey: ['dishes', menuContext?.type, menuContext?.value],
     queryFn: async () => {
       if (!menuContext) {
-        log.admin.warn('🍽️ [DishesTab] menuContext não disponível, retornando array vazio');
         return [];
       }
-      log.admin.log('🔍 [DishesTab] Buscando pratos com menuContext:', menuContext);
-      const result = await fetchAdminDishes(menuContext);
-      log.admin.log('✅ [DishesTab] Pratos retornados:', result.length, 'pratos');
-      return result;
+      return await fetchAdminDishes(menuContext);
     },
     enabled: !!menuContext,
     initialData: [],
@@ -700,23 +696,14 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
   // ✅ CRÍTICO: Refetch quando menuContext mudar de null para válido
   useEffect(() => {
     if (menuContext && dishes.length === 0 && !dishesLoading) {
-      log.admin.log('🔄 [DishesTab] menuContext mudou, forçando refetch...');
       refetchDishes();
     }
   }, [menuContext?.type, menuContext?.value]);
-
-  log.admin.log('🍽️ [DishesTab] Estado atual:', {
-    menuContext,
-    dishesCount: dishes.length,
-    dishesLoading,
-    dishesError: dishesError?.message
-  });
 
   const { data: categories = [], isLoading: categoriesLoading, error: categoriesError } = useQuery({
     queryKey: ['categories', menuContext?.type, menuContext?.value],
     queryFn: async () => {
       if (!menuContext) {
-        log.admin.warn('🍽️ [DishesTab] menuContext não disponível, retornando array vazio');
         return [];
       }
       return await fetchAdminCategories(menuContext);
@@ -888,20 +875,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
   });
 
   // Validações de segurança - DECLARADAS AQUI PARA ESTAREM DISPONÍVEIS EM TODAS AS FUNÇÕES
-  // ✅ DEBUG: Log para verificar dados brutos
-  log.admin.log('🍽️ [DishesTab] Dados brutos:', {
-    total_dishes: Array.isArray(dishes) ? dishes.length : 0,
-    dishes_sample: Array.isArray(dishes) ? dishes.slice(0, 3).map(d => ({ id: d.id, name: d.name, product_type: d.product_type })) : []
-  });
-  
   const safeDishes = (Array.isArray(dishes) ? dishes : []).filter(d => d.product_type !== 'pizza');
-  
-  // ✅ DEBUG: Log após filtro
-  log.admin.log('🍽️ [DishesTab] Após filtro de pizza:', {
-    total_safe_dishes: safeDishes.length,
-    removed_pizzas: (Array.isArray(dishes) ? dishes.length : 0) - safeDishes.length
-  });
-  
   const safeCategories = Array.isArray(categories) ? categories : [];
   const safeComplementGroups = Array.isArray(complementGroups) ? complementGroups : [];
 
