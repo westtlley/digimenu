@@ -1,6 +1,7 @@
 // ========= IMPORTS =========
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
+import { apiClient } from '@/api/apiClient';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
 import { usePermission } from '../permissions/usePermission';
@@ -654,6 +655,19 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
   }, [permissionUser]);
   
   const queryClient = useQueryClient();
+  const slug = menuContext?.type === 'slug' ? menuContext?.value : null;
+
+  // ✅ Para master (slug): buscar cardápio público e usar para pratos, categorias e grupos
+  const { data: publicCardapio, isLoading: publicCardapioLoading } = useQuery({
+    queryKey: ['publicCardapio', slug],
+    queryFn: async () => {
+      if (!slug) return null;
+      return await apiClient.get(`/public/cardapio/${slug}`);
+    },
+    enabled: !!slug,
+    staleTime: 30000,
+    gcTime: 60000,
+  });
 
   // ✅ Helper para obter subscriber_email correto baseado no contexto
   const getSubscriberEmail = () => {
@@ -674,66 +688,64 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
   };
 
   // ========= BUSCAR DADOS COM CONTEXTO =========
-  // ✅ Usar menuContext para buscar dados no contexto correto
-  const { data: dishes = [], isLoading: dishesLoading, error: dishesError, refetch: refetchDishes } = useQuery({
+  // ✅ Admin API; quando slug (master) usamos publicCardapio para exibir
+  const { data: adminDishes = [], isLoading: dishesLoading, error: dishesError, refetch: refetchDishes } = useQuery({
     queryKey: ['dishes', menuContext?.type, menuContext?.value],
     queryFn: async () => {
-      if (!menuContext) {
-        return [];
-      }
+      if (!menuContext) return [];
       return await fetchAdminDishes(menuContext);
     },
-    enabled: !!menuContext,
-    initialData: [],
-    placeholderData: keepPreviousData, // ✅ Mantém dados anteriores durante refetch
+    enabled: !!menuContext && !slug,
+    placeholderData: keepPreviousData,
     retry: 1,
-    refetchOnMount: 'always', // ✅ Refetch ao montar para dados frescos
-    refetchOnWindowFocus: false, // ✅ Não refetch ao focar (evita flicker)
-    staleTime: 30000, // ✅ 30s - dados são considerados frescos por este período
-    gcTime: 60000, // ✅ 60s - cache mantido por 1 minuto
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: false,
+    staleTime: 30000,
+    gcTime: 60000,
   });
 
-  // ✅ CRÍTICO: Refetch quando menuContext mudar de null para válido
-  useEffect(() => {
-    if (menuContext && dishes.length === 0 && !dishesLoading) {
-      refetchDishes();
-    }
-  }, [menuContext?.type, menuContext?.value]);
-
-  const { data: categories = [], isLoading: categoriesLoading, error: categoriesError } = useQuery({
+  const { data: adminCategories = [], isLoading: categoriesLoading, error: categoriesError } = useQuery({
     queryKey: ['categories', menuContext?.type, menuContext?.value],
     queryFn: async () => {
-      if (!menuContext) {
-        return [];
-      }
+      if (!menuContext) return [];
       return await fetchAdminCategories(menuContext);
     },
-    enabled: !!menuContext,
-    initialData: [],
-    placeholderData: keepPreviousData, // ✅ Evita categorias sumirem durante refetch
+    enabled: !!menuContext && !slug,
+    placeholderData: keepPreviousData,
     retry: 1,
-    refetchOnMount: false, // ✅ Não refetch ao montar
+    refetchOnMount: false,
     staleTime: 60000,
     gcTime: 120000,
   });
 
-  const { data: complementGroups = [], isLoading: groupsLoading, error: groupsError } = useQuery({
+  const { data: adminComplementGroups = [], isLoading: groupsLoading, error: groupsError } = useQuery({
     queryKey: ['complementGroups', menuContext?.type, menuContext?.value],
     queryFn: async () => {
-      if (!menuContext) {
-        log.admin.warn('🍽️ [DishesTab] menuContext não disponível, retornando array vazio');
-        return [];
-      }
+      if (!menuContext) return [];
       return await fetchAdminComplementGroups(menuContext);
     },
-    enabled: !!menuContext,
-    initialData: [],
-    placeholderData: keepPreviousData, // ✅ Evita complementos sumirem durante refetch
+    enabled: !!menuContext && !slug,
+    placeholderData: keepPreviousData,
     retry: 2,
-    refetchOnMount: false, // ✅ Não refetch ao montar
+    refetchOnMount: false,
     staleTime: 60000,
     gcTime: 120000,
   });
+
+  // ✅ Fonte única: cardápio público (slug) ou admin
+  const dishes = (slug && Array.isArray(publicCardapio?.dishes)) ? publicCardapio.dishes : (adminDishes || []);
+  const categories = (slug && Array.isArray(publicCardapio?.categories)) ? publicCardapio.categories : (adminCategories || []);
+  const complementGroups = (slug && Array.isArray(publicCardapio?.complementGroups)) ? publicCardapio.complementGroups : (adminComplementGroups || []);
+
+  const isLoadingDishes = slug ? publicCardapioLoading : dishesLoading;
+  const isLoadingCategories = slug ? publicCardapioLoading : categoriesLoading;
+  const isLoadingGroups = slug ? publicCardapioLoading : groupsLoading;
+
+  useEffect(() => {
+    if (menuContext && !slug && dishes.length === 0 && !dishesLoading) {
+      refetchDishes();
+    }
+  }, [menuContext?.type, menuContext?.value, slug]);
 
   // ========= MUTATIONS =========
   const createDishMutation = useMutation({
@@ -747,6 +759,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['dishes', menuContext?.type, menuContext?.value] });
+      if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
       toast.success('Prato adicionado com sucesso!');
       closeDishModal();
     },
@@ -779,6 +792,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
     onSuccess: () => toast.success('Prato atualizado!'),
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['dishes', menuContext?.type, menuContext?.value] });
+      if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
     }
   });
 
@@ -789,6 +803,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['dishes', menuContext?.type, menuContext?.value] });
+      if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
       toast.success('Prato excluído');
     },
     onError: () => toast.error('Erro ao excluir prato')
@@ -804,6 +819,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories', menuContext?.type, menuContext?.value] });
+      if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
       toast.success('Categoria criada com sucesso!');
       setShowCategoryModal(false);
       setEditingCategory(null);
@@ -818,6 +834,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories', menuContext?.type, menuContext?.value] });
+      if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
       toast.success('Categoria atualizada!');
       setShowCategoryModal(false);
       setEditingCategory(null);
@@ -833,6 +850,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories', menuContext?.type, menuContext?.value] });
       queryClient.invalidateQueries({ queryKey: ['dishes', menuContext?.type, menuContext?.value] });
+      if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
       toast.success('Categoria excluída');
     },
     onError: () => toast.error('Erro ao excluir categoria')
@@ -862,6 +880,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
     },
     onSuccess: (newGroup) => {
       queryClient.invalidateQueries({ queryKey: ['complementGroups', menuContext?.type, menuContext?.value] });
+      if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
       return newGroup;
     },
   });
@@ -871,7 +890,10 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
       const opts = getSubscriberEmail() ? { as_subscriber: getSubscriberEmail() } : {};
       return base44.entities.ComplementGroup.update(id, data, opts);
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['complementGroups', menuContext?.type, menuContext?.value] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['complementGroups', menuContext?.type, menuContext?.value] });
+      if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
+    },
   });
 
   // Validações de segurança - DECLARADAS AQUI PARA ESTAREM DISPONÍVEIS EM TODAS AS FUNÇÕES
@@ -1179,7 +1201,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
     ];
     updateDishMutation.mutate(
       { id: dishId, data: { ...dish, complement_groups: updatedGroups } },
-      { onSettled: () => queryClient.invalidateQueries({ queryKey: ['complementGroups', menuContext?.type, menuContext?.value] }) }
+      { onSettled: () => { queryClient.invalidateQueries({ queryKey: ['complementGroups', menuContext?.type, menuContext?.value] }); if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] }); } }
     );
   };
 
@@ -1404,7 +1426,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
   const activeFilters = getActiveFilters();
 
   // Mostrar skeleton enquanto contexto não carregou OU enquanto dados estão sendo buscados (evita tela vazia ao abrir)
-  const isLoading = permissionLoading || !menuContext || dishesLoading || categoriesLoading || groupsLoading;
+  const isLoading = permissionLoading || !menuContext || isLoadingDishes || isLoadingCategories || isLoadingGroups;
   const hasError = dishesError || categoriesError || groupsError;
 
   if (isLoading) {
