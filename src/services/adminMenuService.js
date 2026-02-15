@@ -27,16 +27,35 @@ export async function fetchAdminDishes(menuContext) {
       opts.as_subscriber = menuContext.value;
       log.menu.log('✅ [adminMenuService] Passando as_subscriber:', menuContext.value);
     }
-    // Se for slug, usar slug (se o backend suportar)
-    // Por enquanto, master sem slug usa dados próprios (sem opts)
 
     log.menu.log('📤 [adminMenuService] Chamando Dish.list com opts:', opts);
-    const promise = base44.entities.Dish.list('order', opts);
-    const result = await safeFetch(promise, 10000, 'Timeout ao buscar pratos');
     
-    log.menu.log('✅ [adminMenuService] Pratos recebidos:', ensureArray(result).length, 'pratos');
-    log.menu.log('📋 [adminMenuService] Amostra:', ensureArray(result).slice(0, 3).map(d => d.name));
-    return ensureArray(result);
+    try {
+      const promise = base44.entities.Dish.list('order', opts);
+      const result = await safeFetch(promise, 10000, 'Timeout ao buscar pratos');
+      
+      log.menu.log('✅ [adminMenuService] Pratos recebidos:', ensureArray(result).length, 'pratos');
+      log.menu.log('📋 [adminMenuService] Amostra:', ensureArray(result).slice(0, 3).map(d => d.name));
+      return ensureArray(result);
+    } catch (adminError) {
+      // ✅ FALLBACK: Se a rota admin falhar (404), tentar rota pública
+      log.menu.warn('⚠️ [adminMenuService] Rota admin falhou, tentando rota pública como fallback');
+      
+      // Tentar obter slug do usuário
+      const user = await base44.auth.me();
+      if (user?.slug) {
+        try {
+          const publicData = await base44.get(`/public/cardapio/${user.slug}`);
+          log.menu.log('✅ [adminMenuService] Dados públicos como fallback:', publicData.dishes?.length || 0, 'pratos');
+          return ensureArray(publicData.dishes);
+        } catch (publicError) {
+          log.menu.error('❌ [adminMenuService] Fallback público também falhou:', publicError);
+          throw adminError; // Lançar erro original
+        }
+      }
+      
+      throw adminError;
+    }
   } catch (error) {
     log.menu.error('❌ [adminMenuService] Erro ao buscar pratos:', error);
     return [];
@@ -58,11 +77,22 @@ export async function fetchAdminCategories(menuContext) {
       opts.as_subscriber = menuContext.value;
     }
 
-    const promise = base44.entities.Category.list('order', opts);
-    const result = await safeFetch(promise, 10000, 'Timeout ao buscar categorias');
-    
-    log.menu.log('✅ [adminMenuService] Categorias recebidas:', ensureArray(result).length);
-    return ensureArray(result);
+    try {
+      const promise = base44.entities.Category.list('order', opts);
+      const result = await safeFetch(promise, 10000, 'Timeout ao buscar categorias');
+      
+      log.menu.log('✅ [adminMenuService] Categorias recebidas:', ensureArray(result).length);
+      return ensureArray(result);
+    } catch (adminError) {
+      // ✅ FALLBACK: Tentar rota pública
+      log.menu.warn('⚠️ [adminMenuService] Rota admin falhou, tentando fallback público');
+      const user = await base44.auth.me();
+      if (user?.slug) {
+        const publicData = await base44.get(`/public/cardapio/${user.slug}`);
+        return ensureArray(publicData.categories);
+      }
+      throw adminError;
+    }
   } catch (error) {
     log.menu.error('❌ [adminMenuService] Erro ao buscar categorias:', error);
     return [];
@@ -84,11 +114,22 @@ export async function fetchAdminComplementGroups(menuContext) {
       opts.as_subscriber = menuContext.value;
     }
 
-    const promise = base44.entities.ComplementGroup.list('order', opts);
-    const result = await safeFetch(promise, 10000, 'Timeout ao buscar grupos de complementos');
-    
-    log.menu.log('✅ [adminMenuService] Grupos recebidos:', ensureArray(result).length);
-    return ensureArray(result);
+    try {
+      const promise = base44.entities.ComplementGroup.list('order', opts);
+      const result = await safeFetch(promise, 10000, 'Timeout ao buscar grupos de complementos');
+      
+      log.menu.log('✅ [adminMenuService] Grupos recebidos:', ensureArray(result).length);
+      return ensureArray(result);
+    } catch (adminError) {
+      // ✅ FALLBACK: Tentar rota pública
+      log.menu.warn('⚠️ [adminMenuService] Rota admin falhou, tentando fallback público');
+      const user = await base44.auth.me();
+      if (user?.slug) {
+        const publicData = await base44.get(`/public/cardapio/${user.slug}`);
+        return ensureArray(publicData.complementGroups);
+      }
+      throw adminError;
+    }
   } catch (error) {
     log.menu.error('❌ [adminMenuService] Erro ao buscar grupos:', error);
     return [];
