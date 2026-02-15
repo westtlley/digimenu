@@ -24,7 +24,12 @@ const usePostgreSQL = () => !!process.env.DATABASE_URL;
  */
 router.get('/:entity', asyncHandler(async (req, res) => {
   const { entity } = req.params;
-  const { order, page = 1, limit = 50, ...filters } = req.query;
+  const { order, page = 1, limit = 50, as_subscriber, ...filters } = req.query;
+  
+  // ✅ Configurar contexto para master atuando como assinante
+  if (req.user?.is_master && as_subscriber) {
+    req.user._contextForSubscriber = as_subscriber;
+  }
   
   let items = [];
   
