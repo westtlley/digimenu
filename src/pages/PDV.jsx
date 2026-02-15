@@ -134,7 +134,8 @@ export default function PDV() {
   const backPage = isMaster ? 'Admin' : 'PainelAssinante';
   const backUrl = createPageUrl(backPage, isMaster ? undefined : slug || undefined);
 
-  const opts = asSub ? { as_subscriber: asSub } : {};
+  // Garantir que opts sempre tenha o identificador correto do assinante
+  const opts = asSub ? { as_subscriber: asSub } : (user?.subscriber_email ? { as_subscriber: user.subscriber_email } : {});
   const { data: dishes = [] } = useQuery({
     queryKey: ['dishes', asSub ?? 'me'],
     queryFn: () => base44.entities.Dish.list(null, opts),
@@ -153,7 +154,12 @@ export default function PDV() {
 
   const { data: caixas = [], isLoading: caixasLoading } = useQuery({
     queryKey: ['caixas', asSub ?? 'me'],
-    queryFn: () => base44.entities.Caixa.list('-opening_date', opts),
+    queryFn: async () => {
+      console.log('[PDV] Buscando caixas com opts:', opts);
+      const result = await base44.entities.Caixa.list('-opening_date', opts);
+      console.log('[PDV] Caixas retornados do backend:', result);
+      return result;
+    },
     refetchInterval: 5000,
   });
 
