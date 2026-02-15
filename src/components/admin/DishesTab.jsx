@@ -676,7 +676,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
   // ========= BUSCAR DADOS COM CONTEXTO =========
   // ✅ Usar menuContext para buscar dados no contexto correto
   const { data: dishes = [], isLoading: dishesLoading, error: dishesError } = useQuery({
-    queryKey: ['dishes', menuContext?.type, menuContext?.value, Date.now()], // ✅ Forçar refetch sempre
+    queryKey: ['dishes', menuContext?.type, menuContext?.value],
     queryFn: async () => {
       if (!menuContext) {
         log.admin.warn('🍽️ [DishesTab] menuContext não disponível, retornando array vazio');
@@ -687,13 +687,14 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
       log.admin.log('✅ [DishesTab] Pratos retornados:', result.length, 'pratos');
       return result;
     },
-    enabled: !!menuContext, // ✅ Só busca se tiver contexto
+    enabled: !!menuContext,
     initialData: [],
+    placeholderData: keepPreviousData, // ✅ Mantém dados anteriores durante refetch
     retry: 1,
-    refetchOnMount: true, // ✅ SEMPRE refetch ao montar
-    refetchOnWindowFocus: true, // ✅ Refetch ao focar janela
-    staleTime: 0, // ✅ Sempre considerar dados velhos
-    gcTime: 0, // ✅ Não cachear
+    refetchOnMount: 'always', // ✅ Refetch ao montar para dados frescos
+    refetchOnWindowFocus: false, // ✅ Não refetch ao focar (evita flicker)
+    staleTime: 30000, // ✅ 30s - dados são considerados frescos por este período
+    gcTime: 60000, // ✅ 60s - cache mantido por 1 minuto
   });
 
   log.admin.log('🍽️ [DishesTab] Estado atual:', {

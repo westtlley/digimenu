@@ -30,7 +30,8 @@ export function useMenuDishes(options = {}) {
     initialData: [],
     placeholderData: keepPreviousData,
     retry: 1,
-    refetchOnMount: 'always',
+    refetchOnMount: true, // ✅ Apenas true (não 'always') para evitar flicker
+    refetchOnWindowFocus: false, // ✅ Não refetch ao focar janela
     staleTime: 30000,
     gcTime: 60000,
     ...options
@@ -56,7 +57,8 @@ export function useMenuCategories(options = {}) {
     initialData: [],
     placeholderData: keepPreviousData,
     retry: 1,
-    refetchOnMount: 'always',
+    refetchOnMount: false, // ✅ Não refetch ao montar (usa cache)
+    refetchOnWindowFocus: false, // ✅ Não refetch ao focar janela
     staleTime: 30000,
     gcTime: 60000,
     ...options
@@ -82,7 +84,8 @@ export function useMenuComplementGroups(options = {}) {
     initialData: [],
     placeholderData: keepPreviousData,
     retry: 2,
-    refetchOnMount: 'always',
+    refetchOnMount: false, // ✅ Não refetch ao montar (usa cache)
+    refetchOnWindowFocus: false, // ✅ Não refetch ao focar janela
     staleTime: 30000,
     gcTime: 60000,
     ...options
