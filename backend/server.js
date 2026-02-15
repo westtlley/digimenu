@@ -3406,6 +3406,62 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
       });
     }
     
+    // ✅ NOVO: Atualizar slug do master
+    if (name === 'updateMasterSlug') {
+      console.log('📝 [updateMasterSlug] Master atualizando slug:', data.slug);
+      
+      // Apenas master pode atualizar seu próprio slug
+      if (!req.user?.is_master) {
+        return res.status(403).json({ error: 'Apenas masters podem atualizar slug' });
+      }
+      
+      const { slug } = data;
+      if (!slug || typeof slug !== 'string' || slug.trim().length === 0) {
+        return res.status(400).json({ error: 'Slug inválido' });
+      }
+      
+      const cleanSlug = slug.trim().toLowerCase().replace(/[^a-z0-9-]/g, '');
+      
+      if (usePostgreSQL) {
+        try {
+          await repo.updateUser(req.user.id, { slug: cleanSlug });
+          console.log('✅ [updateMasterSlug] Slug atualizado com sucesso:', cleanSlug);
+          return res.json({ 
+            data: { 
+              success: true, 
+              slug: cleanSlug,
+              message: 'Slug atualizado com sucesso' 
+            } 
+          });
+        } catch (error) {
+          console.error('❌ [updateMasterSlug] Erro ao atualizar:', error);
+          return res.status(500).json({ error: 'Erro ao atualizar slug' });
+        }
+      } else {
+        // JSON mode
+        if (!db || !db.users) {
+          return res.status(500).json({ error: 'Banco de dados não inicializado' });
+        }
+        
+        const userIndex = db.users.findIndex(u => u.id === req.user.id);
+        if (userIndex === -1) {
+          return res.status(404).json({ error: 'Usuário não encontrado' });
+        }
+        
+        db.users[userIndex].slug = cleanSlug;
+        await saveDB();
+        
+        console.log('✅ [updateMasterSlug] Slug atualizado com sucesso:', cleanSlug);
+        return res.json({ 
+          data: { 
+            success: true, 
+            slug: cleanSlug,
+            message: 'Slug atualizado com sucesso' 
+          } 
+        });
+      }
+    }
+    
     if (name === 'getFullSubscriberProfile') {
       // Apenas master pode ver dados completos de assinantes
       if (!req.user?.is_master) {
