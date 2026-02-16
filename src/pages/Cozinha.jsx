@@ -59,19 +59,20 @@ export default function Cozinha() {
           return;
         }
         
-        // Verificar plano (PRO ou Ultra) - mas apenas para funcionários, não para assinante/gerente/master
-        if (hasProfileAccess && !me?.is_master && !isAssinante && !isGerente && !isOwner) {
-          // Apenas funcionários precisam verificar o plano
-          const plan = (subscriberData?.plan || '').toLowerCase();
+        // Plano básico: App Cozinha não disponível para ninguém (assinante, gerente ou funcionário)
+        const plan = (subscriberData?.plan || 'basic').toString().toLowerCase();
+        const isBasicPlan = plan === 'basic';
+        if (isBasicPlan) {
+          console.log('[Cozinha] Plano básico - App Cozinha não disponível');
+          setPlanCheck({ loading: false, hasAccess: false });
+          setAllowed(false);
+        } else if (hasProfileAccess && !me?.is_master && !isAssinante && !isGerente && !isOwner) {
+          // Funcionários: apenas Pro ou Ultra
           const hasPlanAccess = plan === 'pro' || plan === 'ultra';
           console.log('[Cozinha] Verificando plano para funcionário:', { plan, hasPlanAccess });
           setPlanCheck({ loading: false, hasAccess: hasPlanAccess });
-          if (!hasPlanAccess) {
-            setAllowed(false);
-          }
+          if (!hasPlanAccess) setAllowed(false);
         } else {
-          // Master, assinante, gerente sempre têm acesso (independente do plano)
-          console.log('[Cozinha] Usuário privilegiado (master/assinante/gerente) - acesso liberado');
           setPlanCheck({ loading: false, hasAccess: true });
         }
       } catch (e) {

@@ -49,7 +49,7 @@ export default function ImportBackupModal({ open, onOpenChange, onSuccess }) {
       setBackupData(data);
 
       // Validar arquivo
-      const response = await apiClient.post('/api/subscriber-backup/validate', {
+      const response = await apiClient.post('/subscriber-backup/validate', {
         backupData: data
       });
 
@@ -77,7 +77,7 @@ export default function ImportBackupModal({ open, onOpenChange, onSuccess }) {
     setImporting(true);
 
     try {
-      const response = await apiClient.post('/api/subscriber-backup/import', {
+      const response = await apiClient.post('/subscriber-backup/import', {
         backupData,
         mode: importMode
       });

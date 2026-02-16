@@ -26,9 +26,7 @@ export default function EarningsView({ entregadorId, darkMode, isOpen, onClose }
   const { data: earnings = [], isLoading } = useQuery({
     queryKey: ['delivery-earnings', entregadorId, period],
     queryFn: async () => {
-      const response = await base44.get('/api/delivery-earnings', {
-        params: { entregador_id: entregadorId, period }
-      });
+      const response = await base44.get('/delivery-earnings', { entregador_id: entregadorId, period });
       return response || [];
     },
     enabled: isOpen && !!entregadorId

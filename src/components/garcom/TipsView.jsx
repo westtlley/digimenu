@@ -26,9 +26,7 @@ export default function TipsView({ garcomId, darkMode, isOpen, onClose }) {
   const { data: tips = [], isLoading } = useQuery({
     queryKey: ['waiter-tips', garcomId, period],
     queryFn: async () => {
-      const response = await base44.get('/api/waiter-tips', {
-        params: { garcom_id: garcomId, period }
-      });
+      const response = await base44.get('/waiter-tips', { garcom_id: garcomId, period });
       return response || [];
     },
     enabled: isOpen && !!garcomId

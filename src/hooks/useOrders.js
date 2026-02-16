@@ -30,7 +30,7 @@ export function useOrders(options = {}) {
       }
 
       try {
-        log.menu.log('📦 [useOrders] Buscando pedidos...', menuContext);
+        log.menu.debug('📦 [useOrders] Buscando pedidos...', menuContext);
         
         const opts = {};
         if (menuContext.type === 'subscriber' && menuContext.value) {
@@ -52,7 +52,11 @@ export function useOrders(options = {}) {
           });
         }
         
-        log.menu.log('✅ [useOrders] Pedidos recebidos:', orders.length);
+        // Garantir ordem: mais recente sempre no topo (por created_date / created_at)
+        const getOrderDate = (o) => new Date(o?.created_date || o?.created_at || 0).getTime();
+        orders.sort((a, b) => getOrderDate(b) - getOrderDate(a));
+        
+        log.menu.debug('✅ [useOrders] Pedidos recebidos:', orders.length);
         return orders;
       } catch (error) {
         log.menu.error('❌ [useOrders] Erro ao buscar pedidos:', error);

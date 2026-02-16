@@ -28,10 +28,13 @@ export default function MobileQuickMenu({
   hasGestorAccess, 
   hasModuleAccess,
   slug,
+  plan: planProp,
   className = '' 
 }) {
   const [open, setOpen] = useState(false);
   const isMobile = useIsMobile();
+  const plan = (planProp || 'basic').toString().toLowerCase();
+  const isBasicPlan = plan === 'basic';
 
   const can = (module) => (typeof hasModuleAccess === 'function' ? hasModuleAccess(module) : true);
 
@@ -70,7 +73,7 @@ export default function MobileQuickMenu({
       color: 'from-blue-600 to-blue-700',
       hoverColor: 'hover:from-blue-700 hover:to-blue-800'
     }] : []),
-    ...(hasGestorAccess ? [
+    ...(hasGestorAccess && (!isBasicPlan || isMaster) ? [
       {
         id: 'gestor',
         label: 'Gestor de Pedidos',
@@ -80,7 +83,7 @@ export default function MobileQuickMenu({
         hoverColor: 'hover:from-orange-700 hover:to-orange-800'
       }
     ] : []),
-    ...(can('orders') ? [{
+    ...(can('orders') && (!isBasicPlan || isMaster) ? [{
       id: 'entregador',
       label: 'Entregador',
       icon: Bike,
@@ -96,7 +99,7 @@ export default function MobileQuickMenu({
       color: 'from-indigo-600 to-indigo-700',
       hoverColor: 'hover:from-indigo-700 hover:to-indigo-800'
     }] : []),
-    ...(can('orders') || can('cozinha') ? [{
+    ...(((can('orders') || can('cozinha')) && (!isBasicPlan || isMaster)) ? [{
       id: 'cozinha',
       label: 'Cozinha',
       icon: ChefHat,

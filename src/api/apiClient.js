@@ -187,8 +187,8 @@ class ApiClient {
 
   /**
    * GET request
-   * @param {string} endpoint - Caminho (ex: /public/cardapio/slug)
-   * @param {object} params - Query string (opcional)
+   * @param {string} endpoint - Caminho sem /api (baseURL já termina em /api). Ex: /entities/Order, /public/cardapio/slug, /waiter-tips
+   * @param {object} params - Query string (objeto plano; não passar { params: {...} })
    * @param {object} options - { signal } para AbortController (timeout no cardápio)
    */
   async get(endpoint, params = {}, options = {}) {

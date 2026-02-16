@@ -46,6 +46,7 @@ import PauseModal from '../components/entregador/PauseModal';
 import QuickReportModal from '../components/entregador/QuickReportModal';
 import OrderItemsDetail from '../components/entregador/OrderItemsDetail';
 import DeliveryDashboard from '../components/entregador/DeliveryDashboard';
+import { usePermission } from '../components/permissions/usePermission';
 
 export default function Entregador() {
   const [deliveryCodeInput, setDeliveryCodeInput] = useState({});
@@ -70,6 +71,11 @@ export default function Entregador() {
   const audioRef = useRef(null);
   const queryClient = useQueryClient();
   const { slug } = useSlugContext();
+  const { subscriberData, isMaster: isMasterPerm } = usePermission();
+  
+  // Plano básico não tem acesso ao App Entregador
+  const plan = (subscriberData?.plan || 'basic').toString().toLowerCase();
+  const isBasicPlan = plan === 'basic';
   
   // Hook customizado para entregador
   // ✅ SIMPLIFICADO: Backend valida acesso - se entregador não existir e não for master/entregador, mostrar erro
@@ -294,6 +300,24 @@ export default function Entregador() {
     return (
       <div className={`min-h-screen flex items-center justify-center ${darkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
         <Loader2 className="w-12 h-12 animate-spin text-blue-500" />
+      </div>
+    );
+  }
+
+  // Plano básico: App Entregador não disponível (apenas Pro e Ultra)
+  if (isBasicPlan && !isMaster) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+        <div className="bg-white p-8 rounded-xl shadow-lg text-center max-w-md">
+          <Lock className="w-16 h-16 text-blue-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">App Entregador</h2>
+          <p className="text-gray-600 mb-6">
+            O App Entregador está disponível nos planos Pro e Ultra. No plano Básico use o Gestor de pedidos no painel.
+          </p>
+          <Link to={createPageUrl('PainelAssinante', slug || undefined)}>
+            <Button className="bg-blue-500 hover:bg-blue-600">Voltar ao Painel</Button>
+          </Link>
+        </div>
       </div>
     );
   }

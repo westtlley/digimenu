@@ -890,7 +890,19 @@ entitiesAndManagerialRouter.get('/entities/:entity', authenticate, asyncHandler(
         ));
       }
       if (order_by) {
-        items.sort((a, b) => { const aVal = a[order_by]; const bVal = b[order_by]; if (aVal < bVal) return -1; if (aVal > bVal) return 1; return 0; });
+        const desc = order_by.startsWith('-');
+        const field = desc ? order_by.replace(/^-/, '') : order_by;
+        const getVal = (item) => {
+          const v = item[field] ?? item.created_at ?? item.created_date;
+          return v ? new Date(v).getTime() : 0;
+        };
+        items.sort((a, b) => {
+          const aVal = getVal(a);
+          const bVal = getVal(b);
+          if (aVal < bVal) return desc ? 1 : -1;
+          if (aVal > bVal) return desc ? -1 : 1;
+          return 0;
+        });
       }
       const total = items.length;
       const start = (pagination.page - 1) * pagination.limit;
@@ -1005,11 +1017,15 @@ app.put('/api/entities/:entity/:id', authenticate, asyncHandler(async (req, res)
     return res.json(updated);
   }
   if (String(entity).toLowerCase() === 'order' && data.status) {
-    // Verificar permissão para alterar status (apenas admin, gestor_pedidos ou master)
+    // Verificar permissão: master, admin, gestor_pedidos ou dono do estabelecimento (assinante)
     if (!req.user?.is_master) {
       const allowedRoles = ['admin', 'gestor_pedidos'];
       const userRole = req.user?.profile_role || req.user?.role;
-      if (!allowedRoles.includes(userRole)) {
+      const asSub = (req.query?.as_subscriber || '').toString().trim().toLowerCase();
+      const userEmail = (req.user?.email || '').toString().trim().toLowerCase();
+      const subEmail = (req.user?.subscriber_email || '').toString().trim().toLowerCase();
+      const isOwner = asSub && (userEmail === asSub || subEmail === asSub);
+      if (!allowedRoles.includes(userRole) && !isOwner) {
         return res.status(403).json({
           success: false,
           error: 'Sem permissão para alterar status do pedido. Apenas administradores e gestores de pedidos podem alterar o status.',

@@ -67,10 +67,12 @@ export default function GestorPedidos() {
   const prevOrderCountRef = useRef(0);
   const autoAcceptedIdsRef = useRef(new Set());
   const queryClient = useQueryClient();
-  const { isMaster, hasModuleAccess, loading: permLoading, user } = usePermission();
+  const { isMaster, hasModuleAccess, loading: permLoading, user, subscriberData } = usePermission();
   const { slug, subscriberEmail, inSlugContext, loading: slugLoading, error: slugError } = useSlugContext();
 
-  const hasAccess = isMaster || hasModuleAccess('gestor_pedidos');
+  const plan = (subscriberData?.plan || 'basic').toString().toLowerCase();
+  const isBasicPlan = plan === 'basic';
+  const hasAccess = isMaster || (hasModuleAccess('gestor_pedidos') && !isBasicPlan);
   const backPage = isMaster ? 'Admin' : 'PainelAssinante';
   // Em /s/:slug, master usa as_subscriber; assinante/colaborador já é filtrado pelo backend
   const asSub = (inSlugContext && isMaster && subscriberEmail) ? subscriberEmail : undefined;
@@ -482,8 +484,8 @@ export default function GestorPedidos() {
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <Lock className="w-8 h-8 text-red-600" />
           </div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">Gestor de Pedidos</h2>
-          <p className="text-gray-600 mb-6">Esta funcionalidade não está disponível no seu plano atual.</p>
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">Gestor de Pedidos Avançado</h2>
+          <p className="text-gray-600 mb-6">No plano Básico use o <strong>Gestor de pedidos</strong> no painel (aba Operação). Esta tela avançada está disponível nos planos Pro e Ultra.</p>
           <div className="space-y-3">
             <Link to={createPageUrl('PainelAssinante', slug || undefined)}>
               <Button className="w-full bg-orange-500 hover:bg-orange-600">Voltar ao Painel</Button>

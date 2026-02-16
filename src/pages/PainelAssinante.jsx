@@ -330,6 +330,7 @@ export default function PainelAssinante() {
               hasGestorAccess={hasModuleAccess('orders')}
               hasModuleAccess={hasModuleAccess}
               slug={slug}
+              plan={subscriberData?.plan || 'basic'}
             />
 
             <AlertDialog>

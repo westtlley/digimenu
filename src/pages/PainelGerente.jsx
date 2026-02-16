@@ -209,7 +209,7 @@ export default function PainelGerente() {
             {store?.id && (
               <WhatsAppComandaToggle store={store} subscriber={subscriberData} compact />
             )}
-            <MobileQuickMenu isMaster={false} hasGestorAccess={true} hasModuleAccess={() => true} slug={slug} />
+            <MobileQuickMenu isMaster={false} hasGestorAccess={true} hasModuleAccess={() => true} slug={slug} plan={subscriberData?.plan || 'basic'} />
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button size="sm" variant="ghost" className="text-white hover:bg-white/10 hidden sm:flex min-h-touch min-w-touch" title="Sair">

@@ -46,7 +46,8 @@ export default function OrdersTab({ isMaster, user, subscriberData }) {
   const [showFilters, setShowFilters] = useState(false);
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
-  const { subscriberData: subData, isMaster: isM } = usePermission();
+  const { subscriberData: subData, isMaster: isM, menuContext } = usePermission();
+  const asSub = (menuContext?.type === 'subscriber' && menuContext?.value) ? menuContext.value : (subscriberData?.email || subData?.email) || undefined;
   
   // Verificar se tem acesso a funcionalidades avançadas (apenas Pro e Ultra)
   const plan = subscriberData?.plan || subData?.plan;
@@ -63,16 +64,16 @@ export default function OrdersTab({ isMaster, user, subscriberData }) {
     return queryClient.invalidateQueries({ queryKey: ['orders'] });
   });
 
-  // ✅ NOVO: Usar hook useEntityMutation com tratamento de erro unificado
+  // ✅ NOVO: Usar hook useEntityMutation com tratamento de erro unificado (as_subscriber para dono alterar status)
   const updateMutation = useEntityMutation({
-    mutationFn: ({ id, data }) => base44.entities.Order.update(id, data),
+    mutationFn: ({ id, data }) => base44.entities.Order.update(id, data, asSub ? { as_subscriber: asSub } : {}),
     entityType: 'orders',
     successMessage: 'Pedido atualizado com sucesso!',
     errorMessage: 'Erro ao atualizar pedido'
   });
 
   const deleteMutation = useEntityMutation({
-    mutationFn: (id) => base44.entities.Order.delete(id),
+    mutationFn: (id) => base44.entities.Order.delete(id, asSub ? { as_subscriber: asSub } : {}),
     entityType: 'orders',
     successMessage: 'Pedido excluído com sucesso!',
     errorMessage: 'Erro ao excluir pedido'

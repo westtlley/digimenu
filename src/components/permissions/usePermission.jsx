@@ -24,8 +24,6 @@ export function usePermission() {
 
   const loadPermissions = useCallback(async () => {
     try {
-      log.permission.log('🔄 [usePermission] Carregando contexto do usuário...');
-      
       // ✅ NOVO: Usar endpoint /api/user/context que retorna tudo pronto
       // Retry em caso de erro de rede (backend pode estar acordando no Render)
       let contextData = null;
@@ -54,13 +52,6 @@ export function usePermission() {
           setLoading(false);
           return;
         }
-
-        log.permission.log('✅ [usePermission] Contexto recebido do backend:', {
-          is_master: contextData.user.is_master,
-          menuContext: contextData.menuContext,
-          subscriberData: contextData.subscriberData,
-          plan: contextData.subscriberData?.plan
-        });
 
         setUser(contextData.user);
 
@@ -116,7 +107,6 @@ export function usePermission() {
                 if (!slugPerms || typeof slugPerms !== 'object') slugPerms = {};
                 // ✅ SIMPLIFICADO: Usar apenas permissões do backend
                 setPermissions(slugPerms);
-                log.permission.log('✅ [usePermission] Usando dados do assinante do slug:', slugSubscriberEmail);
               }
             } catch (e) {
               log.permission.warn('⚠️ [usePermission] Erro ao buscar dados do assinante do slug:', e);
@@ -135,7 +125,6 @@ export function usePermission() {
             type: 'subscriber',
             value: slugSubscriberEmail
           };
-          log.permission.log('✅ [usePermission] Usando subscriberEmail do slug no menuContext:', slugSubscriberEmail);
         }
 
         const context = {
@@ -157,7 +146,6 @@ export function usePermission() {
           // Ignorar erro de sessionStorage
         }
         
-        log.permission.log('✅ [usePermission] Contexto criado:', context.menuContext);
       } catch (contextError) {
         // Fallback: se o endpoint novo não existir, usar método antigo
         log.permission.warn('⚠️ [usePermission] Endpoint /user/context não disponível, usando fallback');

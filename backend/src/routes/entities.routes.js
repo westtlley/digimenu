@@ -286,12 +286,16 @@ router.put('/:entity/:id', asyncHandler(async (req, res) => {
   if (String(entity).toLowerCase() === 'order' && data.status) {
     agentLog({ location: 'entities.routes.js:237', message: '[H4] Validating order status transition', data: { orderId: id, newStatus: data.status, userRole: req.user?.profile_role, isMaster: req.user?.is_master }, timestamp: Date.now() });
 
-    // Verificar permissão para alterar status (apenas admin, gestor_pedidos ou master)
-    agentLog({ location: 'entities.routes.js:255', message: '[H3] Checking permission for status change', data: { isMaster: req.user?.is_master, profileRole: req.user?.profile_role, userId: req.user?.id }, timestamp: Date.now() });
+    // Verificar permissão: master, admin, gestor_pedidos ou dono do estabelecimento (assinante)
+    const asSub = (req.query?.as_subscriber || '').toString().trim().toLowerCase();
+    const userEmail = (req.user?.email || '').toString().trim().toLowerCase();
+    const subEmail = (req.user?.subscriber_email || '').toString().trim().toLowerCase();
+    const isOwner = asSub && (userEmail === asSub || subEmail === asSub);
+    agentLog({ location: 'entities.routes.js:255', message: '[H3] Checking permission for status change', data: { isMaster: req.user?.is_master, profileRole: req.user?.profile_role, isOwner, userId: req.user?.id }, timestamp: Date.now() });
     if (!req.user?.is_master) {
       const allowedRoles = ['admin', 'gestor_pedidos'];
       const userRole = req.user?.profile_role;
-      if (!allowedRoles.includes(userRole)) {
+      if (!allowedRoles.includes(userRole) && !isOwner) {
         agentLog({ location: 'entities.routes.js:260', message: '[H3] Permission denied for status change', data: { userRole, allowedRoles }, timestamp: Date.now() });
         return errorResponse(res, 'Acesso negado. Apenas administradores e gestores de pedidos podem alterar o status.', 403, 'PERMISSION_DENIED');
       }

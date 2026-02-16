@@ -866,7 +866,8 @@ export default function Cardapio() {
         order, 
         cart, 
         complementGroupsResolved, 
-        formatCurrency
+        formatCurrency,
+        store?.name || store?.store_name || 'Restaurante'
       );
 
       whatsappService.sendToWhatsApp(store?.whatsapp, message);

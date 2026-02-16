@@ -104,11 +104,12 @@ export async function listEntities(entityType, filters = {}, orderBy = null, use
     `;
     const params = [entityType];
     
-    // Filtro por assinante (multi-tenancy)
+    // Filtro por assinante (multi-tenancy). Inclui legado: coluna subscriber_email OU data->>'owner_email'
     if (subscriberEmail) {
-      sql += ` AND subscriber_email = $${params.length + 1}`;
+      const subParam = params.length + 1;
+      sql += ` AND (LOWER(TRIM(subscriber_email)) = LOWER(TRIM($${subParam})) OR (subscriber_email IS NULL AND (data->>'owner_email') IS NOT NULL AND LOWER(TRIM(data->>'owner_email')) = LOWER(TRIM($${subParam}))))`;
       params.push(subscriberEmail);
-      console.log('✅ [listEntities] Filtrando por subscriber_email:', subscriberEmail);
+      console.log('✅ [listEntities] Filtrando por subscriber/owner:', subscriberEmail);
     } else if (user?.is_master) {
       // Master: apenas seus próprios (subscriber_email IS NULL)
       sql += ` AND subscriber_email IS NULL`;
@@ -140,7 +141,8 @@ export async function listEntities(entityType, filters = {}, orderBy = null, use
     const countParams = [entityType];
     
     if (subscriberEmail) {
-      countSql += ` AND subscriber_email = $${countParams.length + 1}`;
+      const subParam = countParams.length + 1;
+      countSql += ` AND (LOWER(TRIM(subscriber_email)) = LOWER(TRIM($${subParam})) OR (subscriber_email IS NULL AND (data->>'owner_email') IS NOT NULL AND LOWER(TRIM(data->>'owner_email')) = LOWER(TRIM($${subParam}))))`;
       countParams.push(subscriberEmail);
     } else if (user?.is_master) {
       countSql += ` AND subscriber_email IS NULL`;
@@ -161,12 +163,13 @@ export async function listEntities(entityType, filters = {}, orderBy = null, use
       });
     }
     
-    // Ordenação (created_at/updated_at são colunas da tabela; demais vêm de data->>field)
+    // Ordenação (created_at/updated_at são colunas da tabela; created_date = alias para created_at; demais vêm de data->>field)
     if (orderBy) {
       const direction = orderBy.startsWith('-') ? 'DESC' : 'ASC';
       const field = orderBy.replace(/^-/, '');
-      if (field === 'created_at' || field === 'updated_at') {
-        sql += ` ORDER BY ${field} ${direction} NULLS LAST`;
+      if (field === 'created_at' || field === 'updated_at' || field === 'created_date') {
+        const orderColumn = field === 'created_date' ? 'created_at' : field;
+        sql += ` ORDER BY ${orderColumn} ${direction} NULLS LAST`;
       } else {
         sql += ` ORDER BY data->>$${params.length + 1} ${direction} NULLS LAST`;
         params.push(field);
@@ -228,7 +231,8 @@ export async function getEntityById(entityType, id, user = null) {
     const params = [entityType, parseInt(id)];
     
     if (subscriberEmail) {
-      sql += ` AND subscriber_email = $${params.length + 1}`;
+      const subParam = params.length + 1;
+      sql += ` AND (LOWER(TRIM(subscriber_email)) = LOWER(TRIM($${subParam})) OR (subscriber_email IS NULL AND (data->>'owner_email') IS NOT NULL AND LOWER(TRIM(data->>'owner_email')) = LOWER(TRIM($${subParam}))))`;
       params.push(subscriberEmail);
     } else if (user?.is_master) {
       sql += ` AND subscriber_email IS NULL`;

@@ -1,67 +1,82 @@
 export const whatsappService = {
-  formatOrderMessage(order, cart, complementGroups, formatCurrency) {
+  formatOrderMessage(order, cart, complementGroups, formatCurrency, storeName = '') {
     const paymentMethods = {
-      'pix': '💳 PIX',
-      'dinheiro': '💵 Dinheiro',
-      'cartao_credito': '💳 Crédito',
-      'cartao_debito': '💳 Débito'
+      'pix': 'PIX',
+      'dinheiro': 'Dinheiro',
+      'cartao_credito': 'Crédito',
+      'cartao_debito': 'Débito'
     };
 
-    // Header compacto e elegante
-    let comandaText = `🔔 *NOVO PEDIDO #${order.order_code}*\n`;
-    comandaText += `━━━━━━━━━━━━━━━━━━━━\n`;
-    comandaText += `📅 ${new Date().toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}\n\n`;
+    // Topo: "Novo pedido! (nome do restaurante)" — alinhado e profissional
+    const restaurantName = (storeName || '').trim() || 'Restaurante';
+    let msg = `*Novo pedido! (${restaurantName})*\n`;
+    msg += `══════════════════════════\n\n`;
     
-    // Informações do cliente (condensadas)
-    comandaText += `👤 ${order.customer_name} • 📱 ${order.customer_phone}\n`;
-    comandaText += `${order.delivery_method === 'delivery' ? '🚴 Entrega' : '🏪 Retirada'}`;
+    // Informações do pedido
+    msg += `📋 *Pedido:* #${order.order_code}\n`;
+    msg += `📅 *Data:* ${new Date().toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}\n`;
+    msg += `\n`;
     
-    if (order.delivery_method === 'delivery' && order.address) {
-      comandaText += ` • 📍 ${order.address}`;
+    // Cliente
+    msg += `👤 *Cliente:* ${order.customer_name}\n`;
+    msg += `📱 *Telefone:* ${order.customer_phone}\n`;
+    
+    // Entrega/Retirada
+    msg += `\n`;
+    if (order.delivery_method === 'delivery') {
+      msg += `🚴 *ENTREGA*\n`;
+      if (order.address) {
+        msg += `📍 ${order.address}\n`;
+      }
+    } else {
+      msg += `🏪 *RETIRADA NO LOCAL*\n`;
     }
     
-    comandaText += `\n${paymentMethods[order.payment_method] || order.payment_method}`;
-    
-    if (order.payment_method === 'dinheiro' && order.needs_change && order.change_amount) {
-      const changeValue = parseFloat(order.change_amount) - order.total;
-      comandaText += ` (Troco: ${formatCurrency(changeValue)})`;
-    }
-    
+    // Agendamento (se houver)
     if (order.scheduled_date && order.scheduled_time) {
       const schedDate = new Date(order.scheduled_date).toLocaleDateString('pt-BR');
-      comandaText += `\n⏰ *Agendado:* ${schedDate} às ${order.scheduled_time}`;
+      msg += `⏰ *Agendado:* ${schedDate} às ${order.scheduled_time}\n`;
     }
     
-    comandaText += `\n\n━━━━━━━━━━━━━━━━━━━━\n*ITENS*\n`;
+    // Pagamento
+    msg += `\n💰 *Pagamento:* ${paymentMethods[order.payment_method] || order.payment_method}\n`;
+    if (order.payment_method === 'dinheiro' && order.needs_change && order.change_amount) {
+      const changeValue = parseFloat(order.change_amount) - order.total;
+      msg += `💵 *Troco para:* ${formatCurrency(order.change_amount)} (troco: ${formatCurrency(changeValue)})\n`;
+    }
+    
+    // Itens do pedido
+    msg += `\n══════════════════════════\n`;
+    msg += `*📦 ITENS DO PEDIDO*\n`;
+    msg += `══════════════════════════\n\n`;
 
     cart.forEach((item, index) => {
       const isPizza = item.dish?.product_type === 'pizza';
-      const itemPrice = formatCurrency(item.totalPrice * (item.quantity || 1));
+      const itemTotal = item.totalPrice * (item.quantity || 1);
       
-      // Nome do item + quantidade + preço (tudo em uma linha)
-      comandaText += `\n${index + 1}. *${item.dish.name}* (x${item.quantity || 1}) • ${itemPrice}\n`;
+      // Linha principal do item
+      msg += `*${index + 1}. ${item.dish.name}*\n`;
+      msg += `   Qtd: ${item.quantity || 1}x | Valor: ${formatCurrency(itemTotal)}\n`;
 
-      const details = [];
-
-      // Pizza detalhada (condensada)
+      // Pizza detalhada
       if (isPizza && item.size) {
-        details.push(`🍕 ${item.size.name}`);
+        msg += `   🍕 Tamanho: ${item.size.name}\n`;
         
         if (item.flavors && item.flavors.length > 0) {
           const flavorNames = item.flavors.map(f => f.name).join(' + ');
-          details.push(flavorNames);
+          msg += `   Sabores: ${flavorNames}\n`;
         }
         
         if (item.edge) {
-          details.push(`🧀 ${item.edge.name}`);
+          msg += `   🧀 Borda: ${item.edge.name}\n`;
         }
         
         if (item.extras && item.extras.length > 0) {
           const extrasNames = item.extras.map(e => e.name).join(', ');
-          details.push(`+${extrasNames}`);
+          msg += `   Adicionais: ${extrasNames}\n`;
         }
       } 
-      // Prato normal (condensado)
+      // Prato normal com complementos
       else if (item.selections && Object.keys(item.selections).length > 0) {
         const dishGroups = complementGroups.filter(group => 
           item.dish.complement_groups?.some(cg => cg.group_id === group.id)
@@ -72,9 +87,9 @@ export const whatsappService = {
           if (group) {
             if (Array.isArray(sel)) {
               const opts = sel.map(opt => opt.name).join(', ');
-              if (opts) details.push(opts);
+              if (opts) msg += `   ${group.name}: ${opts}\n`;
             } else if (sel && sel.name) {
-              details.push(sel.name);
+              msg += `   ${group.name}: ${sel.name}\n`;
             }
           }
         });
@@ -82,27 +97,31 @@ export const whatsappService = {
 
       // Observações
       if (item.specifications || item.observations) {
-        details.push(`📝 ${item.specifications || item.observations}`);
+        msg += `   📝 Obs: ${item.specifications || item.observations}\n`;
       }
-
-      // Imprimir detalhes em uma linha limpa
-      if (details.length > 0) {
-        comandaText += `   _${details.join(' • ')}_\n`;
-      }
+      
+      msg += `\n`;
     });
     
-    // Totais (compactos)
-    comandaText += `\n━━━━━━━━━━━━━━━━━━━━\n`;
+    // Totais
+    msg += `══════════════════════════\n`;
+    msg += `*💵 RESUMO DO PEDIDO*\n`;
+    msg += `══════════════════════════\n\n`;
     
-    const totalsLine = [`Subtotal: ${formatCurrency(order.subtotal)}`];
-    if (order.delivery_fee > 0) totalsLine.push(`Taxa: ${formatCurrency(order.delivery_fee)}`);
-    if (order.discount > 0) totalsLine.push(`Desconto: -${formatCurrency(order.discount)}`);
+    msg += `Subtotal........: ${formatCurrency(order.subtotal)}\n`;
     
-    comandaText += totalsLine.join(' • ') + `\n`;
-    comandaText += `\n💵 *TOTAL: ${formatCurrency(order.total)}*\n`;
-    comandaText += `━━━━━━━━━━━━━━━━━━━━`;
+    if (order.discount > 0) {
+      msg += `Desconto........: -${formatCurrency(order.discount)}\n`;
+    }
+    
+    if (order.delivery_fee > 0) {
+      msg += `Taxa de entrega.: ${formatCurrency(order.delivery_fee)}\n`;
+    }
+    
+    msg += `\n*TOTAL..........: ${formatCurrency(order.total)}*\n`;
+    msg += `══════════════════════════`;
 
-    return comandaText;
+    return msg;
   },
 
   async sendToWhatsApp(phone, message) {
