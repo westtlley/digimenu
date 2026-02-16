@@ -47,6 +47,16 @@ export default function OrdersTab({ isMaster, user, subscriberData }) {
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
   const { subscriberData: subData, isMaster: isM, menuContext } = usePermission();
+  
+  // Log para debug
+  console.log('📊 [OrdersTab] Contexto:', { 
+    menuContext, 
+    subscriberData: subscriberData?.email,
+    subData: subData?.email,
+    isMaster,
+    isM
+  });
+  
   const asSub = (menuContext?.type === 'subscriber' && menuContext?.value) ? menuContext.value : (subscriberData?.email || subData?.email) || undefined;
   
   // Verificar se tem acesso a funcionalidades avançadas (apenas Pro e Ultra)

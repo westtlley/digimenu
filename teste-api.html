@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste API Digimenu</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
+        .box { background: #f5f5f5; padding: 15px; margin: 10px 0; border-radius: 5px; }
+        button { background: #ff6b35; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; margin: 5px; }
+        button:hover { background: #ff5520; }
+        .success { background: #d4edda; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; border: 1px solid #f5c6cb; }
+        pre { background: white; padding: 10px; border-radius: 3px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Teste Backend Digimenu</h1>
+    
+    <div class="box">
+        <h3>1️⃣ Testar Conexão Backend</h3>
+        <button onclick="testBackend()">Testar Backend</button>
+        <div id="backend-result"></div>
+    </div>
+
+    <div class="box">
+        <h3>2️⃣ Login</h3>
+        <input type="email" id="email" placeholder="Email" value="temperodaneta1@gmail.com" style="width: 300px; padding: 8px;">
+        <input type="password" id="password" placeholder="Senha" style="width: 300px; padding: 8px;">
+        <br><button onclick="login()">Login</button>
+        <div id="login-result"></div>
+    </div>
+
+    <div class="box">
+        <h3>3️⃣ Buscar Pedidos</h3>
+        <button onclick="getOrders()">Buscar Pedidos (Order.list)</button>
+        <div id="orders-result"></div>
+    </div>
+
+    <div class="box">
+        <h3>4️⃣ Verificar Contexto</h3>
+        <button onclick="getUserContext()">Ver Contexto do Usuário</button>
+        <div id="context-result"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'https://digimenu-backend-3m6t.onrender.com/api';
+        let token = localStorage.getItem('auth_token');
+
+        async function testBackend() {
+            const result = document.getElementById('backend-result');
+            result.innerHTML = '<p>⏳ Testando...</p>';
+            
+            try {
+                const response = await fetch(`${API_BASE.replace('/api', '')}/health`);
+                if (response.ok) {
+                    result.innerHTML = '<div class="success"><p>✅ Backend está ONLINE!</p></div>';
+                } else {
+                    throw new Error('Backend retornou erro');
+                }
+            } catch (error) {
+                result.innerHTML = `<div class="error"><p>❌ Erro: ${error.message}</p><p>Backend pode estar offline ou em deploy.</p></div>`;
+            }
+        }
+
+        async function login() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const result = document.getElementById('login-result');
+            
+            result.innerHTML = '<p>⏳ Fazendo login...</p>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.token) {
+                    token = data.token;
+                    localStorage.setItem('auth_token', token);
+                    result.innerHTML = `<div class="success"><p>✅ Login com sucesso!</p><pre>${JSON.stringify(data.user, null, 2)}</pre></div>`;
+                } else {
+                    result.innerHTML = `<div class="error"><p>❌ Erro no login: ${data.error || 'Verifique email e senha'}</p></div>`;
+                }
+            } catch (error) {
+                result.innerHTML = `<div class="error"><p>❌ Erro: ${error.message}</p></div>`;
+            }
+        }
+
+        async function getOrders() {
+            const result = document.getElementById('orders-result');
+            
+            if (!token) {
+                result.innerHTML = '<div class="error"><p>❌ Faça login primeiro!</p></div>';
+                return;
+            }
+            
+            result.innerHTML = '<p>⏳ Buscando pedidos...</p>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/entities/Order?order_by=-created_date`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    const orders = data.items || data;
+                    result.innerHTML = `<div class="success">
+                        <p>✅ Encontrados ${orders.length} pedidos!</p>
+                        ${orders.length === 0 ? '<p>⚠️ Lista vazia - problema confirmado!</p>' : ''}
+                        <pre>${JSON.stringify(orders.slice(0, 3), null, 2)}</pre>
+                    </div>`;
+                } else {
+                    result.innerHTML = `<div class="error"><p>❌ Erro: ${data.error || 'Erro ao buscar pedidos'}</p></div>`;
+                }
+            } catch (error) {
+                result.innerHTML = `<div class="error"><p>❌ Erro: ${error.message}</p></div>`;
+            }
+        }
+
+        async function getUserContext() {
+            const result = document.getElementById('context-result');
+            
+            if (!token) {
+                result.innerHTML = '<div class="error"><p>❌ Faça login primeiro!</p></div>';
+                return;
+            }
+            
+            result.innerHTML = '<p>⏳ Buscando contexto...</p>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/user/context`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    result.innerHTML = `<div class="success">
+                        <p>✅ Contexto do usuário:</p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    </div>`;
+                } else {
+                    result.innerHTML = `<div class="error"><p>❌ Erro: ${data.error}</p></div>`;
+                }
+            } catch (error) {
+                result.innerHTML = `<div class="error"><p>❌ Erro: ${error.message}</p></div>`;
+            }
+        }
+
+        // Auto-testar backend ao carregar
+        window.onload = testBackend;
+    </script>
+</body>
+</html>

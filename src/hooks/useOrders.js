@@ -24,17 +24,13 @@ export function useOrders(options = {}) {
   return useQuery({
     queryKey: ['orders', menuContext?.type, menuContext?.value, orderBy, filters],
     queryFn: async () => {
-      if (!menuContext) {
-        log.menu.warn('⚠️ [useOrders] menuContext não disponível');
-        return [];
-      }
-
       try {
-        log.menu.debug('📦 [useOrders] Buscando pedidos...', menuContext);
+        log.menu.log('📦 [useOrders] Buscando pedidos...', { menuContext, hasContext: !!menuContext });
         
         const opts = {};
-        if (menuContext.type === 'subscriber' && menuContext.value) {
+        if (menuContext?.type === 'subscriber' && menuContext?.value) {
           opts.as_subscriber = menuContext.value;
+          log.menu.log('✅ [useOrders] Usando as_subscriber:', menuContext.value);
         }
 
         const promise = base44.entities.Order.list(orderBy, opts);
@@ -56,14 +52,14 @@ export function useOrders(options = {}) {
         const getOrderDate = (o) => new Date(o?.created_date || o?.created_at || 0).getTime();
         orders.sort((a, b) => getOrderDate(b) - getOrderDate(a));
         
-        log.menu.debug('✅ [useOrders] Pedidos recebidos:', orders.length);
+        log.menu.log('✅ [useOrders] Pedidos recebidos:', orders.length);
         return orders;
       } catch (error) {
         log.menu.error('❌ [useOrders] Erro ao buscar pedidos:', error);
         return [];
       }
     },
-    enabled: !!menuContext && (queryOptions.enabled !== false),
+    enabled: queryOptions.enabled !== false,
     initialData: [],
     retry: 1,
     refetchOnMount: 'always',

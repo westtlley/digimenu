@@ -573,7 +573,7 @@ export function DishRow({ dish, complementGroups, expanded, onToggleExpand, onEd
 
 // ========= COMPONENT =========
 export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' }) {
-  log.admin.log('🍽️ [DishesTab] Componente montado, initialTab:', initialTab);
+  log.admin.debug('🍽️ [DishesTab] Componente montado, initialTab:', initialTab);
   
   const [user, setUser] = React.useState(null);
   const [showDishModal, setShowDishModal] = useState(false);
@@ -625,7 +625,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
   const hasPizzaService = hasModuleAccess('pizza_config');
   const canEdit = canUpdate('dishes');
   
-  log.admin.log('🍽️ [DishesTab] Permissões:', {
+  log.admin.debug('🍽️ [DishesTab] Permissões:', {
     canCreate: canCreate('dishes'),
     canUpdate: canUpdate('dishes'),
     canDelete: canDelete('dishes'),
@@ -638,13 +638,13 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
   React.useEffect(() => {
     if (permissionUser) {
       setUser(permissionUser);
-      log.admin.log('🍽️ [DishesTab] Usuário do usePermission:', permissionUser?.email);
+      log.admin.debug('🍽️ [DishesTab] Usuário do usePermission:', permissionUser?.email);
     } else {
       const loadUser = async () => {
         try {
-          log.admin.log('🍽️ [DishesTab] Carregando usuário...');
+          log.admin.debug('🍽️ [DishesTab] Carregando usuário...');
           const userData = await base44.auth.me();
-          log.admin.log('🍽️ [DishesTab] Usuário carregado:', userData?.email);
+          log.admin.debug('🍽️ [DishesTab] Usuário carregado:', userData?.email);
           setUser(userData);
         } catch (e) {
           log.admin.error('🍽️ [DishesTab] Error loading user:', e);

@@ -37,24 +37,24 @@ async function getReliableSlug(menuContext) {
   // Prioridade 1: subscriberSlug (do banco via sessionStorage)
   if (subscriberSlug) {
     slugToUse = subscriberSlug;
-    log.menu.log('✅ [getReliableSlug] Usando slug do subscriberData:', slugToUse);
+    log.menu.debug('✅ [getReliableSlug] Usando slug do subscriberData:', slugToUse);
   }
   // Prioridade 2: user.slug
   else if (user?.slug) {
     slugToUse = user.slug;
-    log.menu.log('✅ [getReliableSlug] Usando slug do user:', slugToUse);
+    log.menu.debug('✅ [getReliableSlug] Usando slug do user:', slugToUse);
   }
   // Prioridade 3: menuContext.value (se type for 'slug')
   else if (menuContext?.type === 'slug' && menuContext.value) {
     slugToUse = menuContext.value;
-    log.menu.log('✅ [getReliableSlug] Usando slug do menuContext:', slugToUse);
+    log.menu.debug('✅ [getReliableSlug] Usando slug do menuContext:', slugToUse);
   }
   // Prioridade 4 (último recurso): extrair da URL
   else {
     const urlMatch = window.location.pathname.match(/\/s\/([^/]+)/);
     if (urlMatch) {
       slugToUse = urlMatch[1];
-      log.menu.log('⚠️ [getReliableSlug] Usando slug da URL (último recurso):', slugToUse);
+      log.menu.debug('⚠️ [getReliableSlug] Usando slug da URL (último recurso):', slugToUse);
     }
   }
   
@@ -69,24 +69,24 @@ async function getReliableSlug(menuContext) {
  */
 export async function fetchAdminDishes(menuContext) {
   try {
-    log.menu.log('📦 [adminMenuService] Buscando pratos admin...', menuContext);
+    log.menu.debug('📦 [adminMenuService] Buscando pratos admin...', menuContext);
 
     const opts = {};
     
     // Se for subscriber, usar as_subscriber
     if (menuContext.type === 'subscriber' && menuContext.value) {
       opts.as_subscriber = menuContext.value;
-      log.menu.log('✅ [adminMenuService] Passando as_subscriber:', menuContext.value);
+      log.menu.debug('✅ [adminMenuService] Passando as_subscriber:', menuContext.value);
     }
 
-    log.menu.log('📤 [adminMenuService] Chamando Dish.list com opts:', opts);
+    log.menu.debug('📤 [adminMenuService] Chamando Dish.list com opts:', opts);
     
     try {
       const promise = base44.entities.Dish.list('order', opts);
       const result = await safeFetch(promise, 10000, 'Timeout ao buscar pratos');
       
-      log.menu.log('✅ [adminMenuService] Pratos recebidos:', ensureArray(result).length, 'pratos');
-      log.menu.log('📋 [adminMenuService] Amostra:', ensureArray(result).slice(0, 3).map(d => d.name));
+      log.menu.debug('✅ [adminMenuService] Pratos recebidos:', ensureArray(result).length, 'pratos');
+      log.menu.debug('📋 [adminMenuService] Amostra:', ensureArray(result).slice(0, 3).map(d => d.name));
       
       // Se a rota admin retornar vazio, tentar fallback público
       if (ensureArray(result).length === 0) {
@@ -127,7 +127,7 @@ export async function fetchAdminDishes(menuContext) {
  */
 export async function fetchAdminCategories(menuContext) {
   try {
-    log.menu.log('📦 [adminMenuService] Buscando categorias admin...', menuContext);
+    log.menu.debug('📦 [adminMenuService] Buscando categorias admin...', menuContext);
 
     const opts = {};
     if (menuContext.type === 'subscriber' && menuContext.value) {
@@ -138,7 +138,7 @@ export async function fetchAdminCategories(menuContext) {
       const promise = base44.entities.Category.list('order', opts);
       const result = await safeFetch(promise, 10000, 'Timeout ao buscar categorias');
       
-      log.menu.log('✅ [adminMenuService] Categorias recebidas:', ensureArray(result).length);
+      log.menu.debug('✅ [adminMenuService] Categorias recebidas:', ensureArray(result).length);
       
       // Se a rota admin retornar vazio, tentar fallback público
       if (ensureArray(result).length === 0) {
@@ -179,7 +179,7 @@ export async function fetchAdminCategories(menuContext) {
  */
 export async function fetchAdminComplementGroups(menuContext) {
   try {
-    log.menu.log('📦 [adminMenuService] Buscando grupos de complementos admin...', menuContext);
+    log.menu.debug('📦 [adminMenuService] Buscando grupos de complementos admin...', menuContext);
 
     const opts = {};
     if (menuContext.type === 'subscriber' && menuContext.value) {
@@ -190,7 +190,7 @@ export async function fetchAdminComplementGroups(menuContext) {
       const promise = base44.entities.ComplementGroup.list('order', opts);
       const result = await safeFetch(promise, 10000, 'Timeout ao buscar grupos de complementos');
       
-      log.menu.log('✅ [adminMenuService] Grupos recebidos:', ensureArray(result).length);
+      log.menu.debug('✅ [adminMenuService] Grupos recebidos:', ensureArray(result).length);
       
       // Se a rota admin retornar vazio, tentar fallback público
       if (ensureArray(result).length === 0) {
