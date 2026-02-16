@@ -18,14 +18,18 @@ import { usePermission } from '@/components/permissions/usePermission';
  * @returns {Object} Resultado da query
  */
 export function useOrders(options = {}) {
-  const { menuContext } = usePermission();
+  const { menuContext, loading: permissionLoading } = usePermission();
   const { orderBy = '-created_date', filters = {}, ...queryOptions } = options;
 
   return useQuery({
     queryKey: ['orders', menuContext?.type, menuContext?.value, orderBy, filters],
     queryFn: async () => {
       try {
-        log.menu.log('📦 [useOrders] Buscando pedidos...', { menuContext, hasContext: !!menuContext });
+        log.menu.log('📦 [useOrders] Buscando pedidos...', { 
+          menuContext, 
+          permissionLoading,
+          hasContext: !!menuContext 
+        });
         
         const opts = {};
         if (menuContext?.type === 'subscriber' && menuContext?.value) {
@@ -59,10 +63,10 @@ export function useOrders(options = {}) {
         return [];
       }
     },
-    enabled: queryOptions.enabled !== false,
+    enabled: !permissionLoading && !!menuContext && (queryOptions.enabled !== false),
     initialData: [],
-    retry: 1,
-    refetchOnMount: 'always',
+    retry: 2,
+    refetchOnMount: true,
     staleTime: 30000,
     gcTime: 60000,
     ...queryOptions
