@@ -99,7 +99,7 @@ export default function CaixaTab() {
   });
 
   const closeCaixaMutation = useMutation({
-    mutationFn: async ({ id, freshCaixa, totals, closingCash, closingNotes }) => {
+    mutationFn: async ({ id, freshCaixa, totals, closingCash, closingNotes, opts }) => {
       const user = await base44.auth.me();
       
       // Usar spread operator com freshCaixa e sobrescrever apenas o necessário
@@ -128,7 +128,7 @@ export default function CaixaTab() {
       delete updateData.updated_date;
       delete updateData.created_by;
       
-      return base44.entities.Caixa.update(id, updateData);
+      return base44.entities.Caixa.update(id, updateData, opts || {});
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['caixas'] });
@@ -212,8 +212,12 @@ export default function CaixaTab() {
       reason: withdrawalData.reason
     });
 
-    // Buscar dados frescos do banco antes de atualizar
-    const freshCaixas = await base44.entities.Caixa.list();
+    // Buscar dados frescos do banco antes de atualizar, usando mesmos opts da listagem
+    const opts = {};
+    if (menuContext?.type === 'subscriber' && menuContext?.value) {
+      opts.as_subscriber = menuContext.value;
+    }
+    const freshCaixas = await base44.entities.Caixa.list('-opening_date', opts);
     const freshCaixa = freshCaixas.find(c => c.id === selectedCaixa.id);
 
     if (!freshCaixa) {
@@ -231,7 +235,7 @@ export default function CaixaTab() {
     delete updateData.updated_date;
     delete updateData.created_by;
 
-    await base44.entities.Caixa.update(selectedCaixa.id, updateData);
+    await base44.entities.Caixa.update(selectedCaixa.id, updateData, opts);
 
     queryClient.invalidateQueries({ queryKey: ['caixas'] });
     setShowWithdrawalModal(false);
@@ -254,8 +258,12 @@ export default function CaixaTab() {
       reason: supplyData.reason
     });
 
-    // Buscar dados frescos do banco antes de atualizar
-    const freshCaixas = await base44.entities.Caixa.list();
+    // Buscar dados frescos do banco antes de atualizar, usando mesmos opts da listagem
+    const opts = {};
+    if (menuContext?.type === 'subscriber' && menuContext?.value) {
+      opts.as_subscriber = menuContext.value;
+    }
+    const freshCaixas = await base44.entities.Caixa.list('-opening_date', opts);
     const freshCaixa = freshCaixas.find(c => c.id === selectedCaixa.id);
 
     if (!freshCaixa) {
@@ -273,7 +281,7 @@ export default function CaixaTab() {
     delete updateData.updated_date;
     delete updateData.created_by;
 
-    await base44.entities.Caixa.update(selectedCaixa.id, updateData);
+    await base44.entities.Caixa.update(selectedCaixa.id, updateData, opts);
 
     queryClient.invalidateQueries({ queryKey: ['caixas'] });
     setShowSupplyModal(false);
@@ -300,8 +308,12 @@ export default function CaixaTab() {
       other: cashOperations.filter(op => op.payment_method === 'outro').reduce((sum, op) => sum + op.amount, 0),
     };
 
-    // Buscar dados frescos do banco antes de fechar
-    const freshCaixas = await base44.entities.Caixa.list();
+    // Buscar dados frescos do banco antes de fechar, usando mesmos opts da listagem
+    const opts = {};
+    if (menuContext?.type === 'subscriber' && menuContext?.value) {
+      opts.as_subscriber = menuContext.value;
+    }
+    const freshCaixas = await base44.entities.Caixa.list('-opening_date', opts);
     const freshCaixa = freshCaixas.find(c => c.id === selectedCaixa.id);
 
     if (!freshCaixa) {
@@ -322,7 +334,8 @@ export default function CaixaTab() {
       freshCaixa,
       totals,
       closingCash: actualCash,
-      closingNotes: closingNotes + (actualCash !== expectedCash ? `\n\nDiferença: ${formatCurrency(actualCash - expectedCash)}` : '')
+      closingNotes: closingNotes + (actualCash !== expectedCash ? `\n\nDiferença: ${formatCurrency(actualCash - expectedCash)}` : ''),
+      opts
     });
   };
 

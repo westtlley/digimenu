@@ -337,7 +337,27 @@ export default function Cardapio() {
   );
 
   const createOrderMutation = useMutation({
-    mutationFn: (data) => base44.entities.Order.create(data)
+    mutationFn: (data) => {
+      // Garantir que owner_email e as_subscriber estão presentes
+      const orderData = { ...data };
+      if (slug && publicData?.subscriber_email) {
+        orderData.as_subscriber = publicData.subscriber_email;
+        // owner_email já está sendo setado na linha 798 do handleSubmitOrder
+      }
+      console.log('📦 Criando pedido com dados:', {
+        owner_email: orderData.owner_email,
+        as_subscriber: orderData.as_subscriber,
+        customer_email: orderData.customer_email
+      });
+      return base44.entities.Order.create(orderData);
+    },
+    onSuccess: (order) => {
+      console.log('✅ Pedido criado com sucesso:', order);
+    },
+    onError: (error) => {
+      console.error('❌ Erro ao criar pedido:', error);
+      toast.error('Erro ao enviar pedido: ' + (error.message || 'Erro desconhecido'));
+    }
   });
 
   const updateCouponMutation = useMutation({
@@ -747,8 +767,13 @@ export default function Cardapio() {
       customer.longitude
     );
     
-    const discount = calculateDiscount();
-    const { total } = orderService.calculateTotals(cartTotal, discount, calculatedDeliveryFee);
+    // Calcular descontos
+    const couponDiscount = calculateDiscount();
+    const loyaltyDiscountPercent = getLoyaltyDiscount();
+    const loyaltyDiscountAmount = cartTotal * (loyaltyDiscountPercent / 100);
+    const totalDiscount = couponDiscount + loyaltyDiscountAmount;
+    
+    const { total } = orderService.calculateTotals(cartTotal, totalDiscount, calculatedDeliveryFee);
 
     // Buscar email do usuário autenticado
     let userEmail = undefined;

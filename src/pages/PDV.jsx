@@ -155,13 +155,12 @@ export default function PDV() {
   });
 
   const { data: caixas = [], isLoading: caixasLoading } = useQuery({
-    queryKey: ['caixas', asSub ?? 'me'],
+    queryKey: ['caixas', subscriberIdentifier ?? 'none'],
     queryFn: async () => {
-      console.log('[PDV] Buscando caixas com opts:', opts);
       const result = await base44.entities.Caixa.list('-opening_date', opts);
-      console.log('[PDV] Caixas retornados do backend:', result);
       return result;
     },
+    enabled: !!subscriberIdentifier && !!user,
     refetchInterval: 5000,
   });
 
@@ -191,9 +190,10 @@ export default function PDV() {
 
   const { data: pdvSessionsRaw = [] } = useQuery({
     queryKey: ['pdvSessions', asSub ?? 'me'],
-    queryFn: () => base44.entities.PDVSession.list('-created_at', { ...opts, ended_at: 'null' }).catch(() => []),
+    queryFn: () => base44.entities.PDVSession.list('-created_at', opts).catch(() => []),
     enabled: !!user && allowed,
   });
+  // Filtrar sessões ativas no frontend (ended_at null/undefined)
   const activePdvSessions = Array.isArray(pdvSessionsRaw) ? pdvSessionsRaw.filter(s => !s.ended_at) : [];
 
   const { data: pizzaSizes = [] } = useQuery({
@@ -232,32 +232,28 @@ export default function PDV() {
   );
 
   useEffect(() => {
-    console.log('[PDV] Lista de caixas recebida:', {
-      total: caixas?.length || 0,
-      caixas: caixas?.map(c => ({
-        id: c.id,
-        status: c.status,
-        opening_date: c.opening_date,
-        terminal_id: c.terminal_id,
-        subscriber_email: c.subscriber_email,
-        owner_email: c.owner_email
-      }))
-    });
+    // Não executar se já há um caixa no estado e não está carregando
+    if (caixasLoading) return;
     
     const activeCaixa = (caixas || []).find(c => c && c.status === 'open');
     
-    console.log('[PDV] Caixa aberto encontrado:', activeCaixa ? {
-      id: activeCaixa.id,
-      status: activeCaixa.status,
-      opening_amount: activeCaixa.opening_amount_cash,
-      terminal_id: activeCaixa.terminal_id
-    } : 'NENHUM');
-    
-    setOpenCaixa(activeCaixa || null);
-    if (caixasLoading) return;
-    if (!activeCaixa) setShowOpenCaixaModal(true);
-    else setShowOpenCaixaModal(false);
-  }, [caixas, caixasLoading]);
+    // Se encontrou caixa aberto no backend, atualizar estado local
+    if (activeCaixa) {
+      setOpenCaixa(activeCaixa);
+      setShowOpenCaixaModal(false);
+    } 
+    // Se não há caixa aberto mas há caixas fechados, limpar estado e mostrar modal
+    else if (Array.isArray(caixas) && caixas.length > 0 && !activeCaixa) {
+      // Só limpar se realmente não houver caixa aberto
+      if (openCaixa && openCaixa.status === 'open') {
+        setOpenCaixa(null);
+      }
+    }
+    // Se não há caixas na lista, mostrar modal
+    else if (caixas.length === 0 && !openCaixa) {
+      setShowOpenCaixaModal(true);
+    }
+  }, [caixas, caixasLoading]); // Não incluir openCaixa aqui para evitar loop
 
   const createPdvSessionMutation = useMutation({
     mutationFn: async (payload) => base44.entities.PDVSession.create(payload),
@@ -371,15 +367,26 @@ export default function PDV() {
       delete updateData.created_date;
       delete updateData.updated_date;
       delete updateData.created_by;
-      return base44.entities.Caixa.update(id, updateData);
+      return base44.entities.Caixa.update(id, updateData, opts);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['caixas'] });
+    onSuccess: async () => {
+      // Limpar o estado ANTES de invalidar queries
+      setOpenCaixa(null);
       setShowCloseCaixaDialog(false);
       setShowFechamentoModal(false);
       setClosingCashAmount('');
       setClosingNotes('');
+      
+      // Invalidar e refetch
+      await queryClient.invalidateQueries({ queryKey: ['caixas'] });
+      await queryClient.refetchQueries({ queryKey: ['caixas'] });
+      
       toast.success('✅ Caixa fechado com sucesso!');
+      
+      // Mostrar modal de abertura após um delay para garantir que o estado está limpo
+      setTimeout(() => {
+        setShowOpenCaixaModal(true);
+      }, 300);
     },
   });
 
@@ -418,9 +425,11 @@ export default function PDV() {
       delete updateData.created_date;
       delete updateData.updated_date;
       delete updateData.created_by;
-      await base44.entities.Caixa.update(openCaixa.id, updateData);
+      await base44.entities.Caixa.update(openCaixa.id, updateData, opts);
     }
-    queryClient.invalidateQueries({ queryKey: ['caixas', 'caixaOperations'] });
+    queryClient.invalidateQueries({ queryKey: ['caixas'] });
+    queryClient.invalidateQueries({ queryKey: ['caixaOperations'] });
+    queryClient.refetchQueries({ queryKey: ['caixas'] });
     setShowSangriaModal(false);
     setSangriaData({ amount: '', reason: '' });
     toast.success('Sangria registrada');
@@ -448,9 +457,11 @@ export default function PDV() {
       delete updateData.created_date;
       delete updateData.updated_date;
       delete updateData.created_by;
-      await base44.entities.Caixa.update(openCaixa.id, updateData);
+      await base44.entities.Caixa.update(openCaixa.id, updateData, opts);
     }
-    queryClient.invalidateQueries({ queryKey: ['caixas', 'caixaOperations'] });
+    queryClient.invalidateQueries({ queryKey: ['caixas'] });
+    queryClient.invalidateQueries({ queryKey: ['caixaOperations'] });
+    queryClient.refetchQueries({ queryKey: ['caixas'] });
     setShowSuprimentoModal(false);
     setSuprimentoData({ amount: '', reason: '' });
     toast.success('Suprimento registrado');
