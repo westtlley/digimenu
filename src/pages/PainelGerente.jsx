@@ -209,8 +209,8 @@ export default function PainelGerente() {
             <MobileQuickMenu isMaster={false} hasGestorAccess={true} hasModuleAccess={() => true} slug={slug} plan={subscriberData?.plan || 'basic'} />
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button size="sm" variant="ghost" className="text-white hover:bg-white/10 hidden sm:flex min-h-touch min-w-touch" title="Sair">
-                  <Power className="w-4 h-4" />
+                <Button size="sm" variant="ghost" className="text-white hover:bg-white/10 flex min-h-touch min-w-touch" title="Sair">
+                  <Power className="w-4 h-4 sm:w-5 sm:h-5" />
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
