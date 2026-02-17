@@ -53,12 +53,12 @@ export default function BeveragesTab() {
   }, []);
 
   // ✅ CORREÇÃO: Usar hook com contexto automático
-  const { menuContext } = usePermission();
-  const { data: dishesRaw = [] } = useMenuDishes();
+  const { menuContext, loading: permissionLoading } = usePermission();
+  const { data: dishesRaw = [], isLoading: dishesLoading } = useMenuDishes();
   const beverages = useMemo(() => (dishesRaw || []).filter(d => d.product_type === 'beverage'), [dishesRaw]);
 
   // ✅ CORREÇÃO: Buscar categorias de bebidas com contexto do slug
-  const { data: beverageCategories = [] } = useQuery({
+  const { data: beverageCategories = [], isLoading: categoriesLoading } = useQuery({
     queryKey: ['beverageCategories', menuContext?.type, menuContext?.value],
     queryFn: async () => {
       if (!menuContext) return [];
@@ -70,6 +70,9 @@ export default function BeveragesTab() {
     },
     enabled: !!menuContext,
   });
+  
+  // ✅ Considerar todos os estados de loading
+  const isLoading = permissionLoading || dishesLoading || categoriesLoading;
 
   const createBeverageMutation = useMutation({
     mutationFn: (data) => base44.entities.Dish.create({
@@ -123,6 +126,38 @@ export default function BeveragesTab() {
     setEditingBeverage(null);
     setFormData({ name: '', description: '', image: '', price: '', category_id: '', beverage_type: 'industrial', volume_ml: '', serving_temp: 'cold', ean: '', sugar_free: false, alcoholic: false, caffeine: false, dietary_tags: [], is_active: true, is_highlight: false, order: 0 });
   };
+
+  // ✅ Mostrar skeleton enquanto carrega
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h2 className="text-xl font-bold flex items-center gap-2">
+              <Wine className="w-6 h-6 text-cyan-500" />
+              Bebidas
+            </h2>
+            <p className="text-sm text-gray-500 mt-1">Carregando...</p>
+          </div>
+        </div>
+        <Card>
+          <CardContent className="p-4">
+            <div className="space-y-3">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="flex items-center gap-4 p-3 rounded-lg border bg-gray-50/50 dark:bg-gray-800/30 animate-pulse">
+                  <div className="w-14 h-14 rounded-lg bg-gray-200 dark:bg-gray-700" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/3" />
+                    <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   const openBeverageModal = (beverage = null) => {
     if (beverage) {
@@ -320,16 +355,39 @@ export default function BeveragesTab() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label>Preço *</Label>
                 <Input type="number" step="0.01" value={formData.price} onChange={(e) => setFormData(prev => ({ ...prev, price: e.target.value }))} placeholder="5.00" required />
               </div>
               <div>
-                <Label>Foto</Label>
+                <Label>Imagem da bebida</Label>
                 <div className="flex gap-2 items-center">
-                  {formData.image && <img src={formData.image} alt="" className="w-16 h-16 rounded object-cover" />}
-                  <label className="text-sm text-cyan-600 cursor-pointer">Upload <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} /></label>
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    className="hidden" 
+                    id="beverage-image-upload"
+                    onChange={handleImageUpload} 
+                  />
+                  <label 
+                    htmlFor="beverage-image-upload"
+                    className="px-4 py-2 bg-cyan-600 text-white rounded-md hover:bg-cyan-700 cursor-pointer text-sm transition-colors"
+                  >
+                    {formData.image ? 'Alterar Foto' : 'Adicionar Foto'}
+                  </label>
+                  {formData.image && (
+                    <div className="relative">
+                      <img src={formData.image} alt="Preview" className="w-16 h-16 rounded object-cover border-2 border-gray-200" />
+                      <button
+                        type="button"
+                        onClick={() => setFormData(prev => ({ ...prev, image: '' }))}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-600"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

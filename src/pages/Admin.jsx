@@ -38,7 +38,6 @@ import InventoryManagement from '../components/admin/InventoryManagement';
 import AffiliateProgram from '../components/admin/AffiliateProgram';
 import LGPDCompliance from '../components/admin/LGPDCompliance';
 import TwoFactorAuth from '../components/admin/TwoFactorAuth';
-import ManagerialAuthTab from '../components/admin/ManagerialAuthTab';
 import ColaboradoresTab from '../components/admin/ColaboradoresTab';
 import AccessDenied, { LoadingError } from '../components/admin/AccessDenied';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
@@ -241,8 +240,6 @@ export default function Admin() {
       
       case 'lgpd':
         return (isMaster || hasModuleAccess('lgpd')) ? <LGPDCompliance /> : <AccessDenied />;
-      case 'managerial_auth':
-        return hasModuleAccess('store') ? <ManagerialAuthTab /> : <AccessDenied />;
       
       case 'theme':
         return hasModuleAccess('theme') ? <ThemeTab /> : <AccessDenied />;

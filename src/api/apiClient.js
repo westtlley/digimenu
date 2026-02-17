@@ -427,17 +427,23 @@ class ApiClient {
          * Retorna array de items (o backend devolve { items, pagination }; normalizamos para array).
          */
         list: async (orderBy = null, opts = {}) => {
+          console.log('🔵 [entities.list] Chamada iniciada:', { entityName, orderBy, opts });
           const params = typeof opts === 'object' && opts !== null ? { ...opts } : {};
           if (orderBy) params.order_by = orderBy; // Backend espera order_by (senão cai em filters e lista fica vazia)
           
+          console.log('🔵 [entities.list] Fazendo GET:', `/entities/${entityName}`, params);
           const result = await self.get(`/entities/${entityName}`, params);
+          console.log('🔵 [entities.list] Resposta recebida:', result);
           
           // Backend sempre retorna { items: [], pagination } — normalizar para array
           if (result && typeof result === 'object' && Array.isArray(result.items)) {
+            console.log('✅ [entities.list] Retornando items:', result.items.length);
             return result.items;
           }
           // Compatibilidade: se vier array direto (ex.: JSON in-memory)
-          return Array.isArray(result) ? result : [];
+          const finalResult = Array.isArray(result) ? result : [];
+          console.log('✅ [entities.list] Retornando array direto:', finalResult.length);
+          return finalResult;
         },
 
         filter: async (filters = {}, orderBy = null) => {

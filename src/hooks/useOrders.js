@@ -21,9 +21,21 @@ export function useOrders(options = {}) {
   const { menuContext, loading: permissionLoading } = usePermission();
   const { orderBy = '-created_date', filters = {}, ...queryOptions } = options;
 
+  // DEBUG: Log ANTES da query para ver se a condição enabled está correta
+  const isEnabled = !permissionLoading && !!menuContext && (queryOptions.enabled !== false);
+  console.log('🔍 [useOrders] Estado da query:', {
+    permissionLoading,
+    menuContext,
+    hasMenuContext: !!menuContext,
+    queryOptionsEnabled: queryOptions.enabled,
+    isEnabled,
+    willExecute: isEnabled
+  });
+
   return useQuery({
     queryKey: ['orders', menuContext?.type, menuContext?.value, orderBy, filters],
     queryFn: async () => {
+      console.log('🚀 [useOrders] queryFn INICIADA!', { menuContext, orderBy });
       try {
         log.menu.log('📦 [useOrders] Buscando pedidos...', { 
           menuContext, 
@@ -66,8 +78,8 @@ export function useOrders(options = {}) {
     enabled: !permissionLoading && !!menuContext && (queryOptions.enabled !== false),
     initialData: [],
     retry: 2,
-    refetchOnMount: true,
-    staleTime: 30000,
+    refetchOnMount: 'always', // ✅ Forçar refetch sempre (debug)
+    staleTime: 0, // ✅ Considerar dados sempre desatualizados (debug)
     gcTime: 60000,
     ...queryOptions
   });

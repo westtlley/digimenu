@@ -40,7 +40,6 @@ import ColaboradoresTab from '../components/admin/ColaboradoresTab';
 import TwoFactorAuth from '../components/admin/TwoFactorAuth';
 import LGPDCompliance from '../components/admin/LGPDCompliance';
 import TablesTab from '../components/admin/TablesTab';
-import ManagerialAuthTab from '../components/admin/ManagerialAuthTab';
 import BeveragesTab from '../components/admin/BeveragesTab';
 import InventoryManagement from '../components/admin/InventoryManagement';
 import AffiliateProgram from '../components/admin/AffiliateProgram';
@@ -251,8 +250,6 @@ export default function PainelAssinante() {
         return hasModuleAccess('2fa') ? <TwoFactorAuth user={user} /> : <AccessDenied />;
       case 'lgpd':
         return hasModuleAccess('lgpd') ? <LGPDCompliance /> : <AccessDenied />;
-      case 'managerial_auth':
-        return hasModuleAccess('store') ? <ManagerialAuthTab /> : <AccessDenied />;
       default:
         return <DashboardTab user={user} subscriberData={subscriberData} onNavigateToTab={handleSetActiveTab} />;
     }

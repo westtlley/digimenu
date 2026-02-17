@@ -37,7 +37,6 @@ import ColaboradoresTab from '../components/admin/ColaboradoresTab';
 import TwoFactorAuth from '../components/admin/TwoFactorAuth';
 import LGPDCompliance from '../components/admin/LGPDCompliance';
 import TablesTab from '../components/admin/TablesTab';
-import ManagerialAuthTab from '../components/admin/ManagerialAuthTab';
 import ColaboradorProfile from '@/components/colaboradores/ColaboradorProfile';
 
 export default function PainelGerente() {
@@ -176,8 +175,6 @@ export default function PainelGerente() {
         return <TwoFactorAuth user={user} />;
       case 'lgpd':
         return <LGPDCompliance />;
-      case 'managerial_auth':
-        return <ManagerialAuthTab />;
       default:
         return <DashboardTab user={user} subscriberData={subscriberData} onNavigateToTab={handleSetActiveTab} />;
     }

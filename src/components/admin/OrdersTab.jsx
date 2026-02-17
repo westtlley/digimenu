@@ -46,7 +46,7 @@ export default function OrdersTab({ isMaster, user, subscriberData }) {
   const [showFilters, setShowFilters] = useState(false);
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
-  const { subscriberData: subData, isMaster: isM, menuContext } = usePermission();
+  const { subscriberData: subData, isMaster: isM, menuContext, loading: permissionLoading } = usePermission();
   
   // Log para debug
   console.log('📊 [OrdersTab] Contexto:', { 
@@ -65,9 +65,12 @@ export default function OrdersTab({ isMaster, user, subscriberData }) {
   const hasAdvancedAccess = isMaster || isM || ['pro', 'ultra'].includes(planLower);
 
   // ✅ NOVO: Usar hook useOrders com contexto automático
-  const { data: orders = [], isLoading } = useOrders({
+  const { data: orders = [], isLoading: ordersLoading } = useOrders({
     orderBy: '-created_date'
   });
+  
+  // ✅ Considerar tanto o loading das permissões quanto dos pedidos
+  const isLoading = permissionLoading || ordersLoading;
 
   // Pull to refresh
   const { isRefreshing } = usePullToRefresh(() => {

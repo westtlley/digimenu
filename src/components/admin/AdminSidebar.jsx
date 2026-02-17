@@ -119,7 +119,6 @@ const MENU_STRUCTURE = [
       { id: 'theme', label: 'Tema', icon: Palette, module: 'theme' },
       { id: 'printer', label: 'Impressora', icon: Printer, module: 'printer' },
       { id: 'colaboradores', label: 'Colaboradores', icon: UserCog, module: 'colaboradores' },
-      { id: 'managerial_auth', label: 'Validação de ações sensíveis', icon: ShieldCheck, module: 'store' },
       { id: '2fa', label: 'Autenticação 2FA', icon: Key, module: '2fa' },
       { id: 'lgpd', label: 'Conformidade LGPD', icon: Shield, module: 'lgpd' },
       { id: 'service_requests', label: 'Solicitações', icon: Bell, masterOnly: true },
@@ -194,6 +193,15 @@ export default function AdminSidebar({ activeTab, setActiveTab, isMaster = false
     if (isSectionOrSub) {
       const isExpanded = expandedGroups[item.id];
       const visibleSubmenu = (item.submenu || []).filter(sub => {
+        // Verificar minPlan primeiro
+        if (sub.minPlan && !isMaster) {
+          const currentPlan = (plan || 'basic').toString().toLowerCase();
+          const planOrder = { 'free': 0, 'basic': 1, 'pro': 2, 'ultra': 3 };
+          const minPlanLevel = planOrder[sub.minPlan] || 0;
+          const currentPlanLevel = planOrder[currentPlan] || 0;
+          if (currentPlanLevel < minPlanLevel) return false;
+        }
+        
         if (sub.section === 'subsection')
           return (sub.submenu || []).some(s => s.module && hasModuleAccess(s.module));
         return (sub.module && hasModuleAccess(sub.module)) || (sub.masterOnly && isMaster);

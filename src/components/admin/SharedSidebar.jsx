@@ -123,7 +123,6 @@ const MENU_STRUCTURE = [
       { id: 'theme', label: 'Tema', icon: Palette, module: 'theme' },
       { id: 'printer', label: 'Impressora', icon: Printer, module: 'printer' },
       { id: 'colaboradores', label: 'Colaboradores', icon: UserCog, module: 'colaboradores' },
-      { id: 'managerial_auth', label: 'Validação de ações sensíveis', icon: ShieldCheck, module: 'store' },
       { id: '2fa', label: 'Autenticação 2FA', icon: Key, module: '2fa' },
       { id: 'lgpd', label: 'Conformidade LGPD', icon: Shield, module: 'lgpd' },
     ]

@@ -310,6 +310,14 @@ export function usePermission() {
     return userContext?.menuContext || null;
   }, [userContext?.menuContext?.type, userContext?.menuContext?.value]);
   
+  // DEBUG: Log do retorno do usePermission
+  console.log('🎯 [usePermission] Retorno:', {
+    loading,
+    menuContext: stableMenuContext,
+    hasMenuContext: !!stableMenuContext,
+    subscriberEmail: subscriberData?.email
+  });
+  
   return {
     permissions,
     loading,
