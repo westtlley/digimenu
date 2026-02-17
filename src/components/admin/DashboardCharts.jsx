@@ -86,16 +86,16 @@ export default function DashboardCharts({ orders = [], pdvSales = [] }) {
   const axisStroke = isDark ? '#94a3b8' : '#6b7280';
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
       {/* Gráfico de Faturamento */}
-      <Card style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-base font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-            <DollarSign className="w-5 h-5 text-green-600" />
+      <Card className="overflow-hidden" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 py-2 px-4 pb-1">
+          <CardTitle className="text-sm font-semibold flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
+            <DollarSign className="w-4 h-4 text-green-600" />
             Faturamento
           </CardTitle>
           <Select value={period} onValueChange={setPeriod}>
-            <SelectTrigger className="w-[120px] h-8">
+            <SelectTrigger className="w-[100px] h-7 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -105,8 +105,8 @@ export default function DashboardCharts({ orders = [], pdvSales = [] }) {
             </SelectContent>
           </Select>
         </CardHeader>
-        <CardContent>
-          <ChartContainer config={chartConfig} className="h-[300px]">
+        <CardContent className="pt-0 px-4 pb-3">
+          <ChartContainer config={chartConfig} className="h-[180px]">
             <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
@@ -151,16 +151,16 @@ export default function DashboardCharts({ orders = [], pdvSales = [] }) {
       </Card>
 
       {/* Gráfico de Pedidos */}
-      <Card style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-base font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-            <TrendingUp className="w-5 h-5 text-blue-600" />
+      <Card className="overflow-hidden" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 py-2 px-4 pb-1">
+          <CardTitle className="text-sm font-semibold flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
+            <TrendingUp className="w-4 h-4 text-blue-600" />
             Pedidos
           </CardTitle>
           <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{PERIODS.find((p) => p.value === period)?.label}</span>
         </CardHeader>
-        <CardContent>
-          <ChartContainer config={chartConfig} className="h-[300px]">
+        <CardContent className="pt-0 px-4 pb-3">
+          <ChartContainer config={chartConfig} className="h-[180px]">
             <LineChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
               <XAxis 

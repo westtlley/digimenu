@@ -131,49 +131,49 @@ export default function DashboardMetrics({ orders = [], dishes = [], pdvSales = 
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Métricas de Hoje */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200 dark:from-blue-950 dark:to-blue-900 dark:border-blue-800">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-blue-700 dark:text-blue-200 flex items-center justify-between">
+          <CardHeader className="py-2 px-4 pb-0">
+            <CardTitle className="text-xs font-medium text-blue-700 dark:text-blue-200 flex items-center justify-between">
               Faturamento Hoje
               <GrowthIndicator value={metrics.today.growth.revenue} />
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-blue-900 dark:text-blue-50">{formatCurrency(metrics.today.revenue)}</div>
-            <p className="text-xs text-blue-600 dark:text-blue-300 mt-1">
+          <CardContent className="pt-2 px-4 pb-3">
+            <div className="text-xl font-bold text-blue-900 dark:text-blue-50">{formatCurrency(metrics.today.revenue)}</div>
+            <p className="text-xs text-blue-600 dark:text-blue-300 mt-0.5">
               {metrics.today.orders} pedido(s)
             </p>
           </CardContent>
         </Card>
 
         <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200 dark:from-green-950 dark:to-green-900 dark:border-green-800">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-green-700 dark:text-green-200 flex items-center justify-between">
+          <CardHeader className="py-2 px-4 pb-0">
+            <CardTitle className="text-xs font-medium text-green-700 dark:text-green-200 flex items-center justify-between">
               Ticket Médio
               <GrowthIndicator value={metrics.today.growth.avgTicket} />
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-green-900 dark:text-green-50">{formatCurrency(metrics.today.avgTicket)}</div>
-            <p className="text-xs text-green-600 dark:text-green-300 mt-1">
+          <CardContent className="pt-2 px-4 pb-3">
+            <div className="text-xl font-bold text-green-900 dark:text-green-50">{formatCurrency(metrics.today.avgTicket)}</div>
+            <p className="text-xs text-green-600 dark:text-green-300 mt-0.5">
               Por pedido hoje
             </p>
           </CardContent>
         </Card>
 
         <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200 dark:from-purple-950 dark:to-purple-900 dark:border-purple-800">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-purple-700 dark:text-purple-200 flex items-center justify-between">
+          <CardHeader className="py-2 px-4 pb-0">
+            <CardTitle className="text-xs font-medium text-purple-700 dark:text-purple-200 flex items-center justify-between">
               Pedidos Hoje
               <GrowthIndicator value={metrics.today.growth.orders} />
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-purple-900 dark:text-purple-50">{metrics.today.orders}</div>
-            <p className="text-xs text-purple-600 dark:text-purple-300 mt-1">
+          <CardContent className="pt-2 px-4 pb-3">
+            <div className="text-xl font-bold text-purple-900 dark:text-purple-50">{metrics.today.orders}</div>
+            <p className="text-xs text-purple-600 dark:text-purple-300 mt-0.5">
               Recebidos hoje
             </p>
           </CardContent>
@@ -181,30 +181,30 @@ export default function DashboardMetrics({ orders = [], dishes = [], pdvSales = 
       </div>
 
       {/* Métricas Semana/Mês */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <Card className="border-orange-200 dark:border-orange-800" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center justify-between" style={{ color: 'var(--text-primary)' }}>
+          <CardHeader className="py-2 px-4 pb-0">
+            <CardTitle className="text-xs font-medium flex items-center justify-between" style={{ color: 'var(--text-primary)' }}>
               <span>Faturamento da Semana</span>
               <GrowthIndicator value={metrics.week.growth} />
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(metrics.week.revenue)}</div>
-            <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>{metrics.week.orders} pedidos nesta semana</p>
+          <CardContent className="pt-2 px-4 pb-3">
+            <div className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(metrics.week.revenue)}</div>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>{metrics.week.orders} pedidos nesta semana</p>
           </CardContent>
         </Card>
 
         <Card className="border-indigo-200 dark:border-indigo-800" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center justify-between" style={{ color: 'var(--text-primary)' }}>
+          <CardHeader className="py-2 px-4 pb-0">
+            <CardTitle className="text-xs font-medium flex items-center justify-between" style={{ color: 'var(--text-primary)' }}>
               <span>Faturamento do Mês</span>
               <GrowthIndicator value={metrics.month.growth} />
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(metrics.month.revenue)}</div>
-            <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>{metrics.month.orders} pedidos neste mês</p>
+          <CardContent className="pt-2 px-4 pb-3">
+            <div className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(metrics.month.revenue)}</div>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>{metrics.month.orders} pedidos neste mês</p>
           </CardContent>
         </Card>
       </div>
@@ -212,23 +212,23 @@ export default function DashboardMetrics({ orders = [], dishes = [], pdvSales = 
       {/* Top Produtos */}
       {metrics.topProducts.length > 0 && (
         <Card style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-          <CardHeader>
-            <CardTitle className="text-base font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-              <Star className="w-5 h-5 text-yellow-500" />
+          <CardHeader className="py-2 px-4">
+            <CardTitle className="text-sm font-semibold flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
+              <Star className="w-4 h-4 text-yellow-500" />
               Produtos Mais Vendidos
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
+          <CardContent className="pt-0 px-4 pb-3">
+            <div className="space-y-2">
               {metrics.topProducts.map((item, index) => (
-                <div key={item.dish?.id || index} className="flex items-center justify-between p-3 rounded-lg" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-bold text-sm">
+                <div key={item.dish?.id || index} className="flex items-center justify-between p-2 rounded-lg" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-bold text-xs">
                       {index + 1}
                     </div>
                     <div>
-                      <p className="font-medium text-sm" style={{ color: 'var(--text-primary)' }}>{item.dish?.name || 'Produto'}</p>
-                      <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{item.count} venda(s)</p>
+                      <p className="font-medium text-xs" style={{ color: 'var(--text-primary)' }}>{item.dish?.name || 'Produto'}</p>
+                      <p className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>{item.count} venda(s)</p>
                     </div>
                   </div>
                   <div className="text-right">

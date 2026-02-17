@@ -295,14 +295,14 @@ export default function DashboardAdvancedAnalytics({ orders = [], dishes = [], c
   const textColor = isDark ? '#e2e8f0' : '#1e293b';
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Meta de Faturamento */}
       {revenueTarget > 0 && (
         <Card style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-          <CardHeader>
+          <CardHeader className="py-2 px-4">
             <div className="flex justify-between items-center">
-              <CardTitle className="text-base font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-                <Target className="w-5 h-5 text-blue-500" />
+              <CardTitle className="text-sm font-semibold flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
+                <Target className="w-4 h-4 text-blue-500" />
                 Meta de Faturamento do Mês
               </CardTitle>
               <Input
@@ -314,10 +314,10 @@ export default function DashboardAdvancedAnalytics({ orders = [], dishes = [], c
               />
             </div>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
+          <CardContent className="pt-0 px-4 pb-3">
+            <div className="space-y-2">
               <div>
-                <div className="flex justify-between text-sm mb-2" style={{ color: 'var(--text-secondary)' }}>
+                <div className="flex justify-between text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>
                   <span>Realizado: {formatCurrency(revenueProgress.actual)}</span>
                   <span>Meta: {formatCurrency(revenueProgress.target)}</span>
                 </div>
@@ -346,132 +346,108 @@ export default function DashboardAdvancedAnalytics({ orders = [], dishes = [], c
       )}
 
       {/* Métricas Avançadas */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 md:gap-3">
         <Card style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-              <AlertTriangle className="w-4 h-4 text-orange-500" />
-              Taxa de Cancelamento
+          <CardHeader className="py-1.5 px-3 pb-0">
+            <CardTitle className="text-xs font-medium flex items-center gap-1" style={{ color: 'var(--text-primary)' }}>
+              <AlertTriangle className="w-3.5 h-3.5 text-orange-500" />
+              Taxa Cancel.
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
-              {cancellationRate}%
-            </div>
-            <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
-              {orders.filter(o => o.status === 'cancelled').length} de {orders.length} pedidos
-            </p>
+          <CardContent className="py-1.5 px-3 pb-2">
+            <div className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{cancellationRate}%</div>
+            <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-secondary)' }}>{orders.filter(o => o.status === 'cancelled').length}/{orders.length} pedidos</p>
           </CardContent>
         </Card>
 
         <Card style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-              <Clock className="w-4 h-4 text-blue-500" />
+          <CardHeader className="py-1.5 px-3 pb-0">
+            <CardTitle className="text-xs font-medium flex items-center gap-1" style={{ color: 'var(--text-primary)' }}>
+              <Clock className="w-3.5 h-3.5 text-blue-500" />
               Tempo Médio
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
-              {avgPrepTime ? `${avgPrepTime} min` : 'N/A'}
-            </div>
-            <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
-              Tempo de preparo
-            </p>
+          <CardContent className="py-1.5 px-3 pb-2">
+            <div className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{avgPrepTime ? `${avgPrepTime} min` : 'N/A'}</div>
+            <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-secondary)' }}>Preparo</p>
           </CardContent>
         </Card>
 
         <Card style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-              <Users className="w-4 h-4 text-green-500" />
-              Clientes Recorrentes
+          <CardHeader className="py-1.5 px-3 pb-0">
+            <CardTitle className="text-xs font-medium flex items-center gap-1" style={{ color: 'var(--text-primary)' }}>
+              <Users className="w-3.5 h-3.5 text-green-500" />
+              Recorrentes
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
-              {recurringCustomers.percentage}%
-            </div>
-            <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
-              {recurringCustomers.count} de {recurringCustomers.total} clientes
-            </p>
+          <CardContent className="py-1.5 px-3 pb-2">
+            <div className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{recurringCustomers.percentage}%</div>
+            <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-secondary)' }}>{recurringCustomers.count}/{recurringCustomers.total} clientes</p>
           </CardContent>
         </Card>
 
         <Card style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-              <CreditCard className="w-4 h-4 text-purple-500" />
+          <CardHeader className="py-1.5 px-3 pb-0">
+            <CardTitle className="text-xs font-medium flex items-center gap-1" style={{ color: 'var(--text-primary)' }}>
+              <CreditCard className="w-3.5 h-3.5 text-purple-500" />
               Método Mais Usado
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
-              {paymentMethodsData[0]?.name || 'N/A'}
-            </div>
-            <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
-              {paymentMethodsData[0]?.count || 0} pedidos
-            </p>
+          <CardContent className="py-1.5 px-3 pb-2">
+            <div className="text-sm font-bold truncate" style={{ color: 'var(--text-primary)' }} title={paymentMethodsData[0]?.name}>{paymentMethodsData[0]?.name || 'N/A'}</div>
+            <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-secondary)' }}>{paymentMethodsData[0]?.count || 0} pedidos</p>
           </CardContent>
         </Card>
 
         <Card style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-              <ShoppingCart className="w-4 h-4 text-red-500" />
-              Abandono de Carrinho
+          <CardHeader className="py-1.5 px-3 pb-0">
+            <CardTitle className="text-xs font-medium flex items-center gap-1" style={{ color: 'var(--text-primary)' }}>
+              <ShoppingCart className="w-3.5 h-3.5 text-red-500" />
+              Abandono
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
-              {cartAbandonmentRate.rate}%
-            </div>
-            <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
-              {cartAbandonmentRate.abandoned} abandonados / {cartAbandonmentRate.total} total
-            </p>
+          <CardContent className="py-1.5 px-3 pb-2">
+            <div className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{cartAbandonmentRate.rate}%</div>
+            <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-secondary)' }}>{cartAbandonmentRate.abandoned}/{cartAbandonmentRate.total}</p>
           </CardContent>
         </Card>
 
         <Card style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-              <Package className="w-4 h-4 text-indigo-500" />
-              Taxa de Entrega
+          <CardHeader className="py-1.5 px-3 pb-0">
+            <CardTitle className="text-xs font-medium flex items-center gap-1" style={{ color: 'var(--text-primary)' }}>
+              <Package className="w-3.5 h-3.5 text-indigo-500" />
+              Taxa Entrega
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
-              {deliveryRate.rate}%
-            </div>
-            <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
-              {deliveryRate.delivered} de {deliveryRate.total} pedidos
-            </p>
+          <CardContent className="py-1.5 px-3 pb-2">
+            <div className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{deliveryRate.rate}%</div>
+            <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-secondary)' }}>{deliveryRate.delivered}/{deliveryRate.total}</p>
           </CardContent>
         </Card>
       </div>
 
       {/* Previsão de Demanda */}
       <Card style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-        <CardHeader>
-          <CardTitle className="text-base font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-            <TrendingUp className="w-5 h-5 text-green-500" />
-            Previsão de Demanda (Próximos 7 dias)
+        <CardHeader className="py-2 px-4">
+          <CardTitle className="text-sm font-semibold flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
+            <TrendingUp className="w-4 h-4 text-green-500" />
+            Previsão de Demanda (7 dias)
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="flex items-center gap-4">
+        <CardContent className="pt-0 px-4 pb-3">
+          <div className="space-y-2">
+            <div className="flex items-center gap-3 flex-wrap">
               <div>
-                <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Receita Média Diária</p>
-                <p className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
+                <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>Receita Média Diária</p>
+                <p className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
                   {formatCurrency(demandForecast.avgDailyRevenue)}
                 </p>
               </div>
-              <Badge variant={demandForecast.trend === 'up' ? 'default' : 'secondary'}>
-                {demandForecast.trend === 'up' ? 'Tendência de Alta' : 'Tendência de Baixa'}
+              <Badge variant={demandForecast.trend === 'up' ? 'default' : 'secondary'} className="text-xs">
+                {demandForecast.trend === 'up' ? 'Alta' : 'Baixa'}
               </Badge>
             </div>
-            <ChartContainer config={{ predicted: { label: "Previsão", color: "#22c55e" } }} className="h-[200px]">
+            <ChartContainer config={{ predicted: { label: "Previsão", color: "#22c55e" } }} className="h-[140px]">
               <LineChart data={demandForecast.forecast} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
                 <XAxis 
@@ -500,16 +476,12 @@ export default function DashboardAdvancedAnalytics({ orders = [], dishes = [], c
                 />
               </LineChart>
             </ChartContainer>
-            <div className="grid grid-cols-2 md:grid-cols-7 gap-2">
+            <div className="grid grid-cols-4 sm:grid-cols-7 gap-1.5">
               {demandForecast.forecast.map((day, index) => (
-                <div key={index} className="text-center p-2 rounded" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
-                  <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{day.date}</p>
-                  <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-                    {formatCurrency(day.predicted)}
-                  </p>
-                  <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-                    {day.confidence}% confiança
-                  </p>
+                <div key={index} className="text-center py-1.5 px-1 rounded text-[10px]" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
+                  <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>{day.date}</p>
+                  <p style={{ color: 'var(--text-secondary)' }}>{formatCurrency(day.predicted)}</p>
+                  <p className="opacity-80" style={{ color: 'var(--text-secondary)' }}>{day.confidence}%</p>
                 </div>
               ))}
             </div>
@@ -518,17 +490,17 @@ export default function DashboardAdvancedAnalytics({ orders = [], dishes = [], c
       </Card>
 
       {/* Gráficos */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Horários de Pico */}
-        <Card style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-          <CardHeader>
-            <CardTitle className="text-base font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-              <Clock className="w-5 h-5 text-orange-500" />
+        <Card className="overflow-hidden" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+          <CardHeader className="py-2 px-4 pb-1">
+            <CardTitle className="text-sm font-semibold flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
+              <Clock className="w-4 h-4 text-orange-500" />
               Horários de Pico
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <ChartContainer config={{ orders: { label: "Pedidos", color: "#f97316" } }} className="h-[300px]">
+          <CardContent className="pt-0 px-4 pb-3">
+            <ChartContainer config={{ orders: { label: "Pedidos", color: "#f97316" } }} className="h-[180px]">
               <BarChart data={peakHoursData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
                 <XAxis 
@@ -554,15 +526,15 @@ export default function DashboardAdvancedAnalytics({ orders = [], dishes = [], c
         </Card>
 
         {/* Métodos de Pagamento */}
-        <Card style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-          <CardHeader>
-            <CardTitle className="text-base font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-              <CreditCard className="w-5 h-5 text-green-500" />
+        <Card className="overflow-hidden" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+          <CardHeader className="py-2 px-4 pb-1">
+            <CardTitle className="text-sm font-semibold flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
+              <CreditCard className="w-4 h-4 text-green-500" />
               Métodos de Pagamento
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <ChartContainer config={{ revenue: { label: "Faturamento", color: "#22c55e" } }} className="h-[300px]">
+          <CardContent className="pt-0 px-4 pb-3">
+            <ChartContainer config={{ revenue: { label: "Faturamento", color: "#22c55e" } }} className="h-[180px]">
               <PieChart>
                 <Pie
                   data={paymentMethodsData}
@@ -570,7 +542,7 @@ export default function DashboardAdvancedAnalytics({ orders = [], dishes = [], c
                   cy="50%"
                   labelLine={false}
                   label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                  outerRadius={100}
+                  outerRadius={70}
                   fill="#8884d8"
                   dataKey="revenue"
                 >
@@ -587,15 +559,15 @@ export default function DashboardAdvancedAnalytics({ orders = [], dishes = [], c
         </Card>
 
         {/* Categorias Mais Vendidas */}
-        <Card style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-          <CardHeader>
-            <CardTitle className="text-base font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-              <TrendingUp className="w-5 h-5 text-blue-500" />
+        <Card className="overflow-hidden" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+          <CardHeader className="py-2 px-4 pb-1">
+            <CardTitle className="text-sm font-semibold flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
+              <TrendingUp className="w-4 h-4 text-blue-500" />
               Categorias Mais Vendidas
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <ChartContainer config={{ revenue: { label: "Faturamento", color: "#3b82f6" } }} className="h-[300px]">
+          <CardContent className="pt-0 px-4 pb-3">
+            <ChartContainer config={{ revenue: { label: "Faturamento", color: "#3b82f6" } }} className="h-[180px]">
               <BarChart 
                 data={categoriesData} 
                 layout="vertical"
@@ -629,15 +601,15 @@ export default function DashboardAdvancedAnalytics({ orders = [], dishes = [], c
         </Card>
 
         {/* Dias da Semana */}
-        <Card style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-          <CardHeader>
-            <CardTitle className="text-base font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-              <Calendar className="w-5 h-5 text-purple-500" />
+        <Card className="overflow-hidden" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+          <CardHeader className="py-2 px-4 pb-1">
+            <CardTitle className="text-sm font-semibold flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
+              <Calendar className="w-4 h-4 text-purple-500" />
               Performance por Dia da Semana
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <ChartContainer config={{ orders: { label: "Pedidos", color: "#8b5cf6" } }} className="h-[300px]">
+          <CardContent className="pt-0 px-4 pb-3">
+            <ChartContainer config={{ orders: { label: "Pedidos", color: "#8b5cf6" } }} className="h-[180px]">
               <BarChart data={weekdaysData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
                 <XAxis 
@@ -666,20 +638,20 @@ export default function DashboardAdvancedAnalytics({ orders = [], dishes = [], c
       {/* Tabela de Métodos de Pagamento */}
       {paymentMethodsData.length > 0 && (
         <Card style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-          <CardHeader>
-            <CardTitle className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
+          <CardHeader className="py-2 px-4">
+            <CardTitle className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
               Detalhamento de Métodos de Pagamento
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-0 px-4 pb-3">
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full text-sm">
                 <thead>
                   <tr style={{ borderBottomColor: 'var(--border-color)' }}>
-                    <th className="text-left py-2 px-3 text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Método</th>
-                    <th className="text-right py-2 px-3 text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Pedidos</th>
-                    <th className="text-right py-2 px-3 text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Faturamento</th>
-                    <th className="text-right py-2 px-3 text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>%</th>
+                    <th className="text-left py-1.5 px-2 text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>Método</th>
+                    <th className="text-right py-1.5 px-2 text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>Pedidos</th>
+                    <th className="text-right py-1.5 px-2 text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>Faturamento</th>
+                    <th className="text-right py-1.5 px-2 text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>%</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -688,23 +660,19 @@ export default function DashboardAdvancedAnalytics({ orders = [], dishes = [], c
                     const percentage = totalRevenue > 0 ? ((method.revenue / totalRevenue) * 100).toFixed(1) : 0;
                     return (
                       <tr key={method.name} style={{ borderBottomColor: 'var(--border-color)' }}>
-                        <td className="py-2 px-3">
+                        <td className="py-1.5 px-2">
                           <div className="flex items-center gap-2">
                             <div 
                               className="w-3 h-3 rounded-full" 
                               style={{ backgroundColor: COLORS[index % COLORS.length] }}
                             />
-                            <span style={{ color: 'var(--text-primary)' }}>{method.name}</span>
+                            <span className="text-xs" style={{ color: 'var(--text-primary)' }}>{method.name}</span>
                           </div>
                         </td>
-                        <td className="text-right py-2 px-3" style={{ color: 'var(--text-primary)' }}>
-                          {method.count}
-                        </td>
-                        <td className="text-right py-2 px-3 font-semibold" style={{ color: 'var(--text-primary)' }}>
-                          {formatCurrency(method.revenue)}
-                        </td>
-                        <td className="text-right py-2 px-3">
-                          <Badge variant="outline">{percentage}%</Badge>
+                        <td className="text-right py-1.5 px-2 text-xs" style={{ color: 'var(--text-primary)' }}>{method.count}</td>
+                        <td className="text-right py-1.5 px-2 text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(method.revenue)}</td>
+                        <td className="text-right py-1.5 px-2">
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0">{percentage}%</Badge>
                         </td>
                       </tr>
                     );

@@ -130,7 +130,7 @@ export default function DashboardTab({ user, subscriberData, onNavigateToTab }) 
   };
 
   return (
-    <div className="space-y-4 sm:space-y-6 p-4 sm:p-0">
+    <div className="space-y-3 sm:space-y-4 p-4 sm:p-0">
       {/* Welcome */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="flex-1 min-w-0">
@@ -162,7 +162,7 @@ export default function DashboardTab({ user, subscriberData, onNavigateToTab }) 
       )}
 
       {/* Stats Cards Rápidos */}
-      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
         <StatCard
           icon={ShoppingCart}
           value={todayOrders.length}
@@ -195,32 +195,32 @@ export default function DashboardTab({ user, subscriberData, onNavigateToTab }) 
 
       {/* Pedidos em Andamento */}
       <Card style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-            <Package className="w-5 h-5" />
+        <CardHeader className="py-2 px-4">
+          <CardTitle className="flex items-center gap-1.5 text-base" style={{ color: 'var(--text-primary)' }}>
+            <Package className="w-4 h-4" />
             Pedidos em Andamento
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
-            <div className="rounded-lg p-4 text-center" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
-              <p className="text-3xl font-bold text-blue-600">{newOrders}</p>
-              <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>Novos</p>
+        <CardContent className="pt-0 px-4 pb-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="rounded-lg p-2.5 text-center" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
+              <p className="text-xl font-bold text-blue-600">{newOrders}</p>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>Novos</p>
             </div>
-            <div className="rounded-lg p-4 text-center" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
-              <p className="text-3xl font-bold text-yellow-600">{preparingOrders}</p>
-              <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>Preparando</p>
+            <div className="rounded-lg p-2.5 text-center" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
+              <p className="text-xl font-bold text-yellow-600">{preparingOrders}</p>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>Preparando</p>
             </div>
-            <div className="rounded-lg p-4 text-center" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
-              <p className="text-3xl font-bold text-green-600">{readyOrders}</p>
-              <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>Prontos</p>
+            <div className="rounded-lg p-2.5 text-center" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
+              <p className="text-xl font-bold text-green-600">{readyOrders}</p>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>Prontos</p>
             </div>
-            <div className="rounded-lg p-4 text-center" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
-              <p className="text-3xl font-bold text-purple-600">{deliveringOrders}</p>
-              <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>Em Entrega</p>
+            <div className="rounded-lg p-2.5 text-center" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
+              <p className="text-xl font-bold text-purple-600">{deliveringOrders}</p>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>Em Entrega</p>
             </div>
           </div>
-          <div className="mt-4 flex flex-col sm:flex-row gap-2">
+          <div className="mt-3 flex flex-col sm:flex-row gap-2">
             <Link to={createPageUrl('GestorPedidos')} className="flex-1">
               <Button className="w-full min-h-touch">Ver Todos os Pedidos</Button>
             </Link>
@@ -235,8 +235,8 @@ export default function DashboardTab({ user, subscriberData, onNavigateToTab }) 
 
       {/* Cardápio Digital */}
       <Card style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-lg font-medium" style={{ color: 'var(--text-primary)' }}>Cardápio Digital</CardTitle>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 py-2 px-4 pb-1">
+          <CardTitle className="text-base font-medium" style={{ color: 'var(--text-primary)' }}>Cardápio Digital</CardTitle>
           <Link to={currentSlug ? `/s/${currentSlug}` : createPageUrl('Cardapio')} target="_blank">
             <Button variant="outline" size="sm">
               <ExternalLink className="w-4 h-4 mr-2" />
@@ -244,8 +244,8 @@ export default function DashboardTab({ user, subscriberData, onNavigateToTab }) 
             </Button>
           </Link>
         </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-2 mb-3">
+        <CardContent className="pt-0 px-4 pb-3">
+          <div className="flex items-center gap-2 mb-2">
             <Input 
               value={menuLink} 
               readOnly 
@@ -267,19 +267,19 @@ export default function DashboardTab({ user, subscriberData, onNavigateToTab }) 
       </Card>
 
       {/* Atalhos Rápidos - ao clicar troca a aba (dishes, history, store) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3">
         <Card 
           className="hover:shadow-lg transition-shadow cursor-pointer" 
           onClick={() => onNavigateToTab ? onNavigateToTab('dishes') : (window.location.href = createPageUrl('Admin') + '?tab=dishes')} 
           style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}
         >
-          <CardContent className="p-4 sm:p-6 flex items-center gap-3 sm:gap-4 min-h-touch">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
-              <Package className="w-5 h-5 sm:w-6 sm:h-6 text-orange-600" />
+          <CardContent className="p-3 sm:p-4 flex items-center gap-2 sm:gap-3 min-h-touch">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
+              <Package className="w-4 h-4 sm:w-5 sm:h-5 text-orange-600" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-semibold text-sm sm:text-base truncate" style={{ color: 'var(--text-primary)' }}>Gerenciar Cardápio</p>
-              <p className="text-xs sm:text-sm truncate" style={{ color: 'var(--text-secondary)' }}>Pratos, categorias e mais</p>
+              <p className="font-semibold text-sm truncate" style={{ color: 'var(--text-primary)' }}>Gerenciar Cardápio</p>
+              <p className="text-xs truncate" style={{ color: 'var(--text-secondary)' }}>Pratos, categorias e mais</p>
             </div>
           </CardContent>
         </Card>
@@ -289,13 +289,13 @@ export default function DashboardTab({ user, subscriberData, onNavigateToTab }) 
           onClick={() => onNavigateToTab ? onNavigateToTab('history') : (window.location.href = createPageUrl('Admin') + '?tab=history')} 
           style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}
         >
-          <CardContent className="p-4 sm:p-6 flex items-center gap-3 sm:gap-4 min-h-touch">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
-              <ShoppingCart className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
+          <CardContent className="p-3 sm:p-4 flex items-center gap-2 sm:gap-3 min-h-touch">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
+              <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-semibold text-sm sm:text-base truncate" style={{ color: 'var(--text-primary)' }}>Ver Pedidos</p>
-              <p className="text-xs sm:text-sm truncate" style={{ color: 'var(--text-secondary)' }}>Histórico completo</p>
+              <p className="font-semibold text-sm truncate" style={{ color: 'var(--text-primary)' }}>Ver Pedidos</p>
+              <p className="text-xs truncate" style={{ color: 'var(--text-secondary)' }}>Histórico completo</p>
             </div>
           </CardContent>
         </Card>
@@ -305,39 +305,39 @@ export default function DashboardTab({ user, subscriberData, onNavigateToTab }) 
           onClick={() => onNavigateToTab ? onNavigateToTab('store') : (window.location.href = createPageUrl('Admin') + '?tab=store')} 
           style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}
         >
-          <CardContent className="p-4 sm:p-6 flex items-center gap-3 sm:gap-4 min-h-touch">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
-              <Users className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
+          <CardContent className="p-3 sm:p-4 flex items-center gap-2 sm:gap-3 min-h-touch">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
+              <Users className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-semibold text-sm sm:text-base truncate" style={{ color: 'var(--text-primary)' }}>Configurações</p>
-              <p className="text-xs sm:text-sm truncate" style={{ color: 'var(--text-secondary)' }}>Loja e pagamentos</p>
+              <p className="font-semibold text-sm truncate" style={{ color: 'var(--text-primary)' }}>Configurações</p>
+              <p className="text-xs truncate" style={{ color: 'var(--text-secondary)' }}>Loja e pagamentos</p>
             </div>
           </CardContent>
         </Card>
       </div>
 
       {/* Ajuda */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
         <Card style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-          <CardHeader className="flex flex-row items-center gap-2 space-y-0 pb-2">
-            <Info className="w-5 h-5 text-blue-500" />
-            <CardTitle className="text-lg font-medium" style={{ color: 'var(--text-primary)' }}>Ajuda - Manual</CardTitle>
+          <CardHeader className="flex flex-row items-center gap-1.5 space-y-0 py-2 px-4 pb-0">
+            <Info className="w-4 h-4 text-blue-500" />
+            <CardTitle className="text-base font-medium" style={{ color: 'var(--text-primary)' }}>Ajuda - Manual</CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-xs sm:text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>Está com alguma dúvida sobre como usar?</p>
-            <Button variant="outline" className="w-full min-h-touch text-xs sm:text-sm">ACESSAR MANUAL</Button>
+          <CardContent className="pt-2 px-4 pb-3">
+            <p className="text-xs sm:text-sm mb-2" style={{ color: 'var(--text-secondary)' }}>Está com alguma dúvida sobre como usar?</p>
+            <Button variant="outline" className="w-full min-h-touch text-xs">ACESSAR MANUAL</Button>
           </CardContent>
         </Card>
         <Card style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-          <CardHeader className="flex flex-row items-center gap-2 space-y-0 pb-2">
-            <CheckCircle className="w-5 h-5 text-green-500" />
-            <CardTitle className="text-lg font-medium" style={{ color: 'var(--text-primary)' }}>Suporte</CardTitle>
+          <CardHeader className="flex flex-row items-center gap-1.5 space-y-0 py-2 px-4 pb-0">
+            <CheckCircle className="w-4 h-4 text-green-500" />
+            <CardTitle className="text-base font-medium" style={{ color: 'var(--text-primary)' }}>Suporte</CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-xs sm:text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>Abra um chamado e receberá um contato</p>
+          <CardContent className="pt-2 px-4 pb-3">
+            <p className="text-xs sm:text-sm mb-2" style={{ color: 'var(--text-secondary)' }}>Abra um chamado e receberá um contato</p>
             <a href="https://wa.me/5586988196114" target="_blank" rel="noopener noreferrer" className="block">
-              <Button className="w-full bg-green-600 hover:bg-green-700 min-h-touch text-xs sm:text-sm">ABRIR CHAMADO</Button>
+              <Button className="w-full bg-green-600 hover:bg-green-700 min-h-touch text-xs">ABRIR CHAMADO</Button>
             </a>
           </CardContent>
         </Card>
