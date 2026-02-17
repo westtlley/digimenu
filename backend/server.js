@@ -592,6 +592,38 @@ authController.initializeAuthController(db, saveDatabaseDebounced);
 // Registrar rotas do módulo de autenticação
 app.use('/api/auth', authRoutes);
 
+// =======================
+// 🖼️ IMAGE UPLOAD (registrada cedo para evitar 404 em produção)
+// =======================
+app.post('/api/upload-image', upload.single('image'), async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'Nenhuma imagem enviada' });
+  }
+  try {
+    const folder = req.query.folder || 'dishes';
+    const stream = cloudinary.uploader.upload_stream(
+      { folder },
+      (error, result) => {
+        if (error) {
+          console.error('❌ Cloudinary error:', error.message);
+          return res.status(500).json({
+            error: 'Erro ao enviar imagem para Cloudinary',
+            details: error.message
+          });
+        }
+        res.json({ url: result.secure_url });
+      }
+    );
+    stream.end(req.file.buffer);
+  } catch (error) {
+    console.error('❌ Erro no upload:', error);
+    res.status(500).json({
+      error: 'Erro interno no servidor',
+      details: error.message
+    });
+  }
+});
+
 // Rota de contexto do usuário (separada)
 app.get('/api/user/context', authenticate, getUserContext);
 
@@ -2895,53 +2927,7 @@ app.post('/api/auth/set-password', validate(schemas.setPassword), asyncHandler(a
   }
 }));
 
-// =======================
-// 🖼️ IMAGE UPLOAD
-// =======================
-app.post('/api/upload-image', upload.single('image'), async (req, res) => {
-  console.log('📥 UPLOAD RECEBIDO');
-  console.log('Query params:', req.query);
-  console.log('Arquivo recebido:', req.file ? {
-    originalname: req.file.originalname,
-    mimetype: req.file.mimetype,
-    size: req.file.size
-  } : 'NENHUM ARQUIVO');
-  
-  if (!req.file) {
-    console.error('❌ Nenhum arquivo recebido');
-    return res.status(400).json({ error: 'Nenhuma imagem enviada' });
-  }
-
-  try {
-    // Obter pasta do query string ou usar padrão
-    const folder = req.query.folder || 'dishes';
-    console.log('📁 Pasta do Cloudinary:', folder);
-    
-    const stream = cloudinary.uploader.upload_stream(
-      { folder },
-      (error, result) => {
-        if (error) {
-          console.error('❌ Cloudinary error:', error);
-          console.error('Detalhes:', JSON.stringify(error, null, 2));
-          return res.status(500).json({ 
-            error: 'Erro ao enviar imagem para Cloudinary',
-            details: error.message 
-          });
-        }
-        console.log('✅ Upload concluído:', result.secure_url);
-        res.json({ url: result.secure_url });
-      }
-    );
-    stream.end(req.file.buffer);
-  } catch (error) {
-    console.error('❌ Erro no upload:', error);
-    console.error('Stack:', error.stack);
-    res.status(500).json({ 
-      error: 'Erro interno no servidor',
-      details: error.message 
-    });
-  }
-});
+// 🖼️ IMAGE UPLOAD — rota registrada no início do arquivo (após auth) para evitar 404
 
 // =======================
 // 🔔 SERVICE REQUESTS (solicitações de assinantes para master)

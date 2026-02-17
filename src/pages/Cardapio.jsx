@@ -403,15 +403,13 @@ export default function Cardapio() {
 
   const activeBeverages = useMemo(() => {
     const safeDishes = Array.isArray(dishesResolved) ? dishesResolved : [];
-    const beverages = safeDishes.filter((d) => {
+    return safeDishes.filter((d) => {
       if (d.product_type !== 'beverage') return false;
       if (d.is_active === false) return false;
       if (!d.name || d.name.trim() === '') return false;
       if (d.price === null || d.price === undefined) return false;
       return true;
     });
-    console.log('🥤 [Cardapio] Bebidas ativas:', beverages.length, beverages.map(b => b.name));
-    return beverages;
   }, [dishesResolved]);
   const highlightDishes = useMemo(() => {
     const safeActiveDishes = Array.isArray(activeDishes) ? activeDishes : [];

@@ -1,73 +1,87 @@
 import { apiClient } from '@/api/apiClient';
 
+const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || '';
+const UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || '';
+
 /**
- * Faz upload de uma imagem para o Cloudinary
+ * Upload direto do navegador para o Cloudinary (preset unsigned).
+ * Usado quando o backend retorna 404 na rota /api/upload-image.
+ * Requer: VITE_CLOUDINARY_CLOUD_NAME e VITE_CLOUDINARY_UPLOAD_PRESET no .env
+ */
+async function directCloudinaryUpload(file, folder = 'dishes') {
+  if (!CLOUD_NAME || !UPLOAD_PRESET) {
+    throw new Error('Upload direto não configurado. Defina VITE_CLOUDINARY_CLOUD_NAME e VITE_CLOUDINARY_UPLOAD_PRESET no .env (preset deve ser unsigned).');
+  }
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('upload_preset', UPLOAD_PRESET);
+  if (folder) formData.append('folder', folder);
+
+  const url = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`;
+  const res = await fetch(url, { method: 'POST', body: formData });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data?.error?.message || `Cloudinary: ${res.status}`);
+  }
+  if (!data?.secure_url) {
+    throw new Error('Resposta do Cloudinary sem URL');
+  }
+  return data.secure_url;
+}
+
+/**
+ * Faz upload de uma imagem para o Cloudinary.
+ * Tenta primeiro o backend; se der 404, usa upload direto (se configurado).
  * @param {File} file - Arquivo de imagem
  * @param {string} folder - Pasta no Cloudinary (opcional)
  * @returns {Promise<string>} URL da imagem no Cloudinary
  */
 export async function uploadToCloudinary(file, folder = 'dishes') {
-  // ⚠️ VALIDAÇÃO RIGOROSA DO ARQUIVO
-  console.log('🔍 [uploadToCloudinary] Recebido:', {
-    file,
-    isFile: file instanceof File,
-    type: typeof file,
-    fileName: file?.name,
-    fileSize: file?.size,
-    fileType: file?.type,
-    folder
-  });
-
   if (!file) {
-    console.error('❌ [uploadToCloudinary] Nenhum arquivo fornecido');
     throw new Error('Nenhum arquivo fornecido');
   }
-
   if (!(file instanceof File)) {
-    console.error('❌ [uploadToCloudinary] Arquivo não é instância de File:', typeof file, file);
     throw new Error('O arquivo deve ser uma instância de File');
   }
-
   if (!file.type || !file.type.startsWith('image/')) {
-    console.error('❌ [uploadToCloudinary] Arquivo não é imagem:', file.type);
     throw new Error('O arquivo deve ser uma imagem');
   }
 
+  const isBackend404 = (err) =>
+    err?.message?.includes('404') ||
+    err?.message?.includes('Cannot POST') ||
+    (typeof err?.message === 'string' && err.message.includes('upload-image'));
+
   try {
-    console.log('📤 [uploadToCloudinary] Iniciando upload...', { 
-      fileName: file.name, 
-      fileSize: file.size, 
-      fileType: file.type,
-      folder 
-    });
-    
-    // ⚠️ GARANTIR QUE O ARQUIVO CHEGUE ATÉ A FUNÇÃO
     const response = await apiClient.uploadImageToCloudinary(file, folder);
-    
-    if (!response || !response.url) {
-      console.error('❌ [uploadToCloudinary] Resposta inválida do servidor:', response);
-      throw new Error('Resposta inválida do servidor. Verifique se o backend está rodando e configurado corretamente.');
+    if (!response?.url) {
+      throw new Error('Resposta inválida do servidor');
     }
-    
-    console.log('✅ [uploadToCloudinary] Upload concluído:', response.url);
     return response.url;
   } catch (error) {
-    console.error('❌ [uploadToCloudinary] Erro ao fazer upload:', error);
-    
-    // Mensagens de erro mais específicas
+    if (isBackend404(error) && CLOUD_NAME && UPLOAD_PRESET) {
+      try {
+        const url = await directCloudinaryUpload(file, folder);
+        return url;
+      } catch (directError) {
+        throw new Error(
+          directError.message ||
+            'Upload pelo backend falhou (404) e o upload direto também falhou. Configure o preset unsigned no Cloudinary e as variáveis VITE_CLOUDINARY_* no .env.'
+        );
+      }
+    }
     if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
       throw new Error('Não foi possível conectar ao servidor. Verifique se o backend está rodando.');
     }
-    
-    if (error.message.includes('404')) {
-      throw new Error('Endpoint de upload não encontrado. Verifique se a rota /api/upload-image está configurada no backend.');
+    if (error.message.includes('404') || error.message.includes('Cannot POST')) {
+      throw new Error(
+        'Rota de upload não encontrada no backend. Faça o deploy do backend ou configure upload direto: crie um preset unsigned no Cloudinary e defina VITE_CLOUDINARY_CLOUD_NAME e VITE_CLOUDINARY_UPLOAD_PRESET no .env.'
+      );
     }
-    
     if (error.message.includes('500')) {
-      throw new Error('Erro no servidor. Verifique se as credenciais do Cloudinary estão configuradas.');
+      throw new Error('Erro no servidor. Verifique as credenciais do Cloudinary no backend.');
     }
-    
-    throw new Error(error.message || 'Erro ao fazer upload da imagem. Verifique o console para mais detalhes.');
+    throw error;
   }
 }
 
