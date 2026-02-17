@@ -204,11 +204,25 @@ export default function BeveragesTab() {
   const handleImageUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    
+    // Preview imediato local
+    const localUrl = URL.createObjectURL(file);
+    setFormData(prev => ({ ...prev, image: localUrl }));
+    toast.loading('Enviando imagem...');
+    
     try {
       const url = await uploadToCloudinary(file, 'dishes');
-      if (url) setFormData(prev => ({ ...prev, image: url }));
-      else toast.error('Erro no upload');
+      toast.dismiss();
+      if (url) {
+        setFormData(prev => ({ ...prev, image: url }));
+        toast.success('Imagem enviada!');
+      } else {
+        setFormData(prev => ({ ...prev, image: '' }));
+        toast.error('Erro no upload');
+      }
     } catch (err) {
+      toast.dismiss();
+      setFormData(prev => ({ ...prev, image: '' }));
       toast.error('Falha ao enviar imagem');
     }
   };

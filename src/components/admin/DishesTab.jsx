@@ -897,7 +897,8 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
   });
 
   // Validações de segurança - DECLARADAS AQUI PARA ESTAREM DISPONÍVEIS EM TODAS AS FUNÇÕES
-  const safeDishes = (Array.isArray(dishes) ? dishes : []).filter(d => d.product_type !== 'pizza');
+  // ✅ Filtrar pizzas E bebidas (bebidas vão para BeveragesTab)
+  const safeDishes = (Array.isArray(dishes) ? dishes : []).filter(d => d.product_type !== 'pizza' && d.product_type !== 'beverage');
   const safeCategories = Array.isArray(categories) ? categories : [];
   const safeComplementGroups = Array.isArray(complementGroups) ? complementGroups : [];
 
