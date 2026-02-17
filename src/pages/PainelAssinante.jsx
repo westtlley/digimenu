@@ -295,14 +295,14 @@ export default function PainelAssinante() {
             
             <div className="flex-1 min-w-0">
               <h1 className="font-bold text-sm sm:text-base md:text-lg truncate">{store?.name || 'Meu Painel'}</h1>
-              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap lg:flex-nowrap">
                 {subscriberData?.plan && (
                   <Badge className="bg-white/20 text-white text-[9px] sm:text-[10px] px-1 sm:px-1.5 py-0.5 border-white/30">
                     Plano {subscriberData.plan.charAt(0).toUpperCase() + subscriberData.plan.slice(1)}
                   </Badge>
                 )}
                 {daysRemaining !== null && (
-                  <Badge className={`text-[9px] sm:text-[10px] px-1 sm:px-1.5 py-0.5 ${
+                  <Badge className={`text-[9px] sm:text-[10px] px-1 sm:px-1.5 py-0.5 lg:hidden ${
                     daysRemaining <= 7 ? 'bg-red-500/80' : 'bg-green-500/80'
                   } text-white border-0`}>
                     {daysRemaining > 0 ? `${daysRemaining}d restantes` : 'Expirado'}
@@ -311,7 +311,7 @@ export default function PainelAssinante() {
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-1 sm:gap-2 flex-wrap overflow-x-auto scrollbar-hide">
+          <div className="flex items-center gap-1 sm:gap-2 flex-wrap overflow-x-auto scrollbar-hide lg:flex-nowrap lg:overflow-visible">
             <InstallAppButton pageName="Painel" compact />
             {(store?.id || subscriberData?.id) && (
               <WhatsAppComandaToggle 
@@ -360,7 +360,7 @@ export default function PainelAssinante() {
       )}
 
       {/* Main Layout */}
-      <div className="flex flex-1 overflow-x-hidden overflow-y-auto">
+      <div className="flex flex-1 overflow-x-hidden overflow-y-auto lg:overflow-y-hidden">
         {/* Sidebar Profissional Categorizado */}
         <div
           className={`
@@ -386,7 +386,7 @@ export default function PainelAssinante() {
 
         {/* Content */}
         <main className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900">
-          <div className="p-4 lg:p-6">
+          <div className="p-4 lg:p-6 lg:max-w-6xl xl:max-w-7xl lg:mx-auto">
             {/* Card Plano ativo + Período (só para assinante, não master) */}
             {!isMaster && subscriberData && (
               <div className="mb-4 p-3 sm:p-4 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm flex flex-wrap items-center gap-3 sm:gap-4">
