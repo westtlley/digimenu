@@ -13,6 +13,8 @@ import toast, { Toaster } from 'react-hot-toast';
 
 // Components
 import NewDishModal from '../components/menu/NewDishModal';
+import BeverageCard from '../components/menu/BeverageCard';
+import BeverageModal from '../components/menu/BeverageModal';
 import PizzaBuilderV2 from '../components/pizza/PizzaBuilderV2';
 import CartModal from '../components/menu/CartModal';
 import CheckoutView from '../components/menu/CheckoutView';
@@ -99,6 +101,7 @@ export default function Cardapio() {
   }, [slug]);
 
   const [selectedDish, setSelectedDish] = useState(null);
+  const [selectedBeverage, setSelectedBeverage] = useState(null);
   const [selectedPizza, setSelectedPizza] = useState(null);
   const [editingCartItem, setEditingCartItem] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -667,6 +670,14 @@ export default function Cardapio() {
 
   const handleDishClick = (dish) => {
     console.log('🍕 Clicou no prato:', dish.name, 'Tipo:', dish.product_type);
+    
+    // Se for bebida, usar modal específico de bebida
+    if (dish.product_type === 'beverage') {
+      console.log('🥤 É bebida! Abrindo BeverageModal...');
+      setSelectedBeverage(dish);
+      return;
+    }
+    
     if (dish.product_type === 'pizza') {
       console.log('✅ É pizza! Abrindo PizzaBuilder...');
       setSelectedPizza(dish);
@@ -1712,6 +1723,18 @@ export default function Cardapio() {
         onAddToCart={handleAddToCart}
         editingItem={editingCartItem}
         primaryColor={primaryColor}
+      />
+
+      {/* Modal específico para bebidas */}
+      <BeverageModal
+        beverage={selectedBeverage}
+        isOpen={!!selectedBeverage}
+        onClose={() => {
+          setSelectedBeverage(null);
+          setEditingCartItem(null);
+        }}
+        onAddToCart={handleAddToCart}
+        primaryColor="#06b6d4"
       />
 
       {selectedPizza && (

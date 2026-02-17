@@ -1,5 +1,6 @@
 import React from 'react';
 import DishCardWow from '../DishCardWow';
+import BeverageCard from '../BeverageCard';
 import DishSkeleton from '../DishSkeleton';
 
 export default function GridLayout({ 
@@ -26,6 +27,23 @@ export default function GridLayout({
       {dishes.map((dish, index) => {
         const isOutOfStock = stockUtils?.isOutOfStock?.(dish.stock);
         const isLowStock = stockUtils?.isLowStock?.(dish.stock);
+        
+        // Se for bebida, usar BeverageCard
+        if (dish.product_type === 'beverage') {
+          return (
+            <BeverageCard
+              key={dish.id}
+              beverage={dish}
+              onClick={onDishClick}
+              index={index}
+              isOutOfStock={isOutOfStock}
+              primaryColor="#06b6d4"
+              textPrimaryColor="#06b6d4"
+            />
+          );
+        }
+        
+        // Caso contrário, usar DishCardWow normal
         return (
           <DishCardWow
             key={dish.id}
