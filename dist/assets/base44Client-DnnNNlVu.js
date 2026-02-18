@@ -1,1 +1,0 @@
-import{g as t}from"./main-AonIQAES.js";const o={auth:t.auth,entities:t.entities,functions:t.functions,integrations:t.integrations,get:(i,n)=>t.get(i,n),put:(i,n)=>t.put(i,n),post:(i,n,s)=>t.post(i,n,s)};export{o as b};

@@ -1,11 +1,64 @@
 /**
- * Presets de planos de assinatura
- * ⚠️ ATENÇÃO: Este arquivo é APENAS para referência/exibição na UI.
- * NÃO deve ser usado para lógica de negócio ou validação de permissões.
- * 
- * O backend é a única fonte de verdade para permissões e limites.
- * O frontend apenas consome e exibe as permissões retornadas pelo backend.
+ * Presets de planos de assinatura (FREE / BASIC / PRO / ULTRA)
+ *
+ * ⚠️ ATENÇÃO: Este arquivo é APENAS para referência/exibição na UI e para
+ * fallback quando o backend retorna assinante sem permissões explícitas.
+ * O BACKEND é a única fonte de verdade para autorização. O frontend apenas
+ * reflete e esconde/mostra recursos conforme as permissões retornadas pela API.
+ *
+ * CHANGELOG (matriz atual):
+ * - FREE: Pratos CRUD + Loja ver/editar. Gestor de pedidos e Pedidos só VIEW.
+ *   WhatsApp DESATIVADO ([]). Sem clientes/histórico/financeiro/pagamentos/gráficos.
+ * - BASIC: Gestor VIEW+UPDATE, Pedidos VIEW+UPDATE, Tema VIEW+UPDATE, Histórico VIEW,
+ *   Clientes VIEW. NOVO: Pagamentos VIEW+UPDATE, Financeiro VIEW, 2FA VIEW+UPDATE.
+ * - PRO: Tudo do BASIC + Marketing (cupons/promoções) e Entregas (zonas) CRUD,
+ *   Estoque/Afiliados/Colaboradores CRUD, LGPD/2FA view+update, Gráficos VIEW,
+ *   Gestor e Pedidos CRUD completo.
+ * - ULTRA: Tudo do PRO + PDV, Caixa, Impressora, Comandas (close/history), Mesas CRUD.
  */
+
+/** Módulos padronizados (evitar typos) */
+export const MODULES = {
+  DASHBOARD: 'dashboard',
+  PDV: 'pdv',
+  GESTOR_PEDIDOS: 'gestor_pedidos',
+  CAIXA: 'caixa',
+  WHATSAPP: 'whatsapp',
+  DISHES: 'dishes',
+  PIZZA_CONFIG: 'pizza_config',
+  DELIVERY_ZONES: 'delivery_zones',
+  COUPONS: 'coupons',
+  PROMOTIONS: 'promotions',
+  THEME: 'theme',
+  STORE: 'store',
+  PAYMENTS: 'payments',
+  GRAFICOS: 'graficos',
+  ORDERS: 'orders',
+  HISTORY: 'history',
+  CLIENTS: 'clients',
+  FINANCIAL: 'financial',
+  PRINTER: 'printer',
+  MAIS: 'mais',
+  COMANDAS: 'comandas',
+  INVENTORY: 'inventory',
+  AFFILIATES: 'affiliates',
+  LGPD: 'lgpd',
+  TWO_FA: '2fa',
+  COZINHA: 'cozinha',
+  GARCOM: 'garcom',
+  COLABORADORES: 'colaboradores',
+  TABLES: 'tables',
+};
+
+/** Ações padronizadas */
+export const ACTIONS = {
+  VIEW: 'view',
+  CREATE: 'create',
+  UPDATE: 'update',
+  DELETE: 'delete',
+  CLOSE: 'close',
+  HISTORY: 'history',
+};
 
 export const PLAN_PRESETS = {
   custom: {
@@ -26,7 +79,7 @@ export const PLAN_PRESETS = {
       pdv: [],
       gestor_pedidos: ['view'],
       caixa: [],
-      whatsapp: ['view'],
+      whatsapp: [],
       dishes: ['view', 'create', 'update', 'delete'],
       pizza_config: [],
       delivery_zones: [],
@@ -47,7 +100,7 @@ export const PLAN_PRESETS = {
   },
   basic: {
     name: 'Básico',
-    description: 'Cardápio + Pedidos + Personalização',
+    description: 'Cardápio + Pedidos + Personalização + Pagamentos e 2FA',
     permissions: {
       dashboard: ['view'],
       pdv: [],
@@ -61,21 +114,27 @@ export const PLAN_PRESETS = {
       promotions: [],
       theme: ['view', 'update'],
       store: ['view', 'update'],
-      payments: [],
+      payments: ['view', 'update'],
       graficos: [],
       orders: ['view', 'update'],
       history: ['view'],
       clients: ['view'],
-      financial: [],
+      financial: ['view'],
       printer: [],
       mais: ['view'],
-      comandas: []
+      comandas: [],
+      inventory: [],
+      affiliates: [],
+      lgpd: [],
+      '2fa': ['view', 'update'],
+      cozinha: [],
+      garcom: [],
+      colaboradores: []
     }
   },
-  
   pro: {
     name: 'Pro',
-    description: 'Básico + Entregas + Marketing',
+    description: 'Básico + Entregas + Marketing + Estoque + Colaboradores',
     permissions: {
       dashboard: ['view'],
       pdv: [],
@@ -107,10 +166,9 @@ export const PLAN_PRESETS = {
       colaboradores: ['view', 'create', 'update', 'delete']
     }
   },
-  
   ultra: {
     name: 'Ultra',
-    description: 'ACESSO TOTAL - Tudo liberado',
+    description: 'ACESSO TOTAL - PDV, Caixa, Comandas, Mesas',
     permissions: {
       dashboard: ['view'],
       pdv: ['view', 'create', 'update'],
@@ -143,11 +201,10 @@ export const PLAN_PRESETS = {
       colaboradores: ['view', 'create', 'update', 'delete']
     }
   },
-  
-  // COMPATIBILIDADE: manter 'premium' apontando para 'ultra'
+  // COMPATIBILIDADE: 'premium' aponta para o mesmo que 'ultra'
   premium: {
     name: 'Ultra',
-    description: 'ACESSO TOTAL - Tudo liberado',
+    description: 'ACESSO TOTAL (alias de ultra)',
     permissions: {
       dashboard: ['view'],
       pdv: ['view', 'create', 'update'],
@@ -183,14 +240,43 @@ export const PLAN_PRESETS = {
 };
 
 /**
- * Retorna as permissões de um plano
+ * Retorna as permissões de um plano (para UI e fallback).
+ * Backend deve ser a fonte de verdade; use isto quando subscriber.permissions estiver vazio.
  */
 export function getPlanPermissions(plan) {
   const key = (plan || '').toString().toLowerCase().trim();
   if (key === 'custom') {
-    return PLAN_PRESETS.custom.permissions;
+    return { ...PLAN_PRESETS.custom.permissions };
   }
-  return PLAN_PRESETS[key]?.permissions || PLAN_PRESETS.basic.permissions;
+  const preset = PLAN_PRESETS[key];
+  if (preset && preset.permissions) {
+    return { ...preset.permissions };
+  }
+  return { ...PLAN_PRESETS.basic.permissions };
+}
+
+/**
+ * Mescla permissões do backend com preset do plano quando o backend retorna
+ * permissões vazias ou incompletas (compatibilidade com assinantes antigos).
+ * O backend continua sendo a fonte de verdade quando retorna permissões explícitas.
+ */
+export function mergeWithPlanPreset(permissions, plan) {
+  if (!permissions || typeof permissions !== 'object') {
+    return getPlanPermissions(plan);
+  }
+  const keys = Object.keys(permissions);
+  if (keys.length === 0) {
+    return getPlanPermissions(plan);
+  }
+  const preset = getPlanPermissions(plan);
+  const merged = { ...preset };
+  keys.forEach((module) => {
+    const value = permissions[module];
+    if (Array.isArray(value)) {
+      merged[module] = [...value];
+    }
+  });
+  return merged;
 }
 
 /**
@@ -199,8 +285,8 @@ export function getPlanPermissions(plan) {
 export function validatePermissions(permissions) {
   const warnings = [];
 
-  if (permissions.dishes?.includes('view') && 
-      !permissions.dishes?.includes('create') && 
+  if (permissions.dishes?.includes('view') &&
+      !permissions.dishes?.includes('create') &&
       !permissions.dishes?.includes('update')) {
     warnings.push({
       module: 'dishes',
@@ -215,7 +301,6 @@ export function validatePermissions(permissions) {
     });
   }
 
-  // Se pode ver pedidos mas não pode atualizar
   if (permissions.orders?.includes('view') && !permissions.orders?.includes('update')) {
     warnings.push({
       module: 'orders',
@@ -223,8 +308,7 @@ export function validatePermissions(permissions) {
     });
   }
 
-  // Se pode criar complementos mas não categorias
-  if (permissions.complements?.includes('create') && 
+  if (permissions.complements?.includes('create') &&
       !permissions.categories?.includes('create')) {
     warnings.push({
       module: 'complements',
@@ -245,27 +329,18 @@ export function comparePermissions(before, after) {
     ...Object.keys(after || {})
   ]);
 
-  allModules.forEach(module => {
+  allModules.forEach((module) => {
     const beforeActions = before?.[module] || [];
     const afterActions = after?.[module] || [];
 
-    const added = afterActions.filter(a => !beforeActions.includes(a));
-    const removed = beforeActions.filter(a => !afterActions.includes(a));
+    const added = afterActions.filter((a) => !beforeActions.includes(a));
+    const removed = beforeActions.filter((a) => !afterActions.includes(a));
 
     if (added.length > 0) {
-      changes.push({
-        module,
-        type: 'added',
-        actions: added
-      });
+      changes.push({ module, type: 'added', actions: added });
     }
-
     if (removed.length > 0) {
-      changes.push({
-        module,
-        type: 'removed',
-        actions: removed
-      });
+      changes.push({ module, type: 'removed', actions: removed });
     }
   });
 

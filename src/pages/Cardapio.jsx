@@ -196,8 +196,8 @@ export default function Cardapio() {
     enabled: !!slug,
     retry: 2,
     retryDelay: 1500,
-    staleTime: 60 * 1000,
-    refetchOnMount: 'always',
+    staleTime: 90 * 1000,
+    refetchOnMount: true,
     refetchOnWindowFocus: true,
   });
 
@@ -240,7 +240,7 @@ export default function Cardapio() {
     enabled: false,
     staleTime: 10 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
-    refetchOnMount: 'always',
+    refetchOnMount: true,
   });
 
   const { data: pizzaSizes = [] } = useQuery({
@@ -300,20 +300,7 @@ export default function Cardapio() {
   const _rawStore = _pub?.store || stores?.[0] || null;
   // Garantir nome sempre definido para não travar em "Carregando..." (ex.: loja antiga com logo mas name vazio)
   const store = _rawStore ? { ..._rawStore, name: _rawStore.name || 'Loja' } : null;
-  
-  // Debug: log dos dados recebidos
-  useEffect(() => {
-    if (slug && publicData) {
-      console.log('📊 [Cardapio] Dados do cardápio público:', {
-        slug,
-        is_master: publicData.is_master,
-        subscriber_email: publicData.subscriber_email,
-        store: store ? { name: store.name, logo: store.logo, primary_color: store.primary_color } : null,
-        dishes_count: publicData.dishes?.length || 0,
-        categories_count: publicData.categories?.length || 0
-      });
-    }
-  }, [slug, publicData, store]);
+
   const dishesResolved = _pub?.dishes ?? dishes ?? [];
   const categoriesResolved = _pub?.categories ?? categories ?? [];
   const complementGroupsResolved = _pub?.complementGroups ?? complementGroups ?? [];
@@ -1114,11 +1101,11 @@ export default function Cardapio() {
         </div>
       ) : (
         /* Header - Apenas quando NÃO tem banner. Desktop: linha única com pesquisa rente */
-        <header className="border-b border-border sticky top-0 z-40 pb-4 md:pb-2 bg-card">
-          <div className="max-w-7xl mx-auto px-4 pt-6 md:pt-3 md:py-3">
+        <header className="border-b border-border sticky top-0 z-40 pb-4 md:pb-2 lg:py-2 lg:pb-2 bg-card">
+          <div className="max-w-7xl mx-auto px-4 pt-6 md:pt-3 md:py-3 lg:px-6">
             {/* Desktop: logo | search | ícones em uma linha */}
-            <div className="flex flex-col md:flex-row md:items-center md:gap-4">
-              <div className="flex items-center justify-between mb-4 md:mb-0 md:flex-shrink-0">
+            <div className="flex flex-col md:flex-row md:items-center md:gap-4 lg:flex-nowrap lg:justify-between lg:gap-6">
+              <div className="flex items-center justify-between mb-4 md:mb-0 md:flex-shrink-0 lg:flex-shrink-0">
                 <div className="flex items-center gap-3">
                   {store?.logo ? (
                     <img src={store?.logo} alt={store?.name || 'Restaurante'} className="w-16 h-16 md:w-14 md:h-14 rounded-xl object-cover shadow-md" />
@@ -1155,13 +1142,13 @@ export default function Cardapio() {
                   <button className="p-2 rounded-lg relative text-muted-foreground" onClick={() => setShowCartModal(true)}><ShoppingCart className="w-5 h-5" />{cart.length > 0 && <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">{cartItemsCount}</span>}</button>
                 </div>
               </div>
-              {/* Search - rente no desktop */}
-              <div className="relative flex-1 md:max-w-xl md:mx-4">
+              {/* Search - rente no desktop; lg: largura máxima e centralizada */}
+              <div className="relative flex-1 md:max-w-xl md:mx-4 lg:max-w-[700px] lg:mx-auto lg:flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                <Input placeholder="O que você procura hoje?" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 h-12 md:h-10 text-base" />
+                <Input placeholder="O que você procura hoje?" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 h-12 md:h-10 lg:h-9 text-base" />
               </div>
-              {/* Ícones - ocultos no mobile (já estão na linha de cima) */}
-              <div className="hidden md:flex items-center gap-2 flex-shrink-0">
+              {/* Ícones - ocultos no mobile (já estão na linha de cima); lg: destaque leve no carrinho */}
+              <div className="hidden md:flex items-center gap-2 flex-shrink-0 lg:gap-1">
                 <button className="p-2 rounded-lg transition-colors text-muted-foreground hover:text-foreground hover:bg-muted" onClick={() => { if (navigator.share) { navigator.share({ title: store?.name || 'Cardápio', text: `Confira o cardápio de ${store?.name || 'nosso restaurante'}`, url: window.location.href }).catch(() => {}); } else { navigator.clipboard.writeText(window.location.href); toast.success('Link copiado!'); } }} title="Compartilhar"><Share2 className="w-5 h-5" /></button>
                 <ThemeToggle className="text-muted-foreground hover:text-foreground hover:bg-muted" />
                 <button 
@@ -1182,26 +1169,26 @@ export default function Cardapio() {
                     </>
                   )}
                 </button>
-                <button className="p-2 rounded-lg relative transition-colors text-muted-foreground hover:text-foreground hover:bg-muted" onClick={() => setShowCartModal(true)}><ShoppingCart className="w-5 h-5" />{cart.length > 0 && <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">{cartItemsCount}</span>}</button>
+                <button className={`p-2 rounded-lg relative transition-colors text-muted-foreground hover:text-foreground hover:bg-muted lg:rounded-md ${cart.length > 0 ? 'lg:ring-2 lg:ring-primary/30 lg:bg-primary/5' : ''}`} onClick={() => setShowCartModal(true)}><ShoppingCart className="w-5 h-5" />{cart.length > 0 && <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">{cartItemsCount}</span>}</button>
               </div>
             </div>
-            <div className="text-center mt-2 md:mt-1">
+            <div className="text-center mt-2 md:mt-1 lg:mt-1">
               <span className={`text-xs font-medium ${getStatusDisplay.color}`}>● {getStatusDisplay.text}</span>
             </div>
           </div>
         </header>
       )}
 
-      {/* Category Tabs - Melhoradas */}
+      {/* Category Tabs - Melhoradas; lg: barra mais compacta, destaque com borda inferior */}
       <div className={`bg-card border-b border-border sticky z-30 ${store?.banner_image ? 'md:top-0 top-0' : 'md:top-[88px] top-[165px]'}`}>
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="flex items-center justify-between gap-3 md:py-3 py-4">
+        <div className="max-w-7xl mx-auto px-4 lg:px-6">
+          <div className="flex items-center justify-between gap-3 md:py-3 py-4 lg:py-2">
             <div className="flex gap-2 overflow-x-auto scrollbar-hide flex-1">
               <button
                 onClick={() => setSelectedCategory('all')}
-                className={`relative px-6 md:px-8 py-2.5 md:py-3 rounded-full text-sm md:text-base font-semibold whitespace-nowrap transition-all duration-200 ${
+                className={`relative px-6 md:px-8 py-2.5 md:py-3 rounded-full text-sm md:text-base font-semibold whitespace-nowrap transition-all duration-200 lg:px-4 lg:py-2 lg:rounded-lg lg:scale-100 lg:shadow-none ${
                   selectedCategory === 'all' 
-                    ? 'text-white shadow-lg scale-105' 
+                    ? 'text-white shadow-lg scale-105 lg:border-b-2 lg:border-white/80 lg:rounded-b-none' 
                     : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                 }`}
                 style={selectedCategory === 'all' ? { 
@@ -1215,9 +1202,9 @@ export default function Cardapio() {
                 <button
                   key={cat.id}
                   onClick={() => setSelectedCategory(cat.id)}
-                  className={`relative px-6 md:px-8 py-2.5 md:py-3 rounded-full text-sm md:text-base font-semibold whitespace-nowrap transition-all duration-200 ${
+                  className={`relative px-6 md:px-8 py-2.5 md:py-3 rounded-full text-sm md:text-base font-semibold whitespace-nowrap transition-all duration-200 lg:px-4 lg:py-2 lg:rounded-lg lg:scale-100 lg:shadow-none ${
                     selectedCategory === cat.id
-                      ? 'text-white shadow-lg scale-105'
+                      ? 'text-white shadow-lg scale-105 lg:border-b-2 lg:border-white/80 lg:rounded-b-none'
                       : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                   }`}
                   style={selectedCategory === cat.id ? { 
@@ -1236,9 +1223,9 @@ export default function Cardapio() {
                   <button
                     key={pcKey}
                     onClick={() => setSelectedCategory(pcKey)}
-                    className={`relative px-6 md:px-8 py-2.5 md:py-3 rounded-full text-sm md:text-base font-semibold whitespace-nowrap transition-all duration-200 ${
+                    className={`relative px-6 md:px-8 py-2.5 md:py-3 rounded-full text-sm md:text-base font-semibold whitespace-nowrap transition-all duration-200 lg:px-4 lg:py-2 lg:rounded-lg lg:scale-100 lg:shadow-none ${
                       selectedCategory === pcKey
-                        ? 'text-white shadow-lg scale-105'
+                        ? 'text-white shadow-lg scale-105 lg:border-b-2 lg:border-white/80 lg:rounded-b-none'
                         : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                     }`}
                     style={selectedCategory === pcKey ? { 
@@ -1254,8 +1241,8 @@ export default function Cardapio() {
                 <>
                   <button
                     onClick={() => setSelectedCategory('beverages')}
-                    className={`relative px-6 md:px-8 py-2.5 md:py-3 rounded-full text-sm md:text-base font-semibold whitespace-nowrap transition-all duration-200 ${
-                      selectedCategory === 'beverages' ? 'text-white shadow-lg scale-105' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                    className={`relative px-6 md:px-8 py-2.5 md:py-3 rounded-full text-sm md:text-base font-semibold whitespace-nowrap transition-all duration-200 lg:px-4 lg:py-2 lg:rounded-lg lg:scale-100 lg:shadow-none ${
+                      selectedCategory === 'beverages' ? 'text-white shadow-lg scale-105 lg:border-b-2 lg:border-white/80 lg:rounded-b-none' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                     }`}
                     style={selectedCategory === 'beverages' ? { backgroundColor: primaryColor, color: 'white' } : {}}
                   >
@@ -1267,8 +1254,8 @@ export default function Cardapio() {
                       <button
                         key={bcKey}
                         onClick={() => setSelectedCategory(bcKey)}
-                        className={`relative px-6 md:px-8 py-2.5 md:py-3 rounded-full text-sm md:text-base font-semibold whitespace-nowrap transition-all duration-200 ${
-                          selectedCategory === bcKey ? 'text-white shadow-lg scale-105' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                        className={`relative px-6 md:px-8 py-2.5 md:py-3 rounded-full text-sm md:text-base font-semibold whitespace-nowrap transition-all duration-200 lg:px-4 lg:py-2 lg:rounded-lg lg:scale-100 lg:shadow-none ${
+                          selectedCategory === bcKey ? 'text-white shadow-lg scale-105 lg:border-b-2 lg:border-white/80 lg:rounded-b-none' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                         }`}
                         style={selectedCategory === bcKey ? { backgroundColor: primaryColor, color: 'white' } : {}}
                       >
@@ -1283,8 +1270,8 @@ export default function Cardapio() {
         </div>
       </div>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 py-6 pb-24 md:pb-12 md:max-w-[1400px]">
+      {/* Main Content - lg: mais largura para grid denso */}
+      <main className="max-w-7xl mx-auto px-4 py-6 pb-24 md:pb-12 md:max-w-[1400px] lg:max-w-[1600px] lg:px-6">
         {/* Banners Configuráveis */}
         {(Array.isArray(store?.banners) ? store.banners : []).filter(b => b.active !== false && b.image).length > 0 && (
           <div className="mb-6 space-y-3">
@@ -1379,7 +1366,7 @@ export default function Cardapio() {
               <Star className="w-5 h-5 fill-yellow-400 text-yellow-400" />
               <h2 className="font-bold text-base md:text-lg text-foreground">Pratos do Dia</h2>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-3 lg:gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 md:gap-3 lg:gap-3 xl:gap-3">
               {highlightDishes.map((dish, index) => {
                 // Forçar badge de destaque nos highlights
                 const highlightDish = { ...dish, is_popular: true };

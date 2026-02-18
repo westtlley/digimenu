@@ -62,23 +62,23 @@ export default function RecentOrders({ dishes = [], onSelectDish, primaryColor }
   };
 
   return (
-    <section className="mb-4">
-      <div className="flex items-center gap-2 mb-2">
-        <Clock className="w-4 h-4" style={{ color: primaryColor }} />
-        <h2 className="font-bold text-sm md:text-base text-foreground">Peça de Novo</h2>
+    <section className="mb-4 lg:mb-3">
+      <div className="flex items-center gap-2 mb-2 lg:mb-1.5">
+        <Clock className="w-4 h-4 lg:w-4 lg:h-4" style={{ color: primaryColor }} />
+        <h2 className="font-bold text-sm md:text-base lg:text-sm text-foreground">Peça de Novo</h2>
       </div>
-      <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
+      <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1 lg:gap-1.5 lg:pb-0.5">
         {recentDishes.map((dish) => {
           const quantity = getDishQuantity(dish.id);
           return (
             <motion.div
               key={dish.id}
               whileHover={{ y: -2, scale: 1.02 }}
-              className="flex-shrink-0 w-28 md:w-32 bg-card rounded-xl overflow-hidden shadow-sm border border-border cursor-pointer"
+              className="flex-shrink-0 w-28 md:w-32 lg:w-24 bg-card rounded-xl overflow-hidden shadow-sm border border-border cursor-pointer lg:rounded-lg"
               onClick={() => onSelectDish(dish)}
             >
               {/* Thumbnail */}
-              <div className="relative h-20 md:h-24 bg-gray-100 dark:bg-gray-800">
+              <div className="relative h-20 md:h-24 lg:h-16 bg-gray-100 dark:bg-gray-800">
                 {dish.image ? (
                   <img 
                     src={dish.image} 
@@ -95,10 +95,10 @@ export default function RecentOrders({ dishes = [], onSelectDish, primaryColor }
                   </div>
                 )}
               </div>
-              <div className="p-2">
-                <h3 className="font-medium text-xs mb-1 line-clamp-2 min-h-[2rem] text-foreground">{dish.name}</h3>
+              <div className="p-2 lg:p-1.5">
+                <h3 className="font-medium text-xs mb-1 line-clamp-2 min-h-[2rem] lg:min-h-[1.75rem] lg:text-[10px] text-foreground">{dish.name}</h3>
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-sm" style={{ color: primaryColor }}>
+                  <span className="font-bold text-sm lg:text-xs" style={{ color: primaryColor }}>
                     {formatCurrency(dish.price)}
                   </span>
                 </div>

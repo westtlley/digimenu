@@ -14,7 +14,7 @@ export default function GridLayout({
 }) {
   if (loading) {
     return (
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-3 lg:gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 md:gap-3 lg:gap-3 xl:gap-3">
         {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
           <DishSkeleton key={i} />
         ))}
@@ -23,7 +23,7 @@ export default function GridLayout({
   }
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-3 lg:gap-4">
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 md:gap-3 lg:gap-3 xl:gap-3">
       {dishes.map((dish, index) => {
         const isOutOfStock = stockUtils?.isOutOfStock?.(dish.stock);
         const isLowStock = stockUtils?.isLowStock?.(dish.stock);

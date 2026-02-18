@@ -110,7 +110,7 @@ export default function Admin() {
   if (!isMaster) {
     if (subscriberData && subscriberData.status === 'active') {
       return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-900">
+        <div className="min-h-screen flex items-center justify-center bg-background">
           <div className="text-center">
             <Loader2 className="w-8 h-8 animate-spin text-orange-500 mx-auto mb-4" />
             <p className="text-white">Redirecionando para Painel do Assinante...</p>
@@ -302,7 +302,7 @@ export default function Admin() {
   if (!isMaster) {
     log.admin.error('❌ [Admin] Tentativa de renderizar Admin sem ser master!');
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-900">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center text-white p-8">
           <Lock className="w-16 h-16 text-red-500 mx-auto mb-4" />
           <h2 className="text-2xl font-bold mb-2">Acesso Negado</h2>
@@ -321,7 +321,7 @@ export default function Admin() {
   
   try {
     return (
-      <div className="min-h-screen min-h-screen-mobile flex flex-col bg-gray-100 dark:bg-gray-900">
+      <div className="min-h-screen min-h-screen-mobile flex flex-col bg-background">
       {/* Header Profissional com Logo */}
       <header className="text-white flex-shrink-0 sticky top-0 z-50 bg-gradient-to-r from-gray-800 via-gray-900 to-gray-800 border-b border-gray-700 shadow-lg safe-top">
         <div className="px-2 sm:px-4 py-2 sm:py-3 flex items-center justify-between gap-1 sm:gap-2 max-w-full overflow-hidden">
@@ -428,7 +428,7 @@ export default function Admin() {
         </div>
 
         {/* Content */}
-        <main className="flex-1 min-w-0 overflow-y-auto bg-gray-50 dark:bg-gray-900">
+        <main className="flex-1 min-w-0 overflow-y-auto bg-background">
           <div className="p-3 sm:p-4 lg:p-6 min-h-[60vh]">
             <ErrorBoundary>
               {renderTabContent()}
@@ -441,7 +441,7 @@ export default function Admin() {
   } catch (error) {
     console.error('❌ [Admin] Erro ao renderizar:', error);
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-900">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center text-white p-8">
           <h2 className="text-2xl font-bold mb-2">Erro ao carregar Admin</h2>
           <p className="mb-4">{error.message}</p>

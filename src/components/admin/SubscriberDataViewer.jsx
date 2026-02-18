@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { base44 } from '@/api/base44Client';
+import { apiClient as base44 } from '@/api/apiClient';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -45,15 +45,16 @@ export default function SubscriberDataViewer({ subscriber, onBack }) {
   const [editingComplement, setEditingComplement] = useState(null);
   const [complementForm, setComplementForm] = useState({ group_id: '', name: '', price: '', is_active: true });
 
-  const { data: profileData, isLoading } = useQuery({
-    queryKey: ['subscriberProfile', subscriber.email],
+  const { data: profileData, isLoading, isError, error } = useQuery({
+    queryKey: ['subscriberProfile', subscriber?.email],
     queryFn: async () => {
       const res = await base44.functions.invoke('getFullSubscriberProfile', {
         subscriber_email: subscriber.email
       });
       return res;
     },
-    enabled: !!subscriber.email
+    enabled: !!(subscriber?.email),
+    retry: false
   });
 
   if (isLoading) {
@@ -64,10 +65,36 @@ export default function SubscriberDataViewer({ subscriber, onBack }) {
     );
   }
 
+  if (isError && error) {
+    const msg = error?.message || 'Erro desconhecido';
+    const is404 = msg.includes('Cannot POST') || msg.includes('404');
+    const friendlyMessage = is404
+      ? 'Endpoint não disponível no servidor. Faça o deploy da versão mais recente do backend.'
+      : msg;
+    return (
+      <div className="text-center py-12 space-y-4">
+        <p className="text-destructive">Erro ao carregar dados do assinante</p>
+        <p className="text-sm text-muted-foreground">{friendlyMessage}</p>
+        {onBack && (
+          <Button variant="outline" onClick={onBack}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Voltar
+          </Button>
+        )}
+      </div>
+    );
+  }
+
   if (!profileData) {
     return (
-      <div className="text-center py-12">
-        <p className="text-gray-500">Erro ao carregar dados do assinante</p>
+      <div className="text-center py-12 space-y-4">
+        <p className="text-muted-foreground">Erro ao carregar dados do assinante</p>
+        {onBack && (
+          <Button variant="outline" onClick={onBack}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Voltar
+          </Button>
+        )}
       </div>
     );
   }

@@ -2,8 +2,11 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { log } from '@/utils/logger';
 import { createUserContext, isValidContext } from '@/utils/userContext';
-// ✅ REMOVIDO: getPlanPermissions - Backend é a única fonte de verdade para permissões
+import { mergeWithPlanPreset } from '@/components/permissions/PlanPresets';
 import { useSlugContext } from '@/hooks/useSlugContext';
+
+// Deduplicar chamada a /user/context: vários usePermission() montando ao mesmo tempo compartilham a mesma requisição
+let inFlightGetContext = null;
 
 /**
  * Hook para verificar permissões do usuário atual
@@ -23,25 +26,40 @@ export function usePermission() {
   const { subscriberEmail: slugSubscriberEmail, inSlugContext } = useSlugContext();
 
   const loadPermissions = useCallback(async () => {
-    try {
-      // ✅ NOVO: Usar endpoint /api/user/context que retorna tudo pronto
-      // Retry em caso de erro de rede (backend pode estar acordando no Render)
-      let contextData = null;
+    let contextData = null;
+    if (inFlightGetContext) {
+      try {
+        contextData = await inFlightGetContext;
+      } finally {
+        inFlightGetContext = null;
+      }
+    } else {
       const maxRetries = 3;
-      for (let attempt = 1; attempt <= maxRetries; attempt++) {
-        try {
-          contextData = await base44.get('/user/context', { _t: Date.now() });
-          break;
-        } catch (err) {
-          const isNetworkError = err?.message?.includes('CONNECTION') || err?.message?.includes('Failed to fetch') || err?.message?.includes('NetworkError') || err?.name === 'TypeError';
-          if (isNetworkError && attempt < maxRetries) {
-            log.permission.warn(`⚠️ [usePermission] Tentativa ${attempt}/${maxRetries} falhou (rede), aguardando 2s...`);
-            await new Promise((r) => setTimeout(r, 2000));
-          } else {
-            throw err;
+      inFlightGetContext = (async () => {
+        let data = null;
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+          try {
+            data = await base44.get('/user/context', { _t: Date.now() });
+            break;
+          } catch (err) {
+            const isNetworkError = err?.message?.includes('CONNECTION') || err?.message?.includes('Failed to fetch') || err?.message?.includes('NetworkError') || err?.name === 'TypeError';
+            if (isNetworkError && attempt < maxRetries) {
+              await new Promise((r) => setTimeout(r, 2000));
+            } else {
+              throw err;
+            }
           }
         }
+        return data;
+      })();
+      try {
+        contextData = await inFlightGetContext;
+      } finally {
+        inFlightGetContext = null;
       }
+    }
+
+    try {
       try {
         if (!contextData || !contextData.user) {
           log.permission.warn('⚠️ [usePermission] Contexto não retornado pelo backend');
@@ -65,8 +83,10 @@ export function usePermission() {
         }
         if (!perms || typeof perms !== 'object') perms = {};
         const planSlug = (contextData.subscriberData?.plan || 'basic').toString().toLowerCase().trim();
-        // ✅ SIMPLIFICADO: Usar apenas permissões do backend (fonte única de verdade)
-        // Backend já retorna permissões mescladas com o plano
+        // Fallback: assinantes antigos sem permissões explícitas recebem preset do plano (só para exibição; backend continua fonte de verdade)
+        if (contextData.user?.is_master !== true && Object.keys(perms).length === 0 && planSlug && planSlug !== 'custom') {
+          perms = mergeWithPlanPreset(perms, planSlug);
+        }
         setPermissions(perms);
 
         // ✅ Garantir que subscriberData sempre tenha plan (minúsculo) e status
@@ -105,7 +125,9 @@ export function usePermission() {
                   }
                 }
                 if (!slugPerms || typeof slugPerms !== 'object') slugPerms = {};
-                // ✅ SIMPLIFICADO: Usar apenas permissões do backend
+                if (Object.keys(slugPerms).length === 0 && slugPlanSlug && slugPlanSlug !== 'custom') {
+                  slugPerms = mergeWithPlanPreset(slugPerms, slugPlanSlug);
+                }
                 setPermissions(slugPerms);
               }
             } catch (e) {
@@ -192,6 +214,10 @@ export function usePermission() {
               try { perms = JSON.parse(perms); } catch (e) { perms = {}; }
             }
             if (!perms || typeof perms !== 'object') perms = {};
+            const planSlug = (subscriber.plan || 'basic').toString().toLowerCase().trim();
+            if (Object.keys(perms).length === 0 && planSlug && planSlug !== 'custom') {
+              perms = mergeWithPlanPreset(perms, planSlug);
+            }
             setPermissions(perms);
             setSubscriberData(subscriber);
             const context = createUserContext(currentUser, subscriber, perms);
@@ -309,15 +335,7 @@ export function usePermission() {
   const stableMenuContext = useMemo(() => {
     return userContext?.menuContext || null;
   }, [userContext?.menuContext?.type, userContext?.menuContext?.value]);
-  
-  // DEBUG: Log do retorno do usePermission
-  console.log('🎯 [usePermission] Retorno:', {
-    loading,
-    menuContext: stableMenuContext,
-    hasMenuContext: !!stableMenuContext,
-    subscriberEmail: subscriberData?.email
-  });
-  
+
   return {
     permissions,
     loading,

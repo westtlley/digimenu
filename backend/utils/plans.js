@@ -13,12 +13,12 @@ export const PLANS = {
   CUSTOM: 'custom' // Plano personalizado com permissões customizadas
 };
 
-// Preços dos planos (mensais em R$)
+// Preços dos planos (mensais em R$) - Monetização 2.0
 export const PLAN_PRICES = {
   free: { monthly: 0, yearly: 0 },
-  basic: { monthly: 39.90, yearly: 399.00 },
-  pro: { monthly: 79.90, yearly: 799.00 },
-  ultra: { monthly: 149.90, yearly: 1499.00 }
+  basic: { monthly: 59, yearly: 566 },
+  pro: { monthly: 129, yearly: 1238 },
+  ultra: { monthly: 249, yearly: 2390 }
 };
 
 // Trial periods (em dias)
@@ -40,8 +40,9 @@ const FREE_PERMISSIONS = {
     menu_create: true,
     menu_edit: true,
     menu_delete: true,
-    categories_unlimited: true,
-    products_limit: 30, // Apenas 30 produtos
+    categories_unlimited: false,
+    categories_limit: 5,
+    products_limit: 15, // Trial: 15 produtos
     
     // Dashboard Básico
     dashboard_view: true,
@@ -67,8 +68,8 @@ const FREE_PERMISSIONS = {
     
     // Limites rígidos
     users_limit: 1,
-    orders_per_day: null, // Não usado no Free (usa orders_per_month)
-    orders_per_month: 20, // Apenas 20 pedidos/mês
+    orders_per_day: null,
+    orders_per_month: 50, // Trial: 50 pedidos/mês
     
     // TUDO MAIS BLOQUEADO
     team_management: false,
@@ -102,8 +103,9 @@ const BASIC_PERMISSIONS = {
     menu_create: true,
     menu_edit: true,
     menu_delete: true,
-    categories_unlimited: true,
-    products_limit: 100, // Limite de 100 produtos
+    categories_unlimited: false,
+    categories_limit: 5,
+    products_limit: 50, // Basic: 50 produtos
     
     // Dashboard Básico
     dashboard_view: true,
@@ -128,9 +130,10 @@ const BASIC_PERMISSIONS = {
     whatsapp_auto: true,
     whatsapp_notifications: true,
     
-    // Limites
-    users_limit: 1, // Apenas 1 usuário
-    orders_per_day: 50,
+    // Limites (monetização 2.0)
+    users_limit: 1, // Apenas 1 gerente
+    orders_per_day: null,
+    orders_per_month: 300, // 300 pedidos/mês
     
     // Features Avançadas - NÃO INCLUÍDAS
     team_management: false,
@@ -161,14 +164,14 @@ const BASIC_PERMISSIONS = {
  * "Expanda suas entregas e cresça"
  */
 const PRO_PERMISSIONS = {
-    // Tudo do Básico (com upgrades)
+    // Tudo do Básico (com upgrades) - Monetização 2.0
     ...BASIC_PERMISSIONS,
-    products_limit: -1, // Ilimitado
-    orders_history_days: 365, // Upgrade: Histórico de 1 ano
-    users_limit: 5, // Upgrade: Até 5 usuários
-    orders_per_day: -1, // Ilimitado
-    orders_per_month: -1, // Ilimitado
-    
+    products_limit: 200,
+    orders_history_days: 365,
+    users_limit: 7, // 1 gerente + 3 garçons + 1 cozinha + 2 entregadores
+    orders_per_day: -1,
+    orders_per_month: 2000,
+
     // Gestor de Pedidos Avançado
     orders_advanced: true,
     orders_advanced_view: true,
@@ -242,10 +245,11 @@ const PRO_PERMISSIONS = {
 const ULTRA_PERMISSIONS = {
     // Tudo do Pro (com upgrades)
     ...PRO_PERMISSIONS,
-    products_limit: -1, // Ilimitado
-    orders_history_days: -1, // Ilimitado
-    users_limit: 20, // Upgrade: Até 20 usuários
-    orders_per_day: -1, // Ilimitado
+    products_limit: -1,
+    orders_history_days: -1,
+    users_limit: -1, // Ilimitado
+    orders_per_day: -1,
+    orders_per_month: -1,
     colaboradores: true, // Gestão de colaboradores (já incluído via team_management)
     
     // PDV (Ponto de Venda) Completo

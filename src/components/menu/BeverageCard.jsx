@@ -97,6 +97,7 @@ export default function BeverageCard({
       className={`
         group relative bg-card border border-border rounded-xl md:rounded-lg
         overflow-hidden shadow-sm cursor-pointer
+        lg:shadow-md lg:hover:shadow-lg lg:transition-shadow
         ${isOutOfStock ? 'opacity-60 cursor-not-allowed' : ''}
       `}
       onClick={() => !isOutOfStock && onClick(beverage)}
@@ -182,9 +183,9 @@ export default function BeverageCard({
         )}
       </div>
 
-      {/* Info da Bebida */}
-      <div className="p-3 md:p-2.5 space-y-2 md:space-y-1.5 bg-card">
-        <h3 className="font-bold text-sm md:text-xs text-foreground line-clamp-2 min-h-[36px] md:min-h-[32px] group-hover:text-cyan-600 transition-colors">
+      {/* Info da Bebida - lg: nome e preço mais legíveis no desktop */}
+      <div className="p-3 md:p-2.5 lg:p-2.5 space-y-2 md:space-y-1.5 bg-card">
+        <h3 className="font-bold text-sm md:text-xs lg:text-sm text-foreground line-clamp-2 min-h-[36px] md:min-h-[32px] lg:min-h-[2.5rem] group-hover:text-cyan-600 transition-colors">
           {beverage.name}
         </h3>
         
@@ -229,14 +230,14 @@ export default function BeverageCard({
                   {formatCurrency(beverage.original_price)}
                 </p>
                 <p 
-                  className="text-base md:text-sm font-bold text-cyan-600 dark:text-cyan-400"
+                  className="text-base md:text-sm lg:text-base font-bold text-cyan-600 dark:text-cyan-400"
                 >
                   {formatCurrency(beverage.price)}
                 </p>
               </div>
             ) : (
               <p 
-                className="text-base md:text-sm font-bold text-cyan-600 dark:text-cyan-400"
+                className="text-base md:text-sm lg:text-base font-bold text-cyan-600 dark:text-cyan-400"
               >
                 {formatCurrency(beverage.price)}
               </p>

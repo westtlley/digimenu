@@ -171,7 +171,12 @@ export default function Assinantes() {
         };
       }
     });
-    setPasswordTokens(tokensMap);
+    setPasswordTokens((prev) => {
+      const nextStr = JSON.stringify(tokensMap);
+      const prevStr = JSON.stringify(prev);
+      if (nextStr === prevStr) return prev;
+      return tokensMap;
+    });
   }, [subscribers]);
 
   const { data: plans = [] } = useQuery({
@@ -360,8 +365,11 @@ export default function Assinantes() {
         subscriber_id,
         email
       });
-      if (response.data.error) throw new Error(response.data.error);
-      return response.data;
+      if (response?.error) throw new Error(response.error);
+      const payload = response?.data ?? response;
+      if (payload?.error) throw new Error(payload.error);
+      if (!payload?.token && !payload?.setup_url) throw new Error('Resposta inválida do servidor');
+      return payload;
     },
     onSuccess: async (data, variables) => {
       const key = variables.subscriber_id || variables.email;

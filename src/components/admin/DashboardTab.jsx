@@ -146,20 +146,11 @@ export default function DashboardTab({ user, subscriberData, onNavigateToTab }) 
         )}
       </div>
 
-      {/* Métricas Avançadas */}
+      {/* KPIs essenciais (primeira dobra) */}
       <DashboardMetrics orders={orders} dishes={dishes} pdvSales={pdvSales} />
 
-      {/* Gráficos de Vendas */}
+      {/* Gráficos de Vendas: no máximo 2 úteis (condicional por shouldShowChart) */}
       {(orders.length > 0 || pdvSales.length > 0) && <DashboardCharts orders={orders} pdvSales={pdvSales} />}
-
-      {/* Análises Avançadas */}
-      {orders.length > 0 && (
-        <DashboardAdvancedAnalytics 
-          orders={orders} 
-          dishes={dishes} 
-          categories={categories} 
-        />
-      )}
 
       {/* Stats Cards Rápidos */}
       <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
@@ -232,6 +223,15 @@ export default function DashboardTab({ user, subscriberData, onNavigateToTab }) 
           </div>
         </CardContent>
       </Card>
+
+      {/* Análises Avançadas (Indicadores + Métodos + Insights colapsáveis) */}
+      {orders.length > 0 && (
+        <DashboardAdvancedAnalytics 
+          orders={orders} 
+          dishes={dishes} 
+          categories={categories} 
+        />
+      )}
 
       {/* Cardápio Digital */}
       <Card style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>

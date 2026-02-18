@@ -64,7 +64,7 @@ export default function BulkActions({
   }
 
   return (
-    <div className="flex items-center justify-between py-2 border-b border-gray-200 bg-gray-50 px-4 rounded-t-lg">
+    <div className="flex items-center justify-between py-2 border-b border-border bg-muted/50 px-4 rounded-t-lg">
       <div className="flex items-center gap-3">
         <Button
           variant="ghost"
@@ -76,8 +76,8 @@ export default function BulkActions({
           {isAllSelected ? (
             <CheckSquare className="w-4 h-4" />
           ) : isSomeSelected ? (
-            <div className="w-4 h-4 border-2 border-gray-400 rounded bg-white">
-              <div className="w-2 h-2 bg-orange-500 rounded m-0.5" />
+            <div className="w-4 h-4 border-2 border-muted-foreground rounded bg-background">
+              <div className="w-2 h-2 bg-primary rounded m-0.5" />
             </div>
           ) : (
             <Square className="w-4 h-4" />

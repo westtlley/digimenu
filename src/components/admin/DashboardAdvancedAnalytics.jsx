@@ -1,14 +1,13 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Legend, LineChart, Line } from "recharts";
+import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, LineChart, Line } from "recharts";
 import moment from 'moment';
-import { Clock, CreditCard, TrendingUp, Users, AlertTriangle, Calendar, Target, ShoppingCart, TrendingDown, Package } from 'lucide-react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Clock, CreditCard, TrendingUp, Users, AlertTriangle, Calendar, Target, ShoppingCart, Package, BarChart3 } from 'lucide-react';
 import { useTheme } from '@/components/theme/ThemeProvider';
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 
 const COLORS = ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'];
 
@@ -292,7 +291,16 @@ export default function DashboardAdvancedAnalytics({ orders = [], dishes = [], c
 
   const gridStroke = isDark ? '#475569' : '#e5e7eb';
   const axisStroke = isDark ? '#94a3b8' : '#6b7280';
-  const textColor = isDark ? '#e2e8f0' : '#1e293b';
+
+  const deliveredCount = (orders || []).filter((o) => o.status === 'delivered').length;
+  const showDemandForecast = deliveredCount >= 10;
+  const paymentSingle = paymentMethodsData.length === 1;
+  const paymentTotalRev = paymentMethodsData.reduce((s, m) => s + m.revenue, 0);
+  const peakTop3 = useMemo(() => peakHoursData.filter((h) => h.orders > 0).sort((a, b) => b.orders - a.orders).slice(0, 3), [peakHoursData]);
+  const weekdaysWithOrders = weekdaysData.filter((d) => d.orders > 0).length;
+  const showWeekdaysChart = weekdaysWithOrders >= 3;
+  const categoriesTotalRev = categoriesData.reduce((s, c) => s + c.revenue, 0);
+  const showCategoriesChart = categoriesData.length >= 3 && categoriesTotalRev > 0;
 
   return (
     <div className="space-y-4">
@@ -345,344 +353,241 @@ export default function DashboardAdvancedAnalytics({ orders = [], dishes = [], c
         </Card>
       )}
 
-      {/* Métricas Avançadas */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 md:gap-3">
-        <Card style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-          <CardHeader className="py-1.5 px-3 pb-0">
-            <CardTitle className="text-xs font-medium flex items-center gap-1" style={{ color: 'var(--text-primary)' }}>
-              <AlertTriangle className="w-3.5 h-3.5 text-orange-500" />
-              Taxa Cancel.
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="py-1.5 px-3 pb-2">
-            <div className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{cancellationRate}%</div>
-            <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-secondary)' }}>{orders.filter(o => o.status === 'cancelled').length}/{orders.length} pedidos</p>
-          </CardContent>
-        </Card>
-
-        <Card style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-          <CardHeader className="py-1.5 px-3 pb-0">
-            <CardTitle className="text-xs font-medium flex items-center gap-1" style={{ color: 'var(--text-primary)' }}>
-              <Clock className="w-3.5 h-3.5 text-blue-500" />
-              Tempo Médio
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="py-1.5 px-3 pb-2">
-            <div className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{avgPrepTime ? `${avgPrepTime} min` : 'N/A'}</div>
-            <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-secondary)' }}>Preparo</p>
-          </CardContent>
-        </Card>
-
-        <Card style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-          <CardHeader className="py-1.5 px-3 pb-0">
-            <CardTitle className="text-xs font-medium flex items-center gap-1" style={{ color: 'var(--text-primary)' }}>
-              <Users className="w-3.5 h-3.5 text-green-500" />
-              Recorrentes
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="py-1.5 px-3 pb-2">
-            <div className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{recurringCustomers.percentage}%</div>
-            <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-secondary)' }}>{recurringCustomers.count}/{recurringCustomers.total} clientes</p>
-          </CardContent>
-        </Card>
-
-        <Card style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-          <CardHeader className="py-1.5 px-3 pb-0">
-            <CardTitle className="text-xs font-medium flex items-center gap-1" style={{ color: 'var(--text-primary)' }}>
-              <CreditCard className="w-3.5 h-3.5 text-purple-500" />
-              Método Mais Usado
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="py-1.5 px-3 pb-2">
-            <div className="text-sm font-bold truncate" style={{ color: 'var(--text-primary)' }} title={paymentMethodsData[0]?.name}>{paymentMethodsData[0]?.name || 'N/A'}</div>
-            <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-secondary)' }}>{paymentMethodsData[0]?.count || 0} pedidos</p>
-          </CardContent>
-        </Card>
-
-        <Card style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-          <CardHeader className="py-1.5 px-3 pb-0">
-            <CardTitle className="text-xs font-medium flex items-center gap-1" style={{ color: 'var(--text-primary)' }}>
-              <ShoppingCart className="w-3.5 h-3.5 text-red-500" />
-              Abandono
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="py-1.5 px-3 pb-2">
-            <div className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{cartAbandonmentRate.rate}%</div>
-            <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-secondary)' }}>{cartAbandonmentRate.abandoned}/{cartAbandonmentRate.total}</p>
-          </CardContent>
-        </Card>
-
-        <Card style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-          <CardHeader className="py-1.5 px-3 pb-0">
-            <CardTitle className="text-xs font-medium flex items-center gap-1" style={{ color: 'var(--text-primary)' }}>
-              <Package className="w-3.5 h-3.5 text-indigo-500" />
-              Taxa Entrega
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="py-1.5 px-3 pb-2">
-            <div className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{deliveryRate.rate}%</div>
-            <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-secondary)' }}>{deliveryRate.delivered}/{deliveryRate.total}</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Previsão de Demanda */}
+      {/* Indicadores secundários: 1 card compacto */}
       <Card style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-        <CardHeader className="py-2 px-4">
-          <CardTitle className="text-sm font-semibold flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
-            <TrendingUp className="w-4 h-4 text-green-500" />
-            Previsão de Demanda (7 dias)
-          </CardTitle>
+        <CardHeader className="py-1.5 px-3 pb-0">
+          <CardTitle className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>Indicadores</CardTitle>
         </CardHeader>
-        <CardContent className="pt-0 px-4 pb-3">
-          <div className="space-y-2">
-            <div className="flex items-center gap-3 flex-wrap">
-              <div>
-                <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>Receita Média Diária</p>
-                <p className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
-                  {formatCurrency(demandForecast.avgDailyRevenue)}
-                </p>
-              </div>
-              <Badge variant={demandForecast.trend === 'up' ? 'default' : 'secondary'} className="text-xs">
-                {demandForecast.trend === 'up' ? 'Alta' : 'Baixa'}
-              </Badge>
+        <CardContent className="py-1.5 px-3 pb-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1.5 text-xs">
+            <div className="flex justify-between gap-2">
+              <span style={{ color: 'var(--text-secondary)' }}>Cancelamento</span>
+              <span style={{ color: 'var(--text-primary)' }}>{orders.length ? `${cancellationRate}%` : '—'}</span>
             </div>
-            <ChartContainer config={{ predicted: { label: "Previsão", color: "#22c55e" } }} className="h-[140px]">
-              <LineChart data={demandForecast.forecast} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
-                <XAxis 
-                  dataKey="date" 
-                  stroke={axisStroke}
-                  fontSize={11}
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <YAxis 
-                  stroke={axisStroke}
-                  fontSize={11}
-                  tickLine={false}
-                  axisLine={false}
-                  tickFormatter={(value) => formatCurrency(value)}
-                />
-                <ChartTooltip 
-                  content={<ChartTooltipContent formatter={(value) => formatCurrency(value)} />}
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="predicted" 
-                  stroke="#22c55e" 
-                  strokeWidth={2}
-                  dot={{ fill: '#22c55e', r: 4 }}
-                />
-              </LineChart>
-            </ChartContainer>
-            <div className="grid grid-cols-4 sm:grid-cols-7 gap-1.5">
-              {demandForecast.forecast.map((day, index) => (
-                <div key={index} className="text-center py-1.5 px-1 rounded text-[10px]" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
-                  <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>{day.date}</p>
-                  <p style={{ color: 'var(--text-secondary)' }}>{formatCurrency(day.predicted)}</p>
-                  <p className="opacity-80" style={{ color: 'var(--text-secondary)' }}>{day.confidence}%</p>
-                </div>
-              ))}
+            <div className="flex justify-between gap-2">
+              <span style={{ color: 'var(--text-secondary)' }}>Tempo médio</span>
+              <span style={{ color: 'var(--text-primary)' }}>{avgPrepTime != null ? `${avgPrepTime} min` : '—'}</span>
+            </div>
+            <div className="flex justify-between gap-2">
+              <span style={{ color: 'var(--text-secondary)' }}>Recorrentes</span>
+              <span style={{ color: 'var(--text-primary)' }}>{recurringCustomers.total ? `${recurringCustomers.percentage}%` : '—'}</span>
+            </div>
+            <div className="flex justify-between gap-2">
+              <span style={{ color: 'var(--text-secondary)' }}>Abandono</span>
+              <span style={{ color: 'var(--text-primary)' }}>{cartAbandonmentRate.total ? `${cartAbandonmentRate.rate}%` : '—'}</span>
+            </div>
+            <div className="flex justify-between gap-2">
+              <span style={{ color: 'var(--text-secondary)' }}>Taxa entrega</span>
+              <span style={{ color: 'var(--text-primary)' }}>{deliveryRate.total ? `${deliveryRate.rate}%` : '—'}</span>
+            </div>
+            <div className="flex justify-between gap-2">
+              <span style={{ color: 'var(--text-secondary)' }}>Método mais usado</span>
+              <span className="truncate max-w-[80px]" style={{ color: 'var(--text-primary)' }} title={paymentMethodsData[0]?.name}>{paymentMethodsData[0]?.name || '—'}</span>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Gráficos */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Horários de Pico */}
+      {/* Métodos de Pagamento: 100% um método => texto; >=2 => top 3 lista */}
+      {paymentMethodsData.length > 0 && (
         <Card className="overflow-hidden" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-          <CardHeader className="py-2 px-4 pb-1">
-            <CardTitle className="text-sm font-semibold flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
-              <Clock className="w-4 h-4 text-orange-500" />
-              Horários de Pico
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0 px-4 pb-3">
-            <ChartContainer config={{ orders: { label: "Pedidos", color: "#f97316" } }} className="h-[180px]">
-              <BarChart data={peakHoursData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
-                <XAxis 
-                  dataKey="label" 
-                  stroke={axisStroke}
-                  fontSize={11}
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <YAxis 
-                  stroke={axisStroke}
-                  fontSize={11}
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <ChartTooltip 
-                  content={<ChartTooltipContent />}
-                />
-                <Bar dataKey="orders" fill="#f97316" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ChartContainer>
-          </CardContent>
-        </Card>
-
-        {/* Métodos de Pagamento */}
-        <Card className="overflow-hidden" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-          <CardHeader className="py-2 px-4 pb-1">
+          <CardHeader className="py-2 px-3 pb-0">
             <CardTitle className="text-sm font-semibold flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
               <CreditCard className="w-4 h-4 text-green-500" />
               Métodos de Pagamento
             </CardTitle>
           </CardHeader>
-          <CardContent className="pt-0 px-4 pb-3">
-            <ChartContainer config={{ revenue: { label: "Faturamento", color: "#22c55e" } }} className="h-[180px]">
-              <PieChart>
-                <Pie
-                  data={paymentMethodsData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                  outerRadius={70}
-                  fill="#8884d8"
-                  dataKey="revenue"
-                >
-                  {paymentMethodsData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <ChartTooltip 
-                  content={<ChartTooltipContent formatter={(value) => formatCurrency(value)} />}
-                />
-              </PieChart>
-            </ChartContainer>
-          </CardContent>
-        </Card>
-
-        {/* Categorias Mais Vendidas */}
-        <Card className="overflow-hidden" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-          <CardHeader className="py-2 px-4 pb-1">
-            <CardTitle className="text-sm font-semibold flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
-              <TrendingUp className="w-4 h-4 text-blue-500" />
-              Categorias Mais Vendidas
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0 px-4 pb-3">
-            <ChartContainer config={{ revenue: { label: "Faturamento", color: "#3b82f6" } }} className="h-[180px]">
-              <BarChart 
-                data={categoriesData} 
-                layout="vertical"
-                margin={{ top: 10, right: 10, left: 60, bottom: 0 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
-                <XAxis 
-                  type="number"
-                  stroke={axisStroke}
-                  fontSize={11}
-                  tickLine={false}
-                  axisLine={false}
-                  tickFormatter={(value) => formatCurrency(value)}
-                />
-                <YAxis 
-                  type="category"
-                  dataKey="name"
-                  stroke={axisStroke}
-                  fontSize={11}
-                  tickLine={false}
-                  axisLine={false}
-                  width={50}
-                />
-                <ChartTooltip 
-                  content={<ChartTooltipContent formatter={(value) => formatCurrency(value)} />}
-                />
-                <Bar dataKey="revenue" fill="#3b82f6" radius={[0, 4, 4, 0]} />
-              </BarChart>
-            </ChartContainer>
-          </CardContent>
-        </Card>
-
-        {/* Dias da Semana */}
-        <Card className="overflow-hidden" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-          <CardHeader className="py-2 px-4 pb-1">
-            <CardTitle className="text-sm font-semibold flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
-              <Calendar className="w-4 h-4 text-purple-500" />
-              Performance por Dia da Semana
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0 px-4 pb-3">
-            <ChartContainer config={{ orders: { label: "Pedidos", color: "#8b5cf6" } }} className="h-[180px]">
-              <BarChart data={weekdaysData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
-                <XAxis 
-                  dataKey="day" 
-                  stroke={axisStroke}
-                  fontSize={11}
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <YAxis 
-                  stroke={axisStroke}
-                  fontSize={11}
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <ChartTooltip 
-                  content={<ChartTooltipContent />}
-                />
-                <Bar dataKey="orders" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ChartContainer>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Tabela de Métodos de Pagamento */}
-      {paymentMethodsData.length > 0 && (
-        <Card style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-          <CardHeader className="py-2 px-4">
-            <CardTitle className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-              Detalhamento de Métodos de Pagamento
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0 px-4 pb-3">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr style={{ borderBottomColor: 'var(--border-color)' }}>
-                    <th className="text-left py-1.5 px-2 text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>Método</th>
-                    <th className="text-right py-1.5 px-2 text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>Pedidos</th>
-                    <th className="text-right py-1.5 px-2 text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>Faturamento</th>
-                    <th className="text-right py-1.5 px-2 text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>%</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {paymentMethodsData.map((method, index) => {
-                    const totalRevenue = paymentMethodsData.reduce((sum, m) => sum + m.revenue, 0);
-                    const percentage = totalRevenue > 0 ? ((method.revenue / totalRevenue) * 100).toFixed(1) : 0;
-                    return (
-                      <tr key={method.name} style={{ borderBottomColor: 'var(--border-color)' }}>
-                        <td className="py-1.5 px-2">
-                          <div className="flex items-center gap-2">
-                            <div 
-                              className="w-3 h-3 rounded-full" 
-                              style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                            />
-                            <span className="text-xs" style={{ color: 'var(--text-primary)' }}>{method.name}</span>
-                          </div>
-                        </td>
-                        <td className="text-right py-1.5 px-2 text-xs" style={{ color: 'var(--text-primary)' }}>{method.count}</td>
-                        <td className="text-right py-1.5 px-2 text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(method.revenue)}</td>
-                        <td className="text-right py-1.5 px-2">
-                          <Badge variant="outline" className="text-[10px] px-1.5 py-0">{percentage}%</Badge>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+          <CardContent className="pt-1 px-3 pb-3">
+            {paymentSingle ? (
+              <p className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>100% {paymentMethodsData[0].name}</p>
+            ) : (
+              <ul className="space-y-1 text-sm">
+                {paymentMethodsData.slice(0, 3).map((m, i) => {
+                  const pct = paymentTotalRev > 0 ? ((m.revenue / paymentTotalRev) * 100).toFixed(0) : 0;
+                  return (
+                    <li key={m.name} className="flex justify-between items-center">
+                      <span style={{ color: 'var(--text-primary)' }}>{m.name}</span>
+                      <span style={{ color: 'var(--text-secondary)' }}>{pct}% · {formatCurrency(m.revenue)}</span>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </CardContent>
         </Card>
       )}
+
+      {/* Insights Avançados: colapsado por padrão */}
+      <Accordion type="single" collapsible defaultValue="">
+        <AccordionItem value="insights" className="border rounded-lg px-3" style={{ borderColor: 'var(--border-color)' }}>
+          <AccordionTrigger className="py-2 text-sm hover:no-underline">
+            <span className="flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+              <BarChart3 className="w-4 h-4" />
+              Insights Avançados
+            </span>
+          </AccordionTrigger>
+          <AccordionContent className="pb-3 pt-0">
+            <div className="space-y-4">
+              {/* Previsão de Demanda: só com volume suficiente */}
+              {showDemandForecast && (
+                <Card style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+                  <CardHeader className="py-2 px-3 pb-0">
+                    <CardTitle className="text-sm font-semibold flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
+                      <TrendingUp className="w-4 h-4 text-green-500" />
+                      Previsão de Demanda (7 dias)
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-1 px-3 pb-3">
+                    <div className="flex items-center gap-2 flex-wrap mb-2">
+                      <span className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(demandForecast.avgDailyRevenue)}</span>
+                      <Badge variant={demandForecast.trend === 'up' ? 'default' : 'secondary'} className="text-xs">{demandForecast.trend === 'up' ? 'Alta' : 'Baixa'}</Badge>
+                    </div>
+                    <ChartContainer config={{ predicted: { label: "Previsão", color: "#22c55e" } }} className="h-[100px]">
+                      <LineChart data={demandForecast.forecast} margin={{ top: 5, right: 5, left: 0, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
+                        <XAxis dataKey="date" stroke={axisStroke} fontSize={10} tickLine={false} axisLine={false} />
+                        <YAxis stroke={axisStroke} fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => formatCurrency(v)} />
+                        <ChartTooltip content={<ChartTooltipContent formatter={(v) => formatCurrency(v)} />} />
+                        <Line type="monotone" dataKey="predicted" stroke="#22c55e" strokeWidth={2} dot={{ fill: '#22c55e', r: 2 }} />
+                      </LineChart>
+                    </ChartContainer>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Horários de Pico: altura reduzida + top 3 texto */}
+              <Card className="overflow-hidden" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+                <CardHeader className="py-2 px-3 pb-0">
+                  <CardTitle className="text-sm font-semibold flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
+                    <Clock className="w-4 h-4 text-orange-500" />
+                    Horários de Pico
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-1 px-3 pb-3">
+                  {peakTop3.length > 0 && (
+                    <p className="text-xs mb-2" style={{ color: 'var(--text-secondary)' }}>Top 3: {peakTop3.map((h) => h.label).join(', ')}</p>
+                  )}
+                  <ChartContainer config={{ orders: { label: "Pedidos", color: "#f97316" } }} className="h-[100px]">
+                    <BarChart data={peakHoursData} margin={{ top: 5, right: 5, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
+                      <XAxis dataKey="label" stroke={axisStroke} fontSize={10} tickLine={false} axisLine={false} />
+                      <YAxis stroke={axisStroke} fontSize={10} tickLine={false} axisLine={false} />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <Bar dataKey="orders" fill="#f97316" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ChartContainer>
+                </CardContent>
+              </Card>
+
+              {/* Categorias: gráfico só se >=3 e receita; senão Top 3 texto */}
+              <Card className="overflow-hidden" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+                <CardHeader className="py-2 px-3 pb-0">
+                  <CardTitle className="text-sm font-semibold flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
+                    <TrendingUp className="w-4 h-4 text-blue-500" />
+                    Categorias Mais Vendidas
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-1 px-3 pb-3">
+                  {showCategoriesChart ? (
+                    <ChartContainer config={{ revenue: { label: "Faturamento", color: "#3b82f6" } }} className="h-[120px]">
+                      <BarChart data={categoriesData} layout="vertical" margin={{ top: 5, right: 5, left: 50, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
+                        <XAxis type="number" stroke={axisStroke} fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => formatCurrency(v)} />
+                        <YAxis type="category" dataKey="name" stroke={axisStroke} fontSize={10} tickLine={false} axisLine={false} width={48} />
+                        <ChartTooltip content={<ChartTooltipContent formatter={(v) => formatCurrency(v)} />} />
+                        <Bar dataKey="revenue" fill="#3b82f6" radius={[0, 4, 4, 0]} />
+                      </BarChart>
+                    </ChartContainer>
+                  ) : (
+                    <ul className="space-y-1 text-sm">
+                      {categoriesData.slice(0, 3).map((c) => (
+                        <li key={c.name} className="flex justify-between">
+                          <span style={{ color: 'var(--text-primary)' }}>{c.name}</span>
+                          <span style={{ color: 'var(--text-secondary)' }}>{formatCurrency(c.revenue)}</span>
+                        </li>
+                      ))}
+                      {categoriesData.length === 0 && <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>Sem dados</p>}
+                    </ul>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Performance por Dia da Semana */}
+              <Card className="overflow-hidden" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+                <CardHeader className="py-2 px-3 pb-0">
+                  <CardTitle className="text-sm font-semibold flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
+                    <Calendar className="w-4 h-4 text-purple-500" />
+                    Performance por Dia da Semana
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-1 px-3 pb-3">
+                  {showWeekdaysChart ? (
+                    <ChartContainer config={{ orders: { label: "Pedidos", color: "#8b5cf6" } }} className="h-[100px]">
+                      <BarChart data={weekdaysData} margin={{ top: 5, right: 5, left: 0, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
+                        <XAxis dataKey="day" stroke={axisStroke} fontSize={10} tickLine={false} axisLine={false} />
+                        <YAxis stroke={axisStroke} fontSize={10} tickLine={false} axisLine={false} />
+                        <ChartTooltip content={<ChartTooltipContent />} />
+                        <Bar dataKey="orders" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ChartContainer>
+                  ) : (
+                    <ul className="space-y-1 text-sm">
+                      {weekdaysData.filter((d) => d.orders > 0).sort((a, b) => b.orders - a.orders).slice(0, 3).map((d) => (
+                        <li key={d.day} className="flex justify-between">
+                          <span style={{ color: 'var(--text-primary)' }}>{d.day}</span>
+                          <span style={{ color: 'var(--text-secondary)' }}>{d.orders} pedidos</span>
+                        </li>
+                      ))}
+                      {weekdaysData.every((d) => d.orders === 0) && <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>Sem dados</p>}
+                    </ul>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Tabela Métodos (dentro do accordion) */}
+              {paymentMethodsData.length > 1 && (
+                <Card style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+                  <CardHeader className="py-2 px-3 pb-0">
+                    <CardTitle className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Detalhamento Métodos de Pagamento</CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-1 px-3 pb-3">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr style={{ borderBottomColor: 'var(--border-color)' }}>
+                            <th className="text-left py-1 px-2 font-semibold" style={{ color: 'var(--text-primary)' }}>Método</th>
+                            <th className="text-right py-1 px-2 font-semibold" style={{ color: 'var(--text-primary)' }}>Pedidos</th>
+                            <th className="text-right py-1 px-2 font-semibold" style={{ color: 'var(--text-primary)' }}>Faturamento</th>
+                            <th className="text-right py-1 px-2 font-semibold" style={{ color: 'var(--text-primary)' }}>%</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {paymentMethodsData.map((method, index) => {
+                            const percentage = paymentTotalRev > 0 ? ((method.revenue / paymentTotalRev) * 100).toFixed(1) : 0;
+                            return (
+                              <tr key={method.name} style={{ borderBottomColor: 'var(--border-color)' }}>
+                                <td className="py-1 px-2 flex items-center gap-1.5">
+                                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
+                                  <span style={{ color: 'var(--text-primary)' }}>{method.name}</span>
+                                </td>
+                                <td className="text-right py-1 px-2" style={{ color: 'var(--text-primary)' }}>{method.count}</td>
+                                <td className="text-right py-1 px-2 font-medium" style={{ color: 'var(--text-primary)' }}>{formatCurrency(method.revenue)}</td>
+                                <td className="text-right py-1 px-2"><Badge variant="outline" className="text-[10px] px-1 py-0">{percentage}%</Badge></td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
+
     </div>
   );
 }

@@ -110,39 +110,40 @@ button:focus-visible {
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
+  /* Premium dark mode: fundo ≠ card ≠ modal (Stripe/Linear style) */
   .dark {
-    --background: 222 47% 11%; /* #0f172a - melhor contraste */
-    --foreground: 210 40% 98%; /* #f8fafc - texto mais claro */
-    --card: 222 47% 18%; /* #1e293b - cards mais visíveis */
-    --card-foreground: 210 40% 98%;
-    --popover: 222 47% 18%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 24 95% 53%; /* #f97316 - laranja principal */
+    --background: 220 39% 9%;        /* #0E1420 - fundo principal */
+    --foreground: 220 33% 93%;       /* #E6EAF2 - texto primário */
+    --card: 224 38% 13%;             /* #141B2D - surface (cards) */
+    --card-foreground: 220 33% 93%;
+    --popover: 224 41% 18%;          /* #1B2440 - surface elevada (modais) */
+    --popover-foreground: 220 33% 93%;
+    --primary: 24 95% 53%;           /* laranja - uso minimalista */
     --primary-foreground: 0 0% 98%;
-    --secondary: 215 28% 17%; /* #1e293b */
-    --secondary-foreground: 210 40% 98%;
-    --muted: 215 28% 17%;
-    --muted-foreground: 215 16% 65%; /* #94a3b8 - melhor contraste */
-    --accent: 215 28% 17%;
-    --accent-foreground: 210 40% 98%;
+    --secondary: 224 35% 15%;        /* entre fundo e card */
+    --secondary-foreground: 224 27% 68%;  /* #9AA4BF - texto secundário */
+    --muted: 220 30% 14%;
+    --muted-foreground: 220 9% 46%;  /* #6B7280 - texto muted */
+    --accent: 220 28% 16%;
+    --accent-foreground: 220 33% 93%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 98%;
-    --border: 215 28% 27%; /* #334155 - bordas mais visíveis */
-    --input: 215 28% 20%; /* #334155 - inputs mais visíveis */
-    --ring: 24 95% 53%; /* #f97316 - ring laranja */
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --border: 220 22% 18%;            /* borda sutil, distinguível */
+    --input: 220 28% 16%;
+    --ring: 24 95% 53%;
+    --chart-1: 24 95% 53%;
+    --chart-2: 160 55% 45%;
+    --chart-3: 220 60% 55%;
+    --chart-4: 280 55% 60%;
+    --chart-5: 340 65% 55%;
+    --sidebar-background: 220 36% 11%;
+    --sidebar-foreground: 220 27% 68%;
+    --sidebar-primary: 24 95% 53%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 220 28% 15%;
+    --sidebar-accent-foreground: 220 33% 93%;
+    --sidebar-border: 220 22% 18%;
+    --sidebar-ring: 24 95% 53%;
   }
 }
 
@@ -157,9 +158,12 @@ button:focus-visible {
     transition: background-color 0.2s ease, color 0.2s ease;
   }
   
-  /* Garantir que inputs sejam visíveis */
+  /* Inputs: surface sutil no dark para contraste */
   input, textarea, select {
     @apply bg-background border-input text-foreground;
+  }
+  .dark input, .dark textarea, .dark select {
+    background-color: hsl(var(--input));
   }
   
   input::placeholder, textarea::placeholder {

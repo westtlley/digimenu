@@ -237,7 +237,7 @@ export default function SharedSidebar({
             onClick={() => toggleGroup(item.id)}
             className={cn(
               "w-full flex items-center justify-between gap-2 px-2 py-2 text-xs font-bold transition-colors",
-              item.section === 'subsection' ? "text-gray-600 hover:text-gray-800 dark:text-gray-300" : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 uppercase tracking-wider"
+              item.section === 'subsection' ? "text-foreground/80 hover:text-foreground" : "text-muted-foreground hover:text-foreground uppercase tracking-wider"
             )}
           >
             {!collapsed && <span>{item.label}</span>}
@@ -254,7 +254,7 @@ export default function SharedSidebar({
                 const LeafIcon = leaf.icon;
                 const active = activeTab === leaf.id;
                 return (
-                  <button key={leaf.id} onClick={() => { setActiveTab(leaf.id); onClose?.(); }} className={cn("p-2 rounded-lg flex items-center justify-center", active ? "bg-orange-500 text-white" : "text-gray-500 dark:text-gray-400")} title={leaf.label}>
+                  <button key={leaf.id} onClick={() => { setActiveTab(leaf.id); onClose?.(); }} className={cn("p-2 rounded-lg flex items-center justify-center transition-colors", active ? "bg-accent text-primary" : "text-muted-foreground hover:bg-accent")} title={leaf.label} aria-label={leaf.label}>
                     <LeafIcon className="w-4 h-4" />
                   </button>
                 );
@@ -278,13 +278,10 @@ export default function SharedSidebar({
           className={cn(
             "w-full flex items-center gap-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
             indent,
-            "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+            "text-foreground hover:bg-accent"
           )}
         >
-          <Icon className={cn(
-            "w-4 h-4 flex-shrink-0",
-            "text-gray-500 dark:text-gray-400"
-          )} />
+          <Icon className="w-4 h-4 flex-shrink-0 text-muted-foreground" />
           {!collapsed && <span className="truncate">{item.label}</span>}
         </Link>
       );
@@ -297,17 +294,19 @@ export default function SharedSidebar({
           setActiveTab(item.id);
           if (onClose) onClose();
         }}
+        title={item.label}
+        aria-label={item.label}
         className={cn(
-          "w-full flex items-center gap-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
+          "w-full flex items-center gap-3 py-2.5 rounded-r-lg text-sm font-medium transition-all duration-200 border-l-2 pl-2",
           indent,
-          isActive 
-            ? "bg-orange-500 text-white shadow-md" 
-            : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+          isActive
+            ? "bg-accent border-primary text-accent-foreground"
+            : "border-transparent text-foreground hover:bg-accent"
         )}
       >
         <Icon className={cn(
           "w-4 h-4 flex-shrink-0",
-          isActive ? "text-white" : "text-gray-500 dark:text-gray-400"
+          isActive ? "text-primary" : "text-muted-foreground"
         )} />
         {!collapsed && <span className="truncate">{item.label}</span>}
       </button>
@@ -316,14 +315,14 @@ export default function SharedSidebar({
 
   return (
     <aside className={cn(
-      "border-r flex flex-col transition-all duration-300 h-full lg:relative bg-white dark:bg-gray-900",
+      "border-r border-border flex flex-col transition-all duration-300 h-full lg:relative bg-card",
       collapsed ? "w-16" : "w-64"
     )}>
       {/* Header do Sidebar com Logo */}
-      <div className="p-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+      <div className="p-3 border-b border-border flex items-center justify-between">
         {!collapsed && showStoreLogo && store?.logo && (
           <div className="flex items-center gap-2 flex-1 min-w-0">
-            <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 border border-gray-200 dark:border-gray-700">
+            <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 border border-border">
               <img 
                 src={store.logo} 
                 alt={store.name || 'Loja'} 
@@ -340,10 +339,10 @@ export default function SharedSidebar({
               </div>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold text-gray-900 dark:text-white truncate">
+              <p className="text-xs font-semibold text-foreground truncate">
                 {store.name || 'Minha Loja'}
               </p>
-              <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
+              <p className="text-[10px] text-muted-foreground truncate">
                 Painel Admin
               </p>
             </div>
@@ -352,17 +351,18 @@ export default function SharedSidebar({
         
         <div className="flex items-center gap-1">
           {!collapsed && (
-<button
-            onClick={onClose}
-            className="lg:hidden min-h-touch min-w-touch flex items-center justify-center p-2 -m-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400"
-            aria-label="Fechar menu"
-          >
-            <ChevronLeft className="w-5 h-5" />
-          </button>
+            <button
+              onClick={onClose}
+              className="lg:hidden min-h-touch min-w-touch flex items-center justify-center p-2 -m-1 rounded-lg hover:bg-accent text-muted-foreground"
+              aria-label="Fechar menu"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
           )}
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="hidden lg:block p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400"
+            className="hidden lg:block p-1.5 rounded-lg hover:bg-accent text-muted-foreground"
+            aria-label={collapsed ? 'Expandir menu' : 'Recolher menu'}
           >
             {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
           </button>
@@ -376,15 +376,18 @@ export default function SharedSidebar({
           const isActive = activeTab === extraTopItem.id;
           return (
             <div className="mb-4">
-              <button
-                type="button"
-                onClick={() => { setActiveTab(extraTopItem.id); onClose?.(); }}
-                className={cn(
-                  "w-full flex items-center gap-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
-                  isActive ? "bg-orange-500 text-white shadow-md" : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
-                )}
-              >
-                <ItemIcon className={cn("w-4 h-4 flex-shrink-0", isActive ? "text-white" : "text-gray-500 dark:text-gray-400")} />
+          <button
+            type="button"
+            onClick={() => { setActiveTab(extraTopItem.id); onClose?.(); }}
+            title={extraTopItem.label}
+            className={cn(
+              "w-full flex items-center gap-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
+              isActive
+                ? "bg-accent border-l-2 border-primary text-accent-foreground pl-2"
+                : "text-foreground hover:bg-accent border-l-2 border-transparent pl-2"
+            )}
+          >
+            <ItemIcon className={cn("w-4 h-4 flex-shrink-0", isActive ? "text-primary" : "text-muted-foreground")} />
                 {!collapsed && <span className="truncate">{extraTopItem.label}</span>}
               </button>
             </div>
@@ -393,20 +396,20 @@ export default function SharedSidebar({
         {MENU_STRUCTURE.map(item => renderMenuItem(item))}
       </nav>
 
-      {/* Footer do Sidebar - Informações da Loja */}
+      {/* Footer do Sidebar - Status da Loja */}
       {!collapsed && store && (
-        <div className="p-3 border-t border-gray-200 dark:border-gray-700">
-          <div className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 rounded-lg p-3 border border-orange-200 dark:border-orange-800">
+        <div className="p-3 border-t border-border">
+          <div className="bg-card rounded-lg p-3 border border-border">
             <div className="flex items-center gap-2 mb-2">
-              <Sparkles className="w-4 h-4 text-orange-600 dark:text-orange-400" />
-              <p className="text-xs font-semibold text-orange-900 dark:text-orange-200">Status da Loja</p>
+              <Sparkles className="w-4 h-4 text-primary" />
+              <p className="text-xs font-semibold text-foreground">Status da Loja</p>
             </div>
             <div className="flex items-center gap-2">
               <div className={cn(
-                "w-2 h-2 rounded-full",
-                store.is_open ? "bg-green-500" : "bg-red-500"
+                "w-2 h-2 rounded-full shrink-0",
+                store.is_open ? "bg-green-500" : "bg-destructive"
               )} />
-              <p className="text-xs text-orange-700 dark:text-orange-300">
+              <p className="text-xs text-muted-foreground">
                 {store.is_open ? 'Aberta' : 'Fechada'}
               </p>
             </div>

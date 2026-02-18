@@ -6,7 +6,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { safeFetch, ensureArray } from '@/utils/safeFetch';
-import { log } from '@/utils/logger';
 import { usePermission } from '@/components/permissions/usePermission';
 
 /**
@@ -21,32 +20,15 @@ export function useOrders(options = {}) {
   const { menuContext, loading: permissionLoading } = usePermission();
   const { orderBy = '-created_date', filters = {}, ...queryOptions } = options;
 
-  // DEBUG: Log ANTES da query para ver se a condição enabled está correta
   const isEnabled = !permissionLoading && !!menuContext && (queryOptions.enabled !== false);
-  console.log('🔍 [useOrders] Estado da query:', {
-    permissionLoading,
-    menuContext,
-    hasMenuContext: !!menuContext,
-    queryOptionsEnabled: queryOptions.enabled,
-    isEnabled,
-    willExecute: isEnabled
-  });
 
   return useQuery({
     queryKey: ['orders', menuContext?.type, menuContext?.value, orderBy, filters],
     queryFn: async () => {
-      console.log('🚀 [useOrders] queryFn INICIADA!', { menuContext, orderBy });
       try {
-        log.menu.log('📦 [useOrders] Buscando pedidos...', { 
-          menuContext, 
-          permissionLoading,
-          hasContext: !!menuContext 
-        });
-        
         const opts = {};
         if (menuContext?.type === 'subscriber' && menuContext?.value) {
           opts.as_subscriber = menuContext.value;
-          log.menu.log('✅ [useOrders] Usando as_subscriber:', menuContext.value);
         }
 
         const promise = base44.entities.Order.list(orderBy, opts);
@@ -78,9 +60,9 @@ export function useOrders(options = {}) {
     enabled: !permissionLoading && !!menuContext && (queryOptions.enabled !== false),
     initialData: [],
     retry: 2,
-    refetchOnMount: 'always', // ✅ Forçar refetch sempre (debug)
-    staleTime: 0, // ✅ Considerar dados sempre desatualizados (debug)
-    gcTime: 60000,
+    refetchOnMount: true,
+    staleTime: 30 * 1000, // 30s — evita refetch desnecessário ao trocar de aba
+    gcTime: 5 * 60 * 1000,
     ...queryOptions
   });
 }

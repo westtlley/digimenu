@@ -161,10 +161,10 @@ export default function NewDishModal({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="relative flex flex-col md:flex-row w-full md:m-auto md:max-w-5xl md:h-[85vh] bg-white dark:bg-gray-900 backdrop-blur-xl md:rounded-3xl overflow-hidden shadow-2xl"
+            className="relative flex flex-col md:flex-row w-full md:m-auto md:max-w-5xl lg:max-w-[1100px] md:h-[85vh] bg-white dark:bg-gray-900 backdrop-blur-xl md:rounded-3xl overflow-hidden shadow-2xl"
           >
-            {/* Mídia (imagem ou vídeo) — um único iframe para evitar dupla reprodução */}
-            <div className="relative w-full h-36 md:h-full md:w-2/5 flex-shrink-0">
+            {/* Mídia (imagem ou vídeo) — lg: ~45% largura */}
+            <div className="relative w-full h-36 md:h-full md:w-2/5 lg:w-[45%] flex-shrink-0">
               {showVideo && videoInfo ? (
                 <div className="w-full h-full bg-black relative">
                   {videoInfo.type === 'youtube' ? (
@@ -267,7 +267,7 @@ export default function NewDishModal({
                               {linkedGroup?.is_required && <span className="text-red-500 ml-1">*</span>}
                             </h3>
                             <div className="flex gap-1.5">
-                              <Badge variant="outline" className={`text-xs ${linkedGroup?.is_required ? 'border-red-300 text-red-600 dark:border-red-500 dark:text-red-400' : 'border-gray-300 text-gray-600 dark:border-gray-600 dark:text-gray-400'}`}>
+                              <Badge variant="outline" className={`text-xs ${linkedGroup?.is_required ? 'border-red-300 text-red-600 dark:border-red-500 dark:text-red-400 lg:bg-red-50 lg:dark:bg-red-900/20 lg:font-semibold' : 'border-gray-300 text-gray-600 dark:border-gray-600 dark:text-gray-400'}`}>
                                 {linkedGroup?.is_required ? 'Obrigatório' : 'Opcional'}
                               </Badge>
                               <Badge variant="outline" className="text-xs border-blue-300 text-blue-600 dark:border-blue-500 dark:text-blue-400">
@@ -340,11 +340,11 @@ export default function NewDishModal({
                 )}
               </div>
 
-              {/* Footer Compacto */}
+              {/* Footer Compacto - lg: sticky visual no rodapé */}
               <motion.div 
                 initial={{ y: 20 }}
                 animate={{ y: 0 }}
-                className="border-t p-3 flex-shrink-0 bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 shadow-lg"
+                className="border-t p-3 flex-shrink-0 bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 shadow-lg lg:shadow-[0_-4px_12px_rgba(0,0,0,0.06)]"
               >
                 <div className="flex items-center justify-between mb-2">
                   <span className="font-medium text-sm text-gray-700 dark:text-gray-300">Total</span>

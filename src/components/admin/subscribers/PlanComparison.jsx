@@ -24,7 +24,13 @@ export default function PlanComparison({ plans = [], currentPlan, onSelectPlan }
     { id: 'promotions', label: 'Promoções', icon: '🎯' },
     { id: 'graficos', label: 'Relatórios', icon: '📈' },
     { id: 'financial', label: 'Financeiro', icon: '💰' },
-    { id: 'whatsapp', label: 'WhatsApp', icon: '💬' }
+    { id: 'payments', label: 'Pagamentos', icon: '💳' },
+    { id: '2fa', label: '2FA', icon: '🔐' },
+    { id: 'whatsapp', label: 'WhatsApp', icon: '💬' },
+    { id: 'pdv', label: 'PDV', icon: '🖥️' },
+    { id: 'caixa', label: 'Caixa', icon: '📋' },
+    { id: 'comandas', label: 'Comandas', icon: '🧾' },
+    { id: 'tables', label: 'Mesas', icon: '🪑' }
   ];
 
   const getPermissionLevel = (plan, featureId) => {

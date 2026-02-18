@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Planos e Preços - Sistema de Gestão</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            display: ['Plus Jakarta Sans', 'sans-serif'],
+          },
+          animation: {
+            'float': 'float 6s ease-in-out infinite',
+            'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+          },
+          keyframes: {
+            float: {
+              '0%, 100%': { transform: 'translateY(0)' },
+              '50%': { transform: 'translateY(-20px)' },
+            },
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    .glass { background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.3); }
+    .gradient-text {
+      background: linear-gradient(135deg, #f97316 0%, #ea580c 50%, #c2410c 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .card-hover { transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+    .card-hover:hover { transform: translateY(-8px); box-shadow: 0 25px 50px -12px rgba(249, 115, 22, 0.15); }
+    .feature-icon { background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%); }
+    .focus-visible\:ring:focus-visible { outline: none; box-shadow: 0 0 0 2px white, 0 0 0 4px #f97316; }
+    @media (prefers-reduced-motion: reduce) {
+      *, .card-hover:hover { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; transform: none !important; }
+    }
+  </style>
+</head>
+<body class="font-sans antialiased text-slate-900 bg-white">
+
+  <!-- Ambient Background -->
+  <div class="fixed inset-0 -z-10 overflow-hidden pointer-events-none" aria-hidden="true">
+    <div class="absolute top-0 left-1/4 w-96 h-96 bg-orange-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-pulse-slow"></div>
+    <div class="absolute top-0 right-1/4 w-96 h-96 bg-purple-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-pulse-slow" style="animation-delay: 2s;"></div>
+    <div class="absolute -bottom-32 left-1/3 w-96 h-96 bg-pink-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-pulse-slow" style="animation-delay: 4s;"></div>
+  </div>
+
+  <!-- Header -->
+  <header class="fixed top-0 left-0 right-0 z-50 transition-all duration-300" id="header">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-20">
+        <a href="/" class="flex items-center gap-3 group focus-visible:ring focus-visible:ring-orange-500 focus-visible:ring-offset-2 rounded-lg">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow-lg shadow-orange-500/30 group-hover:shadow-orange-500/50 transition-shadow">
+            <i data-lucide="layout-dashboard" class="w-5 h-5 text-white" aria-hidden="true"></i>
+          </div>
+          <span class="font-display font-bold text-xl text-slate-900">SistemaGestão</span>
+        </a>
+        <nav class="hidden md:flex items-center gap-8" aria-label="Navegação principal">
+          <a href="#planos" class="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors focus-visible:ring focus-visible:ring-orange-500 rounded">Planos</a>
+          <a href="#recursos" class="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors focus-visible:ring focus-visible:ring-orange-500 rounded">Recursos</a>
+          <a href="#depoimentos" class="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors focus-visible:ring focus-visible:ring-orange-500 rounded">Depoimentos</a>
+          <a href="#faq" class="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors focus-visible:ring focus-visible:ring-orange-500 rounded">FAQ</a>
+        </nav>
+        <a href="/" class="hidden sm:flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors group focus-visible:ring focus-visible:ring-orange-500 rounded px-2 py-1">
+          <i data-lucide="arrow-left" class="w-4 h-4 group-hover:-translate-x-1 transition-transform" aria-hidden="true"></i>
+          Voltar
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero -->
+  <section class="relative pt-32 pb-20 lg:pt-40 lg:pb-32 overflow-hidden">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+      <div class="text-center max-w-4xl mx-auto">
+        <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-orange-50 border border-orange-100 text-orange-700 text-sm font-medium mb-8">
+          <i data-lucide="sparkles" class="w-4 h-4" aria-hidden="true"></i>
+          <span>Milhares de restaurantes já transformaram seu negócio</span>
+        </div>
+        <h1 class="font-display text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight mb-6 leading-tight">
+          O plano certo para <br><span class="gradient-text">escalar seu negócio</span>
+        </h1>
+        <p class="text-xl text-slate-600 mb-10 max-w-2xl mx-auto leading-relaxed">
+          Do cardápio digital ao PDV completo. Comece grátis e evolua conforme seu restaurante cresce. Sem burocracia, sem taxas ocultas.
+        </p>
+        <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+          <a href="#planos" class="w-full sm:w-auto px-8 py-4 bg-slate-900 text-white rounded-full font-semibold hover:bg-slate-800 transition-all hover:scale-105 flex items-center justify-center gap-2 focus-visible:ring focus-visible:ring-orange-500 focus-visible:ring-offset-2">
+            Ver planos
+            <i data-lucide="arrow-down" class="w-4 h-4" aria-hidden="true"></i>
+          </a>
+          <div class="flex items-center gap-2 text-sm text-slate-500">
+            <i data-lucide="shield-check" class="w-4 h-4 text-emerald-500" aria-hidden="true"></i>
+            <span>7 dias de garantia</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="absolute top-20 right-10 w-64 h-64 bg-gradient-to-br from-orange-400/20 to-purple-400/20 rounded-full blur-3xl animate-float" aria-hidden="true"></div>
+    <div class="absolute bottom-20 left-10 w-64 h-64 bg-gradient-to-br from-blue-400/20 to-pink-400/20 rounded-full blur-3xl animate-float" style="animation-delay: 3s;" aria-hidden="true"></div>
+  </section>
+
+  <!-- Pricing -->
+  <section id="planos" class="py-24 bg-slate-50/50 relative">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex flex-col items-center mb-16">
+        <div class="bg-white p-1.5 rounded-full shadow-sm border border-slate-200 inline-flex" role="group" aria-label="Faturamento mensal ou anual">
+          <button type="button" id="monthlyBtn" class="px-6 py-2.5 rounded-full text-sm font-semibold transition-all bg-slate-900 text-white shadow-md focus-visible:ring focus-visible:ring-orange-500 focus-visible:ring-offset-2" aria-pressed="true" aria-label="Faturamento mensal">Mensal</button>
+          <button type="button" id="yearlyBtn" class="px-6 py-2.5 rounded-full text-sm font-semibold text-slate-600 hover:text-slate-900 transition-all relative focus-visible:ring focus-visible:ring-orange-500 focus-visible:ring-offset-2" aria-pressed="false" aria-label="Faturamento anual com desconto">
+            Anual
+            <span id="yearlyBadge" class="absolute -top-3 -right-2 bg-emerald-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">-17%</span>
+          </button>
+        </div>
+        <p class="mt-4 text-sm text-slate-500" id="billingHint">Economize no plano anual</p>
+      </div>
+      <div class="grid lg:grid-cols-4 md:grid-cols-2 gap-6 lg:gap-8" id="pricingGrid"></div>
+    </div>
+  </section>
+
+  <!-- Comparison -->
+  <section id="recursos" class="py-24 bg-white">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center mb-16">
+        <h2 class="font-display text-3xl sm:text-4xl font-bold text-slate-900 mb-4">Comparativo completo</h2>
+        <p class="text-slate-600">Tudo que você precisa para decidir com segurança</p>
+      </div>
+      <div class="md:block hidden">
+        <div class="overflow-x-auto overflow-y-hidden rounded-2xl border border-slate-200 shadow-lg">
+          <table class="w-full min-w-[640px]" role="table">
+            <thead>
+              <tr class="bg-slate-50 border-b border-slate-200">
+                <th class="p-6 text-left text-sm font-semibold text-slate-900">Recurso</th>
+                <th class="p-6 text-center text-sm font-semibold text-slate-900">Grátis</th>
+                <th class="p-6 text-center text-sm font-semibold text-slate-900">Básico</th>
+                <th class="p-6 text-center text-sm font-semibold text-orange-600 bg-orange-50/50">Pro</th>
+                <th class="p-6 text-center text-sm font-semibold text-slate-900">Ultra</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100" id="comparisonTable"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="md:hidden">
+        <button type="button" id="toggleComparison" class="w-full py-4 px-6 rounded-xl border-2 border-slate-200 font-semibold text-slate-700 hover:border-orange-300 hover:bg-orange-50/50 transition-colors flex items-center justify-center gap-2 focus-visible:ring focus-visible:ring-orange-500" aria-expanded="false" aria-controls="comparisonCollapse">
+          <i data-lucide="layout-grid" class="w-5 h-5" aria-hidden="true"></i>
+          Ver comparativo completo
+        </button>
+        <div id="comparisonCollapse" class="overflow-hidden max-h-0 transition-all duration-300" aria-hidden="true">
+          <div class="pt-4 overflow-x-auto -mx-4 px-4">
+            <table class="w-full min-w-[640px] rounded-xl border border-slate-200">
+              <thead>
+                <tr class="bg-slate-50 border-b border-slate-200">
+                  <th class="p-4 text-left text-xs font-semibold text-slate-900">Recurso</th>
+                  <th class="p-4 text-center text-xs font-semibold text-slate-900">Grátis</th>
+                  <th class="p-4 text-center text-xs font-semibold text-slate-900">Básico</th>
+                  <th class="p-4 text-center text-xs font-semibold text-orange-600">Pro</th>
+                  <th class="p-4 text-center text-xs font-semibold text-slate-900">Ultra</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100" id="comparisonTableMobile"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Add-ons -->
+  <section class="py-20 bg-gradient-to-br from-slate-900 to-slate-800 text-white relative overflow-hidden">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+      <div class="text-center mb-12">
+        <h2 class="font-display text-3xl font-bold mb-3">Precisa de mais volume?</h2>
+        <p class="text-slate-300">Pacotes adicionais de pedidos por mês. Adicione a qualquer plano.</p>
+      </div>
+      <div class="grid sm:grid-cols-3 gap-4" id="addonsGrid"></div>
+    </div>
+  </section>
+
+  <!-- Testimonials -->
+  <section id="depoimentos" class="py-24 bg-slate-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center mb-16">
+        <h2 class="font-display text-3xl sm:text-4xl font-bold text-slate-900 mb-4">Quem usa, recomenda</h2>
+        <p class="text-slate-600">Histórias reais de restaurantes que transformaram seu atendimento</p>
+      </div>
+      <div class="grid md:grid-cols-3 gap-8" id="testimonialsGrid"></div>
+    </div>
+  </section>
+
+  <!-- Benefits -->
+  <section class="py-24 bg-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="grid md:grid-cols-4 gap-8" id="benefitsGrid"></div>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section id="faq" class="py-24 bg-slate-50">
+    <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center mb-12">
+        <h2 class="font-display text-3xl font-bold text-slate-900 mb-4">Perguntas frequentes</h2>
+        <p class="text-slate-600">Tudo que você precisa saber antes de começar</p>
+      </div>
+      <div class="space-y-4" id="faqContainer"></div>
+    </div>
+  </section>
+
+  <!-- Final CTA -->
+  <section class="py-24 relative overflow-hidden">
+    <div class="absolute inset-0 bg-gradient-to-r from-orange-500 via-orange-600 to-amber-600"></div>
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
+      <h2 class="font-display text-4xl sm:text-5xl font-bold text-white mb-6">Pronto para começar?</h2>
+      <p class="text-xl text-white/90 mb-10 max-w-2xl mx-auto">Junte-se a milhares de restaurantes que já usam tecnologia para crescer.</p>
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+        <button type="button" onclick="handleSubscribe('free')" class="w-full sm:w-auto px-10 py-5 bg-white text-orange-600 rounded-full font-bold text-lg hover:shadow-2xl hover:scale-105 transition-all flex items-center justify-center gap-2 focus-visible:ring focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-orange-500">
+          Começar grátis
+          <i data-lucide="arrow-right" class="w-5 h-5" aria-hidden="true"></i>
+        </button>
+        <p class="text-white/80 text-sm">Sem cartão • Setup em 2 minutos</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="py-12 bg-slate-900 text-slate-400 border-t border-slate-800">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex flex-col md:flex-row items-center justify-between gap-4">
+        <div class="flex items-center gap-2">
+          <i data-lucide="layout-dashboard" class="w-5 h-5 text-orange-500" aria-hidden="true"></i>
+          <span class="font-semibold text-slate-100">SistemaGestão</span>
+        </div>
+        <div class="flex items-center gap-6 text-sm">
+          <a href="/termos" class="hover:text-white transition-colors focus-visible:ring focus-visible:ring-orange-500 rounded">Termos</a>
+          <a href="/privacidade" class="hover:text-white transition-colors focus-visible:ring focus-visible:ring-orange-500 rounded">Privacidade</a>
+          <a href="/contato" class="hover:text-white transition-colors focus-visible:ring focus-visible:ring-orange-500 rounded">Contato</a>
+        </div>
+        <p class="text-sm">© 2024 Todos os direitos reservados</p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Upgrade Modal (ready for use) -->
+  <div id="upgradeModal" class="fixed inset-0 z-[100] hidden items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="upgradeModalTitle" aria-hidden="true">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 focus:outline-none" tabindex="-1">
+      <h2 id="upgradeModalTitle" class="font-display text-xl font-bold text-slate-900 mb-2">Limite do plano atingido</h2>
+      <p id="upgradeModalMessage" class="text-slate-600 mb-4"></p>
+      <div id="upgradeModalSuggestion" class="rounded-lg bg-slate-100 p-3 text-sm text-slate-700 mb-6"></div>
+      <div class="flex flex-col sm:flex-row gap-3">
+        <a id="upgradeModalCta" href="/cadastro" class="flex-1 py-3 px-4 rounded-xl font-semibold bg-orange-500 text-white text-center hover:bg-orange-600 transition-colors focus-visible:ring focus-visible:ring-orange-500 focus-visible:ring-offset-2">Fazer upgrade</a>
+        <button type="button" id="upgradeModalClose" class="py-3 px-4 rounded-xl font-medium border border-slate-200 hover:bg-slate-50 transition-colors focus-visible:ring focus-visible:ring-orange-500">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ========== STYLE MAP (fixed classes, no dynamic Tailwind) ==========
+    const STYLE_MAP = {
+      free: {
+        iconBgClass: 'from-emerald-100 to-emerald-50',
+        iconTextClass: 'text-emerald-600',
+        badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+        highlightBorderClass: 'border-slate-200'
+      },
+      basic: {
+        iconBgClass: 'from-blue-100 to-blue-50',
+        iconTextClass: 'text-blue-600',
+        badgeClass: 'bg-blue-50 text-blue-700 border-blue-200',
+        highlightBorderClass: 'border-slate-200'
+      },
+      pro: {
+        iconBgClass: 'from-orange-100 to-amber-50',
+        iconTextClass: 'text-orange-600',
+        badgeClass: 'bg-orange-50 text-orange-700 border-orange-200',
+        highlightBorderClass: 'border-orange-500'
+      },
+      ultra: {
+        iconBgClass: 'from-violet-100 to-violet-50',
+        iconTextClass: 'text-violet-600',
+        badgeClass: 'bg-violet-50 text-violet-700 border-violet-200',
+        highlightBorderClass: 'border-slate-200'
+      }
+    };
+
+    // ========== UPGRADE COPY (block reasons) ==========
+    const UPGRADE_COPY = {
+      limit_orders: {
+        title: 'Você atingiu o limite de pedidos do seu plano',
+        message: 'Para continuar recebendo pedidos sem travar, ative um pacote extra de pedidos/mês ou faça upgrade.',
+        suggestion: 'Pro inclui até 3.000 pedidos/mês. Ou adicione +1.000/+3.000 por mês ao plano atual.',
+        cta: 'Ver planos e add-ons'
+      },
+      limit_collaborators: {
+        title: 'Limite de usuários da equipe atingido',
+        message: 'Seu plano atual permite até esse número de colaboradores. Para adicionar cozinha, garçom ou entregadores, faça upgrade.',
+        suggestion: 'Pro libera até 5 colaboradores. Ultra até 20.',
+        cta: 'Fazer upgrade'
+      },
+      limit_products: {
+        title: 'Limite de produtos atingido',
+        message: 'Para cadastrar mais itens no cardápio, faça upgrade de plano.',
+        suggestion: 'Pro permite até 800 produtos. Ultra é ilimitado.',
+        cta: 'Fazer upgrade'
+      },
+      feature_higher_plan: {
+        title: 'Recurso disponível em plano superior',
+        message: 'Este recurso (entregadores, PDV, cupons avançados, etc.) está disponível a partir do Pro ou Ultra.',
+        suggestion: 'Confira o comparativo de planos e escolha o que cabe no seu negócio.',
+        cta: 'Ver planos'
+      }
+    };
+
+    // ========== PRICING CONFIG (single source of truth) ==========
+    const PRICING_CONFIG = {
+      plans: {
+        free: {
+          name: 'Grátis',
+          tagline: 'Ideal para testar',
+          icon: 'sparkles',
+          monthlyPrice: 0,
+          yearlyPrice: 0,
+          trialDays: 0,
+          cta: 'Começar grátis',
+          popular: false,
+          limits: { productsMax: 20, ordersPerMonthMax: 200, staffMax: 1 },
+          benefits: ['Cardápio digital básico', 'Pedidos via WhatsApp', 'Gestor de pedidos simples'],
+          modules: ['Histórico 7 dias', 'Suporte por email']
+        },
+        basic: {
+          name: 'Básico',
+          tagline: 'Comece a vender online',
+          icon: 'smartphone',
+          monthlyPrice: 39.90,
+          yearlyPrice: 399,
+          trialDays: 10,
+          cta: 'Testar grátis',
+          popular: false,
+          limits: { productsMax: 150, ordersPerMonthMax: 600, staffMax: 2 },
+          benefits: ['Tudo do Grátis +', 'Personalização visual', 'Dashboard básico'],
+          modules: ['Histórico 30 dias', 'Suporte prioritário']
+        },
+        pro: {
+          name: 'Pro',
+          tagline: 'Escalando entregas',
+          icon: 'truck',
+          monthlyPrice: 79.90,
+          yearlyPrice: 799,
+          trialDays: 7,
+          cta: 'Escolher Pro',
+          popular: true,
+          limits: { productsMax: 800, ordersPerMonthMax: 3000, staffMax: 5 },
+          benefits: ['Tudo do Básico +', 'App entregadores', 'Cupons e promoções'],
+          modules: ['Relatórios avançados', 'Gestão de equipe', 'Histórico 1 ano']
+        },
+        ultra: {
+          name: 'Ultra',
+          tagline: 'Enterprise + PDV',
+          icon: 'crown',
+          monthlyPrice: 149.90,
+          yearlyPrice: 1499,
+          trialDays: 7,
+          cta: 'Escolher Ultra',
+          popular: false,
+          limits: { productsMax: -1, ordersPerMonthMax: -1, staffMax: 20 },
+          benefits: ['Tudo do Pro +', 'PDV completo', 'API e Webhooks'],
+          modules: ['NFC-e/SAT', 'Múltiplas unidades', 'Suporte VIP']
+        }
+      },
+      addons: [
+        { id: 'addon-100', label: '+1.000 pedidos/mês', priceMonthly: 49, ordersExtra: 1000 },
+        { id: 'addon-300', label: '+3.000 pedidos/mês', priceMonthly: 99, ordersExtra: 3000 },
+        { id: 'addon-500', label: '+5.000 pedidos/mês', priceMonthly: 149, ordersExtra: 5000 }
+      ],
+      testimonials: [
+        { name: 'Maria Silva', restaurant: 'Pizzaria do Bairro', plan: 'Pro', stars: 5, text: 'Aumentei minhas vendas em 40% no primeiro mês. O app de entregadores mudou completamente nossa operação!', avatar: '👩‍🍳' },
+        { name: 'João Santos', restaurant: 'Burger House', plan: 'Ultra', stars: 5, text: 'Finalmente conseguimos unificar delivery e salão num sistema só. O PDV é sensacional.', avatar: '👨‍🍳' },
+        { name: 'Ana Costa', restaurant: 'Sabor & Arte', plan: 'Pro', stars: 5, text: 'Suporte incrível, sistema intuitivo. Em 3 dias já estávamos operando com tudo funcionando.', avatar: '👩‍💼' }
+      ],
+      benefits: [
+        { icon: 'shield-check', title: 'Segurança SSL', desc: 'Dados criptografados e certificação LGPD' },
+        { icon: 'zap', title: 'Alta Performance', desc: 'Resposta em tempo real, 99.9% uptime' },
+        { icon: 'credit-card', title: 'Pagamentos', desc: 'PIX, cartão e múltiplas formas' },
+        { icon: 'headphones', title: 'Suporte', desc: 'Especialistas quando precisar' }
+      ],
+      faq: [
+        { q: 'Posso mudar de plano depois?', a: 'Sim! Você pode fazer upgrade ou downgrade a qualquer momento. O valor é ajustado proporcionalmente ao período restante.' },
+        { q: 'Como funciona o período de teste?', a: 'Básico: 10 dias grátis. Pro e Ultra: 7 dias. O plano Grátis não exige cartão de crédito para começar.' },
+        { q: 'Posso cancelar quando quiser?', a: 'Sim, sem multas ou taxas de cancelamento. Você mantém acesso até o fim do período já pago.' },
+        { q: 'Preciso de equipamentos especiais?', a: 'Não. Funciona em qualquer smartphone, tablet ou computador. Para impressão de comandas, recomendamos impressoras térmicas padrão.' },
+        { q: 'Como funciona o suporte?', a: 'Planos pagos têm suporte por chat e email com resposta em até 4h em horário comercial. Ultra tem suporte VIP com atendimento prioritário.' }
+      ]
+    };
+
+    // Build comparison rows from PRICING_CONFIG
+    function getComparisonData() {
+      var plans = PRICING_CONFIG.plans;
+      function lim(v) { return v === -1 ? 'Ilimitado' : String(v); }
+      return [
+        { feature: 'Produtos', free: lim(plans.free.limits.productsMax), basic: lim(plans.basic.limits.productsMax), pro: lim(plans.pro.limits.productsMax), ultra: lim(plans.ultra.limits.productsMax) },
+        { feature: 'Pedidos por mês', free: lim(plans.free.limits.ordersPerMonthMax), basic: lim(plans.basic.limits.ordersPerMonthMax), pro: lim(plans.pro.limits.ordersPerMonthMax), ultra: lim(plans.ultra.limits.ordersPerMonthMax) },
+        { feature: 'Colaboradores', free: lim(plans.free.limits.staffMax), basic: lim(plans.basic.limits.staffMax), pro: lim(plans.pro.limits.staffMax), ultra: lim(plans.ultra.limits.staffMax) },
+        { feature: 'Cardápio digital', free: true, basic: true, pro: true, ultra: true },
+        { feature: 'Pedidos WhatsApp', free: true, basic: true, pro: true, ultra: true },
+        { feature: 'App entregadores', free: false, basic: false, pro: true, ultra: true },
+        { feature: 'Cupons e promoções', free: false, basic: 'Básico', pro: 'Avançado', ultra: 'Avançado' },
+        { feature: 'PDV', free: false, basic: false, pro: false, ultra: true },
+        { feature: 'API e Webhooks', free: false, basic: false, pro: false, ultra: true }
+      ];
+    }
+
+    // ========== STATE ==========
+    var selectedInterval = 'monthly';
+
+    // ========== HELPERS ==========
+    function formatPrice(price) {
+      if (price === 0) return '0,00';
+      return price.toFixed(2).replace('.', ',');
+    }
+
+    function yearlyDiscountPercent(monthly, yearly) {
+      if (!monthly || monthly <= 0) return 0;
+      var fullYear = monthly * 12;
+      return Math.round(((fullYear - yearly) / fullYear) * 100);
+    }
+
+    function setBilling(interval) {
+      selectedInterval = interval;
+      var monthlyBtn = document.getElementById('monthlyBtn');
+      var yearlyBtn = document.getElementById('yearlyBtn');
+      var hint = document.getElementById('billingHint');
+      var badge = document.getElementById('yearlyBadge');
+      var pro = PRICING_CONFIG.plans.pro;
+      var pct = yearlyDiscountPercent(pro.monthlyPrice, pro.yearlyPrice);
+      if (badge) badge.textContent = '-' + pct + '%';
+      if (interval === 'monthly') {
+        monthlyBtn.className = 'px-6 py-2.5 rounded-full text-sm font-semibold transition-all bg-slate-900 text-white shadow-md focus-visible:ring focus-visible:ring-orange-500 focus-visible:ring-offset-2';
+        yearlyBtn.className = 'px-6 py-2.5 rounded-full text-sm font-semibold text-slate-600 hover:text-slate-900 transition-all relative focus-visible:ring focus-visible:ring-orange-500 focus-visible:ring-offset-2';
+        if (hint) hint.textContent = 'Economize ' + pct + '% no plano anual';
+      } else {
+        monthlyBtn.className = 'px-6 py-2.5 rounded-full text-sm font-semibold text-slate-600 hover:text-slate-900 transition-all focus-visible:ring focus-visible:ring-orange-500 focus-visible:ring-offset-2';
+        yearlyBtn.className = 'px-6 py-2.5 rounded-full text-sm font-semibold transition-all bg-slate-900 text-white shadow-md relative focus-visible:ring focus-visible:ring-orange-500 focus-visible:ring-offset-2';
+        if (hint) hint.textContent = 'Cobrado anualmente • Equivale a R$ ' + formatPrice(pro.yearlyPrice / 12) + '/mês no Pro';
+      }
+      monthlyBtn.setAttribute('aria-pressed', interval === 'monthly' ? 'true' : 'false');
+      yearlyBtn.setAttribute('aria-pressed', interval === 'yearly' ? 'true' : 'false');
+      renderPricing();
+    }
+
+    function handleSubscribe(planKey) {
+      window.location.href = '/cadastro?plan=' + planKey + '&interval=' + selectedInterval;
+    }
+
+    // ========== OPEN UPGRADE MODAL (ready for use) ==========
+    function openUpgradeModal(opts) {
+      var reason = opts.reason || 'feature_higher_plan';
+      var copy = UPGRADE_COPY[reason] || UPGRADE_COPY.feature_higher_plan;
+      var el = document.getElementById('upgradeModal');
+      var title = document.getElementById('upgradeModalTitle');
+      var msg = document.getElementById('upgradeModalMessage');
+      var sug = document.getElementById('upgradeModalSuggestion');
+      var cta = document.getElementById('upgradeModalCta');
+      if (title) title.textContent = copy.title;
+      if (msg) msg.textContent = copy.message;
+      if (sug) sug.textContent = copy.suggestion;
+      if (cta) { cta.textContent = copy.cta; cta.href = '/cadastro?plan=' + (opts.recommendedPlan || 'pro'); }
+      if (el) {
+        el.classList.remove('hidden');
+        el.classList.add('flex');
+        el.setAttribute('aria-hidden', 'false');
+      }
+    }
+
+    function closeUpgradeModal() {
+      var el = document.getElementById('upgradeModal');
+      if (el) {
+        el.classList.add('hidden');
+        el.classList.remove('flex');
+        el.setAttribute('aria-hidden', 'true');
+      }
+    }
+
+    document.getElementById('upgradeModalClose').addEventListener('click', closeUpgradeModal);
+    document.getElementById('upgradeModal').addEventListener('click', function(e) {
+      if (e.target === this) closeUpgradeModal();
+    });
+
+    // ========== RENDER (single assign per section) ==========
+    function renderPricing() {
+      var grid = document.getElementById('pricingGrid');
+      if (!grid) return;
+      var html = '';
+      Object.keys(PRICING_CONFIG.plans).forEach(function(key) {
+        var plan = PRICING_CONFIG.plans[key];
+        var style = STYLE_MAP[key];
+        var isPopular = plan.popular === true;
+        var price = selectedInterval === 'monthly' ? plan.monthlyPrice : plan.yearlyPrice / 12;
+        var borderClass = isPopular ? 'border-orange-500 shadow-xl shadow-orange-500/10 scale-105 z-10' : style.highlightBorderClass;
+        var iconBg = isPopular ? 'from-orange-100 to-amber-50' : style.iconBgClass;
+        var iconTx = isPopular ? 'text-orange-600' : style.iconTextClass;
+
+        var priceBlock;
+        if (key === 'free') {
+          priceBlock = '<span class="text-3xl font-bold text-emerald-600">Grátis</span><p class="text-xs text-slate-400 mt-1">Sem cartão de crédito</p>';
+        } else {
+          if (selectedInterval === 'yearly') {
+            var yearlyTotal = plan.yearlyPrice;
+            priceBlock = '<div class="flex items-baseline gap-1"><span class="text-lg font-medium text-slate-400">R$</span><span class="text-4xl font-bold text-slate-900">' + formatPrice(yearlyTotal) + '</span></div><p class="text-sm text-slate-400 mt-1">/ano • equivale a R$ ' + formatPrice(plan.yearlyPrice / 12) + '/mês</p><p class="text-xs text-slate-500 mt-0.5">Cobrado anualmente</p>' + (plan.trialDays > 0 ? '<p class="text-xs text-emerald-600 font-medium mt-2 flex items-center gap-1"><i data-lucide="gift" class="w-3 h-3"></i> ' + plan.trialDays + ' dias grátis</p>' : '');
+          } else {
+            priceBlock = '<div class="flex items-baseline gap-1"><span class="text-lg font-medium text-slate-400">R$</span><span class="text-4xl font-bold text-slate-900">' + formatPrice(price) + '</span></div><p class="text-sm text-slate-400 mt-1">/mês</p>' + (plan.trialDays > 0 ? '<p class="text-xs text-emerald-600 font-medium mt-2 flex items-center gap-1"><i data-lucide="gift" class="w-3 h-3"></i> ' + plan.trialDays + ' dias grátis</p>' : '');
+          }
+        }
+
+        var limits = plan.limits;
+        var limitsText = [];
+        if (limits.ordersPerMonthMax === -1) limitsText.push('Pedidos/mês ilimitados'); else limitsText.push('Até ' + limits.ordersPerMonthMax + ' pedidos/mês');
+        if (limits.staffMax === -1) limitsText.push('Colaboradores ilimitados'); else limitsText.push('Até ' + limits.staffMax + ' colaborador' + (limits.staffMax > 1 ? 'es' : ''));
+        if (limits.productsMax === -1) limitsText.push('Produtos ilimitados'); else limitsText.push('Até ' + limits.productsMax + ' produtos');
+
+        html += '<div class="relative rounded-2xl bg-white border ' + borderClass + ' p-6 card-hover flex flex-col h-full">';
+        if (isPopular) html += '<div class="absolute -top-4 left-1/2 -translate-x-1/2 bg-gradient-to-r from-orange-500 to-amber-500 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg">Mais Popular</div>';
+        html += '<div class="mb-6"><div class="w-12 h-12 rounded-xl bg-gradient-to-br ' + iconBg + ' flex items-center justify-center mb-4"><i data-lucide="' + plan.icon + '" class="w-6 h-6 ' + iconTx + '"></i></div><h3 class="font-display text-xl font-bold text-slate-900">' + plan.name + '</h3><p class="text-sm text-slate-500 mt-1">' + plan.tagline + '</p></div>';
+        html += '<div class="mb-6">' + priceBlock + '</div>';
+        html += '<ul class="space-y-3 mb-4 flex-grow">';
+        plan.benefits.forEach(function(f) { html += '<li class="flex items-start gap-3 text-sm text-slate-600"><i data-lucide="check" class="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5"></i><span>' + f + '</span></li>'; });
+        limitsText.forEach(function(l) { html += '<li class="flex items-start gap-3 text-sm text-slate-700 font-medium"><i data-lucide="bar-chart-2" class="w-4 h-4 text-orange-500 flex-shrink-0 mt-0.5"></i><span>' + l + '</span></li>'; });
+        plan.modules.forEach(function(m) { html += '<li class="flex items-start gap-3 text-sm text-slate-500"><i data-lucide="circle-check" class="w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5"></i><span>' + m + '</span></li>'; });
+        html += '</ul>';
+        html += '<button type="button" onclick="handleSubscribe(\'' + key + '\')" class="w-full py-3.5 px-4 rounded-xl font-semibold text-sm transition-all ' + (isPopular ? 'bg-slate-900 text-white hover:bg-slate-800 shadow-lg shadow-slate-900/20' : 'bg-slate-100 text-slate-900 hover:bg-slate-200') + ' flex items-center justify-center gap-2 group focus-visible:ring focus-visible:ring-orange-500 focus-visible:ring-offset-2">' + plan.cta + ' <i data-lucide="arrow-right" class="w-4 h-4 group-hover:translate-x-0.5 transition-transform"></i></button>';
+        html += '</div>';
+      });
+      grid.innerHTML = html;
+      if (window.lucide && window.lucide.createIcons) window.lucide.createIcons();
+    }
+
+    function renderCell(value) {
+      if (value === true) return '<i data-lucide="check" class="w-5 h-5 text-emerald-500 mx-auto"></i>';
+      if (value === false) return '<i data-lucide="x" class="w-5 h-4 text-slate-300 mx-auto"></i>';
+      return value;
+    }
+
+    function renderComparison() {
+      var data = getComparisonData();
+      var rows = data.map(function(row, idx) {
+        var trClass = idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50';
+        return '<tr class="' + trClass + ' hover:bg-slate-50 transition-colors"><td class="p-6 text-sm font-medium text-slate-900 border-r border-slate-100">' + row.feature + '</td><td class="p-6 text-center text-sm text-slate-600 border-r border-slate-100">' + renderCell(row.free) + '</td><td class="p-6 text-center text-sm text-slate-600 border-r border-slate-100">' + renderCell(row.basic) + '</td><td class="p-6 text-center text-sm font-medium text-slate-900 border-r border-slate-100 bg-orange-50/30">' + renderCell(row.pro) + '</td><td class="p-6 text-center text-sm text-slate-900">' + renderCell(row.ultra) + '</td></tr>';
+      }).join('');
+      var tbody = document.getElementById('comparisonTable');
+      var tbodyMobile = document.getElementById('comparisonTableMobile');
+      if (tbody) tbody.innerHTML = rows;
+      if (tbodyMobile) tbodyMobile.innerHTML = rows;
+      if (window.lucide && window.lucide.createIcons) window.lucide.createIcons();
+    }
+
+    function renderAddons() {
+      var list = PRICING_CONFIG.addons;
+      var html = list.map(function(addon) {
+        return '<div class="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-6 hover:bg-white/20 transition-all cursor-pointer group focus-within:ring-2 focus-within:ring-orange-400" tabindex="0" role="button" onclick="window.location.href=\'/cadastro?addon=' + addon.id + '\'"><div class="flex items-center justify-between mb-3"><span class="text-lg font-bold text-white">' + addon.label + '</span><i data-lucide="plus-circle" class="w-5 h-5 text-orange-400 group-hover:scale-110 transition-transform"></i></div><p class="text-2xl font-bold text-white mb-1">R$ ' + formatPrice(addon.priceMonthly) + '<span class="text-sm font-normal text-white/60">/mês</span></p><p class="text-xs text-white/60">Adicione a qualquer plano</p></div>';
+      }).join('');
+      var grid = document.getElementById('addonsGrid');
+      if (grid) grid.innerHTML = html;
+      if (window.lucide && window.lucide.createIcons) window.lucide.createIcons();
+    }
+
+    function renderTestimonials() {
+      var list = PRICING_CONFIG.testimonials;
+      var html = list.map(function(t) {
+        var stars = Array(t.stars).fill().map(function() { return '<i data-lucide="star" class="w-4 h-4 fill-amber-400 text-amber-400"></i>'; }).join('');
+        return '<div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 hover:shadow-lg transition-shadow"><div class="flex gap-1 mb-4">' + stars + '</div><p class="text-slate-700 mb-6 leading-relaxed">"' + t.text + '"</p><div class="flex items-center gap-4"><div class="w-12 h-12 rounded-full bg-gradient-to-br from-orange-400 to-pink-500 flex items-center justify-center text-2xl">' + t.avatar + '</div><div><p class="font-semibold text-slate-900">' + t.name + '</p><p class="text-sm text-slate-500">' + t.restaurant + '</p></div><span class="ml-auto px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-medium">' + t.plan + '</span></div></div>';
+      }).join('');
+      var grid = document.getElementById('testimonialsGrid');
+      if (grid) grid.innerHTML = html;
+      if (window.lucide && window.lucide.createIcons) window.lucide.createIcons();
+    }
+
+    function renderBenefits() {
+      var list = PRICING_CONFIG.benefits;
+      var html = list.map(function(b) {
+        return '<div class="text-center group"><div class="w-14 h-14 rounded-2xl feature-icon flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform"><i data-lucide="' + b.icon + '" class="w-7 h-7 text-orange-600"></i></div><h3 class="font-semibold text-slate-900 mb-2">' + b.title + '</h3><p class="text-sm text-slate-500">' + b.desc + '</p></div>';
+      }).join('');
+      var grid = document.getElementById('benefitsGrid');
+      if (grid) grid.innerHTML = html;
+      if (window.lucide && window.lucide.createIcons) window.lucide.createIcons();
+    }
+
+    function renderFAQ() {
+      var list = PRICING_CONFIG.faq;
+      var html = list.map(function(item) {
+        return '<details class="group bg-white border border-slate-200 rounded-2xl overflow-hidden hover:border-orange-200 transition-colors"><summary class="flex items-center justify-between p-6 cursor-pointer list-none font-semibold text-slate-900 hover:text-orange-600 transition-colors focus-visible:ring focus-visible:ring-orange-500 rounded"><span>' + item.q + '</span><div class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center group-open:bg-orange-100 transition-colors shrink-0"><i data-lucide="chevron-down" class="w-5 h-5 text-slate-400 group-open:text-orange-600 group-open:rotate-180 transition-all"></i></div></summary><div class="px-6 pb-6 text-slate-600 leading-relaxed border-t border-slate-100 pt-4">' + item.a + '</div></details>';
+      }).join('');
+      var container = document.getElementById('faqContainer');
+      if (container) container.innerHTML = html;
+      if (window.lucide && window.lucide.createIcons) window.lucide.createIcons();
+    }
+
+    // Mobile comparison toggle
+    var toggleComparison = document.getElementById('toggleComparison');
+    var comparisonCollapse = document.getElementById('comparisonCollapse');
+    if (toggleComparison && comparisonCollapse) {
+      toggleComparison.addEventListener('click', function() {
+        var open = comparisonCollapse.getAttribute('aria-hidden') !== 'true';
+        comparisonCollapse.style.maxHeight = open ? '0' : (comparisonCollapse.scrollHeight + 40) + 'px';
+        comparisonCollapse.setAttribute('aria-hidden', open ? 'true' : 'false');
+        toggleComparison.setAttribute('aria-expanded', open ? 'false' : 'true');
+        toggleComparison.innerHTML = (open ? '<i data-lucide="chevron-up" class="w-5 h-5"></i> Ocultar comparativo' : '<i data-lucide="layout-grid" class="w-5 h-5"></i> Ver comparativo completo');
+        if (window.lucide && window.lucide.createIcons) window.lucide.createIcons();
+      });
+    }
+
+    // Header scroll
+    window.addEventListener('scroll', function() {
+      var header = document.getElementById('header');
+      if (window.scrollY > 50) header.classList.add('glass');
+      else header.classList.remove('glass');
+    });
+
+    // Init
+    document.addEventListener('DOMContentLoaded', function() {
+      var pro = PRICING_CONFIG.plans.pro;
+      var pct = yearlyDiscountPercent(pro.monthlyPrice, pro.yearlyPrice);
+      var badge = document.getElementById('yearlyBadge');
+      if (badge) badge.textContent = '-' + pct + '%';
+      renderPricing();
+      renderComparison();
+      renderAddons();
+      renderTestimonials();
+      renderBenefits();
+      renderFAQ();
+      if (window.lucide && window.lucide.createIcons) window.lucide.createIcons();
+      // Example: open upgrade modal (commented – ready for use)
+      // openUpgradeModal({ reason: 'limit_orders', currentPlan: 'basic', recommendedPlan: 'pro', suggestedAddon: 'addon-100' });
+    });
+  </script>
+</body>
+</html>

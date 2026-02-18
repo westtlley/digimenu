@@ -165,15 +165,13 @@ export default function SubscriberRow({
             <Copy className="w-4 h-4 mr-2" />
             Duplicar
           </DropdownMenuItem>
-          {!hasPassword && (
-            <DropdownMenuItem
-              onClick={() => regenerateToken(subscriber)}
-              disabled={generateTokenPending}
-            >
-              <RefreshCw className={cn('w-4 h-4 mr-2', generateTokenPending && 'animate-spin')} />
-              Resetar Senha
-            </DropdownMenuItem>
-          )}
+          <DropdownMenuItem
+            onClick={() => regenerateToken(subscriber)}
+            disabled={generateTokenPending}
+          >
+            <RefreshCw className={cn('w-4 h-4 mr-2', generateTokenPending && 'animate-spin')} />
+            Resetar Senha
+          </DropdownMenuItem>
           <DropdownMenuItem onClick={() => onDelete(subscriber)} className="text-destructive">
             <Trash2 className="w-4 h-4 mr-2" />
             Excluir

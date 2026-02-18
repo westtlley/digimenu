@@ -1179,6 +1179,65 @@ app.post('/api/functions/getSubscribers', authenticate, async (req, res) => {
   }
 });
 
+// getFullSubscriberProfile: rota explícita para evitar 404 quando /api é montado antes do handler genérico
+app.post('/api/functions/getFullSubscriberProfile', authenticate, async (req, res) => {
+  if (!req.user?.is_master) {
+    return res.status(403).json({ error: 'Acesso negado' });
+  }
+  const { subscriber_email } = req.body || {};
+  if (!subscriber_email) {
+    return res.status(400).json({ error: 'subscriber_email é obrigatório' });
+  }
+  try {
+    const subscriber = usePostgreSQL
+      ? await repo.getSubscriberByEmail(subscriber_email)
+      : (db && db.subscribers ? db.subscribers.find(s => s.email?.toLowerCase() === subscriber_email?.toLowerCase()) : null);
+    if (!subscriber) {
+      return res.status(404).json({ error: 'Assinante não encontrado' });
+    }
+    let dishes = [], categories = [], complement_groups = [], combos = [], orders = [], caixas = [], comandas = [];
+    let store = null;
+    if (usePostgreSQL) {
+      const se = subscriber.email;
+      dishes = await repo.listEntitiesForSubscriber('Dish', se, null);
+      categories = await repo.listEntitiesForSubscriber('Category', se, 'order');
+      complement_groups = await repo.listEntitiesForSubscriber('ComplementGroup', se, 'order');
+      combos = await repo.listEntitiesForSubscriber('Combo', se, null);
+      orders = await repo.listEntitiesForSubscriber('Order', se, '-created_date');
+      caixas = await repo.listEntitiesForSubscriber('Caixa', se, null);
+      comandas = await repo.listEntitiesForSubscriber('Comanda', se, '-created_at');
+      const stores = await repo.listEntitiesForSubscriber('Store', se, null);
+      store = stores[0] || null;
+    } else if (db && db.entities) {
+      dishes = (db.entities.Dish || []).filter(e => e.owner_email === subscriber.email || !e.owner_email);
+      categories = (db.entities.Category || []).filter(e => e.owner_email === subscriber.email || !e.owner_email);
+      complement_groups = (db.entities.ComplementGroup || []).filter(e => e.owner_email === subscriber.email || !e.owner_email);
+      combos = (db.entities.Combo || []).filter(e => e.owner_email === subscriber.email || !e.owner_email);
+      orders = (db.entities.Order || []).filter(e => e.owner_email === subscriber.email || e.customer_email === subscriber.email || !e.owner_email);
+      caixas = (db.entities.Caixa || []).filter(e => e.owner_email === subscriber.email || !e.owner_email);
+      comandas = (db.entities.Comanda || []).filter(e => e.owner_email === subscriber.email || !e.owner_email);
+      const stores = (db.entities.Store || []).filter(e => e.owner_email === subscriber.email || !e.owner_email);
+      store = stores[0] || null;
+    }
+    const stats = {
+      total_dishes: dishes.length,
+      total_orders: orders.length,
+      total_revenue: orders.reduce((sum, o) => sum + (parseFloat(o.total) || 0), 0),
+      active_caixas: caixas.filter(c => c.status === 'open').length,
+      total_comandas: comandas.length,
+      comandas_abertas: comandas.filter(c => c.status === 'open').length
+    };
+    return res.json({
+      data: { dishes, categories, complement_groups, combos, orders, caixas, comandas, store },
+      stats,
+      subscriber
+    });
+  } catch (error) {
+    console.error('❌ [getFullSubscriberProfile] Erro:', error);
+    return res.status(500).json({ error: 'Erro ao buscar perfil do assinante', details: error.message });
+  }
+});
+
 app.use('/api', entitiesAndManagerialRouter);
 
 // =======================
