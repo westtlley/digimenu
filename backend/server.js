@@ -1655,6 +1655,48 @@ app.get('/api/user/context', authenticate, asyncHandler(async (req, res) => {
     // Assinante (dono): is_owner = true quando email está em subscribers
     const isOwner = !user.is_master && subscriber && (subscriber.email || '').toLowerCase().trim() === (user.email || '').toLowerCase().trim();
 
+    let subscriberDataPayload = null;
+    if (!user.is_master && subscriber) {
+      let p = subscriber.permissions;
+      if (typeof p === 'string') {
+        try { p = JSON.parse(p); } catch (e) { p = {}; }
+      }
+      let usage = null;
+      try {
+        const { getUsageForSubscriber } = await import('./services/planValidation.service.js');
+        usage = await getUsageForSubscriber(subscriber.email);
+      } catch (e) {
+        // ignore
+      }
+      let addons = subscriber.addons;
+      if (typeof addons === 'string') {
+        try {
+          addons = JSON.parse(addons);
+        } catch (e) {
+          addons = {};
+        }
+      }
+      if (!addons || typeof addons !== 'object') addons = {};
+      let effectiveLimits = null;
+      try {
+        const { getEffectiveLimitsForSubscriber } = await import('./services/planValidation.service.js');
+        effectiveLimits = getEffectiveLimitsForSubscriber({ ...subscriber, addons });
+      } catch (e) {
+        // ignore
+      }
+      subscriberDataPayload = {
+        email: subscriber.email,
+        plan: subscriber.plan || 'basic',
+        status: subscriber.status || 'active',
+        expires_at: subscriber.expires_at || null,
+        permissions: (p && typeof p === 'object') ? p : {},
+        slug: subscriber.slug || null,
+        addons,
+        ...(effectiveLimits && { effectiveLimits }),
+        ...(usage && { usage }),
+      };
+    }
+
     return res.json({
       user: {
         id: user.id,
@@ -1672,20 +1714,7 @@ app.get('/api/user/context', authenticate, asyncHandler(async (req, res) => {
       },
       menuContext,
       permissions,
-      subscriberData: user.is_master ? null : (subscriber ? (() => {
-        let p = subscriber.permissions;
-        if (typeof p === 'string') {
-          try { p = JSON.parse(p); } catch (e) { p = {}; }
-        }
-        return {
-          email: subscriber.email,
-          plan: subscriber.plan || 'basic',
-          status: subscriber.status || 'active',
-          expires_at: subscriber.expires_at || null,
-          permissions: (p && typeof p === 'object') ? p : {},
-          slug: subscriber.slug || null
-        };
-      })() : null)
+      subscriberData: subscriberDataPayload
     });
   } catch (error) {
     console.error('❌ [user/context] Erro ao obter contexto:', error);

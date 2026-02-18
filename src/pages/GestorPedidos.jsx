@@ -35,6 +35,8 @@ import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import InstallAppButton from '../components/InstallAppButton';
 import { useManagerialAuth } from '@/hooks/useManagerialAuth';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { useEntitlements } from '@/hooks/useEntitlements';
+import { LimitBlockModal } from '@/components/plans';
 
 export default function GestorPedidos() {
   const [activeTab, setActiveTab] = useState('now'); // now, scheduled
@@ -67,12 +69,13 @@ export default function GestorPedidos() {
   const seenNewOrderIdsRef = useRef(new Set());
   const autoAcceptedIdsRef = useRef(new Set());
   const queryClient = useQueryClient();
-  const { isMaster, hasModuleAccess, loading: permLoading, user, subscriberData } = usePermission();
+  const { isMaster, hasModuleAccess, canUpdate, loading: permLoading, user, subscriberData } = usePermission();
   const { slug, subscriberEmail, inSlugContext, loading: slugLoading, error: slugError } = useSlugContext();
+  const { canCreateOrder, plan, effectiveLimits, usage, limitReached } = useEntitlements();
+  const [limitBlockOpen, setLimitBlockOpen] = useState(false);
 
-  const plan = (subscriberData?.plan || 'basic').toString().toLowerCase();
-  const isBasicPlan = plan === 'basic';
-  const hasAccess = isMaster || (hasModuleAccess('gestor_pedidos') && !isBasicPlan);
+  const canUpdateGestor = isMaster || canUpdate('gestor_pedidos');
+  const hasAccess = isMaster || hasModuleAccess('gestor_pedidos');
   const backPage = isMaster ? 'Admin' : 'PainelAssinante';
   // Em /s/:slug, master usa as_subscriber; assinante/colaborador já é filtrado pelo backend
   const asSub = (inSlugContext && isMaster && subscriberEmail) ? subscriberEmail : undefined;
@@ -544,19 +547,23 @@ export default function GestorPedidos() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="min-w-[200px]">
-                  <DropdownMenuItem onClick={() => requireAuthorization('exportar', () => { downloadOrdersCSV(filteredOrders, `pedidos_${new Date().toISOString().slice(0,10)}.csv`); toast.success('CSV baixado'); })}>
-                    <Download className="w-4 h-4 mr-2" />
-                    Exportar CSV
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => requireAuthorization('exportar', () => { exportGestorReportPDF(orders, 'today'); toast.success('PDF baixado'); })}>
-                    Relatório do dia (PDF)
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => requireAuthorization('exportar', () => { exportGestorReportPDF(orders, 'week'); toast.success('PDF baixado'); })}>
-                    Últimos 7 dias (PDF)
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => requireAuthorization('exportar', () => { exportGestorReportPDF(orders, 'month'); toast.success('PDF baixado'); })}>
-                    Últimos 30 dias (PDF)
-                  </DropdownMenuItem>
+                  {canUpdateGestor && (
+                    <>
+                      <DropdownMenuItem onClick={() => requireAuthorization('exportar', () => { downloadOrdersCSV(filteredOrders, `pedidos_${new Date().toISOString().slice(0,10)}.csv`); toast.success('CSV baixado'); })}>
+                        <Download className="w-4 h-4 mr-2" />
+                        Exportar CSV
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => requireAuthorization('exportar', () => { exportGestorReportPDF(orders, 'today'); toast.success('PDF baixado'); })}>
+                        Relatório do dia (PDF)
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => requireAuthorization('exportar', () => { exportGestorReportPDF(orders, 'week'); toast.success('PDF baixado'); })}>
+                        Últimos 7 dias (PDF)
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => requireAuthorization('exportar', () => { exportGestorReportPDF(orders, 'month'); toast.success('PDF baixado'); })}>
+                        Últimos 30 dias (PDF)
+                      </DropdownMenuItem>
+                    </>
+                  )}
                   <DropdownMenuItem onClick={() => setShowAtalhosModal(true)}>
                     <HelpCircle className="w-4 h-4 mr-2" />
                     Atalhos de teclado
@@ -1041,6 +1048,10 @@ export default function GestorPedidos() {
           onViewMap={() => { setViewMode('delivery'); setSelectedOrder(null); }}
           onDuplicate={(o) => {
             requireAuthorization('duplicar', async () => {
+              if (!canCreateOrder) {
+                setLimitBlockOpen(true);
+                return;
+              }
               const { id, order_code, created_date, delivered_at, accepted_at, ready_at, ...rest } = o;
               try {
                 const data = { ...rest, status: 'new', created_date: new Date().toISOString(), ...(asSub && { as_subscriber: asSub }) };
@@ -1052,6 +1063,17 @@ export default function GestorPedidos() {
             });
           }}
           onAddToPrintQueue={() => setPrintQueue(q => q.includes(selectedOrder.id) ? q : [...q, selectedOrder.id])}
+        />
+      )}
+      {!isMaster && (
+        <LimitBlockModal
+          open={limitBlockOpen}
+          onOpenChange={setLimitBlockOpen}
+          type="orders"
+          plan={plan}
+          limit={effectiveLimits?.orders_per_month ?? 0}
+          used={usage?.ordersCurrentMonth ?? 0}
+          suggestion={limitReached?.orders ? 'Pro libera até 3.000 pedidos/mês e equipe de 5 pessoas.' : undefined}
         />
       )}
     </div>

@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient as base44 } from '@/api/apiClient';
 import { usePermission } from '@/components/permissions/usePermission';
+import { useEntitlements } from '@/hooks/useEntitlements';
+import { LimitBlockModal } from '@/components/plans';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -32,6 +34,8 @@ export default function ColaboradoresTab({ isGerentePanel = false }) {
   const [showPass, setShowPass] = useState(false);
   const queryClient = useQueryClient();
   const { menuContext, isMaster } = usePermission();
+  const { canAddCollaborator, plan, effectiveLimits, usage } = useEntitlements();
+  const [limitBlockOpen, setLimitBlockOpen] = useState(false);
   const asSub = isGerentePanel ? null : (menuContext?.type === 'subscriber' ? menuContext?.value : null);
   const selectableRoles = isGerentePanel ? ROLES_FOR_GERENTE_PANEL : ALL_ROLES;
 
@@ -135,6 +139,10 @@ export default function ColaboradoresTab({ isGerentePanel = false }) {
   });
 
   const openAdd = () => {
+    if (!canAddCollaborator) {
+      setLimitBlockOpen(true);
+      return;
+    }
     setEditing(null);
     setForm({ name: '', email: '', password: '', roles: ['pdv'] });
     setShowPass(false);
@@ -566,6 +574,17 @@ export default function ColaboradoresTab({ isGerentePanel = false }) {
             setSelectedColaborador(updatedUser);
             queryClient.invalidateQueries({ queryKey: ['colaboradores'] });
           }}
+        />
+      )}
+      {!isMaster && (
+        <LimitBlockModal
+          open={limitBlockOpen}
+          onOpenChange={setLimitBlockOpen}
+          type="collaborators"
+          plan={plan}
+          limit={effectiveLimits?.collaborators ?? 0}
+          used={usage?.collaboratorsCount ?? 0}
+          suggestion="Pro libera até 5 colaboradores."
         />
       )}
     </div>

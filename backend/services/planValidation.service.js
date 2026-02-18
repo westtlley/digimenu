@@ -5,6 +5,7 @@
 
 import * as repo from '../db/repository.js';
 import { getPlanPermissions, hasPermission } from '../utils/plans.js';
+import { getEffectiveLimits } from '../utils/planLimits.js';
 import { logger } from '../utils/logger.js';
 import { usePostgreSQL, getDb } from '../config/appConfig.js';
 
@@ -385,4 +386,83 @@ export async function getPlanLimitsInfo(subscriberEmail, isMaster = false) {
     },
     permissions
   };
+}
+
+/**
+ * Retorna uso atual do assinante (para contexto e UX de limites)
+ */
+export async function getUsageForSubscriber(subscriberEmail) {
+  const now = new Date();
+  const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  firstDayOfMonth.setHours(0, 0, 0, 0);
+
+  let ordersCurrentMonth = 0;
+  let productsCount = 0;
+  let collaboratorsCount = 0;
+
+  if (usePostgreSQL && subscriberEmail) {
+    try {
+      const [orders, dishes, colaboradores] = await Promise.all([
+        repo.listEntitiesForSubscriber('Order', subscriberEmail, null),
+        repo.listEntitiesForSubscriber('Dish', subscriberEmail, null),
+        repo.listColaboradores(subscriberEmail)
+      ]);
+      if (Array.isArray(orders)) {
+        ordersCurrentMonth = orders.filter(o => {
+          const d = o.created_date || o.created_at;
+          return d && new Date(d) >= firstDayOfMonth;
+        }).length;
+      }
+      productsCount = Array.isArray(dishes) ? dishes.length : 0;
+      collaboratorsCount = Array.isArray(colaboradores) ? colaboradores.length : 0;
+    } catch (e) {
+      logger.warn('getUsageForSubscriber error', e?.message);
+    }
+  } else {
+    const db = getDb();
+    if (db?.entities && db?.users && subscriberEmail) {
+      const se = subscriberEmail.toLowerCase();
+      if (db.entities.Order) {
+        ordersCurrentMonth = db.entities.Order.filter(o => {
+          const d = o.created_date || o.created_at;
+          const owner = (o.owner_email || o.subscriber_email || '').toLowerCase();
+          return owner === se && d && new Date(d) >= firstDayOfMonth;
+        }).length;
+      }
+      if (db.entities.Dish) {
+        productsCount = db.entities.Dish.filter(d => (d.owner_email || d.subscriber_email || '').toLowerCase() === se).length;
+      }
+      collaboratorsCount = db.users.filter(u => (u.subscriber_email || '').toLowerCase() === se && (u.profile_role || '').trim()).length;
+    }
+  }
+
+  // locationsCount: número de unidades/localizações (por enquanto 0 se não houver entidade de localizações)
+  let locationsCount = 0;
+
+  return {
+    ordersCurrentMonth,
+    productsCount,
+    collaboratorsCount,
+    locationsCount,
+  };
+}
+
+/**
+ * Retorna limites efetivos para um assinante (plano base + add-ons)
+ * @param {Object} subscriber - { plan, addons }
+ * @returns {Object|null} effectiveLimits ou null
+ */
+export function getEffectiveLimitsForSubscriber(subscriber) {
+  if (!subscriber) return null;
+  const plan = subscriber.plan || 'basic';
+  let addons = subscriber.addons;
+  if (typeof addons === 'string') {
+    try {
+      addons = JSON.parse(addons);
+    } catch (e) {
+      addons = {};
+    }
+  }
+  if (!addons || typeof addons !== 'object') addons = {};
+  return getEffectiveLimits(plan, addons);
 }

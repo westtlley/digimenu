@@ -730,7 +730,8 @@ export async function listSubscribers(options = {}) {
       `
       SELECT id, email, name, plan, status, slug, created_at, updated_at,
              password_token, token_expires_at, has_password, linked_user_email,
-             phone, cnpj_cpf, notes, origem, tags, permissions, expires_at, whatsapp_auto_enabled
+             phone, cnpj_cpf, notes, origem, tags, permissions, expires_at, whatsapp_auto_enabled,
+             addons
       FROM subscribers 
       ORDER BY ${orderCol} ${orderDir}
       LIMIT $1 OFFSET $2
@@ -755,7 +756,8 @@ export async function listSubscribers(options = {}) {
   const result = await query(`
     SELECT id, email, name, plan, status, slug, created_at, updated_at,
            password_token, token_expires_at, has_password, linked_user_email,
-           phone, cnpj_cpf, notes, origem, tags, permissions, expires_at, whatsapp_auto_enabled
+           phone, cnpj_cpf, notes, origem, tags, permissions, expires_at, whatsapp_auto_enabled,
+           addons
     FROM subscribers 
     ORDER BY ${orderCol} ${orderDir}
     LIMIT 1000
@@ -1074,6 +1076,13 @@ export async function updateSubscriber(emailOrId, subscriberData) {
   if (subscriberData.has_password !== undefined) {
     updates.push(`has_password = $${paramIndex++}`);
     values.push(!!subscriberData.has_password);
+  }
+  if (subscriberData.addons !== undefined) {
+    const addonsVal = subscriberData.addons && typeof subscriberData.addons === 'object'
+      ? JSON.stringify(subscriberData.addons)
+      : '{}';
+    updates.push(`addons = $${paramIndex++}`);
+    values.push(addonsVal);
   }
 
   if (updates.length === 0) {

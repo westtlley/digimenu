@@ -8,6 +8,8 @@ import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { usePermission } from '../components/permissions/usePermission';
 import { PLAN_PRESETS } from '../components/permissions/PlanPresets';
+import { useEntitlements } from '../hooks/useEntitlements';
+import { LimitBanner80 } from '../components/plans';
 import { formatBrazilianDate } from '../components/utils/dateUtils';
 import { useSlugContext } from '@/hooks/useSlugContext';
 import { useQuery } from '@tanstack/react-query';
@@ -68,6 +70,7 @@ export default function PainelAssinante() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const { loading, permissions, isMaster, hasModuleAccess, user, subscriberData, refresh: refreshPermissions } = usePermission();
+  const { percentUsed } = useEntitlements();
 
   // Recarregar contexto ao abrir o painel do assinante para aplicar alterações feitas pelo admin
   useEffect(() => {
@@ -136,7 +139,7 @@ export default function PainelAssinante() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
       </div>
     );
@@ -144,7 +147,7 @@ export default function PainelAssinante() {
   
   if (user && mustRedirectToColaborador) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
       </div>
     );
@@ -155,7 +158,7 @@ export default function PainelAssinante() {
   // Se subscriberData for null mas o usuário não é master, pode ser que ainda não carregou
   if (!isMaster && subscriberData && subscriberData.status !== 'active') {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md text-center">
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <Lock className="w-8 h-8 text-red-600" />
@@ -256,7 +259,7 @@ export default function PainelAssinante() {
   };
 
   return (
-    <div className="min-h-screen min-h-screen-mobile bg-gray-100 dark:bg-gray-900 flex flex-col">
+    <div className="min-h-screen min-h-screen-mobile bg-background flex flex-col">
       {/* Header Profissional com Logo */}
       <header className="bg-gradient-to-r from-orange-600 via-orange-500 to-orange-600 text-white flex-shrink-0 sticky top-0 z-50 shadow-lg safe-top">
         <div className="px-2 sm:px-4 py-2 sm:py-3 flex items-center justify-between gap-1 sm:gap-2 max-w-full overflow-hidden">
@@ -385,11 +388,11 @@ export default function PainelAssinante() {
         </div>
 
         {/* Content */}
-        <main className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900">
+        <main className="flex-1 overflow-y-auto bg-background">
           <div className="p-4 lg:p-6 lg:max-w-6xl xl:max-w-7xl lg:mx-auto">
             {/* Card Plano ativo + Período (só para assinante, não master) */}
             {!isMaster && subscriberData && (
-              <div className="mb-4 p-3 sm:p-4 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm flex flex-wrap items-center gap-3 sm:gap-4">
+              <div className="mb-4 p-3 sm:p-4 rounded-xl bg-card border border-border shadow-sm flex flex-wrap items-center gap-3 sm:gap-4">
                 <div className="flex items-center gap-2">
                   <div className="p-1.5 rounded-lg bg-orange-100 dark:bg-orange-900/40">
                     <Crown className="w-4 h-4 sm:w-5 sm:h-5 text-orange-600 dark:text-orange-400" />
@@ -409,6 +412,15 @@ export default function PainelAssinante() {
                 <p className="text-xs text-gray-500 dark:text-gray-400 ml-auto">
                   As ferramentas ao lado são as incluídas no seu plano pelo administrador.
                 </p>
+              </div>
+            )}
+            {/* Aviso 80% limite de pedidos (não bloqueia) */}
+            {!isMaster && percentUsed?.orders >= 80 && percentUsed?.orders < 100 && (
+              <div className="mb-4">
+                <LimitBanner80
+                  percentUsed={percentUsed.orders}
+                  onViewPlans={() => setActiveTab('store')}
+                />
               </div>
             )}
             {renderContent()}

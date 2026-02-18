@@ -1,61 +1,50 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { apiClient as base44 } from '@/api/apiClient';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useDebounce } from '@/hooks/useDebounce';
-import { 
-  Users, 
-  Plus, 
-  Trash2, 
-  Mail, 
-  Check, 
-  X, 
-  Loader2, 
+import {
+  Plus,
+  Trash2,
+  Check,
+  X,
+  Loader2,
+  Package,
+  Edit,
+  Link2,
+  Phone,
+  Building2,
+  Tag,
   ArrowLeft,
-  Crown,
-  Calendar,
+  Users,
   Search,
   MoreVertical,
-  Package,
-  Settings,
-  Edit,
   Lock,
   Copy,
   RefreshCw,
   CheckSquare,
   Square,
-  Link2,
   BarChart3,
-  Phone,
-  Building2,
-  Tag,
+  ExternalLink,
+  Calendar,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
 } from 'lucide-react';
-import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogFooter 
-} from "@/components/ui/dialog";
+  DialogFooter,
+} from '@/components/ui/dialog';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from '@/components/ui/select';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -65,39 +54,41 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Link } from 'react-router-dom';
+} from '@/components/ui/alert-dialog';
 import { createPageUrl } from '@/utils';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { HelpCircle, ExternalLink } from 'lucide-react';
-import UserAuthButton from '../components/atoms/UserAuthButton';
+} from '@/components/ui/tooltip';
+import { HelpCircle } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
+import { formatBrazilianDate } from '../components/utils/dateUtils';
 import PermissionsEditor from '../components/permissions/PermissionsEditor';
 import SubscriberDataViewer from '../components/admin/SubscriberDataViewer';
 import ExpirationProgressBar from '../components/admin/subscribers/ExpirationProgressBar';
-import ExportCSV from '../components/admin/subscribers/ExportCSV';
-import ImportCSV from '../components/admin/subscribers/ImportCSV';
-import AdvancedFilters from '../components/admin/subscribers/AdvancedFilters';
-import BulkActions from '../components/admin/subscribers/BulkActions';
 import SetupLinkModal from '../components/admin/subscribers/SetupLinkModal';
-import SubscriberStats from '../components/admin/subscribers/SubscriberStats';
 import PlanTemplates from '../components/admin/subscribers/PlanTemplates';
-import PlanCard from '../components/admin/subscribers/PlanCard';
-import PlanComparison from '../components/admin/subscribers/PlanComparison';
-import { comparePermissions, getPlanPermissions } from '../components/permissions/PlanPresets';
-import { formatBrazilianDate } from '../components/utils/dateUtils';
+import { getPlanPermissions } from '../components/permissions/PlanPresets';
+import { getPlanLimits, ADDONS_ORDERS_OPTIONS, UNLIMITED } from '@/constants/planLimits';
 import toast from 'react-hot-toast';
-import StatCard from '../components/ui/StatCard';
-import { Skeleton, SkeletonCard, SkeletonStats } from '../components/ui/skeleton';
-import EmptyState from '../components/ui/EmptyState';
-import { motion } from 'framer-motion';
-import { cn } from '@/lib/utils';
-import ThemeToggle from '../components/ui/ThemeToggle';
 import { logger } from '@/utils/logger';
+import { useSubscribersList } from '@/hooks/useSubscribersList';
+import { useSubscribersFilters } from '@/hooks/useSubscribersFilters';
+import { useBulkSelection } from '@/hooks/useBulkSelection';
+import SubscribersHeader from '../components/admin/subscribers/SubscribersHeader';
+import SubscribersStats from '../components/admin/subscribers/SubscribersStats';
+import SubscribersToolbar from '../components/admin/subscribers/SubscribersToolbar';
+import SubscribersList from '../components/admin/subscribers/SubscribersList';
 
 export default function Assinantes() {
   const [user, setUser] = useState(null);
@@ -105,7 +96,6 @@ export default function Assinantes() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingSubscriber, setEditingSubscriber] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
   const [newSubscriber, setNewSubscriber] = useState({
     email: '',
     linked_user_email: '',
@@ -122,47 +112,19 @@ export default function Assinantes() {
     notes: ''
   });
   const [viewingSubscriber, setViewingSubscriber] = useState(null);
-  const [selectedSubscriberForData, setSelectedSubscriberForData] = useState(null);
-  const [passwordTokens, setPasswordTokens] = useState({}); // Cache de tokens por assinante
-  const [selectedSubscriberIds, setSelectedSubscriberIds] = useState(new Set()); // IDs selecionados para bulk actions
+  const [passwordTokens, setPasswordTokens] = useState({});
   const [setupLinkModal, setSetupLinkModal] = useState({ open: false, url: null, name: null });
   const [subscriberToDelete, setSubscriberToDelete] = useState(null);
-  const [showPlanCards, setShowPlanCards] = useState(false); // Toggle para mostrar cards visuais
-  const [loadingStuck, setLoadingStuck] = useState(false); // Fallback: loading passou de 18s
-  const [serverWarming, setServerWarming] = useState(true); // Servidor está aquecendo
   const [page, setPage] = useState(1);
-  const [limit] = useState(50);
+  const limit = 50;
 
   const queryClient = useQueryClient();
-
-  // Warmup do servidor antes de buscar assinantes
-  useEffect(() => {
-    const warmupServer = async () => {
-      try {
-        logger.log('🔥 Aquecendo servidor...');
-        // Usar baseURL do apiClient para compatibilidade multi-ambiente
-        const baseURL = import.meta.env.VITE_API_BASE_URL || 'https://digimenu-backend-3m6t.onrender.com/api';
-        const warmupURL = baseURL.replace('/api', ''); // Rota raiz
-        await fetch(warmupURL, {
-          method: 'GET',
-          signal: AbortSignal.timeout(60000) // 60s para warmup
-        });
-        logger.log('✅ Servidor aquecido!');
-        setServerWarming(false);
-      } catch (e) {
-        logger.warn('⚠️ Warmup falhou, mas continuando...', e.message);
-        setServerWarming(false);
-      }
-    };
-    warmupServer();
-  }, []);
 
   useEffect(() => {
     const loadUser = async () => {
       try {
         const userData = await base44.auth.me();
         setUser(userData);
-        // Apenas usuários master podem acessar a página de assinantes
         if (!userData.is_master) {
           window.location.href = createPageUrl('Admin');
         }
@@ -175,166 +137,42 @@ export default function Assinantes() {
     loadUser();
   }, []);
 
-  const { data: subscribersResult, isLoading: subscribersLoading, isError: subscribersError, error: subscribersErrorDetails, refetch: refetchSubscribers } = useQuery({
-    queryKey: ['subscribers', page, limit],
-    queryFn: async ({ signal: querySignal }) => {
-      logger.log('🔄 Buscando assinantes...');
-      
-      const fetchWithTimeout = async (timeoutMs = 120000, attemptNumber = 1) => {
-        const controller = new AbortController();
-        let timeoutId;
-        
-        // Conectar o signal do React Query ao nosso controller
-        if (querySignal) {
-          querySignal.addEventListener('abort', () => {
-            if (timeoutId) clearTimeout(timeoutId);
-            controller.abort();
-          }, { once: true });
-        }
+  const {
+    subscribers,
+    pagination,
+    isLoading: subscribersLoading,
+    isError: subscribersError,
+    error: subscribersErrorDetails,
+    refetch: refetchSubscribers,
+    serverWarming,
+    loadingStuck,
+  } = useSubscribersList({ page, limit, enabled: !!user?.is_master });
 
-        timeoutId = setTimeout(() => {
-          logger.warn(`⏱️ Timeout de ${timeoutMs/1000}s atingido (tentativa ${attemptNumber})`);
-          controller.abort();
-        }, timeoutMs);
+  const {
+    filteredSubscribers,
+    stats,
+    searchTerm,
+    setSearchTerm,
+    advancedFiltered,
+    setAdvancedFiltered,
+    setQuickFilter,
+  } = useSubscribersFilters(subscribers);
 
-        try {
-          logger.log(`📡 Tentativa ${attemptNumber} - Iniciando requisição (timeout: ${timeoutMs/1000}s)...`);
-          const response = await base44.get('/establishments/subscribers', { page, limit }, { signal: controller.signal });
-          clearTimeout(timeoutId);
-          logger.log(`✅ Resposta recebida com sucesso na tentativa ${attemptNumber}!`);
-          return response;
-        } catch (error) {
-          clearTimeout(timeoutId);
-          logger.error(`❌ Erro na tentativa ${attemptNumber}:`, error.name, error.message);
-          throw error;
-        }
-      };
+  const selection = useBulkSelection(filteredSubscribers, (s) => s.id);
 
-      try {
-        // Tentativa 1: Timeout de 120s para cold start do Render
-        try {
-          const response = await fetchWithTimeout(120000, 1);
-          
-          if (response == null || (typeof response === 'object' && response.data === undefined && !Array.isArray(response) && !response.subscribers)) {
-            throw new Error('Resposta inválida do servidor (sem data). Tentando novamente...');
-          }
-
-          let subscribersList = [];
-          let pagination = null;
-          if (response?.data?.subscribers) {
-            subscribersList = response.data.subscribers;
-            pagination = response.data.pagination ?? null;
-          } else if (response?.data && Array.isArray(response.data)) {
-            subscribersList = response.data;
-          } else if (Array.isArray(response)) {
-            subscribersList = response;
-          } else if (response?.data?.error) {
-            throw new Error(response.data.error);
-          } else if (response?.subscribers) {
-            subscribersList = response.subscribers;
-            pagination = response.pagination ?? null;
-          } else {
-            const keys = response ? Object.keys(response) : [];
-            logger.warn('⚠️ Formato de resposta inesperado:', { keys, hasData: !!response?.data });
-            if (response?.data && typeof response.data === 'object' && !Array.isArray(response.data) && !response.data.subscribers) {
-              throw new Error('Resposta do servidor sem lista de assinantes. Tentando novamente...');
-            }
-            subscribersList = [];
-          }
-          
-          logger.log('📋 Assinantes retornados:', subscribersList.length, pagination ? `(página ${pagination.page}/${pagination.totalPages})` : '');
-          
-          const tokensMap = {};
-          subscribersList.forEach(sub => {
-            if (sub.setup_url || sub.password_token) {
-              tokensMap[sub.id || sub.email] = {
-                token: sub.password_token,
-                setup_url: sub.setup_url,
-                expires_at: sub.token_expires_at
-              };
-            }
-          });
-          setPasswordTokens(tokensMap);
-          
-          return { subscribers: subscribersList, pagination };
-        } catch (firstError) {
-          // Se primeira tentativa falhar, aguardar 3s e tentar novamente (servidor pode estar quase pronto)
-          logger.warn('⚠️ Primeira tentativa falhou, aguardando 3s para retry...', firstError.message);
-          await new Promise(resolve => setTimeout(resolve, 3000));
-          
-          logger.log('🔄 Tentativa 2...');
-          const response = await fetchWithTimeout(90000, 2);
-          
-          if (response == null || (typeof response === 'object' && response.data === undefined && !Array.isArray(response) && !response.subscribers)) {
-            throw new Error('Resposta inválida do servidor após retry. Tente recarregar a página.');
-          }
-
-          let subscribersList = [];
-          let pagination = null;
-          if (response?.data?.subscribers) {
-            subscribersList = response.data.subscribers;
-            pagination = response.data.pagination ?? null;
-          } else if (response?.data && Array.isArray(response.data)) {
-            subscribersList = response.data;
-          } else if (Array.isArray(response)) {
-            subscribersList = response;
-          } else if (response?.subscribers) {
-            subscribersList = response.subscribers;
-            pagination = response.pagination ?? null;
-          } else {
-            subscribersList = [];
-          }
-          
-          logger.log('✅ Retry bem-sucedido! Assinantes:', subscribersList.length);
-          
-          const tokensMap = {};
-          subscribersList.forEach(sub => {
-            if (sub.setup_url || sub.password_token) {
-              tokensMap[sub.id || sub.email] = {
-                token: sub.password_token,
-                setup_url: sub.setup_url,
-                expires_at: sub.token_expires_at
-              };
-            }
-          });
-          setPasswordTokens(tokensMap);
-          
-          return { subscribers: subscribersList, pagination };
-        }
-      } catch (error) {
-        logger.error('❌ Erro final ao buscar assinantes:', error);
-        if (error?.name === 'AbortError') {
-          throw new Error('Servidor não respondeu após 2 minutos. O servidor pode estar inativo (cold start) ou com problema. Aguarde alguns instantes e clique em "Tentar novamente".');
-        }
-        throw error;
-      }
-    },
-    enabled: !!user?.is_master && !serverWarming, // Só buscar após warmup
-    refetchOnWindowFocus: false,
-    refetchOnMount: true,
-    retry: 0, // Retry manual implementado na queryFn
-    refetchInterval: false,
-    staleTime: 30000 // Considera dados válidos por 30s
-  });
-
-  const subscribers = useMemo(() => {
-    const r = subscribersResult;
-    if (!r) return [];
-    if (Array.isArray(r)) return r;
-    return r.subscribers ?? [];
-  }, [subscribersResult]);
-
-  const pagination = subscribersResult?.pagination ?? null;
-
-  // Fallback: se loading passar de 80s, mostrar "Tentar novamente" (cold start pode demorar até 2min)
   useEffect(() => {
-    if (!subscribersLoading) {
-      setLoadingStuck(false);
-      return;
-    }
-    const t = setTimeout(() => setLoadingStuck(true), 80000);
-    return () => clearTimeout(t);
-  }, [subscribersLoading]);
+    const tokensMap = {};
+    subscribers.forEach((sub) => {
+      if (sub.setup_url || sub.password_token) {
+        tokensMap[sub.id || sub.email] = {
+          token: sub.password_token,
+          setup_url: sub.setup_url,
+          expires_at: sub.token_expires_at
+        };
+      }
+    });
+    setPasswordTokens(tokensMap);
+  }, [subscribers]);
 
   const { data: plans = [] } = useQuery({
     queryKey: ['plans'],
@@ -390,73 +228,31 @@ export default function Assinantes() {
       return { previousData: prev };
     },
     mutationFn: async (data) => {
-      logger.log('📤 [FRONTEND] Enviando dados para criar assinante:', JSON.stringify(data, null, 2));
-      
       try {
         const response = await base44.post('/establishments/subscribers', data);
-        
-        logger.log('📥 [FRONTEND] Resposta RAW recebida:', response);
-        logger.log('📥 [FRONTEND] Tipo da resposta:', typeof response);
-        logger.log('📥 [FRONTEND] response é objeto?', typeof response === 'object');
-        logger.log('📥 [FRONTEND] response.data existe?', !!response?.data);
-        logger.log('📥 [FRONTEND] response.data:', response?.data);
-        logger.log('📥 [FRONTEND] response.data?.subscriber existe?', !!response?.data?.subscriber);
-        logger.log('📥 [FRONTEND] response.data?.subscriber:', response?.data?.subscriber);
-        logger.log('📥 [FRONTEND] Resposta completa (stringified):', JSON.stringify(response, null, 2));
-        
-        // Verificar se há erro
-        if (response?.data?.error) {
-          logger.error('❌ [FRONTEND] Erro na resposta:', response.data.error);
-          throw new Error(response.data.error);
+        if (response?.data?.error) throw new Error(response.data.error);
+        if (!response?.data?.subscriber) {
+          throw new Error('Resposta inválida do servidor. Subscriber não encontrado.');
         }
-        
-        // Verificar se subscriber existe - múltiplas verificações
-        if (!response) {
-          logger.error('❌ [FRONTEND] Resposta é null ou undefined');
-          throw new Error('Resposta inválida do servidor: resposta vazia');
-        }
-        
-        if (!response.data) {
-          logger.error('❌ [FRONTEND] response.data não existe. Resposta completa:', response);
-          throw new Error('Resposta inválida do servidor: campo data não encontrado');
-        }
-        
-        if (!response.data.subscriber) {
-          logger.error('❌ [FRONTEND] response.data.subscriber não existe');
-          logger.error('❌ [FRONTEND] response.data completo:', JSON.stringify(response.data, null, 2));
-          logger.error('❌ [FRONTEND] Chaves de response.data:', Object.keys(response.data || {}));
-          throw new Error('Resposta inválida do servidor. Subscriber não encontrado na resposta.');
-        }
-        
-        logger.log('✅ [FRONTEND] Subscriber encontrado:', response.data.subscriber);
-        // Retornar tanto o subscriber quanto os dados adicionais (token, setup_url)
         return {
           ...response.data.subscriber,
           setup_url: response.data.setup_url,
           password_token: response.data.password_token
         };
       } catch (error) {
-        logger.error('❌ [FRONTEND] Erro na mutationFn:', error);
-        logger.error('❌ [FRONTEND] Stack trace:', error.stack);
+        logger.debug('createSubscriber error', error?.message);
         throw error;
       }
     },
     onSuccess: async (data) => {
-      logger.log('✅ [FRONTEND] Assinante criado com sucesso - dados completos:', JSON.stringify(data, null, 2));
-      logger.log('✅ [FRONTEND] data.setup_url:', data.setup_url);
-      logger.log('✅ [FRONTEND] data.password_token:', data.password_token);
-      
-      // Fechar modal primeiro
       setShowAddModal(false);
-      
-      // Limpar formulário
-      setNewSubscriber({ 
-        email: '', 
+      setNewSubscriber({
+        email: '',
         linked_user_email: '',
-        name: '', 
+        name: '',
         slug: '',
-        plan: 'basic', 
-        status: 'active', 
+        plan: 'basic',
+        status: 'active',
         expires_at: '',
         permissions: getPlanPermissions('basic'),
         phone: '',
@@ -465,20 +261,21 @@ export default function Assinantes() {
         tags: [],
         notes: ''
       });
-      
       const baseUrl = window.location.origin;
       let setupUrl = data.setup_url;
       if (!setupUrl && data.password_token) {
         setupUrl = `${baseUrl}/definir-senha?token=${data.password_token}`;
       }
-      
-      try {
-        if (setupUrl) await navigator.clipboard.writeText(setupUrl);
-      } catch (err) {
-        logger.error('Erro ao copiar link:', err);
+      let copied = false;
+      if (setupUrl) {
+        try {
+          await navigator.clipboard.writeText(setupUrl);
+          copied = true;
+        } catch (err) {
+          logger.debug('Clipboard copy failed', err?.message);
+        }
       }
-      
-      toast.success(setupUrl ? 'Assinante criado! Link copiado.' : 'Assinante criado com sucesso!');
+      toast.success(copied ? 'Assinante criado! Link copiado.' : 'Assinante criado com sucesso!');
       setSetupLinkModal({ open: true, url: setupUrl, name: data.name || data.email });
     },
     onError: (error, newSubscriberData, context) => {
@@ -557,56 +354,38 @@ export default function Assinantes() {
     }
   });
 
-  // Mutation para gerar/regenerar token de senha
   const generateTokenMutation = useMutation({
     mutationFn: async ({ subscriber_id, email }) => {
       const response = await base44.functions.invoke('generatePasswordTokenForSubscriber', {
         subscriber_id,
         email
       });
-      if (response.data.error) {
-        throw new Error(response.data.error);
-      }
-      logger.log('✅ [FRONTEND] Token gerado com sucesso:', response.data);
+      if (response.data.error) throw new Error(response.data.error);
       return response.data;
     },
     onSuccess: async (data, variables) => {
-      logger.log('✅ [FRONTEND] onSuccess - Token gerado:', data);
-      logger.log('✅ [FRONTEND] setup_url recebido:', data.setup_url);
-      logger.log('✅ [FRONTEND] token recebido:', data.token);
-      
-      // Atualizar cache local
       const key = variables.subscriber_id || variables.email;
       const tokenInfo = {
         token: data.token || data.data?.token,
         setup_url: data.setup_url || data.data?.setup_url,
         expires_at: data.expires_at || data.data?.expires_at
       };
-      
-      logger.log('💾 [FRONTEND] Salvando no cache local:', { key, tokenInfo });
-      setPasswordTokens(prev => ({
-        ...prev,
-        [key]: tokenInfo
-      }));
-      
-      // Se tiver setup_url, copiar automaticamente e mostrar
+      setPasswordTokens((prev) => ({ ...prev, [key]: tokenInfo }));
       const setupUrl = data.setup_url || data.data?.setup_url;
       if (setupUrl) {
         try {
           await navigator.clipboard.writeText(setupUrl);
-          toast.success('Token gerado! Link copiado para a área de transferência.', {
-            duration: 5000
-          });
+          toast.success('Link copiado para a área de transferência.');
         } catch (err) {
-          toast.success('Token de senha gerado com sucesso!');
+          toast.success('Token de senha gerado. Use o botão Copiar no modal se precisar do link.');
         }
       } else {
-        toast.success('Token de senha gerado com sucesso!');
+        toast.success('Token de senha gerado com sucesso.');
       }
     },
     onError: (error) => {
-      logger.error('❌ Erro ao gerar token:', error);
-      toast.error(error.message || 'Erro ao gerar token de senha');
+      logger.debug('generateToken error', error?.message);
+      toast.error(error?.message || 'Erro ao gerar token de senha');
     }
   });
 
@@ -640,7 +419,7 @@ export default function Assinantes() {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(trimmedEmail)) return { valid: false, error: 'Formato de email inválido' };
     const emailExists = subscribers.some(
-      s => s.email?.toLowerCase() === trimmedEmail && s.id !== newSubscriber.id
+      (s) => s.email?.toLowerCase() === trimmedEmail && s.id !== newSubscriber.id
     );
     if (emailExists) return { valid: false, error: 'Este email já está cadastrado' };
     return { valid: true, email: trimmedEmail };
@@ -721,11 +500,15 @@ export default function Assinantes() {
   
   const openEditModal = async (subscriber) => {
     logger.log('📂 Abrindo modal para:', subscriber);
+    const addons = subscriber.addons && typeof subscriber.addons === 'object'
+      ? subscriber.addons
+      : { orders: 0 };
     const initialState = {
       ...subscriber,
       permissions: subscriber.permissions || {},
       plan: subscriber.plan || 'basic', // ✅ Garantir que plan sempre tenha valor
-      status: subscriber.status || 'active' // ✅ Garantir que status sempre tenha valor
+      status: subscriber.status || 'active', // ✅ Garantir que status sempre tenha valor
+      addons: { ...addons, orders: Number(addons.orders) || 0 }
     };
     logger.log('📂 Estado inicial editingSubscriber:', initialState);
     setEditingSubscriber(initialState);
@@ -771,7 +554,10 @@ export default function Assinantes() {
       phone: editingSubscriber.phone || '',
       cnpj_cpf: editingSubscriber.cnpj_cpf || '',
       origem: editingSubscriber.origem || '',
-      tags: Array.isArray(editingSubscriber.tags) ? editingSubscriber.tags : []
+      tags: Array.isArray(editingSubscriber.tags) ? editingSubscriber.tags : [],
+      addons: editingSubscriber.addons && typeof editingSubscriber.addons === 'object'
+        ? { orders: Number(editingSubscriber.addons.orders) || 0 }
+        : { orders: 0 }
     };
 
     logger.log('💾 SALVANDO - editingSubscriber.id:', editingSubscriber.id);
@@ -822,40 +608,6 @@ export default function Assinantes() {
 
 
 
-  // Debounce da busca para melhor performance
-  const debouncedSearchTerm = useDebounce(searchTerm, 300);
-  
-  // Busca básica (por termo)
-  const searchFilteredSubscribers = useMemo(() => {
-    if (!debouncedSearchTerm) return subscribers;
-    
-    const term = debouncedSearchTerm.toLowerCase();
-    return subscribers.filter(s => 
-      s.email?.toLowerCase().includes(term) ||
-      s.name?.toLowerCase().includes(term)
-    );
-  }, [subscribers, debouncedSearchTerm]);
-
-  // Estado de filtros avançados
-  const [advancedFiltered, setAdvancedFiltered] = useState(null);
-
-  // Combinar busca e filtros avançados
-  const filteredSubscribers = useMemo(() => {
-    const baseList = advancedFiltered !== null ? advancedFiltered : subscribers;
-    
-    if (!debouncedSearchTerm) return baseList;
-    
-    const term = debouncedSearchTerm.toLowerCase();
-    return baseList.filter(s => 
-      s.email?.toLowerCase().includes(term) ||
-      s.name?.toLowerCase().includes(term)
-    );
-  }, [subscribers, debouncedSearchTerm, advancedFiltered]);
-
-  const handleAdvancedFilterChange = (filtered) => {
-    setAdvancedFiltered(filtered);
-  };
-
   const getPlanLabel = (slug) => {
     if (slug === 'custom') return 'Personalizado';
     const plan = plans.find(p => p.slug === slug);
@@ -863,18 +615,18 @@ export default function Assinantes() {
   };
 
   const getPlanColor = (slug) => {
-    if (slug === 'custom') return 'bg-orange-100 text-orange-700';
-    if (slug === 'free') return 'bg-emerald-100 text-emerald-700';
-    if (slug === 'basic') return 'bg-blue-100 text-blue-700';
-    if (slug === 'pro') return 'bg-orange-100 text-orange-700';
-    if (slug === 'ultra') return 'bg-purple-100 text-purple-700';
-    return 'bg-gray-100 text-gray-700';
+    if (slug === 'custom') return 'bg-primary/20 text-primary';
+    if (slug === 'free') return 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300';
+    if (slug === 'basic') return 'bg-blue-500/15 text-blue-700 dark:text-blue-300';
+    if (slug === 'pro') return 'bg-primary/20 text-primary';
+    if (slug === 'ultra') return 'bg-purple-500/15 text-purple-700 dark:text-purple-300';
+    return 'bg-muted text-muted-foreground';
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -886,7 +638,7 @@ export default function Assinantes() {
   // Se está visualizando dados completos de um assinante
   if (viewingSubscriber) {
     return (
-      <div className="min-h-screen bg-gray-50 p-6">
+      <div className="min-h-screen bg-background p-6">
         <div className="max-w-7xl mx-auto">
           <SubscriberDataViewer 
             subscriber={viewingSubscriber}
@@ -897,562 +649,128 @@ export default function Assinantes() {
     );
   }
 
+  const errorMessage =
+    subscribersErrorDetails?.message != null
+      ? (() => {
+          const msg = String(subscribersErrorDetails.message);
+          const is403 =
+            msg.includes('Acesso negado') ||
+            msg.includes('MASTER_ONLY') ||
+            msg.includes('administradores master');
+          return is403
+            ? 'Acesso negado. Verifique se sua conta possui permissão de Admin Master.'
+            : msg || 'Verifique sua conexão ou tente novamente em instantes.';
+        })()
+      : 'Verifique sua conexão ou tente novamente em instantes.';
+
   return (
-    <div className="min-h-screen min-h-screen-mobile bg-gray-50">
-      {/* Header */}
-      <header className="bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 text-white shadow-xl">
-        <div className="max-w-6xl mx-auto px-4 py-5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Link to={createPageUrl('Admin')}>
-                <Button variant="ghost" size="icon" className="text-white hover:bg-white/10" aria-label="Voltar para Admin">
-                  <ArrowLeft className="w-5 h-5" />
-                </Button>
-              </Link>
-              <div className="flex items-center gap-3">
-                <motion.div
-                  whileHover={{ rotate: 360 }}
-                  transition={{ duration: 0.5 }}
-                  className="w-12 h-12 bg-gradient-to-br from-orange-400 to-orange-600 rounded-xl flex items-center justify-center shadow-lg"
-                >
-                  <Users className="w-6 h-6 text-white" />
-                </motion.div>
-                <div>
-                  <h1 className="font-bold text-xl tracking-tight">Gestão de Assinantes</h1>
-                  <p className="text-gray-300 text-sm">Gerencie quem tem acesso ao sistema</p>
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Link to={createPageUrl('AdminMasterDashboard')}>
-                <Button variant="ghost" className="text-white hover:bg-white/10 font-medium">
-                  <BarChart3 className="w-4 h-4 mr-2" />
-                  <span className="hidden sm:inline">Dashboard</span>
-                </Button>
-              </Link>
-              <ImportCSV 
-                onImport={async (subscribers) => {
-                  // Importar múltiplos assinantes
-                  let successCount = 0;
-                  let errorCount = 0;
-                  
-                  for (const sub of subscribers) {
-                    try {
-                      await createMutation.mutateAsync(sub);
-                      successCount++;
-                    } catch (error) {
-                      logger.error('Erro ao importar assinante:', sub.email, error);
-                      errorCount++;
-                    }
-                  }
-                  
-                  if (errorCount > 0) {
-                    toast.error(`${errorCount} assinante(s) não puderam ser importado(s)`);
-                  }
-                  if (successCount > 0) {
-                    toast.success(`${successCount} assinante(s) importado(s) com sucesso!`);
-                  }
-                }}
-              />
-              <ExportCSV subscribers={subscribers} />
-              <motion.div
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <Button 
-                  onClick={() => setShowAddModal(true)}
-                  className="relative overflow-hidden bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Novo Assinante
-                </Button>
-              </motion.div>
-              <ThemeToggle className="text-white hover:bg-gray-700" />
-              <UserAuthButton className="text-white" />
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Stats */}
-      <div className="max-w-6xl mx-auto px-4 -mt-4">
-        {subscribersLoading && !loadingStuck ? (
-          <SkeletonStats count={4} />
-        ) : subscribersLoading && loadingStuck ? (
-          <div className="flex flex-col items-center justify-center py-12 px-4 text-center bg-amber-50 rounded-xl border-2 border-amber-200">
-            <p className="text-amber-800 font-medium mb-2">Carregando demorou mais do que o esperado</p>
-            <p className="text-amber-700 text-sm mb-4">O servidor pode estar em cold start (até 2 min). Aguarde ou tente novamente.</p>
-            <Button onClick={() => { setLoadingStuck(false); refetchSubscribers(); }} variant="outline" className="gap-2 border-amber-400">
-              <RefreshCw className="w-4 h-4" />
-              Tentar novamente
-            </Button>
-          </div>
-        ) : (
-          <SubscriberStats subscribers={subscribers} />
-        )}
+    <div className="min-h-screen min-h-screen-mobile bg-background">
+      <SubscribersHeader
+        onAddClick={() => setShowAddModal(true)}
+        onImport={async (toImport) => {
+          let successCount = 0;
+          let errorCount = 0;
+          for (const sub of toImport) {
+            try {
+              await createMutation.mutateAsync(sub);
+              successCount++;
+            } catch (err) {
+              logger.debug('Import error', sub?.email, err?.message);
+              errorCount++;
+            }
+          }
+          if (errorCount > 0) toast.error(`${errorCount} assinante(s) não puderam ser importado(s)`);
+          if (successCount > 0) toast.success(`${successCount} assinante(s) importado(s) com sucesso!`);
+        }}
+        subscribers={subscribers}
+      />
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3">
+        {!subscribersLoading && <SubscribersStats subscribers={subscribers} />}
       </div>
-
-      {/* Content */}
-      <div className="max-w-6xl mx-auto px-4 py-6">
-        {/* Search e Filtros */}
-        <div className="mb-6 space-y-4">
-          {/* Barra de Busca */}
-          <div className="flex items-center gap-3 flex-wrap">
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="relative flex-1 min-w-[250px] max-w-md"
-            >
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <Input
-                placeholder="Buscar por email ou nome..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                aria-label="Buscar assinantes por email ou nome"
-                className="pl-11 h-11 border-gray-300 focus:border-orange-500 focus:ring-orange-500 transition-all duration-200"
-              />
-            </motion.div>
-            <AdvancedFilters 
-              subscribers={subscribers} 
-              onFilterChange={handleAdvancedFilterChange}
-            />
-          </div>
-
-          {/* Filtros Rápidos Visuais */}
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="flex items-center gap-2 flex-wrap bg-white rounded-xl p-3 border-2 border-gray-200 shadow-sm"
-          >
-            <span className="text-sm font-medium text-gray-700 mr-2">Filtro Rápido:</span>
-            {[
-              { label: 'Todos', count: subscribers.length, filter: null, color: 'gray' },
-              { label: 'Ativos', count: subscribers.filter(s => s.status === 'active').length, filter: 'active', color: 'green' },
-              { label: 'Inativos', count: subscribers.filter(s => s.status === 'inactive').length, filter: 'inactive', color: 'red' },
-              { label: 'Gratuitos', count: subscribers.filter(s => s.plan === 'free' && s.status === 'active').length, filter: 'free', color: 'green' },
-              { label: 'Básico', count: subscribers.filter(s => s.plan === 'basic' && s.status === 'active').length, filter: 'basic', color: 'blue' },
-              { label: 'Pro', count: subscribers.filter(s => s.plan === 'pro' && s.status === 'active').length, filter: 'pro', color: 'orange' },
-              { label: 'Ultra', count: subscribers.filter(s => s.plan === 'ultra' && s.status === 'active').length, filter: 'ultra', color: 'purple' },
-            ].map((quickFilter) => {
-              const isActive = advancedFiltered === null && quickFilter.filter === null;
-              const colorClasses = {
-                gray: 'bg-gray-100 text-gray-700 hover:bg-gray-200 border-gray-300',
-                green: 'bg-green-50 text-green-700 hover:bg-green-100 border-green-200',
-                red: 'bg-red-50 text-red-700 hover:bg-red-100 border-red-200',
-                blue: 'bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200',
-                orange: 'bg-orange-50 text-orange-700 hover:bg-orange-100 border-orange-200',
-                purple: 'bg-purple-50 text-purple-700 hover:bg-purple-100 border-purple-200'
-              };
-              
-              return (
-                <Button
-                  key={quickFilter.label}
-                  variant="outline"
-                  size="sm"
-                  className={cn(
-                    "text-xs font-medium transition-all duration-200",
-                    colorClasses[quickFilter.color],
-                    isActive && "ring-2 ring-offset-2 ring-orange-500"
-                  )}
-                  onClick={() => {
-                    if (quickFilter.filter === null) {
-                      setAdvancedFiltered(null);
-                    } else if (quickFilter.filter === 'active' || quickFilter.filter === 'inactive') {
-                      setAdvancedFiltered(subscribers.filter(s => s.status === quickFilter.filter));
-                    } else {
-                      setAdvancedFiltered(subscribers.filter(s => s.plan === quickFilter.filter && s.status === 'active'));
-                    }
-                  }}
-                >
-                  {quickFilter.label}
-                  <Badge className="ml-1.5 bg-white/50 text-current border-current/20">
-                    {quickFilter.count}
-                  </Badge>
-                </Button>
-              );
-            })}
-          </motion.div>
-        </div>
-
-        {/* List */}
-        <div className="bg-white rounded-2xl shadow-md border border-gray-200 overflow-hidden">
-          {/* Bulk Actions */}
-          {!subscribersLoading && filteredSubscribers.length > 0 && (
-            <BulkActions
-              subscribers={filteredSubscribers}
-              selectedIds={Array.from(selectedSubscriberIds)}
-              onSelectionChange={(ids) => setSelectedSubscriberIds(new Set(ids))}
-              onBulkAction={async (action, selectedSubscribers) => {
-                try {
-                  switch (action) {
-                    case 'activate':
-                      await Promise.all(
-                        selectedSubscribers.map(sub => 
-                          updateMutation.mutateAsync({
-                            id: sub.id,
-                            data: { ...sub, status: 'active' },
-                            originalData: sub
-                          })
-                        )
-                      );
-                      toast.success(`${selectedSubscribers.length} assinante(s) ativado(s)!`);
-                      break;
-                    case 'deactivate':
-                      await Promise.all(
-                        selectedSubscribers.map(sub => 
-                          updateMutation.mutateAsync({
-                            id: sub.id,
-                            data: { ...sub, status: 'inactive' },
-                            originalData: sub
-                          })
-                        )
-                      );
-                      toast.success(`${selectedSubscribers.length} assinante(s) desativado(s)!`);
-                      break;
-                    case 'delete':
-                      await Promise.all(
-                        selectedSubscribers.map(sub => deleteMutation.mutateAsync(sub.id))
-                      );
-                      toast.success(`${selectedSubscribers.length} assinante(s) excluído(s)!`);
-                      break;
-                    case 'export':
-                      const { exportSubscribersToCSV, downloadCSV } = await import('@/utils/csvUtils');
-                      const csvContent = exportSubscribersToCSV(selectedSubscribers);
-                      const dateStr = new Date().toISOString().split('T')[0];
-                      downloadCSV(csvContent, `assinantes_selecionados_${dateStr}.csv`);
-                      toast.success(`${selectedSubscribers.length} assinante(s) exportado(s)!`);
-                      break;
-                  }
-                  setSelectedSubscriberIds(new Set());
-                } catch (error) {
-                  logger.error('Erro na ação em lote:', error);
-                  toast.error('Erro ao executar ação em lote');
-                }
-              }}
-            />
-          )}
-
-          {subscribersError ? (
-            <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
-              <p className="text-red-600 font-medium mb-2">Erro ao carregar assinantes</p>
-              <p className="text-gray-500 text-sm mb-4 max-w-md">
-                {(() => {
-                  const msg = String(subscribersErrorDetails?.message ?? '');
-                  const is403 = msg.includes('Acesso negado') || msg.includes('MASTER_ONLY') || msg.includes('administradores master');
-                  return is403
-                    ? 'Acesso negado. Verifique se sua conta possui permissão de Admin Master.'
-                    : (msg || 'Verifique sua conexão ou tente novamente em instantes.');
-                })()}
-              </p>
-              <Button onClick={() => refetchSubscribers()} variant="outline" className="gap-2">
-                <RefreshCw className="w-4 h-4" />
-                Tentar novamente
-              </Button>
-            </div>
-          ) : serverWarming ? (
-            <div className="flex flex-col items-center justify-center py-16 px-4">
-              <Loader2 className="w-12 h-12 text-blue-500 animate-spin mb-4" />
-              <p className="text-blue-600 font-medium">Iniciando servidor...</p>
-              <p className="text-gray-400 text-sm mt-2">Aguarde, isso pode levar até 60 segundos na primeira vez</p>
-            </div>
-          ) : subscribersLoading && loadingStuck ? (
-            <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
-              <Loader2 className="w-12 h-12 text-orange-500 animate-spin mb-4" />
-              <p className="text-amber-700 font-medium mb-2">Aguardando resposta do servidor...</p>
-              <p className="text-gray-500 text-sm mb-4">O servidor está iniciando (cold start). Isso pode demorar até 2 minutos na primeira vez. Aguarde ou clique abaixo.</p>
-              <Button onClick={() => { setLoadingStuck(false); refetchSubscribers(); }} variant="outline" className="gap-2">
-                <RefreshCw className="w-4 h-4" />
-                Tentar novamente
-              </Button>
-            </div>
-          ) : subscribersLoading ? (
-            <div className="flex flex-col items-center justify-center py-16 px-4">
-              <Loader2 className="w-12 h-12 text-orange-500 animate-spin mb-4" />
-              <p className="text-gray-600">Carregando assinantes...</p>
-              <p className="text-gray-400 text-sm mt-2">Aguarde até 2 minutos (cold start do servidor)</p>
-            </div>
-          ) : filteredSubscribers.length === 0 ? (
-            <EmptyState
-              icon={Users}
-              title="Nenhum assinante encontrado"
-              description={searchTerm 
-                ? `Não encontramos assinantes com "${searchTerm}". Tente buscar com outros termos.`
-                : "Adicione seu primeiro assinante para começar a gerenciar o acesso ao sistema."
-              }
-              action={() => setShowAddModal(true)}
-              actionLabel="Adicionar Assinante"
-            />
-          ) : (
-            <>
-            <div className="divide-y divide-gray-100">
-              {filteredSubscribers.map((subscriber, index) => {
-                const isSelected = selectedSubscriberIds.has(subscriber.id);
-                return (
-                  <motion.div
-                    key={subscriber.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.05, duration: 0.3 }}
-                    className={`p-5 hover:bg-gradient-to-r hover:from-gray-50 hover:to-white transition-all duration-200 ${
-                      isSelected ? 'bg-blue-50 border-l-4 border-blue-500' : ''
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6"
-                          onClick={() => {
-                            const newSet = new Set(selectedSubscriberIds);
-                            if (isSelected) {
-                              newSet.delete(subscriber.id);
-                            } else {
-                              newSet.add(subscriber.id);
-                            }
-                            setSelectedSubscriberIds(newSet);
-                          }}
-                        >
-                          {isSelected ? (
-                            <CheckSquare className="w-5 h-5 text-blue-600" />
-                          ) : (
-                            <Square className="w-5 h-5 text-gray-400" />
-                          )}
-                        </Button>
-                    <div className="flex items-center gap-4">
-                      <motion.div
-                        whileHover={{ scale: 1.1 }}
-                        className={`relative w-12 h-12 rounded-full flex items-center justify-center shadow-md ${
-                          subscriber.status === 'active' 
-                            ? 'bg-gradient-to-br from-green-400 to-green-600' 
-                            : 'bg-gradient-to-br from-gray-300 to-gray-400'
-                        }`}
-                      >
-                        {subscriber.name ? (
-                          <span className="text-white font-semibold text-sm">
-                            {subscriber.name.charAt(0).toUpperCase()}
-                          </span>
-                        ) : (
-                          <Mail className={`w-6 h-6 text-white`} />
-                        )}
-                        {subscriber.status === 'active' && (
-                          <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 border-2 border-white rounded-full"></span>
-                        )}
-                      </motion.div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <p className="font-semibold text-gray-900">{subscriber.name || subscriber.email}</p>
-                          <Badge className={`text-xs font-medium px-2 py-0.5 ${getPlanColor(subscriber.plan)} shadow-sm`}>
-                            {getPlanLabel(subscriber.plan)}
-                          </Badge>
-                        </div>
-                        <p className="text-sm text-gray-500">{subscriber.email}</p>
-                        {subscriber.phone && (
-                          <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
-                            <Phone className="w-3 h-3" /> {subscriber.phone}
-                          </p>
-                        )}
-                        {Array.isArray(subscriber.tags) && subscriber.tags.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {subscriber.tags.slice(0, 3).map(tag => (
-                              <Badge key={tag} variant="outline" className="text-[10px] py-0 px-1.5">{tag}</Badge>
-                            ))}
-                            {subscriber.tags.length > 3 && <span className="text-xs text-gray-400">+{subscriber.tags.length - 3}</span>}
-                          </div>
-                        )}
-                        {subscriber.linked_user_email && (
-                          <p className="text-xs text-blue-600 flex items-center gap-1 mt-1">
-                            🔗 Acesso: {subscriber.linked_user_email}
-                          </p>
-                        )}
-                        {subscriber.expires_at && (
-                          <div className="mt-2">
-                            <ExpirationProgressBar expiresAt={subscriber.expires_at} />
-                            <p className="text-xs text-gray-400 flex items-center gap-1 mt-1">
-                              <Calendar className="w-3 h-3" />
-                              Renovação: {formatBrazilianDate(subscriber.expires_at)}
-                            </p>
-                          </div>
-                        )}
-                        {/* Status da Senha (SEGURANÇA: Link removido) */}
-                        <div className="mt-2 space-y-1">
-                          {(() => {
-                            if (subscriber.has_password) {
-                              return (
-                                <div className="flex items-center gap-2">
-                                  <div className="flex items-center gap-1 bg-green-50 border border-green-200 rounded px-2 py-1">
-                                    <Check className="w-3 h-3 text-green-600" />
-                                    <span className="text-xs text-green-700">Senha já definida</span>
-                                  </div>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-7 px-2 text-xs bg-orange-500 text-white hover:bg-orange-600"
-                                    onClick={() => regenerateToken(subscriber)}
-                                    disabled={generateTokenMutation.isPending}
-                                  >
-                                    <RefreshCw className={`w-3 h-3 mr-1 ${generateTokenMutation.isPending ? 'animate-spin' : ''}`} />
-                                    Resetar Senha
-                                  </Button>
-                                </div>
-                              );
-                            } else {
-                              return (
-                                <div className="flex items-center gap-2">
-                                  <div className="flex items-center gap-1 bg-yellow-50 border border-yellow-200 rounded px-2 py-1">
-                                    <Lock className="w-3 h-3 text-yellow-600" />
-                                    <span className="text-xs text-yellow-700">Senha pendente</span>
-                                  </div>
-                                  <span className="text-xs text-gray-500 italic">(Link enviado por e-mail)</span>
-                                </div>
-                              );
-                            }
-                          })()}
-                        </div>
-                      </div>
-                    </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-2">
-                      <Badge className={cn(
-                        'font-medium px-3 py-1 shadow-sm',
-                        subscriber.status === 'active' 
-                          ? 'bg-gradient-to-r from-green-500 to-green-600 text-white' 
-                          : 'bg-gradient-to-r from-red-500 to-red-600 text-white'
-                      )}>
-                        {subscriber.status === 'active' ? 'Ativo' : 'Inativo'}
-                      </Badge>
-
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Menu de opções">
-                            <MoreVertical className="w-4 h-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          {subscriber.slug && (
-                            <DropdownMenuItem
-                              onClick={() => window.open(`/s/${subscriber.slug}`, '_blank', 'noopener')}
-                            >
-                              <ExternalLink className="w-4 h-4 mr-2" />
-                              Abrir cardápio
-                            </DropdownMenuItem>
-                          )}
-                          <DropdownMenuItem onClick={() => setViewingSubscriber(subscriber)}>
-                            <Package className="w-4 h-4 mr-2" />
-                            Ver Dados Completos
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => openEditModal(subscriber)}>
-                            <Edit className="w-4 h-4 mr-2" />
-                            Editar Assinatura
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleToggleStatus(subscriber)}>
-                            {subscriber.status === 'active' ? (
-                              <>
-                                <X className="w-4 h-4 mr-2" />
-                                Desativar Assinatura
-                              </>
-                            ) : (
-                              <>
-                                <Check className="w-4 h-4 mr-2" />
-                                Ativar Assinatura
-                              </>
-                            )}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            onClick={() => {
-                              setNewSubscriber({
-                                email: '',
-                                linked_user_email: subscriber.linked_user_email || '',
-                                name: subscriber.name ? `${subscriber.name} (cópia)` : '',
-                                slug: '',
-                                plan: subscriber.plan || 'basic',
-                                status: subscriber.status || 'active',
-                                expires_at: subscriber.expires_at || '',
-                                permissions: subscriber.permissions || getPlanPermissions(subscriber.plan || 'basic'),
-                                phone: subscriber.phone || '',
-                                cnpj_cpf: subscriber.cnpj_cpf || '',
-                                origem: subscriber.origem || 'manual',
-                                tags: Array.isArray(subscriber.tags) ? [...subscriber.tags] : [],
-                                notes: subscriber.notes || ''
-                              });
-                              setShowAddModal(true);
-                              toast.success('Dados copiados. Informe um novo email e salve.');
-                            }}
-                          >
-                            <Copy className="w-4 h-4 mr-2" />
-                            Duplicar
-                          </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            onClick={() => setSubscriberToDelete(subscriber)}
-                            className="text-red-600"
-                            aria-label={`Excluir assinante ${subscriber.name || subscriber.email}`}
-                          >
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Excluir
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </div>
-                  </motion.div>
-                );
-              })}
-            </div>
-            {pagination && pagination.totalPages > 1 && (
-              <div className="flex items-center justify-between px-5 py-4 border-t border-gray-200 bg-gray-50/50">
-                <p className="text-sm text-gray-600">
-                  Página {pagination.page} de {pagination.totalPages} ({pagination.total} assinantes)
-                </p>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPage(p => Math.max(1, p - 1))}
-                    disabled={pagination.page <= 1 || subscribersLoading}
-                    aria-label="Página anterior"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                    Anterior
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPage(p => Math.min(pagination.totalPages, p + 1))}
-                    disabled={pagination.page >= pagination.totalPages || subscribersLoading}
-                    aria-label="Próxima página"
-                  >
-                    Próxima
-                    <ChevronRight className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            )}
-            </>
-          )}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
+        <SubscribersToolbar
+          searchTerm={searchTerm}
+          onSearchChange={setSearchTerm}
+          subscribers={subscribers}
+          advancedFiltered={advancedFiltered}
+          onAdvancedFilterChange={setAdvancedFiltered}
+          stats={stats}
+          onQuickFilter={setQuickFilter}
+        />
+        <div className="bg-card rounded-xl border border-border overflow-hidden">
+          <SubscribersList
+            filteredSubscribers={filteredSubscribers}
+            rawSubscribers={subscribers}
+            selectedIds={selection.selectedIds}
+            onSelectionChange={(ids) => selection.setSelectedIds(ids)}
+            selection={selection}
+            getPlanLabel={getPlanLabel}
+            getPlanColor={getPlanColor}
+            onEdit={openEditModal}
+            onToggleStatus={handleToggleStatus}
+            onViewData={setViewingSubscriber}
+            onDuplicate={(sub) => {
+              setNewSubscriber({
+                email: '',
+                linked_user_email: sub.linked_user_email || '',
+                name: sub.name ? `${sub.name} (cópia)` : '',
+                slug: '',
+                plan: sub.plan || 'basic',
+                status: sub.status || 'active',
+                expires_at: sub.expires_at || '',
+                permissions: sub.permissions || getPlanPermissions(sub.plan || 'basic'),
+                phone: sub.phone || '',
+                cnpj_cpf: sub.cnpj_cpf || '',
+                origem: sub.origem || 'manual',
+                tags: Array.isArray(sub.tags) ? [...sub.tags] : [],
+                notes: sub.notes || ''
+              });
+              setShowAddModal(true);
+              toast.success('Dados copiados. Informe um novo email e salve.');
+            }}
+            onDelete={setSubscriberToDelete}
+            regenerateToken={regenerateToken}
+            generateTokenPending={generateTokenMutation.isPending}
+            updateMutation={updateMutation}
+            deleteMutation={deleteMutation}
+            pagination={pagination}
+            page={page}
+            limit={limit}
+            onPagePrev={() => setPage((p) => Math.max(1, p - 1))}
+            onPageNext={() => setPage((p) => Math.min(pagination?.totalPages ?? 1, p + 1))}
+            isLoading={subscribersLoading}
+            searchTerm={searchTerm}
+            onAddClick={() => setShowAddModal(true)}
+            onRefetch={refetchSubscribers}
+            isError={subscribersError}
+            errorMessage={errorMessage}
+            serverWarming={serverWarming}
+            loadingStuck={loadingStuck}
+          />
         </div>
       </div>
 
       {/* Add Modal */}
       <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
-        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto animate-in fade-in-0 zoom-in-95 duration-200">
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto animate-in fade-in-0 zoom-in-95 duration-200" aria-describedby="add-subscriber-desc">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Plus className="w-5 h-5 text-orange-500" />
+              <Plus className="w-5 h-5 text-primary" />
               Adicionar Assinante
             </DialogTitle>
+            <DialogDescription id="add-subscriber-desc">
+              Preencha os dados do novo assinante. Campos com * são obrigatórios.
+            </DialogDescription>
           </DialogHeader>
 
           <TooltipProvider>
             <div className="space-y-4 py-4">
               <div>
                 <div className="flex items-center gap-2 mb-1">
-                  <label className="text-sm font-medium text-gray-700">Email da Assinatura *</label>
+                  <label className="text-sm font-medium text-foreground">Email da Assinatura *</label>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <HelpCircle className="w-4 h-4 text-gray-400 cursor-help" />
+                      <HelpCircle className="w-4 h-4 text-muted-foreground cursor-help" />
                     </TooltipTrigger>
                     <TooltipContent>
                       <p className="max-w-xs">Email principal do titular da assinatura. Será usado para login e identificação.</p>
@@ -1466,17 +784,17 @@ export default function Assinantes() {
                   onChange={(e) => setNewSubscriber({...newSubscriber, email: e.target.value})}
                   autoFocus
                 />
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   Email do titular da assinatura
                 </p>
               </div>
               
-              <div data-field="email-acesso" className="border-l-2 border-orange-200 pl-3">
+              <div data-field="email-acesso" className="border-l-2 border-primary/30 pl-3">
                 <div className="flex items-center gap-2 mb-1">
-                  <label className="text-sm font-medium text-gray-700" htmlFor="linked_user_email">Email de Acesso / Email personalizado (opcional)</label>
+                  <label className="text-sm font-medium text-foreground" htmlFor="linked_user_email">Email de Acesso / Email personalizado (opcional)</label>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <HelpCircle className="w-4 h-4 text-gray-400 cursor-help" />
+                      <HelpCircle className="w-4 h-4 text-muted-foreground cursor-help" />
                     </TooltipTrigger>
                     <TooltipContent>
                       <p className="max-w-xs">Se diferente do email da assinatura, informe aqui o email que terá acesso ao painel. Deixe vazio para usar o mesmo email.</p>
@@ -1490,17 +808,17 @@ export default function Assinantes() {
                   value={newSubscriber.linked_user_email || ''}
                   onChange={(e) => setNewSubscriber({...newSubscriber, linked_user_email: e.target.value})}
                 />
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   Se diferente, informe o email do usuário que terá acesso ao painel
                 </p>
               </div>
               
               <div>
                 <div className="flex items-center gap-2 mb-1">
-                  <label className="text-sm font-medium text-gray-700">Nome</label>
+                  <label className="text-sm font-medium text-foreground">Nome</label>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <HelpCircle className="w-4 h-4 text-gray-400 cursor-help" />
+                      <HelpCircle className="w-4 h-4 text-muted-foreground cursor-help" />
                     </TooltipTrigger>
                     <TooltipContent>
                       <p>Nome completo ou comercial do assinante. Será exibido no dashboard e relatórios.</p>
@@ -1516,7 +834,7 @@ export default function Assinantes() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-gray-700 mb-1 block">Status</label>
+                  <label className="text-sm font-medium text-foreground mb-1 block">Status</label>
                   <Select value={newSubscriber.status} onValueChange={(v) => setNewSubscriber({...newSubscriber, status: v})}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -1527,8 +845,8 @@ export default function Assinantes() {
                   </Select>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-700 mb-1 block flex items-center gap-1">
-                    <Phone className="w-4 h-4 text-orange-500" />
+                  <label className="text-sm font-medium text-foreground mb-1 block flex items-center gap-1">
+                    <Phone className="w-4 h-4 text-primary" />
                     Telefone
                   </label>
                   <Input
@@ -1541,8 +859,8 @@ export default function Assinantes() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-gray-700 mb-1 block flex items-center gap-1">
-                    <Building2 className="w-4 h-4 text-orange-500" />
+                  <label className="text-sm font-medium text-foreground mb-1 block flex items-center gap-1">
+                    <Building2 className="w-4 h-4 text-primary" />
                     CNPJ/CPF
                   </label>
                   <Input
@@ -1552,7 +870,7 @@ export default function Assinantes() {
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-700 mb-1 block">Origem</label>
+                  <label className="text-sm font-medium text-foreground mb-1 block">Origem</label>
                   <Select value={newSubscriber.origem || 'manual'} onValueChange={(v) => setNewSubscriber({...newSubscriber, origem: v})}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -1568,13 +886,13 @@ export default function Assinantes() {
 
               <div>
                 <div className="flex items-center gap-2 mb-1">
-                  <label className="text-sm font-medium text-gray-700 flex items-center gap-1">
-                    <Link2 className="w-4 h-4 text-orange-500" />
+                  <label className="text-sm font-medium text-foreground flex items-center gap-1">
+                    <Link2 className="w-4 h-4 text-primary" />
                     Link do cardápio
                   </label>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <HelpCircle className="w-4 h-4 text-gray-400 cursor-help" />
+                      <HelpCircle className="w-4 h-4 text-muted-foreground cursor-help" />
                     </TooltipTrigger>
                     <TooltipContent>
                       <p className="max-w-xs">Parte final da URL do cardápio: /s/meu-restaurante. Apenas letras minúsculas, números e hífen. Deixe vazio para o assinante definir depois em Loja.</p>
@@ -1588,12 +906,12 @@ export default function Assinantes() {
                   onBlur={(e) => setNewSubscriber(prev => ({...prev, slug: normalizeSlug(prev.slug)}))}
                   className="font-mono"
                 />
-                <p className="text-xs text-gray-500 mt-1">URL: /s/<span className="font-mono">{normalizeSlug(newSubscriber.slug) || '...'}</span></p>
+                <p className="text-xs text-muted-foreground mt-1">URL: /s/<span className="font-mono">{normalizeSlug(newSubscriber.slug) || '...'}</span></p>
               </div>
 
               <div>
-                <label className="text-sm font-medium text-gray-700 mb-1 block flex items-center gap-1">
-                  <Tag className="w-4 h-4 text-orange-500" />
+                <label className="text-sm font-medium text-foreground mb-1 block flex items-center gap-1">
+                  <Tag className="w-4 h-4 text-primary" />
                   Tags (separadas por vírgula)
                 </label>
                 <Input
@@ -1628,10 +946,10 @@ export default function Assinantes() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <div className="flex items-center gap-2 mb-1">
-                    <label className="text-sm font-medium text-gray-700">Data de Expiração</label>
+                    <label className="text-sm font-medium text-foreground">Data de Expiração</label>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <HelpCircle className="w-4 h-4 text-gray-400 cursor-help" />
+                        <HelpCircle className="w-4 h-4 text-muted-foreground cursor-help" />
                       </TooltipTrigger>
                       <TooltipContent>
                         <p className="max-w-xs">Data em que a assinatura expira. Deixe vazio para permanente.</p>
@@ -1645,7 +963,7 @@ export default function Assinantes() {
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-700 mb-1 block">Observações</label>
+                  <label className="text-sm font-medium text-foreground mb-1 block">Observações</label>
                   <Input
                     placeholder="Notas internas..."
                     value={newSubscriber.notes || ''}
@@ -1663,7 +981,7 @@ export default function Assinantes() {
             <Button 
               onClick={handleAddSubscriber}
               disabled={!newSubscriber.email || createMutation.isPending}
-              className="bg-orange-500 hover:bg-orange-600"
+              className="bg-primary text-primary-foreground hover:opacity-90"
             >
               {createMutation.isPending ? (
                 <Loader2 className="w-4 h-4 animate-spin mr-2" />
@@ -1678,13 +996,13 @@ export default function Assinantes() {
 
       {/* Edit Modal - size="large" para exibir em largura correta no desktop */}
       <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
-        <DialogContent size="large" className="max-h-[90vh] flex flex-col">
+        <DialogContent size="large" className="max-h-[90vh] flex flex-col" aria-describedby="edit-subscriber-desc">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Edit className="w-5 h-5 text-orange-500" />
+              <Edit className="w-5 h-5 text-primary" />
               Editar Assinante
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription id="edit-subscriber-desc">
               Edite as informações e permissões do assinante
             </DialogDescription>
           </DialogHeader>
@@ -1693,17 +1011,17 @@ export default function Assinantes() {
             <div className="flex-1 overflow-y-auto space-y-4 py-4">
               <div className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium text-gray-700 mb-1 block">Email da Assinatura</label>
+                  <label className="text-sm font-medium text-foreground mb-1 block">Email da Assinatura</label>
                   <Input
                     type="email"
                     value={editingSubscriber.email}
                     disabled
-                    className="bg-gray-50"
+                    className="bg-muted"
                   />
                 </div>
                 
-                <div data-field="email-acesso" className="border-l-2 border-orange-200 pl-3">
-                  <label className="text-sm font-medium text-gray-700 mb-1 block" htmlFor="edit-linked_user_email">Email de Acesso / Email personalizado</label>
+                <div data-field="email-acesso" className="border-l-2 border-primary/30 pl-3">
+                  <label className="text-sm font-medium text-foreground mb-1 block" htmlFor="edit-linked_user_email">Email de Acesso / Email personalizado</label>
                   <Input
                     id="edit-linked_user_email"
                     type="email"
@@ -1711,13 +1029,13 @@ export default function Assinantes() {
                     value={editingSubscriber.linked_user_email || ''}
                     onChange={(e) => setEditingSubscriber({...editingSubscriber, linked_user_email: e.target.value})}
                   />
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-muted-foreground mt-1">
                     Email do usuário que terá acesso ao painel (deixe vazio se for o mesmo da assinatura)
                   </p>
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium text-gray-700 mb-1 block">Nome</label>
+                  <label className="text-sm font-medium text-foreground mb-1 block">Nome</label>
                   <Input
                     value={editingSubscriber.name || ''}
                     onChange={(e) => setEditingSubscriber({...editingSubscriber, name: e.target.value})}
@@ -1725,8 +1043,8 @@ export default function Assinantes() {
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium text-gray-700 mb-1 block flex items-center gap-1">
-                    <Link2 className="w-4 h-4 text-orange-500" />
+                  <label className="text-sm font-medium text-foreground mb-1 block flex items-center gap-1">
+                    <Link2 className="w-4 h-4 text-primary" />
                     Link do cardápio
                   </label>
                   <Input
@@ -1736,11 +1054,11 @@ export default function Assinantes() {
                     onBlur={(e) => setEditingSubscriber(prev => ({...prev, slug: normalizeSlug(prev.slug)}))}
                     className="font-mono"
                   />
-                  <p className="text-xs text-gray-500 mt-1">URL: /s/<span className="font-mono">{normalizeSlug(editingSubscriber.slug) || '...'}</span></p>
+                  <p className="text-xs text-muted-foreground mt-1">URL: /s/<span className="font-mono">{normalizeSlug(editingSubscriber.slug) || '...'}</span></p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-700 mb-1 block flex items-center gap-1">
-                    <Phone className="w-4 h-4 text-orange-500" />
+                  <label className="text-sm font-medium text-foreground mb-1 block flex items-center gap-1">
+                    <Phone className="w-4 h-4 text-primary" />
                     Telefone
                   </label>
                   <Input
@@ -1750,8 +1068,8 @@ export default function Assinantes() {
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-700 mb-1 block flex items-center gap-1">
-                    <Building2 className="w-4 h-4 text-orange-500" />
+                  <label className="text-sm font-medium text-foreground mb-1 block flex items-center gap-1">
+                    <Building2 className="w-4 h-4 text-primary" />
                     CNPJ/CPF
                   </label>
                   <Input
@@ -1761,7 +1079,7 @@ export default function Assinantes() {
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-700 mb-1 block">Origem</label>
+                  <label className="text-sm font-medium text-foreground mb-1 block">Origem</label>
                   <Select value={editingSubscriber.origem || 'manual'} onValueChange={(v) => setEditingSubscriber({...editingSubscriber, origem: v})}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -1774,8 +1092,8 @@ export default function Assinantes() {
                   </Select>
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="text-sm font-medium text-gray-700 mb-1 block flex items-center gap-1">
-                    <Tag className="w-4 h-4 text-orange-500" />
+                  <label className="text-sm font-medium text-foreground mb-1 block flex items-center gap-1">
+                    <Tag className="w-4 h-4 text-primary" />
                     Tags (separadas por vírgula)
                   </label>
                   <Input
@@ -1791,7 +1109,7 @@ export default function Assinantes() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-gray-700 mb-1 block">Status</label>
+                  <label className="text-sm font-medium text-foreground mb-1 block">Status</label>
                   <Select 
                     value={editingSubscriber.status} 
                     onValueChange={(v) => setEditingSubscriber({...editingSubscriber, status: v})}
@@ -1808,7 +1126,7 @@ export default function Assinantes() {
                 </div>
               
                 <div>
-                  <label className="text-sm font-medium text-gray-700 mb-1 block">Data de Expiração</label>
+                  <label className="text-sm font-medium text-foreground mb-1 block">Data de Expiração</label>
                   <Input
                     type="date"
                     value={editingSubscriber.expires_at || ''}
@@ -1816,6 +1134,47 @@ export default function Assinantes() {
                   />
                 </div>
               </div>
+
+              {/* Limites efetivos e add-on de pedidos (Monetização 2.0) */}
+              {editingSubscriber.plan && editingSubscriber.plan !== 'custom' && (() => {
+                const base = getPlanLimits(editingSubscriber.plan);
+                const addonsOrders = Number(editingSubscriber.addons?.orders) || 0;
+                const effectiveOrders = base && base.orders_per_month !== UNLIMITED
+                  ? base.orders_per_month + addonsOrders
+                  : (base?.orders_per_month === UNLIMITED ? 'Ilimitado' : '-');
+                return (
+                  <div className="space-y-3 rounded-lg border border-border bg-muted/30 p-4">
+                    <h4 className="text-sm font-semibold text-foreground">Limites e add-ons</h4>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div className="text-muted-foreground">Pedidos/mês (efetivo):</div>
+                      <div className="font-medium">{effectiveOrders}</div>
+                      <div className="text-muted-foreground">Produtos:</div>
+                      <div className="font-medium">{base?.products === UNLIMITED ? 'Ilimitado' : base?.products ?? '-'}</div>
+                      <div className="text-muted-foreground">Colaboradores:</div>
+                      <div className="font-medium">{base?.collaborators ?? '-'}</div>
+                      <div className="text-muted-foreground">Unidades:</div>
+                      <div className="font-medium">{base?.locations ?? '-'}</div>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-foreground mb-1 block">Volume extra de pedidos/mês</label>
+                      <Select
+                        value={String(Number(editingSubscriber.addons?.orders) || 0)}
+                        onValueChange={(v) => setEditingSubscriber(prev => ({
+                          ...prev,
+                          addons: { ...(prev.addons || {}), orders: Number(v) || 0 }
+                        }))}
+                      >
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {ADDONS_ORDERS_OPTIONS.map(opt => (
+                            <SelectItem key={opt.value} value={String(opt.value)}>{opt.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Templates de Planos (no modal de edição) */}
               <PlanTemplates
@@ -1846,13 +1205,13 @@ export default function Assinantes() {
 
               {permissionLogs.length > 0 && (
                 <div className="space-y-2 pt-4 border-t">
-                  <label className="text-sm font-medium text-gray-700 mb-2 block">Histórico de Alterações</label>
-                  <div className="bg-gray-50 rounded-lg p-3 max-h-40 overflow-y-auto space-y-2">
+                  <label className="text-sm font-medium text-foreground mb-2 block">Histórico de Alterações</label>
+                  <div className="bg-muted rounded-lg p-3 max-h-40 overflow-y-auto space-y-2">
                     {permissionLogs.map(log => (
                       <div key={log.id} className="text-xs bg-white p-2 rounded border">
                         <div className="flex items-center justify-between mb-1">
-                          <span className="font-medium text-gray-700">{log.description}</span>
-                          <span className="text-gray-400">
+                          <span className="font-medium text-foreground">{log.description}</span>
+                          <span className="text-muted-foreground">
                             {(() => {
                               const date = new Date(log.created_date);
                               const day = String(date.getDate()).padStart(2, '0');
@@ -1864,7 +1223,7 @@ export default function Assinantes() {
                             })()}
                           </span>
                         </div>
-                        <p className="text-gray-500">Por: {log.changed_by}</p>
+                        <p className="text-muted-foreground">Por: {log.changed_by}</p>
                       </div>
                     ))}
                   </div>
@@ -1872,7 +1231,7 @@ export default function Assinantes() {
               )}
 
               <div>
-                <label className="text-sm font-medium text-gray-700 mb-1 block">Observações</label>
+                <label className="text-sm font-medium text-foreground mb-1 block">Observações</label>
                 <textarea
                   value={editingSubscriber.notes || ''}
                   onChange={(e) => setEditingSubscriber({...editingSubscriber, notes: e.target.value})}
@@ -1891,7 +1250,7 @@ export default function Assinantes() {
             <Button 
               onClick={handleSaveEdit}
               disabled={updateMutation.isPending}
-              className="bg-orange-500 hover:bg-orange-600"
+              className="bg-primary text-primary-foreground hover:opacity-90"
             >
               {updateMutation.isPending ? (
                 <Loader2 className="w-4 h-4 animate-spin mr-2" />

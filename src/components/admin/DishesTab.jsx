@@ -5,6 +5,8 @@ import { apiClient } from '@/api/apiClient';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
 import { usePermission } from '../permissions/usePermission';
+import { useEntitlements } from '@/hooks/useEntitlements';
+import { LimitBlockModal } from '@/components/plans';
 import { fetchAdminDishes, fetchAdminCategories, fetchAdminComplementGroups } from '@/services/adminMenuService';
 import { log } from '@/utils/logger';
 import { Input } from "@/components/ui/input";
@@ -622,6 +624,8 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
 
   // ✅ NOVO: Usar menuContext do usePermission (loading: aguardar contexto antes de buscar pratos)
   const { canCreate, canUpdate, canDelete, hasModuleAccess, subscriberData, menuContext, user: permissionUser, loading: permissionLoading } = usePermission();
+  const { canAddProduct, plan, effectiveLimits, usage, limitReached } = useEntitlements();
+  const [limitBlockOpen, setLimitBlockOpen] = useState(false);
   const hasPizzaService = hasModuleAccess('pizza_config');
   const canEdit = canUpdate('dishes');
   
@@ -698,7 +702,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
     enabled: !!menuContext && !slug,
     placeholderData: keepPreviousData,
     retry: 1,
-    refetchOnMount: 'always',
+    refetchOnMount: true,
     refetchOnWindowFocus: false,
     staleTime: 30000,
     gcTime: 60000,
@@ -937,6 +941,10 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
   };
 
   const handleOpenProductTypeModal = (categoryId) => {
+    if (!canAddProduct) {
+      setLimitBlockOpen(true);
+      return;
+    }
     setSelectedCategoryForNewDish(categoryId);
     setShowProductTypeModal(true);
   };
@@ -2099,6 +2107,16 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
         onRedirectToPizzas={handleRedirectToPizzas}
         hasPizzaService={hasPizzaService}
         subscriberName={subscriberData?.name || user?.full_name || ''}
+      />
+
+      <LimitBlockModal
+        open={limitBlockOpen}
+        onOpenChange={setLimitBlockOpen}
+        type="products"
+        plan={plan}
+        limit={effectiveLimits?.products ?? 0}
+        used={usage?.productsCount ?? 0}
+        suggestion="Pro libera até 800 produtos."
       />
 
       {/* Mobile Complements Sheet */}

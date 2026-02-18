@@ -33,6 +33,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Link } from 'react-router-dom';
 import { SYSTEM_NAME } from '@/config/branding';
+import { PLAN_LIMITS, ADDONS_VOLUME, ADDON_COPY } from '@/constants/planLimits';
 
 const getApiBase = () => {
   const u = import.meta.env.VITE_API_BASE_URL || '';
@@ -341,6 +342,16 @@ export default function Assinar() {
                       )}
                     </div>
 
+                    {PLAN_LIMITS[key] && (
+                      <div className="mb-4 rounded-lg bg-slate-50 dark:bg-slate-800/50 px-3 py-2 text-xs text-slate-600 dark:text-slate-400 space-y-1">
+                        <div className="font-medium text-slate-700 dark:text-slate-300">Incluído no plano</div>
+                        <div>Pedidos/mês: {PLAN_LIMITS[key].orders_per_month === -1 ? 'Ilimitado' : PLAN_LIMITS[key].orders_per_month.toLocaleString('pt-BR')}</div>
+                        <div>Equipe: até {PLAN_LIMITS[key].collaborators}</div>
+                        <div>Produtos: {PLAN_LIMITS[key].products === -1 ? 'Ilimitado' : PLAN_LIMITS[key].products}</div>
+                        <div>Unidades: {PLAN_LIMITS[key].locations}</div>
+                      </div>
+                    )}
+
                     <ul className="space-y-2.5 mb-6 min-h-[260px]">
                       {plan.features.map((f, i) => (
                         <li key={i} className="flex items-start gap-2 text-sm text-slate-700">
@@ -371,8 +382,34 @@ export default function Assinar() {
         </div>
       </section>
 
+      {/* Add-ons de volume de pedidos */}
+      <section id="addons" className="py-10 px-4 bg-slate-100 dark:bg-slate-800/50">
+        <div className="max-w-4xl mx-auto text-center">
+          <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-1">{ADDON_COPY.title}</h2>
+          <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">{ADDON_COPY.subtitle}</p>
+          <div className="flex flex-wrap justify-center gap-3">
+            {ADDONS_VOLUME.map((addon) => (
+              <Card key={addon.id} className="w-full sm:w-48 border-2 border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800">
+                <CardContent className="pt-4 pb-4 px-4">
+                  <p className="font-semibold text-slate-900 dark:text-slate-100">{addon.label}</p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">R$ {addon.price}/mês</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-3 w-full"
+                    onClick={() => handleSubscribe('basic')}
+                  >
+                    {ADDON_COPY.cta}
+                  </Button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Depoimentos */}
-      <section className="py-14 px-4 bg-white border-y border-slate-200">
+      <section className="py-14 px-4 bg-white dark:bg-slate-900 border-y border-slate-200 dark:border-slate-700">
         <div className="max-w-6xl mx-auto">
           <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 text-center mb-2">Quem usa recomenda</h2>
           <p className="text-slate-600 text-center mb-10">O que nossos clientes dizem</p>

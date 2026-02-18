@@ -179,6 +179,23 @@ export async function migrate() {
           console.warn('⚠️ Aviso ao adicionar colunas extras em subscribers (pode já existir):', error.message);
         }
 
+        // Add-ons de volume (Monetização Agressiva 2.0)
+        try {
+          await query(`
+            DO $$ 
+            BEGIN
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                            WHERE table_name='subscribers' AND column_name='addons') THEN
+                ALTER TABLE subscribers ADD COLUMN addons JSONB DEFAULT '{}';
+                RAISE NOTICE 'Coluna addons adicionada em subscribers';
+              END IF;
+            END $$;
+          `);
+          console.log('✅ Migração addons em subscribers concluída.');
+        } catch (error) {
+          console.warn('⚠️ Aviso ao adicionar coluna addons em subscribers (pode já existir):', error.message);
+        }
+
         // Tabela password_reset_tokens (esqueci minha senha — usuários e assinantes)
         await query(`
           CREATE TABLE IF NOT EXISTS password_reset_tokens (
