@@ -901,11 +901,19 @@ entitiesAndManagerialRouter.get('/entities/:entity', authenticate, asyncHandler(
     const { entity } = req.params;
     const { order_by, as_subscriber, page, limit, ...filters } = req.query;
     if (req.user?.is_master && as_subscriber) req.user._contextForSubscriber = as_subscriber;
+    if (req.user && !req.user?.is_master && as_subscriber) {
+      const uEmail = (req.user.email || '').toLowerCase().trim();
+      const uSub = (req.user.subscriber_email || '').toLowerCase().trim();
+      const subParam = (as_subscriber || '').toLowerCase().trim();
+      if (subParam && (subParam === uEmail || subParam === uSub)) {
+        req.user._contextForSubscriber = as_subscriber;
+      }
+    }
     const pagination = { page: page ? parseInt(page) : 1, limit: limit ? parseInt(limit) : 50 };
     let result;
     if (usePostgreSQL) {
       if (req.user && !req.user?.is_master && !filters.owner_email) {
-        const subscriber = await repo.getSubscriberByEmail(req.user.email);
+        const subscriber = await repo.getSubscriberByEmail(req.user._contextForSubscriber || req.user.subscriber_email || req.user.email);
         if (subscriber) filters.owner_email = subscriber.email;
       }
       result = await repo.listEntities(entity, filters, order_by, req.user || null, pagination);
@@ -1711,13 +1719,21 @@ app.get('/api/user/context', authenticate, asyncHandler(async (req, res) => {
       };
       permissions = {}; // Master tem todas as permissões (vazio = acesso total)
     } else {
-      const emailToFind = user.subscriber_email || user.email;
+      const emailToFind = (user.subscriber_email || user.email || '').toString().toLowerCase().trim();
       if (usePostgreSQL) {
         if (emailToFind) {
           subscriber = await repo.getSubscriberByEmail(emailToFind);
+          if (subscriber && !user.subscriber_email && user.email && (user.email || '').toLowerCase().trim() === emailToFind) {
+            try {
+              await repo.updateUser(user.id, { subscriber_email: subscriber.email });
+              user.subscriber_email = subscriber.email;
+            } catch (e) {
+              console.warn('⚠️ [user/context] Não foi possível sincronizar subscriber_email:', e?.message);
+            }
+          }
         }
       } else if (db && db.subscribers && emailToFind) {
-        subscriber = db.subscribers.find(s => (s.email || '').toLowerCase() === (emailToFind || '').toLowerCase());
+        subscriber = db.subscribers.find(s => (s.email || '').toLowerCase() === emailToFind);
       }
 
       if (subscriber) {

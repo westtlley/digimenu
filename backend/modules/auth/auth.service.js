@@ -389,20 +389,23 @@ export async function setPasswordWithToken(token, password, db = null, saveDatab
   let user;
   
   if (usePostgreSQL) {
-    user = await repo.getUserByEmail(userEmail);
+    const emailNorm = userEmail.toLowerCase().trim();
+    user = await repo.getUserByEmail(emailNorm);
     if (!user) {
       user = await repo.createUser({
-        email: userEmail.toLowerCase(),
+        email: emailNorm,
         password: hashedPassword,
         full_name: subscriberInfo?.name || userEmail.split('@')[0],
         role: 'user',
         is_master: false,
-        has_password: true
+        has_password: true,
+        subscriber_email: emailNorm
       });
     } else {
       const updateData = {
         password: hashedPassword,
-        has_password: true
+        has_password: true,
+        subscriber_email: emailNorm
       };
       if (!user.full_name && subscriberInfo?.name) {
         updateData.full_name = subscriberInfo.name;
