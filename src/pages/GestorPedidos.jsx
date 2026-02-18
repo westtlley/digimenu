@@ -5,7 +5,7 @@ import {
   Package, Bell, Volume2, VolumeX, RefreshCw,
   CheckCircle, Truck, LayoutGrid, Menu, X as CloseIcon,
   Settings, ChevronLeft, Lock, DollarSign, Download, Printer, Home,
-  BarChart2, Headphones, MessageCircle, Check, HelpCircle
+  BarChart2, Headphones, MessageCircle, Check, HelpCircle, MoreHorizontal
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -64,7 +64,7 @@ export default function GestorPedidos() {
   const { requireAuthorization, modal: authModal } = useManagerialAuth();
   const areYouTherePausedRef = useRef(false);
   const areYouThereTimerRef = useRef(null);
-  const prevOrderCountRef = useRef(0);
+  const seenNewOrderIdsRef = useRef(new Set());
   const autoAcceptedIdsRef = useRef(new Set());
   const queryClient = useQueryClient();
   const { isMaster, hasModuleAccess, loading: permLoading, user, subscriberData } = usePermission();
@@ -143,7 +143,7 @@ export default function GestorPedidos() {
     };
   }, []);
 
-  // Aceitar automaticamente (quando ativado em Configurações do gestor)
+  // Aceitar automaticamente (quando ativado em Configurações do gestor) — update parcial para não sobrescrever dados
   useEffect(() => {
     try {
       const gs = localStorage.getItem('gestorSettings');
@@ -159,58 +159,45 @@ export default function GestorPedidos() {
           autoAcceptedIdsRef.current.add(o.id);
           try {
             await base44.entities.Order.update(o.id, {
-              ...o,
               status: 'accepted',
               accepted_at: new Date().toISOString(),
               prep_time: prepTime,
             }, asSub ? { as_subscriber: asSub } : {});
-            queryClient.invalidateQueries({ queryKey: ['gestorOrders'] });
+            queryClient.invalidateQueries({ queryKey: ['gestorOrders', asSub ?? 'me'] });
           } catch (e) {
             autoAcceptedIdsRef.current.delete(o.id);
           }
         }
       })();
     } catch (_) {}
-  }, [orders, queryClient]);
+  }, [orders, queryClient, asSub]);
 
-  // Verificar mudanças de status e notificar conforme configuração
+  // Notificação de novo pedido por IDs (evita falhas quando pedidos são aceitos rápido)
   useEffect(() => {
     if (!notificationConfig || orders.length === 0) return;
+    const shouldNotify = (status) => notificationConfig.notifyOnStatus?.[status] !== false;
+    if (!shouldNotify('new')) return;
 
-    const statusCounts = {};
-    orders.forEach(order => {
-      statusCounts[order.status] = (statusCounts[order.status] || 0) + 1;
-    });
-
-    // Notificar apenas se configurado para o status específico
-    const shouldNotify = (status) => {
-      return notificationConfig.notifyOnStatus?.[status] !== false;
-    };
-
-    // Notificar novos pedidos
     const newOrders = orders.filter(o => o.status === 'new');
-    if (newOrders.length > prevOrderCountRef.current && shouldNotify('new') && newOrders.length > 0) {
+    const seen = seenNewOrderIdsRef.current;
+    const newIds = newOrders.map(o => o.id).filter(id => !seen.has(id));
+    newOrders.forEach(o => seen.add(o.id));
+
+    if (newIds.length > 0) {
       if (soundEnabled && notificationConfig.soundEnabled !== false) {
         playNotificationSound();
       }
-      
-      // Vibrar se disponível
       if (navigator.vibrate) {
         navigator.vibrate([200, 100, 200]);
       }
-      
-      // Show browser notification
-      if (notificationConfig.browserNotificationEnabled !== false &&
-          'Notification' in window && 
-          Notification.permission === 'granted') {
+      if (notificationConfig.browserNotificationEnabled !== false && 'Notification' in window && Notification.permission === 'granted') {
         new Notification('Novo Pedido!', {
-          body: `${newOrders.length} novo(s) pedido(s) recebido(s)`,
+          body: `${newIds.length} novo(s) pedido(s) recebido(s)`,
           icon: '/favicon.ico',
           tag: 'new-order'
         });
       }
     }
-    prevOrderCountRef.current = newOrders.length;
   }, [orders, soundEnabled, notificationConfig]);
 
   // "Está aí?" (inatividade): após N min sem interação, modal
@@ -266,13 +253,12 @@ export default function GestorPedidos() {
           }
           // mode === 'cancel'
           await base44.entities.Order.update(order.id, {
-            ...order,
             status: 'cancelled',
             rejection_reason: 'Cancelado automaticamente por atraso (tempo de preparo excedido)'
           }, asSub ? { as_subscriber: asSub } : {});
           didUpdate = true;
         }
-        if (didUpdate) queryClient.invalidateQueries({ queryKey: ['gestorOrders'] });
+        if (didUpdate) queryClient.invalidateQueries({ queryKey: ['gestorOrders', asSub ?? 'me'] });
       } catch (_) {}
     };
     const interval = setInterval(checkLateOrders, 60000);
@@ -315,7 +301,7 @@ export default function GestorPedidos() {
       // Ctrl/Cmd + R: Refresh (prevenir reload padrão)
       if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
         e.preventDefault();
-        queryClient.invalidateQueries({ queryKey: ['gestorOrders'] });
+        queryClient.invalidateQueries({ queryKey: ['gestorOrders', asSub ?? 'me'] });
         toast.success('Pedidos atualizados!');
         return;
       }
@@ -388,7 +374,7 @@ export default function GestorPedidos() {
         // Shift + F: Filtros
         if (e.key === 'F') {
           e.preventDefault();
-          document.querySelector('button:has(svg[class*="Filter"])')?.click();
+          document.querySelector('[data-gestor="open-filters"]')?.click();
           return;
         }
       }
@@ -537,29 +523,29 @@ export default function GestorPedidos() {
               </div>
             </div>
 
-            {/* Right: ícones + ações */}
+            {/* Right: Operação (som, atualizar) + Ferramentas (dropdown) + Voltar + Auth */}
             <div className="flex items-center gap-1 flex-shrink-0">
               <InstallAppButton pageName="Gestor" compact />
-              <Button variant="ghost" size="icon" className="h-9 w-9 min-h-touch min-w-touch" onClick={() => setViewMode('resumo')} title="Resumo">
+              {/* Grupo Operação: sempre visível */}
+              <Button variant="ghost" size="icon" className="h-9 w-9 min-h-touch min-w-touch" onClick={() => setSoundEnabled(!soundEnabled)} title={soundEnabled ? 'Desligar som' : 'Ligar som'}>
+                {soundEnabled ? <Volume2 className="w-4 h-4 text-gray-600" /> : <VolumeX className="w-4 h-4 text-gray-400" />}
+              </Button>
+              <Button variant="ghost" size="icon" className="h-9 w-9 min-h-touch min-w-touch" onClick={() => queryClient.invalidateQueries({ queryKey: ['gestorOrders', asSub ?? 'me'] })} title="Atualizar">
+                <RefreshCw className={`w-4 h-4 text-gray-600 ${isLoading ? 'animate-spin' : ''}`} />
+              </Button>
+              <Button variant="ghost" size="icon" className="h-9 w-9 min-h-touch min-w-touch hidden sm:flex" onClick={() => setViewMode('resumo')} title="Resumo">
                 <BarChart2 className="w-4 h-4 text-gray-600" />
               </Button>
-              <a href="#suporte" className="hidden sm:inline-flex items-center justify-center h-9 w-9 rounded-md text-gray-600 hover:bg-gray-100" title="Suporte">
-                <Headphones className="w-4 h-4" />
-              </a>
-              <Button variant="ghost" size="icon" className="h-9 w-9 hidden sm:flex" title="Chat">
-                <MessageCircle className="w-4 h-4 text-gray-600" />
-              </Button>
-              <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setShowAtalhosModal(true)} title="Atalhos de teclado">
-                <HelpCircle className="w-4 h-4 text-gray-600" />
-              </Button>
+              {/* Ferramentas: dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-9 w-9">
-                    <Download className="w-4 h-4 text-gray-600" />
+                  <Button variant="ghost" size="icon" className="h-9 w-9 min-h-touch min-w-touch" title="Ferramentas">
+                    <MoreHorizontal className="w-4 h-4 text-gray-600" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
+                <DropdownMenuContent align="end" className="min-w-[200px]">
                   <DropdownMenuItem onClick={() => requireAuthorization('exportar', () => { downloadOrdersCSV(filteredOrders, `pedidos_${new Date().toISOString().slice(0,10)}.csv`); toast.success('CSV baixado'); })}>
+                    <Download className="w-4 h-4 mr-2" />
                     Exportar CSV
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => requireAuthorization('exportar', () => { exportGestorReportPDF(orders, 'today'); toast.success('PDF baixado'); })}>
@@ -571,14 +557,22 @@ export default function GestorPedidos() {
                   <DropdownMenuItem onClick={() => requireAuthorization('exportar', () => { exportGestorReportPDF(orders, 'month'); toast.success('PDF baixado'); })}>
                     Últimos 30 dias (PDF)
                   </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setShowAtalhosModal(true)}>
+                    <HelpCircle className="w-4 h-4 mr-2" />
+                    Atalhos de teclado
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <a href="#suporte" className="flex items-center">
+                      <Headphones className="w-4 h-4 mr-2" />
+                      Suporte
+                    </a>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem disabled title="Em breve">
+                    <MessageCircle className="w-4 h-4 mr-2 opacity-50" />
+                    Chat
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-              <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setSoundEnabled(!soundEnabled)} title={soundEnabled ? 'Desligar som' : 'Ligar som'}>
-                {soundEnabled ? <Volume2 className="w-4 h-4 text-gray-600" /> : <VolumeX className="w-4 h-4 text-gray-400" />}
-              </Button>
-              <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => queryClient.invalidateQueries({ queryKey: ['gestorOrders'] })} title="Atualizar">
-                <RefreshCw className={`w-4 h-4 text-gray-600 ${isLoading ? 'animate-spin' : ''}`} />
-              </Button>
               <Link to={backUrl} className="hidden lg:inline-flex">
                 <Button variant="outline" size="sm" className="h-9">Voltar</Button>
               </Link>
@@ -853,7 +847,16 @@ export default function GestorPedidos() {
 
       {/* Content */}
       <main className={`flex-1 transition-all duration-300 pb-20 lg:pb-0 ${sidebarCollapsed ? 'lg:ml-14' : 'lg:ml-52'}`}>
-        <div className="max-w-[1240px] mx-auto p-4 xl:pr-14">
+        <div className={`mx-auto p-4 xl:pr-14 ${(viewMode === 'kanban' || viewMode === 'delivery') ? 'max-w-screen-2xl' : 'max-w-[1240px]'}`}>
+        {/* Voltar para Quadros (quando não está no kanban) */}
+        {viewMode !== 'kanban' && (
+          <div className="mb-3">
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setViewMode('kanban')}>
+              <LayoutGrid className="w-4 h-4" />
+              Voltar para Quadros
+            </Button>
+          </div>
+        )}
         {/* Breadcrumb / título contextual */}
         <p className="text-xs text-gray-500 mb-2 font-medium">
           {viewMode === 'inicio' && 'Início'}
@@ -965,11 +968,11 @@ export default function GestorPedidos() {
         Avalie a plataforma
       </a>
 
-      {/* Fila de impressão - botão flutuante */}
+      {/* Fila de impressão - botão flutuante (acima do footer no mobile) */}
       {printQueue.length > 0 && (
         <button
           onClick={() => { printOrdersInQueue(orders, printQueue); setPrintQueue([]); toast.success(`${printQueue.length} comanda(s) enviada(s) para impressão`); }}
-          className="fixed bottom-6 right-6 z-50 flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white px-4 py-3 rounded-xl shadow-lg"
+          className="fixed right-4 z-50 flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white px-4 py-3 rounded-xl shadow-lg bottom-20 lg:bottom-6"
         >
           <Printer className="w-5 h-5" />
           Imprimir {printQueue.length} comanda(s)
@@ -1027,7 +1030,7 @@ export default function GestorPedidos() {
           entregadores={entregadores}
           onClose={() => setSelectedOrder(null)}
           onUpdate={(updatedOrder) => {
-            queryClient.invalidateQueries({ queryKey: ['gestorOrders'] });
+            queryClient.invalidateQueries({ queryKey: ['gestorOrders', asSub ?? 'me'] });
             setSelectedOrder(updatedOrder ?? null);
           }}
           user={user}
@@ -1042,7 +1045,7 @@ export default function GestorPedidos() {
               try {
                 const data = { ...rest, status: 'new', created_date: new Date().toISOString(), ...(asSub && { as_subscriber: asSub }) };
                 await base44.entities.Order.create(data);
-                queryClient.invalidateQueries({ queryKey: ['gestorOrders'] });
+                queryClient.invalidateQueries({ queryKey: ['gestorOrders', asSub ?? 'me'] });
                 toast.success('Pedido duplicado.');
                 setSelectedOrder(null);
               } catch (e) { toast.error(e?.message || 'Erro ao duplicar.'); }

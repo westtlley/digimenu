@@ -335,7 +335,7 @@ export default function AdvancedOrderFilters({
       {/* Filtros Avançados */}
       <Popover open={isOpen} onOpenChange={setIsOpen}>
         <PopoverTrigger asChild>
-          <Button variant="outline" size="sm" className="h-9 relative">
+          <Button variant="outline" size="sm" className="h-9 relative" data-gestor="open-filters">
             <Filter className="w-4 h-4 mr-2" />
             Filtros
             {activeFiltersCount > 0 && (
