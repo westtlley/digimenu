@@ -56,6 +56,7 @@ import affiliatesRoutes from './routes/affiliates.routes.js';
 import lgpdRoutes from './routes/lgpd.routes.js';
 import authRoutes, { getUserContext } from './modules/auth/auth.routes.js';
 import * as authController from './modules/auth/auth.controller.js';
+import { generatePasswordTokenForSubscriber } from './modules/auth/auth.service.js';
 import usersRoutes from './modules/users/users.routes.js';
 import * as usersController from './modules/users/users.controller.js';
 import { isRequesterGerente } from './modules/users/users.utils.js';
@@ -1235,6 +1236,50 @@ app.post('/api/functions/getFullSubscriberProfile', authenticate, async (req, re
   } catch (error) {
     console.error('❌ [getFullSubscriberProfile] Erro:', error);
     return res.status(500).json({ error: 'Erro ao buscar perfil do assinante', details: error.message });
+  }
+});
+
+// generatePasswordTokenForSubscriber: rota explícita para evitar 404 (Resetar Senha em Assinantes)
+app.post('/api/functions/generatePasswordTokenForSubscriber', authenticate, async (req, res) => {
+  if (!req.user?.is_master) {
+    return res.status(403).json({ error: 'Acesso negado' });
+  }
+  const { subscriber_id, email } = req.body || {};
+  if (!subscriber_id && !email) {
+    return res.status(400).json({ error: 'subscriber_id ou email é obrigatório' });
+  }
+  try {
+    let subscriber = null;
+    if (usePostgreSQL) {
+      if (email) {
+        subscriber = await repo.getSubscriberByEmail(email);
+      } else if (subscriber_id) {
+        const raw = await repo.listSubscribers();
+        const list = Array.isArray(raw) ? raw : (raw?.data || []);
+        subscriber = list.find(s => s.id === parseInt(subscriber_id) || s.id === subscriber_id);
+      }
+    } else if (db && db.subscribers) {
+      subscriber = db.subscribers.find(s =>
+        (email && s.email?.toLowerCase() === email?.toLowerCase()) || s.id === subscriber_id || s.id === String(subscriber_id)
+      );
+    }
+    if (!subscriber) {
+      return res.status(404).json({ error: 'Assinante não encontrado' });
+    }
+    const tokenData = generatePasswordTokenForSubscriber(
+      subscriber.email,
+      subscriber.id || subscriber.email
+    );
+    return res.json({
+      data: {
+        token: tokenData.token,
+        setup_url: tokenData.setup_url,
+        expires_at: tokenData.expires_at
+      }
+    });
+  } catch (error) {
+    console.error('❌ [generatePasswordTokenForSubscriber] Erro:', error);
+    return res.status(500).json({ error: 'Erro ao gerar token de senha', details: error.message });
   }
 });
 

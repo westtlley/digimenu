@@ -409,6 +409,12 @@ export async function setPasswordWithToken(token, password, db = null, saveDatab
       }
       user = await repo.updateUser(user.id, updateData);
     }
+    // Marcar assinante como tendo senha definida (para o ícone na lista de Assinantes)
+    try {
+      await repo.updateSubscriber(userEmail, { has_password: true, password_token: null, token_expires_at: null });
+    } catch (e) {
+      logger.error('Erro ao atualizar has_password do assinante:', e?.message);
+    }
   } else if (db && db.users) {
     user = db.users.find(u => u.email === userEmail.toLowerCase());
     if (!user) {

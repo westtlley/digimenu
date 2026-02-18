@@ -50,6 +50,8 @@ export default function SubscriberRow({
   regenerateToken,
   generateTokenPending,
 }) {
+  // Ícone de senha: baseado no campo has_password que vem da API (lista de assinantes).
+  // Verde (check) = senha já definida no sistema; Âmbar (cadeado) = ainda não definiu senha ou backend não retornou has_password.
   const hasPassword = !!subscriber.has_password;
 
   return (
@@ -122,6 +124,12 @@ export default function SubscriberRow({
             </TooltipTrigger>
             <TooltipContent>
               <p>{hasPassword ? 'Senha já definida' : 'Senha pendente'}</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {hasPassword ? 'O assinante já acessou o link e definiu senha.' : 'O assinante ainda não definiu senha (use Resetar Senha para enviar novo link).'}
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Critério: campo has_password da API. Se já tem senha e aparece pendente, o banco pode não ter sido atualizado.
+              </p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
