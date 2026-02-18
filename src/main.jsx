@@ -33,10 +33,14 @@ window.addEventListener('error', (event) => {
     event.message?.includes('GpuShader') ||
     event.message?.includes('GPU compositing') ||
     event.message?.includes('MIME type') ||
+    event.message?.includes('message channel closed before a response was received') ||
+    event.message?.includes('asynchronous response by returning true') ||
     event.error?.message?.includes('webpage_content_reporter') ||
     event.error?.message?.includes('Unexpected token \'export\'') ||
     event.error?.message?.includes('Error parsing shader') ||
-    event.error?.message?.includes('MIME type')
+    event.error?.message?.includes('MIME type') ||
+    event.error?.message?.includes('message channel closed before a response was received') ||
+    event.error?.message?.includes('asynchronous response by returning true')
   ) {
     event.preventDefault();
     event.stopPropagation();
@@ -44,15 +48,19 @@ window.addEventListener('error', (event) => {
   }
 }, true);
 
-// Ignorar erros não capturados de extensões
+// Ignorar erros não capturados de extensões e mensagens de canal fechado (extensões Chrome)
 window.addEventListener('unhandledrejection', (event) => {
+  const msg = event.reason?.message ?? '';
+  const stack = event.reason?.stack ?? '';
   if (
-    event.reason?.message?.includes('webpage_content_reporter') ||
-    event.reason?.stack?.includes('webpage_content_reporter') ||
-    event.reason?.message?.includes('Unexpected token \'export\'') ||
-    event.reason?.message?.includes('Error parsing shader') ||
-    event.reason?.message?.includes('GpuShader') ||
-    event.reason?.message?.includes('MIME type')
+    msg.includes('webpage_content_reporter') ||
+    stack.includes('webpage_content_reporter') ||
+    msg.includes('Unexpected token \'export\'') ||
+    msg.includes('Error parsing shader') ||
+    msg.includes('GpuShader') ||
+    msg.includes('MIME type') ||
+    msg.includes('message channel closed before a response was received') ||
+    msg.includes('asynchronous response by returning true')
   ) {
     event.preventDefault();
     event.stopPropagation();
@@ -60,10 +68,10 @@ window.addEventListener('unhandledrejection', (event) => {
   }
 });
 
-// Suprimir erros de console de extensões
+// Suprimir erros de console de extensões (incl. "message channel closed" de extensões Chrome)
 const originalError = console.error;
 console.error = (...args) => {
-  const message = args.join(' ');
+  const message = typeof args[0] === 'string' ? args.join(' ') : String(args[0] ?? '');
   if (
     message.includes('webpage_content_reporter') ||
     message.includes('chrome-extension://') ||
@@ -72,7 +80,9 @@ console.error = (...args) => {
     message.includes('GpuShader') ||
     message.includes('GPU compositing') ||
     message.includes('MIME type') ||
-    message.includes('Expected a JavaScript-or-Wasm module script')
+    message.includes('Expected a JavaScript-or-Wasm module script') ||
+    message.includes('message channel closed before a response was received') ||
+    message.includes('asynchronous response by returning true')
   ) {
     return; // Ignorar
   }

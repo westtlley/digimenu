@@ -905,9 +905,20 @@ entitiesAndManagerialRouter.get('/entities/:entity', authenticate, asyncHandler(
       const uEmail = (req.user.email || '').toLowerCase().trim();
       const uSub = (req.user.subscriber_email || '').toLowerCase().trim();
       const subParam = (as_subscriber || '').toLowerCase().trim();
-      if (subParam && (subParam === uEmail || subParam === uSub)) {
-        req.user._contextForSubscriber = as_subscriber;
+      let allow = subParam && (subParam === uEmail || subParam === uSub);
+      if (!allow && subParam && usePostgreSQL) {
+        try {
+          const subscriber = await repo.getSubscriberByEmail(as_subscriber);
+          if (subscriber) {
+            const subEmail = (subscriber.email || '').toLowerCase().trim();
+            allow = subEmail === uEmail || subEmail === uSub;
+            if (allow) req.user._contextForSubscriber = subscriber.email;
+          }
+        } catch (e) {
+          // ignore
+        }
       }
+      if (allow) req.user._contextForSubscriber = req.user._contextForSubscriber || as_subscriber;
     }
     const pagination = { page: page ? parseInt(page) : 1, limit: limit ? parseInt(limit) : 50 };
     let result;
