@@ -40,7 +40,7 @@ const PAYMENT_LABELS = {
 
 const isOrderPDV = (o) => !!(o?.order_code?.startsWith('PDV-') || o?.delivery_method === 'balcao');
 
-export default function OrdersTab({ isMaster, user, subscriberData }) {
+export default function OrdersTab({ isMaster, user, subscriberData, storeId, store, slug, asSub: asSubProp, subscriberEmail: subscriberEmailProp }) {
   const [dateFilter, setDateFilter] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
@@ -48,20 +48,22 @@ export default function OrdersTab({ isMaster, user, subscriberData }) {
   const isMobile = useIsMobile();
   const { subscriberData: subData, isMaster: isM, menuContext, loading: permissionLoading } = usePermission();
 
-  const asSub = (menuContext?.type === 'subscriber' && menuContext?.value) ? menuContext.value : (subscriberData?.email || subData?.email) || undefined;
-  
+  const asSub = (menuContext?.type === 'subscriber' && menuContext?.value) ? menuContext.value : (subscriberData?.email ?? subData?.email ?? asSubProp ?? subscriberEmailProp) || undefined;
+
   // Verificar se tem acesso a funcionalidades avançadas (apenas Pro e Ultra)
   const plan = subscriberData?.plan || subData?.plan;
   const planLower = (plan || '').toLowerCase();
   const hasAdvancedAccess = isMaster || isM || ['pro', 'ultra'].includes(planLower);
 
-  // ✅ NOVO: Usar hook useOrders com contexto automático
-  const { data: orders = [], isLoading: ordersLoading } = useOrders({
-    orderBy: '-created_date'
+  // Escopo para a listagem: priorizar props do PainelAssinante para disparar a query imediatamente
+  const asSubForList = subscriberEmailProp ?? asSubProp ?? asSub;
+
+  const { data: orders = [], isLoading: ordersLoading, isError, error, refetch } = useOrders({
+    orderBy: '-created_date',
+    asSubFromParent: asSubForList,
   });
-  
-  // ✅ Considerar tanto o loading das permissões quanto dos pedidos
-  const isLoading = permissionLoading || ordersLoading;
+
+  const isLoading = asSubForList != null ? ordersLoading : (permissionLoading || ordersLoading);
 
   // Pull to refresh
   const { isRefreshing } = usePullToRefresh(() => {
@@ -176,6 +178,20 @@ export default function OrdersTab({ isMaster, user, subscriberData }) {
     return <OrdersSkeleton />;
   }
 
+  if (isError) {
+    return (
+      <div className="p-6">
+        <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-6 text-center">
+          <p className="font-medium text-destructive mb-2">Não foi possível carregar os pedidos.</p>
+          <p className="text-sm text-muted-foreground mb-4">{error?.message || 'Erro de conexão.'}</p>
+          <Button onClick={() => refetch()} variant="outline">
+            Tentar novamente
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   if (orders.length === 0) {
     return (
       <div className="p-6">
@@ -185,8 +201,8 @@ export default function OrdersTab({ isMaster, user, subscriberData }) {
           description="Os pedidos feitos pelos clientes aparecerão aqui automaticamente"
           actionLabel="Ir para o Cardápio"
           action={() => {
-            const slug = user?.is_master ? user?.slug : subscriberData?.slug;
-            const url = slug ? `/s/${slug}` : createPageUrl('Cardapio');
+            const s = slug ?? store?.slug ?? (user?.is_master ? user?.slug : subscriberData?.slug);
+            const url = s ? `/s/${s}` : createPageUrl('Cardapio');
             window.open(url, '_blank');
           }}
         />

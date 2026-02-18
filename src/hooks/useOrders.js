@@ -1,7 +1,7 @@
 /**
  * Hook useOrders - Busca pedidos com contexto automático
  * Usa menuContext para buscar pedidos no contexto correto.
- * Fallback: se menuContext atrasar (ex.: Painel Assinante), usa subscriberData/user para assinante.
+ * Fallback: asSubFromParent (do PainelAssinante) ou subscriberData/user quando menuContext atrasa.
  */
 
 import { useQuery } from '@tanstack/react-query';
@@ -16,19 +16,35 @@ import { log } from '@/utils/logger';
  * @param {Object} options - Opções da query
  * @param {string} options.orderBy - Ordenação (padrão: '-created_date')
  * @param {Object} options.filters - Filtros adicionais
+ * @param {string} [options.asSubFromParent] - E-mail do assinante passado pelo pai (ex.: PainelAssinante). Quando definido, a query é habilitada imediatamente, sem depender de permissionLoading/menuContext.
  * @returns {Object} Resultado da query
  */
 export function useOrders(options = {}) {
   const { menuContext, loading: permissionLoading, user, subscriberData, isMaster } = usePermission();
-  const { orderBy = '-created_date', filters = {}, ...queryOptions } = options;
+  const { orderBy = '-created_date', filters = {}, asSubFromParent, ...queryOptions } = options;
 
-  // Para assinante: usar menuContext ou fallback (subscriberData.email / user) para não depender do timing do menuContext
-  const effectiveSubscriber =
+  // Escopo: priorizar asSubFromParent (vindo do PainelAssinante), depois menuContext, depois fallback assinante
+  const fromPermission =
     (menuContext?.type === 'subscriber' && menuContext?.value) ||
     (!isMaster && (subscriberData?.email || user?.subscriber_email || user?.email));
-  const effectiveSubscriberNorm = effectiveSubscriber ? String(effectiveSubscriber).trim().toLowerCase() : null;
+  const effectiveSubscriberRaw = asSubFromParent ?? fromPermission;
+  const effectiveSubscriberNorm = effectiveSubscriberRaw ? String(effectiveSubscriberRaw).trim().toLowerCase() : null;
 
-  const isEnabled = !permissionLoading && (!!menuContext || !!effectiveSubscriberNorm) && (queryOptions.enabled !== false);
+  // Habilitar quando: (pai passou asSub) OU (permissões carregadas e temos contexto)
+  const enabledByParent = asSubFromParent != null && asSubFromParent !== '';
+  const enabledByPermission = !permissionLoading && (!!menuContext || !!fromPermission);
+  const isEnabled = (queryOptions.enabled !== false) && (enabledByParent || enabledByPermission);
+
+  if (import.meta.env.DEV && !isEnabled) {
+    console.debug('[useOrders] why_not_fetching', {
+      enabledByParent,
+      enabledByPermission,
+      permissionLoading,
+      hasMenuContext: !!menuContext,
+      hasFromPermission: !!fromPermission,
+      asSubFromParent: asSubFromParent ?? null,
+    });
+  }
 
   return useQuery({
     queryKey: ['orders', menuContext?.type, menuContext?.value, effectiveSubscriberNorm, orderBy, filters],
@@ -58,19 +74,21 @@ export function useOrders(options = {}) {
         const getOrderDate = (o) => new Date(o?.created_date || o?.created_at || 0).getTime();
         orders.sort((a, b) => getOrderDate(b) - getOrderDate(a));
 
-        log.menu.log('✅ [useOrders] Pedidos recebidos:', orders.length);
+        if (import.meta.env.DEV) log.menu.log('✅ [useOrders] Pedidos recebidos:', orders.length);
         return orders;
       } catch (error) {
         log.menu.error('❌ [useOrders] Erro ao buscar pedidos:', error);
-        return [];
+        throw error;
       }
     },
-    enabled: !permissionLoading && (!!menuContext || !!effectiveSubscriberNorm) && (queryOptions.enabled !== false),
+    enabled: isEnabled,
     initialData: [],
     retry: 2,
     refetchOnMount: true,
     staleTime: 30 * 1000, // 30s — evita refetch desnecessário ao trocar de aba
     gcTime: 5 * 60 * 1000,
+    // Manter lista anterior visível ao trocar contexto ou ao refetch (evita "apareceu e sumiu")
+    placeholderData: (previousData) => previousData,
     ...queryOptions
   });
 }

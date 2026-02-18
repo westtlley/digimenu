@@ -195,6 +195,9 @@ export default function PainelAssinante() {
 
   const to = (p) => createPageUrl(p, slug || undefined);
 
+  // Escopo para listagens (orders/clients): master em slug usa asSub; assinante usa seu e-mail
+  const effectiveSubscriberForList = asSub ?? subscriberData?.email ?? subscriberEmail ?? user?.subscriber_email ?? user?.email;
+
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
@@ -204,11 +207,30 @@ export default function PainelAssinante() {
       case 'caixa':
         return hasModuleAccess('caixa') ? <CaixaTab /> : <AccessDenied />;
       case 'orders':
-        return hasModuleAccess('orders') ? <OrdersTab /> : <AccessDenied />;
+        return hasModuleAccess('orders') ? (
+          <OrdersTab
+            storeId={store?.id}
+            store={store}
+            slug={slug}
+            asSub={asSub}
+            subscriberEmail={effectiveSubscriberForList}
+            isMaster={isMaster}
+            user={user}
+            subscriberData={subscriberData}
+          />
+        ) : <AccessDenied />;
       case 'history':
         return hasModuleAccess('history') ? <OrderHistoryTab /> : <AccessDenied />;
       case 'clients':
-        return hasModuleAccess('clients') ? <ClientsTab /> : <AccessDenied />;
+        return hasModuleAccess('clients') ? (
+          <ClientsTab
+            storeId={store?.id}
+            store={store}
+            slug={slug}
+            asSub={asSub}
+            subscriberEmail={effectiveSubscriberForList}
+          />
+        ) : <AccessDenied />;
       case 'financial':
         return hasModuleAccess('financial') ? <FinancialTab /> : <AccessDenied />;
       case 'dishes':

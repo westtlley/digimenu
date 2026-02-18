@@ -31,7 +31,7 @@ import moment from 'moment';
 import ClientsSkeleton from '../skeletons/ClientsSkeleton';
 import { useOrders } from '@/hooks/useOrders';
 
-export default function ClientsTab() {
+export default function ClientsTab({ storeId, store, slug, asSub, subscriberEmail }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('recent'); // recent, spending, frequency
   const [selectedClient, setSelectedClient] = useState(null);
@@ -40,14 +40,16 @@ export default function ClientsTab() {
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
 
-  // ✅ CORREÇÃO: Usar hook useOrders com contexto automático
-  const { data: orders = [], isLoading } = useOrders({
-    orderBy: '-created_date'
+  const asSubForList = subscriberEmail ?? asSub;
+
+  const { data: orders = [], isLoading, isError, error, refetch } = useOrders({
+    orderBy: '-created_date',
+    asSubFromParent: asSubForList,
   });
 
-  // Pull to refresh
+  // Pull to refresh: mesma query key do useOrders
   const { isRefreshing } = usePullToRefresh(() => {
-    return queryClient.invalidateQueries({ queryKey: ['clientOrders'] });
+    return queryClient.invalidateQueries({ queryKey: ['orders'] });
   });
 
   // Agrupar pedidos por cliente
@@ -115,6 +117,18 @@ export default function ClientsTab() {
 
   if (isLoading) {
     return <ClientsSkeleton />;
+  }
+
+  if (isError) {
+    return (
+      <div className="p-6">
+        <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-6 text-center">
+          <p className="font-medium text-destructive mb-2">Não foi possível carregar os clientes.</p>
+          <p className="text-sm text-muted-foreground mb-4">{error?.message || 'Erro de conexão.'}</p>
+          <Button onClick={() => refetch()}>Tentar novamente</Button>
+        </div>
+      </div>
+    );
   }
 
   return (
