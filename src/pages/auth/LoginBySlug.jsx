@@ -70,7 +70,12 @@ export default function LoginBySlug({ type: propType }) {
         if (!ok) return;
         const me = await base44.auth.me();
         if (!me) return;
-        // Redirecionamento único por perfil (independente do tipo de atalho na URL)
+        // Login por /s/:slug/login/cliente → sempre cardápio, independente do perfil
+        if (loginType === 'cliente') {
+          navigate(slug ? `/s/${slug}` : '/', { replace: true });
+          return;
+        }
+        // Demais: redirecionamento por perfil
         if (me?.role === 'customer') {
           navigate(slug ? `/s/${slug}` : '/', { replace: true });
           return;
@@ -110,23 +115,23 @@ export default function LoginBySlug({ type: propType }) {
         
         toast.success('Login realizado com sucesso!');
         
-        // Priorizar verificação do userData sobre loginType para determinar redirecionamento
-        // Verificar se é colaborador (incluindo gerente) pelo userData
+        // Login por /s/:slug/login/cliente → sempre cardápio, independente do perfil (admin, assinante, etc.)
+        if (loginType === 'cliente') {
+          const safeReturn = returnUrl && returnUrl.startsWith('/') && !returnUrl.startsWith('//') ? returnUrl : (slug ? `/s/${slug}` : '/');
+          navigate(safeReturn, { replace: true });
+          return;
+        }
+        // Demais: redirecionamento por perfil
         const roles = userData?.profile_roles?.length ? userData.profile_roles : (userData?.profile_role ? [userData.profile_role] : []);
         const isColaborador = roles.length > 0;
-        
         if (userData?.role === 'customer') {
-          // Cliente → Cardápio
           const safeReturn = returnUrl && returnUrl.startsWith('/') && !returnUrl.startsWith('//') ? returnUrl : (slug ? `/s/${slug}` : '/');
           navigate(safeReturn, { replace: true });
         } else if (isColaborador) {
-          // Colaborador (incluindo gerente) → Home do colaborador com botões para escolher acesso
           navigate('/colaborador', { replace: true });
         } else if (userData?.is_master) {
-          // Master → Admin
           navigate('/Admin', { replace: true });
         } else {
-          // Assinante → PainelAssinante
           navigate(slug ? `/s/${slug}/PainelAssinante` : '/PainelAssinante', { replace: true });
         }
       } else {

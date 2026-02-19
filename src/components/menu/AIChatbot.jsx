@@ -22,6 +22,7 @@ import {
 import { formatCurrency } from '@/utils/formatters';
 import { orderService } from '@/components/services/orderService';
 import { whatsappService } from '@/components/services/whatsappService';
+import { buscarCEP } from '@/utils/cepService';
 
 /**
  * AIChatbot - Chatbot inteligente com fluxo completo de pedido
@@ -118,12 +119,24 @@ function buildStoreInfo(store) {
   };
 }
 
-const INITIAL_CUSTOMER = { name: '', phone: '', email: '', deliveryMethod: 'pickup', address_street: '', address_number: '', address_complement: '', neighborhood: '', payment_method: '', needs_change: false, change_amount: null, address: '' };
+const INITIAL_CUSTOMER = { name: '', phone: '', email: '', deliveryMethod: 'pickup', address_street: '', address_number: '', address_complement: '', neighborhood: '', cep: '', payment_method: '', needs_change: false, change_amount: null, address: '', delivery_fee_confirmed: false };
 
 /** Delay antes de mostrar resposta (simula digitação real) */
 const BOT_RESPONSE_DELAY_MS = 1200;
 
 const delay = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/** Garante valor string (evita [object Object] quando recebe objeto) */
+function ensureString(val) {
+  if (val == null) return '';
+  if (typeof val === 'string') return val.trim();
+  if (typeof val === 'object') {
+    const v = val.value ?? val.phone ?? val.phoneNumber ?? val.text ?? val.number ?? val.formattedValue;
+    return v != null ? String(v).trim() : '';
+  }
+  const s = String(val).trim();
+  return s === '[object Object]' ? '' : s;
+}
 
 /** Detecta mensagem ofensiva */
 function isOffensive(text) {
@@ -146,7 +159,8 @@ function BoldText({ text }) {
   );
 }
 
-export default function AIChatbot({ dishes = [], categories: categoriesProp = [], complementGroups = [], deliveryZones = [], store = null, orders: ordersProp = [], onAddToCart, onOrderCreated, open: controlledOpen, onOpenChange, slug, storeName }) {
+export default function AIChatbot({ dishes = [], categories: categoriesProp = [], complementGroups = [], deliveryZones = [], store = null, orders: ordersProp = [], onAddToCart, onOrderCreated, open: controlledOpen, onOpenChange, slug, storeName, primaryColor: primaryColorProp }) {
+  const primaryColor = primaryColorProp || store?.theme_primary_color || store?.primary_color || '#f97316';
   const [internalOpen, setInternalOpen] = useState(false);
   const isControlled = controlledOpen !== undefined && onOpenChange != null;
   const isOpen = isControlled ? controlledOpen : internalOpen;
@@ -164,7 +178,8 @@ export default function AIChatbot({ dishes = [], categories: categoriesProp = []
   const [chatOrderStep, setChatOrderStep] = useState(STEPS.idle);
   const [chatCart, setChatCart] = useState([]);
   const [chatCustomer, setChatCustomer] = useState(INITIAL_CUSTOMER);
-  const [addressFieldStep, setAddressFieldStep] = useState(0); // 0=nome, 1=phone, 2=rua, 3=numero, 4=bairro
+  const [addressFieldStep, setAddressFieldStep] = useState(0); // 0=nome, 1=phone, 2=cep, 3=confirm/correct, 4=number, 5=delivery_fee
+  const [addressFromCep, setAddressFromCep] = useState(null); // { logradouro, bairro, cidade, uf }
   const [lastCompletedOrder, setLastCompletedOrder] = useState(null);
   const [pendingDishAdd, setPendingDishAdd] = useState(null); // { dish, quantity, step: 'beverages'|'complements', selections, complementGroupIndex }
   const messagesEndRef = useRef(null);
@@ -243,7 +258,7 @@ export default function AIChatbot({ dishes = [], categories: categoriesProp = []
     if (normalized.includes('ver cardápio') || normalized.includes('ver cardapio') || normalized.includes('fazer pedido')) {
       const menuData = buildMenuForChat(dishes, categories, complementGroups);
       return {
-        text: `📋 Cardápio\n\n${menuData.text}`,
+        text: 'Confira nossos pratos:',
         menuItems: menuData.menuItems || [],
         suggestions: menuData.suggestions || ['Finalizar pedido', 'Ver horários']
       };
@@ -395,21 +410,42 @@ export default function AIChatbot({ dishes = [], categories: categoriesProp = []
 
     const current = optsByGroup[groupIndex];
     const groupName = (current.group.name || '').toLowerCase();
+    const maxSel = current.group.max_selection || 1;
+    const selCount = (() => {
+      const s = selections[current.group.id];
+      return Array.isArray(s) ? s.length : s ? 1 : 0;
+    })();
     const isYesNo = groupName.includes('colher') || groupName.includes('talher') || groupName.includes('guardanapo') || current.options.every((o) => /sim|não|nao/i.test(o.name));
 
+    const ordinais = ['primeira', 'segunda', 'terceira', 'quarta', 'quinta', 'sexta'];
     let text;
     let suggestionBtns;
     if (isYesNo) {
       text = `Você vai querer ${current.group.name}?`;
       suggestionBtns = [...current.options.map((o) => o.name), ...(current.required ? [] : ['Pular'])];
     } else {
-      text = groupIndex === 0
-        ? `${current.group.name}: qual opção?`
-        : `Certo! Agora escolha o tipo de ${current.group.name}:`;
-      suggestionBtns = [...current.options.map((o) => (o.price ? `${o.name} (+${formatCurrency(o.price)})` : o.name)), ...(current.required ? [] : ['Pular'])];
+      if (maxSel > 1) {
+        if (selCount === 0) {
+          text = `${current.group.name}: você pode escolher até ${maxSel} opções. Escolha a ${ordinais[0]}:`;
+        } else if (selCount < maxSel) {
+          text = `Certo! Agora escolha a ${ordinais[selCount]} opção:`;
+          suggestionBtns = [...current.options.map((o) => (o.price ? `${o.name} (+${formatCurrency(o.price)})` : o.name)), ...(current.required ? [] : ['Pular'])];
+          suggestionBtns.push('Continuar');
+        }
+      }
+      if (!text) {
+        text = groupIndex === 0
+          ? `${current.group.name}: qual opção?`
+          : `Certo! Agora escolha o tipo de ${current.group.name}:`;
+      }
+      if (!suggestionBtns) {
+        suggestionBtns = [...current.options.map((o) => (o.price ? `${o.name} (+${formatCurrency(o.price)})` : o.name)), ...(current.required ? [] : ['Pular'])];
+        if (maxSel > 1 && selCount > 0 && selCount < maxSel) suggestionBtns.push('Continuar');
+        else if (maxSel > 1 && selCount >= maxSel) suggestionBtns = ['Continuar'];
+      }
     }
 
-    return { text, suggestions: suggestionBtns, complementGroups: optsByGroup, currentGroupIndex: groupIndex };
+    return { text, suggestions: suggestionBtns || [], complementGroups: optsByGroup, currentGroupIndex: groupIndex };
   };
 
   /** Processa fluxo de pedido pelo chat */
@@ -484,8 +520,9 @@ export default function AIChatbot({ dishes = [], categories: categoriesProp = []
         const currentIdx = pendingDishAdd.complementGroupIndex ?? 0;
         const currentGrp = groups[currentIdx];
         const isPularComp = normalized.includes('pular');
+        const isContinuar = normalized.includes('continuar');
         const linkedReq = dish?.complement_groups?.find((cg) => cg.group_id === currentGrp?.id)?.is_required;
-        if (currentGrp && isPularComp && !linkedReq) {
+        if (currentGrp && ((isPularComp && !linkedReq) || isContinuar)) {
           const nextIdx = currentIdx + 1;
           setPendingDishAdd((prev) => ({ ...prev, complementGroupIndex: nextIdx }));
           const compMsg = buildComplementMessage(dish, selections, nextIdx);
@@ -498,6 +535,7 @@ export default function AIChatbot({ dishes = [], categories: categoriesProp = []
           if (opt) {
             const maxSel = g.max_selection || 1;
             const newSelections = { ...selections };
+            let advanceToNext = true;
             if (maxSel === 1) {
               newSelections[g.id] = opt;
             } else {
@@ -507,8 +545,9 @@ export default function AIChatbot({ dishes = [], categories: categoriesProp = []
               if (idx >= 0) arr.splice(idx, 1);
               else if (arr.length < maxSel) arr.push(opt);
               newSelections[g.id] = arr;
+              advanceToNext = arr.length >= maxSel;
             }
-            const nextIdx = currentIdx + 1;
+            const nextIdx = advanceToNext ? currentIdx + 1 : currentIdx;
             setPendingDishAdd((prev) => ({ ...prev, selections: newSelections, complementGroupIndex: nextIdx }));
             const compMsg = buildComplementMessage(dish, newSelections, nextIdx);
             return { text: compMsg.text, suggestions: compMsg.suggestions };
@@ -595,7 +634,7 @@ export default function AIChatbot({ dishes = [], categories: categoriesProp = []
         setChatCustomer(prev => ({ ...prev, phone: textToSend.trim() }));
         if (chatCustomer.deliveryMethod === 'delivery') {
           setAddressFieldStep(2);
-          return { text: 'Qual o endereço? (Rua, número, complemento)', suggestions: [] };
+          return { text: 'Qual seu CEP? (8 dígitos)', suggestions: [] };
         }
         setChatOrderStep(STEPS.payment);
         return {
@@ -604,26 +643,107 @@ export default function AIChatbot({ dishes = [], categories: categoriesProp = []
         };
       }
       if (step === 2) {
+        const cepClean = textToSend.replace(/\D/g, '');
+        if (cepClean.length !== 8) return { text: 'CEP deve ter 8 dígitos. Digite novamente:', suggestions: [] };
+        try {
+          const endereco = await buscarCEP(cepClean);
+          setChatCustomer(prev => ({ ...prev, cep: cepClean }));
+          setAddressFromCep({ logradouro: endereco.logradouro, bairro: endereco.bairro, cidade: endereco.cidade, estado: endereco.estado });
+          setAddressFieldStep(3);
+          const rua = endereco.logradouro || '(sem logradouro)';
+          const bairro = endereco.bairro || '(sem bairro)';
+          return {
+            text: `Seu endereço é: Rua ${rua}, Bairro ${bairro}. Confirma ou quer corrigir?`,
+            suggestions: ['Confirmar', 'Corrigir']
+          };
+        } catch (_) {
+          setAddressFieldStep(4);
+          setAddressFromCep(null);
+          return { text: 'CEP não encontrado. Envie o endereço completo: rua, número e bairro.', suggestions: [] };
+        }
+      }
+      if (step === 3) {
+        if (normalized.includes('confirmar')) {
+          const fromCep = addressFromCep || {};
+          const street = fromCep.logradouro || '';
+          const neigh = fromCep.bairro || '';
+          setChatCustomer(prev => ({ ...prev, address_street: street, neighborhood: neigh }));
+          setAddressFieldStep(4);
+          return { text: 'Qual o número da casa ou apartamento?', suggestions: [] };
+        }
+        if (normalized.includes('corrigir') || normalized.includes('corrige')) {
+          setAddressFromCep(null);
+          setAddressFieldStep(4);
+          return { text: 'Envie o endereço completo: rua, número e bairro.', suggestions: [] };
+        }
         const parts = textToSend.split(/[,;]/).map(s => s.trim()).filter(Boolean);
-        const numMatch = textToSend.match(/\b(\d{1,6})\s*(?:,|$|\s)/);
+        const numMatch = textToSend.match(/\b(\d{1,6})\b/);
         const street = parts[0] || textToSend;
-        const num = parts[1] || (numMatch ? numMatch[1] : '');
-        const comp = parts[2] || '';
+        const num = numMatch ? numMatch[1] : (parts[1] && /^\d+$/.test(parts[1]) ? parts[1] : '');
+        const neigh = parts[2] || parts[1] || '';
         setChatCustomer(prev => ({
           ...prev,
           address_street: street,
           address_number: num,
-          address_complement: comp,
+          neighborhood: neigh,
           address: textToSend,
         }));
-        setAddressFieldStep(3);
-        return { text: 'Qual o bairro?', suggestions: [] };
-      }
-      if (step === 3) {
-        setChatCustomer(prev => ({ ...prev, neighborhood: textToSend.trim(), address: `${prev.address}, ${textToSend.trim()}` }));
+        setAddressFromCep(null);
+        setAddressFieldStep(5);
+        const fee = orderService.calculateDeliveryFee('delivery', neigh, deliveryZones, store);
+        const zone = deliveryZones?.find(z => z.is_active !== false && (z.neighborhood || '').toLowerCase().trim() === (neigh || '').toLowerCase().trim());
+        if (zone) {
+          setChatCustomer(prev => ({ ...prev, delivery_fee_confirmed: true }));
+          setChatOrderStep(STEPS.payment);
+          return {
+            text: `Taxa de entrega para ${neigh}: ${formatCurrency(fee)}. Qual a forma de pagamento?`,
+            suggestions: ['PIX', 'Dinheiro', 'Cartão de crédito', 'Cartão de débito']
+          };
+        }
+        setChatCustomer(prev => ({ ...prev, delivery_fee_confirmed: false }));
         setChatOrderStep(STEPS.payment);
         return {
-          text: 'Qual a forma de pagamento?',
+          text: `O bairro ${neigh} não consta no nosso cadastro. A taxa de entrega será confirmada após o pedido. Qual a forma de pagamento?`,
+          suggestions: ['PIX', 'Dinheiro', 'Cartão de crédito', 'Cartão de débito']
+        };
+      }
+      if (step === 4) {
+        let neigh = '';
+        if (addressFromCep) {
+          const num = textToSend.replace(/\D/g, '') || textToSend.trim();
+          neigh = chatCustomer.neighborhood;
+          setChatCustomer(prev => ({
+            ...prev,
+            address_number: num,
+            address: `${prev.address_street}, ${num} - ${prev.neighborhood}`,
+          }));
+        } else {
+          const parts = textToSend.split(/[,;]/).map(s => s.trim()).filter(Boolean);
+          const numMatch = textToSend.match(/\b(\d{1,6})\b/);
+          neigh = parts[2] || parts[1] || '';
+          setChatCustomer(prev => ({
+            ...prev,
+            address_street: parts[0] || prev.address_street,
+            address_number: numMatch ? numMatch[1] : (parts[1] && /^\d+$/.test(parts[1]) ? parts[1] : ''),
+            neighborhood: neigh,
+            address: textToSend,
+          }));
+        }
+        setAddressFieldStep(5);
+        const fee = orderService.calculateDeliveryFee('delivery', neigh, deliveryZones, store);
+        const zone = deliveryZones?.find(z => z.is_active !== false && (z.neighborhood || '').toLowerCase().trim() === (neigh || '').toLowerCase().trim());
+        if (zone) {
+          setChatCustomer(prev => ({ ...prev, delivery_fee_confirmed: true }));
+          setChatOrderStep(STEPS.payment);
+          return {
+            text: `Taxa de entrega para ${neigh || 'seu bairro'}: ${formatCurrency(fee)}. Qual a forma de pagamento?`,
+            suggestions: ['PIX', 'Dinheiro', 'Cartão de crédito', 'Cartão de débito']
+          };
+        }
+        setChatCustomer(prev => ({ ...prev, delivery_fee_confirmed: false }));
+        setChatOrderStep(STEPS.payment);
+        return {
+          text: 'O bairro não consta no nosso cadastro. A taxa será confirmada após o pedido. Qual a forma de pagamento?',
           suggestions: ['PIX', 'Dinheiro', 'Cartão de crédito', 'Cartão de débito']
         };
       }
@@ -666,6 +786,8 @@ export default function AIChatbot({ dishes = [], categories: categoriesProp = []
         setChatOrderStep(STEPS.idle);
         setChatCart([]);
         setChatCustomer(INITIAL_CUSTOMER);
+        setAddressFromCep(null);
+        setAddressFieldStep(0);
         return { text: 'Pedido cancelado. Posso ajudar em mais alguma coisa?', suggestions: ['Ver cardápio', 'Fazer pedido'] };
       }
     }
@@ -681,13 +803,20 @@ export default function AIChatbot({ dishes = [], categories: categoriesProp = []
   };
 
   const buildConfirmMessage = () => {
-    const total = chatCart.reduce((s, i) => s + (i.totalPrice || 0) * (i.quantity || 1), 0);
+    const subtotal = chatCart.reduce((s, i) => s + (i.totalPrice || 0) * (i.quantity || 1), 0);
     const fee = chatCustomer.deliveryMethod === 'delivery' ? orderService.calculateDeliveryFee('delivery', chatCustomer.neighborhood, deliveryZones, store) : 0;
-    const orderTotal = total + fee;
-    let res = `📋 Resumo do pedido\n\n${formatCartSummary(chatCart)}\n\n`;
-    if (fee > 0) res += `Taxa de entrega: ${formatCurrency(fee)}\n`;
+    const orderTotal = subtotal + fee;
+    const fullAddress = chatCustomer.deliveryMethod === 'delivery' && chatCustomer.address_street
+      ? orderService.formatFullAddress(chatCustomer)
+      : (chatCustomer.address || 'Retirada');
+    let res = '📋 Resumo do pedido\n\n';
+    res += formatCartSummary(chatCart, complementGroups) + '\n\n';
+    res += `Subtotal: ${formatCurrency(subtotal)}\n`;
+    if (chatCustomer.deliveryMethod === 'delivery') {
+      res += fee > 0 ? `Taxa de entrega: ${formatCurrency(fee)}\n` : 'Taxa de entrega: a confirmar\n';
+    }
     res += `Total: ${formatCurrency(orderTotal)}\n\n`;
-    res += `Entregar em: ${chatCustomer.address || 'Retirada'}\n`;
+    res += `Entregar em: ${fullAddress}\n`;
     res += `Pagamento: ${chatCustomer.payment_method || 'PIX'}\n`;
     if (chatCustomer.needs_change && chatCustomer.change_amount) res += `Troco para: ${formatCurrency(chatCustomer.change_amount)}\n`;
     res += '\nConfirma o pedido?';
@@ -720,9 +849,12 @@ export default function AIChatbot({ dishes = [], categories: categoriesProp = []
     }
   };
 
-  /** Envia mensagem. Se textOverride for passado (ex.: clique em sugestão), usa esse texto. */
+  /** Envia mensagem. Se textOverride for passado (ex.: clique em sugestão), usa esse texto. Evita evento/objeto. */
   const handleSendMessage = async (textOverride = null) => {
-    const textToSend = (textOverride != null && String(textOverride).trim()) ? String(textOverride).trim() : inputText.trim();
+    // Garantir que textOverride não seja evento ou objeto (evita "[object Object]")
+    const safeOverride = (textOverride != null && typeof textOverride === 'string') ? textOverride : null;
+    const raw = safeOverride ?? (typeof inputText === 'string' ? inputText : '');
+    const textToSend = ensureString(raw);
     if (!textToSend) return;
 
     const userMessage = {
@@ -733,7 +865,7 @@ export default function AIChatbot({ dishes = [], categories: categoriesProp = []
     };
 
     setMessages(prev => [...prev, userMessage]);
-    if (!textOverride) setInputText('');
+    if (!safeOverride) setInputText('');
     setIsTyping(true);
 
     // 1) Tentar fluxo de pedido pelo chat
@@ -860,7 +992,8 @@ export default function AIChatbot({ dishes = [], categories: categoriesProp = []
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.9 }}
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-6 right-6 z-50 bg-gradient-to-r from-orange-500 to-red-500 text-white p-4 rounded-full shadow-2xl hover:shadow-orange-500/50 transition-shadow"
+          className="fixed bottom-6 right-6 z-50 text-white p-4 rounded-full shadow-2xl transition-shadow"
+          style={{ backgroundColor: primaryColor }}
         >
           <MessageCircle className="w-6 h-6" />
         </motion.button>
@@ -873,11 +1006,11 @@ export default function AIChatbot({ dishes = [], categories: categoriesProp = []
             initial={{ opacity: 0, y: 20, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.9 }}
-            className="fixed bottom-6 right-6 z-50 w-96 max-w-[calc(100vw-2rem)] h-[600px] max-h-[calc(100vh-8rem)]"
+            className="fixed inset-0 z-50 w-full h-full min-h-[100dvh] md:inset-auto md:min-h-0 md:bottom-6 md:right-6 md:w-96 md:h-[600px] md:max-h-[calc(100vh-8rem)]"
           >
-            <Card className="h-full flex flex-col shadow-2xl">
+            <Card className="h-full min-h-[100dvh] md:min-h-0 flex flex-col shadow-2xl rounded-none md:rounded-lg overflow-hidden">
               {/* Header */}
-              <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white p-4 rounded-t-lg flex items-center justify-between">
+              <div className="text-white p-4 rounded-t-none md:rounded-t-lg flex items-center justify-between flex-shrink-0" style={{ backgroundColor: primaryColor }}>
                 <div className="flex items-center gap-2">
                   <Bot className="w-5 h-5" />
                   <div>
@@ -907,9 +1040,10 @@ export default function AIChatbot({ dishes = [], categories: categoriesProp = []
                     <div
                       className={`max-w-[80%] rounded-lg p-3 ${
                         message.type === 'user'
-                          ? 'bg-orange-500 text-white'
+                          ? 'text-white'
                           : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100'
                       }`}
+                      style={message.type === 'user' ? { backgroundColor: primaryColor } : {}}
                     >
                       <p className="text-sm whitespace-pre-line">
                         <BoldText text={message.text} />
@@ -917,7 +1051,7 @@ export default function AIChatbot({ dishes = [], categories: categoriesProp = []
 
                       {/* Cardápio com botões inline */}
                       {message.menuItems && message.menuItems.length > 0 && (
-                        <div className="mt-2 space-y-1.5">
+                        <div className="mt-3 space-y-2">
                           {(() => {
                             let lastCat = '';
                             return message.menuItems.map((mi) => {
@@ -925,14 +1059,20 @@ export default function AIChatbot({ dishes = [], categories: categoriesProp = []
                               if (showCat) lastCat = mi.categoryName;
                               return (
                                 <div key={mi.dish?.id || mi.dish?.name}>
-                                  {showCat && <p className="font-semibold text-xs mt-2 first:mt-0 opacity-90">{mi.categoryName}</p>}
-                                  <div className="flex items-center justify-between gap-2 py-0.5">
-                                    <span className="text-sm flex-1">
-                                      {mi.dish?.name}: {formatCurrency(mi.dish?.price ?? 0)}
-                                    </span>
+                                  {showCat && (
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400 mb-1.5 pt-2 first:pt-0 border-t border-gray-200 dark:border-gray-600 first:border-t-0 first:pt-0">
+                                      {mi.categoryName}
+                                    </p>
+                                  )}
+                                  <div className="flex items-center justify-between gap-2 py-2 px-3 rounded-lg border border-gray-200 dark:border-gray-600 bg-white/50 dark:bg-gray-700/50 hover:bg-white/70 dark:hover:bg-gray-700/70 transition-colors">
+                                    <div className="flex-1 min-w-0">
+                                      <span className="text-sm font-medium block truncate">{mi.dish?.name}</span>
+                                      <span className="text-xs font-semibold opacity-90">{formatCurrency(mi.dish?.price ?? 0)}</span>
+                                    </div>
                                     <button
                                       onClick={() => handleSuggestion(`Adicionar ${mi.dish?.name}`)}
-                                      className="text-xs px-2 py-1 bg-white/20 rounded hover:bg-white/30 transition-colors flex-shrink-0"
+                                      className="text-xs font-medium px-3 py-1.5 rounded-md flex-shrink-0 transition-colors text-white"
+                                      style={{ backgroundColor: primaryColor }}
                                     >
                                       Adicionar
                                     </button>
@@ -950,8 +1090,10 @@ export default function AIChatbot({ dishes = [], categories: categoriesProp = []
                           {message.suggestions.map((suggestion, index) => (
                             <button
                               key={index}
+                              type="button"
                               onClick={() => handleSuggestion(suggestion)}
-                              className="text-xs px-2 py-1 bg-white/20 rounded hover:bg-white/30 transition-colors"
+                              className="text-xs px-2 py-1 rounded transition-colors border"
+                              style={{ backgroundColor: `${primaryColor}25`, borderColor: `${primaryColor}50`, color: primaryColor }}
                             >
                               {suggestion}
                             </button>
@@ -990,8 +1132,8 @@ export default function AIChatbot({ dishes = [], categories: categoriesProp = []
 
                 {isTyping && (
                   <div className="flex justify-start">
-                    <div className="bg-gray-100 rounded-lg p-3">
-                      <Loader2 className="w-4 h-4 animate-spin" />
+                    <div className="rounded-lg p-3" style={{ backgroundColor: `${primaryColor}20` }}>
+                      <Loader2 className="w-4 h-4 animate-spin" style={{ color: primaryColor }} />
                     </div>
                   </div>
                 )}
@@ -1006,7 +1148,7 @@ export default function AIChatbot({ dishes = [], categories: categoriesProp = []
                     ref={inputRef}
                     value={inputText}
                     onChange={(e) => setInputText(e.target.value)}
-                    onKeyPress={(e) => {
+                    onKeyDown={(e) => {
                       if (e.key === 'Enter' && !e.shiftKey) {
                         e.preventDefault();
                         handleSendMessage();
@@ -1016,9 +1158,11 @@ export default function AIChatbot({ dishes = [], categories: categoriesProp = []
                     className="flex-1"
                   />
                   <Button
-                    onClick={handleSendMessage}
+                    type="button"
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleSendMessage(); }}
                     disabled={!inputText.trim() || isTyping}
-                    className="bg-orange-500 hover:bg-orange-600"
+                    className="text-white"
+                    style={{ backgroundColor: primaryColor }}
                   >
                     <Send className="w-4 h-4" />
                   </Button>
