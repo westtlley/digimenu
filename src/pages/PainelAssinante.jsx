@@ -137,7 +137,10 @@ export default function PainelAssinante() {
     }
   }, [loading, mustRedirectToColaborador, navigate]);
 
-  if (loading) {
+  // Em slug context, aguardar slug carregar para identificar corretamente o assinante (email do slug)
+  const blockingLoading = loading || (inSlugContext && slugLoading);
+
+  if (blockingLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
@@ -195,8 +198,18 @@ export default function PainelAssinante() {
 
   const to = (p) => createPageUrl(p, slug || undefined);
 
-  // Escopo para listagens (orders/clients): master em slug usa asSub; assinante usa seu e-mail
-  const effectiveSubscriberForList = asSub ?? subscriberData?.email ?? subscriberEmail ?? user?.subscriber_email ?? user?.email;
+  // Escopo para listagens (orders/clients): priorizar slug quando em slug context (identificação correta).
+  // Master em slug: asSub (subscriberEmail do slug). Slug context: subscriberEmail do slug (loja atual).
+  // Sem slug: subscriberData ou user.
+  let effectiveSubscriberForList =
+    asSub ??
+    (inSlugContext && subscriberEmail ? subscriberEmail : null) ??
+    subscriberData?.email ??
+    user?.subscriber_email ??
+    user?.email;
+  if (!effectiveSubscriberForList && user?.email) {
+    effectiveSubscriberForList = user.email;
+  }
 
   const renderContent = () => {
     switch (activeTab) {

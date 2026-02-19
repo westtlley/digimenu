@@ -1954,6 +1954,7 @@ export default function Cardapio() {
           deliveryZones={deliveryZonesResolved}
           store={store}
           onAddToCart={handleAddToCart}
+          onOrderCreated={() => queryClient.invalidateQueries({ queryKey: ['customerOrdersForChatbot'] })}
           open={chatOpen}
           onOpenChange={setChatOpen}
           slug={slug}

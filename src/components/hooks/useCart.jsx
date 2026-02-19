@@ -37,7 +37,15 @@ export function useCart(slug = null) {
   }, [cart, storageKey, slug]);
 
   const addItem = useCallback((item) => {
-    setCart(prev => [...prev, { ...item, quantity: 1, id: `${item.dish.id}_${Date.now()}` }]);
+    const dish = item?.dish ?? item;
+    if (!dish?.id) return;
+    const qty = item?.quantity ?? 1;
+    const totalPrice = item?.totalPrice ?? dish?.price ?? 0;
+    const selections = item?.selections ?? {};
+    const cartItem = item?.dish
+      ? { ...item, quantity: qty, id: `${dish.id}_${Date.now()}` }
+      : { dish: { ...dish }, quantity: qty, totalPrice, selections, id: `${dish.id}_${Date.now()}` };
+    setCart(prev => [...prev, cartItem]);
   }, []);
 
   const updateItem = useCallback((itemId, updatedItem) => {

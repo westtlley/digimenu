@@ -2182,7 +2182,7 @@ app.get('/api/public/cardapio/:slug', asyncHandler(async (req, res) => {
 
 // Chat do assistente com IA (público para o cardápio)
 app.post('/api/public/chat', asyncHandler(async (req, res) => {
-  const { message, slug, storeName, dishesSummary, menuFull, deliveryInfo, paymentOptions, history } = req.body || {};
+  const { message, slug, storeName, dishesSummary, menuFull, deliveryInfo, paymentOptions, history, storeAddress, storeWhatsapp, storeHours, storeSlogan, storeInstagram, storeFacebook } = req.body || {};
   if (!message || typeof message !== 'string' || !message.trim()) {
     return res.status(400).json({ error: 'Campo message é obrigatório' });
   }
@@ -2192,7 +2192,13 @@ app.post('/api/public/chat', asyncHandler(async (req, res) => {
     menuFull: typeof menuFull === 'string' ? menuFull : '',
     deliveryInfo: typeof deliveryInfo === 'string' ? deliveryInfo : '',
     paymentOptions: typeof paymentOptions === 'string' ? paymentOptions : '',
-    slug: slug || ''
+    slug: slug || '',
+    storeAddress: typeof storeAddress === 'string' ? storeAddress : '',
+    storeWhatsapp: typeof storeWhatsapp === 'string' ? storeWhatsapp : '',
+    storeHours: typeof storeHours === 'string' ? storeHours : '',
+    storeSlogan: typeof storeSlogan === 'string' ? storeSlogan : '',
+    storeInstagram: typeof storeInstagram === 'string' ? storeInstagram : '',
+    storeFacebook: typeof storeFacebook === 'string' ? storeFacebook : '',
   };
   const hist = Array.isArray(history) ? history.slice(-10) : [];
   const result = await getAIResponse(message.trim(), context, hist);

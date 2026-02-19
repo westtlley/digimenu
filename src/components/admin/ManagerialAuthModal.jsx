@@ -3,7 +3,7 @@
  * (abrir caixa, excluir, exportar, etc.)
  */
 import React, { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -55,14 +55,14 @@ export default function ManagerialAuthModal({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md" aria-describedby="managerial-auth-desc">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Key className="w-5 h-5 text-orange-500" />
             {title}
           </DialogTitle>
+          <DialogDescription id="managerial-auth-desc" className="text-sm text-gray-600 dark:text-gray-400">{description}</DialogDescription>
         </DialogHeader>
-        <p className="text-sm text-gray-600 dark:text-gray-400">{description}</p>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <Label htmlFor="ma-matricula">Código de matrícula</Label>

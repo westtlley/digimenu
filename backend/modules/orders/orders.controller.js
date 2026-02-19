@@ -39,3 +39,32 @@ export const createTableOrder = asyncHandler(async (req, res) => {
     return errorResponse(res, 'Erro ao criar pedido', 500, 'INTERNAL_ERROR');
   }
 });
+
+/**
+ * Cria pedido de cardápio (entrega/retirada) - público por slug
+ */
+export const createCardapioOrder = asyncHandler(async (req, res) => {
+  if (!usePostgreSQL) {
+    return errorResponse(res, 'Requer PostgreSQL', 503, 'SERVICE_UNAVAILABLE');
+  }
+  try {
+    const { slug, ...orderData } = req.body;
+    if (!slug || !String(slug).trim()) {
+      return errorResponse(res, 'Slug obrigatório', 400, 'VALIDATION_ERROR');
+    }
+    const newOrder = await ordersService.createCardapioOrder({ ...orderData, slug }, slug);
+    return createdResponse(res, newOrder, 'Pedido criado com sucesso');
+  } catch (error) {
+    logger.error('Erro ao criar pedido cardápio:', error);
+    if (error.message === 'Slug obrigatório' || error.message.includes('obrigat')) {
+      return errorResponse(res, error.message, 400, 'VALIDATION_ERROR');
+    }
+    if (error.message === 'Link não encontrado' || error.message.includes('não encontrado')) {
+      return notFoundResponse(res, error.message);
+    }
+    if (error.message.includes('Limite') || error.message.includes('excedido')) {
+      return errorResponse(res, error.message, 402, 'LIMIT_EXCEEDED');
+    }
+    return errorResponse(res, error.message || 'Erro ao criar pedido', 500, 'INTERNAL_ERROR');
+  }
+});

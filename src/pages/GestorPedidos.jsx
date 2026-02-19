@@ -31,7 +31,7 @@ import { useSlugContext } from '@/hooks/useSlugContext';
 import { downloadOrdersCSV, exportGestorReportPDF, printOrdersInQueue } from '../utils/gestorExport';
 import { getNotificationSoundConfig } from '@/utils/gestorSounds';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import InstallAppButton from '../components/InstallAppButton';
 import { useManagerialAuth } from '@/hooks/useManagerialAuth';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
@@ -988,9 +988,9 @@ export default function GestorPedidos() {
 
       {/* Modal "Está aí?" (inatividade) */}
       <Dialog open={showAreYouThereModal} onOpenChange={(o) => { if (!o) setShowAreYouThereModal(false); }}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-sm" aria-describedby="are-you-there-desc">
           <DialogTitle>Você ainda está aí?</DialogTitle>
-          <p className="text-sm text-gray-600">O gestor está pausado. Toque em Continuar para seguir recebendo avisos.</p>
+          <DialogDescription id="are-you-there-desc" className="text-sm text-gray-600">O gestor está pausado. Toque em Continuar para seguir recebendo avisos.</DialogDescription>
           <div className="flex gap-2 mt-4">
             <Button onClick={() => setShowAreYouThereModal(false)} className="flex-1 bg-orange-500 hover:bg-orange-600 uppercase font-bold">
               Continuar
@@ -1008,11 +1008,12 @@ export default function GestorPedidos() {
 
       {/* Modal Atalhos de teclado */}
       <Dialog open={showAtalhosModal} onOpenChange={setShowAtalhosModal}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md" aria-describedby="atalhos-desc">
           <DialogTitle className="flex items-center gap-2">
             <HelpCircle className="w-5 h-5 text-orange-500" />
             Atalhos de teclado
           </DialogTitle>
+          <DialogDescription id="atalhos-desc" className="sr-only">Lista de atalhos de teclado do gestor de pedidos.</DialogDescription>
           <div className="grid gap-2 text-sm">
             <p><kbd className="px-1.5 py-0.5 rounded bg-gray-100 font-mono">K</kbd> Quadros</p>
             <p><kbd className="px-1.5 py-0.5 rounded bg-gray-100 font-mono">D</kbd> Entregadores</p>

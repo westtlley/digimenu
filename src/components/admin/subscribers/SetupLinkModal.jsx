@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Copy, Check, Eye, EyeOff } from 'lucide-react';
 
@@ -34,11 +34,12 @@ export default function SetupLinkModal({ open, onClose, setupUrl, subscriberName
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md max-w-[95vw]">
+      <DialogContent className="sm:max-w-md max-w-[95vw]" aria-describedby="setup-link-desc">
         <DialogHeader>
           <DialogTitle className="text-green-700 dark:text-green-400">
             Assinante criado com sucesso!
           </DialogTitle>
+          <DialogDescription id="setup-link-desc" className="sr-only">Envie o link de definição de senha ao assinante.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-2">
           {subscriberName && (

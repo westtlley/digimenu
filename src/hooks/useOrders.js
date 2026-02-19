@@ -35,19 +35,11 @@ export function useOrders(options = {}) {
   const enabledByPermission = !permissionLoading && (!!menuContext || !!fromPermission);
   const isEnabled = (queryOptions.enabled !== false) && (enabledByParent || enabledByPermission);
 
-  if (import.meta.env.DEV && !isEnabled) {
-    console.debug('[useOrders] why_not_fetching', {
-      enabledByParent,
-      enabledByPermission,
-      permissionLoading,
-      hasMenuContext: !!menuContext,
-      hasFromPermission: !!fromPermission,
-      asSubFromParent: asSubFromParent ?? null,
-    });
-  }
+  // Key estável: não incluir menuContext (evita re-fetch e flash vazio quando menuContext atualiza)
+  const stableKey = ['orders', effectiveSubscriberNorm ?? 'none', orderBy, JSON.stringify(filters || {})];
 
   return useQuery({
-    queryKey: ['orders', menuContext?.type, menuContext?.value, effectiveSubscriberNorm, orderBy, filters],
+    queryKey: stableKey,
     queryFn: async () => {
       try {
         const opts = {};
@@ -74,7 +66,6 @@ export function useOrders(options = {}) {
         const getOrderDate = (o) => new Date(o?.created_date || o?.created_at || 0).getTime();
         orders.sort((a, b) => getOrderDate(b) - getOrderDate(a));
 
-        if (import.meta.env.DEV) log.menu.log('✅ [useOrders] Pedidos recebidos:', orders.length);
         return orders;
       } catch (error) {
         log.menu.error('❌ [useOrders] Erro ao buscar pedidos:', error);
@@ -84,8 +75,8 @@ export function useOrders(options = {}) {
     enabled: isEnabled,
     initialData: [],
     retry: 2,
-    refetchOnMount: true,
-    staleTime: 30 * 1000, // 30s — evita refetch desnecessário ao trocar de aba
+    refetchOnMount: 'always',
+    staleTime: 30 * 1000,
     gcTime: 5 * 60 * 1000,
     // Manter lista anterior visível ao trocar contexto ou ao refetch (evita "apareceu e sumiu")
     placeholderData: (previousData) => previousData,

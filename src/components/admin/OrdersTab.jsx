@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Badge } from "@/components/ui/badge";
@@ -62,6 +62,10 @@ export default function OrdersTab({ isMaster, user, subscriberData, storeId, sto
     orderBy: '-created_date',
     asSubFromParent: asSubForList,
   });
+
+  useEffect(() => {
+    if (asSubForList) refetch();
+  }, [asSubForList]);
 
   const isLoading = asSubForList != null ? ordersLoading : (permissionLoading || ordersLoading);
 

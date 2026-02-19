@@ -9,6 +9,13 @@ function getOpenAIKey() {
   return typeof key === 'string' ? key.trim() : '';
 }
 
+function isOffensive(text) {
+  if (!text || typeof text !== 'string') return false;
+  const t = text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const bad = ['idiota', 'imbecil', 'burro', 'estupido', 'retardado', 'porra', 'caralho', 'merda', 'viado', 'filho da puta', 'fdp', 'vai se fuder', 'vsf', 'arrombado', 'bosta', 'pau no cu', 'corno', 'lixo', 'inutil'];
+  return bad.some((w) => t.includes(w));
+}
+
 const OPENAI_MODEL = process.env.OPENAI_CHAT_MODEL || 'gpt-3.5-turbo';
 
 /** Extrai step opcional do final da resposta: [STEP:ask_name] */
@@ -26,11 +33,18 @@ function stripStepFromText(text) {
 /**
  * Gera resposta da IA com contexto do estabelecimento
  * @param {string} userMessage - Mensagem do usuário
- * @param {object} context - { storeName, dishesSummary, menuFull, deliveryInfo, paymentOptions, slug }
+ * @param {object} context - { storeName, dishesSummary, menuFull, deliveryInfo, paymentOptions, slug, storeAddress, storeWhatsapp, storeHours, storeSlogan, storeInstagram, storeFacebook }
  * @param {array} history - Últimas mensagens [{ role: 'user'|'assistant', content }]
  * @returns {{ text: string, suggestions?: string[], step?: string } | null }
  */
 export async function getAIResponse(userMessage, context = {}, history = []) {
+  if (isOffensive(userMessage)) {
+    return {
+      text: 'Prefiro manter nossa conversa cordial. 😊 Em que posso te ajudar com o cardápio ou pedido?',
+      suggestions: ['Ver cardápio', 'Fazer pedido', 'Ver horários'],
+    };
+  }
+
   const apiKey = getOpenAIKey();
   if (!apiKey) {
     return null;
@@ -42,45 +56,68 @@ export async function getAIResponse(userMessage, context = {}, history = []) {
     menuFull = '',
     deliveryInfo = '',
     paymentOptions = '',
-    slug = ''
+    slug = '',
+    storeAddress = '',
+    storeWhatsapp = '',
+    storeHours = '',
+    storeSlogan = '',
+    storeInstagram = '',
+    storeFacebook = ''
   } = context;
 
-  const systemContent = `Você é o assistente virtual de atendimento do estabelecimento "${storeName}". Você está do outro lado do balcão: educado, descontraído e prestativo, como um atendente real.
+  const storeInfoLines = [];
+  if (storeAddress) storeInfoLines.push(`Endereço: ${storeAddress}`);
+  if (storeWhatsapp) storeInfoLines.push(`WhatsApp: ${storeWhatsapp} (use para contato direto)`);
+  if (storeHours) storeInfoLines.push(`Horário de funcionamento: ${storeHours}`);
+  if (storeSlogan) storeInfoLines.push(`Slogan/descrição: ${storeSlogan}`);
+  if (storeInstagram) storeInfoLines.push(`Instagram: ${storeInstagram}`);
+  if (storeFacebook) storeInfoLines.push(`Facebook: ${storeFacebook}`);
+  const storeInfoBlock = storeInfoLines.length ? storeInfoLines.join('\n') : 'Dados da loja não informados.';
 
-REGRAS DE PERSONALIDADE:
-- Seja sempre educado e descontraído. Use um tom amigável e próximo, sem ser formal demais.
-- Se o cliente fugir do assunto (outros temas, piadas fora de contexto) ou for desrespeitoso, responda com gentileza e redirecione: "Sem problemas! Quando quiser, posso te ajudar com o cardápio, pedido ou entrega. O que você prefere?"
-- Nunca invente informações. Use apenas o que foi passado no contexto (cardápio, formas de pagamento, regras de entrega).
-- Mantenha respostas claras; quando listar opções, pode usar 2 a 4 frases ou listas curtas.
+  const systemContent = `Você é o assistente virtual do "${storeName}". Educado, natural e focado em ajudar com pedidos e informações do restaurante.
+
+REGRAS OBRIGATÓRIAS:
+1. DIÁLOGO: Respostas curtas. Uma pergunta por vez. Nunca envie várias informações de uma vez.
+2. FOCO: Responda qualquer pergunta, mas SEMPRE redirecione para o restaurante (cardápio, pedido, horários). Ex.: "Posso ajudar com o cardápio ou fazer um pedido?"
+3. OFENSAS: Se o cliente for desrespeitoso ou ofensivo, responda com educação: "Prefiro manter nossa conversa cordial. Em que posso te ajudar com o cardápio ou pedido?"
+4. Use APENAS as informações do contexto. Nunca invente endereços, telefones, horários ou preços.
+
+O QUE VOCÊ PODE FAZER:
+1. **Cardápio e pedidos**: Mostrar pratos, preços, complementos, recomendações e auxiliar no fluxo de pedido.
+2. **Informações do restaurante**: Endereço, WhatsApp, telefone, horário de funcionamento, redes sociais — use o bloco DADOS DA LOJA.
+3. **Entrega e pagamento**: Taxas, pedido mínimo, zonas de entrega, formas de pagamento (PIX, dinheiro, cartão).
+4. **Rastreio**: Explicar como acompanhar o pedido pelo app/site.
+5. **FAQ e dúvidas gerais**: Qualquer pergunta relacionada ao estabelecimento.
 
 FLUXO DE VENDAS (quando o cliente quiser fazer pedido):
-1. Mostrar opções de pratos (use o cardápio do contexto). Se houver categorias, cite-as (ex.: Pizzas, Bebidas, Sobremesas).
-2. Para cada prato: mencionar complementos disponíveis (quando houver), adicionais/extras e sugestão de bebidas ou upsell quando fizer sentido.
-3. Coletar dados na ordem:
-   - Nome do cliente
-   - Contato: perguntar se o telefone para o pedido é o mesmo que está falando ou outro (e pedir o número)
-   - Endereço completo (rua, número, complemento, bairro, referência se precisar)
-   - Informar a taxa de entrega conforme as regras do estabelecimento (use as informações de entrega do contexto)
-   - Forma de pagamento (use as opções do contexto)
-   - Se for dinheiro: perguntar se precisa de troco e para quanto
-4. Ao finalizar: confirmar resumo (itens, endereço, pagamento, troco se houver) e informar que após confirmar o cliente receberá o número do pedido e poderá acompanhar o status.
+1. Mostrar opções do cardápio (use CARDÁPIO abaixo). Cite categorias quando existirem.
+2. Para cada prato: mencione complementos e extras disponíveis, sugira bebidas quando fizer sentido.
+3. Coletar dados na ordem: nome → telefone → endereço completo → informar taxa de entrega → forma de pagamento → troco (se dinheiro).
+4. Ao finalizar: confirmar resumo e informar que receberá número do pedido para rastreamento.
 
-Quando o cliente pedir "ver opções", "cardápio" ou "o que tem?", liste os pratos/categorias com preços. Quando pedir um prato (ex.: "quero 2 pizzas de calabresa"), confirme e diga que ele pode adicionar ao carrinho pelo botão ou continuar montando pelo chat.
+Seja conversacional: respostas curtas, uma informação por vez. Ao terminar qualquer resposta, sugira próximo passo (ex.: "Quer ver o cardápio?").
 
-CONTEXTO DO ESTABELECIMENTO:
-${menuFull ? `CARDÁPIO:\n${menuFull.slice(0, 3500)}` : dishesSummary ? `Resumo do cardápio: ${dishesSummary.slice(0, 1200)}` : 'Cardápio não informado.'}
-${deliveryInfo ? `\nENTREGA/TAXA:\n${deliveryInfo.slice(0, 600)}` : ''}
-${paymentOptions ? `\nFORMAS DE PAGAMENTO:\n${paymentOptions.slice(0, 300)}` : ''}
+DADOS DA LOJA (use para responder perguntas sobre endereço, contato, horários, redes sociais):
+${storeInfoBlock}
 
-OPCIONAL - Para o sistema saber em qual passo do pedido o cliente está, você pode terminar sua mensagem com exatamente uma destas linhas (sem explicar ao cliente):
-[STEP:show_menu] - quando estiver mostrando o cardápio
-[STEP:ask_name] - quando pedir o nome
-[STEP:ask_contact] - quando pedir o telefone
-[STEP:ask_address] - quando pedir o endereço
-[STEP:ask_payment] - quando pedir forma de pagamento
-[STEP:ask_troco] - quando for dinheiro e pedir troco
-[STEP:confirm_order] - ao pedir confirmação final do pedido
-Não use STEP em toda mensagem; só quando fizer sentido para o fluxo.`;
+CARDÁPIO:
+${menuFull ? menuFull.slice(0, 4000) : dishesSummary ? dishesSummary.slice(0, 1500) : 'Cardápio não informado.'}
+
+ENTREGA E TAXA:
+${deliveryInfo || 'Conforme combinar com o cliente.'}
+
+FORMAS DE PAGAMENTO:
+${paymentOptions || 'PIX, Dinheiro, Cartão de crédito, Cartão de débito.'}
+
+OPCIONAL - Se quiser que o sistema mostre sugestões contextuais, termine sua mensagem com exatamente uma destas linhas (não mostre ao cliente):
+[STEP:show_menu] - mostrando cardápio
+[STEP:ask_name] - pediu o nome
+[STEP:ask_contact] - pediu telefone
+[STEP:ask_address] - pediu endereço
+[STEP:ask_payment] - pediu forma de pagamento
+[STEP:ask_troco] - dinheiro e pediu troco
+[STEP:confirm_order] - pediu confirmação final
+Use STEP apenas quando fizer sentido para o fluxo.`;
 
   const messages = [
     { role: 'system', content: systemContent },
@@ -98,7 +135,7 @@ Não use STEP em toda mensagem; só quando fizer sentido para o fluxo.`;
       body: JSON.stringify({
         model: OPENAI_MODEL,
         messages,
-        max_tokens: 500,
+        max_tokens: 900,
         temperature: 0.7
       })
     });

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -67,7 +67,9 @@ export default function BeverageModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl lg:max-w-[1100px] max-h-[90vh] p-0 overflow-hidden flex flex-row">
+      <DialogContent className="max-w-4xl lg:max-w-[1100px] max-h-[90vh] p-0 overflow-hidden flex flex-row" aria-describedby="beverage-modal-desc">
+        <DialogTitle className="sr-only">Detalhes da bebida: {beverage.name}</DialogTitle>
+        <DialogDescription id="beverage-modal-desc" className="sr-only">Adicione quantidade e observações para incluir no pedido.</DialogDescription>
         <AnimatePresence>
           {isOpen && (
             <motion.div
