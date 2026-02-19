@@ -78,6 +78,7 @@ const PLANS_DATA_BASE = {
       'Tudo do Grátis +',
       'Até 150 produtos',
       'Personalização visual',
+      'Zonas e taxas de entrega',
       'Dashboard básico',
       'Histórico 30 dias',
       'Suporte prioritário',
@@ -480,6 +481,13 @@ export default function Assinar() {
                       </tr>
                     </>
                   )}
+                  <tr className="bg-white hover:bg-slate-50">
+                    <td className="p-6 text-sm font-medium text-slate-900 border-r border-slate-100">Zonas e taxas de entrega</td>
+                    <td className="p-6 text-center border-r border-slate-100"><X className="w-5 h-4 text-slate-300 mx-auto" /></td>
+                    <td className="p-6 text-center border-r border-slate-100"><Check className="w-5 h-5 text-emerald-500 mx-auto" /></td>
+                    <td className="p-6 text-center border-r border-slate-100 bg-orange-50/30"><Check className="w-5 h-5 text-emerald-500 mx-auto" /></td>
+                    <td className="p-6 text-center"><Check className="w-5 h-5 text-emerald-500 mx-auto" /></td>
+                  </tr>
                   <tr className="bg-slate-50/50 hover:bg-slate-50">
                     <td className="p-6 text-sm font-medium text-slate-900 border-r border-slate-100">App entregadores</td>
                     <td className="p-6 text-center border-r border-slate-100"><X className="w-5 h-4 text-slate-300 mx-auto" /></td>

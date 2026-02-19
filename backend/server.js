@@ -1752,20 +1752,17 @@ app.get('/api/user/context', authenticate, asyncHandler(async (req, res) => {
           type: 'subscriber',
           value: subscriber.email
         };
-        let raw = subscriber.permissions;
-        if (typeof raw === 'string') {
-          try {
-            raw = JSON.parse(raw);
-          } catch (e) {
-            raw = {};
+        const plan = (subscriber.plan || 'basic').toString().toLowerCase().trim();
+        if (plan !== 'custom') {
+          const { getPermissionsForPlan } = await import('./utils/planPresetsForContext.js');
+          const planPerms = getPermissionsForPlan(plan);
+          permissions = (planPerms && typeof planPerms === 'object') ? { ...planPerms } : {};
+        } else {
+          let raw = subscriber.permissions;
+          if (typeof raw === 'string') {
+            try { raw = JSON.parse(raw); } catch (e) { raw = {}; }
           }
-        }
-        permissions = (raw && typeof raw === 'object') ? raw : {};
-        if (subscriber.plan === 'basic' && Array.isArray(permissions.dishes) && permissions.dishes?.includes('view') && !permissions.dishes?.includes('create')) {
-          permissions = { ...permissions, dishes: ['view', 'create', 'update', 'delete'] };
-        }
-        if (['basic', 'pro'].includes(subscriber.plan) && (!Array.isArray(permissions.store) || permissions.store.length === 0)) {
-          permissions = { ...permissions, store: ['view', 'update'] };
+          permissions = (raw && typeof raw === 'object') ? raw : {};
         }
       } else {
         // ✅ DEBUG: Log quando subscriber não é encontrado
@@ -1788,10 +1785,6 @@ app.get('/api/user/context', authenticate, asyncHandler(async (req, res) => {
 
     let subscriberDataPayload = null;
     if (!user.is_master && subscriber) {
-      let p = subscriber.permissions;
-      if (typeof p === 'string') {
-        try { p = JSON.parse(p); } catch (e) { p = {}; }
-      }
       let usage = null;
       try {
         const { getUsageForSubscriber } = await import('./services/planValidation.service.js');
@@ -1820,7 +1813,7 @@ app.get('/api/user/context', authenticate, asyncHandler(async (req, res) => {
         plan: subscriber.plan || 'basic',
         status: subscriber.status || 'active',
         expires_at: subscriber.expires_at || null,
-        permissions: (p && typeof p === 'object') ? p : {},
+        permissions,
         slug: subscriber.slug || null,
         addons,
         ...(effectiveLimits && { effectiveLimits }),

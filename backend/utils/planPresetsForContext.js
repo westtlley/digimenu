@@ -42,7 +42,7 @@ const PLAN_PRESETS_PERMISSIONS = {
     whatsapp: ['view'],
     dishes: ['view', 'create', 'update', 'delete'],
     pizza_config: [],
-    delivery_zones: [],
+    delivery_zones: ['view', 'create', 'update', 'delete'],
     coupons: [],
     promotions: [],
     theme: ['view', 'update'],

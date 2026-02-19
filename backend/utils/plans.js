@@ -135,12 +135,12 @@ const BASIC_PERMISSIONS = {
     orders_per_day: null,
     orders_per_month: 300, // 300 pedidos/mês
     
-    // Features Avançadas - NÃO INCLUÍDAS
+    // Features Avançadas
+    delivery_zones: true, // Zonas e taxas de entrega
     team_management: false,
     colaboradores: false,
     delivery_app: false,
     orders_advanced: false,
-    delivery_zones: false,
     coupons: false,
     promotions: false,
     upsell: false,

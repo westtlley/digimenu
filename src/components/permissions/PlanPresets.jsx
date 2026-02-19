@@ -100,7 +100,7 @@ export const PLAN_PRESETS = {
   },
   basic: {
     name: 'Básico',
-    description: 'Cardápio + Pedidos + Personalização + Pagamentos e 2FA',
+    description: 'Cardápio + Pedidos + Personalização + Zonas de entrega + Pagamentos e 2FA',
     permissions: {
       dashboard: ['view'],
       pdv: [],
@@ -109,7 +109,7 @@ export const PLAN_PRESETS = {
       whatsapp: ['view'],
       dishes: ['view', 'create', 'update', 'delete'],
       pizza_config: [],
-      delivery_zones: [],
+      delivery_zones: ['view', 'create', 'update', 'delete'],
       coupons: [],
       promotions: [],
       theme: ['view', 'update'],
