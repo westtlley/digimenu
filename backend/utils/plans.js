@@ -137,12 +137,12 @@ const BASIC_PERMISSIONS = {
     
     // Features Avançadas
     delivery_zones: true, // Zonas e taxas de entrega
+    promotions: true, // Promoções e pontos de fidelidade (básico)
     team_management: false,
     colaboradores: false,
     delivery_app: false,
     orders_advanced: false,
     coupons: false,
-    promotions: false,
     upsell: false,
     reports_detailed: false,
     pdv: false,
@@ -486,6 +486,7 @@ export function getPlanInfo(plan) {
         'Pedidos via WhatsApp',
         'Gestor de pedidos básico',
         'Personalização (logo, cores)',
+        'Promoções e pontos de fidelidade',
         'Dashboard básico',
         'Histórico 30 dias',
         'Até 50 pedidos/dia',

@@ -10,9 +10,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Plus, Trash2, Zap, ArrowUpRight, RefreshCw, Search, Filter, TrendingUp, Gift, Pencil, Sparkles } from 'lucide-react';
+import { Plus, Trash2, Zap, ArrowUpRight, RefreshCw, Search, Filter, TrendingUp, Gift, Pencil, Sparkles, Star } from 'lucide-react';
 import { toast } from 'sonner';
 import ComboModalUnified from './ComboModalUnified';
+import LoyaltyTab from './LoyaltyTab';
 import { usePermission } from '../permissions/usePermission';
 import { useMenuDishes } from '@/hooks/useMenuData';
 
@@ -45,7 +46,13 @@ const DEFAULT_CROSS_SELL = {
   }
 };
 
+const PROMO_SUB_TABS = [
+  { id: 'promocoes', label: 'Promoções e Combos', icon: Zap },
+  { id: 'fidelidade', label: 'Regras de Pontos de Fidelidade', icon: Star },
+];
+
 export default function PromotionsTab() {
+  const [promoSubTab, setPromoSubTab] = useState('promocoes');
   const [showModal, setShowModal] = useState(false);
   const [showComboModal, setShowComboModal] = useState(false);
   const [editingCombo, setEditingCombo] = useState(null);
@@ -251,8 +258,49 @@ export default function PromotionsTab() {
     };
   }, [promotions]);
 
+  // Sub-tab: Regras de Pontos de Fidelidade
+  if (promoSubTab === 'fidelidade') {
+    return (
+      <div className="p-4 sm:p-6 space-y-6">
+        <div className="flex gap-2 mb-4 border-b pb-4">
+          {PROMO_SUB_TABS.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setPromoSubTab(t.id)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                promoSubTab === t.id
+                  ? 'bg-orange-500 text-white'
+                  : 'bg-gray-100 dark:bg-gray-800 text-gray-600 hover:bg-gray-200 dark:hover:bg-gray-700'
+              }`}
+            >
+              <t.icon className="w-4 h-4" />
+              {t.label}
+            </button>
+          ))}
+        </div>
+        <LoyaltyTab />
+      </div>
+    );
+  }
+
   return (
     <div className="p-4 sm:p-6 space-y-6">
+      <div className="flex gap-2 mb-4 border-b pb-4">
+        {PROMO_SUB_TABS.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setPromoSubTab(t.id)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              promoSubTab === t.id
+                ? 'bg-orange-500 text-white'
+                : 'bg-gray-100 dark:bg-gray-800 text-gray-600 hover:bg-gray-200 dark:hover:bg-gray-700'
+            }`}
+          >
+            <t.icon className="w-4 h-4" />
+            {t.label}
+          </button>
+        ))}
+      </div>
       {/* Ofertas Inteligentes (Cross-sell) */}
       {store && (
         <Card>

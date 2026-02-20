@@ -58,6 +58,10 @@ describe('PlanPresets - BASIC', () => {
     expect((basic.pdv || []).length).toBe(0);
     expect((basic.caixa || []).length).toBe(0);
   });
+  it('promotions CRUD (plano básico inclui promoções)', () => {
+    expect(has(basic, 'promotions', 'create')).toBe(true);
+    expect(has(basic, 'promotions', 'update')).toBe(true);
+  });
 });
 
 describe('PlanPresets - PRO', () => {

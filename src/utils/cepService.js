@@ -27,6 +27,7 @@ export async function buscarCEP(cep) {
       bairro: data.bairro || '',
       cidade: data.localidade || '',
       estado: data.uf || '',
+      uf: data.uf || '',
       enderecoCompleto: `${data.logradouro || ''}, ${data.bairro || ''}, ${data.localidade || ''} - ${data.uf || ''}`.trim()
     };
   } catch (error) {

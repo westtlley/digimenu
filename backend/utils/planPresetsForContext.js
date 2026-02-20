@@ -5,7 +5,7 @@
  *
  * Regras de negócio (resumo):
  * - FREE: pratos CRUD, loja view+update; gestor e orders só VIEW; whatsapp DESATIVADO; sem clientes/histórico/financeiro/pagamentos/gráficos.
- * - BASIC: gestor e orders VIEW+UPDATE; tema, histórico, clientes; payments VIEW+UPDATE, financial VIEW, 2FA VIEW+UPDATE.
+ * - BASIC: gestor e orders VIEW+UPDATE; tema, histórico, clientes; promotions CRUD; payments VIEW+UPDATE, financial VIEW, 2FA VIEW+UPDATE.
  * - PRO: BASIC + marketing (cupons/promoções) e entregas (zonas) CRUD; estoque, afiliados, colaboradores CRUD; LGPD/2FA; gráficos; gestor/orders CRUD.
  * - ULTRA: PRO + PDV, Caixa, Impressora, Comandas (close/history), Mesas CRUD.
  */
@@ -44,7 +44,7 @@ const PLAN_PRESETS_PERMISSIONS = {
     pizza_config: [],
     delivery_zones: ['view', 'create', 'update', 'delete'],
     coupons: [],
-    promotions: [],
+    promotions: ['view', 'create', 'update', 'delete'],
     theme: ['view', 'update'],
     store: ['view', 'update'],
     payments: ['view', 'update'],

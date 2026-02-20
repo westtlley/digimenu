@@ -163,8 +163,8 @@ export default function NewDishModal({
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
             className="relative flex flex-col md:flex-row w-full md:m-auto md:max-w-5xl lg:max-w-[1100px] md:h-[85vh] bg-white dark:bg-gray-900 backdrop-blur-xl md:rounded-3xl overflow-hidden shadow-2xl"
           >
-            {/* Mídia (imagem ou vídeo) — mobile: limite ~38vh (proporção 9:16); desktop: ~45% largura */}
-            <div className="relative w-full aspect-[9/16] md:aspect-auto md:h-full md:w-2/5 lg:w-[45%] flex-shrink-0 max-h-[38vh] md:max-h-none">
+            {/* Mídia (imagem ou vídeo) — mobile: limite menor ~28vh; desktop: ~45% largura */}
+            <div className="relative w-full aspect-[9/16] md:aspect-auto md:h-full md:w-2/5 lg:w-[45%] flex-shrink-0 max-h-[28vh] md:max-h-none">
               {showVideo && videoInfo ? (
                 <div className="w-full h-full bg-black relative">
                   {videoInfo.type === 'youtube' ? (

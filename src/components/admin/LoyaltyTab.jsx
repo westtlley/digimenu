@@ -120,7 +120,11 @@ export default function LoyaltyTab() {
       try {
         const { uploadToCloudinary } = await import('@/utils/cloudinaryUpload');
         const url = await uploadToCloudinary(file, 'loyalty');
-      setRewardForm(prev => ({ ...prev, image: url }));
+        setRewardForm(prev => ({ ...prev, image: url }));
+      } catch (err) {
+        console.error('Erro ao enviar imagem:', err);
+        toast.error('Não foi possível enviar a imagem.');
+      }
     }
   };
 

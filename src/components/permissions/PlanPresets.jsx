@@ -10,7 +10,7 @@
  * - FREE: Pratos CRUD + Loja ver/editar. Gestor de pedidos e Pedidos só VIEW.
  *   WhatsApp DESATIVADO ([]). Sem clientes/histórico/financeiro/pagamentos/gráficos.
  * - BASIC: Gestor VIEW+UPDATE, Pedidos VIEW+UPDATE, Tema VIEW+UPDATE, Histórico VIEW,
- *   Clientes VIEW. NOVO: Pagamentos VIEW+UPDATE, Financeiro VIEW, 2FA VIEW+UPDATE.
+ *   Clientes VIEW, Promoções CRUD (pontos de fidelidade). Pagamentos VIEW+UPDATE, Financeiro VIEW, 2FA VIEW+UPDATE.
  * - PRO: Tudo do BASIC + Marketing (cupons/promoções) e Entregas (zonas) CRUD,
  *   Estoque/Afiliados/Colaboradores CRUD, LGPD/2FA view+update, Gráficos VIEW,
  *   Gestor e Pedidos CRUD completo.
@@ -100,7 +100,7 @@ export const PLAN_PRESETS = {
   },
   basic: {
     name: 'Básico',
-    description: 'Cardápio + Pedidos + Personalização + Zonas de entrega + Pagamentos e 2FA',
+    description: 'Cardápio + Pedidos + Personalização + Zonas de entrega + Promoções e pontos de fidelidade + Pagamentos e 2FA',
     permissions: {
       dashboard: ['view'],
       pdv: [],
@@ -111,7 +111,7 @@ export const PLAN_PRESETS = {
       pizza_config: [],
       delivery_zones: ['view', 'create', 'update', 'delete'],
       coupons: [],
-      promotions: [],
+      promotions: ['view', 'create', 'update', 'delete'],
       theme: ['view', 'update'],
       store: ['view', 'update'],
       payments: ['view', 'update'],

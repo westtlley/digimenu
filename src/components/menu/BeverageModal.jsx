@@ -79,8 +79,8 @@ export default function BeverageModal({
               transition={{ duration: 0.25 }}
               className="flex w-full h-full min-h-0 flex-col sm:flex-row overflow-hidden"
             >
-              {/* Coluna esquerda: imagem — mobile limite ~38vh (proporção 9:16) */}
-              <div className="relative w-full aspect-[9/16] sm:aspect-auto sm:w-[45%] sm:min-w-[280px] sm:min-h-[400px] flex-shrink-0 max-h-[38vh] sm:max-h-none bg-gray-900">
+              {/* Coluna esquerda: imagem — mobile limite menor ~28vh (proporção 9:16) */}
+              <div className="relative w-full aspect-[9/16] sm:aspect-auto sm:w-[45%] sm:min-w-[280px] sm:min-h-[400px] flex-shrink-0 max-h-[28vh] sm:max-h-none bg-gray-900">
                 {beverage.image ? (
                   <img
                     src={beverage.image}
@@ -108,9 +108,9 @@ export default function BeverageModal({
                 </button>
               </div>
 
-              {/* Coluna direita: informações e ações */}
+              {/* Coluna direita: informações e ações — padding para campo completo na tela */}
               <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-background overflow-hidden">
-                <div className="flex-1 overflow-y-auto px-6 py-4 sm:pt-12 space-y-5">
+                <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 pr-5 sm:px-6 sm:pr-8 py-4 sm:pt-12 space-y-5">
                   {/* 1. Descrição primeiro (se houver) */}
                   {beverage.description && (
                     <div>
@@ -119,44 +119,44 @@ export default function BeverageModal({
                     </div>
                   )}
                   {/* 2. Outras informações */}
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 gap-2 sm:gap-3 w-full max-w-full">
                     {beverage.volume_ml && (
-                      <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/60">
+                      <div className="flex items-center gap-2 p-2.5 sm:p-3 rounded-lg bg-muted/60 min-w-0 overflow-hidden">
                         <Package className="w-5 h-5 text-cyan-600 shrink-0" />
-                        <div className="min-w-0">
+                        <div className="min-w-0 overflow-hidden">
                           <p className="text-xs text-muted-foreground">Volume</p>
-                          <p className="font-semibold text-sm">{beverage.volume_ml}ml</p>
+                          <p className="font-semibold text-sm truncate">{beverage.volume_ml}ml</p>
                         </div>
                       </div>
                     )}
                     {beverage.serving_temp && (
-                      <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/60">
+                      <div className="flex items-center gap-2 p-2.5 sm:p-3 rounded-lg bg-muted/60 min-w-0 overflow-hidden">
                         <span className="shrink-0">{getTempIcon()}</span>
-                        <div className="min-w-0">
+                        <div className="min-w-0 overflow-hidden">
                           <p className="text-xs text-muted-foreground">Temperatura</p>
-                          <p className="font-semibold text-sm">{getTempLabel()}</p>
+                          <p className="font-semibold text-sm truncate">{getTempLabel()}</p>
                         </div>
                       </div>
                     )}
                     {beverage.beverage_type && (
-                      <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/60">
+                      <div className="flex items-center gap-2 p-2.5 sm:p-3 rounded-lg bg-muted/60 min-w-0 overflow-hidden">
                         {beverage.beverage_type === 'natural' ? (
                           <Droplets className="w-5 h-5 text-green-600 shrink-0" />
                         ) : (
                           <Package className="w-5 h-5 text-muted-foreground shrink-0" />
                         )}
-                        <div className="min-w-0">
+                        <div className="min-w-0 overflow-hidden">
                           <p className="text-xs text-muted-foreground">Tipo</p>
-                          <p className="font-semibold text-sm">
+                          <p className="font-semibold text-sm truncate">
                             {beverage.beverage_type === 'natural' ? 'Natural' : 'Industrializado'}
                           </p>
                         </div>
                       </div>
                     )}
                     {beverage.ean && (
-                      <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/60">
+                      <div className="flex items-center gap-2 p-2.5 sm:p-3 rounded-lg bg-muted/60 min-w-0 overflow-hidden">
                         <Package className="w-5 h-5 text-muted-foreground shrink-0" />
-                        <div className="min-w-0">
+                        <div className="min-w-0 overflow-hidden">
                           <p className="text-xs text-muted-foreground">Código</p>
                           <p className="font-semibold text-xs font-mono truncate">{beverage.ean}</p>
                         </div>

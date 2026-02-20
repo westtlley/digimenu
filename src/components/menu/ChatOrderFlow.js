@@ -54,7 +54,7 @@ export function buildMenuForChat(dishes = [], categories = [], complementGroups 
     menuItems.push({ dish: d, categoryName: 'Outros', complementHint: null });
   });
   return {
-    text: menuItems.length ? 'Cardápio do dia!' : 'Cardápio indisponível.',
+    text: menuItems.length ? '' : 'Cardápio indisponível.',
     menuItems,
     suggestions: ['Finalizar pedido', 'Ver horários'],
   };
@@ -142,14 +142,26 @@ export function createCartItem(dish, quantity = 1, promoPrice = null, selections
   };
 }
 
-/** Resumo do carrinho para exibição */
-export function formatCartSummary(cart) {
+/** Resumo do carrinho para exibição (com complementos) */
+export function formatCartSummary(cart, complementGroups = []) {
   if (!cart || cart.length === 0) return '';
   return cart.map(i => {
     const qty = i.quantity || 1;
     const name = i.dish?.name || 'Item';
     const total = (i.totalPrice || 0) * qty;
-    return `${qty}x ${name} - ${formatCurrency(total)}`;
+    let line = `${qty}x ${name}`;
+    const sel = i.selections || {};
+    const groups = (complementGroups || []).filter(g => sel[g.id]);
+    if (groups.length) {
+      const compLines = groups.map(g => {
+        const s = sel[g.id];
+        const opts = Array.isArray(s) ? s : [s];
+        return opts.filter(Boolean).map(o => o?.name).filter(Boolean).join(', ');
+      }).filter(Boolean);
+      if (compLines.length) line += `\n   • ${compLines.join(' | ')}`;
+    }
+    line += ` - ${formatCurrency(total)}`;
+    return line;
   }).join('\n');
 }
 

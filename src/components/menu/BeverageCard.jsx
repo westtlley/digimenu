@@ -144,8 +144,8 @@ export default function BeverageCard({
         </motion.div>
       ))}
 
-      {/* Imagem — mobile: mais espaço, preenche toda a área */}
-      <div className="relative aspect-[4/5] md:aspect-square bg-cyan-50 dark:bg-cyan-900/20 overflow-hidden min-h-[140px] md:min-h-0">
+      {/* Imagem — ícone do cardápio quadrado em todas as telas */}
+      <div className="relative aspect-square bg-cyan-50 dark:bg-cyan-900/20 overflow-hidden min-h-[120px] md:min-h-0">
         {beverage.image ? (
           <>
             <motion.div 

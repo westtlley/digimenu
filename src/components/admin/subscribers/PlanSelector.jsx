@@ -54,7 +54,7 @@ export default function PlanSelector({ selectedPlan, onPlanChange }) {
       if (plan.slug === 'free') {
         features.push('10 dias de teste', 'Cardápio básico', 'Até 20 produtos', 'Pedidos via WhatsApp');
       } else if (plan.slug === 'basic') {
-        features.push('Até 100 produtos', 'Cardápio completo', 'Dashboard', 'Personalização', 'Suporte por email');
+        features.push('Até 100 produtos', 'Cardápio completo', 'Dashboard', 'Personalização', 'Promoções e pontos de fidelidade', 'Suporte por email');
       } else if (plan.slug === 'pro') {
         features.push('Tudo do Básico', 'App entregadores', 'Zonas de entrega', 'Cupons e promoções', 'Relatórios avançados');
       } else if (plan.slug === 'ultra') {

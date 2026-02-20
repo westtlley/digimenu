@@ -156,8 +156,8 @@ export default function DishCardWow({
         </motion.div>
       ))}
 
-      {/* Imagem com efeito de zoom suave — mobile: mais espaço, preenche toda a área */}
-      <div className="relative aspect-[4/5] md:aspect-square bg-gray-100 dark:bg-gray-800 overflow-hidden min-h-[140px] md:min-h-0">
+      {/* Imagem — ícone do cardápio quadrado em todas as telas */}
+      <div className="relative aspect-square bg-gray-100 dark:bg-gray-800 overflow-hidden min-h-[120px] md:min-h-0">
         {dish.image ? (
           <>
             {/* Placeholder com pulse */}

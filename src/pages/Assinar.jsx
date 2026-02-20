@@ -79,6 +79,7 @@ const PLANS_DATA_BASE = {
       'Até 150 produtos',
       'Personalização visual',
       'Zonas e taxas de entrega',
+      'Promoções e pontos de fidelidade',
       'Dashboard básico',
       'Histórico 30 dias',
       'Suporte prioritário',
