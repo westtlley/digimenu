@@ -1,6 +1,6 @@
 /**
  * Login unificado por estabelecimento (slug): uma única tela para dono, gerente, colaborador e cliente.
- * Rotas: /s/:slug/login (entrada principal), /s/:slug/login/cliente e /s/:slug/login/colaborador (atalhos).
+ * Rotas: /s/:slug/login (login cliente, contexto cardápio), /s/:slug/login/cliente e /s/:slug/login/colaborador.
  * O redirecionamento após o login é sempre pelo perfil retornado pelo backend.
  */
 import React, { useState, useEffect } from 'react';
@@ -36,7 +36,8 @@ export default function LoginBySlug({ type: propType }) {
   const { slug, type: urlType } = useParams();
   const [searchParams] = useSearchParams();
   const returnUrl = searchParams.get('returnUrl') || '';
-  const loginType = propType ?? (urlType === 'cliente' || urlType === 'colaborador' ? urlType : 'assinante');
+  // Cardápio: apenas login de cliente. /s/:slug/login sem tipo = login cliente (vindo do cardápio). Colaborador = /s/:slug/login/colaborador
+  const loginType = propType ?? (urlType === 'cliente' || urlType === 'colaborador' ? urlType : 'cliente');
   const navigate = useNavigate();
   const { data: loginInfo, loading: loadingInfo } = useLoginInfo(slug);
 

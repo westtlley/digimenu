@@ -556,6 +556,25 @@ export default function AIChatbot({ dishes = [], categories: categoriesProp = []
       }
     }
 
+    // Remover prato do carrinho: "Remover X" ou "Tirar X"
+    const removeMatch = normalized.match(/^(?:remover|tirar|retirar)\s+(.+)$/i);
+    if (removeMatch && chatCart.length > 0) {
+      const searchName = removeMatch[1].trim();
+      const idx = chatCart.findIndex(i => {
+        const name = (i.dish?.name || '').toLowerCase();
+        return name && (name === searchName || name.includes(searchName) || searchName.split(/\s+/).every(w => name.includes(w)));
+      });
+      if (idx >= 0) {
+        const item = chatCart[idx];
+        const newCart = item.quantity <= 1
+          ? chatCart.filter((_, i) => i !== idx)
+          : chatCart.map((x, i) => i === idx ? { ...x, quantity: (x.quantity || 1) - 1 } : x);
+        setChatCart(newCart);
+        const removed = item.quantity <= 1 ? 'removido' : 'uma unidade removida';
+        return { text: `✅ ${item.dish?.name || 'Item'} ${removed}.`, suggestions: newCart.length ? ['Ver cardápio', 'Finalizar pedido'] : ['Ver cardápio', 'Fazer pedido'] };
+      }
+    }
+
     // 2) Adicionar prato: "Adicionar X" — se tiver complementos, inicia fluxo; senão adiciona direto
     const addMatch = normalized.match(/^(?:adicionar|quero|pedir)\s+(?:(\d+)\s*x?\s*)?(.+)$/i);
     if (addMatch) {
@@ -790,6 +809,10 @@ export default function AIChatbot({ dishes = [], categories: categoriesProp = []
         setAddressFieldStep(0);
         return { text: 'Pedido cancelado. Posso ajudar em mais alguma coisa?', suggestions: ['Ver cardápio', 'Fazer pedido'] };
       }
+      if (normalized.includes('editar') || normalized.includes('adicionar mais') || normalized.includes('adicionar itens')) {
+        setChatOrderStep(STEPS.menu);
+        return { text: 'Pode adicionar mais (ex: "Adicionar 2x Pizza") ou remover (ex: "Remover Pizza"). Clique em "Ver cardápio" ou "Finalizar pedido" quando terminar.', suggestions: ['Ver cardápio', 'Finalizar pedido'] };
+      }
     }
 
     // Se há prato pendente e não entendemos, reexibir opções
@@ -820,11 +843,14 @@ export default function AIChatbot({ dishes = [], categories: categoriesProp = []
     res += `Pagamento: ${chatCustomer.payment_method || 'PIX'}\n`;
     if (chatCustomer.needs_change && chatCustomer.change_amount) res += `Troco para: ${formatCurrency(chatCustomer.change_amount)}\n`;
     res += '\nConfirma o pedido?';
-    return { text: res, suggestions: ['Sim, confirmar', 'Não, cancelar'] };
+    return { text: res, suggestions: ['Sim, confirmar', 'Editar pedido', 'Adicionar mais itens', 'Não, cancelar'] };
   };
 
   const submitChatOrder = async () => {
-    const payload = buildOrderPayload(chatCart, chatCustomer, store, deliveryZones, slug);
+    // Usar email do usuário logado para o pedido aparecer em Meus Pedidos
+    const customerToUse = { ...chatCustomer };
+    if (authUser?.email) customerToUse.email = authUser.email;
+    const payload = buildOrderPayload(chatCart, customerToUse, store, deliveryZones, slug);
     try {
       const res = await fetch(getPedidoCardapioUrl(), {
         method: 'POST',

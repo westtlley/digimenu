@@ -5,12 +5,11 @@ import { Loader2, Package, ArrowRight } from 'lucide-react';
 import { SYSTEM_NAME, SYSTEM_LOGO_URL } from '@/config/branding';
 
 /**
- * Redireciona por perfil. A URL / só mostra a landing quando acessada diretamente (sem lastVisitedSlug).
+ * Redireciona para o cardápio ou landing. Não redireciona por perfil.
  *
  * - lastVisitedSlug é gravado ao visitar /s/:slug (cardápio) ou /s/:slug/login.
- * - Não autenticado + lastVisitedSlug → redireciona para /s/:slug (cardápio do cliente).
- * - Não autenticado + sem lastVisitedSlug → mostra landing em / (só quem acessa a raiz diretamente).
- * - Autenticado: Master → /Admin; cliente → /s/slug ou landing; colaborador → /colaborador; assinante → /PainelAssinante.
+ * - Autenticado ou não: com lastVisitedSlug → /s/:slug; sem → landing.
+ * - Admin, Assinante e Colaborador acessam pelas URLs específicas (/Admin, /PainelAssinante, /colaborador).
  */
 export default function SmartRedirect() {
   const [checking, setChecking] = useState(true);
@@ -31,43 +30,15 @@ export default function SmartRedirect() {
       try {
         const isAuth = await base44.auth.isAuthenticated();
         
-        if (!isAuth) {
-          clearTimeout(safetyTimer);
-          const lastVisitedSlug = localStorage.getItem('lastVisitedSlug');
-          if (lastVisitedSlug) {
-            navigate(`/s/${lastVisitedSlug}`, { replace: true });
-          } else {
-            setShowLanding(true);
-          }
-          setChecking(false);
-          return;
-        }
-
-        const userData = await base44.auth.me();
         clearTimeout(safetyTimer);
-
-        if (userData?.is_master) {
-          navigate('/Admin', { replace: true });
-          return;
+        // Acesso à raiz / não redireciona por perfil — Admin, Assinante e Colaborador acessam pelas URLs específicas
+        const lastVisitedSlug = localStorage.getItem('lastVisitedSlug');
+        if (lastVisitedSlug) {
+          navigate(`/s/${lastVisitedSlug}`, { replace: true });
+        } else {
+          setShowLanding(true);
         }
-
-        if (userData?.role === 'customer') {
-          const lastVisitedSlug = localStorage.getItem('lastVisitedSlug');
-          if (lastVisitedSlug) {
-            navigate(`/s/${lastVisitedSlug}`, { replace: true });
-          } else {
-            setShowLanding(true);
-          }
-          setChecking(false);
-          return;
-        }
-
-        if (userData?.profile_role || userData?.profile_roles?.length) {
-          navigate('/colaborador', { replace: true });
-          return;
-        }
-
-        navigate('/PainelAssinante', { replace: true });
+        setChecking(false);
 
       } catch (error) {
         console.error('Erro ao verificar autenticação:', error);

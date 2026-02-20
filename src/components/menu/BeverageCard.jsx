@@ -144,8 +144,8 @@ export default function BeverageCard({
         </motion.div>
       ))}
 
-      {/* Imagem */}
-      <div className="relative aspect-square bg-cyan-50 dark:bg-cyan-900/20 overflow-hidden">
+      {/* Imagem — mobile: mais espaço, preenche toda a área */}
+      <div className="relative aspect-[4/5] md:aspect-square bg-cyan-50 dark:bg-cyan-900/20 overflow-hidden min-h-[140px] md:min-h-0">
         {beverage.image ? (
           <>
             <motion.div 
@@ -157,7 +157,7 @@ export default function BeverageCard({
               src={beverage.image} 
               alt={beverage.name} 
               className={`
-                w-full h-full object-cover 
+                w-full h-full object-cover object-center
                 ${isOutOfStock ? 'grayscale' : ''}
               `}
               loading="lazy"

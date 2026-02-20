@@ -156,8 +156,8 @@ export default function DishCardWow({
         </motion.div>
       ))}
 
-      {/* Imagem com efeito de zoom suave */}
-      <div className="relative aspect-square bg-gray-100 dark:bg-gray-800 overflow-hidden">
+      {/* Imagem com efeito de zoom suave — mobile: mais espaço, preenche toda a área */}
+      <div className="relative aspect-[4/5] md:aspect-square bg-gray-100 dark:bg-gray-800 overflow-hidden min-h-[140px] md:min-h-0">
         {dish.image ? (
           <>
             {/* Placeholder com pulse */}
@@ -170,7 +170,7 @@ export default function DishCardWow({
               src={dish.image} 
               alt={dish.name} 
               className={`
-                w-full h-full object-cover 
+                w-full h-full object-cover object-center
                 ${isOutOfStock ? 'grayscale' : ''}
               `}
               loading="lazy"

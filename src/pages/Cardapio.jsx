@@ -420,15 +420,25 @@ export default function Cardapio() {
   }, [activeDishes, searchTerm, selectedCategory]);
 
   const filteredBeverages = useMemo(() => {
-    if (selectedCategory !== 'beverages' && !selectedCategory?.startsWith?.('bc_')) return [];
+    if (selectedCategory !== 'all' && selectedCategory !== 'beverages' && !selectedCategory?.startsWith?.('bc_')) return [];
     const list = Array.isArray(activeBeverages) ? activeBeverages : [];
     const bcId = selectedCategory?.startsWith?.('bc_') ? selectedCategory.replace(/^bc_/, '') : null;
     return list.filter((b) => {
       const matchesSearch = !searchTerm || b.name?.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesCategory = selectedCategory === 'beverages' || !bcId || b.category_id === bcId;
+      const matchesCategory = selectedCategory === 'all' || selectedCategory === 'beverages' || !bcId || b.category_id === bcId;
       return matchesSearch && matchesCategory;
     });
   }, [activeBeverages, searchTerm, selectedCategory]);
+
+  const filteredItemsForDisplay = useMemo(() => {
+    if (selectedCategory === 'beverages' || selectedCategory?.startsWith?.('bc_')) {
+      return filteredBeverages;
+    }
+    if (selectedCategory === 'all') {
+      return [...filteredDishes, ...filteredBeverages];
+    }
+    return filteredDishes;
+  }, [selectedCategory, filteredDishes, filteredBeverages]);
 
   // (Return de erro movido para depois de TODOS os hooks — ver bloco "Erro ao carregar" mais abaixo)
 
@@ -1405,7 +1415,7 @@ export default function Cardapio() {
           </h2>
           <MenuLayoutWrapper
             layout={menuLayout}
-            dishes={selectedCategory === 'beverages' || selectedCategory?.startsWith?.('bc_') ? filteredBeverages : filteredDishes}
+            dishes={filteredItemsForDisplay}
             onDishClick={handleDishClick}
             primaryColor={primaryColor}
             textPrimaryColor={textPrimaryColor}
@@ -1413,10 +1423,11 @@ export default function Cardapio() {
             loading={loadingDishes}
             stockUtils={stockUtils}
             formatCurrency={formatCurrency}
+            slug={slug}
           />
         </section>
 
-        {!loadingDishes && (selectedCategory === 'beverages' || selectedCategory?.startsWith?.('bc_') ? filteredBeverages : filteredDishes).length === 0 && (
+        {!loadingDishes && filteredItemsForDisplay.length === 0 && (
           <div className="text-center py-16">
             <p className="text-muted-foreground">Nenhum prato encontrado</p>
           </div>
@@ -1954,11 +1965,15 @@ export default function Cardapio() {
           deliveryZones={deliveryZonesResolved}
           store={store}
           onAddToCart={handleAddToCart}
-          onOrderCreated={() => queryClient.invalidateQueries({ queryKey: ['customerOrdersForChatbot'] })}
+          onOrderCreated={() => {
+            queryClient.invalidateQueries({ queryKey: ['customerOrdersForChatbot'] });
+            queryClient.invalidateQueries({ queryKey: ['customerOrders'] });
+          }}
           open={chatOpen}
           onOpenChange={setChatOpen}
           slug={slug}
           storeName={store?.name}
+          primaryColor={primaryColor}
         />
       )}
 
