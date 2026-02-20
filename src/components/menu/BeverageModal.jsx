@@ -67,7 +67,7 @@ export default function BeverageModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl lg:max-w-[1100px] max-h-[90vh] p-0 overflow-hidden flex flex-row" aria-describedby="beverage-modal-desc">
+      <DialogContent className="max-w-4xl lg:max-w-[1100px] h-[90vh] max-h-[90vh] p-0 overflow-hidden flex flex-col sm:flex-row [&>:last-child]:hidden" aria-describedby="beverage-modal-desc">
         <DialogTitle className="sr-only">Detalhes da bebida: {beverage.name}</DialogTitle>
         <DialogDescription id="beverage-modal-desc" className="sr-only">Adicione quantidade e observações para incluir no pedido.</DialogDescription>
         <AnimatePresence>
@@ -77,10 +77,10 @@ export default function BeverageModal({
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.98 }}
               transition={{ duration: 0.25 }}
-              className="flex w-full min-h-[70vh] max-h-[90vh] flex-col sm:flex-row"
+              className="flex w-full h-full min-h-0 flex-col sm:flex-row overflow-hidden"
             >
-              {/* Coluna esquerda: imagem em campo quadrado no mobile */}
-              <div className="relative w-full aspect-square sm:aspect-auto sm:w-[45%] sm:min-w-[280px] sm:min-h-[400px] flex-shrink-0 max-h-[50vh] sm:max-h-none bg-gray-900">
+              {/* Coluna esquerda: imagem — mobile limite ~38vh (proporção 9:16) */}
+              <div className="relative w-full aspect-[9/16] sm:aspect-auto sm:w-[45%] sm:min-w-[280px] sm:min-h-[400px] flex-shrink-0 max-h-[38vh] sm:max-h-none bg-gray-900">
                 {beverage.image ? (
                   <img
                     src={beverage.image}
@@ -98,22 +98,19 @@ export default function BeverageModal({
                     {beverage.name}
                   </h2>
                 </div>
+                {/* X apenas no canto superior direito */}
+                <button
+                  onClick={onClose}
+                  className="absolute top-2 right-2 sm:top-4 sm:right-4 p-2.5 sm:p-2 bg-black/60 hover:bg-black/80 rounded-full backdrop-blur-sm z-50 transition-colors"
+                  aria-label="Fechar"
+                >
+                  <X className="w-5 h-5 text-white" strokeWidth={2.5} />
+                </button>
               </div>
 
               {/* Coluna direita: informações e ações */}
-              <div className="flex-1 flex flex-col min-w-0 bg-background">
-                {/* Botão fechar no canto superior direito da coluna direita */}
-                <div className="flex justify-end p-3 flex-shrink-0">
-                  <button
-                    onClick={onClose}
-                    className="w-10 h-10 rounded-full bg-muted hover:bg-muted/80 flex items-center justify-center transition-colors"
-                    aria-label="Fechar"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-
-                <div className="flex-1 overflow-y-auto px-6 pb-4 space-y-5">
+              <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-background overflow-hidden">
+                <div className="flex-1 overflow-y-auto px-6 py-4 sm:pt-12 space-y-5">
                   {/* 1. Descrição primeiro (se houver) */}
                   {beverage.description && (
                     <div>
