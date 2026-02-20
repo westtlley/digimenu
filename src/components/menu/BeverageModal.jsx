@@ -79,8 +79,8 @@ export default function BeverageModal({
               transition={{ duration: 0.25 }}
               className="flex w-full min-h-[70vh] max-h-[90vh] flex-col sm:flex-row"
             >
-              {/* Coluna esquerda: imagem (no mobile fica em cima) */}
-              <div className="relative w-full sm:w-[45%] sm:min-w-[280px] flex-shrink-0 h-64 sm:h-auto sm:min-h-[400px] bg-gray-900">
+              {/* Coluna esquerda: imagem em campo quadrado no mobile */}
+              <div className="relative w-full aspect-square sm:aspect-auto sm:w-[45%] sm:min-w-[280px] sm:min-h-[400px] flex-shrink-0 max-h-[50vh] sm:max-h-none bg-gray-900">
                 {beverage.image ? (
                   <img
                     src={beverage.image}
@@ -97,9 +97,6 @@ export default function BeverageModal({
                   <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-white drop-shadow-lg">
                     {beverage.name}
                   </h2>
-                  {beverage.description && (
-                    <p className="text-sm text-white/90 mt-1 line-clamp-2">{beverage.description}</p>
-                  )}
                 </div>
               </div>
 
@@ -117,7 +114,14 @@ export default function BeverageModal({
                 </div>
 
                 <div className="flex-1 overflow-y-auto px-6 pb-4 space-y-5">
-                  {/* Informações principais em cards compactos */}
+                  {/* 1. Descrição primeiro (se houver) */}
+                  {beverage.description && (
+                    <div>
+                      <h3 className="font-semibold mb-2 text-sm">Descrição</h3>
+                      <p className="text-sm text-muted-foreground leading-relaxed">{beverage.description}</p>
+                    </div>
+                  )}
+                  {/* 2. Outras informações */}
                   <div className="grid grid-cols-2 gap-3">
                     {beverage.volume_ml && (
                       <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/60">
@@ -207,47 +211,50 @@ export default function BeverageModal({
                       className="resize-none"
                     />
                   </div>
+                </div>
 
-                  <div>
-                    <h3 className="font-semibold mb-2 text-sm">Quantidade</h3>
-                    <div className="flex items-center gap-3">
+                {/* Rodapé fixo: Quantidade + Total + botão Adicionar */}
+                <div className="border-t p-5 flex flex-col gap-4 bg-muted/30 lg:shadow-[0_-4px_12px_rgba(0,0,0,0.06)] flex-shrink-0">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-sm">Quantidade</span>
+                    <div className="flex items-center gap-2">
                       <Button
                         variant="outline"
                         size="icon"
+                        className="h-10 w-10"
                         onClick={() => setQuantity(Math.max(1, quantity - 1))}
                         disabled={quantity <= 1}
                       >
                         <Minus className="w-4 h-4" />
                       </Button>
-                      <span className="text-xl font-bold w-10 text-center">{quantity}</span>
+                      <span className="text-xl font-bold w-10 text-center min-w-[2.5rem]">{quantity}</span>
                       <Button
                         variant="outline"
                         size="icon"
+                        className="h-10 w-10"
                         onClick={() => setQuantity(quantity + 1)}
                       >
                         <Plus className="w-4 h-4" />
                       </Button>
                     </div>
                   </div>
-                </div>
-
-                {/* Rodapé: total + botão Adicionar - lg: sticky visual */}
-                <div className="border-t p-5 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-muted/30 lg:shadow-[0_-4px_12px_rgba(0,0,0,0.06)]">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Total</p>
-                    <p className="text-2xl font-bold" style={{ color: primaryColor }}>
-                      {formatCurrency(beverage.price * quantity)}
-                    </p>
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Total</p>
+                      <p className="text-2xl font-bold" style={{ color: primaryColor }}>
+                        {formatCurrency(beverage.price * quantity)}
+                      </p>
+                    </div>
+                    <Button
+                      onClick={handleAddToCart}
+                      className="min-h-12 px-8 font-semibold flex-1 sm:flex-initial"
+                      size="lg"
+                      style={{ backgroundColor: primaryColor }}
+                    >
+                      <Wine className="w-5 h-5 mr-2" />
+                      Adicionar
+                    </Button>
                   </div>
-                  <Button
-                    onClick={handleAddToCart}
-                    className="min-h-12 px-8 font-semibold"
-                    size="lg"
-                    style={{ backgroundColor: primaryColor }}
-                  >
-                    <Wine className="w-5 h-5 mr-2" />
-                    Adicionar
-                  </Button>
                 </div>
               </div>
             </motion.div>
