@@ -91,13 +91,15 @@ export default function PainelAssinante() {
     : 'Permanente';
 
   const { slug, subscriberEmail, inSlugContext, loading: slugLoading, error: slugError } = useSlugContext();
-  const asSub = (inSlugContext && isMaster && subscriberEmail) ? subscriberEmail : undefined;
+  // Em slug context: usar subscriberEmail do slug para Store e dados (evita misturar com usuário logado de outro estabelecimento)
+  const asSub = (inSlugContext && subscriberEmail) ? subscriberEmail : undefined;
   const canAccessSlug = !inSlugContext || isMaster || (user?.email || '').toLowerCase() === (subscriberEmail || '').toLowerCase() || (user?.subscriber_email || '').toLowerCase() === (subscriberEmail || '').toLowerCase();
 
-  // Buscar dados da loja para header
+  // Buscar dados da loja: em slug context usa o assinante do slug; fora usa 'me'
   const { data: stores = [] } = useQuery({
     queryKey: ['store', asSub ?? 'me'],
     queryFn: () => base44.entities.Store.list(null, asSub ? { as_subscriber: asSub } : {}),
+    enabled: !inSlugContext || !!subscriberEmail,
   });
   const store = stores[0];
 
@@ -144,6 +146,34 @@ export default function PainelAssinante() {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+      </div>
+    );
+  }
+
+  // Crítico: assinante de estabelecimento A não pode acessar painel de estabelecimento B pela URL
+  if (inSlugContext && !canAccessSlug && user && !isMaster) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8 max-w-md text-center">
+          <Lock className="w-12 h-12 text-red-500 mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Acesso negado</h2>
+          <p className="text-gray-600 dark:text-gray-400 mb-6">
+            Este painel pertence a outro estabelecimento. Acesse o painel da sua conta.
+          </p>
+          <Button
+            onClick={() => {
+              const lastSlug = localStorage.getItem('lastVisitedSlug');
+              if (lastSlug) navigate(`/s/${lastSlug}`);
+              else navigate('/colaborador');
+            }}
+            className="w-full"
+          >
+            Ir para meu painel
+          </Button>
+          <p className="mt-4 text-sm text-gray-500">
+            <Link to="/" className="text-orange-600 hover:underline">Voltar ao início</Link>
+          </p>
+        </div>
       </div>
     );
   }
@@ -414,11 +444,12 @@ export default function PainelAssinante() {
             isGerente={isGerente}
             slug={slug}
             permissions={permissions}
-            plan={subscriberData?.plan || 'basic'} // ✅ Garantir que sempre tenha um valor padrão
+            plan={subscriberData?.plan || 'basic'}
             collapsed={sidebarCollapsed}
             setCollapsed={setSidebarCollapsed}
             onClose={() => setShowMobileSidebar(false)}
             showStoreLogo={true}
+            store={store}
           />
         </div>
 

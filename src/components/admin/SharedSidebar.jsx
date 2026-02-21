@@ -154,6 +154,8 @@ export default function SharedSidebar({
   onClose,
   showStoreLogo = true,
   slug = null,
+  /** Store do estabelecimento (slug) — evita misturar com loja do usuário logado */
+  store: storeProp = null,
   /** Item extra no topo do menu (ex.: { id: 'meu_perfil', label: 'Meu perfil', icon: User }) para Painel do Gerente */
   extraTopItem = null
 }) {
@@ -167,14 +169,14 @@ export default function SharedSidebar({
     marketing: true // Seção MARKETING (Promoções, Cupons, Afiliados)
   });
 
-  // Buscar dados da loja para mostrar logo
+  // Usar store passado pelo pai (contexto correto) ou buscar
   const { data: stores = [] } = useQuery({
     queryKey: ['store'],
     queryFn: () => base44.entities.Store.list(),
-    enabled: showStoreLogo,
+    enabled: showStoreLogo && !storeProp,
   });
 
-  const store = stores[0];
+  const store = storeProp ?? stores[0];
 
   const hasModuleAccess = (module) => {
     if (isMaster) return true;

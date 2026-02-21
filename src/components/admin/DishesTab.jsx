@@ -63,9 +63,11 @@ export function DishRow({ dish, complementGroups, expanded, onToggleExpand, onEd
   const isOutOfStock = dish.stock !== null && dish.stock !== undefined && dish.stock !== '' && dish.stock <= 0;
   const hasDiscount = dish.original_price && dish.original_price > dish.price;
 
+  const isInactive = dish.is_active === false;
+
   return (
     <>
-    <div className={`bg-white border rounded-lg overflow-hidden hover:shadow-sm transition-shadow ${isSelected ? 'ring-2 ring-blue-500' : ''}`}>
+    <div className={`bg-white border rounded-lg overflow-hidden hover:shadow-sm transition-shadow ${isSelected ? 'ring-2 ring-blue-500' : ''} ${isInactive ? 'opacity-90' : ''}`}>
       <div className="flex items-center gap-3 p-3">
         <input
           type="checkbox"
@@ -76,7 +78,7 @@ export function DishRow({ dish, complementGroups, expanded, onToggleExpand, onEd
         />
         <div className="w-16 h-16 flex-shrink-0 bg-gray-100 rounded overflow-hidden relative">
           {dish.image ? (
-            <img src={dish.image} alt={dish.name} className="w-full h-full object-cover" />
+            <img src={dish.image} alt={dish.name} className={`w-full h-full object-cover ${isInactive ? 'grayscale' : ''}`} />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">Sem foto</div>
           )}
@@ -91,27 +93,27 @@ export function DishRow({ dish, complementGroups, expanded, onToggleExpand, onEd
           <div className="flex items-start gap-2 mb-1">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
-                <h3 className="font-medium text-sm">{dish.name} {dish.portion && <span className="text-gray-400">({dish.portion})</span>}</h3>
-                {dish.is_new && <Badge variant="outline" className="text-xs bg-green-50 text-green-700">✨ Novo</Badge>}
-                {dish.is_popular && <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700">🔥 Popular</Badge>}
+                <h3 className="font-medium text-base">{dish.name} {dish.portion && <span className="text-gray-400">({dish.portion})</span>}</h3>
+                {dish.is_new && <Badge variant="outline" className="text-sm bg-green-50 text-green-700">✨ Novo</Badge>}
+                {dish.is_popular && <Badge variant="outline" className="text-sm bg-purple-50 text-purple-700">🔥 Popular</Badge>}
               </div>
-              <p className="text-xs text-gray-500 line-clamp-1">{dish.description}</p>
+              <p className="text-sm text-gray-500 line-clamp-1">{dish.description}</p>
               {dish.tags && dish.tags.length > 0 && (
                 <div className="flex gap-1 mt-1">
                   {dish.tags.slice(0, 3).map(tag => (
-                    <span key={tag} className="text-xs px-1 py-0.5 bg-gray-100 rounded">
+                    <span key={tag} className="text-sm px-1.5 py-0.5 bg-gray-100 rounded">
                       {tag}
                     </span>
                   ))}
-                  {dish.tags.length > 3 && <span className="text-xs text-gray-400">+{dish.tags.length - 3}</span>}
+                  {dish.tags.length > 3 && <span className="text-sm text-gray-400">+{dish.tags.length - 3}</span>}
                 </div>
               )}
               {dish.internal_notes && (
-                <p className="text-xs text-orange-600 mt-1">📝 {dish.internal_notes}</p>
+                <p className="text-sm text-orange-600 mt-1">📝 {dish.internal_notes}</p>
               )}
             </div>
             <Badge 
-              className={`text-xs ${canEdit ? 'cursor-pointer hover:bg-yellow-200' : 'cursor-default'} transition-all ${dish.is_highlight ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-500'}`}
+              className={`text-sm ${canEdit ? 'cursor-pointer hover:bg-yellow-200' : 'cursor-default'} transition-all ${dish.is_highlight ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-500'}`}
               onClick={(e) => {
                 e.stopPropagation();
                 if (canEdit) onUpdate({ is_highlight: !dish.is_highlight });
@@ -120,7 +122,7 @@ export function DishRow({ dish, complementGroups, expanded, onToggleExpand, onEd
               {dish.is_highlight ? '⭐ Destaque' : 'Destaque'}
             </Badge>
           </div>
-          <div className="flex items-center gap-3 text-xs text-gray-500">
+          <div className="flex items-center gap-3 text-sm text-gray-500">
             {(dish.stock !== null && dish.stock !== undefined && dish.stock !== '') && (
               <span>Estoque: {dish.stock}</span>
             )}
@@ -135,17 +137,17 @@ export function DishRow({ dish, complementGroups, expanded, onToggleExpand, onEd
 
         <button 
           onClick={onToggleExpand} 
-          className="flex items-center gap-1 px-2 sm:px-3 py-1.5 text-sm border rounded hover:bg-gray-50"
+          className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 text-sm border rounded hover:bg-gray-50"
         >
           <Layers className="w-4 h-4" />
-          <span className="hidden sm:inline text-xs">Complementos</span>
-          <Badge variant="outline" className="text-xs">{linkedGroups.length}</Badge>
+          <span className="hidden sm:inline text-sm">Complementos</span>
+          <Badge variant="outline" className="text-sm">{linkedGroups.length}</Badge>
           {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
         </button>
 
         <div className="flex flex-col items-end gap-1">
           {hasDiscount && (
-            <span className="text-xs text-gray-400 line-through">{formatCurrency(dish.original_price)}</span>
+            <span className="text-sm text-gray-400 line-through">{formatCurrency(dish.original_price)}</span>
           )}
           {editingDishPrice ? (
             <Input
@@ -171,7 +173,7 @@ export function DishRow({ dish, complementGroups, expanded, onToggleExpand, onEd
             />
           ) : (
             <span 
-              className={`font-semibold text-sm whitespace-nowrap ${canEdit ? 'cursor-pointer hover:bg-gray-100' : ''} px-2 py-1 rounded ${hasDiscount ? 'text-green-600' : ''}`}
+              className={`font-semibold text-base whitespace-nowrap ${canEdit ? 'cursor-pointer hover:bg-gray-100' : ''} px-2 py-1 rounded ${hasDiscount ? 'text-green-600' : ''}`}
               onClick={() => {
                 if (!canEdit) return;
                 setTempPrice(dish.price?.toString() || '0');
@@ -708,7 +710,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
     gcTime: 60000,
   });
 
-  const { data: adminCategories = [], isLoading: categoriesLoading, error: categoriesError } = useQuery({
+  const { data: adminCategories = [], isLoading: categoriesLoading, error: categoriesError, refetch: refetchCategories } = useQuery({
     queryKey: ['categories', menuContext?.type, menuContext?.value],
     queryFn: async () => {
       if (!menuContext) return [];
@@ -717,7 +719,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
     enabled: !!menuContext && !slug,
     placeholderData: keepPreviousData,
     retry: 1,
-    refetchOnMount: false,
+    refetchOnMount: true,
     staleTime: 60000,
     gcTime: 120000,
   });
@@ -750,6 +752,15 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
       refetchDishes();
     }
   }, [menuContext?.type, menuContext?.value, slug]);
+
+  // Corrige bug: categorias vazias mas pratos têm category_id → refetch categorias
+  useEffect(() => {
+    const dishesWithCategory = (dishes || []).filter(d => d.category_id && d.product_type !== 'pizza' && d.product_type !== 'beverage');
+    const cats = Array.isArray(categories) ? categories : [];
+    if (menuContext && !slug && dishesWithCategory.length > 0 && cats.length === 0 && !categoriesLoading) {
+      refetchCategories();
+    }
+  }, [menuContext, slug, dishes, categories, categoriesLoading, refetchCategories]);
 
   // ========= MUTATIONS =========
   const createDishMutation = useMutation({

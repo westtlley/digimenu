@@ -23,17 +23,18 @@ export default function MobileDishCard({
 }) {
   const isOutOfStock = dish.stock !== null && dish.stock !== undefined && dish.stock <= 0;
   const hasDiscount = dish.original_price && dish.original_price > dish.price;
+  const isInactive = dish.is_active === false;
 
   return (
-    <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 active:scale-[0.98] transition-transform">
+    <div className={`bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 active:scale-[0.98] transition-transform ${isInactive ? 'opacity-90' : ''}`}>
       <div className="flex items-center gap-3 p-3">
-        {/* Image */}
+        {/* Image — preto e branco quando desativado */}
         <div className="relative w-20 h-20 flex-shrink-0 rounded-xl overflow-hidden bg-gray-100">
           {dish.image ? (
             <img 
               src={dish.image} 
               alt={dish.name} 
-              className="w-full h-full object-cover"
+              className={`w-full h-full object-cover ${isInactive ? 'grayscale' : ''}`}
               loading="lazy"
             />
           ) : (
@@ -51,7 +52,7 @@ export default function MobileDishCard({
         {/* Content */}
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2 mb-1">
-            <h3 className="font-semibold text-sm leading-tight line-clamp-1 flex-1">
+            <h3 className="font-semibold text-base leading-tight line-clamp-1 flex-1">
               {dish.name}
             </h3>
             <button
@@ -73,7 +74,7 @@ export default function MobileDishCard({
           </div>
           
           {dish.description && (
-            <p className="text-xs text-gray-500 line-clamp-1 mb-2">
+            <p className="text-sm text-gray-500 line-clamp-1 mb-2">
               {dish.description}
             </p>
           )}
@@ -81,11 +82,11 @@ export default function MobileDishCard({
           <div className="flex items-center justify-between">
             <div className="flex-1">
               {hasDiscount && (
-                <span className="text-xs text-gray-400 line-through block">
+                <span className="text-sm text-gray-400 line-through block">
                   {formatCurrency(dish.original_price)}
                 </span>
               )}
-              <span className={`font-bold text-base ${hasDiscount ? 'text-green-600' : 'text-gray-900'}`}>
+              <span className={`font-bold text-lg ${hasDiscount ? 'text-green-600' : 'text-gray-900'}`}>
                 {formatCurrency(dish.price)}
               </span>
             </div>
