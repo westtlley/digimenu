@@ -356,7 +356,7 @@ class ApiClient {
         if (slug) {
           // Com slug: sempre redirecionar para o login do estabelecimento
           if (currentPath.includes('/PainelAssinante') || currentPath.includes('/GestorPedidos')) {
-            window.location.href = `/s/${slug}/login?returnUrl=${encodeURIComponent(currentPath)}`;
+            window.location.href = `/s/${slug}/login/painelassinante?returnUrl=${encodeURIComponent(currentPath)}`;
           } else if (currentPath.includes('/Entregador') || currentPath.includes('/Cozinha') ||
                      currentPath.includes('/PDV') || currentPath.includes('/Garcom')) {
             window.location.href = `/s/${slug}/login/colaborador?returnUrl=${encodeURIComponent(currentPath)}`;
@@ -392,7 +392,7 @@ class ApiClient {
         if (slug) {
           let loginPath;
           if (returnUrl.includes('/PainelAssinante') || returnUrl.includes('/GestorPedidos')) {
-            loginPath = `/s/${slug}/login`;
+            loginPath = `/s/${slug}/login/painelassinante`;
           } else if (returnUrl.includes('/Entregador') || returnUrl.includes('/Cozinha') ||
                      returnUrl.includes('/PDV') || returnUrl.includes('/Garcom')) {
             loginPath = `/s/${slug}/login/colaborador`;

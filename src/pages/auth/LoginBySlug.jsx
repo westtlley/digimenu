@@ -36,8 +36,9 @@ export default function LoginBySlug({ type: propType }) {
   const { slug, type: urlType } = useParams();
   const [searchParams] = useSearchParams();
   const returnUrl = searchParams.get('returnUrl') || '';
-  // Cardápio: apenas login de cliente. /s/:slug/login sem tipo = login cliente (vindo do cardápio). Colaborador = /s/:slug/login/colaborador
-  const loginType = propType ?? (urlType === 'cliente' || urlType === 'colaborador' ? urlType : 'cliente');
+  // Tipos: cliente (cardápio), colaborador (por perfil), assinante/painelassinante (por perfil, destino assinante → PainelAssinante)
+  const isAssinanteType = urlType && ['assinante', 'painelassinante'].includes(String(urlType).toLowerCase());
+  const loginType = propType ?? (urlType === 'cliente' || urlType === 'colaborador' ? urlType : isAssinanteType ? 'assinante' : 'cliente');
   const navigate = useNavigate();
   const { data: loginInfo, loading: loadingInfo } = useLoginInfo(slug);
 
@@ -179,12 +180,12 @@ export default function LoginBySlug({ type: propType }) {
     );
   }
 
-  const isUnified = loginType === 'assinante';
+  const isAssinante = loginType === 'assinante';
   const isCliente = loginType === 'cliente';
   const isColaborador = loginType === 'colaborador';
 
-  const subtitleText = isUnified
-    ? 'Entrar — Dono, gerente, colaborador ou cliente'
+  const subtitleText = isAssinante
+    ? 'Acesso Painel do Assinante — Dono ou gerente'
     : isCliente
       ? 'Entrar como cliente'
       : 'Acesso colaborador — Entregador, Cozinha, PDV, Garçom ou Gerente';
@@ -222,7 +223,7 @@ export default function LoginBySlug({ type: propType }) {
           </div>
 
           <div className="p-6">
-            {isUnified && (
+            {isAssinante && (
               <p className="text-xs text-gray-500 dark:text-gray-400 text-center mb-4">
                 Use seu e-mail e senha. Você será direcionado ao painel correto conforme seu perfil.
               </p>
@@ -310,7 +311,7 @@ export default function LoginBySlug({ type: propType }) {
               >
                 Esqueci minha senha
               </Link>
-              {isUnified && (
+              {isAssinante && (
                 <>
                   <div>
                     <Link
