@@ -37,6 +37,7 @@ export async function getPublicMenuBySlug(slug) {
     dishes,
     categories,
     complementGroups,
+    combos,
     pizzaSizes,
     pizzaFlavors,
     pizzaEdges,
@@ -47,7 +48,8 @@ export async function getPublicMenuBySlug(slug) {
     coupons,
     promotions,
     tables,
-    loyaltyConfigs
+    loyaltyConfigs,
+    loyaltyRewards
   } = await getMenuEntities(subscriberEmail, isMaster);
 
   // Normalizar dados da loja
@@ -58,7 +60,8 @@ export async function getPublicMenuBySlug(slug) {
     subscriber_email: subscriberEmail || 'master',
     store_name: store?.name,
     dishes_count: Array.isArray(dishes) ? dishes.length : 0,
-    categories_count: Array.isArray(categories) ? categories.length : 0
+    categories_count: Array.isArray(categories) ? categories.length : 0,
+    combos_count: Array.isArray(combos) ? combos.length : 0
   });
 
   return {
@@ -70,6 +73,7 @@ export async function getPublicMenuBySlug(slug) {
     tables: Array.isArray(tables) ? tables : [],
     beverageCategories: Array.isArray(beverageCategories) ? beverageCategories : [],
     complementGroups: Array.isArray(complementGroups) ? complementGroups : [],
+    combos: Array.isArray(combos) ? combos : [],
     pizzaSizes: Array.isArray(pizzaSizes) ? pizzaSizes : [],
     pizzaFlavors: Array.isArray(pizzaFlavors) ? pizzaFlavors : [],
     pizzaEdges: Array.isArray(pizzaEdges) ? pizzaEdges : [],
@@ -78,7 +82,8 @@ export async function getPublicMenuBySlug(slug) {
     deliveryZones: Array.isArray(deliveryZones) ? deliveryZones : [],
     coupons: Array.isArray(coupons) ? coupons : [],
     promotions: Array.isArray(promotions) ? promotions : [],
-    loyaltyConfigs: Array.isArray(loyaltyConfigs) ? loyaltyConfigs : []
+    loyaltyConfigs: Array.isArray(loyaltyConfigs) ? loyaltyConfigs : [],
+    loyaltyRewards: Array.isArray(loyaltyRewards) ? loyaltyRewards : []
   };
 }
 

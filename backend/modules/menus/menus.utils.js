@@ -56,6 +56,7 @@ export async function getMenuEntities(subscriberEmail, isMaster) {
       dishes,
       categories,
       complementGroups,
+      combos,
       pizzaSizes,
       pizzaFlavors,
       pizzaEdges,
@@ -66,7 +67,8 @@ export async function getMenuEntities(subscriberEmail, isMaster) {
       coupons,
       promotions,
       tables,
-      loyaltyConfigs
+      loyaltyConfigs,
+      loyaltyRewards
     ] = await Promise.all([
       query(`SELECT id, data, created_at, updated_at FROM entities WHERE entity_type = 'Store' AND subscriber_email IS NULL ORDER BY updated_at DESC NULLS LAST, created_at DESC`).then(r =>
         r.rows.map(row => ({ id: row.id.toString(), ...row.data }))
@@ -78,6 +80,9 @@ export async function getMenuEntities(subscriberEmail, isMaster) {
         r.rows.map(row => ({ id: row.id.toString(), ...row.data }))
       ),
       query(`SELECT id, data, created_at, updated_at FROM entities WHERE entity_type = 'ComplementGroup' AND subscriber_email IS NULL ORDER BY (data->>'order')::int NULLS LAST, created_at DESC`).then(r =>
+        r.rows.map(row => ({ id: row.id.toString(), ...row.data }))
+      ),
+      query(`SELECT id, data, created_at, updated_at FROM entities WHERE entity_type = 'Combo' AND subscriber_email IS NULL ORDER BY updated_at DESC NULLS LAST, created_at DESC`).then(r =>
         r.rows.map(row => ({ id: row.id.toString(), ...row.data }))
       ),
       query(`SELECT id, data, created_at, updated_at FROM entities WHERE entity_type = 'PizzaSize' AND subscriber_email IS NULL ORDER BY (data->>'order')::int NULLS LAST, created_at DESC`).then(r =>
@@ -112,6 +117,9 @@ export async function getMenuEntities(subscriberEmail, isMaster) {
       ),
       query(`SELECT id, data, created_at, updated_at FROM entities WHERE entity_type = 'LoyaltyConfig' AND subscriber_email IS NULL ORDER BY updated_at DESC NULLS LAST, created_at DESC`).then(r =>
         r.rows.map(row => ({ id: row.id.toString(), ...row.data }))
+      ),
+      query(`SELECT id, data, created_at, updated_at FROM entities WHERE entity_type = 'LoyaltyReward' AND subscriber_email IS NULL ORDER BY updated_at DESC NULLS LAST, created_at DESC`).then(r =>
+        r.rows.map(row => ({ id: row.id.toString(), ...row.data }))
       )
     ]);
 
@@ -120,6 +128,7 @@ export async function getMenuEntities(subscriberEmail, isMaster) {
       dishes,
       categories,
       complementGroups,
+      combos,
       pizzaSizes,
       pizzaFlavors,
       pizzaEdges,
@@ -130,15 +139,27 @@ export async function getMenuEntities(subscriberEmail, isMaster) {
       coupons,
       promotions,
       tables,
-      loyaltyConfigs
+      loyaltyConfigs,
+      loyaltyRewards
     };
   } else {
     // Para subscriber, usar a função existente
+    // Compatibilidade: algumas contas acessam o painel via linked_user_email.
+    // Se entidades foram salvas com subscriber_email = linked_user_email, precisamos buscar também por esse email.
+    let altEmail = null;
+    try {
+      const sub = await repo.getSubscriberByEmail(subscriberEmail);
+      altEmail = sub?.linked_user_email || null;
+    } catch (e) {
+      altEmail = null;
+    }
+
     const [
       storeList,
       dishes,
       categories,
       complementGroups,
+      combos,
       pizzaSizes,
       pizzaFlavors,
       pizzaEdges,
@@ -149,23 +170,26 @@ export async function getMenuEntities(subscriberEmail, isMaster) {
       coupons,
       promotions,
       tables,
-      loyaltyConfigs
+      loyaltyConfigs,
+      loyaltyRewards
     ] = await Promise.all([
-      repo.listEntitiesForSubscriber('Store', subscriberEmail, null),
-      repo.listEntitiesForSubscriber('Dish', subscriberEmail, 'order'),
-      repo.listEntitiesForSubscriber('Category', subscriberEmail, 'order'),
-      repo.listEntitiesForSubscriber('ComplementGroup', subscriberEmail, 'order'),
-      repo.listEntitiesForSubscriber('PizzaSize', subscriberEmail, 'order'),
-      repo.listEntitiesForSubscriber('PizzaFlavor', subscriberEmail, 'order'),
-      repo.listEntitiesForSubscriber('PizzaEdge', subscriberEmail, null),
-      repo.listEntitiesForSubscriber('PizzaExtra', subscriberEmail, null),
-      repo.listEntitiesForSubscriber('PizzaCategory', subscriberEmail, 'order'),
-      repo.listEntitiesForSubscriber('BeverageCategory', subscriberEmail, 'order'),
-      repo.listEntitiesForSubscriber('DeliveryZone', subscriberEmail, null),
-      repo.listEntitiesForSubscriber('Coupon', subscriberEmail, null),
-      repo.listEntitiesForSubscriber('Promotion', subscriberEmail, null),
-      repo.listEntitiesForSubscriber('Table', subscriberEmail, 'table_number'),
-      repo.listEntitiesForSubscriber('LoyaltyConfig', subscriberEmail, null)
+      repo.listEntitiesForSubscriber('Store', subscriberEmail, null, altEmail),
+      repo.listEntitiesForSubscriber('Dish', subscriberEmail, 'order', altEmail),
+      repo.listEntitiesForSubscriber('Category', subscriberEmail, 'order', altEmail),
+      repo.listEntitiesForSubscriber('ComplementGroup', subscriberEmail, 'order', altEmail),
+      repo.listEntitiesForSubscriber('Combo', subscriberEmail, null, altEmail),
+      repo.listEntitiesForSubscriber('PizzaSize', subscriberEmail, 'order', altEmail),
+      repo.listEntitiesForSubscriber('PizzaFlavor', subscriberEmail, 'order', altEmail),
+      repo.listEntitiesForSubscriber('PizzaEdge', subscriberEmail, null, altEmail),
+      repo.listEntitiesForSubscriber('PizzaExtra', subscriberEmail, null, altEmail),
+      repo.listEntitiesForSubscriber('PizzaCategory', subscriberEmail, 'order', altEmail),
+      repo.listEntitiesForSubscriber('BeverageCategory', subscriberEmail, 'order', altEmail),
+      repo.listEntitiesForSubscriber('DeliveryZone', subscriberEmail, null, altEmail),
+      repo.listEntitiesForSubscriber('Coupon', subscriberEmail, null, altEmail),
+      repo.listEntitiesForSubscriber('Promotion', subscriberEmail, null, altEmail),
+      repo.listEntitiesForSubscriber('Table', subscriberEmail, 'table_number', altEmail),
+      repo.listEntitiesForSubscriber('LoyaltyConfig', subscriberEmail, null, altEmail),
+      repo.listEntitiesForSubscriber('LoyaltyReward', subscriberEmail, null, altEmail)
     ]);
 
     return {
@@ -173,6 +197,7 @@ export async function getMenuEntities(subscriberEmail, isMaster) {
       dishes,
       categories,
       complementGroups,
+      combos,
       pizzaSizes,
       pizzaFlavors,
       pizzaEdges,
@@ -183,7 +208,8 @@ export async function getMenuEntities(subscriberEmail, isMaster) {
       coupons,
       promotions,
       tables,
-      loyaltyConfigs
+      loyaltyConfigs,
+      loyaltyRewards
     };
   }
 }

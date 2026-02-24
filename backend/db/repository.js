@@ -36,6 +36,27 @@ export async function listEntitiesForSubscriber(entityType, subscriberEmail, ord
         )
     `;
     const params = [entityType, subscriberEmail];
+
+    // Compatibilidade: se o usuário loga via linked_user_email, entidades podem ter sido salvas com subscriber_email = linked.
+    // Permitir listar também por esse email alternativo quando fornecido.
+    const altEmail = arguments.length >= 4 ? arguments[3] : null;
+    if (altEmail && String(altEmail).trim()) {
+      sql = `
+        SELECT id, data, created_at, updated_at
+        FROM entities
+        WHERE entity_type = $1
+          AND (
+            subscriber_email = $2
+            OR (subscriber_email IS NOT NULL AND LOWER(TRIM(subscriber_email)) = LOWER(TRIM($2)))
+            OR (subscriber_email IS NULL AND (data->>'owner_email') = $2)
+            OR subscriber_email = $3
+            OR (subscriber_email IS NOT NULL AND LOWER(TRIM(subscriber_email)) = LOWER(TRIM($3)))
+            OR (subscriber_email IS NULL AND (data->>'owner_email') = $3)
+          )
+      `;
+      params.push(altEmail);
+    }
+
     if (orderBy) {
       const direction = orderBy.startsWith('-') ? 'DESC' : 'ASC';
       const field = orderBy.replace(/^-/, '');
@@ -769,7 +790,7 @@ export async function getSubscriberByEmail(email) {
   if (!email || String(email).trim() === '') return null;
   const emailNorm = String(email).toLowerCase().trim();
   const result = await query(
-    'SELECT * FROM subscribers WHERE LOWER(TRIM(email)) = $1',
+    'SELECT * FROM subscribers WHERE LOWER(TRIM(email)) = $1 OR LOWER(TRIM(linked_user_email)) = $1',
     [emailNorm]
   );
   return result.rows[0] || null;

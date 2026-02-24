@@ -42,6 +42,7 @@ import ReferralCodeModal from '../components/menu/ReferralCodeModal';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useLoyalty } from '@/hooks/useLoyalty';
 import { useWebSocket } from '@/hooks/useWebSocket';
+import ComboBuilderModal from '../components/menu/ComboBuilderModal';
 
 // Hooks
 import { useCart } from '@/components/hooks/useCart';
@@ -103,6 +104,7 @@ export default function Cardapio() {
   const [selectedDish, setSelectedDish] = useState(null);
   const [selectedBeverage, setSelectedBeverage] = useState(null);
   const [selectedPizza, setSelectedPizza] = useState(null);
+  const [selectedCombo, setSelectedCombo] = useState(null);
   const [editingCartItem, setEditingCartItem] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -122,11 +124,12 @@ export default function Cardapio() {
   const [showReferralCode, setShowReferralCode] = useState(false);
   const [showFloatingMenu, setShowFloatingMenu] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
+  const [showRecentOrdersPanel, setShowRecentOrdersPanel] = useState(true);
 
   const queryClient = useQueryClient();
 
   // Custom Hooks
-  const { cart, addItem, updateItem, removeItem, updateQuantity, clearCart, cartTotal, cartItemsCount } = useCart(slug);
+  const { cart, addItem, updateItem, removeItem, updateQuantity, clearCart, cartTotal, cartItemsCount, hydrateCart } = useCart(slug, { autoLoad: false });
   const { customer, setCustomer, clearCustomer } = useCustomer();
 
   // Hook de fidelidade
@@ -314,6 +317,7 @@ export default function Cardapio() {
   const deliveryZonesResolved = _pub?.deliveryZones ?? deliveryZones ?? [];
   const couponsResolved = _pub?.coupons ?? coupons ?? [];
   const promotionsResolved = _pub?.promotions ?? promotions ?? [];
+  const combosResolved = _pub?.combos ?? [];
   const loadingDishes = slug ? publicLoading : dishesLoading;
 
   // ✅ CORREÇÃO: Todos os hooks devem ser chamados ANTES de qualquer return condicional
@@ -364,6 +368,7 @@ export default function Cardapio() {
   const headerBg = store?.theme_header_bg || '#ffffff';
   const headerText = store?.theme_header_text || '#000000';
   const menuLayout = store?.menu_layout || 'grid'; // grid, list, carousel, magazine, masonry
+  const gridColsDesktop = store?.menu_grid_cols_desktop;
 
   // Store Status
   const { isStoreUnavailable, isStoreClosed, isStorePaused, isAutoModeClosed, getNextOpenTime, getStatusDisplay } = useStoreStatus(store || {});
@@ -404,6 +409,20 @@ export default function Cardapio() {
     return safeActiveDishes.filter((d) => d.is_highlight);
   }, [activeDishes]);
   const activePromotions = useMemo(() => (Array.isArray(promotionsResolved) ? promotionsResolved : []).filter(p => p.is_active), [promotionsResolved]);
+  const activeCombos = useMemo(() => (Array.isArray(combosResolved) ? combosResolved : []).filter(c => c?.is_active !== false), [combosResolved]);
+
+  const comboDishesForDisplay = useMemo(() => {
+    const list = Array.isArray(activeCombos) ? activeCombos : [];
+    return list.map((c) => ({
+      id: `combo_${c.id}`,
+      name: c.name,
+      description: c.description,
+      image: c.image,
+      product_type: 'combo',
+      price: c.combo_price,
+      is_active: c.is_active,
+    }));
+  }, [activeCombos]);
 
   const filteredDishes = useMemo(() => {
     const safeActiveDishes = Array.isArray(activeDishes) ? activeDishes : [];
@@ -436,10 +455,10 @@ export default function Cardapio() {
       return filteredBeverages;
     }
     if (selectedCategory === 'all') {
-      return [...filteredDishes, ...filteredBeverages];
+      return [...filteredDishes, ...filteredBeverages, ...comboDishesForDisplay];
     }
     return filteredDishes;
-  }, [selectedCategory, filteredDishes, filteredBeverages]);
+  }, [selectedCategory, filteredDishes, filteredBeverages, comboDishesForDisplay]);
 
   // (Return de erro movido para depois de TODOS os hooks — ver bloco "Erro ao carregar" mais abaixo)
 
@@ -510,17 +529,46 @@ export default function Cardapio() {
     }
   }, [publicData, publicLoading, slug]);
 
+  useEffect(() => {
+    if (!slug) return;
+    try {
+      const key = `cardapio_show_recent_orders_${slug}`;
+      const v = localStorage.getItem(key);
+      if (v === '0') setShowRecentOrdersPanel(false);
+    } catch {
+      // ignore
+    }
+  }, [slug]);
+
+  const handleCloseRecentOrdersPanel = () => {
+    setShowRecentOrdersPanel(false);
+    if (!slug) return;
+    try {
+      const key = `cardapio_show_recent_orders_${slug}`;
+      localStorage.setItem(key, '0');
+    } catch {
+      // ignore
+    }
+  };
+
   // 🛒 Recuperação de Carrinho Abandonado
   useEffect(() => {
-    if (!slug || cart.length > 0) return;
+    if (!slug) return;
     
     try {
       const savedCartKey = `cardapio_cart_${slug}`;
       const savedCart = localStorage.getItem(savedCartKey);
+      const promptedKey = `cardapio_cart_recovery_prompted_${slug}`;
+      const wasPrompted = localStorage.getItem(promptedKey) === '1';
       
       if (savedCart) {
         const parsedCart = JSON.parse(savedCart);
         if (Array.isArray(parsedCart) && parsedCart.length > 0) {
+          if (wasPrompted) {
+            hydrateCart(parsedCart);
+            return;
+          }
+
           // Aguardar um pouco para não mostrar imediatamente
           const timer = setTimeout(() => {
             toast(
@@ -533,8 +581,8 @@ export default function Cardapio() {
                   <div className="flex gap-2 mt-2">
                     <button
                       onClick={() => {
-                        parsedCart.forEach(item => addItem(item));
-                        localStorage.removeItem(savedCartKey);
+                        localStorage.setItem(promptedKey, '1');
+                        hydrateCart(parsedCart);
                         toast.dismiss(t.id);
                         toast.success('Carrinho recuperado!');
                       }}
@@ -544,7 +592,9 @@ export default function Cardapio() {
                     </button>
                     <button
                       onClick={() => {
+                        localStorage.setItem(promptedKey, '1');
                         localStorage.removeItem(savedCartKey);
+                        hydrateCart([]);
                         toast.dismiss(t.id);
                       }}
                       className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg font-medium hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
@@ -567,7 +617,8 @@ export default function Cardapio() {
     } catch (e) {
       console.error('Erro ao recuperar carrinho:', e);
     }
-  }, [slug, cart.length, addItem]);
+    hydrateCart([]);
+  }, [slug, hydrateCart]);
 
   // 🎁 Modal de Boas-vindas com Cupom
   useEffect(() => {
@@ -620,7 +671,7 @@ export default function Cardapio() {
   const handleAddToCart = async (item, isEditing = false) => {
     const dish = item.dish || item;
     
-    if (!stockUtils.canAddToCart(dish)) {
+    if (dish?.product_type !== 'combo' && !stockUtils.canAddToCart(dish)) {
       toast.error('Este produto está esgotado');
       return;
     }
@@ -668,6 +719,15 @@ export default function Cardapio() {
 
   const handleDishClick = (dish) => {
     console.log('🍕 Clicou no prato:', dish.name, 'Tipo:', dish.product_type);
+
+    if (dish.product_type === 'combo') {
+      const comboId = (dish.id || '').toString().replace(/^combo_/, '');
+      const combo = (Array.isArray(combosResolved) ? combosResolved : []).find((c) => (c?.id || '').toString() === comboId);
+      if (combo) {
+        setSelectedCombo(combo);
+        return;
+      }
+    }
     
     // Se for bebida, usar modal específico de bebida
     if (dish.product_type === 'beverage') {
@@ -1385,12 +1445,52 @@ export default function Cardapio() {
           </motion.div>
         )}
 
+        {comboDishesForDisplay.length > 0 && (
+          <section className="mb-6 md:mb-8">
+            <div className="flex items-center gap-2 mb-4 md:mb-4">
+              <Package className="w-5 h-5" style={{ color: primaryColor }} />
+              <h2 className="font-bold text-base md:text-lg text-foreground">Combos</h2>
+            </div>
+            <MenuLayoutWrapper
+              layout={menuLayout}
+              dishes={comboDishesForDisplay}
+              onDishClick={handleDishClick}
+              primaryColor={primaryColor}
+              textPrimaryColor={textPrimaryColor}
+              textSecondaryColor={textSecondaryColor}
+              loading={loadingDishes}
+              stockUtils={stockUtils}
+              formatCurrency={formatCurrency}
+              slug={slug}
+              gridColsDesktop={gridColsDesktop}
+            />
+          </section>
+        )}
+
         {/* Recent Orders */}
-        <RecentOrders
-          dishes={activeDishes}
-          onSelectDish={setSelectedDish}
-          primaryColor={primaryColor}
-        />
+        {showRecentOrdersPanel && (
+          <>
+            <div className="lg:hidden">
+              <RecentOrders
+                dishes={activeDishes}
+                onSelectDish={setSelectedDish}
+                primaryColor={primaryColor}
+              />
+            </div>
+
+            <div className="hidden lg:block">
+              <div className="fixed right-4 top-40 z-40 w-72 max-h-[calc(100vh-11rem)] overflow-auto rounded-2xl border border-border bg-card shadow-xl p-4">
+                <RecentOrders
+                  dishes={activeDishes}
+                  onSelectDish={setSelectedDish}
+                  primaryColor={primaryColor}
+                  floating
+                  onClose={handleCloseRecentOrdersPanel}
+                />
+              </div>
+            </div>
+          </>
+        )}
 
         {/* Highlights */}
         {highlightDishes.length > 0 && (
@@ -1399,7 +1499,7 @@ export default function Cardapio() {
               <Star className="w-5 h-5 fill-yellow-400 text-yellow-400" />
               <h2 className="font-bold text-base md:text-lg text-foreground">Pratos do Dia</h2>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 md:gap-3 lg:gap-3 xl:gap-3">
+            <div className={`grid grid-cols-2 md:grid-cols-3 ${Number(gridColsDesktop) === 2 ? 'lg:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-2' : Number(gridColsDesktop) === 3 ? 'lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-3' : Number(gridColsDesktop) === 4 ? 'lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-4' : Number(gridColsDesktop) === 5 ? 'lg:grid-cols-5 xl:grid-cols-5 2xl:grid-cols-5' : 'lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6'} gap-4 md:gap-3 lg:gap-3 xl:gap-3`}>
               {highlightDishes.map((dish, index) => {
                 // Forçar badge de destaque nos highlights
                 const highlightDish = { ...dish, is_popular: true };
@@ -1411,6 +1511,8 @@ export default function Cardapio() {
                     index={index}
                     primaryColor={primaryColor}
                     textPrimaryColor={textPrimaryColor}
+                    slug={slug}
+                    gridColsDesktop={gridColsDesktop}
                   />
                 );
               })}
@@ -1447,6 +1549,7 @@ export default function Cardapio() {
             stockUtils={stockUtils}
             formatCurrency={formatCurrency}
             slug={slug}
+            gridColsDesktop={gridColsDesktop}
           />
         </section>
 
@@ -1810,6 +1913,20 @@ export default function Cardapio() {
         onApplyCoupon={(code) => handleApplyCoupon(code)}
         primaryColor={primaryColor}
         slug={slug}
+      />
+
+      <ComboBuilderModal
+        open={!!selectedCombo}
+        onOpenChange={(open) => {
+          if (!open) setSelectedCombo(null);
+        }}
+        combo={selectedCombo}
+        dishes={dishesResolved}
+        categories={categoriesResolved}
+        beverageCategories={beverageCategoriesResolved}
+        pizzaCategories={pizzaCategoriesResolved}
+        primaryColor={primaryColor}
+        onAddToCart={handleAddToCart}
       />
 
       <ReferralCodeModal
