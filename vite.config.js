@@ -123,8 +123,8 @@ export default defineConfig({
     },
     // Garantir que o build seja minificado corretamente
     minify: 'esbuild',
-    // Garantir que os source maps não causem problemas
-    sourcemap: false,
+    // Habilitar sourcemaps no build para diagnosticar o TypeError em produção (J is not a function) com stacktrace apontando para arquivos fonte
+    sourcemap: true,
   },
   // Ignorar erros de extensões do navegador no console
   define: {
