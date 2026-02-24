@@ -65,7 +65,8 @@ export async function getMenuEntities(subscriberEmail, isMaster) {
       deliveryZones,
       coupons,
       promotions,
-      tables
+      tables,
+      loyaltyConfigs
     ] = await Promise.all([
       query(`SELECT id, data, created_at, updated_at FROM entities WHERE entity_type = 'Store' AND subscriber_email IS NULL ORDER BY updated_at DESC NULLS LAST, created_at DESC`).then(r =>
         r.rows.map(row => ({ id: row.id.toString(), ...row.data }))
@@ -108,6 +109,9 @@ export async function getMenuEntities(subscriberEmail, isMaster) {
       ),
       query(`SELECT id, data, created_at, updated_at FROM entities WHERE entity_type = 'Table' AND subscriber_email IS NULL ORDER BY (data->>'table_number')::int NULLS LAST, created_at ASC`).then(r =>
         r.rows.map(row => ({ id: row.id.toString(), ...row.data }))
+      ),
+      query(`SELECT id, data, created_at, updated_at FROM entities WHERE entity_type = 'LoyaltyConfig' AND subscriber_email IS NULL ORDER BY updated_at DESC NULLS LAST, created_at DESC`).then(r =>
+        r.rows.map(row => ({ id: row.id.toString(), ...row.data }))
       )
     ]);
 
@@ -125,7 +129,8 @@ export async function getMenuEntities(subscriberEmail, isMaster) {
       deliveryZones,
       coupons,
       promotions,
-      tables
+      tables,
+      loyaltyConfigs
     };
   } else {
     // Para subscriber, usar a função existente
@@ -143,7 +148,8 @@ export async function getMenuEntities(subscriberEmail, isMaster) {
       deliveryZones,
       coupons,
       promotions,
-      tables
+      tables,
+      loyaltyConfigs
     ] = await Promise.all([
       repo.listEntitiesForSubscriber('Store', subscriberEmail, null),
       repo.listEntitiesForSubscriber('Dish', subscriberEmail, 'order'),
@@ -158,7 +164,8 @@ export async function getMenuEntities(subscriberEmail, isMaster) {
       repo.listEntitiesForSubscriber('DeliveryZone', subscriberEmail, null),
       repo.listEntitiesForSubscriber('Coupon', subscriberEmail, null),
       repo.listEntitiesForSubscriber('Promotion', subscriberEmail, null),
-      repo.listEntitiesForSubscriber('Table', subscriberEmail, 'table_number')
+      repo.listEntitiesForSubscriber('Table', subscriberEmail, 'table_number'),
+      repo.listEntitiesForSubscriber('LoyaltyConfig', subscriberEmail, null)
     ]);
 
     return {
@@ -175,7 +182,8 @@ export async function getMenuEntities(subscriberEmail, isMaster) {
       deliveryZones,
       coupons,
       promotions,
-      tables
+      tables,
+      loyaltyConfigs
     };
   }
 }

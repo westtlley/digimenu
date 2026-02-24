@@ -46,7 +46,8 @@ export async function getPublicMenuBySlug(slug) {
     deliveryZones,
     coupons,
     promotions,
-    tables
+    tables,
+    loyaltyConfigs
   } = await getMenuEntities(subscriberEmail, isMaster);
 
   // Normalizar dados da loja
@@ -76,7 +77,8 @@ export async function getPublicMenuBySlug(slug) {
     pizzaCategories: Array.isArray(pizzaCategories) ? pizzaCategories : [],
     deliveryZones: Array.isArray(deliveryZones) ? deliveryZones : [],
     coupons: Array.isArray(coupons) ? coupons : [],
-    promotions: Array.isArray(promotions) ? promotions : []
+    promotions: Array.isArray(promotions) ? promotions : [],
+    loyaltyConfigs: Array.isArray(loyaltyConfigs) ? loyaltyConfigs : []
   };
 }
 

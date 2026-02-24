@@ -299,7 +299,8 @@ export default function Cardapio() {
   const _pub = slug && publicData ? publicData : null;
   const _rawStore = _pub?.store || stores?.[0] || null;
   // Garantir nome sempre definido para não travar em "Carregando..." (ex.: loja antiga com logo mas name vazio)
-  const store = _rawStore ? { ..._rawStore, name: _rawStore.name || 'Loja' } : null;
+  const store = _rawStore ? { ..._rawStore, name: _rawStore.name || 'Loja', loyaltyConfigs: _pub?.loyaltyConfigs } : null;
+  const loyaltyConfigsResolved = _pub?.loyaltyConfigs ?? [];
 
   const dishesResolved = _pub?.dishes ?? dishes ?? [];
   const categoriesResolved = _pub?.categories ?? categories ?? [];
@@ -775,9 +776,14 @@ export default function Cardapio() {
       customer.longitude
     );
     
+    const loyaltyConfig = (Array.isArray(loyaltyConfigsResolved) && loyaltyConfigsResolved[0])
+      ? loyaltyConfigsResolved[0]
+      : null;
+    const isLoyaltyActive = loyaltyConfig?.is_active === true;
+
     // Calcular descontos
     const couponDiscount = calculateDiscount();
-    const loyaltyDiscountPercent = getLoyaltyDiscount();
+    const loyaltyDiscountPercent = isLoyaltyActive ? getLoyaltyDiscount() : 0;
     const loyaltyDiscountAmount = cartTotal * (loyaltyDiscountPercent / 100);
     const totalDiscount = couponDiscount + loyaltyDiscountAmount;
     
@@ -820,7 +826,14 @@ export default function Cardapio() {
       coupon_code: appliedCoupon?.code,
       loyalty_discount: loyaltyDiscountAmount,
       loyalty_tier: loyaltyData?.tier || 'bronze',
-      loyalty_points_earned: Math.floor(total),
+      loyalty_points_earned: (() => {
+        if (!isLoyaltyActive) return 0;
+        const minOrderValue = Number(loyaltyConfig?.min_order_value ?? 0);
+        if (Number.isFinite(minOrderValue) && minOrderValue > 0 && total < minOrderValue) return 0;
+        const pointsPerReal = Number(loyaltyConfig?.points_per_real ?? 1);
+        const safePpr = Number.isFinite(pointsPerReal) && pointsPerReal > 0 ? pointsPerReal : 1;
+        return Math.floor(total * safePpr);
+      })(),
       total: total,
       status: 'new',
       ...((customer.customer_change_request || '').trim() && {
@@ -835,9 +848,15 @@ export default function Cardapio() {
     await orderService.updateCouponUsage(appliedCoupon, updateCouponMutation);
 
     // Adicionar pontos de fidelidade após pedido criado
-    if (customer.phone || userEmail) {
+    if (isLoyaltyActive && (customer.phone || userEmail)) {
       try {
-        const pointsToAdd = Math.floor(total); // 1 ponto por real gasto
+        const minOrderValue = Number(loyaltyConfig?.min_order_value ?? 0);
+        if (Number.isFinite(minOrderValue) && minOrderValue > 0 && total < minOrderValue) {
+          throw new Error('Pedido abaixo do valor mínimo para acumular pontos');
+        }
+        const pointsPerReal = Number(loyaltyConfig?.points_per_real ?? 1);
+        const safePpr = Number.isFinite(pointsPerReal) && pointsPerReal > 0 ? pointsPerReal : 1;
+        const pointsToAdd = Math.floor(total * safePpr);
         const result = await addPoints(pointsToAdd, 'compra');
         
         // Verificar se é primeira compra (bônus)
@@ -959,13 +978,13 @@ export default function Cardapio() {
             >
               {store?.logo && (
                 <img
-                  src={store.logo}
-                  alt={store.name || 'Restaurante'}
+                  src={store?.logo}
+                  alt={store?.name || 'Restaurante'}
                   className="h-24 w-24 max-w-[280px] object-contain drop-shadow-lg rounded-xl"
                 />
               )}
             <p className="text-white font-semibold text-xl text-center drop-shadow-sm">
-              {store?.name || (publicLoading ? 'Carregando...' : 'Cardápio')}
+              {store?.name || 'Cardápio'}
             </p>
             {loadingTimeout && publicError && (
               <div className="mt-4 text-center max-w-sm">
@@ -1137,7 +1156,8 @@ export default function Cardapio() {
                   <ThemeToggle />
                   <button 
                     className={`p-0.5 rounded-lg relative ${isAuthenticated ? 'text-green-600' : 'text-muted-foreground'}`} 
-                    onClick={() => isAuthenticated ? setShowCustomerProfile(true) : (window.location.href = slug ? `/s/${slug}/login/cliente?returnUrl=${encodeURIComponent(window.location.pathname)}` : `/?returnUrl=${encodeURIComponent(window.location.pathname)}`)}
+                    onClick={() => isAuthenticated ? setShowCustomerProfile(true) : (window.location.href = slug ? `/s/${slug}/login/cliente?returnUrl=${encodeURIComponent(window.location.pathname)}` : `/?returnUrl=${encodeURIComponent(window.location.pathname)}`)} 
+                    title={isAuthenticated ? "Meu Perfil" : "Entrar"}
                   >
                     {isAuthenticated && userProfilePicture ? (
                       <img 
@@ -1146,7 +1166,10 @@ export default function Cardapio() {
                         className="w-8 h-8 rounded-full object-cover border-2 border-green-600"
                       />
                     ) : (
-                      <User className="w-5 h-5 m-1.5" />
+                      <>
+                        <User className="w-5 h-5 m-1.5" />
+                        {isAuthenticated && <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-white dark:border-gray-900"></span>}
+                      </>
                     )}
                   </button>
                   <button className="p-2 rounded-lg relative text-muted-foreground" onClick={() => setShowCartModal(true)}><ShoppingCart className="w-5 h-5" />{cart.length > 0 && <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">{cartItemsCount}</span>}</button>
@@ -1162,7 +1185,7 @@ export default function Cardapio() {
                 <button className="p-2 rounded-lg transition-colors text-muted-foreground hover:text-foreground hover:bg-muted" onClick={() => { if (navigator.share) { navigator.share({ title: store?.name || 'Cardápio', text: `Confira o cardápio de ${store?.name || 'nosso restaurante'}`, url: window.location.href }).catch(() => {}); } else { navigator.clipboard.writeText(window.location.href); toast.success('Link copiado!'); } }} title="Compartilhar"><Share2 className="w-5 h-5" /></button>
                 <ThemeToggle className="text-muted-foreground hover:text-foreground hover:bg-muted" />
                 <button 
-                  className={`relative p-0.5 rounded-lg transition-all ${isAuthenticated ? 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`} 
+                  className={`relative p-0.5 rounded-lg transition-all ${isAuthenticated ? 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20' : 'text-muted-foreground hover:text-foreground hover:bg-muted'} text-white`} 
                   onClick={() => isAuthenticated ? setShowCustomerProfile(true) : (window.location.href = slug ? `/s/${slug}/login/cliente?returnUrl=${encodeURIComponent(window.location.pathname)}` : `/?returnUrl=${encodeURIComponent(window.location.pathname)}`)} 
                   title={isAuthenticated ? "Meu Perfil" : "Entrar"}
                 >
@@ -1483,7 +1506,7 @@ export default function Cardapio() {
           >
             <ShoppingCart className="w-6 h-6" />
             {cart.length > 0 && (
-              <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold shadow-lg">
+              <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full min-w-[1.25rem] h-5 px-1 flex items-center justify-center font-bold shadow-lg">
                 {cartItemsCount}
               </span>
             )}
@@ -1683,7 +1706,7 @@ export default function Cardapio() {
           {/* Copyright */}
           <div className="border-t border-gray-200 dark:border-gray-800 mt-6 pt-4 text-center space-y-2">
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              © {new Date().getFullYear()} {store?.name || 'Restaurante'}. Todos os direitos reservados.
+              &copy; {new Date().getFullYear()} {store?.name || 'Restaurante'}. Todos os direitos reservados.
             </p>
             <p className="text-xs text-gray-400 dark:text-gray-500">
               Powered by <span className="font-semibold" style={{ color: primaryColor }}>{SYSTEM_NAME}</span>
@@ -1851,6 +1874,7 @@ export default function Cardapio() {
           onRemoveCoupon={handleRemoveCoupon}
           deliveryZones={deliveryZonesResolved}
           store={store}
+          loyaltyConfigs={loyaltyConfigsResolved}
           primaryColor={primaryColor}
           userEmail={userEmail}
           slug={slug}

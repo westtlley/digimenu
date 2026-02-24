@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { apiClient as base44 } from '@/api/apiClient';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,11 @@ import { usePermission } from '@/components/permissions/usePermission';
 export default function LoyaltyTab() {
   const [showRewardForm, setShowRewardForm] = useState(false);
   const [editingReward, setEditingReward] = useState(null);
+  const [localConfig, setLocalConfig] = useState({
+    points_per_real: '1',
+    min_order_value: '0',
+    is_active: false
+  });
   const [rewardForm, setRewardForm] = useState({
     name: '',
     description: '',
@@ -57,6 +62,14 @@ export default function LoyaltyTab() {
   });
 
   const config = loyaltyConfigs[0] || { points_per_real: 1, min_order_value: 0, is_active: false };
+
+  useEffect(() => {
+    setLocalConfig({
+      points_per_real: String(config?.points_per_real ?? 1),
+      min_order_value: String(config?.min_order_value ?? 0),
+      is_active: config?.is_active === true
+    });
+  }, [config?.points_per_real, config?.min_order_value, config?.is_active]);
 
   const updateConfigMutation = useMutation({
     mutationFn: (data) => {
@@ -101,6 +114,13 @@ export default function LoyaltyTab() {
       toast.success('Recompensa excluída!');
     }
   });
+
+  const parseNumberInput = (value) => {
+    const normalized = String(value ?? '').trim().replace(',', '.');
+    if (normalized === '') return null;
+    const n = Number(normalized);
+    return Number.isFinite(n) ? n : null;
+  };
 
   const handleSaveConfig = (field, value) => {
     updateConfigMutation.mutate({ ...config, [field]: value });
@@ -150,8 +170,11 @@ export default function LoyaltyTab() {
               <p className="text-sm text-gray-600">Habilitar acúmulo de pontos</p>
             </div>
             <Switch
-              checked={config.is_active}
-              onCheckedChange={(checked) => handleSaveConfig('is_active', checked)}
+              checked={localConfig.is_active}
+              onCheckedChange={(checked) => {
+                setLocalConfig(prev => ({ ...prev, is_active: checked }));
+                handleSaveConfig('is_active', checked);
+              }}
             />
           </div>
 
@@ -161,8 +184,12 @@ export default function LoyaltyTab() {
               <Input
                 type="number"
                 step="0.1"
-                value={config.points_per_real}
-                onChange={(e) => handleSaveConfig('points_per_real', parseFloat(e.target.value) || 1)}
+                value={localConfig.points_per_real}
+                onChange={(e) => setLocalConfig(prev => ({ ...prev, points_per_real: e.target.value }))}
+                onBlur={() => {
+                  const n = parseNumberInput(localConfig.points_per_real);
+                  if (n !== null) handleSaveConfig('points_per_real', n);
+                }}
                 placeholder="1"
               />
             </div>
@@ -172,8 +199,12 @@ export default function LoyaltyTab() {
               <Input
                 type="number"
                 step="0.01"
-                value={config.min_order_value}
-                onChange={(e) => handleSaveConfig('min_order_value', parseFloat(e.target.value) || 0)}
+                value={localConfig.min_order_value}
+                onChange={(e) => setLocalConfig(prev => ({ ...prev, min_order_value: e.target.value }))}
+                onBlur={() => {
+                  const n = parseNumberInput(localConfig.min_order_value);
+                  if (n !== null) handleSaveConfig('min_order_value', n);
+                }}
                 placeholder="0"
               />
               <p className="text-xs text-gray-500 mt-1">Pedidos abaixo não acumulam pontos</p>

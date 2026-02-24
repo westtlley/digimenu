@@ -53,6 +53,7 @@ export default function CheckoutView({
   onRemoveCoupon = () => {},
   deliveryZones = [],
   store,
+  loyaltyConfigs = [],
   primaryColor = '#f97316',
   isTableOrder = false, // Indica se é pedido de mesa
   userEmail = null,
@@ -109,8 +110,13 @@ export default function CheckoutView({
     slug
   );
 
+  const loyaltyConfig = (Array.isArray(loyaltyConfigs) && loyaltyConfigs[0])
+    ? loyaltyConfigs[0]
+    : null;
+  const isLoyaltyActive = loyaltyConfig?.is_active === true;
+
   const couponDiscount = calculateDiscount();
-  const loyaltyDiscountPercent = getLoyaltyDiscount();
+  const loyaltyDiscountPercent = isLoyaltyActive ? getLoyaltyDiscount() : 0;
   const loyaltyDiscountAmount = cartTotal * (loyaltyDiscountPercent / 100);
   const totalDiscount = couponDiscount + loyaltyDiscountAmount;
   const deliveryFee = getDeliveryFee();
@@ -571,7 +577,7 @@ export default function CheckoutView({
             )}
 
             {/* Pontos de Fidelidade */}
-            {(customer.phone || userEmail) && (
+            {isLoyaltyActive && (customer.phone || userEmail) && (
               <div className="mt-4">
                 <LoyaltyPointsDisplay
                   customerPhone={customer.phone?.replace(/\D/g, '')}
