@@ -130,6 +130,7 @@ export default function Cardapio() {
 
   // Custom Hooks
   const { cart, addItem, updateItem, removeItem, updateQuantity, clearCart, cartTotal, cartItemsCount, hydrateCart } = useCart(slug, { autoLoad: false });
+  const safeHydrateCart = typeof hydrateCart === 'function' ? hydrateCart : () => {};
   const { customer, setCustomer, clearCustomer } = useCustomer();
 
   // Hook de fidelidade
@@ -565,7 +566,7 @@ export default function Cardapio() {
         const parsedCart = JSON.parse(savedCart);
         if (Array.isArray(parsedCart) && parsedCart.length > 0) {
           if (wasPrompted) {
-            hydrateCart(parsedCart);
+            safeHydrateCart(parsedCart);
             return;
           }
 
@@ -582,7 +583,7 @@ export default function Cardapio() {
                     <button
                       onClick={() => {
                         localStorage.setItem(promptedKey, '1');
-                        hydrateCart(parsedCart);
+                        safeHydrateCart(parsedCart);
                         toast.dismiss(t.id);
                         toast.success('Carrinho recuperado!');
                       }}
@@ -594,7 +595,7 @@ export default function Cardapio() {
                       onClick={() => {
                         localStorage.setItem(promptedKey, '1');
                         localStorage.removeItem(savedCartKey);
-                        hydrateCart([]);
+                        safeHydrateCart([]);
                         toast.dismiss(t.id);
                       }}
                       className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg font-medium hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
@@ -617,8 +618,8 @@ export default function Cardapio() {
     } catch (e) {
       console.error('Erro ao recuperar carrinho:', e);
     }
-    hydrateCart([]);
-  }, [slug, hydrateCart]);
+    safeHydrateCart([]);
+  }, [slug, safeHydrateCart]);
 
   // 🎁 Modal de Boas-vindas com Cupom
   useEffect(() => {
