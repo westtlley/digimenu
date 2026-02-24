@@ -24,36 +24,41 @@ function enforceModuleScripts() {
 
 // https://vite.dev/config/
 export default defineConfig({
+  envPrefix: ['VITE_', 'NODE_'],
   plugins: [
     // Inclui .js para que arquivos com JSX (ex.: useManagerialAuth) sejam transformados no build
     react({ include: /\.[jt]sx?$/ }),
     enforceModuleScripts(),
-    VitePWA({
-      registerType: 'autoUpdate',
-      injectRegister: null,
-      includeAssets: ['favicon.ico'],
-      // Nome/título do app: manter em sync com src/config/branding.js (SYSTEM_NAME / SYSTEM_NAME_SHORT)
-      manifest: {
-        name: 'DigiMenu - Gestão de Restaurante',
-        short_name: 'DigiMenu',
-        description: 'Cardápio digital, PDV, Gestor de Pedidos, Entregador e Garçom',
-        theme_color: '#0f172a',
-        background_color: '#0f172a',
-        display: 'standalone',
-        orientation: 'portrait-primary',
-        scope: '/',
-        start_url: '/',
-        icons: [
-          { src: '/icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' }
-        ],
-        categories: ['food', 'business']
-      },
-      workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-        navigateFallback: '/index.html',
-        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024 // 4 MB para bundles grandes
-      }
-    })
+    ...(process.env.VITE_ENABLE_PWA === 'true'
+      ? [
+          VitePWA({
+            registerType: 'autoUpdate',
+            injectRegister: null,
+            includeAssets: ['favicon.ico'],
+            // Nome/título do app: manter em sync com src/config/branding.js (SYSTEM_NAME / SYSTEM_NAME_SHORT)
+            manifest: {
+              name: 'DigiMenu - Gestão de Restaurante',
+              short_name: 'DigiMenu',
+              description: 'Cardápio digital, PDV, Gestor de Pedidos, Entregador e Garçom',
+              theme_color: '#0f172a',
+              background_color: '#0f172a',
+              display: 'standalone',
+              orientation: 'portrait-primary',
+              scope: '/',
+              start_url: '/',
+              icons: [
+                { src: '/icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' }
+              ],
+              categories: ['food', 'business']
+            },
+            workbox: {
+              globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+              navigateFallback: '/index.html',
+              maximumFileSizeToCacheInBytes: 4 * 1024 * 1024 // 4 MB para bundles grandes
+            }
+          }),
+        ]
+      : []),
   ],
   server: {
     allowedHosts: true,
