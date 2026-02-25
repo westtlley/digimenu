@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Plus, X, UtensilsCrossed, Pizza, Wine } from 'lucide-react';
+import { Plus, Trash2, UtensilsCrossed, Pizza, Wine } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
 
 const formatCurrency = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
@@ -90,6 +90,7 @@ export default function ComboModalUnified({
   const [formData, setFormData] = useState(combo || {
     name: '',
     description: '',
+    image: '',
     type: 'bundle_discount',
     combo_mode: 'dishes_beverages',
     combo_action: 'add',
@@ -112,6 +113,7 @@ export default function ComboModalUnified({
     if (combo) {
       setFormData({
         ...combo,
+        image: combo.image || '',
         dishes: combo.dishes || [],
         beverages: combo.beverages || [],
         combo_groups: Array.isArray(combo.combo_groups) ? combo.combo_groups : [],
@@ -121,6 +123,7 @@ export default function ComboModalUnified({
     } else {
       setFormData({
         name: '', description: '', type: 'bundle_discount',
+        image: '',
         combo_mode: hasPizzas ? 'pizzas_beverages' : 'dishes_beverages',
         combo_action: 'add',
         dishes: [], beverages: [],
@@ -173,36 +176,40 @@ export default function ComboModalUnified({
   };
 
   const addMainItem = (id) => {
+    const sid = (id ?? '').toString();
     const list = formData.dishes || [];
-    const exists = list.find(d => d.dish_id === id);
+    const exists = list.find(d => (d?.dish_id ?? '').toString() === sid);
     let newDishes;
     if (exists) {
-      newDishes = list.map(d => d.dish_id === id ? { ...d, quantity: d.quantity + 1 } : d);
+      newDishes = list.map(d => (d?.dish_id ?? '').toString() === sid ? { ...d, quantity: (d.quantity || 0) + 1 } : d);
     } else {
-      newDishes = [...list, { dish_id: id, quantity: 1 }];
+      newDishes = [...list, { dish_id: sid, quantity: 1 }];
     }
     setFormData(prev => ({ ...prev, dishes: newDishes }));
     recalcOriginal(newDishes, formData.beverages);
   };
   const addBeverage = (id) => {
+    const sid = (id ?? '').toString();
     const list = formData.beverages || [];
-    const exists = list.find(d => d.dish_id === id);
+    const exists = list.find(d => (d?.dish_id ?? '').toString() === sid);
     let newBeverages;
     if (exists) {
-      newBeverages = list.map(d => d.dish_id === id ? { ...d, quantity: d.quantity + 1 } : d);
+      newBeverages = list.map(d => (d?.dish_id ?? '').toString() === sid ? { ...d, quantity: (d.quantity || 0) + 1 } : d);
     } else {
-      newBeverages = [...list, { dish_id: id, quantity: 1 }];
+      newBeverages = [...list, { dish_id: sid, quantity: 1 }];
     }
     setFormData(prev => ({ ...prev, beverages: newBeverages }));
     recalcOriginal(formData.dishes, newBeverages);
   };
   const removeMainItem = (id) => {
-    const newDishes = (formData.dishes || []).filter(d => d.dish_id !== id);
+    const sid = (id ?? '').toString();
+    const newDishes = (formData.dishes || []).filter(d => (d?.dish_id ?? '').toString() !== sid);
     setFormData(prev => ({ ...prev, dishes: newDishes }));
     recalcOriginal(newDishes, formData.beverages);
   };
   const removeBeverage = (id) => {
-    const newBeverages = (formData.beverages || []).filter(d => d.dish_id !== id);
+    const sid = (id ?? '').toString();
+    const newBeverages = (formData.beverages || []).filter(d => (d?.dish_id ?? '').toString() !== sid);
     setFormData(prev => ({ ...prev, beverages: newBeverages }));
     recalcOriginal(formData.dishes, newBeverages);
   };
@@ -324,9 +331,34 @@ export default function ComboModalUnified({
               <Input value={formData.name} onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))} placeholder="Ex: Combo Executivo" required />
             </div>
 
+            <div className="col-span-2">
+              <Label>Imagem (URL)</Label>
+              <Input
+                value={formData.image || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, image: e.target.value }))}
+                placeholder="https://..."
+              />
+              {!!formData.image && (
+                <div className="mt-2">
+                  <img src={formData.image} alt="" className="h-20 w-20 rounded object-cover border" />
+                </div>
+              )}
+            </div>
+
             <div className="col-span-2 flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded">
               <Label>Usar grupos configuráveis</Label>
               <Switch checked={isGroupMode} onCheckedChange={setGroupMode} />
+            </div>
+
+            <div className="col-span-2 grid grid-cols-2 gap-4">
+              <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded">
+                <Label>Ativo no cardápio</Label>
+                <Switch checked={formData.is_active !== false} onCheckedChange={(v) => setFormData(prev => ({ ...prev, is_active: v }))} />
+              </div>
+              <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded">
+                <Label>Destacar no cardápio</Label>
+                <Switch checked={!!formData.is_highlight} onCheckedChange={(v) => setFormData(prev => ({ ...prev, is_highlight: v }))} />
+              </div>
             </div>
 
             {!isGroupMode && (
@@ -360,13 +392,13 @@ export default function ComboModalUnified({
                 <SelectTrigger><SelectValue placeholder={`Adicionar ${formData.combo_mode === 'pizzas_beverages' ? 'pizza' : 'prato'}`} /></SelectTrigger>
                 <SelectContent>
                   {mainItems.filter(d => d.is_active !== false).map(d => (
-                    <SelectItem key={d.id} value={d.id}>{d.name} - {formatCurrency(d.pizza_config?.sizes?.[0]?.price_tradicional ?? d.price)}</SelectItem>
+                    <SelectItem key={d.id} value={(d.id ?? '').toString()}>{d.name} - {formatCurrency(d.pizza_config?.sizes?.[0]?.price_tradicional ?? d.price)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
               <div className="mt-2 space-y-2">
                 {(formData.dishes || []).map((cd) => {
-                  const d = mainItems.find(m => m.id === cd.dish_id);
+                  const d = mainItems.find(m => (m?.id ?? '').toString() === (cd?.dish_id ?? '').toString());
                   if (!d) return null;
                   const price = d.pizza_config?.sizes?.[0]?.price_tradicional ?? d.price;
                   return (
@@ -378,7 +410,9 @@ export default function ComboModalUnified({
                           <p className="text-xs text-gray-500">{formatCurrency(price)} x {cd.quantity}</p>
                         </div>
                       </div>
-                      <Button type="button" size="sm" variant="ghost" onClick={() => removeMainItem(cd.dish_id)}><X className="w-4 h-4 text-red-500" /></Button>
+                      <Button type="button" size="sm" variant="ghost" onClick={() => removeMainItem(cd.dish_id)}>
+                        <Trash2 className="w-4 h-4 text-red-500" />
+                      </Button>
                     </div>
                   );
                 })}
@@ -431,7 +465,7 @@ export default function ComboModalUnified({
                         placeholder="Título do grupo"
                       />
                       <Button type="button" variant="ghost" size="icon" onClick={() => removeGroup(g.id)}>
-                        <X className="w-4 h-4 text-red-500" />
+                        <Trash2 className="w-4 h-4 text-red-500" />
                       </Button>
                     </div>
 
@@ -497,7 +531,7 @@ export default function ComboModalUnified({
                               <Badge key={cid} variant="outline" className="flex items-center gap-1">
                                 <span>{name}</span>
                                 <button type="button" onClick={() => removeGroupCategory(g.id, cid)}>
-                                  <X className="w-3 h-3" />
+                                  <Trash2 className="w-3 h-3" />
                                 </button>
                               </Badge>
                             );
@@ -518,7 +552,7 @@ export default function ComboModalUnified({
                           <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
                           <SelectContent>
                             {selectableDishes.map((d) => (
-                              <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                              <SelectItem key={d.id} value={(d.id ?? '').toString()}>{d.name}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
@@ -530,7 +564,7 @@ export default function ComboModalUnified({
                               <Badge key={did} variant="outline" className="flex items-center gap-1">
                                 <span>{d.name}</span>
                                 <button type="button" onClick={() => removeGroupDish(g.id, did)}>
-                                  <X className="w-3 h-3" />
+                                  <Trash2 className="w-3 h-3" />
                                 </button>
                               </Badge>
                             );
@@ -552,13 +586,13 @@ export default function ComboModalUnified({
                 <SelectTrigger><SelectValue placeholder="Adicionar bebida" /></SelectTrigger>
                 <SelectContent>
                   {safeBeverages.filter(d => d.is_active !== false).map(d => (
-                    <SelectItem key={d.id} value={d.id}>{d.name} {d.volume_ml ? `(${d.volume_ml}ml)` : ''} - {formatCurrency(d.price)}</SelectItem>
+                    <SelectItem key={d.id} value={(d.id ?? '').toString()}>{d.name} {d.volume_ml ? `(${d.volume_ml}ml)` : ''} - {formatCurrency(d.price)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
               <div className="mt-2 space-y-2">
                 {(formData.beverages || []).map((cd) => {
-                  const d = safeBeverages.find(b => b.id === cd.dish_id);
+                  const d = safeBeverages.find(b => (b?.id ?? '').toString() === (cd?.dish_id ?? '').toString());
                   if (!d) return null;
                   return (
                     <div key={cd.dish_id} className="flex items-center justify-between bg-white dark:bg-gray-900 p-2 rounded border">
@@ -569,7 +603,9 @@ export default function ComboModalUnified({
                           <p className="text-xs text-gray-500">{formatCurrency(d.price)} x {cd.quantity}</p>
                         </div>
                       </div>
-                      <Button type="button" size="sm" variant="ghost" onClick={() => removeBeverage(cd.dish_id)}><X className="w-4 h-4 text-red-500" /></Button>
+                      <Button type="button" size="sm" variant="ghost" onClick={() => removeBeverage(cd.dish_id)}>
+                        <Trash2 className="w-4 h-4 text-red-500" />
+                      </Button>
                     </div>
                   );
                 })}
@@ -607,11 +643,6 @@ export default function ComboModalUnified({
           <div>
             <Label>Descrição</Label>
             <Textarea value={formData.description} onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))} rows={2} placeholder="Descreva o combo..." />
-          </div>
-
-          <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
-            <Label>Destacar no cardápio</Label>
-            <Switch checked={formData.is_highlight} onCheckedChange={(v) => setFormData(prev => ({ ...prev, is_highlight: v }))} />
           </div>
 
           <div className="flex gap-3 pt-4">
