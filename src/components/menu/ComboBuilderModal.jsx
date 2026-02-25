@@ -62,6 +62,8 @@ export default function ComboBuilderModal({
   const [activeComplementSlot, setActiveComplementSlot] = useState(null);
   const [pendingComboPayloadGroups, setPendingComboPayloadGroups] = useState(null);
 
+  const ignoreNextComplementCloseRef = React.useRef(false);
+
   React.useEffect(() => {
     setSelections(initialSelections);
     setComplementsBySlot({});
@@ -277,8 +279,13 @@ export default function ComboBuilderModal({
         </DialogHeader>
 
         <NewDishModal
+          key={activeComplementSlot?.slot_key || 'combo_complements'}
           isOpen={!!activeComplementSlot && !!activeComplementDish}
           onClose={() => {
+            if (ignoreNextComplementCloseRef.current) {
+              ignoreNextComplementCloseRef.current = false;
+              return;
+            }
             setActiveComplementSlot(null);
             setPendingComplementSlots([]);
             setPendingComboPayloadGroups(null);
@@ -287,6 +294,8 @@ export default function ComboBuilderModal({
           complementGroups={Array.isArray(complementGroups) ? complementGroups : []}
           primaryColor={primaryColor}
           onAddToCart={(orderItem) => {
+            ignoreNextComplementCloseRef.current = true;
+
             const slotKey = activeComplementSlot?.slot_key;
             if (!slotKey) return;
 
