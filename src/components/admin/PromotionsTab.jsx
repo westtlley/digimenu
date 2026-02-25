@@ -89,14 +89,30 @@ export default function PromotionsTab() {
     enabled: !!menuContext,
   });
 
-  // ✅ CORREÇÃO: Usar hook com contexto automático
-  const { data: dishes = [] } = useMenuDishes();
-  const { data: categories = [] } = useMenuCategories();
+  useEffect(() => {
+    if (!menuContext) return;
+    if (!showComboModal && !showModal) return;
 
-  const { data: beverageCategories = [] } = useQuery({
+    refetchDishes();
+    refetchCategories();
+    refetchBeverageCategories();
+    refetchPizzaCategories();
+
+    queryClient.invalidateQueries({ queryKey: ['dishes', menuContext?.type, menuContext?.value] });
+    queryClient.invalidateQueries({ queryKey: ['categories', menuContext?.type, menuContext?.value] });
+    queryClient.invalidateQueries({ queryKey: ['beverageCategories', menuContext?.type, menuContext?.value] });
+    queryClient.invalidateQueries({ queryKey: ['pizzaCategories', menuContext?.type, menuContext?.value] });
+  }, [showComboModal, showModal, menuContext?.type, menuContext?.value]);
+
+  // ✅ CORREÇÃO: Usar hook com contexto automático
+  const { data: dishes = [], refetch: refetchDishes } = useMenuDishes({ refetchOnMount: 'always' });
+  const { data: categories = [], refetch: refetchCategories } = useMenuCategories({ refetchOnMount: 'always' });
+
+  const { data: beverageCategories = [], refetch: refetchBeverageCategories } = useQuery({
     queryKey: ['beverageCategories', menuContext?.type, menuContext?.value],
     queryFn: async () => {
       if (!menuContext) return [];
+
       const opts = {};
       if (menuContext.type === 'subscriber' && menuContext.value) {
         opts.as_subscriber = menuContext.value;
@@ -106,10 +122,11 @@ export default function PromotionsTab() {
     enabled: !!menuContext,
   });
 
-  const { data: pizzaCategories = [] } = useQuery({
+  const { data: pizzaCategories = [], refetch: refetchPizzaCategories } = useQuery({
     queryKey: ['pizzaCategories', menuContext?.type, menuContext?.value],
     queryFn: async () => {
       if (!menuContext) return [];
+
       const opts = {};
       if (menuContext.type === 'subscriber' && menuContext.value) {
         opts.as_subscriber = menuContext.value;
@@ -150,6 +167,7 @@ export default function PromotionsTab() {
 
   const openEditPromotion = (promo) => {
     if (!promo) return;
+    refetchDishes();
     setEditingPromotion(promo);
     setFormData({
       name: promo.name || '',
@@ -204,7 +222,7 @@ export default function PromotionsTab() {
   const safeDishes = Array.isArray(dishes) ? dishes : [];
 
   const getDishName = useMemo(() => {
-    return (id) => safeDishes.find(d => d.id === id)?.name || 'Prato não encontrado';
+    return (id) => safeDishes.find(d => (d?.id ?? '').toString() === (id ?? '').toString())?.name || 'Prato não encontrado';
   }, [safeDishes]);
 
   // Filtrar promoções
@@ -534,7 +552,7 @@ export default function PromotionsTab() {
             <div>
               <Label>Prato Oferecido</Label>
               <Select value={formData.offer_dish_id} onValueChange={(value) => {
-                const dish = safeDishes.find(d => d.id === value);
+                const dish = safeDishes.find(d => (d?.id ?? '').toString() === (value ?? '').toString());
                 setFormData(prev => ({ 
                   ...prev, 
                   offer_dish_id: value,
@@ -546,7 +564,7 @@ export default function PromotionsTab() {
                 </SelectTrigger>
                 <SelectContent>
                   {(Array.isArray(dishes) ? dishes : []).filter(d => d.is_active !== false).map(dish => (
-                    <SelectItem key={dish.id} value={dish.id}>{dish.name} - {formatCurrency(dish.price)}</SelectItem>
+                    <SelectItem key={dish.id} value={(dish?.id ?? '').toString()}>{dish.name} - {formatCurrency(dish.price)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
