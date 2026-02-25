@@ -332,15 +332,16 @@ export default function ComboModalUnified({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-3xl max-w-[95vw] max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <span>{combo ? 'Editar Combo' : 'Criar Combo'}</span>
-            <Badge variant="outline">Promoções</Badge>
-          </DialogTitle>
-        </DialogHeader>
+      <DialogContent className="sm:max-w-3xl max-w-[95vw] max-h-[90vh] overflow-hidden p-0">
+        <div className="flex flex-col max-h-[90vh]">
+          <DialogHeader className="px-6 pt-6 pb-3 border-b">
+            <DialogTitle className="flex items-center gap-2">
+              <span>{combo ? 'Editar Combo' : 'Criar Combo'}</span>
+              <Badge variant="outline">Promoções</Badge>
+            </DialogTitle>
+          </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4 overflow-y-auto px-6 pb-6 pt-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2">
               <Label>Nome do Combo *</Label>
@@ -681,7 +682,8 @@ export default function ComboModalUnified({
             <Button type="button" variant="outline" onClick={onClose} className="flex-1">Cancelar</Button>
             <Button type="submit" className="flex-1 bg-orange-500">{combo ? 'Salvar' : 'Criar Combo'}</Button>
           </div>
-        </form>
+          </form>
+        </div>
       </DialogContent>
     </Dialog>
   );

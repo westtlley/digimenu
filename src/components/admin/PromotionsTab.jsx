@@ -199,6 +199,52 @@ export default function PromotionsTab() {
     },
   });
 
+  const createComboMutation = useMutation({
+    mutationFn: async (data) => {
+      const opts = {};
+      if (menuContext?.type === 'subscriber' && menuContext.value) {
+        opts.as_subscriber = menuContext.value;
+      }
+      return base44.entities.Combo.create(data, opts);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['combos', menuContext?.type, menuContext?.value] });
+      toast.success('Combo criado!');
+      setShowComboModal(false);
+      setEditingCombo(null);
+    },
+  });
+
+  const updateComboMutation = useMutation({
+    mutationFn: async ({ id, data }) => {
+      const opts = {};
+      if (menuContext?.type === 'subscriber' && menuContext.value) {
+        opts.as_subscriber = menuContext.value;
+      }
+      return base44.entities.Combo.update(id, data, opts);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['combos', menuContext?.type, menuContext?.value] });
+      toast.success('Combo atualizado!');
+      setShowComboModal(false);
+      setEditingCombo(null);
+    },
+  });
+
+  const deleteComboMutation = useMutation({
+    mutationFn: async (id) => {
+      const opts = {};
+      if (menuContext?.type === 'subscriber' && menuContext.value) {
+        opts.as_subscriber = menuContext.value;
+      }
+      return base44.entities.Combo.delete(id, opts);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['combos', menuContext?.type, menuContext?.value] });
+      toast.success('Combo excluído!');
+    },
+  });
+
   const handleSubmit = (e) => {
     e.preventDefault();
     const payload = {
