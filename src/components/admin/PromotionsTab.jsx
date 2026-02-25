@@ -15,7 +15,7 @@ import { toast } from 'sonner';
 import ComboModalUnified from './ComboModalUnified';
 import LoyaltyTab from './LoyaltyTab';
 import { usePermission } from '../permissions/usePermission';
-import { useMenuDishes } from '@/hooks/useMenuData';
+import { useMenuCategories, useMenuDishes } from '@/hooks/useMenuData';
 
 const DEFAULT_CROSS_SELL = {
   enabled: true,
@@ -56,9 +56,11 @@ export default function PromotionsTab() {
   const [showModal, setShowModal] = useState(false);
   const [showComboModal, setShowComboModal] = useState(false);
   const [editingCombo, setEditingCombo] = useState(null);
+  const [editingPromotion, setEditingPromotion] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterType, setFilterType] = useState('all');
+
   const [formData, setFormData] = useState({
     name: '',
     type: 'add',
@@ -89,6 +91,33 @@ export default function PromotionsTab() {
 
   // ✅ CORREÇÃO: Usar hook com contexto automático
   const { data: dishes = [] } = useMenuDishes();
+  const { data: categories = [] } = useMenuCategories();
+
+  const { data: beverageCategories = [] } = useQuery({
+    queryKey: ['beverageCategories', menuContext?.type, menuContext?.value],
+    queryFn: async () => {
+      if (!menuContext) return [];
+      const opts = {};
+      if (menuContext.type === 'subscriber' && menuContext.value) {
+        opts.as_subscriber = menuContext.value;
+      }
+      return base44.entities.BeverageCategory.list('order', opts);
+    },
+    enabled: !!menuContext,
+  });
+
+  const { data: pizzaCategories = [] } = useQuery({
+    queryKey: ['pizzaCategories', menuContext?.type, menuContext?.value],
+    queryFn: async () => {
+      if (!menuContext) return [];
+      const opts = {};
+      if (menuContext.type === 'subscriber' && menuContext.value) {
+        opts.as_subscriber = menuContext.value;
+      }
+      return base44.entities.PizzaCategory.list('order', opts);
+    },
+    enabled: !!menuContext,
+  });
 
   // ✅ CORREÇÃO: Buscar combos com contexto do slug
   const { data: combos = [] } = useQuery({
@@ -104,38 +133,36 @@ export default function PromotionsTab() {
     enabled: !!menuContext,
   });
 
-  // ✅ CORREÇÃO: Buscar store com contexto do slug
-  const { data: stores = [] } = useQuery({ 
-    queryKey: ['store', menuContext?.type, menuContext?.value], 
-    queryFn: async () => {
-      if (!menuContext) return [];
-      const opts = {};
-      if (menuContext.type === 'subscriber' && menuContext.value) {
-        opts.as_subscriber = menuContext.value;
-      }
-      return base44.entities.Store.list(null, opts);
-    },
-    enabled: !!menuContext,
-  });
-  const store = stores[0];
+  const closeModal = () => {
+    setShowModal(false);
+    setEditingPromotion(null);
+    setFormData({
+      name: '',
+      type: 'add',
+      trigger_min_value: '',
+      offer_dish_id: '',
+      offer_price: '',
+      original_price: '',
+      description: '',
+      is_active: true,
+    });
+  };
 
-  const [crossSellConfig, setCrossSellConfig] = useState(DEFAULT_CROSS_SELL);
-
-  useEffect(() => {
-    if (store?.cross_sell_config) {
-      setCrossSellConfig(prev => ({ ...DEFAULT_CROSS_SELL, ...store.cross_sell_config }));
-    }
-  }, [store?.id, store?.cross_sell_config]);
-
-  const updateCrossSellConfigMutation = useMutation({
-    mutationFn: async (data) => {
-      if (!store?.id) throw new Error('Loja não encontrada');
-      const opts = menuContext?.type === 'subscriber' && menuContext?.value ? { as_subscriber: menuContext.value } : {};
-      return base44.entities.Store.update(store.id, { cross_sell_config: data }, opts);
-    },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['store'] }); toast.success('Ofertas Inteligentes salvas'); },
-    onError: (e) => toast.error(e?.message || 'Erro ao salvar'),
-  });
+  const openEditPromotion = (promo) => {
+    if (!promo) return;
+    setEditingPromotion(promo);
+    setFormData({
+      name: promo.name || '',
+      type: promo.type || 'add',
+      trigger_min_value: (promo.trigger_min_value ?? '').toString(),
+      offer_dish_id: (promo.offer_dish_id ?? '').toString(),
+      offer_price: (promo.offer_price ?? '').toString(),
+      original_price: (promo.original_price ?? '').toString(),
+      description: promo.description || '',
+      is_active: promo.is_active !== false,
+    });
+    setShowModal(true);
+  };
 
   const createMutation = useMutation({
     mutationFn: (data) => base44.entities.Promotion.create(data),
@@ -154,64 +181,20 @@ export default function PromotionsTab() {
     },
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.Promotion.delete(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['promotions'] });
-      toast.success('Promoção excluída!');
-    },
-  });
-
-  const createComboMutation = useMutation({
-    mutationFn: (data) => base44.entities.Combo.create(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['combos'] });
-      setShowComboModal(false);
-      setEditingCombo(null);
-      toast.success('Combo criado!');
-    },
-  });
-
-  const updateComboMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.Combo.update(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['combos'] });
-      setShowComboModal(false);
-      setEditingCombo(null);
-      toast.success('Combo atualizado!');
-    },
-  });
-
-  const deleteComboMutation = useMutation({
-    mutationFn: (id) => base44.entities.Combo.delete(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['combos'] });
-      toast.success('Combo excluído!');
-    },
-  });
-
-  const closeModal = () => {
-    setShowModal(false);
-    setFormData({
-      name: '',
-      type: 'add',
-      trigger_min_value: '',
-      offer_dish_id: '',
-      offer_price: '',
-      original_price: '',
-      description: '',
-      is_active: true,
-    });
-  };
-
   const handleSubmit = (e) => {
     e.preventDefault();
-    createMutation.mutate({
+    const payload = {
       ...formData,
       trigger_min_value: parseFloat(formData.trigger_min_value) || 0,
       offer_price: parseFloat(formData.offer_price) || 0,
       original_price: parseFloat(formData.original_price) || 0,
-    });
+    };
+    if (editingPromotion?.id) {
+      updateMutation.mutate({ id: editingPromotion.id, data: payload });
+      closeModal();
+      return;
+    }
+    createMutation.mutate(payload);
   };
 
   const formatCurrency = (value) => {
@@ -219,6 +202,7 @@ export default function PromotionsTab() {
   };
 
   const safeDishes = Array.isArray(dishes) ? dishes : [];
+
   const getDishName = useMemo(() => {
     return (id) => safeDishes.find(d => d.id === id)?.name || 'Prato não encontrado';
   }, [safeDishes]);
@@ -227,16 +211,16 @@ export default function PromotionsTab() {
   const filteredPromotions = useMemo(() => {
     if (!Array.isArray(promotions)) return [];
     return promotions.filter(promo => {
-      const matchesSearch = !searchTerm || 
+      const matchesSearch = !searchTerm ||
         promo.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         getDishName(promo.offer_dish_id).toLowerCase().includes(searchTerm.toLowerCase());
-      
+
       const matchesStatus = filterStatus === 'all' ||
         (filterStatus === 'active' && promo.is_active) ||
         (filterStatus === 'inactive' && !promo.is_active);
-      
+
       const matchesType = filterType === 'all' || promo.type === filterType;
-      
+
       return matchesSearch && matchesStatus && matchesType;
     });
   }, [promotions, searchTerm, filterStatus, filterType, getDishName]);
@@ -302,312 +286,7 @@ export default function PromotionsTab() {
         ))}
       </div>
       {/* Ofertas Inteligentes (Cross-sell) */}
-      {store && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-orange-500" />
-              Ofertas Inteligentes (Cross-sell)
-            </CardTitle>
-            <CardDescription>
-              Configure ofertas automáticas que aparecem quando o cliente adiciona itens ao carrinho
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="flex items-start gap-3 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl">
-              <Switch
-                checked={crossSellConfig?.enabled !== false}
-                onCheckedChange={(checked) => setCrossSellConfig(prev => ({
-                  ...prev,
-                  enabled: checked
-                }))}
-              />
-              <div className="flex-1">
-                <Label className="font-semibold cursor-pointer">Ativar Ofertas Inteligentes</Label>
-                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                  Sugerir produtos complementares automaticamente para aumentar o ticket médio
-                </p>
-              </div>
-            </div>
-
-            {crossSellConfig?.enabled !== false && (
-              <div className="space-y-6">
-                {/* Oferta de Bebida */}
-                <div className="border rounded-lg p-4 bg-gray-50 dark:bg-gray-800/50 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-2xl">🥤</span>
-                      <Label className="text-base font-semibold">Oferta de Bebida</Label>
-                    </div>
-                    <Switch
-                      checked={crossSellConfig?.beverage_offer?.enabled !== false}
-                      onCheckedChange={(checked) => setCrossSellConfig(prev => ({
-                        ...prev,
-                        beverage_offer: { ...prev.beverage_offer, enabled: checked }
-                      }))}
-                    />
-                  </div>
-                  {crossSellConfig?.beverage_offer?.enabled !== false && (
-                    <div className="space-y-4 pl-8 border-l-2 border-blue-200 dark:border-blue-800">
-                      <div>
-                        <Label>Produto a Sugerir</Label>
-                        <Select
-                          value={crossSellConfig?.beverage_offer?.dish_id || ''}
-                          onValueChange={(value) => setCrossSellConfig(prev => ({
-                            ...prev,
-                            beverage_offer: { ...prev.beverage_offer, dish_id: value || null }
-                          }))}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione uma bebida" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {dishes.filter(d =>
-                              d.product_type === 'beverage' ||
-                              d.category?.toLowerCase().includes('bebida') ||
-                              d.name?.toLowerCase().match(/(coca|pepsi|refrigerante|suco|água|bebida)/i)
-                            ).map(dish => (
-                              <SelectItem key={dish.id} value={dish.id}>
-                                {dish.name} - {formatCurrency(dish.price || 0)}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <p className="text-xs text-gray-500 mt-1">Quando o cliente adicionar pizza, esta bebida será sugerida</p>
-                      </div>
-                      <div>
-                        <Label>Título da Oferta</Label>
-                        <Input
-                          value={crossSellConfig?.beverage_offer?.title || ''}
-                          onChange={(e) => setCrossSellConfig(prev => ({
-                            ...prev,
-                            beverage_offer: { ...prev.beverage_offer, title: e.target.value }
-                          }))}
-                          placeholder="Ex: 🥤 Que tal uma bebida?"
-                        />
-                      </div>
-                      <div>
-                        <Label>Mensagem</Label>
-                        <Textarea
-                          value={crossSellConfig?.beverage_offer?.message || ''}
-                          onChange={(e) => setCrossSellConfig(prev => ({
-                            ...prev,
-                            beverage_offer: { ...prev.beverage_offer, message: e.target.value }
-                          }))}
-                          placeholder="Use {product_name} e {product_price} para valores dinâmicos"
-                          rows={2}
-                        />
-                        <p className="text-xs text-gray-500 mt-1">Variáveis disponíveis: {'{product_name}'}, {'{product_price}'}</p>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label>Desconto (%)</Label>
-                          <Input
-                            type="number"
-                            min="0"
-                            max="100"
-                            value={crossSellConfig?.beverage_offer?.discount_percent || 0}
-                            onChange={(e) => setCrossSellConfig(prev => ({
-                              ...prev,
-                              beverage_offer: { ...prev.beverage_offer, discount_percent: parseInt(e.target.value) || 0 }
-                            }))}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Oferta de Sobremesa */}
-                <div className="border rounded-lg p-4 bg-gray-50 dark:bg-gray-800/50 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-2xl">🍰</span>
-                      <Label className="text-base font-semibold">Oferta de Sobremesa</Label>
-                    </div>
-                    <Switch
-                      checked={crossSellConfig?.dessert_offer?.enabled !== false}
-                      onCheckedChange={(checked) => setCrossSellConfig(prev => ({
-                        ...prev,
-                        dessert_offer: { ...prev.dessert_offer, enabled: checked }
-                      }))}
-                    />
-                  </div>
-                  {crossSellConfig?.dessert_offer?.enabled !== false && (
-                    <div className="space-y-4 pl-8 border-l-2 border-purple-200 dark:border-purple-800">
-                      <div>
-                        <Label>Produto a Sugerir</Label>
-                        <Select
-                          value={crossSellConfig?.dessert_offer?.dish_id || ''}
-                          onValueChange={(value) => setCrossSellConfig(prev => ({
-                            ...prev,
-                            dessert_offer: { ...prev.dessert_offer, dish_id: value || null }
-                          }))}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione uma sobremesa" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {dishes.filter(d =>
-                              d.category?.toLowerCase().includes('sobremesa') ||
-                              d.tags?.includes('dessert') ||
-                              d.name?.toLowerCase().match(/(pudim|brigadeiro|sorvete|açaí|sobremesa)/i)
-                            ).map(dish => (
-                              <SelectItem key={dish.id} value={dish.id}>
-                                {dish.name} - {formatCurrency(dish.price || 0)}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label>Valor Mínimo do Carrinho (R$)</Label>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={crossSellConfig?.dessert_offer?.min_cart_value || 40}
-                            onChange={(e) => setCrossSellConfig(prev => ({
-                              ...prev,
-                              dessert_offer: { ...prev.dessert_offer, min_cart_value: parseFloat(e.target.value) || 0 }
-                            }))}
-                          />
-                          <p className="text-xs text-gray-500 mt-1">Oferta aparece quando carrinho ≥ este valor</p>
-                        </div>
-                        <div>
-                          <Label>Desconto (%)</Label>
-                          <Input
-                            type="number"
-                            min="0"
-                            max="100"
-                            value={crossSellConfig?.dessert_offer?.discount_percent || 0}
-                            onChange={(e) => setCrossSellConfig(prev => ({
-                              ...prev,
-                              dessert_offer: { ...prev.dessert_offer, discount_percent: parseInt(e.target.value) || 0 }
-                            }))}
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <Label>Título da Oferta</Label>
-                        <Input
-                          value={crossSellConfig?.dessert_offer?.title || ''}
-                          onChange={(e) => setCrossSellConfig(prev => ({
-                            ...prev,
-                            dessert_offer: { ...prev.dessert_offer, title: e.target.value }
-                          }))}
-                          placeholder="Ex: 🍰 Que tal uma sobremesa?"
-                        />
-                      </div>
-                      <div>
-                        <Label>Mensagem</Label>
-                        <Textarea
-                          value={crossSellConfig?.dessert_offer?.message || ''}
-                          onChange={(e) => setCrossSellConfig(prev => ({
-                            ...prev,
-                            dessert_offer: { ...prev.dessert_offer, message: e.target.value }
-                          }))}
-                          placeholder="Use {product_name} e {product_price} para valores dinâmicos"
-                          rows={2}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Oferta de Combo */}
-                <div className="border rounded-lg p-4 bg-gray-50 dark:bg-gray-800/50 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-2xl">🔥</span>
-                      <Label className="text-base font-semibold">Oferta de Combo Especial</Label>
-                    </div>
-                    <Switch
-                      checked={crossSellConfig?.combo_offer?.enabled !== false}
-                      onCheckedChange={(checked) => setCrossSellConfig(prev => ({
-                        ...prev,
-                        combo_offer: { ...prev.combo_offer, enabled: checked }
-                      }))}
-                    />
-                  </div>
-                  {crossSellConfig?.combo_offer?.enabled !== false && (
-                    <div className="space-y-4 pl-8 border-l-2 border-orange-200 dark:border-orange-800">
-                      <div>
-                        <Label>Produto Grátis</Label>
-                        <Select
-                          value={crossSellConfig?.combo_offer?.dish_id || ''}
-                          onValueChange={(value) => setCrossSellConfig(prev => ({
-                            ...prev,
-                            combo_offer: { ...prev.combo_offer, dish_id: value || null }
-                          }))}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione o produto grátis" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {dishes.filter(d => d.is_active !== false).map(dish => (
-                              <SelectItem key={dish.id} value={dish.id}>
-                                {dish.name} - {formatCurrency(dish.price || 0)}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <p className="text-xs text-gray-500 mt-1">Produto que será oferecido grátis no combo</p>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label>Mínimo de Pizzas</Label>
-                          <Input
-                            type="number"
-                            min="1"
-                            value={crossSellConfig?.combo_offer?.min_pizzas || 2}
-                            onChange={(e) => setCrossSellConfig(prev => ({
-                              ...prev,
-                              combo_offer: { ...prev.combo_offer, min_pizzas: parseInt(e.target.value) || 2 }
-                            }))}
-                          />
-                          <p className="text-xs text-gray-500 mt-1">Oferta aparece quando cliente tem esta quantidade de pizzas</p>
-                        </div>
-                      </div>
-                      <div>
-                        <Label>Título da Oferta</Label>
-                        <Input
-                          value={crossSellConfig?.combo_offer?.title || ''}
-                          onChange={(e) => setCrossSellConfig(prev => ({
-                            ...prev,
-                            combo_offer: { ...prev.combo_offer, title: e.target.value }
-                          }))}
-                          placeholder="Ex: 🔥 Oferta Especial!"
-                        />
-                      </div>
-                      <div>
-                        <Label>Mensagem</Label>
-                        <Textarea
-                          value={crossSellConfig?.combo_offer?.message || ''}
-                          onChange={(e) => setCrossSellConfig(prev => ({
-                            ...prev,
-                            combo_offer: { ...prev.combo_offer, message: e.target.value }
-                          }))}
-                          placeholder="Use {product_name}, {min_pizzas} para valores dinâmicos"
-                          rows={2}
-                        />
-                        <p className="text-xs text-gray-500 mt-1">Variáveis: {'{product_name}'}, {'{min_pizzas}'}</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            <Button
-              onClick={() => updateCrossSellConfigMutation.mutate(crossSellConfig)}
-              disabled={updateCrossSellConfigMutation.isPending}
-            >
-              {updateCrossSellConfigMutation.isPending ? 'Salvando...' : 'Salvar Ofertas Inteligentes'}
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+      {/* ... */}
 
       {/* Estatísticas */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -726,7 +405,7 @@ export default function PromotionsTab() {
               </div>
 
               <p className="text-sm text-gray-500 mb-2">{getDishName(promo.offer_dish_id)}</p>
-              
+
               <div className="flex items-center gap-2 mb-2">
                 {promo.original_price > promo.offer_price && (
                   <span className="text-sm text-gray-400 line-through">{formatCurrency(promo.original_price)}</span>
@@ -739,6 +418,13 @@ export default function PromotionsTab() {
               )}
 
               <div className="mt-3 pt-3 border-t flex justify-end">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => openEditPromotion(promo)}
+                >
+                  <Pencil className="w-4 h-4" />
+                </Button>
                 <Button
                   size="sm"
                   variant="ghost"
@@ -807,6 +493,9 @@ export default function PromotionsTab() {
         onClose={() => { setShowComboModal(false); setEditingCombo(null); }}
         onSubmit={(data) => editingCombo ? updateComboMutation.mutate({ id: editingCombo.id, data }) : createComboMutation.mutate(data)}
         combo={editingCombo}
+        categories={Array.isArray(categories) ? categories : []}
+        beverageCategories={Array.isArray(beverageCategories) ? beverageCategories : []}
+        pizzaCategories={Array.isArray(pizzaCategories) ? pizzaCategories : []}
         dishes={safeDishes}
         pizzas={(dishes || []).filter(d => d.product_type === 'pizza')}
         beverages={(dishes || []).filter(d => d.product_type === 'beverage')}
@@ -815,7 +504,7 @@ export default function PromotionsTab() {
       <Dialog open={showModal} onOpenChange={setShowModal}>
         <DialogContent className="sm:max-w-md max-w-[95vw]">
           <DialogHeader>
-            <DialogTitle>Nova Promoção Upsell</DialogTitle>
+            <DialogTitle>{editingPromotion ? 'Editar Promoção Upsell' : 'Nova Promoção Upsell'}</DialogTitle>
           </DialogHeader>
 
           <form onSubmit={handleSubmit} className="space-y-4">
