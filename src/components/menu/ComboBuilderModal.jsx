@@ -123,10 +123,12 @@ export default function ComboBuilderModal({
       const flat = slots
         .map((dishId, idx) => {
           if (!dishId) return null;
+          const dishRef = safeDishes.find((x) => (x?.id ?? '').toString() === (dishId ?? '').toString()) || null;
           const slotKey = `${g.id}_${idx}`;
           const complementData = slotComplements?.[slotKey] || null;
           return {
             dish_id: dishId,
+            dish_name: dishRef?.name || '',
             quantity: 1,
             slot_key: slotKey,
             ...(complementData ? { selections: complementData.selections || {}, complements_total: complementData.complements_total || 0 } : {}),
@@ -141,6 +143,7 @@ export default function ComboBuilderModal({
           const prevInstances = Array.isArray(prev.instances) ? prev.instances : [];
           const instance = {
             slot_key: cur.slot_key,
+            dish_name: cur.dish_name || prev.dish_name || '',
             ...(cur.selections ? { selections: cur.selections } : {}),
             complements_total: cur.complements_total || 0,
           };
@@ -153,10 +156,11 @@ export default function ComboBuilderModal({
         }
         const instance = {
           slot_key: cur.slot_key,
+          dish_name: cur.dish_name || '',
           ...(cur.selections ? { selections: cur.selections } : {}),
           complements_total: cur.complements_total || 0,
         };
-        return [...acc, { dish_id: cur.dish_id, quantity: 1, instances: [instance] }];
+        return [...acc, { dish_id: cur.dish_id, dish_name: cur.dish_name || '', quantity: 1, instances: [instance] }];
       }, []);
 
       return {
@@ -264,7 +268,7 @@ export default function ComboBuilderModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl max-w-[95vw] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center justify-between gap-2">
+          <DialogTitle className="flex items-center justify-between gap-2 pr-8">
             <span>{combo?.name || 'Montar combo'}</span>
             <span className="text-sm font-bold" style={{ color: titleColor }}>
               {formatCurrency(fromCents(toCents(combo?.combo_price)))}

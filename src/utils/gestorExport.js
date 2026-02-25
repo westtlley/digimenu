@@ -30,13 +30,48 @@ function buildItemsHtml(order, complementGroups = []) {
   let html = '';
   (order.items || []).forEach((item, idx) => {
     const isPizza = item.dish?.product_type === 'pizza';
+    const isCombo = item.dish?.product_type === 'combo';
     const size = item.size || item.selections?.size;
     const flavors = item.flavors || item.selections?.flavors;
     const edge = item.edge || item.selections?.edge;
     const extras = item.extras || item.selections?.extras;
     html += `<div style="margin-bottom:12px;border-left:3px solid #666;padding-left:8px;">`;
     html += `<p style="margin:0;font-weight:bold;">#${idx + 1} - ${item.dish?.name || 'Item'} x${item.quantity || 1}</p>`;
-    if (isPizza && size) {
+
+    if (isCombo) {
+      const groups = item?.selections?.combo_groups;
+      if (Array.isArray(groups)) {
+        groups.forEach((g) => {
+          if (!g) return;
+          const title = g.title || 'Itens do combo';
+          html += `<p style="margin:4px 0 0 12px;font-size:10px;font-weight:bold;">🎁 ${title}</p>`;
+          const items = Array.isArray(g.items) ? g.items : [];
+          items.forEach((it) => {
+            if (!it) return;
+            const name = it?.dish_name || it?.dishName || it?.dish_id || 'Item';
+            const instances = Array.isArray(it?.instances) && it.instances.length > 0
+              ? it.instances
+              : Array.from({ length: Math.max(1, it?.quantity || 1) }, () => null);
+            instances.forEach((inst) => {
+              html += `<p style="margin:2px 0 0 24px;font-size:10px;">• ${name}</p>`;
+              const sel = inst?.selections;
+              if (sel && typeof sel === 'object') {
+                Object.values(sel).forEach((groupSel) => {
+                  if (Array.isArray(groupSel)) {
+                    groupSel.forEach((opt) => {
+                      if (opt?.name) html += `<p style="margin:2px 0 0 36px;font-size:10px;">- ${opt.name}</p>`;
+                    });
+                  } else if (groupSel?.name) {
+                    html += `<p style="margin:2px 0 0 36px;font-size:10px;">- ${groupSel.name}</p>`;
+                  }
+                });
+              }
+            });
+          });
+        });
+      }
+    }
+    else if (isPizza && size) {
       html += `<p style="margin:4px 0 0 12px;font-size:10px;">🍕 ${size.name} (${size.slices || ''} fatias)</p>`;
       if (flavors?.length) {
         const f = flavors.reduce((a, x) => { a[x.name] = (a[x.name]||0)+1; return a; }, {});

@@ -52,14 +52,49 @@ export const whatsappService = {
 
     cart.forEach((item, index) => {
       const isPizza = item.dish?.product_type === 'pizza';
+      const isCombo = item.dish?.product_type === 'combo';
       const itemTotal = item.totalPrice * (item.quantity || 1);
       
       // Linha principal do item
       msg += `*${index + 1}. ${item.dish.name}*\n`;
       msg += `   Qtd: ${item.quantity || 1}x | Valor: ${formatCurrency(itemTotal)}\n`;
 
+      // Combo (detalhado)
+      if (isCombo) {
+        const groups = item?.selections?.combo_groups;
+        if (Array.isArray(groups)) {
+          groups.forEach((g) => {
+            if (!g) return;
+            const title = g.title || 'Itens do combo';
+            msg += `   🎁 ${title}\n`;
+            const items = Array.isArray(g.items) ? g.items : [];
+            items.forEach((it) => {
+              if (!it) return;
+              const name = it?.dish_name || it?.dishName || it?.dish_id || 'Item';
+              const instances = Array.isArray(it?.instances) && it.instances.length > 0
+                ? it.instances
+                : Array.from({ length: Math.max(1, it?.quantity || 1) }, () => null);
+              instances.forEach((inst) => {
+                msg += `      - ${name}\n`;
+                const sel = inst?.selections;
+                if (sel && typeof sel === 'object') {
+                  Object.values(sel).forEach((groupSel) => {
+                    if (Array.isArray(groupSel)) {
+                      groupSel.forEach((opt) => {
+                        if (opt?.name) msg += `         • ${opt.name}\n`;
+                      });
+                    } else if (groupSel?.name) {
+                      msg += `         • ${groupSel.name}\n`;
+                    }
+                  });
+                }
+              });
+            });
+          });
+        }
+      }
       // Pizza detalhada
-      if (isPizza && item.size) {
+      else if (isPizza && item.size) {
         msg += `   🍕 Tamanho: ${item.size.name}\n`;
         
         if (item.flavors && item.flavors.length > 0) {
