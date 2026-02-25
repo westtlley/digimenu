@@ -1926,6 +1926,7 @@ export default function Cardapio() {
         categories={categoriesResolved}
         beverageCategories={beverageCategoriesResolved}
         pizzaCategories={pizzaCategoriesResolved}
+        complementGroups={complementGroupsResolved}
         primaryColor={primaryColor}
         onAddToCart={handleAddToCart}
       />

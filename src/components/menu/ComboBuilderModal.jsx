@@ -4,6 +4,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { X } from 'lucide-react';
+import NewDishModal from './NewDishModal';
 
 const normalizeDishType = (dish) => {
   const t = (dish?.product_type || '').toString().toLowerCase();
@@ -34,6 +35,7 @@ export default function ComboBuilderModal({
   categories = [],
   beverageCategories = [],
   pizzaCategories = [],
+  complementGroups = [],
   primaryColor,
   onAddToCart,
 }) {
@@ -55,9 +57,116 @@ export default function ComboBuilderModal({
 
   const [selections, setSelections] = useState(initialSelections);
 
+  const [complementsBySlot, setComplementsBySlot] = useState({});
+  const [pendingComplementSlots, setPendingComplementSlots] = useState([]);
+  const [activeComplementSlot, setActiveComplementSlot] = useState(null);
+  const [pendingComboPayloadGroups, setPendingComboPayloadGroups] = useState(null);
+
   React.useEffect(() => {
     setSelections(initialSelections);
+    setComplementsBySlot({});
+    setPendingComplementSlots([]);
+    setActiveComplementSlot(null);
+    setPendingComboPayloadGroups(null);
   }, [initialSelections]);
+
+  const activeComplementDish = useMemo(() => {
+    if (!activeComplementSlot?.dish_id) return null;
+    return safeDishes.find((x) => (x?.id ?? '').toString() === (activeComplementSlot?.dish_id ?? '').toString()) || null;
+  }, [activeComplementSlot?.dish_id, safeDishes]);
+
+  const finalizeAddToCart = (slotComplements) => {
+    if (!combo) return;
+
+    const payloadGroups = buildPayloadGroups(slotComplements);
+
+    const comboPrice = fromCents(toCents(combo.combo_price));
+    const complementsTotal = Object.values(slotComplements || {}).reduce((sum, v) => sum + (Number(v?.complements_total) || 0), 0);
+    const totalPrice = comboPrice + complementsTotal;
+
+    const virtualDish = {
+      id: `combo_${combo.id}`,
+      name: combo.name,
+      description: combo.description,
+      image: combo.image,
+      product_type: 'combo',
+      price: comboPrice,
+      is_active: combo.is_active,
+    };
+
+    onAddToCart?.({
+      dish: virtualDish,
+      selections: {
+        combo_id: combo.id,
+        combo_groups: payloadGroups,
+        complements_by_slot: slotComplements,
+      },
+      totalPrice,
+      quantity: 1,
+    });
+
+    setPendingComplementSlots([]);
+    setActiveComplementSlot(null);
+    setPendingComboPayloadGroups(null);
+    onOpenChange?.(false);
+  };
+
+  const hasComplements = (dish) => {
+    const links = dish?.complement_groups;
+    return Array.isArray(links) && links.some((x) => x && x.group_id);
+  };
+
+  const buildPayloadGroups = (slotComplements = {}) => {
+    return groups.map((g) => {
+      const slots = Array.isArray(selections?.[g.id]) ? selections[g.id] : [];
+
+      const flat = slots
+        .map((dishId, idx) => {
+          if (!dishId) return null;
+          const slotKey = `${g.id}_${idx}`;
+          const complementData = slotComplements?.[slotKey] || null;
+          return {
+            dish_id: dishId,
+            quantity: 1,
+            slot_key: slotKey,
+            ...(complementData ? { selections: complementData.selections || {}, complements_total: complementData.complements_total || 0 } : {}),
+          };
+        })
+        .filter(Boolean);
+
+      const compact = flat.reduce((acc, cur) => {
+        const idx = acc.findIndex((x) => x.dish_id === cur.dish_id);
+        if (idx >= 0) {
+          const prev = acc[idx];
+          const prevInstances = Array.isArray(prev.instances) ? prev.instances : [];
+          const instance = {
+            slot_key: cur.slot_key,
+            ...(cur.selections ? { selections: cur.selections } : {}),
+            complements_total: cur.complements_total || 0,
+          };
+          acc[idx] = {
+            ...prev,
+            quantity: (prev.quantity || 1) + 1,
+            instances: [...prevInstances, instance],
+          };
+          return acc;
+        }
+        const instance = {
+          slot_key: cur.slot_key,
+          ...(cur.selections ? { selections: cur.selections } : {}),
+          complements_total: cur.complements_total || 0,
+        };
+        return [...acc, { dish_id: cur.dish_id, quantity: 1, instances: [instance] }];
+      }, []);
+
+      return {
+        id: g.id,
+        title: g.title,
+        required_quantity: g.required_quantity,
+        items: compact,
+      };
+    });
+  };
 
   const getGroupOptions = (g) => {
     const allowedTypes = Array.isArray(g?.allowed_types) ? g.allowed_types : [];
@@ -124,52 +233,29 @@ export default function ComboBuilderModal({
   const handleAdd = () => {
     if (!combo) return;
 
-    const payloadGroups = groups.map((g) => {
-      const slots = Array.isArray(selections?.[g.id]) ? selections[g.id] : [];
-      const items = slots
-        .filter(Boolean)
-        .map((dishId) => ({ dish_id: dishId, quantity: 1 }));
-
-      const compactItems = items.reduce((acc, cur) => {
-        const idx = acc.findIndex((x) => x.dish_id === cur.dish_id);
-        if (idx >= 0) {
-          acc[idx] = { ...acc[idx], quantity: (acc[idx].quantity || 1) + 1 };
-          return acc;
-        }
-        return [...acc, cur];
-      }, []);
-
-      return {
-        id: g.id,
-        title: g.title,
-        required_quantity: g.required_quantity,
-        items: compactItems,
-      };
+    const complementSlots = [];
+    groups.forEach((g) => {
+      const qty = Math.max(1, parseInt(g?.required_quantity, 10) || 1);
+      const slots = Array.isArray(selections?.[g.id]) ? selections[g.id] : Array.from({ length: qty }, () => '');
+      slots.forEach((dishId, idx) => {
+        if (!dishId) return;
+        const d = safeDishes.find((x) => (x?.id ?? '').toString() === (dishId ?? '').toString());
+        if (!d) return;
+        if (!hasComplements(d)) return;
+        complementSlots.push({ group_id: g.id, index: idx, dish_id: dishId, slot_key: `${g.id}_${idx}` });
+      });
     });
 
-    const comboPrice = fromCents(toCents(combo.combo_price));
+    const payloadGroups = buildPayloadGroups(complementsBySlot);
 
-    const virtualDish = {
-      id: `combo_${combo.id}`,
-      name: combo.name,
-      description: combo.description,
-      image: combo.image,
-      product_type: 'combo',
-      price: comboPrice,
-      is_active: combo.is_active,
-    };
+    if (complementSlots.length > 0) {
+      setPendingComboPayloadGroups(payloadGroups);
+      setPendingComplementSlots(complementSlots);
+      setActiveComplementSlot(complementSlots[0]);
+      return;
+    }
 
-    onAddToCart?.({
-      dish: virtualDish,
-      selections: {
-        combo_id: combo.id,
-        combo_groups: payloadGroups,
-      },
-      totalPrice: comboPrice,
-      quantity: 1,
-    });
-
-    onOpenChange?.(false);
+    finalizeAddToCart(complementsBySlot);
   };
 
   const titleColor = primaryColor || '#f97316';
@@ -185,6 +271,45 @@ export default function ComboBuilderModal({
             </span>
           </DialogTitle>
         </DialogHeader>
+
+        <NewDishModal
+          isOpen={!!activeComplementSlot && !!activeComplementDish}
+          onClose={() => {
+            setActiveComplementSlot(null);
+            setPendingComplementSlots([]);
+            setPendingComboPayloadGroups(null);
+          }}
+          dish={activeComplementDish}
+          complementGroups={Array.isArray(complementGroups) ? complementGroups : []}
+          primaryColor={primaryColor}
+          onAddToCart={(orderItem) => {
+            const slotKey = activeComplementSlot?.slot_key;
+            if (!slotKey) return;
+
+            const basePrice = Number(activeComplementDish?.price) || 0;
+            const complementsTotal = Math.max(0, (Number(orderItem?.totalPrice) || 0) - basePrice);
+
+            const nextComplements = {
+              ...(complementsBySlot || {}),
+              [slotKey]: {
+                selections: orderItem?.selections || {},
+                complements_total: complementsTotal,
+              },
+            };
+
+            setComplementsBySlot(nextComplements);
+
+            const remaining = (pendingComplementSlots || []).filter((x) => x?.slot_key !== slotKey);
+            setPendingComplementSlots(remaining);
+
+            if (remaining.length > 0) {
+              setActiveComplementSlot(remaining[0]);
+              return;
+            }
+
+            finalizeAddToCart(nextComplements);
+          }}
+        />
 
         {groups.length === 0 ? (
           <div className="text-sm text-muted-foreground">Este combo ainda não possui grupos configurados.</div>
@@ -239,7 +364,7 @@ export default function ComboBuilderModal({
                                       : safeCategories.find((c) => c.id === d.category_id));
                                 const price = d?.pizza_config?.sizes?.[0]?.price_tradicional ?? d?.price ?? 0;
                                 return (
-                                  <SelectItem key={d.id} value={d.id}>
+                                  <SelectItem key={d.id} value={(d?.id ?? '').toString()}>
                                     {d.name} - {formatCurrency(price)}{cat?.name ? ` · ${cat.name}` : ''}
                                   </SelectItem>
                                 );
@@ -254,7 +379,7 @@ export default function ComboBuilderModal({
                   {compactSelected.length > 0 && (
                     <div className="mt-3 space-y-2">
                       {compactSelected.map((it) => {
-                        const d = safeDishes.find((x) => x.id === it.dish_id);
+                        const d = safeDishes.find((x) => (x?.id ?? '').toString() === (it?.dish_id ?? '').toString());
                         if (!d) return null;
                         const price = d?.pizza_config?.sizes?.[0]?.price_tradicional ?? d?.price ?? 0;
                         return (
@@ -273,7 +398,7 @@ export default function ComboBuilderModal({
                               onClick={() => {
                                 setSelections((prev) => {
                                   const prevSlots = Array.isArray(prev?.[g.id]) ? prev[g.id] : [];
-                                  const idxToRemove = prevSlots.findIndex((x) => x === it.dish_id);
+                                  const idxToRemove = prevSlots.findIndex((x) => (x ?? '').toString() === (it?.dish_id ?? '').toString());
                                   if (idxToRemove < 0) return prev;
                                   const nextSlots = [...prevSlots];
                                   nextSlots[idxToRemove] = '';
@@ -306,3 +431,4 @@ export default function ComboBuilderModal({
     </Dialog>
   );
 }
+
