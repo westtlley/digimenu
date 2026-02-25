@@ -75,17 +75,18 @@ export default function ComboModalUnified({
     const s = normalizeAllowedCategoryId(cid);
     if (s.startsWith('bc_')) {
       const id = s.replace(/^bc_/, '');
-      return safeBeverageCategories.find((c) => c.id === id)?.name || 'Categoria';
+      return safeBeverageCategories.find((c) => (c?.id ?? '').toString() === id)?.name || 'Categoria';
     }
     if (s.startsWith('pc_')) {
       const id = s.replace(/^pc_/, '');
-      return safePizzaCategories.find((c) => c.id === id)?.name || 'Categoria';
+      return safePizzaCategories.find((c) => (c?.id ?? '').toString() === id)?.name || 'Categoria';
     }
     const id = s.replace(/^c_/, '');
-    return safeCategories.find((c) => c.id === id)?.name || 'Categoria';
+    return safeCategories.find((c) => (c?.id ?? '').toString() === id)?.name || 'Categoria';
   };
 
   const [groupSpecificSelectValue, setGroupSpecificSelectValue] = useState({});
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const [formData, setFormData] = useState(combo || {
     name: '',
@@ -303,15 +304,30 @@ export default function ComboModalUnified({
   };
 
   const removeGroupDish = (groupId, dishId) => {
+    const sid = (dishId ?? '').toString();
     setFormData(prev => ({
       ...prev,
       combo_groups: (Array.isArray(prev.combo_groups) ? prev.combo_groups : []).map(g => {
         if (g.id !== groupId) return g;
         const list = Array.isArray(g.allowed_dish_ids) ? g.allowed_dish_ids : [];
-        return { ...g, allowed_dish_ids: list.filter(id => id !== dishId) };
+        return { ...g, allowed_dish_ids: list.filter(id => (id ?? '').toString() !== sid) };
       })
     }));
     setGroupSpecificSelectValue((prev) => ({ ...prev, [groupId]: '' }));
+  };
+
+  const handleComboImageUpload = async (file) => {
+    if (!file) return;
+    setUploadingImage(true);
+    try {
+      const { uploadToCloudinary } = await import('@/utils/cloudinaryUpload');
+      const url = await uploadToCloudinary(file, 'combos');
+      setFormData(prev => ({ ...prev, image: url }));
+    } catch (err) {
+      alert(err?.message || 'Erro ao enviar imagem');
+    } finally {
+      setUploadingImage(false);
+    }
   };
 
   return (
@@ -332,12 +348,28 @@ export default function ComboModalUnified({
             </div>
 
             <div className="col-span-2">
-              <Label>Imagem (URL)</Label>
-              <Input
-                value={formData.image || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, image: e.target.value }))}
-                placeholder="https://..."
-              />
+              <Label>Imagem</Label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    disabled={uploadingImage}
+                    onChange={(e) => handleComboImageUpload(e.target.files?.[0])}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    {uploadingImage ? 'Enviando imagem...' : 'Envie uma imagem (upload)'}
+                  </p>
+                </div>
+                <div>
+                  <Input
+                    value={formData.image || ''}
+                    onChange={(e) => setFormData(prev => ({ ...prev, image: e.target.value }))}
+                    placeholder="URL da imagem (opcional)"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Ou cole uma URL</p>
+                </div>
+              </div>
               {!!formData.image && (
                 <div className="mt-2">
                   <img src={formData.image} alt="" className="h-20 w-20 rounded object-cover border" />
@@ -441,7 +473,7 @@ export default function ComboModalUnified({
                     const t = (d?.product_type || 'dish').toString().toLowerCase();
                     const normalizedType = t === 'pizza' ? 'pizza' : (t === 'beverage' ? 'beverage' : 'dish');
                     if (allowedTypes.length > 0 && !allowedTypes.includes(normalizedType)) return false;
-                    if (allowedDishIds.length > 0 && !allowedDishIds.includes(d.id)) return false;
+                    if (allowedDishIds.length > 0 && !allowedDishIds.map(x => (x ?? '').toString()).includes((d?.id ?? '').toString())) return false;
                     if (allowedCatIds.length === 0) return true;
 
                     if (normalizedType === 'dish') {
@@ -558,7 +590,7 @@ export default function ComboModalUnified({
                         </Select>
                         <div className="flex flex-wrap gap-2 mt-2">
                           {allowedDishIds.map((did) => {
-                            const d = selectableDishes.find(x => x.id === did);
+                            const d = selectableDishes.find(x => (x?.id ?? '').toString() === (did ?? '').toString());
                             if (!d) return null;
                             return (
                               <Badge key={did} variant="outline" className="flex items-center gap-1">
