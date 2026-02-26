@@ -30,7 +30,7 @@ function buildItemsHtml(order, complementGroups = []) {
   let html = '';
   (order.items || []).forEach((item, idx) => {
     const isPizza = item.dish?.product_type === 'pizza';
-    const isCombo = item.dish?.product_type === 'combo';
+    const isCombo = item.dish?.product_type === 'combo' || Array.isArray(item?.selections?.combo_groups);
     const size = item.size || item.selections?.size;
     const flavors = item.flavors || item.selections?.flavors;
     const edge = item.edge || item.selections?.edge;
@@ -44,25 +44,32 @@ function buildItemsHtml(order, complementGroups = []) {
         groups.forEach((g) => {
           if (!g) return;
           const title = g.title || 'Itens do combo';
-          html += `<p style="margin:4px 0 0 12px;font-size:10px;font-weight:bold;">🎁 ${title}</p>`;
+          const isDrinkGroup = /bebid/i.test(title);
+          const groupEmoji = isDrinkGroup ? '🥤' : '🍽️';
+          const groupLabel = isDrinkGroup ? 'BEBIDAS' : 'PRATOS';
+          html += `<p style="margin:4px 0 0 12px;font-size:10px;font-weight:bold;">${groupEmoji} ${groupLabel}: ${title}</p>`;
           const items = Array.isArray(g.items) ? g.items : [];
           items.forEach((it) => {
             if (!it) return;
-            const name = it?.dish_name || it?.dishName || it?.dish_id || 'Item';
+            const name = it?.dish_name || it?.dishName || 'Item';
             const instances = Array.isArray(it?.instances) && it.instances.length > 0
               ? it.instances
               : Array.from({ length: Math.max(1, it?.quantity || 1) }, () => null);
-            instances.forEach((inst) => {
-              html += `<p style="margin:2px 0 0 24px;font-size:10px;">• ${name}</p>`;
+
+            instances.forEach((inst, instIdx) => {
+              const showIndex = instances.length > 1;
+              const itemLabel = isDrinkGroup ? 'Bebida' : 'Prato';
+              const label = showIndex ? `${itemLabel} ${instIdx + 1}: ` : '';
+              html += `<p style="margin:2px 0 0 24px;font-size:10px;">• ${label}${name}</p>`;
               const sel = inst?.selections;
               if (sel && typeof sel === 'object') {
                 Object.values(sel).forEach((groupSel) => {
                   if (Array.isArray(groupSel)) {
                     groupSel.forEach((opt) => {
-                      if (opt?.name) html += `<p style="margin:2px 0 0 36px;font-size:10px;">- ${opt.name}</p>`;
+                      if (opt?.name) html += `<p style="margin:2px 0 0 36px;font-size:10px;">↳ ${opt.name}</p>`;
                     });
                   } else if (groupSel?.name) {
-                    html += `<p style="margin:2px 0 0 36px;font-size:10px;">- ${groupSel.name}</p>`;
+                    html += `<p style="margin:2px 0 0 36px;font-size:10px;">↳ ${groupSel.name}</p>`;
                   }
                 });
               }

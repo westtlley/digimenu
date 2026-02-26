@@ -157,7 +157,7 @@ export default function DishCardWow({
       ))}
 
       {/* Imagem — ícone do cardápio quadrado em todas as telas */}
-      <div className="relative aspect-square bg-gray-100 dark:bg-gray-800 overflow-hidden min-h-[120px] md:min-h-0">
+      <div className="relative aspect-square lg:aspect-[16/10] bg-gray-100 dark:bg-gray-800 overflow-hidden min-h-[120px] md:min-h-0">
         {dish.image ? (
           <>
             {/* Placeholder com pulse */}

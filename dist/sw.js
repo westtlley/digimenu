@@ -1,1 +1,122 @@
-if(!self.define){let s,l={};const e=(e,i)=>(e=new URL(e+".js",i).href,l[e]||new Promise(l=>{if("document"in self){const s=document.createElement("script");s.src=e,s.onload=l,document.head.appendChild(s)}else s=e,importScripts(e),l()}).then(()=>{let s=l[e];if(!s)throw new Error(`Module ${e} didn’t register its module`);return s}));self.define=(i,r)=>{const n=s||("document"in self?document.currentScript.src:"")||location.href;if(l[n])return;let u={};const a=s=>e(s,n),o={module:{uri:n},exports:u,require:a};l[n]=Promise.all(i.map(s=>o[s]||a(s))).then(s=>(r(...s),u))}}define(["./workbox-8c29f6e4"],function(s){"use strict";self.skipWaiting(),s.clientsClaim(),s.precacheAndRoute([{url:"offline.html",revision:"064db6d1d42e60a7c123297c7576060d"},{url:"index.html",revision:"10dd17a0ff66a14a77a0e8fb0e154d1f"},{url:"icon.svg",revision:"2434d2bb77676948c4b1823c44673253"},{url:"images/pizza-borda.png",revision:"5d46ea43d95c9f8bf2c39cb3b9ea0fc7"},{url:"images/pizza-board.png",revision:"ae27d59ae6a22a20174a20c7b42eee30"},{url:"images/digimenu-logo.svg",revision:"3ab0e59a961eba203a070f8b99bfee3d"},{url:"images/digimenu-logo.png",revision:"79360ee8e153474a40ec8bbca4755e05"},{url:"assets/zap-BFRB5ZLZ.js",revision:null},{url:"assets/whatsappService-DTdPogZi.js",revision:null},{url:"assets/wallet-Cywk4d79.js",revision:null},{url:"assets/volume-2-tCXURf6C.js",revision:null},{url:"assets/useUpsell-CBEJfGb6.js",revision:null},{url:"assets/useSlugContext-DE6V1uue.js",revision:null},{url:"assets/users-BsPmyBXt.js",revision:null},{url:"assets/UserAuthButton-BbxpONeD.js",revision:null},{url:"assets/user-SYMNLJbz.js",revision:null},{url:"assets/user-plus-Cpsd25vN.js",revision:null},{url:"assets/useQuery-TBRlwA9F.js",revision:null},{url:"assets/usePermission-CvwVjOfT.js",revision:null},{url:"assets/useMutation-CfjUJVgq.js",revision:null},{url:"assets/useManagerialAuth-SxIBd_kH.js",revision:null},{url:"assets/useDocumentHead-nN5iF5wF.js",revision:null},{url:"assets/useDebounce-clvhhWu8.js",revision:null},{url:"assets/useComandaWebSocket-DLthfoyN.js",revision:null},{url:"assets/useCart-vYIs4RRn.js",revision:null},{url:"assets/truck-BfUKktyx.js",revision:null},{url:"assets/trending-up-8OxCq5vE.js",revision:null},{url:"assets/trending-down-BL8QcX6r.js",revision:null},{url:"assets/trash-2-CxXzmM5w.js",revision:null},{url:"assets/TrackOrder-DhRE__Nt.js",revision:null},{url:"assets/ticket-B7bgD8TJ.js",revision:null},{url:"assets/thermometer-yqJr1fEX.js",revision:null},{url:"assets/ThemeToggle-D03lFMdb.js",revision:null},{url:"assets/textarea-BBItVPmi.js",revision:null},{url:"assets/target-DVKGgDzt.js",revision:null},{url:"assets/tabs-DLr74N5K.js",revision:null},{url:"assets/TablesTab-CaoLSTus.js",revision:null},{url:"assets/TableOrder-_7Ajtaza.js",revision:null},{url:"assets/switch-CiXzU0WK.js",revision:null},{url:"assets/sun-DNFYo3QJ.js",revision:null},{url:"assets/store-DBfh0a_B.js",revision:null},{url:"assets/star-BGayr--b.js",revision:null},{url:"assets/sparkles-DNoIDe0Q.js",revision:null},{url:"assets/smartphone-DTStAEkb.js",revision:null},{url:"assets/shopping-cart-BukW6CqG.js",revision:null},{url:"assets/shopping-bag-Bd6hIey6.js",revision:null},{url:"assets/shield-DAgABFti.js",revision:null},{url:"assets/SharedSidebar-CxNvGutE.js",revision:null},{url:"assets/settings-CVkD5Rnm.js",revision:null},{url:"assets/separator-CYlVdodZ.js",revision:null},{url:"assets/sentry-CTG5Js2v.js",revision:null},{url:"assets/select-D68HeZiV.js",revision:null},{url:"assets/search-C1Oe3veH.js",revision:null},{url:"assets/save-CE2DQko5.js",revision:null},{url:"assets/RedefinirSenha-TOzbi3zu.js",revision:null},{url:"assets/receipt-DLhuB_An.js",revision:null},{url:"assets/RastreioCliente-CGoiRNxK.js",revision:null},{url:"assets/purify.es-B9ZVCkUG.js",revision:null},{url:"assets/proxy-CaN4jGBq.js",revision:null},{url:"assets/progress-C57mHLoD.js",revision:null},{url:"assets/power-CLRjBc1X.js",revision:null},{url:"assets/popover-BtTeZi4R.js",revision:null},{url:"assets/plus-DJfFeu4q.js",revision:null},{url:"assets/play-Cg3R6ahj.js",revision:null},{url:"assets/PlanPresets-DhKoJrBx.js",revision:null},{url:"assets/planLimits-Asbb4bbl.js",revision:null},{url:"assets/phone-DEvhMYo9.js",revision:null},{url:"assets/PDV-BIAZYm19.js",revision:null},{url:"assets/PainelGerente-CzPxgBrI.js",revision:null},{url:"assets/PainelAssinante-CeT98f90.js",revision:null},{url:"assets/PagamentoSucesso-BSisGXEF.js",revision:null},{url:"assets/PagamentoPendente-CsK0zyIN.js",revision:null},{url:"assets/PagamentoFalha-CVFw3MD0.js",revision:null},{url:"assets/OrderTracking-CSEBTeis.js",revision:null},{url:"assets/navigation-BASsHeDs.js",revision:null},{url:"assets/minus-y5cig6qL.js",revision:null},{url:"assets/MeusPedidos-D6EOVXxw.js",revision:null},{url:"assets/message-square-rxsYttZX.js",revision:null},{url:"assets/message-circle-CIMJfci3.js",revision:null},{url:"assets/menu-RhFNat6_.js",revision:null},{url:"assets/map-pin-Cc9ILfAa.js",revision:null},{url:"assets/main-BtcpJIrZ.css",revision:null},{url:"assets/main-5wCJ0shd.js",revision:null},{url:"assets/mail-CqIb88cT.js",revision:null},{url:"assets/LoginBySlug-CZjoztlc.js",revision:null},{url:"assets/LoginAdmin-RfU7DMUN.js",revision:null},{url:"assets/Login-BkBEP8pz.js",revision:null},{url:"assets/log-out-DCopNCEG.js",revision:null},{url:"assets/log-in-DU8-DLrh.js",revision:null},{url:"assets/LimitBlockModal-CxIjaPQ-.js",revision:null},{url:"assets/layout-dashboard-DOJuJQFu.js",revision:null},{url:"assets/label-BGurCIwA.js",revision:null},{url:"assets/keyboard-CBrWP3Ze.js",revision:null},{url:"assets/InstallAppButton-D7LO9hfL.js",revision:null},{url:"assets/index.es-C6zQ-0z-.js",revision:null},{url:"assets/index-XPl2RJU8.js",revision:null},{url:"assets/index-DxdNJ03y.js",revision:null},{url:"assets/index-Dr3OlBIm.js",revision:null},{url:"assets/index-DJsYT-OT.js",revision:null},{url:"assets/index-DJGIH_vd.js",revision:null},{url:"assets/index-DBH5IvqS.js",revision:null},{url:"assets/index-CL3SdtP1.js",revision:null},{url:"assets/index-BrRbWNqX.js",revision:null},{url:"assets/index-BjH-urEE.js",revision:null},{url:"assets/html2canvas.esm-B0tyYwQk.js",revision:null},{url:"assets/Home-DU0PYPy3.js",revision:null},{url:"assets/history-Cqrz1KjB.js",revision:null},{url:"assets/headphones-DT9e2T5b.js",revision:null},{url:"assets/GoogleCallback-Xv9fRRqa.js",revision:null},{url:"assets/gift-XBKin6Vd.js",revision:null},{url:"assets/GestorPedidos-DmYi6WKW.js",revision:null},{url:"assets/GestorPedidos-B4YDebE6.css",revision:null},{url:"assets/Garcom-Cxx-GnY8.js",revision:null},{url:"assets/formatters-CvOEClq0.js",revision:null},{url:"assets/format-D5amLcIy.js",revision:null},{url:"assets/filter-BiXx4-4p.js",revision:null},{url:"assets/eye-CkTGamEz.js",revision:null},{url:"assets/EsqueciSenha-D38b_qmq.js",revision:null},{url:"assets/EntregadorPanel-DcEE_of6.js",revision:null},{url:"assets/Entregador-CkD2sv2T.js",revision:null},{url:"assets/EmptyState-DwIWL_NX.js",revision:null},{url:"assets/download-DOPNSAwp.js",revision:null},{url:"assets/dollar-sign-BdBkW913.js",revision:null},{url:"assets/differenceInMinutes-Dz30xM9P.js",revision:null},{url:"assets/differenceInCalendarDays-DQNRMz4Z.js",revision:null},{url:"assets/dialog-BQt4A9EY.js",revision:null},{url:"assets/DefinirSenha-Boh9ydVM.js",revision:null},{url:"assets/crown-BHw4UscZ.js",revision:null},{url:"assets/credit-card-DjT0Ipnr.js",revision:null},{url:"assets/cpfValidator-BjAD6qbQ.js",revision:null},{url:"assets/Cozinha-bFosO8qN.js",revision:null},{url:"assets/copy-DcaS5Ul6.js",revision:null},{url:"assets/constants-CG7Neo-X.js",revision:null},{url:"assets/constants-BZ6YHCOj.js",revision:null},{url:"assets/ColaboradorProfile-hI86Ih0T.js",revision:null},{url:"assets/ColaboradorHome-B12KpgcN.js",revision:null},{url:"assets/coffee-DFAoqCUI.js",revision:null},{url:"assets/cloudinaryUpload-vqCefYaz.js",revision:null},{url:"assets/clock-8p17jiPd.js",revision:null},{url:"assets/circle-x-C3c2vtU6.js",revision:null},{url:"assets/circle-help-BqbVHdsR.js",revision:null},{url:"assets/circle-check-big-C21gM6y_.js",revision:null},{url:"assets/circle-check-B4wdpzyW.js",revision:null},{url:"assets/circle-alert-CSoTi2zi.js",revision:null},{url:"assets/chevron-right-CodG0qo6.js",revision:null},{url:"assets/chevron-left-BxOhQUkW.js",revision:null},{url:"assets/chevron-down-LYt6GC0H.js",revision:null},{url:"assets/chef-hat-Tma-MV-q.js",revision:null},{url:"assets/check-b5qncWl4.js",revision:null},{url:"assets/chart-column-Da9oBHTD.js",revision:null},{url:"assets/cepService-BFcvLHg_.js",revision:null},{url:"assets/Cardapio-DzhLF7kf.js",revision:null},{url:"assets/card-co3zywKC.js",revision:null},{url:"assets/camera-BlP5SAbE.js",revision:null},{url:"assets/calendar-Bijjub7E.js",revision:null},{url:"assets/calculator-CLN8Z376.js",revision:null},{url:"assets/CadastroCliente-KtsGh9P0.js",revision:null},{url:"assets/Cadastro-CDvJD1jK.js",revision:null},{url:"assets/bell-BP42pcPs.js",revision:null},{url:"assets/base44Client-BjweZdup.js",revision:null},{url:"assets/badge-tC6tpDVj.js",revision:null},{url:"assets/award-DTiEf67r.js",revision:null},{url:"assets/Assinar-CHZQETgs.js",revision:null},{url:"assets/Assinantes-me91A_Hf.js",revision:null},{url:"assets/arrow-left-nPuylZ-_.js",revision:null},{url:"assets/alert-dialog-CsqCNnx-.js",revision:null},{url:"assets/Ajuda-DKbw9UPV.js",revision:null},{url:"assets/AffiliateProgram-DLEbygd4.js",revision:null},{url:"assets/AdminMasterDashboard-CtQQtLkZ.js",revision:null},{url:"assets/Admin-SJqa9SwQ.js",revision:null},{url:"icon.svg",revision:"2434d2bb77676948c4b1823c44673253"},{url:"manifest.webmanifest",revision:"a2d09a731942498d10fd0074052aa399"}],{}),s.cleanupOutdatedCaches(),s.registerRoute(new s.NavigationRoute(s.createHandlerBoundToURL("/index.html")))});
+// Service Worker para modo offline
+const CACHE_NAME = 'digimenu-garcom-v2';
+const OFFLINE_URL = '/offline.html';
+
+// Recursos estáticos para cache (não cachear /assets/ para evitar layout quebrado)
+const STATIC_ASSETS = [
+  '/',
+  '/Garcom',
+  '/offline.html',
+  '/manifest.json'
+];
+
+// Instalar Service Worker
+self.addEventListener('install', (event) => {
+  console.log('[SW] Instalando Service Worker...');
+  event.waitUntil(
+    caches.open(CACHE_NAME)
+      .then((cache) => {
+        console.log('[SW] Cache aberto');
+        return cache.addAll(STATIC_ASSETS);
+      })
+      .catch((err) => {
+        console.error('[SW] Erro ao cachear recursos:', err);
+      })
+  );
+  self.skipWaiting();
+});
+
+// Ativar Service Worker
+self.addEventListener('activate', (event) => {
+  console.log('[SW] Ativando Service Worker...');
+  event.waitUntil(
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames
+          .filter((name) => name !== CACHE_NAME)
+          .map((name) => caches.delete(name))
+      );
+    })
+  );
+  return self.clients.claim();
+});
+
+// Interceptar requisições
+self.addEventListener('fetch', (event) => {
+  const { request } = event;
+  const url = new URL(request.url);
+
+  // Ignorar requisições não-GET e para APIs
+  if (request.method !== 'GET' || url.pathname.startsWith('/api/')) {
+    return;
+  }
+
+  // Nunca usar cache para /assets/ (JS/CSS do app) — evita layout quebrado
+  if (url.pathname.startsWith('/assets/')) {
+    event.respondWith(fetch(request));
+    return;
+  }
+
+  event.respondWith(
+    caches.match(request)
+      .then((response) => {
+        // Retornar do cache se disponível
+        if (response) {
+          return response;
+        }
+
+        // Tentar buscar da rede
+        return fetch(request)
+          .then((response) => {
+            // Não cachear /assets/ (JS/CSS) para evitar servir HTML por engano
+            if (response && response.status === 200 && !url.pathname.startsWith('/assets/')) {
+              const responseToCache = response.clone();
+              caches.open(CACHE_NAME).then((cache) => {
+                cache.put(request, responseToCache);
+              });
+            }
+            return response;
+          })
+          .catch(() => {
+            // Se offline e for navegação, retornar página offline
+            if (request.mode === 'navigate') {
+              return caches.match(OFFLINE_URL);
+            }
+            return new Response('Offline', {
+              status: 503,
+              statusText: 'Service Unavailable'
+            });
+          });
+      })
+  );
+});
+
+// Sincronização em background
+self.addEventListener('sync', (event) => {
+  console.log('[SW] Sincronização em background:', event.tag);
+  if (event.tag === 'sync-comandas') {
+    event.waitUntil(syncComandas());
+  }
+});
+
+// Função de sincronização de comandas
+async function syncComandas() {
+  try {
+    // Notificar cliente para sincronizar
+    const clients = await self.clients.matchAll();
+    clients.forEach((client) => {
+      client.postMessage({
+        type: 'SYNC_COMANDAS'
+      });
+    });
+  } catch (error) {
+    console.error('[SW] Erro na sincronização:', error);
+  }
+}
+
+// Mensagens do cliente
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});

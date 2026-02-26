@@ -97,6 +97,8 @@ export default function ThemeTab() {
     theme_button_style: 'rounded',
     theme_shadow_enabled: true,
     menu_layout: 'grid', // grid, list, carousel, magazine, masonry
+    menu_layout_mobile: 'grid',
+    menu_layout_desktop: 'grid',
   });
 
   const [customColors, setCustomColors] = useState({
@@ -133,6 +135,7 @@ export default function ThemeTab() {
 
   useEffect(() => {
     if (store) {
+      const baseLayout = store.menu_layout || 'grid';
       setColors({
         theme_primary_color: store.theme_primary_color || '#f97316',
         theme_secondary_color: store.theme_secondary_color || '#1f2937',
@@ -143,7 +146,9 @@ export default function ThemeTab() {
         theme_gradient_direction: store.theme_gradient_direction || 'to-r',
         theme_button_style: store.theme_button_style || 'rounded',
         theme_shadow_enabled: store.theme_shadow_enabled !== false,
-        menu_layout: store.menu_layout || 'grid',
+        menu_layout: baseLayout,
+        menu_layout_mobile: store.menu_layout_mobile || baseLayout,
+        menu_layout_desktop: store.menu_layout_desktop || baseLayout,
       });
     }
   }, [store]);
@@ -172,6 +177,10 @@ export default function ThemeTab() {
   const handleColorChange = (key, value) => {
     setColors(prev => ({ ...prev, [key]: value }));
     setHasChanges(true);
+  };
+
+  const handleMenuLayoutChange = (target, value) => {
+    handleColorChange(target, value);
   };
 
   const handleCustomColorChange = (key, value) => {
@@ -893,120 +902,229 @@ export default function ThemeTab() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div>
-                <Label className="mb-3 block">Estilo de Apresentação</Label>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {/* Grid */}
-                  <button
-                    onClick={() => handleColorChange('menu_layout', 'grid')}
-                    className={`p-4 rounded-xl border-2 transition-all text-left ${
-                      colors.menu_layout === 'grid' 
-                        ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20' 
-                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 mb-2">
-                      <LayoutGrid className="w-5 h-5" />
-                      <span className="font-semibold">Grid (Padrão)</span>
-                    </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      Blocos lado a lado, ideal para visualização rápida
-                    </p>
-                    <div className="mt-3 grid grid-cols-2 gap-2">
-                      <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                      <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                      <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                      <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                    </div>
-                  </button>
+              <div className="space-y-6">
+                <div>
+                  <Label className="mb-3 block">Estilo de Apresentação (Mobile)</Label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <button
+                      onClick={() => handleMenuLayoutChange('menu_layout_mobile', 'grid')}
+                      className={`p-4 rounded-xl border-2 transition-all text-left ${
+                        colors.menu_layout_mobile === 'grid'
+                          ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20'
+                          : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <LayoutGrid className="w-5 h-5" />
+                        <span className="font-semibold">Grid (Padrão)</span>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Blocos lado a lado, ideal para visualização rápida
+                      </p>
+                      <div className="mt-3 grid grid-cols-2 gap-2">
+                        <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                        <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                        <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                        <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                      </div>
+                    </button>
 
-                  {/* Lista */}
-                  <button
-                    onClick={() => handleColorChange('menu_layout', 'list')}
-                    className={`p-4 rounded-xl border-2 transition-all text-left ${
-                      colors.menu_layout === 'list' 
-                        ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20' 
-                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 mb-2">
-                      <Menu className="w-5 h-5" />
-                      <span className="font-semibold">Lista</span>
-                    </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      Lista horizontal com imagens, mais compacta
-                    </p>
-                    <div className="mt-3 space-y-2">
-                      <div className="h-12 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                      <div className="h-12 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                    </div>
-                  </button>
+                    <button
+                      onClick={() => handleMenuLayoutChange('menu_layout_mobile', 'list')}
+                      className={`p-4 rounded-xl border-2 transition-all text-left ${
+                        colors.menu_layout_mobile === 'list'
+                          ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20'
+                          : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <Menu className="w-5 h-5" />
+                        <span className="font-semibold">Lista</span>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Lista horizontal com imagens, mais compacta
+                      </p>
+                      <div className="mt-3 space-y-2">
+                        <div className="h-12 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                        <div className="h-12 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                      </div>
+                    </button>
 
-                  {/* Carrossel */}
-                  <button
-                    onClick={() => handleColorChange('menu_layout', 'carousel')}
-                    className={`p-4 rounded-xl border-2 transition-all text-left ${
-                      colors.menu_layout === 'carousel' 
-                        ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20' 
-                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 mb-2">
-                      <Eye className="w-5 h-5" />
-                      <span className="font-semibold">Carrossel</span>
-                    </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      Deslize horizontalmente pelos pratos
-                    </p>
-                    <div className="mt-3 flex gap-2 overflow-hidden">
-                      <div className="h-20 w-32 bg-gray-200 dark:bg-gray-700 rounded flex-shrink-0"></div>
-                      <div className="h-20 w-32 bg-gray-200 dark:bg-gray-700 rounded flex-shrink-0"></div>
-                    </div>
-                  </button>
+                    <button
+                      onClick={() => handleMenuLayoutChange('menu_layout_mobile', 'carousel')}
+                      className={`p-4 rounded-xl border-2 transition-all text-left ${
+                        colors.menu_layout_mobile === 'carousel'
+                          ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20'
+                          : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <Eye className="w-5 h-5" />
+                        <span className="font-semibold">Carrossel</span>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Deslize horizontalmente pelos pratos
+                      </p>
+                      <div className="mt-3 flex gap-2 overflow-hidden">
+                        <div className="h-20 w-32 bg-gray-200 dark:bg-gray-700 rounded flex-shrink-0"></div>
+                        <div className="h-20 w-32 bg-gray-200 dark:bg-gray-700 rounded flex-shrink-0"></div>
+                      </div>
+                    </button>
 
-                  {/* Magazine */}
-                  <button
-                    onClick={() => handleColorChange('menu_layout', 'magazine')}
-                    className={`p-4 rounded-xl border-2 transition-all text-left ${
-                      colors.menu_layout === 'magazine' 
-                        ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20' 
-                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 mb-2">
-                      <BookOpen className="w-5 h-5" />
-                      <span className="font-semibold">Cardápio Impresso</span>
-                    </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      Como folhear um cardápio físico, página por página
-                    </p>
-                    <div className="mt-3 grid grid-cols-2 gap-2">
-                      <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                      <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                    </div>
-                  </button>
+                    <button
+                      onClick={() => handleMenuLayoutChange('menu_layout_mobile', 'magazine')}
+                      className={`p-4 rounded-xl border-2 transition-all text-left ${
+                        colors.menu_layout_mobile === 'magazine'
+                          ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20'
+                          : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <BookOpen className="w-5 h-5" />
+                        <span className="font-semibold">Cardápio Impresso</span>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Como folhear um cardápio físico, página por página
+                      </p>
+                      <div className="mt-3 grid grid-cols-2 gap-2">
+                        <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                        <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                      </div>
+                    </button>
 
-                  {/* Masonry */}
-                  <button
-                    onClick={() => handleColorChange('menu_layout', 'masonry')}
-                    className={`p-4 rounded-xl border-2 transition-all text-left ${
-                      colors.menu_layout === 'masonry' 
-                        ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20' 
-                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 mb-2">
-                      <Layers className="w-5 h-5" />
-                      <span className="font-semibold">Masonry</span>
-                    </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      Layout estilo Pinterest, colunas com alturas variadas
-                    </p>
-                    <div className="mt-3 columns-2 gap-2">
-                      <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded mb-2"></div>
-                      <div className="h-24 bg-gray-200 dark:bg-gray-700 rounded mb-2"></div>
-                    </div>
-                  </button>
+                    <button
+                      onClick={() => handleMenuLayoutChange('menu_layout_mobile', 'masonry')}
+                      className={`p-4 rounded-xl border-2 transition-all text-left ${
+                        colors.menu_layout_mobile === 'masonry'
+                          ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20'
+                          : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <Layers className="w-5 h-5" />
+                        <span className="font-semibold">Masonry</span>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Layout estilo Pinterest, colunas com alturas variadas
+                      </p>
+                      <div className="mt-3 columns-2 gap-2">
+                        <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded mb-2"></div>
+                        <div className="h-24 bg-gray-200 dark:bg-gray-700 rounded mb-2"></div>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <Label className="mb-3 block">Estilo de Apresentação (Desktop)</Label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <button
+                      onClick={() => handleMenuLayoutChange('menu_layout_desktop', 'grid')}
+                      className={`p-4 rounded-xl border-2 transition-all text-left ${
+                        colors.menu_layout_desktop === 'grid'
+                          ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20'
+                          : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <LayoutGrid className="w-5 h-5" />
+                        <span className="font-semibold">Grid (Padrão)</span>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Blocos lado a lado, ideal para visualização rápida
+                      </p>
+                      <div className="mt-3 grid grid-cols-2 gap-2">
+                        <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                        <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                        <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                        <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                      </div>
+                    </button>
+
+                    <button
+                      onClick={() => handleMenuLayoutChange('menu_layout_desktop', 'list')}
+                      className={`p-4 rounded-xl border-2 transition-all text-left ${
+                        colors.menu_layout_desktop === 'list'
+                          ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20'
+                          : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <Menu className="w-5 h-5" />
+                        <span className="font-semibold">Lista</span>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Lista horizontal com imagens, mais compacta
+                      </p>
+                      <div className="mt-3 space-y-2">
+                        <div className="h-12 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                        <div className="h-12 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                      </div>
+                    </button>
+
+                    <button
+                      onClick={() => handleMenuLayoutChange('menu_layout_desktop', 'carousel')}
+                      className={`p-4 rounded-xl border-2 transition-all text-left ${
+                        colors.menu_layout_desktop === 'carousel'
+                          ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20'
+                          : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <Eye className="w-5 h-5" />
+                        <span className="font-semibold">Carrossel</span>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Deslize horizontalmente pelos pratos
+                      </p>
+                      <div className="mt-3 flex gap-2 overflow-hidden">
+                        <div className="h-20 w-32 bg-gray-200 dark:bg-gray-700 rounded flex-shrink-0"></div>
+                        <div className="h-20 w-32 bg-gray-200 dark:bg-gray-700 rounded flex-shrink-0"></div>
+                      </div>
+                    </button>
+
+                    <button
+                      onClick={() => handleMenuLayoutChange('menu_layout_desktop', 'magazine')}
+                      className={`p-4 rounded-xl border-2 transition-all text-left ${
+                        colors.menu_layout_desktop === 'magazine'
+                          ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20'
+                          : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <BookOpen className="w-5 h-5" />
+                        <span className="font-semibold">Cardápio Impresso</span>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Como folhear um cardápio físico, página por página
+                      </p>
+                      <div className="mt-3 grid grid-cols-2 gap-2">
+                        <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                        <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                      </div>
+                    </button>
+
+                    <button
+                      onClick={() => handleMenuLayoutChange('menu_layout_desktop', 'masonry')}
+                      className={`p-4 rounded-xl border-2 transition-all text-left ${
+                        colors.menu_layout_desktop === 'masonry'
+                          ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20'
+                          : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <Layers className="w-5 h-5" />
+                        <span className="font-semibold">Masonry</span>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Layout estilo Pinterest, colunas com alturas variadas
+                      </p>
+                      <div className="mt-3 columns-2 gap-2">
+                        <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded mb-2"></div>
+                        <div className="h-24 bg-gray-200 dark:bg-gray-700 rounded mb-2"></div>
+                      </div>
+                    </button>
+                  </div>
                 </div>
               </div>
             </CardContent>

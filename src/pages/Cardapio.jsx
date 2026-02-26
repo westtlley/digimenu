@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+﻿import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { apiClient as base44 } from '@/api/apiClient';
 import { createPageUrl } from '@/utils';
@@ -90,6 +90,21 @@ function CardapioSemLink() {
   );
 }
 
+function MiniDishCard({ item }) {
+  return (
+    <div className="flex flex-col items-center w-28 flex-shrink-0">
+      <div className="w-28 h-20 rounded-xl overflow-hidden bg-muted flex-shrink-0">
+        {item?.image ? (
+          <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-2xl">🍽️</div>
+        )}
+      </div>
+      <p className="text-xs font-medium text-foreground mt-1 text-center line-clamp-2 w-full">{item?.name}</p>
+    </div>
+  );
+}
+
 export default function Cardapio() {
   const { slug } = useParams(); // link do assinante: /s/meu-restaurante
   const navigate = useNavigate();
@@ -125,12 +140,28 @@ export default function Cardapio() {
   const [showFloatingMenu, setShowFloatingMenu] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [showRecentOrdersPanel, setShowRecentOrdersPanel] = useState(true);
+  const [isDesktopViewport, setIsDesktopViewport] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mq = window.matchMedia('(min-width: 1024px)');
+    const onChange = () => setIsDesktopViewport(!!mq.matches);
+    onChange();
+    if (typeof mq.addEventListener === 'function') {
+      mq.addEventListener('change', onChange);
+      return () => mq.removeEventListener('change', onChange);
+    }
+    mq.addListener(onChange);
+    return () => mq.removeListener(onChange);
+  }, []);
 
   const queryClient = useQueryClient();
 
   // Custom Hooks
   const { cart, addItem, updateItem, removeItem, updateQuantity, clearCart, cartTotal, cartItemsCount, hydrateCart } = useCart(slug, { autoLoad: false });
-  const safeHydrateCart = typeof hydrateCart === 'function' ? hydrateCart : () => {};
+  const safeHydrateCart = React.useCallback((items) => {
+    if (typeof hydrateCart === 'function') hydrateCart(items);
+  }, [hydrateCart]);
   const { customer, setCustomer, clearCustomer } = useCustomer();
 
   // Hook de fidelidade
@@ -171,6 +202,9 @@ export default function Cardapio() {
 
   // Estado para timeout de carregamento
   const [loadingTimeout, setLoadingTimeout] = useState(false);
+
+  const [desktopHighlightIndex, setDesktopHighlightIndex] = useState(0);
+  const [desktopBannerIndex, setDesktopBannerIndex] = useState(0);
 
   // Cardápio público por link (sem login) — /s/:slug
   const { data: publicData, isLoading: publicLoading, isError: publicError, error: publicErrorDetails } = useQuery({
@@ -217,6 +251,28 @@ export default function Cardapio() {
       setLoadingTimeout(false);
     }
   }, [slug, publicLoading]);
+
+  useEffect(() => {
+    if (!slug) return;
+    try {
+      const key = `cardapio_show_recent_orders_${slug}`;
+      const v = localStorage.getItem(key);
+      if (v === '0') setShowRecentOrdersPanel(false);
+    } catch {
+      // ignore
+    }
+  }, [slug]);
+
+  const handleCloseRecentOrdersPanel = () => {
+    setShowRecentOrdersPanel(false);
+    if (!slug) return;
+    try {
+      const key = `cardapio_show_recent_orders_${slug}`;
+      localStorage.setItem(key, '0');
+    } catch {
+      // ignore
+    }
+  };
 
   // Dados do cardápio: só via /public/cardapio/:slug. Não carregar entidades do master em / ou /cardapio.
   const { data: dishes = [], isLoading: dishesLoading } = useQuery({
@@ -321,6 +377,29 @@ export default function Cardapio() {
   const combosResolved = _pub?.combos ?? [];
   const loadingDishes = slug ? publicLoading : dishesLoading;
 
+  const categoriesResolvedForAllIslands = useMemo(() => {
+    const input = Array.isArray(categoriesResolved) ? categoriesResolved : [];
+    const seenIds = new Set();
+    const seenNames = new Set();
+
+    return input.filter((cat) => {
+      if (!cat) return false;
+
+      const idKey = cat?.id != null ? String(cat.id) : null;
+      if (idKey && seenIds.has(idKey)) return false;
+
+      const nameKey = (cat?.name || '')
+        .toString()
+        .trim()
+        .toLowerCase();
+      if (nameKey && seenNames.has(nameKey)) return false;
+
+      if (idKey) seenIds.add(idKey);
+      if (nameKey) seenNames.add(nameKey);
+      return true;
+    });
+  }, [categoriesResolved]);
+
   // ✅ CORREÇÃO: Todos os hooks devem ser chamados ANTES de qualquer return condicional
   useDocumentHead(store);
 
@@ -368,8 +447,11 @@ export default function Cardapio() {
   const textSecondaryColor = adaptedTheme.textSecondary;
   const headerBg = store?.theme_header_bg || '#ffffff';
   const headerText = store?.theme_header_text || '#000000';
-  const menuLayout = store?.menu_layout || 'grid'; // grid, list, carousel, magazine, masonry
+  const menuLayoutMobile = store?.menu_layout_mobile || store?.menu_layout || 'grid';
+  const menuLayoutDesktop = store?.menu_layout_desktop || store?.menu_layout || 'grid';
+  const menuLayout = isDesktopViewport ? menuLayoutDesktop : menuLayoutMobile; // grid, list, carousel, magazine, masonry
   const gridColsDesktop = store?.menu_grid_cols_desktop;
+  const desktopCarouselMode = isDesktopViewport && menuLayout === 'carousel';
 
   // Store Status
   const { isStoreUnavailable, isStoreClosed, isStorePaused, isAutoModeClosed, getNextOpenTime, getStatusDisplay } = useStoreStatus(store || {});
@@ -412,6 +494,39 @@ export default function Cardapio() {
   const activePromotions = useMemo(() => (Array.isArray(promotionsResolved) ? promotionsResolved : []).filter(p => p.is_active), [promotionsResolved]);
   const activeCombos = useMemo(() => (Array.isArray(combosResolved) ? combosResolved : []).filter(c => c?.is_active !== false), [combosResolved]);
 
+  const desktopHighlights = useMemo(() => {
+    const promos = (Array.isArray(activePromotions) ? activePromotions : [])
+      .map((p) => ({ type: 'promotion', data: p }));
+    const combos = (Array.isArray(activeCombos) ? activeCombos : [])
+      .map((c) => ({ type: 'combo', data: c }));
+    return [...promos, ...combos];
+  }, [activePromotions, activeCombos]);
+
+  const desktopBanners = useMemo(() => {
+    const list = Array.isArray(store?.banners) ? store.banners : [];
+    return list.filter((b) => b && b.active !== false && b.image);
+  }, [store?.banners]);
+
+  useEffect(() => {
+    if (!desktopCarouselMode) return;
+    if (!Array.isArray(desktopHighlights) || desktopHighlights.length <= 1) return;
+
+    const t = setInterval(() => {
+      setDesktopHighlightIndex((prev) => (prev + 1) % desktopHighlights.length);
+    }, 5500);
+    return () => clearInterval(t);
+  }, [desktopCarouselMode, desktopHighlights]);
+
+  useEffect(() => {
+    if (!desktopCarouselMode) return;
+    if (!Array.isArray(desktopBanners) || desktopBanners.length <= 1) return;
+
+    const t = setInterval(() => {
+      setDesktopBannerIndex((prev) => (prev + 1) % desktopBanners.length);
+    }, 6500);
+    return () => clearInterval(t);
+  }, [desktopCarouselMode, desktopBanners]);
+
   const comboDishesForDisplay = useMemo(() => {
     const list = Array.isArray(activeCombos) ? activeCombos : [];
     return list.map((c) => ({
@@ -452,7 +567,7 @@ export default function Cardapio() {
   }, [activeBeverages, searchTerm, selectedCategory]);
 
   const filteredItemsForDisplay = useMemo(() => {
-    if (selectedCategory === 'beverages' || selectedCategory?.startsWith?.('bc_')) {
+    if (selectedCategory === 'beverages') {
       return filteredBeverages;
     }
     if (selectedCategory === 'all') {
@@ -460,6 +575,12 @@ export default function Cardapio() {
     }
     return filteredDishes;
   }, [selectedCategory, filteredDishes, filteredBeverages, comboDishesForDisplay]);
+
+  const layoutForSelectedCategoryDesktop = useMemo(() => {
+    const itemsCount = (Array.isArray(filteredItemsForDisplay) ? filteredItemsForDisplay : []).length;
+    if (desktopCarouselMode && menuLayout === 'carousel' && itemsCount > 0 && itemsCount <= 3) return 'grid';
+    return menuLayout;
+  }, [desktopCarouselMode, menuLayout, filteredItemsForDisplay]);
 
   // (Return de erro movido para depois de TODOS os hooks — ver bloco "Erro ao carregar" mais abaixo)
 
@@ -506,55 +627,23 @@ export default function Cardapio() {
     checkAuth();
   }, []);
 
-  // Splash breve só quando os dados chegam pela primeira vez (não reabrir em refetch — evitava travar na tela amarela)
-  const splashShownForSlugRef = React.useRef(null);
+  const cartRef = React.useRef(cart);
+  React.useEffect(() => {
+    cartRef.current = cart;
+  }, [cart]);
+
+  const cartRecoveryCheckedSlugRef = React.useRef(null);
+
   useEffect(() => {
-    if (!slug) {
-      setShowSplash(false);
-      splashShownForSlugRef.current = null;
-      return;
-    }
+    if (!slug) return;
     if (publicLoading) return;
-    if (publicData && publicData.store) {
-      if (splashShownForSlugRef.current !== slug) {
-        splashShownForSlugRef.current = slug;
-        setShowSplash(true);
-        const t = setTimeout(() => setShowSplash(false), 1200);
-        return () => clearTimeout(t);
-      }
-      return;
-    }
-    if (!publicData && !publicLoading) {
-      setShowSplash(false);
-      splashShownForSlugRef.current = null;
-    }
-  }, [publicData, publicLoading, slug]);
 
-  useEffect(() => {
-    if (!slug) return;
-    try {
-      const key = `cardapio_show_recent_orders_${slug}`;
-      const v = localStorage.getItem(key);
-      if (v === '0') setShowRecentOrdersPanel(false);
-    } catch {
-      // ignore
-    }
-  }, [slug]);
+    // Rodar apenas uma vez por slug (evita repetir toast ao mexer no carrinho)
+    if (cartRecoveryCheckedSlugRef.current === slug) return;
+    cartRecoveryCheckedSlugRef.current = slug;
 
-  const handleCloseRecentOrdersPanel = () => {
-    setShowRecentOrdersPanel(false);
-    if (!slug) return;
-    try {
-      const key = `cardapio_show_recent_orders_${slug}`;
-      localStorage.setItem(key, '0');
-    } catch {
-      // ignore
-    }
-  };
-
-  // 🛒 Recuperação de Carrinho Abandonado
-  useEffect(() => {
-    if (!slug) return;
+    // Só oferecer recuperação se o carrinho atual estiver vazio
+    if (Array.isArray(cartRef.current) && cartRef.current.length > 0) return;
     
     try {
       const savedCartKey = `cardapio_cart_${slug}`;
@@ -562,8 +651,12 @@ export default function Cardapio() {
       const promptedKey = `cardapio_cart_recovery_prompted_${slug}`;
       const wasPrompted = localStorage.getItem(promptedKey) === '1';
       
+
+      console.log('🛒 [CartRecovery] savedCart?', !!savedCart, 'wasPrompted?', wasPrompted);
+      
       if (savedCart) {
         const parsedCart = JSON.parse(savedCart);
+        console.log('🛒 [CartRecovery] parsedCart length:', Array.isArray(parsedCart) ? parsedCart.length : 'invalid');
         if (Array.isArray(parsedCart) && parsedCart.length > 0) {
           if (wasPrompted) {
             safeHydrateCart(parsedCart);
@@ -587,7 +680,7 @@ export default function Cardapio() {
                         toast.dismiss(t.id);
                         toast.success('Carrinho recuperado!');
                       }}
-                      className="px-4 py-2 bg-orange-500 text-white rounded-lg font-medium hover:bg-orange-600 transition-colors"
+                      className="px-4 py-2 bg-orange-500 text-white font-medium hover:bg-orange-600 transition-colors"
                     >
                       Sim, recuperar
                     </button>
@@ -598,7 +691,7 @@ export default function Cardapio() {
                         safeHydrateCart([]);
                         toast.dismiss(t.id);
                       }}
-                      className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg font-medium hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                      className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 font-medium hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
                     >
                       Não, obrigado
                     </button>
@@ -610,30 +703,58 @@ export default function Cardapio() {
                 position: 'top-center',
               }
             );
-          }, 2000);
+          }, 400);
           
           return () => clearTimeout(timer);
         }
       }
     } catch (e) {
       console.error('Erro ao recuperar carrinho:', e);
+      try {
+        localStorage.removeItem(`cardapio_cart_${slug}`);
+      } catch {
+        // ignore
+      }
+      safeHydrateCart([]);
     }
-    safeHydrateCart([]);
-  }, [slug, safeHydrateCart]);
+  }, [slug, publicLoading, safeHydrateCart]);
 
-  // 🎁 Modal de Boas-vindas com Cupom
+  // Splash breve só quando os dados chegam pela primeira vez (não reabrir em refetch — evitava travar na tela amarela)
+  const splashShownForSlugRef = React.useRef(null);
+  useEffect(() => {
+    if (!slug) {
+      setShowSplash(false);
+      splashShownForSlugRef.current = null;
+      return;
+    }
+
+    if (publicLoading) return;
+    if (publicData && publicData.store) {
+      if (splashShownForSlugRef.current !== slug) {
+        splashShownForSlugRef.current = slug;
+        setShowSplash(true);
+        const t = setTimeout(() => setShowSplash(false), 1200);
+        return () => clearTimeout(t);
+      }
+      return;
+    }
+    if (!publicData && !publicLoading) {
+      setShowSplash(false);
+      splashShownForSlugRef.current = null;
+    }
+  }, [publicData, publicLoading, slug]);
+
   useEffect(() => {
     if (!slug || !store) return;
-    
+
     const storageKey = `welcome_discount_${slug}`;
     const hasSeen = localStorage.getItem(storageKey);
-    
+
     if (!hasSeen) {
-      // Mostrar modal após 10 segundos
       const timer = setTimeout(() => {
         setShowWelcomeDiscount(true);
       }, 10000);
-      
+
       return () => clearTimeout(timer);
     }
   }, [slug, store]);
@@ -1018,7 +1139,7 @@ export default function Cardapio() {
   }
 
   return (
-    <div className="min-h-screen min-h-screen-mobile bg-background">
+    <div className={`min-h-screen min-h-screen-mobile bg-background${desktopCarouselMode ? ' lg:flex lg:flex-col lg:h-screen lg:overflow-hidden' : ''}`}>
       <Toaster position="top-center" />
 
       {/* Splash - logo do restaurante e cor principal */}
@@ -1044,30 +1165,30 @@ export default function Cardapio() {
                   className="h-24 w-24 max-w-[280px] object-contain drop-shadow-lg rounded-xl"
                 />
               )}
-            <p className="text-white font-semibold text-xl text-center drop-shadow-sm">
-              {store?.name || 'Cardápio'}
-            </p>
-            {loadingTimeout && publicError && (
-              <div className="mt-4 text-center max-w-sm">
-                <p className="text-white/90 text-sm mb-3">Erro ao carregar cardápio</p>
-                <Button
-                  onClick={() => {
-                    setLoadingTimeout(false);
-                    window.location.reload();
-                  }}
-                  className="bg-white text-orange-500 hover:bg-gray-100 px-4 py-2 rounded-lg font-medium"
-                >
-                  Tentar Novamente
-                </Button>
-              </div>
-            )}
-            {!loadingTimeout && (
-              <motion.div
-                animate={{ opacity: [0.4, 1, 0.4] }}
-                transition={{ duration: 0.8, repeat: Infinity }}
-                className="h-1 w-24 rounded-full bg-white/70"
-              />
-            )}
+              <p className="text-white font-semibold text-xl text-center drop-shadow-sm">
+                {store?.name || 'Cardápio'}
+              </p>
+              {loadingTimeout && publicError && (
+                <div className="mt-4 text-center max-w-sm">
+                  <p className="text-white/90 text-sm mb-3">Erro ao carregar cardápio</p>
+                  <Button
+                    onClick={() => {
+                      setLoadingTimeout(false);
+                      window.location.reload();
+                    }}
+                    className="bg-white text-orange-500 hover:bg-gray-100 px-4 py-2 rounded-lg font-medium"
+                  >
+                    Tentar Novamente
+                  </Button>
+                </div>
+              )}
+              {!loadingTimeout && (
+                <motion.div
+                  animate={{ opacity: [0.4, 1, 0.4] }}
+                  transition={{ duration: 0.8, repeat: Infinity }}
+                  className="h-1 w-24 rounded-full bg-white/70"
+                />
+              )}
             </motion.div>
           </motion.div>
         )}
@@ -1107,19 +1228,9 @@ export default function Cardapio() {
               )}
               <div className="text-white">
                 <h1 className="text-lg md:text-xl font-bold drop-shadow-lg leading-tight">{store?.name || 'Restaurante'}</h1>
-                <div className="flex items-center gap-3 mt-0.5 md:mt-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className={`w-1.5 h-1.5 rounded-full ${isStoreOpen ? 'bg-green-400' : 'bg-red-400'}`}></span>
-                    <span className="text-xs font-medium">{getStatusDisplay.text}</span>
-                  </div>
-                  {store?.min_order_value > 0 && (
-                    <>
-                      <span className="text-white/60">•</span>
-                      <span className="text-xs opacity-90">
-                        Pedido mín. <span className="font-semibold">{formatCurrency(store?.min_order_value || 0)}</span>
-                      </span>
-                    </>
-                  )}
+                <div className="flex items-center gap-1 md:hidden">
+                  <span className={`w-1.5 h-1.5 rounded-full ${isStoreOpen ? 'bg-green-400' : 'bg-red-400'}`}></span>
+                  <span className="text-xs font-medium">{getStatusDisplay.text}</span>
                 </div>
               </div>
             </div>
@@ -1172,7 +1283,7 @@ export default function Cardapio() {
                   <User className="w-5 h-5 m-1.5" />
                 )}
                 {isAuthenticated && !userProfilePicture && (
-                  <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 border-2 border-white rounded-full"></span>
+                  <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></span>
                 )}
               </button>
               <button 
@@ -1216,7 +1327,7 @@ export default function Cardapio() {
                   <button className="p-2 rounded-lg min-h-touch min-w-touch text-muted-foreground" onClick={() => { if (navigator.share) { navigator.share({ title: store?.name || 'Cardápio', text: `Confira o cardápio de ${store?.name || 'nosso restaurante'}`, url: window.location.href }).catch(() => {}); } else { navigator.clipboard.writeText(window.location.href); toast.success('Link copiado!'); } }}><Share2 className="w-5 h-5" /></button>
                   <ThemeToggle />
                   <button 
-                    className={`p-0.5 rounded-lg relative ${isAuthenticated ? 'text-green-600' : 'text-muted-foreground'}`} 
+                    className={`relative p-0.5 rounded-lg transition-all ${isAuthenticated ? 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20' : 'text-muted-foreground hover:text-foreground hover:bg-muted'} text-white`} 
                     onClick={() => isAuthenticated ? setShowCustomerProfile(true) : (window.location.href = slug ? `/s/${slug}/login/cliente?returnUrl=${encodeURIComponent(window.location.pathname)}` : `/?returnUrl=${encodeURIComponent(window.location.pathname)}`)} 
                     title={isAuthenticated ? "Meu Perfil" : "Entrar"}
                   >
@@ -1233,7 +1344,7 @@ export default function Cardapio() {
                       </>
                     )}
                   </button>
-                  <button className="p-2 rounded-lg relative text-muted-foreground" onClick={() => setShowCartModal(true)}><ShoppingCart className="w-5 h-5" />{cart.length > 0 && <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">{cartItemsCount}</span>}</button>
+                  <button className={`p-2 rounded-lg relative transition-colors text-muted-foreground hover:text-foreground hover:bg-muted lg:rounded-md ${cart.length > 0 ? 'lg:ring-2 lg:ring-primary/30 lg:bg-primary/5' : ''}`} onClick={() => setShowCartModal(true)}><ShoppingCart className="w-5 h-5" />{cart.length > 0 && <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">{cartItemsCount}</span>}</button>
                 </div>
               </div>
               {/* Search - rente no desktop; lg: largura máxima e centralizada */}
@@ -1273,26 +1384,146 @@ export default function Cardapio() {
         </header>
       )}
 
-      {/* Category Tabs - Melhoradas; lg: barra mais compacta, destaque com borda inferior */}
-      <div className={`bg-card border-b border-border sticky z-30 ${store?.banner_image ? 'md:top-0 top-0' : 'md:top-[88px] top-[165px]'}`}>
+      {desktopCarouselMode && (
+        <div className="border-b border-border bg-card">
+          <div className="max-w-7xl mx-auto px-4 lg:px-6 py-2">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="rounded-2xl border border-border bg-muted/20 p-3">
+                {desktopHighlights.length > 0 ? (
+                  (() => {
+                    const slide = desktopHighlights[Math.min(desktopHighlightIndex, desktopHighlights.length - 1)];
+                    if (!slide) return null;
+                    if (slide.type === 'promotion') {
+                      const promo = slide.data;
+                      const dish = dishesResolved.find(d => d.id === promo.offer_dish_id);
+                      if (!dish) return null;
+                      const discount = promo.original_price > promo.offer_price
+                        ? Math.round(((promo.original_price - promo.offer_price) / promo.original_price) * 100)
+                        : 0;
+                      return (
+                        <motion.div
+                          key={promo.id}
+                          initial={{ opacity: 0, y: 6 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.22 }}
+                          className="relative rounded-2xl overflow-hidden shadow cursor-pointer border-2"
+                          style={{
+                            borderColor: primaryColor + '40',
+                            background: `linear-gradient(135deg, ${primaryColor}dd, ${primaryColor}bb)`
+                          }}
+                          onClick={() => setSelectedDish(dish)}
+                        >
+                          <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-12 -mt-12" />
+                          <div className="relative p-3 flex items-center gap-3">
+                            <div className="w-12 h-12 flex-shrink-0 rounded-xl overflow-hidden bg-white/20 shadow">
+                              {dish.image ? (
+                                <img src={dish.image} alt={dish.name} className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-lg">🍽️</div>
+                              )}
+                            </div>
+                            <div className="flex-1 text-white min-w-0">
+                              <Badge className="bg-yellow-400 text-black mb-1 font-bold h-5 px-2 text-[10px]">-{discount}%</Badge>
+                              <p className="font-bold text-xs truncate">{promo.name}</p>
+                              <p className="text-sm font-bold">{formatCurrency(promo.offer_price)}</p>
+                            </div>
+                          </div>
+                        </motion.div>
+                      );
+                    }
+
+                    const combo = slide.data;
+                    const comboDish = comboDishesForDisplay.find((c) => String(c?.id) === `combo_${combo.id}`) || comboDishesForDisplay.find((c) => String(c?.id) === String(combo?.id));
+                    if (!comboDish) return null;
+                    return (
+                      <motion.div
+                        key={combo.id}
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.22 }}
+                        className="relative rounded-2xl overflow-hidden shadow cursor-pointer border-2"
+                        style={{
+                          borderColor: primaryColor + '40',
+                          background: `linear-gradient(135deg, ${primaryColor}dd, ${primaryColor}bb)`
+                        }}
+                        onClick={() => handleDishClick(comboDish)}
+                      >
+                        <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-12 -mt-12" />
+                        <div className="relative p-3 flex items-center gap-3">
+                          <div className="w-12 h-12 flex-shrink-0 rounded-xl overflow-hidden bg-white/20 shadow">
+                            {comboDish.image ? (
+                              <img src={comboDish.image} alt={comboDish.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-lg">🍽️</div>
+                            )}
+                          </div>
+                          <div className="flex-1 text-white min-w-0">
+                            <Badge className="bg-yellow-400 text-black mb-1 font-bold h-5 px-2 text-[10px]">Combo</Badge>
+                            <p className="font-bold text-xs truncate">{comboDish.name}</p>
+                            <p className="text-sm font-bold">{formatCurrency(Number(comboDish.price || 0))}</p>
+                          </div>
+                        </div>
+                      </motion.div>
+                    );
+                  })()
+                ) : (
+                  <div className="h-full" />
+                )}
+              </div>
+
+              <div className="rounded-2xl border border-border bg-muted/20 p-3 overflow-hidden">
+                {desktopBanners.length > 0 ? (
+                  (() => {
+                    const b = desktopBanners[Math.min(desktopBannerIndex, desktopBanners.length - 1)];
+                    if (!b) return null;
+                    return (
+                      <motion.div
+                        key={desktopBannerIndex}
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.22 }}
+                        className="relative w-full h-24 rounded-2xl overflow-hidden cursor-pointer"
+                        onClick={() => {
+                          if (b.link) window.open(b.link, '_blank');
+                        }}
+                      >
+                        <img src={b.image} alt={b.title || 'Banner'} className="w-full h-full object-cover" />
+                        {(b.title || b.subtitle) && (
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent flex items-end p-3">
+                            <div className="text-white">
+                              {b.title && <p className="font-bold text-sm leading-tight">{b.title}</p>}
+                              {b.subtitle && <p className="text-xs opacity-90 leading-tight">{b.subtitle}</p>}
+                            </div>
+                          </div>
+                        )}
+                      </motion.div>
+                    );
+                  })()
+                ) : (
+                  <div className="h-full" />
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className={`bg-card border-b border-border sticky md:static z-30 ${store?.banner_image ? 'top-0' : 'top-[165px]'}`}>
         <div className="max-w-7xl mx-auto px-4 lg:px-6">
           <div className="flex items-center justify-between gap-3 md:py-3 py-4 lg:py-2">
             <div className="flex gap-2 overflow-x-auto scrollbar-hide flex-1">
               <button
                 onClick={() => setSelectedCategory('all')}
                 className={`relative px-6 md:px-8 py-2.5 md:py-3 rounded-full text-sm md:text-base font-semibold whitespace-nowrap transition-all duration-200 lg:px-4 lg:py-2 lg:rounded-lg lg:scale-100 lg:shadow-none ${
-                  selectedCategory === 'all' 
-                    ? 'text-white shadow-lg scale-105 lg:border-b-2 lg:border-white/80 lg:rounded-b-none' 
+                  selectedCategory === 'all'
+                    ? 'text-white shadow-lg scale-105 lg:border-b-2 lg:border-white/80 lg:rounded-b-none'
                     : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                 }`}
-                style={selectedCategory === 'all' ? { 
-                  backgroundColor: primaryColor, 
-                  color: 'white'
-                } : {}}
+                style={selectedCategory === 'all' ? { backgroundColor: primaryColor, color: 'white' } : {}}
               >
                 Todos
               </button>
-              {categoriesResolved.map((cat) => (
+              {categoriesResolvedForAllIslands.map((cat) => (
                 <button
                   key={cat.id}
                   onClick={() => setSelectedCategory(cat.id)}
@@ -1301,10 +1532,7 @@ export default function Cardapio() {
                       ? 'text-white shadow-lg scale-105 lg:border-b-2 lg:border-white/80 lg:rounded-b-none'
                       : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                   }`}
-                  style={selectedCategory === cat.id ? { 
-                    backgroundColor: primaryColor, 
-                    color: 'white'
-                  } : {}}
+                  style={selectedCategory === cat.id ? { backgroundColor: primaryColor, color: 'white' } : {}}
                 >
                   {cat.name}
                 </button>
@@ -1322,10 +1550,7 @@ export default function Cardapio() {
                         ? 'text-white shadow-lg scale-105 lg:border-b-2 lg:border-white/80 lg:rounded-b-none'
                         : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                     }`}
-                    style={selectedCategory === pcKey ? { 
-                      backgroundColor: primaryColor, 
-                      color: 'white'
-                    } : {}}
+                    style={selectedCategory === pcKey ? { backgroundColor: primaryColor, color: 'white' } : {}}
                   >
                     {label}
                   </button>
@@ -1336,7 +1561,9 @@ export default function Cardapio() {
                   <button
                     onClick={() => setSelectedCategory('beverages')}
                     className={`relative px-6 md:px-8 py-2.5 md:py-3 rounded-full text-sm md:text-base font-semibold whitespace-nowrap transition-all duration-200 lg:px-4 lg:py-2 lg:rounded-lg lg:scale-100 lg:shadow-none ${
-                      selectedCategory === 'beverages' ? 'text-white shadow-lg scale-105 lg:border-b-2 lg:border-white/80 lg:rounded-b-none' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                      selectedCategory === 'beverages'
+                        ? 'text-white shadow-lg scale-105 lg:border-b-2 lg:border-white/80 lg:rounded-b-none'
+                        : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                     }`}
                     style={selectedCategory === 'beverages' ? { backgroundColor: primaryColor, color: 'white' } : {}}
                   >
@@ -1349,7 +1576,9 @@ export default function Cardapio() {
                         key={bcKey}
                         onClick={() => setSelectedCategory(bcKey)}
                         className={`relative px-6 md:px-8 py-2.5 md:py-3 rounded-full text-sm md:text-base font-semibold whitespace-nowrap transition-all duration-200 lg:px-4 lg:py-2 lg:rounded-lg lg:scale-100 lg:shadow-none ${
-                          selectedCategory === bcKey ? 'text-white shadow-lg scale-105 lg:border-b-2 lg:border-white/80 lg:rounded-b-none' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                          selectedCategory === bcKey
+                            ? 'text-white shadow-lg scale-105 lg:border-b-2 lg:border-white/80 lg:rounded-b-none'
+                            : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                         }`}
                         style={selectedCategory === bcKey ? { backgroundColor: primaryColor, color: 'white' } : {}}
                       >
@@ -1365,119 +1594,283 @@ export default function Cardapio() {
       </div>
 
       {/* Main Content - lg: mais largura para grid denso */}
-      <main className="max-w-7xl mx-auto px-4 py-6 pb-24 md:pb-12 md:max-w-[1400px] lg:max-w-[1600px] lg:px-6">
-        {/* Banners Configuráveis */}
-        {(Array.isArray(store?.banners) ? store.banners : []).filter(b => b.active !== false && b.image).length > 0 && (
-          <div className="mb-6 space-y-3">
-            {(Array.isArray(store?.banners) ? store.banners : []).filter(b => b.active !== false && b.image).map((banner, index) => (
+      <main className={`max-w-7xl mx-auto px-4 py-6 pb-24 md:pb-12 md:max-w-[1400px] lg:max-w-[1600px] lg:px-6${desktopCarouselMode ? ' lg:flex-1 lg:py-3 lg:pb-3 lg:overflow-x-hidden lg:overflow-y-visible' : ''}`}>
+        <div className={desktopCarouselMode ? 'h-full overflow-x-hidden overflow-y-visible flex flex-col min-h-0' : undefined}>
+          {desktopCarouselMode ? (
+            <AnimatePresence mode="wait">
               <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="relative w-full h-32 md:h-40 rounded-2xl overflow-hidden cursor-pointer"
-                onClick={() => {
-                  if (banner.link) {
-                    window.open(banner.link, '_blank');
-                  }
-                }}
+                key={selectedCategory}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.22 }}
               >
-                <img 
-                  src={banner.image} 
-                  alt={banner.title || 'Banner promocional'} 
-                  className="w-full h-full object-cover"
-                />
-                {(banner.title || banner.subtitle) && (
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-4">
-                    <div className="text-white">
-                      {banner.title && (
-                        <h3 className="font-bold text-lg md:text-xl mb-1">{banner.title}</h3>
-                      )}
-                      {banner.subtitle && (
-                        <p className="text-sm md:text-base opacity-90">{banner.subtitle}</p>
-                      )}
+                {selectedCategory === 'all' ? (
+                  <section className="h-full flex flex-col min-h-0">
+                    <div className="flex items-center justify-between mb-3">
+                      <h2 className="font-bold text-base md:text-lg text-foreground">Cardápio Completo</h2>
                     </div>
-                  </div>
+
+                    <div className="relative">
+                      <button
+                        type="button"
+                        className="hidden lg:flex absolute left-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-background/80 backdrop-blur border border-border items-center justify-center shadow"
+                        onClick={() => {
+                          const el = document.getElementById('all_islands_carousel');
+                          if (!el) return;
+                          el.scrollBy({ left: -700, behavior: 'smooth' });
+                        }}
+                        aria-label="Anterior"
+                      >
+                        ‹
+                      </button>
+                      <button
+                        type="button"
+                        className="hidden lg:flex absolute right-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-background/80 backdrop-blur border border-border items-center justify-center shadow"
+                        onClick={() => {
+                          const el = document.getElementById('all_islands_carousel');
+                          if (!el) return;
+                          el.scrollBy({ left: 700, behavior: 'smooth' });
+                        }}
+                        aria-label="Próximo"
+                      >
+                        ›
+                      </button>
+
+                      <div
+                        id="all_islands_carousel"
+                        className="flex gap-4 overflow-x-auto scrollbar-hide pr-10 pl-10"
+                        style={{ scrollSnapType: 'x mandatory' }}
+                      >
+                        {categoriesResolvedForAllIslands
+                          .filter((cat) => cat?.is_active !== false)
+                          .map((cat) => {
+                            const items = (Array.isArray(activeDishes) ? activeDishes : [])
+                              .filter((d) => d?.is_active !== false)
+                              .filter((d) => d?.product_type !== 'beverage')
+                              .filter((d) => (d?.product_type || 'dish') !== 'pizza')
+                              .filter((d) => String(d?.category_id || '') === String(cat?.id || ''))
+                              .filter((d) => !searchTerm || d?.name?.toLowerCase?.().includes(searchTerm.toLowerCase()));
+                            if (items.length === 0) return null;
+
+                            return (
+                              <div
+                                key={cat.id}
+                                className="min-w-[560px] max-w-[560px] rounded-2xl border border-border bg-card shadow-sm p-4"
+                                style={{ scrollSnapAlign: 'start' }}
+                              >
+                                <div className="flex items-center justify-between mb-3">
+                                  <h3 className="font-bold text-base text-foreground">{cat.name}</h3>
+                                  <Button variant="outline" size="sm" className="h-8" onClick={() => setSelectedCategory(cat.id)}>
+                                    Abrir
+                                  </Button>
+                                </div>
+                                <div className="flex gap-3">
+                                  {items.slice(0, 3).map((it) => (
+                                    <MiniDishCard key={it.id} item={it} />
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          })}
+
+                          {(Array.isArray(activeBeverages) ? activeBeverages : []).length > 0 && (
+                            <div
+                              className="min-w-[560px] max-w-[560px] rounded-2xl border border-border bg-card shadow-sm p-4"
+                              style={{ scrollSnapAlign: 'start' }}
+                            >
+                              <div className="flex items-center justify-between mb-3">
+                                <h3 className="font-bold text-base text-foreground">Bebidas</h3>
+                                <Button variant="outline" size="sm" className="h-8" onClick={() => setSelectedCategory('beverages')}>
+                                  Abrir
+                                </Button>
+                              </div>
+                              <div className="flex gap-3">
+                                {filteredBeverages.slice(0, 3).map((it) => (
+                                  <MiniDishCard key={it.id} item={it} />
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {comboDishesForDisplay.length > 0 && (
+                            <div
+                              className="min-w-[560px] max-w-[560px] rounded-2xl border border-border bg-card shadow-sm p-4"
+                              style={{ scrollSnapAlign: 'start' }}
+                            >
+                              <div className="flex items-center justify-between mb-3">
+                                <h3 className="font-bold text-base text-foreground">Combos</h3>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8"
+                                  onClick={() => {
+                                    const first = comboDishesForDisplay[0];
+                                    if (first) handleDishClick(first);
+                                  }}
+                                >
+                                  Abrir
+                                </Button>
+                              </div>
+                              <div className="flex gap-3">
+                                {comboDishesForDisplay.slice(0, 3).map((it) => (
+                                  <MiniDishCard key={it.id} item={it} />
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                  </section>
+                ) : (
+                  <section className="h-full flex flex-col min-h-0">
+                    <div className="flex items-center justify-between mb-3">
+                      <h2 className="font-bold text-base md:text-lg text-foreground">
+                        {selectedCategory === 'beverages' || selectedCategory?.startsWith?.('bc_')
+                          ? (selectedCategory?.startsWith?.('bc_')
+                              ? beverageCategoriesResolved?.find(c => c.id === selectedCategory.replace(/^bc_/, ''))?.name || 'Bebidas'
+                              : 'Bebidas')
+                          : selectedCategory?.startsWith?.('pc_')
+                            ? (() => {
+                                const pcId = selectedCategory.replace(/^pc_/, '');
+                                const pc = pizzaCategoriesResolved?.find(c => c.id === pcId);
+                                const sz = pc ? pizzaSizesResolved?.find(s => s.id === pc.size_id) : null;
+                                return pc?.name || (pc && sz ? `${sz.name} • ${pc.max_flavors || 1} sabor(es)` : 'Pizzas');
+                              })()
+                            : categoriesResolved.find(c => c.id === selectedCategory)?.name || 'Pratos'}
+                      </h2>
+                      <Button variant="outline" size="sm" className="h-8" onClick={() => setSelectedCategory('all')}>
+                        Voltar
+                      </Button>
+                    </div>
+                    <div className="flex-1 min-h-0">
+                    <MenuLayoutWrapper
+                      layout={layoutForSelectedCategoryDesktop}
+                      dishes={filteredItemsForDisplay}
+                      onDishClick={handleDishClick}
+                      primaryColor={primaryColor}
+                      textPrimaryColor={textPrimaryColor}
+                      textSecondaryColor={textSecondaryColor}
+                      loading={loadingDishes}
+                      stockUtils={stockUtils}
+                      formatCurrency={formatCurrency}
+                      slug={slug}
+                      gridColsDesktop={gridColsDesktop}
+                    />
+                    </div>
+                  </section>
                 )}
               </motion.div>
-            ))}
-          </div>
-        )}
-
-        {/* Promotions Banner */}
-        <div data-section="promotions">
-          <PromotionBanner
-            promotions={activePromotions}
-            dishes={dishesResolved}
-            primaryColor={primaryColor}
-            onSelectPromotion={setSelectedDish}
-            store={store}
-          />
-        </div>
-
-        {/* Botão de Cadastro Opcional - Apenas se não estiver autenticado */}
-        {!isAuthenticated && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-6 p-4 rounded-xl bg-gradient-to-r from-orange-50 via-amber-50 to-orange-50 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-orange-900/20 border border-orange-200 dark:border-orange-800"
-          >
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center flex-shrink-0">
-                  <Gift className="w-5 h-5 text-white" />
+            </AnimatePresence>
+          ) : (
+            <>
+              {/* Banners Configuráveis */}
+              {(Array.isArray(store?.banners) ? store.banners : []).filter(b => b.active !== false && b.image).length > 0 && (
+                <div className="mb-6 space-y-3">
+                  {(Array.isArray(store?.banners) ? store.banners : []).filter(b => b.active !== false && b.image).map((banner, index) => (
+                    <motion.div
+                      key={index}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="relative w-full h-32 md:h-40 rounded-2xl overflow-hidden cursor-pointer"
+                      onClick={() => {
+                        if (banner.link) {
+                          window.open(banner.link, '_blank');
+                        }
+                      }}
+                    >
+                      <img 
+                        src={banner.image} 
+                        alt={banner.title || 'Banner promocional'} 
+                        className="w-full h-full object-cover"
+                      />
+                      {(banner.title || banner.subtitle) && (
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-4">
+                          <div className="text-white">
+                            {banner.title && (
+                              <h3 className="font-bold text-lg md:text-xl mb-1">{banner.title}</h3>
+                            )}
+                            {banner.subtitle && (
+                              <p className="text-sm md:text-base opacity-90">{banner.subtitle}</p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </motion.div>
+                  ))}
                 </div>
-                <div>
-                  <p className="font-semibold text-gray-900 dark:text-white text-sm">
-                    Cadastre-se gratuitamente
-                  </p>
-                  <p className="text-xs text-gray-600 dark:text-gray-400">
-                    Ganhe pontos, promoções exclusivas e muito mais
-                  </p>
-                </div>
+              )}
+
+              {/* Promotions Banner */}
+              <div data-section="promotions">
+                <PromotionBanner
+                  promotions={activePromotions}
+                  dishes={dishesResolved}
+                  primaryColor={primaryColor}
+                  onSelectPromotion={setSelectedDish}
+                  store={store}
+                />
               </div>
-              <Button
-                onClick={() => setShowQuickSignup(true)}
-                className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white text-sm font-medium px-4 py-2 h-auto whitespace-nowrap"
-              >
-                <Gift className="w-4 h-4 mr-2" />
-                Cadastrar-se
-              </Button>
-            </div>
-          </motion.div>
-        )}
 
-        {comboDishesForDisplay.length > 0 && (
-          <section className="mb-6 md:mb-8">
-            <div className="flex items-center gap-2 mb-4 md:mb-4">
-              <Package className="w-5 h-5" style={{ color: primaryColor }} />
-              <h2 className="font-bold text-base md:text-lg text-foreground">Combos</h2>
-            </div>
-            <MenuLayoutWrapper
-              layout={menuLayout}
-              dishes={comboDishesForDisplay}
-              onDishClick={handleDishClick}
-              primaryColor={primaryColor}
-              textPrimaryColor={textPrimaryColor}
-              textSecondaryColor={textSecondaryColor}
-              loading={loadingDishes}
-              stockUtils={stockUtils}
-              formatCurrency={formatCurrency}
-              slug={slug}
-              gridColsDesktop={gridColsDesktop}
-            />
-          </section>
-        )}
+              {/* Botão de Cadastro Opcional - Apenas se não estiver autenticado */}
+              {!isAuthenticated && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mb-6 p-4 rounded-xl bg-gradient-to-r from-orange-50 via-amber-50 to-orange-50 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-orange-900/20 border border-orange-200 dark:border-orange-800"
+                >
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center flex-shrink-0">
+                        <Gift className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-gray-900 dark:text-white text-sm">
+                          Cadastre-se gratuitamente
+                        </p>
+                        <p className="text-xs text-gray-600 dark:text-gray-400">
+                          Ganhe pontos, promoções exclusivas e muito mais
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      onClick={() => setShowQuickSignup(true)}
+                      className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white text-sm font-medium px-4 py-2 h-auto whitespace-nowrap"
+                    >
+                      <Gift className="w-4 h-4 mr-2" />
+                      Cadastrar-se
+                    </Button>
+                  </div>
+                </motion.div>
+              )}
 
-        {/* Recent Orders */}
-        {showRecentOrdersPanel && (
-          <>
-            <div className="lg:hidden">
+              {comboDishesForDisplay.length > 0 && (
+                <section className="mb-6 md:mb-8">
+                  <div className="flex items-center gap-2 mb-4 md:mb-4">
+                    <Package className="w-5 h-5" style={{ color: primaryColor }} />
+                    <h2 className="font-bold text-base md:text-lg text-foreground">Combos</h2>
+                  </div>
+                  <MenuLayoutWrapper
+                    layout={menuLayout}
+                    dishes={comboDishesForDisplay}
+                    onDishClick={handleDishClick}
+                    primaryColor={primaryColor}
+                    textPrimaryColor={textPrimaryColor}
+                    textSecondaryColor={textSecondaryColor}
+                    loading={loadingDishes}
+                    stockUtils={stockUtils}
+                    formatCurrency={formatCurrency}
+                    slug={slug}
+                    gridColsDesktop={gridColsDesktop}
+                  />
+                </section>
+              )}
+
               <RecentOrders
                 dishes={activeDishes}
                 onSelectDish={setSelectedDish}
                 primaryColor={primaryColor}
               />
-            </div>
 
             <div className="hidden lg:block">
               <div className="fixed right-4 top-40 z-40 w-72 max-h-[calc(100vh-11rem)] overflow-auto rounded-2xl border border-border bg-card shadow-xl p-4">
@@ -1490,75 +1883,159 @@ export default function Cardapio() {
                 />
               </div>
             </div>
+
+              {/* Highlights */}
+              {highlightDishes.length > 0 && (
+                <section className="mb-6 md:mb-8">
+                  <div className="flex items-center gap-2 mb-4 md:mb-4">
+                    <Star className="w-5 h-5 fill-yellow-400 text-yellow-400" />
+                    <h2 className="font-bold text-base md:text-lg text-foreground">Pratos do Dia</h2>
+                  </div>
+                  <div className={`grid grid-cols-2 md:grid-cols-3 ${Number(gridColsDesktop) === 2 ? 'lg:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-2' : Number(gridColsDesktop) === 3 ? 'lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-3' : Number(gridColsDesktop) === 4 ? 'lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-4' : Number(gridColsDesktop) === 5 ? 'lg:grid-cols-5 xl:grid-cols-5 2xl:grid-cols-5' : 'lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6'} gap-4 md:gap-3 lg:gap-3 xl:gap-3`}>
+                    {highlightDishes.map((dish, index) => {
+                      // Forçar badge de destaque nos highlights
+                      const highlightDish = { ...dish, is_popular: true };
+                      return (
+                        <DishCardWow
+                          key={dish.id}
+                          dish={highlightDish}
+                          onClick={handleDishClick}
+                          index={index}
+                          primaryColor={primaryColor}
+                          textPrimaryColor={textPrimaryColor}
+                          slug={slug}
+                          gridColsDesktop={gridColsDesktop}
+                        />
+                      );
+                    })}
+                  </div>
+                </section>
+              )}
           </>
         )}
 
-        {/* Highlights */}
-        {highlightDishes.length > 0 && (
-          <section className="mb-6 md:mb-8">
-            <div className="flex items-center gap-2 mb-4 md:mb-4">
-              <Star className="w-5 h-5 fill-yellow-400 text-yellow-400" />
-              <h2 className="font-bold text-base md:text-lg text-foreground">Pratos do Dia</h2>
-            </div>
-            <div className={`grid grid-cols-2 md:grid-cols-3 ${Number(gridColsDesktop) === 2 ? 'lg:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-2' : Number(gridColsDesktop) === 3 ? 'lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-3' : Number(gridColsDesktop) === 4 ? 'lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-4' : Number(gridColsDesktop) === 5 ? 'lg:grid-cols-5 xl:grid-cols-5 2xl:grid-cols-5' : 'lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6'} gap-4 md:gap-3 lg:gap-3 xl:gap-3`}>
-              {highlightDishes.map((dish, index) => {
-                // Forçar badge de destaque nos highlights
-                const highlightDish = { ...dish, is_popular: true };
-                return (
-                  <DishCardWow
-                    key={dish.id}
-                    dish={highlightDish}
-                    onClick={handleDishClick}
-                    index={index}
+        {/* All Dishes / Bebidas */}
+        {!desktopCarouselMode && (
+          <AnimatePresence mode="sync">
+            <motion.div
+              key="static"
+              initial={false}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.22 }}
+            >
+              {selectedCategory === 'all' ? (
+                <section>
+                  <h2 className="font-bold text-base md:text-lg mb-4 md:mb-4 text-foreground">Cardápio Completo</h2>
+
+                  <>
+                    {categoriesResolvedForAllIslands
+                      .filter((cat) => cat?.is_active !== false)
+                      .map((cat) => {
+                        const items = (Array.isArray(activeDishes) ? activeDishes : [])
+                          .filter((d) => d?.is_active !== false)
+                          .filter((d) => d?.product_type !== 'beverage')
+                          .filter((d) => (d?.product_type || 'dish') !== 'pizza')
+                          .filter((d) => String(d?.category_id || '') === String(cat?.id || ''))
+                          .filter((d) => !searchTerm || d?.name?.toLowerCase?.().includes(searchTerm.toLowerCase()));
+
+                        if (items.length === 0) return null;
+
+                        return (
+                          <div key={cat.id} className="mb-6 md:mb-8">
+                            <div className="flex items-center gap-2 mb-4 md:mb-4">
+                              <h3 className="font-bold text-base md:text-lg text-foreground">{cat.name}</h3>
+                            </div>
+                            <MenuLayoutWrapper
+                              layout={menuLayout}
+                              dishes={items}
+                              onDishClick={handleDishClick}
+                              primaryColor={primaryColor}
+                              textPrimaryColor={textPrimaryColor}
+                              textSecondaryColor={textSecondaryColor}
+                              loading={loadingDishes}
+                              stockUtils={stockUtils}
+                              formatCurrency={formatCurrency}
+                              slug={slug}
+                              gridColsDesktop={gridColsDesktop}
+                            />
+                          </div>
+                        );
+                      })}
+
+                    {beverageCategoriesResolved
+                      .filter((cat) => cat?.is_active !== false)
+                      .map((cat) => {
+                        const items = (Array.isArray(activeBeverages) ? activeBeverages : [])
+                          .filter((b) => b?.is_active !== false)
+                          .filter((b) => String(b?.category_id || '') === String(cat?.id || ''))
+                          .filter((b) => !searchTerm || b?.name?.toLowerCase?.().includes(searchTerm.toLowerCase()));
+
+                        if (items.length === 0) return null;
+
+                        return (
+                          <div key={`bev_${cat.id}`} className="mb-6 md:mb-8">
+                            <div className="flex items-center gap-2 mb-4 md:mb-4">
+                              <h3 className="font-bold text-base md:text-lg text-foreground">{cat.name}</h3>
+                            </div>
+                            <MenuLayoutWrapper
+                              layout={menuLayout}
+                              dishes={items}
+                              onDishClick={handleDishClick}
+                              primaryColor={primaryColor}
+                              textPrimaryColor={textPrimaryColor}
+                              textSecondaryColor={textSecondaryColor}
+                              loading={loadingDishes}
+                              stockUtils={stockUtils}
+                              formatCurrency={formatCurrency}
+                              slug={slug}
+                              gridColsDesktop={gridColsDesktop}
+                            />
+                          </div>
+                        );
+                      })}
+                  </>
+
+                  {!loadingDishes && (Array.isArray(filteredItemsForDisplay) ? filteredItemsForDisplay : []).length === 0 && (
+                    <div className="text-center py-16">
+                      <p className="text-muted-foreground">Nenhum prato encontrado</p>
+                    </div>
+                  )}
+                </section>
+              ) : (
+                <section>
+                  <h2 className="font-bold text-base md:text-lg mb-4 md:mb-4 text-foreground">
+                    {selectedCategory === 'beverages' || selectedCategory?.startsWith?.('bc_')
+                      ? (selectedCategory?.startsWith?.('bc_')
+                          ? beverageCategoriesResolved?.find(c => c.id === selectedCategory.replace(/^bc_/, ''))?.name || 'Bebidas'
+                          : 'Bebidas')
+                      : selectedCategory?.startsWith?.('pc_')
+                        ? (() => {
+                            const pcId = selectedCategory.replace(/^pc_/, '');
+                            const pc = pizzaCategoriesResolved?.find(c => c.id === pcId);
+                            const sz = pc ? pizzaSizesResolved?.find(s => s.id === pc.size_id) : null;
+                            return pc?.name || (pc && sz ? `${sz.name} • ${pc.max_flavors || 1} sabor(es)` : 'Pizzas');
+                          })()
+                        : categoriesResolved.find(c => c.id === selectedCategory)?.name || 'Pratos'}
+                  </h2>
+                  <MenuLayoutWrapper
+                    layout={menuLayout}
+                    dishes={filteredItemsForDisplay}
+                    onDishClick={handleDishClick}
                     primaryColor={primaryColor}
                     textPrimaryColor={textPrimaryColor}
+                    textSecondaryColor={textSecondaryColor}
+                    loading={loadingDishes}
+                    stockUtils={stockUtils}
+                    formatCurrency={formatCurrency}
                     slug={slug}
                     gridColsDesktop={gridColsDesktop}
                   />
-                );
-              })}
-            </div>
-          </section>
+                </section>
+              )}
+            </motion.div>
+          </AnimatePresence>
         )}
-
-        {/* All Dishes / Bebidas */}
-        <section>
-          <h2 className="font-bold text-base md:text-lg mb-4 md:mb-4 text-foreground">
-            {selectedCategory === 'beverages' || selectedCategory?.startsWith?.('bc_')
-              ? (selectedCategory?.startsWith?.('bc_')
-                  ? beverageCategoriesResolved?.find(c => c.id === selectedCategory.replace(/^bc_/, ''))?.name || 'Bebidas'
-                  : 'Bebidas')
-              : selectedCategory === 'all'
-                ? 'Cardápio Completo' 
-                : selectedCategory?.startsWith?.('pc_')
-                  ? (() => {
-                      const pcId = selectedCategory.replace(/^pc_/, '');
-                      const pc = pizzaCategoriesResolved?.find(c => c.id === pcId);
-                      const sz = pc ? pizzaSizesResolved?.find(s => s.id === pc.size_id) : null;
-                      return pc?.name || (pc && sz ? `${sz.name} • ${pc.max_flavors || 1} sabor(es)` : 'Pizzas');
-                    })()
-                  : categoriesResolved.find(c => c.id === selectedCategory)?.name || 'Pratos'}
-          </h2>
-          <MenuLayoutWrapper
-            layout={menuLayout}
-            dishes={filteredItemsForDisplay}
-            onDishClick={handleDishClick}
-            primaryColor={primaryColor}
-            textPrimaryColor={textPrimaryColor}
-            textSecondaryColor={textSecondaryColor}
-            loading={loadingDishes}
-            stockUtils={stockUtils}
-            formatCurrency={formatCurrency}
-            slug={slug}
-            gridColsDesktop={gridColsDesktop}
-          />
-        </section>
-
-        {!loadingDishes && filteredItemsForDisplay.length === 0 && (
-          <div className="text-center py-16">
-            <p className="text-muted-foreground">Nenhum prato encontrado</p>
-          </div>
-        )}
+        </div>
       </main>
 
       {/* Bottom Navigation Bar - Barra de Navegação Inferior */}
@@ -1619,6 +2096,7 @@ export default function Cardapio() {
       </nav>
 
       {/* Footer */}
+      {!desktopCarouselMode && (
       <footer className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950 border-t border-gray-200 dark:border-gray-800 mt-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
@@ -1629,7 +2107,7 @@ export default function Cardapio() {
                   <img src={store?.logo} alt={store?.name || 'Restaurante'} className="w-16 h-16 rounded-xl object-cover shadow-md border-2 border-white dark:border-gray-800" />
                 )}
                 <div>
-                  <h3 className="font-bold text-xl text-gray-900 dark:text-white">{store?.name || 'Restaurante'}</h3>
+                  <h3 className="font-bold text-lg text-gray-900 dark:text-white">{store?.name || 'Restaurante'}</h3>
                   {store?.slogan && (
                     <p className="text-gray-600 dark:text-gray-400 text-sm italic mt-0.5">"{store?.slogan}"</p>
                   )}
@@ -1818,6 +2296,58 @@ export default function Cardapio() {
           </div>
         </div>
       </footer>
+      )}
+
+      {desktopCarouselMode && (
+        <div className="hidden lg:flex items-center justify-between gap-4 px-6 py-2 border-t border-border bg-card text-xs text-muted-foreground">
+          <div className="flex items-center gap-2 min-w-0">
+            <Clock className="w-4 h-4 flex-shrink-0" style={{ color: primaryColor }} />
+            <span className="truncate">
+              {store?.working_days && store.working_days.length > 0 ? store.working_days.join(' • ') : 'Funcionamento'}
+              {store?.opening_time && store?.closing_time ? ` — ${store.opening_time} - ${store.closing_time}` : ''}
+            </span>
+          </div>
+          <div className="text-center font-medium text-foreground/80">
+            {SYSTEM_NAME}
+          </div>
+          <div className="flex items-center gap-2">
+            {store?.instagram && (
+              <a 
+                href={store?.instagram?.startsWith('http') ? store.instagram : `https://instagram.com/${store?.instagram?.replace(/^@/, '') || ''}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-2 rounded-full hover:bg-muted transition-colors"
+                title="Instagram"
+              >
+                <Instagram className="w-4 h-4" />
+              </a>
+            )}
+            {store?.facebook && (
+              <a 
+                href={store?.facebook?.startsWith('http') ? store.facebook : `https://facebook.com/${store?.facebook || ''}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-2 rounded-full hover:bg-muted transition-colors"
+                title="Facebook"
+              >
+                <Facebook className="w-4 h-4" />
+              </a>
+            )}
+            {store?.tiktok && (
+              <a 
+                href={store?.tiktok?.startsWith('http') ? store.tiktok : `https://tiktok.com/@${store?.tiktok?.replace(/^@/, '') || ''}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-2 rounded-full hover:bg-muted transition-colors"
+                title="TikTok"
+              >
+                <Music2 className="w-4 h-4" />
+              </a>
+            )}
+          </div>
+        </div>
+      )}
+      
 
       {/* Modals */}
       <CartModal

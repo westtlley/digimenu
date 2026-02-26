@@ -372,6 +372,7 @@ export default function OrderDetailModal({
     let itemsHTML = '';
     (order.items || []).forEach((item, idx) => {
       const isPizza = item.dish?.product_type === 'pizza';
+      const isCombo = item.dish?.product_type === 'combo' || Array.isArray(item?.selections?.combo_groups);
       const size = item.size || item.selections?.size;
       const flavors = item.flavors || item.selections?.flavors;
       const edge = item.edge || item.selections?.edge;
@@ -380,8 +381,44 @@ export default function OrderDetailModal({
       itemsHTML += `<div style="margin-bottom: 12px; border-left: 3px solid #666; padding-left: 8px;">`;
       itemsHTML += `<p style="margin: 0; font-weight: bold;">#${idx + 1} - ${item.dish?.name} x${item.quantity || 1}</p>`;
       
+      if (isCombo && Array.isArray(item?.selections?.combo_groups)) {
+        item.selections.combo_groups.forEach((g) => {
+          if (!g) return;
+          const title = g.title || 'Itens do combo';
+          const isDrinkGroup = /bebid/i.test(title);
+          const groupEmoji = isDrinkGroup ? '🥤' : '🍽️';
+          const groupLabel = isDrinkGroup ? 'BEBIDAS' : 'PRATOS';
+          itemsHTML += `<p style="margin: 4px 0 0 12px; font-size: 10px; font-weight: bold;">${groupEmoji} ${groupLabel}: ${title}</p>`;
+          const groupItems = Array.isArray(g.items) ? g.items : [];
+          groupItems.forEach((it) => {
+            if (!it) return;
+            const name = it?.dish_name || it?.dishName || 'Item';
+            const instances = Array.isArray(it?.instances) && it.instances.length > 0
+              ? it.instances
+              : Array.from({ length: Math.max(1, it?.quantity || 1) }, () => null);
+            instances.forEach((inst, instIdx) => {
+              const showIndex = instances.length > 1;
+              const itemLabel = isDrinkGroup ? 'Bebida' : 'Prato';
+              const label = showIndex ? `${itemLabel} ${instIdx + 1}: ` : '';
+              itemsHTML += `<p style="margin: 2px 0 0 24px; font-size: 10px;">  • ${label}${name}</p>`;
+              const sel = inst?.selections;
+              if (sel && typeof sel === 'object') {
+                Object.values(sel).forEach((groupSel) => {
+                  if (Array.isArray(groupSel)) {
+                    groupSel.forEach((opt) => {
+                      if (opt?.name) itemsHTML += `<p style="margin: 2px 0 0 36px; font-size: 10px;">    ↳ ${opt.name}</p>`;
+                    });
+                  } else if (groupSel?.name) {
+                    itemsHTML += `<p style="margin: 2px 0 0 36px; font-size: 10px;">    ↳ ${groupSel.name}</p>`;
+                  }
+                });
+              }
+            });
+          });
+        });
+      }
       // Pizza detalhada
-      if (isPizza && size) {
+      else if (isPizza && size) {
         itemsHTML += `<p style="margin: 4px 0 0 12px; font-size: 10px; font-weight: bold;">🍕 ${size.name} (${size.slices || ''} fatias • ${flavors?.length || 0} sabores)</p>`;
         
         if (flavors && flavors.length > 0) {
@@ -494,7 +531,7 @@ export default function OrderDetailModal({
           <div class="section">
             <p style="margin: 0;"><strong>Cliente:</strong> ${order.customer_name || ''}</p>
             <p style="margin: 0;"><strong>Contato:</strong> ${order.customer_phone || ''}</p>
-            <p style="margin: 0;"><strong>Tipo:</strong> ${order.delivery_method === 'delivery' ? 'Entrega 🚴' : 'Retirada 🏪'}</p>
+            <p style="margin: 0;"><strong>Tipo:</strong> ${order.delivery_method === 'delivery' ? '🚴 Entrega' : '🏪 Retirada'}</p>
             ${(getFullAddress(order) || order.address) ? `<p style="margin: 0;"><strong>Endereço:</strong> ${(getFullAddress(order) || order.address || '')}</p>` : ''}
             <p style="margin: 0;"><strong>Pagamento:</strong> ${paymentLabel}</p>
             ${order.payment_method === 'dinheiro' && order.needs_change && order.change_amount ? 
@@ -652,7 +689,7 @@ export default function OrderDetailModal({
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-xs font-medium text-gray-600">Prioridade:</span>
-                <select value={priority} onChange={(e) => { const v = e.target.value; setPriority(v); updateMutation.mutate({ id: order.id, updates: { priority: v } }); }} className="border rounded px-2 py-1 text-xs focus:border-gray-800 focus:ring-1 focus:ring-gray-800/20 focus:outline-none">
+                <select value={priority} onChange={(e) => { const v = e.target.value; setPriority(v); updateMutation.mutate({ id: order.id, updates: { priority: v } }); }} className="border rounded px-2 py-1 text-xs font-medium min-h-[52px] focus:border-gray-800 focus:ring-1 focus:ring-gray-800/20 focus:outline-none">
                   <option value="normal">Normal</option>
                   <option value="alta">Alta</option>
                   <option value="baixa">Baixa</option>
@@ -683,57 +720,68 @@ export default function OrderDetailModal({
               <div className="space-y-3">
                 {(order.items || []).map((item, idx) => {
                   const isPizza = item.dish?.product_type === 'pizza';
+                  const isCombo = item.dish?.product_type === 'combo' || Array.isArray(item?.selections?.combo_groups);
                   
                   return (
                     <div key={idx} className="border-l-2 border-gray-300 pl-2">
                       <p className="font-bold text-sm">{item.quantity || 1}x {item.dish?.name}</p>
                       
-                      {isPizza && item.size && (
-                        <div className="ml-2 text-xs mt-1 space-y-1">
-                          <p className="font-semibold text-gray-700">
-                            🍕 {item.size.name} ({item.size.slices} fatias • {item.flavors?.length || 0} sabores)
-                          </p>
-                          
-                          {item.flavors && item.flavors.length > 0 && (
-                            <div className="ml-2">
-                              <p className="font-medium text-gray-600">Sabores:</p>
-                              {Object.entries(
-                                item.flavors.reduce((acc, f) => {
-                                  acc[f.name] = (acc[f.name] || 0) + 1;
-                                  return acc;
-                                }, {})
-                              ).map(([name, count]) => (
-                                <p key={name} className="ml-2 text-gray-600">
-                                  • {count}/{item.size.slices} {name}
-                                </p>
-                              ))}
-                            </div>
-                          )}
-                          
-                          {item.edge && (
-                            <p className="font-medium text-gray-600 ml-2">
-                              🧀 Borda: {item.edge.name}
-                            </p>
-                          )}
-                          
-                          {item.extras && item.extras.length > 0 && (
-                            <div className="ml-2">
-                              <p className="font-medium text-gray-600">Extras:</p>
-                              {item.extras.map((extra, i) => (
-                                <p key={i} className="ml-2 text-gray-600">• {extra.name}</p>
-                              ))}
-                            </div>
-                          )}
-                          
-                          {item.specifications && (
-                            <p className="text-gray-600 ml-2 italic">
-                              📝 {item.specifications}
-                            </p>
-                          )}
+                      
+
+                      {isCombo && Array.isArray(item?.selections?.combo_groups) && (
+                        <div className="ml-2 text-xs text-gray-600 mt-1 space-y-0.5">
+                          {item.selections.combo_groups.map((g, gi) => {
+                            if (!g) return null;
+                            const title = g.title || 'Itens do combo';
+                            const isDrinkGroup = /bebid/i.test(title);
+                            const groupEmoji = isDrinkGroup ? '🥤' : '🍽️';
+                            const groupLabel = isDrinkGroup ? 'BEBIDAS' : 'PRATOS';
+                            const items = Array.isArray(g.items) ? g.items : [];
+                            if (items.length === 0) return null;
+
+                            return (
+                              <div key={gi} className="space-y-0.5">
+                                <p className="font-semibold text-gray-700">{groupEmoji} {groupLabel}: {title}</p>
+                                {items.map((it, ii) => {
+                                  if (!it) return null;
+                                  const name = it?.dish_name || it?.dishName || 'Item';
+                                  const instances = Array.isArray(it?.instances) && it.instances.length > 0
+                                    ? it.instances
+                                    : Array.from({ length: Math.max(1, it?.quantity || 1) }, () => null);
+
+                                  return (
+                                    <div key={ii} className="ml-2">
+                                      {instances.map((inst, instIdx) => {
+                                        const showIndex = instances.length > 1;
+                                        return (
+                                          <div key={instIdx} className="space-y-0.5">
+                                            <p>• {showIndex ? `${isDrinkGroup ? 'Bebida' : 'Prato'} ${instIdx + 1}: ` : ''}{name}</p>
+                                            {inst?.selections && typeof inst.selections === 'object' && (
+                                              <div className="ml-3 space-y-0.5">
+                                                {Object.values(inst.selections).flatMap((groupSel, si) => {
+                                                  if (Array.isArray(groupSel)) {
+                                                    return groupSel.map((opt, oi) => (
+                                                      opt?.name ? <p key={`${si}_${oi}`}>↳ {opt.name}</p> : null
+                                                    ));
+                                                  }
+                                                  if (groupSel?.name) return [<p key={si}>↳ {groupSel.name}</p>];
+                                                  return [null];
+                                                })}
+                                              </div>
+                                            )}
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
-                      
-                      {!isPizza && item.selections && Object.keys(item.selections).length > 0 && (
+
+                      {!isPizza && !isCombo && item.selections && Object.keys(item.selections).length > 0 && (
                         <div className="ml-2 text-xs text-gray-600 mt-1 space-y-0.5">
                           {Object.entries(item.selections).map(([groupId, sel]) => {
                             if (Array.isArray(sel)) {
@@ -746,6 +794,7 @@ export default function OrderDetailModal({
                         </div>
                       )}
                       
+
                       {item.observations && (
                         <p className="ml-2 text-xs text-gray-600 italic mt-1">
                           📝 {item.observations}

@@ -52,7 +52,7 @@ export const whatsappService = {
 
     cart.forEach((item, index) => {
       const isPizza = item.dish?.product_type === 'pizza';
-      const isCombo = item.dish?.product_type === 'combo';
+      const isCombo = item.dish?.product_type === 'combo' || Array.isArray(item?.selections?.combo_groups);
       const itemTotal = item.totalPrice * (item.quantity || 1);
       
       // Linha principal do item
@@ -66,7 +66,10 @@ export const whatsappService = {
           groups.forEach((g) => {
             if (!g) return;
             const title = g.title || 'Itens do combo';
-            msg += `   🎁 ${title}\n`;
+            const isDrinkGroup = /bebid/i.test(title);
+            const groupEmoji = isDrinkGroup ? '🥤' : '🍽️';
+            const groupLabel = isDrinkGroup ? 'BEBIDAS' : 'PRATOS';
+            msg += `   ${groupEmoji} ${groupLabel}: ${title}\n`;
             const items = Array.isArray(g.items) ? g.items : [];
             items.forEach((it) => {
               if (!it) return;
@@ -74,17 +77,19 @@ export const whatsappService = {
               const instances = Array.isArray(it?.instances) && it.instances.length > 0
                 ? it.instances
                 : Array.from({ length: Math.max(1, it?.quantity || 1) }, () => null);
-              instances.forEach((inst) => {
-                msg += `      - ${name}\n`;
+              instances.forEach((inst, instIdx) => {
+                const showIndex = instances.length > 1;
+                const itemLabel = isDrinkGroup ? 'Bebida' : 'Prato';
+                msg += `      - ${showIndex ? `${itemLabel} ${instIdx + 1}: ` : ''}${name}\n`;
                 const sel = inst?.selections;
                 if (sel && typeof sel === 'object') {
                   Object.values(sel).forEach((groupSel) => {
                     if (Array.isArray(groupSel)) {
                       groupSel.forEach((opt) => {
-                        if (opt?.name) msg += `         • ${opt.name}\n`;
+                        if (opt?.name) msg += `         ↳ ${opt.name}\n`;
                       });
                     } else if (groupSel?.name) {
-                      msg += `         • ${groupSel.name}\n`;
+                      msg += `         ↳ ${groupSel.name}\n`;
                     }
                   });
                 }

@@ -105,6 +105,78 @@ export default function OrderDetail({ order, entregadores, onBack, onOrderUpdate
     }).format(value || 0);
   };
 
+  const renderComboBreakdown = (item) => {
+    const groups = item?.selections?.combo_groups;
+    if (!Array.isArray(groups) || groups.length === 0) return null;
+
+    const lines = [];
+    groups.forEach((g) => {
+      if (!g) return;
+      const title = g.title || 'Itens do combo';
+      const isDrinkGroup = /bebid/i.test(title);
+      const groupEmoji = isDrinkGroup ? '🥤' : '🍽️';
+      const groupLabel = isDrinkGroup ? 'BEBIDAS' : 'PRATOS';
+      const items = Array.isArray(g.items) ? g.items : [];
+      if (items.length === 0) return;
+
+      lines.push({ type: 'title', text: `${groupEmoji} ${groupLabel}: ${title}` });
+
+      items.forEach((it) => {
+        if (!it) return;
+        const baseName = it.dish_name || it.dishName || 'Item';
+        const instances = Array.isArray(it.instances) && it.instances.length > 0
+          ? it.instances
+          : Array.from({ length: Math.max(1, it.quantity || 1) }, () => null);
+
+        instances.forEach((inst, instIdx) => {
+          const showIndex = instances.length > 1;
+          const itemLabel = isDrinkGroup ? 'Bebida' : 'Prato';
+          lines.push({ type: 'item', text: `${showIndex ? `${itemLabel} ${instIdx + 1}: ` : ''}${baseName}` });
+          const sel = inst?.selections;
+          if (sel && typeof sel === 'object') {
+            Object.values(sel).forEach((groupSel) => {
+              if (Array.isArray(groupSel)) {
+                groupSel.forEach((opt) => {
+                  if (opt?.name) lines.push({ type: 'sub', text: opt.name });
+                });
+              } else if (groupSel?.name) {
+                lines.push({ type: 'sub', text: groupSel.name });
+              }
+            });
+          }
+        });
+      });
+    });
+
+    if (lines.length === 0) return null;
+
+    return (
+      <div className="mt-1 space-y-0.5">
+        {lines.map((l, idx) => {
+          if (l.type === 'title') {
+            return (
+              <p key={idx} className="text-[11px] font-semibold text-gray-600">
+                {l.text}
+              </p>
+            );
+          }
+          if (l.type === 'item') {
+            return (
+              <p key={idx} className="text-[11px] text-gray-500">
+                - {l.text}
+              </p>
+            );
+          }
+          return (
+            <p key={idx} className="text-[11px] text-gray-500 ml-3">
+              ↳ {l.text}
+            </p>
+          );
+        })}
+      </div>
+    );
+  };
+
   const getTimeElapsed = (date) => {
     if (!date) return '-';
     const mins = differenceInMinutes(new Date(), new Date(date));
@@ -321,16 +393,22 @@ export default function OrderDetail({ order, entregadores, onBack, onOrderUpdate
                     <p className="font-medium text-sm sm:text-base">
                       {item.quantity || 1}x {item.dish?.name || 'Item'}
                     </p>
-                    {item.selections && Object.keys(item.selections).length > 0 && (
-                      <p className="text-xs text-gray-500 mt-1">
-                        {Object.values(item.selections).map((sel, i) => {
-                          if (Array.isArray(sel)) {
-                            return sel.map(s => s.name).join(', ');
-                          }
-                          return sel?.name;
-                        }).filter(Boolean).join(' · ')}
-                      </p>
-                    )}
+                    {(item?.dish?.product_type === 'combo' || Array.isArray(item?.selections?.combo_groups))
+                      ? renderComboBreakdown(item)
+                      : (
+                        item.selections && Object.keys(item.selections).length > 0 && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            {Object.entries(item.selections)
+                              .filter(([key]) => key !== 'combo_groups')
+                              .map(([, sel], i) => {
+                              if (Array.isArray(sel)) {
+                                return sel.map(s => s.name).join(', ');
+                              }
+                              return sel?.name;
+                            }).filter(Boolean).join(' · ')}
+                          </p>
+                        )
+                      )}
                   </div>
                   <span className="font-medium text-sm">
                     {formatCurrency((item.totalPrice || 0) * (item.quantity || 1))}

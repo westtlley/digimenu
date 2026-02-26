@@ -44,10 +44,13 @@ export default function CartModal({ isOpen, onClose, cart, onUpdateQuantity, onR
     groups.forEach((g) => {
       if (!g) return;
       const title = g.title || 'Itens do combo';
+      const isDrinkGroup = /bebid/i.test(title);
+      const groupEmoji = isDrinkGroup ? '🥤' : '🍽️';
+      const groupLabel = isDrinkGroup ? 'BEBIDAS' : 'PRATOS';
       const items = Array.isArray(g.items) ? g.items : [];
       if (items.length === 0) return;
 
-      lines.push({ type: 'title', text: title });
+      lines.push({ type: 'title', text: `${groupEmoji} ${groupLabel}: ${title}`, isDrinkGroup });
 
       items.forEach((it) => {
         if (!it) return;
@@ -56,8 +59,11 @@ export default function CartModal({ isOpen, onClose, cart, onUpdateQuantity, onR
           : Array.from({ length: Math.max(1, it.quantity || 1) }, () => null);
         const baseName = it.dish_name || it.dishName || it.dish_id || 'Item';
 
-        instances.forEach((inst) => {
-          lines.push({ type: 'item', text: baseName });
+        instances.forEach((inst, instIdx) => {
+          const showIndex = instances.length > 1;
+          const itemLabel = isDrinkGroup ? 'Bebida' : 'Prato';
+          const prefix = showIndex ? `${itemLabel} ${instIdx + 1}: ` : '';
+          lines.push({ type: 'item', text: `${prefix}${baseName}` });
           const sel = inst?.selections;
           if (sel && typeof sel === 'object') {
             Object.values(sel).forEach((groupSel) => {
@@ -95,7 +101,7 @@ export default function CartModal({ isOpen, onClose, cart, onUpdateQuantity, onR
           }
           return (
             <p key={idx} className="text-[11px] ml-3">
-              • {l.text}
+              ↳ {l.text}
             </p>
           );
         })}
@@ -405,14 +411,18 @@ export default function CartModal({ isOpen, onClose, cart, onUpdateQuantity, onR
                       <h3 className={`font-medium text-sm ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                         {item.dish?.name}
                       </h3>
-                      {item.dish?.product_type === 'combo' ? (
+                      {(item.dish?.product_type === 'combo' || Array.isArray(item?.selections?.combo_groups)) ? (
                         renderComboBreakdown(item)
                       ) : item.selections && Object.keys(item.selections).length > 0 && (
                         <p className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'} line-clamp-2`}>
-                          {Object.values(item.selections).map(sel => {
-                            if (Array.isArray(sel)) return sel.map(s => s.name).join(', ');
-                            return sel.name;
-                          }).filter(Boolean).join(' • ')}
+                          {Object.entries(item.selections)
+                            .filter(([key]) => key !== 'combo_groups')
+                            .map(([, sel]) => {
+                              if (Array.isArray(sel)) return sel.map(s => s.name).join(', ');
+                              return sel?.name;
+                            })
+                            .filter(Boolean)
+                            .join(' • ')}
                         </p>
                       )}
                       <div className="flex items-center justify-between mt-2">
@@ -526,11 +536,13 @@ export default function CartModal({ isOpen, onClose, cart, onUpdateQuantity, onR
                                   {formatCurrency(item.totalPrice * (item.quantity || 1))}
                                 </span>
                               </div>
-                              {item.dish?.product_type === 'combo' ? (
+                              {(item.dish?.product_type === 'combo' || Array.isArray(item?.selections?.combo_groups)) ? (
                                 renderComboBreakdown(item, { indent: true })
                               ) : item.selections && Object.keys(item.selections).length > 0 && (
                                 <div className={`ml-5 mt-1 space-y-0.5 ${darkMode ? 'text-gray-500' : 'text-gray-600'}`}>
-                                  {Object.entries(item.selections).map(([groupId, sel]) => {
+                                  {Object.entries(item.selections)
+                                    .filter(([key]) => key !== 'combo_groups')
+                                    .map(([groupId, sel]) => {
                                     if (Array.isArray(sel)) {
                                       return sel.map((opt, i) => <p key={i}>• {opt.name}</p>);
                                     } else if (sel) {

@@ -15,6 +15,13 @@ export default function CarouselLayout({
   formatCurrency 
 }) {
   const scrollRef = useRef(null);
+  const dragStateRef = useRef({
+    isDown: false,
+    startX: 0,
+    startScrollLeft: 0,
+    pointerId: null,
+    didDrag: false,
+  });
 
   const scroll = (direction) => {
     if (scrollRef.current) {
@@ -37,11 +44,11 @@ export default function CarouselLayout({
   }
 
   return (
-    <div className="relative">
+    <div className="relative overflow-visible">
       {/* Botão Anterior */}
       <button
         onClick={() => scroll('left')}
-        className="absolute left-0 top-1/2 -translate-y-1/2 z-10 p-2 md:p-3 rounded-full bg-white dark:bg-gray-800 shadow-lg border border-gray-200 dark:border-gray-700 hover:shadow-xl transition-all"
+        className="absolute left-2 top-1/2 -translate-y-1/2 z-10 p-2 md:p-3 rounded-full bg-white dark:bg-gray-800 shadow-lg border border-gray-200 dark:border-gray-700 hover:shadow-xl transition-all"
         style={{ color: primaryColor }}
       >
         <ChevronLeft className="w-5 h-5 md:w-6 md:h-6" />
@@ -50,8 +57,43 @@ export default function CarouselLayout({
       {/* Carrossel - Mobile com mais altura */}
       <div 
         ref={scrollRef}
-        className="flex gap-3 md:gap-4 overflow-x-auto scrollbar-hide scroll-smooth pb-4 px-10 md:px-12"
-        style={{ scrollSnapType: 'x mandatory' }}
+        className="flex gap-3 md:gap-4 overflow-x-auto scrollbar-hide scroll-smooth pb-4 px-10 md:px-12 cursor-grab active:cursor-grabbing"
+        style={{ scrollSnapType: 'x mandatory', touchAction: 'pan-y' }}
+        onPointerDown={(e) => {
+          if (!scrollRef.current) return;
+          dragStateRef.current.isDown = true;
+          dragStateRef.current.didDrag = false;
+          dragStateRef.current.pointerId = e.pointerId;
+          dragStateRef.current.startX = e.clientX;
+          dragStateRef.current.startScrollLeft = scrollRef.current.scrollLeft;
+          try {
+            scrollRef.current.setPointerCapture(e.pointerId);
+          } catch {
+            // ignore
+          }
+        }}
+        onPointerMove={(e) => {
+          const st = dragStateRef.current;
+          if (!st.isDown || !scrollRef.current) return;
+          const dx = e.clientX - st.startX;
+          if (Math.abs(dx) > 3) st.didDrag = true;
+          scrollRef.current.scrollLeft = st.startScrollLeft - dx;
+        }}
+        onPointerUp={() => {
+          dragStateRef.current.isDown = false;
+          dragStateRef.current.pointerId = null;
+        }}
+        onPointerCancel={() => {
+          dragStateRef.current.isDown = false;
+          dragStateRef.current.pointerId = null;
+        }}
+        onClickCapture={(e) => {
+          if (dragStateRef.current.didDrag) {
+            e.preventDefault();
+            e.stopPropagation();
+            dragStateRef.current.didDrag = false;
+          }
+        }}
       >
         {dishes.map((dish, index) => {
           const isOutOfStock = stockUtils?.isOutOfStock?.(dish.stock);
@@ -59,7 +101,7 @@ export default function CarouselLayout({
           return (
             <div
               key={dish.id}
-              className="flex-shrink-0 w-[280px] md:w-72"
+              className="flex-shrink-0 w-[280px] md:w-72 lg:w-64"
               style={{ scrollSnapAlign: 'start' }}
             >
               {/* Card customizado para mobile ter mais altura */}
@@ -78,7 +120,7 @@ export default function CarouselLayout({
                 style={!isOutOfStock ? { borderColor: 'transparent' } : {}}
               >
                 {/* Imagem - Mobile maior */}
-                <div className="w-full h-56 md:h-48 bg-gray-100 dark:bg-gray-800 overflow-hidden">
+                <div className="w-full h-56 md:h-48 lg:h-40 bg-gray-100 dark:bg-gray-800 overflow-hidden">
                   {dish.image ? (
                     <img 
                       src={dish.image} 
@@ -114,7 +156,7 @@ export default function CarouselLayout({
                 </div>
 
                 {/* Conteúdo - Mobile com mais espaço */}
-                <div className="p-4 md:p-3">
+                <div className="p-4 md:p-3 lg:p-3">
                   <h3 
                     className="font-bold text-base md:text-sm mb-2 line-clamp-2 min-h-[2.5rem] md:min-h-[2rem]"
                     style={{ color: textPrimaryColor || 'inherit' }}
@@ -152,7 +194,7 @@ export default function CarouselLayout({
       {/* Botão Próximo */}
       <button
         onClick={() => scroll('right')}
-        className="absolute right-0 top-1/2 -translate-y-1/2 z-10 p-2 md:p-3 rounded-full bg-white dark:bg-gray-800 shadow-lg border border-gray-200 dark:border-gray-700 hover:shadow-xl transition-all"
+        className="absolute right-2 top-1/2 -translate-y-1/2 z-10 p-2 md:p-3 rounded-full bg-white dark:bg-gray-800 shadow-lg border border-gray-200 dark:border-gray-700 hover:shadow-xl transition-all"
         style={{ color: primaryColor }}
       >
         <ChevronRight className="w-5 h-5 md:w-6 md:h-6" />

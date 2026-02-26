@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 const CART_STORAGE_KEY = 'cardapio_cart';
 
@@ -17,17 +17,28 @@ function loadCartFromStorage(slug) {
   }
 }
 
-export function useCart(slug = null) {
+export function useCart(slug = null, options = {}) {
   const storageKey = getCartStorageKey(slug);
-  const [cart, setCart] = useState(() => loadCartFromStorage(slug));
+  const { autoLoad = true } = options || {};
+
+  const [cart, setCart] = useState(() => (autoLoad ? loadCartFromStorage(slug) : []));
+
+  const allowPersistRef = useRef(autoLoad);
+
+  const hydrateCart = useCallback((items) => {
+    allowPersistRef.current = true;
+    setCart(Array.isArray(items) ? items : []);
+  }, []);
 
   // Ao trocar de estabelecimento (slug), carregar o carrinho correto para não misturar pedidos
   useEffect(() => {
+    if (!autoLoad) return;
     setCart(loadCartFromStorage(slug));
-  }, [slug]);
+  }, [slug, autoLoad]);
 
   // Persistir no localStorage sempre que o carrinho mudar (sempre na chave do slug atual)
   useEffect(() => {
+    if (!allowPersistRef.current) return;
     try {
       localStorage.setItem(storageKey, JSON.stringify(cart));
       if (!slug) localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
@@ -37,6 +48,7 @@ export function useCart(slug = null) {
   }, [cart, storageKey, slug]);
 
   const addItem = useCallback((item) => {
+    allowPersistRef.current = true;
     const dish = item?.dish ?? item;
     if (!dish?.id) return;
     const qty = item?.quantity ?? 1;
@@ -49,16 +61,19 @@ export function useCart(slug = null) {
   }, []);
 
   const updateItem = useCallback((itemId, updatedItem) => {
+    allowPersistRef.current = true;
     setCart(prev => prev.map(item => 
       item.id === itemId ? { ...updatedItem, id: itemId, quantity: item.quantity } : item
     ));
   }, []);
 
   const removeItem = useCallback((itemId) => {
+    allowPersistRef.current = true;
     setCart(prev => prev.filter(item => item.id !== itemId));
   }, []);
 
   const updateQuantity = useCallback((itemId, delta) => {
+    allowPersistRef.current = true;
     setCart(prev => prev.map(item => {
       if (item.id === itemId) {
         const newQty = (item.quantity || 1) + delta;
@@ -70,6 +85,7 @@ export function useCart(slug = null) {
   }, []);
 
   const clearCart = useCallback(() => {
+    allowPersistRef.current = true;
     setCart([]);
   }, []);
 
@@ -83,6 +99,7 @@ export function useCart(slug = null) {
     removeItem,
     updateQuantity,
     clearCart,
+    hydrateCart,
     cartTotal,
     cartItemsCount
   };

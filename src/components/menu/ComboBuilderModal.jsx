@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { X } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import NewDishModal from './NewDishModal';
 
 const normalizeDishType = (dish) => {
@@ -268,7 +268,7 @@ export default function ComboBuilderModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-w-[95vw] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-5xl max-w-[95vw] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between gap-2 pr-8">
             <span>{combo?.name || 'Montar combo'}</span>
@@ -345,9 +345,15 @@ export default function ComboBuilderModal({
                   <div className="grid sm:grid-cols-2 gap-3">
                     {Array.from({ length: qty }).map((_, idx) => {
                       const value = selections?.[g.id]?.[idx] || '';
+
+                      const allowedTypes = Array.isArray(g?.allowed_types) ? g.allowed_types : [];
+                      const typeLabel = allowedTypes.length === 1
+                        ? (allowedTypes[0] === 'beverage' ? 'Bebida' : allowedTypes[0] === 'pizza' ? 'Pizza' : 'Prato')
+                        : 'Prato';
+
                       return (
                         <div key={`${g.id}_${idx}`}>
-                          <Label className="text-xs">Opção {idx + 1}</Label>
+                          <Label className="text-xs">{typeLabel} {idx + 1}</Label>
                           <Select
                             value={value}
                             onValueChange={(v) => {
@@ -419,7 +425,7 @@ export default function ComboBuilderModal({
                                 });
                               }}
                             >
-                              <X className="w-4 h-4 text-red-500" />
+                              <Trash2 className="w-4 h-4 text-red-500" />
                             </Button>
                           </div>
                         );

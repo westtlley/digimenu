@@ -96,24 +96,95 @@ export default function OrdersTab({ isMaster, user, subscriberData, storeId, sto
     }).format(value || 0);
   };
 
+  const renderComboBreakdown = (item) => {
+    const groups = item?.selections?.combo_groups;
+    if (!Array.isArray(groups) || groups.length === 0) return null;
+
+    return (
+      <div className="text-xs text-gray-600 ml-3 mt-1 space-y-0.5">
+        {groups.flatMap((g, gi) => {
+          if (!g) return [];
+          const title = g.title || 'Itens do combo';
+          const isDrinkGroup = /bebid/i.test(title);
+          const groupEmoji = isDrinkGroup ? '🥤' : '🍽️';
+          const groupLabel = isDrinkGroup ? 'BEBIDAS' : 'PRATOS';
+          const items = Array.isArray(g.items) ? g.items : [];
+          if (items.length === 0) return [];
+
+          const block = [
+            <p key={`t_${gi}`} className="font-semibold text-gray-700">{groupEmoji} {groupLabel}: {title}</p>,
+          ];
+
+          items.forEach((it, ii) => {
+            if (!it) return;
+            const name = it?.dish_name || it?.dishName || 'Item';
+            const instances = Array.isArray(it?.instances) && it.instances.length > 0
+              ? it.instances
+              : Array.from({ length: Math.max(1, it?.quantity || 1) }, () => null);
+
+            instances.forEach((inst, instIdx) => {
+              const showIndex = instances.length > 1;
+              const itemLabel = isDrinkGroup ? 'Bebida' : 'Prato';
+              block.push(
+                <p key={`i_${gi}_${ii}_${instIdx}`}>
+                  • {showIndex ? `${itemLabel} ${instIdx + 1}: ` : ''}{name}
+                </p>
+              );
+
+              const sel = inst?.selections;
+              if (sel && typeof sel === 'object') {
+                Object.values(sel).forEach((groupSel, si) => {
+                  if (Array.isArray(groupSel)) {
+                    groupSel.forEach((opt, oi) => {
+                      if (opt?.name) {
+                        block.push(
+                          <p key={`s_${gi}_${ii}_${instIdx}_${si}_${oi}`} className="ml-3">↳ {opt.name}</p>
+                        );
+                      }
+                    });
+                  } else if (groupSel?.name) {
+                    block.push(
+                      <p key={`s_${gi}_${ii}_${instIdx}_${si}`} className="ml-3">↳ {groupSel.name}</p>
+                    );
+                  }
+                });
+              }
+            });
+          });
+
+          return block;
+        })}
+      </div>
+    );
+  };
+
   const printOrder = (order) => {
     const pdf = new jsPDF({ unit: 'mm', format: [80, 297] });
     const margin = 5;
     const maxW = 70;
     const lineH = 4.5;
+    const safePdfText = (text) => {
+      if (text == null) return '';
+      return String(text)
+        .replace(/[🎁🍽️🍴🥤🍹🍺🍻☕🧃]/g, '')
+        .replace(/[↳→]/g, '->')
+        .replace(/\s+/g, ' ')
+        .trim();
+    };
     const addText = (text, bold = false) => {
       if (!text) return;
       pdf.setFont('courier', bold ? 'bold' : 'normal');
-      const lines = pdf.splitTextToSize(String(text), maxW);
+      const lines = pdf.splitTextToSize(safePdfText(text), maxW);
       lines.forEach(line => { pdf.text(line, margin, y); y += lineH; });
     };
     let y = 10;
+
     pdf.setFontSize(12);
     pdf.setFont('courier', 'bold');
     pdf.text('COMANDA', 40, y, { align: 'center' });
     y += 8;
     pdf.setFontSize(9);
-    pdf.setFont('courier', 'normal');
+
     addText(`Pedido: #${order.order_code || order.id?.slice(-6).toUpperCase()}`);
     const orderDate = order.created_at || order.created_date;
     addText(`Data: ${orderDate ? format(new Date(orderDate), "dd/MM/yyyy HH:mm") : '—'}`);
@@ -138,28 +209,66 @@ export default function OrdersTab({ isMaster, user, subscriberData, storeId, sto
     y += lineH;
     (order.items || []).forEach((item, idx) => {
       const isPizza = item.dish?.product_type === 'pizza';
+      const isCombo = item.dish?.product_type === 'combo' || Array.isArray(item?.selections?.combo_groups);
       const size = item.size || item.selections?.size;
       const flavors = item.flavors || item.selections?.flavors;
       const edge = item.edge || item.selections?.edge;
       const extras = item.extras || item.selections?.extras;
       addText(`${idx + 1}. ${item.dish?.name || 'Item'} x${item.quantity || 1} - ${formatCurrency((item.totalPrice || 0) * (item.quantity || 1))}`);
-      if (isPizza && size) {
-        addText(`   ${size.name} (${size.slices || ''} fatias)`);
-        if (flavors?.length) {
-          const f = flavors.reduce((a, x) => { a[x.name] = (a[x.name]||0)+1; return a; }, {});
-          Object.entries(f).forEach(([n, c]) => addText(`   • ${c}/${size.slices || ''} ${n}`));
-        }
-        if (edge) addText(`   Borda: ${edge.name}`);
-        if (extras?.length) extras.forEach(e => addText(`   + ${e.name}`));
-      } else if (item.selections && Object.keys(item.selections).length > 0) {
-        Object.values(item.selections).forEach(sel => {
-          if (Array.isArray(sel)) sel.forEach(opt => opt?.name && addText(`   • ${opt.name}`));
-          else if (sel?.name) addText(`   • ${sel.name}`);
+      if (isCombo && Array.isArray(item?.selections?.combo_groups)) {
+        item.selections.combo_groups.forEach((g) => {
+          if (!g) return;
+          const title = g.title || 'Itens do combo';
+          const isDrinkGroup = /bebid/i.test(title);
+          const groupLabel = isDrinkGroup ? 'BEBIDAS' : 'PRATOS';
+          addText(`   ${groupLabel}: ${title}`);
+          const items = Array.isArray(g.items) ? g.items : [];
+          items.forEach((it) => {
+            if (!it) return;
+            const name = it?.dish_name || it?.dishName || 'Item';
+
+            const instances = Array.isArray(it?.instances) && it.instances.length > 0
+              ? it.instances
+              : Array.from({ length: Math.max(1, it?.quantity || 1) }, () => null);
+            instances.forEach((inst, instIdx) => {
+              const showIndex = instances.length > 1;
+              const isDrinkGroup = /bebid/i.test(title);
+              const itemLabel = isDrinkGroup ? 'Bebida' : 'Prato';
+              addText(`   • ${showIndex ? `${itemLabel} ${instIdx + 1}: ` : ''}${name}`);
+              const sel = inst?.selections;
+              if (sel && typeof sel === 'object') {
+                Object.values(sel).forEach((groupSel) => {
+                  if (Array.isArray(groupSel)) {
+                    groupSel.forEach((opt) => opt?.name && addText(`     -> ${opt.name}`));
+                  } else if (groupSel?.name) {
+                    addText(`     -> ${groupSel.name}`);
+                  }
+                });
+              }
+            });
+          });
         });
       }
-      if (item.specifications) addText(`   Obs: ${item.specifications}`);
-      if (item.observations) addText(`   Obs: ${item.observations}`);
+      else if (isPizza && size) {
+        addText(` ${size.name} (${size.slices || ''} fatias)`);
+        if (flavors?.length) {
+          const f = flavors.reduce((a, x) => { a[x.name] = (a[x.name]||0)+1; return a; }, {});
+          Object.entries(f).forEach(([n, c]) => addText(` • ${c}/${size.slices || ''} ${n}`));
+        }
+        if (edge) addText(` Borda: ${edge.name}`);
+        if (extras?.length) extras.forEach(e => addText(` + ${e.name}`));
+      } else if (item.selections && Object.keys(item.selections).length > 0) {
+        Object.entries(item.selections)
+          .filter(([key]) => key !== 'combo_groups')
+          .forEach(([, sel]) => {
+          if (Array.isArray(sel)) sel.forEach(opt => opt?.name && addText(` • ${opt.name}`));
+          else if (sel?.name) addText(` • ${sel.name}`);
+        });
+      }
+      if (item.specifications) addText(` Obs: ${item.specifications}`);
+      if (item.observations) addText(` Obs: ${item.observations}`);
     });
+
     pdf.text('--------------------------------', margin, y);
     y += lineH;
     addText(`Subtotal: ${formatCurrency(order.subtotal)}`);
@@ -417,18 +526,24 @@ export default function OrdersTab({ isMaster, user, subscriberData, storeId, sto
                       {formatCurrency(item.totalPrice * (item.quantity || 1))}
                     </span>
                   </div>
-                  {item.selections && Object.keys(item.selections).length > 0 && (
-                    <div className="text-xs text-gray-600 ml-3 mt-1 space-y-0.5">
-                      {Object.entries(item.selections).map(([gId, sel]) => {
-                        if (Array.isArray(sel)) {
-                          return sel.map((s, i) => <p key={i}>• {s.name}</p>);
-                        } else if (sel) {
-                          return <p key={gId}>• {sel.name}</p>;
-                        }
-                        return null;
-                      })}
-                    </div>
-                  )}
+                  {(item?.dish?.product_type === 'combo' || Array.isArray(item?.selections?.combo_groups))
+                    ? renderComboBreakdown(item)
+                    : (
+                      item.selections && Object.keys(item.selections).length > 0 && (
+                        <div className="text-xs text-gray-600 ml-3 mt-1 space-y-0.5">
+                          {Object.entries(item.selections)
+                            .filter(([key]) => key !== 'combo_groups')
+                            .map(([gId, sel]) => {
+                              if (Array.isArray(sel)) {
+                                return sel.map((s, i) => (s?.name ? <p key={`${gId}_${i}`}>• {s.name}</p> : null));
+                              } else if (sel?.name) {
+                                return <p key={gId}>• {sel.name}</p>;
+                              }
+                              return null;
+                            })}
+                        </div>
+                      )
+                    )}
                 </div>
               ))}
             </div>
