@@ -157,7 +157,7 @@ export default function DishCardWow({
       ))}
 
       {/* Imagem — ícone do cardápio quadrado em todas as telas */}
-      <div className="relative aspect-square lg:aspect-[16/10] bg-gray-100 dark:bg-gray-800 overflow-hidden min-h-[120px] md:min-h-0">
+      <div className="relative aspect-square lg:aspect-[16/10] bg-gray-100 dark:bg-gray-800 overflow-hidden min-h-[160px] md:min-h-[140px] lg:min-h-[180px]">
         {dish.image ? (
           <>
             {/* Placeholder com pulse */}
@@ -198,8 +198,8 @@ export default function DishCardWow({
       </div>
 
       {/* Info do Prato - lg: nome e preço mais legíveis no desktop */}
-      <div className="p-3 md:p-2.5 lg:p-2.5 space-y-2 md:space-y-1.5 bg-card">
-        <h3 className="font-bold text-sm md:text-xs lg:text-sm text-foreground line-clamp-2 min-h-[36px] md:min-h-[32px] lg:min-h-[2.5rem] group-hover:text-primary transition-colors">
+      <div className="p-4 md:p-3 lg:p-4 space-y-2 md:space-y-2 lg:space-y-3 bg-card">
+        <h3 className="font-bold text-sm md:text-xs lg:text-base text-foreground line-clamp-2 min-h-[40px] md:min-h-[36px] lg:min-h-[2.75rem] group-hover:text-primary transition-colors">
           {dish.name}
         </h3>
         
@@ -221,7 +221,7 @@ export default function DishCardWow({
                   {formatCurrency(dish.original_price)}
                 </p>
                 <p 
-                  className="text-base md:text-sm lg:text-base lg:font-bold"
+                  className="text-base md:text-sm lg:text-lg lg:font-bold"
                   style={{ color: textPrimaryColor || primaryColor }}
                 >
                   {formatCurrency(dish.price)}
@@ -229,7 +229,7 @@ export default function DishCardWow({
               </div>
             ) : (
               <p 
-                className="text-base md:text-sm lg:text-base lg:font-bold"
+                className="text-base md:text-sm lg:text-lg lg:font-bold"
                 style={{ color: textPrimaryColor || primaryColor }}
               >
                 {formatCurrency(dish.price)}
