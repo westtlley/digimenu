@@ -278,10 +278,10 @@ export default function ThemeTab() {
   };
 
   return (
-    <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
+    <div className="p-3 sm:p-4 max-w-7xl mx-auto space-y-4">
       {/* Header com gradiente */}
       <div 
-        className="relative rounded-2xl p-6 sm:p-8 overflow-hidden"
+        className="relative rounded-xl p-4 sm:p-6 overflow-hidden"
         style={{
           background: `linear-gradient(135deg, ${activeTheme.colors.accent}15, ${activeTheme.colors.accent}05)`,
           border: `1px solid ${activeTheme.colors.borderColor}`
@@ -344,7 +344,7 @@ export default function ThemeTab() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {Object.entries(themes).map(([key, theme]) => (
                   <button
                     key={key}
@@ -352,9 +352,9 @@ export default function ThemeTab() {
                       setTheme(key);
                       resetToPreset();
                     }}
-                    className={`relative p-4 rounded-xl border-2 transition-all text-left group ${
+                    className={`relative p-3 rounded-lg border transition-all text-left group ${
                       currentTheme === key && !customTheme
-                        ? 'ring-2 ring-offset-2'
+                        ? 'ring-2 ring-offset-1'
                         : 'hover:border-opacity-60'
                     }`}
                     style={{
@@ -366,9 +366,9 @@ export default function ThemeTab() {
                     }}
                   >
                     {currentTheme === key && !customTheme && (
-                      <div className="absolute top-2 right-2">
+                      <div className="absolute top-1 right-1">
                         <Badge 
-                          className="bg-green-500 text-white"
+                          className="bg-green-500 text-white text-xs"
                           style={{ backgroundColor: activeTheme.colors.accent }}
                         >
                           <Check className="w-3 h-3 mr-1" />
@@ -376,14 +376,14 @@ export default function ThemeTab() {
                         </Badge>
                       </div>
                     )}
-                    <div className="flex items-center gap-3 mb-3">
+                    <div className="flex items-center gap-2 mb-2">
                       {theme.mode === 'dark' ? (
-                        <Moon className="w-5 h-5" style={{ color: theme.colors.accent }} />
+                        <Moon className="w-4 h-4" style={{ color: theme.colors.accent }} />
                       ) : (
-                        <Sun className="w-5 h-5" style={{ color: theme.colors.accent }} />
+                        <Sun className="w-4 h-4" style={{ color: theme.colors.accent }} />
                       )}
                       <div>
-                        <h3 className="font-semibold" style={{ color: theme.colors.textPrimary }}>
+                        <h3 className="font-semibold text-sm" style={{ color: theme.colors.textPrimary }}>
                           {theme.name}
                         </h3>
                         <p className="text-xs" style={{ color: theme.colors.textSecondary }}>
@@ -391,17 +391,17 @@ export default function ThemeTab() {
                         </p>
                       </div>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-1">
                       <div 
-                        className="w-8 h-8 rounded-lg"
+                        className="w-6 h-6 rounded"
                         style={{ backgroundColor: theme.colors.bgPrimary }}
                       />
                       <div 
-                        className="w-8 h-8 rounded-lg"
+                        className="w-6 h-6 rounded"
                         style={{ backgroundColor: theme.colors.bgSecondary }}
                       />
                       <div 
-                        className="w-8 h-8 rounded-lg"
+                        className="w-6 h-6 rounded"
                         style={{ backgroundColor: theme.colors.accent }}
                       />
                     </div>
@@ -468,17 +468,17 @@ export default function ThemeTab() {
                   </div>
                 </div>
                 <div className="grid grid-cols-3 gap-2">
-                  <div className="p-4 rounded-lg" style={{ backgroundColor: colors.theme_primary_color }}>
-                    <p className="text-white text-sm font-medium">Primária</p>
-                    <p className="text-white text-xs opacity-80">{colors.theme_primary_color}</p>
+                  <div className="p-3 rounded text-center" style={{ backgroundColor: colors.theme_primary_color }}>
+                    <p className="text-white text-xs font-medium">Primária</p>
+                    <p className="text-white text-xs opacity-80 truncate">{colors.theme_primary_color}</p>
                   </div>
-                  <div className="p-4 rounded-lg" style={{ backgroundColor: colors.theme_secondary_color }}>
-                    <p className="text-white text-sm font-medium">Secundária</p>
-                    <p className="text-white text-xs opacity-80">{colors.theme_secondary_color}</p>
+                  <div className="p-3 rounded text-center" style={{ backgroundColor: colors.theme_secondary_color }}>
+                    <p className="text-white text-xs font-medium">Secundária</p>
+                    <p className="text-white text-xs opacity-80 truncate">{colors.theme_secondary_color}</p>
                   </div>
-                  <div className="p-4 rounded-lg" style={{ backgroundColor: colors.theme_accent_color }}>
-                    <p className="text-white text-sm font-medium">Destaque</p>
-                    <p className="text-white text-xs opacity-80">{colors.theme_accent_color}</p>
+                  <div className="p-3 rounded text-center" style={{ backgroundColor: colors.theme_accent_color }}>
+                    <p className="text-white text-xs font-medium">Destaque</p>
+                    <p className="text-white text-xs opacity-80 truncate">{colors.theme_accent_color}</p>
                   </div>
                 </div>
               </div>
@@ -715,7 +715,7 @@ export default function ThemeTab() {
                       <button
                         key={preset.name}
                         onClick={() => applyGradientPreset(preset)}
-                        className="group relative overflow-hidden rounded-xl border-2 transition-all"
+                        className="group relative overflow-hidden rounded-lg border transition-all"
                         style={{
                           borderColor: colors.theme_gradient_start === preset.start && colors.theme_gradient_end === preset.end
                             ? activeTheme.colors.accent
@@ -723,7 +723,7 @@ export default function ThemeTab() {
                         }}
                       >
                         <div 
-                          className="h-20 flex items-center justify-center text-white font-medium"
+                          className="h-16 flex items-center justify-center text-white text-sm font-medium"
                           style={{
                             background: `linear-gradient(${preset.direction === 'to-r' ? 'to right' : preset.direction === 'to-br' ? 'to bottom right' : 'to right'}, ${preset.start}, ${preset.end})`
                           }}
