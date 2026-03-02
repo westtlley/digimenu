@@ -1558,20 +1558,18 @@ export default function Cardapio() {
               })}
               {activeBeverages.length > 0 && (
                 <>
-                  {/* Only show "Bebidas" main category if there are no subcategories or as a fallback */}
-                  {(!beverageCategoriesResolved || beverageCategoriesResolved.length === 0) && (
-                    <button
-                      onClick={() => setSelectedCategory('beverages')}
-                      className={`relative px-6 md:px-8 py-2.5 md:py-3 rounded-full text-sm md:text-base font-semibold whitespace-nowrap transition-all duration-200 lg:px-4 lg:py-2 lg:rounded-lg lg:scale-100 lg:shadow-none ${
-                        selectedCategory === 'beverages'
-                          ? 'text-white shadow-lg scale-105 lg:border-b-2 lg:border-white/80 lg:rounded-b-none'
-                          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                      }`}
-                      style={selectedCategory === 'beverages' ? { backgroundColor: primaryColor, color: 'white' } : {}}
-                    >
-                      Bebidas
-                    </button>
-                  )}
+                  {/* Always show "Bebidas" main category */}
+                  <button
+                    onClick={() => setSelectedCategory('beverages')}
+                    className={`relative px-6 md:px-8 py-2.5 md:py-3 rounded-full text-sm md:text-base font-semibold whitespace-nowrap transition-all duration-200 lg:px-4 lg:py-2 lg:rounded-lg lg:scale-100 lg:shadow-none ${
+                      selectedCategory === 'beverages'
+                        ? 'text-white shadow-lg scale-105 lg:border-b-2 lg:border-white/80 lg:rounded-b-none'
+                        : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                    }`}
+                    style={selectedCategory === 'beverages' ? { backgroundColor: primaryColor, color: 'white' } : {}}
+                  >
+                    Bebidas
+                  </button>
                   {beverageCategoriesResolved?.map((bc) => {
                     const bcKey = `bc_${bc.id}`;
                     return (

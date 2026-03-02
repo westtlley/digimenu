@@ -305,12 +305,6 @@ export default function ThemeTab() {
             </div>
           </div>
         </div>
-        <div 
-          className="absolute inset-0 opacity-5"
-          style={{
-            backgroundImage: `radial-gradient(circle at 20% 50%, ${activeTheme.colors.accent} 0%, transparent 50%)`
-          }}
-        />
       </div>
 
       <Tabs defaultValue="presets" className="w-full">
