@@ -25,8 +25,12 @@ export default function MagazineLayout({
 
   if (dishes.length === 0) {
     return (
-      <div className="text-center py-16">
-        <p className="text-muted-foreground">Nenhum prato encontrado</p>
+      <div className="h-full w-full flex items-center justify-center rounded-xl border border-dashed border-gray-300 dark:border-gray-700">
+        <div className="text-center px-6 py-10">
+          <div className="text-4xl mb-2">🍽️</div>
+          <p className="font-semibold text-gray-900 dark:text-white">Sem itens nessa categoria</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Escolha outra categoria acima.</p>
+        </div>
       </div>
     );
   }

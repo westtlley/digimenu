@@ -1,8 +1,8 @@
-import React, { useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import DishCardWow from '../DishCardWow';
 import DishSkeleton from '../DishSkeleton';
+import BeverageCard from '../BeverageCard';
 
 export default function CarouselLayout({ 
   dishes, 
@@ -12,9 +12,12 @@ export default function CarouselLayout({
   textSecondaryColor,
   loading = false,
   stockUtils,
-  formatCurrency 
+  formatCurrency,
+  slug = null
 }) {
   const scrollRef = useRef(null);
+  const [scrollLeft, setScrollLeft] = useState(0);
+  const resetDragTimeoutRef = useRef(null);
   const dragStateRef = useRef({
     isDown: false,
     startX: 0,
@@ -23,9 +26,30 @@ export default function CarouselLayout({
     didDrag: false,
   });
 
+  const safeDishes = useMemo(() => (Array.isArray(dishes) ? dishes : []), [dishes]);
+
+  useEffect(() => {
+    if (!scrollRef.current) return;
+    const el = scrollRef.current;
+    let raf = 0;
+    const onScroll = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => setScrollLeft(el.scrollLeft));
+    };
+    el.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+    return () => {
+      cancelAnimationFrame(raf);
+      el.removeEventListener('scroll', onScroll);
+    };
+  }, []);
+
   const scroll = (direction) => {
     if (scrollRef.current) {
-      const scrollAmount = window.innerWidth < 768 ? 280 : 320;
+      const vw = typeof window !== 'undefined' ? window.innerWidth : 1024;
+      const el = scrollRef.current;
+      const base = Math.max(240, Math.floor((el?.clientWidth || 0) * 0.9));
+      const scrollAmount = vw < 768 ? 280 : base;
       scrollRef.current.scrollBy({
         left: direction === 'left' ? -scrollAmount : scrollAmount,
         behavior: 'smooth'
@@ -43,22 +67,61 @@ export default function CarouselLayout({
     );
   }
 
+  if (!safeDishes || safeDishes.length === 0) {
+    return (
+      <div className="h-full w-full flex items-center justify-center rounded-xl border border-dashed border-gray-300 dark:border-gray-700">
+        <div className="text-center px-6 py-10">
+          <div className="text-4xl mb-2">🍽️</div>
+          <p className="font-semibold text-gray-900 dark:text-white">Sem itens nessa categoria</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Escolha outra categoria acima.</p>
+        </div>
+      </div>
+    );
+  }
+
+  const showNav = safeDishes.length > 1;
+  const maxScroll = Math.max(0, (scrollRef.current?.scrollWidth || 0) - (scrollRef.current?.clientWidth || 0));
+  const progressPct = maxScroll > 0 ? Math.min(100, Math.max(0, (scrollLeft / maxScroll) * 100)) : 0;
+
   return (
-    <div className="relative overflow-visible">
+    <div className="relative overflow-visible h-full flex flex-col">
       {/* Botão Anterior */}
+      {showNav && (
       <button
         onClick={() => scroll('left')}
         className="absolute left-2 top-1/2 -translate-y-1/2 z-10 p-2 md:p-3 rounded-full bg-white dark:bg-gray-800 shadow-lg border border-gray-200 dark:border-gray-700 hover:shadow-xl transition-all"
         style={{ color: primaryColor }}
+        aria-label="Anterior"
       >
         <ChevronLeft className="w-5 h-5 md:w-6 md:h-6" />
       </button>
+      )}
 
       {/* Carrossel - Mobile com mais altura */}
       <div 
         ref={scrollRef}
-        className="flex gap-3 md:gap-4 overflow-x-auto scrollbar-hide scroll-smooth pb-4 px-10 md:px-12 cursor-grab active:cursor-grabbing"
+        className="flex-1 flex items-stretch gap-3 md:gap-4 overflow-x-auto scrollbar-hide scroll-smooth pb-2 md:pb-1 px-10 md:px-12 cursor-grab active:cursor-grabbing"
         style={{ scrollSnapType: 'x mandatory', touchAction: 'pan-y' }}
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'ArrowLeft') {
+            e.preventDefault();
+            scroll('left');
+          }
+          if (e.key === 'ArrowRight') {
+            e.preventDefault();
+            scroll('right');
+          }
+        }}
+        onWheel={(e) => {
+          const el = scrollRef.current;
+          if (!el) return;
+          const absY = Math.abs(e.deltaY);
+          const absX = Math.abs(e.deltaX);
+          if (absY > absX) {
+            el.scrollLeft += e.deltaY;
+          }
+        }}
         onPointerDown={(e) => {
           if (!scrollRef.current) return;
           dragStateRef.current.isDown = true;
@@ -76,32 +139,111 @@ export default function CarouselLayout({
           const st = dragStateRef.current;
           if (!st.isDown || !scrollRef.current) return;
           const dx = e.clientX - st.startX;
-          if (Math.abs(dx) > 3) st.didDrag = true;
+          if (Math.abs(dx) > 8) st.didDrag = true;
           scrollRef.current.scrollLeft = st.startScrollLeft - dx;
         }}
         onPointerUp={() => {
           dragStateRef.current.isDown = false;
           dragStateRef.current.pointerId = null;
+          if (resetDragTimeoutRef.current) {
+            clearTimeout(resetDragTimeoutRef.current);
+          }
+          resetDragTimeoutRef.current = setTimeout(() => {
+            dragStateRef.current.didDrag = false;
+            resetDragTimeoutRef.current = null;
+          }, 60);
         }}
         onPointerCancel={() => {
           dragStateRef.current.isDown = false;
           dragStateRef.current.pointerId = null;
-        }}
-        onClickCapture={(e) => {
-          if (dragStateRef.current.didDrag) {
-            e.preventDefault();
-            e.stopPropagation();
-            dragStateRef.current.didDrag = false;
+          if (resetDragTimeoutRef.current) {
+            clearTimeout(resetDragTimeoutRef.current);
+            resetDragTimeoutRef.current = null;
           }
+          dragStateRef.current.didDrag = false;
         }}
       >
-        {dishes.map((dish, index) => {
+        {safeDishes.map((dish, index) => {
           const isOutOfStock = stockUtils?.isOutOfStock?.(dish.stock);
           const isLowStock = stockUtils?.isLowStock?.(dish.stock);
+          if (dish?.product_type === 'beverage') {
+            return (
+              <div
+                key={dish.id}
+                className="flex-shrink-0 w-[280px] md:w-72 lg:w-72"
+                style={{ scrollSnapAlign: 'start' }}
+              >
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: index * 0.1 }}
+                  onClick={() => {
+                    if (dragStateRef.current.didDrag) return;
+                    if (!isOutOfStock) onDishClick(dish);
+                  }}
+                  className={`
+                    relative
+                    bg-white dark:bg-gray-900 rounded-xl overflow-hidden shadow-md border-2 transition-all cursor-pointer
+                    flex md:flex-row flex-col md:h-[clamp(200px,22vh,260px)]
+                    ${isOutOfStock 
+                      ? 'opacity-50 cursor-not-allowed border-gray-200 dark:border-gray-700' 
+                      : 'hover:shadow-xl border-gray-200 dark:border-gray-700 hover:scale-[1.02]'
+                    }
+                  `}
+                  style={!isOutOfStock ? { borderColor: 'transparent' } : {}}
+                >
+                  <div className="relative p-3 md:p-3 flex-1 flex flex-col min-w-0">
+                    <h3 className="font-bold text-base md:text-xs mb-2 line-clamp-2 min-h-[2.25rem] md:min-h-[1.75rem] text-foreground">
+                      {dish.name}
+                    </h3>
+                    {dish.description && (
+                      <p className="text-xs line-clamp-2 mb-3 md:mb-0 md:hidden text-muted-foreground">
+                        {dish.description}
+                      </p>
+                    )}
+                    <div className="mt-auto flex items-baseline gap-2">
+                      {dish.original_price && dish.original_price > dish.price && (
+                        <span className="text-sm text-gray-400 line-through">
+                          {formatCurrency?.(dish.original_price)}
+                        </span>
+                      )}
+                      <span className="text-xl md:text-lg font-bold" style={{ color: primaryColor }}>
+                        {formatCurrency?.(dish.price) || 'R$ 0,00'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="relative md:w-[45%] w-full h-44 md:h-full bg-gray-100 dark:bg-gray-800 overflow-hidden flex items-center justify-center">
+                    {dish.image ? (
+                      <img
+                        src={dish.image}
+                        alt={dish.name}
+                        className={`w-full h-full object-contain p-3 ${isOutOfStock ? 'grayscale' : ''}`}
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-5xl">🥤</div>
+                    )}
+                    {isOutOfStock && (
+                      <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                        <span className="text-white font-bold">Esgotado</span>
+                      </div>
+                    )}
+                    {dish.original_price && dish.original_price > dish.price && (
+                      <div className="absolute top-2 right-2">
+                        <span className="px-2 py-1 bg-red-500 text-white text-xs font-bold rounded-full">
+                          -{Math.round(((dish.original_price - dish.price) / dish.original_price) * 100)}%
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              </div>
+            );
+          }
           return (
             <div
               key={dish.id}
-              className="flex-shrink-0 w-[280px] md:w-72 lg:w-64"
+              className="flex-shrink-0 w-[280px] md:w-72 lg:w-72"
               style={{ scrollSnapAlign: 'start' }}
             >
               {/* Card customizado para mobile ter mais altura */}
@@ -109,9 +251,14 @@ export default function CarouselLayout({
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: index * 0.1 }}
-                onClick={() => !isOutOfStock && onDishClick(dish)}
+                onClick={() => {
+                  if (dragStateRef.current.didDrag) return;
+                  if (!isOutOfStock) onDishClick(dish);
+                }}
                 className={`
+                  relative
                   bg-white dark:bg-gray-900 rounded-xl overflow-hidden shadow-md border-2 transition-all cursor-pointer
+                  flex flex-col md:h-[clamp(200px,22vh,260px)]
                   ${isOutOfStock 
                     ? 'opacity-50 cursor-not-allowed border-gray-200 dark:border-gray-700' 
                     : 'hover:shadow-xl border-gray-200 dark:border-gray-700 hover:scale-[1.02]'
@@ -120,7 +267,7 @@ export default function CarouselLayout({
                 style={!isOutOfStock ? { borderColor: 'transparent' } : {}}
               >
                 {/* Imagem - Mobile maior */}
-                <div className="w-full h-56 md:h-48 lg:h-40 bg-gray-100 dark:bg-gray-800 overflow-hidden">
+                <div className="relative w-full h-44 md:h-[clamp(110px,12vh,145px)] bg-gray-100 dark:bg-gray-800 overflow-hidden">
                   {dish.image ? (
                     <img 
                       src={dish.image} 
@@ -156,22 +303,22 @@ export default function CarouselLayout({
                 </div>
 
                 {/* Conteúdo - Mobile com mais espaço */}
-                <div className="p-4 md:p-3 lg:p-3">
+                <div className="p-3 md:p-2 flex-1 flex flex-col min-h-0">
                   <h3 
-                    className="font-bold text-base md:text-sm mb-2 line-clamp-2 min-h-[2.5rem] md:min-h-[2rem]"
+                    className="font-bold text-base md:text-xs mb-2 line-clamp-2 min-h-[2.25rem] md:min-h-[1.75rem]"
                     style={{ color: textPrimaryColor || 'inherit' }}
                   >
                     {dish.name}
                   </h3>
                   {dish.description && (
                     <p 
-                      className="text-xs line-clamp-2 mb-3 md:mb-2"
+                      className="text-xs line-clamp-2 mb-3 md:mb-0 md:hidden"
                       style={{ color: textSecondaryColor || 'inherit' }}
                     >
                       {dish.description}
                     </p>
                   )}
-                  <div className="flex items-baseline gap-2">
+                  <div className="mt-auto flex items-baseline gap-2">
                     {dish.original_price && dish.original_price > dish.price && (
                       <span className="text-sm text-gray-400 line-through">
                         {formatCurrency?.(dish.original_price)}
@@ -192,13 +339,22 @@ export default function CarouselLayout({
       </div>
 
       {/* Botão Próximo */}
+      {showNav && (
       <button
         onClick={() => scroll('right')}
         className="absolute right-2 top-1/2 -translate-y-1/2 z-10 p-2 md:p-3 rounded-full bg-white dark:bg-gray-800 shadow-lg border border-gray-200 dark:border-gray-700 hover:shadow-xl transition-all"
         style={{ color: primaryColor }}
+        aria-label="Próximo"
       >
         <ChevronRight className="w-5 h-5 md:w-6 md:h-6" />
       </button>
+      )}
+
+      {showNav && (
+        <div className="absolute left-1/2 -translate-x-1/2 -bottom-1 w-[160px] h-1 rounded-full bg-black/10 dark:bg-white/10 overflow-hidden">
+          <div className="h-full rounded-full" style={{ width: `${progressPct}%`, backgroundColor: primaryColor }} />
+        </div>
+      )}
     </div>
   );
 }

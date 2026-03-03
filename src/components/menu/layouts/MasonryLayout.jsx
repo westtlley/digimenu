@@ -13,28 +13,18 @@ export default function MasonryLayout({
 }) {
   if (loading) {
     return (
-      <div className="columns-2 md:columns-3 lg:columns-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
         {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-          <div key={i} className="mb-4 h-64 bg-gray-200 dark:bg-gray-800 rounded-lg animate-pulse break-inside-avoid" />
+          <div key={i} className="h-64 bg-gray-200 dark:bg-gray-800 rounded-lg animate-pulse" />
         ))}
       </div>
     );
   }
 
-  // Função para calcular altura variada baseada no conteúdo
-  const getImageHeight = (dish, index) => {
-    // Varia entre 200px e 320px baseado no índice e conteúdo
-    const baseHeight = 200;
-    const variation = (index % 4) * 30; // 0, 30, 60, 90
-    const hasDescription = dish.description ? 40 : 0;
-    return baseHeight + variation + hasDescription;
-  };
-
   return (
-    <div className="columns-2 md:columns-3 lg:columns-4 gap-4 md:gap-6">
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
       {dishes.map((dish, index) => {
         const isOutOfStock = stockUtils?.isOutOfStock?.(dish.stock);
-        const imageHeight = getImageHeight(dish, index);
         
         return (
           <motion.div
@@ -44,7 +34,7 @@ export default function MasonryLayout({
             transition={{ delay: index * 0.05 }}
             onClick={() => !isOutOfStock && onDishClick(dish)}
             className={`
-              mb-4 md:mb-6 rounded-xl overflow-hidden border-2 transition-all cursor-pointer break-inside-avoid
+              rounded-xl overflow-hidden border-2 transition-all cursor-pointer
               bg-white dark:bg-gray-900 shadow-md hover:shadow-xl
               ${isOutOfStock 
                 ? 'opacity-50 cursor-not-allowed border-gray-200 dark:border-gray-700' 
@@ -53,11 +43,8 @@ export default function MasonryLayout({
             `}
             style={!isOutOfStock ? { borderColor: 'transparent' } : {}}
           >
-            {/* Imagem com altura variada - estilo Pinterest */}
-            <div 
-              className="w-full overflow-hidden bg-gray-100 dark:bg-gray-800 relative"
-              style={{ height: `${imageHeight}px` }}
-            >
+            {/* Imagem com altura fixa para harmonia visual */}
+            <div className="w-full overflow-hidden bg-gray-100 dark:bg-gray-800 relative h-44 md:h-36 lg:h-40">
               {dish.image ? (
                 <img 
                   src={dish.image} 

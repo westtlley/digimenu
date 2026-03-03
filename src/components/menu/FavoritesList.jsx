@@ -34,21 +34,28 @@ export default function FavoritesList({
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-      {favoriteDishes.map((dish) => (
+      {favoriteDishes.map((dish) => {
+        const isUnavailable = dish.is_active === false;
+        return (
         <motion.div
           key={dish.id}
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.9 }}
         >
-          <Card className="relative overflow-hidden hover:shadow-lg transition-shadow">
+          <Card className={`relative overflow-hidden hover:shadow-lg transition-shadow ${isUnavailable ? 'opacity-70' : ''}`}>
             {dish.image && (
               <div className="relative h-48 overflow-hidden">
                 <img 
                   src={dish.image} 
                   alt={dish.name}
-                  className="w-full h-full object-cover"
+                  className={`w-full h-full object-cover ${isUnavailable ? 'grayscale' : ''}`}
                 />
+                {isUnavailable && (
+                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                    <span className="bg-gray-800 text-white text-xs font-bold px-2 py-1 rounded">Indisponível</span>
+                  </div>
+                )}
                 <div className="absolute top-2 right-2">
                   <Button
                     size="icon"
@@ -88,18 +95,20 @@ export default function FavoritesList({
                 </span>
                 <Button
                   size="sm"
-                  onClick={() => onDishClick(dish)}
-                  style={{ backgroundColor: primaryColor }}
+                  onClick={() => !isUnavailable && onDishClick(dish)}
+                  style={{ backgroundColor: isUnavailable ? '#9ca3af' : primaryColor }}
                   className="text-white"
+                  disabled={isUnavailable}
                 >
                   <ShoppingCart className="w-4 h-4 mr-1" />
-                  Adicionar
+                  {isUnavailable ? 'Indisponível' : 'Adicionar'}
                 </Button>
               </div>
             </CardContent>
           </Card>
         </motion.div>
-      ))}
+      );
+      })}
     </div>
   );
 }

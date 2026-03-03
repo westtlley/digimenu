@@ -107,7 +107,7 @@ export default function DishCardWow({
       whileHover={isOutOfStock ? {} : "hover"}
       className={`
         group relative bg-card border border-border rounded-xl md:rounded-lg
-        overflow-hidden shadow-sm cursor-pointer
+        overflow-hidden shadow-sm cursor-pointer h-full flex flex-col
         lg:shadow-md lg:hover:shadow-lg lg:transition-shadow
         ${isOutOfStock ? 'opacity-60 cursor-not-allowed' : ''}
       `}
@@ -157,7 +157,7 @@ export default function DishCardWow({
       ))}
 
       {/* Imagem — ícone do cardápio quadrado em todas as telas */}
-      <div className="relative aspect-square lg:aspect-[16/10] bg-gray-100 dark:bg-gray-800 overflow-hidden min-h-[160px] md:min-h-[140px] lg:min-h-[180px]">
+      <div className="relative h-44 md:h-36 lg:h-40 bg-gray-100 dark:bg-gray-800 overflow-hidden shrink-0">
         {dish.image ? (
           <>
             {/* Placeholder com pulse */}
@@ -198,7 +198,7 @@ export default function DishCardWow({
       </div>
 
       {/* Info do Prato - lg: nome e preço mais legíveis no desktop */}
-      <div className="p-4 md:p-3 lg:p-4 space-y-2 md:space-y-2 lg:space-y-3 bg-card">
+      <div className="p-4 md:p-3 lg:p-4 space-y-2 md:space-y-2 lg:space-y-3 bg-card flex-1 flex flex-col">
         <h3 className="font-bold text-sm md:text-xs lg:text-base text-foreground line-clamp-2 min-h-[40px] md:min-h-[36px] lg:min-h-[2.75rem] group-hover:text-primary transition-colors">
           {dish.name}
         </h3>
@@ -209,7 +209,7 @@ export default function DishCardWow({
           </p>
         )}
         
-        <div className="flex items-end justify-between">
+        <div className="flex items-end justify-between mt-auto">
           {/* Preço com animação */}
           <motion.div
             whileHover={{ scale: 1.05 }}
@@ -237,16 +237,24 @@ export default function DishCardWow({
             )}
           </motion.div>
 
-          {/* Ícone de adicionar (aparece no hover) */}
-          {!isOutOfStock && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0 }}
-              whileHover={{ opacity: 1, scale: 1 }}
-              className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+          <div className="flex items-center gap-1">
+            <button
+              onClick={(e) => { e.stopPropagation(); toggleFavorite(dish); }}
+              className="p-1.5 rounded-full hover:bg-muted transition-colors"
+              aria-label={isFavorite(dish.id) ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
             >
-              <Sparkles className="w-4 h-4" />
-            </motion.div>
-          )}
+              <Heart className={`w-4 h-4 transition-colors ${isFavorite(dish.id) ? 'fill-red-500 text-red-500' : 'text-muted-foreground hover:text-red-400'}`} />
+            </button>
+            {!isOutOfStock && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0 }}
+                whileHover={{ opacity: 1, scale: 1 }}
+                className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <Sparkles className="w-4 h-4" />
+              </motion.div>
+            )}
+          </div>
         </div>
       </div>
     </motion.div>

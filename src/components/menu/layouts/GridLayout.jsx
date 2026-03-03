@@ -40,7 +40,7 @@ function FeaturedItem({ dish, onClick, index, isOutOfStock, isLowStock, primaryC
     >
       <div className="flex flex-col md:flex-row">
         {/* Image container - larger in featured layout */}
-        <div className="relative w-full md:w-1/3 lg:w-2/5 aspect-square md:aspect-[16/10] bg-gray-100 dark:bg-gray-800 overflow-hidden min-h-[200px] md:min-h-[180px] lg:min-h-[220px]">
+        <div className="relative w-full md:w-1/3 lg:w-2/5 h-48 md:h-auto md:min-h-[180px] lg:min-h-[200px] bg-gray-100 dark:bg-gray-800 overflow-hidden">
           {dish.image ? (
             <>
               <motion.div 
@@ -150,6 +150,8 @@ export default function GridLayout({
   gridColsDesktop = null
 }) {
   const itemsCount = Array.isArray(dishes) ? dishes.length : 0;
+  const isSingleBeverageOnly =
+    itemsCount === 1 && Array.isArray(dishes) && dishes[0]?.product_type === 'beverage';
 
   const gridDesktopColsClass =
     itemsCount === 1
@@ -166,13 +168,15 @@ export default function GridLayout({
                 ? 'lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-4'
                 : Number(gridColsDesktop) === 5
                   ? 'lg:grid-cols-5 xl:grid-cols-5 2xl:grid-cols-5'
-                  : 'lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6';
+                  : 'lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5';
 
-  const gridClassName = `grid grid-cols-2 md:grid-cols-3 ${gridDesktopColsClass} gap-4 md:gap-3 lg:gap-3 xl:gap-3`;
+  const gridClassName = `grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 ${gridDesktopColsClass} gap-4 md:gap-4 lg:gap-4 xl:gap-4`;
 
   const gridWrapperClassName =
-    itemsCount > 0 && itemsCount <= 3
-      ? 'lg:max-w-5xl lg:mx-auto'
+    itemsCount === 1
+      ? 'sm:max-w-md sm:mx-auto lg:max-w-3xl lg:mx-auto'
+      : itemsCount > 0 && itemsCount <= 3
+        ? 'lg:max-w-6xl lg:mx-auto'
       : undefined;
 
   if (loading) {
@@ -187,49 +191,7 @@ export default function GridLayout({
     );
   }
 
-  // Use featured layout for 1-2 items on desktop
-  if (itemsCount <= 2 && !loading) {
-    return (
-      <div className="space-y-4 lg:space-y-6 max-w-4xl lg:max-w-5xl mx-auto">
-        {dishes.map((dish, index) => {
-          const isOutOfStock = stockUtils?.isOutOfStock?.(dish.stock);
-          const isLowStock = stockUtils?.isLowStock?.(dish.stock);
-          
-          // Se for bebida, usar BeverageCard (mas em layout featured)
-          if (dish.product_type === 'beverage') {
-            return (
-              <BeverageCard
-                key={dish.id}
-                beverage={dish}
-                onClick={onDishClick}
-                index={index}
-                isOutOfStock={isOutOfStock}
-                primaryColor="#06b6d4"
-                textPrimaryColor="#06b6d4"
-              />
-            );
-          }
-          
-          // Usar layout featured para pratos
-          return (
-            <FeaturedItem
-              key={dish.id}
-              dish={dish}
-              onClick={onDishClick}
-              index={index}
-              isOutOfStock={isOutOfStock}
-              isLowStock={isLowStock}
-              primaryColor={primaryColor}
-              textPrimaryColor={textPrimaryColor}
-              slug={slug}
-            />
-          );
-        })}
-      </div>
-    );
-  }
-
-  // Regular grid layout for 3+ items
+  // Regular grid layout
   return (
     <div className={gridWrapperClassName}>
       <div className={gridClassName}>
@@ -248,6 +210,8 @@ export default function GridLayout({
               isOutOfStock={isOutOfStock}
               primaryColor="#06b6d4"
               textPrimaryColor="#06b6d4"
+              slug={slug}
+              compact={isSingleBeverageOnly}
             />
           );
         }

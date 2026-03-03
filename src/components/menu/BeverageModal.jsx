@@ -77,8 +77,17 @@ export default function BeverageModal({
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.98 }}
               transition={{ duration: 0.25 }}
-              className="flex w-full h-full min-h-0 flex-col sm:flex-row overflow-hidden"
+              className="relative flex w-full h-full min-h-0 flex-col sm:flex-row overflow-hidden"
             >
+              {/* X no canto superior direito do modal inteiro */}
+              <button
+                onClick={onClose}
+                className="absolute top-3 right-3 p-2 bg-background/80 hover:bg-background border border-border rounded-full backdrop-blur-sm z-50 transition-colors shadow-md"
+                aria-label="Fechar"
+              >
+                <X className="w-4 h-4 text-foreground" strokeWidth={2.5} />
+              </button>
+
               {/* Coluna esquerda: imagem — mobile limite menor ~28vh (proporção 9:16) */}
               <div className="relative w-full aspect-[9/16] sm:aspect-auto sm:w-[45%] sm:min-w-[280px] sm:min-h-[400px] flex-shrink-0 max-h-[28vh] sm:max-h-none bg-gray-900">
                 {beverage.image ? (
@@ -98,14 +107,6 @@ export default function BeverageModal({
                     {beverage.name}
                   </h2>
                 </div>
-                {/* X apenas no canto superior direito */}
-                <button
-                  onClick={onClose}
-                  className="absolute top-2 right-2 sm:top-4 sm:right-4 p-2.5 sm:p-2 bg-black/60 hover:bg-black/80 rounded-full backdrop-blur-sm z-50 transition-colors"
-                  aria-label="Fechar"
-                >
-                  <X className="w-5 h-5 text-white" strokeWidth={2.5} />
-                </button>
               </div>
 
               {/* Coluna direita: informações e ações — padding para campo completo na tela */}

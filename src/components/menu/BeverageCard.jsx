@@ -1,7 +1,8 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Badge } from "@/components/ui/badge";
-import { Droplets, Wine, ThermometerSnowflake, Thermometer, Package } from 'lucide-react';
+import { Droplets, Wine, ThermometerSnowflake, Thermometer, Package, Heart } from 'lucide-react';
+import { useFavorites } from '@/hooks/useFavorites';
 
 /**
  * Card customizado para bebidas
@@ -12,9 +13,12 @@ export default function BeverageCard({
   onClick, 
   index = 0,
   isOutOfStock = false,
-  primaryColor = '#06b6d4', // Cyan para bebidas
-  textPrimaryColor
+  primaryColor = '#06b6d4',
+  textPrimaryColor,
+  slug = null,
+  compact = false
 }) {
+  const { toggleFavorite, isFavorite } = useFavorites(slug);
   const formatCurrency = (value) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
   };
@@ -96,9 +100,10 @@ export default function BeverageCard({
       whileHover={isOutOfStock ? {} : "hover"}
       className={`
         group relative bg-card border border-border rounded-xl md:rounded-lg
-        overflow-hidden shadow-sm cursor-pointer
+        overflow-hidden shadow-sm cursor-pointer h-full flex flex-col
         lg:shadow-md lg:hover:shadow-lg lg:transition-shadow
         ${isOutOfStock ? 'opacity-60 cursor-not-allowed' : ''}
+        ${compact ? 'w-full max-w-[260px] mx-auto' : ''}
       `}
       onClick={() => !isOutOfStock && onClick(beverage)}
     >
@@ -144,8 +149,8 @@ export default function BeverageCard({
         </motion.div>
       ))}
 
-      {/* Imagem — ícone do cardápio quadrado em todas as telas */}
-      <div className="relative aspect-square bg-cyan-50 dark:bg-cyan-900/20 overflow-hidden min-h-[120px] md:min-h-0">
+      {/* Imagem — quadrada (estilo do exemplo) */}
+      <div className="relative aspect-square bg-cyan-50 dark:bg-cyan-900/20 overflow-hidden shrink-0">
         {beverage.image ? (
           <>
             <motion.div 
@@ -157,7 +162,7 @@ export default function BeverageCard({
               src={beverage.image} 
               alt={beverage.name} 
               className={`
-                w-full h-full object-cover object-center
+                w-full h-full object-contain object-center p-2
                 ${isOutOfStock ? 'grayscale' : ''}
               `}
               loading="lazy"
@@ -184,7 +189,7 @@ export default function BeverageCard({
       </div>
 
       {/* Info da Bebida - lg: nome e preço mais legíveis no desktop */}
-      <div className="p-3 md:p-2.5 lg:p-2.5 space-y-2 md:space-y-1.5 bg-card">
+      <div className="p-3 md:p-2.5 lg:p-2.5 space-y-2 md:space-y-1.5 bg-card flex-1 flex flex-col">
         <h3 className="font-bold text-sm md:text-xs lg:text-sm text-foreground line-clamp-2 min-h-[36px] md:min-h-[32px] lg:min-h-[2.5rem] group-hover:text-cyan-600 transition-colors">
           {beverage.name}
         </h3>
@@ -218,7 +223,7 @@ export default function BeverageCard({
           )}
         </div>
         
-        <div className="flex items-end justify-between pt-1">
+        <div className="flex items-end justify-between pt-1 mt-auto">
           {/* Preço */}
           <motion.div
             whileHover={{ scale: 1.05 }}
@@ -244,16 +249,24 @@ export default function BeverageCard({
             )}
           </motion.div>
 
-          {/* Ícone de adicionar */}
-          {!isOutOfStock && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0 }}
-              whileHover={{ opacity: 1, scale: 1 }}
-              className="w-8 h-8 rounded-full bg-cyan-500 flex items-center justify-center text-white shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+          <div className="flex items-center gap-1">
+            <button
+              onClick={(e) => { e.stopPropagation(); toggleFavorite(beverage); }}
+              className="p-1.5 rounded-full hover:bg-muted transition-colors"
+              aria-label={isFavorite(beverage.id) ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
             >
-              <Wine className="w-4 h-4" />
-            </motion.div>
-          )}
+              <Heart className={`w-4 h-4 transition-colors ${isFavorite(beverage.id) ? 'fill-red-500 text-red-500' : 'text-muted-foreground hover:text-red-400'}`} />
+            </button>
+            {!isOutOfStock && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0 }}
+                whileHover={{ opacity: 1, scale: 1 }}
+                className="w-8 h-8 rounded-full bg-cyan-500 flex items-center justify-center text-white shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <Wine className="w-4 h-4" />
+              </motion.div>
+            )}
+          </div>
         </div>
       </div>
     </motion.div>

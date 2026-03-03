@@ -4,7 +4,7 @@ import { apiClient as base44 } from '@/api/apiClient';
 import { createPageUrl } from '@/utils';
 import { SYSTEM_LOGO_URL, SYSTEM_NAME } from '@/config/branding';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ShoppingCart, Search, Clock, Star, Share2, MapPin, Info, Home, Receipt, Gift, User, MessageSquare, UtensilsCrossed, Instagram, Facebook, Phone, Package, Music2, Calendar, Heart, LayoutGrid } from 'lucide-react';
+import { ShoppingCart, Search, Clock, Star, Share2, MapPin, Info, Home, Receipt, Gift, User, MessageSquare, UtensilsCrossed, Instagram, Facebook, Phone, Package, Music2, Calendar, Heart, LayoutGrid, Droplets, Sparkles, Flame, X } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -122,6 +122,7 @@ export default function Cardapio() {
   const [selectedCombo, setSelectedCombo] = useState(null);
   const [editingCartItem, setEditingCartItem] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [showCartModal, setShowCartModal] = useState(false);
   const [currentView, setCurrentView] = useState('menu');
@@ -205,6 +206,7 @@ export default function Cardapio() {
 
   const [desktopHighlightIndex, setDesktopHighlightIndex] = useState(0);
   const [desktopBannerIndex, setDesktopBannerIndex] = useState(0);
+  const [comboBannerIndex, setComboBannerIndex] = useState(0);
 
   // Cardápio público por link (sem login) — /s/:slug
   const { data: publicData, isLoading: publicLoading, isError: publicError, error: publicErrorDetails } = useQuery({
@@ -447,6 +449,7 @@ export default function Cardapio() {
   const textSecondaryColor = adaptedTheme.textSecondary;
   const headerBg = store?.theme_header_bg || '#ffffff';
   const headerText = store?.theme_header_text || '#000000';
+  const autoplayIntervalMs = Number(store?.menu_autoplay_interval_ms) > 0 ? Number(store?.menu_autoplay_interval_ms) : 4500;
   const menuLayoutMobile = store?.menu_layout_mobile || store?.menu_layout || 'grid';
   const menuLayoutDesktop = store?.menu_layout_desktop || store?.menu_layout || 'grid';
   const menuLayout = isDesktopViewport ? menuLayoutDesktop : menuLayoutMobile; // grid, list, carousel, magazine, masonry
@@ -540,6 +543,34 @@ export default function Cardapio() {
     }));
   }, [activeCombos]);
 
+  const visibleCombosCount = isDesktopViewport ? 2 : 1;
+
+  const visibleCombosSlides = useMemo(() => {
+    const maxSlides = comboDishesForDisplay.length;
+    if (maxSlides === 0) return [];
+    if (maxSlides <= visibleCombosCount) return comboDishesForDisplay;
+    const out = [];
+    for (let i = 0; i < visibleCombosCount; i++) {
+      out.push(comboDishesForDisplay[(comboBannerIndex + i) % maxSlides]);
+    }
+    return out;
+  }, [comboBannerIndex, comboDishesForDisplay, visibleCombosCount]);
+
+  useEffect(() => {
+    const maxSlides = comboDishesForDisplay.length;
+    if (maxSlides <= visibleCombosCount) return;
+    const t = setInterval(() => {
+      setComboBannerIndex((prev) => (prev + 1) % maxSlides);
+    }, autoplayIntervalMs);
+    return () => clearInterval(t);
+  }, [autoplayIntervalMs, comboDishesForDisplay.length, visibleCombosCount]);
+
+  useEffect(() => {
+    const maxSlides = comboDishesForDisplay.length;
+    if (maxSlides === 0) return;
+    setComboBannerIndex((prev) => Math.min(prev, Math.max(0, maxSlides - 1)));
+  }, [comboDishesForDisplay.length]);
+
   const filteredDishes = useMemo(() => {
     const safeActiveDishes = Array.isArray(activeDishes) ? activeDishes : [];
     const isPizzaCategory = selectedCategory?.startsWith?.('pc_');
@@ -567,7 +598,7 @@ export default function Cardapio() {
   }, [activeBeverages, searchTerm, selectedCategory]);
 
   const filteredItemsForDisplay = useMemo(() => {
-    if (selectedCategory === 'beverages') {
+    if (selectedCategory === 'beverages' || selectedCategory?.startsWith?.('bc_')) {
       return filteredBeverages;
     }
     if (selectedCategory === 'all') {
@@ -577,10 +608,9 @@ export default function Cardapio() {
   }, [selectedCategory, filteredDishes, filteredBeverages, comboDishesForDisplay]);
 
   const layoutForSelectedCategoryDesktop = useMemo(() => {
-    const itemsCount = (Array.isArray(filteredItemsForDisplay) ? filteredItemsForDisplay : []).length;
-    if (desktopCarouselMode && menuLayout === 'carousel' && itemsCount > 0 && itemsCount <= 3) return 'grid';
+    if (desktopCarouselMode) return 'carousel';
     return menuLayout;
-  }, [desktopCarouselMode, menuLayout, filteredItemsForDisplay]);
+  }, [desktopCarouselMode, menuLayout]);
 
   // (Return de erro movido para depois de TODOS os hooks — ver bloco "Erro ao carregar" mais abaixo)
 
@@ -1139,7 +1169,10 @@ export default function Cardapio() {
   }
 
   return (
-    <div className={`min-h-screen min-h-screen-mobile bg-background${desktopCarouselMode ? ' lg:flex lg:flex-col lg:h-screen lg:overflow-hidden' : ''}`}>
+    <div className={desktopCarouselMode
+      ? "h-screen overflow-hidden bg-background flex flex-col"
+      : "min-h-screen min-h-screen-mobile bg-background"
+    }>
       <Toaster position="top-center" />
 
       {/* Splash - logo do restaurante e cor principal */}
@@ -1326,6 +1359,9 @@ export default function Cardapio() {
                   <InstallAppButton pageName="Cardápio" compact />
                   <button className="p-2 rounded-lg min-h-touch min-w-touch text-muted-foreground" onClick={() => { if (navigator.share) { navigator.share({ title: store?.name || 'Cardápio', text: `Confira o cardápio de ${store?.name || 'nosso restaurante'}`, url: window.location.href }).catch(() => {}); } else { navigator.clipboard.writeText(window.location.href); toast.success('Link copiado!'); } }}><Share2 className="w-5 h-5" /></button>
                   <ThemeToggle />
+                  <button onClick={() => setSearchOpen(v => !v)} className="p-2 rounded-lg min-h-touch min-w-touch text-muted-foreground hover:text-foreground" title="Pesquisar">
+                    {searchOpen ? <X className="w-5 h-5" /> : <Search className="w-5 h-5" />}
+                  </button>
                   <button 
                     className={`relative p-0.5 rounded-lg transition-all ${isAuthenticated ? 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20' : 'text-muted-foreground hover:text-foreground hover:bg-muted'} text-white`} 
                     onClick={() => isAuthenticated ? setShowCustomerProfile(true) : (window.location.href = slug ? `/s/${slug}/login/cliente?returnUrl=${encodeURIComponent(window.location.pathname)}` : `/?returnUrl=${encodeURIComponent(window.location.pathname)}`)} 
@@ -1347,10 +1383,10 @@ export default function Cardapio() {
                   <button className={`p-2 rounded-lg relative transition-colors text-muted-foreground hover:text-foreground hover:bg-muted lg:rounded-md ${cart.length > 0 ? 'lg:ring-2 lg:ring-primary/30 lg:bg-primary/5' : ''}`} onClick={() => setShowCartModal(true)}><ShoppingCart className="w-5 h-5" />{cart.length > 0 && <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">{cartItemsCount}</span>}</button>
                 </div>
               </div>
-              {/* Search - rente no desktop; lg: largura máxima e centralizada */}
-              <div className="relative flex-1 md:max-w-xl md:mx-4 lg:max-w-[700px] lg:mx-auto lg:flex-1">
+              {/* Search - rente no desktop; collapsible no mobile */}
+              <div className={`relative flex-1 md:max-w-xl md:mx-4 lg:max-w-[700px] lg:mx-auto lg:flex-1 ${searchOpen ? 'block' : 'hidden'} md:block`}>
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                <Input placeholder="O que você procura hoje?" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 h-12 md:h-10 lg:h-9 text-base" />
+                <Input placeholder="O que você procura hoje?" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 h-10 text-base" autoFocus={searchOpen} />
               </div>
               {/* Ícones - ocultos no mobile (já estão na linha de cima); lg: destaque leve no carrinho */}
               <div className="hidden md:flex items-center gap-2 flex-shrink-0 lg:gap-1">
@@ -1386,23 +1422,59 @@ export default function Cardapio() {
 
       {desktopCarouselMode && (
         <div className="border-b border-border bg-card">
-          <div className="max-w-7xl mx-auto px-4 lg:px-6 py-2">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="rounded-2xl border border-border bg-muted/20 p-3">
-                {desktopHighlights.length > 0 ? (
-                  (() => {
-                    const slide = desktopHighlights[Math.min(desktopHighlightIndex, desktopHighlights.length - 1)];
-                    if (!slide) return null;
-                    if (slide.type === 'promotion') {
-                      const promo = slide.data;
-                      const dish = dishesResolved.find(d => d.id === promo.offer_dish_id);
-                      if (!dish) return null;
-                      const discount = promo.original_price > promo.offer_price
-                        ? Math.round(((promo.original_price - promo.offer_price) / promo.original_price) * 100)
-                        : 0;
+          <div className={`max-w-7xl mx-auto px-4 lg:px-6 py-2`}>
+            {selectedCategory === 'all' ? (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="rounded-2xl border border-border bg-muted/20 p-3">
+                  {desktopHighlights.length > 0 ? (
+                    (() => {
+                      const slide = desktopHighlights[Math.min(desktopHighlightIndex, desktopHighlights.length - 1)];
+                      if (!slide) return null;
+                      if (slide.type === 'promotion') {
+                        const promo = slide.data;
+                        const dish = dishesResolved.find(d => d.id === promo.offer_dish_id);
+                        if (!dish) return null;
+                        const discount = promo.original_price > promo.offer_price
+                          ? Math.round(((promo.original_price - promo.offer_price) / promo.original_price) * 100)
+                          : 0;
+                        return (
+                          <motion.div
+                            key={promo.id}
+                            initial={{ opacity: 0, y: 6 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.22 }}
+                            className="relative rounded-2xl overflow-hidden shadow cursor-pointer border-2"
+                            style={{
+                              borderColor: primaryColor + '40',
+                              background: `linear-gradient(135deg, ${primaryColor}dd, ${primaryColor}bb)`
+                            }}
+                            onClick={() => setSelectedDish(dish)}
+                          >
+                            <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-12 -mt-12" />
+                            <div className="relative p-3 flex items-center gap-3">
+                              <div className="w-12 h-12 flex-shrink-0 rounded-xl overflow-hidden bg-white/20 shadow">
+                                {dish.image ? (
+                                  <img src={dish.image} alt={dish.name} className="w-full h-full object-cover" />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center text-lg">🍽️</div>
+                                )}
+                              </div>
+                              <div className="flex-1 text-white min-w-0">
+                                <Badge className="bg-yellow-400 text-black mb-1 font-bold h-5 px-2 text-[10px]">-{discount}%</Badge>
+                                <p className="font-bold text-xs truncate">{promo.name}</p>
+                                <p className="text-sm font-bold">{formatCurrency(promo.offer_price)}</p>
+                              </div>
+                            </div>
+                          </motion.div>
+                        );
+                      }
+
+                      const combo = slide.data;
+                      const comboDish = comboDishesForDisplay.find((c) => String(c?.id) === `combo_${combo.id}`) || comboDishesForDisplay.find((c) => String(c?.id) === String(combo?.id));
+                      if (!comboDish) return null;
                       return (
                         <motion.div
-                          key={promo.id}
+                          key={combo.id}
                           initial={{ opacity: 0, y: 6 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ duration: 0.22 }}
@@ -1411,104 +1483,174 @@ export default function Cardapio() {
                             borderColor: primaryColor + '40',
                             background: `linear-gradient(135deg, ${primaryColor}dd, ${primaryColor}bb)`
                           }}
-                          onClick={() => setSelectedDish(dish)}
+                          onClick={() => handleDishClick(comboDish)}
                         >
                           <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-12 -mt-12" />
                           <div className="relative p-3 flex items-center gap-3">
                             <div className="w-12 h-12 flex-shrink-0 rounded-xl overflow-hidden bg-white/20 shadow">
-                              {dish.image ? (
-                                <img src={dish.image} alt={dish.name} className="w-full h-full object-cover" />
+                              {comboDish.image ? (
+                                <img src={comboDish.image} alt={comboDish.name} className="w-full h-full object-cover" />
                               ) : (
                                 <div className="w-full h-full flex items-center justify-center text-lg">🍽️</div>
                               )}
                             </div>
                             <div className="flex-1 text-white min-w-0">
-                              <Badge className="bg-yellow-400 text-black mb-1 font-bold h-5 px-2 text-[10px]">-{discount}%</Badge>
-                              <p className="font-bold text-xs truncate">{promo.name}</p>
-                              <p className="text-sm font-bold">{formatCurrency(promo.offer_price)}</p>
+                              <Badge className="bg-yellow-400 text-black mb-1 font-bold h-5 px-2 text-[10px]">Combo</Badge>
+                              <p className="font-bold text-xs truncate">{comboDish.name}</p>
+                              <p className="text-sm font-bold">{formatCurrency(Number(comboDish.price || 0))}</p>
                             </div>
                           </div>
                         </motion.div>
                       );
-                    }
+                    })()
+                  ) : (
+                    <div className="h-full" />
+                  )}
+                </div>
 
-                    const combo = slide.data;
-                    const comboDish = comboDishesForDisplay.find((c) => String(c?.id) === `combo_${combo.id}`) || comboDishesForDisplay.find((c) => String(c?.id) === String(combo?.id));
-                    if (!comboDish) return null;
-                    return (
-                      <motion.div
-                        key={combo.id}
-                        initial={{ opacity: 0, y: 6 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.22 }}
-                        className="relative rounded-2xl overflow-hidden shadow cursor-pointer border-2"
-                        style={{
-                          borderColor: primaryColor + '40',
-                          background: `linear-gradient(135deg, ${primaryColor}dd, ${primaryColor}bb)`
-                        }}
-                        onClick={() => handleDishClick(comboDish)}
-                      >
-                        <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-12 -mt-12" />
-                        <div className="relative p-3 flex items-center gap-3">
-                          <div className="w-12 h-12 flex-shrink-0 rounded-xl overflow-hidden bg-white/20 shadow">
-                            {comboDish.image ? (
-                              <img src={comboDish.image} alt={comboDish.name} className="w-full h-full object-cover" />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-lg">🍽️</div>
-                            )}
-                          </div>
-                          <div className="flex-1 text-white min-w-0">
-                            <Badge className="bg-yellow-400 text-black mb-1 font-bold h-5 px-2 text-[10px]">Combo</Badge>
-                            <p className="font-bold text-xs truncate">{comboDish.name}</p>
-                            <p className="text-sm font-bold">{formatCurrency(Number(comboDish.price || 0))}</p>
-                          </div>
-                        </div>
-                      </motion.div>
-                    );
-                  })()
-                ) : (
-                  <div className="h-full" />
-                )}
+                <div className="rounded-2xl border border-border bg-muted/20 overflow-hidden p-3">
+                  {desktopBanners.length > 0 ? (
+                    (() => {
+                      const b = desktopBanners[Math.min(desktopBannerIndex, desktopBanners.length - 1)];
+                      if (!b) return null;
+                      return (
+                        <motion.div
+                          key={desktopBannerIndex}
+                          initial={{ opacity: 0, y: 6 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.22 }}
+                          className="relative w-full h-24 rounded-2xl overflow-hidden cursor-pointer"
+                          onClick={() => {
+                            if (b.link) window.open(b.link, '_blank');
+                          }}
+                        >
+                          <img src={b.image} alt={b.title || 'Banner'} className="w-full h-full object-cover" />
+                          {(b.title || b.subtitle) && (
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent flex items-end p-3">
+                              <div className="text-white">
+                                {b.title && <p className="font-bold text-sm leading-tight">{b.title}</p>}
+                                {b.subtitle && <p className="text-xs opacity-90 leading-tight">{b.subtitle}</p>}
+                              </div>
+                            </div>
+                          )}
+                        </motion.div>
+                      );
+                    })()
+                  ) : (
+                    <div className="h-full" />
+                  )}
+                </div>
               </div>
+            ) : (
+              <div className="grid grid-cols-1">
+                <div className="rounded-2xl border border-border bg-muted/20 p-3 overflow-hidden">
+                  {desktopHighlights.length > 0 ? (
+                    (() => {
+                      const slide = desktopHighlights[Math.min(desktopHighlightIndex, desktopHighlights.length - 1)];
+                      if (!slide) return null;
+                      if (slide.type === 'promotion') {
+                        const promo = slide.data;
+                        const dish = dishesResolved.find(d => d.id === promo.offer_dish_id);
+                        if (!dish) return null;
+                        const discount = promo.original_price > promo.offer_price
+                          ? Math.round(((promo.original_price - promo.offer_price) / promo.original_price) * 100)
+                          : 0;
+                        return (
+                          <motion.div
+                            key={promo.id}
+                            initial={{ opacity: 0, y: 6 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.22 }}
+                            className="relative rounded-2xl overflow-hidden shadow cursor-pointer border-2"
+                            style={{
+                              borderColor: primaryColor + '40',
+                              background: `linear-gradient(135deg, ${primaryColor}dd, ${primaryColor}bb)`
+                            }}
+                            onClick={() => setSelectedDish(dish)}
+                          >
+                            <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-12 -mt-12" />
+                            <div className="relative p-3 flex items-center gap-3">
+                              <div className="w-12 h-12 flex-shrink-0 rounded-xl overflow-hidden bg-white/20 shadow">
+                                {dish.image ? (
+                                  <img src={dish.image} alt={dish.name} className="w-full h-full object-cover" />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center text-lg">🍽️</div>
+                                )}
+                              </div>
+                              <div className="flex-1 text-white min-w-0">
+                                <Badge className="bg-yellow-400 text-black mb-1 font-bold h-5 px-2 text-[10px]">-{discount}%</Badge>
+                                <p className="font-bold text-xs truncate">{promo.name}</p>
+                                <p className="text-sm font-bold">{formatCurrency(promo.offer_price)}</p>
+                              </div>
+                            </div>
+                          </motion.div>
+                        );
+                      }
 
-              <div className="rounded-2xl border border-border bg-muted/20 p-3 overflow-hidden">
-                {desktopBanners.length > 0 ? (
-                  (() => {
-                    const b = desktopBanners[Math.min(desktopBannerIndex, desktopBanners.length - 1)];
-                    if (!b) return null;
-                    return (
-                      <motion.div
-                        key={desktopBannerIndex}
-                        initial={{ opacity: 0, y: 6 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.22 }}
-                        className="relative w-full h-24 rounded-2xl overflow-hidden cursor-pointer"
-                        onClick={() => {
-                          if (b.link) window.open(b.link, '_blank');
-                        }}
-                      >
-                        <img src={b.image} alt={b.title || 'Banner'} className="w-full h-full object-cover" />
-                        {(b.title || b.subtitle) && (
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent flex items-end p-3">
-                            <div className="text-white">
-                              {b.title && <p className="font-bold text-sm leading-tight">{b.title}</p>}
-                              {b.subtitle && <p className="text-xs opacity-90 leading-tight">{b.subtitle}</p>}
+                      const combo = slide.data;
+                      const comboDish = comboDishesForDisplay.find((c) => String(c?.id) === `combo_${combo.id}`) || comboDishesForDisplay.find((c) => String(c?.id) === String(combo?.id));
+                      if (!comboDish) return null;
+                      return (
+                        <motion.div
+                          key={combo.id}
+                          initial={{ opacity: 0, y: 6 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.22 }}
+                          className="relative rounded-2xl overflow-hidden shadow cursor-pointer border-2"
+                          style={{
+                            borderColor: primaryColor + '40',
+                            background: `linear-gradient(135deg, ${primaryColor}dd, ${primaryColor}bb)`
+                          }}
+                          onClick={() => handleDishClick(comboDish)}
+                        >
+                          <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-12 -mt-12" />
+                          <div className="relative p-3 flex items-center gap-3">
+                            <div className="w-12 h-12 flex-shrink-0 rounded-xl overflow-hidden bg-white/20 shadow">
+                              {comboDish.image ? (
+                                <img src={comboDish.image} alt={comboDish.name} className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-lg">🍽️</div>
+                              )}
+                            </div>
+                            <div className="flex-1 text-white min-w-0">
+                              <Badge className="bg-yellow-400 text-black mb-1 font-bold h-5 px-2 text-[10px]">Combo</Badge>
+                              <p className="font-bold text-xs truncate">{comboDish.name}</p>
+                              <p className="text-sm font-bold">{formatCurrency(Number(comboDish.price || 0))}</p>
                             </div>
                           </div>
-                        )}
-                      </motion.div>
-                    );
-                  })()
-                ) : (
-                  <div className="h-full" />
-                )}
+                        </motion.div>
+                      );
+                    })()
+                  ) : desktopBanners.length > 0 ? (
+                    (() => {
+                      const b = desktopBanners[Math.min(desktopBannerIndex, desktopBanners.length - 1)];
+                      if (!b) return null;
+                      return (
+                        <motion.div
+                          key={desktopBannerIndex}
+                          initial={{ opacity: 0, y: 6 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.22 }}
+                          className="relative w-full h-24 rounded-2xl overflow-hidden cursor-pointer"
+                          onClick={() => {
+                            if (b.link) window.open(b.link, '_blank');
+                          }}
+                        >
+                          <img src={b.image} alt={b.title || 'Banner'} className="w-full h-full object-cover" />
+                        </motion.div>
+                      );
+                    })()
+                  ) : (
+                    <div className="h-24" />
+                  )}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       )}
 
-      <div className={`bg-card border-b border-border sticky md:static z-30 ${store?.banner_image ? 'top-0' : 'top-[165px]'}`}>
+      <div className={`bg-card border-b border-border z-30 ${desktopCarouselMode ? '' : 'sticky md:static'} ${store?.banner_image ? 'md:top-0 top-0' : 'md:top-[88px] top-[165px]'}`}>
         <div className="max-w-7xl mx-auto px-4 lg:px-6">
           <div className="flex items-center justify-between gap-3 md:py-3 py-4 lg:py-2">
             <div className="flex gap-2 overflow-x-auto scrollbar-hide flex-1">
@@ -1558,35 +1700,37 @@ export default function Cardapio() {
               })}
               {activeBeverages.length > 0 && (
                 <>
-                  {/* Always show "Bebidas" main category */}
-                  <button
-                    onClick={() => setSelectedCategory('beverages')}
-                    className={`relative px-6 md:px-8 py-2.5 md:py-3 rounded-full text-sm md:text-base font-semibold whitespace-nowrap transition-all duration-200 lg:px-4 lg:py-2 lg:rounded-lg lg:scale-100 lg:shadow-none ${
-                      selectedCategory === 'beverages'
-                        ? 'text-white shadow-lg scale-105 lg:border-b-2 lg:border-white/80 lg:rounded-b-none'
-                        : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                    }`}
-                    style={selectedCategory === 'beverages' ? { backgroundColor: primaryColor, color: 'white' } : {}}
-                  >
-                    Bebidas
-                  </button>
-                  {beverageCategoriesResolved?.map((bc) => {
-                    const bcKey = `bc_${bc.id}`;
-                    return (
-                      <button
-                        key={bcKey}
-                        onClick={() => setSelectedCategory(bcKey)}
-                        className={`relative px-6 md:px-8 py-2.5 md:py-3 rounded-full text-sm md:text-base font-semibold whitespace-nowrap transition-all duration-200 lg:px-4 lg:py-2 lg:rounded-lg lg:scale-100 lg:shadow-none ${
-                          selectedCategory === bcKey
-                            ? 'text-white shadow-lg scale-105 lg:border-b-2 lg:border-white/80 lg:rounded-b-none'
-                            : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                        }`}
-                        style={selectedCategory === bcKey ? { backgroundColor: primaryColor, color: 'white' } : {}}
-                      >
-                        {bc.name}
-                      </button>
-                    );
-                  })}
+                  {beverageCategoriesResolved?.length > 0 ? (
+                    beverageCategoriesResolved.map((bc) => {
+                      const bcKey = `bc_${bc.id}`;
+                      return (
+                        <button
+                          key={bcKey}
+                          onClick={() => setSelectedCategory(bcKey)}
+                          className={`relative px-6 md:px-8 py-2.5 md:py-3 rounded-full text-sm md:text-base font-semibold whitespace-nowrap transition-all duration-200 lg:px-4 lg:py-2 lg:rounded-lg lg:scale-100 lg:shadow-none ${
+                            selectedCategory === bcKey
+                              ? 'text-white shadow-lg scale-105 lg:border-b-2 lg:border-white/80 lg:rounded-b-none'
+                              : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                          }`}
+                          style={selectedCategory === bcKey ? { backgroundColor: primaryColor, color: 'white' } : {}}
+                        >
+                          {bc.name}
+                        </button>
+                      );
+                    })
+                  ) : (
+                    <button
+                      onClick={() => setSelectedCategory('beverages')}
+                      className={`relative px-6 md:px-8 py-2.5 md:py-3 rounded-full text-sm md:text-base font-semibold whitespace-nowrap transition-all duration-200 lg:px-4 lg:py-2 lg:rounded-lg lg:scale-100 lg:shadow-none ${
+                        selectedCategory === 'beverages'
+                          ? 'text-white shadow-lg scale-105 lg:border-b-2 lg:border-white/80 lg:rounded-b-none'
+                          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                      }`}
+                      style={selectedCategory === 'beverages' ? { backgroundColor: primaryColor, color: 'white' } : {}}
+                    >
+                      Bebidas
+                    </button>
+                  )}
                 </>
               )}
             </div>
@@ -1595,8 +1739,11 @@ export default function Cardapio() {
       </div>
 
       {/* Main Content - lg: mais largura para grid denso */}
-      <main className={`max-w-7xl mx-auto px-4 py-6 pb-24 md:pb-12 md:max-w-[1400px] lg:max-w-[1600px] lg:px-6${desktopCarouselMode ? ' lg:flex-1 lg:py-3 lg:pb-3 lg:overflow-x-hidden lg:overflow-y-visible' : ''}`}>
-        <div className={desktopCarouselMode ? 'h-full overflow-x-hidden overflow-y-visible flex flex-col min-h-0' : undefined}>
+      <main className={desktopCarouselMode
+        ? "flex-1 overflow-hidden max-w-7xl mx-auto w-full px-4 py-3 md:px-6 lg:max-w-[1600px]"
+        : "max-w-7xl mx-auto px-4 py-6 pb-24 md:pb-12 md:max-w-[1400px] lg:max-w-[1600px] lg:px-6"
+      }>
+        <div className={desktopCarouselMode ? 'h-full overflow-hidden flex flex-col min-h-0' : undefined}>
           {desktopCarouselMode ? (
             <AnimatePresence mode="wait">
               <motion.div
@@ -1604,12 +1751,12 @@ export default function Cardapio() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                transition={{ duration: 0.22 }}
+                transition={{ duration: 0.35 }}
               >
                 {selectedCategory === 'all' ? (
                   <section className="h-full flex flex-col min-h-0">
                     <div className="flex items-center justify-between mb-3">
-                      <h2 className="font-bold text-base md:text-lg text-foreground">Cardápio Completo</h2>
+                      <h2 className="font-bold text-base md:text-lg text-foreground border-l-4 pl-2" style={{ borderColor: primaryColor }}>Cardápio Completo</h2>
                     </div>
 
                     <div className="relative">
@@ -1725,12 +1872,7 @@ export default function Cardapio() {
                   </section>
                 ) : (
                   <section className="h-full flex flex-col min-h-0">
-                    <div className="flex items-center justify-between mb-3">
-                      {/* Category title removed in desktop mode - redundant with category bar */}
-                      <Button variant="outline" size="sm" className="h-8 ml-auto" onClick={() => setSelectedCategory('all')}>
-                        Voltar
-                      </Button>
-                    </div>
+                    <div className="flex items-center justify-between mb-2" />
                     <div className="flex-1 min-h-0">
                     <MenuLayoutWrapper
                       layout={layoutForSelectedCategoryDesktop}
@@ -1789,15 +1931,63 @@ export default function Cardapio() {
                 </div>
               )}
 
-              {/* Promotions Banner */}
-              <div data-section="promotions">
+              {/* Promotions + Combos lado a lado */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 items-start" data-section="promotions">
                 <PromotionBanner
                   promotions={activePromotions}
                   dishes={dishesResolved}
                   primaryColor={primaryColor}
                   onSelectPromotion={setSelectedDish}
                   store={store}
+                  autoplayIntervalMs={autoplayIntervalMs}
                 />
+
+                {comboDishesForDisplay.length > 0 && (
+                  <section className="mb-6 md:mb-8">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Package className="w-5 h-5" style={{ color: primaryColor }} />
+                      <h2 className="font-bold text-base md:text-lg text-foreground">Combos</h2>
+                    </div>
+                    <div className="grid grid-cols-1 gap-4">
+                      {visibleCombosSlides.map((combo, slotIdx) => (
+                        <motion.div
+                          key={`${combo.id}_${slotIdx}_${comboBannerIndex}`}
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.22 }}
+                          whileHover={{ y: -4, scale: 1.02 }}
+                          className="relative h-32 rounded-2xl overflow-hidden shadow-lg cursor-pointer border-2"
+                          style={{
+                            borderColor: primaryColor + '40',
+                            background: `linear-gradient(135deg, ${primaryColor}dd, ${primaryColor}bb)`
+                          }}
+                          onClick={() => handleDishClick(combo)}
+                        >
+                          <div className="absolute inset-0 bg-black/30" />
+                          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16" />
+                          <div className="relative p-4 flex items-center gap-4">
+                            <div className="w-20 h-20 flex-shrink-0 rounded-xl overflow-hidden bg-white/20 shadow-lg">
+                              {combo.image ? (
+                                <img src={combo.image} alt={combo.name} className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-2xl">🍽️</div>
+                              )}
+                            </div>
+                            <div className="flex-1 text-white min-w-0" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.7)' }}>
+                              <Badge className="bg-white/90 text-black mb-2 font-bold">
+                                Combo
+                              </Badge>
+                              <h3 className="font-bold text-base mb-1 truncate">{combo.name}</h3>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-xl font-bold">{formatCurrency(combo.price)}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </section>
+                )}
               </div>
 
               {/* Botão de Cadastro Opcional - Apenas se não estiver autenticado */}
@@ -1832,45 +2022,11 @@ export default function Cardapio() {
                 </motion.div>
               )}
 
-              {comboDishesForDisplay.length > 0 && (
-                <section className="mb-6 md:mb-8">
-                  <div className="flex items-center gap-2 mb-4 md:mb-4">
-                    <Package className="w-5 h-5" style={{ color: primaryColor }} />
-                    <h2 className="font-bold text-base md:text-lg text-foreground">Combos</h2>
-                  </div>
-                  <MenuLayoutWrapper
-                    layout={menuLayout}
-                    dishes={comboDishesForDisplay}
-                    onDishClick={handleDishClick}
-                    primaryColor={primaryColor}
-                    textPrimaryColor={textPrimaryColor}
-                    textSecondaryColor={textSecondaryColor}
-                    loading={loadingDishes}
-                    stockUtils={stockUtils}
-                    formatCurrency={formatCurrency}
-                    slug={slug}
-                    gridColsDesktop={gridColsDesktop}
-                  />
-                </section>
-              )}
-
               <RecentOrders
                 dishes={activeDishes}
                 onSelectDish={setSelectedDish}
                 primaryColor={primaryColor}
               />
-
-            <div className="hidden lg:block">
-              <div className="fixed right-4 top-40 z-40 w-72 max-h-[calc(100vh-11rem)] overflow-auto rounded-2xl border border-border bg-card shadow-xl p-4">
-                <RecentOrders
-                  dishes={activeDishes}
-                  onSelectDish={setSelectedDish}
-                  primaryColor={primaryColor}
-                  floating
-                  onClose={handleCloseRecentOrdersPanel}
-                />
-              </div>
-            </div>
 
               {/* Highlights */}
               {highlightDishes.length > 0 && (
@@ -1909,11 +2065,11 @@ export default function Cardapio() {
               key="static"
               initial={false}
               animate={{ opacity: 1 }}
-              transition={{ duration: 0.22 }}
+              transition={{ duration: 0.35 }}
             >
               {selectedCategory === 'all' ? (
                 <section>
-                  <h2 className="font-bold text-base md:text-lg mb-4 md:mb-4 text-foreground">Cardápio Completo</h2>
+                  <h2 className="font-bold text-base md:text-lg mb-4 text-foreground border-l-4 pl-2" style={{ borderColor: primaryColor }}>Cardápio Completo</h2>
 
                   <>
                     {categoriesResolvedForAllIslands
@@ -1930,8 +2086,10 @@ export default function Cardapio() {
 
                         return (
                           <div key={cat.id} className="mb-6 md:mb-8">
-                            <div className="flex items-center gap-2 mb-4 md:mb-4">
-                              <h3 className="font-bold text-base md:text-lg text-foreground">{cat.name}</h3>
+                            <div className="flex items-center gap-2 mb-4">
+                              {(() => { const n = (cat.name||'').toLowerCase(); if (n.includes('bebida')||n.includes('refriger')||n.includes('suco')||n.includes('drink')) return <Droplets className="w-4 h-4 flex-shrink-0" style={{color:primaryColor}} />; if (n.includes('especial')||n.includes('destaque')||n.includes('chef')) return <Sparkles className="w-4 h-4 flex-shrink-0" style={{color:primaryColor}} />; if (n.includes('pizza')||n.includes('massa')) return <Flame className="w-4 h-4 flex-shrink-0" style={{color:primaryColor}} />; return <UtensilsCrossed className="w-4 h-4 flex-shrink-0" style={{color:primaryColor}} />; })()}
+                              <h3 className="font-bold text-base md:text-lg text-foreground border-l-4 pl-2" style={{ borderColor: primaryColor }}>{cat.name}</h3>
+                              <span className="text-xs text-muted-foreground">({items.length})</span>
                             </div>
                             <MenuLayoutWrapper
                               layout={menuLayout}
@@ -1945,6 +2103,7 @@ export default function Cardapio() {
                               formatCurrency={formatCurrency}
                               slug={slug}
                               gridColsDesktop={gridColsDesktop}
+                              autoplayIntervalMs={autoplayIntervalMs}
                             />
                           </div>
                         );
@@ -1962,8 +2121,10 @@ export default function Cardapio() {
 
                         return (
                           <div key={`bev_${cat.id}`} className="mb-6 md:mb-8">
-                            <div className="flex items-center gap-2 mb-4 md:mb-4">
-                              <h3 className="font-bold text-base md:text-lg text-foreground">{cat.name}</h3>
+                            <div className="flex items-center gap-2 mb-4">
+                              <Droplets className="w-4 h-4 flex-shrink-0" style={{color:primaryColor}} />
+                              <h3 className="font-bold text-base md:text-lg text-foreground border-l-4 pl-2" style={{ borderColor: primaryColor }}>{cat.name}</h3>
+                              <span className="text-xs text-muted-foreground">({items.length})</span>
                             </div>
                             <MenuLayoutWrapper
                               layout={menuLayout}
@@ -1977,6 +2138,7 @@ export default function Cardapio() {
                               formatCurrency={formatCurrency}
                               slug={slug}
                               gridColsDesktop={gridColsDesktop}
+                              autoplayIntervalMs={autoplayIntervalMs}
                             />
                           </div>
                         );
@@ -2017,6 +2179,7 @@ export default function Cardapio() {
                     formatCurrency={formatCurrency}
                     slug={slug}
                     gridColsDesktop={gridColsDesktop}
+                    autoplayIntervalMs={autoplayIntervalMs}
                   />
                 </section>
               )}
@@ -2085,93 +2248,57 @@ export default function Cardapio() {
 
       {/* Footer */}
       {!desktopCarouselMode && (
-      <footer className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950 border-t border-gray-200 dark:border-gray-800 mt-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
-            {/* Coluna 1: Info do Estabelecimento */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                {store?.logo && (
-                  <img src={store?.logo} alt={store?.name || 'Restaurante'} className="w-16 h-16 rounded-xl object-cover shadow-md border-2 border-white dark:border-gray-800" />
+      <footer className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950 border-t border-gray-200 dark:border-gray-800 mt-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            {/* Bloco Esquerdo: Logo + Nome + Endereço + Horário */}
+            <div className="flex items-center gap-3 min-w-0">
+              {store?.logo && (
+                <img src={store?.logo} alt={store?.name || 'Restaurante'} className="w-10 h-10 rounded-lg object-cover flex-shrink-0 border border-gray-200 dark:border-gray-700" />
+              )}
+              <div className="min-w-0">
+                <p className="font-bold text-sm text-gray-900 dark:text-white truncate">{store?.name || 'Restaurante'}</p>
+                {store?.slogan && (
+                  <p className="text-gray-500 dark:text-gray-400 text-xs italic truncate">"{store?.slogan}"</p>
                 )}
-                <div>
-                  <h3 className="font-bold text-lg text-gray-900 dark:text-white">{store?.name || 'Restaurante'}</h3>
-                  {store?.slogan && (
-                    <p className="text-gray-600 dark:text-gray-400 text-sm italic mt-0.5">"{store?.slogan}"</p>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
+                  {store?.address && (
+                    <span className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                      <MapPin className="w-3 h-3 flex-shrink-0" style={{ color: primaryColor }} />
+                      <span className="truncate">{store?.address}</span>
+                    </span>
+                  )}
+                  {store?.opening_time && store?.closing_time && (
+                    <span className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                      <Clock className="w-3 h-3 flex-shrink-0" style={{ color: primaryColor }} />
+                      {store?.opening_time} - {store?.closing_time}
+                      {store?.working_days && store.working_days.length > 0 && (() => {
+                        const daysMap = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+                        const names = store.working_days.sort((a,b)=>a-b).map(d=>daysMap[d]);
+                        if (names.length===7) return ' • Todos os dias';
+                        if (names.length===5 && names.join(',')===('Seg,Ter,Qua,Qui,Sex')) return ' • Seg–Sex';
+                        if (names.length===6 && names.join(',')===('Seg,Ter,Qua,Qui,Sex,Sáb')) return ' • Seg–Sáb';
+                        return ` • ${names.join(', ')}`;
+                      })()}
+                    </span>
                   )}
                 </div>
               </div>
-              
-              {store?.address && (
-                <div className="flex items-start gap-2 text-gray-700 dark:text-gray-300">
-                  <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: primaryColor }} />
-                  <p className="text-sm">{store?.address}</p>
-                </div>
-              )}
-
-              {/* Horário de Funcionamento */}
-              {store?.opening_time && store?.closing_time && (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
-                    <Clock className="w-4 h-4 flex-shrink-0" style={{ color: primaryColor }} />
-                    <p className="text-sm font-semibold">Horário de Funcionamento</p>
-                  </div>
-                  <div className="ml-6 space-y-1">
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {store?.opening_time} - {store?.closing_time}
-                    </p>
-                    {store?.working_days && store.working_days.length > 0 && (
-                      <div className="flex items-center gap-2">
-                        <Calendar className="w-3.5 h-3.5 text-gray-500" />
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {(() => {
-                            const daysMap = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-                            const workingDayNames = store?.working_days
-                              .sort((a, b) => a - b)
-                              .map(day => daysMap[day]);
-                            
-                            // Se trabalha todos os dias
-                            if (workingDayNames.length === 7) return 'Todos os dias';
-                            
-                            // Se trabalha de segunda a sexta
-                            if (workingDayNames.length === 5 && 
-                                workingDayNames.join(',') === 'Seg,Ter,Qua,Qui,Sex') {
-                              return 'Segunda a Sexta';
-                            }
-                            
-                            // Se trabalha de segunda a sábado
-                            if (workingDayNames.length === 6 && 
-                                workingDayNames.join(',') === 'Seg,Ter,Qua,Qui,Sex,Sáb') {
-                              return 'Segunda a Sábado';
-                            }
-                            
-                            // Caso contrário, mostrar todos os dias
-                            return workingDayNames.join(', ');
-                          })()}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
             </div>
 
-            {/* Coluna 2: Redes Sociais */}
-            <div className="space-y-3">
-              <h3 className="font-bold text-lg text-gray-900 dark:text-white">Conecte-se Conosco</h3>
-              
-              {/* Desktop: Ícones com texto */}
-              <div className="hidden sm:flex flex-wrap gap-3">
+            {/* Bloco Direito: Ícones de redes sociais apenas */}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <span className="text-xs text-gray-400 dark:text-gray-500 mr-1 hidden sm:inline">Siga-nos</span>
+              <div className="flex gap-2">
                 {store?.whatsapp && (
                   <a 
                     href={`https://wa.me/55${store?.whatsapp?.replace(/\D/g, '') || ''}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="group flex items-center gap-2 px-4 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-full transition-all shadow-md hover:shadow-lg transform hover:scale-105"
+                    className="flex items-center justify-center w-9 h-9 bg-green-500 hover:bg-green-600 text-white rounded-full transition-all shadow-md hover:shadow-lg transform hover:scale-110"
                     title="WhatsApp"
                   >
                     <MessageSquare className="w-5 h-5" />
-                    <span className="text-sm font-medium">WhatsApp</span>
                   </a>
                 )}
                 {store?.instagram && (
@@ -2179,11 +2306,10 @@ export default function Cardapio() {
                     href={store?.instagram?.startsWith('http') ? store.instagram : `https://instagram.com/${store?.instagram?.replace(/^@/, '') || ''}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="group flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white rounded-full transition-all shadow-md hover:shadow-lg transform hover:scale-105"
+                    className="flex items-center justify-center w-9 h-9 bg-gradient-to-br from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white rounded-full transition-all shadow-md hover:shadow-lg transform hover:scale-110"
                     title="Instagram"
                   >
                     <Instagram className="w-5 h-5" />
-                    <span className="text-sm font-medium">Instagram</span>
                   </a>
                 )}
                 {store?.facebook && (
@@ -2191,11 +2317,10 @@ export default function Cardapio() {
                     href={store?.facebook?.startsWith('http') ? store.facebook : `https://facebook.com/${store?.facebook || ''}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="group flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-full transition-all shadow-md hover:shadow-lg transform hover:scale-105"
+                    className="flex items-center justify-center w-9 h-9 bg-blue-600 hover:bg-blue-700 text-white rounded-full transition-all shadow-md hover:shadow-lg transform hover:scale-110"
                     title="Facebook"
                   >
                     <Facebook className="w-5 h-5" />
-                    <span className="text-sm font-medium">Facebook</span>
                   </a>
                 )}
                 {store?.tiktok && (
@@ -2203,84 +2328,18 @@ export default function Cardapio() {
                     href={store?.tiktok?.startsWith('http') ? store.tiktok : `https://tiktok.com/@${store?.tiktok?.replace(/^@/, '') || ''}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="group flex items-center gap-2 px-4 py-2.5 bg-black hover:bg-gray-800 text-white rounded-full transition-all shadow-md hover:shadow-lg transform hover:scale-105"
+                    className="flex items-center justify-center w-9 h-9 bg-black hover:bg-gray-800 text-white rounded-full transition-all shadow-md hover:shadow-lg transform hover:scale-110"
                     title="TikTok"
                   >
                     <Music2 className="w-5 h-5" />
-                    <span className="text-sm font-medium">TikTok</span>
                   </a>
                 )}
               </div>
-
-              {/* Mobile: Apenas ícones circulares */}
-              <div className="flex sm:hidden gap-4 justify-center">
-                {store?.whatsapp && (
-                  <a 
-                    href={`https://wa.me/55${store?.whatsapp?.replace(/\D/g, '') || ''}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-center w-12 h-12 bg-green-500 hover:bg-green-600 text-white rounded-full transition-all shadow-md hover:shadow-lg transform hover:scale-110"
-                    title="WhatsApp"
-                  >
-                    <MessageSquare className="w-6 h-6" />
-                  </a>
-                )}
-                {store?.instagram && (
-                  <a 
-                    href={store?.instagram?.startsWith('http') ? store.instagram : `https://instagram.com/${store?.instagram?.replace(/^@/, '') || ''}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white rounded-full transition-all shadow-md hover:shadow-lg transform hover:scale-110"
-                    title="Instagram"
-                  >
-                    <Instagram className="w-6 h-6" />
-                  </a>
-                )}
-                {store?.facebook && (
-                  <a 
-                    href={store?.facebook?.startsWith('http') ? store.facebook : `https://facebook.com/${store?.facebook || ''}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-center w-12 h-12 bg-blue-600 hover:bg-blue-700 text-white rounded-full transition-all shadow-md hover:shadow-lg transform hover:scale-110"
-                    title="Facebook"
-                  >
-                    <Facebook className="w-6 h-6" />
-                  </a>
-                )}
-                {store?.tiktok && (
-                  <a 
-                    href={store?.tiktok?.startsWith('http') ? store.tiktok : `https://tiktok.com/@${store?.tiktok?.replace(/^@/, '') || ''}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-center w-12 h-12 bg-black hover:bg-gray-800 text-white rounded-full transition-all shadow-md hover:shadow-lg transform hover:scale-110"
-                    title="TikTok"
-                  >
-                    <Music2 className="w-6 h-6" />
-                  </a>
-                )}
-              </div>
-
-              {/* Telefone (se houver) */}
-              {store?.phone && (
-                <a 
-                  href={`tel:${store?.phone?.replace(/\D/g, '') || ''}`}
-                  className="flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors mt-4"
-                >
-                  <Phone className="w-4 h-4" style={{ color: primaryColor }} />
-                  <span className="text-sm">{store?.phone}</span>
-                </a>
-              )}
             </div>
           </div>
-
-          {/* Copyright */}
-          <div className="border-t border-gray-200 dark:border-gray-800 mt-6 pt-4 text-center space-y-2">
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              &copy; {new Date().getFullYear()} {store?.name || 'Restaurante'}. Todos os direitos reservados.
-            </p>
-            <p className="text-xs text-gray-400 dark:text-gray-500">
-              Powered by <span className="font-semibold" style={{ color: primaryColor }}>{SYSTEM_NAME}</span>
-            </p>
+          <div className="border-t border-gray-200 dark:border-gray-800 mt-3 pt-2 flex items-center justify-between gap-2">
+            <p className="text-xs text-gray-400 dark:text-gray-500">&copy; {new Date().getFullYear()} {store?.name || 'Restaurante'}</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500">Powered by <span className="font-semibold" style={{ color: primaryColor }}>{SYSTEM_NAME}</span></p>
           </div>
         </div>
       </footer>
@@ -2530,7 +2589,7 @@ export default function Cardapio() {
             </SheetHeader>
             <div className="mt-6">
               <FavoritesList
-                dishes={dishesResolved}
+                dishes={[...(dishesResolved || []), ...(activeBeverages || [])].filter(Boolean)}
                 onDishClick={(dish) => {
                   setShowFavoritesList(false);
                   handleDishClick(dish);
@@ -2545,7 +2604,7 @@ export default function Cardapio() {
 
       {/* FAB único: ao clicar abre opções em vertical (Carrinho, Chat, Favoritos) */}
       {currentView === 'menu' && (
-        <div className="fixed bottom-24 right-4 z-40 flex flex-col items-center gap-2">
+        <div className="fixed bottom-20 right-2 z-40 flex flex-col items-center gap-2">
           <AnimatePresence>
             {showFloatingMenu && (
               <>
@@ -2591,7 +2650,8 @@ export default function Cardapio() {
                     setShowFloatingMenu(false);
                     setShowCartModal(true);
                   }}
-                  className="relative bg-gradient-to-r from-orange-500 to-red-500 text-white p-3 rounded-full shadow-xl flex items-center justify-center hover:shadow-2xl transition-all"
+                  className="relative text-white p-3 rounded-full shadow-xl flex items-center justify-center transition-all"
+                  style={{ backgroundColor: primaryColor }}
                   aria-label="Carrinho"
                 >
                   <ShoppingCart className="w-6 h-6" />
@@ -2607,7 +2667,8 @@ export default function Cardapio() {
           {/* Botão principal: abre/fecha o menu */}
           <motion.button
             onClick={() => setShowFloatingMenu((v) => !v)}
-            className="bg-gradient-to-r from-orange-500 to-red-500 text-white p-4 rounded-full shadow-2xl flex items-center justify-center hover:shadow-orange-500/40 transition-all"
+            className="text-white p-4 rounded-full shadow-2xl flex items-center justify-center transition-all"
+            style={{ backgroundColor: primaryColor }}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             aria-label={showFloatingMenu ? 'Fechar menu' : 'Abrir atalhos'}
