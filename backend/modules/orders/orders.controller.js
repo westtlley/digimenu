@@ -62,6 +62,9 @@ export const createCardapioOrder = asyncHandler(async (req, res) => {
     if (error.message === 'Link não encontrado' || error.message.includes('não encontrado')) {
       return notFoundResponse(res, error.message);
     }
+    if (error.message.includes('Pedido mínimo')) {
+      return errorResponse(res, error.message, 400, 'VALIDATION_ERROR');
+    }
     if (error.message.includes('Limite') || error.message.includes('excedido')) {
       return errorResponse(res, error.message, 402, 'LIMIT_EXCEEDED');
     }

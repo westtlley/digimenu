@@ -417,10 +417,18 @@ export default function Cardapio() {
     mutationFn: (data) => {
       // Garantir que owner_email e as_subscriber estão presentes
       const orderData = { ...data };
-      if (slug && publicData?.subscriber_email) {
+      if (slug) {
+        return base44.post('/public/pedido-cardapio', {
+          ...orderData,
+          slug
+        });
+      }
+
+      if (publicData?.subscriber_email) {
         orderData.as_subscriber = publicData.subscriber_email;
         // owner_email já está sendo setado na linha 798 do handleSubmitOrder
       }
+
       console.log('📦 Criando pedido com dados:', {
         owner_email: orderData.owner_email,
         as_subscriber: orderData.as_subscriber,
@@ -973,6 +981,12 @@ export default function Cardapio() {
   const handleSendWhatsApp = async () => {
     const orderCode = orderService.generateOrderCode();
     const fullAddress = orderService.formatFullAddress(customer);
+    const normalizeNeighborhood = (value) =>
+      String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .trim()
+        .toLowerCase();
     
     if (customer.deliveryMethod === 'delivery' && !customer.neighborhood) {
       toast.error('Por favor, informe o bairro para calcular a taxa de entrega');
@@ -987,6 +1001,27 @@ export default function Cardapio() {
       customer.latitude,
       customer.longitude
     );
+
+    const storeMinOrder = Number(
+      store?.min_order_value ??
+      store?.min_order ??
+      store?.min_order_price ??
+      store?.delivery_min_order ??
+      0
+    ) || 0;
+    const matchedZone = customer.deliveryMethod === 'delivery'
+      ? (deliveryZonesResolved || []).find(
+          (z) =>
+            z?.is_active &&
+            normalizeNeighborhood(z?.neighborhood) === normalizeNeighborhood(customer.neighborhood)
+        )
+      : null;
+    const zoneMinOrder = Number(matchedZone?.min_order ?? matchedZone?.min_order_value ?? 0) || 0;
+    const minimumOrderValue = Math.max(storeMinOrder, zoneMinOrder);
+    if (customer.deliveryMethod === 'delivery' && minimumOrderValue > 0 && cartTotal < minimumOrderValue) {
+      toast.error(`Pedido mínimo para entrega: ${formatCurrency(minimumOrderValue)}`);
+      return;
+    }
     
     const loyaltyConfig = (Array.isArray(loyaltyConfigsResolved) && loyaltyConfigsResolved[0])
       ? loyaltyConfigsResolved[0]
@@ -1056,8 +1091,13 @@ export default function Cardapio() {
       ...(slug && publicData?.subscriber_email && { owner_email: publicData.subscriber_email }),
     };
 
-    const order = await orderService.createOrder(orderData, createOrderMutation);
-    await orderService.updateCouponUsage(appliedCoupon, updateCouponMutation);
+    const orderResponse = await orderService.createOrder(orderData, createOrderMutation);
+    const order = orderResponse?.data || orderResponse;
+    try {
+      await orderService.updateCouponUsage(appliedCoupon, updateCouponMutation);
+    } catch (couponError) {
+      console.warn('Falha ao atualizar uso do cupom, sem bloquear conclusão do pedido:', couponError);
+    }
 
     // Adicionar pontos de fidelidade após pedido criado
     if (isLoyaltyActive && (customer.phone || userEmail)) {
@@ -1171,7 +1211,7 @@ export default function Cardapio() {
   return (
     <div className={desktopCarouselMode
       ? "h-screen overflow-hidden bg-background flex flex-col"
-      : "min-h-screen min-h-screen-mobile bg-background"
+      : "min-h-screen min-h-screen-mobile bg-background flex flex-col"
     }>
       <Toaster position="top-center" />
 
@@ -1741,7 +1781,7 @@ export default function Cardapio() {
       {/* Main Content - lg: mais largura para grid denso */}
       <main className={desktopCarouselMode
         ? "flex-1 overflow-hidden max-w-7xl mx-auto w-full px-4 py-3 md:px-6 lg:max-w-[1600px]"
-        : "max-w-7xl mx-auto px-4 py-6 pb-24 md:pb-12 md:max-w-[1400px] lg:max-w-[1600px] lg:px-6"
+        : "flex-1 w-full max-w-7xl mx-auto px-4 py-6 pb-24 md:pb-12 md:max-w-[1400px] lg:max-w-[1600px] lg:px-6"
       }>
         <div className={desktopCarouselMode ? 'h-full overflow-hidden flex flex-col min-h-0' : undefined}>
           {desktopCarouselMode ? (
@@ -2011,13 +2051,26 @@ export default function Cardapio() {
                         </p>
                       </div>
                     </div>
-                    <Button
-                      onClick={() => setShowQuickSignup(true)}
-                      className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white text-sm font-medium px-4 py-2 h-auto whitespace-nowrap"
-                    >
-                      <Gift className="w-4 h-4 mr-2" />
-                      Cadastrar-se
-                    </Button>
+                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                      <Button
+                        onClick={() => {
+                          window.location.href = slug
+                            ? `/s/${slug}/login/cliente?returnUrl=${encodeURIComponent(window.location.pathname)}`
+                            : `/?returnUrl=${encodeURIComponent(window.location.pathname)}`;
+                        }}
+                        variant="outline"
+                        className="text-sm font-medium px-4 py-2 h-auto whitespace-nowrap w-full sm:w-auto"
+                      >
+                        Entrar
+                      </Button>
+                      <Button
+                        onClick={() => setShowQuickSignup(true)}
+                        className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white text-sm font-medium px-4 py-2 h-auto whitespace-nowrap w-full sm:w-auto"
+                      >
+                        <Gift className="w-4 h-4 mr-2" />
+                        Cadastrar-se
+                      </Button>
+                    </div>
                   </div>
                 </motion.div>
               )}
@@ -2248,7 +2301,7 @@ export default function Cardapio() {
 
       {/* Footer */}
       {!desktopCarouselMode && (
-      <footer className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950 border-t border-gray-200 dark:border-gray-800 mt-6">
+      <footer className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950 border-t border-gray-200 dark:border-gray-800 mt-auto">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             {/* Bloco Esquerdo: Logo + Nome + Endereço + Horário */}

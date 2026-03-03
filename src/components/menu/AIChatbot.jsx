@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { base44 } from '@/api/base44Client';
+import { API_BASE_URL } from '@/api/apiClient';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'react-hot-toast';
 import {
@@ -32,14 +33,10 @@ import { buscarCEP } from '@/utils/cepService';
  * - Pedido finalizado aparece em Pedidos
  */
 const getChatApiUrl = () => {
-  const base = import.meta.env.VITE_API_BASE_URL || '';
-  if (base.endsWith('/api')) return `${base}/public/chat`;
-  return base ? `${base}/api/public/chat` : '/api/public/chat';
+  return `${API_BASE_URL}/public/chat`;
 };
 const getPedidoCardapioUrl = () => {
-  const base = import.meta.env.VITE_API_BASE_URL || '';
-  if (base.endsWith('/api')) return `${base}/public/pedido-cardapio`;
-  return base ? `${base}/api/public/pedido-cardapio` : '/api/public/pedido-cardapio';
+  return `${API_BASE_URL}/public/pedido-cardapio`;
 };
 
 /** Monta texto do cardápio para a IA: categorias, pratos com preço, complementos e extras */

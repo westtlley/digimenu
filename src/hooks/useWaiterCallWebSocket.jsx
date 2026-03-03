@@ -2,10 +2,11 @@ import { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
+import { BACKEND_BASE_URL } from '@/api/apiClient';
 import toast from 'react-hot-toast';
 import { Bell } from 'lucide-react';
 
-const SOCKET_URL = import.meta.env.VITE_WS_URL || import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const SOCKET_URL = import.meta.env.VITE_WS_URL || BACKEND_BASE_URL || 'http://localhost:3000';
 
 /**
  * Hook para gerenciar WebSocket de chamadas de garçom

@@ -2,9 +2,10 @@ import { useEffect, useRef, useCallback } from 'react';
 import { io } from 'socket.io-client';
 import { orderNotifications, marketingNotifications } from '@/utils/pushService';
 import { requestNotificationPermission } from '@/utils/pushService';
+import { BACKEND_BASE_URL } from '@/api/apiClient';
 import toast from 'react-hot-toast';
 
-const SOCKET_URL = import.meta.env.VITE_WS_URL || import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const SOCKET_URL = import.meta.env.VITE_WS_URL || BACKEND_BASE_URL || 'http://localhost:3000';
 
 /**
  * Hook para gerenciar conexão WebSocket e notificações em tempo real

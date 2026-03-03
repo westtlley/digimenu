@@ -75,15 +75,84 @@ import { compressionMiddleware } from './middlewares/compression.js';
 // =======================
 const app = express();
 const PORT = process.env.PORT || 3000;
+const isProd = process.env.NODE_ENV === 'production';
+
+const collapseUrlSlashes = (value = '') => String(value || '').replace(/([^:]\/)\/+/g, '$1');
+
+const normalizeBaseUrl = (value = '') => collapseUrlSlashes(String(value || '').trim()).replace(/\/+$/, '');
+
+const stripApiSuffix = (value = '') => normalizeBaseUrl(value).replace(/\/api$/i, '');
+
+const sanitizeDuplicatedApiSegment = (value = '') => normalizeBaseUrl(value).replace(/\/api\/api(?=\/|$)/gi, '/api');
+
+const buildGoogleCallbackUrl = (backendBaseUrl = '') => sanitizeDuplicatedApiSegment(
+  `${stripApiSuffix(backendBaseUrl)}/api/auth/google/callback`
+);
+
+const toOrigin = (value = '') => {
+  const normalized = normalizeBaseUrl(value);
+  if (!normalized) return null;
+  try {
+    return new URL(normalized).origin;
+  } catch {
+    return normalized;
+  }
+};
+
+const requireInProduction = (name, value) => {
+  if (isProd && !value) {
+    throw new Error(`${name} é obrigatório em produção`);
+  }
+  return value;
+};
+
+const assertNotLocalhostInProduction = (name, value) => {
+  if (!isProd || !value) return value;
+  const lower = String(value).toLowerCase();
+  if (lower.includes('localhost') || lower.includes('127.0.0.1')) {
+    throw new Error(`${name} invalido em producao: ${value}`);
+  }
+  return value;
+};
 
 // ✅ VALIDAR JWT_SECRET (obrigatório em produção)
 const JWT_SECRET = validateJWTSecret();
 
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
+const FRONTEND_URL = assertNotLocalhostInProduction(
+  'FRONTEND_URL',
+  requireInProduction(
+    'FRONTEND_URL',
+    normalizeBaseUrl(process.env.FRONTEND_URL || (!isProd ? 'http://localhost:5173' : ''))
+  )
+);
+const BACKEND_URL = assertNotLocalhostInProduction(
+  'BACKEND_URL (ou RENDER_EXTERNAL_URL)',
+  requireInProduction(
+    'BACKEND_URL (ou RENDER_EXTERNAL_URL)',
+    stripApiSuffix(process.env.BACKEND_URL || process.env.RENDER_EXTERNAL_URL || (!isProd ? `http://localhost:${PORT}` : ''))
+  )
+);
+const GOOGLE_CALLBACK_URL = assertNotLocalhostInProduction(
+  'GOOGLE_CALLBACK_URL',
+  process.env.GOOGLE_CALLBACK_URL
+    ? sanitizeDuplicatedApiSegment(process.env.GOOGLE_CALLBACK_URL)
+    : buildGoogleCallbackUrl(BACKEND_URL)
+);
+
 // CORS: allowedOrigins Set (evita cb(new Error) que causa pending/canceled)
 const _envList = process.env.CORS_ORIGINS
   ? process.env.CORS_ORIGINS.split(',').map(s => s.trim()).filter(Boolean)
   : [];
+const wildcardOriginRules = _envList
+  .filter(origin => origin.includes('*'))
+  .map((originPattern) => {
+    const normalizedPattern = normalizeBaseUrl(originPattern);
+    const patternWithScheme = /^https?:\/\//i.test(normalizedPattern)
+      ? normalizedPattern
+      : (normalizedPattern.startsWith('*.') ? `https://${normalizedPattern}` : normalizedPattern);
+    const escaped = patternWithScheme.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
+    return new RegExp(`^${escaped}$`);
+  });
 const allowedOrigins = new Set([
   'https://digimenu-chi.vercel.app',
   'https://digimenu.vercel.app',
@@ -93,8 +162,7 @@ const allowedOrigins = new Set([
   'http://127.0.0.1:5174',
   FRONTEND_URL,
   ..._envList
-].filter(Boolean));
-const BACKEND_URL = process.env.BACKEND_URL || `http://localhost:${PORT}`;
+].map(toOrigin).filter(Boolean));
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 
@@ -110,15 +178,18 @@ app.use(compressionMiddleware);
 // ✅ CORS: preflight consistente (mesmo config para use e options)
 const corsOptions = {
   origin: (origin, cb) => {
-    // Permitir requisições sem origin (ex: mobile apps, Postman, curl)
-    if (!origin) return cb(null, true);
+    // Em produção, nunca aceitar origin vazio.
+    if (!origin) return cb(null, !isProd);
     
     // Log para debug em desenvolvimento
     if (process.env.NODE_ENV !== 'production') {
       console.log('🔍 CORS: Verificando origem:', origin);
     }
     
-    if (allowedOrigins.has(origin)) {
+    const originToCheck = toOrigin(origin) || origin;
+    const isWildcardAllowed = wildcardOriginRules.some((rule) => rule.test(originToCheck));
+
+    if (allowedOrigins.has(originToCheck) || isWildcardAllowed) {
       console.log('✅ CORS: origem permitida:', origin);
       return cb(null, true);
     }
@@ -395,7 +466,7 @@ if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET) {
   passport.use(new GoogleStrategy({
     clientID: GOOGLE_CLIENT_ID,
     clientSecret: GOOGLE_CLIENT_SECRET,
-    callbackURL: `${BACKEND_URL}/api/auth/google/callback`
+    callbackURL: GOOGLE_CALLBACK_URL
   },
   async (accessToken, refreshToken, profile, done) => {
     try {
@@ -575,7 +646,7 @@ if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET) {
     }
   );
 
-  const callbackUrl = `${BACKEND_URL}/api/auth/google/callback`;
+  const callbackUrl = GOOGLE_CALLBACK_URL;
   console.log('✅ Google OAuth configurado');
   console.log('🔗 URL de Callback:', callbackUrl);
   console.log('📋 IMPORTANTE: Adicione esta URL exata no Google Cloud Console:');
@@ -4390,7 +4461,7 @@ if (originalPutOrder) {
 
 server.listen(PORT, () => {
   console.log(`🚀 Servidor rodando na porta ${PORT}`);
-  console.log(`📡 http://localhost:${PORT}/api`);
+  console.log(`📡 ${isProd ? `${BACKEND_URL}/api` : `http://localhost:${PORT}/api`}`);
   console.log(`🔒 Ambiente: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🔌 WebSocket ativo`);
   console.log(`🔧 Functions router: POST /api/functions/:name montado`);

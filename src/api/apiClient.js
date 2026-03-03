@@ -4,21 +4,26 @@
  */
 import { logger } from '@/utils/logger';
 
-const getApiBaseUrl = () => {
-  const envUrl = import.meta.env.VITE_API_BASE_URL;
+const normalizeBaseUrl = (url = '') => String(url || '').trim().replace(/\/+$/, '');
+
+const appendApiPrefix = (baseUrl) => {
+  if (!baseUrl) return '';
+  return baseUrl.endsWith('/api') ? baseUrl : `${baseUrl}/api`;
+};
+
+export const getApiBaseUrl = () => {
+  const envUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL;
   if (!envUrl) {
     if (import.meta.env.PROD) {
       throw new Error('VITE_API_BASE_URL é obrigatório em produção. Configure no .env da build.');
     }
     return 'https://digimenu-backend-3m6t.onrender.com/api';
   }
-  if (!envUrl.endsWith('/api')) {
-    return envUrl.endsWith('/') ? `${envUrl}api` : `${envUrl}/api`;
-  }
-  return envUrl;
+  return appendApiPrefix(normalizeBaseUrl(envUrl));
 };
 
-const API_BASE_URL = getApiBaseUrl();
+export const API_BASE_URL = getApiBaseUrl();
+export const BACKEND_BASE_URL = API_BASE_URL.replace(/\/api$/, '');
 logger.log('🔗 API Base URL:', API_BASE_URL);
 
 class ApiClient {

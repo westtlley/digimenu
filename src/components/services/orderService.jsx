@@ -1,5 +1,13 @@
 import { calculateDistance, calculateDeliveryFeeByDistance } from '@/utils/distanceUtils';
 
+function normalizeNeighborhood(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase();
+}
+
 export const orderService = {
   generateOrderCode() {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -49,8 +57,9 @@ export const orderService = {
     // Modo: Cálculo por Zona (padrão)
     if (!neighborhood) return store?.delivery_fee || 0;
 
+    const neighborhoodKey = normalizeNeighborhood(neighborhood);
     const zone = deliveryZones?.find((z) =>
-      z.neighborhood?.toLowerCase().trim() === neighborhood.toLowerCase().trim() && z.is_active
+      normalizeNeighborhood(z?.neighborhood) === neighborhoodKey && z?.is_active
     );
 
     return zone ? zone.fee : (store?.delivery_fee || 0);

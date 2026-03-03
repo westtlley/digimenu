@@ -4,7 +4,7 @@
  */
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
-import { apiClient as base44 } from '@/api/apiClient';
+import { apiClient as base44, BACKEND_BASE_URL } from '@/api/apiClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -39,23 +39,7 @@ export default function LoginCliente() {
 
   const handleGoogleLogin = async () => {
     try {
-      // Obter URL base do backend (remover /api se existir)
-      let backendUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
-      
-      // Se a URL termina com /api, remover para obter a URL base
-      if (backendUrl.endsWith('/api')) {
-        backendUrl = backendUrl.replace(/\/api$/, '');
-      }
-      
-      // Se não tem protocolo, adicionar http:// (desenvolvimento)
-      if (!backendUrl.startsWith('http://') && !backendUrl.startsWith('https://')) {
-        backendUrl = `http://${backendUrl}`;
-      }
-      
-      console.log('🔵 Redirecionando para Google OAuth:', `${backendUrl}/api/auth/google`);
-      
-      // Redirecionar para rota de autenticação Google
-      window.location.href = `${backendUrl}/api/auth/google`;
+      window.location.href = `${BACKEND_BASE_URL}/api/auth/google`;
     } catch (error) {
       console.error('❌ Erro ao iniciar login Google:', error);
       toast.error('Erro ao iniciar login com Google. Verifique a configuração do backend.');

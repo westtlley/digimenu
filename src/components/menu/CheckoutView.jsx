@@ -78,6 +78,12 @@ export default function CheckoutView({
   const formatCurrency = (value) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
   };
+  const normalizeNeighborhood = (value) =>
+    String(value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim()
+      .toLowerCase();
 
   const cartTotal = cart.reduce((sum, item) => sum + item.totalPrice * (item.quantity || 1), 0);
 
@@ -120,6 +126,27 @@ export default function CheckoutView({
   const loyaltyDiscountAmount = cartTotal * (loyaltyDiscountPercent / 100);
   const totalDiscount = couponDiscount + loyaltyDiscountAmount;
   const deliveryFee = getDeliveryFee();
+  const getMinimumOrderValue = () => {
+    const storeMin = Number(
+      store?.min_order_value ??
+      store?.min_order ??
+      store?.min_order_price ??
+      store?.delivery_min_order ??
+      0
+    ) || 0;
+
+    if (customer.deliveryMethod !== 'delivery') return storeMin;
+
+    const neighborhoodKey = normalizeNeighborhood(customer.neighborhood);
+    const zone = (deliveryZones || []).find(
+      (z) => normalizeNeighborhood(z?.neighborhood) === neighborhoodKey && z?.is_active
+    );
+    const zoneMin = Number(zone?.min_order ?? zone?.min_order_value ?? 0) || 0;
+
+    return Math.max(storeMin, zoneMin);
+  };
+  const minimumOrderValue = getMinimumOrderValue();
+  const isBelowMinimumOrder = minimumOrderValue > 0 && cartTotal < minimumOrderValue;
   
   // Calcular gorjeta (apenas para mesas)
   const tipAmount = isTableOrder && tipType !== 'none' 
@@ -248,6 +275,9 @@ export default function CheckoutView({
                     customer={customer}
                     setCustomer={setCustomer}
                     darkMode={false}
+                    slug={slug}
+                    userEmail={userEmail}
+                    deliveryMode={store?.delivery_fee_mode || 'zone'}
                   />
                   
                   <Button
@@ -387,7 +417,7 @@ export default function CheckoutView({
                         } else if (deliveryZones.length > 0) {
                           // Cálculo por zona
                           const zone = deliveryZones.find((z) =>
-                            z.neighborhood?.toLowerCase().trim() === customer.neighborhood.toLowerCase().trim() && z.is_active
+                            normalizeNeighborhood(z?.neighborhood) === normalizeNeighborhood(customer.neighborhood) && z.is_active
                           );
                           if (zone) {
                             return (
@@ -747,14 +777,16 @@ export default function CheckoutView({
                   setShowConfirmationModal(true);
                 }
               }}
-              disabled={!isFormValid() || store?.accepting_orders === false || store?.is_open === false}
+              disabled={!isFormValid() || isBelowMinimumOrder || store?.accepting_orders === false || store?.is_open === false}
               className="w-full h-12 text-white font-bold"
-              style={{ backgroundColor: (isFormValid() && store?.accepting_orders !== false && store?.is_open !== false) ? primaryColor : '#d1d5db' }}
+              style={{ backgroundColor: (isFormValid() && !isBelowMinimumOrder && store?.accepting_orders !== false && store?.is_open !== false) ? primaryColor : '#d1d5db' }}
             >
               {store?.is_open === false
                 ? '🔴 Loja Fechada'
                 : store?.accepting_orders === false
                 ? '⏸️ Pedidos Pausados'
+                : isBelowMinimumOrder
+                ? `Pedido mínimo ${formatCurrency(minimumOrderValue)}`
                 : 'Finalizar Pedido'}
             </Button>
             
@@ -769,6 +801,10 @@ export default function CheckoutView({
             ) : !isFormValid() ? (
               <p className="text-xs text-red-600 text-center mt-2">
                 Preencha todos os campos obrigatórios
+              </p>
+            ) : isBelowMinimumOrder ? (
+              <p className="text-xs text-red-600 text-center mt-2">
+                Pedido mínimo para finalizar: {formatCurrency(minimumOrderValue)}
               </p>
             ) : null}
           </div>

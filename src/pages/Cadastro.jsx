@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Eye, EyeOff, ArrowLeft, Loader2, Check, Sparkles } from 'lucide-react';
 import { SYSTEM_LOGO_URL, SYSTEM_NAME } from '@/config/branding';
+import { API_BASE_URL } from '@/api/apiClient';
 
 const PLAN_INFO = {
   free: { name: 'Gratuito', color: 'green', price: 'R$ 0/mês', trial: '' },
@@ -61,7 +62,7 @@ export default function Cadastro() {
     try {
       // Se for plano FREE, criar direto
       if (planKey === 'free') {
-        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}/api/mercadopago/create-free-subscriber`, {
+        const response = await fetch(`${API_BASE_URL}/mercadopago/create-free-subscriber`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
@@ -80,7 +81,7 @@ export default function Cadastro() {
         window.location.href = slug ? `/s/${slug}/login/cliente` : '/';
       } else {
         // Para planos pagos, criar assinatura no Mercado Pago
-        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}/api/mercadopago/create-subscription`, {
+        const response = await fetch(`${API_BASE_URL}/mercadopago/create-subscription`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 

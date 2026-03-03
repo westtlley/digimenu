@@ -8,8 +8,37 @@ import { logger } from '../../utils/logger.js';
 import { generateTableOrderCode, generateOrderCode, validateOrderData, validateCardapioOrderData, getSubscriberOrMasterBySlug } from './orders.utils.js';
 import { emitOrderCreated } from '../../services/websocket.js';
 import { usePostgreSQL, getDb, getSaveDatabaseDebounced } from '../../config/appConfig.js';
-import { validateOrdersPerDayLimit, validateOrdersPerMonthLimit } from '../../services/planValidation.service.js';
 import { getClient } from '../../db/postgres.js';
+
+function normalizeNeighborhood(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase();
+}
+
+function toNumber(value, fallback = 0) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function roundMoney(value) {
+  return Math.round((toNumber(value, 0) + Number.EPSILON) * 100) / 100;
+}
+
+function calculateDistanceKm(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const toRad = (degrees) => degrees * (Math.PI / 180);
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
 
 /**
  * Cria um pedido de mesa (público)
@@ -206,6 +235,74 @@ export async function createCardapioOrder(orderData, slug) {
   const validationErrors = validateCardapioOrderData(orderData);
   if (validationErrors.length > 0) throw new Error(validationErrors.join(', '));
 
+  const [stores, deliveryZones] = await Promise.all([
+    repo.listEntitiesForSubscriber('Store', subscriberEmail, null),
+    repo.listEntitiesForSubscriber('DeliveryZone', subscriberEmail, null)
+  ]);
+  const store = Array.isArray(stores) && stores[0] ? stores[0] : {};
+  const zones = Array.isArray(deliveryZones) ? deliveryZones : [];
+
+  const deliveryMethod = orderData.delivery_method || 'pickup';
+  const neighborhood = orderData.neighborhood || null;
+  const customerLat = toNumber(orderData.customer_latitude, null);
+  const customerLng = toNumber(orderData.customer_longitude, null);
+
+  let matchedZone = null;
+  let calculatedDeliveryFee = 0;
+
+  if (deliveryMethod === 'delivery') {
+    const isDistanceMode = store?.delivery_fee_mode === 'distance';
+    const storeLat = toNumber(store?.latitude, null);
+    const storeLng = toNumber(store?.longitude, null);
+
+    if (
+      isDistanceMode &&
+      Number.isFinite(customerLat) &&
+      Number.isFinite(customerLng) &&
+      Number.isFinite(storeLat) &&
+      Number.isFinite(storeLng)
+    ) {
+      const distanceKm = calculateDistanceKm(storeLat, storeLng, customerLat, customerLng);
+      const baseFee = toNumber(store?.delivery_base_fee, 0);
+      const pricePerKm = toNumber(store?.delivery_price_per_km, 0);
+      const minFee = toNumber(store?.delivery_min_fee, 0);
+      const maxFee = store?.delivery_max_fee == null ? null : toNumber(store.delivery_max_fee, null);
+      const freeDistance = store?.delivery_free_distance == null ? null : toNumber(store.delivery_free_distance, null);
+
+      if (freeDistance != null && distanceKm <= freeDistance) {
+        calculatedDeliveryFee = 0;
+      } else {
+        let fee = baseFee + (distanceKm * pricePerKm);
+        if (fee < minFee) fee = minFee;
+        if (maxFee != null && fee > maxFee) fee = maxFee;
+        calculatedDeliveryFee = roundMoney(fee);
+      }
+    } else {
+      const neighborhoodKey = normalizeNeighborhood(neighborhood);
+      matchedZone = zones.find(
+        (z) => normalizeNeighborhood(z?.neighborhood) === neighborhoodKey && z?.is_active
+      ) || null;
+      calculatedDeliveryFee = roundMoney(
+        matchedZone ? toNumber(matchedZone.fee, 0) : toNumber(store?.delivery_fee, 0)
+      );
+    }
+  }
+
+  const subtotal = roundMoney(toNumber(orderData.subtotal, 0));
+  const discount = roundMoney(toNumber(orderData.discount, 0));
+  const storeMinOrder = toNumber(
+    store?.min_order_value ?? store?.min_order ?? store?.min_order_price ?? store?.delivery_min_order ?? 0,
+    0
+  );
+  const zoneMinOrder = toNumber(matchedZone?.min_order ?? matchedZone?.min_order_value, 0);
+  const minimumOrderValue = Math.max(storeMinOrder, zoneMinOrder);
+
+  if (deliveryMethod === 'delivery' && minimumOrderValue > 0 && subtotal < minimumOrderValue) {
+    throw new Error(`Pedido mínimo para entrega é R$ ${minimumOrderValue.toFixed(2)}`);
+  }
+
+  const total = roundMoney(Math.max(0, subtotal - discount + calculatedDeliveryFee));
+
   const order_code = generateOrderCode();
   const finalOrderData = {
     order_code,
@@ -213,7 +310,7 @@ export async function createCardapioOrder(orderData, slug) {
     customer_phone: String(orderData.customer_phone || '').replace(/\D/g, ''),
     customer_email: orderData.customer_email || null,
     created_by: orderData.created_by || orderData.customer_email || null,
-    delivery_method: orderData.delivery_method || 'pickup',
+    delivery_method: deliveryMethod,
     address: orderData.address || null,
     address_street: orderData.address_street || null,
     address_number: orderData.address_number || null,
@@ -222,11 +319,13 @@ export async function createCardapioOrder(orderData, slug) {
     payment_method: orderData.payment_method || 'pix',
     needs_change: !!orderData.needs_change,
     change_amount: orderData.needs_change && orderData.change_amount ? parseFloat(orderData.change_amount) : null,
+    customer_latitude: Number.isFinite(customerLat) ? customerLat : null,
+    customer_longitude: Number.isFinite(customerLng) ? customerLng : null,
     items: Array.isArray(orderData.items) ? orderData.items : [],
-    subtotal: Number(orderData.subtotal) || 0,
-    delivery_fee: Number(orderData.delivery_fee) || 0,
-    discount: Number(orderData.discount) || 0,
-    total: Number(orderData.total) || 0,
+    subtotal,
+    delivery_fee: calculatedDeliveryFee,
+    discount,
+    total,
     status: 'new',
     created_date: new Date().toISOString(),
     owner_email: subscriberEmail
@@ -238,7 +337,6 @@ export async function createCardapioOrder(orderData, slug) {
       transactionClient = await getClient();
       await transactionClient.query('BEGIN');
 
-      const { validateOrdersPerDayLimit, validateOrdersPerMonthLimit } = await import('../../services/planValidation.service.js');
       const { getPlanPermissions } = await import('../../utils/plans.js');
       const subResult = await transactionClient.query('SELECT plan FROM subscribers WHERE email = $1', [subscriberEmail]);
       if (subResult.rows.length === 0) {

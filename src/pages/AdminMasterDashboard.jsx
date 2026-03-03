@@ -14,7 +14,7 @@ import {
   BarChart3
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { apiClient as base44 } from '@/api/apiClient';
+import { apiClient as base44, API_BASE_URL } from '@/api/apiClient';
 import { createPageUrl } from '@/utils';
 import SaasMetricCard from '../components/admin/SaasMetricCard';
 import AlertsSection from '../components/admin/AlertsSection';
@@ -51,7 +51,7 @@ export default function AdminMasterDashboard() {
   const { data: metrics, isLoading: metricsLoading, refetch: refetchMetrics } = useQuery({
     queryKey: ['saas-metrics'],
     queryFn: async () => {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}/api/metrics/saas`, {
+      const response = await fetch(`${API_BASE_URL}/metrics/saas`, {
         headers: {
           'Authorization': `Bearer ${base44.auth.getToken()}`
         }
