@@ -163,6 +163,8 @@ const allowedOrigins = new Set([
   FRONTEND_URL,
   ..._envList
 ].map(toOrigin).filter(Boolean));
+const isHttpsVercelPreviewOrigin = (origin = '') =>
+  /^https:\/\/([a-z0-9-]+\.)*vercel\.app$/i.test(String(origin || ''));
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 
@@ -181,21 +183,29 @@ const corsOptions = {
     // Em produção, nunca aceitar origin vazio.
     if (!origin) return cb(null, !isProd);
     
-    // Log para debug em desenvolvimento
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('🔍 CORS: Verificando origem:', origin);
-    }
-    
     const originToCheck = toOrigin(origin) || origin;
+    const isExactAllowed = allowedOrigins.has(originToCheck);
     const isWildcardAllowed = wildcardOriginRules.some((rule) => rule.test(originToCheck));
+    const isVercelPreviewAllowed = isHttpsVercelPreviewOrigin(originToCheck);
 
-    if (allowedOrigins.has(originToCheck) || isWildcardAllowed) {
-      console.log('✅ CORS: origem permitida:', origin);
-      return cb(null, true);
+    if (isExactAllowed || isWildcardAllowed || isVercelPreviewAllowed) {
+      if (!isProd) {
+        const source = isExactAllowed
+          ? 'exact-list'
+          : (isWildcardAllowed ? 'env-wildcard' : 'vercel-preview');
+        console.log('✅ CORS: origem permitida:', { origin: originToCheck, source });
+      }
+      // Reflete a origem recebida (nunca usa "*"), compatível com credentials=true.
+      return cb(null, originToCheck);
     }
     
-    console.warn('⚠️ CORS: origem NÃO permitida:', origin);
-    console.warn('📋 CORS: origens permitidas:', Array.from(allowedOrigins));
+    if (!isProd) {
+      console.warn('⚠️ CORS: origem bloqueada:', {
+        origin: originToCheck,
+        reason: 'not-in-exact-list-and-no-wildcard-match',
+      });
+      console.warn('📋 CORS: origens permitidas:', Array.from(allowedOrigins));
+    }
     
     // Retornar false sem erro (não bloqueia, apenas não adiciona headers CORS)
     return cb(null, false);
