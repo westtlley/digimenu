@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import DishSkeleton from '../DishSkeleton';
-import BeverageCard from '../BeverageCard';
 
 export default function CarouselLayout({ 
   dishes, 
@@ -166,80 +165,6 @@ export default function CarouselLayout({
         {safeDishes.map((dish, index) => {
           const isOutOfStock = stockUtils?.isOutOfStock?.(dish.stock);
           const isLowStock = stockUtils?.isLowStock?.(dish.stock);
-          if (dish?.product_type === 'beverage') {
-            return (
-              <div
-                key={dish.id}
-                className="flex-shrink-0 w-[280px] md:w-72 lg:w-72"
-                style={{ scrollSnapAlign: 'start' }}
-              >
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: index * 0.1 }}
-                  onClick={() => {
-                    if (dragStateRef.current.didDrag) return;
-                    if (!isOutOfStock) onDishClick(dish);
-                  }}
-                  className={`
-                    relative
-                    bg-white dark:bg-gray-900 rounded-xl overflow-hidden shadow-md border-2 transition-all cursor-pointer
-                    flex md:flex-row flex-col md:h-[clamp(200px,22vh,260px)]
-                    ${isOutOfStock 
-                      ? 'opacity-50 cursor-not-allowed border-gray-200 dark:border-gray-700' 
-                      : 'hover:shadow-xl border-gray-200 dark:border-gray-700 hover:scale-[1.02]'
-                    }
-                  `}
-                  style={!isOutOfStock ? { borderColor: 'transparent' } : {}}
-                >
-                  <div className="relative p-3 md:p-3 flex-1 flex flex-col min-w-0">
-                    <h3 className="font-bold text-base md:text-xs mb-2 line-clamp-2 min-h-[2.25rem] md:min-h-[1.75rem] text-foreground">
-                      {dish.name}
-                    </h3>
-                    {dish.description && (
-                      <p className="text-xs line-clamp-2 mb-3 md:mb-0 md:hidden text-muted-foreground">
-                        {dish.description}
-                      </p>
-                    )}
-                    <div className="mt-auto flex items-baseline gap-2">
-                      {dish.original_price && dish.original_price > dish.price && (
-                        <span className="text-sm text-gray-400 line-through">
-                          {formatCurrency?.(dish.original_price)}
-                        </span>
-                      )}
-                      <span className="text-xl md:text-lg font-bold" style={{ color: primaryColor }}>
-                        {formatCurrency?.(dish.price) || 'R$ 0,00'}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="relative md:w-[45%] w-full h-44 md:h-full bg-gray-100 dark:bg-gray-800 overflow-hidden flex items-center justify-center">
-                    {dish.image ? (
-                      <img
-                        src={dish.image}
-                        alt={dish.name}
-                        className={`w-full h-full object-contain p-3 ${isOutOfStock ? 'grayscale' : ''}`}
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-5xl">🥤</div>
-                    )}
-                    {isOutOfStock && (
-                      <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                        <span className="text-white font-bold">Esgotado</span>
-                      </div>
-                    )}
-                    {dish.original_price && dish.original_price > dish.price && (
-                      <div className="absolute top-2 right-2">
-                        <span className="px-2 py-1 bg-red-500 text-white text-xs font-bold rounded-full">
-                          -{Math.round(((dish.original_price - dish.price) / dish.original_price) * 100)}%
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </motion.div>
-              </div>
-            );
-          }
           return (
             <div
               key={dish.id}

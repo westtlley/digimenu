@@ -33,7 +33,10 @@ export default function NewDishModal({
   const [selections, setSelections] = useState({});
   const [currentTotal, setCurrentTotal] = useState(0);
   const [showVideo, setShowVideo] = useState(false);
+  const [isMediaCollapsed, setIsMediaCollapsed] = useState(false);
   const dialogRef = React.useRef(null);
+  const optionsScrollRef = React.useRef(null);
+  const lastOptionsScrollTopRef = React.useRef(0);
   const videoInfo = dish?.video_url ? getVideoId(dish.video_url) : null;
 
   // Filtra apenas os grupos vinculados ao prato
@@ -53,6 +56,11 @@ export default function NewDishModal({
       }
       setCurrentTotal(dish.price || 0);
       setShowVideo(false); // Reset video quando abre o modal
+      setIsMediaCollapsed(false);
+      lastOptionsScrollTopRef.current = 0;
+      if (optionsScrollRef.current) {
+        optionsScrollRef.current.scrollTop = 0;
+      }
     }
   }, [isOpen, dish, editingItem]);
 
@@ -84,6 +92,28 @@ export default function NewDishModal({
   }, [isOpen, onClose]);
 
   if (!isOpen || !dish) return null;
+
+  const handleOptionsScroll = (event) => {
+    if (!mobileFullScreen) return;
+
+    const currentTop = event.currentTarget.scrollTop;
+    const previousTop = lastOptionsScrollTopRef.current;
+    const delta = currentTop - previousTop;
+
+    if (currentTop <= 8) {
+      if (isMediaCollapsed) setIsMediaCollapsed(false);
+      lastOptionsScrollTopRef.current = 0;
+      return;
+    }
+
+    if (delta > 8 && currentTop > 24 && !isMediaCollapsed) {
+      setIsMediaCollapsed(true);
+    } else if (delta < -8 && currentTop < 120 && isMediaCollapsed) {
+      setIsMediaCollapsed(false);
+    }
+
+    lastOptionsScrollTopRef.current = currentTop;
+  };
 
   const handleSelect = (group, option) => {
     const groupId = group.id;
@@ -227,7 +257,17 @@ export default function NewDishModal({
               </div>
             )}
             {/* Mídia (imagem ou vídeo) — mobile: limite menor ~28vh; desktop: ~45% largura */}
-            <div className="relative w-full aspect-[9/16] md:aspect-auto md:h-full md:w-2/5 lg:w-[45%] flex-shrink-0 max-h-[28vh] md:max-h-none">
+            <motion.div
+              initial={false}
+              animate={mobileFullScreen
+                ? { height: isMediaCollapsed ? 0 : '28vh', opacity: isMediaCollapsed ? 0 : 1 }
+                : { height: 'auto', opacity: 1 }
+              }
+              transition={{ duration: 0.25, ease: 'easeInOut' }}
+              className={`relative w-full md:aspect-auto md:h-full md:w-2/5 lg:w-[45%] flex-shrink-0 overflow-hidden ${
+                mobileFullScreen ? '' : 'aspect-[9/16] max-h-[28vh] md:max-h-none'
+              }`}
+            >
               {showVideo && videoInfo ? (
                 <div className="w-full h-full bg-black relative">
                   {videoInfo.type === 'youtube' ? (
@@ -301,7 +341,7 @@ export default function NewDishModal({
                   <X className="w-5 h-5 text-white" />
                 </button>
               )}
-            </div>
+            </motion.div>
 
             {/* Right - Options */}
             <div className="flex-1 flex flex-col min-h-0">
@@ -312,7 +352,11 @@ export default function NewDishModal({
                 <X className="w-5 h-5 text-gray-900 dark:text-white" />
               </button>
 
-              <div className="flex-1 overflow-y-auto p-3 md:p-5 pt-3 md:pt-12">
+              <div
+                ref={optionsScrollRef}
+                onScroll={handleOptionsScroll}
+                className="flex-1 overflow-y-auto p-3 md:p-5 pt-3 md:pt-12"
+              >
                 {dishComplementGroups.length === 0 ? (
                   <div className="text-center py-8">
                     <p className="text-sm text-gray-500 dark:text-gray-400">Este prato não possui complementos</p>

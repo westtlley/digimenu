@@ -1,6 +1,5 @@
 import React from 'react';
 import DishCardWow from '../DishCardWow';
-import BeverageCard from '../BeverageCard';
 import DishSkeleton from '../DishSkeleton';
 import { motion } from 'framer-motion';
 import { Badge } from "@/components/ui/badge";
@@ -150,9 +149,6 @@ export default function GridLayout({
   gridColsDesktop = null
 }) {
   const itemsCount = Array.isArray(dishes) ? dishes.length : 0;
-  const isSingleBeverageOnly =
-    itemsCount === 1 && Array.isArray(dishes) && dishes[0]?.product_type === 'beverage';
-
   const gridDesktopColsClass =
     itemsCount === 1
       ? 'lg:grid-cols-1 xl:grid-cols-1 2xl:grid-cols-1'
@@ -199,24 +195,8 @@ export default function GridLayout({
         const isOutOfStock = stockUtils?.isOutOfStock?.(dish.stock);
         const isLowStock = stockUtils?.isLowStock?.(dish.stock);
         
-        // Se for bebida, usar BeverageCard
-        if (dish.product_type === 'beverage') {
-          return (
-            <BeverageCard
-              key={dish.id}
-              beverage={dish}
-              onClick={onDishClick}
-              index={index}
-              isOutOfStock={isOutOfStock}
-              primaryColor={primaryColor}
-              textPrimaryColor={textPrimaryColor}
-              slug={slug}
-              compact={isSingleBeverageOnly}
-            />
-          );
-        }
+        // Bebidas e pratos usam o mesmo card visual
         
-        // Caso contrário, usar DishCardWow normal
         return (
           <DishCardWow
             key={dish.id}
