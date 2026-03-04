@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { X, Plus, Minus, Wine, Droplets, Package, ThermometerSnowflake, Thermometer, Leaf, Coffee, GlassWater } from 'lucide-react';
+import { X, Plus, Minus, Wine, Droplets, Package, ThermometerSnowflake, Thermometer, Leaf, Coffee, GlassWater, ChevronLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 /**
@@ -14,11 +14,22 @@ export default function BeverageModal({
   beverage, 
   isOpen, 
   onClose, 
+  onBack = null,
   onAddToCart,
-  primaryColor = '#06b6d4'
+  primaryColor = '#06b6d4',
+  mobileFullScreen = false
 }) {
   const [quantity, setQuantity] = useState(1);
   const [observations, setObservations] = useState('');
+  const dialogRef = useRef(null);
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    const timer = window.setTimeout(() => {
+      dialogRef.current?.focus();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [isOpen]);
 
   if (!beverage) return null;
 
@@ -66,8 +77,19 @@ export default function BeverageModal({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl lg:max-w-[1100px] h-[90vh] max-h-[90vh] p-0 overflow-hidden flex flex-col sm:flex-row [&>:last-child]:hidden" aria-describedby="beverage-modal-desc">
+    <Dialog
+      open={isOpen}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) onClose?.();
+      }}
+    >
+        <DialogContent
+        className={mobileFullScreen
+          ? "w-screen max-w-none h-[100dvh] max-h-[100dvh] rounded-none border-none p-0 overflow-hidden flex flex-col pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] [&>:last-child]:hidden"
+          : "max-w-4xl lg:max-w-[1100px] h-[90vh] max-h-[90vh] p-0 overflow-hidden flex flex-col sm:flex-row [&>:last-child]:hidden"
+        }
+        aria-describedby="beverage-modal-desc"
+      >
         <DialogTitle className="sr-only">Detalhes da bebida: {beverage.name}</DialogTitle>
         <DialogDescription id="beverage-modal-desc" className="sr-only">Adicione quantidade e observações para incluir no pedido.</DialogDescription>
         <AnimatePresence>
@@ -77,16 +99,46 @@ export default function BeverageModal({
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.98 }}
               transition={{ duration: 0.25 }}
-              className="relative flex w-full h-full min-h-0 flex-col sm:flex-row overflow-hidden"
+              className={`relative flex w-full h-full min-h-0 overflow-hidden ${mobileFullScreen ? 'flex-col' : 'flex-col sm:flex-row'}`}
+              ref={dialogRef}
+              tabIndex={-1}
+              role="dialog"
+              aria-modal="true"
+              aria-label={`Detalhes da bebida ${beverage.name || ''}`}
             >
+              {mobileFullScreen && (
+                <div className="flex items-center justify-between border-b border-border px-3 py-3">
+                  <button
+                    onClick={onBack || onClose}
+                    className="p-2 rounded-lg hover:bg-muted transition-colors"
+                    aria-label="Voltar"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                  <div className="min-w-0 px-2 text-center">
+                    <p className="text-xs text-muted-foreground">Detalhes da bebida</p>
+                    <p className="text-sm font-semibold text-foreground truncate">{beverage?.name}</p>
+                  </div>
+                  <button
+                    onClick={onClose}
+                    className="p-2 rounded-lg hover:bg-muted transition-colors"
+                    aria-label="Fechar"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              )}
+
               {/* X no canto superior direito do modal inteiro */}
-              <button
-                onClick={onClose}
-                className="absolute top-3 right-3 p-2 bg-background/80 hover:bg-background border border-border rounded-full backdrop-blur-sm z-50 transition-colors shadow-md"
-                aria-label="Fechar"
-              >
-                <X className="w-4 h-4 text-foreground" strokeWidth={2.5} />
-              </button>
+              {!mobileFullScreen && (
+                <button
+                  onClick={onClose}
+                  className="absolute top-3 right-3 p-2 bg-background/80 hover:bg-background border border-border rounded-full backdrop-blur-sm z-50 transition-colors shadow-md"
+                  aria-label="Fechar"
+                >
+                  <X className="w-4 h-4 text-foreground" strokeWidth={2.5} />
+                </button>
+              )}
 
               {/* Coluna esquerda: imagem — mobile limite menor ~28vh (proporção 9:16) */}
               <div className="relative w-full aspect-[9/16] sm:aspect-auto sm:w-[45%] sm:min-w-[280px] sm:min-h-[400px] flex-shrink-0 max-h-[28vh] sm:max-h-none bg-gray-900">
@@ -111,7 +163,7 @@ export default function BeverageModal({
 
               {/* Coluna direita: informações e ações — padding para campo completo na tela */}
               <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-background overflow-hidden">
-                <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 pr-5 sm:px-6 sm:pr-8 py-4 sm:pt-12 space-y-5">
+                <div className={`flex-1 overflow-y-auto overflow-x-hidden px-4 pr-5 sm:px-6 sm:pr-8 py-4 space-y-5 ${mobileFullScreen ? '' : 'sm:pt-12'}`}>
                   {/* 1. Descrição primeiro (se houver) */}
                   {beverage.description && (
                     <div>

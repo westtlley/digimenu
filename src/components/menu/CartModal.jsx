@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Trash2, Plus, Minus, ShoppingCart, Edit, Package, Clock, ChefHat, CheckCircle, Truck, MapPin, Ban, Star } from 'lucide-react';
+import { X, Trash2, Plus, Minus, ShoppingCart, Edit, Package, Clock, ChefHat, CheckCircle, Truck, MapPin, Ban, Star, ChevronLeft } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -23,13 +23,14 @@ const statusConfig = {
   cancelled: { label: 'Cancelado', color: 'bg-red-500', icon: Ban }
 };
 
-export default function CartModal({ isOpen, onClose, cart, onUpdateQuantity, onRemoveItem, onCheckout, onEditItem, onEditPizza, darkMode = false, primaryColor = '#f97316', store = null, onReviewBonus = null }) {
+export default function CartModal({ isOpen, onClose, onBack = null, cart, onUpdateQuantity, onRemoveItem, onCheckout, onEditItem, onEditPizza, darkMode = false, primaryColor = '#f97316', store = null, onReviewBonus = null, mobileFullScreen = false }) {
   const [activeTab, setActiveTab] = useState('cart'); // 'cart' ou 'orders'
   const [showRatingModal, setShowRatingModal] = useState(null);
   const [restaurantRating, setRestaurantRating] = useState(0);
   const [deliveryRating, setDeliveryRating] = useState(0);
   const [comment, setComment] = useState('');
   const prevOrdersRef = useRef([]);
+  const dialogRef = useRef(null);
   const queryClient = useQueryClient();
 
   const formatCurrency = (value) => {
@@ -314,6 +315,20 @@ export default function CartModal({ isOpen, onClose, cart, onUpdateQuantity, onR
     });
   };
 
+  useEffect(() => {
+    if (!isOpen) return undefined;
+
+    dialogRef.current?.focus();
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        onClose?.();
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   return (
@@ -322,8 +337,11 @@ export default function CartModal({ isOpen, onClose, cart, onUpdateQuantity, onR
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center md:items-stretch md:justify-end justify-center p-4 md:p-0"
-        onClick={onClose}
+        className={mobileFullScreen
+          ? "fixed inset-0 z-50 flex items-stretch justify-center p-0 bg-black/70"
+          : "fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center md:items-stretch md:justify-end justify-center p-4 md:p-0"
+        }
+        onClick={mobileFullScreen ? undefined : onClose}
       >
         <motion.div
           initial={{ x: '100%' }}
@@ -331,15 +349,33 @@ export default function CartModal({ isOpen, onClose, cart, onUpdateQuantity, onR
           exit={{ x: '100%' }}
           transition={{ type: 'tween', duration: 0.3 }}
           onClick={(e) => e.stopPropagation()}
-          className={`${darkMode ? 'bg-gray-800' : 'bg-white'} md:rounded-none rounded-2xl shadow-2xl w-full md:w-[400px] max-w-lg md:max-w-none h-auto md:h-full max-h-[85vh] md:max-h-none overflow-hidden flex flex-col`}
-        >
+          ref={dialogRef}
+          tabIndex={-1}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Carrinho e pedidos"
+            className={`${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-2xl w-full overflow-hidden flex flex-col ${
+              mobileFullScreen
+                ? 'h-[100dvh] max-h-[100dvh] rounded-none max-w-none pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]'
+                : 'md:rounded-none rounded-2xl md:w-[400px] max-w-lg md:max-w-none h-auto md:h-full max-h-[85vh] md:max-h-none'
+            }`}
+          >
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: darkMode ? '#374151' : '#e5e7eb' }}>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              {mobileFullScreen && (
+                <button
+                  onClick={onBack || onClose}
+                  className={`p-2 rounded-lg ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
+                  aria-label="Voltar"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+              )}
               <ShoppingCart className="w-5 h-5" style={{ color: primaryColor }} />
-              <h2 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Carrinho</h2>
+              <h2 className={`text-lg font-bold truncate ${darkMode ? 'text-white' : 'text-gray-900'}`}>Carrinho</h2>
             </div>
-            <button onClick={onClose} className={`p-2 rounded-lg ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}>
+            <button onClick={onClose} className={`p-2 rounded-lg ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`} aria-label="Fechar carrinho">
               <X className="w-5 h-5" />
             </button>
           </div>

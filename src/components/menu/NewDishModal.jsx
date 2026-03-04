@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Check, Play } from 'lucide-react';
+import { X, Check, Play, ChevronLeft } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -27,12 +27,13 @@ const getVideoId = (url) => {
 };
 
 export default function NewDishModal({ 
-  isOpen, onClose, dish, complementGroups, onAddToCart, editingItem,
-  darkMode = false, primaryColor = '#f97316'
+  isOpen, onClose, onBack = null, dish, complementGroups, onAddToCart, editingItem,
+  darkMode = false, primaryColor = '#f97316', mobileFullScreen = false
 }) {
   const [selections, setSelections] = useState({});
   const [currentTotal, setCurrentTotal] = useState(0);
   const [showVideo, setShowVideo] = useState(false);
+  const dialogRef = React.useRef(null);
   const videoInfo = dish?.video_url ? getVideoId(dish.video_url) : null;
 
   // Filtra apenas os grupos vinculados ao prato
@@ -67,6 +68,20 @@ export default function NewDishModal({
     });
     setCurrentTotal(total);
   }, [selections, dish]);
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+
+    dialogRef.current?.focus();
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        onClose?.();
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen || !dish) return null;
 
@@ -147,13 +162,13 @@ export default function NewDishModal({
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex">
+        <div className="fixed inset-0 z-50 flex" role="dialog" aria-modal="true" aria-label={`Detalhes do prato ${dish?.name || ''}`}>
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            onClick={onClose}
+            className={mobileFullScreen ? "absolute inset-0 bg-black/70" : "absolute inset-0 bg-black/60 backdrop-blur-sm"}
+            onClick={mobileFullScreen ? undefined : onClose}
           />
           
           <motion.div 
@@ -161,8 +176,48 @@ export default function NewDishModal({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="relative flex flex-col md:flex-row w-full md:m-auto md:max-w-5xl lg:max-w-[1100px] md:h-[85vh] bg-white dark:bg-gray-900 backdrop-blur-xl md:rounded-3xl overflow-hidden shadow-2xl"
+            ref={dialogRef}
+            tabIndex={-1}
+            className={`relative flex flex-col md:flex-row w-full bg-white dark:bg-gray-900 backdrop-blur-xl overflow-hidden shadow-2xl ${
+              mobileFullScreen
+                ? 'h-[100dvh] max-h-[100dvh] rounded-none pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]'
+                : 'md:m-auto md:max-w-5xl lg:max-w-[1100px] md:h-[85vh] md:rounded-3xl'
+            }`}
           >
+            {mobileFullScreen && (
+              <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 px-3 py-3">
+                <button
+                  onClick={() => {
+                    if (showVideo) {
+                      setShowVideo(false);
+                      return;
+                    }
+                    (onBack || onClose)?.();
+                  }}
+                  className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  aria-label="Voltar"
+                >
+                  <ChevronLeft className="w-5 h-5 text-gray-900 dark:text-white" />
+                </button>
+                <div className="min-w-0 px-2 text-center">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Detalhes do prato</p>
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{dish?.name}</p>
+                </div>
+                <button
+                  onClick={() => {
+                    if (showVideo) {
+                      setShowVideo(false);
+                      return;
+                    }
+                    onClose?.();
+                  }}
+                  className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  aria-label="Fechar"
+                >
+                  <X className="w-5 h-5 text-gray-900 dark:text-white" />
+                </button>
+              </div>
+            )}
             {/* Mídia (imagem ou vídeo) — mobile: limite menor ~28vh; desktop: ~45% largura */}
             <div className="relative w-full aspect-[9/16] md:aspect-auto md:h-full md:w-2/5 lg:w-[45%] flex-shrink-0 max-h-[28vh] md:max-h-none">
               {showVideo && videoInfo ? (
@@ -212,20 +267,22 @@ export default function NewDishModal({
                 )}
               </div>
               {/* Botão X mobile: fecha vídeo ou modal */}
-              <button 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (showVideo) {
-                    setShowVideo(false);
-                  } else {
-                    onClose();
-                  }
-                }}
-                className="absolute top-2 right-2 md:hidden p-2.5 bg-black/60 hover:bg-black/80 rounded-full backdrop-blur-sm z-50 active:scale-95 transition-all touch-manipulation"
-                aria-label={showVideo ? "Voltar" : "Fechar"}
-              >
-                <X className="w-5 h-5 text-white" strokeWidth={2.5} />
-              </button>
+              {!mobileFullScreen && (
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (showVideo) {
+                      setShowVideo(false);
+                    } else {
+                      onClose();
+                    }
+                  }}
+                  className="absolute top-2 right-2 md:hidden p-2.5 bg-black/60 hover:bg-black/80 rounded-full backdrop-blur-sm z-50 active:scale-95 transition-all touch-manipulation"
+                  aria-label={showVideo ? "Voltar" : "Fechar"}
+                >
+                  <X className="w-5 h-5 text-white" strokeWidth={2.5} />
+                </button>
+              )}
               {/* Botão Voltar (fechar vídeo) no desktop */}
               {showVideo && (
                 <button

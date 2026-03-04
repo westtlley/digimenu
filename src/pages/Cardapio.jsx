@@ -142,6 +142,8 @@ export default function Cardapio() {
   const [chatOpen, setChatOpen] = useState(false);
   const [showRecentOrdersPanel, setShowRecentOrdersPanel] = useState(true);
   const [isDesktopViewport, setIsDesktopViewport] = useState(false);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
+  const bodyScrollLockRef = React.useRef(null);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -155,6 +157,234 @@ export default function Cardapio() {
     mq.addListener(onChange);
     return () => mq.removeListener(onChange);
   }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mq = window.matchMedia('(max-width: 767px)');
+    const onChange = () => setIsMobileViewport(!!mq.matches);
+    onChange();
+    if (typeof mq.addEventListener === 'function') {
+      mq.addEventListener('change', onChange);
+      return () => mq.removeEventListener('change', onChange);
+    }
+    mq.addListener(onChange);
+    return () => mq.removeListener(onChange);
+  }, []);
+
+  const pushMobileOverlayState = React.useCallback((overlayKey) => {
+    if (!isMobileViewport || typeof window === 'undefined') return;
+    const currentState = window.history.state || {};
+    if (currentState.__dmMobileOverlay === overlayKey) return;
+    const nextState = { ...currentState, __dmMobileOverlay: overlayKey };
+    if (currentState.__dmMobileOverlay) {
+      window.history.replaceState(nextState, '');
+      return;
+    }
+    window.history.pushState(nextState, '');
+  }, [isMobileViewport]);
+
+  const closeMobileOverlay = React.useCallback((closeFn) => {
+    closeFn();
+    if (!isMobileViewport || typeof window === 'undefined') return;
+    if (window.history.state?.__dmMobileOverlay) {
+      window.history.back();
+    }
+  }, [isMobileViewport]);
+
+  const openCartModal = React.useCallback(() => {
+    if (isMobileViewport) {
+      setShowOrderHistory(false);
+      setSelectedDish(null);
+      setSelectedBeverage(null);
+      setSelectedPizza(null);
+      setChatOpen(false);
+    }
+    setShowCartModal(true);
+    pushMobileOverlayState('cart');
+  }, [isMobileViewport, pushMobileOverlayState]);
+
+  const closeCartModal = React.useCallback(() => {
+    closeMobileOverlay(() => setShowCartModal(false));
+  }, [closeMobileOverlay]);
+
+  const openOrderHistoryModal = React.useCallback(() => {
+    if (isMobileViewport) {
+      setShowCartModal(false);
+      setSelectedDish(null);
+      setSelectedBeverage(null);
+      setSelectedPizza(null);
+      setChatOpen(false);
+    }
+    setShowOrderHistory(true);
+    pushMobileOverlayState('orders');
+  }, [isMobileViewport, pushMobileOverlayState]);
+
+  const closeOrderHistoryModal = React.useCallback(() => {
+    closeMobileOverlay(() => setShowOrderHistory(false));
+  }, [closeMobileOverlay]);
+
+  const openDishDetails = React.useCallback((dish) => {
+    if (isMobileViewport) {
+      setShowCartModal(false);
+      setShowOrderHistory(false);
+      setSelectedBeverage(null);
+      setSelectedPizza(null);
+      setChatOpen(false);
+    }
+    setSelectedDish(dish);
+    pushMobileOverlayState('dish');
+  }, [isMobileViewport, pushMobileOverlayState]);
+
+  const closeDishDetails = React.useCallback(() => {
+    closeMobileOverlay(() => {
+      setSelectedDish(null);
+      setEditingCartItem(null);
+    });
+  }, [closeMobileOverlay]);
+
+  const openBeverageDetails = React.useCallback((dish) => {
+    if (isMobileViewport) {
+      setShowCartModal(false);
+      setShowOrderHistory(false);
+      setSelectedDish(null);
+      setSelectedPizza(null);
+      setChatOpen(false);
+    }
+    setSelectedBeverage(dish);
+    pushMobileOverlayState('beverage');
+  }, [isMobileViewport, pushMobileOverlayState]);
+
+  const closeBeverageDetails = React.useCallback(() => {
+    closeMobileOverlay(() => {
+      setSelectedBeverage(null);
+      setEditingCartItem(null);
+    });
+  }, [closeMobileOverlay]);
+
+  const openPizzaBuilder = React.useCallback((dish) => {
+    if (isMobileViewport) {
+      setShowCartModal(false);
+      setShowOrderHistory(false);
+      setSelectedDish(null);
+      setSelectedBeverage(null);
+      setChatOpen(false);
+    }
+    setSelectedPizza(dish);
+    pushMobileOverlayState('pizza');
+  }, [isMobileViewport, pushMobileOverlayState]);
+
+  const closePizzaBuilder = React.useCallback(() => {
+    closeMobileOverlay(() => {
+      setSelectedPizza(null);
+      setEditingCartItem(null);
+    });
+  }, [closeMobileOverlay]);
+
+  const handleChatOpenChange = React.useCallback((nextOpen) => {
+    if (nextOpen) {
+      if (isMobileViewport) {
+        setShowCartModal(false);
+        setShowOrderHistory(false);
+        setSelectedDish(null);
+        setSelectedBeverage(null);
+        setSelectedPizza(null);
+      }
+      setChatOpen(true);
+      pushMobileOverlayState('chat');
+      return;
+    }
+    closeMobileOverlay(() => setChatOpen(false));
+  }, [closeMobileOverlay, isMobileViewport, pushMobileOverlayState]);
+
+  const unlockBodyScroll = React.useCallback(() => {
+    if (typeof document === 'undefined') return;
+    const lockState = bodyScrollLockRef.current;
+    if (!lockState) return;
+
+    const html = document.documentElement;
+    const body = document.body;
+
+    html.style.overflow = lockState.prevHtmlOverflow;
+    body.style.overflow = lockState.prevBodyOverflow;
+    body.style.position = lockState.prevBodyPosition;
+    body.style.top = lockState.prevBodyTop;
+    body.style.left = lockState.prevBodyLeft;
+    body.style.right = lockState.prevBodyRight;
+    body.style.width = lockState.prevBodyWidth;
+    window.scrollTo(0, lockState.scrollY);
+    bodyScrollLockRef.current = null;
+  }, []);
+
+  useEffect(() => {
+    if (!isMobileViewport || typeof window === 'undefined') return;
+
+    const onPopState = () => {
+      setShowCartModal(false);
+      setShowOrderHistory(false);
+      setSelectedDish(null);
+      setSelectedBeverage(null);
+      setSelectedPizza(null);
+      setChatOpen(false);
+      setEditingCartItem(null);
+      setShowFloatingMenu(false);
+      unlockBodyScroll();
+    };
+
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, [isMobileViewport, unlockBodyScroll]);
+
+  const isMobileFullscreenOverlayOpen = isMobileViewport && (
+    showCartModal ||
+    showOrderHistory ||
+    !!selectedDish ||
+    !!selectedBeverage ||
+    !!selectedPizza ||
+    chatOpen
+  );
+
+  useEffect(() => {
+    if (!isMobileViewport || typeof document === 'undefined') {
+      unlockBodyScroll();
+      return;
+    }
+
+    if (!isMobileFullscreenOverlayOpen) {
+      unlockBodyScroll();
+      return;
+    }
+
+    if (bodyScrollLockRef.current) return;
+
+    const html = document.documentElement;
+    const body = document.body;
+    const scrollY = window.scrollY || 0;
+
+    bodyScrollLockRef.current = {
+      prevHtmlOverflow: html.style.overflow,
+      prevBodyOverflow: body.style.overflow,
+      prevBodyPosition: body.style.position,
+      prevBodyTop: body.style.top,
+      prevBodyLeft: body.style.left,
+      prevBodyRight: body.style.right,
+      prevBodyWidth: body.style.width,
+      scrollY
+    };
+
+    html.style.overflow = 'hidden';
+    body.style.overflow = 'hidden';
+    body.style.position = 'fixed';
+    body.style.top = `-${scrollY}px`;
+    body.style.left = '0';
+    body.style.right = '0';
+    body.style.width = '100%';
+  }, [isMobileFullscreenOverlayOpen, isMobileViewport, unlockBodyScroll]);
+
+  useEffect(() => {
+    return () => {
+      unlockBodyScroll();
+    };
+  }, [unlockBodyScroll]);
 
   const queryClient = useQueryClient();
 
@@ -839,15 +1069,23 @@ export default function Cardapio() {
     if (isEditing || editingCartItem) {
       updateItem(editingCartItem?.id || item.id, item);
       setEditingCartItem(null);
-      setSelectedDish(null);
-      setSelectedPizza(null);
+      if (dish?.product_type === 'pizza') {
+        closePizzaBuilder();
+      } else {
+        setSelectedDish(null);
+        setSelectedPizza(null);
+      }
       toast.success('Item atualizado no carrinho');
       return;
     }
     
     addItem(item);
-    setSelectedDish(null);
-    setSelectedPizza(null);
+    if (dish?.product_type === 'pizza') {
+      closePizzaBuilder();
+    } else {
+      setSelectedDish(null);
+      setSelectedPizza(null);
+    }
     
     // Cross-sell será gerenciado pelo componente SmartUpsell baseado no carrinho
     
@@ -892,16 +1130,16 @@ export default function Cardapio() {
     // Se for bebida, usar modal específico de bebida
     if (dish.product_type === 'beverage') {
       console.log('🥤 É bebida! Abrindo BeverageModal...');
-      setSelectedBeverage(dish);
+      openBeverageDetails(dish);
       return;
     }
     
     if (dish.product_type === 'pizza') {
       console.log('✅ É pizza! Abrindo PizzaBuilder...');
-      setSelectedPizza(dish);
+      openPizzaBuilder(dish);
     } else {
       console.log('📦 Não é pizza, abrindo modal normal');
-      setSelectedDish(dish);
+      openDishDetails(dish);
     }
   };
 
@@ -941,16 +1179,18 @@ export default function Cardapio() {
   const handleEditCartItem = (item) => {
     setEditingCartItem(item);
     if (item.dish?.product_type === 'pizza') {
-      setSelectedPizza(item.dish);
+      openPizzaBuilder(item.dish);
+    } else if (item.dish?.product_type === 'beverage') {
+      openBeverageDetails(item.dish);
     } else {
-      setSelectedDish(item.dish);
+      openDishDetails(item.dish);
     }
     setShowCartModal(false);
   };
 
   const handleEditPizza = (item) => {
     setEditingCartItem(item);
-    setSelectedPizza(item.dish);
+    openPizzaBuilder(item.dish);
     setShowCartModal(false);
   };
 
@@ -1164,7 +1404,7 @@ export default function Cardapio() {
         <p className="font-bold mb-1">✅ Pedido enviado com sucesso!</p>
         <p className="text-sm">Pedido #{orderCode}</p>
         <button
-          onClick={() => setShowOrderHistory(true)}
+          onClick={() => openOrderHistoryModal()}
           className="mt-2 text-blue-600 font-medium text-sm underline"
         >
           Acompanhar pedido
@@ -1361,7 +1601,7 @@ export default function Cardapio() {
               </button>
               <button 
                 className="hidden md:flex p-2 rounded-full relative bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-colors text-white" 
-                onClick={() => setShowCartModal(true)}
+                onClick={() => openCartModal()}
               >
                 <ShoppingCart className="w-5 h-5" />
                 {cart.length > 0 && (
@@ -1420,7 +1660,7 @@ export default function Cardapio() {
                       </>
                     )}
                   </button>
-                  <button className={`p-2 rounded-lg relative transition-colors text-muted-foreground hover:text-foreground hover:bg-muted lg:rounded-md ${cart.length > 0 ? 'lg:ring-2 lg:ring-primary/30 lg:bg-primary/5' : ''}`} onClick={() => setShowCartModal(true)}><ShoppingCart className="w-5 h-5" />{cart.length > 0 && <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">{cartItemsCount}</span>}</button>
+                  <button className={`p-2 rounded-lg relative transition-colors text-muted-foreground hover:text-foreground hover:bg-muted lg:rounded-md ${cart.length > 0 ? 'lg:ring-2 lg:ring-primary/30 lg:bg-primary/5' : ''}`} onClick={() => openCartModal()}><ShoppingCart className="w-5 h-5" />{cart.length > 0 && <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">{cartItemsCount}</span>}</button>
                 </div>
               </div>
               {/* Search - rente no desktop; collapsible no mobile */}
@@ -1450,7 +1690,7 @@ export default function Cardapio() {
                     </>
                   )}
                 </button>
-                <button className={`p-2 rounded-lg relative transition-colors text-muted-foreground hover:text-foreground hover:bg-muted lg:rounded-md ${cart.length > 0 ? 'lg:ring-2 lg:ring-primary/30 lg:bg-primary/5' : ''}`} onClick={() => setShowCartModal(true)}><ShoppingCart className="w-5 h-5" />{cart.length > 0 && <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">{cartItemsCount}</span>}</button>
+                <button className={`p-2 rounded-lg relative transition-colors text-muted-foreground hover:text-foreground hover:bg-muted lg:rounded-md ${cart.length > 0 ? 'lg:ring-2 lg:ring-primary/30 lg:bg-primary/5' : ''}`} onClick={() => openCartModal()}><ShoppingCart className="w-5 h-5" />{cart.length > 0 && <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">{cartItemsCount}</span>}</button>
               </div>
             </div>
             <div className="text-center mt-2 md:mt-1 lg:mt-1">
@@ -1488,7 +1728,7 @@ export default function Cardapio() {
                               borderColor: primaryColor + '40',
                               background: `linear-gradient(135deg, ${primaryColor}dd, ${primaryColor}bb)`
                             }}
-                            onClick={() => setSelectedDish(dish)}
+                            onClick={() => handleDishClick(dish)}
                           >
                             <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-12 -mt-12" />
                             <div className="relative p-3 flex items-center gap-3">
@@ -1606,7 +1846,7 @@ export default function Cardapio() {
                               borderColor: primaryColor + '40',
                               background: `linear-gradient(135deg, ${primaryColor}dd, ${primaryColor}bb)`
                             }}
-                            onClick={() => setSelectedDish(dish)}
+                            onClick={() => handleDishClick(dish)}
                           >
                             <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-12 -mt-12" />
                             <div className="relative p-3 flex items-center gap-3">
@@ -2284,7 +2524,7 @@ export default function Cardapio() {
           </button>
           
           <button
-            onClick={() => setShowCartModal(true)}
+            onClick={() => openCartModal()}
             className="flex items-center justify-center flex-1 h-full relative transition-all active:scale-95"
             style={{ color: cart.length > 0 ? primaryColor : 'hsl(var(--muted-foreground))' }}
             title="Carrinho"
@@ -2452,14 +2692,16 @@ export default function Cardapio() {
       {/* Modals */}
       <CartModal
         isOpen={showCartModal}
-        onClose={() => setShowCartModal(false)}
+        onClose={closeCartModal}
+        onBack={() => closeCartModal()}
+        mobileFullScreen={isMobileViewport}
         cart={cart}
         onUpdateQuantity={handleUpdateQuantity}
         onRemoveItem={handleRemoveFromCart}
         onEditItem={handleEditCartItem}
         onEditPizza={handleEditPizza}
         onCheckout={() => {
-          setShowCartModal(false);
+          closeCartModal();
           setCurrentView('checkout');
         }}
         primaryColor={primaryColor}
@@ -2469,10 +2711,9 @@ export default function Cardapio() {
 
       <NewDishModal
         isOpen={!!selectedDish}
-        onClose={() => {
-          setSelectedDish(null);
-          setEditingCartItem(null);
-        }}
+        onClose={closeDishDetails}
+        onBack={() => closeDishDetails()}
+        mobileFullScreen={isMobileViewport}
         dish={selectedDish}
         complementGroups={complementGroupsResolved}
         onAddToCart={handleAddToCart}
@@ -2484,10 +2725,9 @@ export default function Cardapio() {
       <BeverageModal
         beverage={selectedBeverage}
         isOpen={!!selectedBeverage}
-        onClose={() => {
-          setSelectedBeverage(null);
-          setEditingCartItem(null);
-        }}
+        onClose={closeBeverageDetails}
+        onBack={() => closeBeverageDetails()}
+        mobileFullScreen={isMobileViewport}
         onAddToCart={handleAddToCart}
         primaryColor="#06b6d4"
       />
@@ -2507,8 +2747,7 @@ export default function Cardapio() {
             onAddToCart={handleAddToCart}
             onClose={() => {
               console.log('❌ Fechando PizzaBuilderV2');
-              setSelectedPizza(null);
-              setEditingCartItem(null);
+              closePizzaBuilder();
             }}
             primaryColor={primaryColor}
             editingItem={editingCartItem}
@@ -2519,7 +2758,9 @@ export default function Cardapio() {
 
       <OrderHistoryModal
         isOpen={showOrderHistory}
-        onClose={() => setShowOrderHistory(false)}
+        onClose={closeOrderHistoryModal}
+        onBack={() => closeOrderHistoryModal()}
+        mobileFullScreen={isMobileViewport}
         primaryColor={primaryColor}
         onReorder={(order) => {
           // Adicionar todos os itens do pedido anterior ao carrinho
@@ -2686,7 +2927,7 @@ export default function Cardapio() {
                   transition={{ type: 'spring', damping: 20, stiffness: 300, delay: 0.05 }}
                   onClick={() => {
                     setShowFloatingMenu(false);
-                    setChatOpen(true);
+                    handleChatOpenChange(true);
                   }}
                   className="bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 p-3 rounded-full shadow-xl border border-gray-200 dark:border-gray-700 flex items-center justify-center hover:shadow-2xl transition-all"
                   aria-label="Chat"
@@ -2701,7 +2942,7 @@ export default function Cardapio() {
                   transition={{ type: 'spring', damping: 20, stiffness: 300, delay: 0.1 }}
                   onClick={() => {
                     setShowFloatingMenu(false);
-                    setShowCartModal(true);
+                    openCartModal();
                   }}
                   className="relative text-white p-3 rounded-full shadow-xl flex items-center justify-center transition-all"
                   style={{ backgroundColor: primaryColor }}
@@ -2745,7 +2986,7 @@ export default function Cardapio() {
             queryClient.invalidateQueries({ queryKey: ['customerOrders'] });
           }}
           open={chatOpen}
-          onOpenChange={setChatOpen}
+          onOpenChange={handleChatOpenChange}
           slug={slug}
           storeName={store?.name}
           primaryColor={primaryColor}

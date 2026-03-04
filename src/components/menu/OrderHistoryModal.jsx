@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Clock, Package, Truck, CheckCircle, Ban, Settings, MapPin, RefreshCw } from 'lucide-react';
+import { X, Clock, Package, Truck, CheckCircle, Ban, Settings, MapPin, RefreshCw, ChevronLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
@@ -24,12 +24,13 @@ const statusConfig = {
   cancelled: { label: 'Cancelado', color: 'bg-red-500', icon: Ban }
 };
 
-export default function OrderHistoryModal({ isOpen, onClose, primaryColor = '#f97316', onReorder = null }) {
+export default function OrderHistoryModal({ isOpen, onClose, onBack = null, primaryColor = '#f97316', onReorder = null, mobileFullScreen = false }) {
   const [isAdmin, setIsAdmin] = React.useState(false);
   const [showRatingModal, setShowRatingModal] = React.useState(null);
   const [restaurantRating, setRestaurantRating] = React.useState(0);
   const [deliveryRating, setDeliveryRating] = React.useState(0);
   const [comment, setComment] = React.useState('');
+  const dialogRef = React.useRef(null);
 
   const queryClient = useQueryClient();
 
@@ -101,6 +102,20 @@ export default function OrderHistoryModal({ isOpen, onClose, primaryColor = '#f9
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
   };
 
+  React.useEffect(() => {
+    if (!isOpen) return undefined;
+
+    dialogRef.current?.focus();
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        onClose?.();
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   return (
@@ -110,8 +125,11 @@ export default function OrderHistoryModal({ isOpen, onClose, primaryColor = '#f9
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center md:items-stretch md:justify-end justify-center p-4 md:p-0"
-          onClick={onClose}
+          className={mobileFullScreen
+            ? "fixed inset-0 z-50 flex items-stretch justify-center p-0 bg-black/70"
+            : "fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center md:items-stretch md:justify-end justify-center p-4 md:p-0"
+          }
+          onClick={mobileFullScreen ? undefined : onClose}
         >
           <motion.div
             initial={{ x: '100%' }}
@@ -119,13 +137,31 @@ export default function OrderHistoryModal({ isOpen, onClose, primaryColor = '#f9
             exit={{ x: '100%' }}
             transition={{ type: 'tween', duration: 0.3 }}
             onClick={(e) => e.stopPropagation()}
-            className="bg-white md:rounded-none rounded-2xl shadow-2xl w-full md:w-[400px] max-w-lg md:max-w-none h-auto md:h-full max-h-[85vh] md:max-h-none overflow-hidden flex flex-col"
+            ref={dialogRef}
+            tabIndex={-1}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Meus pedidos"
+            className={`bg-white shadow-2xl w-full overflow-hidden flex flex-col ${
+              mobileFullScreen
+                ? 'h-[100dvh] max-h-[100dvh] rounded-none max-w-none pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]'
+                : 'md:rounded-none rounded-2xl md:w-[400px] max-w-lg md:max-w-none h-auto md:h-full max-h-[85vh] md:max-h-none'
+            }`}
           >
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                {mobileFullScreen && (
+                  <button
+                    onClick={onBack || onClose}
+                    className="p-2 rounded-lg hover:bg-gray-100"
+                    aria-label="Voltar"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                )}
                 <Clock className="w-5 h-5" style={{ color: primaryColor }} />
-                <h2 className="text-lg font-bold text-gray-900">Meus Pedidos</h2>
+                <h2 className="text-lg font-bold text-gray-900 truncate">Meus Pedidos</h2>
               </div>
               <div className="flex items-center gap-2">
                 {isAdmin && (
@@ -135,7 +171,7 @@ export default function OrderHistoryModal({ isOpen, onClose, primaryColor = '#f9
                     </button>
                   </Link>
                 )}
-                <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100">
+                <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100" aria-label="Fechar pedidos">
                   <X className="w-5 h-5" />
                 </button>
               </div>
