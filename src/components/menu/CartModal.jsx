@@ -339,7 +339,7 @@ export default function CartModal({ isOpen, onClose, onBack = null, cart, onUpda
         exit={{ opacity: 0 }}
         className={mobileFullScreen
           ? "fixed inset-0 z-50 flex items-stretch justify-center p-0 bg-black/70"
-          : "fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center md:items-stretch md:justify-end justify-center p-4 md:p-0"
+          : "fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-stretch justify-end p-0"
         }
         onClick={mobileFullScreen ? undefined : onClose}
       >

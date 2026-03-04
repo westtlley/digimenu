@@ -162,7 +162,15 @@ export default function NewDishModal({
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex" role="dialog" aria-modal="true" aria-label={`Detalhes do prato ${dish?.name || ''}`}>
+        <div
+          className={mobileFullScreen
+            ? "fixed inset-0 z-50 flex items-stretch justify-center"
+            : "fixed inset-0 z-50 flex items-center justify-center p-4"
+          }
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Detalhes do prato ${dish?.name || ''}`}
+        >
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
