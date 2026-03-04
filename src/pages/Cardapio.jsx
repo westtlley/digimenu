@@ -2729,7 +2729,7 @@ export default function Cardapio() {
         onBack={() => closeBeverageDetails()}
         mobileFullScreen={isMobileViewport}
         onAddToCart={handleAddToCart}
-        primaryColor="#06b6d4"
+        primaryColor={primaryColor}
       />
 
       {selectedPizza && (

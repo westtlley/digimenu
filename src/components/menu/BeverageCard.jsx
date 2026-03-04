@@ -13,7 +13,7 @@ export default function BeverageCard({
   onClick, 
   index = 0,
   isOutOfStock = false,
-  primaryColor = '#06b6d4',
+  primaryColor = '#f97316',
   textPrimaryColor,
   slug = null,
   compact = false
@@ -150,11 +150,11 @@ export default function BeverageCard({
       ))}
 
       {/* Imagem — quadrada (estilo do exemplo) */}
-      <div className="relative aspect-square bg-cyan-50 dark:bg-cyan-900/20 overflow-hidden shrink-0">
+      <div className="relative h-44 md:h-36 lg:h-40 bg-gray-100 dark:bg-gray-800 overflow-hidden shrink-0">
         {beverage.image ? (
           <>
             <motion.div 
-              className="absolute inset-0 bg-cyan-100 dark:bg-cyan-800/30"
+              className="absolute inset-0 bg-gray-200 dark:bg-gray-700"
               animate={{ opacity: [0.5, 0.7, 0.5] }}
               transition={{ repeat: Infinity, duration: 1.5 }}
             />
@@ -162,7 +162,7 @@ export default function BeverageCard({
               src={beverage.image} 
               alt={beverage.name} 
               className={`
-                w-full h-full object-contain object-center p-2
+                w-full h-full object-cover object-center
                 ${isOutOfStock ? 'grayscale' : ''}
               `}
               loading="lazy"
@@ -177,7 +177,7 @@ export default function BeverageCard({
           </>
         ) : (
           <div className="w-full h-full flex items-center justify-center text-3xl md:text-2xl">
-            <Wine className="w-12 h-12 md:w-10 md:h-10 text-cyan-400" />
+            <Wine className="w-12 h-12 md:w-10 md:h-10 text-gray-400" />
           </div>
         )}
 
@@ -190,14 +190,14 @@ export default function BeverageCard({
 
       {/* Info da Bebida - lg: nome e preço mais legíveis no desktop */}
       <div className="p-3 md:p-2.5 lg:p-2.5 space-y-2 md:space-y-1.5 bg-card flex-1 flex flex-col">
-        <h3 className="font-bold text-sm md:text-xs lg:text-sm text-foreground line-clamp-2 min-h-[36px] md:min-h-[32px] lg:min-h-[2.5rem] group-hover:text-cyan-600 transition-colors">
+        <h3 className="font-bold text-sm md:text-xs lg:text-sm text-foreground line-clamp-2 min-h-[36px] md:min-h-[32px] lg:min-h-[2.5rem] group-hover:text-primary transition-colors">
           {beverage.name}
         </h3>
         
         {/* Características da bebida */}
         <div className="flex flex-wrap items-center gap-1.5">
           {beverage.volume_ml && (
-            <Badge variant="outline" className="text-[10px] border-cyan-300 text-cyan-700 dark:border-cyan-700 dark:text-cyan-400">
+            <Badge variant="outline" className="text-[10px] border-gray-300 text-gray-700 dark:border-gray-600 dark:text-gray-300">
               {beverage.volume_ml}ml
             </Badge>
           )}
@@ -235,14 +235,16 @@ export default function BeverageCard({
                   {formatCurrency(beverage.original_price)}
                 </p>
                 <p 
-                  className="text-base md:text-sm lg:text-base font-bold text-cyan-600 dark:text-cyan-400"
+                  className="text-base md:text-sm lg:text-base font-bold"
+                  style={{ color: textPrimaryColor || primaryColor }}
                 >
                   {formatCurrency(beverage.price)}
                 </p>
               </div>
             ) : (
               <p 
-                className="text-base md:text-sm lg:text-base font-bold text-cyan-600 dark:text-cyan-400"
+                className="text-base md:text-sm lg:text-base font-bold"
+                style={{ color: textPrimaryColor || primaryColor }}
               >
                 {formatCurrency(beverage.price)}
               </p>
@@ -261,7 +263,8 @@ export default function BeverageCard({
               <motion.div
                 initial={{ opacity: 0, scale: 0 }}
                 whileHover={{ opacity: 1, scale: 1 }}
-                className="w-8 h-8 rounded-full bg-cyan-500 flex items-center justify-center text-white shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                className="w-8 h-8 rounded-full flex items-center justify-center text-white shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                style={{ backgroundColor: primaryColor }}
               >
                 <Wine className="w-4 h-4" />
               </motion.div>

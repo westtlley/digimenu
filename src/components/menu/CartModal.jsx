@@ -354,11 +354,11 @@ export default function CartModal({ isOpen, onClose, onBack = null, cart, onUpda
           role="dialog"
           aria-modal="true"
           aria-label="Carrinho e pedidos"
-            className={`${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-2xl w-full overflow-hidden flex flex-col ${
-              mobileFullScreen
-                ? 'h-[100dvh] max-h-[100dvh] rounded-none max-w-none pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]'
-                : 'md:rounded-none rounded-2xl md:w-[400px] max-w-lg md:max-w-none h-auto md:h-full max-h-[85vh] md:max-h-none'
-            }`}
+          className={`${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-2xl w-full overflow-hidden flex flex-col ${
+            mobileFullScreen
+              ? 'h-[100dvh] max-h-[100dvh] rounded-none max-w-none pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]'
+              : 'rounded-none w-[400px] max-w-[400px] h-full max-h-none ml-auto'
+          }`}
           >
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: darkMode ? '#374151' : '#e5e7eb' }}>

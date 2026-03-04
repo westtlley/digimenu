@@ -208,8 +208,8 @@ export default function GridLayout({
               onClick={onDishClick}
               index={index}
               isOutOfStock={isOutOfStock}
-              primaryColor="#06b6d4"
-              textPrimaryColor="#06b6d4"
+              primaryColor={primaryColor}
+              textPrimaryColor={textPrimaryColor}
               slug={slug}
               compact={isSingleBeverageOnly}
             />
