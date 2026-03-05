@@ -130,16 +130,44 @@ export default function CaixaTab() {
       
       return base44.entities.Caixa.update(id, updateData, opts || {});
     },
-    onSuccess: () => {
+    onSuccess: (updatedCaixa, variables) => {
       queryClient.invalidateQueries({ queryKey: ['caixas'] });
+      queryClient.invalidateQueries({ queryKey: ['caixaOperations'] });
       setShowCloseModal(false);
-      setSelectedCaixa(null);
+      setSelectedCaixa((prev) => {
+        if (!prev) return prev;
+        if (updatedCaixa?.id && updatedCaixa.id === prev.id) return updatedCaixa;
+        if (variables?.id !== prev.id) return prev;
+        return {
+          ...prev,
+          status: 'closed',
+          closing_amount_cash: Number(variables?.closingCash) || 0,
+          closing_notes: variables?.closingNotes || prev.closing_notes || '',
+          closing_date: new Date().toISOString(),
+        };
+      });
+      setClosingCashAmount('');
       setClosingNotes('');
       toast.success('✅ Caixa fechado com sucesso!');
     },
     onError: (error) => {
       console.error('Erro ao fechar caixa:', error);
-      toast.error('Erro ao fechar caixa: ' + error.message);
+      const message = error?.message || '';
+      const statusMatch = message.match(/\b(401|403|500)\b/);
+      const statusCode = statusMatch?.[1];
+      if (statusCode === '401') {
+        toast.error('Não autorizado. Faça login novamente e tente fechar o caixa.');
+        return;
+      }
+      if (statusCode === '403') {
+        toast.error('Sem permissão para fechar caixa neste estabelecimento.');
+        return;
+      }
+      if (statusCode === '500') {
+        toast.error('Erro interno ao fechar caixa. Tente novamente em instantes.');
+        return;
+      }
+      toast.error(`Erro ao fechar caixa: ${error?.message || 'falha desconhecida'}`);
     }
   });
 
@@ -762,6 +790,7 @@ export default function CaixaTab() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        {modal}
       </>
     );
   }
