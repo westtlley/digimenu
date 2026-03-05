@@ -388,6 +388,10 @@ export default function PDV() {
         setShowOpenCaixaModal(true);
       }, 300);
     },
+    onError: (error) => {
+      const msg = error?.message || 'Erro ao fechar caixa';
+      toast.error(`Erro ao fechar caixa: ${msg}`);
+    },
   });
 
   const isCaixaLocked = !!(openCaixa?.lock_threshold != null && (Number(openCaixa?.total_cash) || 0) >= (Number(openCaixa?.lock_threshold) || 0));

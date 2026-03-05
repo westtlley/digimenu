@@ -347,7 +347,14 @@ export async function updateEntity(entityType, id, data, user = null) {
       UPDATE entities
       SET data = $1, updated_at = CURRENT_TIMESTAMP
       WHERE entity_type = $2 AND id = $3
-      ${subscriberEmail ? `AND subscriber_email = $4` : 'AND (subscriber_email = $4 OR subscriber_email IS NULL)'}
+      ${
+        subscriberEmail
+          ? `AND (
+              LOWER(TRIM(subscriber_email)) = LOWER(TRIM($4))
+              OR (subscriber_email IS NULL AND (data->>'owner_email') IS NOT NULL AND LOWER(TRIM(data->>'owner_email')) = LOWER(TRIM($4)))
+            )`
+          : 'AND subscriber_email IS NULL'
+      }
       RETURNING id, data, created_at, updated_at
     `;
     
@@ -359,8 +366,6 @@ export async function updateEntity(entityType, id, data, user = null) {
     
     if (subscriberEmail) {
       params.push(subscriberEmail);
-    } else {
-      params.push(null);
     }
     
     const result = await query(sql, params);
