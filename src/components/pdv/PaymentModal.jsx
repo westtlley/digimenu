@@ -45,13 +45,16 @@ export default function PaymentModal({
   const addPayment = () => {
     if (!selectedMethod || !paymentAmount || parseFloat(paymentAmount) <= 0) return;
 
-    const amount = Math.min(parseFloat(paymentAmount), remaining);
+    const enteredAmount = parseFloat(paymentAmount);
+    const amount = Math.min(enteredAmount, remaining);
+    const tenderedAmount = selectedMethod.id === 'dinheiro' ? enteredAmount : amount;
     
     setPayments([...payments, {
       id: Date.now(),
       method: selectedMethod.id,
       methodLabel: selectedMethod.label,
-      amount
+      amount,
+      tendered_amount: tenderedAmount,
     }]);
 
     setSelectedMethod(null);
@@ -65,27 +68,31 @@ export default function PaymentModal({
 
   const handleConfirm = () => {
     if (!isComplete) return;
-    
-    // Se for pagamento único em dinheiro, calcular troco
-    if (payments.length === 1 && payments[0].method === 'dinheiro') {
-      const cashPayment = payments[0];
-      const change = cashPayment.amount - total;
-      onConfirm({
-        payments: [{
-          ...cashPayment,
-          amount: total // Ajustar para o valor exato
-        }],
-        change: Math.max(0, change),
-        document: customerDocument
-      });
-    } else {
-      // Pagamentos mistos sem troco
-      onConfirm({
-        payments,
-        change: 0,
-        document: customerDocument
-      });
+
+    const cashPayments = payments.filter((payment) => payment.method === 'dinheiro');
+    const totalCashTendered = cashPayments.reduce((sum, payment) => sum + (payment.tendered_amount ?? payment.amount), 0);
+    const totalCashApplied = cashPayments.reduce((sum, payment) => sum + payment.amount, 0);
+    const totalChange = Math.max(0, totalCashTendered - totalCashApplied);
+
+    let lastCashIndex = -1;
+    for (let i = payments.length - 1; i >= 0; i -= 1) {
+      if (payments[i].method === 'dinheiro') {
+        lastCashIndex = i;
+        break;
+      }
     }
+
+    const normalizedPayments = payments.map((payment, index) => ({
+      ...payment,
+      tendered_amount: payment.tendered_amount ?? payment.amount,
+      change: index === lastCashIndex ? totalChange : 0,
+    }));
+
+    onConfirm({
+      payments: normalizedPayments,
+      change: totalChange,
+      document: customerDocument
+    });
   };
 
   return (
@@ -198,15 +205,23 @@ export default function PaymentModal({
                         <Input
                           type="number"
                           step="0.01"
-                          max={remaining}
                           value={paymentAmount}
                           onChange={(e) => {
                             const val = parseFloat(e.target.value);
-                            if (val <= remaining || !e.target.value) {
+                            if (!e.target.value) {
+                              setPaymentAmount(e.target.value);
+                              return;
+                            }
+
+                            if (selectedMethod?.id === 'dinheiro' || val <= remaining) {
                               setPaymentAmount(e.target.value);
                             }
                           }}
-                          placeholder={`Máx: ${formatCurrency(remaining)}`}
+                          placeholder={
+                            selectedMethod?.id === 'dinheiro'
+                              ? 'Valor recebido'
+                              : `Máx: ${formatCurrency(remaining)}`
+                          }
                           className="h-12 text-lg font-semibold"
                           autoFocus
                         />

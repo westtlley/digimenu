@@ -35,12 +35,13 @@ export default function FechamentoCaixaModal({
   const totalDinheiro = vendas.filter((op) => op.payment_method === 'dinheiro').reduce((s, op) => s + op.amount, 0);
   const totalPix = vendas.filter((op) => op.payment_method === 'pix').reduce((s, op) => s + op.amount, 0);
   const totalOutro = vendas.filter((op) => op.payment_method === 'outro').reduce((s, op) => s + op.amount, 0);
+  const qtdDinheiro = vendas.filter((op) => op.payment_method === 'dinheiro').length;
   const totalVendas = totalCredito + totalDebito + totalDinheiro + totalPix + totalOutro;
 
   const abertura = Number(caixa.opening_amount_cash) || 0;
   const totalSangrias = sangrias.reduce((s, op) => s + op.amount, 0);
   const totalSuprimentos = suprimentos.reduce((s, op) => s + op.amount, 0);
-  const saldoEmCaixa = abertura + totalVendas + totalSuprimentos - totalSangrias;
+  const saldoEmCaixa = abertura + totalDinheiro + totalSuprimentos - totalSangrias;
 
   const totalTroco = vendas.reduce((s, op) => s + (op.change || 0), 0);
   const qtdeCupons = vendas.length;
@@ -79,7 +80,7 @@ export default function FechamentoCaixaModal({
       totalDebito,
       qtdDebito: vendas.filter(op => op.payment_method === 'debito').length,
       totalDinheiro,
-      qtdDinheiro: vendas.filter(op => op.payment_method === 'dinheiro').length,
+      qtdDinheiro,
       totalPix,
       qtdPix: vendas.filter(op => op.payment_method === 'pix').length,
       totalTroco,
@@ -120,9 +121,9 @@ export default function FechamentoCaixaModal({
                 <td className="text-right">{formatCurrency(abertura)}</td>
               </tr>
               <tr>
-                <td>(+) VENDA (VF)</td>
-                <td>{vendas.length}</td>
-                <td className="text-right">{formatCurrency(totalVendas)}</td>
+                <td>(+) VENDAS EM DINHEIRO</td>
+                <td>{qtdDinheiro}</td>
+                <td className="text-right">{formatCurrency(totalDinheiro)}</td>
               </tr>
               <tr className="font-bold">
                 <td>(=) SALDO EM CAIXA</td>

@@ -180,7 +180,7 @@ export default function PDV() {
 
   const { data: storeList = [] } = useQuery({
     queryKey: ['store', asSub ?? 'me'],
-    queryFn: () => base44.entities.Store.list(opts),
+    queryFn: () => base44.entities.Store.list(null, opts),
   });
   const store = storeList[0] || { theme_primary_color: '#f97316' };
 
@@ -223,7 +223,7 @@ export default function PDV() {
 
   const { data: promotions = [] } = useQuery({
     queryKey: ['promotions', asSub ?? 'me'],
-    queryFn: () => base44.entities.Promotion.list(opts),
+    queryFn: () => base44.entities.Promotion.list(null, opts),
   });
 
   const { showUpsellModal, upsellPromotions, checkUpsell, resetUpsell, closeUpsell } = useUpsell(
@@ -653,6 +653,16 @@ export default function PDV() {
   }
 
   const handleOpenCaixa = () => {
+    const existingOpenCaixa = (Array.isArray(caixas) ? caixas : []).find((c) => c?.status === 'open');
+    if (existingOpenCaixa || openCaixa?.status === 'open') {
+      if (existingOpenCaixa) {
+        setOpenCaixa(existingOpenCaixa);
+      }
+      setShowOpenCaixaModal(false);
+      toast.error('Já existe um caixa aberto. Feche o caixa atual antes de abrir outro.');
+      return;
+    }
+
     const amount = parseFloat(openingAmount);
     if (isNaN(amount) || amount < 0) {
       toast.error('Informe um valor válido de abertura');
@@ -718,7 +728,7 @@ export default function PDV() {
       payment_method: paymentData.payments.length === 1 
         ? paymentData.payments[0].methodLabel 
         : `Misto (${paymentData.payments.map(p => p.methodLabel).join(' + ')})`,
-      payment_amount: paymentData.payments.reduce((sum, p) => sum + p.amount, 0),
+      payment_amount: paymentData.payments.reduce((sum, p) => sum + (p.tendered_amount ?? p.amount), 0),
       change: paymentData.change,
       caixa_id: openCaixa.id,
       seller_email: user.email,
@@ -738,8 +748,8 @@ export default function PDV() {
         description: `PDV #${orderCode} - ${customerName} (${payment.methodLabel})`,
         amount: payment.amount,
         payment_method: payment.method,
-        payment_amount: payment.amount,
-        change: 0, // Troco só no último pagamento
+        payment_amount: payment.tendered_amount ?? payment.amount,
+        change: payment.change || 0,
         pedido_pdv_id: orderCode
       });
     }
