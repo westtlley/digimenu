@@ -1177,7 +1177,30 @@ app.put('/api/entities/:entity/:id', authenticate, asyncHandler(async (req, res)
   const { entity, id } = req.params;
   let data = req.body;
   const asSub = req.query.as_subscriber;
-  if (req.user?.is_master && asSub) req.user._contextForSubscriber = asSub;
+  if (req.user?.is_master && asSub) {
+    req.user._contextForSubscriber = asSub;
+  }
+  if (req.user && !req.user?.is_master && asSub) {
+    const uEmail = (req.user.email || '').toLowerCase().trim();
+    const uSub = (req.user.subscriber_email || '').toLowerCase().trim();
+    const subParam = (asSub || '').toLowerCase().trim();
+    let allow = subParam && (subParam === uEmail || subParam === uSub);
+
+    if (!allow && subParam && usePostgreSQL) {
+      try {
+        const subscriber = await repo.getSubscriberByEmail(asSub);
+        if (subscriber) {
+          const subEmail = (subscriber.email || '').toLowerCase().trim();
+          allow = subEmail === uEmail || subEmail === uSub;
+          if (allow) req.user._contextForSubscriber = subscriber.email;
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    if (allow) req.user._contextForSubscriber = req.user._contextForSubscriber || asSub;
+  }
   if (String(entity).toLowerCase() === 'subscriber') {
     const idVal = /^\d+$/.test(String(id)) ? parseInt(id, 10) : id;
     const updated = usePostgreSQL ? await repo.updateSubscriber(idVal, data) : (() => { const idx = db?.subscribers?.findIndex(s => s.id == idVal); if (idx < 0) throw new Error('Assinante não encontrado'); const e = db.subscribers[idx]; const m = { ...e, ...data, send_whatsapp_commands: data.send_whatsapp_commands ?? e.whatsapp_auto_enabled }; db.subscribers[idx] = m; if (saveDatabaseDebounced) saveDatabaseDebounced(db); return { ...m, send_whatsapp_commands: m.whatsapp_auto_enabled }; })();
