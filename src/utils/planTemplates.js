@@ -14,7 +14,8 @@ export const PLAN_TEMPLATES = {
       history: ['view'],
       clients: ['view'],
       store: ['view', 'update'],
-      theme: ['view', 'update']
+      theme: ['view', 'update'],
+      managerial_auth: []
     }
   },
   delivery_pro: {
@@ -31,7 +32,8 @@ export const PLAN_TEMPLATES = {
       graficos: ['view'],
       store: ['view', 'update'],
       theme: ['view', 'update'],
-      payments: ['view']
+      payments: ['view'],
+      managerial_auth: ['view', 'update']
     }
   },
   pizzaria_premium: {
@@ -51,7 +53,8 @@ export const PLAN_TEMPLATES = {
       financial: ['view'],
       store: ['view', 'update'],
       theme: ['view', 'update'],
-      payments: ['view']
+      payments: ['view'],
+      managerial_auth: ['view', 'update']
     }
   },
   cafe_basic: {
@@ -62,7 +65,8 @@ export const PLAN_TEMPLATES = {
       dishes: ['view', 'create', 'update'],
       orders: ['view', 'create'],
       history: ['view'],
-      store: ['view', 'update']
+      store: ['view', 'update'],
+      managerial_auth: []
     }
   },
   marketplace_full: {
@@ -87,7 +91,8 @@ export const PLAN_TEMPLATES = {
       financial: ['view'],
       printer: ['view', 'update'],
       whatsapp: ['view'],
-      mais: ['view']
+      mais: ['view'],
+      managerial_auth: ['view', 'update']
     }
   }
 };

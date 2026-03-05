@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { AlertTriangle, Info, Loader2, UtensilsCrossed, Pizza, ChevronDown, ChevronUp } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
-import { validatePermissions, getPlanPermissions } from './PlanPresets';
+import { validatePermissions, getPlanPermissions, mergeWithPlanPreset } from './PlanPresets';
 import PermissionPreview from '../admin/subscribers/PermissionPreview';
 import PlanComparison from '../admin/subscribers/PlanComparison';
 
@@ -71,6 +71,7 @@ const MODULE_GROUPS = [
       { id: 'printer', name: 'Impressora', actions: ['view', 'update'] },
       { id: 'colaboradores', name: 'Colaboradores', actions: ['view', 'create', 'update', 'delete'] },
       { id: '2fa', name: 'Autenticação 2FA', actions: ['view', 'update'] },
+      { id: 'managerial_auth', name: 'Autorização Gerencial', actions: ['view', 'update'] },
       { id: 'lgpd', name: 'Conformidade LGPD', actions: ['view', 'update'] }
     ]
   },
@@ -352,7 +353,7 @@ export default function PermissionsEditor({ permissions, onChange, selectedPlan 
         {showComparison && plans.length >= 2 && currentPlan !== 'custom' && (
           <div className="mb-3">
             <PlanComparison
-              plans={plans.map(p => ({ ...p, permissions: p.permissions || getPlanPermissions(p.slug) }))}
+              plans={plans.map(p => ({ ...p, permissions: mergeWithPlanPreset(p.permissions, p.slug) }))}
               currentPlan={currentPlan}
               onSelectPlan={handlePlanChange}
             />

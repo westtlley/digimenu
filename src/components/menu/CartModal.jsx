@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Trash2, Plus, Minus, ShoppingCart, Edit, Package, Clock, ChefHat, CheckCircle, Truck, MapPin, Ban, Star, ChevronLeft } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -331,7 +332,7 @@ export default function CartModal({ isOpen, onClose, onBack = null, cart, onUpda
 
   if (!isOpen) return null;
 
-  return (
+  const modalContent = (
     <AnimatePresence>
       <motion.div
         initial={{ opacity: 0 }}
@@ -339,7 +340,7 @@ export default function CartModal({ isOpen, onClose, onBack = null, cart, onUpda
         exit={{ opacity: 0 }}
         className={mobileFullScreen
           ? "fixed inset-0 z-50 flex items-stretch justify-center p-0 bg-black/70"
-          : "fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-stretch justify-end p-0"
+          : "fixed inset-0 bg-black/50 backdrop-blur-sm z-50"
         }
         onClick={mobileFullScreen ? undefined : onClose}
       >
@@ -354,11 +355,22 @@ export default function CartModal({ isOpen, onClose, onBack = null, cart, onUpda
           role="dialog"
           aria-modal="true"
           aria-label="Carrinho e pedidos"
-          className={`${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-2xl w-full overflow-hidden flex flex-col ${
+          className={`${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-2xl overflow-hidden flex flex-col ${
             mobileFullScreen
-              ? 'h-[100dvh] max-h-[100dvh] rounded-none max-w-none pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]'
-              : 'rounded-none w-[400px] max-w-[400px] h-full max-h-none ml-auto'
+              ? 'w-full h-[100dvh] max-h-[100dvh] rounded-none max-w-none pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]'
+              : 'rounded-none'
           }`}
+          style={mobileFullScreen ? undefined : {
+            position: 'fixed',
+            top: 0,
+            right: 0,
+            left: 'auto',
+            margin: 0,
+            width: '400px',
+            maxWidth: '95vw',
+            height: '100vh',
+            maxHeight: 'none'
+          }}
           >
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: darkMode ? '#374151' : '#e5e7eb' }}>
@@ -804,4 +816,10 @@ export default function CartModal({ isOpen, onClose, onBack = null, cart, onUpda
       )}
     </AnimatePresence>
   );
+
+  if (typeof document === 'undefined') {
+    return modalContent;
+  }
+
+  return createPortal(modalContent, document.body);
 }

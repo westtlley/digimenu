@@ -9,6 +9,8 @@ import { usePermission } from '@/components/permissions/usePermission';
 import ManagerialAuthModal from '@/components/admin/ManagerialAuthModal';
 import toast from 'react-hot-toast';
 
+const PRO_PLUS_PLANS = new Set(['pro', 'ultra', 'premium', 'admin']);
+
 const ACTION_LABELS = {
   abrir_caixa: { title: 'Abrir caixa', description: 'Informe sua matrícula e senha para abrir o caixa.' },
   fechar_caixa: { title: 'Fechar caixa', description: 'Informe sua matrícula e senha para fechar o caixa.' },
@@ -24,11 +26,13 @@ const ACTION_LABELS = {
 };
 
 export function useManagerialAuth() {
-  const { user, menuContext } = usePermission();
+  const { user, menuContext, subscriberData } = usePermission();
   const asSub = menuContext?.type === 'subscriber' ? menuContext.value : (user?.subscriber_email || user?.email);
   const roles = user?.profile_roles?.length ? user.profile_roles : user?.profile_role ? [user.profile_role] : [];
   const isGerente = roles.includes('gerente');
   const isMaster = !!user?.is_master;
+  const planLower = (subscriberData?.plan || '').toString().toLowerCase().trim();
+  const requiresManagerialAuth = !isMaster && (!planLower || PRO_PLUS_PLANS.has(planLower));
 
   const pendingSuccessRef = useRef(null);
   const [modalState, setModalState] = useState({
@@ -39,14 +43,14 @@ export function useManagerialAuth() {
   const { data: authConfig } = useQuery({
     queryKey: ['managerial-auth', asSub],
     queryFn: () => base44.get('/managerial-auth', asSub ? { as_subscriber: asSub } : {}),
-    enabled: !!asSub && !isMaster,
+    enabled: !!asSub && !isMaster && requiresManagerialAuth,
   });
 
-  const configured = isMaster
+  const configured = (isMaster || !requiresManagerialAuth)
     ? true
-    : isGerente
+    : (isGerente
       ? !!authConfig?.gerente?.configured
-      : !!authConfig?.assinante?.configured;
+      : !!authConfig?.assinante?.configured);
 
   const validate = useCallback(
     async ({ matricula, password }) => {
@@ -58,7 +62,7 @@ export function useManagerialAuth() {
 
   const requireAuthorization = useCallback(
     (actionName, onSuccess) => {
-      if (isMaster) {
+      if (isMaster || !requiresManagerialAuth) {
         onSuccess?.();
         return;
       }
@@ -72,7 +76,7 @@ export function useManagerialAuth() {
         actionName: actionName || 'default',
       });
     },
-    [configured, isMaster]
+    [configured, isMaster, requiresManagerialAuth]
   );
 
   const handleValidate = async (credentials) => {

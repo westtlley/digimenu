@@ -24,6 +24,7 @@ const MODULE_LABELS = {
   clients: 'Clientes',
   financial: 'Financeiro',
   printer: 'Impressora',
+  managerial_auth: 'Autorização Gerencial',
   mais: 'Mais Funções'
 };
 

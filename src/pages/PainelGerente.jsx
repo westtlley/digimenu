@@ -36,6 +36,7 @@ import WhatsAppTab from '../components/admin/WhatsAppTab';
 import ColaboradoresTab from '../components/admin/ColaboradoresTab';
 import TwoFactorAuth from '../components/admin/TwoFactorAuth';
 import LGPDCompliance from '../components/admin/LGPDCompliance';
+import ManagerialAuthTab from '../components/admin/ManagerialAuthTab';
 import TablesTab from '../components/admin/TablesTab';
 import ColaboradorProfile from '@/components/colaboradores/ColaboradorProfile';
 
@@ -173,6 +174,8 @@ export default function PainelGerente() {
         return <ColaboradoresTab isGerentePanel />;
       case '2fa':
         return <TwoFactorAuth user={user} />;
+      case 'managerial_auth':
+        return hasModuleAccess('managerial_auth') ? <ManagerialAuthTab /> : <DashboardTab user={user} subscriberData={subscriberData} onNavigateToTab={handleSetActiveTab} />;
       case 'lgpd':
         return <LGPDCompliance />;
       default:

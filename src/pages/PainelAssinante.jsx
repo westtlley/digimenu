@@ -41,6 +41,7 @@ import WhatsAppTab from '../components/admin/WhatsAppTab';
 import ColaboradoresTab from '../components/admin/ColaboradoresTab';
 import TwoFactorAuth from '../components/admin/TwoFactorAuth';
 import LGPDCompliance from '../components/admin/LGPDCompliance';
+import ManagerialAuthTab from '../components/admin/ManagerialAuthTab';
 import TablesTab from '../components/admin/TablesTab';
 import BeveragesTab from '../components/admin/BeveragesTab';
 import InventoryManagement from '../components/admin/InventoryManagement';
@@ -316,6 +317,8 @@ export default function PainelAssinante() {
         return hasModuleAccess('colaboradores') ? <ColaboradoresTab /> : <AccessDenied />;
       case '2fa':
         return hasModuleAccess('2fa') ? <TwoFactorAuth user={user} /> : <AccessDenied />;
+      case 'managerial_auth':
+        return hasModuleAccess('managerial_auth') ? <ManagerialAuthTab /> : <AccessDenied />;
       case 'lgpd':
         return hasModuleAccess('lgpd') ? <LGPDCompliance /> : <AccessDenied />;
       default:

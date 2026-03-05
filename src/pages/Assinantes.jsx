@@ -78,7 +78,7 @@ import SubscriberDataViewer from '../components/admin/SubscriberDataViewer';
 import ExpirationProgressBar from '../components/admin/subscribers/ExpirationProgressBar';
 import SetupLinkModal from '../components/admin/subscribers/SetupLinkModal';
 import PlanTemplates from '../components/admin/subscribers/PlanTemplates';
-import { getPlanPermissions } from '../components/permissions/PlanPresets';
+import { getPlanPermissions, mergeWithPlanPreset } from '../components/permissions/PlanPresets';
 import { getPlanLimits, ADDONS_ORDERS_OPTIONS, UNLIMITED } from '@/constants/planLimits';
 import toast from 'react-hot-toast';
 import { logger } from '@/utils/logger';
@@ -511,10 +511,14 @@ export default function Assinantes() {
     const addons = subscriber.addons && typeof subscriber.addons === 'object'
       ? subscriber.addons
       : { orders: 0 };
+    const normalizedPlan = (subscriber.plan || 'basic').toString().toLowerCase().trim();
+    const effectivePermissions = normalizedPlan !== 'custom'
+      ? mergeWithPlanPreset(subscriber.permissions || {}, normalizedPlan)
+      : (subscriber.permissions || {});
     const initialState = {
       ...subscriber,
-      permissions: subscriber.permissions || {},
-      plan: subscriber.plan || 'basic', // ✅ Garantir que plan sempre tenha valor
+      permissions: effectivePermissions,
+      plan: normalizedPlan, // ✅ Garantir que plan sempre tenha valor
       status: subscriber.status || 'active', // ✅ Garantir que status sempre tenha valor
       addons: { ...addons, orders: Number(addons.orders) || 0 }
     };
@@ -718,15 +722,18 @@ export default function Assinantes() {
             onToggleStatus={handleToggleStatus}
             onViewData={setViewingSubscriber}
             onDuplicate={(sub) => {
+              const duplicatedPlan = (sub.plan || 'basic').toString().toLowerCase().trim();
               setNewSubscriber({
                 email: '',
                 linked_user_email: sub.linked_user_email || '',
                 name: sub.name ? `${sub.name} (cópia)` : '',
                 slug: '',
-                plan: sub.plan || 'basic',
+                plan: duplicatedPlan,
                 status: sub.status || 'active',
                 expires_at: sub.expires_at || '',
-                permissions: sub.permissions || getPlanPermissions(sub.plan || 'basic'),
+                permissions: duplicatedPlan !== 'custom'
+                  ? mergeWithPlanPreset(sub.permissions || {}, duplicatedPlan)
+                  : (sub.permissions || {}),
                 phone: sub.phone || '',
                 cnpj_cpf: sub.cnpj_cpf || '',
                 origem: sub.origem || 'manual',

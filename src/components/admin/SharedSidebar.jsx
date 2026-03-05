@@ -124,6 +124,7 @@ const MENU_STRUCTURE = [
       { id: 'printer', label: 'Impressora', icon: Printer, module: 'printer' },
       { id: 'colaboradores', label: 'Colaboradores', icon: UserCog, module: 'colaboradores' },
       { id: '2fa', label: 'Autenticação 2FA', icon: Key, module: '2fa' },
+      { id: 'managerial_auth', label: 'Autorização Gerencial', icon: ShieldCheck, module: 'managerial_auth' },
       { id: 'lgpd', label: 'Conformidade LGPD', icon: Shield, module: 'lgpd' },
     ]
   },

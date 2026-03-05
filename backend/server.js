@@ -911,6 +911,37 @@ function getManagerialSubscriberAndRole(req) {
   const role = req.user?.is_master ? null : (isGerente ? 'gerente' : 'assinante');
   return { owner, role };
 }
+const MANAGERIAL_AUTH_ALLOWED_PLANS = new Set(['pro', 'ultra', 'premium', 'admin']);
+
+function canUseManagerialAuthForPlan(plan) {
+  const planNorm = String(plan || '').toLowerCase().trim();
+  return MANAGERIAL_AUTH_ALLOWED_PLANS.has(planNorm);
+}
+
+async function getManagerialAuthSubscriber(owner) {
+  if (!owner) return null;
+  if (usePostgreSQL) {
+    return await repo.getSubscriberByEmail(owner);
+  }
+  if (db?.subscribers) {
+    return db.subscribers.find(s => (s.email || '').toLowerCase().trim() === owner) || null;
+  }
+  return null;
+}
+
+async function ensureManagerialAuthPlanEnabled(owner, res) {
+  const subscriber = await getManagerialAuthSubscriber(owner);
+  if (!subscriber) {
+    res.status(404).json({ error: 'Assinante não encontrado para este contexto.' });
+    return null;
+  }
+  if (!canUseManagerialAuthForPlan(subscriber.plan)) {
+    res.status(403).json({ error: 'Autorização gerencial disponível apenas nos planos Pro e Ultra' });
+    return null;
+  }
+  return subscriber;
+}
+
 const entitiesAndManagerialRouter = express.Router();
 entitiesAndManagerialRouter.get('/managerial-auth', authenticate, asyncHandler(async (req, res) => {
   if (!usePostgreSQL || !repo.getManagerialAuthorization) {
@@ -918,6 +949,7 @@ entitiesAndManagerialRouter.get('/managerial-auth', authenticate, asyncHandler(a
   }
   const { owner, role } = getManagerialSubscriberAndRole(req);
   if (!owner) return res.status(400).json({ error: 'Contexto do estabelecimento necessário' });
+  if (!(await ensureManagerialAuthPlanEnabled(owner, res))) return;
   const isOwner = (req.user?.is_master && owner) || (!req.user?.is_master && (req.user?.email || '').toLowerCase().trim() === owner);
   if (!isOwner) {
     const authGerente = await repo.getManagerialAuthorization(owner, 'gerente');
@@ -941,6 +973,7 @@ entitiesAndManagerialRouter.post('/managerial-auth', authenticate, asyncHandler(
   }
   const { owner, role } = getManagerialSubscriberAndRole(req);
   if (!owner) return res.status(400).json({ error: 'Contexto do estabelecimento necessário' });
+  if (!(await ensureManagerialAuthPlanEnabled(owner, res))) return;
   const isOwner = (req.user?.is_master && owner) || (!req.user?.is_master && (req.user?.email || '').toLowerCase().trim() === owner);
   if (!isOwner) return res.status(403).json({ error: 'Apenas o dono do estabelecimento pode criar ou alterar autorizações.' });
   const { role: bodyRole, matricula, password, expirable, expires_at } = req.body || {};
@@ -969,6 +1002,7 @@ entitiesAndManagerialRouter.post('/managerial-auth/validate', authenticate, asyn
   }
   const { owner, role } = getManagerialSubscriberAndRole(req);
   if (!owner || !role) return res.status(400).json({ error: 'Acesso não permitido para este perfil.' });
+  if (!(await ensureManagerialAuthPlanEnabled(owner, res))) return;
   const { matricula, password } = req.body || {};
   if (!matricula || !password) {
     return res.status(400).json({ error: 'Matrícula e senha são obrigatórios.' });

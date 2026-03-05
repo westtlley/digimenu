@@ -32,7 +32,8 @@ const PLAN_PRESETS_PERMISSIONS = {
     financial: [],
     printer: [],
     mais: [],
-    comandas: []
+    comandas: [],
+    managerial_auth: []
   },
   basic: {
     dashboard: ['view'],
@@ -60,6 +61,7 @@ const PLAN_PRESETS_PERMISSIONS = {
     affiliates: [],
     lgpd: [],
     '2fa': ['view', 'update'],
+    managerial_auth: [],
     cozinha: [],
     garcom: [],
     colaboradores: []
@@ -90,6 +92,7 @@ const PLAN_PRESETS_PERMISSIONS = {
     affiliates: ['view', 'create', 'update', 'delete'],
     lgpd: ['view', 'update'],
     '2fa': ['view', 'update'],
+    managerial_auth: ['view', 'update'],
     cozinha: ['view'],
     garcom: ['view'],
     colaboradores: ['view', 'create', 'update', 'delete']
@@ -120,6 +123,7 @@ const PLAN_PRESETS_PERMISSIONS = {
     affiliates: ['view', 'create', 'update', 'delete'],
     lgpd: ['view', 'update'],
     '2fa': ['view', 'update'],
+    managerial_auth: ['view', 'update'],
     tables: ['view', 'create', 'update', 'delete'],
     garcom: ['view'],
     cozinha: ['view'],

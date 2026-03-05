@@ -26,6 +26,7 @@ export default function PlanComparison({ plans = [], currentPlan, onSelectPlan }
     { id: 'financial', label: 'Financeiro', icon: '💰' },
     { id: 'payments', label: 'Pagamentos', icon: '💳' },
     { id: '2fa', label: '2FA', icon: '🔐' },
+    { id: 'managerial_auth', label: 'Autorização Gerencial', icon: '🛡️' },
     { id: 'whatsapp', label: 'WhatsApp', icon: '💬' },
     { id: 'pdv', label: 'PDV', icon: '🖥️' },
     { id: 'caixa', label: 'Caixa', icon: '📋' },

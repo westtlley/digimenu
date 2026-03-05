@@ -44,6 +44,7 @@ export const MODULES = {
   AFFILIATES: 'affiliates',
   LGPD: 'lgpd',
   TWO_FA: '2fa',
+  MANAGERIAL_AUTH: 'managerial_auth',
   COZINHA: 'cozinha',
   GARCOM: 'garcom',
   COLABORADORES: 'colaboradores',
@@ -95,7 +96,8 @@ export const PLAN_PRESETS = {
       financial: [],
       printer: [],
       mais: [],
-      comandas: []
+      comandas: [],
+      managerial_auth: []
     }
   },
   basic: {
@@ -127,6 +129,7 @@ export const PLAN_PRESETS = {
       affiliates: [],
       lgpd: [],
       '2fa': ['view', 'update'],
+      managerial_auth: [],
       cozinha: [],
       garcom: [],
       colaboradores: []
@@ -161,6 +164,7 @@ export const PLAN_PRESETS = {
       affiliates: ['view', 'create', 'update', 'delete'],
       lgpd: ['view', 'update'],
       '2fa': ['view', 'update'],
+      managerial_auth: ['view', 'update'],
       cozinha: ['view'],
       garcom: ['view'],
       colaboradores: ['view', 'create', 'update', 'delete']
@@ -195,6 +199,7 @@ export const PLAN_PRESETS = {
       affiliates: ['view', 'create', 'update', 'delete'],
       lgpd: ['view', 'update'],
       '2fa': ['view', 'update'],
+      managerial_auth: ['view', 'update'],
       tables: ['view', 'create', 'update', 'delete'],
       garcom: ['view'],
       cozinha: ['view'],
@@ -231,6 +236,7 @@ export const PLAN_PRESETS = {
       affiliates: ['view', 'create', 'update', 'delete'],
       lgpd: ['view', 'update'],
       '2fa': ['view', 'update'],
+      managerial_auth: ['view', 'update'],
       tables: ['view', 'create', 'update', 'delete'],
       garcom: ['view'],
       cozinha: ['view'],
