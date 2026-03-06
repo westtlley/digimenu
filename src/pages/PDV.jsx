@@ -588,20 +588,38 @@ export default function PDV() {
   };
 
   const clearCart = () => {
-    if (cart.length === 0) return;
+    const hasSaleInProgress = cart.length > 0
+      || Number(discountReais || 0) > 0
+      || Number(discountPercent || 0) > 0
+      || !!customerPhone;
     
-    // Tracking de cancelamento em tela para relatório
-    const cartTotal = calculateTotal();
-    setCanceledInScreenCount(prev => prev + 1);
-    setCanceledInScreenTotal(prev => prev + cartTotal);
+    if (!hasSaleInProgress) {
+      setShowPaymentModal(false);
+      setShowMobileCart(false);
+      saleClientRequestIdRef.current = null;
+      toast('Nenhuma venda em andamento para cancelar');
+      return;
+    }
+
+    if (cart.length > 0) {
+      // Tracking de cancelamento em tela para relatório
+      const cartTotal = calculateTotal();
+      setCanceledInScreenCount(prev => prev + 1);
+      setCanceledInScreenTotal(prev => prev + cartTotal);
+    }
     
     setCart([]);
     setDiscountReais('');
     setDiscountPercent('');
     setCustomerName('Cliente Balcão');
     setCustomerPhone('');
+    setSelectedDish(null);
+    setSelectedPizza(null);
+    setShowPaymentModal(false);
+    setShowMobileCart(false);
+    saleClientRequestIdRef.current = null;
     resetUpsell();
-    toast.success('Venda cancelada (F9)');
+    toast.success('Venda em andamento cancelada');
   };
 
   usePDVHotkeys({
@@ -762,6 +780,10 @@ export default function PDV() {
       const createdChange = createdOrder.change != null ? createdOrder.change : paymentData.change;
       const createdTotal = createdOrder.total != null ? createdOrder.total : total;
       const createdCustomerName = createdOrder.customer_name || customerName;
+      const createdSubtotal = createdOrder.subtotal != null ? createdOrder.subtotal : subtotal;
+      const createdDiscount = createdOrder.discount != null ? createdOrder.discount : totalDiscount;
+      const createdItems = Array.isArray(createdOrder.items) && createdOrder.items.length ? createdOrder.items : cart;
+      const createdDate = createdOrder.created_date || createdOrder.created_at || new Date().toISOString();
 
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['pedidosPDV'] }),
@@ -772,10 +794,13 @@ export default function PDV() {
       setLastSale({
         orderCode,
         total: createdTotal,
+        subtotal: createdSubtotal,
+        discount: createdDiscount,
         payments: createdPayments,
         change: createdChange,
-        items: cart,
-        customerName: createdCustomerName
+        items: createdItems,
+        customerName: createdCustomerName,
+        date: createdDate
       });
 
       setCart([]);
@@ -797,8 +822,12 @@ export default function PDV() {
   };
 
   const handlePrintReceipt = (saleData = null) => {
-    const sale = saleData || lastSale;
-    if (!sale) return;
+    const isClickEvent = !!(saleData && typeof saleData === 'object' && (saleData.nativeEvent || saleData.currentTarget));
+    const sale = isClickEvent ? lastSale : (saleData || lastSale);
+    if (!sale) {
+      toast.error('Nenhuma venda disponível para impressão');
+      return;
+    }
 
     // Usar função de impressão térmica
     printReceipt(sale, store, 'css');
@@ -1014,6 +1043,7 @@ export default function PDV() {
         open={showReimpressaoModal}
         onOpenChange={setShowReimpressaoModal}
         onPrintReceipt={handlePrintReceipt}
+        asSubscriber={asSub}
       />
 
       {/* Dialog valor ao fechar caixa (após autorização) */}

@@ -12,16 +12,19 @@ import { formatCurrency } from '@/utils/formatters';
  * Modal de Reimpressão de Venda (F4 no Menu de Vendas)
  * Busca venda por código e permite reimprimir o cupom
  */
-export default function ReimpressaoVendaModal({ open, onOpenChange, onPrintReceipt }) {
+export default function ReimpressaoVendaModal({ open, onOpenChange, onPrintReceipt, asSubscriber }) {
   const [codigo, setCodigo] = useState('');
   const [searchCode, setSearchCode] = useState('');
 
   // Buscar venda quando código é fornecido
   const { data: vendas = [], isLoading, error } = useQuery({
-    queryKey: ['pedidosPDV', searchCode],
+    queryKey: ['pedidosPDV', asSubscriber ?? 'me', searchCode],
     queryFn: async () => {
       if (!searchCode) return [];
-      const result = await base44.entities.PedidoPDV.list(null, {});
+      const result = await base44.entities.PedidoPDV.list(
+        null,
+        asSubscriber ? { as_subscriber: asSubscriber } : {}
+      );
       return result.filter(p => p.order_code?.includes(searchCode));
     },
     enabled: !!searchCode,
@@ -37,15 +40,31 @@ export default function ReimpressaoVendaModal({ open, onOpenChange, onPrintRecei
   const handleReimprimir = () => {
     if (!venda) return;
     
+    const normalizedPayments = Array.isArray(venda.payments) && venda.payments.length > 0
+      ? venda.payments.map((payment) => ({
+          method: payment.method || payment.payment_method || 'outro',
+          methodLabel: payment.methodLabel || payment.method_label || payment.payment_method || payment.method || 'Outro',
+          amount: Number(payment.amount ?? payment.payment_amount ?? 0) || 0,
+          tendered_amount: Number(payment.tendered_amount ?? payment.payment_amount ?? payment.amount ?? 0) || 0,
+          change: Number(payment.change ?? 0) || 0
+        }))
+      : (venda.payment_method
+        ? [{
+            method: venda.payment_method,
+            methodLabel: venda.payment_method,
+            amount: Number(venda.payment_amount ?? venda.total ?? 0) || 0,
+            tendered_amount: Number(venda.payment_amount ?? venda.total ?? 0) || 0,
+            change: Number(venda.change ?? 0) || 0
+          }]
+        : []);
+    
     // Preparar dados para impressão
     const saleData = {
       orderCode: venda.order_code,
       total: venda.total,
-      payments: venda.payment_method ? [{ 
-        method: venda.payment_method, 
-        methodLabel: venda.payment_method,
-        amount: venda.payment_amount || venda.total 
-      }] : [],
+      subtotal: venda.subtotal,
+      discount: venda.discount,
+      payments: normalizedPayments,
       change: venda.change || 0,
       items: venda.items || [],
       customerName: venda.customer_name || 'Cliente Balcão',
@@ -168,3 +187,4 @@ export default function ReimpressaoVendaModal({ open, onOpenChange, onPrintRecei
     </Dialog>
   );
 }
+

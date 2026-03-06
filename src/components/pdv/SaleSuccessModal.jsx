@@ -67,7 +67,7 @@ export default function SaleSuccessModal({
           {/* Ações */}
           <div className="space-y-2">
             <Button
-              onClick={onPrint}
+              onClick={() => onPrint?.()}
               className="w-full bg-blue-600 hover:bg-blue-700 h-12 font-semibold"
             >
               <Printer className="w-5 h-5 mr-2" />

@@ -40,14 +40,39 @@ export function printCashClosingReport(reportData, method = 'css') {
  * Gera conteúdo HTML do cupom de venda
  */
 function generateReceiptContent(saleData, store) {
-  const { orderCode, total, payments = [], change = 0, items = [], customerName, date } = saleData;
+  const orderCode = saleData?.orderCode || saleData?.order_code || saleData?.id || '---';
+  const total = Number(saleData?.total ?? 0) || 0;
+  const items = Array.isArray(saleData?.items) ? saleData.items : [];
+  const date = saleData?.date || saleData?.created_date || saleData?.created_at;
+  const customerName = saleData?.customerName || saleData?.customer_name || 'Cliente Balcão';
+  const fallbackPayments = saleData?.payment_method
+    ? [{
+        method: saleData.payment_method,
+        methodLabel: saleData.payment_method,
+        amount: Number(saleData?.payment_amount ?? total) || 0,
+      }]
+    : [];
+  const payments = Array.isArray(saleData?.payments) && saleData.payments.length > 0
+    ? saleData.payments
+    : fallbackPayments;
+  const change = Number(saleData?.change ?? 0) || 0;
   const storeName = store?.name || 'ESTABELECIMENTO';
   const storeAddress = store?.address || '';
   const storePhone = store?.phone || '';
   
   // Calcular subtotal e desconto
-  const subtotal = items.reduce((sum, item) => sum + (item.totalPrice || item.unit_price || 0) * item.quantity, 0);
-  const discount = subtotal - total;
+  const itemsSubtotal = items.reduce((sum, item) => {
+    const lineTotal = Number(item?.total_price);
+    if (Number.isFinite(lineTotal)) return sum + lineTotal;
+
+    const quantity = Number(item?.quantity ?? 1) || 1;
+    const unitPrice = Number(item?.totalPrice ?? item?.unit_price ?? item?.price ?? 0) || 0;
+    return sum + (unitPrice * quantity);
+  }, 0);
+  const subtotal = Number(saleData?.subtotal ?? itemsSubtotal) || 0;
+  const discount = Number.isFinite(Number(saleData?.discount))
+    ? (Number(saleData?.discount) || 0)
+    : Math.max(0, subtotal - total);
 
   return `
     <div class="receipt">
@@ -69,16 +94,18 @@ function generateReceiptContent(saleData, store) {
       <div class="line"></div>
       
       ${items.map(item => {
-        const itemName = item.dish?.name || item.name || 'Item';
+        const itemName = item.dish?.name || item.dish_name || item.name || 'Item';
         const details = item.flavors?.length 
           ? ` (${item.size?.name || ''} ${item.flavors.map(f => f.name).join(' + ')})`
           : item.selections ? ` (${Object.values(item.selections).filter(Boolean).join(', ')})` : '';
-        const unitPrice = item.totalPrice || item.unit_price || 0;
-        const itemTotal = unitPrice * item.quantity;
+        const quantity = Number(item.quantity ?? 1) || 1;
+        const itemTotal = Number.isFinite(Number(item.total_price))
+          ? Number(item.total_price)
+          : (Number(item.totalPrice ?? item.unit_price ?? item.price ?? 0) || 0) * quantity;
         
         return `
         <div class="item">
-          <div>${item.quantity}x ${itemName}${details}</div>
+          <div>${quantity}x ${itemName}${details}</div>
           <div class="text-right">${formatCurrency(itemTotal)}</div>
         </div>
         `;

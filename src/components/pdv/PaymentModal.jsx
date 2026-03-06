@@ -15,6 +15,8 @@ const PAYMENT_METHODS = [
   { id: 'outro', label: 'Outro', icon: '🧾' },
 ];
 
+const roundMoney = (value) => Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
+
 export default function PaymentModal({ 
   isOpen, 
   onClose, 
@@ -38,15 +40,20 @@ export default function PaymentModal({
     }
   }, [isOpen, total]);
 
-  const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
-  const remaining = total - totalPaid;
+  const normalizedTotal = roundMoney(total);
+  const totalPaid = roundMoney(payments.reduce((sum, p) => sum + p.amount, 0));
+  const remaining = roundMoney(Math.max(0, normalizedTotal - totalPaid));
   const isComplete = remaining <= 0;
 
   const addPayment = () => {
-    if (!selectedMethod || !paymentAmount || parseFloat(paymentAmount) <= 0) return;
+    if (!selectedMethod || paymentAmount === '') return;
 
-    const enteredAmount = parseFloat(paymentAmount);
-    const amount = Math.min(enteredAmount, remaining);
+    const enteredAmount = roundMoney(paymentAmount);
+    if (enteredAmount <= 0) return;
+
+    const amount = roundMoney(Math.min(enteredAmount, remaining));
+    if (amount <= 0) return;
+
     const tenderedAmount = selectedMethod.id === 'dinheiro' ? enteredAmount : amount;
     
     setPayments([...payments, {
@@ -70,9 +77,9 @@ export default function PaymentModal({
     if (!isComplete) return;
 
     const cashPayments = payments.filter((payment) => payment.method === 'dinheiro');
-    const totalCashTendered = cashPayments.reduce((sum, payment) => sum + (payment.tendered_amount ?? payment.amount), 0);
-    const totalCashApplied = cashPayments.reduce((sum, payment) => sum + payment.amount, 0);
-    const totalChange = Math.max(0, totalCashTendered - totalCashApplied);
+    const totalCashTendered = roundMoney(cashPayments.reduce((sum, payment) => sum + (payment.tendered_amount ?? payment.amount), 0));
+    const totalCashApplied = roundMoney(cashPayments.reduce((sum, payment) => sum + payment.amount, 0));
+    const totalChange = roundMoney(Math.max(0, totalCashTendered - totalCashApplied));
 
     let lastCashIndex = -1;
     for (let i = payments.length - 1; i >= 0; i -= 1) {
@@ -84,7 +91,8 @@ export default function PaymentModal({
 
     const normalizedPayments = payments.map((payment, index) => ({
       ...payment,
-      tendered_amount: payment.tendered_amount ?? payment.amount,
+      amount: roundMoney(payment.amount),
+      tendered_amount: roundMoney(payment.tendered_amount ?? payment.amount),
       change: index === lastCashIndex ? totalChange : 0,
     }));
 
@@ -213,7 +221,7 @@ export default function PaymentModal({
                               return;
                             }
 
-                            if (selectedMethod?.id === 'dinheiro' || val <= remaining) {
+                            if (selectedMethod?.id === 'dinheiro' || val <= (remaining + 0.001)) {
                               setPaymentAmount(e.target.value);
                             }
                           }}
@@ -265,7 +273,7 @@ export default function PaymentModal({
               <div>
                 <p className="font-bold text-green-800">Pagamento Completo!</p>
                 <p className="text-sm text-green-600">
-                  Total pago: {formatCurrency(totalPaid)}
+                  Total pago: {formatCurrency(normalizedTotal)}
                 </p>
               </div>
             </motion.div>
