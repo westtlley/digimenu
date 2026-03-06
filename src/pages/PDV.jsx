@@ -617,6 +617,11 @@ export default function PDV() {
       if (cart.length > 0 && !isCaixaLocked && openCaixa) setShowPaymentModal(true);
     },
   }, showMenuVendas);
+  useEffect(() => {
+    if (!showPaymentModal) {
+      saleClientRequestIdRef.current = null;
+    }
+  }, [showPaymentModal]);
 
   const subtotal = cart.reduce((sum, item) => sum + (item.totalPrice * item.quantity), 0);
   const discountFromPercent = subtotal * (parseFloat(discountPercent || 0) / 100);
@@ -701,12 +706,6 @@ export default function PDV() {
     }
     return `pdv-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
   };
-
-  useEffect(() => {
-    if (!showPaymentModal) {
-      saleClientRequestIdRef.current = null;
-    }
-  }, [showPaymentModal]);
 
   const handleFinalizeSale = async (paymentData) => {
     if (!openCaixa) {
