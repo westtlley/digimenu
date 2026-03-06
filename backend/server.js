@@ -47,6 +47,7 @@ import { requestLogger } from './utils/monitoring.js';
 import { scheduleBackups } from './utils/backup.js';
 import { analyticsMiddleware } from './utils/analytics.js';
 import { initializeCronJobs } from './utils/cronJobs.js';
+import { getPermissionsForPlan } from './utils/planPresetsForContext.js';
 import analyticsRoutes from './routes/analytics.routes.js';
 import backupRoutes from './routes/backup.routes.js';
 import subscriberBackupRoutes from './routes/subscriberBackup.routes.js';
@@ -942,6 +943,262 @@ async function ensureManagerialAuthPlanEnabled(owner, res) {
   return subscriber;
 }
 
+const PDV_CAIXA_ENTITY_CONFIG = {
+  caixa: { module: 'caixa', allowedCollaboratorRoles: new Set(['gerente', 'pdv']) },
+  caixaoperation: { module: 'caixa', allowedCollaboratorRoles: new Set(['gerente', 'pdv']) },
+  pedidopdv: { module: 'pdv', allowedCollaboratorRoles: new Set(['gerente', 'pdv']) },
+  pdvsession: { module: 'pdv', allowedCollaboratorRoles: new Set(['gerente', 'pdv']) },
+};
+
+const MANAGERIAL_AUTH_SESSION_TTL_MS = Number(process.env.MANAGERIAL_AUTH_SESSION_TTL_MS || (10 * 60 * 1000));
+const managerialAuthSessions = new Map();
+
+const normalizeLower = (value = '') => String(value || '').toLowerCase().trim();
+
+const normalizeEntityName = (entity = '') => normalizeLower(entity).replace(/\s+/g, '');
+
+const hasProfileRole = (user) => !!normalizeLower(user?.profile_role);
+
+function getUserRoleList(user) {
+  const fromList = Array.isArray(user?.profile_roles)
+    ? user.profile_roles.map((role) => normalizeLower(role)).filter(Boolean)
+    : [];
+  const fromSingle = normalizeLower(user?.profile_role);
+  const roles = fromSingle ? [fromSingle, ...fromList] : fromList;
+  return [...new Set(roles)];
+}
+
+function isOwnerForSubscriber(user, ownerEmail) {
+  if (!user || !ownerEmail) return false;
+  if (user?.is_master) return true;
+  if (hasProfileRole(user)) return false;
+  const ownerNorm = normalizeLower(ownerEmail);
+  const userEmail = normalizeLower(user.email);
+  const userSubscriber = normalizeLower(user.subscriber_email);
+  return userEmail === ownerNorm || userSubscriber === ownerNorm;
+}
+
+function getEntityCrudAction(method) {
+  const m = String(method || '').toUpperCase();
+  if (m === 'POST') return 'create';
+  if (m === 'PUT' || m === 'PATCH') return 'update';
+  if (m === 'DELETE') return 'delete';
+  return null;
+}
+
+function hasModuleActionPermission(permissionMap, moduleName, action) {
+  const modulePermissions = permissionMap?.[moduleName];
+  if (Array.isArray(modulePermissions)) {
+    return modulePermissions.includes(action) || modulePermissions.includes('*');
+  }
+  if (modulePermissions === true) return true;
+  if (modulePermissions && typeof modulePermissions === 'object') {
+    return modulePermissions[action] === true;
+  }
+  return false;
+}
+
+function parseSubscriberPermissionMap(subscriber) {
+  if (!subscriber) return {};
+  const plan = normalizeLower(subscriber.plan || 'basic');
+  if (plan && plan !== 'custom') {
+    const preset = getPermissionsForPlan(plan);
+    return (preset && typeof preset === 'object') ? { ...preset } : {};
+  }
+  let raw = subscriber.permissions;
+  if (typeof raw === 'string') {
+    try {
+      raw = JSON.parse(raw);
+    } catch {
+      raw = {};
+    }
+  }
+  return (raw && typeof raw === 'object') ? raw : {};
+}
+
+function getManagerialAuthSessionKey(req, ownerEmail, role) {
+  const requester = normalizeLower(req?.user?.id || req?.user?.email);
+  return `${requester}|${normalizeLower(ownerEmail)}|${normalizeLower(role)}`;
+}
+
+function pruneManagerialAuthSessions() {
+  const now = Date.now();
+  for (const [key, expiresAt] of managerialAuthSessions.entries()) {
+    if (!expiresAt || expiresAt <= now) {
+      managerialAuthSessions.delete(key);
+    }
+  }
+}
+
+function registerManagerialAuthSession(req, ownerEmail, role) {
+  if (!req?.user || !ownerEmail || !role) return;
+  pruneManagerialAuthSessions();
+  const key = getManagerialAuthSessionKey(req, ownerEmail, role);
+  managerialAuthSessions.set(key, Date.now() + MANAGERIAL_AUTH_SESSION_TTL_MS);
+}
+
+function hasRecentManagerialAuthSession(req, ownerEmail, role) {
+  if (!req?.user || !ownerEmail || !role) return false;
+  pruneManagerialAuthSessions();
+  const key = getManagerialAuthSessionKey(req, ownerEmail, role);
+  const expiresAt = managerialAuthSessions.get(key);
+  return !!(expiresAt && expiresAt > Date.now());
+}
+
+function extractManagerialCredentials(payload = {}) {
+  const fromObject = (payload?.managerial_auth && typeof payload.managerial_auth === 'object')
+    ? payload.managerial_auth
+    : ((payload?.managerialAuth && typeof payload.managerialAuth === 'object') ? payload.managerialAuth : null);
+  const matricula = normalizeLower(fromObject?.matricula || payload?.managerial_matricula || payload?.managerialMatricula);
+  const passwordRaw = fromObject?.password ?? payload?.managerial_password ?? payload?.managerialPassword;
+  const password = typeof passwordRaw === 'string' ? passwordRaw : '';
+  return { matricula, password };
+}
+
+function stripManagerialCredentials(payload = {}) {
+  if (!payload || typeof payload !== 'object') return payload;
+  const sanitized = { ...payload };
+  delete sanitized.managerial_auth;
+  delete sanitized.managerialAuth;
+  delete sanitized.managerial_matricula;
+  delete sanitized.managerial_password;
+  delete sanitized.managerialMatricula;
+  delete sanitized.managerialPassword;
+  return sanitized;
+}
+
+function isSensitivePdvCaixaAction(entityName, method, payload = {}) {
+  const entityNorm = normalizeEntityName(entityName);
+  const httpMethod = String(method || '').toUpperCase();
+  if (httpMethod === 'DELETE') return true;
+
+  if (entityNorm === 'caixa') {
+    if (httpMethod === 'POST') return true;
+    if (httpMethod === 'PUT' || httpMethod === 'PATCH') {
+      const status = normalizeLower(payload?.status);
+      return status === 'closed' || payload?.closing_date !== undefined || payload?.closing_amount_cash !== undefined;
+    }
+    return false;
+  }
+
+  if (entityNorm === 'caixaoperation') {
+    const type = normalizeLower(payload?.type);
+    return type === 'sangria' || type === 'suprimento';
+  }
+
+  if (entityNorm === 'pedidopdv' && (httpMethod === 'PUT' || httpMethod === 'PATCH')) {
+    const status = normalizeLower(payload?.status);
+    return status.startsWith('cancel') || payload?.canceled === true;
+  }
+
+  return false;
+}
+
+async function resolveSubscriberContextForEntity(req, payload = {}) {
+  const payloadOwner = normalizeLower(payload?.owner_email || payload?.as_subscriber);
+  const queryOwner = normalizeLower(req?.query?.as_subscriber);
+  const contextOwner = normalizeLower(req?.user?._contextForSubscriber);
+  const userSubscriber = normalizeLower(req?.user?.subscriber_email);
+  const userEmail = normalizeLower(req?.user?.email);
+  let owner = queryOwner || payloadOwner || contextOwner || userSubscriber || userEmail;
+
+  let subscriber = null;
+  if (owner) {
+    if (usePostgreSQL) {
+      subscriber = await repo.getSubscriberByEmail(owner);
+    } else if (db?.subscribers) {
+      subscriber = db.subscribers.find((item) => normalizeLower(item?.email) === owner) || null;
+    }
+  }
+
+  if (!subscriber && !req?.user?.is_master && userSubscriber && userSubscriber !== owner) {
+    owner = userSubscriber;
+    if (usePostgreSQL) {
+      subscriber = await repo.getSubscriberByEmail(owner);
+    } else if (db?.subscribers) {
+      subscriber = db.subscribers.find((item) => normalizeLower(item?.email) === owner) || null;
+    }
+  }
+
+  const normalizedOwner = normalizeLower(subscriber?.email || owner);
+  return { ownerEmail: normalizedOwner, subscriber };
+}
+
+async function enforcePdvCaixaWriteAccess(req, res, entity, method, payload = {}) {
+  const entityNorm = normalizeEntityName(entity);
+  const config = PDV_CAIXA_ENTITY_CONFIG[entityNorm];
+  const sanitizedPayload = stripManagerialCredentials(payload);
+
+  if (!config) {
+    return { allowed: true, sanitizedPayload };
+  }
+
+  if (req?.user?.is_master) {
+    return { allowed: true, sanitizedPayload };
+  }
+
+  const { ownerEmail, subscriber } = await resolveSubscriberContextForEntity(req, sanitizedPayload);
+  if (!ownerEmail || !subscriber) {
+    res.status(403).json({
+      error: 'Contexto do assinante invalido para operacao PDV/Caixa.',
+      code: 'PDV_CAIXA_CONTEXT_REQUIRED'
+    });
+    return { allowed: false };
+  }
+
+  const action = getEntityCrudAction(method);
+  const permissionMap = parseSubscriberPermissionMap(subscriber);
+  if (!action || !hasModuleActionPermission(permissionMap, config.module, action)) {
+    res.status(403).json({
+      error: `Plano atual nao permite ${config.module.toUpperCase()} (${action || 'acao'}).`,
+      code: 'PLAN_FEATURE_NOT_AVAILABLE',
+      module: config.module,
+      action,
+      plan: normalizeLower(subscriber.plan || 'basic')
+    });
+    return { allowed: false };
+  }
+
+  const isOwner = isOwnerForSubscriber(req.user, ownerEmail);
+  if (!isOwner) {
+    const roles = getUserRoleList(req.user);
+    const allowedRole = roles.some((role) => config.allowedCollaboratorRoles.has(role));
+    if (!allowedRole) {
+      res.status(403).json({
+        error: 'Perfil sem permissao para operar PDV/Caixa.',
+        code: 'ROLE_NOT_ALLOWED'
+      });
+      return { allowed: false };
+    }
+
+    if (isSensitivePdvCaixaAction(entityNorm, method, sanitizedPayload)) {
+      const { role: managerialRole } = getManagerialSubscriberAndRole(req);
+      const hasRecentAuth = hasRecentManagerialAuthSession(req, ownerEmail, managerialRole);
+
+      if (!hasRecentAuth) {
+        const { matricula, password } = extractManagerialCredentials(payload);
+        let validFromInlineAuth = false;
+        if (matricula && password && usePostgreSQL && repo.validateManagerialAuthorization) {
+          validFromInlineAuth = await repo.validateManagerialAuthorization(ownerEmail, managerialRole, matricula, password);
+          if (validFromInlineAuth) {
+            registerManagerialAuthSession(req, ownerEmail, managerialRole);
+          }
+        }
+
+        if (!validFromInlineAuth) {
+          res.status(403).json({
+            error: 'Autorizacao gerencial obrigatoria para esta acao sensivel.',
+            code: 'MANAGERIAL_AUTH_REQUIRED'
+          });
+          return { allowed: false };
+        }
+      }
+    }
+  }
+
+  return { allowed: true, sanitizedPayload, ownerEmail, subscriber };
+}
+
 const entitiesAndManagerialRouter = express.Router();
 entitiesAndManagerialRouter.get('/managerial-auth', authenticate, asyncHandler(async (req, res) => {
   if (!usePostgreSQL || !repo.getManagerialAuthorization) {
@@ -1008,6 +1265,9 @@ entitiesAndManagerialRouter.post('/managerial-auth/validate', authenticate, asyn
     return res.status(400).json({ error: 'Matrícula e senha são obrigatórios.' });
   }
   const valid = await repo.validateManagerialAuthorization(owner, role, matricula, password);
+  if (valid) {
+    registerManagerialAuthSession(req, owner, role);
+  }
   return res.json({ valid: !!valid });
 }));
 // Listar entidades (evitar 404 em produção quando rotas são testadas antes de menus/orders)
@@ -1138,6 +1398,9 @@ app.post('/api/entities/:entity', authenticate, createLimiter, asyncHandler(asyn
     if (ownerSub) createOpts.forSubscriberEmail = data.owner_email;
     else if (String(entity).toLowerCase() === 'order') return res.status(400).json({ error: 'owner_email não é um assinante válido. Pedido do cardápio por link precisa do dono do cardápio.' });
   }
+  const pdvCreateGuard = await enforcePdvCaixaWriteAccess(req, res, entity, 'POST', data);
+  if (!pdvCreateGuard.allowed) return;
+  data = pdvCreateGuard.sanitizedPayload;
   if (String(entity).toLowerCase() === 'dish' && !req.user?.is_master) {
     const subscriberEmail = createOpts.forSubscriberEmail || data.owner_email || (req.user?.subscriber_email || req.user?.email);
     if (subscriberEmail) {
@@ -1201,6 +1464,9 @@ app.put('/api/entities/:entity/:id', authenticate, asyncHandler(async (req, res)
 
     if (allow) req.user._contextForSubscriber = req.user._contextForSubscriber || asSub;
   }
+  const pdvUpdateGuard = await enforcePdvCaixaWriteAccess(req, res, entity, 'PUT', data);
+  if (!pdvUpdateGuard.allowed) return;
+  data = pdvUpdateGuard.sanitizedPayload;
   if (String(entity).toLowerCase() === 'subscriber') {
     const idVal = /^\d+$/.test(String(id)) ? parseInt(id, 10) : id;
     const updated = usePostgreSQL ? await repo.updateSubscriber(idVal, data) : (() => { const idx = db?.subscribers?.findIndex(s => s.id == idVal); if (idx < 0) throw new Error('Assinante não encontrado'); const e = db.subscribers[idx]; const m = { ...e, ...data, send_whatsapp_commands: data.send_whatsapp_commands ?? e.whatsapp_auto_enabled }; db.subscribers[idx] = m; if (saveDatabaseDebounced) saveDatabaseDebounced(db); return { ...m, send_whatsapp_commands: m.whatsapp_auto_enabled }; })();
@@ -1253,6 +1519,8 @@ app.delete('/api/entities/:entity/:id', authenticate, asyncHandler(async (req, r
   const { entity, id } = req.params;
   const asSub = req.query.as_subscriber;
   if (req.user?.is_master && asSub) req.user._contextForSubscriber = asSub;
+  const pdvDeleteGuard = await enforcePdvCaixaWriteAccess(req, res, entity, 'DELETE', {});
+  if (!pdvDeleteGuard.allowed) return;
   let deleted = false;
   if (usePostgreSQL) deleted = await repo.deleteEntity(entity, id, req.user);
   else if (db?.entities) {
@@ -1270,6 +1538,13 @@ app.delete('/api/entities/:entity/:id', authenticate, asyncHandler(async (req, r
 app.post('/api/entities/:entity/bulk', authenticate, createLimiter, asyncHandler(async (req, res) => {
   const { entity } = req.params;
   const { items: itemsToCreate } = req.body || {};
+  const entityNorm = normalizeEntityName(entity);
+  if (PDV_CAIXA_ENTITY_CONFIG[entityNorm] && !req.user?.is_master) {
+    return res.status(403).json({
+      error: 'Operacao em lote nao permitida para entidades sensiveis de PDV/Caixa.',
+      code: 'BULK_NOT_ALLOWED_FOR_SENSITIVE_ENTITY'
+    });
+  }
   let newItems;
   if (usePostgreSQL) newItems = await repo.createEntitiesBulk(entity, itemsToCreate, req.user);
   else if (db?.entities) {
