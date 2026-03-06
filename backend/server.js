@@ -32,6 +32,7 @@ import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import crypto from 'crypto';
 import { setupWebSocket, emitOrderUpdate, emitOrderCreated, emitComandaUpdate, emitComandaCreated, emitWaiterCall, emitTableUpdate } from './services/websocket.js';
 import { getAIResponse, isAIAvailable } from './services/chatAI.js';
+import { finalizePdvSaleAtomic } from './services/pdvFinalizeSale.service.js';
 
 import cloudinary from './config/cloudinary.js';
 import { upload } from './middlewares/upload.js';
@@ -1555,6 +1556,54 @@ app.post('/api/entities/:entity/bulk', authenticate, createLimiter, asyncHandler
   } else return res.status(500).json({ error: 'Banco de dados não inicializado' });
   console.log(`✅ [${entity}] ${newItems?.length || 0} itens criados`);
   res.status(201).json(newItems || []);
+}));
+
+app.post('/api/pdv/finalizar-venda', authenticate, createLimiter, asyncHandler(async (req, res) => {
+  const payload = req.body || {};
+  const asSub = req.query?.as_subscriber || payload?.as_subscriber;
+  if (req.user?.is_master && asSub) {
+    req.user._contextForSubscriber = asSub;
+  }
+
+  if (!payload?.client_request_id || !String(payload.client_request_id).trim()) {
+    return res.status(400).json({
+      error: 'client_request_id é obrigatório.',
+      code: 'CLIENT_REQUEST_ID_REQUIRED'
+    });
+  }
+
+  const pdvGuard = await enforcePdvCaixaWriteAccess(req, res, 'PedidoPDV', 'POST', {
+    owner_email: payload.owner_email || asSub || req.user?._contextForSubscriber || req.user?.subscriber_email || req.user?.email
+  });
+  if (!pdvGuard.allowed) return;
+
+  const ownerEmail = pdvGuard.ownerEmail || pdvGuard.subscriber?.email;
+  const caixaGuard = await enforcePdvCaixaWriteAccess(req, res, 'CaixaOperation', 'POST', {
+    owner_email: ownerEmail,
+    type: 'venda_pdv'
+  });
+  if (!caixaGuard.allowed) return;
+
+  try {
+    const result = await finalizePdvSaleAtomic({
+      user: req.user,
+      ownerEmail,
+      payload: {
+        ...payload,
+        owner_email: ownerEmail
+      }
+    });
+    return res.status(result.idempotent ? 200 : 201).json(result);
+  } catch (error) {
+    const status = Number(error?.status) || 500;
+    if (status >= 500) {
+      console.error('❌ [PDV] Erro ao finalizar venda:', error);
+    }
+    return res.status(status).json({
+      error: error?.message || 'Erro ao finalizar venda PDV.',
+      code: error?.code || 'PDV_FINALIZE_SALE_ERROR'
+    });
+  }
 }));
 
 // =======================

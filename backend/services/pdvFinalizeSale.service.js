@@ -1,0 +1,369 @@
+import { getClient } from '../db/postgres.js';
+
+const PAYMENT_METHODS = new Set(['dinheiro', 'pix', 'debito', 'credito', 'outro']);
+const PAYMENT_LABELS = {
+  dinheiro: 'Dinheiro',
+  pix: 'PIX',
+  debito: 'Débito',
+  credito: 'Crédito',
+  outro: 'Outro',
+};
+
+const normalizeLower = (value = '') => String(value || '').toLowerCase().trim();
+
+const toNumber = (value, fallback = 0) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const roundMoney = (value) => Math.round((toNumber(value, 0) + Number.EPSILON) * 100) / 100;
+
+const isMoneyEqual = (left, right) => Math.abs(roundMoney(left) - roundMoney(right)) <= 0.01;
+
+function createHttpError(status, message, code) {
+  const error = new Error(message);
+  error.status = status;
+  error.code = code;
+  return error;
+}
+
+function mapEntityRow(row) {
+  if (!row) return null;
+  return {
+    id: String(row.id),
+    ...row.data,
+    created_at: row.created_at,
+    created_date: row.created_at || row?.data?.created_date,
+    updated_at: row.updated_at,
+  };
+}
+
+function normalizePayments(payments = [], total) {
+  if (!Array.isArray(payments) || payments.length === 0) {
+    throw createHttpError(400, 'payments é obrigatório e deve conter ao menos um pagamento.', 'PAYMENTS_REQUIRED');
+  }
+
+  const normalized = payments.map((payment, index) => {
+    const method = normalizeLower(payment?.method);
+    if (!PAYMENT_METHODS.has(method)) {
+      throw createHttpError(400, `Método de pagamento inválido na posição ${index + 1}.`, 'INVALID_PAYMENT_METHOD');
+    }
+
+    const amount = roundMoney(payment?.amount);
+    if (amount <= 0) {
+      throw createHttpError(400, `Valor do pagamento inválido na posição ${index + 1}.`, 'INVALID_PAYMENT_AMOUNT');
+    }
+
+    let tendered = payment?.tendered_amount == null ? amount : roundMoney(payment.tendered_amount);
+    if (tendered <= 0) {
+      throw createHttpError(400, `Valor recebido inválido na posição ${index + 1}.`, 'INVALID_TENDERED_AMOUNT');
+    }
+
+    if (method !== 'dinheiro') {
+      tendered = amount;
+    }
+
+    const change = roundMoney(payment?.change || 0);
+    if (change < 0) {
+      throw createHttpError(400, `Troco inválido na posição ${index + 1}.`, 'INVALID_CHANGE_AMOUNT');
+    }
+    if (change > 0 && method !== 'dinheiro') {
+      throw createHttpError(400, 'Somente pagamento em dinheiro pode conter troco.', 'CHANGE_ONLY_CASH');
+    }
+
+    return {
+      method,
+      methodLabel: PAYMENT_LABELS[method] || method,
+      amount,
+      tendered_amount: tendered,
+      change,
+    };
+  });
+
+  const paidTotal = roundMoney(normalized.reduce((sum, payment) => sum + payment.amount, 0));
+  if (paidTotal + 0.01 < total) {
+    throw createHttpError(400, 'Total dos pagamentos é menor que o total da venda.', 'PAYMENT_NOT_ENOUGH');
+  }
+  if (paidTotal - total > 0.01) {
+    throw createHttpError(400, 'Total dos pagamentos não pode exceder o total da venda.', 'PAYMENT_EXCEEDS_TOTAL');
+  }
+
+  const cashPayments = normalized.filter((payment) => payment.method === 'dinheiro');
+  const totalCashTendered = roundMoney(cashPayments.reduce((sum, payment) => sum + payment.tendered_amount, 0));
+  const totalCashApplied = roundMoney(cashPayments.reduce((sum, payment) => sum + payment.amount, 0));
+  const expectedChange = roundMoney(Math.max(0, totalCashTendered - totalCashApplied));
+  const declaredChange = roundMoney(normalized.reduce((sum, payment) => sum + payment.change, 0));
+
+  const paymentsWithChange = normalized.filter((payment) => payment.change > 0);
+  if (paymentsWithChange.length > 1) {
+    throw createHttpError(400, 'Apenas um pagamento em dinheiro pode conter troco.', 'MULTIPLE_CHANGE_PAYMENTS');
+  }
+
+  if (!isMoneyEqual(expectedChange, declaredChange)) {
+    throw createHttpError(400, 'Troco informado é incompatível com o valor recebido em dinheiro.', 'INVALID_CHANGE_VALUE');
+  }
+
+  return {
+    normalizedPayments: normalized,
+    totalTendered: roundMoney(normalized.reduce((sum, payment) => sum + payment.tendered_amount, 0)),
+    totalChange: declaredChange,
+  };
+}
+
+function buildPaymentSummary(payments = []) {
+  if (!Array.isArray(payments) || payments.length === 0) return '-';
+  if (payments.length === 1) return payments[0].methodLabel;
+  return `Misto (${payments.map((payment) => payment.methodLabel).join(' + ')})`;
+}
+
+function buildResumo(total, troco, payments = []) {
+  const methods = payments.reduce((acc, payment) => {
+    const method = payment.method || 'outro';
+    acc[method] = roundMoney((acc[method] || 0) + roundMoney(payment.amount));
+    return acc;
+  }, {});
+
+  return {
+    total: roundMoney(total),
+    troco: roundMoney(troco),
+    metodos: methods,
+  };
+}
+
+function generateOrderCode() {
+  const base = String(Date.now()).slice(-8);
+  const suffix = Math.floor(Math.random() * 900 + 100);
+  return `PDV${base}${suffix}`;
+}
+
+async function findExistingOrderByRequestId(client, ownerEmail, clientRequestId) {
+  const result = await client.query(
+    `
+      SELECT id, data, created_at, updated_at
+      FROM entities
+      WHERE entity_type = 'PedidoPDV'
+        AND data->>'client_request_id' = $2
+        AND (
+          LOWER(TRIM(subscriber_email)) = LOWER(TRIM($1))
+          OR (
+            subscriber_email IS NULL
+            AND LOWER(TRIM(COALESCE(data->>'owner_email', data->>'subscriber_email', ''))) = LOWER(TRIM($1))
+          )
+        )
+      ORDER BY id DESC
+      LIMIT 1
+      FOR UPDATE
+    `,
+    [ownerEmail, clientRequestId]
+  );
+
+  if (!result.rows.length) return null;
+  return mapEntityRow(result.rows[0]);
+}
+
+async function listOrderOperations(client, ownerEmail, { id, order_code: orderCode, client_request_id: clientRequestId }) {
+  const result = await client.query(
+    `
+      SELECT id, data, created_at, updated_at
+      FROM entities
+      WHERE entity_type = 'CaixaOperation'
+        AND (
+          LOWER(TRIM(subscriber_email)) = LOWER(TRIM($1))
+          OR (
+            subscriber_email IS NULL
+            AND LOWER(TRIM(COALESCE(data->>'owner_email', data->>'subscriber_email', ''))) = LOWER(TRIM($1))
+          )
+        )
+        AND (
+          data->>'pedido_pdv_entity_id' = $2
+          OR data->>'pedido_pdv_id' = $3
+          OR data->>'client_request_id' = $4
+        )
+      ORDER BY id ASC
+    `,
+    [ownerEmail, String(id), String(orderCode || ''), String(clientRequestId || '')]
+  );
+
+  return result.rows.map(mapEntityRow);
+}
+
+async function assertOpenCaixaForTenant(client, caixaId, ownerEmail) {
+  const result = await client.query(
+    `
+      SELECT id, data, created_at, updated_at
+      FROM entities
+      WHERE entity_type = 'Caixa'
+        AND id = $1
+        AND (
+          LOWER(TRIM(subscriber_email)) = LOWER(TRIM($2))
+          OR (
+            subscriber_email IS NULL
+            AND LOWER(TRIM(COALESCE(data->>'owner_email', data->>'subscriber_email', ''))) = LOWER(TRIM($2))
+          )
+        )
+      FOR UPDATE
+    `,
+    [caixaId, ownerEmail]
+  );
+
+  if (!result.rows.length) {
+    throw createHttpError(403, 'Caixa não encontrado para este estabelecimento.', 'CAIXA_NOT_FOUND');
+  }
+
+  const caixa = mapEntityRow(result.rows[0]);
+  if (normalizeLower(caixa?.status) !== 'open') {
+    throw createHttpError(409, 'Caixa informado não está aberto.', 'CAIXA_NOT_OPEN');
+  }
+
+  return caixa;
+}
+
+export async function finalizePdvSaleAtomic({ user, ownerEmail, payload = {} }) {
+  if (!ownerEmail) {
+    throw createHttpError(403, 'Contexto do assinante inválido para finalizar venda.', 'PDV_CAIXA_CONTEXT_REQUIRED');
+  }
+
+  const clientRequestId = String(payload.client_request_id || '').trim();
+  if (!clientRequestId) {
+    throw createHttpError(400, 'client_request_id é obrigatório.', 'CLIENT_REQUEST_ID_REQUIRED');
+  }
+
+  const caixaId = Number(payload.caixa_id);
+  if (!Number.isFinite(caixaId)) {
+    throw createHttpError(400, 'caixa_id inválido.', 'INVALID_CAIXA_ID');
+  }
+
+  const items = Array.isArray(payload.items) ? payload.items : [];
+  if (items.length === 0) {
+    throw createHttpError(400, 'A venda precisa conter ao menos um item.', 'ITEMS_REQUIRED');
+  }
+
+  const subtotal = roundMoney(payload.subtotal);
+  const discount = roundMoney(payload.discount || 0);
+  const total = roundMoney(payload.total);
+  if (total <= 0) {
+    throw createHttpError(400, 'total inválido para finalizar venda.', 'INVALID_TOTAL');
+  }
+
+  const { normalizedPayments, totalTendered, totalChange } = normalizePayments(payload.payments, total);
+  const operatorEmail = normalizeLower(user?.email);
+  const operatorName = payload.seller_name || user?.full_name || user?.name || '';
+
+  let transactionClient = null;
+  try {
+    transactionClient = await getClient();
+    await transactionClient.query('BEGIN');
+
+    const existingOrder = await findExistingOrderByRequestId(transactionClient, ownerEmail, clientRequestId);
+    if (existingOrder) {
+      const existingOperations = await listOrderOperations(transactionClient, ownerEmail, existingOrder);
+      await transactionClient.query('COMMIT');
+      transactionClient.release();
+      transactionClient = null;
+
+      return {
+        pedido_pdv: existingOrder,
+        operacoes: existingOperations,
+        resumo: buildResumo(existingOrder.total, existingOrder.change || 0, existingOrder.payments || existingOperations.map((operation) => ({
+          method: operation.payment_method,
+          amount: operation.amount,
+        }))),
+        idempotent: true,
+      };
+    }
+
+    await assertOpenCaixaForTenant(transactionClient, caixaId, ownerEmail);
+
+    const nowIso = new Date().toISOString();
+    const orderCode = payload.order_code || generateOrderCode();
+    const pedidoData = {
+      owner_email: ownerEmail,
+      subscriber_email: ownerEmail,
+      client_request_id: clientRequestId,
+      order_code: orderCode,
+      customer_name: payload.customer_name || 'Cliente Balcão',
+      customer_phone: payload.customer_phone || '',
+      customer_document: payload.customer_document || '',
+      items,
+      subtotal,
+      discount,
+      total,
+      payment_method: buildPaymentSummary(normalizedPayments),
+      payment_amount: totalTendered,
+      change: totalChange,
+      caixa_id: caixaId,
+      seller_email: payload.seller_email || operatorEmail,
+      seller_name: operatorName,
+      payments: normalizedPayments,
+      created_date: nowIso,
+      ...(payload.pdv_terminal_id ? { pdv_terminal_id: payload.pdv_terminal_id } : {}),
+      ...(payload.pdv_terminal_name ? { pdv_terminal_name: payload.pdv_terminal_name } : {}),
+      ...(payload.pdv_session_id ? { pdv_session_id: payload.pdv_session_id } : {}),
+    };
+
+    const orderInsert = await transactionClient.query(
+      `
+        INSERT INTO entities (entity_type, data, subscriber_email)
+        VALUES ($1, $2, $3)
+        RETURNING id, data, created_at, updated_at
+      `,
+      ['PedidoPDV', JSON.stringify(pedidoData), ownerEmail]
+    );
+    const createdOrder = mapEntityRow(orderInsert.rows[0]);
+
+    if (payload.simulate_error === true && process.env.NODE_ENV !== 'production') {
+      throw createHttpError(500, 'Falha simulada para teste de rollback.', 'PDV_SIMULATED_ERROR');
+    }
+
+    const createdOperations = [];
+    for (const payment of normalizedPayments) {
+      const operationData = {
+        owner_email: ownerEmail,
+        subscriber_email: ownerEmail,
+        client_request_id: clientRequestId,
+        caixa_id: caixaId,
+        type: 'venda_pdv',
+        description: `PDV #${orderCode} - ${pedidoData.customer_name} (${payment.methodLabel})`,
+        amount: payment.amount,
+        payment_method: payment.method,
+        payment_amount: payment.tendered_amount,
+        change: payment.change || 0,
+        pedido_pdv_id: orderCode,
+        pedido_pdv_entity_id: createdOrder.id,
+        operator: operatorEmail,
+        date: nowIso,
+      };
+
+      const operationInsert = await transactionClient.query(
+        `
+          INSERT INTO entities (entity_type, data, subscriber_email)
+          VALUES ($1, $2, $3)
+          RETURNING id, data, created_at, updated_at
+        `,
+        ['CaixaOperation', JSON.stringify(operationData), ownerEmail]
+      );
+      createdOperations.push(mapEntityRow(operationInsert.rows[0]));
+    }
+
+    await transactionClient.query('COMMIT');
+    transactionClient.release();
+    transactionClient = null;
+
+    return {
+      pedido_pdv: createdOrder,
+      operacoes: createdOperations,
+      resumo: buildResumo(total, totalChange, normalizedPayments),
+      idempotent: false,
+    };
+  } catch (error) {
+    if (transactionClient) {
+      await transactionClient.query('ROLLBACK').catch(() => {});
+    }
+    throw error;
+  } finally {
+    if (transactionClient) {
+      transactionClient.release();
+      transactionClient = null;
+    }
+  }
+}

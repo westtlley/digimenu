@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { apiClient as base44 } from '@/api/apiClient';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
@@ -77,6 +77,7 @@ export default function PDV() {
   // Tracking de cancelamentos em tela (para relatório de fechamento)
   const [canceledInScreenCount, setCanceledInScreenCount] = useState(0);
   const [canceledInScreenTotal, setCanceledInScreenTotal] = useState(0);
+  const saleClientRequestIdRef = useRef(null);
 
   // Verificar autenticação e permissão
   useEffect(() => {
@@ -290,13 +291,6 @@ export default function PDV() {
     }
   }, [user, allowed, activePdvSessions, pdvSession]);
 
-  const createPedidoMutation = useMutation({
-    mutationFn: (data) => base44.entities.PedidoPDV.create(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['pedidosPDV'] });
-    },
-  });
-
   const createOperationMutation = useMutation({
     mutationFn: async (data) => {
       const user = await base44.auth.me();
@@ -353,6 +347,7 @@ export default function PDV() {
         ...freshCaixa,
         opening_amount_cash: Number(freshCaixa.opening_amount_cash) || 0,
         status: 'closed',
+        closing_source: 'pdv',
         total_cash: totals.cash,
         total_pix: totals.pix,
         total_debit: totals.debit,
@@ -700,83 +695,106 @@ export default function PDV() {
     });
   };
 
+  const generateClientRequestId = () => {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return `pdv-${crypto.randomUUID()}`;
+    }
+    return `pdv-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  };
+
+  useEffect(() => {
+    if (!showPaymentModal) {
+      saleClientRequestIdRef.current = null;
+    }
+  }, [showPaymentModal]);
+
   const handleFinalizeSale = async (paymentData) => {
     if (!openCaixa) {
-      toast.error('⚠️ Abra o caixa para iniciar as vendas');
+      toast.error('Abra o caixa para iniciar as vendas');
       setShowPaymentModal(false);
       setShowOpenCaixaModal(true);
       return;
     }
 
-    const user = await base44.auth.me();
-    const orderCode = `PDV${Date.now().toString().slice(-8)}`;
+    try {
+      const user = await base44.auth.me();
+      if (!saleClientRequestIdRef.current) {
+        saleClientRequestIdRef.current = generateClientRequestId();
+      }
 
-    // Criar pedido com pagamentos mistos
-    const pedidoData = {
-      subscriber_email: user?.subscriber_email || user?.email,
-      order_code: orderCode,
-      customer_name: customerName,
-      customer_phone: customerPhone,
-      customer_document: paymentData.document,
-      items: cart.map(item => ({
-        dish_id: item.dish?.id,
-        dish_name: item.dish?.name,
-        quantity: item.quantity,
-        unit_price: item.totalPrice ?? item.dish?.price,
-        total_price: (item.totalPrice ?? item.dish?.price ?? 0) * item.quantity,
-        selections: item.selections || (item.flavors ? { size: item.size, flavors: item.flavors, edge: item.edge, extras: item.extras, specifications: item.specifications } : {})
-      })),
-      subtotal,
-      discount: totalDiscount,
-      total,
-      payment_method: paymentData.payments.length === 1 
-        ? paymentData.payments[0].methodLabel 
-        : `Misto (${paymentData.payments.map(p => p.methodLabel).join(' + ')})`,
-      payment_amount: paymentData.payments.reduce((sum, p) => sum + (p.tendered_amount ?? p.amount), 0),
-      change: paymentData.change,
-      caixa_id: openCaixa.id,
-      seller_email: user.email,
-      seller_name: user.full_name,
-      ...(pdvTerminalId && { pdv_terminal_id: pdvTerminalId }),
-      ...(pdvTerminalName && { pdv_terminal_name: pdvTerminalName }),
-      ...(pdvSession?.id && { pdv_session_id: pdvSession.id })
-    };
+      const endpoint = asSub
+        ? `/pdv/finalizar-venda?as_subscriber=${encodeURIComponent(asSub)}`
+        : '/pdv/finalizar-venda';
 
-    await createPedidoMutation.mutateAsync(pedidoData);
-
-    // Criar operações separadas para cada pagamento
-    for (const payment of paymentData.payments) {
-      await createOperationMutation.mutateAsync({
+      const result = await base44.post(endpoint, {
         caixa_id: openCaixa.id,
-        type: 'venda_pdv',
-        description: `PDV #${orderCode} - ${customerName} (${payment.methodLabel})`,
-        amount: payment.amount,
-        payment_method: payment.method,
-        payment_amount: payment.tendered_amount ?? payment.amount,
-        change: payment.change || 0,
-        pedido_pdv_id: orderCode
+        client_request_id: saleClientRequestIdRef.current,
+        customer_name: customerName,
+        customer_phone: customerPhone,
+        customer_document: paymentData.document,
+        items: cart.map((item) => ({
+          dish_id: item.dish?.id,
+          dish_name: item.dish?.name,
+          quantity: item.quantity,
+          unit_price: item.totalPrice ?? item.dish?.price,
+          total_price: (item.totalPrice ?? item.dish?.price ?? 0) * item.quantity,
+          selections: item.selections || (
+            item.flavors
+              ? { size: item.size, flavors: item.flavors, edge: item.edge, extras: item.extras, specifications: item.specifications }
+              : {}
+          )
+        })),
+        subtotal,
+        discount: totalDiscount,
+        total,
+        payments: paymentData.payments,
+        seller_email: user.email,
+        seller_name: user.full_name,
+        ...(pdvTerminalId && { pdv_terminal_id: pdvTerminalId }),
+        ...(pdvTerminalName && { pdv_terminal_name: pdvTerminalName }),
+        ...(pdvSession?.id && { pdv_session_id: pdvSession.id })
       });
+
+      const createdOrder = result?.pedido_pdv || {};
+      const orderCode = createdOrder.order_code || `PDV${Date.now().toString().slice(-8)}`;
+      const createdPayments = Array.isArray(createdOrder.payments) && createdOrder.payments.length
+        ? createdOrder.payments
+        : paymentData.payments;
+      const createdChange = createdOrder.change != null ? createdOrder.change : paymentData.change;
+      const createdTotal = createdOrder.total != null ? createdOrder.total : total;
+      const createdCustomerName = createdOrder.customer_name || customerName;
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['pedidosPDV'] }),
+        queryClient.invalidateQueries({ queryKey: ['caixaOperations'] }),
+        queryClient.invalidateQueries({ queryKey: ['caixas'] }),
+      ]);
+
+      setLastSale({
+        orderCode,
+        total: createdTotal,
+        payments: createdPayments,
+        change: createdChange,
+        items: cart,
+        customerName: createdCustomerName
+      });
+
+      setCart([]);
+      setDiscountReais('');
+      setDiscountPercent('');
+      setCustomerName('Cliente Balc�o');
+      setCustomerPhone('');
+      setShowPaymentModal(false);
+      setShowMobileCart(false);
+      setShowSuccessModal(true);
+      saleClientRequestIdRef.current = null;
+
+      if (result?.idempotent) {
+        toast.success('Venda j� registrada anteriormente.');
+      }
+    } catch (error) {
+      toast.error(error?.message || 'Erro ao finalizar venda');
     }
-
-    queryClient.invalidateQueries({ queryKey: ['caixas'] });
-
-    setLastSale({
-      orderCode,
-      total,
-      payments: paymentData.payments,
-      change: paymentData.change,
-      items: cart,
-      customerName
-    });
-
-    setCart([]);
-    setDiscountReais('');
-    setDiscountPercent('');
-    setCustomerName('Cliente Balcão');
-    setCustomerPhone('');
-    setShowPaymentModal(false);
-    setShowMobileCart(false);
-    setShowSuccessModal(true);
   };
 
   const handlePrintReceipt = (saleData = null) => {
