@@ -130,7 +130,7 @@ export default function DeliveryZonesTab() {
       queryClient.invalidateQueries({ queryKey: ['deliveryZones'] });
       closeModal();
       const toast = document.createElement('div');
-      toast.className = 'fixed top-4 right-4 z-[9999] bg-green-600 text-white px-6 py-4 rounded-xl shadow-2xl';
+      toast.className = 'fixed top-4 right-4 z-[9999] bg-green-600 text-primary-foreground px-6 py-4 rounded-xl shadow-2xl';
       toast.innerHTML = '✅ Zona criada!';
       document.body.appendChild(toast);
       setTimeout(() => toast.remove(), 2000);
@@ -219,7 +219,7 @@ export default function DeliveryZonesTab() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Total de Zonas</p>
+                <p className="text-sm text-muted-foreground">Total de Zonas</p>
                 <p className="text-2xl font-bold">{stats.total}</p>
               </div>
               <MapPin className="w-8 h-8 text-blue-500" />
@@ -230,7 +230,7 @@ export default function DeliveryZonesTab() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Ativas</p>
+                <p className="text-sm text-muted-foreground">Ativas</p>
                 <p className="text-2xl font-bold text-green-600">{stats.active}</p>
               </div>
               <TrendingUp className="w-8 h-8 text-green-500" />
@@ -241,10 +241,10 @@ export default function DeliveryZonesTab() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Inativas</p>
-                <p className="text-2xl font-bold text-gray-400">{stats.inactive}</p>
+                <p className="text-sm text-muted-foreground">Inativas</p>
+                <p className="text-2xl font-bold text-muted-foreground">{stats.inactive}</p>
               </div>
-              <Package className="w-8 h-8 text-gray-400" />
+              <Package className="w-8 h-8 text-muted-foreground" />
             </div>
           </CardContent>
         </Card>
@@ -252,7 +252,7 @@ export default function DeliveryZonesTab() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Taxa Média</p>
+                <p className="text-sm text-muted-foreground">Taxa Média</p>
                 <p className="text-2xl font-bold text-orange-600">{formatCurrency(stats.avgFee)}</p>
               </div>
               <TrendingUp className="w-8 h-8 text-orange-500" />
@@ -264,7 +264,7 @@ export default function DeliveryZonesTab() {
       {/* Busca e Filtros */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             placeholder="Buscar zona por bairro..."
             value={searchTerm}
@@ -302,7 +302,7 @@ export default function DeliveryZonesTab() {
           </div>
         ) : (
           zones.map(zone => (
-            <div key={zone.id} className="bg-white rounded-xl p-4 shadow-sm border">
+            <div key={zone.id} className="bg-card text-card-foreground rounded-xl p-4 shadow-sm border border-border">
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-3 flex-1">
                   <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -316,7 +316,7 @@ export default function DeliveryZonesTab() {
                         id: zone.id,
                         data: { ...zone, neighborhood: e.target.value }
                       })}
-                      className="font-semibold text-base bg-transparent border-b border-transparent hover:border-gray-300 focus:border-orange-500 focus:outline-none w-full"
+                      className="font-semibold text-base bg-transparent border-b border-transparent hover:border-border focus:border-orange-500 focus:outline-none w-full"
                     />
                   </div>
                 </div>
@@ -330,9 +330,9 @@ export default function DeliveryZonesTab() {
               </div>
 
               <div className="mb-3">
-                <Label className="text-xs text-gray-500">Taxa de Entrega</Label>
+                <Label className="text-xs text-muted-foreground">Taxa de Entrega</Label>
                 <div className="flex items-center gap-2 mt-1">
-                  <span className="text-sm text-gray-400">R$</span>
+                  <span className="text-sm text-muted-foreground">R$</span>
                   <input
                     type="number"
                     step="0.01"
@@ -399,7 +399,7 @@ export default function DeliveryZonesTab() {
               />
             </div>
 
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+            <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
               <Label>Zona ativa</Label>
               <Switch
                 checked={formData.is_active}

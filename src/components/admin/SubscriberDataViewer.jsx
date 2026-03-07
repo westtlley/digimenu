@@ -60,7 +60,7 @@ export default function SubscriberDataViewer({ subscriber, onBack }) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -387,7 +387,7 @@ export default function SubscriberDataViewer({ subscriber, onBack }) {
         </Button>
         <div className="flex-1">
           <h2 className="text-2xl font-bold">{subscriber.name}</h2>
-          <p className="text-gray-500">{subscriber.email}</p>
+          <p className="text-muted-foreground">{subscriber.email}</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" onClick={exportBackup}>
@@ -413,7 +413,7 @@ export default function SubscriberDataViewer({ subscriber, onBack }) {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Pratos</CardTitle>
-            <Package className="w-4 h-4 text-gray-500" />
+            <Package className="w-4 h-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.total_dishes}</div>
@@ -423,7 +423,7 @@ export default function SubscriberDataViewer({ subscriber, onBack }) {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Pedidos</CardTitle>
-            <ShoppingCart className="w-4 h-4 text-gray-500" />
+            <ShoppingCart className="w-4 h-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.total_orders}</div>
@@ -433,7 +433,7 @@ export default function SubscriberDataViewer({ subscriber, onBack }) {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Faturamento</CardTitle>
-            <DollarSign className="w-4 h-4 text-gray-500" />
+            <DollarSign className="w-4 h-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(stats.total_revenue)}</div>
@@ -443,7 +443,7 @@ export default function SubscriberDataViewer({ subscriber, onBack }) {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Caixas Abertos</CardTitle>
-            <Clock className="w-4 h-4 text-gray-500" />
+            <Clock className="w-4 h-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.active_caixas}</div>
@@ -490,27 +490,27 @@ export default function SubscriberDataViewer({ subscriber, onBack }) {
               Adicionar prato
             </Button>
           </div>
-          <div className="bg-white rounded-lg border overflow-x-auto">
+          <div className="bg-card rounded-lg border border-border overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-gray-50">
+              <thead className="bg-muted/50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Nome</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Categoria</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Preço</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Complementos</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Status</th>
-                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">Ações</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-foreground">Nome</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-foreground">Categoria</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-foreground">Preço</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-foreground">Complementos</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-foreground">Status</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-foreground">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
                 {(Array.isArray(data?.dishes) ? data.dishes : []).map((dish) => (
-                  <tr key={dish.id} className="hover:bg-gray-50">
+                  <tr key={dish.id} className="hover:bg-muted/40">
                     <td className="px-4 py-3 text-sm">{dish.name}</td>
-                    <td className="px-4 py-3 text-sm text-gray-500">
+                    <td className="px-4 py-3 text-sm text-muted-foreground">
                       {(data.categories||[]).find(c => c.id === dish.category_id)?.name || '-'}
                     </td>
                     <td className="px-4 py-3 text-sm font-medium">{formatCurrency(dish.price)}</td>
-                    <td className="px-4 py-3 text-sm text-gray-500">{(dish.complement_groups || []).length}</td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground">{(dish.complement_groups || []).length}</td>
                     <td className="px-4 py-3 text-sm">
                       <Badge variant={dish.is_active !== false ? 'default' : 'secondary'}>
                         {dish.is_active !== false ? 'Ativo' : 'Inativo'}
@@ -549,20 +549,20 @@ export default function SubscriberDataViewer({ subscriber, onBack }) {
               Adicionar categoria
             </Button>
           </div>
-          <div className="bg-white rounded-lg border">
+          <div className="bg-card rounded-lg border border-border">
             <table className="w-full">
-              <thead className="bg-gray-50">
+              <thead className="bg-muted/50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Nome</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Ordem</th>
-                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">Ações</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-foreground">Nome</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-foreground">Ordem</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-foreground">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
                 {(Array.isArray(data?.categories) ? data.categories : []).map((cat) => (
-                  <tr key={cat.id} className="hover:bg-gray-50">
+                  <tr key={cat.id} className="hover:bg-muted/40">
                     <td className="px-4 py-3 text-sm">{cat.name}</td>
-                    <td className="px-4 py-3 text-sm text-gray-500">{cat.order ?? '-'}</td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground">{cat.order ?? '-'}</td>
                     <td className="px-4 py-3 text-right">
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditingCategory(cat); setCategoryFormOpen(true); }}>
                         <Pencil className="w-4 h-4" />
@@ -585,24 +585,24 @@ export default function SubscriberDataViewer({ subscriber, onBack }) {
               Adicionar grupo
             </Button>
           </div>
-          <div className="bg-white rounded-lg border">
+          <div className="bg-card rounded-lg border border-border">
             <table className="w-full">
-              <thead className="bg-gray-50">
+              <thead className="bg-muted/50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Nome</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Obrigatório</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Máx. seleção</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Opções</th>
-                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">Ações</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-foreground">Nome</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-foreground">Obrigatório</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-foreground">Máx. seleção</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-foreground">Opções</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-foreground">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
                 {(Array.isArray(data?.complement_groups) ? data.complement_groups : []).map((g) => (
-                  <tr key={g.id} className="hover:bg-gray-50">
+                  <tr key={g.id} className="hover:bg-muted/40">
                     <td className="px-4 py-3 text-sm font-medium">{g.name}</td>
                     <td className="px-4 py-3 text-sm">{g.is_required ? 'Sim' : 'Não'}</td>
                     <td className="px-4 py-3 text-sm">{g.max_selection ?? 1}</td>
-                    <td className="px-4 py-3 text-sm text-gray-500">{(g.options || []).length}</td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground">{(g.options || []).length}</td>
                     <td className="px-4 py-3 text-right">
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditingGroup(g); setGroupForm({ name: g.name || '', is_required: !!g.is_required, max_selection: g.max_selection ?? 1 }); setGroupFormOpen(true); }}>
                         <Pencil className="w-4 h-4" />
@@ -625,22 +625,22 @@ export default function SubscriberDataViewer({ subscriber, onBack }) {
               Adicionar complemento
             </Button>
           </div>
-          <div className="bg-white rounded-lg border">
+          <div className="bg-card rounded-lg border border-border">
             <table className="w-full">
-              <thead className="bg-gray-50">
+              <thead className="bg-muted/50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Grupo</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Nome</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Preço</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Status</th>
-                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">Ações</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-foreground">Grupo</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-foreground">Nome</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-foreground">Preço</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-foreground">Status</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-foreground">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
                 {(Array.isArray(data?.complement_groups) ? data.complement_groups : []).flatMap((g) =>
                   (g.options || []).map((o) => (
-                    <tr key={`${g.id}-${o.id}`} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm text-gray-500">{g.name}</td>
+                    <tr key={`${g.id}-${o.id}`} className="hover:bg-muted/40">
+                      <td className="px-4 py-3 text-sm text-muted-foreground">{g.name}</td>
                       <td className="px-4 py-3 text-sm">{o.name}</td>
                       <td className="px-4 py-3 text-sm font-medium">{formatCurrency(o.price)}</td>
                       <td className="px-4 py-3 text-sm">
@@ -660,7 +660,7 @@ export default function SubscriberDataViewer({ subscriber, onBack }) {
               </tbody>
             </table>
             {((data.complement_groups||[]).reduce((s,g)=>s+(g.options||[]).length,0)) === 0 && (
-              <div className="px-4 py-8 text-center text-gray-500">Nenhum complemento cadastrado. Crie grupos e adicione opções na aba Grupos de Complementos.</div>
+              <div className="px-4 py-8 text-center text-muted-foreground">Nenhum complemento cadastrado. Crie grupos e adicione opções na aba Grupos de Complementos.</div>
             )}
           </div>
         </TabsContent>
@@ -672,22 +672,22 @@ export default function SubscriberDataViewer({ subscriber, onBack }) {
               Adicionar combo
             </Button>
           </div>
-          <div className="bg-white rounded-lg border">
+          <div className="bg-card rounded-lg border border-border">
             <table className="w-full">
-              <thead className="bg-gray-50">
+              <thead className="bg-muted/50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Nome</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Tipo</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Preço</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Status</th>
-                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">Ações</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-foreground">Nome</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-foreground">Tipo</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-foreground">Preço</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-foreground">Status</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-foreground">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
                 {(Array.isArray(data?.combos) ? data.combos : []).map((c) => (
-                  <tr key={c.id} className="hover:bg-gray-50">
+                  <tr key={c.id} className="hover:bg-muted/40">
                     <td className="px-4 py-3 text-sm font-medium">{c.name}</td>
-                    <td className="px-4 py-3 text-sm text-gray-500">{c.type || '-'}</td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground">{c.type || '-'}</td>
                     <td className="px-4 py-3 text-sm font-medium">{formatCurrency(c.combo_price)}</td>
                     <td className="px-4 py-3 text-sm">
                       <Badge variant={c.is_active !== false ? 'default' : 'secondary'}>{c.is_active !== false ? 'Ativo' : 'Inativo'}</Badge>
@@ -705,33 +705,33 @@ export default function SubscriberDataViewer({ subscriber, onBack }) {
               </tbody>
             </table>
             {(data.combos || []).length === 0 && (
-              <div className="px-4 py-8 text-center text-gray-500">Nenhum combo. Use &quot;Criar combo&quot; em Promoções.</div>
+              <div className="px-4 py-8 text-center text-muted-foreground">Nenhum combo. Use &quot;Criar combo&quot; em Promoções.</div>
             )}
           </div>
         </TabsContent>
 
         <TabsContent value="orders" className="space-y-4">
-          <div className="bg-white rounded-lg border">
+          <div className="bg-card rounded-lg border border-border">
             <table className="w-full">
-              <thead className="bg-gray-50">
+              <thead className="bg-muted/50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Código</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Cliente</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Total</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Status</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Data</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-foreground">Código</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-foreground">Cliente</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-foreground">Total</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-foreground">Status</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-foreground">Data</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
                 {data.orders.slice(0, 50).map((order) => (
-                  <tr key={order.id} className="hover:bg-gray-50">
+                  <tr key={order.id} className="hover:bg-muted/40">
                     <td className="px-4 py-3 text-sm font-medium">{order.order_code}</td>
                     <td className="px-4 py-3 text-sm">{order.customer_name}</td>
                     <td className="px-4 py-3 text-sm font-medium">{formatCurrency(order.total)}</td>
                     <td className="px-4 py-3 text-sm">
                       <Badge>{order.status}</Badge>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-500">
+                    <td className="px-4 py-3 text-sm text-muted-foreground">
                       {new Date(order.created_date).toLocaleDateString('pt-BR')}
                     </td>
                   </tr>
@@ -750,43 +750,43 @@ export default function SubscriberDataViewer({ subscriber, onBack }) {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-sm font-medium text-gray-500">Nome</label>
+                    <label className="text-sm font-medium text-muted-foreground">Nome</label>
                     <p className="text-base">{data.store.name}</p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-gray-500">WhatsApp</label>
+                    <label className="text-sm font-medium text-muted-foreground">WhatsApp</label>
                     <p className="text-base">{data.store.whatsapp || '-'}</p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-gray-500">Endereço</label>
+                    <label className="text-sm font-medium text-muted-foreground">Endereço</label>
                     <p className="text-base">{data.store.address || '-'}</p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-gray-500">Taxa de Entrega</label>
+                    <label className="text-sm font-medium text-muted-foreground">Taxa de Entrega</label>
                     <p className="text-base">{formatCurrency(data.store.delivery_fee)}</p>
                   </div>
                 </div>
               </CardContent>
             </Card>
           ) : (
-            <p className="text-gray-500 text-center py-12">Nenhuma loja configurada</p>
+            <p className="text-muted-foreground text-center py-12">Nenhuma loja configurada</p>
           )}
         </TabsContent>
 
         <TabsContent value="caixas" className="space-y-4">
-          <div className="bg-white rounded-lg border">
+          <div className="bg-card rounded-lg border border-border">
             <table className="w-full">
-              <thead className="bg-gray-50">
+              <thead className="bg-muted/50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Abertura</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Fechamento</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Status</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Aberto por</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-foreground">Abertura</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-foreground">Fechamento</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-foreground">Status</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-foreground">Aberto por</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
                 {(data.caixas || []).map((caixa) => (
-                  <tr key={caixa.id} className="hover:bg-gray-50">
+                  <tr key={caixa.id} className="hover:bg-muted/40">
                     <td className="px-4 py-3 text-sm">
                       {new Date(caixa.opening_date).toLocaleString('pt-BR')}
                     </td>
@@ -798,7 +798,7 @@ export default function SubscriberDataViewer({ subscriber, onBack }) {
                         {caixa.status === 'open' ? 'Aberto' : 'Fechado'}
                       </Badge>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-500">{caixa.opened_by}</td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground">{caixa.opened_by}</td>
                   </tr>
                 ))}
               </tbody>
@@ -875,11 +875,11 @@ export default function SubscriberDataViewer({ subscriber, onBack }) {
             </div>
 
             {/* Grupos de complementos — vincular ao prato */}
-            <div className="border rounded-lg p-4 bg-gray-50">
+            <div className="border rounded-lg p-4 bg-muted/50">
               <Label className="mb-3 block">Grupos de complementos no prato</Label>
-              <p className="text-xs text-gray-500 mb-3">Marque os grupos que o cliente poderá escolher ao pedir este prato. Obrigatório = cliente deve escolher.</p>
+              <p className="text-xs text-muted-foreground mb-3">Marque os grupos que o cliente poderá escolher ao pedir este prato. Obrigatório = cliente deve escolher.</p>
               {(data.complement_groups || []).length === 0 ? (
-                <p className="text-sm text-gray-500">Nenhum grupo. Crie na aba &quot;Grupos de Complementos&quot;.</p>
+                <p className="text-sm text-muted-foreground">Nenhum grupo. Crie na aba &quot;Grupos de Complementos&quot;.</p>
               ) : (
                 <div className="space-y-2">
                   {(data.complement_groups || []).map((g) => {
@@ -900,7 +900,7 @@ export default function SubscriberDataViewer({ subscriber, onBack }) {
                         <span className="text-sm font-medium">{g.name}</span>
                         {checked && (
                           <div className="flex items-center gap-2">
-                            <span className="text-xs text-gray-500">Obrigatório</span>
+                            <span className="text-xs text-muted-foreground">Obrigatório</span>
                             <Switch
                               checked={!!cg?.is_required}
                               onCheckedChange={(v) => setDishForm(f => ({
@@ -920,20 +920,20 @@ export default function SubscriberDataViewer({ subscriber, onBack }) {
             </div>
 
             <div className="grid grid-cols-3 gap-4">
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
+              <div className="flex items-center justify-between p-3 bg-muted/50 rounded">
                 <Label className="text-sm">⭐ Destaque</Label>
                 <Switch checked={dishForm.is_highlight} onCheckedChange={(v) => setDishForm(f => ({ ...f, is_highlight: v }))} />
               </div>
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
+              <div className="flex items-center justify-between p-3 bg-muted/50 rounded">
                 <Label className="text-sm">✨ Novo</Label>
                 <Switch checked={dishForm.is_new} onCheckedChange={(v) => setDishForm(f => ({ ...f, is_new: v }))} />
               </div>
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
+              <div className="flex items-center justify-between p-3 bg-muted/50 rounded">
                 <Label className="text-sm">🔥 Mais vendido</Label>
                 <Switch checked={dishForm.is_popular} onCheckedChange={(v) => setDishForm(f => ({ ...f, is_popular: v }))} />
               </div>
             </div>
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
+            <div className="flex items-center justify-between p-3 bg-muted/50 rounded">
               <Label>Ativo</Label>
               <Switch checked={dishForm.is_active} onCheckedChange={(v) => setDishForm(f => ({ ...f, is_active: v }))} />
             </div>

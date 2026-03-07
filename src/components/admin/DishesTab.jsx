@@ -67,7 +67,7 @@ export function DishRow({ dish, complementGroups, expanded, onToggleExpand, onEd
 
   return (
     <>
-    <div className={`bg-white border rounded-lg overflow-hidden hover:shadow-sm transition-shadow ${isSelected ? 'ring-2 ring-blue-500' : ''} ${isInactive ? 'opacity-90' : ''}`}>
+    <div className={`bg-card border border-border rounded-lg overflow-hidden hover:shadow-sm transition-shadow ${isSelected ? 'ring-2 ring-blue-500' : ''} ${isInactive ? 'opacity-90' : ''}`}>
       <div className="flex items-center gap-3 p-3">
         <input
           type="checkbox"
@@ -76,15 +76,15 @@ export function DishRow({ dish, complementGroups, expanded, onToggleExpand, onEd
           className="w-4 h-4 rounded"
           onClick={(e) => e.stopPropagation()}
         />
-        <div className="w-16 h-16 flex-shrink-0 bg-gray-100 rounded overflow-hidden relative">
+        <div className="w-16 h-16 flex-shrink-0 bg-muted rounded overflow-hidden relative">
           {dish.image ? (
             <img src={dish.image} alt={dish.name} className={`w-full h-full object-cover ${isInactive ? 'grayscale' : ''}`} />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">Sem foto</div>
+            <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs">Sem foto</div>
           )}
           {isOutOfStock && (
             <div className="absolute inset-0 bg-red-500/80 flex items-center justify-center">
-              <span className="text-white text-xs font-bold">Esgotado</span>
+              <span className="text-primary-foreground text-xs font-bold">Esgotado</span>
             </div>
           )}
         </div>
@@ -93,19 +93,19 @@ export function DishRow({ dish, complementGroups, expanded, onToggleExpand, onEd
           <div className="flex items-start gap-2 mb-1">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
-                <h3 className="font-medium text-base">{dish.name} {dish.portion && <span className="text-gray-400">({dish.portion})</span>}</h3>
+                <h3 className="font-medium text-base">{dish.name} {dish.portion && <span className="text-muted-foreground">({dish.portion})</span>}</h3>
                 {dish.is_new && <Badge variant="outline" className="text-sm bg-green-50 text-green-700">✨ Novo</Badge>}
                 {dish.is_popular && <Badge variant="outline" className="text-sm bg-purple-50 text-purple-700">🔥 Popular</Badge>}
               </div>
-              <p className="text-sm text-gray-500 line-clamp-1">{dish.description}</p>
+              <p className="text-sm text-muted-foreground line-clamp-1">{dish.description}</p>
               {dish.tags && dish.tags.length > 0 && (
                 <div className="flex gap-1 mt-1">
                   {dish.tags.slice(0, 3).map(tag => (
-                    <span key={tag} className="text-sm px-1.5 py-0.5 bg-gray-100 rounded">
+                    <span key={tag} className="text-sm px-1.5 py-0.5 bg-muted rounded">
                       {tag}
                     </span>
                   ))}
-                  {dish.tags.length > 3 && <span className="text-sm text-gray-400">+{dish.tags.length - 3}</span>}
+                  {dish.tags.length > 3 && <span className="text-sm text-muted-foreground">+{dish.tags.length - 3}</span>}
                 </div>
               )}
               {dish.internal_notes && (
@@ -113,7 +113,7 @@ export function DishRow({ dish, complementGroups, expanded, onToggleExpand, onEd
               )}
             </div>
             <Badge 
-              className={`text-sm ${canEdit ? 'cursor-pointer hover:bg-yellow-200' : 'cursor-default'} transition-all ${dish.is_highlight ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-500'}`}
+              className={`text-sm ${canEdit ? 'cursor-pointer hover:bg-yellow-200' : 'cursor-default'} transition-all ${dish.is_highlight ? 'bg-yellow-100 text-yellow-700' : 'bg-muted text-muted-foreground'}`}
               onClick={(e) => {
                 e.stopPropagation();
                 if (canEdit) onUpdate({ is_highlight: !dish.is_highlight });
@@ -122,7 +122,7 @@ export function DishRow({ dish, complementGroups, expanded, onToggleExpand, onEd
               {dish.is_highlight ? '⭐ Destaque' : 'Destaque'}
             </Badge>
           </div>
-          <div className="flex items-center gap-3 text-sm text-gray-500">
+          <div className="flex items-center gap-3 text-sm text-muted-foreground">
             {(dish.stock !== null && dish.stock !== undefined && dish.stock !== '') && (
               <span>Estoque: {dish.stock}</span>
             )}
@@ -137,7 +137,7 @@ export function DishRow({ dish, complementGroups, expanded, onToggleExpand, onEd
 
         <button 
           onClick={onToggleExpand} 
-          className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 text-sm border rounded hover:bg-gray-50"
+          className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 text-sm border rounded hover:bg-muted/50"
         >
           <Layers className="w-4 h-4" />
           <span className="hidden sm:inline text-sm">Complementos</span>
@@ -147,7 +147,7 @@ export function DishRow({ dish, complementGroups, expanded, onToggleExpand, onEd
 
         <div className="flex flex-col items-end gap-1">
           {hasDiscount && (
-            <span className="text-sm text-gray-400 line-through">{formatCurrency(dish.original_price)}</span>
+            <span className="text-sm text-muted-foreground line-through">{formatCurrency(dish.original_price)}</span>
           )}
           {editingDishPrice ? (
             <Input
@@ -173,7 +173,7 @@ export function DishRow({ dish, complementGroups, expanded, onToggleExpand, onEd
             />
           ) : (
             <span 
-              className={`font-semibold text-base whitespace-nowrap ${canEdit ? 'cursor-pointer hover:bg-gray-100' : ''} px-2 py-1 rounded ${hasDiscount ? 'text-green-600' : ''}`}
+              className={`font-semibold text-base whitespace-nowrap ${canEdit ? 'cursor-pointer hover:bg-muted' : ''} px-2 py-1 rounded ${hasDiscount ? 'text-green-600' : ''}`}
               onClick={() => {
                 if (!canEdit) return;
                 setTempPrice(dish.price?.toString() || '0');
@@ -208,7 +208,7 @@ export function DishRow({ dish, complementGroups, expanded, onToggleExpand, onEd
               />
             ) : (
               <span 
-                className={`text-xs text-gray-500 ${canEdit ? 'cursor-pointer hover:bg-gray-100' : ''} px-2 py-0.5 rounded`}
+                className={`text-xs text-muted-foreground ${canEdit ? 'cursor-pointer hover:bg-muted' : ''} px-2 py-0.5 rounded`}
                 onClick={() => {
                   if (!canEdit) return;
                   setTempStock(dish.stock?.toString() || '0');
@@ -261,7 +261,7 @@ export function DishRow({ dish, complementGroups, expanded, onToggleExpand, onEd
       </div>
 
       {expanded && (
-        <div className="border-t bg-gray-50 p-4 space-y-3">
+        <div className="border-t bg-muted/50 p-4 space-y-3">
           <DragDropContext onDragEnd={(result) => {
             if (!canEdit) return;
             if (!result.destination) return;
@@ -290,14 +290,14 @@ export function DishRow({ dish, complementGroups, expanded, onToggleExpand, onEd
                           <div 
                            ref={provided.innerRef}
                            {...provided.draggableProps}
-                           className={`bg-white rounded-lg p-3 border transition-all ${
+                           className={`bg-card rounded-lg p-3 border border-border transition-all ${
                              snapshot.isDragging ? 'shadow-lg ring-2 ring-orange-500' : ''
                            }`}
                           >
                            <div className="flex items-center gap-2 mb-3">
                              {canEdit && (
                                <div {...provided.dragHandleProps} className="cursor-grab active:cursor-grabbing">
-                                 <GripVertical className="w-5 h-5 text-gray-400" />
+                                 <GripVertical className="w-5 h-5 text-muted-foreground" />
                                </div>
                              )}
                               <div className="flex-1">
@@ -305,7 +305,7 @@ export function DishRow({ dish, complementGroups, expanded, onToggleExpand, onEd
                                   <span className="font-semibold text-sm">{group.name}</span>
                       <Badge 
                         variant="outline" 
-                        className={`text-xs ${canEdit ? 'cursor-pointer hover:bg-red-200' : 'cursor-default'} transition-colors ${linked?.is_required ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'}`}
+                        className={`text-xs ${canEdit ? 'cursor-pointer hover:bg-red-200' : 'cursor-default'} transition-colors ${linked?.is_required ? 'bg-red-100 text-red-700' : 'bg-muted text-foreground'}`}
                         onClick={(e) => {
                           if (!canEdit) return;
                           e.stopPropagation();
@@ -401,17 +401,17 @@ export function DishRow({ dish, complementGroups, expanded, onToggleExpand, onEd
                                 {...provided.dragHandleProps}
                                 className={`flex items-center gap-3 p-2 rounded transition-all ${
                                 snapshot.isDragging ? 'shadow-lg' : ''
-                                } ${opt.is_active !== false ? 'bg-white' : 'bg-red-50'}`}
+                                } ${opt.is_active !== false ? 'bg-card' : 'bg-red-50'}`}
                                 >
                                 {canEdit && (
-                                 <GripVertical className="w-4 h-4 text-gray-400 flex-shrink-0 cursor-grab active:cursor-grabbing" />
+                                 <GripVertical className="w-4 h-4 text-muted-foreground flex-shrink-0 cursor-grab active:cursor-grabbing" />
                                 )}
                       {canEdit ? (
                         <label className="cursor-pointer relative">
                           {opt.image ? (
                             <img src={opt.image} alt={opt.name} className="w-12 h-12 rounded object-cover" />
                           ) : (
-                            <div className="w-12 h-12 rounded bg-gray-200 flex items-center justify-center text-gray-400 text-xs">
+                            <div className="w-12 h-12 rounded bg-muted flex items-center justify-center text-muted-foreground text-xs">
                               +
                             </div>
                           )}
@@ -434,7 +434,7 @@ export function DishRow({ dish, complementGroups, expanded, onToggleExpand, onEd
                         opt.image ? (
                           <img src={opt.image} alt={opt.name} className="w-12 h-12 rounded object-cover" />
                         ) : (
-                          <div className="w-12 h-12 rounded bg-gray-200 flex items-center justify-center text-gray-400 text-xs">
+                          <div className="w-12 h-12 rounded bg-muted flex items-center justify-center text-muted-foreground text-xs">
                             -
                           </div>
                         )
@@ -472,7 +472,7 @@ export function DishRow({ dish, complementGroups, expanded, onToggleExpand, onEd
                              </span>
                             {editingOptionPrice === opt.id ? (
                               <div className="flex items-center gap-1 mt-1">
-                                <span className="text-xs text-gray-500">R$</span>
+                                <span className="text-xs text-muted-foreground">R$</span>
                                 <Input
                                   type="number"
                                   step="0.01"
@@ -494,7 +494,7 @@ export function DishRow({ dish, complementGroups, expanded, onToggleExpand, onEd
                               </div>
                             ) : (
                               <span 
-                                className={`text-xs text-gray-500 ${canEdit ? 'cursor-pointer hover:text-blue-600' : ''}`}
+                                className={`text-xs text-muted-foreground ${canEdit ? 'cursor-pointer hover:text-blue-600' : ''}`}
                                 onClick={() => {
                                   if (!canEdit) return;
                                   setEditingOptionPrice(opt.id);
@@ -1451,7 +1451,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-background">
         <DishesSkeleton />
       </div>
     );
@@ -1460,10 +1460,10 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
   if (hasError) {
     log.admin.error('🍽️ [DishesTab] Erro ao carregar:', { dishesError, categoriesError, groupsError });
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-8">
+      <div className="min-h-screen bg-background flex items-center justify-center p-8">
         <div className="text-center">
           <p className="text-red-500 mb-4">Erro ao carregar dados</p>
-          <p className="text-sm text-gray-400 mb-4">
+          <p className="text-sm text-muted-foreground mb-4">
             {dishesError?.message || categoriesError?.message || groupsError?.message || 'Erro desconhecido'}
           </p>
           <Button onClick={() => window.location.reload()}>Recarregar página</Button>
@@ -1475,20 +1475,20 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
   // ========= RENDER =========
   return (
     <>
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       <Toaster position="top-center" />
       {/* Mobile Header */}
-      <div className="lg:hidden sticky top-0 z-30 bg-white border-b border-gray-100 px-4 py-3">
+      <div className="lg:hidden sticky top-0 z-30 bg-card border-b border-border px-4 py-3">
         <div className="flex items-center justify-between mb-3">
-          <h1 className="text-xl font-bold text-gray-900">Cardápio</h1>
+          <h1 className="text-xl font-bold text-foreground">Cardápio</h1>
           <button
             onClick={() => setShowMobileFilters(true)}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-100 active:bg-gray-200 transition-colors"
+            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-muted active:bg-muted/80 transition-colors"
           >
             <Search className="w-4 h-4" />
             <span className="text-sm font-medium">Filtros</span>
             {activeFilters.length > 0 && (
-              <span className="w-5 h-5 bg-orange-500 text-white text-xs rounded-full flex items-center justify-center">
+              <span className="w-5 h-5 bg-orange-500 text-primary-foreground text-xs rounded-full flex items-center justify-center">
                 {activeFilters.length}
               </span>
             )}
@@ -1510,14 +1510,14 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
       </div>
 
       {/* ✅ Abas Internas: Pratos, Categorias, Complementos */}
-      <div className="hidden lg:block border-b bg-white">
+      <div className="hidden lg:block border-b border-border bg-card">
         <div className="px-6 flex gap-1">
           <button
             onClick={() => setInternalTab('dishes')}
             className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
               internalTab === 'dishes'
                 ? 'border-orange-500 text-orange-500'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
             <UtensilsCrossed className="w-4 h-4 inline mr-2" />
@@ -1528,7 +1528,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
             className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
               internalTab === 'categories'
                 ? 'border-orange-500 text-orange-500'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
             <Layers className="w-4 h-4 inline mr-2" />
@@ -1539,7 +1539,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
             className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
               internalTab === 'complements'
                 ? 'border-orange-500 text-orange-500'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
             <LayoutGrid className="w-4 h-4 inline mr-2" />
@@ -1549,14 +1549,14 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
       </div>
 
       {/* Mobile: Abas internas */}
-      <div className="lg:hidden border-b bg-white sticky top-[73px] z-20">
+      <div className="lg:hidden border-b border-border bg-card sticky top-[73px] z-20">
         <div className="flex overflow-x-auto scrollbar-hide">
           <button
             onClick={() => setInternalTab('dishes')}
             className={`px-4 py-3 text-xs font-medium border-b-2 transition-colors flex-shrink-0 ${
               internalTab === 'dishes'
                 ? 'border-orange-500 text-orange-500'
-                : 'border-transparent text-gray-500'
+                : 'border-transparent text-muted-foreground'
             }`}
           >
             Pratos
@@ -1566,7 +1566,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
             className={`px-4 py-3 text-xs font-medium border-b-2 transition-colors flex-shrink-0 ${
               internalTab === 'categories'
                 ? 'border-orange-500 text-orange-500'
-                : 'border-transparent text-gray-500'
+                : 'border-transparent text-muted-foreground'
             }`}
           >
             Categorias
@@ -1576,7 +1576,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
             className={`px-4 py-3 text-xs font-medium border-b-2 transition-colors flex-shrink-0 ${
               internalTab === 'complements'
                 ? 'border-orange-500 text-orange-500'
-                : 'border-transparent text-gray-500'
+                : 'border-transparent text-muted-foreground'
             }`}
           >
             Complementos
@@ -1626,7 +1626,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Total de Pratos</p>
+                  <p className="text-sm text-muted-foreground">Total de Pratos</p>
                   <p className="text-2xl font-bold">{safeDishes.length}</p>
                 </div>
                 <Package className="w-8 h-8 text-blue-500" />
@@ -1637,7 +1637,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Ativos</p>
+                  <p className="text-sm text-muted-foreground">Ativos</p>
                   <p className="text-2xl font-bold text-green-600">
                     {safeDishes.filter(d => d.is_active !== false).length}
                   </p>
@@ -1650,7 +1650,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Categorias</p>
+                  <p className="text-sm text-muted-foreground">Categorias</p>
                   <p className="text-2xl font-bold text-orange-600">{safeCategories.length}</p>
                 </div>
                 <Layers className="w-8 h-8 text-orange-500" />
@@ -1661,7 +1661,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Complementos</p>
+                  <p className="text-sm text-muted-foreground">Complementos</p>
                   <p className="text-2xl font-bold text-purple-600">{safeComplementGroups.length}</p>
                 </div>
                 <Settings className="w-8 h-8 text-purple-500" />
@@ -1671,7 +1671,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
         </div>
 
         {/* Desktop Filtros e Busca */}
-        <div className="bg-white rounded-xl p-4 mb-6 space-y-4 shadow-sm">
+        <div className="bg-card rounded-xl border border-border p-4 mb-6 space-y-4 shadow-sm">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <Input 
               placeholder="🔍 Buscar pratos..." 
@@ -1714,7 +1714,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
           
           {(searchTerm || filterCategory !== 'all' || filterStatus !== 'all' || filterType !== 'all') && (
             <div className="flex items-center justify-between pt-3 border-t">
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-muted-foreground">
                 {filteredDishes.length} prato{filteredDishes.length !== 1 ? 's' : ''} encontrado{filteredDishes.length !== 1 ? 's' : ''}
               </p>
               <Button 
@@ -1814,7 +1814,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
               onDelete={() => handleDeleteCategoryWithAuth(category.id)}
             >
               {categoryDishes.length === 0 ? (
-                <div className="text-center py-8 text-gray-400 text-sm">
+                <div className="text-center py-8 text-muted-foreground text-sm">
                   Nenhum prato nesta categoria
                 </div>
               ) : (
@@ -1875,10 +1875,10 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
       <div className="hidden lg:block px-6 pb-6 space-y-4">
         {/* Sem categoria: pratos órfãos ou quando categories=[] — evita "não mostra nada" até criar categoria */}
         {dishesWithoutCategory.length > 0 && (
-          <div className="bg-gray-50 rounded-xl overflow-hidden">
-            <div className="flex items-center justify-between p-4 bg-white border-b cursor-pointer hover:bg-gray-50" onClick={() => toggleCategoryExpansion('__sem_categoria__')}>
+          <div className="bg-muted/50 rounded-xl overflow-hidden">
+            <div className="flex items-center justify-between p-4 bg-card border border-border-b cursor-pointer hover:bg-muted/50" onClick={() => toggleCategoryExpansion('__sem_categoria__')}>
               <div className="flex items-center gap-3">
-                <Menu className="w-5 h-5 text-gray-400" />
+                <Menu className="w-5 h-5 text-muted-foreground" />
                 <h2 className="font-bold text-lg">Sem categoria</h2>
                 <Badge variant="secondary" className="text-xs">{dishesWithoutCategory.length} itens</Badge>
               </div>
@@ -1944,20 +1944,20 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
           const isExpanded = expandedCategories[category.id] !== false;
 
           return (
-            <div key={category.id} className="bg-gray-50 rounded-xl overflow-hidden">
-              <div className="flex items-center justify-between p-4 bg-white border-b cursor-pointer hover:bg-gray-50" onClick={() => toggleCategoryExpansion(category.id)}>
+            <div key={category.id} className="bg-muted/50 rounded-xl overflow-hidden">
+              <div className="flex items-center justify-between p-4 bg-card border border-border-b cursor-pointer hover:bg-muted/50" onClick={() => toggleCategoryExpansion(category.id)}>
                 <div className="flex items-center gap-3">
                   {canUpdate('dishes') && (
                     <div className="flex flex-col gap-0.5">
-                      <button onClick={(e) => { e.stopPropagation(); moveCategoryUp(categoryIndex); }} disabled={categoryIndex === 0} className="p-0.5 hover:bg-gray-200 rounded disabled:opacity-30">
+                      <button onClick={(e) => { e.stopPropagation(); moveCategoryUp(categoryIndex); }} disabled={categoryIndex === 0} className="p-0.5 hover:bg-muted/70 rounded disabled:opacity-30">
                         <ChevronUp className="w-4 h-4" />
                       </button>
-                      <button onClick={(e) => { e.stopPropagation(); moveCategoryDown(categoryIndex); }} disabled={categoryIndex === safeCategories.length - 1} className="p-0.5 hover:bg-gray-200 rounded disabled:opacity-30">
+                      <button onClick={(e) => { e.stopPropagation(); moveCategoryDown(categoryIndex); }} disabled={categoryIndex === safeCategories.length - 1} className="p-0.5 hover:bg-muted/70 rounded disabled:opacity-30">
                         <ChevronDown className="w-4 h-4" />
                       </button>
                     </div>
                   )}
-                  <Menu className="w-5 h-5 text-gray-400" />
+                  <Menu className="w-5 h-5 text-muted-foreground" />
                   <h2 className="font-bold text-lg">{category.name}</h2>
                   <Badge variant="secondary" className="text-xs">{categoryDishes.length} itens</Badge>
                 </div>
@@ -2022,7 +2022,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
               {isExpanded && (
                 <div className="p-4 space-y-3">
                   {categoryDishes.length === 0 ? (
-                    <div className="p-4 text-center text-gray-400 text-sm">
+                    <div className="p-4 text-center text-muted-foreground text-sm">
                       Nenhum prato nesta categoria
                     </div>
                   ) : (
@@ -2200,7 +2200,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
       >
         <div className="space-y-4">
           <div>
-            <label className="text-sm font-medium text-gray-700 mb-2 block">Buscar</label>
+            <label className="text-sm font-medium text-foreground mb-2 block">Buscar</label>
             <Input 
               placeholder="Digite para buscar..." 
               value={searchTerm}
@@ -2209,7 +2209,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
           </div>
 
           <div>
-            <label className="text-sm font-medium text-gray-700 mb-2 block">Categoria</label>
+            <label className="text-sm font-medium text-foreground mb-2 block">Categoria</label>
             <Select value={filterCategory} onValueChange={setFilterCategory}>
               <SelectTrigger>
                 <SelectValue placeholder="Todas categorias" />
@@ -2224,7 +2224,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
           </div>
 
           <div>
-            <label className="text-sm font-medium text-gray-700 mb-2 block">Status</label>
+            <label className="text-sm font-medium text-foreground mb-2 block">Status</label>
             <div className="grid grid-cols-3 gap-2">
               {['all', 'active', 'inactive'].map(status => (
                 <button
@@ -2232,8 +2232,8 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
                   onClick={() => setFilterStatus(status)}
                   className={`py-2 px-3 rounded-xl text-sm font-medium transition-colors ${
                     filterStatus === status
-                      ? 'bg-orange-500 text-white'
-                      : 'bg-gray-100 text-gray-700 active:bg-gray-200'
+                      ? 'bg-orange-500 text-primary-foreground'
+                      : 'bg-muted text-foreground active:bg-muted/80'
                   }`}
                 >
                   {status === 'all' ? 'Todos' : status === 'active' ? 'Ativos' : 'Inativos'}
@@ -2243,7 +2243,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
           </div>
 
           <div>
-            <label className="text-sm font-medium text-gray-700 mb-2 block">Tipo</label>
+            <label className="text-sm font-medium text-foreground mb-2 block">Tipo</label>
             <div className="grid grid-cols-2 gap-2">
               {[
                 { value: 'all', label: 'Todos' },
@@ -2256,8 +2256,8 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
                   onClick={() => setFilterType(type.value)}
                   className={`py-2 px-3 rounded-xl text-sm font-medium transition-colors ${
                     filterType === type.value
-                      ? 'bg-orange-500 text-white'
-                      : 'bg-gray-100 text-gray-700 active:bg-gray-200'
+                      ? 'bg-orange-500 text-primary-foreground'
+                      : 'bg-muted text-foreground active:bg-muted/80'
                   }`}
                 >
                   {type.label}
@@ -2357,14 +2357,14 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
                     onChange={(e) => setDishFormData(prev => ({ ...prev, stock: e.target.value }))} 
                     placeholder="Ex: 10" 
                     disabled={dishFormData.stock === ''}
-                    className={`min-h-touch ${dishFormData.stock === '' ? 'bg-gray-100' : ''}`}
+                    className={`min-h-touch ${dishFormData.stock === '' ? 'bg-muted' : ''}`}
                   />
                   <div className="flex items-center gap-1 whitespace-nowrap">
                     <Switch 
                       checked={dishFormData.stock === ''} 
                       onCheckedChange={(checked) => setDishFormData(prev => ({ ...prev, stock: checked ? '' : '0' }))}
                     />
-                    <span className="text-xs text-gray-600">Ilimitado</span>
+                    <span className="text-xs text-muted-foreground">Ilimitado</span>
                   </div>
                 </div>
               </div>
@@ -2467,13 +2467,13 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
                 value={dishFormData.video_url || ''} 
                 onChange={(e) => setDishFormData(prev => ({ ...prev, video_url: e.target.value }))} 
                 placeholder="Ex: https://www.youtube.com/watch?v=..." 
-                className="w-full bg-white dark:bg-gray-800"
+                className="w-full bg-card"
               />
               <p className="text-xs text-orange-600 dark:text-orange-400 mt-2">
                 O vídeo aparece no cardápio ao clicar na imagem do prato.
               </p>
               {dishFormData.video_url && (
-                <div className="mt-3 flex items-center justify-between p-3 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
+                <div className="mt-3 flex items-center justify-between p-3 bg-card rounded-lg border border-border">
                   <Label htmlFor="video_autoplay" className="cursor-pointer text-sm font-medium">
                     Reprodução automática
                   </Label>
@@ -2487,17 +2487,17 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-              <div className="flex items-center justify-between p-3 sm:p-4 bg-gray-50 rounded min-h-touch">
+              <div className="flex items-center justify-between p-3 sm:p-4 bg-muted/50 rounded min-h-touch">
                 <Label className="text-sm font-medium">⭐ Destaque</Label>
                 <Switch checked={dishFormData.is_highlight} onCheckedChange={(checked) => setDishFormData(prev => ({ ...prev, is_highlight: checked }))} />
               </div>
-              <div className="flex items-center justify-between p-3 sm:p-4 bg-gray-50 rounded min-h-touch">
+              <div className="flex items-center justify-between p-3 sm:p-4 bg-muted/50 rounded min-h-touch">
                 <Label className="text-sm font-medium">✨ Novo</Label>
                 <Switch checked={dishFormData.is_new} onCheckedChange={(checked) => setDishFormData(prev => ({ ...prev, is_new: checked }))} />
               </div>
             </div>
 
-            <div className="flex items-center justify-between p-3 sm:p-4 bg-gray-50 rounded min-h-touch">
+            <div className="flex items-center justify-between p-3 sm:p-4 bg-muted/50 rounded min-h-touch">
               <Label className="text-sm font-medium">🔥 Mais Vendido</Label>
               <Switch checked={dishFormData.is_popular} onCheckedChange={(checked) => setDishFormData(prev => ({ ...prev, is_popular: checked }))} />
             </div>
@@ -2516,12 +2516,12 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
                   </Button>
                 </div>
                 {showPreview && (
-                  <div className="border rounded-lg p-4 bg-gray-50">
-                    <div className="max-w-sm mx-auto bg-white rounded-xl shadow-sm overflow-hidden">
+                  <div className="border rounded-lg p-4 bg-muted/50">
+                    <div className="max-w-sm mx-auto bg-card rounded-xl shadow-sm overflow-hidden">
                       <img src={dishFormData.image} alt={dishFormData.name} className="w-full h-48 object-cover" />
                       <div className="p-4">
                         <h3 className="font-bold text-lg mb-2">{dishFormData.name || 'Nome do Prato'}</h3>
-                        <p className="text-sm text-gray-600 mb-3">{dishFormData.description || 'Descrição...'}</p>
+                        <p className="text-sm text-muted-foreground mb-3">{dishFormData.description || 'Descrição...'}</p>
                         <div className="flex items-center justify-between">
                           <span className="text-xl font-bold text-orange-500">
                             {formatCurrency(parseFloat(dishFormData.price) || 0)}
@@ -2573,16 +2573,16 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
                 <Label>Nome do Grupo</Label>
                 <Input value={editingGroup.name} onChange={(e) => setEditingGroup(prev => ({ ...prev, name: e.target.value }))} />
               </div>
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                 <div>
                   <Label className="font-medium">Obrigatório</Label>
-                  <p className="text-xs text-gray-500 mt-0.5">Cliente deve escolher este grupo</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Cliente deve escolher este grupo</p>
                 </div>
                 <Switch checked={editingGroup.is_required} onCheckedChange={(checked) => setEditingGroup(prev => ({ ...prev, is_required: checked }))} />
               </div>
               <div>
                 <Label>Máximo de Seleções</Label>
-                <p className="text-xs text-gray-500 mb-2">Quantas opções o cliente pode escolher</p>
+                <p className="text-xs text-muted-foreground mb-2">Quantas opções o cliente pode escolher</p>
                 <Input type="number" min="1" value={editingGroup.max_selection || 1} onChange={(e) => setEditingGroup(prev => ({ ...prev, max_selection: parseInt(e.target.value) || 1 }))} />
               </div>
               <div className="flex gap-3 pt-4">

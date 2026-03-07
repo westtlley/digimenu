@@ -79,6 +79,24 @@ export default function CaixaTab() {
     enabled: !!menuContext,
   });
   const activePdvSessions = Array.isArray(pdvSessionsRaw) ? pdvSessionsRaw.filter(s => !s.ended_at) : [];
+  const latestSessionsByTerminal = Array.from(
+    activePdvSessions.reduce((acc, session) => {
+      const key = String(session?.terminal_name || session?.terminal_id || 'pdv').toLowerCase().trim();
+      const current = acc.get(key);
+      const currentStarted = current?.started_at ? new Date(current.started_at).getTime() : 0;
+      const sessionStarted = session?.started_at ? new Date(session.started_at).getTime() : 0;
+      if (!current || sessionStarted >= currentStarted) {
+        acc.set(key, session);
+      }
+      return acc;
+    }, new Map()).values()
+  ).sort((a, b) => {
+    const aStarted = a?.started_at ? new Date(a.started_at).getTime() : 0;
+    const bStarted = b?.started_at ? new Date(b.started_at).getTime() : 0;
+    return bStarted - aStarted;
+  });
+  const displayedActiveSessions = latestSessionsByTerminal.slice(0, 5);
+  const hiddenActiveSessionsCount = Math.max(0, latestSessionsByTerminal.length - displayedActiveSessions.length);
 
   const openCaixaMutation = useMutation({
     mutationFn: async (data) => {
@@ -110,6 +128,7 @@ export default function CaixaTab() {
   opening_amount_cash: Number(freshCaixa.opening_amount_cash) || 0,
 
   status: 'closed',
+  closing_source: 'painel_assinante',
   total_cash: totals.cash,
   total_pix: totals.pix,
   total_debit: totals.debit,
@@ -141,6 +160,7 @@ export default function CaixaTab() {
         return {
           ...prev,
           status: 'closed',
+          closing_source: 'painel_assinante',
           closing_amount_cash: Number(variables?.closingCash) || 0,
           closing_notes: variables?.closingNotes || prev.closing_notes || '',
           closing_date: new Date().toISOString(),
@@ -370,6 +390,12 @@ export default function CaixaTab() {
   const formatCurrency = (value) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
   };
+  const getClosingSourceLabel = (caixa) => {
+    const source = String(caixa?.closing_source || '').toLowerCase().trim();
+    if (source === 'pdv') return 'Fechado pelo PDV';
+    if (source === 'painel_assinante') return 'Fechado no painel do assinante';
+    return 'Origem do fechamento nao informada';
+  };
 
   const openCaixas = caixas.filter(c => c.status === 'open');
   const activeCaixa = openCaixas[0];
@@ -384,6 +410,8 @@ export default function CaixaTab() {
       (statusFilter === 'closed' && c.status === 'closed');
     return matchesSearch && matchesStatus;
   });
+  const closedCaixas = filteredCaixas.filter(c => c.status === 'closed');
+  const visibleClosedCaixas = closedCaixas.slice(0, 6);
 
   // View caixa aberto
   if (selectedCaixa) {
@@ -414,16 +442,16 @@ export default function CaixaTab() {
               </Button>
               <div>
                 <h2 className="text-2xl font-bold">Detalhes do Caixa</h2>
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-muted-foreground">
                   Aberto em {moment(selectedCaixa.opening_date).format('DD/MM/YYYY HH:mm')}
                   {selectedCaixa.opened_by && <> por {selectedCaixa.opened_by}</>}
                 </p>
                 {isClosed && selectedCaixa.closed_by && (
-                  <p className="text-sm text-gray-500">Fechado por: {selectedCaixa.closed_by}</p>
+                  <p className="text-sm text-muted-foreground">Fechado por: {selectedCaixa.closed_by}</p>
                 )}
               </div>
             </div>
-            <Badge className={isClosed ? 'bg-gray-500' : 'bg-green-500'}>
+            <Badge className={isClosed ? 'bg-muted text-muted-foreground' : 'bg-green-500'}>
               {isClosed ? '🔒 Fechado' : '✅ Aberto'}
             </Badge>
           </div>
@@ -432,7 +460,7 @@ export default function CaixaTab() {
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm text-gray-600">💵 Dinheiro</CardTitle>
+                <CardTitle className="text-sm text-muted-foreground">💵 Dinheiro</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-2xl font-bold">{formatCurrency(cashVendas)}</p>
@@ -441,7 +469,7 @@ export default function CaixaTab() {
 
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm text-gray-600">📲 PIX</CardTitle>
+                <CardTitle className="text-sm text-muted-foreground">📲 PIX</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-2xl font-bold">
@@ -452,7 +480,7 @@ export default function CaixaTab() {
 
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm text-gray-600">💳 Débito</CardTitle>
+                <CardTitle className="text-sm text-muted-foreground">💳 Débito</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-2xl font-bold">
@@ -463,7 +491,7 @@ export default function CaixaTab() {
 
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm text-gray-600">💳 Crédito</CardTitle>
+                <CardTitle className="text-sm text-muted-foreground">💳 Crédito</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-2xl font-bold">
@@ -474,7 +502,7 @@ export default function CaixaTab() {
 
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm text-gray-600">🧾 Outros</CardTitle>
+                <CardTitle className="text-sm text-muted-foreground">🧾 Outros</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-2xl font-bold">
@@ -493,32 +521,32 @@ export default function CaixaTab() {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-blue-50 p-4 rounded-lg">
-                    <p className="text-sm text-gray-600 mb-1">Fundo Inicial</p>
+                    <p className="text-sm text-muted-foreground mb-1">Fundo Inicial</p>
                     <p className="text-2xl font-bold text-blue-600">
                       {formatCurrency(selectedCaixa.opening_amount_cash)}
                     </p>
                   </div>
                   <div className="bg-green-50 p-4 rounded-lg">
-                    <p className="text-sm text-gray-600 mb-1">Vendas em Dinheiro</p>
+                    <p className="text-sm text-muted-foreground mb-1">Vendas em Dinheiro</p>
                     <p className="text-2xl font-bold text-green-600">
                       {formatCurrency(cashVendas)}
                     </p>
                   </div>
                   <div className="bg-orange-50 p-4 rounded-lg">
-                    <p className="text-sm text-gray-600 mb-1">Suprimentos</p>
+                    <p className="text-sm text-muted-foreground mb-1">Suprimentos</p>
                     <p className="text-2xl font-bold text-orange-600">
                       +{formatCurrency(totalSuprimentos)}
                     </p>
                   </div>
                   <div className="bg-red-50 p-4 rounded-lg">
-                    <p className="text-sm text-gray-600 mb-1">Sangrias</p>
+                    <p className="text-sm text-muted-foreground mb-1">Sangrias</p>
                     <p className="text-2xl font-bold text-red-600">
                       -{formatCurrency(totalSangrias)}
                     </p>
                   </div>
                 </div>
 
-                <div className="bg-gradient-to-r from-green-500 to-green-600 p-6 rounded-xl text-white">
+                <div className="bg-gradient-to-r from-green-500 to-green-600 p-6 rounded-xl text-primary-foreground">
                   <p className="text-sm opacity-90 mb-2">💵 Saldo Atual em Dinheiro</p>
                   <p className="text-4xl font-bold">{formatCurrency(saldoAtual)}</p>
                 </div>
@@ -550,15 +578,15 @@ export default function CaixaTab() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="text-center py-6">
-                  <p className="text-sm text-gray-600 mb-2">Total Geral</p>
+                  <p className="text-sm text-muted-foreground mb-2">Total Geral</p>
                   <p className="text-4xl font-bold text-green-600">{formatCurrency(totalVendas)}</p>
-                  <p className="text-xs text-gray-500 mt-2">{vendas.length} vendas registradas</p>
+                  <p className="text-xs text-muted-foreground mt-2">{vendas.length} vendas registradas</p>
                 </div>
 
                 {!isClosed && (
                   <Button
                     onClick={() => requireAuthorization('fechar_caixa', () => setShowCloseModal(true))}
-                    className="w-full bg-gray-900 hover:bg-gray-800 h-14 text-lg"
+                    className="w-full bg-primary hover:bg-primary/90 h-14 text-lg"
                   >
                     🔒 Fechar Caixa
                   </Button>
@@ -574,23 +602,23 @@ export default function CaixaTab() {
             </CardHeader>
             <CardContent>
               {caixaOps.length === 0 ? (
-                <p className="text-center text-gray-500 py-8">Nenhuma movimentação registrada</p>
+                <p className="text-center text-muted-foreground py-8">Nenhuma movimentação registrada</p>
               ) : (
                 <div className="space-y-2 max-h-96 overflow-y-auto">
                   {caixaOps.map(op => (
-                    <div key={op.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div key={op.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                       <div className="flex items-center gap-3">
                         {op.type === 'venda_pdv' && <Banknote className="w-5 h-5 text-green-600" />}
                         {op.type === 'sangria' && <TrendingDown className="w-5 h-5 text-red-600" />}
                         {op.type === 'suprimento' && <TrendingUp className="w-5 h-5 text-orange-600" />}
                         <div>
                           <p className="font-medium text-sm">{op.description}</p>
-                          <p className="text-xs text-gray-500">
+                          <p className="text-xs text-muted-foreground">
                             {moment(op.date).format('DD/MM HH:mm')}
                             {op.operator && <> · Operador: {op.operator}</>}
                           </p>
                           {op.type === 'venda_pdv' && (
-                            <div className="text-xs text-gray-600 mt-1 space-y-0.5">
+                            <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
                               <div>💳 {op.payment_method}</div>
                               {op.payment_amount && (
                                 <div>💵 Recebido: {formatCurrency(op.payment_amount)}</div>
@@ -654,7 +682,7 @@ export default function CaixaTab() {
                   className="text-xl font-bold h-14 text-center border-2"
                   autoFocus
                 />
-                <p className="text-xs text-gray-600 mt-1">Informe o valor físico contado no caixa</p>
+                <p className="text-xs text-muted-foreground mt-1">Informe o valor físico contado no caixa</p>
                 {closingCashAmount && parseFloat(closingCashAmount) !== saldoAtual && (
                   <div className={`mt-2 p-3 rounded-lg ${
                     parseFloat(closingCashAmount) > saldoAtual 
@@ -692,7 +720,7 @@ export default function CaixaTab() {
               <Button 
                 onClick={handleCloseCaixa} 
                 disabled={!closingCashAmount}
-                className="bg-gray-900"
+                className="bg-primary"
               >
                 Confirmar Fechamento
               </Button>
@@ -803,7 +831,7 @@ export default function CaixaTab() {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-3xl font-bold">💰 Controle de Caixa</h2>
-            <p className="text-gray-600">Gerencie abertura, fechamento e movimentações diárias</p>
+            <p className="text-muted-foreground">Gerencie abertura, fechamento e movimentações diárias</p>
           </div>
           <Button
             onClick={() => requireAuthorization('abrir_caixa', () => setShowOpenModal(true))}
@@ -822,27 +850,34 @@ export default function CaixaTab() {
               <Calculator className="w-5 h-5" />
               Sessões PDV ativas
             </CardTitle>
-            <p className="text-sm text-gray-600">Colaboradores logados em cada terminal PDV</p>
+            <p className="text-sm text-muted-foreground">Colaboradores logados em cada terminal PDV</p>
           </CardHeader>
           <CardContent>
-            {activePdvSessions.length === 0 ? (
-              <p className="text-gray-500 text-sm">Nenhuma sessão PDV ativa no momento.</p>
+            {latestSessionsByTerminal.length === 0 ? (
+              <p className="text-muted-foreground text-sm">Nenhuma sessao PDV ativa no momento.</p>
             ) : (
-              <ul className="space-y-2">
-                {activePdvSessions.map((s) => (
-                  <li key={s.id} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
-                    <div>
-                      <span className="font-medium">{s.terminal_name || s.terminal_id || 'PDV'}</span>
-                      <span className="text-gray-600 text-sm ml-2">
-                        — {s.operator_name || s.operator_email || 'Operador'}
+              <>
+                <ul className="space-y-2">
+                  {displayedActiveSessions.map((s) => (
+                    <li key={s.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                      <div>
+                        <span className="font-medium">{s.terminal_name || s.terminal_id || 'PDV'}</span>
+                        <span className="text-muted-foreground text-sm ml-2">
+                          - {s.operator_name || s.operator_email || 'Operador'}
+                        </span>
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        desde {s.started_at ? moment(s.started_at).format('DD/MM HH:mm') : '-'}
                       </span>
-                    </div>
-                    <span className="text-xs text-gray-500">
-                      desde {s.started_at ? moment(s.started_at).format('DD/MM HH:mm') : '-'}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+                    </li>
+                  ))}
+                </ul>
+                {hiddenActiveSessionsCount > 0 && (
+                  <p className="text-xs text-muted-foreground mt-3">
+                    Mostrando os 5 terminais mais recentes. {hiddenActiveSessionsCount} sessoes ocultas.
+                  </p>
+                )}
+              </>
             )}
           </CardContent>
         </Card>
@@ -853,11 +888,11 @@ export default function CaixaTab() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center">
-                    <DollarSign className="w-8 h-8 text-white" />
+                    <DollarSign className="w-8 h-8 text-primary-foreground" />
                   </div>
                   <div>
                     <Badge className="bg-green-500 mb-2">✅ Caixa Aberto</Badge>
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-muted-foreground">
                       Aberto em {moment(activeCaixa.opening_date).format('DD/MM/YYYY HH:mm')}
                       {activeCaixa.opened_by && <> por {activeCaixa.opened_by}</>}
                     </p>
@@ -876,11 +911,11 @@ export default function CaixaTab() {
         )}
 
         {openCaixas.length === 0 && (
-          <Card className="border-gray-300 border-dashed border-2">
+          <Card className="border-border border-dashed border-2">
             <CardContent className="p-12 text-center">
-              <AlertTriangle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-xl font-bold text-gray-600 mb-2">Nenhum caixa aberto</h3>
-              <p className="text-gray-500 mb-6">Abra um caixa para começar a registrar vendas</p>
+              <AlertTriangle className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-xl font-bold text-muted-foreground mb-2">Nenhum caixa aberto</h3>
+              <p className="text-muted-foreground mb-6">Abra um caixa para começar a registrar vendas</p>
             </CardContent>
           </Card>
         )}
@@ -888,7 +923,7 @@ export default function CaixaTab() {
         {/* Filtros e Busca */}
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
             <Input
               placeholder="Buscar por data ou ID..."
               value={searchTerm}
@@ -911,32 +946,33 @@ export default function CaixaTab() {
 
         <div>
           <h3 className="text-xl font-bold mb-4">📋 Histórico de Caixas</h3>
-          {filteredCaixas.filter(c => c.status === 'closed').length === 0 ? (
+          {closedCaixas.length === 0 ? (
             <Card>
-              <CardContent className="p-8 text-center text-gray-500">
+              <CardContent className="p-8 text-center text-muted-foreground">
                 Nenhum caixa fechado ainda
               </CardContent>
             </Card>
           ) : (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredCaixas.filter(c => c.status === 'closed').slice(0, 12).map(caixa => (
+              {visibleClosedCaixas.map(caixa => (
                 <Card
                   key={caixa.id}
                   className="cursor-pointer hover:shadow-lg transition-shadow"
                   onClick={() => setSelectedCaixa(caixa)}
                 >
                   <CardContent className="p-4">
-                    <Badge className="bg-gray-500 mb-3">🔒 Fechado</Badge>
-                    <p className="text-sm text-gray-600 mb-2">
+                    <Badge className="bg-muted/500 mb-3">🔒 Fechado</Badge>
+                    <p className="text-sm text-muted-foreground mb-2">
                       {moment(caixa.opening_date).format('DD/MM/YYYY')}
                     </p>
                     {(caixa.opened_by || caixa.closed_by) && (
-                      <p className="text-xs text-gray-500 mb-2">
+                      <p className="text-xs text-muted-foreground mb-2">
                         {caixa.opened_by && <>Aberto por: {caixa.opened_by}</>}
                         {caixa.opened_by && caixa.closed_by && ' · '}
                         {caixa.closed_by && <>Fechado por: {caixa.closed_by}</>}
                       </p>
                     )}
+                    <p className="text-xs text-muted-foreground mb-2">{getClosingSourceLabel(caixa)}</p>
                     <div className="space-y-2">
                       <div className="flex justify-between text-sm">
                         <span>Vendas</span>

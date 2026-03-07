@@ -78,7 +78,7 @@ export default function NotificationsTab() {
     <div className="max-w-4xl mx-auto p-6 space-y-6">
       <div>
         <h1 className="text-2xl font-bold mb-2">Notificações Push</h1>
-        <p className="text-gray-600">Envie notificações para seus clientes</p>
+        <p className="text-muted-foreground">Envie notificações para seus clientes</p>
       </div>
 
       {/* Formulário de Envio */}
@@ -127,14 +127,14 @@ export default function NotificationsTab() {
             />
           </div>
 
-          <div className="bg-gray-50 p-4 rounded-xl">
+          <div className="bg-muted/50 p-4 rounded-xl">
             <Label className="text-sm mb-2 block">Prévia da Notificação</Label>
-            <div className="bg-white p-4 rounded-lg shadow-sm border">
+            <div className="bg-card text-card-foreground p-4 rounded-lg shadow-sm border border-border">
               <div className="flex items-start gap-3">
                 <Bell className="w-5 h-5 text-orange-500 flex-shrink-0 mt-0.5" />
                 <div className="flex-1">
                   <p className="font-semibold text-sm">{notificationForm.title || 'Título da notificação'}</p>
-                  <p className="text-xs text-gray-600 mt-1">{notificationForm.message || 'Mensagem aparecerá aqui...'}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{notificationForm.message || 'Mensagem aparecerá aqui...'}</p>
                 </div>
               </div>
             </div>
@@ -161,8 +161,8 @@ export default function NotificationsTab() {
         </CardHeader>
         <CardContent>
           {notifications.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">
-              <Bell className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+            <div className="text-center py-12 text-muted-foreground">
+              <Bell className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
               <p>Nenhuma notificação enviada ainda</p>
             </div>
           ) : (
@@ -176,12 +176,12 @@ export default function NotificationsTab() {
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
                           <span className="font-semibold">{notif.title}</span>
-                          <span className="text-xs text-gray-500">
+                          <span className="text-xs text-muted-foreground">
                             {typeLabels[notif.type]}
                           </span>
                         </div>
-                        <p className="text-sm text-gray-600 mb-2">{notif.message}</p>
-                        <p className="text-xs text-gray-400">
+                        <p className="text-sm text-muted-foreground mb-2">{notif.message}</p>
+                        <p className="text-xs text-muted-foreground">
                           Enviado em {new Date(notif.sent_at || notif.created_date).toLocaleString('pt-BR')}
                         </p>
                       </div>
