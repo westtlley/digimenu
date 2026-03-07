@@ -877,7 +877,12 @@ export default function PDV() {
       saleClientRequestIdRef.current = null;
 
       if (!result?.idempotent && isAutoPrintEnabled()) {
-        const printed = printReceipt(finalizedSale, store, 'css');
+        const autoPrintRef = String(finalizedSale.orderCode || createdOrder.id || createdDate || Date.now());
+        const printed = printReceipt(finalizedSale, store, 'css', {
+          jobId: `pdv-receipt-${autoPrintRef}`,
+          dedupeKey: `pdv:auto:${autoPrintRef}`,
+          dedupeWindowMs: 20000,
+        });
         if (!printed) {
           toast.error('Popup bloqueado. Permita popups para impressao automatica.');
         }

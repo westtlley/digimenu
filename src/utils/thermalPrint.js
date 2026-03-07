@@ -5,12 +5,91 @@
 
 import { formatCurrency } from './formatters';
 import { openThermalPrintWindow } from './printWindow';
+import {
+  isBridgeLikelyAvailableSync,
+  primeBridgeAvailability,
+  printViaBridge,
+} from './printBridgeClient';
 
 const DASH_LINE = '--------------------------------';
+const PRINT_LOG_PREFIX = '[print]';
+const DEFAULT_DEDUPE_WINDOW_MS = 12000;
+const printGuard = new Map();
+
+function cleanupPrintGuard(now = Date.now()) {
+  for (const [key, entry] of printGuard.entries()) {
+    const windowMs = Number(entry?.windowMs) || DEFAULT_DEDUPE_WINDOW_MS;
+    if (now - Number(entry?.lastAt || 0) > Math.max(windowMs, DEFAULT_DEDUPE_WINDOW_MS * 2)) {
+      printGuard.delete(key);
+    }
+  }
+}
+
+function beginPrintGuard(printKey, windowMs) {
+  if (!printKey) return true;
+  const now = Date.now();
+  cleanupPrintGuard(now);
+
+  const previous = printGuard.get(printKey);
+  if (previous) {
+    const previousWindow = Number(previous.windowMs) || DEFAULT_DEDUPE_WINDOW_MS;
+    const elapsed = now - Number(previous.lastAt || 0);
+    if (previous.status === 'inflight' || elapsed < previousWindow) {
+      return false;
+    }
+  }
+
+  printGuard.set(printKey, {
+    status: 'inflight',
+    lastAt: now,
+    windowMs,
+  });
+  return true;
+}
+
+function markPrintGuardDone(printKey, windowMs) {
+  if (!printKey) return;
+  printGuard.set(printKey, {
+    status: 'done',
+    lastAt: Date.now(),
+    windowMs,
+  });
+}
+
+function clearPrintGuard(printKey) {
+  if (!printKey) return;
+  printGuard.delete(printKey);
+}
+
+function getConfiguredPrinterName() {
+  if (typeof window === 'undefined') return '';
+  try {
+    const raw = localStorage.getItem('printerConfigLocal');
+    const parsed = raw ? JSON.parse(raw) : null;
+    return String(parsed?.printer_name || '').trim();
+  } catch (_error) {
+    return '';
+  }
+}
+
+function inferBridgeJobType(title = '') {
+  const normalized = String(title || '').toLowerCase();
+  if (normalized.includes('comanda')) return 'comanda';
+  if (normalized.includes('fechamento')) return 'fechamento-caixa';
+  if (normalized.includes('cupom')) return 'cupom';
+  if (normalized.includes('teste')) return 'teste-impressao';
+  return 'documento';
+}
 
 export function thermalPrint({
   title = 'Impressao',
   htmlContent = '',
+  jobType,
+  jobId,
+  dedupeKey,
+  dedupeWindowMs = DEFAULT_DEDUPE_WINDOW_MS,
+  copies = 1,
+  bridgeTimeoutMs,
   paperWidth,
   marginTop,
   marginRight,
@@ -20,7 +99,22 @@ export function thermalPrint({
   lineSpacing,
   autoClose,
 } = {}) {
-  return openThermalPrintWindow({
+  const resolvedJobType = jobType || inferBridgeJobType(title);
+  const resolvedJobId = String(jobId || `web-${Date.now()}`);
+  const printKey = dedupeKey || (jobId ? `job:${jobId}` : '');
+  const safeDedupeWindowMs = Math.max(1000, Number(dedupeWindowMs) || DEFAULT_DEDUPE_WINDOW_MS);
+
+  if (!beginPrintGuard(printKey, safeDedupeWindowMs)) {
+    console.info(`${PRINT_LOG_PREFIX} skip-duplicate`, {
+      jobType: resolvedJobType,
+      jobId: resolvedJobId,
+      printKey,
+    });
+    return true;
+  }
+
+  const browserFallback = (reason = 'fallback') => {
+    const printed = openThermalPrintWindow({
     title,
     htmlContent,
     paperWidth,
@@ -32,6 +126,80 @@ export function thermalPrint({
     lineSpacing,
     autoClose,
   });
+    console.info(`${PRINT_LOG_PREFIX} browser-fallback`, {
+      reason,
+      jobType: resolvedJobType,
+      jobId: resolvedJobId,
+      printKey,
+      printed,
+    });
+    if (printed) {
+      markPrintGuardDone(printKey, safeDedupeWindowMs);
+    } else {
+      clearPrintGuard(printKey);
+    }
+    return printed;
+  };
+
+  if (typeof window === 'undefined') {
+    clearPrintGuard(printKey);
+    return false;
+  }
+
+  // Atualiza status em background para os próximos cliques.
+  primeBridgeAvailability();
+
+  if (!isBridgeLikelyAvailableSync()) {
+    return browserFallback('bridge-unavailable-cache');
+  }
+
+  const printerName = getConfiguredPrinterName();
+  console.info(`${PRINT_LOG_PREFIX} bridge-attempt`, {
+    jobType: resolvedJobType,
+    jobId: resolvedJobId,
+    printKey,
+    printerName: printerName || '(auto)',
+  });
+
+  void printViaBridge({
+    printerName,
+    jobType: resolvedJobType,
+    contentType: 'html',
+    content: htmlContent,
+    copies,
+    jobId: resolvedJobId,
+    timeoutMs: bridgeTimeoutMs,
+  }).then(() => {
+    console.info(`${PRINT_LOG_PREFIX} bridge-success`, {
+      jobType: resolvedJobType,
+      jobId: resolvedJobId,
+      printKey,
+    });
+    markPrintGuardDone(printKey, safeDedupeWindowMs);
+  }).catch((error) => {
+    const message = error?.message || String(error || 'bridge error');
+    console.warn(`${PRINT_LOG_PREFIX} bridge-error`, {
+      jobType: resolvedJobType,
+      jobId: resolvedJobId,
+      printKey,
+      code: error?.code,
+      uncertainPrinted: Boolean(error?.uncertainPrinted),
+      message,
+    });
+
+    // Timeout do /print pode ter impresso no bridge. Evita duplicar no fallback.
+    if (error?.uncertainPrinted) {
+      markPrintGuardDone(printKey, safeDedupeWindowMs);
+      return;
+    }
+
+    const printed = browserFallback('bridge-error');
+    if (!printed) {
+      clearPrintGuard(printKey);
+    }
+  });
+
+  return true;
 }
 
 /**
@@ -40,13 +208,13 @@ export function thermalPrint({
  * @param {Object} store - Dados da loja
  * @param {string} method - MÃ©todo de impressÃ£o: 'css' ou 'escpos'
  */
-export function printReceipt(saleData, store = {}, method = 'css') {
+export function printReceipt(saleData, store = {}, method = 'css', options = {}) {
   const content = generateReceiptContent(saleData, store);
   
   if (method === 'escpos') {
     return printViaESCPOS(content, saleData, store);
   } else {
-    return printViaCSS(content);
+    return printViaCSS(content, 'cupom', options);
   }
 }
 
@@ -55,13 +223,13 @@ export function printReceipt(saleData, store = {}, method = 'css') {
  * @param {Object} reportData - Dados do relatÃ³rio
  * @param {string} method - MÃ©todo de impressÃ£o
  */
-export function printCashClosingReport(reportData, method = 'css') {
+export function printCashClosingReport(reportData, method = 'css', options = {}) {
   const content = generateClosingReportContent(reportData);
   
   if (method === 'escpos') {
     return printViaESCPOS(content, reportData);
   } else {
-    return printViaCSS(content);
+    return printViaCSS(content, 'fechamento-caixa', options);
   }
 }
 
@@ -408,10 +576,12 @@ function generateClosingReportContent(reportData) {
 /**
  * ImpressÃ£o via CSS (window.print) - MÃ©todo padrÃ£o
  */
-function printViaCSS(htmlContent) {
+function printViaCSS(htmlContent, jobType = 'documento', options = {}) {
   return thermalPrint({
     title: 'Impressao',
     htmlContent,
+    jobType,
+    ...options,
   });
 }
 

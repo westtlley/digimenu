@@ -186,23 +186,27 @@ function buildComandasMarkup(list) {
   return `<style>${COMANDA_STYLE}</style>${bodies}`;
 }
 
-export function printComanda(order) {
+export function printComanda(order, options = {}) {
   if (!order) return false;
   return thermalPrint({
     title: `Comanda #${order.order_code || order.id || ''}`,
+    jobType: 'comanda',
     htmlContent: buildComandasMarkup([order]),
+    ...options,
   });
 }
 
 /**
  * Imprime comandas de uma fila
  */
-export function printOrdersInQueue(orders, ids) {
+export function printOrdersInQueue(orders, ids, options = {}) {
   const list = ids.map((id) => orders.find((o) => String(o.id) === String(id))).filter(Boolean);
   if (list.length === 0) return false;
   return thermalPrint({
     title: list.length > 1 ? `Comandas (${list.length})` : `Comanda #${list[0].order_code || list[0].id || ''}`,
+    jobType: 'comanda',
     htmlContent: buildComandasMarkup(list),
+    ...options,
   });
 }
 

@@ -171,7 +171,13 @@ export default function GestorPedidos() {
 
             if (shouldAutoPrint && !autoPrintedIdsRef.current.has(o.id)) {
               autoPrintedIdsRef.current.add(o.id);
-              const printed = printComanda(updatedOrder || { ...o, status: 'accepted' });
+              const autoPrintOrder = updatedOrder || { ...o, status: 'accepted' };
+              const autoPrintRef = String(autoPrintOrder?.id || autoPrintOrder?.order_code || Date.now());
+              const printed = printComanda(autoPrintOrder, {
+                jobId: `gestor-comanda-${autoPrintRef}`,
+                dedupeKey: `gestor:auto:${autoPrintRef}`,
+                dedupeWindowMs: 20000,
+              });
               if (!printed) {
                 toast.error('Popup bloqueado. Permita popups para impressao automatica.');
               }
@@ -990,7 +996,12 @@ export default function GestorPedidos() {
       {printQueue.length > 0 && (
         <button
           onClick={() => {
-            const printed = printOrdersInQueue(orders, printQueue);
+            const queueRef = printQueue.map((id) => String(id)).sort().join('-');
+            const printed = printOrdersInQueue(orders, printQueue, {
+              jobId: `gestor-queue-${queueRef}`,
+              dedupeKey: `gestor:queue:${queueRef}`,
+              dedupeWindowMs: 12000,
+            });
             if (!printed) {
               toast.error('Popup bloqueado. Permita popups para imprimir.');
               return;
