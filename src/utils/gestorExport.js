@@ -1,18 +1,18 @@
-/**
- * Exportação e impressão do Gestor de Pedidos
+﻿/**
+ * ExportaÃ§Ã£o e impressÃ£o do Gestor de Pedidos
  * - CSV de pedidos
- * - PDF relatório do dia
- * - Fila de impressão (comandas)
+ * - PDF relatÃ³rio do dia
+ * - Fila de impressÃ£o (comandas)
  */
 
 import { formatBrazilianDateTime, formatScheduledDateTime } from '@/components/utils/dateUtils';
 import { formatCurrency } from './formatters';
-import { openThermalPrintWindow } from './printWindow';
+import { thermalPrint } from './thermalPrint';
 import jsPDF from 'jspdf';
 
-const PAYMENT_LABELS = { pix: 'PIX', dinheiro: 'Dinheiro', cartao_credito: 'Cartão de Crédito', cartao_debito: 'Cartão de Débito' };
+const PAYMENT_LABELS = { pix: 'PIX', dinheiro: 'Dinheiro', cartao_credito: 'CartÃ£o de CrÃ©dito', cartao_debito: 'CartÃ£o de DÃ©bito' };
 
-/** Endereço completo (evita cortes) - igual ao WhatsApp - exportado para uso em PDF/impressão */
+/** EndereÃ§o completo (evita cortes) - igual ao WhatsApp - exportado para uso em PDF/impressÃ£o */
 export function getFullAddress(order) {
   if (!order || order.delivery_method !== 'delivery') return '';
   if (order.address && order.address.length > 10) return order.address;
@@ -27,129 +27,155 @@ export function getFullAddress(order) {
   return parts.length ? parts.join(', ') : (order.address || '');
 }
 
-function buildItemsHtml(order, complementGroups = []) {
-  let html = '';
-  (order.items || []).forEach((item, idx) => {
-    const isPizza = item.dish?.product_type === 'pizza';
-    const isCombo = item.dish?.product_type === 'combo' || Array.isArray(item?.selections?.combo_groups);
-    const size = item.size || item.selections?.size;
-    const flavors = item.flavors || item.selections?.flavors;
-    const edge = item.edge || item.selections?.edge;
-    const extras = item.extras || item.selections?.extras;
-    html += `<div style="margin-bottom:12px;border-left:3px solid #666;padding-left:8px;">`;
-    html += `<p style="margin:0;font-weight:bold;">#${idx + 1} - ${item.dish?.name || 'Item'} x${item.quantity || 1}</p>`;
+const DASH_LINE = '--------------------------------';
 
-    if (isCombo) {
-      const groups = item?.selections?.combo_groups;
-      if (Array.isArray(groups)) {
-        groups.forEach((g) => {
-          if (!g) return;
-          const title = g.title || 'Itens do combo';
-          const isDrinkGroup = /bebid/i.test(title);
-          const groupEmoji = isDrinkGroup ? '🥤' : '🍽️';
-          const groupLabel = isDrinkGroup ? 'BEBIDAS' : 'PRATOS';
-          html += `<p style="margin:4px 0 0 12px;font-size:10px;font-weight:bold;">${groupEmoji} ${groupLabel}: ${title}</p>`;
-          const items = Array.isArray(g.items) ? g.items : [];
-          items.forEach((it) => {
-            if (!it) return;
-            const name = it?.dish_name || it?.dishName || 'Item';
-            const instances = Array.isArray(it?.instances) && it.instances.length > 0
-              ? it.instances
-              : Array.from({ length: Math.max(1, it?.quantity || 1) }, () => null);
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
 
-            instances.forEach((inst, instIdx) => {
-              const showIndex = instances.length > 1;
-              const itemLabel = isDrinkGroup ? 'Bebida' : 'Prato';
-              const label = showIndex ? `${itemLabel} ${instIdx + 1}: ` : '';
-              html += `<p style="margin:2px 0 0 24px;font-size:10px;">• ${label}${name}</p>`;
-              const sel = inst?.selections;
-              if (sel && typeof sel === 'object') {
-                Object.values(sel).forEach((groupSel) => {
-                  if (Array.isArray(groupSel)) {
-                    groupSel.forEach((opt) => {
-                      if (opt?.name) html += `<p style="margin:2px 0 0 36px;font-size:10px;">↳ ${opt.name}</p>`;
-                    });
-                  } else if (groupSel?.name) {
-                    html += `<p style="margin:2px 0 0 36px;font-size:10px;">↳ ${groupSel.name}</p>`;
-                  }
-                });
-              }
-            });
-          });
-        });
-      }
+function normalizeItemTotal(item) {
+  const explicit = Number(item?.total_price ?? item?.totalPrice);
+  if (Number.isFinite(explicit)) return explicit;
+  const qty = Number(item?.quantity ?? 1) || 1;
+  const unit = Number(item?.unit_price ?? item?.unitPrice ?? item?.price ?? 0) || 0;
+  return unit * qty;
+}
+
+function buildItemsHtml(order) {
+  const items = Array.isArray(order?.items) ? order.items : [];
+  if (items.length === 0) {
+    return `<div class="small">Sem itens</div>`;
+  }
+
+  return items.map((item) => {
+    const itemName = item?.dish?.name || item?.dish_name || item?.name || 'Item';
+    const qty = Number(item?.quantity ?? 1) || 1;
+    const total = normalizeItemTotal(item);
+    const detailLines = [];
+
+    if (item?.size?.name) detailLines.push(`Tam: ${item.size.name}`);
+    if (Array.isArray(item?.flavors) && item.flavors.length > 0) {
+      detailLines.push(`Sabores: ${item.flavors.map((f) => f?.name).filter(Boolean).join(' + ')}`);
     }
-    else if (isPizza && size) {
-      html += `<p style="margin:4px 0 0 12px;font-size:10px;">🍕 ${size.name} (${size.slices || ''} fatias)</p>`;
-      if (flavors?.length) {
-        const f = flavors.reduce((a, x) => { a[x.name] = (a[x.name]||0)+1; return a; }, {});
-        Object.entries(f).forEach(([n, c]) => { html += `<p style="margin:2px 0 0 24px;font-size:10px;">• ${c}/${size.slices || ''} ${n}</p>`; });
-      }
-      if (edge) html += `<p style="margin:2px 0 0 12px;font-size:10px;">🧀 Borda: ${edge.name}</p>`;
-      if (extras?.length) extras.forEach(e => { html += `<p style="margin:2px 0 0 24px;font-size:10px;">• ${e.name}</p>`; });
-    } else if (item.selections && Object.keys(item.selections).length > 0) {
-      Object.values(item.selections).forEach(sel => {
-        if (Array.isArray(sel)) {
-          sel.forEach(opt => { if (opt?.name) html += `<p style="margin:2px 0 0 12px;font-size:10px;">• ${opt.name}</p>`; });
-        } else if (sel?.name) {
-          html += `<p style="margin:2px 0 0 12px;font-size:10px;">• ${sel.name}</p>`;
+    if (item?.edge?.name) detailLines.push(`Borda: ${item.edge.name}`);
+    if (Array.isArray(item?.extras) && item.extras.length > 0) {
+      detailLines.push(`Extras: ${item.extras.map((e) => e?.name).filter(Boolean).join(', ')}`);
+    }
+    if (item?.selections && typeof item.selections === 'object') {
+      Object.values(item.selections).forEach((selectionValue) => {
+        if (Array.isArray(selectionValue)) {
+          selectionValue.forEach((entry) => {
+            const label = entry?.name || entry?.label || entry?.title || entry?.value;
+            if (label) detailLines.push(String(label));
+          });
+        } else {
+          const label = selectionValue?.name || selectionValue?.label || selectionValue?.title || selectionValue?.value;
+          if (label) detailLines.push(String(label));
         }
       });
     }
-    if (item.specifications) html += `<p style="margin:2px 0 0 12px;font-size:10px;font-style:italic;">📝 ${item.specifications}</p>`;
-    if (item.observations) html += `<p style="margin:2px 0 0 12px;font-size:10px;font-style:italic;">📝 ${item.observations}</p>`;
-    html += `<p style="margin:4px 0 0 0;">Valor: ${formatCurrency((item.totalPrice || 0) * (item.quantity || 1))}</p></div>`;
-  });
-  return html;
+    if (item?.specifications) detailLines.push(`Obs: ${item.specifications}`);
+    if (item?.observations) detailLines.push(`Obs: ${item.observations}`);
+
+    const uniqueDetails = [...new Set(detailLines.map((line) => String(line).trim()).filter(Boolean))];
+
+    return `
+      <div class="itemRow">
+        <div class="itemLabel">${qty}x ${escapeHtml(itemName)}</div>
+        <div class="itemValue">${formatCurrency(total)}</div>
+      </div>
+      ${uniqueDetails.map((line) => `<div class="small">  - ${escapeHtml(line)}</div>`).join('')}
+    `;
+  }).join('');
 }
 
-const COMANDA_STYLE = `body{font-family:'Courier New',monospace;font-size:11px;line-height:1.35;padding:10mm;margin:0;max-width:80mm;word-wrap:break-word;overflow-wrap:break-word;word-break:break-word;}
-p,div{word-wrap:break-word;overflow-wrap:break-word;word-break:break-word;white-space:pre-wrap;}
-h1{text-align:center;font-size:16px;margin:0 0 5px 0;}
-.header{text-align:center;margin-bottom:10px;padding-bottom:10px;border-bottom:2px dashed #000;}
-.section{margin:10px 0;}
-.total{border-top:2px solid #000;margin-top:10px;padding-top:10px;font-weight:bold;font-size:14px;}
-.code-box{background:#fff3cd;border:2px solid #ff9800;padding:10px;margin:10px 0;text-align:center;}
-.code-box .code{font-size:24px;font-weight:bold;letter-spacing:5px;}
-@media print{.page-break{page-break-after:always;}}`;
+const COMANDA_STYLE = `
+body{font-family:"Courier New",monospace;font-size:12px;font-weight:600;line-height:1.35;margin:0 auto;max-width:80mm;color:#000;}
+*{color:#000!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+.center{text-align:center;}
+.bold{font-weight:700;}
+.small{font-size:10px;white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere;}
+.lineText{white-space:pre;letter-spacing:.3px;overflow:hidden;margin:6px 0;}
+.itemRow{display:flex;justify-content:space-between;font-family:"Courier New",monospace;gap:8px;margin:2px 0;}
+.itemLabel{flex:1;min-width:0;padding-right:8px;word-break:break-word;overflow-wrap:anywhere;}
+.itemValue{min-width:74px;text-align:right;white-space:nowrap;}
+.page-break{page-break-after:always;}
+`;
 
 /**
- * Gera o conteúdo HTML (body) de uma comanda para impressão
+ * Gera o conteudo HTML (body) de uma comanda para impressao
  */
-export function buildComandaBody(order, complementGroups = []) {
-  const paymentLabel = PAYMENT_LABELS[order.payment_method] || order.payment_method;
-  const itemsHTML = buildItemsHtml(order, complementGroups);
-  const code = order.order_code || String(order.id || '').slice(-6).toUpperCase();
-  const orderDate = order.created_at || order.created_date;
+export function buildComandaBody(order) {
+  const code = order?.order_code || String(order?.id || '').slice(-6).toUpperCase();
+  const orderDate = order?.created_at || order?.created_date;
   const fullAddress = getFullAddress(order);
-  const esc = (s) => (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-  return `<div class="header"><h1>COMANDA</h1><p style="margin:0;">Pedido #${code}</p><p style="margin:0;font-size:11px;">${orderDate ? formatBrazilianDateTime(orderDate) : '—'}</p></div>
-<div class="section">
-<p style="margin:0;"><strong>Cliente:</strong> ${esc(order.customer_name || '')}</p>
-<p style="margin:0;"><strong>Contato:</strong> ${esc(order.customer_phone || '')}</p>
-<p style="margin:0;"><strong>Tipo:</strong> ${order.delivery_method === 'delivery' ? 'Entrega 🚴' : 'Retirada 🏪'}</p>
-${fullAddress ? `<p style="margin:0;"><strong>Endereço:</strong> ${esc(fullAddress)}</p>` : ''}
-<p style="margin:0;"><strong>Pagamento:</strong> ${paymentLabel}</p>
-${order.payment_method === 'dinheiro' && order.needs_change && order.change_amount ? `<p style="margin:0;"><strong>Troco para:</strong> ${formatCurrency(order.change_amount)}</p>` : ''}
-${order.scheduled_date && order.scheduled_time ? `<p style="margin:0;color:#0066cc;font-weight:bold;">⏰ AGENDADO: ${formatScheduledDateTime(order.scheduled_date, order.scheduled_time)}</p>` : ''}
-${order.customer_change_request ? `<p style="margin:4px 0 0 0;padding:6px;background:#fef3c7;border:1px solid #f59e0b;"><strong>✏️ Alteração:</strong> ${order.customer_change_request}</p>` : ''}
-</div>
-<div class="section"><p style="margin:0;font-weight:bold;border-bottom:1px solid #000;padding-bottom:5px;">--- Pedido ---</p>${itemsHTML}</div>
-<div class="total">
-<p style="margin:0;">Subtotal: ${formatCurrency(order.subtotal)}</p>
-${order.delivery_fee > 0 ? `<p style="margin:0;">Taxa: ${formatCurrency(order.delivery_fee)}</p>` : ''}
-${order.discount > 0 ? `<p style="margin:0;color:green;">Desconto: -${formatCurrency(order.discount)}</p>` : ''}
-<p style="margin:5px 0 0 0;font-size:16px;">TOTAL: ${formatCurrency(order.total)}</p>
-</div>
-${(order.pickup_code || order.delivery_code) ? `<div class="code-box"><p style="margin:0;font-size:10px;">Cód. Retirada</p><p class="code">${order.pickup_code || order.delivery_code || ''}</p></div>` : ''}
-<div style="text-align:center;margin-top:15px;font-size:10px;color:#666;">${orderDate ? formatBrazilianDateTime(orderDate) : '—'}</div>`;
+
+  const storeName = order?.store_name || order?.store?.name || 'ESTABELECIMENTO';
+  const storeAddress = order?.store_address || order?.store?.address || '';
+
+  const subtotal = Number(order?.subtotal ?? order?.total ?? 0) || 0;
+  const discount = Number(order?.discount ?? 0) || 0;
+  const total = Number(order?.total ?? subtotal) || 0;
+
+  const paymentList = Array.isArray(order?.payments) && order.payments.length > 0
+    ? order.payments.map((p) => ({
+        method: p?.method || p?.payment_method || 'outro',
+        amount: Number(p?.amount ?? p?.payment_amount ?? 0) || 0,
+      }))
+    : [{
+        method: order?.payment_method || '-',
+        amount: total,
+      }];
+
+  const changeFromCash = Number(order?.change ?? 0) || 0;
+  const changeFromNeedsChange = order?.needs_change && Number(order?.change_amount) > total
+    ? (Number(order.change_amount) - total)
+    : 0;
+  const change = changeFromCash > 0 ? changeFromCash : changeFromNeedsChange;
+
+  return `
+    <div class="center bold">${escapeHtml(storeName)}</div>
+    ${storeAddress ? `<div class="center small">${escapeHtml(storeAddress)}</div>` : ''}
+    <div class="lineText">${DASH_LINE}</div>
+
+    <div class="center bold">COMANDA</div>
+    <div class="lineText">${DASH_LINE}</div>
+
+    <div>Pedido: #${escapeHtml(code)}</div>
+    <div>Data: ${orderDate ? formatBrazilianDateTime(orderDate) : formatBrazilianDateTime(new Date().toISOString())}</div>
+    <div>Cliente: ${escapeHtml(order?.customer_name || 'Cliente Balcao')}</div>
+    <div>Tipo: ${order?.delivery_method === 'delivery' ? 'Entrega' : 'Retirada'}</div>
+    ${fullAddress ? `<div class="small">Endereco: ${escapeHtml(fullAddress)}</div>` : ''}
+    ${order?.scheduled_date && order?.scheduled_time ? `<div class="small">Agendado: ${escapeHtml(formatScheduledDateTime(order.scheduled_date, order.scheduled_time))}</div>` : ''}
+
+    <div class="lineText">${DASH_LINE}</div>
+    ${buildItemsHtml(order)}
+
+    <div class="lineText">${DASH_LINE}</div>
+    <div class="itemRow"><div class="itemLabel">Subtotal</div><div class="itemValue">${formatCurrency(subtotal)}</div></div>
+    ${discount > 0 ? `<div class="itemRow"><div class="itemLabel">Desconto</div><div class="itemValue">-${formatCurrency(discount)}</div></div>` : ''}
+    ${Number(order?.delivery_fee) > 0 ? `<div class="itemRow"><div class="itemLabel">Taxa Entrega</div><div class="itemValue">${formatCurrency(order.delivery_fee)}</div></div>` : ''}
+    <div class="itemRow bold"><div class="itemLabel">TOTAL</div><div class="itemValue">${formatCurrency(total)}</div></div>
+
+    <div class="lineText">${DASH_LINE}</div>
+    <div class="bold">Pagamentos</div>
+    ${paymentList.map((p) => `<div class="itemRow"><div class="itemLabel">${escapeHtml(PAYMENT_LABELS[p.method] || p.method)}</div><div class="itemValue">${formatCurrency(p.amount)}</div></div>`).join('')}
+    ${change > 0 ? `<div class="itemRow"><div class="itemLabel">Troco</div><div class="itemValue">${formatCurrency(change)}</div></div>` : ''}
+
+    <div class="lineText">${DASH_LINE}</div>
+    <div class="center small">Obrigado pela preferencia!</div>
+  `;
 }
 
 /**
- * Gera HTML completo de uma comanda (para janela única)
+ * Gera HTML completo de uma comanda (para janela unica)
  */
 export function buildComandaHtml(order) {
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Comanda #${order.order_code || order.id}</title><style>${COMANDA_STYLE}</style></head><body>${buildComandaBody(order)}</body></html>`;
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Comanda #${order?.order_code || order?.id || ''}</title><style>${COMANDA_STYLE}</style></head><body>${buildComandaBody(order)}</body></html>`;
 }
 
 function buildComandasMarkup(list) {
@@ -157,24 +183,24 @@ function buildComandasMarkup(list) {
     .map((order, index) => `${buildComandaBody(order)}${index < list.length - 1 ? '<div class="page-break"></div>' : ''}`)
     .join('');
 
-  return `<style>${COMANDA_STYLE} .page-break{page-break-after:always;}</style>${bodies}`;
+  return `<style>${COMANDA_STYLE}</style>${bodies}`;
 }
 
 export function printComanda(order) {
   if (!order) return false;
-  return openThermalPrintWindow({
+  return thermalPrint({
     title: `Comanda #${order.order_code || order.id || ''}`,
     htmlContent: buildComandasMarkup([order]),
   });
 }
 
 /**
- * Imprime comandas de uma fila (abre uma janela com todas)
+ * Imprime comandas de uma fila
  */
 export function printOrdersInQueue(orders, ids) {
-  const list = ids.map(id => orders.find(o => String(o.id) === String(id))).filter(Boolean);
+  const list = ids.map((id) => orders.find((o) => String(o.id) === String(id))).filter(Boolean);
   if (list.length === 0) return false;
-  return openThermalPrintWindow({
+  return thermalPrint({
     title: list.length > 1 ? `Comandas (${list.length})` : `Comanda #${list[0].order_code || list[0].id || ''}`,
     htmlContent: buildComandasMarkup(list),
   });
@@ -184,7 +210,7 @@ export function printOrdersInQueue(orders, ids) {
  * Exporta pedidos para CSV
  */
 export function exportOrdersToCSV(orders) {
-  const headers = ['Código', 'Cliente', 'Telefone', 'Status', 'Total', 'Data', 'Pagamento', 'Tipo'];
+  const headers = ['CÃ³digo', 'Cliente', 'Telefone', 'Status', 'Total', 'Data', 'Pagamento', 'Tipo'];
   const rows = orders.map(o => [
     o.order_code || o.id,
     (o.customer_name || '').replace(/"/g, '""'),
@@ -199,7 +225,7 @@ export function exportOrdersToCSV(orders) {
 }
 
 /**
- * Força download do CSV
+ * ForÃ§a download do CSV
  */
 export function downloadOrdersCSV(orders, filename) {
   const csv = exportOrdersToCSV(orders);
@@ -213,25 +239,25 @@ export function downloadOrdersCSV(orders, filename) {
 }
 
 /**
- * Gera e baixa PDF do relatório (dia, semana ou mês)
+ * Gera e baixa PDF do relatÃ³rio (dia, semana ou mÃªs)
  * @param {Array} orders - lista de pedidos
- * @param {'today'|'week'|'month'} period - período do relatório
+ * @param {'today'|'week'|'month'} period - perÃ­odo do relatÃ³rio
  */
 export function exportGestorReportPDF(orders, period = 'today') {
   const now = new Date();
   let startDate;
-  let title = 'Relatório do Dia';
+  let title = 'RelatÃ³rio do Dia';
   if (period === 'week') {
     startDate = new Date(now);
     startDate.setDate(now.getDate() - 7);
-    title = 'Relatório - Últimos 7 dias';
+    title = 'RelatÃ³rio - Ãšltimos 7 dias';
   } else if (period === 'month') {
     startDate = new Date(now);
     startDate.setDate(now.getDate() - 30);
-    title = 'Relatório - Últimos 30 dias';
+    title = 'RelatÃ³rio - Ãšltimos 30 dias';
   } else {
     startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    title = 'Relatório do Dia';
+    title = 'RelatÃ³rio do Dia';
   }
   const list = orders.filter(o => {
     const dt = o.created_at || o.created_date;
@@ -254,7 +280,7 @@ export function exportGestorReportPDF(orders, period = 'today') {
   doc.setFontSize(12);
   doc.text(`Faturamento: ${formatCurrency(totalRevenue)}`, 14, 38);
   doc.text(`Pedidos: ${list.length}`, 14, 45);
-  doc.text(`Ticket médio: ${formatCurrency(list.length ? totalRevenue / list.length : 0)}`, 14, 52);
+  doc.text(`Ticket mÃ©dio: ${formatCurrency(list.length ? totalRevenue / list.length : 0)}`, 14, 52);
   let y = 62;
   doc.text('Por status:', 14, y); y += 6;
   Object.entries(byStatus).forEach(([k, v]) => { doc.text(`  ${k}: ${v}`, 14, y); y += 5; });
@@ -273,3 +299,4 @@ export function exportGestorReportPDF(orders, period = 'today') {
   const suffix = period === 'today' ? new Date().toISOString().slice(0, 10) : `${period}_${new Date().toISOString().slice(0, 10)}`;
   doc.save(`relatorio_gestor_${suffix}.pdf`);
 }
+

@@ -93,9 +93,8 @@ export function openThermalPrintWindow({
           html, body {
             margin: 0;
             padding: 0;
-            width: ${finalPaperWidth};
-            max-width: ${finalPaperWidth};
             background: #fff;
+            width: 100%;
           }
 
           * {
@@ -106,34 +105,47 @@ export function openThermalPrintWindow({
           }
 
           body {
-            font-family: "Courier New", "Lucida Console", monospace;
+            font-family: "Courier New", monospace;
             font-size: ${finalFontSize}px;
             line-height: ${finalLineSpacing};
+            font-weight: 600;
+            max-width: ${finalPaperWidth};
+            margin: 0 auto;
             white-space: normal;
             word-break: break-word;
             overflow-wrap: anywhere;
+            color: #000;
           }
 
           .center { text-align: center; }
           .bold { font-weight: 700; }
           .small { font-size: 10px; }
-          .line {
-            border-top: 1px dashed #000;
+          .lineText {
+            white-space: pre;
+            letter-spacing: 0.3px;
+            overflow: hidden;
             margin: 6px 0;
           }
-          .item {
+          .item,
+          .itemRow {
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
             gap: 8px;
             margin: 2px 0;
+            font-family: "Courier New", monospace;
           }
-          .item > div:first-child {
+          .item > div:first-child,
+          .itemRow .itemLabel {
             flex: 1;
             min-width: 0;
+            padding-right: 8px;
           }
-          .item .text-right {
+          .item .text-right,
+          .itemRow .itemValue {
             min-width: 74px;
+            text-align: right;
+            white-space: nowrap;
           }
           .item-3col {
             display: grid;
@@ -141,6 +153,7 @@ export function openThermalPrintWindow({
             gap: 6px;
             margin: 2px 0;
             align-items: flex-start;
+            font-family: "Courier New", monospace;
           }
           .text-right {
             text-align: right;
@@ -178,4 +191,3 @@ export function openThermalPrintWindow({
 
   return true;
 }
-

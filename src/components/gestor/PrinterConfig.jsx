@@ -12,7 +12,7 @@ import { Printer, Save, TestTube, Eye, CheckCircle2, AlertCircle } from 'lucide-
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import toast from 'react-hot-toast';
 import { usePermission } from '../permissions/usePermission';
-import { openThermalPrintWindow } from '@/utils/printWindow';
+import { thermalPrint } from '@/utils/thermalPrint';
 
 const DEFAULT_PRINTER_CONFIG = {
   printer_name: '',
@@ -95,7 +95,7 @@ export default function PrinterConfig() {
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;');
 
-    const printed = openThermalPrintWindow({
+    const printed = thermalPrint({
       title: 'Teste de Impressao',
       htmlContent: `<pre>${escaped}</pre>`,
       paperWidth: formData.paper_width,

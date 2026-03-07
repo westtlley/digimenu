@@ -1,16 +1,44 @@
-/**
- * Utilitários de Impressão Térmica
- * Suporta impressão via CSS (window.print) e ESC/POS
+﻿/**
+ * UtilitÃ¡rios de ImpressÃ£o TÃ©rmica
+ * Suporta impressÃ£o via CSS (window.print) e ESC/POS
  */
 
 import { formatCurrency } from './formatters';
 import { openThermalPrintWindow } from './printWindow';
 
+const DASH_LINE = '--------------------------------';
+
+export function thermalPrint({
+  title = 'Impressao',
+  htmlContent = '',
+  paperWidth,
+  marginTop,
+  marginRight,
+  marginBottom,
+  marginLeft,
+  fontSize,
+  lineSpacing,
+  autoClose,
+} = {}) {
+  return openThermalPrintWindow({
+    title,
+    htmlContent,
+    paperWidth,
+    marginTop,
+    marginRight,
+    marginBottom,
+    marginLeft,
+    fontSize,
+    lineSpacing,
+    autoClose,
+  });
+}
+
 /**
- * Imprime cupom de venda em formato térmico 80mm
+ * Imprime cupom de venda em formato tÃ©rmico 80mm
  * @param {Object} saleData - Dados da venda
  * @param {Object} store - Dados da loja
- * @param {string} method - Método de impressão: 'css' ou 'escpos'
+ * @param {string} method - MÃ©todo de impressÃ£o: 'css' ou 'escpos'
  */
 export function printReceipt(saleData, store = {}, method = 'css') {
   const content = generateReceiptContent(saleData, store);
@@ -23,9 +51,9 @@ export function printReceipt(saleData, store = {}, method = 'css') {
 }
 
 /**
- * Imprime relatório de fechamento de caixa
- * @param {Object} reportData - Dados do relatório
- * @param {string} method - Método de impressão
+ * Imprime relatÃ³rio de fechamento de caixa
+ * @param {Object} reportData - Dados do relatÃ³rio
+ * @param {string} method - MÃ©todo de impressÃ£o
  */
 export function printCashClosingReport(reportData, method = 'css') {
   const content = generateClosingReportContent(reportData);
@@ -38,7 +66,7 @@ export function printCashClosingReport(reportData, method = 'css') {
 }
 
 /**
- * Gera conteúdo HTML do cupom de venda
+ * Gera conteÃºdo HTML do cupom de venda
  */
 function toReadableLabel(value) {
   if (value == null) return '';
@@ -104,7 +132,7 @@ function generateReceiptContent(saleData, store) {
   const total = Number(saleData?.total ?? 0) || 0;
   const items = Array.isArray(saleData?.items) ? saleData.items : [];
   const date = saleData?.date || saleData?.created_date || saleData?.created_at;
-  const customerName = saleData?.customerName || saleData?.customer_name || 'Cliente Balcão';
+  const customerName = saleData?.customerName || saleData?.customer_name || 'Cliente BalcÃ£o';
   const fallbackPayments = saleData?.payment_method
     ? [{
         method: saleData.payment_method,
@@ -140,18 +168,18 @@ function generateReceiptContent(saleData, store) {
       ${storeAddress ? `<div class="center small">${storeAddress}</div>` : ''}
       ${storePhone ? `<div class="center small">Tel: ${storePhone}</div>` : ''}
       
-      <div class="line"></div>
+      <div class="lineText">${DASH_LINE}</div>
       
-      <div class="center bold">CUPOM NÃO FISCAL</div>
+      <div class="center bold">CUPOM NÃƒO FISCAL</div>
       <div class="center">PDV - Venda Presencial</div>
       
-      <div class="line"></div>
+      <div class="lineText">${DASH_LINE}</div>
       
       <div>Pedido: #${orderCode}</div>
       <div>Data: ${date ? new Date(date).toLocaleString('pt-BR') : new Date().toLocaleString('pt-BR')}</div>
       <div>Cliente: ${customerName}</div>
       
-      <div class="line"></div>
+      <div class="lineText">${DASH_LINE}</div>
       
       ${items.map(item => {
         const itemName = item.dish?.name || item.dish_name || item.name || 'Item';
@@ -162,33 +190,33 @@ function generateReceiptContent(saleData, store) {
           : (Number(item.totalPrice ?? item.unit_price ?? item.price ?? 0) || 0) * quantity;
         
         return `
-        <div class="item">
+        <div class="itemRow">
           <div>${quantity}x ${itemName}${details}</div>
           <div class="text-right">${formatCurrency(itemTotal)}</div>
         </div>
         `;
       }).join('')}
       
-      <div class="line"></div>
+      <div class="lineText">${DASH_LINE}</div>
       
-      <div class="item">
+      <div class="itemRow">
         <div>Subtotal</div>
         <div class="text-right">${formatCurrency(subtotal)}</div>
       </div>
       
       ${discount > 0 ? `
-      <div class="item">
+      <div class="itemRow">
         <div>Desconto</div>
         <div class="text-right">-${formatCurrency(discount)}</div>
       </div>
       ` : ''}
       
-      <div class="item bold total">
+      <div class="itemRow bold total">
         <div>TOTAL</div>
         <div class="text-right">${formatCurrency(total)}</div>
       </div>
       
-      <div class="line"></div>
+      <div class="lineText">${DASH_LINE}</div>
       
       <div class="bold">FORMA DE PAGAMENTO</div>
       ${payments.map((payment) => {
@@ -202,7 +230,7 @@ function generateReceiptContent(saleData, store) {
         const value = showReceived ? receivedAmount : appliedAmount;
 
         return `
-      <div class="item">
+      <div class="itemRow">
         <div>${label}</div>
         <div class="text-right">${formatCurrency(value)}</div>
       </div>
@@ -210,22 +238,22 @@ function generateReceiptContent(saleData, store) {
       }).join('')}
       
       ${change > 0 ? `
-      <div class="item">
+      <div class="itemRow">
         <div>Troco</div>
         <div class="text-right">${formatCurrency(change)}</div>
       </div>
       ` : ''}
       
-      <div class="line"></div>
+      <div class="lineText">${DASH_LINE}</div>
       
-      <div class="center small">Obrigado pela preferência!</div>
+      <div class="center small">Obrigado pela preferÃªncia!</div>
       <div class="center small">Volte sempre!</div>
     </div>
   `;
 }
 
 /**
- * Gera conteúdo HTML do relatório de fechamento
+ * Gera conteÃºdo HTML do relatÃ³rio de fechamento
  */
 function generateClosingReportContent(reportData) {
   const {
@@ -259,18 +287,18 @@ function generateClosingReportContent(reportData) {
 
   return `
     <div class="receipt">
-      <div class="center bold">** RELATÓRIO DE FECHAMENTO **</div>
+      <div class="center bold">** RELATÃ“RIO DE FECHAMENTO **</div>
       
-      <div class="line"></div>
+      <div class="lineText">${DASH_LINE}</div>
       
       <div>OPERADOR: ${operatorName || '-'}</div>
       <div>CAIXA: ${terminalName || '1'}</div>
       <div>DH INICIAL: ${dhInicial || '-'}</div>
       <div>DH FINAL: ${dhFinal || '(CAIXA ABERTO)'}</div>
       
-      <div class="line"></div>
-      <div class="bold">MOVIMENTAÇÕES</div>
-      <div class="line"></div>
+      <div class="lineText">${DASH_LINE}</div>
+      <div class="bold">MOVIMENTAÃ‡Ã•ES</div>
+      <div class="lineText">${DASH_LINE}</div>
       
       <div class="item-3col">
         <div>(+)ABERTURA DE CAIXA</div>
@@ -302,17 +330,17 @@ function generateClosingReportContent(reportData) {
         <div class="text-right">${formatCurrency(saldoEmCaixa || 0)}</div>
       </div>
       
-      <div class="line"></div>
+      <div class="lineText">${DASH_LINE}</div>
       <div class="bold">FORMA DE PAGAMENTO</div>
-      <div class="line"></div>
+      <div class="lineText">${DASH_LINE}</div>
       
       <div class="item-3col">
-        <div>C. CRÉDITO</div>
+        <div>C. CRÃ‰DITO</div>
         <div class="text-right">${qtdCredito || 0}</div>
         <div class="text-right">${formatCurrency(totalCredito || 0)}</div>
       </div>
       <div class="item-3col">
-        <div>C. DÉBITO</div>
+        <div>C. DÃ‰BITO</div>
         <div class="text-right">${qtdDebito || 0}</div>
         <div class="text-right">${formatCurrency(totalDebito || 0)}</div>
       </div>
@@ -332,9 +360,9 @@ function generateClosingReportContent(reportData) {
         <div class="text-right">${formatCurrency(totalVendas || 0)}</div>
       </div>
       
-      <div class="line"></div>
+      <div class="lineText">${DASH_LINE}</div>
       <div class="bold">VENDAS CANCELADAS</div>
-      <div class="line"></div>
+      <div class="lineText">${DASH_LINE}</div>
       
       <div class="item-3col">
         <div>VENDA</div>
@@ -351,37 +379,37 @@ function generateClosingReportContent(reportData) {
       </div>
       ` : ''}
       
-      <div class="line"></div>
+      <div class="lineText">${DASH_LINE}</div>
       <div class="bold">ADICIONAIS</div>
-      <div class="line"></div>
+      <div class="lineText">${DASH_LINE}</div>
       
-      <div class="item">
+      <div class="itemRow">
         <div>TROCO</div>
         <div class="text-right">${formatCurrency(totalTroco || 0)}</div>
       </div>
-      <div class="item">
+      <div class="itemRow">
         <div>DESCONTO</div>
         <div class="text-right">${formatCurrency(totalDesconto || 0)}</div>
       </div>
-      <div class="item">
-        <div>ACRÉSCIMO</div>
+      <div class="itemRow">
+        <div>ACRÃ‰SCIMO</div>
         <div class="text-right">${formatCurrency(totalAcrescimo || 0)}</div>
       </div>
-      <div class="item">
+      <div class="itemRow">
         <div>QTDE CUPONS</div>
         <div class="text-right">${qtdeCupons || 0}</div>
       </div>
       
-      <div class="line"></div>
+      <div class="lineText">${DASH_LINE}</div>
     </div>
   `;
 }
 
 /**
- * Impressão via CSS (window.print) - Método padrão
+ * ImpressÃ£o via CSS (window.print) - MÃ©todo padrÃ£o
  */
 function printViaCSS(htmlContent) {
-  return openThermalPrintWindow({
+  return thermalPrint({
     title: 'Impressao',
     htmlContent,
   });
@@ -389,9 +417,9 @@ function printViaCSS(htmlContent) {
 
 /**
 async function printViaESCPOS(content, data, store) {
-  // Verificar se Web Serial API está disponível
+  // Verificar se Web Serial API estÃ¡ disponÃ­vel
   if (!('serial' in navigator)) {
-    console.warn('Web Serial API não disponível. Usando fallback CSS.');
+    console.warn('Web Serial API nÃ£o disponÃ­vel. Usando fallback CSS.');
     return printViaCSS(content);
   }
 
@@ -420,12 +448,12 @@ async function printViaESCPOS(content, data, store) {
 }
 
 /**
- * Gera comandos ESC/POS para impressora térmica
- * Comandos básicos ESC/POS:
+ * Gera comandos ESC/POS para impressora tÃ©rmica
+ * Comandos bÃ¡sicos ESC/POS:
  * ESC @ - Inicializar impressora
  * ESC a n - Alinhamento (0=esq, 1=centro, 2=dir)
  * ESC E n - Negrito (0=off, 1=on)
- * ESC d n - Avançar n linhas
+ * ESC d n - AvanÃ§ar n linhas
  * GS V - Cortar papel
  */
 function generateESCPOSCommands(data, store) {
@@ -437,7 +465,7 @@ function generateESCPOSCommands(data, store) {
   // Inicializar
   commands += ESC + '@';
   
-  // Cabeçalho centralizado
+  // CabeÃ§alho centralizado
   commands += ESC + 'a' + '\x01'; // Centro
   commands += ESC + 'E' + '\x01'; // Negrito
   commands += (store?.name || 'ESTABELECIMENTO') + '\n';
@@ -454,8 +482,8 @@ function generateESCPOSCommands(data, store) {
   commands += '--------------------------------\n';
   commands += ESC + 'a' + '\x00'; // Esquerda
   
-  // Adicionar conteúdo...
-  // (Implementação completa dos comandos ESC/POS)
+  // Adicionar conteÃºdo...
+  // (ImplementaÃ§Ã£o completa dos comandos ESC/POS)
   
   // Cortar papel
   commands += '\n\n\n';
@@ -464,3 +492,4 @@ function generateESCPOSCommands(data, store) {
   // Converter para Uint8Array
   return new TextEncoder().encode(commands);
 }
+
