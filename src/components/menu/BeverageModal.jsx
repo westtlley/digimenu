@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 /**
  * Modal customizado para bebidas
- * Exibe informações específicas ao invés de complementos
+ * Exibe informaÃ§Ãµes especÃ­ficas ao invÃ©s de complementos
  */
 export default function BeverageModal({ 
   beverage, 
@@ -60,20 +60,20 @@ export default function BeverageModal({
   const getTempIcon = () => {
     if (beverage.serving_temp === 'cold') return <ThermometerSnowflake className="w-4 h-4 text-blue-500" />;
     if (beverage.serving_temp === 'hot') return <Thermometer className="w-4 h-4 text-orange-500" />;
-    return <GlassWater className="w-4 h-4 text-gray-500" />;
+    return <GlassWater className="w-4 h-4 text-muted-foreground" />;
   };
 
   const characteristics = [];
-  if (beverage.sugar_free) characteristics.push({ label: 'Sem açúcar', icon: <Leaf className="w-4 h-4" />, color: 'text-green-600' });
-  if (beverage.alcoholic) characteristics.push({ label: 'Alcoólico', icon: <Wine className="w-4 h-4" />, color: 'text-purple-600' });
-  if (beverage.caffeine) characteristics.push({ label: 'Cafeína', icon: <Coffee className="w-4 h-4" />, color: 'text-amber-600' });
+  if (beverage.sugar_free) characteristics.push({ label: 'Sem aÃ§Ãºcar', icon: <Leaf className="w-4 h-4" />, color: 'text-green-600' });
+  if (beverage.alcoholic) characteristics.push({ label: 'AlcoÃ³lico', icon: <Wine className="w-4 h-4" />, color: 'text-purple-600' });
+  if (beverage.caffeine) characteristics.push({ label: 'CafeÃ­na', icon: <Coffee className="w-4 h-4" />, color: 'text-amber-600' });
   
   const dietaryTags = beverage.dietary_tags || [];
   const dietaryLabels = {
     'vegano': 'Vegano',
     'sem_lactose': 'Sem lactose',
-    'sem_gluten': 'Sem glúten',
-    'zero_acucar': 'Zero açúcar'
+    'sem_gluten': 'Sem glÃºten',
+    'zero_acucar': 'Zero aÃ§Ãºcar'
   };
 
   return (
@@ -91,7 +91,7 @@ export default function BeverageModal({
         aria-describedby="beverage-modal-desc"
       >
         <DialogTitle className="sr-only">Detalhes da bebida: {beverage.name}</DialogTitle>
-        <DialogDescription id="beverage-modal-desc" className="sr-only">Adicione quantidade e observações para incluir no pedido.</DialogDescription>
+        <DialogDescription id="beverage-modal-desc" className="sr-only">Adicione quantidade e observaÃ§Ãµes para incluir no pedido.</DialogDescription>
         <AnimatePresence>
           {isOpen && (
             <motion.div
@@ -133,15 +133,15 @@ export default function BeverageModal({
               {!mobileFullScreen && (
                 <button
                   onClick={onClose}
-                  className="absolute top-4 right-4 p-2 rounded-full z-10 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  className="absolute top-4 right-4 p-2 rounded-full z-10 hover:bg-muted transition-colors"
                   aria-label="Fechar"
                 >
-                  <X className="w-5 h-5 text-gray-900 dark:text-white" />
+                  <X className="w-5 h-5 text-foreground" />
                 </button>
               )}
 
-              {/* Coluna esquerda: imagem — mobile limite menor ~28vh (proporção 9:16) */}
-              <div className="relative w-full aspect-[9/16] md:aspect-auto md:h-full md:w-2/5 lg:w-[45%] flex-shrink-0 max-h-[28vh] md:max-h-none bg-gray-900">
+              {/* Coluna esquerda: imagem â€” mobile limite menor ~28vh (proporÃ§Ã£o 9:16) */}
+              <div className="relative w-full aspect-[9/16] md:aspect-auto md:h-full md:w-2/5 lg:w-[45%] flex-shrink-0 max-h-[28vh] md:max-h-none bg-card">
                 {beverage.image ? (
                   <img
                     src={beverage.image}
@@ -149,69 +149,69 @@ export default function BeverageModal({
                     className="w-full h-full object-cover object-center"
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-800">
-                    <Wine className="w-16 h-16 md:w-24 md:h-24 text-gray-400" />
+                  <div className="w-full h-full flex items-center justify-center bg-muted">
+                    <Wine className="w-16 h-16 md:w-24 md:h-24 text-muted-foreground" />
                   </div>
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
                 <div className="absolute bottom-0 left-0 right-0 p-3 md:p-6">
-                  <h2 className="text-lg md:text-2xl font-bold text-white drop-shadow-lg">
+                  <h2 className="text-lg md:text-2xl font-bold text-primary-foreground drop-shadow-lg">
                     {beverage.name}
                   </h2>
                 </div>
               </div>
 
-              {/* Coluna direita: informações e ações — padding para campo completo na tela */}
-              <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-white dark:bg-gray-900 overflow-hidden">
+              {/* Coluna direita: informaÃ§Ãµes e aÃ§Ãµes â€” padding para campo completo na tela */}
+              <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-card overflow-hidden">
                 <div className={`flex-1 overflow-y-auto overflow-x-hidden p-3 md:p-5 pt-3 space-y-4 ${mobileFullScreen ? '' : 'md:pt-12'}`}>
-                  {/* 1. Descrição primeiro (se houver) */}
+                  {/* 1. DescriÃ§Ã£o primeiro (se houver) */}
                   {beverage.description && (
                     <div>
-                      <h3 className="font-semibold mb-2 text-sm">Descrição</h3>
+                      <h3 className="font-semibold mb-2 text-sm">DescriÃ§Ã£o</h3>
                       <p className="text-sm text-muted-foreground leading-relaxed">{beverage.description}</p>
                     </div>
                   )}
-                  {/* 2. Outras informações */}
+                  {/* 2. Outras informaÃ§Ãµes */}
                   <div className="grid grid-cols-2 gap-2 md:gap-3 w-full max-w-full">
                     {beverage.volume_ml && (
-                      <div className="flex items-center gap-2 p-2.5 md:p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80 min-w-0 overflow-hidden">
+                      <div className="flex items-center gap-2 p-2.5 md:p-3 rounded-lg border border-border bg-muted/80 min-w-0 overflow-hidden">
                         <Package className="w-5 h-5 shrink-0" style={{ color: primaryColor }} />
                         <div className="min-w-0 overflow-hidden">
-                          <p className="text-xs text-gray-500 dark:text-gray-400">Volume</p>
-                          <p className="font-semibold text-sm truncate text-gray-900 dark:text-gray-100">{beverage.volume_ml}ml</p>
+                          <p className="text-xs text-muted-foreground">Volume</p>
+                          <p className="font-semibold text-sm truncate text-foreground">{beverage.volume_ml}ml</p>
                         </div>
                       </div>
                     )}
                     {beverage.serving_temp && (
-                      <div className="flex items-center gap-2 p-2.5 md:p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80 min-w-0 overflow-hidden">
+                      <div className="flex items-center gap-2 p-2.5 md:p-3 rounded-lg border border-border bg-muted/80 min-w-0 overflow-hidden">
                         <span className="shrink-0">{getTempIcon()}</span>
                         <div className="min-w-0 overflow-hidden">
-                          <p className="text-xs text-gray-500 dark:text-gray-400">Temperatura</p>
-                          <p className="font-semibold text-sm truncate text-gray-900 dark:text-gray-100">{getTempLabel()}</p>
+                          <p className="text-xs text-muted-foreground">Temperatura</p>
+                          <p className="font-semibold text-sm truncate text-foreground">{getTempLabel()}</p>
                         </div>
                       </div>
                     )}
                     {beverage.beverage_type && (
-                      <div className="flex items-center gap-2 p-2.5 md:p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80 min-w-0 overflow-hidden">
+                      <div className="flex items-center gap-2 p-2.5 md:p-3 rounded-lg border border-border bg-muted/80 min-w-0 overflow-hidden">
                         {beverage.beverage_type === 'natural' ? (
                           <Droplets className="w-5 h-5 text-green-600 shrink-0" />
                         ) : (
-                          <Package className="w-5 h-5 text-gray-500 dark:text-gray-400 shrink-0" />
+                          <Package className="w-5 h-5 text-muted-foreground shrink-0" />
                         )}
                         <div className="min-w-0 overflow-hidden">
-                          <p className="text-xs text-gray-500 dark:text-gray-400">Tipo</p>
-                          <p className="font-semibold text-sm truncate text-gray-900 dark:text-gray-100">
+                          <p className="text-xs text-muted-foreground">Tipo</p>
+                          <p className="font-semibold text-sm truncate text-foreground">
                             {beverage.beverage_type === 'natural' ? 'Natural' : 'Industrializado'}
                           </p>
                         </div>
                       </div>
                     )}
                     {beverage.ean && (
-                      <div className="flex items-center gap-2 p-2.5 md:p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80 min-w-0 overflow-hidden">
-                        <Package className="w-5 h-5 text-gray-500 dark:text-gray-400 shrink-0" />
+                      <div className="flex items-center gap-2 p-2.5 md:p-3 rounded-lg border border-border bg-muted/80 min-w-0 overflow-hidden">
+                        <Package className="w-5 h-5 text-muted-foreground shrink-0" />
                         <div className="min-w-0 overflow-hidden">
-                          <p className="text-xs text-gray-500 dark:text-gray-400">Código</p>
-                          <p className="font-semibold text-xs font-mono truncate text-gray-900 dark:text-gray-100">{beverage.ean}</p>
+                          <p className="text-xs text-muted-foreground">CÃ³digo</p>
+                          <p className="font-semibold text-xs font-mono truncate text-foreground">{beverage.ean}</p>
                         </div>
                       </div>
                     )}
@@ -219,7 +219,7 @@ export default function BeverageModal({
 
                   {characteristics.length > 0 && (
                     <div>
-                      <h3 className="font-semibold mb-2 text-sm">Características</h3>
+                      <h3 className="font-semibold mb-2 text-sm">CaracterÃ­sticas</h3>
                       <div className="flex flex-wrap gap-2">
                         {characteristics.map((char, idx) => (
                           <Badge
@@ -237,14 +237,14 @@ export default function BeverageModal({
 
                   {dietaryTags.length > 0 && (
                     <div>
-                      <h3 className="font-semibold mb-2 text-sm">Informações dietéticas</h3>
+                      <h3 className="font-semibold mb-2 text-sm">InformaÃ§Ãµes dietÃ©ticas</h3>
                       <div className="flex flex-wrap gap-2">
                         {dietaryTags.map((tag) => (
                           <Badge
                             key={tag}
                             className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
                           >
-                            ✓ {dietaryLabels[tag] || tag}
+                            âœ“ {dietaryLabels[tag] || tag}
                           </Badge>
                         ))}
                       </div>
@@ -252,7 +252,7 @@ export default function BeverageModal({
                   )}
 
                   <div>
-                    <h3 className="font-semibold mb-2 text-sm">Observações (opcional)</h3>
+                    <h3 className="font-semibold mb-2 text-sm">ObservaÃ§Ãµes (opcional)</h3>
                     <Textarea
                       placeholder="Ex: Sem gelo, bem gelado..."
                       value={observations}
@@ -263,10 +263,10 @@ export default function BeverageModal({
                   </div>
                 </div>
 
-                {/* Rodapé fixo: Quantidade + Total + botão Adicionar */}
-                <div className="border-t p-3 flex flex-col gap-3 flex-shrink-0 bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 shadow-lg lg:shadow-[0_-4px_12px_rgba(0,0,0,0.06)]">
+                {/* RodapÃ© fixo: Quantidade + Total + botÃ£o Adicionar */}
+                <div className="border-t p-3 flex flex-col gap-3 flex-shrink-0 bg-card border-border shadow-lg lg:shadow-[0_-4px_12px_rgba(0,0,0,0.06)]">
                   <div className="flex items-center justify-between">
-                    <span className="font-medium text-sm text-gray-700 dark:text-gray-300">Quantidade</span>
+                    <span className="font-medium text-sm text-muted-foreground">Quantidade</span>
                     <div className="flex items-center gap-2">
                       <Button
                         variant="outline"
@@ -290,14 +290,14 @@ export default function BeverageModal({
                   </div>
                   <div className="flex items-center justify-between gap-4">
                     <div>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Total</p>
+                      <p className="text-sm text-muted-foreground">Total</p>
                       <p className="text-2xl font-bold" style={{ color: primaryColor }}>
                         {formatCurrency(beverage.price * quantity)}
                       </p>
                     </div>
                     <Button
                       onClick={handleAddToCart}
-                      className="h-11 px-8 rounded-xl font-semibold text-sm text-white shadow-lg flex-1 sm:flex-initial"
+                      className="h-11 px-8 rounded-xl font-semibold text-sm text-primary-foreground shadow-lg flex-1 sm:flex-initial"
                       size="lg"
                       style={{ background: `linear-gradient(135deg, ${primaryColor}, #ef4444)` }}
                     >

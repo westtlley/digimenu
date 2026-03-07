@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { 
@@ -448,8 +448,8 @@ export default function GestorPedidos() {
 
   if (!user) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
-        <p className="text-gray-600 dark:text-gray-400 mb-4">SessÃ£o expirada ou nÃ£o autenticado.</p>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
+        <p className="text-muted-foreground mb-4">SessÃ£o expirada ou nÃ£o autenticado.</p>
         <Link to="/login">
           <Button className="bg-orange-500 hover:bg-orange-600">Fazer login</Button>
         </Link>
@@ -462,9 +462,9 @@ export default function GestorPedidos() {
   }
   if (inSlugContext && slugError) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md text-center">
-          <p className="text-gray-600 mb-4">Link nÃ£o encontrado.</p>
+      <div className="min-h-screen bg-muted/50 flex items-center justify-center p-4">
+        <div className="bg-card rounded-2xl shadow-lg p-8 max-w-md text-center">
+          <p className="text-muted-foreground mb-4">Link nÃ£o encontrado.</p>
           <Link to="/"><Button>Ir ao cardÃ¡pio</Button></Link>
         </div>
       </div>
@@ -472,11 +472,11 @@ export default function GestorPedidos() {
   }
   if (inSlugContext && subscriberEmail && !canAccessSlug) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md text-center">
+      <div className="min-h-screen bg-muted/50 flex items-center justify-center p-4">
+        <div className="bg-card rounded-2xl shadow-lg p-8 max-w-md text-center">
           <Lock className="w-12 h-12 text-red-500 mx-auto mb-3" />
           <h2 className="text-lg font-semibold">Acesso negado</h2>
-          <p className="text-sm text-gray-500 mt-2">VocÃª nÃ£o tem permissÃ£o para acessar o Gestor deste estabelecimento.</p>
+          <p className="text-sm text-muted-foreground mt-2">VocÃª nÃ£o tem permissÃ£o para acessar o Gestor deste estabelecimento.</p>
           <Link to="/" className="mt-4 inline-block"><Button variant="outline">Voltar</Button></Link>
         </div>
       </div>
@@ -485,13 +485,13 @@ export default function GestorPedidos() {
 
   if (!hasAccess) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md text-center">
+      <div className="min-h-screen bg-muted/50 flex items-center justify-center p-4">
+        <div className="bg-card rounded-2xl shadow-lg p-8 max-w-md text-center">
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <Lock className="w-8 h-8 text-red-600" />
           </div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">Gestor de Pedidos AvanÃ§ado</h2>
-          <p className="text-gray-600 mb-6">No plano BÃ¡sico use o <strong>Gestor de pedidos</strong> no painel (aba OperaÃ§Ã£o). Esta tela avanÃ§ada estÃ¡ disponÃ­vel nos planos Pro e Ultra.</p>
+          <h2 className="text-2xl font-bold text-foreground mb-2">Gestor de Pedidos AvanÃ§ado</h2>
+          <p className="text-muted-foreground mb-6">No plano BÃ¡sico use o <strong>Gestor de pedidos</strong> no painel (aba OperaÃ§Ã£o). Esta tela avanÃ§ada estÃ¡ disponÃ­vel nos planos Pro e Ultra.</p>
           <div className="space-y-3">
             <Link to={createPageUrl('PainelAssinante', slug || undefined)}>
               <Button className="w-full bg-orange-500 hover:bg-orange-600">Voltar ao Painel</Button>
@@ -508,11 +508,11 @@ export default function GestorPedidos() {
   const backUrl = createPageUrl(backPage, isMaster ? undefined : slug || undefined);
 
   return (
-    <div className="min-h-screen min-h-screen-mobile bg-gray-50 flex flex-col">
+    <div className="min-h-screen min-h-screen-mobile bg-muted/40 flex flex-col">
       <Toaster position="top-center" />
       
       {/* Header - estilo iFood */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-50 h-14 flex-shrink-0">
+      <header className="bg-card border-b border-border sticky top-0 z-50 h-14 flex-shrink-0">
         <div className="px-4 h-full">
           <div className="flex items-center justify-between h-full max-w-screen-2xl mx-auto">
             {/* Left: logo + loja + status */}
@@ -531,7 +531,7 @@ export default function GestorPedidos() {
                   <img src={store.logo} alt={store.name} className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
                 ) : (
                   <div className="w-10 h-10 bg-orange-500 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <Package className="w-5 h-5 text-white" />
+                    <Package className="w-5 h-5 text-primary-foreground" />
                   </div>
                 )}
                 <div className="min-w-0">
@@ -548,19 +548,19 @@ export default function GestorPedidos() {
               <InstallAppButton pageName="Gestor" compact />
               {/* Grupo OperaÃ§Ã£o: sempre visÃ­vel */}
               <Button variant="ghost" size="icon" className="h-9 w-9 min-h-touch min-w-touch" onClick={() => setSoundEnabled(!soundEnabled)} title={soundEnabled ? 'Desligar som' : 'Ligar som'}>
-                {soundEnabled ? <Volume2 className="w-4 h-4 text-gray-600" /> : <VolumeX className="w-4 h-4 text-gray-400" />}
+                {soundEnabled ? <Volume2 className="w-4 h-4 text-muted-foreground" /> : <VolumeX className="w-4 h-4 text-muted-foreground" />}
               </Button>
               <Button variant="ghost" size="icon" className="h-9 w-9 min-h-touch min-w-touch" onClick={() => queryClient.invalidateQueries({ queryKey: ['gestorOrders', asSub ?? 'me'] })} title="Atualizar">
-                <RefreshCw className={`w-4 h-4 text-gray-600 ${isLoading ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`w-4 h-4 text-muted-foreground ${isLoading ? 'animate-spin' : ''}`} />
               </Button>
               <Button variant="ghost" size="icon" className="h-9 w-9 min-h-touch min-w-touch hidden sm:flex" onClick={() => setViewMode('resumo')} title="Resumo">
-                <BarChart2 className="w-4 h-4 text-gray-600" />
+                <BarChart2 className="w-4 h-4 text-muted-foreground" />
               </Button>
               {/* Ferramentas: dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="h-9 w-9 min-h-touch min-w-touch" title="Ferramentas">
-                    <MoreHorizontal className="w-4 h-4 text-gray-600" />
+                    <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="min-w-[200px]">
@@ -608,14 +608,14 @@ export default function GestorPedidos() {
 
       {/* Tabs Agora/Agendados - apenas no modo kanban */}
       {viewMode === 'kanban' && (
-        <div className="bg-white border-b border-gray-200 flex-shrink-0">
+        <div className="bg-card border-b border-border flex-shrink-0">
           <div className="px-4 max-w-screen-2xl mx-auto">
             <div className="flex items-center justify-between">
               <div className="flex">
                 <button
                   onClick={() => setActiveTab('now')}
                   className={`px-5 py-2.5 font-medium text-sm border-b-2 transition-colors ${
-                    activeTab === 'now' ? 'border-orange-500 text-orange-500' : 'border-transparent text-gray-500 hover:text-gray-700'
+                    activeTab === 'now' ? 'border-orange-500 text-orange-500' : 'border-transparent text-muted-foreground hover:text-foreground'
                   }`}
                 >
                   Agora
@@ -623,7 +623,7 @@ export default function GestorPedidos() {
                 <button
                   onClick={() => setActiveTab('scheduled')}
                   className={`px-5 py-2.5 font-medium text-sm border-b-2 transition-colors ${
-                    activeTab === 'scheduled' ? 'border-orange-500 text-orange-500' : 'border-transparent text-gray-500 hover:text-gray-700'
+                    activeTab === 'scheduled' ? 'border-orange-500 text-orange-500' : 'border-transparent text-muted-foreground hover:text-foreground'
                   }`}
                 >
                   Agendados
@@ -638,7 +638,7 @@ export default function GestorPedidos() {
       )}
 
       {/* Desktop Sidebar */}
-      <aside className={`hidden lg:block fixed left-0 top-14 h-[calc(100vh-3.5rem)] bg-white border-r border-gray-200 z-40 transition-all duration-300 ease-in-out ${
+      <aside className={`hidden lg:block fixed left-0 top-14 h-[calc(100vh-3.5rem)] bg-card border-r border-border z-40 transition-all duration-300 ease-in-out ${
         sidebarCollapsed ? 'w-14' : 'w-52'
       }`}>
         <div className="h-full flex flex-col">
@@ -646,7 +646,7 @@ export default function GestorPedidos() {
           <div className="p-2 border-b">
             <button
               onClick={toggleSidebar}
-              className="w-full flex items-center justify-center py-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-all"
+              className="w-full flex items-center justify-center py-1.5 rounded-md text-muted-foreground hover:text-muted-foreground hover:bg-muted/40 transition-all"
               title={sidebarCollapsed ? 'Expandir' : 'Recolher'}
             >
               <ChevronLeft className={`w-4 h-4 transition-transform duration-300 ${sidebarCollapsed ? 'rotate-180' : ''}`} />
@@ -658,7 +658,7 @@ export default function GestorPedidos() {
             <button
               onClick={() => setViewMode('inicio')}
               className={`w-full flex items-center gap-2 px-2 py-2 rounded-r-md border-l-4 transition-all duration-200 ${
-                viewMode === 'inicio' ? 'border-orange-500 bg-orange-50 text-orange-600' : 'border-transparent text-gray-600 hover:bg-gray-50'
+                viewMode === 'inicio' ? 'border-orange-500 bg-orange-50 text-orange-600' : 'border-transparent text-muted-foreground hover:bg-muted/40'
               }`}
               title={sidebarCollapsed ? 'InÃ­cio' : ''}
             >
@@ -670,13 +670,13 @@ export default function GestorPedidos() {
             <button
               onClick={() => setViewMode('kanban')}
               className={`relative w-full flex items-center gap-2 px-2 py-2 rounded-r-md border-l-4 transition-all duration-200 ${
-                viewMode === 'kanban' ? 'border-orange-500 bg-orange-50 text-orange-600' : 'border-transparent text-gray-600 hover:bg-gray-50'
+                viewMode === 'kanban' ? 'border-orange-500 bg-orange-50 text-orange-600' : 'border-transparent text-muted-foreground hover:bg-muted/40'
               }`}
               title={sidebarCollapsed ? (newOrdersCount ? `Quadros (${newOrdersCount} novos)` : 'Quadros') : ''}
             >
               <LayoutGrid className="w-4 h-4 flex-shrink-0" />
               {newOrdersCount > 0 && (
-                <span className="absolute left-6 top-1.5 min-w-[18px] h-[18px] rounded-full bg-orange-500 text-white text-xs font-bold flex items-center justify-center">
+                <span className="absolute left-6 top-1.5 min-w-[18px] h-[18px] rounded-full bg-orange-500 text-primary-foreground text-xs font-bold flex items-center justify-center">
                   {newOrdersCount > 99 ? '99+' : newOrdersCount}
                 </span>
               )}
@@ -690,7 +690,7 @@ export default function GestorPedidos() {
             <button
               onClick={() => setViewMode('delivery')}
               className={`w-full flex items-center gap-2 px-2 py-2 rounded-r-md border-l-4 transition-all duration-200 ${
-                viewMode === 'delivery' ? 'border-orange-500 bg-orange-50 text-orange-600' : 'border-transparent text-gray-600 hover:bg-gray-50'
+                viewMode === 'delivery' ? 'border-orange-500 bg-orange-50 text-orange-600' : 'border-transparent text-muted-foreground hover:bg-muted/40'
               }`}
               title={sidebarCollapsed ? 'Entregadores' : ''}
             >
@@ -705,7 +705,7 @@ export default function GestorPedidos() {
             <button
               onClick={() => setViewMode('resumo')}
               className={`w-full flex items-center gap-2 px-2 py-2 rounded-r-md border-l-4 transition-all duration-200 ${
-                viewMode === 'resumo' ? 'border-orange-500 bg-orange-50 text-orange-600' : 'border-transparent text-gray-600 hover:bg-gray-50'
+                viewMode === 'resumo' ? 'border-orange-500 bg-orange-50 text-orange-600' : 'border-transparent text-muted-foreground hover:bg-muted/40'
               }`}
               title={sidebarCollapsed ? 'Resumo' : ''}
             >
@@ -717,7 +717,7 @@ export default function GestorPedidos() {
             <button
               onClick={() => setViewMode('settings')}
               className={`w-full flex items-center gap-2 px-2 py-2 rounded-r-md border-l-4 transition-all duration-200 ${
-                viewMode === 'settings' ? 'border-orange-500 bg-orange-50 text-orange-600' : 'border-transparent text-gray-600 hover:bg-gray-50'
+                viewMode === 'settings' ? 'border-orange-500 bg-orange-50 text-orange-600' : 'border-transparent text-muted-foreground hover:bg-muted/40'
               }`}
               title={sidebarCollapsed ? 'Ajustes' : ''}
             >
@@ -732,13 +732,13 @@ export default function GestorPedidos() {
           <div className="p-2 border-t">
             {!sidebarCollapsed ? (
               <div className="text-center py-1">
-                <p className="text-[10px] text-gray-400 uppercase tracking-wide">Ativos</p>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Ativos</p>
                 <p className="text-xl font-bold text-orange-500">{orders.filter(o => !['delivered', 'cancelled'].includes(o.status)).length}</p>
               </div>
             ) : (
               <div className="flex justify-center">
                 <div className="w-7 h-7 rounded-full bg-orange-500 flex items-center justify-center">
-                  <span className="text-xs font-bold text-white">{orders.filter(o => !['delivered', 'cancelled'].includes(o.status)).length}</span>
+                  <span className="text-xs font-bold text-primary-foreground">{orders.filter(o => !['delivered', 'cancelled'].includes(o.status)).length}</span>
                 </div>
               </div>
             )}
@@ -753,18 +753,18 @@ export default function GestorPedidos() {
           onClick={() => setShowMobileMenu(false)}
         >
           <div 
-            className="w-72 h-full bg-white shadow-2xl animate-in slide-in-from-left duration-300" 
+            className="w-72 h-full bg-card shadow-2xl animate-in slide-in-from-left duration-300" 
             onClick={(e) => e.stopPropagation()}
           >
             {/* Mobile Menu Header */}
-            <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-orange-500 to-orange-600 text-white">
+            <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-orange-500 to-orange-600 text-primary-foreground">
               <div className="flex items-center gap-2">
                 <Menu className="w-5 h-5" />
                 <h2 className="font-bold">Menu</h2>
               </div>
               <button 
                 onClick={() => setShowMobileMenu(false)}
-                className="min-h-touch min-w-touch flex items-center justify-center p-2 -m-1 rounded-lg hover:bg-white/20 transition-colors"
+                className="min-h-touch min-w-touch flex items-center justify-center p-2 -m-1 rounded-lg hover:bg-card/20 transition-colors"
                 aria-label="Fechar menu"
               >
                 <CloseIcon className="w-5 h-5" />
@@ -776,7 +776,7 @@ export default function GestorPedidos() {
               <button
                 onClick={() => { setViewMode('inicio'); setShowMobileMenu(false); }}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
-                  viewMode === 'inicio' ? 'bg-orange-500 text-white shadow-sm' : 'hover:bg-gray-100 text-gray-700'
+                  viewMode === 'inicio' ? 'bg-orange-500 text-primary-foreground shadow-sm' : 'hover:bg-muted/50 text-foreground'
                 }`}
               >
                 <Home className="w-5 h-5" />
@@ -790,14 +790,14 @@ export default function GestorPedidos() {
                 }}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
                   viewMode === 'kanban' 
-                    ? 'bg-orange-500 text-white shadow-sm' 
-                    : 'hover:bg-gray-100 text-gray-700'
+                    ? 'bg-orange-500 text-primary-foreground shadow-sm' 
+                    : 'hover:bg-muted/50 text-foreground'
                 }`}
               >
                 <LayoutGrid className="w-5 h-5" />
                 <span className="font-medium">Quadros</span>
                 {newOrdersCount > 0 && (
-                  <span className="ml-auto min-w-[22px] h-[22px] rounded-full bg-orange-500 text-white text-xs font-bold flex items-center justify-center">
+                  <span className="ml-auto min-w-[22px] h-[22px] rounded-full bg-orange-500 text-primary-foreground text-xs font-bold flex items-center justify-center">
                     {newOrdersCount > 99 ? '99+' : newOrdersCount}
                   </span>
                 )}
@@ -813,8 +813,8 @@ export default function GestorPedidos() {
                 }}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
                   viewMode === 'delivery' 
-                    ? 'bg-orange-500 text-white shadow-sm' 
-                    : 'hover:bg-gray-100 text-gray-700'
+                    ? 'bg-orange-500 text-primary-foreground shadow-sm' 
+                    : 'hover:bg-muted/50 text-foreground'
                 }`}
               >
                 <Truck className="w-5 h-5" />
@@ -827,7 +827,7 @@ export default function GestorPedidos() {
               <button
                 onClick={() => { setViewMode('resumo'); setShowMobileMenu(false); }}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
-                  viewMode === 'resumo' ? 'bg-orange-500 text-white shadow-sm' : 'hover:bg-gray-100 text-gray-700'
+                  viewMode === 'resumo' ? 'bg-orange-500 text-primary-foreground shadow-sm' : 'hover:bg-muted/50 text-foreground'
                 }`}
               >
                 <DollarSign className="w-5 h-5" />
@@ -837,7 +837,7 @@ export default function GestorPedidos() {
               <button
                 onClick={() => { setViewMode('settings'); setShowMobileMenu(false); }}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
-                  viewMode === 'settings' ? 'bg-orange-500 text-white shadow-sm' : 'hover:bg-gray-100 text-gray-700'
+                  viewMode === 'settings' ? 'bg-orange-500 text-primary-foreground shadow-sm' : 'hover:bg-muted/50 text-foreground'
                 }`}
               >
                 <Settings className="w-5 h-5" />
@@ -847,16 +847,16 @@ export default function GestorPedidos() {
             </nav>
 
             {/* Mobile Stats */}
-            <div className="absolute bottom-0 left-0 right-0 p-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t bg-gray-50">
+            <div className="absolute bottom-0 left-0 right-0 p-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t bg-muted/40">
               <div className="grid grid-cols-2 gap-3 text-center">
-                <div className="bg-white rounded-lg p-3 shadow-sm">
-                  <p className="text-xs text-gray-500">Pedidos Ativos</p>
+                <div className="bg-card rounded-lg p-3 shadow-sm">
+                  <p className="text-xs text-muted-foreground">Pedidos Ativos</p>
                   <p className="text-xl font-bold text-orange-500">
                     {orders.filter(o => !['delivered', 'cancelled'].includes(o.status)).length}
                   </p>
                 </div>
-                <div className="bg-white rounded-lg p-3 shadow-sm">
-                  <p className="text-xs text-gray-500">Novos</p>
+                <div className="bg-card rounded-lg p-3 shadow-sm">
+                  <p className="text-xs text-muted-foreground">Novos</p>
                   <p className="text-xl font-bold text-orange-500">
                     {orders.filter(o => o.status === 'new').length}
                   </p>
@@ -882,7 +882,7 @@ export default function GestorPedidos() {
           </div>
         )}
         {/* Breadcrumb / tÃ­tulo contextual */}
-        <p className="text-xs text-gray-500 mb-2 font-medium">
+        <p className="text-xs text-muted-foreground mb-2 font-medium">
           {viewMode === 'inicio' && 'InÃ­cio'}
           {viewMode === 'kanban' && `Quadros â€¢ ${activeTab === 'now' ? 'Agora' : 'Agendados'}`}
           {viewMode === 'delivery' && 'Entregadores'}
@@ -948,17 +948,17 @@ export default function GestorPedidos() {
       </main>
 
       {/* Footer fixo mobile: Quadros + Entregadores */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-gray-200 safe-bottom flex">
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-30 bg-card border-t border-border safe-bottom flex">
         <button
           onClick={() => setViewMode('kanban')}
           className={`relative flex-1 flex flex-col items-center justify-center py-3 min-h-touch gap-0.5 ${
-            viewMode === 'kanban' ? 'text-orange-500 bg-orange-50 font-semibold' : 'text-gray-500'
+            viewMode === 'kanban' ? 'text-orange-500 bg-orange-50 font-semibold' : 'text-muted-foreground'
           }`}
         >
           <LayoutGrid className="w-5 h-5" />
           <span className="text-xs">Quadros</span>
           {newOrdersCount > 0 && (
-            <span className="absolute top-2 right-1/3 min-w-[18px] h-[18px] rounded-full bg-orange-500 text-white text-[10px] font-bold flex items-center justify-center">
+            <span className="absolute top-2 right-1/3 min-w-[18px] h-[18px] rounded-full bg-orange-500 text-primary-foreground text-[10px] font-bold flex items-center justify-center">
               {newOrdersCount > 99 ? '99+' : newOrdersCount}
             </span>
           )}
@@ -966,7 +966,7 @@ export default function GestorPedidos() {
         <button
           onClick={() => setViewMode('delivery')}
           className={`flex-1 flex flex-col items-center justify-center py-3 min-h-touch gap-0.5 ${
-            viewMode === 'delivery' ? 'text-orange-500 bg-orange-50 font-semibold' : 'text-gray-500'
+            viewMode === 'delivery' ? 'text-orange-500 bg-orange-50 font-semibold' : 'text-muted-foreground'
           }`}
         >
           <Truck className="w-5 h-5" />
@@ -975,8 +975,8 @@ export default function GestorPedidos() {
       </div>
 
       {/* Footer global - estilo iFood (desktop) */}
-      <footer className="hidden lg:block flex-shrink-0 border-t border-gray-200 bg-gray-100 py-2 px-4">
-        <div className="max-w-screen-2xl mx-auto flex items-center justify-center gap-2 text-sm text-gray-600">
+      <footer className="hidden lg:block flex-shrink-0 border-t border-border bg-muted/50 py-2 px-4">
+        <div className="max-w-screen-2xl mx-auto flex items-center justify-center gap-2 text-sm text-muted-foreground">
           <Check className="w-4 h-4 text-green-600" />
           <span>{SYSTEM_NAME} â€¢ Gestor de Pedidos</span>
         </div>
@@ -985,7 +985,7 @@ export default function GestorPedidos() {
       {/* Aba flutuante "Avalie a plataforma" */}
       <a
         href="#avalie"
-        className="fixed right-0 top-1/2 -translate-y-1/2 z-40 hidden xl:flex items-center justify-center w-10 h-24 bg-gray-800 hover:bg-gray-700 text-white text-xs font-medium rounded-l-lg shadow-lg writing-mode-vertical cursor-pointer"
+        className="fixed right-0 top-1/2 -translate-y-1/2 z-40 hidden xl:flex items-center justify-center w-10 h-24 bg-card hover:bg-muted text-primary-foreground text-xs font-medium rounded-l-lg shadow-lg writing-mode-vertical cursor-pointer"
         style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
         title="Avalie a plataforma"
       >
@@ -1009,7 +1009,7 @@ export default function GestorPedidos() {
             setPrintQueue([]);
             toast.success(`${printQueue.length} comanda(s) enviada(s) para impressÃ£o`);
           }}
-          className="fixed right-4 z-50 flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white px-4 py-3 rounded-xl shadow-lg bottom-20 lg:bottom-6"
+          className="fixed right-4 z-50 flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-primary-foreground px-4 py-3 rounded-xl shadow-lg bottom-20 lg:bottom-6"
         >
           <Printer className="w-5 h-5" />
           Imprimir {printQueue.length} comanda(s)
@@ -1020,7 +1020,7 @@ export default function GestorPedidos() {
       <Dialog open={showAreYouThereModal} onOpenChange={(o) => { if (!o) setShowAreYouThereModal(false); }}>
         <DialogContent className="max-w-sm" aria-describedby="are-you-there-desc">
           <DialogTitle>VocÃª ainda estÃ¡ aÃ­?</DialogTitle>
-          <DialogDescription id="are-you-there-desc" className="text-sm text-gray-600">O gestor estÃ¡ pausado. Toque em Continuar para seguir recebendo avisos.</DialogDescription>
+          <DialogDescription id="are-you-there-desc" className="text-sm text-muted-foreground">O gestor estÃ¡ pausado. Toque em Continuar para seguir recebendo avisos.</DialogDescription>
           <div className="flex gap-2 mt-4">
             <Button onClick={() => setShowAreYouThereModal(false)} className="flex-1 bg-orange-500 hover:bg-orange-600 uppercase font-bold">
               Continuar
@@ -1045,16 +1045,16 @@ export default function GestorPedidos() {
           </DialogTitle>
           <DialogDescription id="atalhos-desc" className="sr-only">Lista de atalhos de teclado do gestor de pedidos.</DialogDescription>
           <div className="grid gap-2 text-sm">
-            <p><kbd className="px-1.5 py-0.5 rounded bg-gray-100 font-mono">K</kbd> Quadros</p>
-            <p><kbd className="px-1.5 py-0.5 rounded bg-gray-100 font-mono">D</kbd> Entregadores</p>
-            <p><kbd className="px-1.5 py-0.5 rounded bg-gray-100 font-mono">R</kbd> Resumo</p>
-            <p><kbd className="px-1.5 py-0.5 rounded bg-gray-100 font-mono">S</kbd> Ajustes</p>
-            <p><kbd className="px-1.5 py-0.5 rounded bg-gray-100 font-mono">H</kbd> InÃ­cio</p>
-            <p><kbd className="px-1.5 py-0.5 rounded bg-gray-100 font-mono">N</kbd> SÃ³ novos</p>
-            <p><kbd className="px-1.5 py-0.5 rounded bg-gray-100 font-mono">1</kbd>-<kbd className="px-1.5 py-0.5 rounded bg-gray-100 font-mono">5</kbd> Status (com modal aberto)</p>
-            <p><kbd className="px-1.5 py-0.5 rounded bg-gray-100 font-mono">Ctrl+F</kbd> Buscar</p>
-            <p><kbd className="px-1.5 py-0.5 rounded bg-gray-100 font-mono">Ctrl+R</kbd> Atualizar</p>
-            <p><kbd className="px-1.5 py-0.5 rounded bg-gray-100 font-mono">Esc</kbd> Fechar modal</p>
+            <p><kbd className="px-1.5 py-0.5 rounded bg-muted/50 font-mono">K</kbd> Quadros</p>
+            <p><kbd className="px-1.5 py-0.5 rounded bg-muted/50 font-mono">D</kbd> Entregadores</p>
+            <p><kbd className="px-1.5 py-0.5 rounded bg-muted/50 font-mono">R</kbd> Resumo</p>
+            <p><kbd className="px-1.5 py-0.5 rounded bg-muted/50 font-mono">S</kbd> Ajustes</p>
+            <p><kbd className="px-1.5 py-0.5 rounded bg-muted/50 font-mono">H</kbd> InÃ­cio</p>
+            <p><kbd className="px-1.5 py-0.5 rounded bg-muted/50 font-mono">N</kbd> SÃ³ novos</p>
+            <p><kbd className="px-1.5 py-0.5 rounded bg-muted/50 font-mono">1</kbd>-<kbd className="px-1.5 py-0.5 rounded bg-muted/50 font-mono">5</kbd> Status (com modal aberto)</p>
+            <p><kbd className="px-1.5 py-0.5 rounded bg-muted/50 font-mono">Ctrl+F</kbd> Buscar</p>
+            <p><kbd className="px-1.5 py-0.5 rounded bg-muted/50 font-mono">Ctrl+R</kbd> Atualizar</p>
+            <p><kbd className="px-1.5 py-0.5 rounded bg-muted/50 font-mono">Esc</kbd> Fechar modal</p>
           </div>
         </DialogContent>
       </Dialog>

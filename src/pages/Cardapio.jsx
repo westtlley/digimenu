@@ -63,28 +63,28 @@ import { formatCurrency } from '@/utils/formatters';
 /** Landing quando não há slug: / ou /cardapio — não exibe cardápio de nenhum estabelecimento. */
 function CardapioSemLink() {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
-      <div className="text-center max-w-md p-8 rounded-2xl bg-white dark:bg-gray-800 shadow-xl border border-gray-200 dark:border-gray-700">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
+      <div className="text-center max-w-md p-8 rounded-2xl bg-card text-card-foreground shadow-xl border border-border">
         <img src={SYSTEM_LOGO_URL} alt={SYSTEM_NAME} className="h-16 w-auto mx-auto mb-4 drop-shadow-md" />
-        <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">{SYSTEM_NAME}</h1>
-        <p className="mt-3 text-gray-600 dark:text-gray-400">
+        <h1 className="text-xl font-bold text-foreground">{SYSTEM_NAME}</h1>
+        <p className="mt-3 text-muted-foreground">
           O cardápio digital é acessado pelo link do estabelecimento: <strong>/s/nome-do-restaurante</strong>
         </p>
-        <p className="mt-2 text-sm text-gray-500 dark:text-gray-500">
+        <p className="mt-2 text-sm text-muted-foreground">
           Ex.: /s/raiz-maranhense
         </p>
-        <p className="mt-3 text-xs text-gray-500 dark:text-gray-400 border-t border-gray-200 dark:border-gray-600 pt-3">
+        <p className="mt-3 text-xs text-muted-foreground border-t border-border pt-3">
           <strong>Master:</strong> abra o cardápio em <strong>Admin → Assinantes</strong> e use <strong>⋮ → Abrir cardápio</strong> no assinante desejado. <strong>Assinante:</strong> use o link do seu painel ou Loja.
         </p>
         <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
-          <Link to="/assinar" className="px-4 py-2.5 rounded-lg bg-orange-500 text-white font-medium hover:bg-orange-600 transition-colors">
+          <Link to="/assinar" className="px-4 py-2.5 rounded-lg bg-orange-500 text-primary-foreground font-medium hover:bg-orange-600 transition-colors">
             Assinar {SYSTEM_NAME}
           </Link>
-          <Link to="/" className="px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+          <Link to="/" className="px-4 py-2.5 rounded-lg border border-border text-foreground font-medium hover:bg-muted transition-colors">
             Voltar ao início
           </Link>
         </div>
-        <a href="/" className="mt-4 inline-block text-sm text-gray-500 dark:text-gray-400 hover:text-orange-500">Voltar ao início</a>
+        <a href="/" className="mt-4 inline-block text-sm text-muted-foreground hover:text-orange-500">Voltar ao início</a>
       </div>
     </div>
   );
@@ -1031,19 +1031,19 @@ export default function Cardapio() {
   if (slug && publicError) {
     const isTimeoutOrNetwork = publicErrorDetails?.isTimeout || publicErrorDetails?.message?.includes('fetch') || publicErrorDetails?.message?.includes('rede');
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
-        <div className="text-center max-w-md p-6 rounded-xl bg-white dark:bg-gray-800 shadow-lg border border-gray-200 dark:border-gray-700">
-          <p className="text-xl font-medium text-gray-800 dark:text-gray-100">
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <div className="text-center max-w-md p-6 rounded-xl bg-card text-card-foreground shadow-lg border border-border">
+          <p className="text-xl font-medium text-foreground">
             {isTimeoutOrNetwork ? 'Não foi possível carregar' : 'Link não encontrado'}
           </p>
-          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+          <p className="mt-2 text-sm text-muted-foreground">
             {isTimeoutOrNetwork
               ? 'O servidor pode estar iniciando ou a conexão falhou. Tente novamente em alguns segundos.'
               : 'Este cardápio não existe ou o link está incorreto. Verifique com o estabelecimento.'}
           </p>
           <Button
             onClick={() => queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] })}
-            className="mt-4 bg-orange-500 text-white hover:bg-orange-600"
+            className="mt-4 bg-orange-500 text-primary-foreground hover:bg-orange-600"
           >
             Tentar novamente
           </Button>
@@ -1420,17 +1420,17 @@ export default function Cardapio() {
   // Carregamento mínimo (sem tela laranja): só spinner neutro; ao carregar, vai direto para a tela principal do restaurante
   if (slug && publicLoading) {
     return (
-      <div className="min-h-screen min-h-screen-mobile flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-900">
+      <div className="min-h-screen min-h-screen-mobile flex flex-col items-center justify-center bg-background">
         <Toaster position="top-center" />
         {!(showRetryAfterTimeout || publicError) && (
           <div className="flex flex-col items-center gap-4">
             <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
-            <p className="text-sm text-gray-500 dark:text-gray-400">Carregando cardápio...</p>
+            <p className="text-sm text-muted-foreground">Carregando cardápio...</p>
           </div>
         )}
         {(showRetryAfterTimeout || publicError) && (
           <div className="text-center max-w-xs px-4">
-            <p className="text-gray-700 dark:text-gray-300 text-sm mb-3">
+            <p className="text-foreground text-sm mb-3">
               {publicError ? (publicErrorDetails?.isTimeout ? 'O servidor demorou para responder.' : 'Não foi possível carregar o cardápio. Verifique o link e a conexão.') : 'Está demorando mais que o normal.'}
             </p>
             <Button
@@ -1438,7 +1438,7 @@ export default function Cardapio() {
                 setLoadingTimeout(false);
                 queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
               }}
-              className="bg-orange-500 text-white hover:bg-orange-600"
+              className="bg-orange-500 text-primary-foreground hover:bg-orange-600"
             >
               Tentar novamente
             </Button>
@@ -1478,18 +1478,18 @@ export default function Cardapio() {
                   className="h-24 w-24 max-w-[280px] object-contain drop-shadow-lg rounded-xl"
                 />
               )}
-              <p className="text-white font-semibold text-xl text-center drop-shadow-sm">
+              <p className="text-primary-foreground font-semibold text-xl text-center drop-shadow-sm">
                 {store?.name || 'Cardápio'}
               </p>
               {loadingTimeout && publicError && (
                 <div className="mt-4 text-center max-w-sm">
-                  <p className="text-white/90 text-sm mb-3">Erro ao carregar cardápio</p>
+                  <p className="text-primary-foreground/90 text-sm mb-3">Erro ao carregar cardápio</p>
                   <Button
                     onClick={() => {
                       setLoadingTimeout(false);
                       window.location.reload();
                     }}
-                    className="bg-white text-orange-500 hover:bg-gray-100 px-4 py-2 rounded-lg font-medium"
+                    className="bg-card text-orange-500 hover:bg-muted px-4 py-2 rounded-lg font-medium"
                   >
                     Tentar Novamente
                   </Button>
@@ -1499,7 +1499,7 @@ export default function Cardapio() {
                 <motion.div
                   animate={{ opacity: [0.4, 1, 0.4] }}
                   transition={{ duration: 0.8, repeat: Infinity }}
-                  className="h-1 w-24 rounded-full bg-white/70"
+                  className="h-1 w-24 rounded-full bg-primary-foreground/70"
                 />
               )}
             </motion.div>
