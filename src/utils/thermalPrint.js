@@ -359,8 +359,8 @@ function generateReceiptContent(saleData, store) {
         
         return `
         <div class="itemRow">
-          <div>${quantity}x ${itemName}${details}</div>
-          <div class="text-right">${formatCurrency(itemTotal)}</div>
+          <div class="itemLabel">${quantity}x ${itemName}${details}</div>
+          <div class="itemValue">${formatCurrency(itemTotal)}</div>
         </div>
         `;
       }).join('')}
@@ -368,20 +368,20 @@ function generateReceiptContent(saleData, store) {
       <div class="lineText">${DASH_LINE}</div>
       
       <div class="itemRow">
-        <div>Subtotal</div>
-        <div class="text-right">${formatCurrency(subtotal)}</div>
+        <div class="itemLabel">Subtotal</div>
+        <div class="itemValue">${formatCurrency(subtotal)}</div>
       </div>
       
       ${discount > 0 ? `
       <div class="itemRow">
-        <div>Desconto</div>
-        <div class="text-right">-${formatCurrency(discount)}</div>
+        <div class="itemLabel">Desconto</div>
+        <div class="itemValue">-${formatCurrency(discount)}</div>
       </div>
       ` : ''}
       
       <div class="itemRow bold total">
-        <div>TOTAL</div>
-        <div class="text-right">${formatCurrency(total)}</div>
+        <div class="itemLabel">TOTAL</div>
+        <div class="itemValue">${formatCurrency(total)}</div>
       </div>
       
       <div class="lineText">${DASH_LINE}</div>
@@ -399,16 +399,16 @@ function generateReceiptContent(saleData, store) {
 
         return `
       <div class="itemRow">
-        <div>${label}</div>
-        <div class="text-right">${formatCurrency(value)}</div>
+        <div class="itemLabel">${label}</div>
+        <div class="itemValue">${formatCurrency(value)}</div>
       </div>
       `;
       }).join('')}
       
       ${change > 0 ? `
       <div class="itemRow">
-        <div>Troco</div>
-        <div class="text-right">${formatCurrency(change)}</div>
+        <div class="itemLabel">Troco</div>
+        <div class="itemValue">${formatCurrency(change)}</div>
       </div>
       ` : ''}
       
@@ -552,20 +552,20 @@ function generateClosingReportContent(reportData) {
       <div class="lineText">${DASH_LINE}</div>
       
       <div class="itemRow">
-        <div>TROCO</div>
-        <div class="text-right">${formatCurrency(totalTroco || 0)}</div>
+        <div class="itemLabel">TROCO</div>
+        <div class="itemValue">${formatCurrency(totalTroco || 0)}</div>
       </div>
       <div class="itemRow">
-        <div>DESCONTO</div>
-        <div class="text-right">${formatCurrency(totalDesconto || 0)}</div>
+        <div class="itemLabel">DESCONTO</div>
+        <div class="itemValue">${formatCurrency(totalDesconto || 0)}</div>
       </div>
       <div class="itemRow">
-        <div>ACRÃ‰SCIMO</div>
-        <div class="text-right">${formatCurrency(totalAcrescimo || 0)}</div>
+        <div class="itemLabel">ACRÃ‰SCIMO</div>
+        <div class="itemValue">${formatCurrency(totalAcrescimo || 0)}</div>
       </div>
       <div class="itemRow">
-        <div>QTDE CUPONS</div>
-        <div class="text-right">${qtdeCupons || 0}</div>
+        <div class="itemLabel">QTDE CUPONS</div>
+        <div class="itemValue">${qtdeCupons || 0}</div>
       </div>
       
       <div class="lineText">${DASH_LINE}</div>

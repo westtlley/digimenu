@@ -71,6 +71,10 @@ export function openThermalPrintWindow({
   const finalFontSize = toNumber(fontSize, stored.fontSize);
   const finalLineSpacing = toNumber(lineSpacing, stored.lineSpacing);
   const shouldAutoClose = autoClose ?? stored.autoClose;
+  const valueColumnWidth = finalPaperWidth === '58mm' ? 62 : 74;
+  const qtyColumnWidth = finalPaperWidth === '58mm' ? 24 : 32;
+  const rowGap = finalPaperWidth === '58mm' ? 6 : 8;
+  const smallFontSize = Math.max(9, finalFontSize - 2);
 
   const popupWidth = finalPaperWidth === '58mm' ? 360 : 420;
   const printWindow = window.open('', '_blank', `width=${popupWidth},height=720`);
@@ -102,6 +106,8 @@ export function openThermalPrintWindow({
             color: #000 !important;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
+            opacity: 1 !important;
+            text-shadow: none !important;
           }
 
           body {
@@ -115,11 +121,13 @@ export function openThermalPrintWindow({
             word-break: break-word;
             overflow-wrap: anywhere;
             color: #000;
+            --item-value-width: ${valueColumnWidth}px;
+            --item-gap: ${rowGap}px;
           }
 
           .center { text-align: center; }
           .bold { font-weight: 700; }
-          .small { font-size: 10px; }
+          .small { font-size: ${smallFontSize}px; }
           .lineText {
             white-space: pre;
             letter-spacing: 0.3px;
@@ -131,26 +139,30 @@ export function openThermalPrintWindow({
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
-            gap: 8px;
+            gap: ${rowGap}px;
             margin: 2px 0;
             font-family: "Courier New", monospace;
           }
           .item > div:first-child,
+          .itemRow > div:first-child,
           .itemRow .itemLabel {
             flex: 1;
             min-width: 0;
             padding-right: 8px;
+            word-break: break-word;
+            overflow-wrap: anywhere;
           }
           .item .text-right,
+          .itemRow > .text-right,
           .itemRow .itemValue {
-            min-width: 74px;
+            min-width: ${valueColumnWidth}px;
             text-align: right;
             white-space: nowrap;
           }
           .item-3col {
             display: grid;
-            grid-template-columns: minmax(0, 1fr) 32px 74px;
-            gap: 6px;
+            grid-template-columns: minmax(0, 1fr) ${qtyColumnWidth}px ${valueColumnWidth}px;
+            gap: ${rowGap}px;
             margin: 2px 0;
             align-items: flex-start;
             font-family: "Courier New", monospace;

@@ -94,15 +94,14 @@ function buildItemsHtml(order) {
 }
 
 const COMANDA_STYLE = `
-body{font-family:"Courier New",monospace;font-size:12px;font-weight:600;line-height:1.35;margin:0 auto;max-width:80mm;color:#000;}
-*{color:#000!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+*{color:#000!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;opacity:1!important;text-shadow:none!important;}
 .center{text-align:center;}
 .bold{font-weight:700;}
-.small{font-size:10px;white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere;}
+.small{font-size:.9em;white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere;}
 .lineText{white-space:pre;letter-spacing:.3px;overflow:hidden;margin:6px 0;}
-.itemRow{display:flex;justify-content:space-between;font-family:"Courier New",monospace;gap:8px;margin:2px 0;}
+.itemRow{display:flex;justify-content:space-between;font-family:"Courier New",monospace;gap:var(--item-gap,8px);margin:2px 0;}
 .itemLabel{flex:1;min-width:0;padding-right:8px;word-break:break-word;overflow-wrap:anywhere;}
-.itemValue{min-width:74px;text-align:right;white-space:nowrap;}
+.itemValue{min-width:var(--item-value-width,74px);text-align:right;white-space:nowrap;}
 .page-break{page-break-after:always;}
 `;
 

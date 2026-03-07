@@ -13,17 +13,48 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import toast from 'react-hot-toast';
 import { usePermission } from '../permissions/usePermission';
 import { thermalPrint } from '@/utils/thermalPrint';
+import { isBridgeAvailable, testBridgePrinter } from '@/utils/printBridgeClient';
+
+const THERMAL_BRANDS_REGEX = /(epson|tm-|elgin|bematech|daruma|xprinter|thermal|termica|sunmi|tanca|pos-?58|pos-?80)/i;
+const PAPER_58_REGEX = /(58|58mm|pos-?58|rp58|m58)/i;
+const PAPER_80_REGEX = /(80|80mm|pos-?80|rp80|m80)/i;
+
+function inferPaperWidth(deviceName = '', fallback = '80mm') {
+  if (PAPER_58_REGEX.test(deviceName)) return '58mm';
+  if (PAPER_80_REGEX.test(deviceName)) return '80mm';
+  return fallback;
+}
+
+function normalizePrinterDefaults(paperWidth = '80mm') {
+  const is58 = paperWidth === '58mm';
+  return {
+    paper_width: is58 ? '58mm' : '80mm',
+    font_size: is58 ? 11 : 12,
+    margin_top: is58 ? 2 : 3,
+    margin_right: is58 ? 2 : 3,
+    margin_bottom: is58 ? 2 : 3,
+    margin_left: is58 ? 2 : 3,
+    line_spacing: is58 ? 1.25 : 1.35,
+  };
+}
+
+function getSerialPortLabel(port) {
+  const info = port?.getInfo?.() || {};
+  const vid = Number.isFinite(info.usbVendorId) ? info.usbVendorId.toString(16).toUpperCase() : '----';
+  const pid = Number.isFinite(info.usbProductId) ? info.usbProductId.toString(16).toUpperCase() : '----';
+  return `Serial VID:${vid} PID:${pid}`;
+}
 
 const DEFAULT_PRINTER_CONFIG = {
   printer_name: '',
   printer_type: 'termica',
   connection_type: 'usb',
   paper_width: '80mm',
-  margin_top: 5,
-  margin_bottom: 5,
-  margin_left: 5,
-  margin_right: 5,
-  line_spacing: 1.5,
+  margin_top: 3,
+  margin_bottom: 3,
+  margin_left: 3,
+  margin_right: 3,
+  line_spacing: 1.35,
   font_size: 12,
   auto_cut: true,
   open_drawer: false,
@@ -32,6 +63,7 @@ const DEFAULT_PRINTER_CONFIG = {
 
 export default function PrinterConfig() {
   const [showPreview, setShowPreview] = useState(false);
+  const [isDetecting, setIsDetecting] = useState(false);
   const queryClient = useQueryClient();
   const { menuContext } = usePermission();
 
@@ -84,11 +116,120 @@ export default function PrinterConfig() {
     saveMutation.mutate(formData);
   };
 
-  const handleTestPrint = () => {
+  const handleAutoDetectPrinter = async () => {
+    if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+      toast.error('Deteccao disponivel apenas no navegador');
+      return;
+    }
+
+    setIsDetecting(true);
+    try {
+      let detected = null;
+
+      if (!detected && navigator.usb?.getDevices) {
+        const usbDevices = await navigator.usb.getDevices();
+        if (Array.isArray(usbDevices) && usbDevices.length > 0) {
+          const candidate = usbDevices.find((device) => {
+            const name = `${device?.manufacturerName || ''} ${device?.productName || ''}`.trim();
+            return THERMAL_BRANDS_REGEX.test(name);
+          }) || usbDevices[0];
+
+          const rawName = `${candidate?.manufacturerName || ''} ${candidate?.productName || ''}`.trim();
+          const printerName = rawName || 'Impressora USB';
+          detected = {
+            source: 'USB',
+            name: printerName,
+            connectionType: 'usb',
+            printMethod: 'hybrid',
+            paperWidth: inferPaperWidth(printerName, '80mm'),
+          };
+        }
+      }
+
+      if (!detected && navigator.serial?.getPorts) {
+        const serialPorts = await navigator.serial.getPorts();
+        if (Array.isArray(serialPorts) && serialPorts.length > 0) {
+          const serialLabel = getSerialPortLabel(serialPorts[0]);
+          detected = {
+            source: 'WebSerial',
+            name: serialLabel,
+            connectionType: 'usb',
+            printMethod: 'escpos',
+            paperWidth: inferPaperWidth(serialLabel, '80mm'),
+          };
+        }
+      }
+
+      if (!detected && navigator.bluetooth?.requestDevice) {
+        try {
+          const bluetoothDevice = await navigator.bluetooth.requestDevice({ acceptAllDevices: true });
+          const btName = bluetoothDevice?.name || 'Impressora Bluetooth';
+          detected = {
+            source: 'Bluetooth',
+            name: btName,
+            connectionType: 'bluetooth',
+            printMethod: 'css',
+            paperWidth: inferPaperWidth(btName, '58mm'),
+          };
+        } catch (btError) {
+          if (btError?.name !== 'NotFoundError') {
+            console.warn('[PrinterConfig] Falha ao detectar Bluetooth:', btError);
+          }
+        }
+      }
+
+      if (!detected) {
+        const isMobile = /android|iphone|ipad|ipod/i.test(navigator.userAgent || '');
+        const inferredPaper = isMobile ? '58mm' : '80mm';
+        setFormData((prev) => ({
+          ...prev,
+          connection_type: isMobile ? 'bluetooth' : 'usb',
+          printer_type: 'termica',
+          print_method: 'css',
+          ...normalizePrinterDefaults(inferredPaper),
+        }));
+        toast('Nao foi possivel detectar impressora conectada. Ajustes basicos foram aplicados.');
+        return;
+      }
+
+      setFormData((prev) => ({
+        ...prev,
+        printer_name: detected.name,
+        printer_type: 'termica',
+        connection_type: detected.connectionType,
+        print_method: detected.printMethod,
+        ...normalizePrinterDefaults(detected.paperWidth),
+      }));
+
+      toast.success(`Impressora detectada via ${detected.source}: ${detected.name}`);
+    } catch (error) {
+      console.error('[PrinterConfig] Erro na deteccao de impressora:', error);
+      toast.error('Nao foi possivel detectar a impressora automaticamente');
+    } finally {
+      setIsDetecting(false);
+    }
+  };
+
+  const handleTestPrint = async () => {
     if (!formData.printer_name?.trim()) {
       toast.error('Configure o nome da impressora antes de testar');
       return;
     }
+
+    try {
+      const bridgeOnline = await isBridgeAvailable();
+      if (bridgeOnline) {
+        await testBridgePrinter(formData.printer_name);
+        toast.success('Teste enviado via DigiMenu Print Bridge', {
+          duration: 3000,
+          icon: 'PRINT'
+        });
+        return;
+      }
+    } catch (bridgeError) {
+      console.warn('[PrinterConfig] Falha no teste via bridge. Aplicando fallback do navegador.', bridgeError);
+    }
+
     const testContent = generateTestComanda();
     const escaped = testContent
       .replace(/&/g, '&amp;')
@@ -98,6 +239,7 @@ export default function PrinterConfig() {
     const printed = thermalPrint({
       title: 'Teste de Impressao',
       htmlContent: `<pre>${escaped}</pre>`,
+      jobType: 'teste-impressao',
       paperWidth: formData.paper_width,
       marginTop: Number(formData.margin_top) || 3,
       marginRight: Number(formData.margin_right) || 3,
@@ -115,7 +257,7 @@ export default function PrinterConfig() {
 
     toast.success('Enviando para impressora...', {
       duration: 3000,
-      icon: '🖨️'
+      icon: 'PRINT'
     });
   };
 
@@ -190,8 +332,20 @@ Espaçamento: ${formData.line_spacing}
               className={!formData.printer_name?.trim() ? 'border-red-300' : ''}
             />
             {!formData.printer_name?.trim() && (
-              <p className="text-xs text-red-500 mt-1">Nome da impressora é obrigatório</p>
+              <p className="text-xs text-red-500 mt-1">Nome da impressora e obrigatorio</p>
             )}
+            <p className="text-xs text-gray-500 mt-2">
+              Deteccao automatica usa WebUSB, WebSerial e Bluetooth (com permissao do navegador).
+            </p>
+            <Button
+              type="button"
+              onClick={handleAutoDetectPrinter}
+              variant="outline"
+              className="mt-2"
+              disabled={isDetecting}
+            >
+              {isDetecting ? 'Detectando...' : 'Detectar impressora conectada'}
+            </Button>
           </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -260,7 +414,11 @@ Espaçamento: ${formData.line_spacing}
             <Label>Largura do Papel</Label>
             <Select
               value={formData.paper_width}
-              onValueChange={(value) => setFormData({ ...formData, paper_width: value })}
+              onValueChange={(value) => setFormData({
+                ...formData,
+                ...normalizePrinterDefaults(value),
+                paper_width: value === '58mm' ? '58mm' : '80mm',
+              })}
             >
               <SelectTrigger>
                 <SelectValue />
@@ -268,7 +426,6 @@ Espaçamento: ${formData.line_spacing}
               <SelectContent>
                 <SelectItem value="58mm">58mm</SelectItem>
                 <SelectItem value="80mm">80mm</SelectItem>
-                <SelectItem value="custom">Personalizado</SelectItem>
               </SelectContent>
             </Select>
           </div>
