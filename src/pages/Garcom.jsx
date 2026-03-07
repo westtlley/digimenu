@@ -14,6 +14,7 @@ import { useComandas } from '@/hooks/useComandas';
 import { useDebounce } from '@/hooks/useDebounce';
 import { formatCurrency, formatDate } from '@/utils/formatters';
 import { COMANDA_STATUS, DEBOUNCE_DELAYS } from '@/utils/constants';
+import { printComanda as printComandaTicket } from '@/utils/gestorExport';
 import ColaboradorProfile from '../components/colaboradores/ColaboradorProfile';
 import TipsView from '../components/garcom/TipsView';
 import ComandaFormModal from '../components/garcom/ComandaFormModal';
@@ -190,94 +191,12 @@ export default function Garcom() {
   };
 
   const handlePrintComanda = (comanda) => {
-    const printWindow = window.open('', '_blank');
-    const items = Array.isArray(comanda.items) ? comanda.items : [];
-    const itemsHtml = items.map(item => {
-      const itemTotal = (Number(item.quantity) || 0) * (Number(item.unit_price) || 0);
-      return `
-        <div style="margin: 5px 0; padding: 5px 0; border-bottom: 1px dashed #ccc;">
-          <div style="display: flex; justify-content: space-between;">
-            <span><strong>${item.quantity}x</strong> ${item.dish_name || 'Item'}</span>
-            <span>${formatCurrency(itemTotal)}</span>
-          </div>
-          ${item.unit_price ? `<div style="font-size: 10px; color: #666;">Unit: ${formatCurrency(item.unit_price)}</div>` : ''}
-          ${item.observations ? `<div style="font-size: 10px; color: #666; font-style: italic;">Obs: ${item.observations}</div>` : ''}
-        </div>
-      `;
-    }).join('');
-
-    const total = comanda.total || items.reduce((sum, i) => sum + (Number(i.quantity) || 0) * (Number(i.unit_price) || 0), 0);
-    
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Comanda ${comanda.code || `#${comanda.id}`}</title>
-          <meta charset="utf-8">
-          <style>
-            @page { size: 80mm auto; margin: 5mm; }
-            body {
-              font-family: 'Courier New', monospace;
-              font-size: 12px;
-              line-height: 1.4;
-              padding: 10px;
-              margin: 0;
-              max-width: 80mm;
-            }
-            .header {
-              text-align: center;
-              margin-bottom: 10px;
-              padding-bottom: 10px;
-              border-bottom: 2px dashed #000;
-            }
-            .info { margin: 8px 0; font-size: 11px; }
-            .total {
-              border-top: 2px solid #000;
-              margin-top: 10px;
-              padding-top: 10px;
-              font-weight: bold;
-              font-size: 14px;
-              text-align: right;
-            }
-            .code {
-              background: #fff3cd;
-              border: 2px solid #ff9800;
-              padding: 8px;
-              margin: 10px 0;
-              text-align: center;
-              font-size: 18px;
-              font-weight: bold;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h1 style="margin: 0; font-size: 18px;">COMANDA</h1>
-          </div>
-          <div class="code">${comanda.code || `#${comanda.id}`}</div>
-          <div class="info">
-            ${comanda.table_name ? `<strong>Mesa:</strong> ${comanda.table_name}<br>` : ''}
-            ${comanda.customer_name ? `<strong>Cliente:</strong> ${comanda.customer_name}<br>` : ''}
-            ${comanda.customer_phone ? `<strong>Telefone:</strong> ${comanda.customer_phone}<br>` : ''}
-            <strong>Data:</strong> ${comanda.created_at ? new Date(comanda.created_at).toLocaleString('pt-BR') : new Date().toLocaleString('pt-BR')}
-          </div>
-          <div style="margin: 15px 0;">
-            <strong>ITENS:</strong>
-            ${itemsHtml}
-          </div>
-          <div class="total">
-            TOTAL: ${formatCurrency(total)}
-          </div>
-          <div style="text-align: center; margin-top: 15px; font-size: 10px; color: #666;">
-            ${new Date().toLocaleString('pt-BR')}
-          </div>
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
-    setTimeout(() => {
-      printWindow.print();
-    }, 250);
+    const printed = printComandaTicket(comanda);
+    if (!printed) {
+      toast.error('Popup bloqueado. Permita popups para imprimir.');
+      return;
+    }
+    toast.success('Comanda enviada para impressão.');
   };
 
   if (loading) {

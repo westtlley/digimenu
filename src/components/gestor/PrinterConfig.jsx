@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,23 @@ import { Printer, Save, TestTube, Eye, CheckCircle2, AlertCircle } from 'lucide-
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import toast from 'react-hot-toast';
 import { usePermission } from '../permissions/usePermission';
+import { openThermalPrintWindow } from '@/utils/printWindow';
+
+const DEFAULT_PRINTER_CONFIG = {
+  printer_name: '',
+  printer_type: 'termica',
+  connection_type: 'usb',
+  paper_width: '80mm',
+  margin_top: 5,
+  margin_bottom: 5,
+  margin_left: 5,
+  margin_right: 5,
+  line_spacing: 1.5,
+  font_size: 12,
+  auto_cut: true,
+  open_drawer: false,
+  print_method: 'css'
+};
 
 export default function PrinterConfig() {
   const [showPreview, setShowPreview] = useState(false);
@@ -32,23 +49,19 @@ export default function PrinterConfig() {
     enabled: !!menuContext,
   });
 
-  const config = configs[0] || {
-    printer_name: '',
-    printer_type: 'termica',
-    connection_type: 'usb',
-    paper_width: '80mm',
-    margin_top: 5,
-    margin_bottom: 5,
-    margin_left: 5,
-    margin_right: 5,
-    line_spacing: 1.5,
-    font_size: 12,
-    auto_cut: true,
-    open_drawer: false,
-    print_method: 'css'
-  };
-
+  const config = useMemo(() => configs[0] || DEFAULT_PRINTER_CONFIG, [configs]);
   const [formData, setFormData] = useState(config);
+
+  useEffect(() => {
+    setFormData(config);
+  }, [config]);
+
+  useEffect(() => {
+    if (!config?.id) return;
+    try {
+      localStorage.setItem('printerConfigLocal', JSON.stringify(config));
+    } catch (_) {}
+  }, [config]);
 
   const saveMutation = useMutation({
     mutationFn: (data) => {
@@ -57,7 +70,10 @@ export default function PrinterConfig() {
       }
       return base44.entities.PrinterConfig.create(data);
     },
-    onSuccess: () => {
+    onSuccess: (_saved, payload) => {
+      try {
+        localStorage.setItem('printerConfigLocal', JSON.stringify(payload || formData));
+      } catch (_) {}
       queryClient.invalidateQueries({ queryKey: ['printerConfig'] });
       toast.success('✅ Configuração salva com sucesso!');
     },
@@ -74,7 +90,29 @@ export default function PrinterConfig() {
       return;
     }
     const testContent = generateTestComanda();
-    printComanda(testContent);
+    const escaped = testContent
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+
+    const printed = openThermalPrintWindow({
+      title: 'Teste de Impressao',
+      htmlContent: `<pre>${escaped}</pre>`,
+      paperWidth: formData.paper_width,
+      marginTop: Number(formData.margin_top) || 3,
+      marginRight: Number(formData.margin_right) || 3,
+      marginBottom: Number(formData.margin_bottom) || 3,
+      marginLeft: Number(formData.margin_left) || 3,
+      fontSize: Number(formData.font_size) || 12,
+      lineSpacing: Number(formData.line_spacing) || 1.35,
+      autoClose: formData.auto_cut !== false,
+    });
+
+    if (!printed) {
+      toast.error('Popup bloqueado. Permita popups para imprimir.');
+      return;
+    }
+
     toast.success('Enviando para impressora...', {
       duration: 3000,
       icon: '🖨️'
@@ -106,32 +144,6 @@ Espaçamento: ${formData.line_spacing}
     ${new Date().toLocaleString('pt-BR')}
 ============================
 `.trim();
-  };
-
-  const printComanda = (content) => {
-    const printWindow = window.open('', '_blank');
-    const styles = `
-      <style>
-        @page { 
-          margin: ${formData.margin_top}mm ${formData.margin_right}mm ${formData.margin_bottom}mm ${formData.margin_left}mm; 
-          size: ${formData.paper_width === '58mm' ? '58mm' : formData.paper_width === '80mm' ? '80mm' : 'auto'} auto;
-        }
-        body { 
-          font-family: 'Courier New', monospace; 
-          font-size: ${formData.font_size}pt;
-          line-height: ${formData.line_spacing};
-          white-space: pre-wrap;
-        }
-      </style>
-    `;
-    printWindow.document.write(styles + '<pre>' + content + '</pre>');
-    printWindow.document.close();
-    setTimeout(() => {
-      printWindow.print();
-      if (formData.auto_cut) {
-        printWindow.close();
-      }
-    }, 250);
   };
 
   return (

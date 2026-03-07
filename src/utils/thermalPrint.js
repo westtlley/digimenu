@@ -4,6 +4,7 @@
  */
 
 import { formatCurrency } from './formatters';
+import { openThermalPrintWindow } from './printWindow';
 
 /**
  * Imprime cupom de venda em formato térmico 80mm
@@ -39,6 +40,65 @@ export function printCashClosingReport(reportData, method = 'css') {
 /**
  * Gera conteúdo HTML do cupom de venda
  */
+function toReadableLabel(value) {
+  if (value == null) return '';
+  if (typeof value === 'string' || typeof value === 'number') return String(value).trim();
+
+  if (Array.isArray(value)) {
+    return value.map(toReadableLabel).filter(Boolean).join(', ');
+  }
+
+  if (typeof value === 'object') {
+    if (value.name) return String(value.name).trim();
+    if (value.label) return String(value.label).trim();
+    if (value.title) return String(value.title).trim();
+    if (typeof value.value === 'string' || typeof value.value === 'number') {
+      return String(value.value).trim();
+    }
+  }
+
+  return '';
+}
+
+function buildItemDetails(item = {}) {
+  const details = [];
+
+  if (item?.size?.name) details.push(String(item.size.name).trim());
+
+  if (Array.isArray(item?.flavors) && item.flavors.length > 0) {
+    const flavorText = item.flavors.map((flavor) => flavor?.name).filter(Boolean).join(' + ');
+    if (flavorText) details.push(flavorText);
+  }
+
+  if (item?.edge?.name && item?.edge?.id !== 'none') {
+    details.push(`Borda: ${String(item.edge.name).trim()}`);
+  }
+
+  if (Array.isArray(item?.extras) && item.extras.length > 0) {
+    item.extras.forEach((extra) => {
+      const label = toReadableLabel(extra);
+      if (label) details.push(label);
+    });
+  }
+
+  if (item?.selections && typeof item.selections === 'object') {
+    Object.values(item.selections).forEach((selectionValue) => {
+      if (Array.isArray(selectionValue)) {
+        selectionValue.forEach((selectionItem) => {
+          const label = toReadableLabel(selectionItem);
+          if (label) details.push(label);
+        });
+      } else {
+        const label = toReadableLabel(selectionValue);
+        if (label) details.push(label);
+      }
+    });
+  }
+
+  const uniqueDetails = [...new Set(details.map((value) => String(value).trim()).filter(Boolean))];
+  return uniqueDetails.length > 0 ? ` (${uniqueDetails.join(', ')})` : '';
+}
+
 function generateReceiptContent(saleData, store) {
   const orderCode = saleData?.orderCode || saleData?.order_code || saleData?.id || '---';
   const total = Number(saleData?.total ?? 0) || 0;
@@ -95,9 +155,7 @@ function generateReceiptContent(saleData, store) {
       
       ${items.map(item => {
         const itemName = item.dish?.name || item.dish_name || item.name || 'Item';
-        const details = item.flavors?.length 
-          ? ` (${item.size?.name || ''} ${item.flavors.map(f => f.name).join(' + ')})`
-          : item.selections ? ` (${Object.values(item.selections).filter(Boolean).join(', ')})` : '';
+        const details = buildItemDetails(item);
         const quantity = Number(item.quantity ?? 1) || 1;
         const itemTotal = Number.isFinite(Number(item.total_price))
           ? Number(item.total_price)
@@ -133,12 +191,23 @@ function generateReceiptContent(saleData, store) {
       <div class="line"></div>
       
       <div class="bold">FORMA DE PAGAMENTO</div>
-      ${payments.map(p => `
+      ${payments.map((payment) => {
+        const isCash = payment?.method === 'dinheiro';
+        const receivedAmount = Number(payment?.tendered_amount ?? payment?.payment_amount ?? payment?.amount ?? 0) || 0;
+        const appliedAmount = Number(payment?.amount ?? payment?.payment_amount ?? 0) || 0;
+        const showReceived = isCash && receivedAmount > (appliedAmount + 0.001);
+        const label = showReceived
+          ? `${payment?.methodLabel || payment?.method || 'Dinheiro'} (Recebido)`
+          : `${payment?.methodLabel || payment?.method || '-'}`;
+        const value = showReceived ? receivedAmount : appliedAmount;
+
+        return `
       <div class="item">
-        <div>${p.methodLabel || p.method}</div>
-        <div class="text-right">${formatCurrency(p.amount)}</div>
+        <div>${label}</div>
+        <div class="text-right">${formatCurrency(value)}</div>
       </div>
-      `).join('')}
+      `;
+      }).join('')}
       
       ${change > 0 ? `
       <div class="item">
@@ -312,95 +381,13 @@ function generateClosingReportContent(reportData) {
  * Impressão via CSS (window.print) - Método padrão
  */
 function printViaCSS(htmlContent) {
-  const printWindow = window.open('', '_blank', 'width=300,height=600');
-  
-  printWindow.document.write(`
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta charset="utf-8">
-        <title>Impressão</title>
-        <style>
-          @page { 
-            size: 80mm auto; 
-            margin: 5mm; 
-          }
-          
-          body { 
-            font-family: 'Courier New', monospace; 
-            font-size: 12px;
-            line-height: 1.4;
-            padding: 0;
-            margin: 0;
-            max-width: 80mm;
-          }
-          
-          .receipt {
-            padding: 5mm;
-          }
-          
-          .center { 
-            text-align: center; 
-          }
-          
-          .bold { 
-            font-weight: bold; 
-          }
-          
-          .small {
-            font-size: 10px;
-          }
-          
-          .line { 
-            border-top: 1px dashed #000; 
-            margin: 5px 0; 
-          }
-          
-          .item { 
-            display: flex; 
-            justify-content: space-between;
-            margin: 3px 0;
-          }
-          
-          .item-3col {
-            display: grid;
-            grid-template-columns: 1fr auto auto;
-            gap: 8px;
-            margin: 3px 0;
-          }
-          
-          .text-right {
-            text-align: right;
-          }
-          
-          .total { 
-            font-size: 14px;
-            margin-top: 5px;
-          }
-        </style>
-      </head>
-      <body>
-        ${htmlContent}
-      </body>
-    </html>
-  `);
-  
-  printWindow.document.close();
-  
-  // Aguardar carregamento e imprimir
-  setTimeout(() => {
-    printWindow.print();
-    // Fechar após impressão (opcional)
-    setTimeout(() => {
-      printWindow.close();
-    }, 500);
-  }, 250);
+  return openThermalPrintWindow({
+    title: 'Impressao',
+    htmlContent,
+  });
 }
 
 /**
- * Impressão via ESC/POS (Web Serial API ou backend)
- * Nota: Requer implementação adicional e suporte do navegador
- */
 async function printViaESCPOS(content, data, store) {
   // Verificar se Web Serial API está disponível
   if (!('serial' in navigator)) {

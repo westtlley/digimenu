@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+﻿import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { 
@@ -28,7 +28,7 @@ import UserAuthButton from '../components/atoms/UserAuthButton';
 import { usePermission } from '../components/permissions/usePermission';
 import { useDocumentHead } from '@/hooks/useDocumentHead';
 import { useSlugContext } from '@/hooks/useSlugContext';
-import { downloadOrdersCSV, exportGestorReportPDF, printOrdersInQueue } from '../utils/gestorExport';
+import { downloadOrdersCSV, exportGestorReportPDF, printComanda, printOrdersInQueue } from '../utils/gestorExport';
 import { getNotificationSoundConfig } from '@/utils/gestorSounds';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -68,6 +68,7 @@ export default function GestorPedidos() {
   const areYouThereTimerRef = useRef(null);
   const seenNewOrderIdsRef = useRef(new Set());
   const autoAcceptedIdsRef = useRef(new Set());
+  const autoPrintedIdsRef = useRef(new Set());
   const queryClient = useQueryClient();
   const { isMaster, hasModuleAccess, canUpdate, loading: permLoading, user, subscriberData } = usePermission();
   const { slug, subscriberEmail, inSlugContext, loading: slugLoading, error: slugError } = useSlugContext();
@@ -77,7 +78,7 @@ export default function GestorPedidos() {
   const canUpdateGestor = isMaster || canUpdate('gestor_pedidos');
   const hasAccess = isMaster || hasModuleAccess('gestor_pedidos');
   const backPage = isMaster ? 'Admin' : 'PainelAssinante';
-  // Em /s/:slug, master usa as_subscriber; assinante/colaborador já é filtrado pelo backend
+  // Em /s/:slug, master usa as_subscriber; assinante/colaborador jÃ¡ Ã© filtrado pelo backend
   const asSub = (inSlugContext && isMaster && subscriberEmail) ? subscriberEmail : undefined;
   const canAccessSlug = !inSlugContext || isMaster || (user?.email || '').toLowerCase() === (subscriberEmail || '').toLowerCase() || (user?.subscriber_email || '').toLowerCase() === (subscriberEmail || '').toLowerCase();
 
@@ -92,9 +93,9 @@ export default function GestorPedidos() {
     queryFn: async () => {
       const opts = asSub ? { as_subscriber: asSub } : {};
       const allOrders = await base44.entities.Order.list('-created_date', opts);
-      // Filtrar apenas pedidos do cardápio (não do PDV/Balcão)
+      // Filtrar apenas pedidos do cardÃ¡pio (nÃ£o do PDV/BalcÃ£o)
       return allOrders.filter(order => {
-        // Bloquear pedidos PDV e de Balcão
+        // Bloquear pedidos PDV e de BalcÃ£o
         const isPDV = order.order_code?.startsWith('PDV-');
         const isBalcao = order.delivery_method === 'balcao';
         return !isPDV && !isBalcao;
@@ -130,7 +131,7 @@ export default function GestorPedidos() {
       const gestorSettings = gs ? JSON.parse(gs) : {};
       if (gestorSettings.sound_notifications === false) setSoundEnabled(false);
     } catch (e) {
-      console.error('Erro ao carregar configurações de notificação:', e);
+      console.error('Erro ao carregar configuraÃ§Ãµes de notificaÃ§Ã£o:', e);
     }
   };
 
@@ -146,7 +147,7 @@ export default function GestorPedidos() {
     };
   }, []);
 
-  // Aceitar automaticamente (quando ativado em Configurações do gestor) — update parcial para não sobrescrever dados
+  // Aceitar automaticamente (quando ativado em ConfiguraÃ§Ãµes do gestor) â€” update parcial para nÃ£o sobrescrever dados
   useEffect(() => {
     try {
       const gs = localStorage.getItem('gestorSettings');
@@ -154,6 +155,7 @@ export default function GestorPedidos() {
       if (!gestorSettings.auto_accept || !orders.length) return;
 
       const prepTime = Math.max(5, Math.min(180, Number(gestorSettings.default_prep_time) || 30));
+      const shouldAutoPrint = gestorSettings.auto_print === true;
       const newOrders = orders.filter(o => o.status === 'new');
 
       (async () => {
@@ -161,11 +163,20 @@ export default function GestorPedidos() {
           if (autoAcceptedIdsRef.current.has(o.id)) continue;
           autoAcceptedIdsRef.current.add(o.id);
           try {
-            await base44.entities.Order.update(o.id, {
+            const updatedOrder = await base44.entities.Order.update(o.id, {
               status: 'accepted',
               accepted_at: new Date().toISOString(),
               prep_time: prepTime,
             }, asSub ? { as_subscriber: asSub } : {});
+
+            if (shouldAutoPrint && !autoPrintedIdsRef.current.has(o.id)) {
+              autoPrintedIdsRef.current.add(o.id);
+              const printed = printComanda(updatedOrder || { ...o, status: 'accepted' });
+              if (!printed) {
+                toast.error('Popup bloqueado. Permita popups para impressao automatica.');
+              }
+            }
+
             queryClient.invalidateQueries({ queryKey: ['gestorOrders', asSub ?? 'me'] });
           } catch (e) {
             autoAcceptedIdsRef.current.delete(o.id);
@@ -175,7 +186,7 @@ export default function GestorPedidos() {
     } catch (_) {}
   }, [orders, queryClient, asSub]);
 
-  // Notificação de novo pedido por IDs (evita falhas quando pedidos são aceitos rápido)
+  // NotificaÃ§Ã£o de novo pedido por IDs (evita falhas quando pedidos sÃ£o aceitos rÃ¡pido)
   useEffect(() => {
     if (!notificationConfig || orders.length === 0) return;
     const shouldNotify = (status) => notificationConfig.notifyOnStatus?.[status] !== false;
@@ -203,7 +214,7 @@ export default function GestorPedidos() {
     }
   }, [orders, soundEnabled, notificationConfig]);
 
-  // "Está aí?" (inatividade): após N min sem interação, modal
+  // "EstÃ¡ aÃ­?" (inatividade): apÃ³s N min sem interaÃ§Ã£o, modal
   useEffect(() => {
     try {
       const gs = JSON.parse(localStorage.getItem('gestorSettings') || '{}');
@@ -234,7 +245,7 @@ export default function GestorPedidos() {
     } catch (_) {}
   }, []);
 
-  // Auto-cancel late orders (configurável em Ajustes: desligado / só alertar / cancelar após X min)
+  // Auto-cancel late orders (configurÃ¡vel em Ajustes: desligado / sÃ³ alertar / cancelar apÃ³s X min)
   useEffect(() => {
     const checkLateOrders = async () => {
       try {
@@ -251,7 +262,7 @@ export default function GestorPedidos() {
           const minutesElapsed = (now - acceptedTime) / 1000 / 60;
           if (minutesElapsed <= prepTime + marginMins) continue;
           if (mode === 'alert') {
-            toast(`Pedido ${order.order_code || order.id} atrasado (prep ${prepTime} min + ${marginMins} min)`, { icon: '⚠️', duration: 5000 });
+            toast(`Pedido ${order.order_code || order.id} atrasado (prep ${prepTime} min + ${marginMins} min)`, { icon: 'âš ï¸', duration: 5000 });
             continue;
           }
           // mode === 'cancel'
@@ -277,7 +288,7 @@ export default function GestorPedidos() {
     } catch (_) {}
   };
 
-  // Atalhos de teclado avançados
+  // Atalhos de teclado avanÃ§ados
   useEffect(() => {
     const handleKeyDown = (e) => {
       // Ignorar se estiver digitando em input/textarea
@@ -301,7 +312,7 @@ export default function GestorPedidos() {
         return;
       }
 
-      // Ctrl/Cmd + R: Refresh (prevenir reload padrão)
+      // Ctrl/Cmd + R: Refresh (prevenir reload padrÃ£o)
       if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
         e.preventDefault();
         queryClient.invalidateQueries({ queryKey: ['gestorOrders', asSub ?? 'me'] });
@@ -309,7 +320,7 @@ export default function GestorPedidos() {
         return;
       }
 
-      // Navegação entre views (apenas se não estiver em input)
+      // NavegaÃ§Ã£o entre views (apenas se nÃ£o estiver em input)
       if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA' && !e.target.isContentEditable) {
         // K: Kanban
         if (e.key === 'k' || e.key === 'K') {
@@ -343,23 +354,23 @@ export default function GestorPedidos() {
             return;
           }
         }
-        // H: Home/Início
+        // H: Home/InÃ­cio
         if (e.key === 'h' || e.key === 'H') {
           e.preventDefault();
           setViewMode('inicio');
-          toast.success('Início', { duration: 1000 });
+          toast.success('InÃ­cio', { duration: 1000 });
           return;
         }
-        // N: Só novos
+        // N: SÃ³ novos
         if (e.key === 'n' || e.key === 'N') {
           e.preventDefault();
           setOnlyNew(!onlyNew);
-          toast.success(onlyNew ? 'Mostrando todos' : 'Só novos', { duration: 1000 });
+          toast.success(onlyNew ? 'Mostrando todos' : 'SÃ³ novos', { duration: 1000 });
           return;
         }
       }
 
-      // Atalhos numéricos para status (quando modal aberto)
+      // Atalhos numÃ©ricos para status (quando modal aberto)
       if (selectedOrder && ['1', '2', '3', '4', '5'].includes(e.key)) {
         const map = { 
           '1': 'accepted', 
@@ -386,7 +397,7 @@ export default function GestorPedidos() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedOrder, showMobileMenu, showAtalhosModal, onlyNew, queryClient, viewMode]);
 
-  // Aplicar filtros básicos (aba agora/agendados)
+  // Aplicar filtros bÃ¡sicos (aba agora/agendados)
   const baseFilteredOrders = useMemo(() => {
     return orders.filter(order => {
       const isScheduled = order.scheduled_date && order.scheduled_time;
@@ -401,7 +412,7 @@ export default function GestorPedidos() {
     });
   }, [orders, activeTab]);
 
-  // Tempo de preparo sugerido (média dos últimos pedidos com accepted_at e ready_at)
+  // Tempo de preparo sugerido (mÃ©dia dos Ãºltimos pedidos com accepted_at e ready_at)
   const suggestedPrepTime = useMemo(() => {
     const withPrep = orders.filter(o => o.accepted_at && o.ready_at);
     if (withPrep.length === 0) return 30;
@@ -432,7 +443,7 @@ export default function GestorPedidos() {
   if (!user) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
-        <p className="text-gray-600 dark:text-gray-400 mb-4">Sessão expirada ou não autenticado.</p>
+        <p className="text-gray-600 dark:text-gray-400 mb-4">SessÃ£o expirada ou nÃ£o autenticado.</p>
         <Link to="/login">
           <Button className="bg-orange-500 hover:bg-orange-600">Fazer login</Button>
         </Link>
@@ -447,8 +458,8 @@ export default function GestorPedidos() {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md text-center">
-          <p className="text-gray-600 mb-4">Link não encontrado.</p>
-          <Link to="/"><Button>Ir ao cardápio</Button></Link>
+          <p className="text-gray-600 mb-4">Link nÃ£o encontrado.</p>
+          <Link to="/"><Button>Ir ao cardÃ¡pio</Button></Link>
         </div>
       </div>
     );
@@ -459,7 +470,7 @@ export default function GestorPedidos() {
         <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md text-center">
           <Lock className="w-12 h-12 text-red-500 mx-auto mb-3" />
           <h2 className="text-lg font-semibold">Acesso negado</h2>
-          <p className="text-sm text-gray-500 mt-2">Você não tem permissão para acessar o Gestor deste estabelecimento.</p>
+          <p className="text-sm text-gray-500 mt-2">VocÃª nÃ£o tem permissÃ£o para acessar o Gestor deste estabelecimento.</p>
           <Link to="/" className="mt-4 inline-block"><Button variant="outline">Voltar</Button></Link>
         </div>
       </div>
@@ -473,14 +484,14 @@ export default function GestorPedidos() {
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <Lock className="w-8 h-8 text-red-600" />
           </div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">Gestor de Pedidos Avançado</h2>
-          <p className="text-gray-600 mb-6">No plano Básico use o <strong>Gestor de pedidos</strong> no painel (aba Operação). Esta tela avançada está disponível nos planos Pro e Ultra.</p>
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">Gestor de Pedidos AvanÃ§ado</h2>
+          <p className="text-gray-600 mb-6">No plano BÃ¡sico use o <strong>Gestor de pedidos</strong> no painel (aba OperaÃ§Ã£o). Esta tela avanÃ§ada estÃ¡ disponÃ­vel nos planos Pro e Ultra.</p>
           <div className="space-y-3">
             <Link to={createPageUrl('PainelAssinante', slug || undefined)}>
               <Button className="w-full bg-orange-500 hover:bg-orange-600">Voltar ao Painel</Button>
             </Link>
             <Link to={createPageUrl('Cardapio', slug || undefined)}>
-              <Button variant="outline" className="w-full">Ver Cardápio</Button>
+              <Button variant="outline" className="w-full">Ver CardÃ¡pio</Button>
             </Link>
           </div>
         </div>
@@ -526,10 +537,10 @@ export default function GestorPedidos() {
               </div>
             </div>
 
-            {/* Right: Operação (som, atualizar) + Ferramentas (dropdown) + Voltar + Auth */}
+            {/* Right: OperaÃ§Ã£o (som, atualizar) + Ferramentas (dropdown) + Voltar + Auth */}
             <div className="flex items-center gap-1 flex-shrink-0">
               <InstallAppButton pageName="Gestor" compact />
-              {/* Grupo Operação: sempre visível */}
+              {/* Grupo OperaÃ§Ã£o: sempre visÃ­vel */}
               <Button variant="ghost" size="icon" className="h-9 w-9 min-h-touch min-w-touch" onClick={() => setSoundEnabled(!soundEnabled)} title={soundEnabled ? 'Desligar som' : 'Ligar som'}>
                 {soundEnabled ? <Volume2 className="w-4 h-4 text-gray-600" /> : <VolumeX className="w-4 h-4 text-gray-400" />}
               </Button>
@@ -554,13 +565,13 @@ export default function GestorPedidos() {
                         Exportar CSV
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => requireAuthorization('exportar', () => { exportGestorReportPDF(orders, 'today'); toast.success('PDF baixado'); })}>
-                        Relatório do dia (PDF)
+                        RelatÃ³rio do dia (PDF)
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => requireAuthorization('exportar', () => { exportGestorReportPDF(orders, 'week'); toast.success('PDF baixado'); })}>
-                        Últimos 7 dias (PDF)
+                        Ãšltimos 7 dias (PDF)
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => requireAuthorization('exportar', () => { exportGestorReportPDF(orders, 'month'); toast.success('PDF baixado'); })}>
-                        Últimos 30 dias (PDF)
+                        Ãšltimos 30 dias (PDF)
                       </DropdownMenuItem>
                     </>
                   )}
@@ -643,12 +654,12 @@ export default function GestorPedidos() {
               className={`w-full flex items-center gap-2 px-2 py-2 rounded-r-md border-l-4 transition-all duration-200 ${
                 viewMode === 'inicio' ? 'border-orange-500 bg-orange-50 text-orange-600' : 'border-transparent text-gray-600 hover:bg-gray-50'
               }`}
-              title={sidebarCollapsed ? 'Início' : ''}
+              title={sidebarCollapsed ? 'InÃ­cio' : ''}
             >
               <Home className="w-4 h-4 flex-shrink-0" />
               <span className={`text-sm font-medium whitespace-nowrap transition-all duration-300 ${
                 sidebarCollapsed ? 'opacity-0 w-0 overflow-hidden' : 'opacity-100'
-              }`}>Início</span>
+              }`}>InÃ­cio</span>
             </button>
             <button
               onClick={() => setViewMode('kanban')}
@@ -763,7 +774,7 @@ export default function GestorPedidos() {
                 }`}
               >
                 <Home className="w-5 h-5" />
-                <span className="font-medium">Início</span>
+                <span className="font-medium">InÃ­cio</span>
                 {viewMode === 'inicio' && <CheckCircle className="w-4 h-4 ml-auto" />}
               </button>
               <button
@@ -855,7 +866,7 @@ export default function GestorPedidos() {
       {/* Content */}
       <main className={`flex-1 transition-all duration-300 pb-20 lg:pb-0 ${sidebarCollapsed ? 'lg:ml-14' : 'lg:ml-52'}`}>
         <div className={`mx-auto p-4 xl:pr-14 ${(viewMode === 'kanban' || viewMode === 'delivery') ? 'max-w-screen-2xl' : 'max-w-[1240px]'}`}>
-        {/* Voltar para Quadros (quando não está no kanban) */}
+        {/* Voltar para Quadros (quando nÃ£o estÃ¡ no kanban) */}
         {viewMode !== 'kanban' && (
           <div className="mb-3">
             <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setViewMode('kanban')}>
@@ -864,10 +875,10 @@ export default function GestorPedidos() {
             </Button>
           </div>
         )}
-        {/* Breadcrumb / título contextual */}
+        {/* Breadcrumb / tÃ­tulo contextual */}
         <p className="text-xs text-gray-500 mb-2 font-medium">
-          {viewMode === 'inicio' && 'Início'}
-          {viewMode === 'kanban' && `Quadros • ${activeTab === 'now' ? 'Agora' : 'Agendados'}`}
+          {viewMode === 'inicio' && 'InÃ­cio'}
+          {viewMode === 'kanban' && `Quadros â€¢ ${activeTab === 'now' ? 'Agora' : 'Agendados'}`}
           {viewMode === 'delivery' && 'Entregadores'}
           {viewMode === 'resumo' && 'Resumo financeiro'}
           {viewMode === 'settings' && 'Ajustes'}
@@ -875,7 +886,7 @@ export default function GestorPedidos() {
         {viewMode === 'inicio' && (
           <GestorDicasAtalhos onNavigate={setViewMode} />
         )}
-        {/* Kanban: filtros, quadros (em cima), depois estatísticas */}
+        {/* Kanban: filtros, quadros (em cima), depois estatÃ­sticas */}
         {viewMode === 'kanban' && (
           <div className="mb-4 flex flex-col sm:flex-row sm:items-center gap-3 flex-wrap">
             <div className="flex-1 min-w-[200px]">
@@ -892,10 +903,10 @@ export default function GestorPedidos() {
               size="sm"
               onClick={() => setOnlyNew(!onlyNew)}
               className="h-9 shrink-0"
-              title="Só novos"
+              title="SÃ³ novos"
             >
               <Bell className="w-4 h-4 mr-1" />
-              Só novos {orders.filter(o => o.status === 'new').length > 0 && `(${orders.filter(o => o.status === 'new').length})`}
+              SÃ³ novos {orders.filter(o => o.status === 'new').length > 0 && `(${orders.filter(o => o.status === 'new').length})`}
             </Button>
           </div>
         )}
@@ -961,7 +972,7 @@ export default function GestorPedidos() {
       <footer className="hidden lg:block flex-shrink-0 border-t border-gray-200 bg-gray-100 py-2 px-4">
         <div className="max-w-screen-2xl mx-auto flex items-center justify-center gap-2 text-sm text-gray-600">
           <Check className="w-4 h-4 text-green-600" />
-          <span>{SYSTEM_NAME} • Gestor de Pedidos</span>
+          <span>{SYSTEM_NAME} â€¢ Gestor de Pedidos</span>
         </div>
       </footer>
 
@@ -975,10 +986,18 @@ export default function GestorPedidos() {
         Avalie a plataforma
       </a>
 
-      {/* Fila de impressão - botão flutuante (acima do footer no mobile) */}
+      {/* Fila de impressÃ£o - botÃ£o flutuante (acima do footer no mobile) */}
       {printQueue.length > 0 && (
         <button
-          onClick={() => { printOrdersInQueue(orders, printQueue); setPrintQueue([]); toast.success(`${printQueue.length} comanda(s) enviada(s) para impressão`); }}
+          onClick={() => {
+            const printed = printOrdersInQueue(orders, printQueue);
+            if (!printed) {
+              toast.error('Popup bloqueado. Permita popups para imprimir.');
+              return;
+            }
+            setPrintQueue([]);
+            toast.success(`${printQueue.length} comanda(s) enviada(s) para impressÃ£o`);
+          }}
           className="fixed right-4 z-50 flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white px-4 py-3 rounded-xl shadow-lg bottom-20 lg:bottom-6"
         >
           <Printer className="w-5 h-5" />
@@ -986,11 +1005,11 @@ export default function GestorPedidos() {
         </button>
       )}
 
-      {/* Modal "Está aí?" (inatividade) */}
+      {/* Modal "EstÃ¡ aÃ­?" (inatividade) */}
       <Dialog open={showAreYouThereModal} onOpenChange={(o) => { if (!o) setShowAreYouThereModal(false); }}>
         <DialogContent className="max-w-sm" aria-describedby="are-you-there-desc">
-          <DialogTitle>Você ainda está aí?</DialogTitle>
-          <DialogDescription id="are-you-there-desc" className="text-sm text-gray-600">O gestor está pausado. Toque em Continuar para seguir recebendo avisos.</DialogDescription>
+          <DialogTitle>VocÃª ainda estÃ¡ aÃ­?</DialogTitle>
+          <DialogDescription id="are-you-there-desc" className="text-sm text-gray-600">O gestor estÃ¡ pausado. Toque em Continuar para seguir recebendo avisos.</DialogDescription>
           <div className="flex gap-2 mt-4">
             <Button onClick={() => setShowAreYouThereModal(false)} className="flex-1 bg-orange-500 hover:bg-orange-600 uppercase font-bold">
               Continuar
@@ -1000,7 +1019,7 @@ export default function GestorPedidos() {
               onClick={() => { areYouTherePausedRef.current = true; setShowAreYouThereModal(false); }}
               className="flex-1"
             >
-              Desligar (sessão)
+              Desligar (sessÃ£o)
             </Button>
           </div>
         </DialogContent>
@@ -1019,8 +1038,8 @@ export default function GestorPedidos() {
             <p><kbd className="px-1.5 py-0.5 rounded bg-gray-100 font-mono">D</kbd> Entregadores</p>
             <p><kbd className="px-1.5 py-0.5 rounded bg-gray-100 font-mono">R</kbd> Resumo</p>
             <p><kbd className="px-1.5 py-0.5 rounded bg-gray-100 font-mono">S</kbd> Ajustes</p>
-            <p><kbd className="px-1.5 py-0.5 rounded bg-gray-100 font-mono">H</kbd> Início</p>
-            <p><kbd className="px-1.5 py-0.5 rounded bg-gray-100 font-mono">N</kbd> Só novos</p>
+            <p><kbd className="px-1.5 py-0.5 rounded bg-gray-100 font-mono">H</kbd> InÃ­cio</p>
+            <p><kbd className="px-1.5 py-0.5 rounded bg-gray-100 font-mono">N</kbd> SÃ³ novos</p>
             <p><kbd className="px-1.5 py-0.5 rounded bg-gray-100 font-mono">1</kbd>-<kbd className="px-1.5 py-0.5 rounded bg-gray-100 font-mono">5</kbd> Status (com modal aberto)</p>
             <p><kbd className="px-1.5 py-0.5 rounded bg-gray-100 font-mono">Ctrl+F</kbd> Buscar</p>
             <p><kbd className="px-1.5 py-0.5 rounded bg-gray-100 font-mono">Ctrl+R</kbd> Atualizar</p>
@@ -1074,9 +1093,10 @@ export default function GestorPedidos() {
           plan={plan}
           limit={effectiveLimits?.orders_per_month ?? 0}
           used={usage?.ordersCurrentMonth ?? 0}
-          suggestion={limitReached?.orders ? 'Pro libera até 3.000 pedidos/mês e equipe de 5 pessoas.' : undefined}
+          suggestion={limitReached?.orders ? 'Pro libera atÃ© 3.000 pedidos/mÃªs e equipe de 5 pessoas.' : undefined}
         />
       )}
     </div>
   );
 }
+

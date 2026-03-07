@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { 
@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/compone
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { formatBrazilianDateTime, formatScheduledDateTime } from '../utils/dateUtils';
-import { getFullAddress } from '@/utils/gestorExport';
+import { printComanda as printComandaTicket } from '@/utils/gestorExport';
 import jsPDF from 'jspdf';
 import toast from 'react-hot-toast';
 import { OrderTimeline } from '../molecules/OrderTimeline';
@@ -20,15 +20,15 @@ import { OrderTimeline } from '../molecules/OrderTimeline';
 const PAYMENT_LABELS = {
   pix: 'PIX',
   dinheiro: 'Dinheiro',
-  cartao_credito: 'Cartão de Crédito',
-  cartao_debito: 'Cartão de Débito',
+  cartao_credito: 'CartÃ£o de CrÃ©dito',
+  cartao_debito: 'CartÃ£o de DÃ©bito',
 };
 
 const REJECTION_REASONS = [
   'Loja fechada',
-  'Produto indisponível',
-  'Problema no endereço',
-  'Área fora de cobertura',
+  'Produto indisponÃ­vel',
+  'Problema no endereÃ§o',
+  'Ãrea fora de cobertura',
   'Pedido duplicado',
   'Outro motivo',
 ];
@@ -62,7 +62,7 @@ export default function OrderDetailModal({
 
   const queryClient = useQueryClient();
 
-  // Atalho 1–4: aplicar status e limpar
+  // Atalho 1â€“4: aplicar status e limpar
   React.useEffect(() => {
     if (!quickStatusKey || updateMutation.isPending) return;
     const run = () => {
@@ -106,15 +106,15 @@ export default function OrderDetailModal({
       }
       
       if (updates.status === 'cancelled' && !['new', 'accepted'].includes(order.status)) {
-        throw new Error('Pedidos em andamento não podem ser cancelados');
+        throw new Error('Pedidos em andamento nÃ£o podem ser cancelados');
       }
       
       // Validar tempo de preparo ao aceitar
       if (updates.status === 'accepted' && (!updates.prep_time || updates.prep_time < 5)) {
-        throw new Error('Tempo de preparo deve ser no mínimo 5 minutos');
+        throw new Error('Tempo de preparo deve ser no mÃ­nimo 5 minutos');
       }
       
-      // Gerar códigos automaticamente quando ficar pronto
+      // Gerar cÃ³digos automaticamente quando ficar pronto
       if (updates.status === 'ready') {
         if (!order.pickup_code) {
           updates.pickup_code = Math.floor(1000 + Math.random() * 9000).toString();
@@ -146,21 +146,30 @@ export default function OrderDetailModal({
     },
     onSuccess: (data) => {
       const newStatus = data?.status;
+      const updatedOrder = data?.order || order;
       queryClient.invalidateQueries({ queryKey: ['gestorOrders'] });
       queryClient.invalidateQueries({ queryKey: ['orderLogs', order.id] });
       const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2018/2018-preview.mp3');
       audio.volume = 0.5;
       audio.play().catch(() => {});
       const messages = {
-        'accepted': '✅ Pedido aceito!',
-        'preparing': '👨‍🍳 Em preparo!',
-        'ready': '✅ Pronto!',
-        'out_for_delivery': '🚚 Saiu para entrega!',
-        'delivered': '✅ Entregue!',
-        'cancelled': '❌ Cancelado',
+        'accepted': 'âœ… Pedido aceito!',
+        'preparing': 'ðŸ‘¨â€ðŸ³ Em preparo!',
+        'ready': 'âœ… Pronto!',
+        'out_for_delivery': 'ðŸšš Saiu para entrega!',
+        'delivered': 'âœ… Entregue!',
+        'cancelled': 'âŒ Cancelado',
       };
       if (messages[newStatus]) toast.success(messages[newStatus]);
-      onUpdate(data?.order);
+
+      if (newStatus === 'accepted' && isAutoPrintEnabled()) {
+        const printed = printComandaTicket(updatedOrder);
+        if (!printed) {
+          toast.error('Popup bloqueado. Permita popups para impressÃƒÂ£o automÃƒÂ¡tica.');
+        }
+      }
+
+      onUpdate(updatedOrder);
     },
     onError: (error) => {
       console.error('Update error:', error);
@@ -173,6 +182,15 @@ export default function OrderDetailModal({
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
   };
 
+  const isAutoPrintEnabled = () => {
+    try {
+      const settings = JSON.parse(localStorage.getItem('gestorSettings') || '{}');
+      return settings.auto_print === true;
+    } catch (_) {
+      return false;
+    }
+  };
+
   const handleAccept = async () => {
     if (updateMutation.isPending) return;
     const effectivePrep = canAlterPrepPerOrder ? prepTime : (suggestedPrepTime || 30);
@@ -181,7 +199,7 @@ export default function OrderDetailModal({
       return;
     }
     if (order.status !== 'new') {
-      toast.error('Este pedido já foi processado');
+      toast.error('Este pedido jÃ¡ foi processado');
       return;
     }
     updateMutation.mutate({
@@ -218,7 +236,7 @@ export default function OrderDetailModal({
     if (updateMutation.isPending) return;
     
     if (!['new', 'accepted'].includes(order.status)) {
-      toast.error('Este pedido não pode mais ser cancelado');
+      toast.error('Este pedido nÃ£o pode mais ser cancelado');
       return;
     }
     
@@ -233,13 +251,13 @@ export default function OrderDetailModal({
     
     if (rejectionReason === 'Outro motivo' && !customRejectionReason.trim()) {
       setCustomRejectionError(true);
-      toast.error('Descreva o motivo da rejeição');
+      toast.error('Descreva o motivo da rejeiÃ§Ã£o');
       return;
     }
     
     if (finalReason.length < 5) {
       if (rejectionReason === 'Outro motivo') setCustomRejectionError(true);
-      toast.error('Motivo muito curto. Mínimo de 5 caracteres');
+      toast.error('Motivo muito curto. MÃ­nimo de 5 caracteres');
       return;
     }
     
@@ -260,7 +278,7 @@ export default function OrderDetailModal({
   const handleAssignDelivery = async () => {
     if (updateMutation.isPending) return;
     
-    // Validações
+    // ValidaÃ§Ãµes
     if (!selectedEntregador) {
       toast.error('Selecione um entregador');
       return;
@@ -268,23 +286,23 @@ export default function OrderDetailModal({
     
     const entregador = entregadores.find(e => e.id === selectedEntregador);
     if (!entregador) {
-      toast.error('Entregador não encontrado');
+      toast.error('Entregador nÃ£o encontrado');
       return;
     }
     
     if (entregador.status !== 'available') {
-      toast.error('Entregador não está disponível');
+      toast.error('Entregador nÃ£o estÃ¡ disponÃ­vel');
       return;
     }
     
     try {
-      // Buscar configuração da loja para coordenadas
+      // Buscar configuraÃ§Ã£o da loja para coordenadas
       const stores = await base44.entities.Store.list();
       const store = stores[0];
       
       const entregador = entregadores.find(e => e.id === selectedEntregador);
       
-      // Gerar códigos se ainda não existirem
+      // Gerar cÃ³digos se ainda nÃ£o existirem
       const updates = { 
         status: 'going_to_store', 
         entregador_id: selectedEntregador,
@@ -315,7 +333,7 @@ export default function OrderDetailModal({
       }
       
       setShowDeliveryModal(false);
-      toast.success(`Entregador ${entregador.name} está indo buscar o pedido`);
+      toast.success(`Entregador ${entregador.name} estÃ¡ indo buscar o pedido`);
     } catch (e) {
       console.error('Assign delivery error:', e);
       toast.error('Erro ao atribuir entregador');
@@ -327,260 +345,39 @@ export default function OrderDetailModal({
       const opts = asSub ? { as_subscriber: asSub } : {};
       await base44.entities.Order.update(order.id, { ...order, customer_change_status: 'approved' }, opts);
       queryClient.invalidateQueries({ queryKey: ['gestorOrders'] });
-      toast.success('Alteração do cliente aceita.');
+      toast.success('AlteraÃ§Ã£o do cliente aceita.');
       onUpdate();
     } catch (e) {
-      toast.error(e?.message || 'Erro ao aceitar alteração.');
+      toast.error(e?.message || 'Erro ao aceitar alteraÃ§Ã£o.');
     }
   };
 
   const handleRejectChangeRequest = async () => {
     const motivo = (changeRejectMotivo || '').trim();
     if (motivo.length < 3) {
-      toast.error('Informe um breve motivo da reprovação (mín. 3 caracteres).');
+      toast.error('Informe um breve motivo da reprovaÃ§Ã£o (mÃ­n. 3 caracteres).');
       return;
     }
     try {
       const opts = asSub ? { as_subscriber: asSub } : {};
       await base44.entities.Order.update(order.id, { ...order, customer_change_status: 'rejected', customer_change_response: motivo }, opts);
       queryClient.invalidateQueries({ queryKey: ['gestorOrders'] });
-      toast.success('Alteração reprovada.');
+      toast.success('AlteraÃ§Ã£o reprovada.');
       setShowRejectChangeModal(false);
       setChangeRejectMotivo('');
       onUpdate();
     } catch (e) {
-      toast.error(e?.message || 'Erro ao reprovar alteração.');
+      toast.error(e?.message || 'Erro ao reprovar alteraÃ§Ã£o.');
     }
   };
 
   const handlePrint = () => {
-    try {
-      const printWindow = window.open('', '_blank');
-      
-      if (!printWindow) {
-        toast.error('Popup bloqueado! Permita popups para imprimir.');
-        return;
-      }
-
-      const paymentLabel = {
-        pix: 'PIX',
-        dinheiro: 'Dinheiro',
-        cartao_credito: 'Cartão de Crédito',
-        cartao_debito: 'Cartão de Débito',
-      }[order.payment_method] || order.payment_method;
-
-    let itemsHTML = '';
-    (order.items || []).forEach((item, idx) => {
-      const isPizza = item.dish?.product_type === 'pizza';
-      const isCombo = item.dish?.product_type === 'combo' || Array.isArray(item?.selections?.combo_groups);
-      const size = item.size || item.selections?.size;
-      const flavors = item.flavors || item.selections?.flavors;
-      const edge = item.edge || item.selections?.edge;
-      const extras = item.extras || item.selections?.extras;
-      
-      itemsHTML += `<div style="margin-bottom: 12px; border-left: 3px solid #666; padding-left: 8px;">`;
-      itemsHTML += `<p style="margin: 0; font-weight: bold;">#${idx + 1} - ${item.dish?.name} x${item.quantity || 1}</p>`;
-      
-      if (isCombo && Array.isArray(item?.selections?.combo_groups)) {
-        item.selections.combo_groups.forEach((g) => {
-          if (!g) return;
-          const title = g.title || 'Itens do combo';
-          const isDrinkGroup = /bebid/i.test(title);
-          const groupEmoji = isDrinkGroup ? '🥤' : '🍽️';
-          const groupLabel = isDrinkGroup ? 'BEBIDAS' : 'PRATOS';
-          itemsHTML += `<p style="margin: 4px 0 0 12px; font-size: 10px; font-weight: bold;">${groupEmoji} ${groupLabel}: ${title}</p>`;
-          const groupItems = Array.isArray(g.items) ? g.items : [];
-          groupItems.forEach((it) => {
-            if (!it) return;
-            const name = it?.dish_name || it?.dishName || 'Item';
-            const instances = Array.isArray(it?.instances) && it.instances.length > 0
-              ? it.instances
-              : Array.from({ length: Math.max(1, it?.quantity || 1) }, () => null);
-            instances.forEach((inst, instIdx) => {
-              const showIndex = instances.length > 1;
-              const itemLabel = isDrinkGroup ? 'Bebida' : 'Prato';
-              const label = showIndex ? `${itemLabel} ${instIdx + 1}: ` : '';
-              itemsHTML += `<p style="margin: 2px 0 0 24px; font-size: 10px;">  • ${label}${name}</p>`;
-              const sel = inst?.selections;
-              if (sel && typeof sel === 'object') {
-                Object.values(sel).forEach((groupSel) => {
-                  if (Array.isArray(groupSel)) {
-                    groupSel.forEach((opt) => {
-                      if (opt?.name) itemsHTML += `<p style="margin: 2px 0 0 36px; font-size: 10px;">    ↳ ${opt.name}</p>`;
-                    });
-                  } else if (groupSel?.name) {
-                    itemsHTML += `<p style="margin: 2px 0 0 36px; font-size: 10px;">    ↳ ${groupSel.name}</p>`;
-                  }
-                });
-              }
-            });
-          });
-        });
-      }
-      // Pizza detalhada
-      else if (isPizza && size) {
-        itemsHTML += `<p style="margin: 4px 0 0 12px; font-size: 10px; font-weight: bold;">🍕 ${size.name} (${size.slices || ''} fatias • ${flavors?.length || 0} sabores)</p>`;
-        
-        if (flavors && flavors.length > 0) {
-          itemsHTML += `<p style="margin: 2px 0 0 12px; font-size: 10px;">Sabores:</p>`;
-          const flavorCounts = flavors.reduce((acc, f) => {
-            acc[f.name] = (acc[f.name] || 0) + 1;
-            return acc;
-          }, {});
-          Object.entries(flavorCounts).forEach(([name, count]) => {
-            itemsHTML += `<p style="margin: 2px 0; font-size: 10px; margin-left: 24px;">  • ${count}/${size.slices || ''} ${name}</p>`;
-          });
-        }
-        
-        if (edge) {
-          itemsHTML += `<p style="margin: 2px 0; font-size: 10px; margin-left: 12px;">🧀 Borda: ${edge.name}</p>`;
-        }
-        
-        if (extras && extras.length > 0) {
-          itemsHTML += `<p style="margin: 2px 0; font-size: 10px; margin-left: 12px;">Extras:</p>`;
-          extras.forEach(extra => {
-            itemsHTML += `<p style="margin: 2px 0; font-size: 10px; margin-left: 24px;">  • ${extra.name}</p>`;
-          });
-        }
-        
-        if (item.specifications) {
-          itemsHTML += `<p style="margin: 2px 0; font-size: 10px; margin-left: 12px; font-style: italic;">📝 ${item.specifications}</p>`;
-        }
-      } 
-      // Prato normal
-      else if (item.selections && Object.keys(item.selections).length > 0) {
-        Object.values(item.selections).forEach(sel => {
-          if (Array.isArray(sel)) {
-            sel.forEach(opt => {
-              itemsHTML += `<p style="margin: 2px 0; font-size: 10px; margin-left: 12px;">  • ${opt.name}</p>`;
-            });
-          } else if (sel) {
-            itemsHTML += `<p style="margin: 2px 0; font-size: 10px; margin-left: 12px;">  • ${sel.name}</p>`;
-          }
-        });
-      }
-      
-      if (item.observations) {
-        itemsHTML += `<p style="margin: 2px 0; font-size: 10px; margin-left: 12px; font-style: italic;">📝 ${item.observations}</p>`;
-      }
-      
-      itemsHTML += `<p style="margin: 4px 0 0 0;">Valor: ${formatCurrency(item.totalPrice * (item.quantity || 1))}</p>`;
-      itemsHTML += `</div>`;
-    });
-
-    printWindow.document.open();
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Comanda #${order.order_code || order.id?.slice(-6).toUpperCase()}</title>
-          <style>
-            body {
-              font-family: 'Courier New', monospace;
-              font-size: 11px;
-              line-height: 1.35;
-              padding: 10mm;
-              margin: 0;
-              max-width: 80mm;
-              word-wrap: break-word;
-              overflow-wrap: break-word;
-              word-break: break-word;
-            }
-            p, div { word-wrap: break-word; overflow-wrap: break-word; word-break: break-word; }
-            h1 {
-              text-align: center;
-              font-size: 16px;
-              margin: 0 0 5px 0;
-            }
-            .header {
-              text-align: center;
-              margin-bottom: 10px;
-              padding-bottom: 10px;
-              border-bottom: 2px dashed #000;
-            }
-            .section {
-              margin: 10px 0;
-            }
-            .total {
-              border-top: 2px solid #000;
-              margin-top: 10px;
-              padding-top: 10px;
-              font-weight: bold;
-              font-size: 14px;
-            }
-            .code-box {
-              background: #fff3cd;
-              border: 2px solid #ff9800;
-              padding: 10px;
-              margin: 10px 0;
-              text-align: center;
-            }
-            .code-box .code {
-              font-size: 24px;
-              font-weight: bold;
-              letter-spacing: 5px;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h1>COMANDA</h1>
-            <p style="margin: 0;">Pedido #${order.order_code || order.id?.slice(-6).toUpperCase()}</p>
-            <p style="margin: 0; font-size: 11px;">${(order.created_at || order.created_date) ? formatBrazilianDateTime(order.created_at || order.created_date) : '—'}</p>
-          </div>
-          
-          <div class="section">
-            <p style="margin: 0;"><strong>Cliente:</strong> ${order.customer_name || ''}</p>
-            <p style="margin: 0;"><strong>Contato:</strong> ${order.customer_phone || ''}</p>
-            <p style="margin: 0;"><strong>Tipo:</strong> ${order.delivery_method === 'delivery' ? '🚴 Entrega' : '🏪 Retirada'}</p>
-            ${(getFullAddress(order) || order.address) ? `<p style="margin: 0;"><strong>Endereço:</strong> ${(getFullAddress(order) || order.address || '')}</p>` : ''}
-            <p style="margin: 0;"><strong>Pagamento:</strong> ${paymentLabel}</p>
-            ${order.payment_method === 'dinheiro' && order.needs_change && order.change_amount ? 
-              `<p style="margin: 0; color: #ff6600;"><strong>Troco para:</strong> ${formatCurrency(order.change_amount)} (Troco: ${formatCurrency(order.change_amount - order.total)})</p>` 
-            : ''}
-            ${order.scheduled_date && order.scheduled_time ? 
-              `<p style="margin: 0; color: #0066cc; font-weight: bold;">⏰ AGENDADO: ${formatScheduledDateTime(order.scheduled_date, order.scheduled_time)}</p>` 
-            : ''}
-            ${order.customer_change_request ? 
-              `<p style="margin: 4px 0 0 0; padding: 6px; background: #fef3c7; border: 1px solid #f59e0b; border-radius: 4px;"><strong>✏️ Alteração/adicional:</strong> ${order.customer_change_request}${order.customer_change_status === 'approved' ? ' <span style="color:green;">(Aceito)</span>' : order.customer_change_status === 'rejected' ? ' <span style="color:red;">(Reprovado)</span>' : ' <span style="color:#b45309;">(Pendente)</span>'}</p>` 
-            : ''}
-          </div>
-
-
-          
-          <div class="section">
-            <p style="margin: 0; font-weight: bold; border-bottom: 1px solid #000; padding-bottom: 5px;">--- Pedido ---</p>
-            ${itemsHTML}
-          </div>
-          
-          <div class="total">
-            <p style="margin: 0;">Subtotal itens: ${formatCurrency(order.subtotal)}</p>
-            ${order.delivery_fee > 0 ? `<p style="margin: 0;">Taxa de entrega: ${formatCurrency(order.delivery_fee)}</p>` : ''}
-            ${order.discount > 0 ? `<p style="margin: 0; color: green;">Desconto: -${formatCurrency(order.discount)}</p>` : ''}
-            <p style="margin: 5px 0 0 0; font-size: 16px;">TOTAL: ${formatCurrency(order.total)}</p>
-          </div>
-
-          <div style="text-align: center; margin-top: 15px; font-size: 10px; color: #666;">
-            Enviado em ${(order.created_at || order.created_date) ? formatBrazilianDateTime(order.created_at || order.created_date) : '—'}
-          </div>
-        </body>
-      </html>
-    `);
-    
-    printWindow.document.close();
-    printWindow.focus();
-    setTimeout(() => {
-      try {
-        printWindow.print();
-        toast.success('Comanda enviada para impressão!');
-      } catch (e) {
-        console.error('Erro ao imprimir:', e);
-        toast.error('Erro ao imprimir. Verifique se popups estão permitidos.');
-      }
-    }, 350);
-    } catch (error) {
-      console.error('Erro ao imprimir:', error);
-      toast.error('Erro ao imprimir. Verifique se popups estão permitidos.');
+    const printed = printComandaTicket(order);
+    if (!printed) {
+      toast.error('Popup bloqueado. Permita popups para imprimir.');
+      return;
     }
+    toast.success('Comanda enviada para impressÃ£o!');
   };
 
   const availableEntregadores = entregadores.filter(e => e.status === 'available');
@@ -598,7 +395,7 @@ export default function OrderDetailModal({
                   Pedido #{order.order_code || order.id?.slice(-6).toUpperCase()}
                 </p>
                 <p className="text-xs opacity-75">
-                  {(order.created_at || order.created_date) ? formatBrazilianDateTime(order.created_at || order.created_date) : '—'}
+                  {(order.created_at || order.created_date) ? formatBrazilianDateTime(order.created_at || order.created_date) : 'â€”'}
                 </p>
               </div>
               <button onClick={onClose} className="text-white">
@@ -606,17 +403,17 @@ export default function OrderDetailModal({
               </button>
             </div>
             
-            {/* Código de Retirada para Entregador - Apenas para o Gestor */}
+            {/* CÃ³digo de Retirada para Entregador - Apenas para o Gestor */}
             {['ready', 'going_to_store', 'arrived_at_store', 'picked_up'].includes(order.status) && order.pickup_code && (
               <div className="bg-white/20 backdrop-blur-sm border-2 border-white/50 rounded-xl p-3 text-center mt-3">
                 <p className="text-xs font-semibold mb-1">
-                  {order.status === 'picked_up' ? '✅ Código Validado' : 'Código de Retirada'}
+                  {order.status === 'picked_up' ? 'âœ… CÃ³digo Validado' : 'CÃ³digo de Retirada'}
                 </p>
                 <p className="text-4xl font-bold tracking-widest">
                   {order.pickup_code}
                 </p>
                 <p className="text-[10px] opacity-90 mt-1">
-                  {order.status === 'picked_up' ? 'Pedido coletado' : order.status === 'ready' ? 'Pronto para coleta' : 'Forneça ao entregador'}
+                  {order.status === 'picked_up' ? 'Pedido coletado' : order.status === 'ready' ? 'Pronto para coleta' : 'ForneÃ§a ao entregador'}
                 </p>
               </div>
             )}
@@ -628,11 +425,11 @@ export default function OrderDetailModal({
               <p className="font-bold text-base">{order.customer_name}</p>
               <p className="text-xs text-gray-600">{order.customer_phone}</p>
               {order.delivery_method === 'delivery' && order.address && (
-                <p className="text-xs text-gray-600">📍 {order.address}</p>
+                <p className="text-xs text-gray-600">ðŸ“ {order.address}</p>
               )}
               <div className="flex items-center gap-2 flex-wrap">
                 <Badge variant="outline" className="text-xs">
-                  {order.delivery_method === 'delivery' ? '🚴 Entrega' : '🏪 Retirada'}
+                  {order.delivery_method === 'delivery' ? 'ðŸš´ Entrega' : 'ðŸª Retirada'}
                 </Badge>
                 <Badge variant="outline" className="text-xs">
                   {PAYMENT_LABELS[order.payment_method] || order.payment_method}
@@ -640,19 +437,19 @@ export default function OrderDetailModal({
               </div>
               {order.scheduled_date && order.scheduled_time && (
                 <p className="text-xs text-blue-600 font-bold bg-blue-50 p-2 rounded">
-                  ⏰ AGENDADO: {formatScheduledDateTime(order.scheduled_date, order.scheduled_time)}
+                  â° AGENDADO: {formatScheduledDateTime(order.scheduled_date, order.scheduled_time)}
                 </p>
               )}
             </div>
 
-            {/* Solicitação de alteração/adicional do cliente */}
+            {/* SolicitaÃ§Ã£o de alteraÃ§Ã£o/adicional do cliente */}
             {order.customer_change_request && (
               <div className={`rounded-lg p-3 border ${
                 order.customer_change_status === 'approved' ? 'bg-green-50 border-green-200' :
                 order.customer_change_status === 'rejected' ? 'bg-red-50 border-red-200' :
                 'bg-amber-50 border-amber-200'
               }`}>
-                <p className="text-xs font-semibold text-gray-700 mb-1">✏️ Solicitação do cliente</p>
+                <p className="text-xs font-semibold text-gray-700 mb-1">âœï¸ SolicitaÃ§Ã£o do cliente</p>
                 <p className="text-sm text-gray-800">{order.customer_change_request}</p>
                 {(!order.customer_change_status || order.customer_change_status === 'pending') && (
                   <div className="flex gap-2 mt-2">
@@ -665,7 +462,7 @@ export default function OrderDetailModal({
                   </div>
                 )}
                 {order.customer_change_status === 'approved' && (
-                  <Badge className="mt-2 bg-green-600">Alteração aceita</Badge>
+                  <Badge className="mt-2 bg-green-600">AlteraÃ§Ã£o aceita</Badge>
                 )}
                 {order.customer_change_status === 'rejected' && (
                   <div className="mt-2">
@@ -682,7 +479,7 @@ export default function OrderDetailModal({
             <div className="space-y-2">
               <div>
                 <label className="text-xs font-medium text-gray-600 block mb-1">Notas internas</label>
-                <Textarea value={internalNotes} onChange={(e) => setInternalNotes(e.target.value)} placeholder="Só você vê" rows={2} className="resize-none text-sm focus:border-gray-800 focus:ring-1 focus:ring-gray-800/20 focus:outline-none" />
+                <Textarea value={internalNotes} onChange={(e) => setInternalNotes(e.target.value)} placeholder="SÃ³ vocÃª vÃª" rows={2} className="resize-none text-sm focus:border-gray-800 focus:ring-1 focus:ring-gray-800/20 focus:outline-none" />
                 <Button type="button" size="sm" variant="ghost" className="mt-1 h-7 text-xs" onClick={() => updateMutation.mutate({ id: order.id, updates: { internal_notes: internalNotes } })} disabled={updateMutation.isPending}>
                   Salvar notas
                 </Button>
@@ -705,7 +502,7 @@ export default function OrderDetailModal({
               className="w-full"
             >
               <Clock className="w-4 h-4 mr-2" />
-              {showTimeline ? 'Ocultar Histórico' : 'Ver Histórico do Pedido'}
+              {showTimeline ? 'Ocultar HistÃ³rico' : 'Ver HistÃ³rico do Pedido'}
             </Button>
 
             {showTimeline && (
@@ -734,7 +531,7 @@ export default function OrderDetailModal({
                             if (!g) return null;
                             const title = g.title || 'Itens do combo';
                             const isDrinkGroup = /bebid/i.test(title);
-                            const groupEmoji = isDrinkGroup ? '🥤' : '🍽️';
+                            const groupEmoji = isDrinkGroup ? 'ðŸ¥¤' : 'ðŸ½ï¸';
                             const groupLabel = isDrinkGroup ? 'BEBIDAS' : 'PRATOS';
                             const items = Array.isArray(g.items) ? g.items : [];
                             if (items.length === 0) return null;
@@ -755,16 +552,16 @@ export default function OrderDetailModal({
                                         const showIndex = instances.length > 1;
                                         return (
                                           <div key={instIdx} className="space-y-0.5">
-                                            <p>• {showIndex ? `${isDrinkGroup ? 'Bebida' : 'Prato'} ${instIdx + 1}: ` : ''}{name}</p>
+                                            <p>â€¢ {showIndex ? `${isDrinkGroup ? 'Bebida' : 'Prato'} ${instIdx + 1}: ` : ''}{name}</p>
                                             {inst?.selections && typeof inst.selections === 'object' && (
                                               <div className="ml-3 space-y-0.5">
                                                 {Object.values(inst.selections).flatMap((groupSel, si) => {
                                                   if (Array.isArray(groupSel)) {
                                                     return groupSel.map((opt, oi) => (
-                                                      opt?.name ? <p key={`${si}_${oi}`}>↳ {opt.name}</p> : null
+                                                      opt?.name ? <p key={`${si}_${oi}`}>â†³ {opt.name}</p> : null
                                                     ));
                                                   }
-                                                  if (groupSel?.name) return [<p key={si}>↳ {groupSel.name}</p>];
+                                                  if (groupSel?.name) return [<p key={si}>â†³ {groupSel.name}</p>];
                                                   return [null];
                                                 })}
                                               </div>
@@ -785,9 +582,9 @@ export default function OrderDetailModal({
                         <div className="ml-2 text-xs text-gray-600 mt-1 space-y-0.5">
                           {Object.entries(item.selections).map(([groupId, sel]) => {
                             if (Array.isArray(sel)) {
-                              return sel.map((opt, i) => <p key={i}>• {opt.name}</p>);
+                              return sel.map((opt, i) => <p key={i}>â€¢ {opt.name}</p>);
                             } else if (sel) {
-                              return <p key={groupId}>• {sel.name}</p>;
+                              return <p key={groupId}>â€¢ {sel.name}</p>;
                             }
                             return null;
                           })}
@@ -797,7 +594,7 @@ export default function OrderDetailModal({
 
                       {item.observations && (
                         <p className="ml-2 text-xs text-gray-600 italic mt-1">
-                          📝 {item.observations}
+                          ðŸ“ {item.observations}
                         </p>
                       )}
                       
@@ -859,7 +656,7 @@ export default function OrderDetailModal({
                     </div>
                   )}
                   {!canAlterPrepPerOrder && (
-                    <p className="text-xs text-gray-500 mb-2">Tempo de preparo: {suggestedPrepTime || 30} min (padrão)</p>
+                    <p className="text-xs text-gray-500 mb-2">Tempo de preparo: {suggestedPrepTime || 30} min (padrÃ£o)</p>
                   )}
                   <Button 
                     onClick={handleAccept} 
@@ -905,7 +702,7 @@ export default function OrderDetailModal({
                 </Button>
               )}
 
-              {/* Códigos exibidos no cabeçalho do modal */}
+              {/* CÃ³digos exibidos no cabeÃ§alho do modal */}
 
               {order.status === 'ready' && order.delivery_method === 'pickup' && (
                 <Button onClick={handleNextStatus} className="rounded w-full bg-green-600 hover:bg-green-700 h-12 font-semibold transition-all duration-100">
@@ -930,7 +727,7 @@ export default function OrderDetailModal({
                 </>
               )}
 
-              {/* Status rápido: botões em destaque para toque */}
+              {/* Status rÃ¡pido: botÃµes em destaque para toque */}
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-2 border-t border-gray-200">
                 <Button
                   size="sm"
@@ -995,7 +792,7 @@ export default function OrderDetailModal({
                 )}
                 {order.customer_phone && (
                   <>
-                    <Button variant="outline" size="sm" onClick={() => { const p = order.customer_phone?.replace(/\D/g, ''); const msg = `Olá! Seu pedido #${order.order_code || order.id} está: ${order.status}.`; window.open(`https://wa.me/55${p}?text=${encodeURIComponent(msg)}`, '_blank'); }}>
+                    <Button variant="outline" size="sm" onClick={() => { const p = order.customer_phone?.replace(/\D/g, ''); const msg = `OlÃ¡! Seu pedido #${order.order_code || order.id} estÃ¡: ${order.status}.`; window.open(`https://wa.me/55${p}?text=${encodeURIComponent(msg)}`, '_blank'); }}>
                       <Send className="w-4 h-4 mr-1" /> Enviar status
                     </Button>
                     <Button variant="outline" size="sm" onClick={() => window.open(`https://wa.me/55${order.customer_phone?.replace(/\D/g, '')}`, '_blank')}>
@@ -1014,7 +811,7 @@ export default function OrderDetailModal({
                   </Button>
                 )}
               </div>
-              <p className="text-[10px] text-gray-400 mt-1">1–4: atalhos de status | Esc: fechar</p>
+              <p className="text-[10px] text-gray-400 mt-1">1â€“4: atalhos de status | Esc: fechar</p>
             </div>
           </div>
         </DialogContent>
@@ -1024,9 +821,9 @@ export default function OrderDetailModal({
       <Dialog open={showRejectModal} onOpenChange={setShowRejectModal}>
         <DialogContent className="max-w-sm">
           <div className="space-y-4">
-            <DialogTitle className="font-bold text-lg text-red-600">⚠️ Rejeitar Pedido</DialogTitle>
+            <DialogTitle className="font-bold text-lg text-red-600">âš ï¸ Rejeitar Pedido</DialogTitle>
             <DialogDescription className="text-sm text-gray-600">
-              Tem certeza? Selecione o motivo da rejeição. Esta ação não pode ser desfeita.
+              Tem certeza? Selecione o motivo da rejeiÃ§Ã£o. Esta aÃ§Ã£o nÃ£o pode ser desfeita.
             </DialogDescription>
             <div className="space-y-2">
               {REJECTION_REASONS.map(reason => (
@@ -1057,7 +854,7 @@ export default function OrderDetailModal({
                   className={`resize-none min-h-[52px] focus:outline-none focus:ring-1 focus:ring-gray-800/20 focus:border-gray-800 ${customRejectionError ? 'border-2 border-red-500' : ''}`}
                 />
                 <p className={`text-xs mt-1 ${customRejectionError ? 'text-red-500' : 'text-gray-500'}`}>
-                  Mínimo de 5 caracteres
+                  MÃ­nimo de 5 caracteres
                 </p>
               </div>
             )}
@@ -1085,7 +882,7 @@ export default function OrderDetailModal({
                     Processando...
                   </>
                 ) : (
-                  'Confirmar Rejeição'
+                  'Confirmar RejeiÃ§Ã£o'
                 )}
               </Button>
             </div>
@@ -1093,18 +890,18 @@ export default function OrderDetailModal({
         </DialogContent>
       </Dialog>
 
-      {/* Reprovar alteração do cliente */}
+      {/* Reprovar alteraÃ§Ã£o do cliente */}
       <Dialog open={showRejectChangeModal} onOpenChange={(open) => { setShowRejectChangeModal(open); if (!open) setChangeRejectMotivo(''); }}>
         <DialogContent className="max-w-sm">
           <div className="space-y-4">
-            <DialogTitle className="font-bold text-lg text-amber-700">Reprovar alteração solicitada</DialogTitle>
+            <DialogTitle className="font-bold text-lg text-amber-700">Reprovar alteraÃ§Ã£o solicitada</DialogTitle>
             <DialogDescription className="text-sm text-gray-600">
-              Informe um breve motivo para o cliente (mín. 3 caracteres). Ex.: &quot;Ingrediente indisponível&quot;.
+              Informe um breve motivo para o cliente (mÃ­n. 3 caracteres). Ex.: &quot;Ingrediente indisponÃ­vel&quot;.
             </DialogDescription>
             <Textarea
               value={changeRejectMotivo}
               onChange={(e) => setChangeRejectMotivo(e.target.value)}
-              placeholder="Motivo da reprovação..."
+              placeholder="Motivo da reprovaÃ§Ã£o..."
               rows={3}
               className="resize-none min-h-[52px] focus:border-gray-800 focus:ring-1 focus:ring-gray-800/20 focus:outline-none"
             />
@@ -1113,7 +910,7 @@ export default function OrderDetailModal({
                 Cancelar
               </Button>
               <Button onClick={handleRejectChangeRequest} disabled={(changeRejectMotivo || '').trim().length < 3} className="rounded flex-1 bg-amber-600 hover:bg-amber-700 transition-all duration-100">
-                Reprovar alteração
+                Reprovar alteraÃ§Ã£o
               </Button>
             </div>
           </div>
@@ -1126,7 +923,7 @@ export default function OrderDetailModal({
           <div className="space-y-4">
             <DialogTitle className="font-bold text-lg">Chamar Entregador</DialogTitle>
             {availableEntregadores.length === 0 ? (
-              <p className="text-center text-gray-500 py-4">Nenhum entregador disponível</p>
+              <p className="text-center text-gray-500 py-4">Nenhum entregador disponÃ­vel</p>
             ) : (
               <>
                 <div className="space-y-2">
@@ -1172,3 +969,4 @@ export default function OrderDetailModal({
     </>
   );
 }
+

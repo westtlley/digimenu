@@ -26,6 +26,7 @@ import { useComandaWebSocket } from '@/hooks/useComandaWebSocket';
 import TransferItemsModal from './TransferItemsModal';
 import { usePermission } from '../permissions/usePermission';
 import { useMenuDishes } from '@/hooks/useMenuData';
+import { printComanda as printComandaTicket } from '@/utils/gestorExport';
 
 const PAYMENT_METHODS = [
   { value: 'pix', label: 'PIX' },
@@ -183,6 +184,20 @@ export default function ComandasTab({ subscriberEmail = null }) {
   const handleHistory = (c) => {
     setEditingComanda(c);
     setHistoryOpen(true);
+  };
+
+  const handleTransfer = (comanda) => {
+    setComandaToTransfer(comanda);
+    setTransferOpen(true);
+  };
+
+  const handlePrintComanda = (comanda) => {
+    const printed = printComandaTicket(comanda);
+    if (!printed) {
+      toast.error('Popup bloqueado. Permita popups para imprimir.');
+      return;
+    }
+    toast.success('Comanda enviada para impressão.');
   };
 
   const filtered = comandas.filter((c) => {

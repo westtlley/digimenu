@@ -7,6 +7,7 @@
 
 import { formatBrazilianDateTime, formatScheduledDateTime } from '@/components/utils/dateUtils';
 import { formatCurrency } from './formatters';
+import { openThermalPrintWindow } from './printWindow';
 import jsPDF from 'jspdf';
 
 const PAYMENT_LABELS = { pix: 'PIX', dinheiro: 'Dinheiro', cartao_credito: 'Cartão de Crédito', cartao_debito: 'Cartão de Débito' };
@@ -151,17 +152,32 @@ export function buildComandaHtml(order) {
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Comanda #${order.order_code || order.id}</title><style>${COMANDA_STYLE}</style></head><body>${buildComandaBody(order)}</body></html>`;
 }
 
+function buildComandasMarkup(list) {
+  const bodies = list
+    .map((order, index) => `${buildComandaBody(order)}${index < list.length - 1 ? '<div class="page-break"></div>' : ''}`)
+    .join('');
+
+  return `<style>${COMANDA_STYLE} .page-break{page-break-after:always;}</style>${bodies}`;
+}
+
+export function printComanda(order) {
+  if (!order) return false;
+  return openThermalPrintWindow({
+    title: `Comanda #${order.order_code || order.id || ''}`,
+    htmlContent: buildComandasMarkup([order]),
+  });
+}
+
 /**
  * Imprime comandas de uma fila (abre uma janela com todas)
  */
 export function printOrdersInQueue(orders, ids) {
   const list = ids.map(id => orders.find(o => String(o.id) === String(id))).filter(Boolean);
-  if (list.length === 0) return;
-  const bodies = list.map(o => `<div class="comanda-sheet">${buildComandaBody(o)}</div><div class="page-break"></div>`).join('');
-  const win = window.open('', '_blank');
-  win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Comandas</title><style>${COMANDA_STYLE} .comanda-sheet{margin:0;}.page-break{page-break-after:always;}</style></head><body>${bodies}</body></html>`);
-  win.document.close();
-  setTimeout(() => { win.print(); win.close(); }, 300);
+  if (list.length === 0) return false;
+  return openThermalPrintWindow({
+    title: list.length > 1 ? `Comandas (${list.length})` : `Comanda #${list[0].order_code || list[0].id || ''}`,
+    htmlContent: buildComandasMarkup(list),
+  });
 }
 
 /**
