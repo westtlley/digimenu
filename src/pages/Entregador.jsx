@@ -297,6 +297,34 @@ export default function Entregador() {
     return `${Math.floor(diffHours / 24)}d atrás`;
   };
 
+  const statusMeta = useMemo(() => ({
+    going_to_store: {
+      label: 'Indo ao restaurante',
+      badge: 'bg-blue-500 text-white',
+      nextStep: 'Chegar ao restaurante e validar coleta',
+    },
+    arrived_at_store: {
+      label: 'No restaurante',
+      badge: 'bg-indigo-500 text-white',
+      nextStep: 'Confirmar codigo de retirada',
+    },
+    picked_up: {
+      label: 'Pedido coletado',
+      badge: 'bg-green-500 text-white',
+      nextStep: 'Sair para entrega',
+    },
+    out_for_delivery: {
+      label: 'Em rota',
+      badge: 'bg-cyan-500 text-white',
+      nextStep: 'Chegar ao cliente',
+    },
+    arrived_at_customer: {
+      label: 'No cliente',
+      badge: 'bg-emerald-500 text-white',
+      nextStep: 'Confirmar codigo de entrega',
+    },
+  }), []);
+
   const openWhatsApp = (phone, message = '') => {
     const cleanPhone = phone.replace(/\D/g, '');
     window.open(`https://wa.me/55${cleanPhone}?text=${encodeURIComponent(message)}`);
@@ -899,6 +927,7 @@ export default function Entregador() {
                       queryClient.invalidateQueries({ queryKey: ['availableOrders'] });
                       queryClient.invalidateQueries({ queryKey: ['entregadores'] });
                       queryClient.invalidateQueries({ queryKey: ['gestorOrders'] });
+                      toast.success('Entrega aceita com sucesso');
 
                       if (audioRef.current) {
                         audioRef.current.play().catch(() => {});
@@ -964,6 +993,9 @@ export default function Entregador() {
                     <div className="flex items-center gap-2 mb-2 flex-wrap">
                       <Badge className="bg-gradient-to-r from-blue-600 to-blue-500 text-white font-bold px-2 md:px-3 py-1 shadow-lg text-xs">
                         #{order.order_code}
+                      </Badge>
+                      <Badge className={statusMeta[order.status]?.badge || 'bg-gray-500 text-white'}>
+                        {statusMeta[order.status]?.label || 'Em andamento'}
                       </Badge>
                       <span className={`text-xs font-medium ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                         {getTimeSince(order.created_date)}
@@ -1089,6 +1121,11 @@ export default function Entregador() {
                   </motion.div>
                 </div>
 
+                <div className={`mb-3 p-3 rounded-xl border ${darkMode ? 'bg-gray-800/70 border-gray-700 text-gray-200' : 'bg-slate-50 border-slate-200 text-slate-700'}`}>
+                  <p className="text-[11px] uppercase tracking-wide font-semibold opacity-80 mb-1">Proxima acao operacional</p>
+                  <p className="text-sm font-semibold">{statusMeta[order.status]?.nextStep || 'Acompanhar progresso da entrega'}</p>
+                </div>
+
                 {/* Botões baseados no status */}
                 {order.status === 'going_to_store' ? (
                   // Indo ao restaurante - botão cheguei
@@ -1127,6 +1164,7 @@ export default function Entregador() {
                             });
                             queryClient.invalidateQueries({ queryKey: ['deliveryOrders'] });
                             queryClient.invalidateQueries({ queryKey: ['gestorOrders'] });
+                            toast.success('Chegada ao restaurante confirmada');
                           }}
                           className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white h-10 md:h-12 text-xs md:text-base font-bold rounded-xl shadow-lg shadow-blue-500/30"
                         >
@@ -1184,6 +1222,7 @@ export default function Entregador() {
                           });
                           queryClient.invalidateQueries({ queryKey: ['deliveryOrders'] });
                           queryClient.invalidateQueries({ queryKey: ['gestorOrders'] });
+                          toast.success('Coleta confirmada');
                           setPickupCodeInput(prev => {
                             const newState = { ...prev };
                             delete newState[order.id];
@@ -1224,6 +1263,7 @@ export default function Entregador() {
                           });
                           queryClient.invalidateQueries({ queryKey: ['deliveryOrders'] });
                           queryClient.invalidateQueries({ queryKey: ['gestorOrders'] });
+                          toast.success('Entrega iniciada');
                         }}
                         className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white h-12 md:h-14 text-base font-bold rounded-xl shadow-lg shadow-blue-500/30"
                       >
@@ -1269,6 +1309,7 @@ export default function Entregador() {
                             });
                             queryClient.invalidateQueries({ queryKey: ['deliveryOrders'] });
                             queryClient.invalidateQueries({ queryKey: ['gestorOrders'] });
+                            toast.success('Chegada ao cliente confirmada');
                           }}
                           className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white h-10 md:h-12 text-xs md:text-base font-bold rounded-xl shadow-lg shadow-blue-500/30"
                         >

@@ -295,7 +295,7 @@ export default function AdvancedOrderFilters({
     <div className="flex items-center gap-2 flex-wrap">
       {/* Busca com tipo */}
       <div className="relative flex-1 min-w-[200px] max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <Select 
           value={filters.searchType} 
           onValueChange={(value) => handleFilterChange('searchType', value)}
@@ -328,14 +328,14 @@ export default function AdvancedOrderFilters({
           placeholder={`Buscar por ${filters.searchType === 'code' ? 'código' : filters.searchType === 'customer' ? 'cliente' : 'telefone'}...`}
           value={searchTerm}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="pl-32 h-9"
+          className="pl-32 h-9 bg-card border-border text-foreground"
         />
       </div>
 
       {/* Filtros Avançados */}
       <Popover open={isOpen} onOpenChange={setIsOpen}>
         <PopoverTrigger asChild>
-          <Button variant="outline" size="sm" className="h-9 relative" data-gestor="open-filters">
+          <Button variant="outline" size="sm" className="h-9 relative border-border bg-card/80" data-gestor="open-filters">
             <Filter className="w-4 h-4 mr-2" />
             Filtros
             {activeFiltersCount > 0 && (
@@ -345,9 +345,9 @@ export default function AdvancedOrderFilters({
             )}
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-96 max-h-[80vh] overflow-y-auto" align="end">
+        <PopoverContent className="w-96 max-h-[80vh] overflow-y-auto border-border bg-card text-foreground shadow-xl" align="end">
           <div className="space-y-4">
-            <div className="flex items-center justify-between sticky top-0 bg-white pb-2 border-b">
+            <div className="flex items-center justify-between sticky top-0 bg-card/95 backdrop-blur pb-2 border-b border-border">
               <h3 className="font-semibold text-sm">Filtros Avançados</h3>
               {activeFiltersCount > 0 && (
                 <Button 
@@ -364,7 +364,7 @@ export default function AdvancedOrderFilters({
 
             {/* Status */}
             <div>
-              <label className="text-xs font-medium text-gray-700 mb-1.5 block">
+              <label className="text-xs font-medium text-foreground mb-1.5 block">
                 Status
               </label>
               <Select 
@@ -386,7 +386,7 @@ export default function AdvancedOrderFilters({
 
             {/* Período */}
             <div>
-              <label className="text-xs font-medium text-gray-700 mb-1.5 block">
+              <label className="text-xs font-medium text-foreground mb-1.5 block">
                 <Calendar className="w-3 h-3 inline mr-1" />
                 Período
               </label>
@@ -410,7 +410,7 @@ export default function AdvancedOrderFilters({
             {/* Entregador */}
             {entregadores.length > 0 && (
               <div>
-                <label className="text-xs font-medium text-gray-700 mb-1.5 block">Entregador</label>
+                <label className="text-xs font-medium text-foreground mb-1.5 block">Entregador</label>
                 <Select value={filters.entregador} onValueChange={(v) => handleFilterChange('entregador', v)}>
                   <SelectTrigger className="h-9"><SelectValue placeholder="Todos" /></SelectTrigger>
                   <SelectContent>
@@ -425,7 +425,7 @@ export default function AdvancedOrderFilters({
 
             {/* Agendado para (horário) */}
             <div>
-              <label className="text-xs font-medium text-gray-700 mb-1.5 block">Agendado para</label>
+              <label className="text-xs font-medium text-foreground mb-1.5 block">Agendado para</label>
               <Select value={filters.scheduledHour} onValueChange={(v) => handleFilterChange('scheduledHour', v)}>
                 <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -438,7 +438,7 @@ export default function AdvancedOrderFilters({
 
             {/* Método de Pagamento */}
             <div>
-              <label className="text-xs font-medium text-gray-700 mb-1.5 block flex items-center gap-1">
+              <label className="text-xs font-medium text-foreground mb-1.5 block flex items-center gap-1">
                 <CreditCard className="w-3 h-3" />
                 Método de Pagamento
               </label>
@@ -456,7 +456,7 @@ export default function AdvancedOrderFilters({
 
             {/* Tipo de Entrega */}
             <div>
-              <label className="text-xs font-medium text-gray-700 mb-1.5 block flex items-center gap-1">
+              <label className="text-xs font-medium text-foreground mb-1.5 block flex items-center gap-1">
                 <Truck className="w-3 h-3" />
                 Tipo de Entrega
               </label>
@@ -473,7 +473,7 @@ export default function AdvancedOrderFilters({
             {/* Valor Mínimo/Máximo */}
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <Label className="text-xs font-medium text-gray-700 mb-1.5 block flex items-center gap-1">
+                <Label className="text-xs font-medium text-foreground mb-1.5 block flex items-center gap-1">
                   <DollarSign className="w-3 h-3" />
                   Valor Mín.
                 </Label>
@@ -487,7 +487,7 @@ export default function AdvancedOrderFilters({
                 />
               </div>
               <div>
-                <Label className="text-xs font-medium text-gray-700 mb-1.5 block flex items-center gap-1">
+                <Label className="text-xs font-medium text-foreground mb-1.5 block flex items-center gap-1">
                   <DollarSign className="w-3 h-3" />
                   Valor Máx.
                 </Label>
@@ -505,7 +505,7 @@ export default function AdvancedOrderFilters({
             {/* Intervalo de Datas */}
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <Label className="text-xs font-medium text-gray-700 mb-1.5 block flex items-center gap-1">
+                <Label className="text-xs font-medium text-foreground mb-1.5 block flex items-center gap-1">
                   <Calendar className="w-3 h-3" />
                   Data Início
                 </Label>
@@ -517,7 +517,7 @@ export default function AdvancedOrderFilters({
                 />
               </div>
               <div>
-                <Label className="text-xs font-medium text-gray-700 mb-1.5 block flex items-center gap-1">
+                <Label className="text-xs font-medium text-foreground mb-1.5 block flex items-center gap-1">
                   <Calendar className="w-3 h-3" />
                   Data Fim
                 </Label>
@@ -532,7 +532,7 @@ export default function AdvancedOrderFilters({
 
             {/* Produto */}
             <div>
-              <Label className="text-xs font-medium text-gray-700 mb-1.5 block flex items-center gap-1">
+              <Label className="text-xs font-medium text-foreground mb-1.5 block flex items-center gap-1">
                 <Package className="w-3 h-3" />
                 Produto
               </Label>
@@ -546,7 +546,7 @@ export default function AdvancedOrderFilters({
 
             {/* Filtros salvos */}
             <div className="pt-2 border-t space-y-2">
-              <Label className="text-xs font-medium text-gray-700 flex items-center gap-1">
+              <Label className="text-xs font-medium text-foreground flex items-center gap-1">
                 <Bookmark className="w-3 h-3" />
                 Combinações salvas
               </Label>
@@ -575,7 +575,7 @@ export default function AdvancedOrderFilters({
                       <button
                         type="button"
                         onClick={() => removeSavedFilter(s.name)}
-                        className="text-gray-400 hover:text-red-600 p-0.5"
+                        className="text-muted-foreground hover:text-red-600 p-0.5"
                         title="Excluir"
                       >
                         <X className="w-3 h-3" />
@@ -589,7 +589,7 @@ export default function AdvancedOrderFilters({
             {/* Badges de filtros ativos */}
             {activeFiltersCount > 0 && (
               <div className="pt-2 border-t">
-                <p className="text-xs text-gray-500 mb-2">Filtros ativos:</p>
+                <p className="text-xs text-muted-foreground mb-2">Filtros ativos:</p>
                 <div className="flex flex-wrap gap-1.5">
                   {filters.status !== 'all' && (
                     <Badge variant="outline" className="text-xs">

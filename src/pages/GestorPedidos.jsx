@@ -426,8 +426,27 @@ export default function GestorPedidos() {
     return Math.max(5, Math.min(180, Math.round(avg))) || 30;
   }, [orders]);
 
-  const kanbanOrders = onlyNew ? filteredOrders.filter(o => o.status === 'new') : filteredOrders;
-  const newOrdersCount = orders.filter(o => o.status === 'new').length;
+  const orderCounters = useMemo(() => {
+    let newCount = 0;
+    let activeCount = 0;
+
+    for (const order of orders) {
+      if (order.status === 'new') {
+        newCount += 1;
+      }
+      if (!['delivered', 'cancelled'].includes(order.status)) {
+        activeCount += 1;
+      }
+    }
+
+    return { newCount, activeCount };
+  }, [orders]);
+
+  const kanbanOrders = useMemo(
+    () => (onlyNew ? filteredOrders.filter(o => o.status === 'new') : filteredOrders),
+    [onlyNew, filteredOrders]
+  );
+  const newOrdersCount = orderCounters.newCount;
 
   // Sincronizar filteredOrders quando busca estiver vazia (evitar lista vazia ao limpar busca)
   useEffect(() => {
@@ -733,12 +752,12 @@ export default function GestorPedidos() {
             {!sidebarCollapsed ? (
               <div className="text-center py-1">
                 <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Ativos</p>
-                <p className="text-xl font-bold text-orange-500">{orders.filter(o => !['delivered', 'cancelled'].includes(o.status)).length}</p>
+                <p className="text-xl font-bold text-orange-500">{orderCounters.activeCount}</p>
               </div>
             ) : (
               <div className="flex justify-center">
                 <div className="w-7 h-7 rounded-full bg-orange-500 flex items-center justify-center">
-                  <span className="text-xs font-bold text-primary-foreground">{orders.filter(o => !['delivered', 'cancelled'].includes(o.status)).length}</span>
+                  <span className="text-xs font-bold text-primary-foreground">{orderCounters.activeCount}</span>
                 </div>
               </div>
             )}
@@ -852,13 +871,13 @@ export default function GestorPedidos() {
                 <div className="bg-card rounded-lg p-3 shadow-sm">
                   <p className="text-xs text-muted-foreground">Pedidos Ativos</p>
                   <p className="text-xl font-bold text-orange-500">
-                    {orders.filter(o => !['delivered', 'cancelled'].includes(o.status)).length}
+                    {orderCounters.activeCount}
                   </p>
                 </div>
                 <div className="bg-card rounded-lg p-3 shadow-sm">
                   <p className="text-xs text-muted-foreground">Novos</p>
                   <p className="text-xl font-bold text-orange-500">
-                    {orders.filter(o => o.status === 'new').length}
+                    {orderCounters.newCount}
                   </p>
                 </div>
               </div>
@@ -895,6 +914,17 @@ export default function GestorPedidos() {
         {/* Kanban: filtros, quadros (em cima), depois estatÃ­sticas */}
         {viewMode === 'kanban' && (
           <div className="mb-4 flex flex-col sm:flex-row sm:items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap rounded-xl border border-border bg-card/70 px-3 py-2">
+              <Badge variant="secondary" className="bg-orange-100 text-orange-700 border border-orange-200">
+                Ativos: {orderCounters.activeCount}
+              </Badge>
+              <Badge variant="secondary" className="bg-blue-100 text-blue-700 border border-blue-200">
+                Filtrados: {filteredOrders.length}
+              </Badge>
+              <Badge variant="secondary" className="bg-green-100 text-green-700 border border-green-200">
+                Novos: {orderCounters.newCount}
+              </Badge>
+            </div>
             <div className="flex-1 min-w-[200px]">
               <AdvancedOrderFilters
                 orders={baseFilteredOrders}
@@ -909,10 +939,10 @@ export default function GestorPedidos() {
               size="sm"
               onClick={() => setOnlyNew(!onlyNew)}
               className="h-9 shrink-0"
-              title="SÃ³ novos"
+              title="Somente novos"
             >
               <Bell className="w-4 h-4 mr-1" />
-              SÃ³ novos {orders.filter(o => o.status === 'new').length > 0 && `(${orders.filter(o => o.status === 'new').length})`}
+              Somente novos {orderCounters.newCount > 0 && `(${orderCounters.newCount})`}
             </Button>
           </div>
         )}
@@ -923,6 +953,7 @@ export default function GestorPedidos() {
             onSelectOrder={setSelectedOrder}
             darkMode={false}
             isLoading={isLoading}
+            asSub={asSub}
           />
         )}
         {/* Stats Panel - abaixo dos quadros no modo kanban */}

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import Skeleton, { SkeletonTheme } from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
@@ -63,17 +63,17 @@ const COLUMNS = [
 /**
  * Kanban melhorado com drag-and-drop, filtros e busca
  */
-export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = false, isLoading = false }) {
+export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = false, isLoading = false, asSub }) {
   const safeOrders = Array.isArray(orders) ? orders : [];
   const [collapsedColumns, setCollapsedColumns] = useState({});
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState('all');
   const [filterMethod, setFilterMethod] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
   const [compact, setCompact] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const [reduceMotion, setReduceMotion] = useState(false);
   const queryClient = useQueryClient();
+  const gestorOrdersKey = React.useMemo(() => ['gestorOrders', asSub ?? 'me'], [asSub]);
 
   useEffect(() => {
     const m = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -100,11 +100,11 @@ export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = 
         if (!order.delivery_code && order.delivery_method === 'delivery') payload.delivery_code = Math.floor(1000 + Math.random() * 9000).toString();
       }
       if (newStatus === 'delivered') payload.delivered_at = new Date().toISOString();
-      await base44.entities.Order.update(orderId, payload);
+      await base44.entities.Order.update(orderId, payload, asSub ? { as_subscriber: asSub } : {});
       return { orderId, newStatus };
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['gestorOrders'] });
+      queryClient.invalidateQueries({ queryKey: gestorOrdersKey });
       toast.success('Status atualizado!');
     },
     onError: (error) => {
@@ -112,31 +112,36 @@ export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = 
     }
   });
 
-  const getColumnOrders = (statuses) => {
-    let filtered = safeOrders.filter(o => statuses.includes(o.status));
-    
-    // Aplicar filtros
+  const normalizedOrders = useMemo(() => {
+    let filtered = [...safeOrders];
+
     if (searchTerm) {
-      filtered = filtered.filter(o => 
-        o.order_code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        o.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      const normalizedSearch = searchTerm.toLowerCase();
+      filtered = filtered.filter(o =>
+        o.order_code?.toLowerCase().includes(normalizedSearch) ||
+        o.customer_name?.toLowerCase().includes(normalizedSearch) ||
         o.customer_phone?.includes(searchTerm)
       );
     }
-    
+
     if (filterMethod !== 'all') {
       filtered = filtered.filter(o => o.delivery_method === filterMethod);
     }
-    
-    // Ordenar: mais antigo primeiro (por data de criação)
-    filtered = [...filtered].sort((a, b) => {
+
+    return filtered.sort((a, b) => {
       const da = new Date(a.created_at || a.created_date || 0).getTime();
       const db = new Date(b.created_at || b.created_date || 0).getTime();
       return da - db;
     });
-    
-    return filtered;
-  };
+  }, [safeOrders, searchTerm, filterMethod]);
+
+  const columnOrdersMap = useMemo(() => {
+    const byColumn = {};
+    for (const column of COLUMNS) {
+      byColumn[column.id] = normalizedOrders.filter(order => column.statuses.includes(order.status));
+    }
+    return byColumn;
+  }, [normalizedOrders]);
 
   const formatCurrency = (value) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
@@ -213,27 +218,27 @@ export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = 
     } else return;
 
     // Otimista: atualizar cache antes da API para o arraste fluir
-    const prev = queryClient.getQueryData(['gestorOrders']) || [];
-    queryClient.setQueryData(['gestorOrders'], prev.map(o =>
+    const prev = queryClient.getQueryData(gestorOrdersKey) || [];
+    queryClient.setQueryData(gestorOrdersKey, prev.map(o =>
       String(o.id) === String(draggableId) ? { ...o, status: newStatus } : o
     ));
 
     updateOrderMutation.mutate(
-      { orderId: draggableId, newStatus },
-      {
-        onError: () => {
-          queryClient.setQueryData(['gestorOrders'], prev);
-        },
-      }
-    );
-  }, [updateOrderMutation, orders, queryClient]);
+        { orderId: draggableId, newStatus },
+        {
+          onError: () => {
+            queryClient.setQueryData(gestorOrdersKey, prev);
+          },
+        }
+      );
+  }, [updateOrderMutation, queryClient, gestorOrdersKey, safeOrders]);
 
   // Skeleton quando isLoading e ainda sem pedidos (evita flash vazio)
   const showSkeleton = isLoading && safeOrders.length === 0;
   if (showSkeleton) {
     return (
       <div className="space-y-4">
-        <div className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border rounded-lg p-4`}>
+        <div className={`${darkMode ? 'bg-gray-800/95 border-gray-600 shadow-sm' : 'bg-white/95 border-gray-300 shadow-sm'} border rounded-lg p-4`}>
           <SkeletonTheme baseColor="#ebebeb" highlightColor="#f5f5f5">
             <Skeleton height={40} className="mb-3" enableAnimation={!reduceMotion} />
             <div className="flex gap-2">
@@ -242,7 +247,7 @@ export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = 
             </div>
           </SkeletonTheme>
         </div>
-        <div className="flex gap-2.5 h-[calc(100vh-280px)]">
+        <div className="flex gap-2.5 h-[calc(100dvh-18rem)] min-h-[460px] max-h-[78vh]">
           {COLUMNS.map(col => (
             <div key={col.id} className={`flex-1 flex flex-col ${darkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-gray-50 border-gray-200'} border rounded-lg p-2`}>
               <SkeletonTheme baseColor="#ebebeb" highlightColor="#f5f5f5">
@@ -310,9 +315,9 @@ export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = 
 
       {/* Kanban Board */}
       <DragDropContext onDragEnd={onDragEnd}>
-        <div className="flex gap-2.5 h-[calc(100vh-280px)]">
+        <div className="flex gap-2.5 h-[calc(100dvh-18rem)] min-h-[460px] max-h-[78vh]">
           {COLUMNS.map(column => {
-            const columnOrders = getColumnOrders(column.statuses);
+            const columnOrders = columnOrdersMap[column.id] || [];
             const Icon = column.icon;
             const isCollapsed = collapsedColumns[column.id];
             

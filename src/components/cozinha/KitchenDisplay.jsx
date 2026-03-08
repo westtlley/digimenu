@@ -280,7 +280,7 @@ export default function KitchenDisplay({
 
   // Filtrar pedidos
   const filteredOrders = useMemo(() => {
-    let filtered = orders;
+    let filtered = [...orders];
 
     // Filtro por status
     if (filter !== 'all') {
@@ -392,7 +392,7 @@ export default function KitchenDisplay({
       });
     }
     setNewOrdersCount(newCount);
-  }, [orders.length, soundEnabled, newOrdersCount]);
+  }, [orders, soundEnabled, newOrdersCount]);
 
   // Modo fullscreen
   useEffect(() => {
@@ -434,36 +434,36 @@ export default function KitchenDisplay({
           </div>
 
           {/* Estatísticas */}
-          <div className="grid grid-cols-5 gap-2 text-center">
-            <div className="bg-white/20 rounded p-2">
-              <div className="text-2xl font-bold">{stats.new}</div>
-              <div className="text-xs opacity-90">Novos</div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 text-center">
+            <div className="bg-white/20 rounded-md px-2 py-2.5">
+              <div className="text-2xl md:text-3xl font-extrabold tracking-tight">{stats.new}</div>
+              <div className="text-[11px] uppercase tracking-wide opacity-90">Novos</div>
             </div>
-            <div className="bg-white/20 rounded p-2">
-              <div className="text-2xl font-bold">{stats.accepted}</div>
-              <div className="text-xs opacity-90">Aceitos</div>
+            <div className="bg-white/20 rounded-md px-2 py-2.5">
+              <div className="text-2xl md:text-3xl font-extrabold tracking-tight">{stats.accepted}</div>
+              <div className="text-[11px] uppercase tracking-wide opacity-90">Aceitos</div>
             </div>
-            <div className="bg-white/20 rounded p-2">
-              <div className="text-2xl font-bold">{stats.preparing}</div>
-              <div className="text-xs opacity-90">Preparando</div>
+            <div className="bg-white/20 rounded-md px-2 py-2.5">
+              <div className="text-2xl md:text-3xl font-extrabold tracking-tight">{stats.preparing}</div>
+              <div className="text-[11px] uppercase tracking-wide opacity-90">Preparando</div>
             </div>
-            <div className="bg-white/20 rounded p-2">
-              <div className="text-2xl font-bold">{stats.ready}</div>
-              <div className="text-xs opacity-90">Prontos</div>
+            <div className="bg-white/20 rounded-md px-2 py-2.5">
+              <div className="text-2xl md:text-3xl font-extrabold tracking-tight">{stats.ready}</div>
+              <div className="text-[11px] uppercase tracking-wide opacity-90">Prontos</div>
             </div>
-            <div className="bg-white/20 rounded p-2">
-              <div className="text-2xl font-bold">{stats.avgPrepTime}</div>
-              <div className="text-xs opacity-90">Média (min)</div>
+            <div className="bg-white/20 rounded-md px-2 py-2.5 col-span-2 sm:col-span-1">
+              <div className="text-2xl md:text-3xl font-extrabold tracking-tight">{stats.avgPrepTime}</div>
+              <div className="text-[11px] uppercase tracking-wide opacity-90">Media (min)</div>
             </div>
           </div>
 
           {/* Filtros */}
-          <div className="flex items-center gap-2 mt-3">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 mt-3">
             <Filter className="w-4 h-4" />
             <select
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              className="bg-white/20 text-white border-white/30 rounded px-2 py-1 text-sm"
+              className="bg-white/20 text-white border border-white/40 rounded px-2 py-1.5 text-sm min-w-[180px]"
             >
               <option value="all">Todos os Status</option>
               <option value="new">Novos</option>
@@ -474,7 +474,7 @@ export default function KitchenDisplay({
             <select
               value={deliveryFilter}
               onChange={(e) => setDeliveryFilter(e.target.value)}
-              className="bg-white/20 text-white border-white/30 rounded px-2 py-1 text-sm"
+              className="bg-white/20 text-white border border-white/40 rounded px-2 py-1.5 text-sm min-w-[180px]"
             >
               <option value="all">Todos os Tipos</option>
               <option value="delivery">Entrega</option>
