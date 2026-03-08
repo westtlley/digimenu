@@ -48,7 +48,7 @@ import { requestLogger } from './utils/monitoring.js';
 import { scheduleBackups } from './utils/backup.js';
 import { analyticsMiddleware } from './utils/analytics.js';
 import { initializeCronJobs } from './utils/cronJobs.js';
-import { getPermissionsForPlan } from './utils/planPresetsForContext.js';
+import { getPermissionsForPlan, normalizePlanPresetKey } from './utils/planPresetsForContext.js';
 import analyticsRoutes from './routes/analytics.routes.js';
 import backupRoutes from './routes/backup.routes.js';
 import subscriberBackupRoutes from './routes/subscriberBackup.routes.js';
@@ -913,11 +913,11 @@ function getManagerialSubscriberAndRole(req) {
   const role = req.user?.is_master ? null : (isGerente ? 'gerente' : 'assinante');
   return { owner, role };
 }
-const MANAGERIAL_AUTH_ALLOWED_PLANS = new Set(['pro', 'ultra', 'premium', 'admin']);
+const MANAGERIAL_AUTH_ALLOWED_PLANS = new Set(['pro', 'ultra', 'admin']);
 
 function canUseManagerialAuthForPlan(plan) {
-  const planNorm = String(plan || '').toLowerCase().trim();
-  return MANAGERIAL_AUTH_ALLOWED_PLANS.has(planNorm);
+  const planNorm = normalizePlanPresetKey(plan, { defaultPlan: null, allowNull: true });
+  return !!(planNorm && MANAGERIAL_AUTH_ALLOWED_PLANS.has(planNorm));
 }
 
 async function getManagerialAuthSubscriber(owner) {
@@ -944,11 +944,60 @@ async function ensureManagerialAuthPlanEnabled(owner, res) {
   return subscriber;
 }
 
-const PDV_CAIXA_ENTITY_CONFIG = {
+const ENTITY_ACCESS_CONFIG = {
+  // PDV/Caixa (hardening já existente)
   caixa: { module: 'caixa', allowedCollaboratorRoles: new Set(['gerente', 'pdv']) },
   caixaoperation: { module: 'caixa', allowedCollaboratorRoles: new Set(['gerente', 'pdv']) },
   pedidopdv: { module: 'pdv', allowedCollaboratorRoles: new Set(['gerente', 'pdv']) },
   pdvsession: { module: 'pdv', allowedCollaboratorRoles: new Set(['gerente', 'pdv']) },
+
+  // Cardápio e configuração
+  dish: { module: 'dishes', allowedCollaboratorRoles: new Set(['gerente']) },
+  category: { module: 'dishes', allowedCollaboratorRoles: new Set(['gerente']) },
+  complementgroup: { module: 'dishes', allowedCollaboratorRoles: new Set(['gerente']) },
+  combo: { module: 'dishes', allowedCollaboratorRoles: new Set(['gerente']) },
+  beveragecategory: { module: 'dishes', allowedCollaboratorRoles: new Set(['gerente']) },
+  dishingredient: { module: 'dishes', allowedCollaboratorRoles: new Set(['gerente']) },
+  ingredient: { module: 'dishes', allowedCollaboratorRoles: new Set(['gerente']) },
+  flavor: { module: 'pizza_config', allowedCollaboratorRoles: new Set(['gerente']) },
+  flavorcategory: { module: 'pizza_config', allowedCollaboratorRoles: new Set(['gerente']) },
+  pizzacategory: { module: 'pizza_config', allowedCollaboratorRoles: new Set(['gerente']) },
+  pizzaedge: { module: 'pizza_config', allowedCollaboratorRoles: new Set(['gerente']) },
+  pizzaextra: { module: 'pizza_config', allowedCollaboratorRoles: new Set(['gerente']) },
+  pizzaflavor: { module: 'pizza_config', allowedCollaboratorRoles: new Set(['gerente']) },
+  pizzasize: { module: 'pizza_config', allowedCollaboratorRoles: new Set(['gerente']) },
+  pizzavisualizationconfig: { module: 'pizza_config', allowedCollaboratorRoles: new Set(['gerente']) },
+  deliveryzone: { module: 'delivery_zones', allowedCollaboratorRoles: new Set(['gerente']) },
+  coupon: { module: 'coupons', allowedCollaboratorRoles: new Set(['gerente']) },
+  promotion: { module: 'promotions', allowedCollaboratorRoles: new Set(['gerente']) },
+  store: { module: 'store', allowedCollaboratorRoles: new Set(['gerente']) },
+  storeconfig: { module: 'store', allowedCollaboratorRoles: new Set(['gerente']) },
+  customer: { module: 'clients', allowedCollaboratorRoles: new Set(['gerente', 'gestor_pedidos']) },
+  printerconfig: { module: 'printer', allowedCollaboratorRoles: new Set(['gerente', 'pdv']) },
+  stockmovement: { module: 'inventory', allowedCollaboratorRoles: new Set(['gerente']) },
+  affiliate: { module: 'affiliates', allowedCollaboratorRoles: new Set(['gerente']) },
+  referral: { module: 'affiliates', allowedCollaboratorRoles: new Set(['gerente']) },
+  user2fa: { module: '2fa', allowedCollaboratorRoles: new Set(['gerente']) },
+
+  // Operação
+  order: { module: 'orders', allowedCollaboratorRoles: new Set(['gerente', 'gestor_pedidos', 'cozinha', 'entregador']) },
+  comanda: { module: 'comandas', allowedCollaboratorRoles: new Set(['gerente', 'garcom', 'pdv']) },
+  table: { module: 'tables', allowedCollaboratorRoles: new Set(['gerente', 'garcom']) },
+  waitercall: { module: 'garcom', allowedCollaboratorRoles: new Set(['gerente', 'garcom']) },
+  entregador: { module: 'gestor_pedidos', allowedCollaboratorRoles: new Set(['gerente', 'gestor_pedidos']) },
+};
+
+const ORDER_COLLABORATOR_STATUS_RULES = {
+  cozinha: new Set(['accepted', 'preparing', 'ready']),
+  entregador: new Set([
+    'going_to_store',
+    'arrived_at_store',
+    'picked_up',
+    'out_for_delivery',
+    'arrived_at_customer',
+    'delivered',
+    'cancelled'
+  ]),
 };
 
 const MANAGERIAL_AUTH_SESSION_TTL_MS = Number(process.env.MANAGERIAL_AUTH_SESSION_TTL_MS || (10 * 60 * 1000));
@@ -1001,8 +1050,8 @@ function hasModuleActionPermission(permissionMap, moduleName, action) {
 
 function parseSubscriberPermissionMap(subscriber) {
   if (!subscriber) return {};
-  const plan = normalizeLower(subscriber.plan || 'basic');
-  if (plan && plan !== 'custom') {
+  const plan = normalizePlanPresetKey(subscriber.plan, { defaultPlan: 'basic' }) || 'basic';
+  if (plan !== 'custom') {
     const preset = getPermissionsForPlan(plan);
     return (preset && typeof preset === 'object') ? { ...preset } : {};
   }
@@ -1068,10 +1117,10 @@ function stripManagerialCredentials(payload = {}) {
   return sanitized;
 }
 
-function isSensitivePdvCaixaAction(entityName, method, payload = {}) {
+function isSensitiveEntityAction(entityName, method, payload = {}) {
   const entityNorm = normalizeEntityName(entityName);
   const httpMethod = String(method || '').toUpperCase();
-  if (httpMethod === 'DELETE') return true;
+  if (entityNorm === 'order' && httpMethod === 'DELETE') return true;
 
   if (entityNorm === 'caixa') {
     if (httpMethod === 'POST') return true;
@@ -1090,6 +1139,49 @@ function isSensitivePdvCaixaAction(entityName, method, payload = {}) {
   if (entityNorm === 'pedidopdv' && (httpMethod === 'PUT' || httpMethod === 'PATCH')) {
     const status = normalizeLower(payload?.status);
     return status.startsWith('cancel') || payload?.canceled === true;
+  }
+
+  if (entityNorm === 'order' && (httpMethod === 'PUT' || httpMethod === 'PATCH')) {
+    const status = normalizeLower(payload?.status);
+    return status === 'cancelled';
+  }
+
+  return false;
+}
+
+function evaluateOrderCollaboratorAction(roles = [], action, payload = {}) {
+  const roleSet = new Set(roles);
+  const isManagerRole = roleSet.has('gerente') || roleSet.has('gestor_pedidos');
+
+  if (action === 'delete') {
+    return isManagerRole;
+  }
+
+  if (action === 'create') {
+    return isManagerRole;
+  }
+
+  if (action !== 'update') {
+    return true;
+  }
+
+  const nextStatus = normalizeLower(payload?.status);
+  if (!nextStatus) {
+    // Cozinha/entregador só podem alterar status do pedido.
+    if (roleSet.has('cozinha') || roleSet.has('entregador')) {
+      return false;
+    }
+    return true;
+  }
+
+  if (isManagerRole) return true;
+
+  if (roleSet.has('cozinha')) {
+    return ORDER_COLLABORATOR_STATUS_RULES.cozinha.has(nextStatus);
+  }
+
+  if (roleSet.has('entregador')) {
+    return ORDER_COLLABORATOR_STATUS_RULES.entregador.has(nextStatus);
   }
 
   return false;
@@ -1125,9 +1217,9 @@ async function resolveSubscriberContextForEntity(req, payload = {}) {
   return { ownerEmail: normalizedOwner, subscriber };
 }
 
-async function enforcePdvCaixaWriteAccess(req, res, entity, method, payload = {}) {
+async function enforceEntityWriteAccess(req, res, entity, method, payload = {}) {
   const entityNorm = normalizeEntityName(entity);
-  const config = PDV_CAIXA_ENTITY_CONFIG[entityNorm];
+  const config = ENTITY_ACCESS_CONFIG[entityNorm];
   const sanitizedPayload = stripManagerialCredentials(payload);
 
   if (!config) {
@@ -1141,8 +1233,8 @@ async function enforcePdvCaixaWriteAccess(req, res, entity, method, payload = {}
   const { ownerEmail, subscriber } = await resolveSubscriberContextForEntity(req, sanitizedPayload);
   if (!ownerEmail || !subscriber) {
     res.status(403).json({
-      error: 'Contexto do assinante invalido para operacao PDV/Caixa.',
-      code: 'PDV_CAIXA_CONTEXT_REQUIRED'
+      error: 'Contexto do assinante inválido para esta operação.',
+      code: 'ACTION_NOT_ALLOWED'
     });
     return { allowed: false };
   }
@@ -1151,11 +1243,11 @@ async function enforcePdvCaixaWriteAccess(req, res, entity, method, payload = {}
   const permissionMap = parseSubscriberPermissionMap(subscriber);
   if (!action || !hasModuleActionPermission(permissionMap, config.module, action)) {
     res.status(403).json({
-      error: `Plano atual nao permite ${config.module.toUpperCase()} (${action || 'acao'}).`,
+      error: `Plano atual não permite ${config.module.toUpperCase()} (${action || 'acao'}).`,
       code: 'PLAN_FEATURE_NOT_AVAILABLE',
       module: config.module,
       action,
-      plan: normalizeLower(subscriber.plan || 'basic')
+      plan: normalizePlanPresetKey(subscriber.plan, { defaultPlan: 'basic' }) || 'basic'
     });
     return { allowed: false };
   }
@@ -1166,13 +1258,23 @@ async function enforcePdvCaixaWriteAccess(req, res, entity, method, payload = {}
     const allowedRole = roles.some((role) => config.allowedCollaboratorRoles.has(role));
     if (!allowedRole) {
       res.status(403).json({
-        error: 'Perfil sem permissao para operar PDV/Caixa.',
+        error: 'Perfil sem permissão para operar este módulo.',
         code: 'ROLE_NOT_ALLOWED'
       });
       return { allowed: false };
     }
 
-    if (isSensitivePdvCaixaAction(entityNorm, method, sanitizedPayload)) {
+    if (entityNorm === 'order' && !evaluateOrderCollaboratorAction(roles, action, sanitizedPayload)) {
+      res.status(403).json({
+        error: 'Ação não permitida para este perfil operacional em pedidos.',
+        code: 'ACTION_NOT_ALLOWED',
+        entity: 'Order',
+        action
+      });
+      return { allowed: false };
+    }
+
+    if (isSensitiveEntityAction(entityNorm, method, sanitizedPayload)) {
       const { role: managerialRole } = getManagerialSubscriberAndRole(req);
       const hasRecentAuth = hasRecentManagerialAuthSession(req, ownerEmail, managerialRole);
 
@@ -1188,7 +1290,7 @@ async function enforcePdvCaixaWriteAccess(req, res, entity, method, payload = {}
 
         if (!validFromInlineAuth) {
           res.status(403).json({
-            error: 'Autorizacao gerencial obrigatoria para esta acao sensivel.',
+            error: 'Autorização gerencial obrigatória para esta ação sensível.',
             code: 'MANAGERIAL_AUTH_REQUIRED'
           });
           return { allowed: false };
@@ -1399,9 +1501,9 @@ app.post('/api/entities/:entity', authenticate, createLimiter, asyncHandler(asyn
     if (ownerSub) createOpts.forSubscriberEmail = data.owner_email;
     else if (String(entity).toLowerCase() === 'order') return res.status(400).json({ error: 'owner_email não é um assinante válido. Pedido do cardápio por link precisa do dono do cardápio.' });
   }
-  const pdvCreateGuard = await enforcePdvCaixaWriteAccess(req, res, entity, 'POST', data);
-  if (!pdvCreateGuard.allowed) return;
-  data = pdvCreateGuard.sanitizedPayload;
+  const entityCreateGuard = await enforceEntityWriteAccess(req, res, entity, 'POST', data);
+  if (!entityCreateGuard.allowed) return;
+  data = entityCreateGuard.sanitizedPayload;
   if (String(entity).toLowerCase() === 'dish' && !req.user?.is_master) {
     const subscriberEmail = createOpts.forSubscriberEmail || data.owner_email || (req.user?.subscriber_email || req.user?.email);
     if (subscriberEmail) {
@@ -1465,32 +1567,15 @@ app.put('/api/entities/:entity/:id', authenticate, asyncHandler(async (req, res)
 
     if (allow) req.user._contextForSubscriber = req.user._contextForSubscriber || asSub;
   }
-  const pdvUpdateGuard = await enforcePdvCaixaWriteAccess(req, res, entity, 'PUT', data);
-  if (!pdvUpdateGuard.allowed) return;
-  data = pdvUpdateGuard.sanitizedPayload;
+  const entityUpdateGuard = await enforceEntityWriteAccess(req, res, entity, 'PUT', data);
+  if (!entityUpdateGuard.allowed) return;
+  data = entityUpdateGuard.sanitizedPayload;
   if (String(entity).toLowerCase() === 'subscriber') {
     const idVal = /^\d+$/.test(String(id)) ? parseInt(id, 10) : id;
     const updated = usePostgreSQL ? await repo.updateSubscriber(idVal, data) : (() => { const idx = db?.subscribers?.findIndex(s => s.id == idVal); if (idx < 0) throw new Error('Assinante não encontrado'); const e = db.subscribers[idx]; const m = { ...e, ...data, send_whatsapp_commands: data.send_whatsapp_commands ?? e.whatsapp_auto_enabled }; db.subscribers[idx] = m; if (saveDatabaseDebounced) saveDatabaseDebounced(db); return { ...m, send_whatsapp_commands: m.whatsapp_auto_enabled }; })();
     return res.json(updated);
   }
   if (String(entity).toLowerCase() === 'order' && data.status) {
-    // Verificar permissão: master, admin, gestor_pedidos ou dono do estabelecimento (assinante)
-    if (!req.user?.is_master) {
-      const allowedRoles = ['admin', 'gestor_pedidos'];
-      const userRole = req.user?.profile_role || req.user?.role;
-      const asSub = (req.query?.as_subscriber || '').toString().trim().toLowerCase();
-      const userEmail = (req.user?.email || '').toString().trim().toLowerCase();
-      const subEmail = (req.user?.subscriber_email || '').toString().trim().toLowerCase();
-      const isOwner = asSub && (userEmail === asSub || subEmail === asSub);
-      if (!allowedRoles.includes(userRole) && !isOwner) {
-        return res.status(403).json({
-          success: false,
-          error: 'Sem permissão para alterar status do pedido. Apenas administradores e gestores de pedidos podem alterar o status.',
-          message: 'Sem permissão para alterar status do pedido. Apenas administradores e gestores de pedidos podem alterar o status.',
-          code: 'PERMISSION_DENIED'
-        });
-      }
-    }
     const currentOrder = usePostgreSQL ? await repo.getEntityById('Order', id, req.user) : db?.entities?.Order?.find(i => i.id === id || i.id === String(id));
     if (currentOrder?.status) {
       const { validateStatusTransition } = await import('./services/orderStatusValidation.service.js');
@@ -1520,8 +1605,8 @@ app.delete('/api/entities/:entity/:id', authenticate, asyncHandler(async (req, r
   const { entity, id } = req.params;
   const asSub = req.query.as_subscriber;
   if (req.user?.is_master && asSub) req.user._contextForSubscriber = asSub;
-  const pdvDeleteGuard = await enforcePdvCaixaWriteAccess(req, res, entity, 'DELETE', {});
-  if (!pdvDeleteGuard.allowed) return;
+  const entityDeleteGuard = await enforceEntityWriteAccess(req, res, entity, 'DELETE', {});
+  if (!entityDeleteGuard.allowed) return;
   let deleted = false;
   if (usePostgreSQL) deleted = await repo.deleteEntity(entity, id, req.user);
   else if (db?.entities) {
@@ -1540,9 +1625,9 @@ app.post('/api/entities/:entity/bulk', authenticate, createLimiter, asyncHandler
   const { entity } = req.params;
   const { items: itemsToCreate } = req.body || {};
   const entityNorm = normalizeEntityName(entity);
-  if (PDV_CAIXA_ENTITY_CONFIG[entityNorm] && !req.user?.is_master) {
+  if (ENTITY_ACCESS_CONFIG[entityNorm] && !req.user?.is_master) {
     return res.status(403).json({
-      error: 'Operacao em lote nao permitida para entidades sensiveis de PDV/Caixa.',
+      error: 'Operação em lote não permitida para entidades protegidas.',
       code: 'BULK_NOT_ALLOWED_FOR_SENSITIVE_ENTITY'
     });
   }
@@ -1572,13 +1657,13 @@ app.post('/api/pdv/finalizar-venda', authenticate, createLimiter, asyncHandler(a
     });
   }
 
-  const pdvGuard = await enforcePdvCaixaWriteAccess(req, res, 'PedidoPDV', 'POST', {
+  const pdvGuard = await enforceEntityWriteAccess(req, res, 'PedidoPDV', 'POST', {
     owner_email: payload.owner_email || asSub || req.user?._contextForSubscriber || req.user?.subscriber_email || req.user?.email
   });
   if (!pdvGuard.allowed) return;
 
   const ownerEmail = pdvGuard.ownerEmail || pdvGuard.subscriber?.email;
-  const caixaGuard = await enforcePdvCaixaWriteAccess(req, res, 'CaixaOperation', 'POST', {
+  const caixaGuard = await enforceEntityWriteAccess(req, res, 'CaixaOperation', 'POST', {
     owner_email: ownerEmail,
     type: 'venda_pdv'
   });
@@ -2214,7 +2299,7 @@ app.get('/api/user/context', authenticate, asyncHandler(async (req, res) => {
           type: 'subscriber',
           value: subscriber.email
         };
-        const plan = (subscriber.plan || 'basic').toString().toLowerCase().trim();
+        const plan = normalizePlanPresetKey(subscriber.plan, { defaultPlan: 'basic' }) || 'basic';
         if (plan !== 'custom') {
           const { getPermissionsForPlan } = await import('./utils/planPresetsForContext.js');
           const planPerms = getPermissionsForPlan(plan);

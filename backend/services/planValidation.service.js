@@ -5,16 +5,31 @@
 
 import * as repo from '../db/repository.js';
 import { getPlanPermissions, hasPermission } from '../utils/plans.js';
+import { normalizePlanPresetKey } from '../utils/planPresetsForContext.js';
 import { getEffectiveLimits } from '../utils/planLimits.js';
 import { logger } from '../utils/logger.js';
 import { usePostgreSQL, getDb } from '../config/appConfig.js';
 
 /**
- * Obtém o plano de um subscriber
+ * Normaliza permissões customizadas salvas no subscriber.
  */
-async function getSubscriberPlan(subscriberEmail) {
-  if (!subscriberEmail) return null;
+function parseSubscriberPermissions(rawPermissions) {
+  let parsed = rawPermissions;
+  if (typeof parsed === 'string') {
+    try {
+      parsed = JSON.parse(parsed);
+    } catch {
+      parsed = {};
+    }
+  }
+  return (parsed && typeof parsed === 'object') ? parsed : {};
+}
 
+/**
+ * Obtém contexto completo de plano/permissões do subscriber
+ */
+async function getSubscriberPlanContext(subscriberEmail) {
+  if (!subscriberEmail) return null;
   let subscriber = null;
   if (usePostgreSQL) {
     subscriber = await repo.getSubscriberByEmail(subscriberEmail);
@@ -27,12 +42,13 @@ async function getSubscriberPlan(subscriberEmail) {
 
   if (!subscriber) return null;
 
-  // Se for plano custom, usar permissões customizadas
-  if (subscriber.plan === 'custom') {
-    return 'custom';
-  }
+  const plan = normalizePlanPresetKey(subscriber.plan, { defaultPlan: 'basic' }) || 'basic';
+  const basePlan = plan === 'custom' ? 'ultra' : plan;
+  const basePermissions = getPlanPermissions(basePlan) || {};
+  const customOverrides = plan === 'custom' ? parseSubscriberPermissions(subscriber.permissions) : {};
+  const permissions = { ...basePermissions, ...customOverrides };
 
-  return subscriber.plan || 'free';
+  return { subscriber, plan, permissions };
 }
 
 /**
@@ -48,13 +64,12 @@ export async function validateProductsLimit(subscriberEmail, currentCount = null
     return { valid: false, limit: 0, current: 0, remaining: 0, error: 'Email do assinante é obrigatório para validação de limite' };
   }
 
-  const plan = await getSubscriberPlan(subscriberEmail);
-  if (!plan) {
+  const context = await getSubscriberPlanContext(subscriberEmail);
+  if (!context) {
     // Se não encontrou o plano, retornar erro de validação (não throw)
     return { valid: false, limit: 0, current: 0, remaining: 0, error: 'Assinante não encontrado' };
   }
-
-  const permissions = getPlanPermissions(plan);
+  const { plan, permissions } = context;
   const limit = permissions.products_limit;
 
   // -1 significa ilimitado
@@ -102,13 +117,12 @@ export async function validateOrdersPerDayLimit(subscriberEmail, isMaster = fals
     return { valid: false, limit: 0, current: 0, remaining: 0, error: 'Email do assinante é obrigatório para validação de limite' };
   }
 
-  const plan = await getSubscriberPlan(subscriberEmail);
-  if (!plan) {
+  const context = await getSubscriberPlanContext(subscriberEmail);
+  if (!context) {
     // Se não encontrou o plano, retornar erro de validação (não throw)
     return { valid: false, limit: 0, current: 0, remaining: 0, error: 'Assinante não encontrado' };
   }
-
-  const permissions = getPlanPermissions(plan);
+  const { permissions } = context;
   const limit = permissions.orders_per_day;
 
   // -1 significa ilimitado, null significa que não usa limite diário (usa mensal)
@@ -175,13 +189,12 @@ export async function validateOrdersPerMonthLimit(subscriberEmail, isMaster = fa
     return { valid: false, limit: 0, current: 0, remaining: 0, error: 'Email do assinante é obrigatório para validação de limite' };
   }
 
-  const plan = await getSubscriberPlan(subscriberEmail);
-  if (!plan) {
+  const context = await getSubscriberPlanContext(subscriberEmail);
+  if (!context) {
     // Se não encontrou o plano, retornar erro de validação (não throw)
     return { valid: false, limit: 0, current: 0, remaining: 0, error: 'Assinante não encontrado' };
   }
-
-  const permissions = getPlanPermissions(plan);
+  const { permissions } = context;
   const limit = permissions.orders_per_month;
 
   // -1 significa ilimitado
@@ -242,13 +255,12 @@ export async function validateUsersLimit(subscriberEmail, currentCount = null, i
     return { valid: false, limit: 0, current: 0, remaining: 0, error: 'Email do assinante é obrigatório para validação de limite' };
   }
 
-  const plan = await getSubscriberPlan(subscriberEmail);
-  if (!plan) {
+  const context = await getSubscriberPlanContext(subscriberEmail);
+  if (!context) {
     // Se não encontrou o plano, retornar erro de validação (não throw)
     return { valid: false, limit: 0, current: 0, remaining: 0, error: 'Assinante não encontrado' };
   }
-
-  const permissions = getPlanPermissions(plan);
+  const { permissions } = context;
   const limit = permissions.users_limit;
 
   // -1 significa ilimitado
@@ -296,12 +308,14 @@ export async function validatePermission(subscriberEmail, permission, isMaster =
     throw new Error('Email do assinante é obrigatório para validação de permissão');
   }
 
-  const plan = await getSubscriberPlan(subscriberEmail);
-  if (!plan) {
+  const context = await getSubscriberPlanContext(subscriberEmail);
+  if (!context) {
     throw new Error('Assinante não encontrado');
   }
-
-  const valid = hasPermission(plan, permission);
+  const { plan, permissions } = context;
+  const hasCustomPermission = permissions?.[permission] === true;
+  const fallbackPlan = plan === 'custom' ? 'ultra' : plan;
+  const valid = hasCustomPermission || hasPermission(fallbackPlan, permission);
 
   return { valid, permission, plan };
 }
@@ -368,12 +382,11 @@ export async function getPlanLimitsInfo(subscriberEmail, isMaster = false) {
     throw new Error('Email do assinante é obrigatório');
   }
 
-  const plan = await getSubscriberPlan(subscriberEmail);
-  if (!plan) {
+  const context = await getSubscriberPlanContext(subscriberEmail);
+  if (!context) {
     throw new Error('Assinante não encontrado');
   }
-
-  const permissions = getPlanPermissions(plan);
+  const { plan, permissions } = context;
 
   return {
     plan,
@@ -454,7 +467,8 @@ export async function getUsageForSubscriber(subscriberEmail) {
  */
 export function getEffectiveLimitsForSubscriber(subscriber) {
   if (!subscriber) return null;
-  const plan = subscriber.plan || 'basic';
+  const normalizedPlan = normalizePlanPresetKey(subscriber.plan, { defaultPlan: 'basic' }) || 'basic';
+  const plan = normalizedPlan === 'custom' ? 'ultra' : normalizedPlan;
   let addons = subscriber.addons;
   if (typeof addons === 'string') {
     try {

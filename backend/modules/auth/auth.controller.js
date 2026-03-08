@@ -5,6 +5,7 @@
 
 import * as authService from './auth.service.js';
 import * as repo from '../../db/repository.js';
+import { getPermissionsForPlan, normalizePlanPresetKey } from '../../utils/planPresetsForContext.js';
 import { asyncHandler } from '../../middlewares/errorHandler.js';
 import { sanitizeForLog } from '../../middlewares/security.js';
 import { logger } from '../../utils/logger.js';
@@ -160,10 +161,7 @@ export const getUserContext = asyncHandler(async (req, res) => {
         type: 'subscriber',
         value: subscriber.email
       };
-      const plan = (subscriber.plan || 'basic').toString().toLowerCase().trim();
-
-      // Para planos fixos (free, basic, pro, ultra), SEMPRE usar permissões do plano
-      const { getPermissionsForPlan } = await import('../../utils/planPresetsForContext.js');
+      const plan = normalizePlanPresetKey(subscriber.plan, { defaultPlan: 'basic' }) || 'basic';
       const planPermissions = getPermissionsForPlan(plan);
 
       if (planPermissions) {

@@ -5,6 +5,7 @@
  */
 
 import { hasPermission, hasAccess, PLAN_PERMISSIONS, PLANS } from '../utils/plans.js';
+import { normalizePlanPresetKey } from '../utils/planPresetsForContext.js';
 import * as repo from '../db/repository.js';
 import { usePostgreSQL, getDb } from '../config/appConfig.js';
 
@@ -72,14 +73,7 @@ async function getUserPlan(user, usePostgreSQL, db) {
     return null;
   }
   
-  const plan = subscriber.plan || PLANS.BASIC;
-  
-  // Se for plano custom, retornar 'custom' (permissões vêm do campo permissions)
-  if (plan === 'custom') {
-    return 'custom';
-  }
-  
-  return plan;
+  return normalizePlanPresetKey(subscriber.plan, { defaultPlan: PLANS.BASIC }) || PLANS.BASIC;
 }
 
 /**

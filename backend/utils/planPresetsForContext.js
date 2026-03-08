@@ -131,17 +131,41 @@ const PLAN_PRESETS_PERMISSIONS = {
   }
 };
 
-// premium = ultra (compatibilidade)
+const PLAN_ALIASES = {
+  premium: 'ultra',
+};
+
+const KNOWN_PLANS = new Set(['free', 'basic', 'pro', 'ultra', 'admin', 'custom']);
+
+// compatibilidade
 PLAN_PRESETS_PERMISSIONS.premium = PLAN_PRESETS_PERMISSIONS.ultra;
+PLAN_PRESETS_PERMISSIONS.admin = PLAN_PRESETS_PERMISSIONS.ultra;
+
+function normalizePlanPresetKey(plan, options = {}) {
+  const { defaultPlan = 'basic', allowNull = false } = options;
+  const raw = String(plan || '').toLowerCase().trim();
+  if (!raw) return allowNull ? null : defaultPlan;
+
+  const resolved = PLAN_ALIASES[raw] || raw;
+  if (KNOWN_PLANS.has(resolved)) {
+    return resolved;
+  }
+
+  return allowNull ? null : defaultPlan;
+}
 
 /**
  * Retorna as permissões para /user/context conforme o plano.
  * Se plan === 'custom', retorna null (caller deve usar subscriber.permissions).
  */
-function getPermissionsForPlan(plan) {
-  if (!plan || plan === 'custom') return null;
-  const key = String(plan).toLowerCase().trim();
-  return PLAN_PRESETS_PERMISSIONS[key] || PLAN_PRESETS_PERMISSIONS.basic;
+function getPermissionsForPlan(plan, options = {}) {
+  const { fallbackToBasic = false } = options;
+  const key = normalizePlanPresetKey(plan, {
+    defaultPlan: fallbackToBasic ? 'basic' : null,
+    allowNull: !fallbackToBasic,
+  });
+  if (!key || key === 'custom') return null;
+  return PLAN_PRESETS_PERMISSIONS[key] || (fallbackToBasic ? PLAN_PRESETS_PERMISSIONS.basic : null);
 }
 
-export { getPermissionsForPlan, PLAN_PRESETS_PERMISSIONS };
+export { getPermissionsForPlan, PLAN_PRESETS_PERMISSIONS, normalizePlanPresetKey };
