@@ -71,6 +71,7 @@ export function useEntregador() {
   return {
     user,
     entregador,
+    setEntregador,
     loading,
     // ✅ REMOVIDO: hasAccess - backend valida acesso via 403
     asSubscriber: (inSlugContext && user?.is_master && subscriberEmail) ? subscriberEmail : undefined,

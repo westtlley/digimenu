@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import toast from 'react-hot-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -197,7 +198,7 @@ export default function RouteOptimizer({ isOpen, onClose, orders, currentLocatio
 
   const handleOptimize = async () => {
     if (!currentLocation) {
-      alert('Não foi possível obter sua localização atual');
+      toast.error('Não foi possível obter sua localização atual');
       return;
     }
 
@@ -231,7 +232,7 @@ export default function RouteOptimizer({ isOpen, onClose, orders, currentLocatio
       console.error('Erro ao otimizar rota:', e);
       setOptimizing(false);
       setGeocoding(false);
-      alert('Erro ao otimizar rota');
+      toast.error('Erro ao otimizar rota');
     }
   };
 

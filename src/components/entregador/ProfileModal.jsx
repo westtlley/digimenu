@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { X, Camera, Save } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -39,7 +40,7 @@ export default function ProfileModal({ entregador, onClose, darkMode }) {
       const url = await uploadToCloudinary(file, 'profiles');
       setFormData({ ...formData, photo: url });
     } catch (error) {
-      alert('Erro ao fazer upload da foto');
+      toast.error('Erro ao fazer upload da foto');
     } finally {
       setUploading(false);
     }

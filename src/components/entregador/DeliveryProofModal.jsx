@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { X, Camera, Upload, Check } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { apiClient as base44 } from '@/api/apiClient';
@@ -32,7 +33,7 @@ export default function DeliveryProofModal({ order, entregador, onClose, onConfi
       const url = await uploadToCloudinary(file, 'delivery-proofs');
       setPhotoUrl(url);
     } catch (error) {
-      alert('Erro ao fazer upload da foto');
+      toast.error('Erro ao fazer upload da foto');
     } finally {
       setUploading(false);
     }

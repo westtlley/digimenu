@@ -9,6 +9,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { useSlugContext } from '@/hooks/useSlugContext';
@@ -67,15 +69,16 @@ export default function Entregador() {
   const [showQuickReport, setShowQuickReport] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [pauseEndTime, setPauseEndTime] = useState(null);
+  const [cancelModal, setCancelModal] = useState({ open: false, order: null, stage: null, reason: '' });
+  const [cancelSubmitting, setCancelSubmitting] = useState(false);
   
   const audioRef = useRef(null);
   const queryClient = useQueryClient();
   const { slug } = useSlugContext();
-  const { subscriberData, isMaster: isMasterPerm } = usePermission();
+  const { isMaster: isMasterPerm, hasModuleAccess, loading: permissionLoading } = usePermission();
   
   // Plano básico não tem acesso ao App Entregador
-  const plan = (subscriberData?.plan || 'basic').toString().toLowerCase();
-  const isBasicPlan = plan === 'basic';
+  const canAccessDeliveryApp = isMasterPerm || hasModuleAccess('colaboradores');
   
   // Hook customizado para entregador
   // ✅ SIMPLIFICADO: Backend valida acesso - se entregador não existir e não for master/entregador, mostrar erro
@@ -87,6 +90,10 @@ export default function Entregador() {
     asSubscriber,
     isMaster
   );
+  const entityOpts = useMemo(() => (asSubscriber ? { as_subscriber: asSubscriber } : {}), [asSubscriber]);
+  const updateOrder = (orderId, payload) => base44.entities.Order.update(orderId, payload, entityOpts);
+  const updateEntregador = (entregadorId, payload) => base44.entities.Entregador.update(entregadorId, payload, entityOpts);
+  const listStores = () => base44.entities.Store.list(null, entityOpts);
 
   // Critical Notifications System
   const criticalNotifications = useCriticalNotifications(entregador?.id);
@@ -157,7 +164,7 @@ export default function Entregador() {
   }, [activeOrder, geocodedLocation]);
 
   const updateStatusMutation = useMutation({
-    mutationFn: ({ orderId, status }) => base44.entities.Order.update(orderId, { 
+    mutationFn: ({ orderId, status }) => updateOrder(orderId, { 
       status,
       delivered_at: status === 'delivered' ? new Date().toISOString() : undefined
     }),
@@ -165,15 +172,19 @@ export default function Entregador() {
       queryClient.invalidateQueries({ queryKey: ['deliveryOrders'] });
       queryClient.invalidateQueries({ queryKey: ['allDeliveryOrders'] });
     },
+    onError: (error) => {
+      toast.error(error?.message || 'Erro ao atualizar status da entrega');
+    },
   });
 
   // Buscar pedidos disponíveis para aceitar (status: ready, delivery)
   const { data: availableOrders = [] } = useQuery({
-    queryKey: ['availableOrders'],
+    queryKey: ['availableOrders', asSubscriber ?? 'me'],
     queryFn: async () => {
       const orders = await base44.entities.Order.filter({
         status: 'ready',
-        delivery_method: 'delivery'
+        delivery_method: 'delivery',
+        ...(asSubscriber ? { as_subscriber: asSubscriber } : {})
       });
       // Filtrar apenas pedidos sem entregador atribuído
       return orders.filter(o => !o.entregador_id);
@@ -190,7 +201,7 @@ export default function Entregador() {
         return { ...entregador, status: newStatus };
       }
       
-      return await base44.entities.Entregador.update(entregador.id, { 
+      return await updateEntregador(entregador.id, { 
         ...entregador,
         status: newStatus 
       });
@@ -205,12 +216,12 @@ export default function Entregador() {
     const inputCode = deliveryCodeInput[order.id] || '';
     
     if (!inputCode) {
-      alert('Por favor, informe o código de entrega fornecido pelo cliente');
+      toast.error('Por favor, informe o código de entrega fornecido pelo cliente');
       return;
     }
     
     if (inputCode !== order.delivery_code) {
-      alert('Código de entrega inválido! Verifique com o cliente.');
+      toast.error('Código de entrega inválido! Verifique com o cliente.');
       return;
     }
     
@@ -230,7 +241,7 @@ export default function Entregador() {
     
     // Atualizar entregador
     if (!entregador._isMaster) {
-      base44.entities.Entregador.update(entregador.id, {
+      updateEntregador(entregador.id, {
         status: 'available',
         current_order_id: null,
         total_deliveries: (entregador.total_deliveries || 0) + 1,
@@ -295,8 +306,59 @@ export default function Entregador() {
     window.location.href = `tel:${phone}`;
   };
 
+  const cancelReasonSuggestions = {
+    store: ['Restaurante fechado', 'Pedido cancelado'],
+    route: ['Endereço não encontrado', 'Cliente não atende'],
+    customer: ['Endereço não encontrado', 'Cliente não atende'],
+  };
 
-  if (loading) {
+  const openCancelModal = (order, stage) => {
+    setCancelModal({ open: true, order, stage, reason: '' });
+  };
+
+  const closeCancelModal = () => {
+    setCancelModal({ open: false, order: null, stage: null, reason: '' });
+  };
+
+  const confirmCancelOrder = async () => {
+    const order = cancelModal.order;
+    const reason = (cancelModal.reason || '').trim();
+    if (!order || reason.length < 3) {
+      toast.error('Informe um motivo com pelo menos 3 caracteres');
+      return;
+    }
+
+    setCancelSubmitting(true);
+    try {
+      await updateOrder(order.id, {
+        ...order,
+        status: 'cancelled',
+        rejection_reason: `Cancelado pelo entregador: ${reason}`,
+      });
+
+      if (!entregador?._isVirtual) {
+        await updateEntregador(entregador.id, {
+          ...entregador,
+          status: 'available',
+          current_order_id: null,
+        });
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['deliveryOrders'] });
+      queryClient.invalidateQueries({ queryKey: ['allDeliveryOrders'] });
+      queryClient.invalidateQueries({ queryKey: ['availableOrders', asSubscriber ?? 'me'] });
+      queryClient.invalidateQueries({ queryKey: ['gestorOrders'] });
+      toast.success('Entrega cancelada com sucesso');
+      closeCancelModal();
+    } catch (error) {
+      toast.error(error?.message || 'Erro ao cancelar a entrega');
+    } finally {
+      setCancelSubmitting(false);
+    }
+  };
+
+
+  if (loading || permissionLoading) {
     return (
       <div className={`min-h-screen flex items-center justify-center ${darkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
         <Loader2 className="w-12 h-12 animate-spin text-blue-500" />
@@ -304,15 +366,15 @@ export default function Entregador() {
     );
   }
 
-  // Plano básico: App Entregador não disponível (apenas Pro e Ultra)
-  if (isBasicPlan && !isMaster) {
+  // Bloqueio por permissões centralizadas
+  if (!canAccessDeliveryApp && !isMaster) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
         <div className="bg-white p-8 rounded-xl shadow-lg text-center max-w-md">
           <Lock className="w-16 h-16 text-blue-500 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-gray-900 mb-2">App Entregador</h2>
           <p className="text-gray-600 mb-6">
-            O App Entregador está disponível nos planos Pro e Ultra. No plano Básico use o Gestor de pedidos no painel.
+            Este app não está habilitado para seu perfil/plano atual.
           </p>
           <Link to={createPageUrl('PainelAssinante', slug || undefined)}>
             <Button className="bg-blue-500 hover:bg-blue-600">Voltar ao Painel</Button>
@@ -814,10 +876,10 @@ export default function Entregador() {
                   onClick={async () => {
                     try {
                       // Buscar configuração da loja para pegar coordenadas
-                      const stores = await base44.entities.Store.list();
+                      const stores = await listStores();
                       const store = stores[0];
 
-                      await base44.entities.Order.update(order.id, {
+                      await updateOrder(order.id, {
                         ...order,
                         entregador_id: entregador.id,
                         status: 'going_to_store',
@@ -826,7 +888,7 @@ export default function Entregador() {
                       });
 
                       if (!entregador._isVirtual) {
-                        await base44.entities.Entregador.update(entregador.id, {
+                        await updateEntregador(entregador.id, {
                           ...entregador,
                           status: 'busy',
                           current_order_id: order.id
@@ -842,7 +904,7 @@ export default function Entregador() {
                         audioRef.current.play().catch(() => {});
                       }
                     } catch (e) {
-                      alert('Erro ao aceitar entrega');
+                      toast.error('Erro ao aceitar entrega');
                     }
                   }}
                   className="w-full bg-green-500 hover:bg-green-600 h-12"
@@ -1048,31 +1110,7 @@ export default function Entregador() {
                     <div className="grid grid-cols-2 gap-2 md:gap-3">
                       <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                         <Button
-                          onClick={async () => {
-                            const motivo = prompt('Motivo do cancelamento:\n\n1 - Restaurante fechado\n2 - Pedido cancelado\n3 - Outro motivo\n\nDigite o número ou descreva:');
-                            if (!motivo) return;
-
-                            const motivosMap = {
-                              '1': 'Restaurante fechado',
-                              '2': 'Pedido cancelado',
-                            };
-
-                            const motivoFinal = motivosMap[motivo] || motivo;
-                            await base44.entities.Order.update(order.id, {
-                              ...order,
-                              status: 'cancelled',
-                              rejection_reason: `Cancelado pelo entregador: ${motivoFinal}`
-                            });
-                            if (!entregador._isVirtual) {
-                              await base44.entities.Entregador.update(entregador.id, {
-                                ...entregador,
-                                status: 'available',
-                                current_order_id: null
-                              });
-                            }
-                            queryClient.invalidateQueries({ queryKey: ['deliveryOrders'] });
-                            queryClient.invalidateQueries({ queryKey: ['gestorOrders'] });
-                          }}
+                          onClick={() => openCancelModal(order, 'store')}
                           variant="outline"
                           className={`w-full h-10 md:h-12 rounded-xl font-semibold text-xs md:text-sm border-2 ${darkMode ? 'border-red-700 text-red-400 hover:bg-red-900/30' : 'border-red-500 text-red-600 hover:bg-red-50'}`}
                         >
@@ -1083,7 +1121,7 @@ export default function Entregador() {
                       <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                         <Button
                           onClick={async () => {
-                            await base44.entities.Order.update(order.id, {
+                            await updateOrder(order.id, {
                               ...order,
                               status: 'arrived_at_store'
                             });
@@ -1130,16 +1168,16 @@ export default function Entregador() {
                           const inputCode = pickupCodeInput[order.id] || '';
 
                           if (!inputCode) {
-                            alert('Digite o código fornecido pelo restaurante');
+                            toast.error('Digite o código fornecido pelo restaurante');
                             return;
                           }
 
                           if (inputCode !== order.pickup_code) {
-                            alert('Código inválido! Verifique com o restaurante.');
+                            toast.error('Código inválido! Verifique com o restaurante.');
                             return;
                           }
 
-                          await base44.entities.Order.update(order.id, {
+                          await updateOrder(order.id, {
                             ...order,
                             status: 'picked_up',
                             picked_up_at: new Date().toISOString()
@@ -1180,7 +1218,7 @@ export default function Entregador() {
                     <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                       <Button
                         onClick={async () => {
-                          await base44.entities.Order.update(order.id, {
+                          await updateOrder(order.id, {
                             ...order,
                             status: 'out_for_delivery'
                           });
@@ -1214,31 +1252,7 @@ export default function Entregador() {
                     <div className="grid grid-cols-2 gap-2 md:gap-3">
                       <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                         <Button
-                          onClick={async () => {
-                            const motivo = prompt('Motivo do cancelamento:\n\n1 - Endereço não encontrado\n2 - Cliente não atende\n3 - Outro motivo\n\nDigite o número ou descreva:');
-                            if (!motivo) return;
-
-                            const motivosMap = {
-                              '1': 'Endereço não encontrado',
-                              '2': 'Cliente não atende',
-                            };
-
-                            const motivoFinal = motivosMap[motivo] || motivo;
-                            await base44.entities.Order.update(order.id, {
-                              ...order,
-                              status: 'cancelled',
-                              rejection_reason: `Cancelado pelo entregador: ${motivoFinal}`
-                            });
-                            if (!entregador._isVirtual) {
-                              await base44.entities.Entregador.update(entregador.id, {
-                                ...entregador,
-                                status: 'available',
-                                current_order_id: null
-                              });
-                            }
-                            queryClient.invalidateQueries({ queryKey: ['deliveryOrders'] });
-                            queryClient.invalidateQueries({ queryKey: ['gestorOrders'] });
-                          }}
+                          onClick={() => openCancelModal(order, 'route')}
                           variant="outline"
                           className={`w-full h-10 md:h-12 rounded-xl font-semibold text-xs md:text-sm border-2 ${darkMode ? 'border-red-700 text-red-400 hover:bg-red-900/30' : 'border-red-500 text-red-600 hover:bg-red-50'}`}
                         >
@@ -1249,7 +1263,7 @@ export default function Entregador() {
                       <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                         <Button
                           onClick={async () => {
-                            await base44.entities.Order.update(order.id, {
+                            await updateOrder(order.id, {
                               ...order,
                               status: 'arrived_at_customer'
                             });
@@ -1294,31 +1308,7 @@ export default function Entregador() {
                     <div className="grid grid-cols-2 gap-2 md:gap-3">
                       <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                         <Button
-                          onClick={async () => {
-                            const motivo = prompt('Motivo do cancelamento:\n\n1 - Endereço não encontrado\n2 - Cliente não atende\n3 - Outro motivo\n\nDigite o número ou descreva:');
-                            if (!motivo) return;
-
-                            const motivosMap = {
-                              '1': 'Endereço não encontrado',
-                              '2': 'Cliente não atende',
-                            };
-
-                            const motivoFinal = motivosMap[motivo] || motivo;
-                            await base44.entities.Order.update(order.id, {
-                              ...order,
-                              status: 'cancelled',
-                              rejection_reason: `Cancelado pelo entregador: ${motivoFinal}`
-                            });
-                            if (!entregador._isVirtual) {
-                              await base44.entities.Entregador.update(entregador.id, {
-                                ...entregador,
-                                status: 'available',
-                                current_order_id: null
-                              });
-                            }
-                            queryClient.invalidateQueries({ queryKey: ['deliveryOrders'] });
-                            queryClient.invalidateQueries({ queryKey: ['gestorOrders'] });
-                          }}
+                          onClick={() => openCancelModal(order, 'customer')}
                           variant="outline"
                           className={`w-full h-10 md:h-12 rounded-xl font-semibold text-xs md:text-sm border-2 ${darkMode ? 'border-red-700 text-red-400 hover:bg-red-900/30' : 'border-red-500 text-red-600 hover:bg-red-50'}`}
                         >
@@ -1485,6 +1475,61 @@ export default function Entregador() {
         entregador={entregador}
         darkMode={darkMode}
       />
+
+      <Dialog
+        open={cancelModal.open}
+        onOpenChange={(open) => {
+          if (!open && !cancelSubmitting) {
+            closeCancelModal();
+          }
+        }}
+      >
+        <DialogContent className={darkMode ? 'bg-gray-900 border-gray-700 text-white' : ''}>
+          <DialogHeader>
+            <DialogTitle>Cancelar entrega</DialogTitle>
+            <DialogDescription className={darkMode ? 'text-gray-300' : ''}>
+              Informe o motivo do cancelamento. Isso será registrado no pedido.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            {(cancelReasonSuggestions[cancelModal.stage] || []).length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {(cancelReasonSuggestions[cancelModal.stage] || []).map((reason) => (
+                  <Button
+                    key={reason}
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={cancelSubmitting}
+                    onClick={() => setCancelModal((prev) => ({ ...prev, reason }))}
+                  >
+                    {reason}
+                  </Button>
+                ))}
+              </div>
+            )}
+
+            <Textarea
+              value={cancelModal.reason}
+              onChange={(event) => setCancelModal((prev) => ({ ...prev, reason: event.target.value }))}
+              placeholder="Descreva o motivo do cancelamento"
+              rows={4}
+              disabled={cancelSubmitting}
+              className={darkMode ? 'bg-gray-800 border-gray-700 text-white placeholder:text-gray-400' : ''}
+            />
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={closeCancelModal} disabled={cancelSubmitting}>
+              Voltar
+            </Button>
+            <Button variant="destructive" onClick={confirmCancelOrder} disabled={cancelSubmitting}>
+              {cancelSubmitting ? 'Cancelando...' : 'Confirmar cancelamento'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       </div>
     </ErrorBoundary>
   );

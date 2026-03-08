@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import toast from 'react-hot-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -34,10 +35,10 @@ export default function QuickReportModal({ isOpen, onClose, order, entregador, d
         type: 'alert'
       });
 
-      alert('Problema reportado com sucesso! O gestor foi notificado.');
+      toast.success('Problema reportado com sucesso! O gestor foi notificado.');
       onClose();
     } catch (e) {
-      alert('Erro ao reportar problema');
+      toast.error('Erro ao reportar problema');
     } finally {
       setSending(false);
     }

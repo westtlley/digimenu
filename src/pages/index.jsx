@@ -20,7 +20,6 @@ const EsqueciSenha = lazy(() => import("./EsqueciSenha"));
 const RedefinirSenha = lazy(() => import("./RedefinirSenha"));
 const Ajuda = lazy(() => import("./Ajuda"));
 const Entregador = lazy(() => import("./Entregador"));
-const EntregadorPanel = lazy(() => import("./EntregadorPanel"));
 const GestorPedidos = lazy(() => import("./GestorPedidos"));
 const Home = lazy(() => import("./Home"));
 const MeusPedidos = lazy(() => import("./MeusPedidos"));
@@ -55,7 +54,7 @@ const PAGES = {
     
     Entregador: Entregador,
     
-    EntregadorPanel: EntregadorPanel,
+    EntregadorPanel: Entregador,
     
     GestorPedidos: GestorPedidos,
     
@@ -106,7 +105,7 @@ function PagesContent() {
                 <Route path="/s/:slug/Cozinha" element={<ProtectedRoute requireActiveSubscription><Cozinha /></ProtectedRoute>} />
                 <Route path="/s/:slug/PDV" element={<ProtectedRoute requireActiveSubscription><PDV /></ProtectedRoute>} />
                 <Route path="/s/:slug/Entregador" element={<ProtectedRoute requireActiveSubscription><Entregador /></ProtectedRoute>} />
-                <Route path="/s/:slug/EntregadorPanel" element={<ProtectedRoute requireActiveSubscription><EntregadorPanel /></ProtectedRoute>} />
+                <Route path="/s/:slug/EntregadorPanel" element={<ProtectedRoute requireActiveSubscription><Entregador /></ProtectedRoute>} />
                 <Route path="/s/:slug/Garcom" element={<ProtectedRoute requireActiveSubscription><Garcom /></ProtectedRoute>} />
                 {/* Cardápio: apenas login cliente. /s/:slug/login = cliente; /s/:slug/login/colaborador para colaboradores */}
                 <Route path="/s/:slug/login/:type" element={<LoginBySlug />} />
@@ -161,7 +160,7 @@ function PagesContent() {
                 <Route path="/auth/google/callback" element={<GoogleCallback />} />
                 
                 <Route path="/Entregador" element={<ProtectedRoute requireActiveSubscription><Entregador /></ProtectedRoute>} />
-                <Route path="/EntregadorPanel" element={<ProtectedRoute requireActiveSubscription><EntregadorPanel /></ProtectedRoute>} />
+                <Route path="/EntregadorPanel" element={<ProtectedRoute requireActiveSubscription><Entregador /></ProtectedRoute>} />
                 <Route path="/GestorPedidos" element={<ProtectedRoute requireActiveSubscription><GestorPedidos /></ProtectedRoute>} />
                 <Route path="/Home" element={<Home />} />
                 <Route path="/MeusPedidos" element={<MeusPedidos />} />
