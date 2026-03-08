@@ -40,13 +40,26 @@ export const PLAN_LIMITS = {
     locations: 5,
     upgradeTriggers: { orders_80_percent: false, collaborator_limit: false, feature_locked: false },
   },
+  admin: null,
   custom: null,
   premium: null,
 };
 PLAN_LIMITS.premium = PLAN_LIMITS.ultra;
+PLAN_LIMITS.admin = PLAN_LIMITS.ultra;
+
+const PLAN_ALIASES = {
+  premium: 'ultra',
+  admin: 'ultra',
+};
+
+function normalizePlanLimitKey(plan) {
+  const raw = (plan || '').toString().toLowerCase().trim();
+  if (!raw) return null;
+  return PLAN_ALIASES[raw] || raw;
+}
 
 export function getPlanLimits(plan) {
-  const key = (plan || '').toString().toLowerCase().trim();
+  const key = normalizePlanLimitKey(plan);
   if (key === 'custom' || !key) return null;
   return PLAN_LIMITS[key] || PLAN_LIMITS.basic;
 }

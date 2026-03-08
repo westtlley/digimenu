@@ -9,6 +9,8 @@ import { generateTableOrderCode, generateOrderCode, validateOrderData, validateC
 import { emitOrderCreated } from '../../services/websocket.js';
 import { usePostgreSQL, getDb, getSaveDatabaseDebounced } from '../../config/appConfig.js';
 import { getClient } from '../../db/postgres.js';
+import { getPlanPermissions } from '../../utils/plans.js';
+import { normalizePlanPresetKey } from '../../utils/planPresetsForContext.js';
 
 function normalizeNeighborhood(value) {
   return String(value || '')
@@ -25,6 +27,34 @@ function toNumber(value, fallback = 0) {
 
 function roundMoney(value) {
   return Math.round((toNumber(value, 0) + Number.EPSILON) * 100) / 100;
+}
+
+function parsePermissions(rawPermissions) {
+  if (!rawPermissions) return {};
+  if (typeof rawPermissions === 'object') return rawPermissions;
+  try {
+    return JSON.parse(rawPermissions);
+  } catch {
+    return {};
+  }
+}
+
+function resolveOrderLimits(plan, rawPermissions) {
+  const normalizedPlan = normalizePlanPresetKey(plan, { defaultPlan: 'basic' }) || 'basic';
+  if (normalizedPlan === 'custom') {
+    const base = getPlanPermissions('ultra') || {};
+    const custom = parsePermissions(rawPermissions);
+    return {
+      limitDay: custom.orders_per_day ?? base.orders_per_day ?? null,
+      limitMonth: custom.orders_per_month ?? base.orders_per_month ?? null,
+    };
+  }
+
+  const permissions = getPlanPermissions(normalizedPlan) || {};
+  return {
+    limitDay: permissions.orders_per_day ?? null,
+    limitMonth: permissions.orders_per_month ?? null,
+  };
 }
 
 function calculateDistanceKm(lat1, lon1, lat2, lon2) {
@@ -70,7 +100,7 @@ export async function createTableOrder(orderData, slug) {
 
       // Validar limite dentro da transação (lock pessimista)
       const subscriberResult = await transactionClient.query(`
-        SELECT plan FROM subscribers WHERE email = $1
+        SELECT plan, permissions FROM subscribers WHERE email = $1
       `, [subscriberEmail]);
 
       if (subscriberResult.rows.length === 0) {
@@ -78,11 +108,8 @@ export async function createTableOrder(orderData, slug) {
         throw new Error('Assinante não encontrado');
       }
 
-      const plan = subscriberResult.rows[0].plan;
-      const { getPlanPermissions } = await import('../../utils/plans.js');
-      const permissions = getPlanPermissions(plan);
-      const limitDay = permissions.orders_per_day;
-      const limitMonth = permissions.orders_per_month;
+      const subscriberRow = subscriberResult.rows[0];
+      const { limitDay, limitMonth } = resolveOrderLimits(subscriberRow.plan, subscriberRow.permissions);
 
       if (limitDay === null || limitDay === undefined) {
         const now = new Date();
@@ -337,16 +364,13 @@ export async function createCardapioOrder(orderData, slug) {
       transactionClient = await getClient();
       await transactionClient.query('BEGIN');
 
-      const { getPlanPermissions } = await import('../../utils/plans.js');
-      const subResult = await transactionClient.query('SELECT plan FROM subscribers WHERE email = $1', [subscriberEmail]);
+      const subResult = await transactionClient.query('SELECT plan, permissions FROM subscribers WHERE email = $1', [subscriberEmail]);
       if (subResult.rows.length === 0) {
         await transactionClient.query('ROLLBACK');
         throw new Error('Assinante não encontrado');
       }
-      const plan = subResult.rows[0].plan;
-      const permissions = getPlanPermissions(plan);
-      const limitDay = permissions.orders_per_day;
-      const limitMonth = permissions.orders_per_month;
+      const subscriberRow = subResult.rows[0];
+      const { limitDay, limitMonth } = resolveOrderLimits(subscriberRow.plan, subscriberRow.permissions);
 
       if (limitDay !== -1 && limitDay != null) {
         const today = new Date();

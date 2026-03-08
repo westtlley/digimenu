@@ -250,7 +250,8 @@ export const PLAN_PRESETS = {
  * Backend deve ser a fonte de verdade; use isto quando subscriber.permissions estiver vazio.
  */
 export function getPlanPermissions(plan) {
-  const key = (plan || '').toString().toLowerCase().trim();
+  const rawKey = (plan || '').toString().toLowerCase().trim();
+  const key = rawKey === 'admin' ? 'ultra' : rawKey;
   if (key === 'custom') {
     return { ...PLAN_PRESETS.custom.permissions };
   }

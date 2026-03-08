@@ -194,6 +194,41 @@ export const getUserContext = asyncHandler(async (req, res) => {
   if (user.profile_role) profileRoles = [user.profile_role];
   if (Array.isArray(user.profile_roles) && user.profile_roles.length) profileRoles = [...new Set(user.profile_roles)];
 
+  let subscriberDataPayload = null;
+  if (!user.is_master && subscriber) {
+    let usage = null;
+    let effectiveLimits = null;
+    let addons = subscriber.addons;
+    if (typeof addons === 'string') {
+      try {
+        addons = JSON.parse(addons);
+      } catch {
+        addons = {};
+      }
+    }
+    if (!addons || typeof addons !== 'object') addons = {};
+
+    try {
+      const { getUsageForSubscriber, getEffectiveLimitsForSubscriber } = await import('../../services/planValidation.service.js');
+      usage = await getUsageForSubscriber(subscriber.email);
+      effectiveLimits = getEffectiveLimitsForSubscriber({ ...subscriber, addons });
+    } catch (e) {
+      // Ignorar erro de enriquecimento de contexto
+    }
+
+    subscriberDataPayload = {
+      email: subscriber.email,
+      plan: normalizePlanPresetKey(subscriber.plan, { defaultPlan: 'basic' }) || 'basic',
+      status: subscriber.status || 'active',
+      expires_at: subscriber.expires_at || null,
+      permissions,
+      slug: subscriber.slug || null,
+      addons,
+      ...(effectiveLimits && { effectiveLimits }),
+      ...(usage && { usage })
+    };
+  }
+
   return res.json({
     user: {
       id: user.id,
@@ -210,14 +245,7 @@ export const getUserContext = asyncHandler(async (req, res) => {
     },
     menuContext,
     permissions,
-    subscriberData: user.is_master ? null : (subscriber ? {
-      email: subscriber.email,
-      plan: subscriber.plan || 'basic',
-      status: subscriber.status || 'active',
-      expires_at: subscriber.expires_at || null,
-      permissions,
-      slug: subscriber.slug || null
-    } : null)
+    subscriberData: subscriberDataPayload
   });
 });
 

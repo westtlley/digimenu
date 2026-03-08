@@ -386,16 +386,18 @@ export async function getPlanLimitsInfo(subscriberEmail, isMaster = false) {
   if (!context) {
     throw new Error('Assinante não encontrado');
   }
-  const { plan, permissions } = context;
+  const { plan, permissions, subscriber } = context;
+  const effectiveLimits = getEffectiveLimitsForSubscriber(subscriber);
 
   return {
     plan,
     limits: {
-      products: permissions.products_limit || -1,
-      orders_per_day: permissions.orders_per_day || -1,
-      orders_per_month: permissions.orders_per_month || -1,
-      users: permissions.users_limit || -1,
-      history_days: permissions.orders_history_days || -1
+      products: effectiveLimits?.products ?? permissions.products_limit ?? -1,
+      orders_per_day: permissions.orders_per_day ?? -1,
+      orders_per_month: effectiveLimits?.orders_per_month ?? permissions.orders_per_month ?? -1,
+      users: effectiveLimits?.collaborators ?? permissions.users_limit ?? -1,
+      history_days: permissions.orders_history_days ?? -1,
+      locations: effectiveLimits?.locations ?? -1
     },
     permissions
   };

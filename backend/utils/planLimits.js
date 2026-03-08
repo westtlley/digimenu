@@ -4,6 +4,8 @@
  * -1 = ilimitado
  */
 
+import { normalizePlanPresetKey } from './planPresetsForContext.js';
+
 const UNLIMITED = -1;
 
 const PLAN_LIMITS = {
@@ -31,12 +33,15 @@ const PLAN_LIMITS = {
     collaborators: 20,
     locations: 5,
   },
+  admin: null,
+  custom: null,
   premium: null,
 };
 PLAN_LIMITS.premium = PLAN_LIMITS.ultra;
+PLAN_LIMITS.admin = PLAN_LIMITS.ultra;
 
 function getBaseLimits(plan) {
-  const key = (plan || '').toString().toLowerCase().trim();
+  const key = normalizePlanPresetKey(plan, { defaultPlan: null, allowNull: true });
   if (key === 'custom' || !key) return null;
   return PLAN_LIMITS[key] || PLAN_LIMITS.basic;
 }

@@ -4,6 +4,8 @@
  * Define os planos disponíveis e suas permissões
  */
 
+import { normalizePlanPresetKey } from './planPresetsForContext.js';
+
 export const PLANS = {
   FREE: 'free',
   BASIC: 'basic',
@@ -42,7 +44,7 @@ const FREE_PERMISSIONS = {
     menu_delete: true,
     categories_unlimited: false,
     categories_limit: 5,
-    products_limit: 15, // Trial: 15 produtos
+    products_limit: 20,
     
     // Dashboard Básico
     dashboard_view: true,
@@ -67,9 +69,9 @@ const FREE_PERMISSIONS = {
     whatsapp_notifications: true,
     
     // Limites rígidos
-    users_limit: 1,
+    users_limit: 0,
     orders_per_day: null,
-    orders_per_month: 50, // Trial: 50 pedidos/mês
+    orders_per_month: 200,
     
     // TUDO MAIS BLOQUEADO
     team_management: false,
@@ -85,6 +87,9 @@ const FREE_PERMISSIONS = {
     comandas_presencial: false,
     waiter_app: false,
     kitchen_display: false,
+    two_factor_auth: false,
+    '2fa': false,
+    managerial_auth: false,
     fiscal_integration: false,
     api_webhooks: false,
     admin_users: false,
@@ -105,7 +110,7 @@ const BASIC_PERMISSIONS = {
     menu_delete: true,
     categories_unlimited: false,
     categories_limit: 5,
-    products_limit: 50, // Basic: 50 produtos
+    products_limit: 150,
     
     // Dashboard Básico
     dashboard_view: true,
@@ -131,9 +136,9 @@ const BASIC_PERMISSIONS = {
     whatsapp_notifications: true,
     
     // Limites (monetização 2.0)
-    users_limit: 1, // Apenas 1 gerente
+    users_limit: 2,
     orders_per_day: null,
-    orders_per_month: 300, // 300 pedidos/mês
+    orders_per_month: 600,
     
     // Features Avançadas
     delivery_zones: true, // Zonas e taxas de entrega
@@ -150,6 +155,9 @@ const BASIC_PERMISSIONS = {
     comandas_presencial: false,
     waiter_app: false,
     kitchen_display: false,
+    two_factor_auth: true,
+    '2fa': true,
+    managerial_auth: false,
     fiscal_integration: false,
     api_webhooks: false,
     
@@ -166,11 +174,11 @@ const BASIC_PERMISSIONS = {
 const PRO_PERMISSIONS = {
     // Tudo do Básico (com upgrades) - Monetização 2.0
     ...BASIC_PERMISSIONS,
-    products_limit: 200,
+    products_limit: 800,
     orders_history_days: 365,
-    users_limit: 7, // 1 gerente + 3 garçons + 1 cozinha + 2 entregadores
+    users_limit: 5,
     orders_per_day: -1,
-    orders_per_month: 2000,
+    orders_per_month: 3000,
 
     // Gestor de Pedidos Avançado
     orders_advanced: true,
@@ -216,14 +224,14 @@ const PRO_PERMISSIONS = {
     comandas_print: false,
     tables: false,
     tables_reservations: false,
-    waiter_app: false,
+    waiter_app: true,
     waiter_calls: false,
     waiter_calls_notifications: false,
     waiter_calls_history: false,
     waiter_reports: false,
     waiter_websocket: false,
     waiter_offline: false,
-    kitchen_display: false,
+    kitchen_display: true,
     fiscal_integration: false,
     api_webhooks: false,
     multi_location: false,
@@ -231,6 +239,8 @@ const PRO_PERMISSIONS = {
     affiliates: true, // Programa de Afiliados - PRO tem acesso
     lgpd: true, // Conformidade LGPD - PRO tem acesso
     two_factor_auth: true, // Autenticação 2FA - PRO tem acesso
+    '2fa': true,
+    managerial_auth: true,
     
     // Admin - NÃO INCLUÍDO
     admin_users: false,
@@ -247,7 +257,7 @@ const ULTRA_PERMISSIONS = {
     ...PRO_PERMISSIONS,
     products_limit: -1,
     orders_history_days: -1,
-    users_limit: -1, // Ilimitado
+    users_limit: 20,
     orders_per_day: -1,
     orders_per_month: -1,
     colaboradores: true, // Gestão de colaboradores (já incluído via team_management)
@@ -374,16 +384,23 @@ export const PLAN_PERMISSIONS = {
   [PLANS.ULTRA]: ULTRA_PERMISSIONS,
   [PLANS.ADMIN]: ADMIN_PERMISSIONS
 };
+PLAN_PERMISSIONS.premium = PLAN_PERMISSIONS[PLANS.ULTRA];
+
+function normalizePlanKey(plan, options = {}) {
+  const { defaultPlan = null, allowNull = true } = options;
+  return normalizePlanPresetKey(plan, { defaultPlan, allowNull });
+}
 
 /**
  * Verifica se um plano tem uma permissão específica
  */
 export function hasPermission(plan, permission) {
-  if (!plan || !PLAN_PERMISSIONS[plan]) {
+  const planKey = normalizePlanKey(plan, { defaultPlan: null, allowNull: true });
+  if (!planKey || !PLAN_PERMISSIONS[planKey]) {
     return false;
   }
   
-  const permissions = PLAN_PERMISSIONS[plan];
+  const permissions = PLAN_PERMISSIONS[planKey];
   return permissions[permission] === true;
 }
 
@@ -391,11 +408,12 @@ export function hasPermission(plan, permission) {
  * Verifica se um plano tem acesso a um recurso
  */
 export function hasAccess(plan, resource) {
-  if (!plan || !PLAN_PERMISSIONS[plan]) {
+  const planKey = normalizePlanKey(plan, { defaultPlan: null, allowNull: true });
+  if (!planKey || !PLAN_PERMISSIONS[planKey]) {
     return false;
   }
   
-  const permissions = PLAN_PERMISSIONS[plan];
+  const permissions = PLAN_PERMISSIONS[planKey];
   
   // Verificar permissão direta
   if (permissions[resource] === true) {
@@ -407,11 +425,11 @@ export function hasAccess(plan, resource) {
     'menu': 'menu_digital',
     'dashboard': 'dashboard_view',
     'restaurant': 'restaurant_view',
-    'orders': 'orders_simple_view',
+    'orders': 'orders_view',
     'orders-advanced': 'orders_advanced',
     'pdv': 'pdv',
     'cash': 'cash_control',
-    'reports': 'reports_advanced',
+    'reports': 'reports_detailed',
     'admin': 'admin_master'
   };
   
@@ -427,11 +445,12 @@ export function hasAccess(plan, resource) {
  * Obtém todas as permissões de um plano
  */
 export function getPlanPermissions(plan) {
-  if (!plan || !PLAN_PERMISSIONS[plan]) {
+  const planKey = normalizePlanKey(plan, { defaultPlan: null, allowNull: true });
+  if (!planKey || !PLAN_PERMISSIONS[planKey]) {
     return {};
   }
   
-  return PLAN_PERMISSIONS[plan];
+  return PLAN_PERMISSIONS[planKey];
 }
 
 /**
@@ -445,6 +464,7 @@ export function getAvailablePlans() {
  * Obtém informações detalhadas de um plano
  */
 export function getPlanInfo(plan) {
+  const planKey = normalizePlanKey(plan, { defaultPlan: null, allowNull: true });
   const planInfo = {
     [PLANS.FREE]: {
       name: 'Gratuito',
@@ -455,19 +475,19 @@ export function getPlanInfo(plan) {
       trial_days: 0,
       features: [
         'Cardápio digital básico',
-        'Até 30 produtos',
+        'Até 20 produtos',
         'Pedidos via WhatsApp',
         'Gestor de pedidos simples',
         'Histórico 7 dias',
-        'Até 20 pedidos/mês',
-        '1 usuário',
+        'Até 200 pedidos/mês',
+        'Sem colaboradores',
         'Sem personalização visual',
         'Sem cupons ou promoções'
       ],
       limits: {
-        products: 30,
-        orders_per_month: 20,
-        users: 1,
+        products: 20,
+        orders_per_month: 200,
+        users: 0,
         history_days: 7
       },
       badge: 'Grátis',
@@ -482,20 +502,20 @@ export function getPlanInfo(plan) {
       trial_days: TRIAL_PERIODS.basic, // 10 dias grátis!
       features: [
         'Cardápio digital ilimitado',
-        'Até 100 produtos',
+        'Até 150 produtos',
         'Pedidos via WhatsApp',
         'Gestor de pedidos básico',
         'Personalização (logo, cores)',
         'Promoções e pontos de fidelidade',
         'Dashboard básico',
         'Histórico 30 dias',
-        'Até 50 pedidos/dia',
-        '1 usuário'
+        'Até 600 pedidos/mês',
+        'Até 2 colaboradores'
       ],
       limits: {
-        products: 100,
-        orders_per_day: 50,
-        users: 1,
+        products: 150,
+        orders_per_month: 600,
+        users: 2,
         history_days: 30
       }
     },
@@ -509,21 +529,23 @@ export function getPlanInfo(plan) {
       popular: true, // Badge "Mais Popular"
       features: [
         '✅ Tudo do Básico, mais:',
-        'Produtos ilimitados',
+        'Até 800 produtos',
         'App próprio para entregadores',
+        'Painel de cozinha',
+        'App de garçom',
         'Zonas e taxas de entrega',
         'Rastreamento em tempo real',
         'Cupons e promoções',
         'Relatórios avançados',
         'Gestão de equipe (até 5)',
         'Histórico 1 ano',
-        'Pedidos ilimitados',
+        'Até 3.000 pedidos/mês',
         'Suporte prioritário'
       ],
       limits: {
-        products: -1, // Ilimitado
-        orders_per_day: -1, // Ilimitado
-        orders_per_month: -1, // Ilimitado
+        products: 800,
+        orders_per_day: -1,
+        orders_per_month: 3000,
         users: 5,
         history_days: 365
       }
@@ -583,5 +605,5 @@ export function getPlanInfo(plan) {
     }
   };
   
-  return planInfo[plan] || null;
+  return planInfo[planKey] || null;
 }
