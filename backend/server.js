@@ -321,6 +321,14 @@ if (!usePostgreSQL) {
 const activeTokens = {};
 const passwordTokens = {};
 
+// Compartilha contexto global (db/tokens) para serviços que usam appConfig.
+initializeAppConfig({
+  db,
+  saveDatabaseDebounced,
+  activeTokens,
+  passwordTokens
+});
+
 // ✅ Função generatePasswordTokenForSubscriber movida para: backend/modules/auth/auth.service.js
 // Importar quando necessário: import { generatePasswordTokenForSubscriber } from './modules/auth/auth.service.js';
 
