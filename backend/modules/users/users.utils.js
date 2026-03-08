@@ -2,7 +2,44 @@
  * Users Utils - Funções auxiliares para módulo de usuários
  */
 
+import { getPermissionsForPlan, normalizePlanPresetKey } from '../../utils/planPresetsForContext.js';
+
 export const COLAB_ROLES = ['entregador', 'cozinha', 'pdv', 'garcom', 'gerente'];
+
+const normalizeLower = (value = '') => String(value || '').toLowerCase().trim();
+
+function parseSubscriberPermissionMap(subscriber) {
+  if (!subscriber) return {};
+  const plan = normalizePlanPresetKey(subscriber.plan, { defaultPlan: null, allowNull: true });
+  if (!plan) return {};
+
+  if (plan !== 'custom') {
+    const preset = getPermissionsForPlan(plan);
+    return (preset && typeof preset === 'object') ? { ...preset } : {};
+  }
+
+  let raw = subscriber.permissions;
+  if (typeof raw === 'string') {
+    try {
+      raw = JSON.parse(raw);
+    } catch {
+      raw = {};
+    }
+  }
+  return (raw && typeof raw === 'object') ? raw : {};
+}
+
+function hasModuleActionPermission(permissionMap, moduleName, action) {
+  const modulePermissions = permissionMap?.[moduleName];
+  if (Array.isArray(modulePermissions)) {
+    return modulePermissions.includes(action) || modulePermissions.includes('*');
+  }
+  if (modulePermissions === true) return true;
+  if (modulePermissions && typeof modulePermissions === 'object') {
+    return modulePermissions[action] === true;
+  }
+  return false;
+}
 
 /**
  * Obtém owner e subscriber do request
@@ -19,13 +56,15 @@ export async function getOwnerAndSubscriber(req, usePostgreSQL, db, repo) {
 }
 
 /**
- * Verifica se pode usar colaboradores (planos Pro e Ultra)
+ * Verifica se pode usar colaboradores com base no resolvedor central de plano/permissoes
+ * action: view | create | update | delete
  */
-export function canUseColaboradores(subscriber, isMaster) {
+export function canUseColaboradores(subscriber, isMaster, action = 'view') {
   if (isMaster) return true; // Master tem acesso a tudo
   if (!subscriber) return false;
-  const p = (subscriber.plan || '').toLowerCase();
-  return p === 'pro' || p === 'ultra';
+  const permissionMap = parseSubscriberPermissionMap(subscriber);
+  const requestedAction = normalizeLower(action) || 'view';
+  return hasModuleActionPermission(permissionMap, 'colaboradores', requestedAction);
 }
 
 /**

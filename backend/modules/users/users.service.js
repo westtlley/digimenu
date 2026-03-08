@@ -27,8 +27,8 @@ export async function listColaboradores(req, usePostgreSQL, db, repo) {
       : (db?.subscribers ? db.subscribers.find(s => (s.email || '').toLowerCase().trim() === owner) || null : null);
   }
   
-  if (!canUseColaboradores(subscriber, req.user?.is_master)) {
-    throw new Error('Colaboradores disponível apenas nos planos Pro e Ultra');
+  if (!canUseColaboradores(subscriber, req.user?.is_master, 'view')) {
+    throw new Error('Acesso a colaboradores nao permitido para este plano/perfil');
   }
   
   if (!owner && !req.user?.is_master) {
@@ -103,8 +103,8 @@ export async function createColaborador(req, usePostgreSQL, db, repo, saveDataba
     throw new Error('Informe o assinante (selecione o estabelecimento) para adicionar colaborador.');
   }
   
-  if (!canUseColaboradores(subscriber, req.user?.is_master)) {
-    throw new Error('Colaboradores disponível apenas nos planos Pro e Ultra');
+  if (!canUseColaboradores(subscriber, req.user?.is_master, 'create')) {
+    throw new Error('Acesso a colaboradores nao permitido para este plano/perfil');
   }
 
   // ✅ VALIDAÇÃO DE LIMITE DE USUÁRIOS/COLABORADORES

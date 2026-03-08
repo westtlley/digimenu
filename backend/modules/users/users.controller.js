@@ -34,7 +34,7 @@ export const listColaboradores = asyncHandler(async (req, res) => {
     return res.json(result);
   } catch (error) {
     logger.error('GET /api/colaboradores:', error);
-    if (error.message.includes('Colaboradores disponível')) {
+    if (error.message.includes('Acesso a colaboradores')) {
       return res.status(403).json({ error: error.message });
     }
     if (error.message.includes('Contexto do assinante')) {
@@ -53,7 +53,7 @@ export const createColaborador = asyncHandler(async (req, res) => {
     return res.status(201).json(result);
   } catch (error) {
     logger.error('POST /api/colaboradores:', sanitizeForLog({ error: error.message }));
-    if (error.message.includes('Colaboradores disponível')) {
+    if (error.message.includes('Acesso a colaboradores')) {
       return res.status(403).json({ error: error.message });
     }
     if (error.message.includes('Email') || error.message.includes('perfil') || error.message.includes('Senha')) {
@@ -91,8 +91,8 @@ export const addRolesToColaborador = asyncHandler(async (req, res) => {
   try {
     const { owner, subscriber } = await getOwnerAndSubscriber(req, usePostgreSQL, db, repo);
     if (!owner) return res.status(400).json({ error: 'Informe o assinante (selecione o estabelecimento) para adicionar perfis.' });
-    if (!canUseColaboradores(subscriber, req.user?.is_master)) {
-      return res.status(403).json({ error: 'Colaboradores disponível apenas nos planos Pro e Ultra' });
+    if (!canUseColaboradores(subscriber, req.user?.is_master, 'update')) {
+      return res.status(403).json({ error: 'Acesso a colaboradores nao permitido para este plano/perfil' });
     }
     
     const { roles } = req.body || {};
@@ -202,8 +202,8 @@ export const updateColaborador = asyncHandler(async (req, res) => {
   try {
     const { owner, subscriber } = await getOwnerAndSubscriber(req, usePostgreSQL, db, repo);
     if (!owner) return res.status(400).json({ error: 'Contexto do assinante necessário' });
-    if (!canUseColaboradores(subscriber, req.user?.is_master)) {
-      return res.status(403).json({ error: 'Colaboradores disponível apenas nos planos Pro e Ultra' });
+    if (!canUseColaboradores(subscriber, req.user?.is_master, 'update')) {
+      return res.status(403).json({ error: 'Acesso a colaboradores nao permitido para este plano/perfil' });
     }
     
     const { name, role, roles, newPassword } = req.body || {};
@@ -293,8 +293,8 @@ export const deleteColaborador = asyncHandler(async (req, res) => {
   try {
     const { owner, subscriber } = await getOwnerAndSubscriber(req, usePostgreSQL, db, repo);
     if (!owner) return res.status(400).json({ error: 'Contexto do assinante necessário' });
-    if (!canUseColaboradores(subscriber, req.user?.is_master)) {
-      return res.status(403).json({ error: 'Colaboradores disponível apenas nos planos Pro e Ultra' });
+    if (!canUseColaboradores(subscriber, req.user?.is_master, 'delete')) {
+      return res.status(403).json({ error: 'Acesso a colaboradores nao permitido para este plano/perfil' });
     }
     
     const id = req.params.id;
@@ -338,8 +338,8 @@ export const toggleActiveColaborador = asyncHandler(async (req, res) => {
   try {
     const { owner, subscriber } = await getOwnerAndSubscriber(req, usePostgreSQL, db, repo);
     if (!owner) return res.status(400).json({ error: 'Contexto do assinante necessário' });
-    if (!canUseColaboradores(subscriber, req.user?.is_master)) {
-      return res.status(403).json({ error: 'Colaboradores disponível apenas nos planos Pro e Ultra' });
+    if (!canUseColaboradores(subscriber, req.user?.is_master, 'update')) {
+      return res.status(403).json({ error: 'Acesso a colaboradores nao permitido para este plano/perfil' });
     }
     
     const id = req.params.id;

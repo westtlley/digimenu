@@ -953,10 +953,10 @@ async function ensureManagerialAuthPlanEnabled(owner, res) {
 
 const ENTITY_ACCESS_CONFIG = {
   // PDV/Caixa (hardening já existente)
-  caixa: { module: 'caixa', allowedCollaboratorRoles: new Set(['gerente', 'pdv']) },
-  caixaoperation: { module: 'caixa', allowedCollaboratorRoles: new Set(['gerente', 'pdv']) },
-  pedidopdv: { module: 'pdv', allowedCollaboratorRoles: new Set(['gerente', 'pdv']) },
-  pdvsession: { module: 'pdv', allowedCollaboratorRoles: new Set(['gerente', 'pdv']) },
+  caixa: { module: 'caixa', allowedCollaboratorRoles: new Set(['gerente', 'pdv']), enforceRead: true },
+  caixaoperation: { module: 'caixa', allowedCollaboratorRoles: new Set(['gerente', 'pdv']), enforceRead: true },
+  pedidopdv: { module: 'pdv', allowedCollaboratorRoles: new Set(['gerente', 'pdv']), enforceRead: true },
+  pdvsession: { module: 'pdv', allowedCollaboratorRoles: new Set(['gerente', 'pdv']), enforceRead: true },
 
   // Cardápio e configuração
   dish: { module: 'dishes', allowedCollaboratorRoles: new Set(['gerente']) },
@@ -979,12 +979,19 @@ const ENTITY_ACCESS_CONFIG = {
   promotion: { module: 'promotions', allowedCollaboratorRoles: new Set(['gerente']) },
   store: { module: 'store', allowedCollaboratorRoles: new Set(['gerente']) },
   storeconfig: { module: 'store', allowedCollaboratorRoles: new Set(['gerente']) },
+  subscriber: { module: 'store', allowedCollaboratorRoles: new Set(['gerente']), enforceRead: true },
+  paymentconfig: { module: 'payments', allowedCollaboratorRoles: new Set(['gerente']), enforceRead: true },
+  loyaltyconfig: { module: 'promotions', allowedCollaboratorRoles: new Set(['gerente']), enforceRead: true },
+  loyaltyreward: { module: 'promotions', allowedCollaboratorRoles: new Set(['gerente']), enforceRead: true },
+  notification: { module: 'promotions', allowedCollaboratorRoles: new Set(['gerente']), enforceRead: true },
+  messagetemplate: { module: 'gestor_pedidos', allowedCollaboratorRoles: new Set(['gerente', 'gestor_pedidos']), enforceRead: true },
   customer: { module: 'clients', allowedCollaboratorRoles: new Set(['gerente', 'gestor_pedidos']) },
-  printerconfig: { module: 'printer', allowedCollaboratorRoles: new Set(['gerente', 'pdv']) },
+  printerconfig: { module: 'printer', allowedCollaboratorRoles: new Set(['gerente', 'pdv']), enforceRead: true },
   stockmovement: { module: 'inventory', allowedCollaboratorRoles: new Set(['gerente']) },
   affiliate: { module: 'affiliates', allowedCollaboratorRoles: new Set(['gerente']) },
   referral: { module: 'affiliates', allowedCollaboratorRoles: new Set(['gerente']) },
   user2fa: { module: '2fa', allowedCollaboratorRoles: new Set(['gerente']) },
+  servicerequest: { module: 'dashboard', allowedCollaboratorRoles: new Set(), enforceRead: true },
 
   // Operação
   order: { module: 'orders', allowedCollaboratorRoles: new Set(['gerente', 'gestor_pedidos', 'cozinha', 'entregador']) },
@@ -1071,6 +1078,10 @@ function parseSubscriberPermissionMap(subscriber) {
     }
   }
   return (raw && typeof raw === 'object') ? raw : {};
+}
+
+function shouldEnforceEntityRead(config) {
+  return !!(config && config.enforceRead === true);
 }
 
 function getManagerialAuthSessionKey(req, ownerEmail, role) {
@@ -1222,6 +1233,55 @@ async function resolveSubscriberContextForEntity(req, payload = {}) {
 
   const normalizedOwner = normalizeLower(subscriber?.email || owner);
   return { ownerEmail: normalizedOwner, subscriber };
+}
+
+async function enforceEntityReadAccess(req, res, entity, payload = {}) {
+  const entityNorm = normalizeEntityName(entity);
+  const config = ENTITY_ACCESS_CONFIG[entityNorm];
+  if (!shouldEnforceEntityRead(config)) {
+    return { allowed: true };
+  }
+
+  if (req?.user?.is_master) {
+    return { allowed: true };
+  }
+
+  const { ownerEmail, subscriber } = await resolveSubscriberContextForEntity(req, payload);
+  if (!ownerEmail || !subscriber) {
+    res.status(403).json({
+      error: 'Contexto do assinante invalido para esta leitura.',
+      code: 'ACTION_NOT_ALLOWED'
+    });
+    return { allowed: false };
+  }
+
+  const action = 'view';
+  const permissionMap = parseSubscriberPermissionMap(subscriber);
+  if (!hasModuleActionPermission(permissionMap, config.module, action)) {
+    res.status(403).json({
+      error: `Plano atual nao permite ${config.module.toUpperCase()} (${action}).`,
+      code: 'PLAN_FEATURE_NOT_AVAILABLE',
+      module: config.module,
+      action,
+      plan: normalizePlanPresetKey(subscriber.plan, { defaultPlan: 'basic' }) || 'basic'
+    });
+    return { allowed: false };
+  }
+
+  const isOwner = isOwnerForSubscriber(req.user, ownerEmail);
+  if (!isOwner) {
+    const roles = getUserRoleList(req.user);
+    const allowedRole = roles.some((role) => config.allowedCollaboratorRoles.has(role));
+    if (!allowedRole) {
+      res.status(403).json({
+        error: 'Perfil sem permissao para visualizar este modulo.',
+        code: 'ROLE_NOT_ALLOWED'
+      });
+      return { allowed: false };
+    }
+  }
+
+  return { allowed: true, ownerEmail, subscriber };
 }
 
 async function enforceEntityWriteAccess(req, res, entity, method, payload = {}) {
@@ -1405,6 +1465,8 @@ entitiesAndManagerialRouter.get('/entities/:entity', authenticate, asyncHandler(
       }
       if (allow) req.user._contextForSubscriber = req.user._contextForSubscriber || as_subscriber;
     }
+    const entityReadGuard = await enforceEntityReadAccess(req, res, entity, { owner_email: filters.owner_email || as_subscriber });
+    if (!entityReadGuard.allowed) return;
     const pagination = { page: page ? parseInt(page) : 1, limit: limit ? parseInt(limit) : 50 };
     let result;
     if (usePostgreSQL) {
@@ -1462,6 +1524,8 @@ entitiesAndManagerialRouter.get('/entities/:entity/:id', authenticate, async (re
     const { entity, id } = req.params;
     const asSub = req.query.as_subscriber;
     if (req.user?.is_master && asSub) req.user._contextForSubscriber = asSub;
+    const entityReadGuard = await enforceEntityReadAccess(req, res, entity, { owner_email: asSub || req.query.owner_email });
+    if (!entityReadGuard.allowed) return;
     let item;
     if (usePostgreSQL) item = await repo.getEntityById(entity, id, req.user);
     else if (db?.entities?.[entity]) {
