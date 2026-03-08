@@ -39,7 +39,6 @@ import { upload } from './middlewares/upload.js';
 import { testConnection } from './db/postgres.js';
 import { migrate } from './db/migrate.js';
 import * as repo from './db/repository.js';
-import { requirePermission, requireAccess, requireMaster } from './middlewares/permissions.js';
 import { PLANS, getPlanInfo } from './utils/plans.js';
 import { logger } from './utils/logger.js';
 import { validateJWTSecret, sanitizeForLog, setupHelmet, sanitizeMiddleware } from './middlewares/security.js';
@@ -59,7 +58,7 @@ import lgpdRoutes from './routes/lgpd.routes.js';
 import authRoutes, { getUserContext } from './modules/auth/auth.routes.js';
 import * as authController from './modules/auth/auth.controller.js';
 import { generatePasswordTokenForSubscriber } from './modules/auth/auth.service.js';
-import usersRoutes from './modules/users/users.routes.js';
+import usersRoutes, { colaboradoresRouter } from './modules/users/users.routes.js';
 import * as usersController from './modules/users/users.controller.js';
 import { isRequesterGerente } from './modules/users/users.utils.js';
 import establishmentsRoutes from './modules/establishments/establishments.routes.js';
@@ -727,8 +726,8 @@ usersController.initializeUsersController(db, saveDatabaseDebounced);
 
 // Registrar rotas do módulo de usuários
 app.use('/api/users', usersRoutes);
-// Nota: Rotas de colaboradores estão em /api/users/colaboradores
-// Para compatibilidade com frontend, pode ser necessário adicionar redirect ou alias futuro
+// Alias legado mantido: /api/colaboradores -> mesma implementação do módulo users
+app.use('/api/colaboradores', colaboradoresRouter);
 
 // =======================
 // 🔍 ROTAS DE DEBUG (ANTES das outras para evitar 404)
@@ -1476,14 +1475,6 @@ entitiesAndManagerialRouter.get('/entities/:entity/:id', authenticate, async (re
     res.status(500).json({ error: 'Erro interno no servidor' });
   }
 });
-// Colaboradores (evitar 404 em produção - front espera /api/colaboradores)
-entitiesAndManagerialRouter.get('/colaboradores', authenticate, usersController.listColaboradores);
-entitiesAndManagerialRouter.post('/colaboradores', authenticate, validate(schemas.createColaborador), createLimiter, usersController.createColaborador);
-entitiesAndManagerialRouter.post('/colaboradores/:email/add-roles', authenticate, usersController.addRolesToColaborador);
-entitiesAndManagerialRouter.patch('/colaboradores/:id', authenticate, usersController.updateColaborador);
-entitiesAndManagerialRouter.delete('/colaboradores/:id', authenticate, usersController.deleteColaborador);
-entitiesAndManagerialRouter.patch('/colaboradores/:id/toggle-active', authenticate, usersController.toggleActiveColaborador);
-
 // Entities CRUD - must run BEFORE entitiesAndManagerialRouter (which returns 404 for unmatched methods)
 app.post('/api/entities/:entity', authenticate, createLimiter, asyncHandler(async (req, res) => {
   const { entity } = req.params;
@@ -2264,142 +2255,6 @@ app.get('/api/auth/me', authenticate, async (req, res) => {
     return res.status(500).json({ error: 'Erro interno no servidor' });
   }
 });
-
-// ✅ NOVO: Endpoint que retorna contexto completo do usuário (menuContext + permissions)
-app.get('/api/user/context', authenticate, asyncHandler(async (req, res) => {
-  try {
-    if (!req.user) {
-      return res.status(401).json({ error: 'Não autenticado' });
-    }
-
-    const user = req.user;
-    let subscriber = null;
-    let permissions = {};
-    let menuContext = null;
-
-    // Se for master, criar contexto com slug
-    if (user.is_master === true) {
-      menuContext = {
-        type: 'slug',
-        value: user.slug || null
-      };
-      permissions = {}; // Master tem todas as permissões (vazio = acesso total)
-    } else {
-      const emailToFind = (user.subscriber_email || user.email || '').toString().toLowerCase().trim();
-      if (usePostgreSQL) {
-        if (emailToFind) {
-          subscriber = await repo.getSubscriberByEmail(emailToFind);
-          if (subscriber && !user.subscriber_email && user.email && (user.email || '').toLowerCase().trim() === emailToFind) {
-            try {
-              await repo.updateUser(user.id, { subscriber_email: subscriber.email });
-              user.subscriber_email = subscriber.email;
-            } catch (e) {
-              console.warn('⚠️ [user/context] Não foi possível sincronizar subscriber_email:', e?.message);
-            }
-          }
-        }
-      } else if (db && db.subscribers && emailToFind) {
-        subscriber = db.subscribers.find(s => (s.email || '').toLowerCase() === emailToFind);
-      }
-
-      if (subscriber) {
-        menuContext = {
-          type: 'subscriber',
-          value: subscriber.email
-        };
-        const plan = normalizePlanPresetKey(subscriber.plan, { defaultPlan: 'basic' }) || 'basic';
-        if (plan !== 'custom') {
-          const { getPermissionsForPlan } = await import('./utils/planPresetsForContext.js');
-          const planPerms = getPermissionsForPlan(plan);
-          permissions = (planPerms && typeof planPerms === 'object') ? { ...planPerms } : {};
-        } else {
-          let raw = subscriber.permissions;
-          if (typeof raw === 'string') {
-            try { raw = JSON.parse(raw); } catch (e) { raw = {}; }
-          }
-          permissions = (raw && typeof raw === 'object') ? raw : {};
-        }
-      } else {
-        // ✅ DEBUG: Log quando subscriber não é encontrado
-        console.log('⚠️ [user/context] Subscriber não encontrado para:', user.subscriber_email || user.email);
-        // Fallback: usar email do usuário
-        menuContext = {
-          type: 'subscriber',
-          value: user.email
-        };
-      }
-    }
-
-    // Colaborador: incluir profile_role e profile_roles para o frontend (ex.: Painel do Gerente)
-    let profileRoles = [];
-    if (user.profile_role) profileRoles = [String(user.profile_role).toLowerCase().trim()];
-    if (Array.isArray(user.profile_roles) && user.profile_roles.length) profileRoles = [...new Set(user.profile_roles.map(r => String(r).toLowerCase().trim()))];
-
-    // Assinante (dono): is_owner = true quando email está em subscribers
-    const isOwner = !user.is_master && subscriber && (subscriber.email || '').toLowerCase().trim() === (user.email || '').toLowerCase().trim();
-
-    let subscriberDataPayload = null;
-    if (!user.is_master && subscriber) {
-      let usage = null;
-      try {
-        const { getUsageForSubscriber } = await import('./services/planValidation.service.js');
-        usage = await getUsageForSubscriber(subscriber.email);
-      } catch (e) {
-        // ignore
-      }
-      let addons = subscriber.addons;
-      if (typeof addons === 'string') {
-        try {
-          addons = JSON.parse(addons);
-        } catch (e) {
-          addons = {};
-        }
-      }
-      if (!addons || typeof addons !== 'object') addons = {};
-      let effectiveLimits = null;
-      try {
-        const { getEffectiveLimitsForSubscriber } = await import('./services/planValidation.service.js');
-        effectiveLimits = getEffectiveLimitsForSubscriber({ ...subscriber, addons });
-      } catch (e) {
-        // ignore
-      }
-      subscriberDataPayload = {
-        email: subscriber.email,
-        plan: subscriber.plan || 'basic',
-        status: subscriber.status || 'active',
-        expires_at: subscriber.expires_at || null,
-        permissions,
-        slug: subscriber.slug || null,
-        addons,
-        ...(effectiveLimits && { effectiveLimits }),
-        ...(usage && { usage }),
-      };
-    }
-
-    return res.json({
-      user: {
-        id: user.id,
-        email: user.email,
-        full_name: user.full_name,
-        is_master: user.is_master,
-        role: user.role,
-        slug: user.slug || null,
-        subscriber_email: user.subscriber_email || null,
-        profile_role: user.profile_role || null,
-        profile_roles: profileRoles.length ? profileRoles : null,
-        is_owner: !!isOwner,
-        photo: user.photo || null,
-        google_photo: user.google_photo || null
-      },
-      menuContext,
-      permissions,
-      subscriberData: subscriberDataPayload
-    });
-  } catch (error) {
-    console.error('❌ [user/context] Erro ao obter contexto:', error);
-    return res.status(500).json({ error: 'Erro interno no servidor' });
-  }
-}));
 
 // Alterar própria senha (requer autenticação)
 app.post('/api/auth/change-password', authenticate, validate(schemas.changePassword), asyncHandler(async (req, res) => {
@@ -3646,7 +3501,7 @@ app.post('/api/auth/set-password', validate(schemas.setPassword), asyncHandler(a
 // =======================
 // 🔔 SERVICE REQUESTS (solicitações de assinantes para master)
 // =======================
-app.get('/api/service-requests', authenticate, requireMaster, asyncHandler(async (req, res) => {
+app.get('/api/service-requests', authenticate, requireMaster(), asyncHandler(async (req, res) => {
   const items = usePostgreSQL ? await repo.listAllServiceRequests() : [];
   res.json({ items });
 }));

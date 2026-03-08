@@ -11,7 +11,7 @@ const router = express.Router();
  * GET /api/analytics/dashboard
  * Dashboard de métricas (apenas master)
  */
-router.get('/dashboard', requireMaster, async (req, res) => {
+router.get('/dashboard', requireMaster(), async (req, res) => {
   try {
     const { subscriber_email } = req.query;
     const metrics = await getDashboardMetrics(subscriber_email || null);
@@ -26,7 +26,7 @@ router.get('/dashboard', requireMaster, async (req, res) => {
  * GET /api/analytics/metrics
  * Métricas de um período
  */
-router.get('/metrics', requireMaster, async (req, res) => {
+router.get('/metrics', requireMaster(), async (req, res) => {
   try {
     const { start_date, end_date, subscriber_email } = req.query;
     

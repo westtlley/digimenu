@@ -11,7 +11,7 @@ const router = express.Router();
  * POST /api/backup/create
  * Criar backup manual
  */
-router.post('/create', requireMaster, async (req, res) => {
+router.post('/create', requireMaster(), async (req, res) => {
   try {
     const result = await createBackup();
     res.json(result);
@@ -25,7 +25,7 @@ router.post('/create', requireMaster, async (req, res) => {
  * GET /api/backup/list
  * Listar backups disponíveis
  */
-router.get('/list', requireMaster, async (req, res) => {
+router.get('/list', requireMaster(), async (req, res) => {
   try {
     const backups = await listBackups();
     res.json({ backups });
@@ -39,7 +39,7 @@ router.get('/list', requireMaster, async (req, res) => {
  * POST /api/backup/restore
  * Restaurar backup
  */
-router.post('/restore', requireMaster, async (req, res) => {
+router.post('/restore', requireMaster(), async (req, res) => {
   try {
     const { filename } = req.body;
     

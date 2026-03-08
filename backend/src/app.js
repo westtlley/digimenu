@@ -19,7 +19,7 @@ import passport from 'passport';
 
 // Importar rotas
 import authRoutes from '../modules/auth/auth.routes.js';
-import usersRoutes from '../modules/users/users.routes.js';
+import usersRoutes, { colaboradoresRouter } from '../modules/users/users.routes.js';
 import establishmentsRoutes from '../modules/establishments/establishments.routes.js';
 import menusRoutes from '../modules/menus/menus.routes.js';
 import ordersRoutes from '../modules/orders/orders.routes.js';
@@ -103,7 +103,7 @@ export async function createApp() {
 
   // Rotas protegidas
   app.use('/api/users', usersRoutes);
-  app.use('/api/colaboradores', usersRoutes);
+  app.use('/api/colaboradores', colaboradoresRouter);
   app.use('/api/establishments', establishmentsRoutes);
   app.use('/api/menus', menusRoutes);
   app.use('/api/orders', ordersRoutes);
