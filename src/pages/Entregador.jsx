@@ -71,8 +71,10 @@ export default function Entregador() {
   const [pauseEndTime, setPauseEndTime] = useState(null);
   const [cancelModal, setCancelModal] = useState({ open: false, order: null, stage: null, reason: '' });
   const [cancelSubmitting, setCancelSubmitting] = useState(false);
+  const [statusTransitionLoading, setStatusTransitionLoading] = useState({});
   
   const audioRef = useRef(null);
+  const statusTransitionLocksRef = useRef(new Set());
   const queryClient = useQueryClient();
   const { slug } = useSlugContext();
   const { isMaster: isMasterPerm, hasModuleAccess, loading: permissionLoading } = usePermission();
@@ -382,6 +384,41 @@ export default function Entregador() {
       toast.error(error?.message || 'Erro ao cancelar a entrega');
     } finally {
       setCancelSubmitting(false);
+    }
+  };
+
+  const isStatusTransitionLoading = (orderId, nextStatus) =>
+    Boolean(statusTransitionLoading[`${orderId}:${nextStatus}`]);
+
+  const runStatusTransition = async ({
+    order,
+    nextStatus,
+    payload,
+    successMessage,
+    errorMessage,
+    onSuccess,
+  }) => {
+    const transitionKey = `${order?.id}:${nextStatus}`;
+    if (!order?.id || statusTransitionLocksRef.current.has(transitionKey)) return;
+
+    statusTransitionLocksRef.current.add(transitionKey);
+    setStatusTransitionLoading(prev => ({ ...prev, [transitionKey]: true }));
+
+    try {
+      await updateOrder(order.id, payload);
+      queryClient.invalidateQueries({ queryKey: ['deliveryOrders'] });
+      queryClient.invalidateQueries({ queryKey: ['gestorOrders'] });
+      toast.success(successMessage);
+      if (typeof onSuccess === 'function') onSuccess();
+    } catch (error) {
+      toast.error(error?.message || errorMessage || 'Erro ao atualizar status da entrega');
+    } finally {
+      statusTransitionLocksRef.current.delete(transitionKey);
+      setStatusTransitionLoading(prev => {
+        const next = { ...prev };
+        delete next[transitionKey];
+        return next;
+      });
     }
   };
 
@@ -1157,19 +1194,23 @@ export default function Entregador() {
                       </motion.div>
                       <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                         <Button
-                          onClick={async () => {
-                            await updateOrder(order.id, {
-                              ...order,
-                              status: 'arrived_at_store'
+                          onClick={() => {
+                            runStatusTransition({
+                              order,
+                              nextStatus: 'arrived_at_store',
+                              payload: {
+                                ...order,
+                                status: 'arrived_at_store'
+                              },
+                              successMessage: 'Chegada ao restaurante confirmada',
+                              errorMessage: 'Erro ao confirmar chegada ao restaurante'
                             });
-                            queryClient.invalidateQueries({ queryKey: ['deliveryOrders'] });
-                            queryClient.invalidateQueries({ queryKey: ['gestorOrders'] });
-                            toast.success('Chegada ao restaurante confirmada');
                           }}
+                          disabled={isStatusTransitionLoading(order.id, 'arrived_at_store')}
                           className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white h-10 md:h-12 text-xs md:text-base font-bold rounded-xl shadow-lg shadow-blue-500/30"
                         >
                           <CheckCircle className="w-4 md:w-5 h-4 md:h-5 mr-1 md:mr-2" />
-                          Cheguei ao Restaurante
+                          {isStatusTransitionLoading(order.id, 'arrived_at_store') ? 'Confirmando...' : 'Cheguei ao Restaurante'}
                         </Button>
                       </motion.div>
                     </div>
@@ -1202,7 +1243,7 @@ export default function Entregador() {
                     
                     <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                       <Button
-                        onClick={async () => {
+                        onClick={() => {
                           const inputCode = pickupCodeInput[order.id] || '';
 
                           if (!inputCode) {
@@ -1215,25 +1256,30 @@ export default function Entregador() {
                             return;
                           }
 
-                          await updateOrder(order.id, {
-                            ...order,
-                            status: 'picked_up',
-                            picked_up_at: new Date().toISOString()
-                          });
-                          queryClient.invalidateQueries({ queryKey: ['deliveryOrders'] });
-                          queryClient.invalidateQueries({ queryKey: ['gestorOrders'] });
-                          toast.success('Coleta confirmada');
-                          setPickupCodeInput(prev => {
-                            const newState = { ...prev };
-                            delete newState[order.id];
-                            return newState;
+                          runStatusTransition({
+                            order,
+                            nextStatus: 'picked_up',
+                            payload: {
+                              ...order,
+                              status: 'picked_up',
+                              picked_up_at: new Date().toISOString()
+                            },
+                            successMessage: 'Coleta confirmada',
+                            errorMessage: 'Erro ao confirmar coleta',
+                            onSuccess: () => {
+                              setPickupCodeInput(prev => {
+                                const newState = { ...prev };
+                                delete newState[order.id];
+                                return newState;
+                              });
+                            }
                           });
                         }}
-                        disabled={!pickupCodeInput[order.id] || pickupCodeInput[order.id].length !== 4}
+                        disabled={!pickupCodeInput[order.id] || pickupCodeInput[order.id].length !== 4 || isStatusTransitionLoading(order.id, 'picked_up')}
                         className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white h-10 md:h-12 text-xs md:text-base font-bold rounded-xl shadow-lg shadow-green-500/30"
                       >
                         <Package className="w-4 md:w-5 h-4 md:h-5 mr-1 md:mr-2" />
-                        Confirmar Coleta
+                        {isStatusTransitionLoading(order.id, 'picked_up') ? 'Confirmando...' : 'Confirmar Coleta'}
                       </Button>
                     </motion.div>
                   </div>
@@ -1256,19 +1302,23 @@ export default function Entregador() {
 
                     <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                       <Button
-                        onClick={async () => {
-                          await updateOrder(order.id, {
-                            ...order,
-                            status: 'out_for_delivery'
+                        onClick={() => {
+                          runStatusTransition({
+                            order,
+                            nextStatus: 'out_for_delivery',
+                            payload: {
+                              ...order,
+                              status: 'out_for_delivery'
+                            },
+                            successMessage: 'Entrega iniciada',
+                            errorMessage: 'Erro ao iniciar entrega'
                           });
-                          queryClient.invalidateQueries({ queryKey: ['deliveryOrders'] });
-                          queryClient.invalidateQueries({ queryKey: ['gestorOrders'] });
-                          toast.success('Entrega iniciada');
                         }}
+                        disabled={isStatusTransitionLoading(order.id, 'out_for_delivery')}
                         className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white h-12 md:h-14 text-base font-bold rounded-xl shadow-lg shadow-blue-500/30"
                       >
                         <Navigation className="w-5 h-5 mr-2" />
-                        Sair para Entrega
+                        {isStatusTransitionLoading(order.id, 'out_for_delivery') ? 'Iniciando...' : 'Sair para Entrega'}
                       </Button>
                     </motion.div>
                   </div>
@@ -1302,19 +1352,23 @@ export default function Entregador() {
                       </motion.div>
                       <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                         <Button
-                          onClick={async () => {
-                            await updateOrder(order.id, {
-                              ...order,
-                              status: 'arrived_at_customer'
+                          onClick={() => {
+                            runStatusTransition({
+                              order,
+                              nextStatus: 'arrived_at_customer',
+                              payload: {
+                                ...order,
+                                status: 'arrived_at_customer'
+                              },
+                              successMessage: 'Chegada ao cliente confirmada',
+                              errorMessage: 'Erro ao confirmar chegada ao cliente'
                             });
-                            queryClient.invalidateQueries({ queryKey: ['deliveryOrders'] });
-                            queryClient.invalidateQueries({ queryKey: ['gestorOrders'] });
-                            toast.success('Chegada ao cliente confirmada');
                           }}
+                          disabled={isStatusTransitionLoading(order.id, 'arrived_at_customer')}
                           className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white h-10 md:h-12 text-xs md:text-base font-bold rounded-xl shadow-lg shadow-blue-500/30"
                         >
                           <CheckCircle className="w-4 md:w-5 h-4 md:h-5 mr-1 md:mr-2" />
-                          Cheguei no Local
+                          {isStatusTransitionLoading(order.id, 'arrived_at_customer') ? 'Confirmando...' : 'Cheguei no Local'}
                         </Button>
                       </motion.div>
                     </div>

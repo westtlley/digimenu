@@ -396,10 +396,35 @@ export default function KitchenDisplay({
 
   // Modo fullscreen
   useEffect(() => {
+    const handleFullscreenChange = () => {
+      const isNowFullscreen = Boolean(document.fullscreenElement);
+      setIsFullscreen(prev => (prev === isNowFullscreen ? prev : isNowFullscreen));
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, []);
+
+  useEffect(() => {
     if (isFullscreen) {
-      document.documentElement.requestFullscreen?.();
-    } else {
-      document.exitFullscreen?.();
+      if (!document.fullscreenElement) {
+        try {
+          const requestPromise = document.documentElement.requestFullscreen?.();
+          Promise.resolve(requestPromise).catch(() => setIsFullscreen(false));
+        } catch (_) {
+          setIsFullscreen(false);
+        }
+      }
+      return;
+    }
+
+    if (document.fullscreenElement) {
+      try {
+        const exitPromise = document.exitFullscreen?.();
+        Promise.resolve(exitPromise).catch(() => {});
+      } catch (_) {}
     }
   }, [isFullscreen]);
 
