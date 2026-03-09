@@ -199,7 +199,7 @@ export default function CheckoutView({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center md:items-stretch md:justify-end justify-center p-4 md:p-0"
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[70] flex items-stretch md:justify-end justify-center p-0"
         onClick={onBack}
       >
         <motion.div
@@ -208,7 +208,7 @@ export default function CheckoutView({
           exit={{ x: '100%' }}
           transition={{ type: 'tween', duration: 0.3 }}
           onClick={(e) => e.stopPropagation()}
-          className="bg-card md:rounded-none rounded-2xl shadow-2xl w-full md:w-[400px] max-w-lg md:max-w-none h-auto md:h-full max-h-[85vh] md:max-h-none overflow-hidden flex flex-col"
+          className="bg-card md:rounded-none rounded-none shadow-2xl w-full md:w-[400px] max-w-none md:max-w-none h-[100dvh] md:h-full max-h-[100dvh] md:max-h-none overflow-hidden flex flex-col pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]"
         >
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b">
@@ -827,7 +827,7 @@ export default function CheckoutView({
           </div>
 
           {/* Footer com Totais e Botão */}
-          <div className="border-t p-4 bg-card">
+          <div className="border-t p-4 bg-card pb-[calc(env(safe-area-inset-bottom)+1rem)] md:pb-4">
             <div className="space-y-2 mb-4">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Subtotal</span>

@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from 'framer-motion';
 
-// FunÃ§Ã£o para extrair ID do YouTube ou Vimeo
+// Função para extrair ID do YouTube ou Vimeo
 const getVideoId = (url) => {
   if (!url) return null;
   
@@ -40,7 +40,7 @@ export default function NewDishModal({
   const videoInfo = dish?.video_url ? getVideoId(dish.video_url) : null;
 
   // Filtra apenas os grupos vinculados ao prato
-  // VALIDAÃ‡ÃƒO CRÃTICA: garantir que complementGroups seja array
+  // VALIDAÇÃO CRÍTICA: garantir que complementGroups seja array
   const safeComplementGroups = Array.isArray(complementGroups) ? complementGroups : [];
   const dishComplementGroups = safeComplementGroups.filter(group => {
     if (!dish?.complement_groups || !Array.isArray(dish.complement_groups)) return false;
@@ -131,7 +131,7 @@ export default function NewDishModal({
         });
         return;
       }
-      // Se for obrigatÃ³rio e jÃ¡ estÃ¡ selecionado a mesma opÃ§Ã£o, nÃ£o permite desmarcar
+      // Se for obrigatório e já está selecionado a mesma opção, não permite desmarcar
       if (isRequired && selections[groupId]?.id === option.id) {
         return;
       }
@@ -141,7 +141,7 @@ export default function NewDishModal({
         const current = prev[groupId] || [];
         const exists = current.find(o => o.id === option.id);
         if (exists) {
-          // Se for obrigatÃ³rio e Ã© a Ãºltima seleÃ§Ã£o, nÃ£o permite desmarcar
+          // Se for obrigatório e é a última seleção, não permite desmarcar
           if (isRequired && current.length === 1) {
             return prev;
           }
@@ -194,8 +194,8 @@ export default function NewDishModal({
       {isOpen && (
         <div
           className={mobileFullScreen
-            ? "fixed inset-0 z-50 flex items-stretch justify-center"
-            : "fixed inset-0 z-50 flex items-center justify-center p-4"
+            ? "fixed inset-0 z-[70] flex items-stretch justify-center"
+            : "fixed inset-0 z-[70] flex items-center justify-center p-4"
           }
           role="dialog"
           aria-modal="true"
@@ -256,7 +256,7 @@ export default function NewDishModal({
                 </button>
               </div>
             )}
-            {/* MÃ­dia (imagem ou vÃ­deo) â€” mobile: limite menor ~28vh; desktop: ~45% largura */}
+            {/* Mídia (imagem ou vídeo) — mobile: limite menor ~28vh; desktop: ~45% largura */}
             <motion.div
               initial={false}
               animate={mobileFullScreen
@@ -314,7 +314,7 @@ export default function NewDishModal({
                   <p className="text-foreground text-xs md:text-sm line-clamp-1 md:line-clamp-none drop-shadow-md">{dish.description}</p>
                 )}
               </div>
-              {/* BotÃ£o X mobile: fecha vÃ­deo ou modal */}
+              {/* Botão X mobile: fecha vídeo ou modal */}
               {!mobileFullScreen && (
                 <button 
                   onClick={(e) => {
@@ -331,7 +331,7 @@ export default function NewDishModal({
                   <X className="w-5 h-5 text-primary-foreground" strokeWidth={2.5} />
                 </button>
               )}
-              {/* BotÃ£o Voltar (fechar vÃ­deo) no desktop */}
+              {/* Botão Voltar (fechar vídeo) no desktop */}
               {showVideo && (
                 <button
                   onClick={() => setShowVideo(false)}
@@ -359,7 +359,7 @@ export default function NewDishModal({
               >
                 {dishComplementGroups.length === 0 ? (
                   <div className="text-center py-8">
-                    <p className="text-sm text-muted-foreground">Este prato nÃ£o possui complementos</p>
+                    <p className="text-sm text-muted-foreground">Este prato não possui complementos</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -377,7 +377,7 @@ export default function NewDishModal({
                             </h3>
                             <div className="flex gap-1.5">
                               <Badge variant="outline" className={`text-xs ${linkedGroup?.is_required ? 'border-red-300 text-red-600 dark:border-red-500 dark:text-red-400 lg:bg-red-50 lg:dark:bg-red-900/20 lg:font-semibold' : 'border-border text-muted-foreground dark:border-border dark:text-muted-foreground'}`}>
-                                {linkedGroup?.is_required ? 'ObrigatÃ³rio' : 'Opcional'}
+                                {linkedGroup?.is_required ? 'Obrigatório' : 'Opcional'}
                               </Badge>
                               <Badge variant="outline" className="text-xs border-blue-300 text-blue-600 dark:border-blue-500 dark:text-blue-400">
                                 {group.max_selection || 1}
@@ -400,7 +400,7 @@ export default function NewDishModal({
                                 )}
                                 style={isSelected(group, option) ? { borderColor: primaryColor } : {}}
                               >
-                                {/* âœ… IMAGEM DO COMPLEMENTO */}
+                                {/* ✅ IMAGEM DO COMPLEMENTO */}
                                 {option.image ? (
                                   <div className="w-12 h-12 md:w-14 md:h-14 rounded-lg overflow-hidden flex-shrink-0 border-2" style={{ borderColor: isSelected(group, option) ? primaryColor : 'transparent' }}>
                                     <img 
@@ -413,12 +413,12 @@ export default function NewDishModal({
                                       }}
                                     />
                                     <div className="w-full h-full bg-muted dark:bg-muted flex items-center justify-center text-muted-foreground text-xs" style={{ display: 'none' }}>
-                                      ðŸ½ï¸
+                                      🍽️
                                     </div>
                                   </div>
                                 ) : (
                                   <div className="w-12 h-12 md:w-14 md:h-14 rounded-lg bg-muted/50 dark:bg-muted flex items-center justify-center flex-shrink-0 border-2" style={{ borderColor: isSelected(group, option) ? primaryColor : 'transparent' }}>
-                                    <span className="text-muted-foreground text-lg">ðŸ½ï¸</span>
+                                    <span className="text-muted-foreground text-lg">🍽️</span>
                                   </div>
                                 )}
                                 
@@ -449,7 +449,7 @@ export default function NewDishModal({
                 )}
               </div>
 
-              {/* Footer Compacto - lg: sticky visual no rodapÃ© */}
+              {/* Footer Compacto - lg: sticky visual no rodapé */}
               <motion.div 
                 initial={{ y: 20 }}
                 animate={{ y: 0 }}

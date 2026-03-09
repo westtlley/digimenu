@@ -28,7 +28,21 @@ function App() {
       <QueryClientProvider client={queryClient}>
         <Pages />
         <Toaster />
-        <HotToaster position="top-center" />
+        <HotToaster
+          position="top-center"
+          gutter={8}
+          containerStyle={{ top: 12, zIndex: 2147483646 }}
+          toastOptions={{
+            duration: 4500,
+            style: {
+              maxWidth: 'min(92vw, 420px)',
+              fontSize: '14px',
+              lineHeight: '1.35',
+            },
+            success: { duration: 3500 },
+            error: { duration: 5000 },
+          }}
+        />
       </QueryClientProvider>
     </ErrorBoundary>
   )

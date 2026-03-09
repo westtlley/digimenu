@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from 'framer-motion';
-import toast, { Toaster } from 'react-hot-toast';
+import toast from 'react-hot-toast';
 
 // Components
 import NewDishModal from '../components/menu/NewDishModal';
@@ -171,6 +171,13 @@ export default function Cardapio() {
     }
     mq.addListener(onChange);
     return () => mq.removeListener(onChange);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      // Cleanup defensivo para evitar toasts órfãos ao trocar de rota.
+      toast.dismiss();
+    };
   }, []);
 
   const pushMobileOverlayState = React.useCallback((overlayKey) => {
@@ -1495,6 +1502,7 @@ export default function Cardapio() {
   }, [cart]);
 
   const cartRecoveryCheckedSlugRef = React.useRef(null);
+  const cartRecoveryToastIdRef = React.useRef(null);
 
   useEffect(() => {
     if (!slug) return;
@@ -1527,6 +1535,9 @@ export default function Cardapio() {
 
           // Aguardar um pouco para não mostrar imediatamente
           const timer = setTimeout(() => {
+            const toastId = `cart_recovery_prompt_${slug}`;
+            cartRecoveryToastIdRef.current = toastId;
+            toast.dismiss(toastId);
             toast(
               (t) => (
                 <div className="flex flex-col gap-2">
@@ -1540,6 +1551,7 @@ export default function Cardapio() {
                         localStorage.setItem(promptedKey, '1');
                         safeHydrateCart(parsedCart);
                         toast.dismiss(t.id);
+                        toast.dismiss(toastId);
                         toast.success('Carrinho recuperado!');
                       }}
                       className="px-4 py-2 bg-orange-500 text-white font-medium hover:bg-orange-600 transition-colors"
@@ -1552,6 +1564,7 @@ export default function Cardapio() {
                         localStorage.removeItem(savedCartKey);
                         safeHydrateCart([]);
                         toast.dismiss(t.id);
+                        toast.dismiss(toastId);
                       }}
                       className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 font-medium hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
                     >
@@ -1561,13 +1574,20 @@ export default function Cardapio() {
                 </div>
               ),
               {
+                id: toastId,
                 duration: 10000,
                 position: 'top-center',
               }
             );
           }, 400);
           
-          return () => clearTimeout(timer);
+          return () => {
+            clearTimeout(timer);
+            if (cartRecoveryToastIdRef.current) {
+              toast.dismiss(cartRecoveryToastIdRef.current);
+              cartRecoveryToastIdRef.current = null;
+            }
+          };
         }
       }
     } catch (e) {
@@ -2163,7 +2183,6 @@ export default function Cardapio() {
   if (slug && publicLoading) {
     return (
       <div className="min-h-screen min-h-screen-mobile flex flex-col items-center justify-center bg-background">
-        <Toaster position="top-center" />
         {!(showRetryAfterTimeout || publicError) && (
           <div className="flex flex-col items-center gap-4">
             <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
@@ -2195,8 +2214,6 @@ export default function Cardapio() {
       ? "h-screen overflow-hidden bg-background flex flex-col"
       : "min-h-screen min-h-screen-mobile bg-background flex flex-col"
     }>
-      <Toaster position="top-center" />
-
       {/* Splash - logo do restaurante e cor principal */}
       <AnimatePresence>
         {showSplash && (
@@ -2282,7 +2299,7 @@ export default function Cardapio() {
                 </div>
               )}
               <div className="text-white">
-                <h1 className="text-lg md:text-xl font-bold drop-shadow-lg leading-tight">{store?.name || 'Restaurante'}</h1>
+                <h1 className="text-lg md:text-xl font-bold drop-shadow-lg leading-tight truncate max-w-[54vw] md:max-w-none">{store?.name || 'Restaurante'}</h1>
                 <div className="flex items-center gap-1 md:hidden">
                   <span className={`w-1.5 h-1.5 rounded-full ${isStoreOpen ? 'bg-green-400' : 'bg-red-400'}`}></span>
                   <span className="text-xs font-medium">{getStatusDisplay.text}</span>
@@ -2290,8 +2307,8 @@ export default function Cardapio() {
               </div>
             </div>
 
-            {/* Search - rente aos ícones no desktop */}
-            <div className="absolute top-20 left-4 right-4 md:static md:flex-1 md:max-w-xl md:mx-4 z-30">
+            {/* Search - desktop sempre visível; mobile via ícone */}
+            <div className={`absolute top-20 left-4 right-4 md:static md:flex-1 md:max-w-xl md:mx-4 z-30 ${(searchOpen || searchTerm) ? 'block' : 'hidden'} md:block`}>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/80 md:text-muted-foreground" />
                 <Input
@@ -2304,54 +2321,64 @@ export default function Cardapio() {
             </div>
 
             <div className="absolute top-4 right-4 md:static flex items-center gap-2 md:flex-shrink-0">
-              <InstallAppButton pageName="Cardápio" compact />
-              <button 
-                className="p-2 rounded-full min-h-touch min-w-touch bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-colors text-white flex items-center justify-center" 
-                onClick={() => {
-                  if (navigator.share) {
-                    navigator.share({ title: store?.name || 'Cardápio', text: `Confira o cardápio de ${store?.name || 'nosso restaurante'}`, url: window.location.href }).catch(() => {});
-                  } else {
-                    navigator.clipboard.writeText(window.location.href);
-                    toast.success('Link copiado!');
-                  }
-                }}
-                title="Compartilhar"
+              <button
+                onClick={() => setSearchOpen((v) => !v)}
+                className="md:hidden p-2 rounded-full min-h-touch min-w-touch bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-colors text-white flex items-center justify-center"
+                title="Pesquisar"
+                aria-label="Pesquisar"
               >
-                <Share2 className="w-5 h-5" />
+                {searchOpen ? <X className="w-5 h-5" /> : <Search className="w-5 h-5" />}
               </button>
               <ThemeToggle className="text-white hover:bg-white/20" />
-              <button 
-                className={`p-0.5 rounded-full backdrop-blur-sm transition-all ${isAuthenticated ? 'bg-green-500/90 hover:bg-green-600' : 'bg-white/20 hover:bg-white/30'} text-white relative`}
-                onClick={() => {
-                  if (isAuthenticated) setShowCustomerProfile(true);
-                  else window.location.href = slug ? `/s/${slug}/login/cliente?returnUrl=${encodeURIComponent(window.location.pathname)}` : `/?returnUrl=${encodeURIComponent(window.location.pathname)}`;
-                }}
-                title={isAuthenticated ? "Meu Perfil" : "Entrar / Cadastrar"}
-              >
-                {isAuthenticated && userProfilePicture ? (
-                  <img 
-                    src={userProfilePicture} 
-                    alt="Perfil" 
-                    className="w-8 h-8 rounded-full object-cover border-2 border-white"
-                  />
-                ) : (
-                  <User className="w-5 h-5 m-1.5" />
-                )}
-                {isAuthenticated && !userProfilePicture && (
-                  <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></span>
-                )}
-              </button>
-              <button 
-                className="hidden md:flex p-2 rounded-full relative bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-colors text-white" 
-                onClick={() => openCartModal()}
-              >
-                <ShoppingCart className="w-5 h-5" />
-                {cart.length > 0 && (
-                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">
-                    {cartItemsCount}
-                  </span>
-                )}
-              </button>
+              <div className="hidden md:flex items-center gap-2">
+                <InstallAppButton pageName="Cardápio" compact />
+                <button 
+                  className="p-2 rounded-full min-h-touch min-w-touch bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-colors text-white flex items-center justify-center" 
+                  onClick={() => {
+                    if (navigator.share) {
+                      navigator.share({ title: store?.name || 'Cardápio', text: `Confira o cardápio de ${store?.name || 'nosso restaurante'}`, url: window.location.href }).catch(() => {});
+                    } else {
+                      navigator.clipboard.writeText(window.location.href);
+                      toast.success('Link copiado!');
+                    }
+                  }}
+                  title="Compartilhar"
+                >
+                  <Share2 className="w-5 h-5" />
+                </button>
+                <button 
+                  className={`p-0.5 rounded-full backdrop-blur-sm transition-all ${isAuthenticated ? 'bg-green-500/90 hover:bg-green-600' : 'bg-white/20 hover:bg-white/30'} text-white relative`}
+                  onClick={() => {
+                    if (isAuthenticated) setShowCustomerProfile(true);
+                    else window.location.href = slug ? `/s/${slug}/login/cliente?returnUrl=${encodeURIComponent(window.location.pathname)}` : `/?returnUrl=${encodeURIComponent(window.location.pathname)}`;
+                  }}
+                  title={isAuthenticated ? "Meu Perfil" : "Entrar / Cadastrar"}
+                >
+                  {isAuthenticated && userProfilePicture ? (
+                    <img 
+                      src={userProfilePicture} 
+                      alt="Perfil" 
+                      className="w-8 h-8 rounded-full object-cover border-2 border-white"
+                    />
+                  ) : (
+                    <User className="w-5 h-5 m-1.5" />
+                  )}
+                  {isAuthenticated && !userProfilePicture && (
+                    <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></span>
+                  )}
+                </button>
+                <button 
+                  className="p-2 rounded-full relative bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-colors text-white" 
+                  onClick={() => openCartModal()}
+                >
+                  <ShoppingCart className="w-5 h-5" />
+                  {cart.length > 0 && (
+                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">
+                      {cartItemsCount}
+                    </span>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -2371,38 +2398,17 @@ export default function Cardapio() {
                     </div>
                   )}
                   <div>
-                    <h1 className="font-bold text-xl md:text-lg text-foreground">{store?.name || 'Restaurante'}</h1>
+                    <h1 className="font-bold text-xl md:text-lg text-foreground truncate max-w-[50vw] md:max-w-none">{store?.name || 'Restaurante'}</h1>
                     {store?.min_order_value > 0 && (
                       <p className="text-xs text-muted-foreground">Pedido mín. {formatCurrency(store?.min_order_value || 0)}</p>
                     )}
                   </div>
                 </div>
                 <div className="flex items-center gap-1 md:hidden">
-                  <InstallAppButton pageName="Cardápio" compact />
-                  <button className="p-2 rounded-lg min-h-touch min-w-touch text-muted-foreground" onClick={() => { if (navigator.share) { navigator.share({ title: store?.name || 'Cardápio', text: `Confira o cardápio de ${store?.name || 'nosso restaurante'}`, url: window.location.href }).catch(() => {}); } else { navigator.clipboard.writeText(window.location.href); toast.success('Link copiado!'); } }}><Share2 className="w-5 h-5" /></button>
                   <ThemeToggle />
                   <button onClick={() => setSearchOpen(v => !v)} className="p-2 rounded-lg min-h-touch min-w-touch text-muted-foreground hover:text-foreground" title="Pesquisar">
                     {searchOpen ? <X className="w-5 h-5" /> : <Search className="w-5 h-5" />}
                   </button>
-                  <button 
-                    className={`relative p-0.5 rounded-lg transition-all ${isAuthenticated ? 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20' : 'text-muted-foreground hover:text-foreground hover:bg-muted'} text-white`} 
-                    onClick={() => isAuthenticated ? setShowCustomerProfile(true) : (window.location.href = slug ? `/s/${slug}/login/cliente?returnUrl=${encodeURIComponent(window.location.pathname)}` : `/?returnUrl=${encodeURIComponent(window.location.pathname)}`)} 
-                    title={isAuthenticated ? "Meu Perfil" : "Entrar"}
-                  >
-                    {isAuthenticated && userProfilePicture ? (
-                      <img 
-                        src={userProfilePicture} 
-                        alt="Perfil" 
-                        className="w-8 h-8 rounded-full object-cover border-2 border-green-600"
-                      />
-                    ) : (
-                      <>
-                        <User className="w-5 h-5 m-1.5" />
-                        {isAuthenticated && <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-white dark:border-gray-900"></span>}
-                      </>
-                    )}
-                  </button>
-                  <button className={`p-2 rounded-lg relative transition-colors text-muted-foreground hover:text-foreground hover:bg-muted lg:rounded-md ${cart.length > 0 ? 'lg:ring-2 lg:ring-primary/30 lg:bg-primary/5' : ''}`} onClick={() => openCartModal()}><ShoppingCart className="w-5 h-5" />{cart.length > 0 && <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">{cartItemsCount}</span>}</button>
                 </div>
               </div>
               {/* Search - rente no desktop; collapsible no mobile */}
@@ -3117,12 +3123,10 @@ export default function Cardapio() {
                   </div>
                   <div className={`grid grid-cols-2 md:grid-cols-3 ${Number(gridColsDesktop) === 2 ? 'lg:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-2' : Number(gridColsDesktop) === 3 ? 'lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-3' : Number(gridColsDesktop) === 4 ? 'lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-4' : Number(gridColsDesktop) === 5 ? 'lg:grid-cols-5 xl:grid-cols-5 2xl:grid-cols-5' : 'lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6'} gap-4 md:gap-3 lg:gap-3 xl:gap-3`}>
                     {highlightDishes.map((dish, index) => {
-                      // Forçar badge de destaque nos highlights
-                      const highlightDish = { ...dish, is_popular: true };
                       return (
                         <DishCardWow
                           key={dish.id}
-                          dish={highlightDish}
+                          dish={dish}
                           onClick={handleDishClick}
                           index={index}
                           primaryColor={primaryColor}
@@ -3270,7 +3274,7 @@ export default function Cardapio() {
       </main>
 
       {/* Bottom Navigation Bar - Barra de Navegação Inferior */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border z-50 md:hidden shadow-lg">
+      <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border z-40 md:hidden shadow-lg">
         <div className="flex items-center justify-around h-16 px-2">
           <button
             onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
@@ -3316,19 +3320,42 @@ export default function Cardapio() {
             style={{ color: cart.length > 0 ? primaryColor : 'hsl(var(--muted-foreground))' }}
             title="Carrinho"
           >
-            <ShoppingCart className="w-6 h-6" />
-            {cart.length > 0 && (
-              <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full min-w-[1.25rem] h-5 px-1 flex items-center justify-center font-bold shadow-lg">
-                {cartItemsCount}
-              </span>
-            )}
+            <span className="relative inline-flex">
+              <ShoppingCart className="w-6 h-6" />
+              {cart.length > 0 && (
+                <span className="absolute -top-2 -right-2 min-w-[1.1rem] h-[1.1rem] px-1 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold shadow-lg">
+                  {cartItemsCount}
+                </span>
+              )}
+            </span>
+          </button>
+
+          <button
+            onClick={() => isAuthenticated ? setShowCustomerProfile(true) : (window.location.href = slug ? `/s/${slug}/login/cliente?returnUrl=${encodeURIComponent(window.location.pathname)}` : `/?returnUrl=${encodeURIComponent(window.location.pathname)}`)}
+            className="flex items-center justify-center flex-1 h-full text-muted-foreground hover:text-foreground transition-all active:scale-95"
+            title={isAuthenticated ? "Meu Perfil" : "Entrar"}
+          >
+            <span className="relative inline-flex items-center justify-center">
+              {isAuthenticated && userProfilePicture ? (
+                <img
+                  src={userProfilePicture}
+                  alt="Perfil"
+                  className="w-6 h-6 rounded-full object-cover border border-border"
+                />
+              ) : (
+                <User className="w-6 h-6" />
+              )}
+              {isAuthenticated && !userProfilePicture && (
+                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-green-500 border border-card" />
+              )}
+            </span>
           </button>
         </div>
       </nav>
 
       {/* Footer */}
       {!desktopCarouselMode && (
-      <footer className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950 border-t border-gray-200 dark:border-gray-800 mt-auto">
+      <footer className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950 border-t border-gray-200 dark:border-gray-800 mt-auto pb-20 md:pb-0">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             {/* Bloco Esquerdo: Logo + Nome + Endereço + Horário */}
@@ -3709,9 +3736,9 @@ export default function Cardapio() {
         </Sheet>
       )}
 
-      {/* FAB único: ao clicar abre opções em vertical (Carrinho, Chat, Favoritos) */}
+      {/* FAB único: ao clicar abre opções em vertical (Chat e Favoritos) */}
       {currentView === 'menu' && (
-        <div className="fixed bottom-20 right-2 z-40 flex flex-col items-center gap-2">
+        <div className="fixed bottom-20 right-2 z-[45] flex flex-col items-center gap-2">
           <AnimatePresence>
             {showFloatingMenu && (
               <>
@@ -3746,27 +3773,6 @@ export default function Cardapio() {
                   aria-label="Chat"
                 >
                   <MessageSquare className="w-6 h-6" />
-                </motion.button>
-                {/* Carrinho */}
-                <motion.button
-                  initial={{ opacity: 0, y: 8, scale: 0.8 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 8, scale: 0.8 }}
-                  transition={{ type: 'spring', damping: 20, stiffness: 300, delay: 0.1 }}
-                  onClick={() => {
-                    setShowFloatingMenu(false);
-                    openCartModal();
-                  }}
-                  className="relative text-white p-3 rounded-full shadow-xl flex items-center justify-center transition-all"
-                  style={{ backgroundColor: primaryColor }}
-                  aria-label="Carrinho"
-                >
-                  <ShoppingCart className="w-6 h-6" />
-                  {cartItemsCount > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs rounded-full min-w-[1.25rem] h-5 px-1 flex items-center justify-center font-bold shadow">
-                      {cartItemsCount}
-                    </span>
-                  )}
                 </motion.button>
               </>
             )}

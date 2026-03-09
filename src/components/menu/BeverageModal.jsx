@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 /**
  * Modal customizado para bebidas
- * Exibe informaÃ§Ãµes especÃ­ficas ao invÃ©s de complementos
+ * Exibe informações específicas ao invés de complementos
  */
 export default function BeverageModal({ 
   beverage, 
@@ -64,16 +64,16 @@ export default function BeverageModal({
   };
 
   const characteristics = [];
-  if (beverage.sugar_free) characteristics.push({ label: 'Sem aÃ§Ãºcar', icon: <Leaf className="w-4 h-4" />, color: 'text-green-600' });
-  if (beverage.alcoholic) characteristics.push({ label: 'AlcoÃ³lico', icon: <Wine className="w-4 h-4" />, color: 'text-purple-600' });
-  if (beverage.caffeine) characteristics.push({ label: 'CafeÃ­na', icon: <Coffee className="w-4 h-4" />, color: 'text-amber-600' });
+  if (beverage.sugar_free) characteristics.push({ label: 'Sem açúcar', icon: <Leaf className="w-4 h-4" />, color: 'text-green-600' });
+  if (beverage.alcoholic) characteristics.push({ label: 'Alcoólico', icon: <Wine className="w-4 h-4" />, color: 'text-purple-600' });
+  if (beverage.caffeine) characteristics.push({ label: 'Cafeína', icon: <Coffee className="w-4 h-4" />, color: 'text-amber-600' });
   
   const dietaryTags = beverage.dietary_tags || [];
   const dietaryLabels = {
     'vegano': 'Vegano',
     'sem_lactose': 'Sem lactose',
-    'sem_gluten': 'Sem glÃºten',
-    'zero_acucar': 'Zero aÃ§Ãºcar'
+    'sem_gluten': 'Sem glúten',
+    'zero_acucar': 'Zero açúcar'
   };
 
   return (
@@ -85,13 +85,13 @@ export default function BeverageModal({
     >
         <DialogContent
         className={mobileFullScreen
-          ? "w-screen max-w-none h-[100dvh] max-h-[100dvh] rounded-none border-none p-0 overflow-hidden flex flex-col pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] [&>:last-child]:hidden"
-          : "w-full max-w-5xl lg:max-w-[1100px] h-[85vh] max-h-[85vh] p-0 overflow-hidden border-none rounded-3xl flex flex-col md:flex-row [&>:last-child]:hidden"
+          ? "z-[70] w-screen max-w-none h-[100dvh] max-h-[100dvh] rounded-none border-none p-0 overflow-hidden flex flex-col pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] [&>:last-child]:hidden"
+          : "z-[70] w-full max-w-5xl lg:max-w-[1100px] h-[85vh] max-h-[85vh] p-0 overflow-hidden border-none rounded-3xl flex flex-col md:flex-row [&>:last-child]:hidden"
         }
         aria-describedby="beverage-modal-desc"
       >
         <DialogTitle className="sr-only">Detalhes da bebida: {beverage.name}</DialogTitle>
-        <DialogDescription id="beverage-modal-desc" className="sr-only">Adicione quantidade e observaÃ§Ãµes para incluir no pedido.</DialogDescription>
+        <DialogDescription id="beverage-modal-desc" className="sr-only">Adicione quantidade e observações para incluir no pedido.</DialogDescription>
         <AnimatePresence>
           {isOpen && (
             <motion.div
@@ -140,7 +140,7 @@ export default function BeverageModal({
                 </button>
               )}
 
-              {/* Coluna esquerda: imagem â€” mobile limite menor ~28vh (proporÃ§Ã£o 9:16) */}
+              {/* Coluna esquerda: imagem — mobile limite menor ~28vh (proporção 9:16) */}
               <div className="relative w-full aspect-[9/16] md:aspect-auto md:h-full md:w-2/5 lg:w-[45%] flex-shrink-0 max-h-[28vh] md:max-h-none bg-card">
                 {beverage.image ? (
                   <img
@@ -161,17 +161,17 @@ export default function BeverageModal({
                 </div>
               </div>
 
-              {/* Coluna direita: informaÃ§Ãµes e aÃ§Ãµes â€” padding para campo completo na tela */}
+              {/* Coluna direita: informações e ações — padding para campo completo na tela */}
               <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-card overflow-hidden">
                 <div className={`flex-1 overflow-y-auto overflow-x-hidden p-3 md:p-5 pt-3 space-y-4 ${mobileFullScreen ? '' : 'md:pt-12'}`}>
-                  {/* 1. DescriÃ§Ã£o primeiro (se houver) */}
+                  {/* 1. Descrição primeiro (se houver) */}
                   {beverage.description && (
                     <div>
-                      <h3 className="font-semibold mb-2 text-sm">DescriÃ§Ã£o</h3>
+                      <h3 className="font-semibold mb-2 text-sm">Descrição</h3>
                       <p className="text-sm text-muted-foreground leading-relaxed">{beverage.description}</p>
                     </div>
                   )}
-                  {/* 2. Outras informaÃ§Ãµes */}
+                  {/* 2. Outras informações */}
                   <div className="grid grid-cols-2 gap-2 md:gap-3 w-full max-w-full">
                     {beverage.volume_ml && (
                       <div className="flex items-center gap-2 p-2.5 md:p-3 rounded-lg border border-border bg-muted/80 min-w-0 overflow-hidden">
@@ -210,7 +210,7 @@ export default function BeverageModal({
                       <div className="flex items-center gap-2 p-2.5 md:p-3 rounded-lg border border-border bg-muted/80 min-w-0 overflow-hidden">
                         <Package className="w-5 h-5 text-muted-foreground shrink-0" />
                         <div className="min-w-0 overflow-hidden">
-                          <p className="text-xs text-muted-foreground">CÃ³digo</p>
+                          <p className="text-xs text-muted-foreground">Código</p>
                           <p className="font-semibold text-xs font-mono truncate text-foreground">{beverage.ean}</p>
                         </div>
                       </div>
@@ -219,7 +219,7 @@ export default function BeverageModal({
 
                   {characteristics.length > 0 && (
                     <div>
-                      <h3 className="font-semibold mb-2 text-sm">CaracterÃ­sticas</h3>
+                      <h3 className="font-semibold mb-2 text-sm">Características</h3>
                       <div className="flex flex-wrap gap-2">
                         {characteristics.map((char, idx) => (
                           <Badge
@@ -237,14 +237,14 @@ export default function BeverageModal({
 
                   {dietaryTags.length > 0 && (
                     <div>
-                      <h3 className="font-semibold mb-2 text-sm">InformaÃ§Ãµes dietÃ©ticas</h3>
+                      <h3 className="font-semibold mb-2 text-sm">Informações dietéticas</h3>
                       <div className="flex flex-wrap gap-2">
                         {dietaryTags.map((tag) => (
                           <Badge
                             key={tag}
                             className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
                           >
-                            âœ“ {dietaryLabels[tag] || tag}
+                            ✓ {dietaryLabels[tag] || tag}
                           </Badge>
                         ))}
                       </div>
@@ -252,7 +252,7 @@ export default function BeverageModal({
                   )}
 
                   <div>
-                    <h3 className="font-semibold mb-2 text-sm">ObservaÃ§Ãµes (opcional)</h3>
+                    <h3 className="font-semibold mb-2 text-sm">Observações (opcional)</h3>
                     <Textarea
                       placeholder="Ex: Sem gelo, bem gelado..."
                       value={observations}
@@ -263,7 +263,7 @@ export default function BeverageModal({
                   </div>
                 </div>
 
-                {/* RodapÃ© fixo: Quantidade + Total + botÃ£o Adicionar */}
+                {/* Rodapé fixo: Quantidade + Total + botão Adicionar */}
                 <div className="border-t p-3 flex flex-col gap-3 flex-shrink-0 bg-card border-border shadow-lg lg:shadow-[0_-4px_12px_rgba(0,0,0,0.06)]">
                   <div className="flex items-center justify-between">
                     <span className="font-medium text-sm text-muted-foreground">Quantidade</span>

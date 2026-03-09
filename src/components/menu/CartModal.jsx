@@ -140,12 +140,12 @@ export default function CartModal({
       return smartNudgeMain;
     }
     if (hasFreeDeliveryProgress) {
-      return `Faltam ${formatCurrency(freeDeliveryMin - cartTotal)} para tentar frete gratis.`;
+      return `Faltam ${formatCurrency(freeDeliveryMin - cartTotal)} para tentar frete grátis.`;
     }
     if (!cartHasBeverage) {
       return 'Dica: adicionar uma bebida costuma aumentar o valor percebido do pedido.';
     }
-    return 'Seu carrinho esta pronto para checkout.';
+    return 'Seu carrinho está pronto para checkout.';
   })();
   const cartSecondaryMessage = !hasFreeDeliveryProgress && smartNudgeSecondary ? smartNudgeSecondary : null;
 
@@ -375,8 +375,8 @@ export default function CartModal({
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         className={mobileFullScreen
-          ? "fixed inset-0 z-50 flex items-stretch justify-center p-0 bg-black/70"
-          : "fixed inset-0 bg-black/50 backdrop-blur-sm z-50"
+          ? "fixed inset-0 z-[70] flex items-stretch justify-center p-0 bg-black/70"
+          : "fixed inset-0 bg-black/50 backdrop-blur-sm z-[70]"
         }
         onClick={mobileFullScreen ? undefined : onClose}
       >
@@ -765,7 +765,7 @@ export default function CartModal({
                       >
                         <div className="mb-1">
                           <Badge variant="outline" className="text-[10px] px-1.5 py-0.5">
-                            {index === 0 ? 'Sugestao principal' : 'Alternativa'}
+                            {index === 0 ? 'Sugestão principal' : 'Alternativa'}
                           </Badge>
                         </div>
                         <div className="w-full h-20 rounded-md overflow-hidden bg-gray-100 mb-2">
