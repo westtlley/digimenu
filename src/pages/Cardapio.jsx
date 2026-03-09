@@ -1124,12 +1124,13 @@ export default function Cardapio() {
         const triggerTypes = Array.isArray(config?.trigger_product_types) && config.trigger_product_types.length > 0
           ? config.trigger_product_types
           : ['pizza', 'dish', 'hamburger'];
+        const minValue = Number(config?.min_cart_value || 0);
         const hasTriggerType = safeCart.some((cartItem) => triggerTypes.includes(cartItem?.dish?.product_type));
         const hasAnyBeverage = safeCart.some((cartItem) =>
           cartItem?.dish?.product_type === 'beverage' ||
           String(cartItem?.dish?.id || '') === offeredDishId
         );
-        return hasTriggerType && !hasAnyBeverage;
+        return hasTriggerType && currentCartTotal >= minValue && !hasAnyBeverage;
       }
 
       if (ruleKey === 'dessert_offer') {
@@ -1145,23 +1146,6 @@ export default function Cardapio() {
 
       return false;
     };
-
-    const fallbackPopularItems = safeDishes
-      .filter((dish) => dish?.is_active !== false)
-      .filter((dish) => isDishAvailableForSuggestion(dish))
-      .filter((dish) => !cartDishIds.has(String(dish?.id || '')))
-      .map((dish) =>
-        withMerchMeta(dish, {
-          source: 'analytics_popular',
-          sourceId: dish?.id,
-          priority: 5,
-          sourcePriority: 5,
-          label: dish?.is_popular ? 'Mais vendidos' : 'Recomendado'
-        })
-      )
-      .filter((dish) => analyticsScoreForItem(dish) > 0 || dish?.is_popular)
-      .sort(byDisplayPriority)
-      .slice(0, 8);
 
     const sectionClaimed = new Set();
     const takeUnique = (items, limit = 6) => {
@@ -1242,17 +1226,6 @@ export default function Cardapio() {
       crossSellItems
         .sort(byDisplayPriority)
         .forEach((item) => pushCartSuggestion(item, crossSellRuleSatisfied(item)));
-
-      fallbackPopularItems
-        .filter((item) => contextScoreForItem(item) > 0)
-        .sort(byDisplayPriority)
-        .forEach((item) => pushCartSuggestion(item, true));
-
-      if (cartCandidates.length < 2) {
-        fallbackPopularItems
-          .sort(byDisplayPriority)
-          .forEach((item) => pushCartSuggestion(item, true));
-      }
     }
 
     const pickSmartSuggestions = (candidates, limit = 2) => {
@@ -1336,8 +1309,15 @@ export default function Cardapio() {
       });
     }
 
-    const dessertMinValue = Number(crossSellConfig?.dessert_offer?.min_cart_value || 0);
-    if (crossSellConfig?.dessert_offer?.enabled && dessertMinValue > currentCartTotal) {
+    const beverageOfferConfig = crossSellConfig?.beverage_offer || {};
+    const dessertOfferConfig = crossSellConfig?.dessert_offer || {};
+    const beverageConfigDish = beverageOfferConfig?.dish_id ? findDishById(beverageOfferConfig.dish_id) : null;
+    const dessertConfigDish = dessertOfferConfig?.dish_id ? findDishById(dessertOfferConfig.dish_id) : null;
+    const isBeverageConfigValid = crossSellEnabled && !!beverageOfferConfig?.enabled && !!beverageOfferConfig?.dish_id && isDishAvailableForSuggestion(beverageConfigDish);
+    const isDessertConfigValid = crossSellEnabled && !!dessertOfferConfig?.enabled && !!dessertOfferConfig?.dish_id && isDishAvailableForSuggestion(dessertConfigDish);
+
+    const dessertMinValue = Number(dessertOfferConfig?.min_cart_value || 0);
+    if (isDessertConfigValid && dessertMinValue > currentCartTotal) {
       const gap = dessertMinValue - currentCartTotal;
       pushNudge({
         id: 'dessert_threshold',
@@ -1357,7 +1337,21 @@ export default function Cardapio() {
       });
     }
 
-    if (!hasCartTag('beverage') && (hasCartTag('pizza') || hasCartTag('burger') || hasCartTag('main') || hasCartTag('combo'))) {
+    const beverageTriggerTypes = Array.isArray(beverageOfferConfig?.trigger_product_types) && beverageOfferConfig.trigger_product_types.length > 0
+      ? beverageOfferConfig.trigger_product_types
+      : ['pizza', 'dish', 'hamburger'];
+    const beverageTriggerActive = safeCart.some((cartItem) => beverageTriggerTypes.includes(cartItem?.dish?.product_type));
+    const beverageMinValue = Number(beverageOfferConfig?.min_cart_value || 0);
+
+    if (isBeverageConfigValid && beverageTriggerActive && !hasCartTag('beverage') && currentCartTotal < beverageMinValue) {
+      const gap = beverageMinValue - currentCartTotal;
+      pushNudge({
+        id: 'beverage_threshold',
+        priority: 5,
+        gap,
+        text: `Adicione ${formatCurrency(gap)} para ativar a sugestão de bebida.`
+      });
+    } else if (isBeverageConfigValid && beverageTriggerActive && !hasCartTag('beverage')) {
       pushNudge({
         id: 'beverage_context',
         priority: 5,

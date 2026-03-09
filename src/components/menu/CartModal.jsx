@@ -148,6 +148,9 @@ export default function CartModal({
     return 'Seu carrinho está pronto para checkout.';
   })();
   const cartSecondaryMessage = !hasFreeDeliveryProgress && smartNudgeSecondary ? smartNudgeSecondary : null;
+  const visibleSmartSuggestions = Array.isArray(smartSuggestions)
+    ? (mobileFullScreen ? smartSuggestions.slice(0, 1) : smartSuggestions.slice(0, 2))
+    : [];
 
   // Buscar pedidos do cliente autenticado (incluindo entregues recentemente)
   const { data: orders = [], isLoading: ordersLoading } = useQuery({
@@ -752,49 +755,61 @@ export default function CartModal({
                 </div>
               )}
 
-              {Array.isArray(smartSuggestions) && smartSuggestions.length > 0 && (
+              {visibleSmartSuggestions.length > 0 && (
                 <div className="space-y-2">
                   <p className={`text-xs font-semibold uppercase tracking-wide ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
                     Complete seu pedido com
                   </p>
-                  <div className="flex gap-2 overflow-x-auto pb-1">
-                    {smartSuggestions.slice(0, 2).map((suggestion, index) => (
+                  <div className={mobileFullScreen ? 'grid grid-cols-1 gap-2' : 'flex gap-2 overflow-x-auto pb-1'}>
+                    {visibleSmartSuggestions.map((suggestion, index) => (
                       <div
                         key={suggestion.id}
-                        className={`min-w-[180px] max-w-[180px] rounded-lg border p-2 ${darkMode ? 'border-gray-600 bg-gray-700/40' : 'border-gray-200 bg-white'}`}
+                        className={mobileFullScreen
+                          ? `w-full rounded-lg border p-2 ${darkMode ? 'border-gray-600 bg-gray-700/40' : 'border-gray-200 bg-white'}`
+                          : `min-w-[180px] max-w-[180px] rounded-lg border p-2 ${darkMode ? 'border-gray-600 bg-gray-700/40' : 'border-gray-200 bg-white'}`
+                        }
                       >
-                        <div className="mb-1">
+                        <div className="mb-1 flex items-center justify-between gap-2">
                           <Badge variant="outline" className="text-[10px] px-1.5 py-0.5">
                             {index === 0 ? 'Sugestão principal' : 'Alternativa'}
                           </Badge>
-                        </div>
-                        <div className="w-full h-20 rounded-md overflow-hidden bg-gray-100 mb-2">
-                          {suggestion?.image ? (
-                            <img src={suggestion.image} alt={suggestion.name} className="w-full h-full object-cover" />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-xs text-gray-500">Sem foto</div>
+                          {suggestion?._merchandising?.label && mobileFullScreen && (
+                            <p className={`text-[10px] line-clamp-1 ${darkMode ? 'text-gray-300' : 'text-gray-500'}`}>
+                              {suggestion._merchandising.label}
+                            </p>
                           )}
                         </div>
-                        <p className={`text-xs font-semibold line-clamp-2 min-h-[2rem] ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                          {suggestion?.name}
-                        </p>
-                        {suggestion?._merchandising?.label && (
-                          <p className={`text-[10px] mt-0.5 line-clamp-1 ${darkMode ? 'text-gray-300' : 'text-gray-500'}`}>
-                            {suggestion._merchandising.label}
-                          </p>
-                        )}
-                        <div className="mt-2 flex items-center justify-between gap-2">
-                          <span className="text-xs font-bold" style={{ color: primaryColor }}>
-                            {formatCurrency(suggestion?.price)}
-                          </span>
-                          <Button
-                            size="sm"
-                            className="h-7 px-2 text-xs text-white"
-                            style={{ backgroundColor: primaryColor }}
-                            onClick={() => onSelectSuggestion?.(suggestion)}
-                          >
-                            Adicionar
-                          </Button>
+                        <div className={mobileFullScreen ? 'flex items-center gap-2' : 'block'}>
+                          <div className={mobileFullScreen ? 'w-16 h-16 rounded-md overflow-hidden bg-gray-100 flex-shrink-0' : 'w-full h-20 rounded-md overflow-hidden bg-gray-100 mb-2'}>
+                            {suggestion?.image ? (
+                              <img src={suggestion.image} alt={suggestion.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-xs text-gray-500">Sem foto</div>
+                            )}
+                          </div>
+                          <div className={mobileFullScreen ? 'flex-1 min-w-0' : ''}>
+                            <p className={`text-xs font-semibold line-clamp-2 ${mobileFullScreen ? '' : 'min-h-[2rem]'} ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                              {suggestion?.name}
+                            </p>
+                            {suggestion?._merchandising?.label && !mobileFullScreen && (
+                              <p className={`text-[10px] mt-0.5 line-clamp-1 ${darkMode ? 'text-gray-300' : 'text-gray-500'}`}>
+                                {suggestion._merchandising.label}
+                              </p>
+                            )}
+                            <div className="mt-2 flex items-center justify-between gap-2">
+                              <span className="text-xs font-bold" style={{ color: primaryColor }}>
+                                {formatCurrency(suggestion?.price)}
+                              </span>
+                              <Button
+                                size="sm"
+                                className="h-7 px-2 text-xs text-white"
+                                style={{ backgroundColor: primaryColor }}
+                                onClick={() => onSelectSuggestion?.(suggestion)}
+                              >
+                                Adicionar
+                              </Button>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     ))}
