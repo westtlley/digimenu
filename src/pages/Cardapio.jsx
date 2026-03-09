@@ -845,6 +845,162 @@ export default function Cardapio() {
     return filteredDishes;
   }, [selectedCategory, filteredDishes, filteredBeverages, comboDishesForDisplay]);
 
+  const commercialSections = useMemo(() => {
+    const toStr = (value) => String(value || '').toLowerCase();
+    const byPriority = (a, b) => {
+      const popularDiff = Number(Boolean(b?.is_popular)) - Number(Boolean(a?.is_popular));
+      if (popularDiff !== 0) return popularDiff;
+      const newDiff = Number(Boolean(b?.is_new)) - Number(Boolean(a?.is_new));
+      if (newDiff !== 0) return newDiff;
+      const aDate = new Date(a?.updated_date || a?.created_date || 0).getTime();
+      const bDate = new Date(b?.updated_date || b?.created_date || 0).getTime();
+      return bDate - aDate;
+    };
+
+    const catalogItems = [...(Array.isArray(activeDishes) ? activeDishes : []), ...(Array.isArray(activeBeverages) ? activeBeverages : [])]
+      .filter((item) => item?.is_active !== false);
+
+    const claimed = new Set();
+    const pickUnique = (predicate, limit = 6) => {
+      const picked = [];
+      catalogItems
+        .filter((item) => {
+          const key = String(item?.id || '');
+          return key && !claimed.has(key) && predicate(item);
+        })
+        .sort(byPriority)
+        .forEach((item) => {
+          if (picked.length >= limit) return;
+          const key = String(item?.id || '');
+          claimed.add(key);
+          picked.push(item);
+        });
+      return picked;
+    };
+
+    const isRecommended = (item) => Boolean(item?.is_highlight) || Boolean(item?.is_popular);
+    const isNew = (item) => {
+      if (item?.is_new) return true;
+      const refDate = new Date(item?.updated_date || item?.created_date || 0).getTime();
+      if (!refDate) return false;
+      const fifteenDaysInMs = 15 * 24 * 60 * 60 * 1000;
+      return Date.now() - refDate <= fifteenDaysInMs;
+    };
+    const isComboKeyword = (item) => /combo/.test(`${toStr(item?.name)} ${toStr(item?.description)}`);
+    const isCombo = (item) => item?.product_type === 'combo' || isComboKeyword(item);
+
+    const bestSellers = pickUnique((item) => Boolean(item?.is_popular), 6);
+    const recommended = pickUnique((item) => isRecommended(item), 6);
+    const newest = pickUnique((item) => isNew(item), 6);
+
+    const combos = [...(Array.isArray(comboDishesForDisplay) ? comboDishesForDisplay : [])]
+      .filter((item) => !claimed.has(String(item?.id || '')))
+      .slice(0, 6);
+    combos.forEach((item) => claimed.add(String(item?.id || '')));
+
+    // Fallback para manter vitrine comercial sempre útil
+    if (bestSellers.length < 3) {
+      pickUnique((item) => !isCombo(item), 6 - bestSellers.length).forEach((it) => bestSellers.push(it));
+    }
+
+    const sections = [
+      {
+        id: 'bestsellers',
+        title: 'Mais vendidos',
+        icon: Flame,
+        subtitle: 'Os itens mais escolhidos pelos clientes',
+        items: bestSellers
+      },
+      {
+        id: 'recommended',
+        title: 'Recomendados',
+        icon: Star,
+        subtitle: 'Seleção que costuma converter mais',
+        items: recommended
+      },
+      {
+        id: 'new',
+        title: 'Novidades',
+        icon: Sparkles,
+        subtitle: 'Lançamentos e itens recém-atualizados',
+        items: newest
+      },
+      {
+        id: 'combos',
+        title: 'Combos',
+        icon: Package,
+        subtitle: 'Opções com melhor custo-benefício',
+        items: combos
+      }
+    ];
+
+    return sections.filter((section) => section.items.length > 0);
+  }, [activeDishes, activeBeverages, beverageCategoriesResolved, categoriesResolvedForAllIslands, comboDishesForDisplay]);
+
+  const cartUpsellSuggestions = useMemo(() => {
+    const toText = (value) => String(value || '').toLowerCase();
+    const normalizeList = (value) => (Array.isArray(value) ? value : []);
+    const cartDishIds = new Set(
+      normalizeList(cart).map((item) => String(item?.dish?.id || ''))
+    );
+
+    const categoryById = new Map([
+      ...normalizeList(categoriesResolvedForAllIslands),
+      ...normalizeList(beverageCategoriesResolved)
+    ].map((cat) => [String(cat?.id || ''), toText(cat?.name)]));
+
+    const candidates = [
+      ...normalizeList(activeBeverages),
+      ...normalizeList(activeDishes)
+    ]
+      .filter((dish) => dish?.is_active !== false)
+      .filter((dish) => {
+        const dishId = String(dish?.id || '');
+        return dishId && !cartDishIds.has(dishId);
+      });
+
+    const isDrink = (dish) => {
+      if (dish?.product_type === 'beverage') return true;
+      const category = categoryById.get(String(dish?.category_id || '')) || '';
+      return /bebida|refriger|suco|drink/.test(category);
+    };
+    const isSide = (dish) => {
+      const source = `${toText(dish?.name)} ${toText(dish?.description)} ${categoryById.get(String(dish?.category_id || '')) || ''}`;
+      return /acomp|porc|entrada|batata|frita|molho/.test(source);
+    };
+    const isDessert = (dish) => {
+      const source = `${toText(dish?.name)} ${toText(dish?.description)} ${categoryById.get(String(dish?.category_id || '')) || ''}`;
+      return /sobremesa|doce|bolo|mousse|pudim|a[cç]ai|sorvete/.test(source);
+    };
+
+    const sortByCommercialPriority = (a, b) => {
+      const popularDiff = Number(Boolean(b?.is_popular)) - Number(Boolean(a?.is_popular));
+      if (popularDiff !== 0) return popularDiff;
+      const newDiff = Number(Boolean(b?.is_new)) - Number(Boolean(a?.is_new));
+      if (newDiff !== 0) return newDiff;
+      return Number(a?.price || 0) - Number(b?.price || 0);
+    };
+
+    const slots = [
+      ...candidates.filter(isDrink).sort(sortByCommercialPriority),
+      ...candidates.filter((dish) => !isDrink(dish) && isSide(dish)).sort(sortByCommercialPriority),
+      ...candidates.filter((dish) => !isDrink(dish) && !isSide(dish) && isDessert(dish)).sort(sortByCommercialPriority),
+      ...candidates.sort(sortByCommercialPriority)
+    ];
+
+    const unique = [];
+    const seen = new Set();
+    slots.forEach((dish) => {
+      const key = String(dish?.id || '');
+      if (!key || seen.has(key)) return;
+      seen.add(key);
+      unique.push(dish);
+    });
+    return unique.slice(0, 4);
+  }, [activeBeverages, activeDishes, beverageCategoriesResolved, cart, categoriesResolvedForAllIslands]);
+
+  const showCommercialSections = selectedCategory === 'all' && !searchTerm?.trim();
+
   const layoutForSelectedCategoryDesktop = useMemo(() => {
     if (desktopCarouselMode) return 'carousel';
     return menuLayout;
@@ -2321,6 +2477,50 @@ export default function Cardapio() {
                 primaryColor={primaryColor}
               />
 
+              {showCommercialSections && commercialSections.length > 0 && (
+                <section className="mb-6 md:mb-8 space-y-6">
+                  {commercialSections.map((section) => {
+                    const SectionIcon = section.icon;
+                    return (
+                      <div key={section.id} className="rounded-2xl border border-border/70 bg-card/70 p-4 md:p-5 shadow-sm">
+                        <div className="flex items-start justify-between gap-3 mb-4">
+                          <div>
+                            <h2 className="font-bold text-base md:text-lg text-foreground flex items-center gap-2">
+                              <SectionIcon className="w-5 h-5" style={{ color: primaryColor }} />
+                              {section.title}
+                            </h2>
+                            <p className="text-xs md:text-sm text-muted-foreground mt-1">
+                              {section.subtitle}
+                            </p>
+                          </div>
+                          <Badge
+                            variant="outline"
+                            className="text-[11px] font-medium border"
+                            style={{ borderColor: `${primaryColor}55`, color: primaryColor }}
+                          >
+                            {section.items.length} itens
+                          </Badge>
+                        </div>
+                        <MenuLayoutWrapper
+                          layout={menuLayout}
+                          dishes={section.items}
+                          onDishClick={handleDishClick}
+                          primaryColor={primaryColor}
+                          textPrimaryColor={textPrimaryColor}
+                          textSecondaryColor={textSecondaryColor}
+                          loading={loadingDishes}
+                          stockUtils={stockUtils}
+                          formatCurrency={formatCurrency}
+                          slug={slug}
+                          gridColsDesktop={gridColsDesktop}
+                          autoplayIntervalMs={autoplayIntervalMs}
+                        />
+                      </div>
+                    );
+                  })}
+                </section>
+              )}
+
               {/* Highlights */}
               {highlightDishes.length > 0 && (
                 <section className="mb-6 md:mb-8">
@@ -2703,6 +2903,11 @@ export default function Cardapio() {
         onCheckout={() => {
           closeCartModal();
           setCurrentView('checkout');
+        }}
+        smartSuggestions={cartUpsellSuggestions}
+        onSelectSuggestion={(suggestedDish) => {
+          closeCartModal();
+          handleDishClick(suggestedDish);
         }}
         primaryColor={primaryColor}
         store={store}

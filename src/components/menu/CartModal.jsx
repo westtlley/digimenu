@@ -24,7 +24,24 @@ const statusConfig = {
   cancelled: { label: 'Cancelado', color: 'bg-red-500', icon: Ban }
 };
 
-export default function CartModal({ isOpen, onClose, onBack = null, cart, onUpdateQuantity, onRemoveItem, onCheckout, onEditItem, onEditPizza, darkMode = false, primaryColor = '#f97316', store = null, onReviewBonus = null, mobileFullScreen = false }) {
+export default function CartModal({
+  isOpen,
+  onClose,
+  onBack = null,
+  cart,
+  onUpdateQuantity,
+  onRemoveItem,
+  onCheckout,
+  onEditItem,
+  onEditPizza,
+  darkMode = false,
+  primaryColor = '#f97316',
+  store = null,
+  onReviewBonus = null,
+  mobileFullScreen = false,
+  smartSuggestions = [],
+  onSelectSuggestion = null
+}) {
   const [activeTab, setActiveTab] = useState('cart'); // 'cart' ou 'orders'
   const [showRatingModal, setShowRatingModal] = useState(null);
   const [restaurantRating, setRestaurantRating] = useState(0);
@@ -112,6 +129,18 @@ export default function CartModal({ isOpen, onClose, onBack = null, cart, onUpda
   };
 
   const cartTotal = cart.reduce((sum, item) => sum + item.totalPrice * (item.quantity || 1), 0);
+  const cartItemsCount = cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
+  const cartHasBeverage = cart.some((item) => item?.dish?.product_type === 'beverage');
+  const cartIncentiveMessage = (() => {
+    const freeDeliveryMin = Number(store?.free_delivery_min_value || 0);
+    if (freeDeliveryMin > 0 && cartTotal > 0 && cartTotal < freeDeliveryMin) {
+      return `Faltam ${formatCurrency(freeDeliveryMin - cartTotal)} para tentar frete grátis.`;
+    }
+    if (!cartHasBeverage) {
+      return 'Dica: adicionar uma bebida costuma aumentar o valor percebido do pedido.';
+    }
+    return 'Seu carrinho está pronto para checkout.';
+  })();
 
   // Buscar pedidos do cliente autenticado (incluindo entregues recentemente)
   const { data: orders = [], isLoading: ordersLoading } = useQuery({
@@ -689,13 +718,68 @@ export default function CartModal({ isOpen, onClose, onBack = null, cart, onUpda
                   </div>
                 </div>
               )}
-              
-              <div className="flex items-center justify-between">
-                <span className={`font-medium ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Subtotal</span>
-                <span className="text-xl font-bold" style={{ color: primaryColor }}>
-                  {formatCurrency(cartTotal)}
-                </span>
+
+              <div className={`rounded-xl border p-3 space-y-2 ${darkMode ? 'border-gray-600 bg-gray-700/40' : 'border-gray-200 bg-gray-50'}`}>
+                <div className="flex items-center justify-between">
+                  <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Itens</span>
+                  <span className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{cartItemsCount}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Subtotal</span>
+                  <span className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{formatCurrency(cartTotal)}</span>
+                </div>
+                <div className="flex items-center justify-between pt-1 border-t" style={{ borderColor: darkMode ? '#4b5563' : '#e5e7eb' }}>
+                  <span className={`font-semibold ${darkMode ? 'text-gray-100' : 'text-gray-800'}`}>Total</span>
+                  <span className="text-xl font-bold" style={{ color: primaryColor }}>
+                    {formatCurrency(cartTotal)}
+                  </span>
+                </div>
               </div>
+
+              <div className={`rounded-lg px-3 py-2 text-xs font-medium ${darkMode ? 'bg-blue-900/30 text-blue-200 border border-blue-800' : 'bg-blue-50 text-blue-700 border border-blue-200'}`}>
+                {cartIncentiveMessage}
+              </div>
+
+              {Array.isArray(smartSuggestions) && smartSuggestions.length > 0 && (
+                <div className="space-y-2">
+                  <p className={`text-xs font-semibold uppercase tracking-wide ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                    Clientes também pedem
+                  </p>
+                  <div className="flex gap-2 overflow-x-auto pb-1">
+                    {smartSuggestions.slice(0, 4).map((suggestion) => (
+                      <div
+                        key={suggestion.id}
+                        className={`min-w-[180px] max-w-[180px] rounded-lg border p-2 ${darkMode ? 'border-gray-600 bg-gray-700/40' : 'border-gray-200 bg-white'}`}
+                      >
+                        <div className="w-full h-20 rounded-md overflow-hidden bg-gray-100 mb-2">
+                          {suggestion?.image ? (
+                            <img src={suggestion.image} alt={suggestion.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-xs text-gray-500">Sem foto</div>
+                          )}
+                        </div>
+                        <p className={`text-xs font-semibold line-clamp-2 min-h-[2rem] ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                          {suggestion?.name}
+                        </p>
+                        <div className="mt-2 flex items-center justify-between gap-2">
+                          <span className="text-xs font-bold" style={{ color: primaryColor }}>
+                            {formatCurrency(suggestion?.price)}
+                          </span>
+                          <Button
+                            size="sm"
+                            className="h-7 px-2 text-xs text-white"
+                            style={{ backgroundColor: primaryColor }}
+                            onClick={() => onSelectSuggestion?.(suggestion)}
+                          >
+                            Adicionar
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="flex gap-2">
                 <Button
                   onClick={onClose}

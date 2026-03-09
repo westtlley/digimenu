@@ -237,7 +237,7 @@ export default function DishCardWow({
             )}
           </motion.div>
 
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2">
             <button
               onClick={(e) => { e.stopPropagation(); toggleFavorite(dish); }}
               className="p-1.5 rounded-full hover:bg-muted transition-colors"
@@ -246,13 +246,18 @@ export default function DishCardWow({
               <Heart className={`w-4 h-4 transition-colors ${isFavorite(dish.id) ? 'fill-red-500 text-red-500' : 'text-muted-foreground hover:text-red-400'}`} />
             </button>
             {!isOutOfStock && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0 }}
-                whileHover={{ opacity: 1, scale: 1 }}
-                className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+              <Button
+                size="sm"
+                className="h-8 px-3 text-xs font-semibold text-white"
+                style={{ backgroundColor: primaryColor }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onClick(dish);
+                }}
               >
-                <Sparkles className="w-4 h-4" />
-              </motion.div>
+                <Sparkles className="w-3 h-3 mr-1" />
+                Adicionar
+              </Button>
             )}
           </div>
         </div>

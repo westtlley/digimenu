@@ -176,6 +176,20 @@ export default function CheckoutView({
     return true;
   };
 
+  const checkoutSteps = [
+    { id: 1, label: 'Carrinho', done: cart.length > 0 },
+    { id: 2, label: 'Cliente', done: Boolean(customer.name && customer.phone) },
+    {
+      id: 3,
+      label: 'Endereço',
+      done: customer.deliveryMethod === 'pickup' || Boolean(customer.address_street && customer.address_number && customer.neighborhood)
+    },
+    { id: 4, label: 'Pagamento', done: Boolean(customer.paymentMethod) },
+    { id: 5, label: 'Confirmar', done: isFormValid() }
+  ];
+
+  const nextStep = checkoutSteps.find((step) => !step.done)?.id || 5;
+
   return (
     <AnimatePresence>
       <motion.div
@@ -204,9 +218,36 @@ export default function CheckoutView({
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <section className="bg-muted/30 rounded-xl p-3 border border-border/70">
+              <div className="flex items-center justify-between gap-2 overflow-x-auto pb-1">
+                {checkoutSteps.map((step) => (
+                  <div key={step.id} className="flex items-center gap-2 min-w-fit">
+                    <div
+                      className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold ${
+                        step.done
+                          ? 'text-white'
+                          : nextStep === step.id
+                            ? 'bg-primary/15 text-primary border border-primary/40'
+                            : 'bg-muted text-muted-foreground'
+                      }`}
+                      style={step.done ? { backgroundColor: primaryColor } : undefined}
+                    >
+                      {step.id}
+                    </div>
+                    <span className={`text-xs font-medium ${step.done ? 'text-foreground' : 'text-muted-foreground'}`}>
+                      {step.label}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-2">
+                Fluxo rápido: produto → carrinho → endereço → pagamento → confirmar.
+              </p>
+            </section>
+
             {/* Dados do Cliente */}
             <section className="bg-muted/40 rounded-xl p-4">
-              <h2 className="font-bold text-sm mb-3">Dados do Cliente</h2>
+              <h2 className="font-bold text-sm mb-3">1. Dados do Cliente</h2>
               
               <div className="space-y-3">
                 <div>
@@ -236,7 +277,7 @@ export default function CheckoutView({
 
             {/* Forma de Recebimento */}
             <section className="bg-muted/40 rounded-xl p-4">
-              <h2 className="font-bold text-sm mb-3">Forma de Recebimento</h2>
+              <h2 className="font-bold text-sm mb-3">2. Forma de Recebimento</h2>
               
               <div className="grid grid-cols-2 gap-2">
                 <button
@@ -443,7 +484,7 @@ export default function CheckoutView({
 
             {/* Forma de Pagamento */}
             <section className="bg-muted/40 rounded-xl p-4">
-              <h2 className="font-bold text-sm mb-3">Forma de Pagamento</h2>
+              <h2 className="font-bold text-sm mb-3">3. Forma de Pagamento</h2>
               
               <Select
                 value={customer.paymentMethod}
