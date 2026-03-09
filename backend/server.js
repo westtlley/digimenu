@@ -354,6 +354,7 @@ const publicRoutes = [
   '/api/public/login-info', // /api/public/login-info/:slug — dados para página de login por estabelecimento
   '/api/public/chat',      // Chat do assistente (IA) — público para o cardápio
   '/api/public/assinar-config',   // Config da página de vendas (planos, preços, trial) para /assinar
+  '/api/analytics/events', // Ingestão de eventos comerciais do cardápio/carrinho/checkout (público)
   '/api/entities/PaymentConfig',  // Configurações de pagamento públicas para o cardápio
   '/api/entities/MenuItem',  // Itens do menu públicos para o cardápio
   '/api/entities/Category',  // Categorias públicas para o cardápio

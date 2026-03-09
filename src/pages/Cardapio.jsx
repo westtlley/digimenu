@@ -59,6 +59,7 @@ import { orderService } from '@/components/services/orderService';
 import { whatsappService } from '@/components/services/whatsappService';
 import { stockUtils } from '@/components/utils/stockUtils';
 import { formatCurrency } from '@/utils/formatters';
+import { COMMERCIAL_EVENTS, trackCommercialEvent, trackCommercialEventOnce } from '@/utils/commercialAnalytics';
 
 /** Landing quando não há slug: / ou /cardapio — não exibe cardápio de nenhum estabelecimento. */
 function CardapioSemLink() {
@@ -1082,6 +1083,43 @@ export default function Cardapio() {
   const showCommercialSections = selectedCategory === 'all' && !searchTerm?.trim();
   const showLegacyPromotionSurface = !showCommercialSections || commercialSections.length === 0;
 
+  useEffect(() => {
+    if (showUpsellModal && Array.isArray(upsellPromotions) && upsellPromotions.length > 0) {
+      const ids = upsellPromotions.map((promotion) => String(promotion?.id || '')).filter(Boolean);
+      const key = `upsell_modal:${ids.join(',')}:${Math.round(Number(cartTotal || 0) * 100)}`;
+      void trackCommercialEventOnce(COMMERCIAL_EVENTS.UPSELL_SHOWN, key, {
+        source: 'upsell_modal',
+        promotion_ids: ids,
+        cart_total: Number(cartTotal || 0)
+      });
+    }
+  }, [cartTotal, showUpsellModal, upsellPromotions]);
+
+  useEffect(() => {
+    if (!showCartModal || !Array.isArray(cartUpsellSuggestions) || cartUpsellSuggestions.length === 0) {
+      return;
+    }
+
+    const ids = cartUpsellSuggestions.map((dish) => String(dish?.id || '')).filter(Boolean);
+    const key = `cart_suggestions:${ids.join(',')}:${Math.round(Number(cartTotal || 0) * 100)}`;
+    void trackCommercialEventOnce(COMMERCIAL_EVENTS.UPSELL_SHOWN, key, {
+      source: 'cart_suggestions',
+      dish_ids: ids,
+      cart_total: Number(cartTotal || 0)
+    });
+  }, [cartTotal, cartUpsellSuggestions, showCartModal]);
+
+  useEffect(() => {
+    if (currentView !== 'checkout' || !checkoutMerchandisingSuggestion) return;
+    const key = `checkout_suggestion:${String(checkoutMerchandisingSuggestion?.id || '')}:${Math.round(Number(cartTotal || 0) * 100)}`;
+    void trackCommercialEventOnce(COMMERCIAL_EVENTS.UPSELL_SHOWN, key, {
+      source: 'checkout_suggestion',
+      dish_id: checkoutMerchandisingSuggestion?.id || null,
+      dish_name: checkoutMerchandisingSuggestion?.name || null,
+      cart_total: Number(cartTotal || 0)
+    });
+  }, [cartTotal, checkoutMerchandisingSuggestion, currentView]);
+
   const layoutForSelectedCategoryDesktop = useMemo(() => {
     if (desktopCarouselMode) return 'carousel';
     return menuLayout;
@@ -1317,6 +1355,23 @@ export default function Cardapio() {
     }
     
     addItem(item);
+    void trackCommercialEvent(COMMERCIAL_EVENTS.ADD_TO_CART, {
+      dish_id: dish?.id || null,
+      dish_name: dish?.name || null,
+      product_type: dish?.product_type || null,
+      quantity: Number(item?.quantity || 1),
+      item_total: Number(item?.totalPrice || dish?.price || 0),
+      cart_total_estimate: Number(cartTotal || 0) + Number(item?.totalPrice || dish?.price || 0),
+      merchandising_source: dish?._merchandising?.source || null,
+      merchandising_label: dish?._merchandising?.label || null
+    });
+    if (dish?.product_type === 'combo') {
+      void trackCommercialEvent(COMMERCIAL_EVENTS.COMBO_ADDED, {
+        combo_id: dish?.id || null,
+        combo_name: dish?.name || null,
+        combo_price: Number(item?.totalPrice || dish?.price || 0)
+      });
+    }
     if (dish?.product_type === 'pizza') {
       closePizzaBuilder();
     } else {
@@ -1354,8 +1409,21 @@ export default function Cardapio() {
 
   const handleDishClick = (dish) => {
     console.log('🍕 Clicou no prato:', dish.name, 'Tipo:', dish.product_type);
+    void trackCommercialEvent(COMMERCIAL_EVENTS.PRODUCT_VIEW, {
+      dish_id: dish?.id || null,
+      dish_name: dish?.name || null,
+      product_type: dish?.product_type || null,
+      dish_price: Number(dish?.price || 0),
+      merchandising_source: dish?._merchandising?.source || null,
+      merchandising_label: dish?._merchandising?.label || null
+    });
 
     if (dish.product_type === 'combo') {
+      void trackCommercialEvent(COMMERCIAL_EVENTS.COMBO_CLICKED, {
+        combo_id: dish?.id || null,
+        combo_name: dish?.name || null,
+        combo_price: Number(dish?.price || 0)
+      });
       const comboId = (dish.id || '').toString().replace(/^combo_/, '');
       const combo = (Array.isArray(combosResolved) ? combosResolved : []).find((c) => (c?.id || '').toString() === comboId);
       if (combo) {
@@ -1395,8 +1463,19 @@ export default function Cardapio() {
 
   const handleCommercialSuggestion = React.useCallback((suggestedDish, context = 'cart') => {
     if (!suggestedDish) return;
+    const isReplace = isReplacePromotionSuggestion(suggestedDish);
 
-    if (isReplacePromotionSuggestion(suggestedDish)) {
+    void trackCommercialEvent(COMMERCIAL_EVENTS.UPSELL_ACCEPTED, {
+      source: context === 'checkout' ? 'checkout_suggestion' : 'cart_suggestion',
+      dish_id: suggestedDish?.id || null,
+      dish_name: suggestedDish?.name || null,
+      product_type: suggestedDish?.product_type || null,
+      merchandising_source: suggestedDish?._merchandising?.source || null,
+      merchandising_label: suggestedDish?._merchandising?.label || null,
+      promotion_type: isReplace ? 'replace' : 'add'
+    });
+
+    if (isReplace) {
       clearCart();
     }
 
@@ -1480,10 +1559,31 @@ export default function Cardapio() {
       original_price: promotion.original_price,
       _isPromo: true
     };
-    
+
+    void trackCommercialEvent(COMMERCIAL_EVENTS.UPSELL_ACCEPTED, {
+      source: 'upsell_modal',
+      promotion_id: promotion?.id || null,
+      promotion_type: promotion?.type || null,
+      dish_id: promoItem?.id || null,
+      dish_name: promoItem?.name || null,
+      offer_price: Number(promotion?.offer_price ?? promoItem?.price ?? 0),
+      original_price: Number(promotion?.original_price ?? promoDish?.price ?? 0)
+    });
+
     handleDishClick(promoItem);
     closeUpsell();
   };
+
+  const handleUpsellDecline = React.useCallback(() => {
+    const firstPromotion = (Array.isArray(upsellPromotions) ? upsellPromotions[0] : null) || null;
+    void trackCommercialEvent(COMMERCIAL_EVENTS.UPSELL_REJECTED, {
+      source: 'upsell_modal',
+      promotion_id: firstPromotion?.id || null,
+      promotion_type: firstPromotion?.type || null,
+      cart_total: Number(cartTotal || 0)
+    });
+    closeUpsell();
+  }, [cartTotal, closeUpsell, upsellPromotions]);
 
   const handleSendWhatsApp = async () => {
     const orderCode = orderService.generateOrderCode();
@@ -1600,6 +1700,14 @@ export default function Cardapio() {
 
     const orderResponse = await orderService.createOrder(orderData, createOrderMutation);
     const order = orderResponse?.data || orderResponse;
+    void trackCommercialEvent(COMMERCIAL_EVENTS.ORDER_COMPLETED, {
+      order_id: order?.id || null,
+      order_code: order?.order_code || orderCode || null,
+      order_total: Number(order?.total ?? total ?? 0),
+      items_count: Array.isArray(cart) ? cart.reduce((sum, item) => sum + Number(item?.quantity || 1), 0) : 0,
+      payment_method: customer?.paymentMethod || null,
+      delivery_method: customer?.deliveryMethod || null
+    });
     try {
       await orderService.updateCouponUsage(appliedCoupon, updateCouponMutation);
     } catch (couponError) {
@@ -3013,6 +3121,11 @@ export default function Cardapio() {
         onEditItem={handleEditCartItem}
         onEditPizza={handleEditPizza}
         onCheckout={() => {
+          void trackCommercialEvent(COMMERCIAL_EVENTS.CHECKOUT_STARTED, {
+            cart_items_count: Number(cartItemsCount || 0),
+            cart_total: Number(cartTotal || 0),
+            suggestion_count: Array.isArray(cartUpsellSuggestions) ? cartUpsellSuggestions.length : 0
+          });
           closeCartModal();
           setCurrentView('checkout');
         }}
@@ -3156,11 +3269,11 @@ export default function Cardapio() {
 
       <UpsellModal
         isOpen={showUpsellModal && cartUpsellSuggestions.length === 0}
-        onClose={closeUpsell}
+        onClose={handleUpsellDecline}
         promotions={upsellPromotions}
         dishes={dishesResolved}
         onAccept={handleUpsellAccept}
-        onDecline={closeUpsell}
+        onDecline={handleUpsellDecline}
         primaryColor={primaryColor}
       />
 

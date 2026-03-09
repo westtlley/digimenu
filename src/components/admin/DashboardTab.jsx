@@ -18,6 +18,7 @@ import { SkeletonStats } from '@/components/ui/skeleton';
 import DashboardMetrics from './DashboardMetrics';
 import DashboardCharts from './DashboardCharts';
 import DashboardAdvancedAnalytics from './DashboardAdvancedAnalytics';
+import CommercialAnalyticsPanel from './CommercialAnalyticsPanel';
 import { usePermission } from '../permissions/usePermission';
 import { useOrders } from '@/hooks/useOrders';
 import { useMenuDishes, useMenuCategories } from '@/hooks/useMenuData';
@@ -151,6 +152,7 @@ export default function DashboardTab({ user, subscriberData, onNavigateToTab }) 
 
       {/* Gráficos de Vendas: no máximo 2 úteis (condicional por shouldShowChart) */}
       {(orders.length > 0 || pdvSales.length > 0) && <DashboardCharts orders={orders} pdvSales={pdvSales} />}
+      {menuContext && <CommercialAnalyticsPanel menuContext={menuContext} />}
 
       {/* Stats Cards Rápidos */}
       <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">

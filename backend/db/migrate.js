@@ -208,6 +208,34 @@ export async function migrate() {
         `);
         console.log('✅ Migração de tabela password_reset_tokens concluída.');
 
+        // Tabela de analytics comercial
+        await query(`
+          CREATE TABLE IF NOT EXISTS analytics_events (
+            id SERIAL PRIMARY KEY,
+            event_name VARCHAR(100) NOT NULL,
+            event_category VARCHAR(60),
+            subscriber_email VARCHAR(255),
+            slug VARCHAR(120),
+            session_id VARCHAR(120),
+            path TEXT,
+            user_id VARCHAR(255),
+            properties JSONB DEFAULT '{}'::jsonb,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          );
+        `);
+
+        await query(`
+          CREATE INDEX IF NOT EXISTS idx_analytics_events_name_created
+          ON analytics_events(event_name, created_at DESC);
+          CREATE INDEX IF NOT EXISTS idx_analytics_events_subscriber_created
+          ON analytics_events(subscriber_email, created_at DESC);
+          CREATE INDEX IF NOT EXISTS idx_analytics_events_slug_created
+          ON analytics_events(slug, created_at DESC);
+          CREATE INDEX IF NOT EXISTS idx_analytics_events_session
+          ON analytics_events(session_id);
+        `);
+        console.log('✅ Migração de tabela analytics_events concluída.');
+
         // Índice para Comanda (entity_type + subscriber já cobertos por idx_entities_type_subscriber)
         try {
           await query(`

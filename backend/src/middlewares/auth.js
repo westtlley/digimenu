@@ -23,6 +23,7 @@ const publicRoutes = [
   '/api/auth/reset-password',
   '/api/auth/google',
   '/api/auth/google/callback',
+  '/api/analytics/events',
   '/api/public/',
   '/api/entities/PaymentConfig',
   '/api/entities/MenuItem',
