@@ -131,7 +131,6 @@ export default function Cardapio() {
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [showQuickSignup, setShowQuickSignup] = useState(false);
   const [showWelcomeDiscount, setShowWelcomeDiscount] = useState(false);
-  const [showSmartUpsell, setShowSmartUpsell] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userEmail, setUserEmail] = useState(null);
   const [userProfilePicture, setUserProfilePicture] = useState(null);
@@ -1081,6 +1080,7 @@ export default function Cardapio() {
   const checkoutMerchandisingSuggestion = merchandisingEngine.checkoutSuggestion;
 
   const showCommercialSections = selectedCategory === 'all' && !searchTerm?.trim();
+  const showLegacyPromotionSurface = !showCommercialSections || commercialSections.length === 0;
 
   const layoutForSelectedCategoryDesktop = useMemo(() => {
     if (desktopCarouselMode) return 'carousel';
@@ -1379,6 +1379,36 @@ export default function Cardapio() {
       openDishDetails(dish);
     }
   };
+
+  const isReplacePromotionSuggestion = React.useCallback((suggestedDish) => {
+    const merch = suggestedDish?._merchandising;
+    if (!merch || merch.source !== 'promotion' || !merch.sourceId) {
+      return false;
+    }
+
+    const sourcePromotion = (Array.isArray(activePromotions) ? activePromotions : []).find(
+      (promotion) => String(promotion?.id || '') === String(merch.sourceId || '')
+    );
+
+    return String(sourcePromotion?.type || '').toLowerCase() === 'replace';
+  }, [activePromotions]);
+
+  const handleCommercialSuggestion = React.useCallback((suggestedDish, context = 'cart') => {
+    if (!suggestedDish) return;
+
+    if (isReplacePromotionSuggestion(suggestedDish)) {
+      clearCart();
+    }
+
+    if (context === 'checkout') {
+      setCurrentView('menu');
+      setTimeout(() => handleDishClick(suggestedDish), 0);
+      return;
+    }
+
+    closeCartModal();
+    handleDishClick(suggestedDish);
+  }, [clearCart, closeCartModal, handleDishClick, isReplacePromotionSuggestion]);
 
   const handleRemoveFromCart = (itemId) => {
     removeItem(itemId);
@@ -2448,64 +2478,65 @@ export default function Cardapio() {
                 </div>
               )}
 
-              {/* Promotions + Combos lado a lado */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 items-start" data-section="promotions">
-                <PromotionBanner
-                  promotions={activePromotions}
-                  dishes={dishesResolved}
-                  primaryColor={primaryColor}
-                  onSelectPromotion={setSelectedDish}
-                  store={store}
-                  autoplayIntervalMs={autoplayIntervalMs}
-                />
+              {showLegacyPromotionSurface && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 items-start" data-section="promotions">
+                  <PromotionBanner
+                    promotions={activePromotions}
+                    dishes={dishesResolved}
+                    primaryColor={primaryColor}
+                    onSelectPromotion={setSelectedDish}
+                    store={store}
+                    autoplayIntervalMs={autoplayIntervalMs}
+                  />
 
-                {comboDishesForDisplay.length > 0 && (
-                  <section className="mb-6 md:mb-8">
-                    <div className="flex items-center gap-2 mb-4">
-                      <Package className="w-5 h-5" style={{ color: primaryColor }} />
-                      <h2 className="font-bold text-base md:text-lg text-foreground">Combos</h2>
-                    </div>
-                    <div className="grid grid-cols-1 gap-4">
-                      {visibleCombosSlides.map((combo, slotIdx) => (
-                        <motion.div
-                          key={`${combo.id}_${slotIdx}_${comboBannerIndex}`}
-                          initial={{ opacity: 0, y: 8 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ duration: 0.22 }}
-                          whileHover={{ y: -4, scale: 1.02 }}
-                          className="relative h-32 rounded-2xl overflow-hidden shadow-lg cursor-pointer border-2"
-                          style={{
-                            borderColor: primaryColor + '40',
-                            background: `linear-gradient(135deg, ${primaryColor}dd, ${primaryColor}bb)`
-                          }}
-                          onClick={() => handleDishClick(combo)}
-                        >
-                          <div className="absolute inset-0 bg-black/30" />
-                          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16" />
-                          <div className="relative p-4 flex items-center gap-4">
-                            <div className="w-20 h-20 flex-shrink-0 rounded-xl overflow-hidden bg-white/20 shadow-lg">
-                              {combo.image ? (
-                                <img src={combo.image} alt={combo.name} className="w-full h-full object-cover" />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center text-2xl">🍽️</div>
-                              )}
-                            </div>
-                            <div className="flex-1 text-white min-w-0" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.7)' }}>
-                              <Badge className="bg-white/90 text-black mb-2 font-bold">
-                                Combo
-                              </Badge>
-                              <h3 className="font-bold text-base mb-1 truncate">{combo.name}</h3>
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="text-xl font-bold">{formatCurrency(combo.price)}</span>
+                  {comboDishesForDisplay.length > 0 && (
+                    <section className="mb-6 md:mb-8">
+                      <div className="flex items-center gap-2 mb-4">
+                        <Package className="w-5 h-5" style={{ color: primaryColor }} />
+                        <h2 className="font-bold text-base md:text-lg text-foreground">Combos</h2>
+                      </div>
+                      <div className="grid grid-cols-1 gap-4">
+                        {visibleCombosSlides.map((combo, slotIdx) => (
+                          <motion.div
+                            key={`${combo.id}_${slotIdx}_${comboBannerIndex}`}
+                            initial={{ opacity: 0, y: 8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.22 }}
+                            whileHover={{ y: -4, scale: 1.02 }}
+                            className="relative h-32 rounded-2xl overflow-hidden shadow-lg cursor-pointer border-2"
+                            style={{
+                              borderColor: primaryColor + '40',
+                              background: `linear-gradient(135deg, ${primaryColor}dd, ${primaryColor}bb)`
+                            }}
+                            onClick={() => handleDishClick(combo)}
+                          >
+                            <div className="absolute inset-0 bg-black/30" />
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16" />
+                            <div className="relative p-4 flex items-center gap-4">
+                              <div className="w-20 h-20 flex-shrink-0 rounded-xl overflow-hidden bg-white/20 shadow-lg">
+                                {combo.image ? (
+                                  <img src={combo.image} alt={combo.name} className="w-full h-full object-cover" />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center text-2xl">🍽️</div>
+                                )}
+                              </div>
+                              <div className="flex-1 text-white min-w-0" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.7)' }}>
+                                <Badge className="bg-white/90 text-black mb-2 font-bold">
+                                  Combo
+                                </Badge>
+                                <h3 className="font-bold text-base mb-1 truncate">{combo.name}</h3>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-xl font-bold">{formatCurrency(combo.price)}</span>
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        </motion.div>
-                      ))}
-                    </div>
-                  </section>
-                )}
-              </div>
+                          </motion.div>
+                        ))}
+                      </div>
+                    </section>
+                  )}
+                </div>
+              )}
 
               {/* Botão de Cadastro Opcional - Apenas se não estiver autenticado */}
               {!isAuthenticated && (
@@ -2559,7 +2590,7 @@ export default function Cardapio() {
               />
 
               {showCommercialSections && commercialSections.length > 0 && (
-                <section className="mb-6 md:mb-8 space-y-6">
+                <section className="mb-6 md:mb-8 space-y-6" data-section="promotions">
                   {commercialSections.map((section) => {
                     const SectionIcon = section.icon;
                     return (
@@ -2987,8 +3018,7 @@ export default function Cardapio() {
         }}
         smartSuggestions={cartUpsellSuggestions}
         onSelectSuggestion={(suggestedDish) => {
-          closeCartModal();
-          handleDishClick(suggestedDish);
+          handleCommercialSuggestion(suggestedDish, 'cart');
         }}
         primaryColor={primaryColor}
         store={store}
@@ -3103,7 +3133,6 @@ export default function Cardapio() {
           dishes={dishesResolved}
           onAddToCart={handleAddToCart}
           primaryColor={primaryColor}
-          onClose={() => setShowSmartUpsell(false)}
           store={store}
         />
       )}
@@ -3156,8 +3185,7 @@ export default function Cardapio() {
           slug={slug}
           checkoutSuggestion={checkoutMerchandisingSuggestion}
           onCheckoutSuggestion={(suggestedDish) => {
-            setCurrentView('menu');
-            setTimeout(() => handleDishClick(suggestedDish), 0);
+            handleCommercialSuggestion(suggestedDish, 'checkout');
           }}
         />
       )}
