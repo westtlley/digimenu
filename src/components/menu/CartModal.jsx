@@ -761,6 +761,11 @@ export default function CartModal({
                         <p className={`text-xs font-semibold line-clamp-2 min-h-[2rem] ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                           {suggestion?.name}
                         </p>
+                        {suggestion?._merchandising?.label && (
+                          <p className={`text-[10px] mt-0.5 line-clamp-1 ${darkMode ? 'text-gray-300' : 'text-gray-500'}`}>
+                            {suggestion._merchandising.label}
+                          </p>
+                        )}
                         <div className="mt-2 flex items-center justify-between gap-2">
                           <span className="text-xs font-bold" style={{ color: primaryColor }}>
                             {formatCurrency(suggestion?.price)}

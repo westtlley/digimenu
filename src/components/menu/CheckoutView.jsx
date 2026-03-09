@@ -57,7 +57,9 @@ export default function CheckoutView({
   primaryColor = '#f97316',
   isTableOrder = false, // Indica se Ã© pedido de mesa
   userEmail = null,
-  slug = null
+  slug = null,
+  checkoutSuggestion = null,
+  onCheckoutSuggestion = () => {}
 }) {
   const customer = customerProp ?? DEFAULT_CUSTOMER;
   const setCustomer = setCustomerProp ?? (() => {});
@@ -766,6 +768,51 @@ export default function CheckoutView({
                       </p>
                     </div>
                   )}
+                </div>
+              </section>
+            )}
+
+            {checkoutSuggestion && (
+              <section className="bg-amber-50/80 rounded-xl p-4 border border-amber-200/70">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <h2 className="font-bold text-sm text-amber-900">Oferta final para aumentar seu pedido</h2>
+                    <p className="text-xs text-amber-700 mt-1">
+                      {checkoutSuggestion?._merchandising?.label || 'Sugestão comercial'} • aproveite antes de confirmar
+                    </p>
+                  </div>
+                  {checkoutSuggestion?.original_price > checkoutSuggestion?.price && (
+                    <span className="text-[10px] font-bold text-amber-800 bg-amber-200/70 px-2 py-1 rounded-full">
+                      -{Math.round(((checkoutSuggestion.original_price - checkoutSuggestion.price) / checkoutSuggestion.original_price) * 100)}%
+                    </span>
+                  )}
+                </div>
+                <div className="mt-3 flex items-center gap-3">
+                  <div className="w-14 h-14 rounded-lg overflow-hidden bg-muted flex-shrink-0">
+                    {checkoutSuggestion?.image ? (
+                      <img src={checkoutSuggestion.image} alt={checkoutSuggestion.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">Oferta</div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-foreground line-clamp-1">{checkoutSuggestion?.name}</p>
+                    <div className="flex items-center gap-2 text-xs mt-0.5">
+                      {checkoutSuggestion?.original_price > checkoutSuggestion?.price && (
+                        <span className="line-through text-muted-foreground">{formatCurrency(checkoutSuggestion.original_price)}</span>
+                      )}
+                      <span className="font-bold" style={{ color: primaryColor }}>{formatCurrency(checkoutSuggestion?.price)}</span>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="text-white"
+                    style={{ backgroundColor: primaryColor }}
+                    onClick={() => onCheckoutSuggestion(checkoutSuggestion)}
+                  >
+                    Ver
+                  </Button>
                 </div>
               </section>
             )}

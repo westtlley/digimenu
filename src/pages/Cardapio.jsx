@@ -845,159 +845,240 @@ export default function Cardapio() {
     return filteredDishes;
   }, [selectedCategory, filteredDishes, filteredBeverages, comboDishesForDisplay]);
 
-  const commercialSections = useMemo(() => {
-    const toStr = (value) => String(value || '').toLowerCase();
-    const byPriority = (a, b) => {
-      const popularDiff = Number(Boolean(b?.is_popular)) - Number(Boolean(a?.is_popular));
-      if (popularDiff !== 0) return popularDiff;
-      const newDiff = Number(Boolean(b?.is_new)) - Number(Boolean(a?.is_new));
-      if (newDiff !== 0) return newDiff;
-      const aDate = new Date(a?.updated_date || a?.created_date || 0).getTime();
-      const bDate = new Date(b?.updated_date || b?.created_date || 0).getTime();
-      return bDate - aDate;
+  const merchandisingEngine = useMemo(() => {
+    const safeCart = Array.isArray(cart) ? cart : [];
+    const safeDishes = Array.isArray(dishesResolved) ? dishesResolved : [];
+    const safePromotions = Array.isArray(activePromotions) ? activePromotions : [];
+    const safeCombos = Array.isArray(comboDishesForDisplay) ? comboDishesForDisplay : [];
+
+    const cartDishIds = new Set(safeCart.map((item) => String(item?.dish?.id || '')));
+    const currentCartTotal = safeCart.reduce((sum, item) => sum + Number(item?.totalPrice || 0) * Number(item?.quantity || 1), 0);
+    const findDishById = (id) => safeDishes.find((dish) => String(dish?.id || '') === String(id || ''));
+
+    const withMerchMeta = (dish, meta = {}) => {
+      if (!dish) return null;
+      const offerPrice = Number(meta.offerPrice ?? dish.price ?? 0);
+      const originalPrice = Number(meta.originalPrice ?? dish.original_price ?? dish.price ?? 0);
+      return {
+        ...dish,
+        price: offerPrice,
+        original_price: originalPrice,
+        _merchandising: {
+          source: meta.source || 'catalog',
+          sourceId: meta.sourceId || null,
+          priority: Number(meta.priority || 99),
+          triggerMin: Number(meta.triggerMin || 0),
+          ruleKey: meta.ruleKey || null,
+          label: meta.label || ''
+        }
+      };
     };
 
-    const catalogItems = [...(Array.isArray(activeDishes) ? activeDishes : []), ...(Array.isArray(activeBeverages) ? activeBeverages : [])]
-      .filter((item) => item?.is_active !== false);
+    const promotionItems = safePromotions
+      .map((promo) => {
+        const dish = findDishById(promo?.offer_dish_id);
+        if (!dish || dish?.is_active === false) return null;
+        return withMerchMeta(
+          {
+            ...dish,
+            name: dish?.name || promo?.name,
+            description: promo?.description || dish?.description
+          },
+          {
+            source: 'promotion',
+            sourceId: promo?.id,
+            priority: 1,
+            triggerMin: Number(promo?.trigger_min_value || 0),
+            offerPrice: Number(promo?.offer_price ?? dish?.price ?? 0),
+            originalPrice: Number(promo?.original_price ?? dish?.price ?? 0),
+            label: promo?.name || 'Oferta'
+          }
+        );
+      })
+      .filter(Boolean);
 
-    const claimed = new Set();
-    const pickUnique = (predicate, limit = 6) => {
-      const picked = [];
-      catalogItems
-        .filter((item) => {
-          const key = String(item?.id || '');
-          return key && !claimed.has(key) && predicate(item);
-        })
-        .sort(byPriority)
-        .forEach((item) => {
-          if (picked.length >= limit) return;
-          const key = String(item?.id || '');
-          claimed.add(key);
-          picked.push(item);
-        });
-      return picked;
+    const comboItems = safeCombos.map((combo) =>
+      withMerchMeta(combo, {
+        source: 'combo',
+        sourceId: combo?.id,
+        priority: 2,
+        offerPrice: Number(combo?.price ?? combo?.combo_price ?? 0),
+        originalPrice: Number(combo?.original_price ?? combo?.price ?? combo?.combo_price ?? 0),
+        label: 'Combo'
+      })
+    ).filter(Boolean);
+
+    const crossSellConfig = store?.cross_sell_config || {};
+    const crossSellEnabled = crossSellConfig?.enabled !== false;
+
+    const crossSellDefinitions = [
+      { key: 'beverage_offer', priority: 3, defaultLabel: 'Cross-sell Bebida' },
+      { key: 'dessert_offer', priority: 3, defaultLabel: 'Cross-sell Sobremesa' },
+      { key: 'combo_offer', priority: 3, defaultLabel: 'Cross-sell Combo' }
+    ];
+
+    const crossSellItems = crossSellDefinitions
+      .map((definition) => {
+        if (!crossSellEnabled) return null;
+        const config = crossSellConfig?.[definition.key];
+        if (!config?.enabled || !config?.dish_id) return null;
+        const dish = findDishById(config.dish_id);
+        if (!dish || dish?.is_active === false) return null;
+        const discountPercent = Number(config?.discount_percent || 0);
+        const computedPrice = Number(dish?.price || 0) * (1 - discountPercent / 100);
+        return withMerchMeta(
+          {
+            ...dish,
+            description: config?.message || dish?.description
+          },
+          {
+            source: 'cross_sell',
+            sourceId: definition.key,
+            priority: definition.priority,
+            ruleKey: definition.key,
+            offerPrice: computedPrice,
+            originalPrice: Number(dish?.price || 0),
+            label: config?.title || definition.defaultLabel
+          }
+        );
+      })
+      .filter(Boolean);
+
+    const crossSellRuleSatisfied = (item) => {
+      const ruleKey = item?._merchandising?.ruleKey;
+      const config = crossSellConfig?.[ruleKey];
+      if (!config) return false;
+
+      const offeredDishId = String(item?.id || '');
+      const isAlreadyInCart = cartDishIds.has(offeredDishId);
+      if (isAlreadyInCart) return false;
+
+      if (ruleKey === 'beverage_offer') {
+        const triggerTypes = Array.isArray(config?.trigger_product_types) && config.trigger_product_types.length > 0
+          ? config.trigger_product_types
+          : ['pizza'];
+        const hasTriggerType = safeCart.some((cartItem) => triggerTypes.includes(cartItem?.dish?.product_type));
+        const hasAnyBeverage = safeCart.some((cartItem) =>
+          cartItem?.dish?.product_type === 'beverage' ||
+          String(cartItem?.dish?.id || '') === offeredDishId
+        );
+        return hasTriggerType && !hasAnyBeverage;
+      }
+
+      if (ruleKey === 'dessert_offer') {
+        const minValue = Number(config?.min_cart_value || 0);
+        return currentCartTotal >= minValue;
+      }
+
+      if (ruleKey === 'combo_offer') {
+        const minPizzas = Number(config?.min_pizzas || 2);
+        const pizzaCount = safeCart.filter((cartItem) => cartItem?.dish?.product_type === 'pizza').length;
+        return pizzaCount >= minPizzas;
+      }
+
+      return false;
     };
 
-    const isRecommended = (item) => Boolean(item?.is_highlight) || Boolean(item?.is_popular);
-    const isNew = (item) => {
-      if (item?.is_new) return true;
-      const refDate = new Date(item?.updated_date || item?.created_date || 0).getTime();
-      if (!refDate) return false;
-      const fifteenDaysInMs = 15 * 24 * 60 * 60 * 1000;
-      return Date.now() - refDate <= fifteenDaysInMs;
+    const byDisplayPriority = (a, b) => {
+      const priorityDiff = Number(a?._merchandising?.priority || 99) - Number(b?._merchandising?.priority || 99);
+      if (priorityDiff !== 0) return priorityDiff;
+      const aDiscount = Number(a?.original_price || 0) - Number(a?.price || 0);
+      const bDiscount = Number(b?.original_price || 0) - Number(b?.price || 0);
+      if (bDiscount !== aDiscount) return bDiscount - aDiscount;
+      return Number(a?.price || 0) - Number(b?.price || 0);
     };
-    const isComboKeyword = (item) => /combo/.test(`${toStr(item?.name)} ${toStr(item?.description)}`);
-    const isCombo = (item) => item?.product_type === 'combo' || isComboKeyword(item);
 
-    const bestSellers = pickUnique((item) => Boolean(item?.is_popular), 6);
-    const recommended = pickUnique((item) => isRecommended(item), 6);
-    const newest = pickUnique((item) => isNew(item), 6);
+    const sectionClaimed = new Set();
+    const takeUnique = (items, limit = 6) => {
+      const out = [];
+      items.sort(byDisplayPriority).forEach((item) => {
+        const key = String(item?.id || '');
+        if (!key || sectionClaimed.has(key) || out.length >= limit) return;
+        sectionClaimed.add(key);
+        out.push(item);
+      });
+      return out;
+    };
 
-    const combos = [...(Array.isArray(comboDishesForDisplay) ? comboDishesForDisplay : [])]
-      .filter((item) => !claimed.has(String(item?.id || '')))
-      .slice(0, 6);
-    combos.forEach((item) => claimed.add(String(item?.id || '')));
+    const offerSectionItems = takeUnique(
+      promotionItems.filter((item) => Number(item?._merchandising?.triggerMin || 0) <= 0),
+      6
+    );
+    const comboSectionItems = takeUnique(comboItems, 6);
+    const recommendationSectionItems = takeUnique(crossSellItems, 6);
+    const upsellSectionItems = takeUnique(
+      promotionItems.filter((item) => Number(item?._merchandising?.triggerMin || 0) > 0),
+      6
+    );
 
-    // Fallback para manter vitrine comercial sempre útil
-    if (bestSellers.length < 3) {
-      pickUnique((item) => !isCombo(item), 6 - bestSellers.length).forEach((it) => bestSellers.push(it));
-    }
-
-    const sections = [
+    const menuSections = [
       {
-        id: 'bestsellers',
-        title: 'Mais vendidos',
+        id: 'offers',
+        title: 'Ofertas da Promoção',
         icon: Flame,
-        subtitle: 'Os itens mais escolhidos pelos clientes',
-        items: bestSellers
-      },
-      {
-        id: 'recommended',
-        title: 'Recomendados',
-        icon: Star,
-        subtitle: 'Seleção que costuma converter mais',
-        items: recommended
-      },
-      {
-        id: 'new',
-        title: 'Novidades',
-        icon: Sparkles,
-        subtitle: 'Lançamentos e itens recém-atualizados',
-        items: newest
+        subtitle: 'Vitrine criada a partir das promoções ativas',
+        items: offerSectionItems
       },
       {
         id: 'combos',
         title: 'Combos',
         icon: Package,
-        subtitle: 'Opções com melhor custo-benefício',
-        items: combos
+        subtitle: 'Combos configurados no painel comercial',
+        items: comboSectionItems
+      },
+      {
+        id: 'cross_sell',
+        title: 'Recomendados',
+        icon: Star,
+        subtitle: 'Sugestões de cross-sell configuradas na loja',
+        items: recommendationSectionItems
+      },
+      {
+        id: 'upsell',
+        title: 'Upsell do Momento',
+        icon: Sparkles,
+        subtitle: 'Ofertas com gatilho por valor mínimo',
+        items: upsellSectionItems
       }
-    ];
+    ].filter((section) => section.items.length > 0);
 
-    return sections.filter((section) => section.items.length > 0);
-  }, [activeDishes, activeBeverages, beverageCategoriesResolved, categoriesResolvedForAllIslands, comboDishesForDisplay]);
-
-  const cartUpsellSuggestions = useMemo(() => {
-    const toText = (value) => String(value || '').toLowerCase();
-    const normalizeList = (value) => (Array.isArray(value) ? value : []);
-    const cartDishIds = new Set(
-      normalizeList(cart).map((item) => String(item?.dish?.id || ''))
-    );
-
-    const categoryById = new Map([
-      ...normalizeList(categoriesResolvedForAllIslands),
-      ...normalizeList(beverageCategoriesResolved)
-    ].map((cat) => [String(cat?.id || ''), toText(cat?.name)]));
-
-    const candidates = [
-      ...normalizeList(activeBeverages),
-      ...normalizeList(activeDishes)
-    ]
-      .filter((dish) => dish?.is_active !== false)
-      .filter((dish) => {
-        const dishId = String(dish?.id || '');
-        return dishId && !cartDishIds.has(dishId);
-      });
-
-    const isDrink = (dish) => {
-      if (dish?.product_type === 'beverage') return true;
-      const category = categoryById.get(String(dish?.category_id || '')) || '';
-      return /bebida|refriger|suco|drink/.test(category);
-    };
-    const isSide = (dish) => {
-      const source = `${toText(dish?.name)} ${toText(dish?.description)} ${categoryById.get(String(dish?.category_id || '')) || ''}`;
-      return /acomp|porc|entrada|batata|frita|molho/.test(source);
-    };
-    const isDessert = (dish) => {
-      const source = `${toText(dish?.name)} ${toText(dish?.description)} ${categoryById.get(String(dish?.category_id || '')) || ''}`;
-      return /sobremesa|doce|bolo|mousse|pudim|a[cç]ai|sorvete/.test(source);
+    const cartCandidates = [];
+    const seenCartSuggestion = new Set();
+    const pushCartSuggestion = (item, canShow = true) => {
+      if (!canShow || !item) return;
+      const key = String(item?.id || '');
+      if (!key || seenCartSuggestion.has(key) || cartDishIds.has(key)) return;
+      seenCartSuggestion.add(key);
+      cartCandidates.push(item);
     };
 
-    const sortByCommercialPriority = (a, b) => {
-      const popularDiff = Number(Boolean(b?.is_popular)) - Number(Boolean(a?.is_popular));
-      if (popularDiff !== 0) return popularDiff;
-      const newDiff = Number(Boolean(b?.is_new)) - Number(Boolean(a?.is_new));
-      if (newDiff !== 0) return newDiff;
-      return Number(a?.price || 0) - Number(b?.price || 0);
+    const hasCartItems = safeCart.length > 0;
+    if (hasCartItems) {
+      promotionItems
+        .filter((item) => currentCartTotal >= Number(item?._merchandising?.triggerMin || 0))
+        .sort(byDisplayPriority)
+        .forEach((item) => pushCartSuggestion(item, true));
+
+      comboItems.sort(byDisplayPriority).forEach((item) => pushCartSuggestion(item, true));
+      crossSellItems.sort(byDisplayPriority).forEach((item) => pushCartSuggestion(item, crossSellRuleSatisfied(item)));
+    }
+
+    const cartSuggestions = cartCandidates.slice(0, 4);
+    const checkoutSuggestion =
+      cartCandidates.find((item) => item?._merchandising?.source !== 'combo') ||
+      cartCandidates[0] ||
+      null;
+
+    return {
+      menuSections,
+      cartSuggestions,
+      checkoutSuggestion
     };
+  }, [activePromotions, cart, comboDishesForDisplay, dishesResolved, store?.cross_sell_config]);
 
-    const slots = [
-      ...candidates.filter(isDrink).sort(sortByCommercialPriority),
-      ...candidates.filter((dish) => !isDrink(dish) && isSide(dish)).sort(sortByCommercialPriority),
-      ...candidates.filter((dish) => !isDrink(dish) && !isSide(dish) && isDessert(dish)).sort(sortByCommercialPriority),
-      ...candidates.sort(sortByCommercialPriority)
-    ];
-
-    const unique = [];
-    const seen = new Set();
-    slots.forEach((dish) => {
-      const key = String(dish?.id || '');
-      if (!key || seen.has(key)) return;
-      seen.add(key);
-      unique.push(dish);
-    });
-    return unique.slice(0, 4);
-  }, [activeBeverages, activeDishes, beverageCategoriesResolved, cart, categoriesResolvedForAllIslands]);
+  const commercialSections = merchandisingEngine.menuSections;
+  const cartUpsellSuggestions = merchandisingEngine.cartSuggestions;
+  const checkoutMerchandisingSuggestion = merchandisingEngine.checkoutSuggestion;
 
   const showCommercialSections = selectedCategory === 'all' && !searchTerm?.trim();
 
@@ -3016,7 +3097,7 @@ export default function Cardapio() {
       />
 
       {/* 🎯 Cross-sell Inteligente */}
-      {currentView === 'menu' && (
+      {currentView === 'menu' && !showUpsellModal && cartUpsellSuggestions.length === 0 && (
         <SmartUpsell
           cart={cart}
           dishes={dishesResolved}
@@ -3045,7 +3126,7 @@ export default function Cardapio() {
       />
 
       <UpsellModal
-        isOpen={showUpsellModal}
+        isOpen={showUpsellModal && cartUpsellSuggestions.length === 0}
         onClose={closeUpsell}
         promotions={upsellPromotions}
         dishes={dishesResolved}
@@ -3073,6 +3154,11 @@ export default function Cardapio() {
           primaryColor={primaryColor}
           userEmail={userEmail}
           slug={slug}
+          checkoutSuggestion={checkoutMerchandisingSuggestion}
+          onCheckoutSuggestion={(suggestedDish) => {
+            setCurrentView('menu');
+            setTimeout(() => handleDishClick(suggestedDish), 0);
+          }}
         />
       )}
 
