@@ -8,6 +8,7 @@ export const COMMERCIAL_EVENTS = {
   UPSELL_SHOWN: 'upsell_shown',
   UPSELL_ACCEPTED: 'upsell_accepted',
   UPSELL_REJECTED: 'upsell_rejected',
+  UPSELL_SKIPPED: 'upsell_skipped',
   COMBO_CLICKED: 'combo_clicked',
   COMBO_ADDED: 'combo_added'
 };
@@ -15,6 +16,8 @@ export const COMMERCIAL_EVENTS = {
 const SESSION_KEY = 'dm_analytics_session_id';
 const SESSION_TTL_MS = 1000 * 60 * 60 * 8; // 8h
 const shownEventCache = new Map();
+const SHOWN_CACHE_TTL_MS = 1000 * 60 * 20; // 20 min
+const SHOWN_CACHE_MAX_SIZE = 400;
 
 const normalizeSlug = (value) =>
   String(value || '')
@@ -82,6 +85,23 @@ const basePayload = () => {
   };
 };
 
+const cleanupShownEventCache = (nowTs = Date.now()) => {
+  for (const [key, createdAt] of shownEventCache.entries()) {
+    if (!Number.isFinite(createdAt) || (nowTs - createdAt) > SHOWN_CACHE_TTL_MS) {
+      shownEventCache.delete(key);
+    }
+  }
+
+  if (shownEventCache.size <= SHOWN_CACHE_MAX_SIZE) return;
+  const overflow = shownEventCache.size - SHOWN_CACHE_MAX_SIZE;
+  let removed = 0;
+  for (const key of shownEventCache.keys()) {
+    shownEventCache.delete(key);
+    removed += 1;
+    if (removed >= overflow) break;
+  }
+};
+
 export async function trackCommercialEvent(eventName, properties = {}) {
   try {
     const payload = {
@@ -100,9 +120,10 @@ export async function trackCommercialEvent(eventName, properties = {}) {
 }
 
 export async function trackCommercialEventOnce(eventName, key, properties = {}) {
+  const nowTs = Date.now();
+  cleanupShownEventCache(nowTs);
   const cacheKey = `${String(eventName || '')}:${String(key || '')}`;
   if (!key || shownEventCache.has(cacheKey)) return;
-  shownEventCache.set(cacheKey, Date.now());
+  shownEventCache.set(cacheKey, nowTs);
   return trackCommercialEvent(eventName, properties);
 }
-

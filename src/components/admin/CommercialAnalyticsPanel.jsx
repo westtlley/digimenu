@@ -8,6 +8,7 @@ import { Eye, ShoppingCart, CheckCircle2, TrendingUp, Sparkles, Package } from '
 
 const toNumber = (value) => Number(value || 0);
 const formatPercent = (value) => `${Number(value || 0).toFixed(1)}%`;
+const PERIOD_OPTIONS = [7, 30, 60];
 
 function MetricCard({ title, value, helper, icon: Icon }) {
   return (
@@ -41,7 +42,7 @@ function ProductList({ title, items, valueKey, emptyText }) {
                   <p className="text-[11px] text-muted-foreground truncate">{item?.product_id || item?.combo_id || '-'}</p>
                 </div>
                 <Badge variant="outline" className="text-xs">
-                  {toNumber(item?.[valueKey])}
+                  {toNumber(item?.[valueKey] ?? item?.adds ?? item?.add_events)}
                 </Badge>
               </div>
             ))}
@@ -55,12 +56,14 @@ function ProductList({ title, items, valueKey, emptyText }) {
 }
 
 export default function CommercialAnalyticsPanel({ menuContext }) {
+  const [days, setDays] = React.useState(30);
+
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['commercialAnalyticsDashboard', menuContext?.type, menuContext?.value],
+    queryKey: ['commercialAnalyticsDashboard', menuContext?.type, menuContext?.value, days],
     enabled: !!menuContext,
     staleTime: 60 * 1000,
     queryFn: async () => {
-      const params = { days: 30 };
+      const params = { days };
       if (menuContext?.type === 'subscriber' && menuContext?.value) {
         params.as_subscriber = menuContext.value;
       }
@@ -72,11 +75,13 @@ export default function CommercialAnalyticsPanel({ menuContext }) {
   const totals = data?.totals || {};
   const rates = data?.rates || {};
   const views = toNumber(totals.product_views);
-  const adds = toNumber(totals.add_to_cart);
+  const addEvents = toNumber(totals.add_to_cart_events ?? totals.add_to_cart);
+  const addUnits = toNumber(totals.add_to_cart_units);
   const checkouts = toNumber(totals.checkout_started);
   const orders = toNumber(totals.order_completed);
   const upsellShown = toNumber(totals.upsell_shown);
   const upsellAccepted = toNumber(totals.upsell_accepted);
+  const upsellSkipped = toNumber(totals.upsell_skipped);
   const combosClicked = toNumber(totals.combo_clicked);
   const combosAdded = toNumber(totals.combo_added);
 
@@ -87,17 +92,32 @@ export default function CommercialAnalyticsPanel({ menuContext }) {
           <div>
             <CardTitle className="text-base text-foreground flex items-center gap-2">
               <TrendingUp className="w-4 h-4" />
-              Analytics Comercial (30 dias)
+              Analytics Comercial ({days} dias)
             </CardTitle>
             <p className="text-xs text-muted-foreground mt-1">
               Conversao de cardapio, carrinho, checkout, upsell e combos.
             </p>
           </div>
-          {isError ? (
-            <Button variant="outline" size="sm" onClick={() => refetch()}>
-              Tentar novamente
-            </Button>
-          ) : null}
+          <div className="flex items-center gap-2">
+            <div className="inline-flex items-center rounded-md border border-border p-0.5">
+              {PERIOD_OPTIONS.map((option) => (
+                <Button
+                  key={option}
+                  size="sm"
+                  variant={days === option ? 'default' : 'ghost'}
+                  className="h-7 px-2 text-xs"
+                  onClick={() => setDays(option)}
+                >
+                  {option}d
+                </Button>
+              ))}
+            </div>
+            {isError ? (
+              <Button variant="outline" size="sm" onClick={() => refetch()}>
+                Tentar novamente
+              </Button>
+            ) : null}
+          </div>
         </div>
       </CardHeader>
 
@@ -111,8 +131,8 @@ export default function CommercialAnalyticsPanel({ menuContext }) {
           />
           <MetricCard
             title="Add no carrinho"
-            value={adds}
-            helper={`View -> Add: ${formatPercent(rates.view_to_cart)}`}
+            value={addEvents}
+            helper={`Unidades: ${addUnits} | View -> Add: ${formatPercent(rates.view_to_cart)}`}
             icon={ShoppingCart}
           />
           <MetricCard
@@ -141,6 +161,7 @@ export default function CommercialAnalyticsPanel({ menuContext }) {
             <div className="mt-2 text-xs text-muted-foreground space-y-1">
               <p>Mostrado: <span className="font-medium text-foreground">{upsellShown}</span></p>
               <p>Aceito: <span className="font-medium text-foreground">{upsellAccepted}</span></p>
+              <p>Pulado: <span className="font-medium text-foreground">{upsellSkipped}</span></p>
               <p>Rejeitado: <span className="font-medium text-foreground">{toNumber(totals.upsell_rejected)}</span></p>
             </div>
           </div>
@@ -170,7 +191,7 @@ export default function CommercialAnalyticsPanel({ menuContext }) {
           <ProductList
             title="Mais adicionados"
             items={data?.top_added_products}
-            valueKey="adds"
+            valueKey="add_units"
             emptyText={isLoading ? 'Carregando metricas...' : 'Sem adicoes no periodo.'}
           />
           <Card className="bg-card border-border">

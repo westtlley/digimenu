@@ -69,9 +69,14 @@ router.post('/events', async (req, res) => {
 
     const slug = normalizeSlug(body.slug);
     const authSubscriber = req.user?.subscriber_email || req.user?.email || null;
-    const bodySubscriber = normalizeString(body.subscriber_email, 255);
     const subscriberFromSlug = await resolveSubscriberFromSlug(slug);
-    const subscriberEmail = authSubscriber || subscriberFromSlug || bodySubscriber || null;
+    // Nunca confiar em subscriber_email enviado no body.
+    // Isolamento por tenant só por token autenticado ou slug resolvido no backend.
+    const subscriberEmail = authSubscriber || subscriberFromSlug || null;
+
+    if (!subscriberEmail) {
+      return res.json({ ok: true, ignored: true, reason: 'SUBSCRIBER_NOT_RESOLVED' });
+    }
 
     await trackEvent(
       eventName,

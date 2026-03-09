@@ -144,6 +144,8 @@ export default function Cardapio() {
   const [isDesktopViewport, setIsDesktopViewport] = useState(false);
   const [isMobileViewport, setIsMobileViewport] = useState(false);
   const bodyScrollLockRef = React.useRef(null);
+  const cartSuggestionAcceptedRef = React.useRef(false);
+  const checkoutSuggestionAcceptedRef = React.useRef(false);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -1100,6 +1102,7 @@ export default function Cardapio() {
       return;
     }
 
+    cartSuggestionAcceptedRef.current = false;
     const ids = cartUpsellSuggestions.map((dish) => String(dish?.id || '')).filter(Boolean);
     const key = `cart_suggestions:${ids.join(',')}:${Math.round(Number(cartTotal || 0) * 100)}`;
     void trackCommercialEventOnce(COMMERCIAL_EVENTS.UPSELL_SHOWN, key, {
@@ -1111,6 +1114,7 @@ export default function Cardapio() {
 
   useEffect(() => {
     if (currentView !== 'checkout' || !checkoutMerchandisingSuggestion) return;
+    checkoutSuggestionAcceptedRef.current = false;
     const key = `checkout_suggestion:${String(checkoutMerchandisingSuggestion?.id || '')}:${Math.round(Number(cartTotal || 0) * 100)}`;
     void trackCommercialEventOnce(COMMERCIAL_EVENTS.UPSELL_SHOWN, key, {
       source: 'checkout_suggestion',
@@ -1464,6 +1468,11 @@ export default function Cardapio() {
   const handleCommercialSuggestion = React.useCallback((suggestedDish, context = 'cart') => {
     if (!suggestedDish) return;
     const isReplace = isReplacePromotionSuggestion(suggestedDish);
+    if (context === 'checkout') {
+      checkoutSuggestionAcceptedRef.current = true;
+    } else {
+      cartSuggestionAcceptedRef.current = true;
+    }
 
     void trackCommercialEvent(COMMERCIAL_EVENTS.UPSELL_ACCEPTED, {
       source: context === 'checkout' ? 'checkout_suggestion' : 'cart_suggestion',
@@ -1488,6 +1497,22 @@ export default function Cardapio() {
     closeCartModal();
     handleDishClick(suggestedDish);
   }, [clearCart, closeCartModal, handleDishClick, isReplacePromotionSuggestion]);
+
+  const handleCartModalDismiss = React.useCallback((reason = 'dismiss') => {
+    const suggestions = Array.isArray(cartUpsellSuggestions) ? cartUpsellSuggestions : [];
+    if (suggestions.length > 0 && !cartSuggestionAcceptedRef.current) {
+      const ids = suggestions.map((dish) => String(dish?.id || '')).filter(Boolean);
+      const key = `cart_skip:${reason}:${ids.join(',')}:${Math.round(Number(cartTotal || 0) * 100)}`;
+      void trackCommercialEventOnce(COMMERCIAL_EVENTS.UPSELL_SKIPPED, key, {
+        source: 'cart_suggestions',
+        reason,
+        dish_ids: ids,
+        suggestion_count: ids.length,
+        cart_total: Number(cartTotal || 0)
+      });
+    }
+    closeCartModal();
+  }, [cartTotal, cartUpsellSuggestions, closeCartModal]);
 
   const handleRemoveFromCart = (itemId) => {
     removeItem(itemId);
@@ -1585,6 +1610,21 @@ export default function Cardapio() {
     closeUpsell();
   }, [cartTotal, closeUpsell, upsellPromotions]);
 
+  const handleCheckoutBack = React.useCallback(() => {
+    if (checkoutMerchandisingSuggestion && !checkoutSuggestionAcceptedRef.current) {
+      const dishId = String(checkoutMerchandisingSuggestion?.id || '');
+      const key = `checkout_skip:back:${dishId}:${Math.round(Number(cartTotal || 0) * 100)}`;
+      void trackCommercialEventOnce(COMMERCIAL_EVENTS.UPSELL_SKIPPED, key, {
+        source: 'checkout_suggestion',
+        reason: 'back_to_menu',
+        dish_id: checkoutMerchandisingSuggestion?.id || null,
+        dish_name: checkoutMerchandisingSuggestion?.name || null,
+        cart_total: Number(cartTotal || 0)
+      });
+    }
+    setCurrentView('menu');
+  }, [cartTotal, checkoutMerchandisingSuggestion]);
+
   const handleSendWhatsApp = async () => {
     const orderCode = orderService.generateOrderCode();
     const fullAddress = orderService.formatFullAddress(customer);
@@ -1642,6 +1682,18 @@ export default function Cardapio() {
     const totalDiscount = couponDiscount + loyaltyDiscountAmount;
     
     const { total } = orderService.calculateTotals(cartTotal, totalDiscount, calculatedDeliveryFee);
+
+    if (checkoutMerchandisingSuggestion && !checkoutSuggestionAcceptedRef.current) {
+      const dishId = String(checkoutMerchandisingSuggestion?.id || '');
+      const key = `checkout_skip:order:${dishId}:${Math.round(Number(cartTotal || 0) * 100)}`;
+      void trackCommercialEventOnce(COMMERCIAL_EVENTS.UPSELL_SKIPPED, key, {
+        source: 'checkout_suggestion',
+        reason: 'order_completed_without_suggestion',
+        dish_id: checkoutMerchandisingSuggestion?.id || null,
+        dish_name: checkoutMerchandisingSuggestion?.name || null,
+        cart_total: Number(cartTotal || 0)
+      });
+    }
 
     // Buscar email do usuário autenticado
     let userEmail = undefined;
@@ -3112,8 +3164,8 @@ export default function Cardapio() {
       {/* Modals */}
       <CartModal
         isOpen={showCartModal}
-        onClose={closeCartModal}
-        onBack={() => closeCartModal()}
+        onClose={() => handleCartModalDismiss('close_cart')}
+        onBack={() => handleCartModalDismiss('back_cart')}
         mobileFullScreen={isMobileViewport}
         cart={cart}
         onUpdateQuantity={handleUpdateQuantity}
@@ -3121,6 +3173,17 @@ export default function Cardapio() {
         onEditItem={handleEditCartItem}
         onEditPizza={handleEditPizza}
         onCheckout={() => {
+          if (Array.isArray(cartUpsellSuggestions) && cartUpsellSuggestions.length > 0 && !cartSuggestionAcceptedRef.current) {
+            const ids = cartUpsellSuggestions.map((dish) => String(dish?.id || '')).filter(Boolean);
+            const key = `cart_skip:continue_checkout:${ids.join(',')}:${Math.round(Number(cartTotal || 0) * 100)}`;
+            void trackCommercialEventOnce(COMMERCIAL_EVENTS.UPSELL_SKIPPED, key, {
+              source: 'cart_suggestions',
+              reason: 'continue_checkout',
+              dish_ids: ids,
+              suggestion_count: ids.length,
+              cart_total: Number(cartTotal || 0)
+            });
+          }
           void trackCommercialEvent(COMMERCIAL_EVENTS.CHECKOUT_STARTED, {
             cart_items_count: Number(cartItemsCount || 0),
             cart_total: Number(cartTotal || 0),
@@ -3282,7 +3345,7 @@ export default function Cardapio() {
           cart={cart}
           customer={customer}
           setCustomer={setCustomer}
-          onBack={() => setCurrentView('menu')}
+          onBack={handleCheckoutBack}
           onSendWhatsApp={handleSendWhatsApp}
           couponCode={couponCode}
           setCouponCode={setCouponCode}

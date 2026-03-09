@@ -13,6 +13,7 @@ const COMMERCIAL_EVENT_NAMES = [
   'upsell_shown',
   'upsell_accepted',
   'upsell_rejected',
+  'upsell_skipped',
   'combo_clicked',
   'combo_added'
 ];
@@ -264,12 +265,16 @@ export async function getDashboardMetrics(subscriberEmail = null) {
 function buildCommercialDashboardFromRows(rows) {
   const totals = {
     product_view: 0,
+    add_to_cart_events: 0,
+    add_to_cart_units: 0,
+    // Compatibilidade retroativa com frontend antigo
     add_to_cart: 0,
     checkout_started: 0,
     order_completed: 0,
     upsell_shown: 0,
     upsell_accepted: 0,
     upsell_rejected: 0,
+    upsell_skipped: 0,
     combo_clicked: 0,
     combo_added: 0
   };
@@ -280,10 +285,19 @@ function buildCommercialDashboardFromRows(rows) {
 
   rows.forEach((row) => {
     const eventName = String(row.event_name || '');
-    if (!Object.prototype.hasOwnProperty.call(totals, eventName)) return;
-
-    totals[eventName] += 1;
     const props = normalizeProperties(row.properties);
+
+    if (eventName === 'add_to_cart') {
+      const quantityValue = Number(props?.quantity ?? props?.units ?? 1);
+      const quantity = Number.isFinite(quantityValue) && quantityValue > 0 ? quantityValue : 1;
+      totals.add_to_cart_events += 1;
+      totals.add_to_cart_units += quantity;
+      totals.add_to_cart += 1;
+    } else if (Object.prototype.hasOwnProperty.call(totals, eventName)) {
+      totals[eventName] += 1;
+    } else {
+      return;
+    }
 
     if (eventName === 'product_view') {
       const productId = getProductField(props, 'dish_id', 'product_id', 'id') || 'unknown';
@@ -300,10 +314,13 @@ function buildCommercialDashboardFromRows(rows) {
       const productId = getProductField(props, 'dish_id', 'product_id', 'id') || 'unknown';
       const productName = getProductField(props, 'dish_name', 'product_name', 'name') || 'Item sem nome';
       const key = `${productId}::${productName}`;
+      const quantityValue = Number(props?.quantity ?? props?.units ?? 1);
+      const quantity = Number.isFinite(quantityValue) && quantityValue > 0 ? quantityValue : 1;
       productAdds.set(key, {
         product_id: productId,
         product_name: productName,
-        adds: (productAdds.get(key)?.adds || 0) + 1
+        add_events: (productAdds.get(key)?.add_events || 0) + 1,
+        add_units: (productAdds.get(key)?.add_units || 0) + quantity
       });
     }
 
@@ -323,7 +340,7 @@ function buildCommercialDashboardFromRows(rows) {
     .slice(0, 8);
 
   const topAddedProducts = Array.from(productAdds.values())
-    .sort((a, b) => b.adds - a.adds)
+    .sort((a, b) => (b.add_units - a.add_units) || (b.add_events - a.add_events))
     .slice(0, 8);
 
   const topCombos = Array.from(comboActions.values())
@@ -335,29 +352,36 @@ function buildCommercialDashboardFromRows(rows) {
     .slice(0, 8);
 
   const views = toNumber(totals.product_view);
-  const adds = toNumber(totals.add_to_cart);
+  const addEvents = toNumber(totals.add_to_cart_events);
+  const addUnits = toNumber(totals.add_to_cart_units);
   const checkoutStarted = toNumber(totals.checkout_started);
   const ordersCompleted = toNumber(totals.order_completed);
   const upsellShown = toNumber(totals.upsell_shown);
   const upsellAccepted = toNumber(totals.upsell_accepted);
   const upsellRejected = toNumber(totals.upsell_rejected);
+  const upsellSkipped = toNumber(totals.upsell_skipped);
   const comboClicked = toNumber(totals.combo_clicked);
   const comboAdded = toNumber(totals.combo_added);
 
   return {
     totals: {
       product_views: views,
-      add_to_cart: adds,
+      add_to_cart_events: addEvents,
+      add_to_cart_units: addUnits,
+      // Compatibilidade com painel anterior
+      add_to_cart: addEvents,
       checkout_started: checkoutStarted,
       order_completed: ordersCompleted,
       upsell_shown: upsellShown,
       upsell_accepted: upsellAccepted,
       upsell_rejected: upsellRejected,
+      upsell_skipped: upsellSkipped,
       combo_clicked: comboClicked,
       combo_added: comboAdded
     },
     rates: {
-      view_to_cart: safeRate(adds, views),
+      view_to_cart: safeRate(addEvents, views),
+      view_to_units: safeRate(addUnits, views),
       checkout_to_order: safeRate(ordersCompleted, checkoutStarted),
       upsell_acceptance: safeRate(upsellAccepted, upsellShown),
       combo_add_rate: safeRate(comboAdded, comboClicked)
