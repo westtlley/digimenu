@@ -78,7 +78,7 @@ export default function GestorPedidos() {
   const canUpdateGestor = isMaster || canUpdate('gestor_pedidos');
   const hasAccess = isMaster || hasModuleAccess('gestor_pedidos');
   const backPage = isMaster ? 'Admin' : 'PainelAssinante';
-  // Em /s/:slug, master usa as_subscriber; assinante/colaborador jÃ¡ Ã© filtrado pelo backend
+  // Em /s/:slug, master usa as_subscriber; assinante/colaborador jÃƒÂ¡ ÃƒÂ© filtrado pelo backend
   const asSub = (inSlugContext && isMaster && subscriberEmail) ? subscriberEmail : undefined;
   const canAccessSlug = !inSlugContext || isMaster || (user?.email || '').toLowerCase() === (subscriberEmail || '').toLowerCase() || (user?.subscriber_email || '').toLowerCase() === (subscriberEmail || '').toLowerCase();
 
@@ -93,9 +93,9 @@ export default function GestorPedidos() {
     queryFn: async () => {
       const opts = asSub ? { as_subscriber: asSub } : {};
       const allOrders = await base44.entities.Order.list('-created_date', opts);
-      // Filtrar apenas pedidos do cardÃ¡pio (nÃ£o do PDV/BalcÃ£o)
+      // Filtrar apenas pedidos do cardÃƒÂ¡pio (nÃƒÂ£o do PDV/BalcÃƒÂ£o)
       return allOrders.filter(order => {
-        // Bloquear pedidos PDV e de BalcÃ£o
+        // Bloquear pedidos PDV e de BalcÃƒÂ£o
         const isPDV = order.order_code?.startsWith('PDV-');
         const isBalcao = order.delivery_method === 'balcao';
         return !isPDV && !isBalcao;
@@ -131,7 +131,7 @@ export default function GestorPedidos() {
       const gestorSettings = gs ? JSON.parse(gs) : {};
       if (gestorSettings.sound_notifications === false) setSoundEnabled(false);
     } catch (e) {
-      console.error('Erro ao carregar configuraÃ§Ãµes de notificaÃ§Ã£o:', e);
+      console.error('Erro ao carregar configuraÃƒÂ§ÃƒÂµes de notificaÃƒÂ§ÃƒÂ£o:', e);
     }
   };
 
@@ -147,7 +147,7 @@ export default function GestorPedidos() {
     };
   }, []);
 
-  // Aceitar automaticamente (quando ativado em ConfiguraÃ§Ãµes do gestor) â€” update parcial para nÃ£o sobrescrever dados
+  // Aceitar automaticamente (quando ativado em ConfiguraÃƒÂ§ÃƒÂµes do gestor) Ã¢â‚¬â€ update parcial para nÃƒÂ£o sobrescrever dados
   useEffect(() => {
     try {
       const gs = localStorage.getItem('gestorSettings');
@@ -192,7 +192,7 @@ export default function GestorPedidos() {
     } catch (_) {}
   }, [orders, queryClient, asSub]);
 
-  // NotificaÃ§Ã£o de novo pedido por IDs (evita falhas quando pedidos sÃ£o aceitos rÃ¡pido)
+  // NotificaÃƒÂ§ÃƒÂ£o de novo pedido por IDs (evita falhas quando pedidos sÃƒÂ£o aceitos rÃƒÂ¡pido)
   useEffect(() => {
     if (!notificationConfig || orders.length === 0) return;
     const shouldNotify = (status) => notificationConfig.notifyOnStatus?.[status] !== false;
@@ -220,7 +220,7 @@ export default function GestorPedidos() {
     }
   }, [orders, soundEnabled, notificationConfig]);
 
-  // "EstÃ¡ aÃ­?" (inatividade): apÃ³s N min sem interaÃ§Ã£o, modal
+  // "EstÃƒÂ¡ aÃƒÂ­?" (inatividade): apÃƒÂ³s N min sem interaÃƒÂ§ÃƒÂ£o, modal
   useEffect(() => {
     try {
       const gs = JSON.parse(localStorage.getItem('gestorSettings') || '{}');
@@ -251,7 +251,7 @@ export default function GestorPedidos() {
     } catch (_) {}
   }, []);
 
-  // Auto-cancel late orders (configurÃ¡vel em Ajustes: desligado / sÃ³ alertar / cancelar apÃ³s X min)
+  // Auto-cancel late orders (configurÃƒÂ¡vel em Ajustes: desligado / sÃƒÂ³ alertar / cancelar apÃƒÂ³s X min)
   useEffect(() => {
     const checkLateOrders = async () => {
       try {
@@ -268,7 +268,7 @@ export default function GestorPedidos() {
           const minutesElapsed = (now - acceptedTime) / 1000 / 60;
           if (minutesElapsed <= prepTime + marginMins) continue;
           if (mode === 'alert') {
-            toast(`Pedido ${order.order_code || order.id} atrasado (prep ${prepTime} min + ${marginMins} min)`, { icon: 'âš ï¸', duration: 5000 });
+            toast(`Pedido ${order.order_code || order.id} atrasado (prep ${prepTime} min + ${marginMins} min)`, { icon: '⚠️', duration: 5000 });
             continue;
           }
           // mode === 'cancel'
@@ -294,7 +294,7 @@ export default function GestorPedidos() {
     } catch (_) {}
   };
 
-  // Atalhos de teclado avanÃ§ados
+  // Atalhos de teclado avanÃƒÂ§ados
   useEffect(() => {
     const handleKeyDown = (e) => {
       // Ignorar se estiver digitando em input/textarea
@@ -318,7 +318,7 @@ export default function GestorPedidos() {
         return;
       }
 
-      // Ctrl/Cmd + R: Refresh (prevenir reload padrÃ£o)
+      // Ctrl/Cmd + R: Refresh (prevenir reload padrÃƒÂ£o)
       if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
         e.preventDefault();
         queryClient.invalidateQueries({ queryKey: ['gestorOrders', asSub ?? 'me'] });
@@ -326,7 +326,7 @@ export default function GestorPedidos() {
         return;
       }
 
-      // NavegaÃ§Ã£o entre views (apenas se nÃ£o estiver em input)
+      // NavegaÃƒÂ§ÃƒÂ£o entre views (apenas se nÃƒÂ£o estiver em input)
       if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA' && !e.target.isContentEditable) {
         // K: Kanban
         if (e.key === 'k' || e.key === 'K') {
@@ -360,23 +360,23 @@ export default function GestorPedidos() {
             return;
           }
         }
-        // H: Home/InÃ­cio
+        // H: Home/Início
         if (e.key === 'h' || e.key === 'H') {
           e.preventDefault();
           setViewMode('inicio');
-          toast.success('InÃ­cio', { duration: 1000 });
+          toast.success('Início', { duration: 1000 });
           return;
         }
-        // N: SÃ³ novos
+        // N: Só novos
         if (e.key === 'n' || e.key === 'N') {
           e.preventDefault();
           setOnlyNew(!onlyNew);
-          toast.success(onlyNew ? 'Mostrando todos' : 'SÃ³ novos', { duration: 1000 });
+          toast.success(onlyNew ? 'Mostrando todos' : 'Só novos', { duration: 1000 });
           return;
         }
       }
 
-      // Atalhos numÃ©ricos para status (quando modal aberto)
+      // Atalhos numÃƒÂ©ricos para status (quando modal aberto)
       if (selectedOrder && ['1', '2', '3', '4', '5'].includes(e.key)) {
         const map = { 
           '1': 'accepted', 
@@ -403,7 +403,7 @@ export default function GestorPedidos() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedOrder, showMobileMenu, showAtalhosModal, onlyNew, queryClient, viewMode]);
 
-  // Aplicar filtros bÃ¡sicos (aba agora/agendados)
+  // Aplicar filtros bÃƒÂ¡sicos (aba agora/agendados)
   const baseFilteredOrders = useMemo(() => {
     return orders.filter(order => {
       const isScheduled = order.scheduled_date && order.scheduled_time;
@@ -418,7 +418,7 @@ export default function GestorPedidos() {
     });
   }, [orders, activeTab]);
 
-  // Tempo de preparo sugerido (mÃ©dia dos Ãºltimos pedidos com accepted_at e ready_at)
+  // Tempo de preparo sugerido (mÃƒÂ©dia dos ÃƒÂºltimos pedidos com accepted_at e ready_at)
   const suggestedPrepTime = useMemo(() => {
     const withPrep = orders.filter(o => o.accepted_at && o.ready_at);
     if (withPrep.length === 0) return 30;
@@ -468,7 +468,7 @@ export default function GestorPedidos() {
   if (!user) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
-        <p className="text-muted-foreground mb-4">SessÃ£o expirada ou nÃ£o autenticado.</p>
+        <p className="text-muted-foreground mb-4">Sessão expirada ou não autenticado.</p>
         <Link to="/login">
           <Button className="bg-orange-500 hover:bg-orange-600">Fazer login</Button>
         </Link>
@@ -483,8 +483,8 @@ export default function GestorPedidos() {
     return (
       <div className="min-h-screen bg-muted/50 flex items-center justify-center p-4">
         <div className="bg-card rounded-2xl shadow-lg p-8 max-w-md text-center">
-          <p className="text-muted-foreground mb-4">Link nÃ£o encontrado.</p>
-          <Link to="/"><Button>Ir ao cardÃ¡pio</Button></Link>
+          <p className="text-muted-foreground mb-4">Link não encontrado.</p>
+          <Link to="/"><Button>Ir ao cardápio</Button></Link>
         </div>
       </div>
     );
@@ -495,7 +495,7 @@ export default function GestorPedidos() {
         <div className="bg-card rounded-2xl shadow-lg p-8 max-w-md text-center">
           <Lock className="w-12 h-12 text-red-500 mx-auto mb-3" />
           <h2 className="text-lg font-semibold">Acesso negado</h2>
-          <p className="text-sm text-muted-foreground mt-2">VocÃª nÃ£o tem permissÃ£o para acessar o Gestor deste estabelecimento.</p>
+          <p className="text-sm text-muted-foreground mt-2">Você não tem permissão para acessar o Gestor deste estabelecimento.</p>
           <Link to="/" className="mt-4 inline-block"><Button variant="outline">Voltar</Button></Link>
         </div>
       </div>
@@ -509,14 +509,14 @@ export default function GestorPedidos() {
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <Lock className="w-8 h-8 text-red-600" />
           </div>
-          <h2 className="text-2xl font-bold text-foreground mb-2">Gestor de Pedidos AvanÃ§ado</h2>
-          <p className="text-muted-foreground mb-6">No plano BÃ¡sico use o <strong>Gestor de pedidos</strong> no painel (aba OperaÃ§Ã£o). Esta tela avanÃ§ada estÃ¡ disponÃ­vel nos planos Pro e Ultra.</p>
+          <h2 className="text-2xl font-bold text-foreground mb-2">Gestor de Pedidos Avançado</h2>
+          <p className="text-muted-foreground mb-6">No plano Básico use o <strong>Gestor de pedidos</strong> no painel (aba Operação). Esta tela avançada está disponível nos planos Pro e Ultra.</p>
           <div className="space-y-3">
             <Link to={createPageUrl('PainelAssinante', slug || undefined)}>
               <Button className="w-full bg-orange-500 hover:bg-orange-600">Voltar ao Painel</Button>
             </Link>
             <Link to={createPageUrl('Cardapio', slug || undefined)}>
-              <Button variant="outline" className="w-full">Ver CardÃ¡pio</Button>
+              <Button variant="outline" className="w-full">Ver Cardápio</Button>
             </Link>
           </div>
         </div>
@@ -562,10 +562,10 @@ export default function GestorPedidos() {
               </div>
             </div>
 
-            {/* Right: OperaÃ§Ã£o (som, atualizar) + Ferramentas (dropdown) + Voltar + Auth */}
+            {/* Right: OperaÃƒÂ§ÃƒÂ£o (som, atualizar) + Ferramentas (dropdown) + Voltar + Auth */}
             <div className="flex items-center gap-1 flex-shrink-0">
               <InstallAppButton pageName="Gestor" compact />
-              {/* Grupo OperaÃ§Ã£o: sempre visÃ­vel */}
+              {/* Grupo OperaÃƒÂ§ÃƒÂ£o: sempre visÃƒÂ­vel */}
               <Button variant="ghost" size="icon" className="h-9 w-9 min-h-touch min-w-touch" onClick={() => setSoundEnabled(!soundEnabled)} title={soundEnabled ? 'Desligar som' : 'Ligar som'}>
                 {soundEnabled ? <Volume2 className="w-4 h-4 text-muted-foreground" /> : <VolumeX className="w-4 h-4 text-muted-foreground" />}
               </Button>
@@ -590,13 +590,13 @@ export default function GestorPedidos() {
                         Exportar CSV
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => requireAuthorization('exportar', () => { exportGestorReportPDF(orders, 'today'); toast.success('PDF baixado'); })}>
-                        RelatÃ³rio do dia (PDF)
+                        Relatório do dia (PDF)
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => requireAuthorization('exportar', () => { exportGestorReportPDF(orders, 'week'); toast.success('PDF baixado'); })}>
-                        Ãšltimos 7 dias (PDF)
+                        Últimos 7 dias (PDF)
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => requireAuthorization('exportar', () => { exportGestorReportPDF(orders, 'month'); toast.success('PDF baixado'); })}>
-                        Ãšltimos 30 dias (PDF)
+                        Últimos 30 dias (PDF)
                       </DropdownMenuItem>
                     </>
                   )}
@@ -679,12 +679,12 @@ export default function GestorPedidos() {
               className={`w-full flex items-center gap-2 px-2 py-2 rounded-r-md border-l-4 transition-all duration-200 ${
                 viewMode === 'inicio' ? 'border-orange-500 bg-orange-50 text-orange-600' : 'border-transparent text-muted-foreground hover:bg-muted/40'
               }`}
-              title={sidebarCollapsed ? 'InÃ­cio' : ''}
+              title={sidebarCollapsed ? 'Início' : ''}
             >
               <Home className="w-4 h-4 flex-shrink-0" />
               <span className={`text-sm font-medium whitespace-nowrap transition-all duration-300 ${
                 sidebarCollapsed ? 'opacity-0 w-0 overflow-hidden' : 'opacity-100'
-              }`}>InÃ­cio</span>
+              }`}>Início</span>
             </button>
             <button
               onClick={() => setViewMode('kanban')}
@@ -799,7 +799,7 @@ export default function GestorPedidos() {
                 }`}
               >
                 <Home className="w-5 h-5" />
-                <span className="font-medium">InÃ­cio</span>
+                <span className="font-medium">Início</span>
                 {viewMode === 'inicio' && <CheckCircle className="w-4 h-4 ml-auto" />}
               </button>
               <button
@@ -891,7 +891,7 @@ export default function GestorPedidos() {
       {/* Content */}
       <main className={`flex-1 transition-all duration-300 pb-20 lg:pb-0 ${sidebarCollapsed ? 'lg:ml-14' : 'lg:ml-52'}`}>
         <div className={`mx-auto p-4 xl:pr-14 ${(viewMode === 'kanban' || viewMode === 'delivery') ? 'max-w-screen-2xl' : 'max-w-[1240px]'}`}>
-        {/* Voltar para Quadros (quando nÃ£o estÃ¡ no kanban) */}
+        {/* Voltar para Quadros (quando nÃƒÂ£o estÃƒÂ¡ no kanban) */}
         {viewMode !== 'kanban' && (
           <div className="mb-3">
             <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setViewMode('kanban')}>
@@ -900,18 +900,29 @@ export default function GestorPedidos() {
             </Button>
           </div>
         )}
-        {/* Breadcrumb / tÃ­tulo contextual */}
+        {/* Breadcrumb / tÃƒÂ­tulo contextual */}
         <p className="text-xs text-muted-foreground mb-2 font-medium">
-          {viewMode === 'inicio' && 'InÃ­cio'}
-          {viewMode === 'kanban' && `Quadros â€¢ ${activeTab === 'now' ? 'Agora' : 'Agendados'}`}
+          {viewMode === 'inicio' && 'Início'}
+          {viewMode === 'kanban' && `Quadros • ${activeTab === 'now' ? 'Agora' : 'Agendados'}`}
           {viewMode === 'delivery' && 'Entregadores'}
           {viewMode === 'resumo' && 'Resumo financeiro'}
           {viewMode === 'settings' && 'Ajustes'}
         </p>
         {viewMode === 'inicio' && (
-          <GestorDicasAtalhos onNavigate={setViewMode} />
+          <div className="space-y-4">
+            <GestorStatsPanel
+              orders={orders}
+              entregadores={entregadores}
+              darkMode={false}
+            />
+            <div className="rounded-2xl border border-border bg-card p-4">
+              <p className="text-sm font-semibold text-foreground mb-2">Ações rápidas da operação</p>
+              <p className="text-xs text-muted-foreground mb-3">Use atalhos para entrar em Quadros, Entregadores, Ajustes e Resumo sem perder contexto.</p>
+              <GestorDicasAtalhos onNavigate={setViewMode} />
+            </div>
+          </div>
         )}
-        {/* Kanban: filtros, quadros (em cima), depois estatÃ­sticas */}
+        {/* Kanban: filtros, quadros (em cima), depois estatÃƒÂ­sticas */}
         {viewMode === 'kanban' && (
           <div className="mb-4 flex flex-col sm:flex-row sm:items-center gap-3 flex-wrap">
             <div className="flex items-center gap-2 flex-wrap rounded-xl border border-border bg-card/70 px-3 py-2">
@@ -1009,7 +1020,7 @@ export default function GestorPedidos() {
       <footer className="hidden lg:block flex-shrink-0 border-t border-border bg-muted/50 py-2 px-4">
         <div className="max-w-screen-2xl mx-auto flex items-center justify-center gap-2 text-sm text-muted-foreground">
           <Check className="w-4 h-4 text-green-600" />
-          <span>{SYSTEM_NAME} â€¢ Gestor de Pedidos</span>
+          <span>{SYSTEM_NAME} • Gestor de Pedidos</span>
         </div>
       </footer>
 
@@ -1023,7 +1034,7 @@ export default function GestorPedidos() {
         Avalie a plataforma
       </a>
 
-      {/* Fila de impressÃ£o - botÃ£o flutuante (acima do footer no mobile) */}
+      {/* Fila de impressÃƒÂ£o - botÃƒÂ£o flutuante (acima do footer no mobile) */}
       {printQueue.length > 0 && (
         <button
           onClick={() => {
@@ -1038,7 +1049,7 @@ export default function GestorPedidos() {
               return;
             }
             setPrintQueue([]);
-            toast.success(`${printQueue.length} comanda(s) enviada(s) para impressÃ£o`);
+            toast.success(`${printQueue.length} comanda(s) enviada(s) para impressão`);
           }}
           className="fixed right-4 z-50 flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-primary-foreground px-4 py-3 rounded-xl shadow-lg bottom-20 lg:bottom-6"
         >
@@ -1047,11 +1058,11 @@ export default function GestorPedidos() {
         </button>
       )}
 
-      {/* Modal "EstÃ¡ aÃ­?" (inatividade) */}
+      {/* Modal "Está aí?" (inatividade) */}
       <Dialog open={showAreYouThereModal} onOpenChange={(o) => { if (!o) setShowAreYouThereModal(false); }}>
         <DialogContent className="max-w-sm" aria-describedby="are-you-there-desc">
-          <DialogTitle>VocÃª ainda estÃ¡ aÃ­?</DialogTitle>
-          <DialogDescription id="are-you-there-desc" className="text-sm text-muted-foreground">O gestor estÃ¡ pausado. Toque em Continuar para seguir recebendo avisos.</DialogDescription>
+          <DialogTitle>Você ainda está aí?</DialogTitle>
+          <DialogDescription id="are-you-there-desc" className="text-sm text-muted-foreground">O gestor está pausado. Toque em Continuar para seguir recebendo avisos.</DialogDescription>
           <div className="flex gap-2 mt-4">
             <Button onClick={() => setShowAreYouThereModal(false)} className="flex-1 bg-orange-500 hover:bg-orange-600 uppercase font-bold">
               Continuar
@@ -1061,7 +1072,7 @@ export default function GestorPedidos() {
               onClick={() => { areYouTherePausedRef.current = true; setShowAreYouThereModal(false); }}
               className="flex-1"
             >
-              Desligar (sessÃ£o)
+              Desligar (sessão)
             </Button>
           </div>
         </DialogContent>
@@ -1080,8 +1091,8 @@ export default function GestorPedidos() {
             <p><kbd className="px-1.5 py-0.5 rounded bg-muted/50 font-mono">D</kbd> Entregadores</p>
             <p><kbd className="px-1.5 py-0.5 rounded bg-muted/50 font-mono">R</kbd> Resumo</p>
             <p><kbd className="px-1.5 py-0.5 rounded bg-muted/50 font-mono">S</kbd> Ajustes</p>
-            <p><kbd className="px-1.5 py-0.5 rounded bg-muted/50 font-mono">H</kbd> InÃ­cio</p>
-            <p><kbd className="px-1.5 py-0.5 rounded bg-muted/50 font-mono">N</kbd> SÃ³ novos</p>
+            <p><kbd className="px-1.5 py-0.5 rounded bg-muted/50 font-mono">H</kbd> Início</p>
+            <p><kbd className="px-1.5 py-0.5 rounded bg-muted/50 font-mono">N</kbd> Só novos</p>
             <p><kbd className="px-1.5 py-0.5 rounded bg-muted/50 font-mono">1</kbd>-<kbd className="px-1.5 py-0.5 rounded bg-muted/50 font-mono">5</kbd> Status (com modal aberto)</p>
             <p><kbd className="px-1.5 py-0.5 rounded bg-muted/50 font-mono">Ctrl+F</kbd> Buscar</p>
             <p><kbd className="px-1.5 py-0.5 rounded bg-muted/50 font-mono">Ctrl+R</kbd> Atualizar</p>
@@ -1135,10 +1146,12 @@ export default function GestorPedidos() {
           plan={plan}
           limit={effectiveLimits?.orders_per_month ?? 0}
           used={usage?.ordersCurrentMonth ?? 0}
-          suggestion={limitReached?.orders ? 'Pro libera atÃ© 3.000 pedidos/mÃªs e equipe de 5 pessoas.' : undefined}
+          suggestion={limitReached?.orders ? 'Pro libera até 3.000 pedidos/mês e equipe de 5 pessoas.' : undefined}
         />
       )}
     </div>
   );
 }
+
+
 

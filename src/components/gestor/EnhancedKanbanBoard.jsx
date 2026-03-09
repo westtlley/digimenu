@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import Skeleton, { SkeletonTheme } from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
-import { Bell, ChefHat, CheckCircle, Truck, Package, AlertTriangle, Clock as ClockIcon, ChevronDown, ChevronUp, Filter, Search, X, Maximize2, Minimize2 } from 'lucide-react';
+import { Bell, ChefHat, CheckCircle, Truck, Package, ShoppingBag, AlertTriangle, Clock as ClockIcon, ChevronDown, ChevronUp, Filter, Search, X, Maximize2, Minimize2 } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,12 +16,34 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 const COLUMNS = [
   { 
     id: 'new', 
-    label: 'Em preparo', 
+    label: 'Novo', 
+    icon: Bell, 
+    bgColor: 'bg-orange-50', 
+    textColor: 'text-orange-600', 
+    borderColor: 'border-orange-200', 
+    statuses: ['new'],
+    darkBg: 'bg-orange-900/20',
+    darkBorder: 'border-orange-700'
+  },
+  { 
+    id: 'accepted', 
+    label: 'Aceito', 
+    icon: CheckCircle, 
+    bgColor: 'bg-amber-50', 
+    textColor: 'text-amber-600', 
+    borderColor: 'border-amber-200', 
+    statuses: ['accepted'],
+    darkBg: 'bg-amber-900/20',
+    darkBorder: 'border-amber-700'
+  },
+  { 
+    id: 'preparing', 
+    label: 'Preparando', 
     icon: ChefHat, 
     bgColor: 'bg-orange-50', 
     textColor: 'text-orange-600', 
     borderColor: 'border-orange-200', 
-    statuses: ['new', 'accepted', 'preparing'],
+    statuses: ['preparing'],
     darkBg: 'bg-orange-900/20',
     darkBorder: 'border-orange-700'
   },
@@ -32,7 +54,7 @@ const COLUMNS = [
     bgColor: 'bg-green-50', 
     textColor: 'text-green-600', 
     borderColor: 'border-green-200', 
-    statuses: ['ready', 'going_to_store', 'arrived_at_store', 'picked_up'],
+    statuses: ['ready'],
     darkBg: 'bg-green-900/20',
     darkBorder: 'border-green-700'
   },
@@ -43,7 +65,7 @@ const COLUMNS = [
     bgColor: 'bg-blue-50', 
     textColor: 'text-blue-600', 
     borderColor: 'border-blue-200', 
-    statuses: ['out_for_delivery', 'arrived_at_customer'],
+    statuses: ['going_to_store', 'arrived_at_store', 'picked_up', 'out_for_delivery', 'arrived_at_customer'],
     darkBg: 'bg-blue-900/20',
     darkBorder: 'border-blue-700'
   },
@@ -83,7 +105,7 @@ export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = 
     return () => m.removeEventListener('change', f);
   }, []);
 
-  // Atualizar "Há X min" a cada 1 min
+  // Atualizar "HÃ¡ X min" a cada 1 min
   React.useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 60000);
     return () => clearInterval(t);
@@ -170,7 +192,7 @@ export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = 
            !['delivered', 'cancelled'].includes(order.status);
   };
 
-  // Urgência por tempo de preparo (aceitos / em preparo): amarelo perto do limite, vermelho passou
+  // UrgÃªncia por tempo de preparo (aceitos / em preparo): amarelo perto do limite, vermelho passou
   const prepMinutesElapsed = (order) => {
     if (!order.accepted_at) return null;
     return differenceInMinutes(new Date(now), new Date(order.accepted_at));
@@ -184,6 +206,16 @@ export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = 
     const mins = prepMinutesElapsed(order);
     const prep = order.prep_time || 30;
     return mins != null && mins >= prep && !['delivered', 'cancelled'].includes(order.status);
+  };
+
+  const getPriorityMeta = (order) => {
+    if (isVeryLate(order) || isPrepLate(order)) {
+      return { label: 'Atraso', badgeClass: 'bg-red-500 text-white' };
+    }
+    if (isLate(order) || isPrepUrgent(order)) {
+      return { label: 'Atenção', badgeClass: 'bg-amber-500 text-white' };
+    }
+    return { label: 'Normal', badgeClass: 'bg-emerald-500 text-white' };
   };
 
   const toggleColumn = (columnId) => {
@@ -206,14 +238,19 @@ export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = 
 
     let newStatus;
     if (targetColumn.id === 'new') {
-      newStatus = ['new', 'accepted', 'preparing'].includes(order.status) ? order.status : 'preparing';
+      newStatus = 'new';
+    } else if (targetColumn.id === 'accepted') {
+      newStatus = 'accepted';
+    } else if (targetColumn.id === 'preparing') {
+      newStatus = 'preparing';
     } else if (targetColumn.id === 'ready') {
       newStatus = 'ready';
     } else if (targetColumn.id === 'delivery') {
-      if (order.status === 'ready' || order.status === 'picked_up') newStatus = 'out_for_delivery';
-      else { toast.error('Pedido precisa estar pronto antes de ir para entrega'); return; }
+      if (['ready', 'going_to_store', 'arrived_at_store', 'picked_up', 'out_for_delivery', 'arrived_at_customer'].includes(order.status)) {
+        newStatus = order.status === 'ready' ? 'out_for_delivery' : order.status;
+      } else { toast.error('Pedido precisa estar pronto antes de ir para entrega'); return; }
     } else if (targetColumn.id === 'done') {
-      if (['out_for_delivery', 'arrived_at_customer'].includes(order.status)) newStatus = 'delivered';
+      if (['out_for_delivery', 'arrived_at_customer', 'picked_up', 'going_to_store', 'arrived_at_store'].includes(order.status)) newStatus = 'delivered';
       else { toast.error('Pedido precisa estar em entrega para ser finalizado'); return; }
     } else return;
 
@@ -247,15 +284,17 @@ export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = 
             </div>
           </SkeletonTheme>
         </div>
-        <div className="flex gap-2.5 h-[calc(100dvh-18rem)] min-h-[460px] max-h-[78vh]">
-          {COLUMNS.map(col => (
-            <div key={col.id} className={`flex-1 flex flex-col ${darkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-gray-50 border-gray-200'} border rounded-lg p-2`}>
-              <SkeletonTheme baseColor="#ebebeb" highlightColor="#f5f5f5">
-                <Skeleton height={36} className="mb-2" enableAnimation={!reduceMotion} />
-                <Skeleton count={3} height={100} style={{ marginBottom: 8 }} enableAnimation={!reduceMotion} />
-              </SkeletonTheme>
-            </div>
-          ))}
+        <div className="overflow-x-auto pb-1">
+          <div className="flex gap-2.5 h-[calc(100dvh-18rem)] min-h-[460px] max-h-[78vh] min-w-[1180px]">
+            {COLUMNS.map(col => (
+              <div key={col.id} className={`flex-1 min-w-[190px] flex flex-col ${darkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-gray-50 border-gray-200'} border rounded-lg p-2`}>
+                <SkeletonTheme baseColor="#ebebeb" highlightColor="#f5f5f5">
+                  <Skeleton height={36} className="mb-2" enableAnimation={!reduceMotion} />
+                  <Skeleton count={3} height={100} style={{ marginBottom: 8 }} enableAnimation={!reduceMotion} />
+                </SkeletonTheme>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     );
@@ -315,7 +354,8 @@ export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = 
 
       {/* Kanban Board */}
       <DragDropContext onDragEnd={onDragEnd}>
-        <div className="flex gap-2.5 h-[calc(100dvh-18rem)] min-h-[460px] max-h-[78vh]">
+        <div className="overflow-x-auto pb-1">
+          <div className="flex gap-2.5 h-[calc(100dvh-18rem)] min-h-[460px] max-h-[78vh] min-w-[1180px]">
           {COLUMNS.map(column => {
             const columnOrders = columnOrdersMap[column.id] || [];
             const Icon = column.icon;
@@ -324,7 +364,7 @@ export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = 
             return (
               <div 
                 key={column.id} 
-                className={`${isCollapsed ? 'w-10' : 'flex-1'} transition-all duration-300 flex flex-col ${
+                className={`${isCollapsed ? 'w-10' : 'flex-1 min-w-[190px]'} transition-all duration-300 flex flex-col ${
                   darkMode 
                     ? `${column.darkBg} ${column.darkBorder} border` 
                     : `${column.bgColor} ${column.borderColor} border`
@@ -340,7 +380,7 @@ export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = 
                   {isCollapsed ? (
                     <div className="flex flex-col items-center gap-1.5 w-full">
                       <Icon className={`w-4 h-4 ${column.textColor}`} />
-                      <span className={`text-[10px] font-bold ${darkMode ? 'text-gray-300' : 'text-gray-500'}`}>
+                      <span className={`text-xs font-bold ${darkMode ? 'text-gray-300' : 'text-gray-500'}`}>
                         {columnOrders.length}
                       </span>
                     </div>
@@ -357,7 +397,7 @@ export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = 
                               </span>
                             )}
                           </p>
-                          <p className={`text-[10px] ${darkMode ? 'text-gray-400' : 'text-gray-400'}`}>
+                          <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-400'}`}>
                             {columnOrders.length} pedidos
                           </p>
                         </div>
@@ -384,8 +424,10 @@ export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = 
                           {columnOrders.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-8 text-center px-3">
                               <Icon className={`w-8 h-8 ${column.textColor} opacity-15 mb-1.5`} />
-                              <p className={`text-[10px] ${darkMode ? 'text-gray-500' : 'text-gray-400'} leading-relaxed`}>
-                                {column.id === 'new' ? 'Nenhum pedido em preparo' :
+                              <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'} leading-relaxed`}>
+                                {column.id === 'new' ? 'Nenhum pedido novo' :
+                                 column.id === 'accepted' ? 'Nenhum pedido aceito' :
+                                 column.id === 'preparing' ? 'Nenhum pedido em preparo' :
                                  column.id === 'ready' ? 'Nenhum pedido pronto' :
                                  column.id === 'delivery' ? 'Nenhuma entrega em rota' :
                                  'Nenhum pedido finalizado'}
@@ -426,33 +468,48 @@ export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = 
                                     {/* Header */}
                                     <div className="flex items-start justify-between mb-1.5">
                                       <div className="flex-1 min-w-0">
-                                        <p className={`font-semibold text-[11px] ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                                        <p className={`font-semibold text-xs ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                                           #{order.order_code || order.id?.slice(-6)}
                                         </p>
                                         {(isLate(order) || isPrepLate(order)) && (
-                                          <Badge className="bg-red-500 text-white text-[8px] h-3.5 mt-0.5 px-1 flex items-center gap-0.5 w-fit">
+                                          <Badge className="bg-red-500 text-white text-xs h-4 mt-0.5 px-1.5 flex items-center gap-0.5 w-fit">
                                             {isVeryLate(order) && <Bell className="w-2.5 h-2.5" />}
                                             Atrasado
                                           </Badge>
                                         )}
                                         {isPrepUrgent(order) && !isPrepLate(order) && (
-                                          <Badge className="bg-amber-500 text-white text-[8px] h-3.5 mt-0.5 px-1 flex items-center w-fit">
+                                          <Badge className="bg-amber-500 text-white text-xs h-4 mt-0.5 px-1.5 flex items-center w-fit">
                                             Quase no limite
                                           </Badge>
                                         )}
                                       </div>
-                                      <span className="text-[11px] flex-shrink-0" title={order.delivery_method === 'delivery' ? 'Entrega' : 'Retirada'}>
-                                        {order.delivery_method === 'delivery' ? '🚴' : '🏪'}
-                                      </span>
+                                      {(() => {
+                                        const DeliveryMethodIcon = order.delivery_method === 'delivery'
+                                          ? Truck
+                                          : order.delivery_method === 'pickup'
+                                          ? ShoppingBag
+                                          : Package;
+                                        return (
+                                      <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                                            <Badge className={`${getPriorityMeta(order).badgeClass} text-xs h-4 px-1.5`}>
+                                          {getPriorityMeta(order).label}
+                                        </Badge>
+                                            <DeliveryMethodIcon
+                                              className={`w-4 h-4 ${darkMode ? 'text-gray-300' : 'text-gray-500'}`}
+                                              title={order.delivery_method === 'delivery' ? 'Entrega' : order.delivery_method === 'pickup' ? 'Retirada' : 'Presencial'}
+                                            />
+                                      </div>
+                                        );
+                                      })()}
                                     </div>
 
-                                    <p className={`text-[11px] font-medium ${darkMode ? 'text-gray-200' : 'text-gray-700'} mb-1 truncate`}>
+                                    <p className={`text-xs font-medium ${darkMode ? 'text-gray-200' : 'text-gray-700'} mb-1 truncate`}>
                                       {order.customer_name}
                                     </p>
 
                                     {/* Items: uma linha */}
-                                    <p className={`text-[10px] ${darkMode ? 'text-gray-400' : 'text-gray-500'} mb-1.5 truncate`}>
-                                      {(order.items || []).slice(0, 3).map((item, idx) => `${item.quantity}x ${item.dish?.name || 'Item'}`).join(', ')}
+                                    <p className={`text-[11px] ${darkMode ? 'text-gray-400' : 'text-gray-500'} mb-1.5 truncate`}>
+                                      {(order.items || []).slice(0, 3).map((item) => `${item.quantity}x ${item.name || item.dish?.name || 'Item'}`).join(', ')}
                                       {(order.items || []).length > 3 && ` +${(order.items || []).length - 3}`}
                                     </p>
 
@@ -460,10 +517,10 @@ export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = 
                                     <div className={`flex items-center justify-between pt-1.5 border-t ${
                                       darkMode ? 'border-gray-700' : 'border-gray-100'
                                     }`}>
-                                      <span className={`font-bold text-[11px] ${darkMode ? 'text-green-400' : 'text-green-600'}`}>
+                                      <span className={`font-bold text-xs ${darkMode ? 'text-green-400' : 'text-green-600'}`}>
                                         {formatCurrency(order.total)}
                                       </span>
-                                      <span className={`text-[9px] ${darkMode ? 'text-gray-500' : 'text-gray-400'} flex items-center gap-0.5`}>
+                                      <span className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'} flex items-center gap-0.5`}>
                                         <ClockIcon className="w-2.5 h-2.5" />
                                         {getTimeElapsed(order.created_at || order.created_date)}
                                       </span>
@@ -482,8 +539,10 @@ export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = 
               </div>
             );
           })}
+          </div>
         </div>
       </DragDropContext>
     </div>
   );
 }
+

@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { differenceInMinutes } from 'date-fns';
+import { printComanda } from '@/utils/gestorExport';
 
 const STATUS_COLORS = {
   new: 'bg-red-500',
@@ -54,19 +55,28 @@ function PrepTimer({ order, prepTime }) {
   const remaining = prepTime - timeElapsed;
   const isUrgent = remaining <= 5 && remaining > 0;
   const isCritical = remaining <= 0;
+  const progressValue = Math.min(100, Math.max(0, (timeElapsed / Math.max(1, prepTime)) * 100));
 
   return (
-    <div className={`flex items-center gap-1 text-xs font-bold ${
-      isCritical ? 'text-red-600' : isUrgent ? 'text-orange-600' : 'text-gray-600'
-    }`}>
-      <Timer className="w-3 h-3" />
-      {isCritical ? (
-        <span className="animate-pulse">ATRASADO {Math.abs(remaining)}min</span>
-      ) : isUrgent ? (
-        <span className="animate-pulse">{remaining}min</span>
-      ) : (
-        <span>{remaining}min</span>
-      )}
+    <div className="space-y-1.5">
+      <div className={`flex items-center gap-1 text-xs font-bold ${
+        isCritical ? 'text-red-600' : isUrgent ? 'text-orange-600' : 'text-gray-600'
+      }`}>
+        <Timer className="w-3 h-3" />
+        {isCritical ? (
+          <span className="animate-pulse">ATRASADO {Math.abs(remaining)}min</span>
+        ) : isUrgent ? (
+          <span className="animate-pulse">{remaining}min</span>
+        ) : (
+          <span>{remaining}min</span>
+        )}
+      </div>
+      <div className="h-1.5 rounded bg-gray-200 dark:bg-gray-700 overflow-hidden">
+        <div
+          className={`h-full transition-all ${isCritical ? 'bg-red-500' : isUrgent ? 'bg-amber-500' : 'bg-emerald-500'}`}
+          style={{ width: `${progressValue}%` }}
+        />
+      </div>
     </div>
   );
 }
@@ -74,8 +84,7 @@ function PrepTimer({ order, prepTime }) {
 /**
  * Card de pedido otimizado para cozinha
  */
-function OrderCard({ order, onStatusChange, prepTime }) {
-  const [showDetails, setShowDetails] = useState(false);
+function OrderCard({ order, onStatusChange, prepTime, onPrintOrder }) {
   const DeliveryIcon = DELIVERY_ICONS[order.delivery_method] || Package;
   const timeElapsed = order.accepted_at 
     ? differenceInMinutes(new Date(), new Date(order.accepted_at))
@@ -96,7 +105,7 @@ function OrderCard({ order, onStatusChange, prepTime }) {
         isUrgent ? 'bg-orange-50 dark:bg-orange-900/20' : 
         'bg-white dark:bg-gray-800'
       }`}>
-        {/* Header com código e status */}
+        {/* Header com cÃ³digo e status */}
         <div className={`p-3 ${STATUS_COLORS[order.status]} text-white`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -109,7 +118,7 @@ function OrderCard({ order, onStatusChange, prepTime }) {
           </div>
         </div>
 
-        {/* Conteúdo */}
+        {/* ConteÃºdo */}
         <div className="p-4 space-y-3">
           {/* Tipo de entrega e cliente */}
           <div className="flex items-center gap-2 text-sm flex-wrap">
@@ -147,13 +156,13 @@ function OrderCard({ order, onStatusChange, prepTime }) {
             <PrepTimer order={order} prepTime={prepTime || order.prep_time} />
           )}
 
-          {/* Itens do pedido */}
+          {/* Itens completos do pedido */}
           <div className="space-y-1">
-            {order.items?.slice(0, 3).map((item, idx) => (
+            {(order.items || []).map((item, idx) => (
               <div key={idx} className="flex items-start justify-between text-sm">
                 <div className="flex-1">
                   <span className="font-medium text-gray-900 dark:text-white">
-                    {item.quantity}x {item.name}
+                    {item.quantity}x {item.name || item.dish?.name || 'Item'}
                   </span>
                   {item.observations && (
                     <p className="text-xs text-gray-500 italic mt-0.5">
@@ -162,50 +171,15 @@ function OrderCard({ order, onStatusChange, prepTime }) {
                   )}
                   {item.complements && item.complements.length > 0 && (
                     <p className="text-xs text-gray-500 mt-0.5">
-                      {item.complements.map(c => c.name).join(', ')}
+                      {item.complements.map((c) => c.name).join(', ')}
                     </p>
                   )}
                 </div>
               </div>
             ))}
-            {order.items?.length > 3 && (
-              <button
-                onClick={() => setShowDetails(!showDetails)}
-                className="text-xs text-orange-600 hover:text-orange-700 font-medium"
-              >
-                +{order.items.length - 3} itens
-              </button>
-            )}
           </div>
 
-          {/* Detalhes expandidos */}
-          <AnimatePresence>
-            {showDetails && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                className="space-y-1 pt-2 border-t"
-              >
-                {order.items?.slice(3).map((item, idx) => (
-                  <div key={idx} className="flex items-start justify-between text-sm">
-                    <div className="flex-1">
-                      <span className="font-medium text-gray-900 dark:text-white">
-                        {item.quantity}x {item.name}
-                      </span>
-                      {item.observations && (
-                        <p className="text-xs text-gray-500 italic mt-0.5">
-                          Obs: {item.observations}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Observações do pedido */}
+          {/* ObservaÃ§Ãµes do pedido */}
           {order.observations && (
             <div className="pt-2 border-t">
               <p className="text-xs text-gray-600 dark:text-gray-400 italic">
@@ -214,7 +188,7 @@ function OrderCard({ order, onStatusChange, prepTime }) {
             </div>
           )}
 
-          {/* Endereço (se delivery) */}
+          {/* EndereÃ§o (se delivery) */}
           {order.delivery_method === 'delivery' && order.delivery_address && (
             <div className="pt-2 border-t flex items-start gap-2 text-xs">
               <MapPin className="w-3 h-3 text-gray-500 mt-0.5" />
@@ -224,8 +198,16 @@ function OrderCard({ order, onStatusChange, prepTime }) {
             </div>
           )}
 
-          {/* Ações */}
+          {/* AÃ§Ãµes */}
           <div className="flex gap-2 pt-2 border-t">
+            <Button
+              size="sm"
+              variant="outline"
+              className="px-3"
+              onClick={() => onPrintOrder(order)}
+            >
+              Imprimir
+            </Button>
             {order.status === 'new' && (
               <Button
                 size="sm"
@@ -270,13 +252,31 @@ export default function KitchenDisplay({
   orders = [], 
   onStatusChange,
   prepTime = 30,
-  isLoading = false 
+  isLoading = false,
+  onPrintOrder
 }) {
   const [filter, setFilter] = useState('all'); // all, new, accepted, preparing, ready
   const [deliveryFilter, setDeliveryFilter] = useState('all'); // all, delivery, pickup, dine_in
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [newOrdersCount, setNewOrdersCount] = useState(0);
+  const [showSettings, setShowSettings] = useState(false);
+
+  const handlePrintOrder = (order) => {
+    if (typeof onPrintOrder === 'function') {
+      onPrintOrder(order);
+      return;
+    }
+    const jobRef = String(order?.id || order?.order_code || Date.now());
+    const printed = printComanda(order, {
+      jobId: `kitchen-card-${jobRef}`,
+      dedupeKey: `kitchen:card:${jobRef}`,
+      dedupeWindowMs: 10000,
+    });
+    if (!printed) {
+      console.warn('Popup bloqueado para impressao da cozinha');
+    }
+  };
 
   // Filtrar pedidos
   const filteredOrders = useMemo(() => {
@@ -292,20 +292,20 @@ export default function KitchenDisplay({
       filtered = filtered.filter(o => o.delivery_method === deliveryFilter);
     }
 
-    // Ordenar: novos primeiro, depois por urgência (atrasados primeiro)
+    // Ordenar: novos primeiro, depois por urgÃªncia (atrasados primeiro)
     return filtered.sort((a, b) => {
       // Novos sempre primeiro
       if (a.status === 'new' && b.status !== 'new') return -1;
       if (b.status === 'new' && a.status !== 'new') return 1;
       
-      // Se ambos são novos, ordenar por data de criação (mais antigos primeiro)
+      // Se ambos sÃ£o novos, ordenar por data de criaÃ§Ã£o (mais antigos primeiro)
       if (a.status === 'new' && b.status === 'new') {
         const aCreated = a.created_date || a.created_at ? new Date(a.created_date || a.created_at).getTime() : 0;
         const bCreated = b.created_date || b.created_at ? new Date(b.created_date || b.created_at).getTime() : 0;
         return aCreated - bCreated;
       }
       
-      // Para pedidos aceitos/preparando: calcular urgência
+      // Para pedidos aceitos/preparando: calcular urgÃªncia
       const aPrepTime = a.prep_time || prepTime;
       const bPrepTime = b.prep_time || prepTime;
       const aAccepted = a.accepted_at ? new Date(a.accepted_at).getTime() : 0;
@@ -331,21 +331,21 @@ export default function KitchenDisplay({
         return aRemaining - bRemaining;
       }
       
-      // Fallback: por data de criação
+      // Fallback: por data de criaÃ§Ã£o
       const aCreated = a.created_date || a.created_at ? new Date(a.created_date || a.created_at).getTime() : 0;
       const bCreated = b.created_date || b.created_at ? new Date(b.created_date || b.created_at).getTime() : 0;
       return aCreated - bCreated;
     });
   }, [orders, filter, deliveryFilter]);
 
-  // Estatísticas
+  // EstatÃ­sticas
   const stats = useMemo(() => {
     const newCount = orders.filter(o => o.status === 'new').length;
     const acceptedCount = orders.filter(o => o.status === 'accepted').length;
     const preparingCount = orders.filter(o => o.status === 'preparing').length;
     const readyCount = orders.filter(o => o.status === 'ready').length;
     
-    // Calcular tempo médio de preparo
+    // Calcular tempo mÃ©dio de preparo
     const completedOrders = orders.filter(o => o.ready_at && o.accepted_at);
     const avgPrepTime = completedOrders.length > 0
       ? completedOrders.reduce((sum, o) => {
@@ -371,7 +371,7 @@ export default function KitchenDisplay({
   useEffect(() => {
     const newCount = orders.filter(o => o.status === 'new').length;
     if (newCount > newOrdersCount && soundEnabled) {
-      // Tocar som de notificação
+      // Tocar som de notificaÃ§Ã£o
       const audio = new Audio('/sounds/notification.mp3');
       audio.volume = 0.5;
       audio.play().catch(() => {
@@ -436,7 +436,7 @@ export default function KitchenDisplay({
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <ChefHat className="w-6 h-6" />
-              <h1 className="font-bold text-xl">Kitchen Display</h1>
+              <h1 className="font-bold text-xl">Painel da Cozinha</h1>
             </div>
             <div className="flex items-center gap-2">
               <Button
@@ -451,6 +451,14 @@ export default function KitchenDisplay({
                 variant="ghost"
                 size="sm"
                 className="text-white hover:bg-orange-500"
+                onClick={() => setShowSettings((v) => !v)}
+              >
+                <Settings className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-white hover:bg-orange-500"
                 onClick={() => setIsFullscreen(!isFullscreen)}
               >
                 {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
@@ -458,7 +466,7 @@ export default function KitchenDisplay({
             </div>
           </div>
 
-          {/* Estatísticas */}
+          {/* EstatÃ­sticas */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 text-center">
             <div className="bg-white/20 rounded-md px-2 py-2.5">
               <div className="text-2xl md:text-3xl font-extrabold tracking-tight">{stats.new}</div>
@@ -507,6 +515,30 @@ export default function KitchenDisplay({
               <option value="dine_in">Presencial</option>
             </select>
           </div>
+
+          {showSettings && (
+            <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2 bg-white/10 border border-white/20 rounded-lg p-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-white/40 text-white hover:bg-white/20"
+                onClick={() => setSoundEnabled((v) => !v)}
+              >
+                {soundEnabled ? 'Silenciar alertas' : 'Ativar alertas'}
+              </Button>
+              <div className="text-xs text-white/90 rounded-md border border-white/20 px-2 py-1.5 flex items-center">
+                Tempo padrao: {prepTime} min
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-white/40 text-white hover:bg-white/20"
+                onClick={() => setIsFullscreen((v) => !v)}
+              >
+                {isFullscreen ? 'Sair fullscreen' : 'Entrar fullscreen'}
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -530,6 +562,7 @@ export default function KitchenDisplay({
                   order={order}
                   onStatusChange={onStatusChange}
                   prepTime={prepTime || order.prep_time}
+                  onPrintOrder={handlePrintOrder}
                 />
               ))}
             </AnimatePresence>
@@ -539,3 +572,4 @@ export default function KitchenDisplay({
     </div>
   );
 }
+
