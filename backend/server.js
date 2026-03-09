@@ -47,7 +47,10 @@ import { requestLogger } from './utils/monitoring.js';
 import { scheduleBackups } from './utils/backup.js';
 import { analyticsMiddleware } from './utils/analytics.js';
 import { initializeCronJobs } from './utils/cronJobs.js';
-import { getPermissionsForPlan, normalizePlanPresetKey } from './utils/planPresetsForContext.js';
+import {
+  getEffectivePermissionsForSubscriber,
+  normalizePlanPresetKey
+} from './utils/planPresetsForContext.js';
 import analyticsRoutes from './routes/analytics.routes.js';
 import backupRoutes from './routes/backup.routes.js';
 import subscriberBackupRoutes from './routes/subscriberBackup.routes.js';
@@ -960,10 +963,10 @@ const ENTITY_ACCESS_CONFIG = {
   pdvsession: { module: 'pdv', allowedCollaboratorRoles: new Set(['gerente', 'pdv']), enforceRead: true },
 
   // Cardápio e configuração
-  dish: { module: 'dishes', allowedCollaboratorRoles: new Set(['gerente']) },
+  dish: { module: 'dishes', allowedCollaboratorRoles: new Set(['gerente']), enforceRead: true },
   category: { module: 'dishes', allowedCollaboratorRoles: new Set(['gerente']) },
   complementgroup: { module: 'dishes', allowedCollaboratorRoles: new Set(['gerente']) },
-  combo: { module: 'dishes', allowedCollaboratorRoles: new Set(['gerente']) },
+  combo: { module: 'dishes', allowedCollaboratorRoles: new Set(['gerente']), enforceRead: true },
   beveragecategory: { module: 'dishes', allowedCollaboratorRoles: new Set(['gerente']) },
   dishingredient: { module: 'dishes', allowedCollaboratorRoles: new Set(['gerente']) },
   ingredient: { module: 'dishes', allowedCollaboratorRoles: new Set(['gerente']) },
@@ -1064,21 +1067,130 @@ function hasModuleActionPermission(permissionMap, moduleName, action) {
 }
 
 function parseSubscriberPermissionMap(subscriber) {
-  if (!subscriber) return {};
-  const plan = normalizePlanPresetKey(subscriber.plan, { defaultPlan: 'basic' }) || 'basic';
-  if (plan !== 'custom') {
-    const preset = getPermissionsForPlan(plan);
-    return (preset && typeof preset === 'object') ? { ...preset } : {};
+  return getEffectivePermissionsForSubscriber(subscriber);
+}
+
+function resolveBasicMenuProfile(permissionMap = {}) {
+  const pizzaPermissions = permissionMap?.pizza_config;
+  if (Array.isArray(pizzaPermissions) && pizzaPermissions.length > 0) {
+    return 'pizzaria';
   }
-  let raw = subscriber.permissions;
-  if (typeof raw === 'string') {
-    try {
-      raw = JSON.parse(raw);
-    } catch {
-      raw = {};
+  return 'restaurante';
+}
+
+function isAllowedDishTypeForBasicProfile(productType, profile) {
+  const normalizedType = normalizeLower(productType || 'dish');
+  if (profile === 'pizzaria') {
+    return normalizedType === 'pizza' || normalizedType === 'beverage';
+  }
+  // restaurante
+  return normalizedType !== 'pizza';
+}
+
+function isAllowedComboModeForBasicProfile(comboMode, profile) {
+  const normalizedMode = normalizeLower(comboMode);
+  if (!normalizedMode) return true;
+  if (profile === 'pizzaria') return normalizedMode === 'pizzas_beverages';
+  // restaurante
+  return normalizedMode === 'dishes_beverages';
+}
+
+async function getEntityRecordForScope(entityNorm, id, user) {
+  if (!id) return null;
+  const canonicalEntity = entityNorm === 'dish' ? 'Dish' : entityNorm === 'combo' ? 'Combo' : null;
+  if (!canonicalEntity) return null;
+
+  if (usePostgreSQL) {
+    return await repo.getEntityById(canonicalEntity, id, user || null);
+  }
+
+  const list = db?.entities?.[canonicalEntity];
+  if (!Array.isArray(list)) return null;
+  return list.find((item) => String(item?.id || '') === String(id || '')) || null;
+}
+
+async function resolveEntityScopeData(entityNorm, method, payload, req) {
+  if (!(entityNorm === 'dish' || entityNorm === 'combo')) return payload || {};
+  const methodUpper = String(method || '').toUpperCase();
+  const needsExistingLookup = methodUpper !== 'POST';
+  if (!needsExistingLookup) return payload || {};
+
+  const existing = await getEntityRecordForScope(entityNorm, req?.params?.id, req?.user);
+  if (!existing || typeof existing !== 'object') return payload || {};
+
+  return {
+    ...existing,
+    ...(payload || {})
+  };
+}
+
+function applyBasicScopeFilterToItems(entityNorm, items, permissionMap) {
+  if (!Array.isArray(items) || items.length === 0) return items;
+  const profile = resolveBasicMenuProfile(permissionMap);
+
+  if (entityNorm === 'dish') {
+    return items.filter((item) => isAllowedDishTypeForBasicProfile(item?.product_type, profile));
+  }
+
+  if (entityNorm === 'combo') {
+    return items.filter((item) => isAllowedComboModeForBasicProfile(item?.combo_mode, profile));
+  }
+
+  return items;
+}
+
+function applyBasicScopeToEntityResult(entityNorm, result, permissionMap) {
+  if (!result) return result;
+  if (Array.isArray(result)) {
+    return applyBasicScopeFilterToItems(entityNorm, result, permissionMap);
+  }
+  if (Array.isArray(result?.items)) {
+    return {
+      ...result,
+      items: applyBasicScopeFilterToItems(entityNorm, result.items, permissionMap)
+    };
+  }
+  return result;
+}
+
+async function enforceBasicPlanEntityScope(req, res, entityNorm, method, payload, subscriber, permissionMap) {
+  const plan = normalizePlanPresetKey(subscriber?.plan, { defaultPlan: 'basic' }) || 'basic';
+  if (plan !== 'basic') return { allowed: true, scopedPayload: payload };
+  if (!(entityNorm === 'dish' || entityNorm === 'combo')) return { allowed: true, scopedPayload: payload };
+
+  const scopedPayload = await resolveEntityScopeData(entityNorm, method, payload, req);
+  const profile = resolveBasicMenuProfile(permissionMap);
+
+  if (entityNorm === 'dish') {
+    const productType = normalizeLower(scopedPayload?.product_type || 'dish');
+    if (!isAllowedDishTypeForBasicProfile(productType, profile)) {
+      const blockedModule = productType === 'pizza' ? 'pizza_config' : 'dishes';
+      res.status(403).json({
+        error: `Plano básico (${profile}) não permite operar este tipo de item no cardápio.`,
+        code: 'ACTION_NOT_ALLOWED',
+        module: blockedModule,
+        action: getEntityCrudAction(method) || 'view',
+        profile
+      });
+      return { allowed: false };
     }
   }
-  return (raw && typeof raw === 'object') ? raw : {};
+
+  if (entityNorm === 'combo') {
+    const comboMode = normalizeLower(scopedPayload?.combo_mode || '');
+    if (comboMode && !isAllowedComboModeForBasicProfile(comboMode, profile)) {
+      res.status(403).json({
+        error: `Plano básico (${profile}) não permite este modo de combo.`,
+        code: 'ACTION_NOT_ALLOWED',
+        module: 'combo',
+        action: getEntityCrudAction(method) || 'view',
+        profile
+      });
+      return { allowed: false };
+    }
+  }
+
+  return { allowed: true, scopedPayload };
 }
 
 function shouldEnforceEntityRead(config) {
@@ -1282,7 +1394,12 @@ async function enforceEntityReadAccess(req, res, entity, payload = {}) {
     }
   }
 
-  return { allowed: true, ownerEmail, subscriber };
+  const basicScopeCheck = await enforceBasicPlanEntityScope(req, res, entityNorm, 'GET', payload, subscriber, permissionMap);
+  if (!basicScopeCheck.allowed) {
+    return { allowed: false };
+  }
+
+  return { allowed: true, ownerEmail, subscriber, permissionMap };
 }
 
 async function enforceEntityWriteAccess(req, res, entity, method, payload = {}) {
@@ -1367,7 +1484,18 @@ async function enforceEntityWriteAccess(req, res, entity, method, payload = {}) 
     }
   }
 
-  return { allowed: true, sanitizedPayload, ownerEmail, subscriber };
+  const basicScopeCheck = await enforceBasicPlanEntityScope(req, res, entityNorm, method, sanitizedPayload, subscriber, permissionMap);
+  if (!basicScopeCheck.allowed) {
+    return { allowed: false };
+  }
+
+  return {
+    allowed: true,
+    sanitizedPayload: basicScopeCheck.scopedPayload || sanitizedPayload,
+    ownerEmail,
+    subscriber,
+    permissionMap
+  };
 }
 
 const entitiesAndManagerialRouter = express.Router();
@@ -1445,6 +1573,7 @@ entitiesAndManagerialRouter.post('/managerial-auth/validate', authenticate, asyn
 entitiesAndManagerialRouter.get('/entities/:entity', authenticate, asyncHandler(async (req, res) => {
   try {
     const { entity } = req.params;
+    const entityNorm = normalizeEntityName(entity);
     const { order_by, as_subscriber, page, limit, ...filters } = req.query;
     if (req.user?.is_master && as_subscriber) req.user._contextForSubscriber = as_subscriber;
     if (req.user && !req.user?.is_master && as_subscriber) {
@@ -1514,6 +1643,11 @@ entitiesAndManagerialRouter.get('/entities/:entity', authenticate, asyncHandler(
     } else {
       return res.status(500).json({ error: 'Banco de dados não inicializado' });
     }
+    if (!req.user?.is_master && entityReadGuard?.subscriber && (entityNorm === 'dish' || entityNorm === 'combo')) {
+      const permissionMap = entityReadGuard.permissionMap || parseSubscriberPermissionMap(entityReadGuard.subscriber);
+      result = applyBasicScopeToEntityResult(entityNorm, result, permissionMap);
+    }
+
     res.json(result);
   } catch (error) {
     console.error('Erro ao listar entidades:', sanitizeForLog({ error: error.message }));
@@ -1523,6 +1657,7 @@ entitiesAndManagerialRouter.get('/entities/:entity', authenticate, asyncHandler(
 entitiesAndManagerialRouter.get('/entities/:entity/:id', authenticate, async (req, res) => {
   try {
     const { entity, id } = req.params;
+    const entityNorm = normalizeEntityName(entity);
     const asSub = req.query.as_subscriber;
     if (req.user?.is_master && asSub) req.user._contextForSubscriber = asSub;
     const entityReadGuard = await enforceEntityReadAccess(req, res, entity, { owner_email: asSub || req.query.owner_email });
@@ -1534,6 +1669,13 @@ entitiesAndManagerialRouter.get('/entities/:entity/:id', authenticate, async (re
       item = arr.find(i => (i.id === id || i.id === String(id)) && (!asSub || i.owner_email === asSub)) || null;
     } else item = null;
     if (!item) return res.status(404).json({ error: 'Entidade não encontrada' });
+    if (!req.user?.is_master && entityReadGuard?.subscriber && (entityNorm === 'dish' || entityNorm === 'combo')) {
+      const permissionMap = entityReadGuard.permissionMap || parseSubscriberPermissionMap(entityReadGuard.subscriber);
+      const filtered = applyBasicScopeFilterToItems(entityNorm, [item], permissionMap);
+      if (!filtered.length) {
+        return res.status(404).json({ error: 'Entidade não encontrada' });
+      }
+    }
     res.json(item);
   } catch (error) {
     console.error('Erro ao obter entidade:', error);

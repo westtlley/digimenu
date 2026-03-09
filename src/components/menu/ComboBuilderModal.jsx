@@ -92,6 +92,7 @@ export default function ComboBuilderModal({
       description: combo.description,
       image: combo.image,
       product_type: 'combo',
+      combo_action: combo.combo_action || 'add',
       price: comboPrice,
       is_active: combo.is_active,
     };
@@ -100,6 +101,7 @@ export default function ComboBuilderModal({
       dish: virtualDish,
       selections: {
         combo_id: combo.id,
+        combo_action: combo.combo_action || 'add',
         combo_groups: payloadGroups,
         complements_by_slot: slotComplements,
       },

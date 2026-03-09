@@ -786,6 +786,7 @@ export default function Cardapio() {
       description: c.description,
       image: c.image,
       product_type: 'combo',
+      combo_action: c.combo_action || 'add',
       price: c.combo_price,
       is_active: c.is_active,
     }));
@@ -1687,6 +1688,11 @@ export default function Cardapio() {
       toast.success('Item atualizado no carrinho');
       return;
     }
+
+    const comboAction = String(item?.selections?.combo_action || dish?.combo_action || '').toLowerCase();
+    if (dish?.product_type === 'combo' && comboAction === 'replace') {
+      clearCart();
+    }
     
     addItem(item);
     void trackCommercialEvent(COMMERCIAL_EVENTS.ADD_TO_CART, {
@@ -1782,22 +1788,35 @@ export default function Cardapio() {
     }
   };
 
-  const isReplacePromotionSuggestion = React.useCallback((suggestedDish) => {
+  const resolveCommercialSuggestionAction = React.useCallback((suggestedDish) => {
     const merch = suggestedDish?._merchandising;
-    if (!merch || merch.source !== 'promotion' || !merch.sourceId) {
-      return false;
+    if (!merch || !merch.sourceId) {
+      return 'add';
     }
 
-    const sourcePromotion = (Array.isArray(activePromotions) ? activePromotions : []).find(
-      (promotion) => String(promotion?.id || '') === String(merch.sourceId || '')
-    );
+    if (merch.source === 'promotion') {
+      const sourcePromotion = (Array.isArray(activePromotions) ? activePromotions : []).find(
+        (promotion) => String(promotion?.id || '') === String(merch.sourceId || '')
+      );
+      return String(sourcePromotion?.type || '').toLowerCase() === 'replace' ? 'replace' : 'add';
+    }
 
-    return String(sourcePromotion?.type || '').toLowerCase() === 'replace';
-  }, [activePromotions]);
+    if (merch.source === 'combo') {
+      const sourceComboId = String(merch.sourceId || '').replace(/^combo_/, '');
+      const sourceCombo = (Array.isArray(activeCombos) ? activeCombos : []).find(
+        (combo) => String(combo?.id || '') === sourceComboId
+      );
+      const comboAction = String(sourceCombo?.combo_action || suggestedDish?.combo_action || 'add').toLowerCase();
+      return comboAction === 'replace' ? 'replace' : 'add';
+    }
+
+    return 'add';
+  }, [activePromotions, activeCombos]);
 
   const handleCommercialSuggestion = React.useCallback((suggestedDish, context = 'cart') => {
     if (!suggestedDish) return;
-    const isReplace = isReplacePromotionSuggestion(suggestedDish);
+    const suggestionAction = resolveCommercialSuggestionAction(suggestedDish);
+    const isReplace = suggestionAction === 'replace';
     if (context === 'checkout') {
       checkoutSuggestionAcceptedRef.current = true;
     } else {
@@ -1811,7 +1830,7 @@ export default function Cardapio() {
       product_type: suggestedDish?.product_type || null,
       merchandising_source: suggestedDish?._merchandising?.source || null,
       merchandising_label: suggestedDish?._merchandising?.label || null,
-      promotion_type: isReplace ? 'replace' : 'add'
+      promotion_type: suggestionAction
     });
 
     if (isReplace) {
@@ -1826,7 +1845,7 @@ export default function Cardapio() {
 
     closeCartModal();
     handleDishClick(suggestedDish);
-  }, [clearCart, closeCartModal, handleDishClick, isReplacePromotionSuggestion]);
+  }, [clearCart, closeCartModal, handleDishClick, resolveCommercialSuggestionAction]);
 
   const handleCartModalDismiss = React.useCallback((reason = 'dismiss') => {
     const suggestions = Array.isArray(cartUpsellSuggestions) ? cartUpsellSuggestions : [];

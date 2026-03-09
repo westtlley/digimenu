@@ -136,6 +136,9 @@ const PLAN_ALIASES = {
 };
 
 const KNOWN_PLANS = new Set(['free', 'basic', 'pro', 'ultra', 'admin', 'custom']);
+const BASIC_MENU_PROFILES = new Set(['restaurante', 'pizzaria']);
+const BASIC_DISHES_ACTIONS = ['view', 'create', 'update', 'delete'];
+const BASIC_PIZZA_ACTIONS = ['view', 'create', 'update', 'delete'];
 
 // compatibilidade
 PLAN_PRESETS_PERMISSIONS.premium = PLAN_PRESETS_PERMISSIONS.ultra;
@@ -168,4 +171,67 @@ function getPermissionsForPlan(plan, options = {}) {
   return PLAN_PRESETS_PERMISSIONS[key] || (fallbackToBasic ? PLAN_PRESETS_PERMISSIONS.basic : null);
 }
 
-export { getPermissionsForPlan, PLAN_PRESETS_PERMISSIONS, normalizePlanPresetKey };
+function parsePermissionsObject(rawPermissions) {
+  let parsed = rawPermissions;
+  if (typeof parsed === 'string') {
+    try {
+      parsed = JSON.parse(parsed);
+    } catch {
+      parsed = {};
+    }
+  }
+  return (parsed && typeof parsed === 'object') ? parsed : {};
+}
+
+function resolveBasicMenuProfileFromPermissions(rawPermissions) {
+  const permissions = parsePermissionsObject(rawPermissions);
+  const explicitProfile = String(
+    permissions?.basic_menu_profile ||
+    permissions?.menu_profile ||
+    permissions?.cardapio_profile ||
+    ''
+  ).toLowerCase().trim();
+
+  if (BASIC_MENU_PROFILES.has(explicitProfile)) {
+    return explicitProfile;
+  }
+
+  const hasPizzaConfig = Array.isArray(permissions?.pizza_config) && permissions.pizza_config.length > 0;
+  if (hasPizzaConfig) return 'pizzaria';
+  return 'restaurante';
+}
+
+function getEffectivePermissionsForSubscriber(subscriber) {
+  if (!subscriber) return {};
+
+  const plan = normalizePlanPresetKey(subscriber.plan, { defaultPlan: 'basic' }) || 'basic';
+  if (plan === 'custom') {
+    return parsePermissionsObject(subscriber.permissions);
+  }
+
+  const preset = getPermissionsForPlan(plan);
+  const base = (preset && typeof preset === 'object') ? { ...preset } : {};
+
+  if (plan !== 'basic') {
+    return base;
+  }
+
+  const rawPermissions = parsePermissionsObject(subscriber.permissions);
+  const profile = resolveBasicMenuProfileFromPermissions(rawPermissions);
+
+  // Regra estrutural do plano básico:
+  // - Restaurante: dishes + bebidas; sem pizza_config
+  // - Pizzaria: pizza_config + bebidas (via dishes)
+  base.dishes = [...BASIC_DISHES_ACTIONS];
+  base.pizza_config = profile === 'pizzaria' ? [...BASIC_PIZZA_ACTIONS] : [];
+
+  return base;
+}
+
+export {
+  getPermissionsForPlan,
+  getEffectivePermissionsForSubscriber,
+  resolveBasicMenuProfileFromPermissions,
+  PLAN_PRESETS_PERMISSIONS,
+  normalizePlanPresetKey
+};

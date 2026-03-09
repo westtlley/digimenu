@@ -9,7 +9,11 @@ import { agentLog } from '../../utils/agentLog.js';
 import { getPlanInfo } from '../../utils/plans.js';
 import { generatePasswordTokenForSubscriber } from '../auth/auth.service.js';
 import { isValidPlan, normalizeSlug, canEditEstablishment } from './establishments.utils.js';
-import { getPermissionsForPlan } from '../../utils/planPresetsForContext.js';
+import {
+  getPermissionsForPlan,
+  getEffectivePermissionsForSubscriber,
+  normalizePlanPresetKey
+} from '../../utils/planPresetsForContext.js';
 import { usePostgreSQL, FRONTEND_URL, getDb, getSaveDatabaseDebounced } from '../../config/appConfig.js';
 
 /**
@@ -212,6 +216,7 @@ export async function updateSubscriber(id, updateData, currentUser) {
   const db = getDb();
   const saveDatabaseDebounced = getSaveDatabaseDebounced();
   const idVal = /^\d+$/.test(String(id)) ? parseInt(id, 10) : id;
+  let existingSubscriber = null;
 
   // Assinante (dono) só pode alterar o próprio — campos permitidos: name, slug, phone, cnpj_cpf, notes
   if (!currentUser?.is_master) {
@@ -221,6 +226,7 @@ export async function updateSubscriber(id, updateData, currentUser) {
     } else if (db?.subscribers) {
       sub = db.subscribers.find(s => s.id == idVal || String(s.id) === String(idVal));
     }
+    existingSubscriber = sub;
     if (!sub) {
       throw new Error('Assinante não encontrado');
     }
@@ -235,12 +241,32 @@ export async function updateSubscriber(id, updateData, currentUser) {
     updateData = filtered;
   }
 
+  if (!existingSubscriber) {
+    if (usePostgreSQL && repo.getSubscriberById) {
+      existingSubscriber = await repo.getSubscriberById(idVal);
+    } else if (db?.subscribers) {
+      existingSubscriber = db.subscribers.find(s => s.id == idVal || String(s.id) === String(idVal)) || null;
+    }
+  }
+
   // Ao trocar para plano fixo (free, basic, pro, ultra), sobrescrever permissions
   if (updateData.plan != null && updateData.plan !== 'custom') {
-    const plan = String(updateData.plan).toLowerCase().trim();
-    const planPerms = getPermissionsForPlan(plan);
-    if (planPerms) {
-      updateData = { ...updateData, permissions: planPerms };
+    const plan = normalizePlanPresetKey(updateData.plan, { defaultPlan: 'basic' }) || 'basic';
+    if (plan === 'basic') {
+      const incomingPermissions =
+        (updateData.permissions && typeof updateData.permissions === 'object')
+          ? updateData.permissions
+          : existingSubscriber?.permissions;
+      const effectiveBasicPermissions = getEffectivePermissionsForSubscriber({
+        plan: 'basic',
+        permissions: incomingPermissions || {}
+      });
+      updateData = { ...updateData, permissions: effectiveBasicPermissions };
+    } else {
+      const planPerms = getPermissionsForPlan(plan);
+      if (planPerms) {
+        updateData = { ...updateData, permissions: planPerms };
+      }
     }
   }
 

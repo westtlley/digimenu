@@ -167,10 +167,14 @@ export default function PermissionsEditor({ permissions, onChange, selectedPlan 
     const next = { ...permissions, store: permissions?.store?.length ? permissions.store : ['view', 'update'] };
     if (mode === 'pizzas') {
       next.pizza_config = ['view', 'create', 'update', 'delete'];
-      next.dishes = []; // Básico Pizzaria: só pizzas, sem módulo pratos
+      // Básico Pizzaria: mantém dishes para Bebidas (controle fino é aplicado no backend por tipo de produto)
+      next.dishes = ['view', 'create', 'update', 'delete'];
+      next.basic_menu_profile = 'pizzaria';
     } else {
       next.pizza_config = [];
-      next.dishes = ['view', 'create', 'update', 'delete']; // Básico Restaurante: só pratos
+      // Básico Restaurante: pratos + bebidas, sem pizza_config
+      next.dishes = ['view', 'create', 'update', 'delete'];
+      next.basic_menu_profile = 'restaurante';
     }
     onChange(next);
   };

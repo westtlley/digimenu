@@ -2,31 +2,14 @@
  * Users Utils - Funções auxiliares para módulo de usuários
  */
 
-import { getPermissionsForPlan, normalizePlanPresetKey } from '../../utils/planPresetsForContext.js';
+import { getEffectivePermissionsForSubscriber } from '../../utils/planPresetsForContext.js';
 
 export const COLAB_ROLES = ['entregador', 'cozinha', 'pdv', 'garcom', 'gerente'];
 
 const normalizeLower = (value = '') => String(value || '').toLowerCase().trim();
 
 function parseSubscriberPermissionMap(subscriber) {
-  if (!subscriber) return {};
-  const plan = normalizePlanPresetKey(subscriber.plan, { defaultPlan: null, allowNull: true });
-  if (!plan) return {};
-
-  if (plan !== 'custom') {
-    const preset = getPermissionsForPlan(plan);
-    return (preset && typeof preset === 'object') ? { ...preset } : {};
-  }
-
-  let raw = subscriber.permissions;
-  if (typeof raw === 'string') {
-    try {
-      raw = JSON.parse(raw);
-    } catch {
-      raw = {};
-    }
-  }
-  return (raw && typeof raw === 'object') ? raw : {};
+  return getEffectivePermissionsForSubscriber(subscriber);
 }
 
 function hasModuleActionPermission(permissionMap, moduleName, action) {
