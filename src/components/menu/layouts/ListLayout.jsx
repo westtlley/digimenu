@@ -13,7 +13,8 @@ export default function ListLayout({
   stockUtils,
   formatCurrency,
   slug = null,
-  autoplayIntervalMs = 4500
+  autoplayIntervalMs = 4500,
+  menuCardStyle = 'solid'
 }) {
   if (loading) {
     return (
@@ -50,6 +51,7 @@ export default function ListLayout({
     if (comboItems.length === 0) return null;
     return comboItems[Math.min(comboIndex, comboItems.length - 1)];
   }, [comboIndex, comboItems]);
+  const isAeroCard = menuCardStyle === 'aero';
 
   const Card = ({ dish, index }) => {
     const isOutOfStock = stockUtils?.isOutOfStock?.(dish.stock);
@@ -63,12 +65,13 @@ export default function ListLayout({
         onClick={() => !isOutOfStock && onDishClick(dish)}
         className={`
           flex items-center gap-3 p-3 md:p-4 rounded-xl border transition-all cursor-pointer
+          ${isAeroCard ? 'bg-card/60 supports-[backdrop-filter]:bg-card/45 backdrop-blur-xl border-border/70' : 'bg-card'}
           ${isOutOfStock 
             ? 'opacity-50 cursor-not-allowed border-gray-200 dark:border-gray-700' 
             : 'hover:shadow-lg border-gray-200 dark:border-gray-700 hover:border-opacity-80'
           }
         `}
-        style={!isOutOfStock ? { borderColor: 'transparent' } : {}}
+        style={!isOutOfStock && !isAeroCard ? { borderColor: 'transparent' } : {}}
       >
         {/* Conteúdo */}
         <div className="flex-1 min-w-0">

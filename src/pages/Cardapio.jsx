@@ -699,6 +699,7 @@ export default function Cardapio() {
   const autoplayIntervalMs = Number(store?.menu_autoplay_interval_ms) > 0 ? Number(store?.menu_autoplay_interval_ms) : 4500;
   const menuLayoutMobile = store?.menu_layout_mobile || store?.menu_layout || 'grid';
   const menuLayoutDesktop = store?.menu_layout_desktop || store?.menu_layout || 'grid';
+  const menuCardStyle = store?.theme_menu_card_style || 'solid';
   const menuLayout = isDesktopViewport ? menuLayoutDesktop : menuLayoutMobile; // grid, list, carousel, magazine, masonry
   const gridColsDesktop = store?.menu_grid_cols_desktop;
   const desktopCarouselMode = isDesktopViewport && menuLayout === 'carousel';
@@ -2914,6 +2915,7 @@ export default function Cardapio() {
                       formatCurrency={formatCurrency}
                       slug={slug}
                       gridColsDesktop={gridColsDesktop}
+                      menuCardStyle={menuCardStyle}
                     />
                     </div>
                   </section>
@@ -3107,6 +3109,7 @@ export default function Cardapio() {
                           slug={slug}
                           gridColsDesktop={gridColsDesktop}
                           autoplayIntervalMs={autoplayIntervalMs}
+                          menuCardStyle={menuCardStyle}
                         />
                       </div>
                     );
@@ -3133,6 +3136,7 @@ export default function Cardapio() {
                           textPrimaryColor={textPrimaryColor}
                           slug={slug}
                           gridColsDesktop={gridColsDesktop}
+                          menuCardStyle={menuCardStyle}
                         />
                       );
                     })}
@@ -3188,6 +3192,7 @@ export default function Cardapio() {
                               slug={slug}
                               gridColsDesktop={gridColsDesktop}
                               autoplayIntervalMs={autoplayIntervalMs}
+                              menuCardStyle={menuCardStyle}
                             />
                           </div>
                         );
@@ -3223,6 +3228,7 @@ export default function Cardapio() {
                               slug={slug}
                               gridColsDesktop={gridColsDesktop}
                               autoplayIntervalMs={autoplayIntervalMs}
+                              menuCardStyle={menuCardStyle}
                             />
                           </div>
                         );
@@ -3264,6 +3270,7 @@ export default function Cardapio() {
                     slug={slug}
                     gridColsDesktop={gridColsDesktop}
                     autoplayIntervalMs={autoplayIntervalMs}
+                    menuCardStyle={menuCardStyle}
                   />
                 </section>
               )}

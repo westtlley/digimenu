@@ -12,7 +12,8 @@ export default function CarouselLayout({
   loading = false,
   stockUtils,
   formatCurrency,
-  slug = null
+  slug = null,
+  menuCardStyle = 'solid'
 }) {
   const scrollRef = useRef(null);
   const [scrollLeft, setScrollLeft] = useState(0);
@@ -26,6 +27,7 @@ export default function CarouselLayout({
   });
 
   const safeDishes = useMemo(() => (Array.isArray(dishes) ? dishes : []), [dishes]);
+  const isAeroCard = menuCardStyle === 'aero';
 
   useEffect(() => {
     if (!scrollRef.current) return;
@@ -182,14 +184,15 @@ export default function CarouselLayout({
                 }}
                 className={`
                   relative
-                  bg-white dark:bg-gray-900 rounded-xl overflow-hidden shadow-md border-2 transition-all cursor-pointer
+                  rounded-xl overflow-hidden shadow-md border-2 transition-all cursor-pointer
+                  ${isAeroCard ? 'bg-card/60 supports-[backdrop-filter]:bg-card/45 backdrop-blur-xl border-border/70' : 'bg-card'}
                   flex flex-col md:h-[clamp(200px,22vh,260px)]
                   ${isOutOfStock 
                     ? 'opacity-50 cursor-not-allowed border-gray-200 dark:border-gray-700' 
                     : 'hover:shadow-xl border-gray-200 dark:border-gray-700 hover:scale-[1.02]'
                   }
                 `}
-                style={!isOutOfStock ? { borderColor: 'transparent' } : {}}
+                style={!isOutOfStock && !isAeroCard ? { borderColor: 'transparent' } : {}}
               >
                 {/* Imagem - Mobile maior */}
                 <div className="relative w-full h-44 md:h-[clamp(110px,12vh,145px)] bg-gray-100 dark:bg-gray-800 overflow-hidden">

@@ -9,8 +9,10 @@ export default function MasonryLayout({
   textSecondaryColor,
   loading = false,
   stockUtils,
-  formatCurrency 
+  formatCurrency,
+  menuCardStyle = 'solid'
 }) {
+  const isAeroCard = menuCardStyle === 'aero';
   if (loading) {
     return (
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
@@ -35,13 +37,14 @@ export default function MasonryLayout({
             onClick={() => !isOutOfStock && onDishClick(dish)}
             className={`
               rounded-xl overflow-hidden border-2 transition-all cursor-pointer
-              bg-white dark:bg-gray-900 shadow-md hover:shadow-xl
+              shadow-md hover:shadow-xl
+              ${isAeroCard ? 'bg-card/60 supports-[backdrop-filter]:bg-card/45 backdrop-blur-xl border-border/70' : 'bg-card'}
               ${isOutOfStock 
                 ? 'opacity-50 cursor-not-allowed border-gray-200 dark:border-gray-700' 
                 : 'hover:scale-[1.02] border-gray-200 dark:border-gray-700'
               }
             `}
-            style={!isOutOfStock ? { borderColor: 'transparent' } : {}}
+            style={!isOutOfStock && !isAeroCard ? { borderColor: 'transparent' } : {}}
           >
             {/* Imagem com altura fixa para harmonia visual */}
             <div className="w-full overflow-hidden bg-gray-100 dark:bg-gray-800 relative h-44 md:h-36 lg:h-40">
@@ -85,7 +88,7 @@ export default function MasonryLayout({
             </div>
 
             {/* Conteúdo - sempre visível */}
-            <div className="p-3 md:p-4 bg-white dark:bg-gray-900">
+            <div className={`p-3 md:p-4 ${isAeroCard ? 'bg-transparent' : 'bg-card'}`}>
               <h3 
                 className="font-bold text-sm md:text-base mb-2 line-clamp-2"
                 style={{ color: textPrimaryColor || 'inherit' }}

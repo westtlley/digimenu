@@ -21,9 +21,11 @@ export default function DishCardWow({
   isLowStock = false,
   primaryColor = '#f97316',
   textPrimaryColor,
-  slug = null
+  slug = null,
+  menuCardStyle = 'solid'
 }) {
   const { toggleFavorite, isFavorite } = useFavorites(slug);
+  const isAeroCard = menuCardStyle === 'aero';
   const formatCurrency = (value) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
   };
@@ -106,9 +108,12 @@ export default function DishCardWow({
       animate="visible"
       whileHover={isOutOfStock ? {} : "hover"}
       className={`
-        group relative bg-card border border-border rounded-xl md:rounded-lg
+        group relative rounded-xl md:rounded-lg
         overflow-hidden shadow-sm cursor-pointer h-full flex flex-col
         lg:shadow-md lg:hover:shadow-lg lg:transition-shadow
+        ${isAeroCard
+          ? 'bg-card/60 supports-[backdrop-filter]:bg-card/45 backdrop-blur-xl border border-border/70'
+          : 'bg-card border border-border'}
         ${isOutOfStock ? 'opacity-60 cursor-not-allowed' : ''}
       `}
       onClick={() => !isOutOfStock && onClick(dish)}
@@ -198,7 +203,7 @@ export default function DishCardWow({
       </div>
 
       {/* Info do Prato - lg: nome e preço mais legíveis no desktop */}
-      <div className="p-4 md:p-3 lg:p-4 space-y-2 md:space-y-2 lg:space-y-3 bg-card flex-1 flex flex-col">
+      <div className={`p-4 md:p-3 lg:p-4 space-y-2 md:space-y-2 lg:space-y-3 flex-1 flex flex-col ${isAeroCard ? 'bg-transparent' : 'bg-card'}`}>
         <h3 className="font-bold text-sm md:text-xs lg:text-base text-foreground line-clamp-2 min-h-[40px] md:min-h-[36px] lg:min-h-[2.75rem] group-hover:text-primary transition-colors">
           {dish.name}
         </h3>

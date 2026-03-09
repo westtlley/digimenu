@@ -96,6 +96,7 @@ export default function ThemeTab() {
     theme_gradient_direction: 'to-r',
     theme_button_style: 'rounded',
     theme_shadow_enabled: true,
+    theme_menu_card_style: 'solid', // solid, aero
     menu_layout: 'grid', // grid, list, carousel, magazine, masonry
     menu_layout_mobile: 'grid',
     menu_layout_desktop: 'grid',
@@ -146,6 +147,7 @@ export default function ThemeTab() {
         theme_gradient_direction: store.theme_gradient_direction || 'to-r',
         theme_button_style: store.theme_button_style || 'rounded',
         theme_shadow_enabled: store.theme_shadow_enabled !== false,
+        theme_menu_card_style: store.theme_menu_card_style || 'solid',
         menu_layout: baseLayout,
         menu_layout_mobile: store.menu_layout_mobile || baseLayout,
         menu_layout_desktop: store.menu_layout_desktop || baseLayout,
@@ -879,6 +881,50 @@ export default function ThemeTab() {
                 >
                   Sem Sombra
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card style={{ backgroundColor: activeTheme.colors.bgCard, borderColor: activeTheme.colors.borderColor }}>
+            <CardHeader>
+              <CardTitle>Estilo dos Cards do Cardápio</CardTitle>
+              <CardDescription>
+                Define a superfície dos cards de pratos/bebidas no cardápio público
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {[
+                  { value: 'solid', label: 'Sólido', hint: 'Visual clássico com fundo opaco' },
+                  { value: 'aero', label: 'Aero (vidro fosco)', hint: 'Transparência com blur para efeito premium' },
+                ].map((item) => (
+                  <button
+                    key={item.value}
+                    onClick={() => handleColorChange('theme_menu_card_style', item.value)}
+                    className={`p-4 rounded-xl border-2 text-left transition-all ${
+                      colors.theme_menu_card_style === item.value
+                        ? 'ring-2 ring-offset-2'
+                        : ''
+                    }`}
+                    style={{
+                      borderColor: colors.theme_menu_card_style === item.value
+                        ? activeTheme.colors.accent
+                        : activeTheme.colors.borderColor,
+                      ringColor: activeTheme.colors.accent,
+                    }}
+                  >
+                    <div className="font-semibold mb-1">{item.label}</div>
+                    <p className="text-sm text-muted-foreground">{item.hint}</p>
+                    <div
+                      className={`mt-3 h-14 rounded-lg border ${
+                        item.value === 'aero'
+                          ? 'bg-card/60 supports-[backdrop-filter]:bg-card/45 backdrop-blur-xl'
+                          : 'bg-card'
+                      }`}
+                      style={{ borderColor: activeTheme.colors.borderColor }}
+                    />
+                  </button>
+                ))}
               </div>
             </CardContent>
           </Card>

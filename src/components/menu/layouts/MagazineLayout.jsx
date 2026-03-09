@@ -10,10 +10,12 @@ export default function MagazineLayout({
   textSecondaryColor,
   loading = false,
   stockUtils,
-  formatCurrency 
+  formatCurrency,
+  menuCardStyle = 'solid'
 }) {
   const [currentPage, setCurrentPage] = useState(0);
   const totalPages = dishes.length;
+  const isAeroCard = menuCardStyle === 'aero';
 
   if (loading) {
     return (
@@ -95,7 +97,7 @@ export default function MagazineLayout({
       <div className="relative w-full max-w-4xl mx-auto">
         {/* Desktop: Horizontal */}
         <div className="hidden md:block">
-          <div className="relative aspect-[4/3] bg-white dark:bg-gray-900 rounded-2xl shadow-2xl overflow-hidden border-2 border-gray-200 dark:border-gray-700">
+          <div className={`relative aspect-[4/3] rounded-2xl shadow-2xl overflow-hidden border-2 ${isAeroCard ? 'bg-card/60 supports-[backdrop-filter]:bg-card/45 backdrop-blur-xl border-border/70' : 'bg-card border-gray-200 dark:border-gray-700'}`}>
             <AnimatePresence mode="wait" custom={direction}>
               <motion.div
                 key={currentPage}
@@ -185,7 +187,7 @@ export default function MagazineLayout({
 
         {/* Mobile: Vertical */}
         <div className="md:hidden">
-          <div className="relative min-h-[70vh] bg-white dark:bg-gray-900 rounded-2xl shadow-2xl overflow-hidden border-2 border-gray-200 dark:border-gray-700">
+          <div className={`relative min-h-[70vh] rounded-2xl shadow-2xl overflow-hidden border-2 ${isAeroCard ? 'bg-card/60 supports-[backdrop-filter]:bg-card/45 backdrop-blur-xl border-border/70' : 'bg-card border-gray-200 dark:border-gray-700'}`}>
             <AnimatePresence mode="wait" custom={direction}>
               <motion.div
                 key={currentPage}

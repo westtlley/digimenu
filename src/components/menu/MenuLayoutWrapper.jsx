@@ -17,7 +17,8 @@ export default function MenuLayoutWrapper({
   formatCurrency,
   slug = null,
   gridColsDesktop = null,
-  autoplayIntervalMs = null
+  autoplayIntervalMs = null,
+  menuCardStyle = 'solid'
 }) {
   const commonProps = {
     dishes,
@@ -30,7 +31,8 @@ export default function MenuLayoutWrapper({
     formatCurrency,
     slug,
     gridColsDesktop,
-    autoplayIntervalMs
+    autoplayIntervalMs,
+    menuCardStyle
   };
 
   switch (layout) {

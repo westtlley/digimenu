@@ -146,7 +146,8 @@ export default function GridLayout({
   loading = false,
   stockUtils,
   slug = null,
-  gridColsDesktop = null
+  gridColsDesktop = null,
+  menuCardStyle = 'solid'
 }) {
   const itemsCount = Array.isArray(dishes) ? dishes.length : 0;
   const gridDesktopColsClass =
@@ -208,6 +209,7 @@ export default function GridLayout({
             primaryColor={primaryColor}
             textPrimaryColor={textPrimaryColor}
             slug={slug}
+            menuCardStyle={menuCardStyle}
           />
         );
       })}
