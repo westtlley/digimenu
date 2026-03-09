@@ -59,6 +59,7 @@ export default function CheckoutView({
   userEmail = null,
   slug = null,
   checkoutSuggestion = null,
+  checkoutNudge = null,
   onCheckoutSuggestion = () => {}
 }) {
   const customer = customerProp ?? DEFAULT_CUSTOMER;
@@ -769,6 +770,13 @@ export default function CheckoutView({
                     </div>
                   )}
                 </div>
+              </section>
+            )}
+
+            {checkoutNudge && (
+              <section className="bg-emerald-50/80 rounded-xl p-3 border border-emerald-200/70">
+                <p className="text-xs font-semibold text-emerald-900">Falta pouco para melhorar sua compra</p>
+                <p className="text-xs text-emerald-800 mt-1">{checkoutNudge}</p>
               </section>
             )}
 

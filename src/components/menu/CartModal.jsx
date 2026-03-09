@@ -40,6 +40,8 @@ export default function CartModal({
   onReviewBonus = null,
   mobileFullScreen = false,
   smartSuggestions = [],
+  smartNudgeMain = null,
+  smartNudgeSecondary = null,
   onSelectSuggestion = null
 }) {
   const [activeTab, setActiveTab] = useState('cart'); // 'cart' ou 'orders'
@@ -131,16 +133,21 @@ export default function CartModal({
   const cartTotal = cart.reduce((sum, item) => sum + item.totalPrice * (item.quantity || 1), 0);
   const cartItemsCount = cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
   const cartHasBeverage = cart.some((item) => item?.dish?.product_type === 'beverage');
+  const freeDeliveryMin = Number(store?.free_delivery_min_value || 0);
+  const hasFreeDeliveryProgress = freeDeliveryMin > 0 && cartTotal > 0 && cartTotal < freeDeliveryMin;
   const cartIncentiveMessage = (() => {
-    const freeDeliveryMin = Number(store?.free_delivery_min_value || 0);
-    if (freeDeliveryMin > 0 && cartTotal > 0 && cartTotal < freeDeliveryMin) {
-      return `Faltam ${formatCurrency(freeDeliveryMin - cartTotal)} para tentar frete grátis.`;
+    if (smartNudgeMain) {
+      return smartNudgeMain;
+    }
+    if (hasFreeDeliveryProgress) {
+      return `Faltam ${formatCurrency(freeDeliveryMin - cartTotal)} para tentar frete gratis.`;
     }
     if (!cartHasBeverage) {
       return 'Dica: adicionar uma bebida costuma aumentar o valor percebido do pedido.';
     }
-    return 'Seu carrinho está pronto para checkout.';
+    return 'Seu carrinho esta pronto para checkout.';
   })();
+  const cartSecondaryMessage = !hasFreeDeliveryProgress && smartNudgeSecondary ? smartNudgeSecondary : null;
 
   // Buscar pedidos do cliente autenticado (incluindo entregues recentemente)
   const { data: orders = [], isLoading: ordersLoading } = useQuery({
@@ -700,20 +707,20 @@ export default function CartModal({
           {activeTab === 'cart' && cart.length > 0 && (
             <div className={`border-t p-4 space-y-3 ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
               {/* 🚚 Barra de Progresso de Frete Grátis */}
-              {store?.free_delivery_min_value && cartTotal > 0 && cartTotal < store.free_delivery_min_value && (
+              {hasFreeDeliveryProgress && (
                 <div className={`p-3 rounded-lg ${darkMode ? 'bg-blue-900/30 border border-blue-700' : 'bg-blue-50 border border-blue-200'}`}>
                   <div className="flex justify-between text-sm mb-2">
                     <span className={`font-medium ${darkMode ? 'text-blue-300' : 'text-blue-700'}`}>
-                      Frete grátis acima de {formatCurrency(store.free_delivery_min_value)}
+                      Frete grátis acima de {formatCurrency(freeDeliveryMin)}
                     </span>
                     <span className={`font-bold ${darkMode ? 'text-blue-200' : 'text-blue-800'}`}>
-                      Faltam {formatCurrency(store.free_delivery_min_value - cartTotal)}
+                      Faltam {formatCurrency(freeDeliveryMin - cartTotal)}
                     </span>
                   </div>
                   <div className={`h-2 rounded-full overflow-hidden ${darkMode ? 'bg-blue-800' : 'bg-blue-200'}`}>
                     <div 
                       className={`h-full transition-all duration-500 ${darkMode ? 'bg-gradient-to-r from-blue-500 to-blue-400' : 'bg-gradient-to-r from-blue-500 to-green-500'}`}
-                      style={{ width: `${Math.min((cartTotal / store.free_delivery_min_value) * 100, 100)}%` }}
+                      style={{ width: `${Math.min((cartTotal / freeDeliveryMin) * 100, 100)}%` }}
                     />
                   </div>
                 </div>
@@ -739,18 +746,28 @@ export default function CartModal({
               <div className={`rounded-lg px-3 py-2 text-xs font-medium ${darkMode ? 'bg-blue-900/30 text-blue-200 border border-blue-800' : 'bg-blue-50 text-blue-700 border border-blue-200'}`}>
                 {cartIncentiveMessage}
               </div>
+              {cartSecondaryMessage && (
+                <div className={`rounded-lg px-3 py-2 text-[11px] ${darkMode ? 'bg-gray-800/60 text-gray-300 border border-gray-700' : 'bg-gray-100 text-gray-700 border border-gray-200'}`}>
+                  {cartSecondaryMessage}
+                </div>
+              )}
 
               {Array.isArray(smartSuggestions) && smartSuggestions.length > 0 && (
                 <div className="space-y-2">
                   <p className={`text-xs font-semibold uppercase tracking-wide ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                    Clientes também pedem
+                    Complete seu pedido com
                   </p>
                   <div className="flex gap-2 overflow-x-auto pb-1">
-                    {smartSuggestions.slice(0, 4).map((suggestion) => (
+                    {smartSuggestions.slice(0, 2).map((suggestion, index) => (
                       <div
                         key={suggestion.id}
                         className={`min-w-[180px] max-w-[180px] rounded-lg border p-2 ${darkMode ? 'border-gray-600 bg-gray-700/40' : 'border-gray-200 bg-white'}`}
                       >
+                        <div className="mb-1">
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0.5">
+                            {index === 0 ? 'Sugestao principal' : 'Alternativa'}
+                          </Badge>
+                        </div>
                         <div className="w-full h-20 rounded-md overflow-hidden bg-gray-100 mb-2">
                           {suggestion?.image ? (
                             <img src={suggestion.image} alt={suggestion.name} className="w-full h-full object-cover" />
@@ -912,3 +929,4 @@ export default function CartModal({
 
   return createPortal(modalContent, document.body);
 }
+
