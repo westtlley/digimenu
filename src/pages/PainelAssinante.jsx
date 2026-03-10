@@ -50,10 +50,10 @@ import AffiliateProgram from '../components/admin/AffiliateProgram';
 function AccessDenied() {
   return (
     <div className="flex items-center justify-center h-96">
-      <div className="bg-white p-8 rounded-xl shadow text-center">
+      <div className="bg-card text-card-foreground border border-border p-8 rounded-xl shadow text-center">
         <Lock className="w-10 h-10 text-red-500 mx-auto mb-3" />
         <h2 className="text-lg font-semibold">Acesso não permitido</h2>
-        <p className="text-sm text-gray-500 mt-2">
+        <p className="text-sm text-muted-foreground mt-2">
           Esta funcionalidade não está disponível no seu plano atual.
         </p>
       </div>
@@ -242,6 +242,10 @@ export default function PainelAssinante() {
     effectiveSubscriberForList = user.email;
   }
 
+  const isBasicPizzariaProfile = !isMaster &&
+    String(subscriberData?.plan || '').toLowerCase() === 'basic' &&
+    hasModuleAccess('pizza_config');
+
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
@@ -280,7 +284,7 @@ export default function PainelAssinante() {
       case 'dishes':
       case 'categories': // ✅ Redirecionar para dishes (categorias dentro de pratos)
       case 'complements': // ✅ Redirecionar para dishes (complementos dentro de pratos)
-        return hasModuleAccess('dishes') ? (
+        return hasModuleAccess('dishes') && !isBasicPizzariaProfile ? (
           <DishesTab 
             initialTab={activeTab === 'categories' ? 'categories' : activeTab === 'complements' ? 'complements' : 'dishes'}
           />

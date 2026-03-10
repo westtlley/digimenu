@@ -182,6 +182,9 @@ export default function Admin() {
   // ✅ Renderizar abas - orquestração limpa, sem decisões de permissão aqui
   const renderTabContent = () => {
     log.admin.log('🍽️ [Admin] renderTabContent chamado, activeTab:', activeTab);
+    const isBasicPizzariaProfile = !isMaster &&
+      String(subscriberData?.plan || '').toLowerCase() === 'basic' &&
+      hasModuleAccess('pizza_config');
     
     switch (activeTab) {
       case 'dashboard':
@@ -200,7 +203,7 @@ export default function Admin() {
       case 'categories': // ✅ Redirecionar para dishes (categorias dentro de pratos)
       case 'complements': // ✅ Redirecionar para dishes (complementos dentro de pratos)
         // ✅ Master sempre tem acesso
-        if (!isMaster && !hasModuleAccess('dishes')) {
+        if (!isMaster && (!hasModuleAccess('dishes') || isBasicPizzariaProfile)) {
           log.admin.warn('🍽️ [Admin] ACESSO NEGADO ao DishesTab');
           return <AccessDenied message="Você não tem acesso ao módulo de pratos." />;
         }
