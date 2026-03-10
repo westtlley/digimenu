@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { apiClient as base44 } from '@/api/apiClient';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
@@ -60,7 +60,18 @@ export default function PDV() {
   const { isMaster } = usePermission();
   const { requireAuthorization, modal: authModal } = useManagerialAuth();
   const { slug, subscriberEmail, inSlugContext, loading: slugLoading, error: slugError } = useSlugContext();
-  const asSub = (inSlugContext && isMaster && subscriberEmail) ? subscriberEmail : undefined;
+  const canonicalPdvPath = useMemo(() => createPageUrl('PDV', slug || undefined), [slug]);
+  const normalizedSlugSubscriber = useMemo(
+    () => (inSlugContext && subscriberEmail ? String(subscriberEmail).toLowerCase().trim() : null),
+    [inSlugContext, subscriberEmail]
+  );
+  const fallbackSubscriber = useMemo(() => {
+    const candidate = user?.subscriber_email || user?.email;
+    return candidate ? String(candidate).toLowerCase().trim() : null;
+  }, [user?.subscriber_email, user?.email]);
+  const tenantIdentifier = normalizedSlugSubscriber || fallbackSubscriber;
+  const asSub = (inSlugContext && isMaster && normalizedSlugSubscriber) ? normalizedSlugSubscriber : undefined;
+  const tenantScope = asSub || tenantIdentifier || 'none';
 
   const [showMenuVendas, setShowMenuVendas] = useState(false);
   const [showFechamentoModal, setShowFechamentoModal] = useState(false);
@@ -81,12 +92,16 @@ export default function PDV() {
 
   // Verificar autenticaÃ§Ã£o e permissÃ£o
   useEffect(() => {
+    if (slugLoading) return;
+    let cancelled = false;
+    setLoading(true);
     (async () => {
       try {
         const me = await base44.auth.me();
+        if (cancelled) return;
         setUser(me);
         if (!me) {
-          base44.auth.redirectToLogin('/PDV');
+          base44.auth.redirectToLogin(canonicalPdvPath);
           return;
         }
         
@@ -107,52 +122,69 @@ export default function PDV() {
         // Se nÃ£o tem subscriber_email mas tem email, pode ser o prÃ³prio assinante
         const isOwner = !me.subscriber_email || (me.email && me.subscriber_email && me.email.toLowerCase().trim() === me.subscriber_email.toLowerCase().trim());
         
-        const hasAccess = isPDV || me?.is_master === true || isAssinante || isGerente || isOwner;
+        const slugSubscriberNormalized = (subscriberEmail || '').toLowerCase().trim();
+        const userSubscriberNormalized = (me?.subscriber_email || me?.email || '').toLowerCase().trim();
+        const tenantMatchesSlug =
+          !inSlugContext ||
+          !slugSubscriberNormalized ||
+          me?.is_master === true ||
+          userSubscriberNormalized === slugSubscriberNormalized;
+        const hasAccess = (isPDV || me?.is_master === true || isAssinante || isGerente || isOwner) && tenantMatchesSlug;
         
         console.log('[PDV] Resultado da verificaÃ§Ã£o:', {
           isAssinante,
           isGerente,
           isPDV,
           isOwner,
+          tenantMatchesSlug,
           hasAccess
         });
         
         setAllowed(hasAccess);
-        if (!hasAccess) {
-          setLoading(false);
-          return;
-        }
       } catch (e) {
         console.error('[PDV] Erro ao verificar permissÃµes:', e);
-        base44.auth.redirectToLogin('/PDV');
+        if (!cancelled) {
+          base44.auth.redirectToLogin(canonicalPdvPath);
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     })();
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [canonicalPdvPath, inSlugContext, slugLoading, subscriberEmail]);
   
   // Define pÃ¡gina de volta baseado no tipo de usuÃ¡rio
-  const backPage = isMaster ? 'Admin' : 'PainelAssinante';
-  const backUrl = createPageUrl(backPage, isMaster ? undefined : slug || undefined);
+  const userRoles = user?.profile_roles?.length ? user.profile_roles : user?.profile_role ? [user.profile_role] : [];
+  const isPdvOperatorOnly = userRoles.includes('pdv') && !userRoles.includes('gerente') && !isMaster;
+  const backPage = isMaster ? 'Admin' : (isPdvOperatorOnly ? 'ColaboradorHome' : 'PainelAssinante');
+  const backUrl = backPage === 'ColaboradorHome'
+    ? createPageUrl('ColaboradorHome')
+    : createPageUrl(backPage, isMaster ? undefined : slug || undefined);
 
-  // Garantir que opts sempre tenha o identificador correto do assinante
-  // Prioridade: asSub (master em contexto slug) > subscriber_email > email
-  const subscriberIdentifier = asSub || user?.subscriber_email || user?.email;
-  const opts = subscriberIdentifier ? { as_subscriber: subscriberIdentifier } : {};
+  // master em contexto slug usa as_subscriber; demais usuários usam escopo do próprio token.
+  const subscriberIdentifier = tenantIdentifier;
+  const opts = asSub ? { as_subscriber: asSub } : {};
   const { data: dishes = [] } = useQuery({
-    queryKey: ['dishes', asSub ?? 'me'],
+    queryKey: ['dishes', tenantScope],
     queryFn: () => base44.entities.Dish.list(null, opts),
+    enabled: !!user && allowed,
   });
 
   const { data: categories = [] } = useQuery({
-    queryKey: ['categories', asSub ?? 'me'],
+    queryKey: ['categories', tenantScope],
     queryFn: () => base44.entities.Category.list('order', opts),
+    enabled: !!user && allowed,
   });
 
   const { data: complementGroups = [] } = useQuery({
-    queryKey: ['complementGroups', asSub ?? 'me'],
+    queryKey: ['complementGroups', tenantScope],
     queryFn: () => base44.entities.ComplementGroup.list('order', opts),
     refetchOnMount: 'always',
+    enabled: !!user && allowed,
   });
 
   const { data: caixas = [], isLoading: caixasLoading } = useQuery({
@@ -166,7 +198,7 @@ export default function PDV() {
   });
 
   const { data: caixaOperationsAll = [] } = useQuery({
-    queryKey: ['caixaOperations', asSub ?? 'me'],
+    queryKey: ['caixaOperations', tenantScope],
     queryFn: () => base44.entities.CaixaOperation.list('-date', opts).catch(() => []),
     enabled: !!user && allowed,
   });
@@ -175,13 +207,15 @@ export default function PDV() {
     : [];
 
   const { data: pdvSales = [] } = useQuery({
-    queryKey: ['pedidosPDV', asSub ?? 'me'],
+    queryKey: ['pedidosPDV', tenantScope],
     queryFn: () => base44.entities.PedidoPDV.list('-created_date', opts).catch(() => []),
+    enabled: !!user && allowed,
   });
 
   const { data: storeList = [] } = useQuery({
-    queryKey: ['store', asSub ?? 'me'],
+    queryKey: ['store', tenantScope],
     queryFn: () => base44.entities.Store.list(null, opts),
+    enabled: !!user && allowed,
   });
   const store = storeList[0] || { theme_primary_color: '#f97316' };
 
@@ -190,7 +224,7 @@ export default function PDV() {
     : ['PDV 1', 'PDV 2', 'PDV 3'];
 
   const { data: pdvSessionsRaw = [] } = useQuery({
-    queryKey: ['pdvSessions', asSub ?? 'me'],
+    queryKey: ['pdvSessions', tenantScope],
     queryFn: () => base44.entities.PDVSession.list('-created_at', opts).catch(() => []),
     enabled: !!user && allowed,
   });
@@ -198,33 +232,39 @@ export default function PDV() {
   const activePdvSessions = Array.isArray(pdvSessionsRaw) ? pdvSessionsRaw.filter(s => !s.ended_at) : [];
 
   const { data: pizzaSizes = [] } = useQuery({
-    queryKey: ['pizzaSizes', asSub ?? 'me'],
+    queryKey: ['pizzaSizes', tenantScope],
     queryFn: () => base44.entities.PizzaSize.list('order', opts),
+    enabled: !!user && allowed,
   });
 
   const { data: pizzaFlavors = [] } = useQuery({
-    queryKey: ['pizzaFlavors', asSub ?? 'me'],
+    queryKey: ['pizzaFlavors', tenantScope],
     queryFn: () => base44.entities.PizzaFlavor.list('order', opts),
+    enabled: !!user && allowed,
   });
 
   const { data: pizzaEdges = [] } = useQuery({
-    queryKey: ['pizzaEdges', asSub ?? 'me'],
+    queryKey: ['pizzaEdges', tenantScope],
     queryFn: () => base44.entities.PizzaEdge.list(null, opts),
+    enabled: !!user && allowed,
   });
 
   const { data: pizzaExtras = [] } = useQuery({
-    queryKey: ['pizzaExtras', asSub ?? 'me'],
+    queryKey: ['pizzaExtras', tenantScope],
     queryFn: () => base44.entities.PizzaExtra.list(null, opts),
+    enabled: !!user && allowed,
   });
 
   const { data: pizzaCategories = [] } = useQuery({
-    queryKey: ['pizzaCategories', asSub ?? 'me'],
+    queryKey: ['pizzaCategories', tenantScope],
     queryFn: () => base44.entities.PizzaCategory.list('order', opts),
+    enabled: !!user && allowed,
   });
 
   const { data: promotions = [] } = useQuery({
-    queryKey: ['promotions', asSub ?? 'me'],
+    queryKey: ['promotions', tenantScope],
     queryFn: () => base44.entities.Promotion.list(null, opts),
+    enabled: !!user && allowed,
   });
 
   const { showUpsellModal, upsellPromotions, checkUpsell, resetUpsell, closeUpsell } = useUpsell(
@@ -257,7 +297,17 @@ export default function PDV() {
   }, [caixas, caixasLoading]); // NÃ£o incluir openCaixa aqui para evitar loop
 
   const createPdvSessionMutation = useMutation({
-    mutationFn: async (payload) => base44.entities.PDVSession.create(payload),
+    mutationFn: async (payload) => {
+      if (!tenantIdentifier) {
+        throw new Error('Assinante não identificado para este PDV.');
+      }
+      return base44.entities.PDVSession.create({
+        ...payload,
+        subscriber_email: tenantIdentifier,
+        owner_email: tenantIdentifier,
+        ...(asSub ? { as_subscriber: asSub } : {}),
+      });
+    },
     onSuccess: (session) => {
       queryClient.invalidateQueries({ queryKey: ['pdvSessions'] });
       setPdvSession(session);
@@ -268,7 +318,7 @@ export default function PDV() {
   });
 
   const endPdvSessionMutation = useMutation({
-    mutationFn: async (sessionId) => base44.entities.PDVSession.update(sessionId, { ended_at: new Date().toISOString() }),
+    mutationFn: async (sessionId) => base44.entities.PDVSession.update(sessionId, { ended_at: new Date().toISOString() }, opts),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pdvSessions'] });
       setPdvSession(null);
@@ -293,11 +343,15 @@ export default function PDV() {
 
   const createOperationMutation = useMutation({
     mutationFn: async (data) => {
-      const user = await base44.auth.me();
+      if (!tenantIdentifier) {
+        throw new Error('Assinante não identificado para registrar operação de caixa.');
+      }
       return base44.entities.CaixaOperation.create({
         ...data,
-        subscriber_email: user?.subscriber_email || user?.email,
-        operator: user.email,
+        subscriber_email: tenantIdentifier,
+        owner_email: tenantIdentifier,
+        operator: user?.email || 'operador',
+        ...(asSub ? { as_subscriber: asSub } : {}),
         date: new Date().toISOString()
       });
     },
@@ -308,12 +362,15 @@ export default function PDV() {
 
   const openCaixaMutation = useMutation({
     mutationFn: async (data) => {
-      const user = await base44.auth.me();
+      if (!tenantIdentifier) {
+        throw new Error('Assinante não identificado para abrir caixa.');
+      }
       return base44.entities.Caixa.create({
         ...data,
-        subscriber_email: user?.subscriber_email || user?.email,
-        owner_email: user?.subscriber_email || user?.email,
-        opened_by: user.email,
+        subscriber_email: tenantIdentifier,
+        owner_email: tenantIdentifier,
+        opened_by: user?.email || tenantIdentifier,
+        ...(asSub ? { as_subscriber: asSub } : {}),
         terminal_id: pdvTerminalId || null,
         terminal_name: pdvTerminalName || null
       });
@@ -342,7 +399,6 @@ export default function PDV() {
 
   const closeCaixaMutation = useMutation({
     mutationFn: async ({ id, freshCaixa, totals, closingCash, closingNotes }) => {
-      const u = await base44.auth.me();
       const updateData = {
         ...freshCaixa,
         opening_amount_cash: Number(freshCaixa.opening_amount_cash) || 0,
@@ -355,7 +411,7 @@ export default function PDV() {
         total_other: totals.other,
         closing_amount_cash: Number(closingCash) || 0,
         closing_notes: closingNotes || '',
-        closed_by: u.email,
+        closed_by: user?.email || tenantIdentifier || freshCaixa?.closed_by,
         closing_date: new Date().toISOString()
       };
       delete updateData.id;
@@ -1002,7 +1058,7 @@ export default function PDV() {
                 className="h-12"
                 disabled={createPdvSessionMutation.isPending}
                 onClick={async () => {
-                  const me = await base44.auth.me();
+                  const me = user || await base44.auth.me();
                   await createPdvSessionMutation.mutateAsync({
                     terminal_id: String(i + 1),
                     terminal_name: typeof name === 'string' ? name : `PDV ${i + 1}`,
