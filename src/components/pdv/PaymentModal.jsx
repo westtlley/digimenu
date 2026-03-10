@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { DollarSign, Plus, Trash2, CheckCircle, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import toast from 'react-hot-toast';
 
 const PAYMENT_METHODS = [
   { id: 'dinheiro', label: 'Dinheiro', icon: '💵' },
@@ -16,6 +17,24 @@ const PAYMENT_METHODS = [
 ];
 
 const roundMoney = (value) => Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
+const parseMoneyInput = (value) => {
+  const raw = String(value ?? '').trim();
+  if (!raw) return Number.NaN;
+
+  let normalized = raw.replace(/\s/g, '');
+  if (normalized.includes(',') && normalized.includes('.')) {
+    if (normalized.lastIndexOf(',') > normalized.lastIndexOf('.')) {
+      normalized = normalized.replace(/\./g, '').replace(',', '.');
+    } else {
+      normalized = normalized.replace(/,/g, '');
+    }
+  } else {
+    normalized = normalized.replace(',', '.');
+  }
+
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : Number.NaN;
+};
 
 export default function PaymentModal({ 
   isOpen, 
@@ -29,6 +48,7 @@ export default function PaymentModal({
   const [selectedMethod, setSelectedMethod] = useState(null);
   const [paymentAmount, setPaymentAmount] = useState('');
   const [customerDocument, setCustomerDocument] = useState('');
+  const [operationMode, setOperationMode] = useState('financial');
 
   useEffect(() => {
     if (isOpen) {
@@ -37,6 +57,7 @@ export default function PaymentModal({
       setSelectedMethod(null);
       setPaymentAmount('');
       setCustomerDocument('');
+      setOperationMode('financial');
     }
   }, [isOpen, total]);
 
@@ -44,14 +65,23 @@ export default function PaymentModal({
   const totalPaid = roundMoney(payments.reduce((sum, p) => sum + p.amount, 0));
   const remaining = roundMoney(Math.max(0, normalizedTotal - totalPaid));
   const isComplete = remaining <= 0;
+  const parsedPaymentAmount = parseMoneyInput(paymentAmount);
+  const canAddPayment = Number.isFinite(parsedPaymentAmount) && parsedPaymentAmount > 0;
 
   const addPayment = () => {
-    if (!selectedMethod || paymentAmount === '') return;
+    if (!selectedMethod || !canAddPayment) return;
 
-    const enteredAmount = roundMoney(paymentAmount);
+    const enteredAmount = roundMoney(parsedPaymentAmount);
     if (enteredAmount <= 0) return;
 
-    const amount = roundMoney(Math.min(enteredAmount, remaining));
+    if (selectedMethod.id !== 'dinheiro' && enteredAmount > (remaining + 0.001)) {
+      toast.error(`Valor nao pode exceder o restante (${formatCurrency(remaining)})`);
+      return;
+    }
+
+    const amount = selectedMethod.id === 'dinheiro'
+      ? roundMoney(Math.min(enteredAmount, remaining))
+      : roundMoney(enteredAmount);
     if (amount <= 0) return;
 
     const tenderedAmount = selectedMethod.id === 'dinheiro' ? enteredAmount : amount;
@@ -99,7 +129,8 @@ export default function PaymentModal({
     onConfirm({
       payments: normalizedPayments,
       change: totalChange,
-      document: customerDocument
+      document: customerDocument,
+      productionMode: operationMode,
     });
   };
 
@@ -146,9 +177,17 @@ export default function PaymentModal({
                     <div className="flex items-center gap-3">
                       <CheckCircle className="w-5 h-5 text-green-600" />
                       <div>
-                        <p className="font-medium text-sm">{payment.methodLabel}</p>
+                        <p className="font-medium text-sm">
+                          {payment.method === 'dinheiro' && Number(payment.tendered_amount ?? payment.amount) > (Number(payment.amount) + 0.001)
+                            ? `${payment.methodLabel} (recebido)`
+                            : payment.methodLabel}
+                        </p>
                         <p className="text-lg font-bold text-green-600">
-                          {formatCurrency(payment.amount)}
+                          {formatCurrency(
+                            payment.method === 'dinheiro' && Number(payment.tendered_amount ?? payment.amount) > (Number(payment.amount) + 0.001)
+                              ? (payment.tendered_amount ?? payment.amount)
+                              : payment.amount
+                          )}
                         </p>
                       </div>
                     </div>
@@ -211,18 +250,13 @@ export default function PaymentModal({
                           Valor em {selectedMethod.label} (R$)
                         </Label>
                         <Input
-                          type="number"
-                          step="0.01"
+                          type="text"
+                          inputMode="decimal"
                           value={paymentAmount}
                           onChange={(e) => {
-                            const val = parseFloat(e.target.value);
-                            if (!e.target.value) {
-                              setPaymentAmount(e.target.value);
-                              return;
-                            }
-
-                            if (selectedMethod?.id === 'dinheiro' || val <= (remaining + 0.001)) {
-                              setPaymentAmount(e.target.value);
+                            const nextValue = e.target.value;
+                            if (nextValue === '' || /^\d+([.,]\d{0,2})?$/.test(nextValue)) {
+                              setPaymentAmount(nextValue);
                             }
                           }}
                           placeholder={
@@ -248,7 +282,7 @@ export default function PaymentModal({
                         </Button>
                         <Button
                           onClick={addPayment}
-                          disabled={!paymentAmount || parseFloat(paymentAmount) <= 0}
+                          disabled={!canAddPayment}
                           className="flex-1 bg-green-600 hover:bg-green-700"
                         >
                           <Plus className="w-4 h-4 mr-2" />
@@ -300,6 +334,40 @@ export default function PaymentModal({
                 placeholder="000.000.000-00"
                 className="h-10"
               />
+            </div>
+          )}
+
+          {payments.length > 0 && (
+            <div className="space-y-2">
+              <Label className="mb-1 block text-xs text-gray-600">
+                Tipo da operação
+              </Label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setOperationMode('financial')}
+                  className={`rounded-lg border px-3 py-2 text-left transition-colors ${
+                    operationMode === 'financial'
+                      ? 'border-green-500 bg-green-50 text-green-700'
+                      : 'border-gray-200 bg-white text-gray-700'
+                  }`}
+                >
+                  <p className="text-sm font-semibold">Venda financeira</p>
+                  <p className="text-xs opacity-80">Nao envia para Cozinha</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOperationMode('productive')}
+                  className={`rounded-lg border px-3 py-2 text-left transition-colors ${
+                    operationMode === 'productive'
+                      ? 'border-orange-500 bg-orange-50 text-orange-700'
+                      : 'border-gray-200 bg-white text-gray-700'
+                  }`}
+                >
+                  <p className="text-sm font-semibold">Pedido com preparo</p>
+                  <p className="text-xs opacity-80">Envia para Cozinha</p>
+                </button>
+              </div>
             </div>
           )}
         </div>

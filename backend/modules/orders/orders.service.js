@@ -184,6 +184,7 @@ export async function createTableOrder(orderData, slug) {
       table_id: tableId,
       table_number: tableNumber,
       delivery_type: 'table',
+      source: 'public',
       status: 'new',
       customer_name: customerName,
       customer_phone: customerPhone || null,
@@ -354,6 +355,7 @@ export async function createCardapioOrder(orderData, slug) {
     discount,
     total,
     status: 'new',
+    source: 'public',
     created_date: new Date().toISOString(),
     owner_email: subscriberEmail
   };

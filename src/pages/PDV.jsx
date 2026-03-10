@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Search, Receipt, ShoppingCart, AlertTriangle, ArrowLeft, Trash2, Plus, Minus, X, History, Clock, Loader2, LogOut, CreditCard, Wallet, TrendingUp, TrendingDown, Lock } from 'lucide-react';
-import toast, { Toaster } from 'react-hot-toast';
+import toast from 'react-hot-toast';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { useSlugContext } from '@/hooks/useSlugContext';
@@ -42,7 +42,7 @@ export default function PDV() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [lastSale, setLastSale] = useState(null);
   const [selectedDish, setSelectedDish] = useState(null);
-  const [customerName, setCustomerName] = useState('Cliente BalcÃ£o');
+  const [customerName, setCustomerName] = useState('Cliente Balcão');
   const [customerPhone, setCustomerPhone] = useState('');
   const [openCaixa, setOpenCaixa] = useState(null);
   const [showMobileCart, setShowMobileCart] = useState(false);
@@ -85,12 +85,12 @@ export default function PDV() {
   const [closingCashAmount, setClosingCashAmount] = useState('');
   const [closingNotes, setClosingNotes] = useState('');
   
-  // Tracking de cancelamentos em tela (para relatÃ³rio de fechamento)
+  // Tracking de cancelamentos em tela (para relatÃƒÂ³rio de fechamento)
   const [canceledInScreenCount, setCanceledInScreenCount] = useState(0);
   const [canceledInScreenTotal, setCanceledInScreenTotal] = useState(0);
   const saleClientRequestIdRef = useRef(null);
 
-  // Verificar autenticaÃ§Ã£o e permissÃ£o
+  // Verificar autenticaÃƒÂ§ÃƒÂ£o e permissÃƒÂ£o
   useEffect(() => {
     if (slugLoading) return;
     let cancelled = false;
@@ -105,7 +105,7 @@ export default function PDV() {
           return;
         }
         
-        console.log('[PDV] Verificando acesso para usuÃ¡rio:', {
+        console.log('[PDV] Verificando acesso para usuÃƒÂ¡rio:', {
           email: me.email,
           subscriber_email: me.subscriber_email,
           profile_role: me.profile_role,
@@ -113,13 +113,13 @@ export default function PDV() {
           is_master: me.is_master
         });
         
-        // Verificar se tem perfil de PDV, Ã© master, Ã© assinante ou Ã© gerente (acesso total)
+        // Verificar se tem perfil de PDV, ÃƒÂ© master, ÃƒÂ© assinante ou ÃƒÂ© gerente (acesso total)
         const isAssinante = me?.subscriber_email && (me?.email || '').toLowerCase().trim() === (me?.subscriber_email || '').toLowerCase().trim();
         const roles = me?.profile_roles?.length ? me.profile_roles : me?.profile_role ? [me.profile_role] : [];
         const isGerente = roles.includes('gerente');
         const isPDV = me?.profile_role === 'pdv' || roles.includes('pdv');
         
-        // Se nÃ£o tem subscriber_email mas tem email, pode ser o prÃ³prio assinante
+        // Se nÃƒÂ£o tem subscriber_email mas tem email, pode ser o prÃƒÂ³prio assinante
         const isOwner = !me.subscriber_email || (me.email && me.subscriber_email && me.email.toLowerCase().trim() === me.subscriber_email.toLowerCase().trim());
         
         const slugSubscriberNormalized = (subscriberEmail || '').toLowerCase().trim();
@@ -131,7 +131,7 @@ export default function PDV() {
           userSubscriberNormalized === slugSubscriberNormalized;
         const hasAccess = (isPDV || me?.is_master === true || isAssinante || isGerente || isOwner) && tenantMatchesSlug;
         
-        console.log('[PDV] Resultado da verificaÃ§Ã£o:', {
+        console.log('[PDV] Resultado da verificaÃƒÂ§ÃƒÂ£o:', {
           isAssinante,
           isGerente,
           isPDV,
@@ -142,7 +142,7 @@ export default function PDV() {
         
         setAllowed(hasAccess);
       } catch (e) {
-        console.error('[PDV] Erro ao verificar permissÃµes:', e);
+        console.error('[PDV] Erro ao verificar permissÃƒÂµes:', e);
         if (!cancelled) {
           base44.auth.redirectToLogin(canonicalPdvPath);
         }
@@ -157,7 +157,7 @@ export default function PDV() {
     };
   }, [canonicalPdvPath, inSlugContext, slugLoading, subscriberEmail]);
   
-  // Define pÃ¡gina de volta baseado no tipo de usuÃ¡rio
+  // Define pÃƒÂ¡gina de volta baseado no tipo de usuÃƒÂ¡rio
   const userRoles = user?.profile_roles?.length ? user.profile_roles : user?.profile_role ? [user.profile_role] : [];
   const isPdvOperatorOnly = userRoles.includes('pdv') && !userRoles.includes('gerente') && !isMaster;
   const backPage = isMaster ? 'Admin' : (isPdvOperatorOnly ? 'ColaboradorHome' : 'PainelAssinante');
@@ -165,7 +165,7 @@ export default function PDV() {
     ? createPageUrl('ColaboradorHome')
     : createPageUrl(backPage, isMaster ? undefined : slug || undefined);
 
-  // master em contexto slug usa as_subscriber; demais usuários usam escopo do próprio token.
+  // master em contexto slug usa as_subscriber; demais usuÃ¡rios usam escopo do prÃ³prio token.
   const subscriberIdentifier = tenantIdentifier;
   const opts = asSub ? { as_subscriber: asSub } : {};
   const { data: dishes = [] } = useQuery({
@@ -228,7 +228,7 @@ export default function PDV() {
     queryFn: () => base44.entities.PDVSession.list('-created_at', opts).catch(() => []),
     enabled: !!user && allowed,
   });
-  // Filtrar sessÃµes ativas no frontend (ended_at null/undefined)
+  // Filtrar sessÃƒÂµes ativas no frontend (ended_at null/undefined)
   const activePdvSessions = Array.isArray(pdvSessionsRaw) ? pdvSessionsRaw.filter(s => !s.ended_at) : [];
 
   const { data: pizzaSizes = [] } = useQuery({
@@ -273,7 +273,7 @@ export default function PDV() {
   );
 
   useEffect(() => {
-    // NÃ£o executar se jÃ¡ hÃ¡ um caixa no estado e nÃ£o estÃ¡ carregando
+    // NÃƒÂ£o executar se jÃƒÂ¡ hÃƒÂ¡ um caixa no estado e nÃƒÂ£o estÃƒÂ¡ carregando
     if (caixasLoading) return;
     
     const activeCaixa = (caixas || []).find(c => c && c.status === 'open');
@@ -283,18 +283,18 @@ export default function PDV() {
       setOpenCaixa(activeCaixa);
       setShowOpenCaixaModal(false);
     } 
-    // Se nÃ£o hÃ¡ caixa aberto mas hÃ¡ caixas fechados, limpar estado e mostrar modal
+    // Se nÃƒÂ£o hÃƒÂ¡ caixa aberto mas hÃƒÂ¡ caixas fechados, limpar estado e mostrar modal
     else if (Array.isArray(caixas) && caixas.length > 0 && !activeCaixa) {
-      // SÃ³ limpar se realmente nÃ£o houver caixa aberto
+      // SÃƒÂ³ limpar se realmente nÃƒÂ£o houver caixa aberto
       if (openCaixa && openCaixa.status === 'open') {
         setOpenCaixa(null);
       }
     }
-    // Se nÃ£o hÃ¡ caixas na lista, mostrar modal
+    // Se nÃƒÂ£o hÃƒÂ¡ caixas na lista, mostrar modal
     else if (caixas.length === 0 && !openCaixa) {
       setShowOpenCaixaModal(true);
     }
-  }, [caixas, caixasLoading]); // NÃ£o incluir openCaixa aqui para evitar loop
+  }, [caixas, caixasLoading]); // NÃƒÂ£o incluir openCaixa aqui para evitar loop
 
   const createPdvSessionMutation = useMutation({
     mutationFn: async (payload) => {
@@ -393,7 +393,7 @@ export default function PDV() {
       setShowOpenCaixaModal(false);
       setOpeningAmount('');
       setLockThreshold('');
-      toast.success('âœ… Caixa aberto com sucesso!');
+      toast.success('Caixa aberto com sucesso!');
     },
   });
 
@@ -432,9 +432,9 @@ export default function PDV() {
       await queryClient.invalidateQueries({ queryKey: ['caixas'] });
       await queryClient.refetchQueries({ queryKey: ['caixas'] });
       
-      toast.success('âœ… Caixa fechado com sucesso!');
+      toast.success('Caixa fechado com sucesso!');
       
-      // Mostrar modal de abertura apÃ³s um delay para garantir que o estado estÃ¡ limpo
+      // Mostrar modal de abertura apÃƒÂ³s um delay para garantir que o estado estÃƒÂ¡ limpo
       setTimeout(() => {
         setShowOpenCaixaModal(true);
       }, 300);
@@ -538,7 +538,7 @@ export default function PDV() {
     const freshCaixas = await base44.entities.Caixa.list('-opening_date', opts);
     const freshCaixa = Array.isArray(freshCaixas) ? freshCaixas.find((c) => String(c.id) === String(openCaixa.id)) : null;
     if (!freshCaixa) {
-      toast.error('Caixa nÃ£o encontrado');
+      toast.error('Caixa não encontrado');
       return;
     }
     closeCaixaMutation.mutate({
@@ -564,12 +564,12 @@ export default function PDV() {
 
   const handleDishClick = (dish) => {
     if (!openCaixa) {
-      toast.error('âš ï¸ Abra o caixa para iniciar as vendas');
+      toast.error('Abra o caixa para iniciar as vendas.');
       setShowOpenCaixaModal(true);
       return;
     }
     if (isCaixaLocked) {
-      toast.error('ðŸ”’ Caixa travado. FaÃ§a uma retirada em Caixa para continuar.');
+      toast.error('Caixa travado. Faça uma retirada em Caixa para continuar.');
       return;
     }
 
@@ -591,12 +591,12 @@ export default function PDV() {
 
   const addToCart = (item) => {
     if (!openCaixa) {
-      toast.error('âš ï¸ Abra o caixa para iniciar as vendas');
+      toast.error('Abra o caixa para iniciar as vendas.');
       setShowOpenCaixaModal(true);
       return;
     }
     if (isCaixaLocked) {
-      toast.error('ðŸ”’ Caixa travado. FaÃ§a uma retirada em Caixa para continuar.');
+      toast.error('Caixa travado. Faça uma retirada em Caixa para continuar.');
       return;
     }
     const newItem = { ...item, quantity: 1, id: Date.now() };
@@ -658,7 +658,7 @@ export default function PDV() {
     }
 
     if (cart.length > 0) {
-      // Tracking de cancelamento em tela para relatÃ³rio
+      // Tracking de cancelamento em tela para relatÃƒÂ³rio
       const cartTotal = calculateTotal();
       setCanceledInScreenCount(prev => prev + 1);
       setCanceledInScreenTotal(prev => prev + cartTotal);
@@ -667,7 +667,7 @@ export default function PDV() {
     setCart([]);
     setDiscountReais('');
     setDiscountPercent('');
-    setCustomerName('Cliente BalcÃ£o');
+    setCustomerName('Cliente Balcão');
     setCustomerPhone('');
     setSelectedDish(null);
     setSelectedPizza(null);
@@ -701,11 +701,11 @@ export default function PDV() {
     onCancelSale: clearCart,
     onFinishSale: () => {
       if (!openCaixa) {
-        toast.error('Abra o caixa para iniciar as vendas.');
+      toast.error('Abra o caixa para iniciar as vendas.');
         return;
       }
       if (isCaixaLocked) {
-        toast.error('Caixa travado. Faça uma retirada em Caixa para continuar.');
+      toast.error('Caixa travado. Faça uma retirada em Caixa para continuar.');
         return;
       }
       if (cart.length === 0) {
@@ -744,7 +744,7 @@ export default function PDV() {
         <div className="bg-card rounded-2xl shadow-lg p-8 max-w-md text-center">
           <CreditCard className="w-16 h-16 text-orange-500 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-foreground mb-2">Acesso restrito</h2>
-          <p className="text-muted-foreground mb-6">Esta tela Ã© apenas para o perfil PDV.</p>
+          <p className="text-muted-foreground mb-6">Esta tela é apenas para o perfil PDV.</p>
           <Button onClick={() => base44.auth.logout()} className="bg-orange-600 hover:bg-orange-700 text-primary-foreground">
             <LogOut className="w-4 h-4 mr-2" />
             Sair
@@ -761,13 +761,12 @@ export default function PDV() {
         setOpenCaixa(existingOpenCaixa);
       }
       setShowOpenCaixaModal(false);
-      toast.error('JÃ¡ existe um caixa aberto. Feche o caixa atual antes de abrir outro.');
       return;
     }
 
     const amount = parseFloat(openingAmount);
     if (isNaN(amount) || amount < 0) {
-      toast.error('Informe um valor vÃ¡lido de abertura');
+      toast.error('Informe um valor válido de abertura');
       return;
     }
     const lock = lockThreshold ? parseFloat(lockThreshold) : null;
@@ -816,7 +815,7 @@ export default function PDV() {
 
   const handleFinalizeSale = async (paymentData) => {
     if (!openCaixa) {
-      toast.error('Abra o caixa para iniciar as vendas');
+      toast.error('Abra o caixa para iniciar as vendas.');
       setShowPaymentModal(false);
       setShowOpenCaixaModal(true);
       return;
@@ -854,6 +853,7 @@ export default function PDV() {
         discount: totalDiscount,
         total,
         payments: paymentData.payments,
+        production_mode: paymentData.productionMode || 'financial',
         seller_email: user.email,
         seller_name: user.full_name,
         ...(pdvTerminalId && { pdv_terminal_id: pdvTerminalId }),
@@ -940,7 +940,7 @@ export default function PDV() {
           dedupeWindowMs: 20000,
         });
         if (!printed) {
-          toast.error('Popup bloqueado. Permita popups para impressao automatica.');
+          toast.error('Popup bloqueado. Permita popups para impressão automática.');
         }
       }
 
@@ -956,11 +956,11 @@ export default function PDV() {
     const isClickEvent = !!(saleData && typeof saleData === 'object' && (saleData.nativeEvent || saleData.currentTarget));
     const sale = isClickEvent ? lastSale : (saleData || lastSale);
     if (!sale) {
-      toast.error('Nenhuma venda disponÃ­vel para impressÃ£o');
+      toast.error('Nenhuma venda disponível para impressão');
       return;
     }
 
-    // Usar funÃ§Ã£o de impressÃ£o tÃ©rmica
+    // Usar funÃƒÂ§ÃƒÂ£o de impressÃƒÂ£o tÃƒÂ©rmica
     const printed = printReceipt(sale, store, 'css');
     if (!printed) {
       toast.error('Popup bloqueado. Permita popups para imprimir.');
@@ -969,7 +969,6 @@ export default function PDV() {
 
   return (
     <div className="min-h-screen min-h-screen-mobile h-screen flex flex-col bg-muted/40">
-      <Toaster position="top-center" />
       {authModal}
 
       {/* Header Fixo */}
@@ -992,11 +991,11 @@ export default function PDV() {
             <InstallAppButton pageName="PDV" compact />
             {openCaixa ? (
               <Badge variant="outline" className="bg-green-600 text-primary-foreground border-green-600 h-8 font-semibold">
-                âœ… Caixa Aberto
+                Caixa Aberto
               </Badge>
             ) : (
               <Badge variant="outline" className="bg-red-600 text-primary-foreground border-red-600 h-8 font-semibold">
-                ðŸ”’ Caixa Fechado
+                Caixa Fechado
               </Badge>
             )}
             <Badge variant="outline" className="text-primary-foreground border-border h-8 hidden sm:flex">
@@ -1019,7 +1018,7 @@ export default function PDV() {
               className="text-primary-foreground hover:bg-card h-10 hidden sm:flex"
             >
               <History className="w-4 h-4 mr-2" />
-              HistÃ³rico
+              Histórico
             </Button>
             {pdvSession && (
               <Button
@@ -1028,7 +1027,7 @@ export default function PDV() {
                 onClick={() => endPdvSessionMutation.mutate(pdvSession.id)}
                 disabled={endPdvSessionMutation.isPending}
                 className="text-primary-foreground hover:bg-card h-10 hidden sm:flex"
-                title="Sair deste PDV (encerra sua sessÃ£o)"
+                title="Sair deste PDV (encerra sua sessão)"
               >
                 {endPdvSessionMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogOut className="w-4 h-4 mr-2" />}
                 Sair do PDV
@@ -1049,7 +1048,7 @@ export default function PDV() {
           <DialogHeader>
             <DialogTitle>Selecionar terminal PDV</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">Em qual PDV vocÃª estÃ¡ operando?</p>
+          <p className="text-sm text-muted-foreground">Em qual PDV você está operando?</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 py-2">
             {pdvTerminals.map((name, i) => (
               <Button
@@ -1075,7 +1074,7 @@ export default function PDV() {
           <DialogFooter />
         </DialogContent>
       </Dialog>
-      {/* Modal Fechamento de Caixa (relatÃ³rio igual aos prints) */}
+      {/* Modal Fechamento de Caixa (relatÃƒÂ³rio igual aos prints) */}
       <FechamentoCaixaModal
         open={showFechamentoModal}
         onOpenChange={setShowFechamentoModal}
@@ -1124,7 +1123,7 @@ export default function PDV() {
         onOpenChange={setShowAtalhosHelp}
       />
 
-      {/* Modal de ReimpressÃ£o de Venda */}
+      {/* Modal de ReimpressÃƒÂ£o de Venda */}
       <ReimpressaoVendaModal
         open={showReimpressaoModal}
         onOpenChange={setShowReimpressaoModal}
@@ -1132,7 +1131,7 @@ export default function PDV() {
         asSubscriber={asSub}
       />
 
-      {/* Dialog valor ao fechar caixa (apÃ³s autorizaÃ§Ã£o) */}
+      {/* Dialog valor ao fechar caixa (apÃƒÂ³s autorizaÃƒÂ§ÃƒÂ£o) */}
       <Dialog open={showCloseCaixaDialog} onOpenChange={setShowCloseCaixaDialog}>
         <DialogContent>
           <DialogHeader>
@@ -1147,11 +1146,11 @@ export default function PDV() {
               onChange={(e) => setClosingCashAmount(e.target.value)}
               placeholder="0,00"
             />
-            <Label>ObservaÃ§Ãµes (opcional)</Label>
+            <Label>Observações (opcional)</Label>
             <Input
               value={closingNotes}
               onChange={(e) => setClosingNotes(e.target.value)}
-              placeholder="ObservaÃ§Ãµes do fechamento"
+              placeholder="Observações do fechamento"
             />
           </div>
           <DialogFooter>
@@ -1188,7 +1187,7 @@ export default function PDV() {
               <Input
                 value={sangriaData.reason}
                 onChange={(e) => setSangriaData((s) => ({ ...s, reason: e.target.value }))}
-                placeholder="Ex: DepÃ³sito bancÃ¡rio"
+                placeholder="Ex: Depósito bancário"
               />
             </div>
           </div>
@@ -1221,7 +1220,7 @@ export default function PDV() {
               <Input
                 value={suprimentoData.reason}
                 onChange={(e) => setSuprimentoData((s) => ({ ...s, reason: e.target.value }))}
-                placeholder="Ex: ReforÃ§o de caixa"
+                placeholder="Ex: Reforço de caixa"
               />
             </div>
           </div>
@@ -1232,7 +1231,7 @@ export default function PDV() {
         </DialogContent>
       </Dialog>
 
-      {/* Layout Principal - Grid Fixo (sÃ³ apÃ³s selecionar terminal em multi-PDV) */}
+      {/* Layout Principal - Grid Fixo (sÃƒÂ³ apÃƒÂ³s selecionar terminal em multi-PDV) */}
       <div className="flex-1 overflow-hidden">
         {!pdvSession && allowed ? (
           <div className="flex items-center justify-center h-full p-8">
@@ -1314,7 +1313,7 @@ export default function PDV() {
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-5xl">
-                          ðŸ½ï¸
+                          🍽️
                         </div>
                       )}
                     </div>
@@ -1374,12 +1373,12 @@ export default function PDV() {
                         </h4>
                         {(item.flavors?.length > 0 || (item.selections && Object.keys(item.selections).length > 0)) && (
                           <div className="mb-1">
-                            {item.size && <p className="text-xs text-muted-foreground">â€¢ {item.size.name}</p>}
-                            {item.flavors?.map((f, i) => <p key={i} className="text-xs text-muted-foreground">â€¢ {f.name}</p>)}
-                            {item.edge && item.edge.id !== 'none' && <p className="text-xs text-muted-foreground">â€¢ Borda: {item.edge.name}</p>}
+                            {item.size && <p className="text-xs text-muted-foreground">• {item.size.name}</p>}
+                            {item.flavors?.map((f, i) => <p key={i} className="text-xs text-muted-foreground">• {f.name}</p>)}
+                            {item.edge && item.edge.id !== 'none' && <p className="text-xs text-muted-foreground">• Borda: {item.edge.name}</p>}
                             {!item.flavors?.length && Object.entries(item.selections || {}).map(([gId, sel]) => {
-                              if (Array.isArray(sel)) return sel.map((s, i) => <p key={`${gId}-${i}`} className="text-xs text-muted-foreground">â€¢ {s?.name}</p>);
-                              return sel ? <p key={gId} className="text-xs text-muted-foreground">â€¢ {sel?.name}</p> : null;
+                              if (Array.isArray(sel)) return sel.map((s, i) => <p key={`${gId}-${i}`} className="text-xs text-muted-foreground">• {s?.name}</p>);
+                              return sel ? <p key={gId} className="text-xs text-muted-foreground">• {sel?.name}</p> : null;
                             })}
                           </div>
                         )}
@@ -1463,7 +1462,7 @@ export default function PDV() {
                 </div>
               </div>
 
-              {/* BotÃµes */}
+              {/* BotÃƒÂµes */}
               <div className="grid grid-cols-2 gap-2">
                 <Button
                   onClick={clearCart}
@@ -1475,7 +1474,10 @@ export default function PDV() {
                 </Button>
                 <Button
                   onClick={() => {
-                    if (isCaixaLocked) { toast.error('ðŸ”’ Caixa travado. FaÃ§a uma retirada em Caixa para continuar.'); return; }
+                    if (isCaixaLocked) {
+                      toast.error('Caixa travado. Faça uma retirada em Caixa para continuar.');
+                      return;
+                    }
                     setShowPaymentModal(true);
                   }}
                   disabled={cart.length === 0}
@@ -1502,7 +1504,7 @@ export default function PDV() {
         </div>
       )}
 
-      {/* BotÃ£o Flutuante Mobile (sÃ³ com sessÃ£o PDV) */}
+      {/* BotÃƒÂ£o Flutuante Mobile (sÃƒÂ³ com sessÃƒÂ£o PDV) */}
       {pdvSession && (
       <div className="lg:hidden fixed bottom-0 left-0 right-0 p-4 pb-[max(1rem,env(safe-area-inset-bottom,0px))] bg-card border-t border-border">
         <Button
@@ -1512,7 +1514,7 @@ export default function PDV() {
         >
           <ShoppingCart className="w-5 h-5 mr-2" />
           Ver Comanda ({cart.length})
-          {cart.length > 0 && <span className="ml-2">â€¢ {formatCurrency(total)}</span>}
+          {cart.length > 0 && <span className="ml-2">• {formatCurrency(total)}</span>}
         </Button>
       </div>
       )}
@@ -1580,17 +1582,17 @@ export default function PDV() {
             <Button
               onClick={() => {
                 if (!openCaixa) {
-                  toast.error('âš ï¸ Abra o caixa para iniciar as vendas');
+      toast.error('Abra o caixa para iniciar as vendas.');
                   setShowMobileCart(false);
                   setShowOpenCaixaModal(true);
                   return;
                 }
                 if (isCaixaLocked) { 
-                  toast.error('ðŸ”’ Caixa travado. FaÃ§a uma retirada em Caixa para continuar.'); 
+      toast.error('Caixa travado. Faça uma retirada em Caixa para continuar.');
                   return; 
                 }
                 if (cart.length === 0) {
-                  toast.error('Adicione itens Ã  comanda antes de finalizar');
+                  toast.error('Adicione itens à comanda antes de finalizar.');
                   return;
                 }
                 setShowMobileCart(false);
@@ -1660,13 +1662,13 @@ export default function PDV() {
         onPrint={handlePrintReceipt}
       />
 
-      {/* Modal HistÃ³rico de Vendas */}
+      {/* Modal HistÃƒÂ³rico de Vendas */}
       <Dialog open={showHistoryModal} onOpenChange={setShowHistoryModal}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-xl">
               <History className="w-6 h-6 text-orange-500" />
-              HistÃ³rico de Vendas PDV
+              Histórico de Vendas PDV
             </DialogTitle>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto space-y-3 py-4">
@@ -1683,7 +1685,7 @@ export default function PDV() {
                   const dateStr = sale.created_date || sale.created_at;
                   if (dateStr && typeof dateStr === 'string' && dateStr.trim() !== '') {
                     saleDate = new Date(dateStr);
-                    // Verificar se a data Ã© vÃ¡lida
+                    // Verificar se a data ÃƒÂ© vÃƒÂ¡lida
                     if (isNaN(saleDate.getTime())) {
                       saleDate = null;
                     }
@@ -1709,7 +1711,7 @@ export default function PDV() {
                           </div>
                           <p className="font-semibold text-lg">{sale.customer_name}</p>
                           {sale.customer_phone && (
-                            <p className="text-sm text-muted-foreground">ðŸ“ž {sale.customer_phone}</p>
+                            <p className="text-sm text-muted-foreground">📞 {sale.customer_phone}</p>
                           )}
                         </div>
                         <div className="text-right">
@@ -1759,10 +1761,10 @@ export default function PDV() {
         </DialogContent>
       </Dialog>
 
-      {/* Modal Abertura de Caixa - OBRIGATÃ“RIO */}
+      {/* Modal Abertura de Caixa - OBRIGATÃƒâ€œRIO */}
       <Dialog open={showOpenCaixaModal} onOpenChange={(open) => {
         if (!open && !openCaixa) {
-          toast.error('ðŸš« Ã‰ OBRIGATÃ“RIO abrir o caixa para usar o PDV!');
+          toast.error('É obrigatório abrir o caixa para usar o PDV.');
           return;
         }
         setShowOpenCaixaModal(open);
@@ -1778,17 +1780,17 @@ export default function PDV() {
         >
           <DialogHeader>
             <DialogTitle className="text-xl font-bold text-red-600">
-              {openCaixa ? 'ðŸ”“ Abrir Novo Caixa' : 'ðŸ”’ CAIXA FECHADO - PDV BLOQUEADO'}
+              {openCaixa ? 'Abrir novo caixa' : 'CAIXA FECHADO - PDV BLOQUEADO'}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-6 py-4">
             {!openCaixa && (
               <div className="bg-red-50 border-2 border-red-500 rounded-lg p-4">
                 <p className="text-sm text-red-800 font-bold mb-2">
-                  âš ï¸ O PDV estÃ¡ bloqueado!
+                  O PDV está bloqueado!
                 </p>
                 <p className="text-xs text-red-700">
-                  Para realizar vendas no PDV, vocÃª DEVE abrir um caixa primeiro. Esta Ã© uma operaÃ§Ã£o obrigatÃ³ria para controle financeiro.
+                  Para realizar vendas no PDV, você deve abrir um caixa primeiro. Esta é uma operação obrigatória para controle financeiro.
                 </p>
               </div>
             )}
@@ -1796,7 +1798,7 @@ export default function PDV() {
             {openCaixa && (
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <p className="text-sm text-blue-800 font-medium">
-                  ðŸ’¡ JÃ¡ existe um caixa aberto. Deseja abrir um novo?
+                  Já existe um caixa aberto. Deseja abrir um novo?
                 </p>
               </div>
             )}
@@ -1813,11 +1815,11 @@ export default function PDV() {
                 className="text-2xl font-bold h-16 text-center border-2"
                 autoFocus
               />
-              <p className="text-xs text-muted-foreground">Valor em dinheiro fÃ­sico disponÃ­vel no caixa ao abrir</p>
+              <p className="text-xs text-muted-foreground">Valor em dinheiro físico disponível no caixa ao abrir.</p>
             </div>
 
             <div className="space-y-3 p-3 rounded-lg border border-amber-200 bg-amber-50/50">
-              <Label className="text-base font-semibold">Valor limite de travamento (R$) â€“ opcional</Label>
+              <Label className="text-base font-semibold">Valor limite de travamento (R$) - opcional</Label>
               <Input
                 type="number"
                 step="0.01"
@@ -1827,12 +1829,12 @@ export default function PDV() {
                 placeholder="Ex: 500"
                 className="h-12 border-2 bg-card"
               />
-              <p className="text-xs text-muted-foreground">Quando as vendas em dinheiro atingirem este valor, o PDV trava atÃ© ser feita uma retirada em Caixa</p>
+              <p className="text-xs text-muted-foreground">Quando as vendas em dinheiro atingirem este valor, o PDV trava até ser feita uma retirada em Caixa.</p>
             </div>
 
             <div className="bg-green-50 border border-green-200 rounded-lg p-3">
               <p className="text-xs text-green-800 font-medium">
-                âœ… ApÃ³s abrir o caixa, vocÃª poderÃ¡ realizar vendas normalmente
+                Após abrir o caixa, você poderá realizar vendas normalmente.
               </p>
             </div>
           </div>
@@ -1861,7 +1863,7 @@ export default function PDV() {
               disabled={!openingAmount || parseFloat(openingAmount) < 0 || openCaixaMutation.isPending}
               className="bg-green-600 hover:bg-green-700 font-semibold w-full sm:w-auto"
             >
-              {openCaixaMutation.isPending ? 'Abrindo Caixa...' : 'âœ… Confirmar Abertura'}
+              {openCaixaMutation.isPending ? 'Abrindo caixa...' : 'Confirmar abertura'}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -136,6 +136,43 @@ function generateOrderCode() {
   return `PDV${base}${suffix}`;
 }
 
+function generateProductionOrderCode() {
+  const base = String(Date.now()).slice(-8);
+  const suffix = Math.floor(Math.random() * 900 + 100);
+  return `BAL${base}${suffix}`;
+}
+
+function shouldCreateProductionOrder(payload = {}) {
+  if (payload?.send_to_kitchen === true) return true;
+  const mode = normalizeLower(payload?.production_mode);
+  return mode === 'productive' || mode === 'producao' || mode === 'kitchen';
+}
+
+function mapSaleItemsToProduction(items = []) {
+  return (Array.isArray(items) ? items : [])
+    .map((item) => {
+      const quantity = Math.max(1, toNumber(item?.quantity, 1));
+      const unitPrice = roundMoney(
+        item?.unit_price ??
+        item?.price ??
+        item?.totalPrice ??
+        (toNumber(item?.total_price, 0) > 0 ? toNumber(item?.total_price, 0) / quantity : 0)
+      );
+      const totalPrice = roundMoney(item?.total_price ?? (unitPrice * quantity));
+      const name = String(item?.name || item?.dish_name || item?.dish?.name || 'Item').trim();
+      return {
+        dish_id: item?.dish_id || item?.dish?.id || null,
+        name: name || 'Item',
+        quantity,
+        unit_price: unitPrice,
+        total_price: totalPrice,
+        observations: item?.observations || item?.notes || '',
+        selections: item?.selections || {},
+      };
+    })
+    .filter((item) => item.quantity > 0 && item.total_price >= 0);
+}
+
 async function findExistingOrderByRequestId(client, ownerEmail, clientRequestId) {
   const result = await client.query(
     `
@@ -143,6 +180,32 @@ async function findExistingOrderByRequestId(client, ownerEmail, clientRequestId)
       FROM entities
       WHERE entity_type = 'PedidoPDV'
         AND data->>'client_request_id' = $2
+        AND (
+          LOWER(TRIM(subscriber_email)) = LOWER(TRIM($1))
+          OR (
+            subscriber_email IS NULL
+            AND LOWER(TRIM(COALESCE(data->>'owner_email', data->>'subscriber_email', ''))) = LOWER(TRIM($1))
+          )
+        )
+      ORDER BY id DESC
+      LIMIT 1
+      FOR UPDATE
+    `,
+    [ownerEmail, clientRequestId]
+  );
+
+  if (!result.rows.length) return null;
+  return mapEntityRow(result.rows[0]);
+}
+
+async function findExistingProductionOrderByRequestId(client, ownerEmail, clientRequestId) {
+  const result = await client.query(
+    `
+      SELECT id, data, created_at, updated_at
+      FROM entities
+      WHERE entity_type = 'Order'
+        AND data->>'source' = 'pdv'
+        AND data->>'pdv_client_request_id' = $2
         AND (
           LOWER(TRIM(subscriber_email)) = LOWER(TRIM($1))
           OR (
@@ -248,6 +311,7 @@ export async function finalizePdvSaleAtomic({ user, ownerEmail, payload = {} }) 
   const { normalizedPayments, totalTendered, totalChange } = normalizePayments(payload.payments, total);
   const operatorEmail = normalizeLower(user?.email);
   const operatorName = payload.seller_name || user?.full_name || user?.name || '';
+  const createProductionOrder = shouldCreateProductionOrder(payload);
 
   let transactionClient = null;
   try {
@@ -257,12 +321,16 @@ export async function finalizePdvSaleAtomic({ user, ownerEmail, payload = {} }) 
     const existingOrder = await findExistingOrderByRequestId(transactionClient, ownerEmail, clientRequestId);
     if (existingOrder) {
       const existingOperations = await listOrderOperations(transactionClient, ownerEmail, existingOrder);
+      const existingProductionOrder = createProductionOrder
+        ? await findExistingProductionOrderByRequestId(transactionClient, ownerEmail, clientRequestId)
+        : null;
       await transactionClient.query('COMMIT');
       transactionClient.release();
       transactionClient = null;
 
       return {
         pedido_pdv: existingOrder,
+        pedido_producao: existingProductionOrder,
         operacoes: existingOperations,
         resumo: buildResumo(existingOrder.total, existingOrder.change || 0, existingOrder.payments || existingOperations.map((operation) => ({
           method: operation.payment_method,
@@ -310,6 +378,70 @@ export async function finalizePdvSaleAtomic({ user, ownerEmail, payload = {} }) 
       ['PedidoPDV', JSON.stringify(pedidoData), ownerEmail]
     );
     const createdOrder = mapEntityRow(orderInsert.rows[0]);
+    let createdProductionOrder = null;
+
+    if (createProductionOrder) {
+      const productionItems = mapSaleItemsToProduction(items);
+      if (productionItems.length > 0) {
+        const productionOrderData = {
+          owner_email: ownerEmail,
+          subscriber_email: ownerEmail,
+          source: 'pdv',
+          source_ref_id: createdOrder.id,
+          pdv_client_request_id: clientRequestId,
+          pdv_order_code: orderCode,
+          order_code: generateProductionOrderCode(),
+          customer_name: payload.customer_name || 'Cliente Balcao',
+          customer_phone: payload.customer_phone || '',
+          customer_document: payload.customer_document || '',
+          delivery_method: payload.delivery_method || 'pickup',
+          serving_type: 'balcao',
+          status: 'new',
+          items: productionItems,
+          subtotal,
+          discount,
+          delivery_fee: 0,
+          total,
+          payment_method: buildPaymentSummary(normalizedPayments),
+          created_by: operatorEmail || payload.seller_email || null,
+          created_date: nowIso,
+          ...(payload.pdv_terminal_id ? { pdv_terminal_id: payload.pdv_terminal_id } : {}),
+          ...(payload.pdv_terminal_name ? { pdv_terminal_name: payload.pdv_terminal_name } : {}),
+          ...(payload.pdv_session_id ? { pdv_session_id: payload.pdv_session_id } : {}),
+        };
+
+        const productionInsert = await transactionClient.query(
+          `
+            INSERT INTO entities (entity_type, data, subscriber_email)
+            VALUES ($1, $2, $3)
+            RETURNING id, data, created_at, updated_at
+          `,
+          ['Order', JSON.stringify(productionOrderData), ownerEmail]
+        );
+
+        createdProductionOrder = mapEntityRow(productionInsert.rows[0]);
+        createdOrder.production_order_entity_id = createdProductionOrder.id;
+        createdOrder.production_order_code = createdProductionOrder.order_code;
+
+        await transactionClient.query(
+          `
+            UPDATE entities
+            SET data = data || $1::jsonb,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE entity_type = 'PedidoPDV'
+              AND id = $2
+          `,
+          [
+            JSON.stringify({
+              production_order_entity_id: createdProductionOrder.id,
+              production_order_code: createdProductionOrder.order_code,
+              production_mode: 'productive',
+            }),
+            Number(createdOrder.id),
+          ]
+        );
+      }
+    }
 
     if (payload.simulate_error === true && process.env.NODE_ENV !== 'production') {
       throw createHttpError(500, 'Falha simulada para teste de rollback.', 'PDV_SIMULATED_ERROR');
@@ -351,6 +483,7 @@ export async function finalizePdvSaleAtomic({ user, ownerEmail, payload = {} }) 
 
     return {
       pedido_pdv: createdOrder,
+      pedido_producao: createdProductionOrder,
       operacoes: createdOperations,
       resumo: buildResumo(total, totalChange, normalizedPayments),
       idempotent: false,
