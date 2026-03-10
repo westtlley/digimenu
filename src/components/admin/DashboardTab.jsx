@@ -214,7 +214,7 @@ export default function DashboardTab({ user, subscriberData, onNavigateToTab }) 
             </div>
           </div>
           <div className="mt-3 flex flex-col sm:flex-row gap-2">
-            <Link to={createPageUrl('GestorPedidos')} className="flex-1">
+            <Link to={createPageUrl('GestorPedidos', currentSlug || undefined)} className="flex-1">
               <Button className="w-full min-h-touch">Ver Todos os Pedidos</Button>
             </Link>
             <Button variant="outline" onClick={exportOrdersCSV} className="flex-1 min-h-touch">

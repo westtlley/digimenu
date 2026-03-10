@@ -1,39 +1,54 @@
-
-
-
 /**
- * Gera a URL de uma página. URLs simplificadas sem /s/:slug quando possível.
- * - Cardápio público: /s/:slug (necessário para multi-tenant)
- * - Páginas autenticadas: URLs diretas (PainelAssinante, GestorPedidos, etc.)
- * - Admin: sempre /Admin
+ * Gera URLs canônicas com fallback para rotas legadas.
+ * - Público: /s/:slug
+ * - Apps operacionais: /app/:slug/:app
+ * - Gestão: /Admin, /PainelAssinante, /PainelGerente
  */
 export function createPageUrl(pageName: string, slug?: string | null) {
-    // Admin sempre sem slug
-    if (pageName === 'Admin' || pageName === 'admin') return '/Admin';
-    
-    // Cardápio: usar /s/:slug apenas se tiver slug (cardápio público)
-    if (pageName === 'Cardapio' || pageName === 'cardapio') {
-        if (slug) return `/s/${slug}`;
-        return '/'; // Sem slug, página inicial
+    const rawPage = String(pageName || '').trim();
+    const page = rawPage.toLowerCase();
+    const cleanSlug = slug ? String(slug).trim().toLowerCase() : '';
+
+    if (page === 'admin') return '/Admin';
+
+    if (page === 'cardapio') {
+        if (cleanSlug) return `/s/${cleanSlug}`;
+        return '/';
     }
-    
-    // Páginas autenticadas: URLs diretas sem /s/:slug
-    // O contexto do assinante vem do login do usuário
-    const authenticatedPages = [
-        'PainelAssinante', 'GestorPedidos', 'Entregador', 'EntregadorPanel',
-        'Cozinha', 'PDV', 'Garcom', 'PainelGerente', 'ColaboradorHome'
-    ];
-    
-    if (authenticatedPages.includes(pageName)) {
-        // URLs diretas, sem /s/:slug
-        return '/' + pageName;
+
+    if (page === 'painelassinante') {
+        if (cleanSlug) return `/s/${cleanSlug}/PainelAssinante`;
+        return '/PainelAssinante';
     }
-    
-    // Outras páginas: usar slug apenas se necessário
-    if (slug && pageName !== 'Assinar') {
-        return `/s/${slug}/${pageName}`;
+
+    if (page === 'painelgerente') return '/PainelGerente';
+    if (page === 'colaboradorhome') return '/colaborador';
+
+    const operationalMap: Record<string, string> = {
+        gestorpedidos: 'gestor',
+        pdv: 'pdv',
+        cozinha: 'cozinha',
+        garcom: 'garcom',
+        entregador: 'entregador',
+        entregadorpanel: 'entregador',
+    };
+
+    if (operationalMap[page]) {
+        if (cleanSlug) return `/app/${cleanSlug}/${operationalMap[page]}`;
+        const legacyPathMap: Record<string, string> = {
+            gestorpedidos: '/GestorPedidos',
+            pdv: '/PDV',
+            cozinha: '/Cozinha',
+            garcom: '/Garcom',
+            entregador: '/Entregador',
+            entregadorpanel: '/EntregadorPanel',
+        };
+        return legacyPathMap[page];
     }
-    
-    // Padrão: URL direta
-    return '/' + pageName.toLowerCase().replace(/ /g, '-');
+
+    if (cleanSlug && page !== 'assinar') {
+        return `/s/${cleanSlug}/${rawPage}`;
+    }
+
+    return '/' + page.replace(/ /g, '-');
 }

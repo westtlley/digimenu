@@ -8,6 +8,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { apiClient as base44 } from '@/api/apiClient';
 import { Button } from '@/components/ui/button';
+import { createPageUrl } from '@/utils';
 import {
   LayoutDashboard,
   BarChart3,
@@ -21,12 +22,12 @@ import {
 } from 'lucide-react';
 
 const APP_BUTTONS = [
-  { id: 'painel', role: 'gerente', label: 'Painel do Gerente', path: '/PainelGerente', icon: LayoutDashboard, color: 'from-violet-600 to-violet-700', hoverColor: 'hover:from-violet-700 hover:to-violet-800' },
-  { id: 'gestor', role: 'gerente', label: 'Gestor de Pedidos', path: '/GestorPedidos', icon: BarChart3, color: 'from-orange-600 to-orange-700', hoverColor: 'hover:from-orange-700 hover:to-orange-800' },
-  { id: 'entregador', role: 'entregador', label: 'App do Entregador', path: '/Entregador', icon: Truck, color: 'from-cyan-600 to-cyan-700', hoverColor: 'hover:from-cyan-700 hover:to-cyan-800' },
-  { id: 'cozinha', role: 'cozinha', label: 'Cozinha', path: '/Cozinha', icon: ChefHat, color: 'from-amber-600 to-amber-700', hoverColor: 'hover:from-amber-700 hover:to-amber-800' },
-  { id: 'pdv', role: 'pdv', label: 'PDV', path: '/PDV', icon: Calculator, color: 'from-green-600 to-green-700', hoverColor: 'hover:from-green-700 hover:to-green-800' },
-  { id: 'garcom', role: 'garcom', label: 'Garçom', path: '/Garcom', icon: Receipt, color: 'from-indigo-600 to-indigo-700', hoverColor: 'hover:from-indigo-700 hover:to-indigo-800' },
+  { id: 'painel', role: 'gerente', label: 'Painel do Gerente', page: 'PainelGerente', icon: LayoutDashboard, color: 'from-violet-600 to-violet-700', hoverColor: 'hover:from-violet-700 hover:to-violet-800' },
+  { id: 'gestor', role: 'gerente', label: 'Gestor de Pedidos', page: 'GestorPedidos', icon: BarChart3, color: 'from-orange-600 to-orange-700', hoverColor: 'hover:from-orange-700 hover:to-orange-800' },
+  { id: 'entregador', role: 'entregador', label: 'App do Entregador', page: 'Entregador', icon: Truck, color: 'from-cyan-600 to-cyan-700', hoverColor: 'hover:from-cyan-700 hover:to-cyan-800' },
+  { id: 'cozinha', role: 'cozinha', label: 'Cozinha', page: 'Cozinha', icon: ChefHat, color: 'from-amber-600 to-amber-700', hoverColor: 'hover:from-amber-700 hover:to-amber-800' },
+  { id: 'pdv', role: 'pdv', label: 'PDV', page: 'PDV', icon: Calculator, color: 'from-green-600 to-green-700', hoverColor: 'hover:from-green-700 hover:to-green-800' },
+  { id: 'garcom', role: 'garcom', label: 'Garçom', page: 'Garcom', icon: Receipt, color: 'from-indigo-600 to-indigo-700', hoverColor: 'hover:from-indigo-700 hover:to-indigo-800' },
 ];
 
 export default function ColaboradorHome() {
@@ -53,7 +54,8 @@ export default function ColaboradorHome() {
         if (cancelled) return;
         // Se me() não trouxer profile_roles, buscar /user/context (retorna user com profile_roles)
         const hasRoles = (me?.profile_roles?.length) || (me?.profile_role && me.profile_role.trim() !== '');
-        if (!hasRoles && me?.email) {
+        const missingTenantSlug = !(me?.subscriber_slug || me?.slug);
+        if ((!hasRoles || missingTenantSlug) && me?.email) {
           try {
             const ctx = await base44.get('/user/context', { _t: Date.now() });
             if (ctx?.user) {
@@ -62,6 +64,8 @@ export default function ColaboradorHome() {
               if (ctx.user.profile_role) me.profile_role = ctx.user.profile_role;
               if (ctx.user.is_owner !== undefined) me.is_owner = ctx.user.is_owner; // Assinante (dono) vê todos os apps
             }
+            const contextSlug = ctx?.subscriberData?.slug || null;
+            if (contextSlug) me.subscriber_slug = contextSlug;
           } catch (_) {
             // mantém me do auth.me()
           }
@@ -107,10 +111,15 @@ export default function ColaboradorHome() {
   // Gerente: acesso a todas as funções. Assinante (dono): também acesso total (is_owner do backend ou subscriber_email === email).
   const isDono = user?.is_owner || (user?.subscriber_email && (user?.email || '').toLowerCase().trim() === (user?.subscriber_email || '').toLowerCase().trim());
   const isGerente = roles.includes('gerente') || isDono;
+  const appSlug = user?.subscriber_slug || user?.slug || null;
 
-  const visibleButtons = isGerente
+  const baseButtons = isGerente
     ? APP_BUTTONS
     : APP_BUTTONS.filter((btn) => btn.role !== 'gerente' && roles.includes(btn.role));
+  const visibleButtons = baseButtons.map((btn) => ({
+    ...btn,
+    path: createPageUrl(btn.page, appSlug || undefined),
+  }));
 
   const handleLogout = () => {
     base44.auth.logout();

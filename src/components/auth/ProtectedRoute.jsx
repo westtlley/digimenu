@@ -131,6 +131,11 @@ export default function ProtectedRoute({
               setLoading(false);
               return;
             }
+
+            navigate('/colaborador', { replace: true });
+            setAuthorized(false);
+            setLoading(false);
+            return;
           }
 
           try {

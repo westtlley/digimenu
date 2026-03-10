@@ -69,7 +69,7 @@ export default function MobileQuickMenu({
       id: 'pdv',
       label: 'PDV',
       icon: Calculator,
-      to: createPageUrl('PDV'),
+      to: createPageUrl('PDV', slug || undefined),
       color: 'from-blue-600 to-blue-700',
       hoverColor: 'hover:from-blue-700 hover:to-blue-800'
     }] : []),
@@ -78,7 +78,7 @@ export default function MobileQuickMenu({
         id: 'gestor',
         label: 'Gestor de Pedidos',
         icon: Settings,
-        to: createPageUrl('GestorPedidos'),
+        to: createPageUrl('GestorPedidos', slug || undefined),
         color: 'from-orange-600 to-orange-700',
         hoverColor: 'hover:from-orange-700 hover:to-orange-800'
       }
@@ -87,7 +87,7 @@ export default function MobileQuickMenu({
       id: 'entregador',
       label: 'Entregador',
       icon: Bike,
-      to: createPageUrl('Entregador'),
+      to: createPageUrl('Entregador', slug || undefined),
       color: 'from-cyan-600 to-cyan-700',
       hoverColor: 'hover:from-cyan-700 hover:to-cyan-800'
     }] : []),
@@ -95,7 +95,7 @@ export default function MobileQuickMenu({
       id: 'garcom',
       label: 'Garçom',
       icon: UserCheck,
-      to: createPageUrl('Garcom'),
+      to: createPageUrl('Garcom', slug || undefined),
       color: 'from-indigo-600 to-indigo-700',
       hoverColor: 'hover:from-indigo-700 hover:to-indigo-800'
     }] : []),
@@ -103,7 +103,7 @@ export default function MobileQuickMenu({
       id: 'cozinha',
       label: 'Cozinha',
       icon: ChefHat,
-      to: createPageUrl('Cozinha'),
+      to: createPageUrl('Cozinha', slug || undefined),
       color: 'from-orange-500 to-orange-600',
       hoverColor: 'hover:from-orange-600 hover:to-orange-700'
     }] : [])

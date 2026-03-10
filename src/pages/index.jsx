@@ -3,7 +3,7 @@ import Layout from "./Layout.jsx";
 import ProtectedRoute from "../components/auth/ProtectedRoute";
 import SmartRedirect from "../components/auth/SmartRedirect";
 import { LoadingPage } from "../components/shared/LoadingState";
-import { BrowserRouter as Router, Route, Routes, useLocation, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, useLocation, useParams, Navigate } from 'react-router-dom';
 
 const Assinantes = lazy(() => import("./Assinantes"));
 const AdminMasterDashboard = lazy(() => import("./AdminMasterDashboard"));
@@ -85,8 +85,34 @@ function _getCurrentPage(url) {
         urlLastPart = urlLastPart.split('?')[0];
     }
 
+    const aliasMap = {
+        gestor: 'GestorPedidos',
+        pdv: 'PDV',
+        cozinha: 'Cozinha',
+        garcom: 'Garcom',
+        entregador: 'Entregador',
+        'entregador-panel': 'Entregador',
+        painel: 'PainelAssinante',
+        gerente: 'PainelGerente',
+        admin: 'Admin',
+    };
+    const aliasPage = aliasMap[urlLastPart.toLowerCase()];
+    if (aliasPage) return aliasPage;
+
     const pageName = Object.keys(PAGES).find(page => page.toLowerCase() === urlLastPart.toLowerCase());
     return pageName || 'Cardapio';
+}
+
+function LegacySlugAppRedirect({ appPath }) {
+    const { slug } = useParams();
+    if (!slug) return <Navigate to="/" replace />;
+    return <Navigate to={`/app/${slug}/${appPath}`} replace />;
+}
+
+function SlugPainelRedirect() {
+    const { slug } = useParams();
+    if (!slug) return <Navigate to="/PainelAssinante" replace />;
+    return <Navigate to={`/s/${slug}/PainelAssinante`} replace />;
 }
 
 // Create a wrapper component that uses useLocation inside the Router context
@@ -100,13 +126,19 @@ function PagesContent() {
             <Routes>
                 {/* Link único por assinante: /s/meu-restaurante — cardápio público sem login */}
                 {/* Páginas do assinante sob o link: /s/raiz-maranhense/GestorPedidos, etc. */}
-                <Route path="/s/:slug/GestorPedidos" element={<ProtectedRoute requireActiveSubscription><GestorPedidos /></ProtectedRoute>} />
+                <Route path="/app/:slug/gestor" element={<ProtectedRoute requireActiveSubscription><GestorPedidos /></ProtectedRoute>} />
+                <Route path="/app/:slug/pdv" element={<ProtectedRoute requireActiveSubscription><PDV /></ProtectedRoute>} />
+                <Route path="/app/:slug/cozinha" element={<ProtectedRoute requireActiveSubscription><Cozinha /></ProtectedRoute>} />
+                <Route path="/app/:slug/garcom" element={<ProtectedRoute requireActiveSubscription><Garcom /></ProtectedRoute>} />
+                <Route path="/app/:slug/entregador" element={<ProtectedRoute requireActiveSubscription><Entregador /></ProtectedRoute>} />
+                <Route path="/app/:slug/entregador-panel" element={<LegacySlugAppRedirect appPath="entregador" />} />
+                <Route path="/s/:slug/GestorPedidos" element={<LegacySlugAppRedirect appPath="gestor" />} />
                 <Route path="/s/:slug/PainelAssinante" element={<ProtectedRoute requireActiveSubscription><PainelAssinante /></ProtectedRoute>} />
-                <Route path="/s/:slug/Cozinha" element={<ProtectedRoute requireActiveSubscription><Cozinha /></ProtectedRoute>} />
-                <Route path="/s/:slug/PDV" element={<ProtectedRoute requireActiveSubscription><PDV /></ProtectedRoute>} />
-                <Route path="/s/:slug/Entregador" element={<ProtectedRoute requireActiveSubscription><Entregador /></ProtectedRoute>} />
-                <Route path="/s/:slug/EntregadorPanel" element={<ProtectedRoute requireActiveSubscription><Entregador /></ProtectedRoute>} />
-                <Route path="/s/:slug/Garcom" element={<ProtectedRoute requireActiveSubscription><Garcom /></ProtectedRoute>} />
+                <Route path="/s/:slug/Cozinha" element={<LegacySlugAppRedirect appPath="cozinha" />} />
+                <Route path="/s/:slug/PDV" element={<LegacySlugAppRedirect appPath="pdv" />} />
+                <Route path="/s/:slug/Entregador" element={<LegacySlugAppRedirect appPath="entregador" />} />
+                <Route path="/s/:slug/EntregadorPanel" element={<LegacySlugAppRedirect appPath="entregador" />} />
+                <Route path="/s/:slug/Garcom" element={<LegacySlugAppRedirect appPath="garcom" />} />
                 {/* Cardápio: apenas login cliente. /s/:slug/login = cliente; /s/:slug/login/colaborador para colaboradores */}
                 <Route path="/s/:slug/login/:type" element={<LoginBySlug />} />
                 <Route path="/s/:slug/login" element={<LoginBySlug />} />
@@ -116,6 +148,10 @@ function PagesContent() {
                 <Route path="/" element={<SmartRedirect />} />
                 <Route path="/cardapio" element={<SmartRedirect />} />
                 <Route path="/Cardapio" element={<SmartRedirect />} />
+                <Route path="/admin" element={<Navigate to="/Admin" replace />} />
+                <Route path="/painel" element={<Navigate to="/PainelAssinante" replace />} />
+                <Route path="/painel/:slug" element={<SlugPainelRedirect />} />
+                <Route path="/gerente" element={<Navigate to="/PainelGerente" replace />} />
                 
                 <Route path="/Assinantes" element={<ProtectedRoute requireMaster><Assinantes /></ProtectedRoute>} />
                 <Route path="/AdminMasterDashboard" element={<ProtectedRoute requireMaster><AdminMasterDashboard /></ProtectedRoute>} />
