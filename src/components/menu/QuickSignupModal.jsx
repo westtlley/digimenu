@@ -91,6 +91,10 @@ export default function QuickSignupModal({ isOpen, onClose, onSuccess, returnUrl
 
     try {
       // Criar conta usando o mesmo método do CadastroCliente
+      const currentPath = returnUrl || window.location.pathname || '';
+      const slugMatch = currentPath.match(/^\/s\/([a-z0-9-]+)(?:\/|$)/i);
+      const subscriberSlug = slugMatch ? slugMatch[1].toLowerCase() : null;
+
       const response = await base44.functions.invoke('registerCustomer', {
         name: formData.name.trim(),
         email: formData.email.trim().toLowerCase(),
@@ -98,7 +102,8 @@ export default function QuickSignupModal({ isOpen, onClose, onSuccess, returnUrl
         password: formData.password,
         cpf: formData.cpf ? formData.cpf.replace(/\D/g, '') : null,
         address: '', // Endereço pode ser preenchido depois
-        birth_date: null // Data de nascimento opcional no cadastro rápido
+        birth_date: null,
+        subscriber_slug: subscriberSlug
       });
 
       if (response?.data?.success) {

@@ -226,7 +226,8 @@ export default function CadastroCliente() {
         zipcode: formData.cep ? formData.cep.replace(/\D/g, '') : null,
         cpf: formData.cpf ? formData.cpf.replace(/\D/g, '') : null,
         password: formData.password,
-        subscriber_email: subscriberEmail // Vincular ao assinante se houver slug
+        subscriber_email: subscriberEmail, // Vincular ao assinante se houver slug
+        subscriber_slug: slug || null
       });
 
       console.log('📥 [CadastroCliente] Resposta recebida:', response);

@@ -339,6 +339,70 @@ export async function updateMasterSlug(userId, slug, usePostgreSQL, repo) {
 /**
  * Registra um novo cliente
  */
+async function resolveSubscriberEmailForCustomerRegistration(customerData, usePostgreSQL, db, repo) {
+  const normalizeEmail = (value) => {
+    const email = String(value || '').toLowerCase().trim();
+    return email || null;
+  };
+  const normalizeSlug = (value) => {
+    const slug = String(value || '')
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9-]/g, '');
+    return slug || null;
+  };
+
+  const requestedSubscriberEmail = normalizeEmail(customerData?.subscriber_email);
+  const requestedSubscriberSlug = normalizeSlug(customerData?.subscriber_slug || customerData?.slug);
+
+  let subscriberFromEmail = null;
+  let subscriberFromSlug = null;
+
+  if (usePostgreSQL) {
+    if (requestedSubscriberEmail && repo.getSubscriberByEmail) {
+      subscriberFromEmail = await repo.getSubscriberByEmail(requestedSubscriberEmail);
+      if (!subscriberFromEmail) {
+        throw new Error('Assinante inválido para cadastro.');
+      }
+    }
+
+    if (requestedSubscriberSlug && repo.getSubscriberBySlug) {
+      subscriberFromSlug = await repo.getSubscriberBySlug(requestedSubscriberSlug);
+      if (!subscriberFromSlug) {
+        throw new Error('Slug do estabelecimento inválido.');
+      }
+    }
+  } else if (db?.subscribers) {
+    if (requestedSubscriberEmail) {
+      subscriberFromEmail = db.subscribers.find(
+        (subscriber) => normalizeEmail(subscriber?.email) === requestedSubscriberEmail
+      ) || null;
+      if (!subscriberFromEmail) {
+        throw new Error('Assinante inválido para cadastro.');
+      }
+    }
+
+    if (requestedSubscriberSlug) {
+      subscriberFromSlug = db.subscribers.find(
+        (subscriber) => normalizeSlug(subscriber?.slug) === requestedSubscriberSlug
+      ) || null;
+      if (!subscriberFromSlug) {
+        throw new Error('Slug do estabelecimento inválido.');
+      }
+    }
+  }
+
+  const slugSubscriberEmail = normalizeEmail(subscriberFromSlug?.email);
+  if (requestedSubscriberEmail && slugSubscriberEmail && requestedSubscriberEmail !== slugSubscriberEmail) {
+    throw new Error('Assinante e slug do estabelecimento não conferem.');
+  }
+
+  if (slugSubscriberEmail) return slugSubscriberEmail;
+  if (requestedSubscriberEmail) return requestedSubscriberEmail;
+  return null;
+}
+
 export async function registerCustomer(customerData, usePostgreSQL, db, repo, saveDatabaseDebounced) {
   if (!customerData.email || !customerData.email.includes('@')) {
     throw new Error('Email válido é obrigatório');
@@ -364,7 +428,12 @@ export async function registerCustomer(customerData, usePostgreSQL, db, repo, sa
   }
   
   const passwordHash = await bcrypt.hash(customerData.password, 10);
-  const subscriberEmail = customerData.subscriber_email || null;
+  const subscriberEmail = await resolveSubscriberEmailForCustomerRegistration(
+    customerData,
+    usePostgreSQL,
+    db,
+    repo
+  );
   
   const userData = {
     email: emailLower,
@@ -411,7 +480,7 @@ export async function registerCustomer(customerData, usePostgreSQL, db, repo, sa
   let createdCustomer;
   if (usePostgreSQL) {
     try {
-      createdCustomer = await repo.createCustomer(customerRepoData, null);
+      createdCustomer = await repo.createCustomer(customerRepoData, subscriberEmail);
     } catch (customerError) {
       logger.warn('Erro ao criar customer (não crítico):', customerError.message);
       createdCustomer = null;

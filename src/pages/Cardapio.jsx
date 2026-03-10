@@ -2125,7 +2125,7 @@ export default function Cardapio() {
         const pointsPerReal = Number(loyaltyConfig?.points_per_real ?? 1);
         const safePpr = Number.isFinite(pointsPerReal) && pointsPerReal > 0 ? pointsPerReal : 1;
         const pointsToAdd = Math.floor(total * safePpr);
-        const result = await addPoints(pointsToAdd, 'compra');
+        const result = await addPoints(pointsToAdd, 'compra', { orderTotal: total });
         
         // Verificar se é primeira compra (bônus)
         if (!loyaltyData.lastOrderDate) {

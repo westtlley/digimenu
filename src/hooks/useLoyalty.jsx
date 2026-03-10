@@ -181,9 +181,14 @@ export function useLoyalty(customerPhone, customerEmail, slug) {
   }, [loyaltyData, customerPhone, customerEmail, slug]);
 
   // Adicionar pontos
-  const addPoints = useCallback(async (amount, reason = 'compra') => {
-    const newPoints = loyaltyData.points + amount;
-    const newTotalSpent = loyaltyData.totalSpent + (reason === 'compra' ? amount : 0);
+  const addPoints = useCallback(async (amount, reason = 'compra', metadata = {}) => {
+    const pointsAmount = Number(amount) || 0;
+    const orderTotalValue = Number(metadata?.orderTotal ?? metadata?.order_total);
+    const spentIncrement = reason === 'compra'
+      ? (Number.isFinite(orderTotalValue) && orderTotalValue > 0 ? orderTotalValue : pointsAmount)
+      : 0;
+    const newPoints = loyaltyData.points + pointsAmount;
+    const newTotalSpent = loyaltyData.totalSpent + spentIncrement;
     
     // Atualizar tier se necessário
     const newTier = calculateTier(newPoints);
