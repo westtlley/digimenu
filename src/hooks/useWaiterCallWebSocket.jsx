@@ -11,18 +11,24 @@ const SOCKET_URL = import.meta.env.VITE_WS_URL || BACKEND_BASE_URL || 'http://lo
 /**
  * Hook para gerenciar WebSocket de chamadas de garçom
  */
-export function useWaiterCallWebSocket(enabled = true) {
+export function useWaiterCallWebSocket(options = true) {
+  const normalizedOptions =
+    typeof options === 'object' && options !== null
+      ? options
+      : { enabled: Boolean(options) };
+  const { enabled = true, subscriberEmailOverride = null } = normalizedOptions;
   const [waiterCalls, setWaiterCalls] = useState([]);
   const socketRef = useRef(null);
   const queryClient = useQueryClient();
   const audioRef = useRef(null);
+  const scopedEntityOpts = subscriberEmailOverride ? { as_subscriber: subscriberEmailOverride } : {};
 
   // Buscar chamadas pendentes
   const { data: allWaiterCalls = [] } = useQuery({
-    queryKey: ['WaiterCall'],
+    queryKey: ['WaiterCall', subscriberEmailOverride || 'self'],
     queryFn: async () => {
       try {
-        return await base44.entities.WaiterCall.list('-created_at', { status: 'pending' });
+        return await base44.entities.WaiterCall.list('-created_at', { status: 'pending', ...scopedEntityOpts });
       } catch (e) {
         console.error('Erro ao buscar chamadas:', e);
         return [];
@@ -72,8 +78,9 @@ export function useWaiterCallWebSocket(enabled = true) {
         const user = await base44.auth.me();
         if (!user) return;
 
-        const subscriberEmail = user.subscriber_email || user.email;
+        const subscriberEmail = subscriberEmailOverride || user.subscriber_email || user.email;
         const waiterEmail = user.email;
+        if (!subscriberEmail) return;
 
         socketRef.current = io(SOCKET_URL, {
           transports: ['websocket', 'polling'],
@@ -169,7 +176,7 @@ export function useWaiterCallWebSocket(enabled = true) {
         socketRef.current = null;
       }
     };
-  }, [enabled, queryClient]);
+  }, [enabled, queryClient, subscriberEmailOverride]);
 
   return {
     waiterCalls,

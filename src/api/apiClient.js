@@ -342,11 +342,14 @@ class ApiClient {
       },
 
       /**
-       * Extrai slug da URL quando no formato /s/:slug/...
+       * Extrai slug da URL quando no formato /s/:slug/... ou /app/:slug/:app
        */
       _getSlugFromPath: (path) => {
-        const m = (path || '').match(/^\/s\/([a-z0-9-]+)(?:\/|$)/i);
-        return m ? m[1] : null;
+        const cleanPath = String(path || '').split('?')[0];
+        const slugPathMatch = cleanPath.match(/^\/s\/([a-z0-9-]+)(?:\/|$)/i);
+        if (slugPathMatch) return slugPathMatch[1];
+        const appPathMatch = cleanPath.match(/^\/app\/([a-z0-9-]+)\/[a-z0-9-]+(?:\/|$)/i);
+        return appPathMatch ? appPathMatch[1] : null;
       },
 
       /**
@@ -356,14 +359,22 @@ class ApiClient {
       logout: () => {
         self.removeToken();
         const currentPath = window.location.pathname;
+        const currentPathLower = String(currentPath || '').toLowerCase();
+        const currentAppMatch = currentPathLower.match(/^\/app\/[a-z0-9-]+\/([a-z0-9-]+)(?:\/|$)/i);
+        const currentApp = currentAppMatch ? currentAppMatch[1] : null;
         const slug = self.auth._getSlugFromPath(currentPath);
 
         if (slug) {
           // Com slug: sempre redirecionar para o login do estabelecimento
-          if (currentPath.includes('/PainelAssinante') || currentPath.includes('/GestorPedidos')) {
+          if (currentPathLower.includes('/painelassinante') || currentPathLower.includes('/gestorpedidos') || currentApp === 'gestor') {
             window.location.href = `/s/${slug}/login/painelassinante?returnUrl=${encodeURIComponent(currentPath)}`;
-          } else if (currentPath.includes('/Entregador') || currentPath.includes('/Cozinha') ||
-                     currentPath.includes('/PDV') || currentPath.includes('/Garcom')) {
+          } else if (
+            currentPathLower.includes('/entregador') ||
+            currentPathLower.includes('/cozinha') ||
+            currentPathLower.includes('/pdv') ||
+            currentPathLower.includes('/garcom') ||
+            ['entregador', 'entregador-panel', 'cozinha', 'pdv', 'garcom'].includes(currentApp || '')
+          ) {
             window.location.href = `/s/${slug}/login/colaborador?returnUrl=${encodeURIComponent(currentPath)}`;
           } else {
             // Cardápio /s/slug: recarrega para ficar no cardápio deslogado
@@ -372,12 +383,18 @@ class ApiClient {
           return;
         }
         // Sem slug: não usar mais /login/assinante, /login/cliente, /login/colaborador
-        if (currentPath.includes('/Admin') || currentPath.includes('/Assinantes')) {
+        if (currentPathLower.includes('/admin') || currentPathLower.includes('/assinantes')) {
           window.location.href = '/login/admin';
-        } else if (currentPath.includes('/PainelAssinante') || currentPath.includes('/GestorPedidos') ||
-                   currentPath.includes('/Entregador') || currentPath.includes('/Cozinha') ||
-                   currentPath.includes('/PDV') || currentPath.includes('/Garcom') ||
-                   currentPath.includes('/colaborador') || currentPath.includes('/PainelGerente')) {
+        } else if (
+          currentPathLower.includes('/painelassinante') ||
+          currentPathLower.includes('/gestorpedidos') ||
+          currentPathLower.includes('/entregador') ||
+          currentPathLower.includes('/cozinha') ||
+          currentPathLower.includes('/pdv') ||
+          currentPathLower.includes('/garcom') ||
+          currentPathLower.includes('/colaborador') ||
+          currentPathLower.includes('/painelgerente')
+        ) {
           window.location.href = '/';
         } else {
           window.location.reload();
@@ -389,25 +406,34 @@ class ApiClient {
        * URLs genéricas não são mais usadas; sem slug redireciona para /.
        */
       redirectToLogin: (returnUrl = '/') => {
-        const slug = self.auth._getSlugFromPath(returnUrl);
-        if (returnUrl.includes('/Admin') || returnUrl.includes('/Assinantes')) {
+        const returnPath = String(returnUrl || '/');
+        const returnPathLower = returnPath.toLowerCase();
+        const returnAppMatch = returnPathLower.match(/^\/app\/[a-z0-9-]+\/([a-z0-9-]+)(?:\/|$)/i);
+        const returnApp = returnAppMatch ? returnAppMatch[1] : null;
+        const slug = self.auth._getSlugFromPath(returnPath);
+        if (returnPathLower.includes('/admin') || returnPathLower.includes('/assinantes')) {
           window.location.href = '/login/admin';
           return;
         }
         if (slug) {
           let loginPath;
-          if (returnUrl.includes('/PainelAssinante') || returnUrl.includes('/GestorPedidos')) {
+          if (returnPathLower.includes('/painelassinante') || returnPathLower.includes('/gestorpedidos') || returnApp === 'gestor') {
             loginPath = `/s/${slug}/login/painelassinante`;
-          } else if (returnUrl.includes('/Entregador') || returnUrl.includes('/Cozinha') ||
-                     returnUrl.includes('/PDV') || returnUrl.includes('/Garcom')) {
+          } else if (
+            returnPathLower.includes('/entregador') ||
+            returnPathLower.includes('/cozinha') ||
+            returnPathLower.includes('/pdv') ||
+            returnPathLower.includes('/garcom') ||
+            ['entregador', 'entregador-panel', 'cozinha', 'pdv', 'garcom'].includes(returnApp || '')
+          ) {
             loginPath = `/s/${slug}/login/colaborador`;
           } else {
             loginPath = `/s/${slug}/login/cliente`;
           }
-          window.location.href = `${loginPath}?returnUrl=${encodeURIComponent(returnUrl)}`;
+          window.location.href = `${loginPath}?returnUrl=${encodeURIComponent(returnPath)}`;
           return;
         }
-        window.location.href = returnUrl && returnUrl !== '/' ? `/?returnUrl=${encodeURIComponent(returnUrl)}` : '/';
+        window.location.href = returnPath && returnPath !== '/' ? `/?returnUrl=${encodeURIComponent(returnPath)}` : '/';
       },
 
       /**

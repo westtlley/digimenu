@@ -9,14 +9,20 @@ import toast from 'react-hot-toast';
 /**
  * Hook para gerenciar comandas
  */
-export function useComandas(statusFilter = 'open', enabled = true) {
+export function useComandas(statusFilter = 'open', options = true) {
+  const normalizedOptions =
+    typeof options === 'object' && options !== null
+      ? options
+      : { enabled: Boolean(options) };
+  const { enabled = true, asSubscriber } = normalizedOptions;
   const { online } = useOfflineSync();
   const queryClient = useQueryClient();
+  const scopedEntityOpts = asSubscriber ? { as_subscriber: asSubscriber } : {};
 
   const { data: comandas = [], isLoading } = useQuery({
-    queryKey: ['Comanda', statusFilter, online],
+    queryKey: ['Comanda', statusFilter, online, asSubscriber || 'self'],
     queryFn: async () => {
-      const params = statusFilter && statusFilter !== 'all' ? { status: statusFilter } : {};
+      const params = statusFilter && statusFilter !== 'all' ? { status: statusFilter, ...scopedEntityOpts } : { ...scopedEntityOpts };
       
       if (online) {
         return base44.entities.Comanda.list('-created_at', params);
@@ -35,7 +41,10 @@ export function useComandas(statusFilter = 'open', enabled = true) {
   const createMutation = useMutation({
     mutationFn: async (data) => {
       if (online) {
-        return await base44.entities.Comanda.create(data);
+        return await base44.entities.Comanda.create({
+          ...data,
+          ...(asSubscriber ? { as_subscriber: asSubscriber } : {}),
+        });
       } else {
         const offlineComanda = {
           ...data,
@@ -55,7 +64,7 @@ export function useComandas(statusFilter = 'open', enabled = true) {
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }) => {
       if (online) {
-        return await base44.entities.Comanda.update(id, data);
+        return await base44.entities.Comanda.update(id, data, scopedEntityOpts);
       } else {
         return await updateComandaOffline({ ...data, id });
       }

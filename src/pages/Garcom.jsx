@@ -12,9 +12,11 @@ import { useComandaWebSocket } from '@/hooks/useComandaWebSocket';
 import { useWaiterCallWebSocket } from '@/hooks/useWaiterCallWebSocket';
 import { useComandas } from '@/hooks/useComandas';
 import { useDebounce } from '@/hooks/useDebounce';
+import { useSlugContext } from '@/hooks/useSlugContext';
 import { formatCurrency, formatDate } from '@/utils/formatters';
 import { COMANDA_STATUS, DEBOUNCE_DELAYS } from '@/utils/constants';
 import { printComanda as printComandaTicket } from '@/utils/gestorExport';
+import { createPageUrl } from '@/utils';
 import ColaboradorProfile from '../components/colaboradores/ColaboradorProfile';
 import TipsView from '../components/garcom/TipsView';
 import ComandaFormModal from '../components/garcom/ComandaFormModal';
@@ -39,20 +41,45 @@ export default function Garcom() {
   const [historyCallsOpen, setHistoryCallsOpen] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showTips, setShowTips] = useState(false);
+  const { slug, subscriberEmail, inSlugContext, loading: slugLoading } = useSlugContext();
 
   // Debounce da busca
   const debouncedSearchTerm = useDebounce(searchTerm, DEBOUNCE_DELAYS.SEARCH);
+  const canonicalGarcomPath = useMemo(() => createPageUrl('Garcom', slug || undefined), [slug]);
+  const tenantIdentifier = useMemo(() => {
+    if (inSlugContext && subscriberEmail) {
+      return String(subscriberEmail).toLowerCase().trim();
+    }
+    const fallback = user?.subscriber_email || user?.email;
+    return fallback ? String(fallback).toLowerCase().trim() : null;
+  }, [inSlugContext, subscriberEmail, user?.subscriber_email, user?.email]);
+  const asSubscriberForMaster = useMemo(() => {
+    if (!allowed) return null;
+    if (!inSlugContext || !tenantIdentifier) return null;
+    return user?.is_master === true ? tenantIdentifier : null;
+  }, [allowed, inSlugContext, tenantIdentifier, user?.is_master]);
 
   useEffect(() => {
+    if (slugLoading) return;
+    let cancelled = false;
+    setLoading(true);
     (async () => {
       try {
         const me = await base44.auth.me();
+        if (cancelled) return;
         setUser(me);
         if (!me) {
-          base44.auth.redirectToLogin('/Garcom');
+          base44.auth.redirectToLogin(canonicalGarcomPath);
           return;
         }
         // Verificar se tem perfil de garçom, é master, é assinante ou é gerente (acesso total)
+        const normalizedSlugSubscriber = (subscriberEmail || '').toLowerCase().trim();
+        const normalizedUserSubscriber = (me?.subscriber_email || me?.email || '').toLowerCase().trim();
+        const tenantMatchesSlug =
+          !inSlugContext ||
+          !normalizedSlugSubscriber ||
+          me?.is_master === true ||
+          normalizedUserSubscriber === normalizedSlugSubscriber;
         const isAssinante = me?.subscriber_email && (me?.email || '').toLowerCase().trim() === (me?.subscriber_email || '').toLowerCase().trim();
         const roles = me?.profile_roles?.length ? me.profile_roles : me?.profile_role ? [me.profile_role] : [];
         const isGerente = roles.includes('gerente');
@@ -61,34 +88,46 @@ export default function Garcom() {
         // Se não tem subscriber_email mas tem email, pode ser o próprio assinante
         const isOwner = !me.subscriber_email || (me.email && me.subscriber_email && me.email.toLowerCase().trim() === me.subscriber_email.toLowerCase().trim());
         
-        const hasAccess = isGarcom || me?.is_master === true || isAssinante || isGerente || isOwner;
+        const hasAccess = (isGarcom || me?.is_master === true || isAssinante || isGerente || isOwner) && tenantMatchesSlug;
         setAllowed(hasAccess);
-        if (!hasAccess) {
-          setLoading(false);
-          return;
-        }
       } catch (e) {
-        base44.auth.redirectToLogin('/Garcom');
+        if (!cancelled) {
+          base44.auth.redirectToLogin(canonicalGarcomPath);
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     })();
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [canonicalGarcomPath, inSlugContext, slugLoading, subscriberEmail]);
 
   // Hook customizado para comandas
-  const { comandas, isLoading, stats, createMutation, updateMutation, online } = useComandas(statusFilter, allowed);
+  const { comandas, isLoading, stats, createMutation, updateMutation, online } = useComandas(statusFilter, {
+    enabled: allowed,
+    asSubscriber: asSubscriberForMaster,
+  });
 
   // WebSocket para atualização em tempo real
-  useComandaWebSocket(allowed);
+  useComandaWebSocket({
+    subscriberEmail: allowed ? tenantIdentifier : null,
+  });
 
   // WebSocket para chamadas de garçom
-  const { waiterCalls, allWaiterCalls, setWaiterCalls } = useWaiterCallWebSocket(allowed);
+  const { waiterCalls, allWaiterCalls, setWaiterCalls } = useWaiterCallWebSocket({
+    enabled: allowed,
+    subscriberEmailOverride: asSubscriberForMaster,
+  });
 
   // Buscar pratos
+  const dishListOpts = asSubscriberForMaster ? { as_subscriber: asSubscriberForMaster } : {};
   const { data: dishes = [] } = useQuery({
-    queryKey: ['Dish'],
-    queryFn: () => base44.entities.Dish.list(),
-    enabled: allowed,
+    queryKey: ['Dish', asSubscriberForMaster || 'self'],
+    queryFn: () => base44.entities.Dish.list(null, dishListOpts),
+    enabled: allowed && !slugLoading,
   });
 
   const safeDishes = useMemo(() => {
