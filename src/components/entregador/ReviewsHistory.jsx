@@ -4,18 +4,28 @@ import { motion } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 
-export default function ReviewsHistory({ entregador, onClose, darkMode }) {
+export default function ReviewsHistory({ entregador, onClose, darkMode, asSub = null }) {
+  const scopedEntityOpts = asSub ? { as_subscriber: asSub } : {};
+  const tenantQueryScope = asSub || 'me';
+
   const { data: ratings = [] } = useQuery({
-    queryKey: ['deliveryRatings', entregador.id],
-    queryFn: () => base44.entities.DeliveryRating.filter({ entregador_id: entregador.id }, '-created_date'),
+    queryKey: ['deliveryRatings', entregador.id, tenantQueryScope],
+    queryFn: () => base44.entities.DeliveryRating.filter(
+      {
+        entregador_id: entregador.id,
+        ...scopedEntityOpts
+      },
+      '-created_date'
+    ),
   });
 
   const { data: orders = [] } = useQuery({
-    queryKey: ['ratedOrders', entregador.id],
+    queryKey: ['ratedOrders', entregador.id, tenantQueryScope],
     queryFn: async () => {
       const allOrders = await base44.entities.Order.filter({ 
         entregador_id: entregador.id,
-        status: 'delivered'
+        status: 'delivered',
+        ...scopedEntityOpts
       });
       return allOrders.filter(o => o.restaurant_rating || o.rating_comment);
     },

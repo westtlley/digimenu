@@ -7,15 +7,20 @@ import { base44 } from '@/api/base44Client';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from "sonner";
 
-export default function EntregadorRating({ isOpen, onClose, entregador, orderId }) {
+export default function EntregadorRating({ isOpen, onClose, entregador, orderId, asSub = null }) {
   const [rating, setRating] = useState(0);
   const [hoveredRating, setHoveredRating] = useState(0);
   const [comment, setComment] = useState('');
   const queryClient = useQueryClient();
+  const scopedEntityOpts = asSub ? { as_subscriber: asSub } : {};
+  const tenantQueryScope = asSub || 'me';
 
   const createRatingMutation = useMutation({
     mutationFn: async (data) => {
-      await base44.entities.DeliveryRating.create(data);
+      await base44.entities.DeliveryRating.create({
+        ...data,
+        ...(asSub ? { as_subscriber: asSub } : {}),
+      });
       
       // Atualizar média do entregador
       const currentRating = entregador.rating || 5;
@@ -27,10 +32,10 @@ export default function EntregadorRating({ isOpen, onClose, entregador, orderId 
         ...entregador,
         rating: newAvg,
         total_ratings: newTotal
-      });
+      }, scopedEntityOpts);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['entregadores'] });
+      queryClient.invalidateQueries({ queryKey: ['entregadores', tenantQueryScope] });
       toast.success('Avaliação registrada com sucesso!');
       onClose();
       setRating(0);

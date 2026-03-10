@@ -1,12 +1,12 @@
-/**
+﻿/**
  * Order Status Validation Service
- * Valida transições de status de pedidos, garantindo que apenas transições válidas sejam permitidas
+ * Valida transicoes de status de pedidos.
  */
 
 import { logger } from '../utils/logger.js';
 
 /**
- * Status possíveis de um pedido
+ * Status possiveis de um pedido.
  */
 export const ORDER_STATUSES = {
   NEW: 'new',
@@ -14,13 +14,28 @@ export const ORDER_STATUSES = {
   ACCEPTED: 'accepted',
   PREPARING: 'preparing',
   READY: 'ready',
+  GOING_TO_STORE: 'going_to_store',
+  ARRIVED_AT_STORE: 'arrived_at_store',
+  PICKED_UP: 'picked_up',
+  OUT_FOR_DELIVERY: 'out_for_delivery',
+  ARRIVED_AT_CUSTOMER: 'arrived_at_customer',
+  // Alias legado mantido por compatibilidade com dados antigos.
   DELIVERING: 'delivering',
   DELIVERED: 'delivered',
   CANCELLED: 'cancelled'
 };
 
+function normalizeOrderStatus(status) {
+  const normalized = (status || '').toLowerCase().trim();
+  // Compatibilidade com status legado.
+  if (normalized === ORDER_STATUSES.DELIVERING) {
+    return ORDER_STATUSES.OUT_FOR_DELIVERY;
+  }
+  return normalized;
+}
+
 /**
- * Mapa de transições válidas de status
+ * Mapa de transicoes validas de status.
  * Formato: { fromStatus: [toStatus1, toStatus2, ...] }
  */
 const VALID_TRANSITIONS = {
@@ -42,24 +57,49 @@ const VALID_TRANSITIONS = {
     ORDER_STATUSES.CANCELLED
   ],
   [ORDER_STATUSES.READY]: [
-    ORDER_STATUSES.DELIVERING,
+    ORDER_STATUSES.GOING_TO_STORE,
+    ORDER_STATUSES.PICKED_UP,
+    ORDER_STATUSES.OUT_FOR_DELIVERY,
     ORDER_STATUSES.DELIVERED,
     ORDER_STATUSES.CANCELLED
   ],
+  [ORDER_STATUSES.GOING_TO_STORE]: [
+    ORDER_STATUSES.ARRIVED_AT_STORE,
+    ORDER_STATUSES.CANCELLED
+  ],
+  [ORDER_STATUSES.ARRIVED_AT_STORE]: [
+    ORDER_STATUSES.PICKED_UP,
+    ORDER_STATUSES.CANCELLED
+  ],
+  [ORDER_STATUSES.PICKED_UP]: [
+    ORDER_STATUSES.OUT_FOR_DELIVERY,
+    ORDER_STATUSES.CANCELLED
+  ],
+  [ORDER_STATUSES.OUT_FOR_DELIVERY]: [
+    ORDER_STATUSES.ARRIVED_AT_CUSTOMER,
+    ORDER_STATUSES.DELIVERED,
+    ORDER_STATUSES.CANCELLED
+  ],
+  [ORDER_STATUSES.ARRIVED_AT_CUSTOMER]: [
+    ORDER_STATUSES.DELIVERED,
+    ORDER_STATUSES.CANCELLED
+  ],
+  // Compatibilidade com registros legados.
   [ORDER_STATUSES.DELIVERING]: [
+    ORDER_STATUSES.ARRIVED_AT_CUSTOMER,
     ORDER_STATUSES.DELIVERED,
     ORDER_STATUSES.CANCELLED
   ],
   [ORDER_STATUSES.DELIVERED]: [
-    // Pedido entregue não pode mudar de status (final)
+    // Pedido entregue nao pode mudar de status (final)
   ],
   [ORDER_STATUSES.CANCELLED]: [
-    // Pedido cancelado não pode mudar de status (final)
+    // Pedido cancelado nao pode mudar de status (final)
   ]
 };
 
 /**
- * Status finais (não podem ser alterados)
+ * Status finais (nao podem ser alterados).
  */
 const FINAL_STATUSES = [
   ORDER_STATUSES.DELIVERED,
@@ -67,105 +107,99 @@ const FINAL_STATUSES = [
 ];
 
 /**
- * Valida se uma transição de status é permitida
+ * Valida se uma transicao de status e permitida.
  * @param {string} currentStatus - Status atual do pedido
  * @param {string} newStatus - Novo status desejado
- * @param {object} options - Opções de validação
- * @param {boolean} options.isMaster - Se o usuário é master (bypass de validação)
- * @param {string} options.userRole - Role do usuário (para validações específicas)
+ * @param {object} options - Opcoes de validacao
+ * @param {boolean} options.isMaster - Se o usuario e master (bypass de validacao)
+ * @param {string} options.userRole - Role do usuario (para validacoes especificas)
  * @returns {object} - { valid: boolean, message?: string }
  */
 export function validateStatusTransition(currentStatus, newStatus, options = {}) {
-  const { isMaster = false, userRole = null } = options;
+  const { isMaster = false } = options;
 
-  // Master pode fazer qualquer transição (bypass)
+  // Master pode fazer qualquer transicao (bypass)
   if (isMaster) {
     return { valid: true };
   }
 
   // Normalizar status
-  const current = (currentStatus || '').toLowerCase().trim();
-  const next = (newStatus || '').toLowerCase().trim();
+  const current = normalizeOrderStatus(currentStatus);
+  const next = normalizeOrderStatus(newStatus);
 
-  // Se não mudou, é válido (mas não faz sentido)
+  // Se nao mudou, e valido (mas nao faz sentido)
   if (current === next) {
-    return { valid: true, message: 'Status não foi alterado' };
+    return { valid: true, message: 'Status nao foi alterado' };
   }
 
-  // Verificar se status atual é final
+  // Verificar se status atual e final
   if (FINAL_STATUSES.includes(current)) {
     return {
       valid: false,
-      message: `Pedido com status "${current}" não pode ser alterado. Status finais: ${FINAL_STATUSES.join(', ')}`
+      message: `Pedido com status "${current}" nao pode ser alterado. Status finais: ${FINAL_STATUSES.join(', ')}`
     };
   }
 
-  // Verificar se novo status é válido
+  // Verificar se novo status e valido
   if (!Object.values(ORDER_STATUSES).includes(next)) {
     return {
       valid: false,
-      message: `Status inválido: "${next}". Status válidos: ${Object.values(ORDER_STATUSES).join(', ')}`
+      message: `Status invalido: "${next}". Status validos: ${Object.values(ORDER_STATUSES).join(', ')}`
     };
   }
 
-  // Verificar se a transição é permitida
+  // Verificar se a transicao e permitida
   const allowedTransitions = VALID_TRANSITIONS[current] || [];
   if (!allowedTransitions.includes(next)) {
     return {
       valid: false,
-      message: `Transição inválida: "${current}" → "${next}". ` +
-               `Transições permitidas de "${current}": ${allowedTransitions.join(', ') || 'nenhuma'}`
+      message: `Transicao invalida: "${current}" -> "${next}". ` +
+               `Transicoes permitidas de "${current}": ${allowedTransitions.join(', ') || 'nenhuma'}`
     };
-  }
-
-  // Validações específicas por role (se necessário)
-  if (next === ORDER_STATUSES.CANCELLED) {
-    // Apenas gerente ou dono pode cancelar (validação adicional pode ser feita no controller)
-    // Por enquanto, permitimos se a transição é válida
   }
 
   return { valid: true };
 }
 
 /**
- * Obtém todas as transições válidas a partir de um status
+ * Obtem todas as transicoes validas a partir de um status.
  * @param {string} currentStatus - Status atual
- * @returns {string[]} - Array de status válidos para transição
+ * @returns {string[]} - Array de status validos para transicao
  */
 export function getValidNextStatuses(currentStatus) {
-  const current = (currentStatus || '').toLowerCase().trim();
+  const current = normalizeOrderStatus(currentStatus);
   return VALID_TRANSITIONS[current] || [];
 }
 
 /**
- * Verifica se um status é final (não pode ser alterado)
+ * Verifica se um status e final (nao pode ser alterado).
  * @param {string} status - Status a verificar
  * @returns {boolean}
  */
 export function isFinalStatus(status) {
-  const normalized = (status || '').toLowerCase().trim();
+  const normalized = normalizeOrderStatus(status);
   return FINAL_STATUSES.includes(normalized);
 }
 
 /**
- * Valida e aplica transição de status com logging
+ * Valida e aplica transicao de status com logging.
  * @param {string} orderId - ID do pedido
  * @param {string} currentStatus - Status atual
  * @param {string} newStatus - Novo status
- * @param {object} options - Opções de validação
+ * @param {object} options - Opcoes de validacao
  * @returns {object} - { valid: boolean, message?: string }
  */
 export function validateAndLogTransition(orderId, currentStatus, newStatus, options = {}) {
   const validation = validateStatusTransition(currentStatus, newStatus, options);
 
   if (validation.valid) {
-    logger.info(`✅ Transição de status válida: Pedido ${orderId}`, {
+    logger.info(`Transicao de status valida: Pedido ${orderId}`, {
       from: currentStatus,
       to: newStatus,
       userRole: options.userRole || 'unknown'
     });
   } else {
-    logger.warn(`❌ Transição de status inválida: Pedido ${orderId}`, {
+    logger.warn(`Transicao de status invalida: Pedido ${orderId}`, {
       from: currentStatus,
       to: newStatus,
       reason: validation.message,

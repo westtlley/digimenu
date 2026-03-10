@@ -16,7 +16,7 @@ import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { toast } from "sonner";
 import { format } from 'date-fns';
 
-export default function DeliveryPanel({ entregadores, orders, stores = [] }) {
+export default function DeliveryPanel({ entregadores, orders, stores = [], asSub = null }) {
   const safeOrders = Array.isArray(orders) ? orders : [];
   const safeEntregadores = Array.isArray(entregadores) ? entregadores : [];
   const [viewMode, setViewMode] = useState('list');
@@ -31,11 +31,13 @@ export default function DeliveryPanel({ entregadores, orders, stores = [] }) {
   const [editingEntregador, setEditingEntregador] = useState(null);
   const [showNewEntregadorModal, setShowNewEntregadorModal] = useState(false);
   const queryClient = useQueryClient();
+  const scopedEntityOpts = useMemo(() => (asSub ? { as_subscriber: asSub } : {}), [asSub]);
+  const tenantQueryScope = asSub || 'me';
 
   // Buscar avaliações de todos os entregadores
   const { data: allRatings = [] } = useQuery({
-    queryKey: ['entregadorRatings'],
-    queryFn: () => base44.entities.DeliveryRating.list(),
+    queryKey: ['entregadorRatings', tenantQueryScope],
+    queryFn: () => base44.entities.DeliveryRating.list(null, scopedEntityOpts),
   });
 
   // Calcular média de avaliações por entregador
@@ -60,17 +62,17 @@ export default function DeliveryPanel({ entregadores, orders, stores = [] }) {
         ...order,
         entregador_id: entregadorId,
         status: 'out_for_delivery'
-      });
+      }, scopedEntityOpts);
 
       await base44.entities.Entregador.update(entregadorId, {
         ...entregador,
         status: 'busy',
         current_order_id: orderId
-      });
+      }, scopedEntityOpts);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['gestorOrders'] });
-      queryClient.invalidateQueries({ queryKey: ['entregadores'] });
+      queryClient.invalidateQueries({ queryKey: ['gestorOrders', tenantQueryScope] });
+      queryClient.invalidateQueries({ queryKey: ['entregadores', tenantQueryScope] });
       toast.success('Entregador atribuído com sucesso!');
     }
   });
@@ -96,9 +98,10 @@ export default function DeliveryPanel({ entregadores, orders, stores = [] }) {
       total_deliveries: 0,
       total_earnings: 0,
       rating: 5,
+      ...(asSub ? { as_subscriber: asSub } : {}),
     }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['entregadores'] });
+      queryClient.invalidateQueries({ queryKey: ['entregadores', tenantQueryScope] });
       setShowNewEntregadorModal(false);
       setEntregadorFormData({ name: '', phone: '', email: '' });
       toast.success('Entregador cadastrado com sucesso!');
@@ -108,19 +111,19 @@ export default function DeliveryPanel({ entregadores, orders, stores = [] }) {
   const updateEntregadorMutation = useMutation({
     mutationFn: async ({ id, data }) => {
       const entregador = entregadores.find(e => e.id === id);
-      return await base44.entities.Entregador.update(id, { ...entregador, ...data });
+      return await base44.entities.Entregador.update(id, { ...entregador, ...data }, scopedEntityOpts);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['entregadores'] });
+      queryClient.invalidateQueries({ queryKey: ['entregadores', tenantQueryScope] });
       setEditingEntregador(null);
       toast.success('Entregador atualizado!');
     },
   });
 
   const deleteEntregadorMutation = useMutation({
-    mutationFn: (id) => base44.entities.Entregador.delete(id),
+    mutationFn: (id) => base44.entities.Entregador.delete(id, scopedEntityOpts),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['entregadores'] });
+      queryClient.invalidateQueries({ queryKey: ['entregadores', tenantQueryScope] });
       toast.success('Entregador removido!');
     },
   });
@@ -479,6 +482,7 @@ export default function DeliveryPanel({ entregadores, orders, stores = [] }) {
           }}
           entregador={selectedEntregador}
           orderId={selectedEntregador.current_order_id}
+          asSub={asSub}
         />
       )}
 
@@ -491,6 +495,7 @@ export default function DeliveryPanel({ entregadores, orders, stores = [] }) {
           }}
           entregador={selectedEntregador}
           orders={orders}
+          asSub={asSub}
         />
       )}
 
@@ -502,6 +507,7 @@ export default function DeliveryPanel({ entregadores, orders, stores = [] }) {
             setSelectedEntregador(null);
           }}
           darkMode={false}
+          asSub={asSub}
         />
       )}
 

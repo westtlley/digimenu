@@ -66,11 +66,13 @@ const getRandomCoordinates = () => ({
   lng: -42.8019 + (Math.random() - 0.5) * 0.1
 });
 
-export default function RouteOptimizer({ isOpen, onClose, entregador, orders }) {
+export default function RouteOptimizer({ isOpen, onClose, entregador, orders, asSub = null }) {
   const [selectedOrders, setSelectedOrders] = useState([]);
   const [optimizedRoute, setOptimizedRoute] = useState(null);
   const [optimizing, setOptimizing] = useState(false);
   const queryClient = useQueryClient();
+  const scopedEntityOpts = useMemo(() => (asSub ? { as_subscriber: asSub } : {}), [asSub]);
+  const tenantQueryScope = asSub || 'me';
 
   // Filtrar pedidos prontos para entrega
   const availableOrders = orders.filter(o => 
@@ -128,7 +130,7 @@ export default function RouteOptimizer({ isOpen, onClose, entregador, orders }) 
         await base44.entities.Order.update(order.id, {
           status: 'out_for_delivery',
           entregador_id: entregador.id
-        });
+        }, scopedEntityOpts);
       }
 
       // Atualizar status do entregador
@@ -136,11 +138,11 @@ export default function RouteOptimizer({ isOpen, onClose, entregador, orders }) 
         ...entregador,
         status: 'busy',
         current_order_id: optimizedRoute.optimizedOrders[0].id
-      });
+      }, scopedEntityOpts);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['gestorOrders'] });
-      queryClient.invalidateQueries({ queryKey: ['entregadores'] });
+      queryClient.invalidateQueries({ queryKey: ['gestorOrders', tenantQueryScope] });
+      queryClient.invalidateQueries({ queryKey: ['entregadores', tenantQueryScope] });
       toast.success('Rota atribuída ao entregador!');
       onClose();
     },

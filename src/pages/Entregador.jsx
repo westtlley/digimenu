@@ -115,6 +115,11 @@ export default function Entregador() {
       : createPageUrl('PainelAssinante', slug || undefined);
   const tenantScope = asSubscriber || tenantIdentifier || 'self';
   const entityOpts = useMemo(() => (asSubscriber ? { as_subscriber: asSubscriber } : {}), [asSubscriber]);
+  const deliveryOrdersKey = useMemo(() => ['deliveryOrders', entregador?.id, asSubscriber ?? 'me'], [entregador?.id, asSubscriber]);
+  const allDeliveryOrdersKey = useMemo(() => ['allDeliveryOrders', asSubscriber ?? 'me'], [asSubscriber]);
+  const availableOrdersKey = useMemo(() => ['availableOrders', tenantScope], [tenantScope]);
+  const gestorOrdersKey = useMemo(() => ['gestorOrders', asSubscriber ?? 'me'], [asSubscriber]);
+  const entregadoresKey = useMemo(() => ['entregadores', asSubscriber ?? 'me'], [asSubscriber]);
   const updateOrder = (orderId, payload) => base44.entities.Order.update(orderId, payload, entityOpts);
   const updateEntregador = (entregadorId, payload) => base44.entities.Entregador.update(entregadorId, payload, entityOpts);
   const listStores = () => base44.entities.Store.list(null, entityOpts);
@@ -196,8 +201,10 @@ export default function Entregador() {
       delivered_at: status === 'delivered' ? new Date().toISOString() : undefined
     }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['deliveryOrders'] });
-      queryClient.invalidateQueries({ queryKey: ['allDeliveryOrders'] });
+      queryClient.invalidateQueries({ queryKey: deliveryOrdersKey });
+      queryClient.invalidateQueries({ queryKey: allDeliveryOrdersKey });
+      queryClient.invalidateQueries({ queryKey: availableOrdersKey });
+      queryClient.invalidateQueries({ queryKey: gestorOrdersKey });
     },
     onError: (error) => {
       toast.error(error?.message || 'Erro ao atualizar status da entrega');
@@ -235,7 +242,7 @@ export default function Entregador() {
     },
     onSuccess: (data) => {
       setEntregador(data);
-      queryClient.invalidateQueries({ queryKey: ['entregadores'] });
+      queryClient.invalidateQueries({ queryKey: entregadoresKey });
     },
   });
 
@@ -399,10 +406,10 @@ export default function Entregador() {
         });
       }
 
-      queryClient.invalidateQueries({ queryKey: ['deliveryOrders'] });
-      queryClient.invalidateQueries({ queryKey: ['allDeliveryOrders'] });
-      queryClient.invalidateQueries({ queryKey: ['availableOrders', tenantScope] });
-      queryClient.invalidateQueries({ queryKey: ['gestorOrders'] });
+      queryClient.invalidateQueries({ queryKey: deliveryOrdersKey });
+      queryClient.invalidateQueries({ queryKey: allDeliveryOrdersKey });
+      queryClient.invalidateQueries({ queryKey: availableOrdersKey });
+      queryClient.invalidateQueries({ queryKey: gestorOrdersKey });
       toast.success('Entrega cancelada com sucesso');
       closeCancelModal();
     } catch (error) {
@@ -431,8 +438,10 @@ export default function Entregador() {
 
     try {
       await updateOrder(order.id, payload);
-      queryClient.invalidateQueries({ queryKey: ['deliveryOrders'] });
-      queryClient.invalidateQueries({ queryKey: ['gestorOrders'] });
+      queryClient.invalidateQueries({ queryKey: deliveryOrdersKey });
+      queryClient.invalidateQueries({ queryKey: allDeliveryOrdersKey });
+      queryClient.invalidateQueries({ queryKey: availableOrdersKey });
+      queryClient.invalidateQueries({ queryKey: gestorOrdersKey });
       toast.success(successMessage);
       if (typeof onSuccess === 'function') onSuccess();
     } catch (error) {
@@ -956,10 +965,11 @@ export default function Entregador() {
                         });
                       }
 
-                      queryClient.invalidateQueries({ queryKey: ['deliveryOrders'] });
-                      queryClient.invalidateQueries({ queryKey: ['availableOrders', tenantScope] });
-                      queryClient.invalidateQueries({ queryKey: ['entregadores'] });
-                      queryClient.invalidateQueries({ queryKey: ['gestorOrders'] });
+                      queryClient.invalidateQueries({ queryKey: deliveryOrdersKey });
+                      queryClient.invalidateQueries({ queryKey: allDeliveryOrdersKey });
+                      queryClient.invalidateQueries({ queryKey: availableOrdersKey });
+                      queryClient.invalidateQueries({ queryKey: entregadoresKey });
+                      queryClient.invalidateQueries({ queryKey: gestorOrdersKey });
                       toast.success('Entrega aceita com sucesso');
 
                       if (audioRef.current) {
@@ -1507,7 +1517,7 @@ export default function Entregador() {
             if (entregador) {
               setEntregador({ ...entregador, ...updatedUser });
             }
-            queryClient.invalidateQueries({ queryKey: ['entregador'] });
+            queryClient.invalidateQueries({ queryKey: entregadoresKey });
           }}
         />
       )}

@@ -981,7 +981,7 @@ export default function GestorPedidos() {
           <FinancialDashboard orders={orders} />
         )}
         {viewMode === 'delivery' && (
-          <DeliveryPanel entregadores={entregadores} orders={orders} stores={stores} />
+          <DeliveryPanel entregadores={entregadores} orders={orders} stores={stores} asSub={asSub} />
         )}
         {viewMode === 'settings' && (
           <GestorSettings />

@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+﻿import React, { useMemo, useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { 
@@ -61,6 +61,7 @@ export default function OrderDetailModal({
   })();
 
   const queryClient = useQueryClient();
+  const gestorOrdersKey = useMemo(() => ['gestorOrders', asSub ?? 'me'], [asSub]);
 
   // Atalho 1â€“4: aplicar status e limpar
   React.useEffect(() => {
@@ -147,7 +148,7 @@ export default function OrderDetailModal({
     onSuccess: (data) => {
       const newStatus = data?.status;
       const updatedOrder = data?.order || order;
-      queryClient.invalidateQueries({ queryKey: ['gestorOrders'] });
+      queryClient.invalidateQueries({ queryKey: gestorOrdersKey });
       queryClient.invalidateQueries({ queryKey: ['orderLogs', order.id] });
       const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2018/2018-preview.mp3');
       audio.volume = 0.5;
@@ -297,7 +298,7 @@ export default function OrderDetailModal({
     
     try {
       // Buscar configuraÃ§Ã£o da loja para coordenadas
-      const stores = await base44.entities.Store.list();
+      const stores = await base44.entities.Store.list(null, asSub ? { as_subscriber: asSub } : {});
       const store = stores[0];
       
       const entregador = entregadores.find(e => e.id === selectedEntregador);
@@ -344,7 +345,7 @@ export default function OrderDetailModal({
     try {
       const opts = asSub ? { as_subscriber: asSub } : {};
       await base44.entities.Order.update(order.id, { ...order, customer_change_status: 'approved' }, opts);
-      queryClient.invalidateQueries({ queryKey: ['gestorOrders'] });
+      queryClient.invalidateQueries({ queryKey: gestorOrdersKey });
       toast.success('AlteraÃ§Ã£o do cliente aceita.');
       onUpdate();
     } catch (e) {
@@ -361,7 +362,7 @@ export default function OrderDetailModal({
     try {
       const opts = asSub ? { as_subscriber: asSub } : {};
       await base44.entities.Order.update(order.id, { ...order, customer_change_status: 'rejected', customer_change_response: motivo }, opts);
-      queryClient.invalidateQueries({ queryKey: ['gestorOrders'] });
+      queryClient.invalidateQueries({ queryKey: gestorOrdersKey });
       toast.success('AlteraÃ§Ã£o reprovada.');
       setShowRejectChangeModal(false);
       setChangeRejectMotivo('');
@@ -969,4 +970,5 @@ export default function OrderDetailModal({
     </>
   );
 }
+
 

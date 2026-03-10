@@ -16,7 +16,7 @@ export default function Cozinha() {
   const [allowed, setAllowed] = useState(false);
   const queryClient = useQueryClient();
   const { slug, subscriberEmail, inSlugContext, loading: slugLoading } = useSlugContext();
-  const { hasModuleAccess, isMaster, loading: permissionLoading } = usePermission();
+  const { hasModuleAccess, isMaster } = usePermission();
   const canonicalKitchenPath = useMemo(() => createPageUrl('Cozinha', slug || undefined), [slug]);
   const normalizedSlugSubscriber = useMemo(
     () => (inSlugContext && subscriberEmail ? String(subscriberEmail).toLowerCase().trim() : null),
@@ -30,6 +30,8 @@ export default function Cozinha() {
   const asSub = (inSlugContext && user?.is_master && normalizedSlugSubscriber) ? normalizedSlugSubscriber : undefined;
   const tenantScope = asSub || tenantIdentifier || 'none';
   const scopedEntityOpts = asSub ? { as_subscriber: asSub } : {};
+  const cozinhaOrdersKey = useMemo(() => ['cozinhaOrders', tenantScope], [tenantScope]);
+  const gestorOrdersKey = useMemo(() => ['gestorOrders', asSub ?? 'me'], [asSub]);
 
   useEffect(() => {
     if (slugLoading) return;
@@ -73,7 +75,6 @@ export default function Cozinha() {
           isOwner,
           hasProfileAccess,
           tenantMatchesSlug,
-          kitchenModuleAccess: hasModuleAccess('cozinha'),
         });
 
         setAllowed(hasProfileAccess);
@@ -90,10 +91,10 @@ export default function Cozinha() {
     return () => {
       cancelled = true;
     };
-  }, [canonicalKitchenPath, hasModuleAccess, inSlugContext, slugLoading, subscriberEmail]);
+  }, [canonicalKitchenPath, inSlugContext, slugLoading, subscriberEmail]);
 
   const { data: orders = [], isLoading: ordersLoading } = useQuery({
-    queryKey: ['cozinhaOrders', tenantScope],
+    queryKey: cozinhaOrdersKey,
     queryFn: () => base44.entities.Order.list('-created_date', scopedEntityOpts),
     enabled: allowed && !!user,
     refetchInterval: 8000,
@@ -102,7 +103,9 @@ export default function Cozinha() {
   const updateMu = useMutation({
     mutationFn: ({ id, updates }) => base44.entities.Order.update(id, updates, scopedEntityOpts),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['cozinhaOrders'] });
+      queryClient.invalidateQueries({ queryKey: cozinhaOrdersKey });
+      queryClient.invalidateQueries({ queryKey: gestorOrdersKey });
+      queryClient.invalidateQueries({ queryKey: ['availableOrders', tenantScope] });
       toast.success('Status atualizado');
     },
     onError: (e) => toast.error(e?.message || 'Erro ao atualizar'),
@@ -125,7 +128,7 @@ export default function Cozinha() {
       toast.error('Popup bloqueado. Permita popups para imprimir.');
       return;
     }
-    toast.success('Comanda enviada para impressao');
+    toast.success('Comanda enviada para impressão');
   };
 
   const handleStatusChange = (order, newStatus) => {
@@ -149,7 +152,7 @@ export default function Cozinha() {
     });
   };
 
-  if (loading || permissionLoading) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
         <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
@@ -157,7 +160,12 @@ export default function Cozinha() {
     );
   }
 
-  const canAccessKitchen = isMaster || hasModuleAccess('cozinha');
+  const roles = user?.profile_roles?.length ? user.profile_roles : user?.profile_role ? [user.profile_role] : [];
+  const isGerenteRole = roles.includes('gerente');
+  const isCozinhaRole = user?.profile_role === 'cozinha' || roles.includes('cozinha');
+  const isAssinante = user?.subscriber_email && (user?.email || '').toLowerCase().trim() === (user?.subscriber_email || '').toLowerCase().trim();
+  const isOwner = !user?.subscriber_email || (user?.email && user?.subscriber_email && user?.email.toLowerCase().trim() === user?.subscriber_email.toLowerCase().trim());
+  const canAccessKitchen = allowed && (isMaster || hasModuleAccess('cozinha') || isCozinhaRole || isGerenteRole || isAssinante || isOwner);
 
   if (!allowed || !canAccessKitchen) {
     return (
@@ -167,7 +175,7 @@ export default function Cozinha() {
           <h2 className="text-lg font-bold text-gray-900 dark:text-white">Acesso restrito</h2>
           <AlertCircle className="w-8 h-8 text-orange-500 mx-auto mb-3" />
           <p className="text-gray-500 dark:text-gray-400 mt-2">
-            Esta tela esta disponivel apenas para perfis e planos com permissao de cozinha.
+            Esta tela está disponível apenas para perfis e planos com permissão de cozinha.
           </p>
           <Button onClick={() => base44.auth.logout()} className="mt-4" variant="outline">
             <LogOut className="w-4 h-4 mr-2" />
