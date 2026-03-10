@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { apiClient as base44 } from '@/api/apiClient';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ChefHat, Loader2, LogOut, AlertCircle } from 'lucide-react';
@@ -7,24 +7,42 @@ import { useSlugContext } from '@/hooks/useSlugContext';
 import { usePermission } from '@/components/permissions/usePermission';
 import toast from 'react-hot-toast';
 import KitchenDisplay from '@/components/cozinha/KitchenDisplay';
+import { printComanda } from '@/utils/gestorExport';
+import { createPageUrl } from '@/utils';
 
 export default function Cozinha() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [allowed, setAllowed] = useState(false);
   const queryClient = useQueryClient();
-  const { subscriberEmail, inSlugContext } = useSlugContext();
+  const { slug, subscriberEmail, inSlugContext, loading: slugLoading } = useSlugContext();
   const { hasModuleAccess, isMaster, loading: permissionLoading } = usePermission();
-  const asSub = (inSlugContext && user?.is_master && subscriberEmail) ? subscriberEmail : undefined;
+  const canonicalKitchenPath = useMemo(() => createPageUrl('Cozinha', slug || undefined), [slug]);
+  const normalizedSlugSubscriber = useMemo(
+    () => (inSlugContext && subscriberEmail ? String(subscriberEmail).toLowerCase().trim() : null),
+    [inSlugContext, subscriberEmail]
+  );
+  const fallbackSubscriber = useMemo(() => {
+    const candidate = user?.subscriber_email || user?.email;
+    return candidate ? String(candidate).toLowerCase().trim() : null;
+  }, [user?.subscriber_email, user?.email]);
+  const tenantIdentifier = normalizedSlugSubscriber || fallbackSubscriber;
+  const asSub = (inSlugContext && user?.is_master && normalizedSlugSubscriber) ? normalizedSlugSubscriber : undefined;
+  const tenantScope = asSub || tenantIdentifier || 'none';
+  const scopedEntityOpts = asSub ? { as_subscriber: asSub } : {};
 
   useEffect(() => {
+    if (slugLoading) return;
+    let cancelled = false;
+    setLoading(true);
     (async () => {
       try {
         const me = await base44.auth.me();
+        if (cancelled) return;
         setUser(me);
 
         if (!me) {
-          base44.auth.redirectToLogin('/Cozinha');
+          base44.auth.redirectToLogin(canonicalKitchenPath);
           return;
         }
 
@@ -33,8 +51,15 @@ export default function Cozinha() {
         const isGerente = roles.includes('gerente');
         const isCozinha = me?.profile_role === 'cozinha' || roles.includes('cozinha');
         const isOwner = !me.subscriber_email || (me.email && me.subscriber_email && me.email.toLowerCase().trim() === me.subscriber_email.toLowerCase().trim());
+        const slugSubscriberNormalized = (subscriberEmail || '').toLowerCase().trim();
+        const userSubscriberNormalized = (me?.subscriber_email || me?.email || '').toLowerCase().trim();
+        const tenantMatchesSlug =
+          !inSlugContext ||
+          !slugSubscriberNormalized ||
+          me?.is_master === true ||
+          userSubscriberNormalized === slugSubscriberNormalized;
 
-        const hasProfileAccess = isCozinha || me?.is_master === true || isAssinante || isGerente || isOwner;
+        const hasProfileAccess = (isCozinha || me?.is_master === true || isAssinante || isGerente || isOwner) && tenantMatchesSlug;
 
         console.log('[Cozinha] Verificando acesso:', {
           email: me.email,
@@ -47,27 +72,35 @@ export default function Cozinha() {
           isCozinha,
           isOwner,
           hasProfileAccess,
+          tenantMatchesSlug,
           kitchenModuleAccess: hasModuleAccess('cozinha'),
         });
 
         setAllowed(hasProfileAccess);
       } catch (e) {
-        base44.auth.redirectToLogin('/Cozinha');
+        if (!cancelled) {
+          base44.auth.redirectToLogin(canonicalKitchenPath);
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     })();
-  }, [hasModuleAccess]);
+    return () => {
+      cancelled = true;
+    };
+  }, [canonicalKitchenPath, hasModuleAccess, inSlugContext, slugLoading, subscriberEmail]);
 
   const { data: orders = [], isLoading: ordersLoading } = useQuery({
-    queryKey: ['cozinhaOrders', asSub ?? 'me'],
-    queryFn: () => base44.entities.Order.list('-created_date', asSub ? { as_subscriber: asSub } : {}),
-    enabled: allowed,
+    queryKey: ['cozinhaOrders', tenantScope],
+    queryFn: () => base44.entities.Order.list('-created_date', scopedEntityOpts),
+    enabled: allowed && !!user,
     refetchInterval: 8000,
   });
 
   const updateMu = useMutation({
-    mutationFn: ({ id, updates }) => base44.entities.Order.update(id, updates, asSub ? { as_subscriber: asSub } : {}),
+    mutationFn: ({ id, updates }) => base44.entities.Order.update(id, updates, scopedEntityOpts),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cozinhaOrders'] });
       toast.success('Status atualizado');
@@ -80,6 +113,20 @@ export default function Cozinha() {
     : [];
 
   const defaultPrepTime = 30;
+
+  const handlePrintOrder = (order) => {
+    const jobRef = String(order?.id || order?.order_code || Date.now());
+    const printed = printComanda(order, {
+      jobId: `kitchen-comanda-${jobRef}`,
+      dedupeKey: `kitchen:print:${jobRef}`,
+      dedupeWindowMs: 12000,
+    });
+    if (!printed) {
+      toast.error('Popup bloqueado. Permita popups para imprimir.');
+      return;
+    }
+    toast.success('Comanda enviada para impressao');
+  };
 
   const handleStatusChange = (order, newStatus) => {
     const updates = {};
@@ -138,6 +185,7 @@ export default function Cozinha() {
         onStatusChange={handleStatusChange}
         prepTime={defaultPrepTime}
         isLoading={ordersLoading}
+        onPrintOrder={handlePrintOrder}
       />
 
       <div className="fixed bottom-4 right-4 z-50">
