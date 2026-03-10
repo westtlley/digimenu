@@ -161,9 +161,9 @@ export default function OrderHistoryTab() {
 
       {/* Filtros - Mobile: Sheet, Desktop: Inline */}
       {isMobile ? (
-        <div className="flex items-center justify-between bg-white p-3 rounded-xl shadow-sm">
+        <div className="flex items-center justify-between bg-card border border-border p-3 rounded-xl shadow-sm">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-gray-700">
+            <span className="text-sm font-medium text-foreground">
               {filteredOrders.length} pedido(s)
             </span>
           </div>
@@ -182,7 +182,7 @@ export default function OrderHistoryTab() {
                 <div>
                   <label className="text-sm font-medium mb-2 block">Buscar</label>
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <Input
                       placeholder="Cliente, código, telefone..."
                       value={searchTerm}
@@ -281,12 +281,12 @@ export default function OrderHistoryTab() {
           </Sheet>
         </div>
       ) : (
-        <div className="bg-white rounded-xl p-4 shadow-sm border">
+        <div className="bg-card text-card-foreground rounded-xl p-4 shadow-sm border border-border">
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <div>
             <label className="text-sm font-medium mb-2 block">Buscar</label>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 placeholder="Cliente, código, telefone..."
                 value={searchTerm}
@@ -401,11 +401,11 @@ export default function OrderHistoryTab() {
       </div>
 
       {/* Lista de Pedidos */}
-      <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+      <div className="bg-card text-card-foreground rounded-xl shadow-sm border border-border overflow-hidden">
         {filteredOrders.length === 0 ? (
           <div className="text-center py-12">
             <Filter className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-            <p className="text-gray-500">Nenhum pedido encontrado</p>
+            <p className="text-muted-foreground">Nenhum pedido encontrado</p>
           </div>
         ) : isMobile ? (
           /* Mobile: Cards */
@@ -423,7 +423,7 @@ export default function OrderHistoryTab() {
                   <div className="flex items-start justify-between mb-3 gap-2">
                     <div className="flex-1 min-w-0">
                       <div className="flex flex-wrap items-center gap-2 mb-2">
-                        <span className="text-xs font-mono bg-gray-100 px-2 py-1 rounded">
+                        <span className="text-xs font-mono bg-muted text-muted-foreground px-2 py-1 rounded">
                           #{order.order_code || order.id?.slice(-6)}
                         </span>
                         <Badge variant="outline" className={`text-xs ${isOrderPDV(order) ? 'border-orange-300 text-orange-700' : 'border-blue-300 text-blue-700'}`}>
@@ -434,7 +434,7 @@ export default function OrderHistoryTab() {
                         </Badge>
                       </div>
                       <h3 className="font-bold text-sm mb-1 truncate">{order.customer_name}</h3>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-muted-foreground">
                         {order.created_date && formatBrazilianDateTime(order.created_date)}
                       </p>
                     </div>
@@ -453,24 +453,24 @@ export default function OrderHistoryTab() {
                   </div>
                   
                   <div className="space-y-2 text-xs mb-3">
-                    <div className="flex items-center gap-2 text-gray-600">
+                    <div className="flex items-center gap-2 text-muted-foreground">
                       <Phone className="w-3 h-3" />
                       <span className="truncate">{order.customer_phone || '-'}</span>
                     </div>
                     {order.address && (
-                      <div className="flex items-center gap-2 text-gray-600">
+                      <div className="flex items-center gap-2 text-muted-foreground">
                         <MapPin className="w-3 h-3" />
                         <span className="truncate">{order.address}</span>
                       </div>
                     )}
-                    <div className="flex items-center gap-2 text-gray-600">
+                    <div className="flex items-center gap-2 text-muted-foreground">
                       <CreditCard className="w-3 h-3" />
                       <span className="capitalize">{order.payment_method?.replace('_', ' ')}</span>
                     </div>
                   </div>
 
                   <div className="flex items-center justify-between pt-3 border-t">
-                    <div className="text-xs text-gray-500">
+                    <div className="text-xs text-muted-foreground">
                       {(order.items || []).length} item(ns)
                     </div>
                     <div className="font-bold text-green-600 text-sm">
@@ -485,21 +485,21 @@ export default function OrderHistoryTab() {
           /* Desktop: Table */
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-gray-50 border-b">
+              <thead className="bg-muted/50 border-b border-border">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Data</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Código</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cliente</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Itens</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pagamento</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ações</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Data</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Código</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Cliente</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Itens</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Status</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Pagamento</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Total</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Ações</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
+              <tbody className="divide-y divide-border">
                 {filteredOrders.map((order) => (
-                  <tr key={order.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => {
+                  <tr key={order.id} className="hover:bg-muted/40 cursor-pointer" onClick={() => {
                     setSelectedOrder(order);
                     setShowDetailModal(true);
                   }}>
@@ -518,12 +518,12 @@ export default function OrderHistoryTab() {
                     <td className="px-4 py-3">
                       <div className="text-sm space-y-2 max-w-xs">
                         {(order.items || []).map((item, idx) => (
-                          <div key={idx} className="border-l-2 border-gray-300 pl-2">
-                            <div className="font-medium text-gray-900 text-xs">
+                          <div key={idx} className="border-l-2 border-border pl-2">
+                            <div className="font-medium text-foreground text-xs">
                               {item.quantity || 1}x {item.dish?.name}
                             </div>
                             {item.selections && Object.keys(item.selections).length > 0 && (
-                              <div className="text-xs text-gray-600 ml-3 mt-1 space-y-0.5">
+                              <div className="text-xs text-muted-foreground ml-3 mt-1 space-y-0.5">
                                 {Object.entries(item.selections).map(([gId, sel]) => {
                                   if (Array.isArray(sel)) {
                                     return sel.map((s, i) => <p key={i}>• {s.name}</p>);
@@ -582,29 +582,29 @@ export default function OrderHistoryTab() {
               {/* Informações do Cliente */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div>
-                  <p className="text-xs sm:text-sm text-gray-600 mb-1">Cliente</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground mb-1">Cliente</p>
                   <p className="font-semibold text-sm sm:text-base truncate">{selectedOrder.customer_name}</p>
                 </div>
                 <div>
-                  <p className="text-xs sm:text-sm text-gray-600 mb-1">Telefone</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground mb-1">Telefone</p>
                   <p className="font-semibold text-sm sm:text-base">{selectedOrder.customer_phone || '-'}</p>
                 </div>
                 <div>
-                  <p className="text-xs sm:text-sm text-gray-600 mb-1">Data</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground mb-1">Data</p>
                   <p className="font-semibold text-xs sm:text-sm">{formatBrazilianDateTime(selectedOrder.created_date)}</p>
                 </div>
                 <div>
-                  <p className="text-xs sm:text-sm text-gray-600 mb-1">Status</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground mb-1">Status</p>
                   <Badge className={`text-xs ${statusConfig[selectedOrder.status]?.color || 'bg-gray-500'}`}>
                     {statusConfig[selectedOrder.status]?.label || selectedOrder.status}
                   </Badge>
                 </div>
                 <div>
-                  <p className="text-xs sm:text-sm text-gray-600 mb-1">Pagamento</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground mb-1">Pagamento</p>
                   <p className="font-semibold text-sm sm:text-base capitalize">{selectedOrder.payment_method?.replace('_', ' ')}</p>
                 </div>
                 <div>
-                  <p className="text-xs sm:text-sm text-gray-600 mb-1">Tipo</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground mb-1">Tipo</p>
                   <Badge variant="outline" className={`text-xs ${isOrderPDV(selectedOrder) ? 'border-orange-300 text-orange-700' : 'border-blue-300 text-blue-700'}`}>
                     {isOrderPDV(selectedOrder) ? 'PDV' : 'Delivery'}
                   </Badge>
@@ -620,14 +620,14 @@ export default function OrderHistoryTab() {
                       <div className="flex justify-between items-start mb-2 gap-2">
                         <div className="flex-1 min-w-0">
                           <p className="font-semibold text-sm sm:text-base truncate">{item.quantity || 1}x {item.dish?.name || item.dish_name}</p>
-                          <p className="text-xs sm:text-sm text-gray-600">{formatCurrency(item.unit_price || item.total_price)} un.</p>
+                          <p className="text-xs sm:text-sm text-muted-foreground">{formatCurrency(item.unit_price || item.total_price)} un.</p>
                         </div>
                         <p className="font-bold text-green-600 text-sm sm:text-base flex-shrink-0">
                           {formatCurrency((item.total_price || item.unit_price || 0) * (item.quantity || 1))}
                         </p>
                       </div>
                       {item.selections && Object.keys(item.selections).length > 0 && (
-                        <div className="text-xs text-gray-600 ml-3 mt-2 space-y-0.5">
+                        <div className="text-xs text-muted-foreground ml-3 mt-2 space-y-0.5">
                           {Object.entries(item.selections).map(([gId, sel]) => {
                             if (Array.isArray(sel)) {
                               return sel.map((s, i) => <p key={i}>• {s.name}</p>);
@@ -639,7 +639,7 @@ export default function OrderHistoryTab() {
                         </div>
                       )}
                       {item.observations && (
-                        <p className="text-xs text-gray-600 italic mt-2">📝 {item.observations}</p>
+                        <p className="text-xs text-muted-foreground italic mt-2">📝 {item.observations}</p>
                       )}
                     </div>
                   ))}
@@ -674,7 +674,7 @@ export default function OrderHistoryTab() {
               {selectedOrder.delivery_method === 'delivery' && selectedOrder.address && (
                 <div>
                   <p className="text-xs sm:text-sm font-semibold mb-2">Endereço de Entrega</p>
-                  <p className="text-xs sm:text-sm text-gray-600 break-words">{selectedOrder.address}</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground break-words">{selectedOrder.address}</p>
                 </div>
               )}
             </div>

@@ -35,9 +35,11 @@ export function usePDVHotkeys(handlers, menuVendasOpen = false) {
 
   React.useEffect(() => {
     const handleKeyDown = (e) => {
-      // Ignorar se estiver digitando em input/textarea (exceto Alt+)
-      const isTyping = e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA';
-      if (isTyping && !e.altKey) return;
+      // Permitir teclas de função (F1..F12) mesmo com foco em input/textarea.
+      const targetTag = e.target?.tagName;
+      const isTyping = targetTag === 'INPUT' || targetTag === 'TEXTAREA' || e.target?.isContentEditable;
+      const isFunctionKey = /^F([1-9]|1[0-2])$/.test(String(e.key || ''));
+      if (isTyping && !e.altKey && !isFunctionKey) return;
 
       // Se Menu de Vendas está aberto, usar atalhos específicos
       // (Os atalhos F2-F7 e ESC do menu são tratados no próprio MenuVendasModal)

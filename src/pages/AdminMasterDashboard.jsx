@@ -245,47 +245,47 @@ export default function AdminMasterDashboard() {
           transition={{ duration: 0.5, delay: 0.4 }}
           className="grid md:grid-cols-3 gap-6"
         >
-          <div className="bg-white rounded-2xl shadow-lg border-2 border-gray-200 p-6">
+          <div className="bg-card text-card-foreground rounded-2xl shadow-lg border-2 border-border p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-gray-700">Taxa de Conversão</h3>
+              <h3 className="font-semibold text-foreground">Taxa de Conversão</h3>
               <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center">
                 <Target className="w-5 h-5 text-white" />
               </div>
             </div>
-            <p className="text-3xl font-bold text-gray-900">
+            <p className="text-3xl font-bold text-foreground">
               {(metrics?.trialConversion || 0).toFixed(1)}%
             </p>
-            <p className="text-sm text-gray-600 mt-1">Trial → Pagante</p>
+            <p className="text-sm text-muted-foreground mt-1">Trial → Pagante</p>
           </div>
 
-          <div className="bg-white rounded-2xl shadow-lg border-2 border-gray-200 p-6">
+          <div className="bg-card text-card-foreground rounded-2xl shadow-lg border-2 border-border p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-gray-700">Novos Este Mês</h3>
+              <h3 className="font-semibold text-foreground">Novos Este Mês</h3>
               <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
                 <Users className="w-5 h-5 text-white" />
               </div>
             </div>
-            <p className="text-3xl font-bold text-gray-900">
+            <p className="text-3xl font-bold text-foreground">
               {metrics?.newCustomersThisMonth || 0}
             </p>
-            <p className="text-sm text-gray-600 mt-1">Novos assinantes</p>
+            <p className="text-sm text-muted-foreground mt-1">Novos assinantes</p>
           </div>
 
-          <div className="bg-white rounded-2xl shadow-lg border-2 border-gray-200 p-6">
+          <div className="bg-card text-card-foreground rounded-2xl shadow-lg border-2 border-border p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-gray-700">Ticket Médio</h3>
+              <h3 className="font-semibold text-foreground">Ticket Médio</h3>
               <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center">
                 <DollarSign className="w-5 h-5 text-white" />
               </div>
             </div>
-            <p className="text-3xl font-bold text-gray-900">
+            <p className="text-3xl font-bold text-foreground">
               {formatCurrency(
                 metrics?.payingSubscribers > 0 
                   ? metrics.mrr / metrics.payingSubscribers 
                   : 0
               )}
             </p>
-            <p className="text-sm text-gray-600 mt-1">Por assinante/mês</p>
+            <p className="text-sm text-muted-foreground mt-1">Por assinante/mês</p>
           </div>
         </motion.div>
 

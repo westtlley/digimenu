@@ -140,9 +140,77 @@ export const useTheme = () => {
   return context;
 };
 
+function parseColorToRgb(input) {
+  const value = String(input || '').trim();
+  if (!value) return null;
+
+  if (value.startsWith('#')) {
+    const hex = value.slice(1);
+    if (hex.length === 3) {
+      const r = parseInt(`${hex[0]}${hex[0]}`, 16);
+      const g = parseInt(`${hex[1]}${hex[1]}`, 16);
+      const b = parseInt(`${hex[2]}${hex[2]}`, 16);
+      if ([r, g, b].every((n) => Number.isFinite(n))) return { r, g, b };
+      return null;
+    }
+    if (hex.length === 6) {
+      const r = parseInt(hex.slice(0, 2), 16);
+      const g = parseInt(hex.slice(2, 4), 16);
+      const b = parseInt(hex.slice(4, 6), 16);
+      if ([r, g, b].every((n) => Number.isFinite(n))) return { r, g, b };
+    }
+    return null;
+  }
+
+  const rgbMatch = value.match(/^rgba?\(([^)]+)\)$/i);
+  if (!rgbMatch) return null;
+  const parts = rgbMatch[1].split(',').map((p) => Number(p.trim()));
+  if (parts.length < 3 || parts.slice(0, 3).some((n) => !Number.isFinite(n))) return null;
+  return {
+    r: Math.max(0, Math.min(255, parts[0])),
+    g: Math.max(0, Math.min(255, parts[1])),
+    b: Math.max(0, Math.min(255, parts[2])),
+  };
+}
+
+function rgbToHslChannels({ r, g, b }) {
+  const rr = r / 255;
+  const gg = g / 255;
+  const bb = b / 255;
+  const max = Math.max(rr, gg, bb);
+  const min = Math.min(rr, gg, bb);
+  const delta = max - min;
+
+  let h = 0;
+  if (delta !== 0) {
+    if (max === rr) h = ((gg - bb) / delta) % 6;
+    else if (max === gg) h = (bb - rr) / delta + 2;
+    else h = (rr - gg) / delta + 4;
+  }
+  h = Math.round((h * 60 + 360) % 360);
+
+  const l = (max + min) / 2;
+  const s = delta === 0 ? 0 : delta / (1 - Math.abs(2 * l - 1));
+
+  return `${h} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
+}
+
+function colorToHslChannels(color, fallback) {
+  const rgb = parseColorToRgb(color);
+  return rgb ? rgbToHslChannels(rgb) : fallback;
+}
+
+function getReadableForegroundFor(color) {
+  const rgb = parseColorToRgb(color);
+  if (!rgb) return '0 0% 98%';
+  const brightness = (rgb.r * 299 + rgb.g * 587 + rgb.b * 114) / 1000;
+  return brightness > 145 ? '0 0% 9%' : '0 0% 98%';
+}
+
 export function ThemeProvider({ children }) {
   const [currentTheme, setCurrentTheme] = useState(() => {
-    const saved = localStorage.getItem('theme');
+    if (typeof window === 'undefined') return 'dark';
+    const saved = window.localStorage.getItem('theme');
     if (saved && THEME_PRESETS[saved]) {
       return saved;
     }
@@ -150,14 +218,21 @@ export function ThemeProvider({ children }) {
   });
 
   const [customTheme, setCustomTheme] = useState(() => {
-    const saved = localStorage.getItem('customTheme');
-    return saved ? JSON.parse(saved) : null;
+    if (typeof window === 'undefined') return null;
+    try {
+      const saved = window.localStorage.getItem('customTheme');
+      return saved ? JSON.parse(saved) : null;
+    } catch (_error) {
+      return null;
+    }
   });
 
   const activeTheme = customTheme || THEME_PRESETS[currentTheme];
   const isDark = activeTheme.mode === 'dark';
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+
     localStorage.setItem('theme', currentTheme);
     if (customTheme) {
       localStorage.setItem('customTheme', JSON.stringify(customTheme));
@@ -175,15 +250,52 @@ export function ThemeProvider({ children }) {
       root.style.setProperty(`--${cssKey}`, value);
     });
 
+    // Sincronizar tokens HSL usados por Tailwind/shadcn para evitar temas conflitantes.
+    const hslTokens = {
+      '--background': colorToHslChannels(colors.bgPrimary, isDark ? '220 39% 9%' : '0 0% 100%'),
+      '--foreground': colorToHslChannels(colors.textPrimary, isDark ? '220 33% 93%' : '0 0% 4%'),
+      '--card': colorToHslChannels(colors.bgCard, isDark ? '224 38% 13%' : '0 0% 100%'),
+      '--card-foreground': colorToHslChannels(colors.textPrimary, isDark ? '220 33% 93%' : '0 0% 4%'),
+      '--popover': colorToHslChannels(colors.bgTertiary || colors.bgCard, isDark ? '224 41% 18%' : '0 0% 100%'),
+      '--popover-foreground': colorToHslChannels(colors.textPrimary, isDark ? '220 33% 93%' : '0 0% 4%'),
+      '--primary': colorToHslChannels(colors.accent, '24 95% 53%'),
+      '--primary-foreground': getReadableForegroundFor(colors.accent),
+      '--secondary': colorToHslChannels(colors.bgSecondary, isDark ? '224 35% 15%' : '0 0% 96%'),
+      '--secondary-foreground': colorToHslChannels(colors.textSecondary, isDark ? '224 27% 68%' : '0 0% 9%'),
+      '--muted': colorToHslChannels(colors.bgTertiary, isDark ? '220 30% 14%' : '0 0% 96%'),
+      '--muted-foreground': colorToHslChannels(colors.textMuted, isDark ? '220 9% 46%' : '0 0% 45%'),
+      '--accent': colorToHslChannels(colors.bgHover || colors.bgSecondary, isDark ? '220 28% 16%' : '0 0% 96%'),
+      '--accent-foreground': colorToHslChannels(colors.textPrimary, isDark ? '220 33% 93%' : '0 0% 9%'),
+      '--border': colorToHslChannels(colors.borderColor, isDark ? '220 22% 18%' : '0 0% 90%'),
+      '--input': colorToHslChannels(colors.bgInput || colors.borderColor, isDark ? '220 28% 16%' : '0 0% 90%'),
+      '--ring': colorToHslChannels(colors.borderFocus || colors.accent, '24 95% 53%'),
+      '--sidebar-background': colorToHslChannels(colors.bgSecondary, isDark ? '220 36% 11%' : '0 0% 98%'),
+      '--sidebar-foreground': colorToHslChannels(colors.textSecondary, isDark ? '220 27% 68%' : '240 5% 26%'),
+      '--sidebar-primary': colorToHslChannels(colors.accent, '24 95% 53%'),
+      '--sidebar-primary-foreground': getReadableForegroundFor(colors.accent),
+      '--sidebar-accent': colorToHslChannels(colors.bgHover || colors.bgTertiary, isDark ? '220 28% 15%' : '240 5% 96%'),
+      '--sidebar-accent-foreground': colorToHslChannels(colors.textPrimary, isDark ? '220 33% 93%' : '240 6% 10%'),
+      '--sidebar-border': colorToHslChannels(colors.borderColor, isDark ? '220 22% 18%' : '220 13% 91%'),
+      '--sidebar-ring': colorToHslChannels(colors.borderFocus || colors.accent, '24 95% 53%'),
+    };
+    Object.entries(hslTokens).forEach(([key, value]) => {
+      root.style.setProperty(key, value);
+    });
+
     // Aplicar classe dark/light
     if (isDark) {
       root.classList.add('dark');
+      root.classList.remove('light');
     } else {
       root.classList.remove('dark');
+      root.classList.add('light');
     }
+    root.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    root.style.colorScheme = isDark ? 'dark' : 'light';
   }, [currentTheme, customTheme, activeTheme, isDark]);
 
   const setTheme = (themeName) => {
+    if (!THEME_PRESETS[themeName]) return;
     setCurrentTheme(themeName);
     setCustomTheme(null); // Limpar tema customizado ao escolher um preset
   };

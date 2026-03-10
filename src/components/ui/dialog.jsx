@@ -25,7 +25,7 @@ const DialogOverlay = React.forwardRef(({ className, ...props }, ref) => (
 ))
 DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
 
-const DialogContent = React.forwardRef(({ className, children, size, "aria-describedby": ariaDescribedby, ...props }, ref) => (
+const DialogContent = React.forwardRef(({ className, children, size, mobileFullscreen = false, "aria-describedby": ariaDescribedby, ...props }, ref) => (
   <DialogPortal>
     <DialogOverlay />
     <DialogPrimitive.Content
@@ -33,19 +33,17 @@ const DialogContent = React.forwardRef(({ className, children, size, "aria-descr
       aria-describedby={ariaDescribedby ?? undefined}
       data-dialog-size={size === "large" ? "large" : undefined}
       className={cn(
-        // Mobile: Fullscreen
-        "fixed inset-0 z-50 flex flex-col w-full h-full min-w-0 max-w-full max-h-full gap-4 border-0 bg-background p-4 pb-[max(1rem,env(safe-area-inset-bottom,0px))] shadow-2xl duration-300 overflow-y-auto overflow-x-hidden",
-        // Desktop: Centered modal (tamanho padrão)
-        !size || size === "default"
-          ? "sm:left-[50%] sm:top-[50%] sm:inset-auto sm:w-[calc(100%-2rem)] sm:max-w-lg sm:max-h-[90vh] sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-xl sm:p-6 sm:overflow-y-auto"
-          : "sm:left-[50%] sm:top-[50%] sm:inset-auto sm:w-[min(90vw,72rem)] sm:max-w-6xl sm:max-h-[90vh] sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-xl sm:p-6 sm:overflow-y-auto",
+        // Base: modal centralizado (desktop/mobile)
+        "fixed left-[50%] top-[50%] z-50 grid w-[calc(100%-2rem)] max-h-[90vh] translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-2xl duration-300 overflow-y-auto overflow-x-hidden rounded-xl",
+        !size || size === "default" ? "max-w-lg" : "w-[min(90vw,72rem)] max-w-6xl",
+        // Quando necessário, permitir tela cheia no mobile sem quebrar desktop
+        mobileFullscreen
+          ? "max-sm:inset-0 max-sm:left-0 max-sm:top-0 max-sm:w-full max-sm:h-full max-sm:max-w-full max-sm:max-h-[100dvh] max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none max-sm:border-0 max-sm:p-4 max-sm:pb-[max(1rem,env(safe-area-inset-bottom,0px))]"
+          : null,
         // Animations
         "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
         "data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
-        // Mobile slide animations
-        "data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
-        // Desktop slide animations
-        "sm:data-[state=closed]:slide-out-to-left-1/2 sm:data-[state=closed]:slide-out-to-top-[48%] sm:data-[state=open]:slide-in-from-left-1/2 sm:data-[state=open]:slide-in-from-top-[48%]",
+        "data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]",
         className
       )}
       {...props}>

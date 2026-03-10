@@ -26,11 +26,11 @@ export default function MenuVendasModal({
       switch (e.key) {
         case 'F2':
           e.preventDefault();
-          onSuprimento?.();
+          if (caixaAberto) onSuprimento?.();
           break;
         case 'F3':
           e.preventDefault();
-          onSangria?.();
+          if (caixaAberto) onSangria?.();
           break;
         case 'F4':
           e.preventDefault();
@@ -38,11 +38,11 @@ export default function MenuVendasModal({
           break;
         case 'F5':
           e.preventDefault();
-          onFechamento?.();
+          if (caixaAberto) onFechamento?.();
           break;
         case 'F6':
           e.preventDefault();
-          onAbertura?.();
+          if (!caixaAberto) onAbertura?.();
           break;
         case 'F7':
           e.preventDefault();
@@ -59,7 +59,7 @@ export default function MenuVendasModal({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [open, onSuprimento, onSangria, onReimpressao, onFechamento, onAbertura, onCancelarVenda, onOpenChange]);
+  }, [open, caixaAberto, onSuprimento, onSangria, onReimpressao, onFechamento, onAbertura, onCancelarVenda, onOpenChange]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -72,6 +72,7 @@ export default function MenuVendasModal({
           {/* Suprimento */}
           <Button
             onClick={onSuprimento}
+            disabled={!caixaAberto}
             className="h-24 flex flex-col items-center justify-center gap-2 bg-green-700 hover:bg-green-800 text-white"
           >
             <TrendingUp className="w-8 h-8" />
@@ -82,6 +83,7 @@ export default function MenuVendasModal({
           {/* Sangria */}
           <Button
             onClick={onSangria}
+            disabled={!caixaAberto}
             className="h-24 flex flex-col items-center justify-center gap-2 bg-red-700 hover:bg-red-800 text-white"
           >
             <TrendingDown className="w-8 h-8" />

@@ -54,6 +54,10 @@ export default function BeveragesTab() {
 
   // ✅ CORREÇÃO: Usar hook com contexto automático
   const { menuContext, loading: permissionLoading } = usePermission();
+  const subscriberContextEmail = menuContext?.type === 'subscriber' && menuContext?.value
+    ? menuContext.value
+    : null;
+  const entityContextOpts = subscriberContextEmail ? { as_subscriber: subscriberContextEmail } : {};
   const { data: dishesRaw = [], isLoading: dishesLoading } = useMenuDishes();
   const beverages = useMemo(() => (dishesRaw || []).filter(d => d.product_type === 'beverage'), [dishesRaw]);
 
@@ -75,39 +79,50 @@ export default function BeveragesTab() {
   const isLoading = permissionLoading || dishesLoading || categoriesLoading;
 
   const createBeverageMutation = useMutation({
-    mutationFn: (data) => base44.entities.Dish.create({
-      ...data,
-      product_type: 'beverage',
-      subscriber_email: user?.subscriber_email || user?.email,
-    }),
+    mutationFn: (data) => {
+      const ownerEmail = subscriberContextEmail || user?.subscriber_email || user?.email;
+      return base44.entities.Dish.create({
+        ...data,
+        product_type: 'beverage',
+        ...(ownerEmail && { subscriber_email: ownerEmail, owner_email: ownerEmail }),
+        ...(subscriberContextEmail && { as_subscriber: subscriberContextEmail }),
+      });
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['dishes'] });
+      queryClient.invalidateQueries({ queryKey: ['dishes', menuContext?.type, menuContext?.value] });
       toast.success('Bebida criada!');
       closeBeverageModal();
     },
   });
 
   const updateBeverageMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.Dish.update(id, data),
+    mutationFn: ({ id, data }) => base44.entities.Dish.update(id, data, entityContextOpts),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['dishes'] });
+      queryClient.invalidateQueries({ queryKey: ['dishes', menuContext?.type, menuContext?.value] });
       toast.success('Bebida atualizada!');
       closeBeverageModal();
     },
   });
 
   const deleteBeverageMutation = useMutation({
-    mutationFn: (id) => base44.entities.Dish.delete(id),
+    mutationFn: (id) => base44.entities.Dish.delete(id, entityContextOpts),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['dishes'] });
+      queryClient.invalidateQueries({ queryKey: ['dishes', menuContext?.type, menuContext?.value] });
       toast.success('Bebida excluída!');
     },
   });
 
   const createCategoryMutation = useMutation({
-    mutationFn: (data) => base44.entities.BeverageCategory.create({ ...data, subscriber_email: user?.subscriber_email || user?.email }),
+    mutationFn: (data) => {
+      const ownerEmail = subscriberContextEmail || user?.subscriber_email || user?.email;
+      return base44.entities.BeverageCategory.create({
+        ...data,
+        ...(ownerEmail && { subscriber_email: ownerEmail, owner_email: ownerEmail }),
+        ...(subscriberContextEmail && { as_subscriber: subscriberContextEmail }),
+      });
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['beverageCategories'] });
+      queryClient.invalidateQueries({ queryKey: ['beverageCategories', menuContext?.type, menuContext?.value] });
       setShowCategoryModal(false);
       setNewCategoryName('');
       toast.success('Categoria criada!');

@@ -125,10 +125,10 @@ button:focus-visible {
     --border-hover: #cbd5e0;
     --border-focus: #f97316;
   }
-  /* Premium dark mode: fundo ≠ card ≠ modal (Stripe/Linear style) */
+  /* Premium dark mode: fundo â‰  card â‰  modal (Stripe/Linear style) */
   .dark {
     --background: 220 39% 9%;        /* #0E1420 - fundo principal */
-    --foreground: 220 33% 93%;       /* #E6EAF2 - texto primário */
+    --foreground: 220 33% 93%;       /* #E6EAF2 - texto primÃ¡rio */
     --card: 224 38% 13%;             /* #141B2D - surface (cards) */
     --card-foreground: 220 33% 93%;
     --popover: 224 41% 18%;          /* #1B2440 - surface elevada (modais) */
@@ -136,14 +136,14 @@ button:focus-visible {
     --primary: 24 95% 53%;           /* laranja - uso minimalista */
     --primary-foreground: 0 0% 98%;
     --secondary: 224 35% 15%;        /* entre fundo e card */
-    --secondary-foreground: 224 27% 68%;  /* #9AA4BF - texto secundário */
+    --secondary-foreground: 224 27% 68%;  /* #9AA4BF - texto secundÃ¡rio */
     --muted: 220 30% 14%;
     --muted-foreground: 220 9% 46%;  /* #6B7280 - texto muted */
     --accent: 220 28% 16%;
     --accent-foreground: 220 33% 93%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 98%;
-    --border: 220 22% 18%;            /* borda sutil, distinguível */
+    --border: 220 22% 18%;            /* borda sutil, distinguÃ­vel */
     --input: 220 28% 16%;
     --ring: 24 95% 53%;
     --chart-1: 24 95% 53%;
@@ -200,12 +200,12 @@ button:focus-visible {
     @apply text-muted-foreground;
   }
   
-  /* Cards sempre visíveis */
+  /* Cards sempre visÃ­veis */
   .card, [class*="card"] {
     @apply bg-card text-card-foreground border-border;
   }
   
-  /* Textos sempre visíveis */
+  /* Textos sempre visÃ­veis */
   .dark .text-gray-900 {
     @apply text-foreground;
   }
@@ -239,7 +239,7 @@ button:focus-visible {
     @apply bg-muted;
   }
   
-  /* Borders sempre visíveis */
+  /* Borders sempre visÃ­veis */
   .dark .border-gray-200,
   .dark .border-gray-300 {
     @apply border-border;
@@ -262,7 +262,7 @@ button:focus-visible {
     background-color: hsl(var(--muted)) !important;
   }
   
-  /* Textos sempre visíveis */
+  /* Textos sempre visÃ­veis */
   .dark .text-gray-900 {
     color: hsl(var(--foreground)) !important;
   }
@@ -382,72 +382,12 @@ html, body, #root {
   }
 }
 
-/* Correção global para modais no desktop - garantir que não sejam cortados */
-@media (min-width: 640px) {
-  /* Modal grande (ex.: Editar Assinante) – forçar tamanho/posição no desktop */
-  [data-dialog-size="large"] {
-    left: 50% !important;
-    top: 50% !important;
-    right: auto !important;
-    bottom: auto !important;
-    width: min(90vw, 72rem) !important;
-    max-width: 72rem !important;
-    max-height: 90vh !important;
-    transform: translate(-50%, -50%) !important;
-    overflow-y: auto !important;
-  }
-  
-  /* Garantir que todos os DialogContent no desktop sejam centralizados e não cortados */
-  [data-radix-dialog-content] {
-    max-height: 90vh !important;
-    overflow-y: auto !important;
-    overflow-x: hidden !important;
-    box-sizing: border-box !important;
-    position: fixed !important;
-  }
-  
-  /* Garantir que o conteúdo interno dos modais não seja cortado */
-  [data-radix-dialog-content] > * {
-    max-width: 100% !important;
-    overflow-x: hidden !important;
-    box-sizing: border-box !important;
-  }
-  
-  /* Forçar que modais com classes customizadas sejam centralizados */
-  [data-radix-dialog-content][class*="max-w"] {
-    left: 50% !important;
-    top: 50% !important;
-    transform: translate(-50%, -50%) !important;
-    margin: 0 !important;
-    right: auto !important;
-    bottom: auto !important;
-  }
-}
 
-/* Garantir que modais não sejam cortados em qualquer resolução */
-[data-radix-dialog-content] {
-  box-sizing: border-box !important;
-  position: fixed !important;
-}
-
-/* Garantir que o overlay não interfira e tenha z-index correto */
+/* Dialog/overlay: manter portal acima do conteúdo sem sobrescrever posicionamento padrão */
 [data-radix-dialog-overlay] {
-  overflow: hidden !important;
   z-index: 50 !important;
-  position: fixed !important;
 }
 
-/* Garantir que o portal dos modais tenha z-index alto */
 [data-radix-portal] {
-  z-index: 50 !important;
-}
-
-/* Garantir que containers com overflow-hidden não cortem modais */
-body:has([data-radix-dialog-content]) {
-  overflow: hidden !important;
-}
-
-/* Garantir que modais sempre apareçam acima de tudo */
-[data-radix-dialog-content] {
   z-index: 50 !important;
 }

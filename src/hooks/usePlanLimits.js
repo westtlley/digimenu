@@ -2,6 +2,12 @@ import { useMemo } from 'react';
 import { usePermission } from '@/components/permissions/usePermission';
 import { getPlanLimits, UNLIMITED } from '@/constants/planLimits';
 
+function normalizePlanForLimits(plan) {
+  const key = (plan || 'basic').toString().toLowerCase().trim();
+  if (key === 'premium' || key === 'admin') return 'ultra';
+  return key || 'basic';
+}
+
 /**
  * Hook de limites do plano (monetização 2.0)
  * Separa permissão (pode usar módulo) de limite (quanto pode usar).
@@ -12,7 +18,7 @@ import { getPlanLimits, UNLIMITED } from '@/constants/planLimits';
  */
 export function usePlanLimits(usageOverride = {}) {
   const { subscriberData, isMaster } = usePermission();
-  const plan = (subscriberData?.plan || 'basic').toString().toLowerCase().trim();
+  const plan = normalizePlanForLimits(subscriberData?.plan);
   const usageFromContext = subscriberData?.usage || {};
   const usage = { ...usageFromContext, ...usageOverride };
 

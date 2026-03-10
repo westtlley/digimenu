@@ -1223,7 +1223,7 @@ export default function Assinantes() {
                   <label className="text-sm font-medium text-foreground mb-2 block">Histórico de Alterações</label>
                   <div className="bg-muted rounded-lg p-3 max-h-40 overflow-y-auto space-y-2">
                     {permissionLogs.map(log => (
-                      <div key={log.id} className="text-xs bg-white p-2 rounded border">
+                      <div key={log.id} className="text-xs bg-card text-card-foreground p-2 rounded border border-border">
                         <div className="flex items-center justify-between mb-1">
                           <span className="font-medium text-foreground">{log.description}</span>
                           <span className="text-muted-foreground">

@@ -214,7 +214,7 @@ export default function AdminSidebar({ activeTab, setActiveTab, isMaster = false
             onClick={() => toggleGroup(item.id)}
             className={cn(
               "w-full flex items-center justify-between gap-2 px-2 py-2 text-xs font-bold transition-colors",
-              item.section === 'subsection' ? "text-gray-600 hover:text-gray-800" : "text-gray-500 hover:text-gray-300 uppercase tracking-wider"
+              item.section === 'subsection' ? "text-muted-foreground hover:text-foreground" : "text-muted-foreground hover:text-foreground uppercase tracking-wider"
             )}
           >
             {!collapsed && <span>{item.label}</span>}
@@ -233,7 +233,7 @@ export default function AdminSidebar({ activeTab, setActiveTab, isMaster = false
                 const LeafIcon = leaf.icon;
                 const active = activeTab === leaf.id;
                 return (
-                  <button key={leaf.id} onClick={() => { setActiveTab(leaf.id); onClose?.(); }} className="p-2 rounded-lg flex items-center justify-center" style={{ backgroundColor: active ? '#f97316' : 'transparent', color: active ? '#fff' : 'var(--text-secondary)' }} title={leaf.label}>
+                  <button key={leaf.id} onClick={() => { setActiveTab(leaf.id); onClose?.(); }} className="p-2 rounded-lg flex items-center justify-center" style={{ backgroundColor: active ? 'hsl(var(--primary))' : 'transparent', color: active ? 'hsl(var(--primary-foreground))' : 'var(--text-secondary)' }} title={leaf.label}>
                     <LeafIcon className="w-4 h-4" />
                   </button>
                 );
@@ -257,12 +257,12 @@ export default function AdminSidebar({ activeTab, setActiveTab, isMaster = false
           className={cn(
             "w-full flex items-center gap-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
             indent,
-            "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+            "text-foreground hover:bg-muted/70"
           )}
         >
           <Icon className={cn(
             "w-4 h-4 flex-shrink-0",
-            "text-gray-500 dark:text-gray-400"
+            "text-muted-foreground"
           )} />
           {!collapsed && <span className="truncate">{item.label}</span>}
         </Link>
@@ -281,14 +281,14 @@ export default function AdminSidebar({ activeTab, setActiveTab, isMaster = false
           indent
         )}
         style={isActive ? { 
-          backgroundColor: '#f97316', 
-          color: '#ffffff' 
+          backgroundColor: 'hsl(var(--primary))', 
+          color: 'hsl(var(--primary-foreground))' 
         } : { 
           color: 'var(--text-secondary)' 
         }}
         onMouseEnter={(e) => {
           if (!isActive) {
-            e.currentTarget.style.backgroundColor = 'var(--bg-tertiary)';
+            e.currentTarget.style.backgroundColor = 'var(--bg-tertiary, rgba(148,163,184,0.16))';
             e.currentTarget.style.color = 'var(--text-primary)';
           }
         }}
@@ -301,7 +301,7 @@ export default function AdminSidebar({ activeTab, setActiveTab, isMaster = false
       >
         <Icon className={cn(
           "w-4 h-4 flex-shrink-0",
-          isActive ? "text-white" : "text-gray-500"
+          isActive ? "text-current" : "text-muted-foreground"
         )} />
         {!collapsed && <span className="truncate">{item.label}</span>}
       </button>
@@ -310,16 +310,16 @@ export default function AdminSidebar({ activeTab, setActiveTab, isMaster = false
 
   return (
     <aside className={cn(
-      "border-r flex flex-col transition-all duration-300 h-full lg:relative bg-white dark:bg-gray-900",
+      "border-r border-border flex flex-col transition-all duration-300 h-full lg:relative bg-card",
       collapsed ? "w-16" : "w-64"
     )}>
       {/* Header — só botões; logo/info só no header superior do Admin */}
-      <div className="p-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-end">
+      <div className="p-3 border-b border-border flex items-center justify-end">
         <div className="flex items-center gap-1">
           {!collapsed && (
             <button
               onClick={onClose}
-              className="lg:hidden min-h-touch min-w-touch flex items-center justify-center p-2 -m-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400"
+              className="lg:hidden min-h-touch min-w-touch flex items-center justify-center p-2 -m-1 rounded-lg hover:bg-muted/70 text-muted-foreground"
               aria-label="Fechar menu"
             >
               <ChevronLeft className="w-5 h-5" />
@@ -327,7 +327,7 @@ export default function AdminSidebar({ activeTab, setActiveTab, isMaster = false
           )}
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="hidden lg:block p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400"
+            className="hidden lg:block p-1.5 rounded-lg hover:bg-muted/70 text-muted-foreground"
           >
             {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
           </button>

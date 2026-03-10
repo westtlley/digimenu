@@ -576,7 +576,7 @@ export function DishRow({ dish, complementGroups, expanded, onToggleExpand, onEd
 }
 
 // ========= COMPONENT =========
-export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' }) {
+export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, initialTab = 'dishes' }) {
   log.admin.debug('🍽️ [DishesTab] Componente montado, initialTab:', initialTab);
   
   const [user, setUser] = React.useState(null);
@@ -969,6 +969,14 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
     if (onNavigateToPizzas) {
       onNavigateToPizzas();
     }
+  };
+
+  const handleRedirectToPromotions = () => {
+    if (onNavigateToPromotions) {
+      onNavigateToPromotions();
+      return;
+    }
+    toast('Gerencie combos na aba Promoções.');
   };
 
   const closeDishModal = () => {
@@ -1613,7 +1621,7 @@ export default function DishesTab({ onNavigateToPizzas, initialTab = 'dishes' })
             </Button>
           )}
           {canCreate('dishes') && (
-            <Button variant="outline" className="ml-auto" onClick={() => setShowComboModal(true)}>
+            <Button variant="outline" className="ml-auto" onClick={handleRedirectToPromotions}>
               <Gift className="w-4 h-4 mr-2" />
               Criar Combo
             </Button>

@@ -16,7 +16,7 @@ export default function AdminTabs({ activeTab, setActiveTab, isMaster = false })
   const visibleTabs = TABS.filter(tab => !tab.masterOnly || isMaster);
   
   return (
-    <div className="border-b bg-white">
+    <div className="border-b border-border bg-card">
       <div className="flex overflow-x-auto scrollbar-hide">
         {visibleTabs.map((tab) => (
           <button
@@ -26,7 +26,7 @@ export default function AdminTabs({ activeTab, setActiveTab, isMaster = false })
               "px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-medium whitespace-nowrap border-b-2 transition-colors flex-shrink-0",
               activeTab === tab.id
                 ? "border-orange-500 text-orange-500"
-                : "border-transparent text-gray-500 hover:text-gray-700"
+                : "border-transparent text-muted-foreground hover:text-foreground"
             )}
           >
             {tab.label}

@@ -27,8 +27,8 @@ const STATUS_CONFIG = {
   preparing: { label: 'Preparando', color: 'bg-purple-100 text-purple-800' },
   ready: { label: 'Pronto', color: 'bg-green-100 text-green-800' },
   out_for_delivery: { label: 'Em Entrega', color: 'bg-blue-100 text-blue-800' },
-  delivered: { label: 'Entregue', color: 'bg-gray-100 text-gray-800' },
-  cancelled: { label: 'Cancelado', color: 'bg-gray-300 text-gray-600' },
+  delivered: { label: 'Entregue', color: 'bg-muted text-foreground' },
+  cancelled: { label: 'Cancelado', color: 'bg-muted/80 text-muted-foreground' },
 };
 
 const PAYMENT_LABELS = {
@@ -101,7 +101,7 @@ export default function OrdersTab({ isMaster, user, subscriberData, storeId, sto
     if (!Array.isArray(groups) || groups.length === 0) return null;
 
     return (
-      <div className="text-xs text-gray-600 ml-3 mt-1 space-y-0.5">
+      <div className="text-xs text-muted-foreground ml-3 mt-1 space-y-0.5">
         {groups.flatMap((g, gi) => {
           if (!g) return [];
           const title = g.title || 'Itens do combo';
@@ -112,7 +112,7 @@ export default function OrdersTab({ isMaster, user, subscriberData, storeId, sto
           if (items.length === 0) return [];
 
           const block = [
-            <p key={`t_${gi}`} className="font-semibold text-gray-700">{groupEmoji} {groupLabel}: {title}</p>,
+            <p key={`t_${gi}`} className="font-semibold text-foreground">{groupEmoji} {groupLabel}: {title}</p>,
           ];
 
           items.forEach((it, ii) => {
@@ -327,8 +327,8 @@ export default function OrdersTab({ isMaster, user, subscriberData, storeId, sto
     <div className="p-4 sm:p-6 relative">
       {/* Pull to refresh indicator */}
       {isRefreshing && (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-orange-500 text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2">
-          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-orange-500 text-primary-foreground px-4 py-2 rounded-full shadow-lg flex items-center gap-2">
+          <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
           <span className="text-sm font-medium">Atualizando...</span>
         </div>
       )}
@@ -336,9 +336,9 @@ export default function OrdersTab({ isMaster, user, subscriberData, storeId, sto
       {/* Filter - Mobile: Sheet, Desktop: Inline */}
       {isMobile ? (
         <>
-          <div className="mb-4 flex items-center justify-between bg-white p-3 rounded-xl shadow-sm">
+          <div className="mb-4 flex items-center justify-between bg-card border border-border p-3 rounded-xl shadow-sm">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-gray-700">
+              <span className="text-sm font-medium text-foreground">
                 {filteredOrders.length} pedido(s)
               </span>
             </div>
@@ -399,10 +399,10 @@ export default function OrdersTab({ isMaster, user, subscriberData, storeId, sto
           </div>
         </>
       ) : (
-        <div className="mb-4 sm:mb-6 flex flex-wrap items-center gap-2 sm:gap-4 bg-white p-3 sm:p-4 rounded-xl shadow-sm">
+        <div className="mb-4 sm:mb-6 flex flex-wrap items-center gap-2 sm:gap-4 bg-card border border-border p-3 sm:p-4 rounded-xl shadow-sm">
           <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-gray-500" />
-            <span className="text-xs sm:text-sm text-gray-600">Data:</span>
+            <Filter className="w-4 h-4 text-muted-foreground" />
+            <span className="text-xs sm:text-sm text-muted-foreground">Data:</span>
           </div>
           <Input
             type="date"
@@ -425,7 +425,7 @@ export default function OrdersTab({ isMaster, user, subscriberData, storeId, sto
               Limpar
             </Button>
           )}
-          <span className="text-xs sm:text-sm text-gray-400 ml-auto">
+          <span className="text-xs sm:text-sm text-muted-foreground ml-auto">
             {filteredOrders.length} pedido(s)
           </span>
         </div>
@@ -433,11 +433,11 @@ export default function OrdersTab({ isMaster, user, subscriberData, storeId, sto
 
       <div className="space-y-3 sm:space-y-4">
         {filteredOrders.map((order) => (
-          <div key={order.id} className="bg-white rounded-xl p-3 sm:p-5 shadow-sm border hover:shadow-md transition-shadow">
+          <div key={order.id} className="bg-card text-card-foreground rounded-xl p-3 sm:p-5 shadow-sm border border-border hover:shadow-md transition-shadow">
             <div className="flex flex-col sm:flex-row sm:items-start justify-between mb-3 sm:mb-4 gap-2">
               <div>
                 <div className="flex flex-wrap items-center gap-2 mb-1">
-                  <span className="text-xs font-mono bg-gray-100 px-2 py-1 rounded">
+                  <span className="text-xs font-mono bg-muted text-muted-foreground px-2 py-1 rounded">
                     #{order.order_code || order.id.slice(-6).toUpperCase()}
                   </span>
                   <Badge variant="outline" className={`text-xs ${isOrderPDV(order) ? 'border-orange-300 text-orange-700' : 'border-blue-300 text-blue-700'}`}>
@@ -448,7 +448,7 @@ export default function OrdersTab({ isMaster, user, subscriberData, storeId, sto
                   </Badge>
                 </div>
                 <h3 className="font-bold text-base sm:text-lg">{order.customer_name}</h3>
-                <p className="text-xs sm:text-sm text-gray-500">
+                <p className="text-xs sm:text-sm text-muted-foreground">
                   {(order.created_at || order.created_date) && format(new Date(order.created_at || order.created_date), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
                 </p>
               </div>
@@ -498,31 +498,31 @@ export default function OrdersTab({ isMaster, user, subscriberData, storeId, sto
 
             {/* Info do cliente */}
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3 mb-4 text-xs sm:text-sm">
-              <div className="flex items-center gap-2 text-gray-600">
+              <div className="flex items-center gap-2 text-muted-foreground">
                 <Phone className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
                 <span className="truncate">{order.customer_phone}</span>
               </div>
               {order.address && (
-                <div className="flex items-center gap-2 text-gray-600">
+                <div className="flex items-center gap-2 text-muted-foreground">
                   <MapPin className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
                   <span className="truncate">{order.address}</span>
                 </div>
               )}
-              <div className="flex items-center gap-2 text-gray-600">
+              <div className="flex items-center gap-2 text-muted-foreground">
                 <CreditCard className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
                 <span className="truncate">{PAYMENT_LABELS[order.payment_method] || order.payment_method}</span>
               </div>
             </div>
 
             {/* Itens */}
-            <div className="bg-gray-50 rounded-lg p-3 mb-4">
-              <h4 className="font-medium text-sm mb-2 text-gray-700">Itens do Pedido:</h4>
+            <div className="bg-muted/50 rounded-lg p-3 mb-4">
+              <h4 className="font-medium text-sm mb-2 text-foreground">Itens do Pedido:</h4>
               {(order.items || []).map((item, idx) => (
-                <div key={idx} className="text-sm py-2 border-b border-gray-100 last:border-0 border-l-2 border-gray-300 pl-3">
+                <div key={idx} className="text-sm py-2 border-b border-border last:border-0 border-l-2 border-border pl-3">
                   <div className="flex items-center justify-between">
                     <span className="font-medium">{item.dish?.name || 'Item'}</span>
-                    <span className="text-gray-500">
-                      {item.quantity > 1 && <span className="text-gray-400 mr-2">x{item.quantity}</span>}
+                    <span className="text-muted-foreground">
+                      {item.quantity > 1 && <span className="text-muted-foreground mr-2">x{item.quantity}</span>}
                       {formatCurrency(item.totalPrice * (item.quantity || 1))}
                     </span>
                   </div>
@@ -530,7 +530,7 @@ export default function OrdersTab({ isMaster, user, subscriberData, storeId, sto
                     ? renderComboBreakdown(item)
                     : (
                       item.selections && Object.keys(item.selections).length > 0 && (
-                        <div className="text-xs text-gray-600 ml-3 mt-1 space-y-0.5">
+                        <div className="text-xs text-muted-foreground ml-3 mt-1 space-y-0.5">
                           {Object.entries(item.selections)
                             .filter(([key]) => key !== 'combo_groups')
                             .map(([gId, sel]) => {
@@ -551,11 +551,11 @@ export default function OrdersTab({ isMaster, user, subscriberData, storeId, sto
             {/* Totais */}
             <div className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-6 text-xs sm:text-sm pt-3 border-t">
               <div className="flex justify-between sm:justify-end gap-4 sm:gap-6">
-                <div className="text-gray-500">
+                <div className="text-muted-foreground">
                   Subtotal: {formatCurrency(order.subtotal)}
                 </div>
                 {order.delivery_fee > 0 && (
-                  <div className="text-gray-500">
+                  <div className="text-muted-foreground">
                     Entrega: {formatCurrency(order.delivery_fee)}
                   </div>
                 )}

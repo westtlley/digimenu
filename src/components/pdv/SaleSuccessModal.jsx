@@ -45,10 +45,23 @@ export default function SaleSuccessModal({
                   </div>
                 )}
                 {payments.map((payment, idx) => (
-                  <div key={idx} className="flex justify-between text-sm">
-                    <span className="text-gray-600">{payment.methodLabel}:</span>
-                    <span className="font-semibold text-green-600">{formatCurrency(payment.amount)}</span>
-                  </div>
+                  (() => {
+                    const isCash = payment?.method === 'dinheiro';
+                    const receivedAmount = Number(payment?.tendered_amount ?? payment?.amount ?? 0) || 0;
+                    const appliedAmount = Number(payment?.amount ?? 0) || 0;
+                    const showReceived = isCash && receivedAmount > (appliedAmount + 0.001);
+                    const label = showReceived
+                      ? `${payment.methodLabel || payment.method} (recebido)`
+                      : `${payment.methodLabel || payment.method}`;
+                    const value = showReceived ? receivedAmount : appliedAmount;
+
+                    return (
+                      <div key={idx} className="flex justify-between text-sm">
+                        <span className="text-gray-600">{label}:</span>
+                        <span className="font-semibold text-green-600">{formatCurrency(value)}</span>
+                      </div>
+                    );
+                  })()
                 ))}
               </>
             )}

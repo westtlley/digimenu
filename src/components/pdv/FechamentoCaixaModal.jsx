@@ -52,6 +52,11 @@ export default function FechamentoCaixaModal({
   const dhFinal = caixa.status === 'closed' && caixa.closing_date
     ? new Date(caixa.closing_date).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })
     : '(CAIXA ABERTO)';
+  const origemFechamento = String(caixa?.closing_source || '').toLowerCase() === 'pdv'
+    ? 'PDV'
+    : String(caixa?.closing_source || '').toLowerCase() === 'painel_assinante'
+      ? 'PAINEL DO ASSINANTE'
+      : '-';
 
   const refImprimir = React.useRef(null);
 
@@ -97,18 +102,21 @@ export default function FechamentoCaixaModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-lg w-[calc(100vw-2rem)] max-h-[90vh] p-0 overflow-hidden flex flex-col">
+        <DialogHeader className="px-6 pt-6 pb-3 border-b">
           <DialogTitle className="text-xl">Fechamento de Caixa</DialogTitle>
         </DialogHeader>
 
-        <div ref={refImprimir} className="space-y-4 text-sm">
+        <div ref={refImprimir} className="flex-1 overflow-y-auto px-6 py-4 space-y-4 text-sm">
           <div className="text-center font-bold text-base">RELATÓRIO DE FECHAMENTO</div>
           <div className="space-y-1">
             <p><strong>OPERADOR:</strong> {operatorName || caixa.opened_by || '-'}</p>
             <p><strong>CAIXA:</strong> {terminalName || caixa.id || '1'}</p>
             <p><strong>DH INICIAL:</strong> {dhInicial}</p>
             <p><strong>DH FINAL:</strong> {dhFinal}</p>
+            {caixa.status === 'closed' && (
+              <p><strong>ORIGEM FECHAMENTO:</strong> {origemFechamento}</p>
+            )}
           </div>
 
           <div className="line" />
@@ -141,32 +149,38 @@ export default function FechamentoCaixaModal({
               <tr><td>C. DÉBITO</td><td>{vendas.filter(o => o.payment_method === 'debito').length}</td><td className="text-right">{formatCurrency(totalDebito)}</td></tr>
               <tr><td>DINHEIRO</td><td>{vendas.filter(o => o.payment_method === 'dinheiro').length}</td><td className="text-right">{formatCurrency(totalDinheiro)}</td></tr>
               <tr><td>PIX</td><td>{vendas.filter(o => o.payment_method === 'pix').length}</td><td className="text-right">{formatCurrency(totalPix)}</td></tr>
+              <tr><td>OUTROS</td><td>{vendas.filter(o => o.payment_method === 'outro').length}</td><td className="text-right">{formatCurrency(totalOutro)}</td></tr>
               <tr className="font-bold"><td>TOTAL</td><td></td><td className="text-right">{formatCurrency(totalVendas)}</td></tr>
             </tbody>
           </table>
 
-          <div className="line" />
-          <div className="font-semibold">VENDAS CANCELADAS</div>
-          <table className="w-full text-sm">
-            <tbody>
-              <tr><td>VENDA</td><td>0</td><td className="text-right">0,00</td></tr>
-            </tbody>
-          </table>
-          <p className="text-xs text-gray-500">CANCELAMENTO EM TELA</p>
+          {(canceledInScreenCount > 0 || canceledInScreenTotal > 0) && (
+            <>
+              <div className="line" />
+              <div className="font-semibold">CANCELAMENTOS EM TELA</div>
+              <table className="w-full text-sm">
+                <tbody>
+                  <tr>
+                    <td>VENDAS CANCELADAS</td>
+                    <td>{canceledInScreenCount}</td>
+                    <td className="text-right">{formatCurrency(canceledInScreenTotal)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </>
+          )}
 
           <div className="line" />
           <div className="font-semibold">ADICIONAIS</div>
           <table className="w-full text-sm">
             <tbody>
               <tr><td>TROCO</td><td className="text-right">{formatCurrency(totalTroco)}</td></tr>
-              <tr><td>DESCONTO</td><td className="text-right">0,00</td></tr>
-              <tr><td>ACRÉSCIMO</td><td className="text-right">0,00</td></tr>
               <tr><td>QTDE CUPONS</td><td className="text-right">{qtdeCupons}</td></tr>
             </tbody>
           </table>
         </div>
 
-        <DialogFooter className="flex-wrap gap-2">
+        <DialogFooter className="flex-wrap gap-2 border-t px-6 py-4 bg-background">
           <Button type="button" variant="outline" size="sm" onClick={handlePrint}>
             <Printer className="w-4 h-4 mr-2" />
             Imprimir

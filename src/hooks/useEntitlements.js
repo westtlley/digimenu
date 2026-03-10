@@ -2,6 +2,12 @@ import { useMemo } from 'react';
 import { usePermission } from '@/components/permissions/usePermission';
 import { getPlanLimits, UNLIMITED } from '@/constants/planLimits';
 
+function normalizePlanForLimits(plan) {
+  const key = (plan || 'basic').toString().toLowerCase().trim();
+  if (key === 'premium' || key === 'admin') return 'ultra';
+  return key || 'basic';
+}
+
 /**
  * Hook de entitlements (limites efetivos + uso) para Monetização 2.0.
  * Backend é fonte de verdade; fallback para getPlanLimits + addons se effectiveLimits não vier.
@@ -11,7 +17,7 @@ export function useEntitlements() {
   const { subscriberData, isMaster } = usePermission();
 
   const plan = useMemo(
-    () => (subscriberData?.plan || 'basic').toString().toLowerCase().trim(),
+    () => normalizePlanForLimits(subscriberData?.plan),
     [subscriberData?.plan]
   );
 
