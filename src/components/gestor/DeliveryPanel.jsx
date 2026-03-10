@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Bike, MapPin, Star, Package, MessageSquare, Zap, Map as MapIcon, List, Edit, Trash2, Phone, Mail, CheckCircle, Clock, Plus, Award } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

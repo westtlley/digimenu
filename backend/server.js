@@ -1018,6 +1018,27 @@ const ORDER_COLLABORATOR_STATUS_RULES = {
   ]),
 };
 
+const DELIVERY_FLOW_STATUSES = new Set([
+  'going_to_store',
+  'arrived_at_store',
+  'picked_up',
+  'out_for_delivery',
+  'arrived_at_customer'
+]);
+
+const DELIVERY_COMPLETION_ALLOWED_FROM = new Set([
+  'out_for_delivery',
+  'arrived_at_customer'
+]);
+
+const DELIVERY_CANCEL_ALLOWED_FROM = new Set([
+  'going_to_store',
+  'arrived_at_store',
+  'picked_up',
+  'out_for_delivery',
+  'arrived_at_customer'
+]);
+
 const MANAGERIAL_AUTH_SESSION_TTL_MS = Number(process.env.MANAGERIAL_AUTH_SESSION_TTL_MS || (10 * 60 * 1000));
 const managerialAuthSessions = new Map();
 
@@ -1034,6 +1055,132 @@ function getUserRoleList(user) {
   const fromSingle = normalizeLower(user?.profile_role);
   const roles = fromSingle ? [fromSingle, ...fromList] : fromList;
   return [...new Set(roles)];
+}
+
+function resolveOrderDeliveryMethod(order = {}) {
+  return normalizeLower(
+    order?.delivery_method ||
+    order?.delivery_type ||
+    order?.serving_type ||
+    ''
+  );
+}
+
+async function isOrderAssignedToRequesterEntregador(req, currentOrder = {}, payload = {}) {
+  const requesterEmail = normalizeLower(req?.user?.email);
+  if (!requesterEmail) return false;
+
+  const currentAssignedId = currentOrder?.entregador_id != null ? String(currentOrder.entregador_id) : null;
+  const payloadAssignedId = payload?.entregador_id != null ? String(payload.entregador_id) : null;
+
+  if (currentAssignedId && payloadAssignedId && currentAssignedId !== payloadAssignedId) {
+    return false;
+  }
+
+  const targetAssignedId = currentAssignedId || payloadAssignedId;
+  if (!targetAssignedId) return false;
+
+  if (String(req?.user?.id || '') === targetAssignedId) {
+    return true;
+  }
+
+  const explicitEmail = normalizeLower(payload?.entregador_email || currentOrder?.entregador_email);
+  if (explicitEmail && explicitEmail === requesterEmail) {
+    return true;
+  }
+
+  if (usePostgreSQL) {
+    const entregador = await repo.getEntityById('Entregador', targetAssignedId, req?.user || null);
+    return normalizeLower(entregador?.email) === requesterEmail;
+  }
+
+  const entregadores = Array.isArray(db?.entities?.Entregador) ? db.entities.Entregador : [];
+  const entregador = entregadores.find((item) => String(item?.id || '') === targetAssignedId);
+  return normalizeLower(entregador?.email) === requesterEmail;
+}
+
+async function enforceOrderOperationalStatusContract(req, res, currentOrder = {}, payload = {}) {
+  const nextStatus = normalizeLower(payload?.status);
+  if (!nextStatus) return true;
+  if (req?.user?.is_master) return true;
+
+  const roles = getUserRoleList(req?.user);
+  const isManagerRole = roles.includes('gerente') || roles.includes('gestor_pedidos');
+  const isKitchenRole = roles.includes('cozinha') && !isManagerRole;
+  const isEntregadorRole = roles.includes('entregador') && !isManagerRole;
+
+  const currentStatus = normalizeLower(currentOrder?.status);
+  const deliveryMethod = resolveOrderDeliveryMethod(currentOrder);
+  const isDeliveryOrder = deliveryMethod === 'delivery';
+
+  if (DELIVERY_FLOW_STATUSES.has(nextStatus) && !isDeliveryOrder) {
+    res.status(400).json({
+      success: false,
+      error: `Transicao invalida para pedidos nao-delivery (${deliveryMethod || 'sem tipo'}).`,
+      message: `Status "${nextStatus}" exige pedido de entrega.`,
+      code: 'INVALID_STATUS_TRANSITION'
+    });
+    return false;
+  }
+
+  if (isKitchenRole && (DELIVERY_FLOW_STATUSES.has(nextStatus) || nextStatus === 'delivered')) {
+    res.status(403).json({
+      error: 'Perfil cozinha nao pode executar estados de entrega.',
+      code: 'ACTION_NOT_ALLOWED',
+      entity: 'Order',
+      action: 'update',
+      status: nextStatus
+    });
+    return false;
+  }
+
+  if (isEntregadorRole) {
+    if (!isDeliveryOrder) {
+      res.status(403).json({
+        error: 'Perfil entregador so pode operar pedidos de entrega.',
+        code: 'ACTION_NOT_ALLOWED',
+        entity: 'Order',
+        action: 'update',
+        status: nextStatus
+      });
+      return false;
+    }
+
+    const assignedToRequester = await isOrderAssignedToRequesterEntregador(req, currentOrder, payload);
+    if (!assignedToRequester) {
+      res.status(403).json({
+        error: 'Pedido nao esta atribuido a este entregador.',
+        code: 'ACTION_NOT_ALLOWED',
+        entity: 'Order',
+        action: 'update'
+      });
+      return false;
+    }
+
+    if (nextStatus === 'cancelled' && !DELIVERY_CANCEL_ALLOWED_FROM.has(currentStatus)) {
+      res.status(403).json({
+        error: 'Entregador so pode cancelar durante a fase de entrega.',
+        code: 'ACTION_NOT_ALLOWED',
+        entity: 'Order',
+        action: 'update',
+        status: nextStatus
+      });
+      return false;
+    }
+
+    if (nextStatus === 'delivered' && !DELIVERY_COMPLETION_ALLOWED_FROM.has(currentStatus)) {
+      res.status(403).json({
+        error: 'Entrega so pode ser concluida apos saida para entrega.',
+        code: 'ACTION_NOT_ALLOWED',
+        entity: 'Order',
+        action: 'update',
+        status: nextStatus
+      });
+      return false;
+    }
+  }
+
+  return true;
 }
 
 function isOwnerForSubscriber(user, ownerEmail) {
@@ -1250,6 +1397,7 @@ function stripManagerialCredentials(payload = {}) {
 
 const COMANDA_PRODUCTION_SYNCABLE_STATUS = new Set(['open']);
 const ORDER_FINAL_STATUSES = new Set(['delivered', 'cancelled']);
+const COMANDA_ORDER_CANCELLABLE_STATUSES = new Set(['new', 'accepted']);
 
 const roundMoneyValue = (value) => Math.round(((Number(value) || 0) + Number.EPSILON) * 100) / 100;
 
@@ -1325,7 +1473,7 @@ async function upsertComandaProductionOrder(comanda, reqUser, forcedOwnerEmail =
   const linkedOrder = await findComandaProductionOrder(comanda.id, ownerEmail, scopedUser);
   const linkedStatus = normalizeLower(linkedOrder?.status || '');
 
-  if (comandaStatus === 'cancelled' && linkedOrder && !ORDER_FINAL_STATUSES.has(linkedStatus)) {
+  if (comandaStatus === 'cancelled' && linkedOrder && !ORDER_FINAL_STATUSES.has(linkedStatus) && COMANDA_ORDER_CANCELLABLE_STATUSES.has(linkedStatus)) {
     let cancelledOrder = null;
     if (usePostgreSQL) {
       cancelledOrder = await repo.updateEntity('Order', linkedOrder.id, {
@@ -1348,6 +1496,10 @@ async function upsertComandaProductionOrder(comanda, reqUser, forcedOwnerEmail =
     if (cancelledOrder) {
       emitOrderUpdate(cancelledOrder);
     }
+    return;
+  }
+
+  if (comandaStatus === 'cancelled' && linkedOrder && !ORDER_FINAL_STATUSES.has(linkedStatus) && !COMANDA_ORDER_CANCELLABLE_STATUSES.has(linkedStatus)) {
     return;
   }
 
@@ -1981,6 +2133,8 @@ app.put('/api/entities/:entity/:id', authenticate, asyncHandler(async (req, res)
       const { validateStatusTransition } = await import('./services/orderStatusValidation.service.js');
       const v = validateStatusTransition(currentOrder.status, data.status, { isMaster: req.user?.is_master, userRole: req.user?.profile_role || req.user?.role });
       if (!v.valid) return res.status(400).json({ success: false, error: v.message, message: v.message, code: 'INVALID_STATUS_TRANSITION' });
+      const contractOk = await enforceOrderOperationalStatusContract(req, res, currentOrder, data);
+      if (!contractOk) return;
     }
   }
   let updatedItem;
