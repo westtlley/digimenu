@@ -496,7 +496,7 @@ export default function KitchenDisplay({
             <select
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              className="bg-white/20 text-white border border-white/40 rounded px-2 py-1.5 text-sm min-w-[180px]"
+              className="bg-white/20 text-white border border-white/40 rounded px-2 py-1.5 text-sm w-full min-w-0 sm:w-auto sm:min-w-[180px]"
             >
               <option value="all">Todos os Status</option>
               <option value="new">Novos</option>
@@ -507,7 +507,7 @@ export default function KitchenDisplay({
             <select
               value={deliveryFilter}
               onChange={(e) => setDeliveryFilter(e.target.value)}
-              className="bg-white/20 text-white border border-white/40 rounded px-2 py-1.5 text-sm min-w-[180px]"
+              className="bg-white/20 text-white border border-white/40 rounded px-2 py-1.5 text-sm w-full min-w-0 sm:w-auto sm:min-w-[180px]"
             >
               <option value="all">Todos os Tipos</option>
               <option value="delivery">Entrega</option>
