@@ -5,14 +5,17 @@ import { Textarea } from '@/components/ui/textarea';
 import { base44 } from '@/api/base44Client';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
-export default function RatingModal({ order, entregador, onClose, darkMode }) {
+export default function RatingModal({ order, entregador, onClose, darkMode, entityOpts = {} }) {
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState('');
   const [hoveredRating, setHoveredRating] = useState(0);
   const queryClient = useQueryClient();
 
   const createRatingMutation = useMutation({
-    mutationFn: (data) => base44.entities.DeliveryRating.create(data),
+    mutationFn: (data) => base44.entities.DeliveryRating.create({
+      ...data,
+      ...(entityOpts?.as_subscriber ? { as_subscriber: entityOpts.as_subscriber } : {}),
+    }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['deliveryOrders'] });
       onClose();

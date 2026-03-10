@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { apiClient as base44 } from '@/api/apiClient';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
-export default function DeliveryProofModal({ order, entregador, onClose, onConfirm, darkMode }) {
+export default function DeliveryProofModal({ order, entregador, onClose, onConfirm, darkMode, entityOpts = {} }) {
   const [photoUrl, setPhotoUrl] = useState('');
   const [notes, setNotes] = useState('');
   const [uploading, setUploading] = useState(false);
@@ -14,7 +14,10 @@ export default function DeliveryProofModal({ order, entregador, onClose, onConfi
   const queryClient = useQueryClient();
 
   const createProofMutation = useMutation({
-    mutationFn: (data) => base44.entities.DeliveryProof.create(data),
+    mutationFn: (data) => base44.entities.DeliveryProof.create({
+      ...data,
+      ...(entityOpts?.as_subscriber ? { as_subscriber: entityOpts.as_subscriber } : {}),
+    }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['deliveryOrders'] });
       queryClient.invalidateQueries({ queryKey: ['allDeliveryOrders'] });

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useSlugContext } from './useSlugContext';
+import { createPageUrl } from '@/utils';
 
 /**
  * Hook para gerenciar dados do entregador
@@ -11,14 +12,34 @@ export function useEntregador() {
   const [user, setUser] = useState(null);
   const [entregador, setEntregador] = useState(null);
   const [loading, setLoading] = useState(true);
-  const { slug, subscriberEmail, inSlugContext } = useSlugContext();
+  const { slug, subscriberEmail, inSlugContext, loading: slugLoading } = useSlugContext();
+  const canonicalDeliveryPath = createPageUrl('Entregador', slug || undefined);
 
   useEffect(() => {
+    if (slugLoading) return;
+    let cancelled = false;
+    setLoading(true);
+
     const loadUser = async () => {
       try {
         const userData = await base44.auth.me();
+        if (cancelled) return;
         setUser(userData);
-        const asSub = (inSlugContext && userData?.is_master && subscriberEmail) ? subscriberEmail : undefined;
+        const normalizedSlugSubscriber = (subscriberEmail || '').toLowerCase().trim();
+        const normalizedUserSubscriber = (userData?.subscriber_email || userData?.email || '').toLowerCase().trim();
+        const tenantResolved = !inSlugContext || !!normalizedSlugSubscriber;
+        const tenantMatchesSlug =
+          !inSlugContext ||
+          (tenantResolved && (userData?.is_master === true || normalizedUserSubscriber === normalizedSlugSubscriber));
+
+        if (!tenantResolved || !tenantMatchesSlug) {
+          setEntregador(null);
+          return;
+        }
+
+        const asSub = (inSlugContext && userData?.is_master && normalizedSlugSubscriber)
+          ? normalizedSlugSubscriber
+          : undefined;
 
         // ✅ SIMPLIFICADO: Tentar buscar entregador - backend valida permissões
         // Se não tiver acesso, backend retorna 403 e o erro será tratado pelo componente
@@ -48,7 +69,7 @@ export function useEntregador() {
               vibration_enabled: true,
               _isMaster: userData.is_master,
               _isVirtual: true,
-              _subscriberEmail: userData.subscriber_email || userData.email
+              _subscriberEmail: normalizedSlugSubscriber || userData.subscriber_email || userData.email
             };
             setEntregador(virtualEntregador);
           }
@@ -60,21 +81,36 @@ export function useEntregador() {
       } catch (e) {
         // Erro de autenticação - redirecionar para login
         console.error('Erro de autenticação:', e);
-        base44.auth.redirectToLogin('/Entregador');
+        if (!cancelled) {
+          base44.auth.redirectToLogin(canonicalDeliveryPath);
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     };
     loadUser();
-  }, [inSlugContext, subscriberEmail]);
+    return () => {
+      cancelled = true;
+    };
+  }, [canonicalDeliveryPath, inSlugContext, slugLoading, subscriberEmail]);
+
+  const normalizedSlugSubscriber = (inSlugContext && subscriberEmail)
+    ? String(subscriberEmail).toLowerCase().trim()
+    : null;
+  const fallbackSubscriber = user?.subscriber_email || user?.email;
+  const tenantIdentifier = normalizedSlugSubscriber || (fallbackSubscriber ? String(fallbackSubscriber).toLowerCase().trim() : null);
 
   return {
     user,
+    setUser,
     entregador,
     setEntregador,
     loading,
     // ✅ REMOVIDO: hasAccess - backend valida acesso via 403
-    asSubscriber: (inSlugContext && user?.is_master && subscriberEmail) ? subscriberEmail : undefined,
+    asSubscriber: (inSlugContext && user?.is_master && normalizedSlugSubscriber) ? normalizedSlugSubscriber : undefined,
+    tenantIdentifier,
     isMaster: user?.is_master || false
   };
 }

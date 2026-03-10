@@ -28,14 +28,14 @@ export default function LoginColaborador() {
         if (!ok) return;
         const me = await base44.auth.me();
         if (me?.profile_role || me?.profile_roles?.length) {
-          navigate('/colaborador', { replace: true });
+          navigate(returnUrl || '/colaborador', { replace: true });
         }
       } catch (e) {
         // Não autenticado
       }
     };
     checkAuth();
-  }, [navigate]);
+  }, [navigate, returnUrl]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

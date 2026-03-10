@@ -4,9 +4,9 @@ import { useOrderAlerts } from './useOrderAlerts';
 /**
  * Hook principal que agrega todas as notificações críticas
  */
-export function useCriticalNotifications(entregadorId) {
-  const messageAlerts = useMessageAlerts(entregadorId);
-  const orderAlerts = useOrderAlerts(entregadorId);
+export function useCriticalNotifications(entregadorId, options = {}) {
+  const messageAlerts = useMessageAlerts(entregadorId, options);
+  const orderAlerts = useOrderAlerts(entregadorId, options);
 
   const hasCriticalAlerts = 
     messageAlerts.pendingMessages.length > 0 || 

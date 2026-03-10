@@ -2,20 +2,23 @@ import { useState, useEffect, useCallback } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useNotificationSound } from './useNotificationSound';
 
-const STORAGE_KEY = 'pending_orders';
+const STORAGE_KEY_BASE = 'pending_orders';
 
 /**
  * Hook para gerenciar alertas de novos pedidos
  * Som contínuo + vibração até aceitar/rejeitar
  */
-export function useOrderAlerts(entregadorId) {
+export function useOrderAlerts(entregadorId, options = {}) {
+  const { asSubscriber = null, tenantScope = 'self' } = options;
+  const storageKey = `${STORAGE_KEY_BASE}:${tenantScope}`;
+  const scopedEntityOpts = asSubscriber ? { as_subscriber: asSubscriber } : {};
   const [pendingOrders, setPendingOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const { play, stop } = useNotificationSound();
 
   // Carregar pedidos pendentes do storage
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
+    const stored = localStorage.getItem(storageKey);
     if (stored) {
       try {
         const orders = JSON.parse(stored);
@@ -28,7 +31,7 @@ export function useOrderAlerts(entregadorId) {
         console.error('Erro ao carregar pedidos:', e);
       }
     }
-  }, []);
+  }, [play, storageKey]);
 
   // Buscar novos pedidos disponíveis
   useEffect(() => {
@@ -39,7 +42,8 @@ export function useOrderAlerts(entregadorId) {
         const orders = await base44.entities.Order.filter({
           status: 'ready',
           entregador_id: null,
-          delivery_method: 'delivery'
+          delivery_method: 'delivery',
+          ...scopedEntityOpts,
         }, '-created_date', 10);
 
         // Filtrar apenas os realmente novos
@@ -50,7 +54,7 @@ export function useOrderAlerts(entregadorId) {
         if (newOrders.length > 0) {
           const updated = [...pendingOrders, ...newOrders];
           setPendingOrders(updated);
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+          localStorage.setItem(storageKey, JSON.stringify(updated));
           
           // Iniciar som e vibração
           play();
@@ -66,7 +70,7 @@ export function useOrderAlerts(entregadorId) {
     fetchOrders();
     const interval = setInterval(fetchOrders, 3000);
     return () => clearInterval(interval);
-  }, [entregadorId, pendingOrders, play]);
+  }, [entregadorId, pendingOrders, play, asSubscriber, storageKey]);
 
   const startVibration = useCallback(() => {
     if (navigator.vibrate) {
@@ -93,7 +97,7 @@ export function useOrderAlerts(entregadorId) {
   const acceptOrder = async (orderId, entregadorId) => {
     try {
       // Buscar coordenadas da loja
-      const stores = await base44.entities.Store.list();
+      const stores = await base44.entities.Store.list(null, scopedEntityOpts);
       const store = stores[0];
 
       await base44.entities.Order.update(orderId, {
@@ -101,12 +105,12 @@ export function useOrderAlerts(entregadorId) {
         status: 'going_to_store',
         store_latitude: store?.store_latitude || -5.0892,
         store_longitude: store?.store_longitude || -42.8019
-      });
+      }, scopedEntityOpts);
 
       // Remover do storage
       const updated = pendingOrders.filter(o => o.id !== orderId);
       setPendingOrders(updated);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      localStorage.setItem(storageKey, JSON.stringify(updated));
 
       // Parar som e vibração se não houver mais pedidos
       if (updated.length === 0) {
@@ -127,13 +131,14 @@ export function useOrderAlerts(entregadorId) {
       await base44.entities.OrderLog.create({
         order_id: orderId,
         action: 'delivery_rejected',
-        details: `Entregador rejeitou: ${reason}`
+        details: `Entregador rejeitou: ${reason}`,
+        ...(asSubscriber ? { as_subscriber: asSubscriber } : {}),
       });
 
       // Remover do storage
       const updated = pendingOrders.filter(o => o.id !== orderId);
       setPendingOrders(updated);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      localStorage.setItem(storageKey, JSON.stringify(updated));
 
       // Parar som e vibração se não houver mais pedidos
       if (updated.length === 0) {

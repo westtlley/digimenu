@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 
-export default function LiveLocationTracker({ entregador, onLocationUpdate }) {
+export default function LiveLocationTracker({ entregador, onLocationUpdate, entityOpts = {} }) {
   useEffect(() => {
     if (!entregador || entregador._isVirtual) return;
     if (!navigator.geolocation) return;
@@ -18,7 +18,7 @@ export default function LiveLocationTracker({ entregador, onLocationUpdate }) {
           await base44.entities.Entregador.update(entregador.id, {
             current_latitude: latitude,
             current_longitude: longitude
-          });
+          }, entityOpts);
         } catch (error) {
           console.error('Erro ao atualizar localização:', error);
         }
@@ -36,7 +36,7 @@ export default function LiveLocationTracker({ entregador, onLocationUpdate }) {
     return () => {
       navigator.geolocation.clearWatch(watchId);
     };
-  }, [entregador, onLocationUpdate]);
+  }, [entregador, onLocationUpdate, entityOpts]);
 
   return null;
 }

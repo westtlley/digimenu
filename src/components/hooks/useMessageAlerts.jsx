@@ -1,19 +1,22 @@
 import { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 
-const STORAGE_KEY = 'pending_messages';
+const STORAGE_KEY_BASE = 'pending_messages';
 
 /**
  * Hook para gerenciar alertas de mensagens administrativas
  * Garante que mensagens sejam confirmadas pelo entregador
  */
-export function useMessageAlerts(entregadorId) {
+export function useMessageAlerts(entregadorId, options = {}) {
+  const { asSubscriber = null, tenantScope = 'self' } = options;
+  const storageKey = `${STORAGE_KEY_BASE}:${tenantScope}`;
+  const scopedEntityOpts = asSubscriber ? { as_subscriber: asSubscriber } : {};
   const [pendingMessages, setPendingMessages] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Carregar mensagens pendentes do storage
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
+    const stored = localStorage.getItem(storageKey);
     if (stored) {
       try {
         setPendingMessages(JSON.parse(stored));
@@ -21,7 +24,7 @@ export function useMessageAlerts(entregadorId) {
         console.error('Erro ao carregar mensagens:', e);
       }
     }
-  }, []);
+  }, [storageKey]);
 
   // Buscar novas mensagens
   useEffect(() => {
@@ -31,7 +34,8 @@ export function useMessageAlerts(entregadorId) {
       try {
         const messages = await base44.entities.DeliveryMessage.filter({
           entregador_id: entregadorId,
-          status: 'pending'
+          status: 'pending',
+          ...scopedEntityOpts,
         }, '-created_date');
 
         // Adicionar novas mensagens às pendentes
@@ -42,7 +46,7 @@ export function useMessageAlerts(entregadorId) {
         if (newMessages.length > 0) {
           const updated = [...pendingMessages, ...newMessages];
           setPendingMessages(updated);
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+          localStorage.setItem(storageKey, JSON.stringify(updated));
         }
       } catch (e) {
         console.error('Erro ao buscar mensagens:', e);
@@ -54,7 +58,7 @@ export function useMessageAlerts(entregadorId) {
     fetchMessages();
     const interval = setInterval(fetchMessages, 5000);
     return () => clearInterval(interval);
-  }, [entregadorId, pendingMessages]);
+  }, [entregadorId, pendingMessages, asSubscriber, storageKey]);
 
   const confirmMessage = async (message) => {
     try {
@@ -69,12 +73,12 @@ export function useMessageAlerts(entregadorId) {
       await base44.entities.DeliveryMessage.update(messageId, {
         status: 'read',
         read_at: new Date().toISOString()
-      });
+      }, scopedEntityOpts);
 
       // Remover do storage local
       const updated = pendingMessages.filter(m => m.id !== messageId);
       setPendingMessages(updated);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      localStorage.setItem(storageKey, JSON.stringify(updated));
     } catch (e) {
       console.error('Erro ao confirmar mensagem:', e);
     }

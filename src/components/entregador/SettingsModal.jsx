@@ -7,7 +7,7 @@ import { base44 } from '@/api/base44Client';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 
-export default function SettingsModal({ entregador, onClose, onDarkModeChange }) {
+export default function SettingsModal({ entregador, onClose, onDarkModeChange, entityOpts = {} }) {
   const [settings, setSettings] = useState({
     notifications_enabled: entregador.notifications_enabled ?? true,
     sound_enabled: entregador.sound_enabled ?? true,
@@ -21,7 +21,7 @@ export default function SettingsModal({ entregador, onClose, onDarkModeChange })
       if (entregador._isMaster) {
         return Promise.resolve(data);
       }
-      return base44.entities.Entregador.update(entregador.id, data);
+      return base44.entities.Entregador.update(entregador.id, data, entityOpts);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['entregador'] });

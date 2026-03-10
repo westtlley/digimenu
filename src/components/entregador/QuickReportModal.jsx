@@ -7,7 +7,7 @@ import { AlertTriangle, MapPinOff, PhoneOff, Clock, Package } from 'lucide-react
 import { motion } from 'framer-motion';
 import { base44 } from '@/api/base44Client';
 
-export default function QuickReportModal({ isOpen, onClose, order, entregador, darkMode }) {
+export default function QuickReportModal({ isOpen, onClose, order, entregador, darkMode, entityOpts = {} }) {
   const [selectedProblem, setSelectedProblem] = useState(null);
   const [additionalNotes, setAdditionalNotes] = useState('');
   const [sending, setSending] = useState(false);
@@ -32,7 +32,8 @@ export default function QuickReportModal({ isOpen, onClose, order, entregador, d
         title: `⚠️ Problema Reportado`,
         message: `${problem.label}\n\nDetalhes: ${additionalNotes || 'Nenhum detalhe adicional'}`,
         priority: 'urgent',
-        type: 'alert'
+        type: 'alert',
+        ...(entityOpts?.as_subscriber ? { as_subscriber: entityOpts.as_subscriber } : {}),
       });
 
       toast.success('Problema reportado com sucesso! O gestor foi notificado.');

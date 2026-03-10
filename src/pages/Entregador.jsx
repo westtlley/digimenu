@@ -76,15 +76,14 @@ export default function Entregador() {
   const audioRef = useRef(null);
   const statusTransitionLocksRef = useRef(new Set());
   const queryClient = useQueryClient();
-  const { slug } = useSlugContext();
+  const { slug, subscriberEmail, inSlugContext } = useSlugContext();
   const { isMaster: isMasterPerm, hasModuleAccess, loading: permissionLoading } = usePermission();
   
   // Plano básico não tem acesso ao App Entregador
-  const canAccessDeliveryApp = isMasterPerm || hasModuleAccess('colaboradores');
   
   // Hook customizado para entregador
   // ✅ SIMPLIFICADO: Backend valida acesso - se entregador não existir e não for master/entregador, mostrar erro
-  const { user, entregador, loading, asSubscriber, isMaster } = useEntregador();
+  const { user, setUser, entregador, setEntregador, loading, asSubscriber, tenantIdentifier, isMaster } = useEntregador();
   
   // Hook customizado para pedidos
   const { orders: displayOrders, activeOrders, completedOrders, completedOrdersToday, stats: orderStats } = useDeliveryOrders(
@@ -92,13 +91,39 @@ export default function Entregador() {
     asSubscriber,
     isMaster
   );
+  const isMasterUser = isMasterPerm || isMaster;
+  const roles = user?.profile_roles?.length ? user.profile_roles : user?.profile_role ? [user.profile_role] : [];
+  const isGerente = roles.includes('gerente');
+  const isEntregador = user?.profile_role === 'entregador' || roles.includes('entregador');
+  const isAssinante = user?.subscriber_email && (user?.email || '').toLowerCase().trim() === (user?.subscriber_email || '').toLowerCase().trim();
+  const isOwner = !user?.subscriber_email || (user?.email && user?.subscriber_email && user?.email.toLowerCase().trim() === user?.subscriber_email.toLowerCase().trim());
+  const normalizedSlugSubscriber = (subscriberEmail || '').toLowerCase().trim();
+  const normalizedUserSubscriber = (user?.subscriber_email || user?.email || '').toLowerCase().trim();
+  const tenantResolved = !inSlugContext || !!normalizedSlugSubscriber;
+  const tenantMatchesSlug =
+    !inSlugContext ||
+    (tenantResolved && (isMasterUser || normalizedUserSubscriber === normalizedSlugSubscriber));
+  const hasRoleAccess = isMasterUser || isEntregador || isGerente || isAssinante || isOwner;
+  const hasOperationalModules = hasModuleAccess('orders') || hasModuleAccess('gestor_pedidos');
+  const hasPlanAccess = isMasterUser || (hasModuleAccess('colaboradores') && hasOperationalModules);
+  const canAccessDeliveryApp = tenantResolved && tenantMatchesSlug && hasPlanAccess && hasRoleAccess;
+  const isEntregadorOperatorOnly = isEntregador && !isGerente && !isMasterUser;
+  const fallbackBackUrl = isMasterUser
+    ? createPageUrl('Admin')
+    : isEntregadorOperatorOnly
+      ? createPageUrl('ColaboradorHome')
+      : createPageUrl('PainelAssinante', slug || undefined);
+  const tenantScope = asSubscriber || tenantIdentifier || 'self';
   const entityOpts = useMemo(() => (asSubscriber ? { as_subscriber: asSubscriber } : {}), [asSubscriber]);
   const updateOrder = (orderId, payload) => base44.entities.Order.update(orderId, payload, entityOpts);
   const updateEntregador = (entregadorId, payload) => base44.entities.Entregador.update(entregadorId, payload, entityOpts);
   const listStores = () => base44.entities.Store.list(null, entityOpts);
 
   // Critical Notifications System
-  const criticalNotifications = useCriticalNotifications(entregador?.id);
+  const criticalNotifications = useCriticalNotifications(entregador?.id, {
+    asSubscriber,
+    tenantScope,
+  });
 
   // Efeito para dark mode
   useEffect(() => {
@@ -181,7 +206,7 @@ export default function Entregador() {
 
   // Buscar pedidos disponíveis para aceitar (status: ready, delivery)
   const { data: availableOrders = [] } = useQuery({
-    queryKey: ['availableOrders', asSubscriber ?? 'me'],
+    queryKey: ['availableOrders', tenantScope],
     queryFn: async () => {
       const orders = await base44.entities.Order.filter({
         status: 'ready',
@@ -376,7 +401,7 @@ export default function Entregador() {
 
       queryClient.invalidateQueries({ queryKey: ['deliveryOrders'] });
       queryClient.invalidateQueries({ queryKey: ['allDeliveryOrders'] });
-      queryClient.invalidateQueries({ queryKey: ['availableOrders', asSubscriber ?? 'me'] });
+      queryClient.invalidateQueries({ queryKey: ['availableOrders', tenantScope] });
       queryClient.invalidateQueries({ queryKey: ['gestorOrders'] });
       toast.success('Entrega cancelada com sucesso');
       closeCancelModal();
@@ -432,7 +457,7 @@ export default function Entregador() {
   }
 
   // Bloqueio por permissões centralizadas
-  if (!canAccessDeliveryApp && !isMaster) {
+  if (!canAccessDeliveryApp) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
         <div className="bg-white p-8 rounded-xl shadow-lg text-center max-w-md">
@@ -441,45 +466,13 @@ export default function Entregador() {
           <p className="text-gray-600 mb-6">
             Este app não está habilitado para seu perfil/plano atual.
           </p>
-          <Link to={createPageUrl('PainelAssinante', slug || undefined)}>
-            <Button className="bg-blue-500 hover:bg-blue-600">Voltar ao Painel</Button>
+          <Link to={fallbackBackUrl}>
+            <Button className="bg-blue-500 hover:bg-blue-600">Voltar</Button>
           </Link>
         </div>
       </div>
     );
   }
-
-  // ✅ SIMPLIFICADO: Verificar acesso baseado em entregador disponível
-  // Backend já validou permissões - se não tiver entregador e não for master/entregador/gerente/assinante, mostrar erro
-  const roles = user?.profile_roles?.length ? user.profile_roles : user?.profile_role ? [user.profile_role] : [];
-  const isGerente = roles.includes('gerente');
-  const isEntregador = user?.profile_role === 'entregador' || roles.includes('entregador');
-  const isAssinante = user?.subscriber_email && (user?.email || '').toLowerCase().trim() === (user?.subscriber_email || '').toLowerCase().trim();
-  
-  // Se não tem subscriber_email mas tem email, pode ser o próprio assinante
-  const isOwner = !user?.subscriber_email || (user?.email && user?.subscriber_email && user?.email.toLowerCase().trim() === user?.subscriber_email.toLowerCase().trim());
-  
-  const hasAccess = isMaster || isEntregador || isGerente || isAssinante || isOwner;
-  
-  if (!loading && !entregador && !hasAccess) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="bg-white p-8 rounded-xl shadow-lg text-center max-w-md">
-          <Lock className="w-16 h-16 text-blue-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">App Entregador</h2>
-          <p className="text-gray-600 mb-6">
-            Esta funcionalidade não está disponível no seu plano atual.
-          </p>
-          <Link to={createPageUrl('PainelAssinante', slug || undefined)}>
-            <Button className="bg-blue-500 hover:bg-blue-600">
-              Voltar ao Painel
-            </Button>
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
   if (!entregador) {
     return (
       <div className={`min-h-screen flex items-center justify-center p-4 ${darkMode ? 'bg-gray-900' : 'bg-gray-100'}`}>
@@ -491,8 +484,8 @@ export default function Entregador() {
           <p className={`mb-6 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
             Você não está cadastrado como entregador.
           </p>
-          <Link to={createPageUrl('Cardapio', slug || undefined)}>
-            <Button className="w-full bg-blue-500 hover:bg-blue-600">Ver Cardápio</Button>
+          <Link to={fallbackBackUrl}>
+            <Button className="w-full bg-blue-500 hover:bg-blue-600">Voltar</Button>
           </Link>
         </div>
       </div>
@@ -510,6 +503,8 @@ export default function Entregador() {
       <PushNotifications 
         entregador={entregador} 
         enabled={entregador?.notifications_enabled !== false && !isPaused}
+        asSubscriber={asSubscriber}
+        tenantScope={tenantScope}
       />
 
       {/* Battery Alert */}
@@ -811,6 +806,7 @@ export default function Entregador() {
       <LiveLocationTracker 
         entregador={entregador}
         onLocationUpdate={setEntregadorLocation}
+        entityOpts={entityOpts}
       />
 
       {/* Mapa de Rastreamento em Tempo Real */}
@@ -961,7 +957,7 @@ export default function Entregador() {
                       }
 
                       queryClient.invalidateQueries({ queryKey: ['deliveryOrders'] });
-                      queryClient.invalidateQueries({ queryKey: ['availableOrders'] });
+                      queryClient.invalidateQueries({ queryKey: ['availableOrders', tenantScope] });
                       queryClient.invalidateQueries({ queryKey: ['entregadores'] });
                       queryClient.invalidateQueries({ queryKey: ['gestorOrders'] });
                       toast.success('Entrega aceita com sucesso');
@@ -1480,6 +1476,7 @@ export default function Entregador() {
           onClose={() => setShowProofModal(null)}
           onConfirm={handleProofSubmitted}
           darkMode={darkMode}
+          entityOpts={entityOpts}
         />
       )}
 
@@ -1489,6 +1486,7 @@ export default function Entregador() {
           entregador={entregador}
           onClose={() => setShowRatingModal(null)}
           darkMode={darkMode}
+          entityOpts={entityOpts}
         />
       )}
 
@@ -1519,6 +1517,7 @@ export default function Entregador() {
           entregador={entregador}
           onClose={() => setShowSettings(false)}
           onDarkModeChange={setDarkMode}
+          entityOpts={entityOpts}
         />
       )}
 
@@ -1569,6 +1568,7 @@ export default function Entregador() {
         order={activeOrders[0]}
         entregador={entregador}
         darkMode={darkMode}
+        entityOpts={entityOpts}
       />
 
       <Dialog
@@ -1629,3 +1629,4 @@ export default function Entregador() {
     </ErrorBoundary>
   );
 }
+
