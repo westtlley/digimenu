@@ -936,7 +936,7 @@ export default function GestorPedidos() {
                 Novos: {orderCounters.newCount}
               </Badge>
             </div>
-            <div className="flex-1 min-w-[200px]">
+            <div className="flex-1 min-w-0">
               <AdvancedOrderFilters
                 orders={baseFilteredOrders}
                 onFilterChange={handleFilterChange}

@@ -42,7 +42,8 @@ export default function CartModal({
   smartSuggestions = [],
   smartNudgeMain = null,
   smartNudgeSecondary = null,
-  onSelectSuggestion = null
+  onSelectSuggestion = null,
+  enableSmartSuggestions = true
 }) {
   const [activeTab, setActiveTab] = useState('cart'); // 'cart' ou 'orders'
   const [showRatingModal, setShowRatingModal] = useState(null);
@@ -148,9 +149,10 @@ export default function CartModal({
     return 'Seu carrinho está pronto para checkout.';
   })();
   const cartSecondaryMessage = !hasFreeDeliveryProgress && smartNudgeSecondary ? smartNudgeSecondary : null;
-  const visibleSmartSuggestions = Array.isArray(smartSuggestions)
+  const visibleSmartSuggestions = enableSmartSuggestions && Array.isArray(smartSuggestions)
     ? (mobileFullScreen ? smartSuggestions.slice(0, 1) : smartSuggestions.slice(0, 2))
     : [];
+  const shouldRenderSmartSuggestions = visibleSmartSuggestions.length > 0;
 
   // Buscar pedidos do cliente autenticado (incluindo entregues recentemente)
   const { data: orders = [], isLoading: ordersLoading } = useQuery({
@@ -480,8 +482,9 @@ export default function CartModal({
                   <p className={darkMode ? 'text-gray-400' : 'text-gray-500'}>Carrinho vazio</p>
                 </div>
               ) : (
-                cart.map((item) => (
-                  <div key={item.id} className={`flex gap-3 p-3 rounded-xl ${darkMode ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
+                <>
+                  {cart.map((item) => (
+                    <div key={item.id} className={`flex gap-3 p-3 rounded-xl ${darkMode ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
                     {/* Image */}
                     <div className="w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden bg-gray-200">
                       {item.dish?.image ? (
@@ -559,8 +562,54 @@ export default function CartModal({
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
-                  </div>
-                ))
+                    </div>
+                  ))}
+
+                  {shouldRenderSmartSuggestions && (
+                    <div className="mt-1 space-y-2">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Complete seu pedido com
+                      </p>
+                      <div className="flex gap-2 overflow-x-auto mobile-scroll-x pb-1">
+                        {visibleSmartSuggestions.map((suggestion, index) => (
+                          <div
+                            key={suggestion.id}
+                            className="min-w-[170px] max-w-[190px] rounded-lg border border-border bg-card p-2"
+                          >
+                            <div className="mb-1 flex items-center justify-between gap-2">
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0.5">
+                                {index === 0 ? 'Sugestão principal' : 'Alternativa'}
+                              </Badge>
+                            </div>
+                            <div className="w-full h-20 rounded-md overflow-hidden bg-muted mb-2">
+                              {suggestion?.image ? (
+                                <img src={suggestion.image} alt={suggestion.name} className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">Sem foto</div>
+                              )}
+                            </div>
+                            <p className="text-xs font-semibold line-clamp-2 min-h-[2rem] text-card-foreground">
+                              {suggestion?.name}
+                            </p>
+                            <div className="mt-2 flex items-center justify-between gap-2">
+                              <span className="text-xs font-bold" style={{ color: primaryColor }}>
+                                {formatCurrency(suggestion?.price)}
+                              </span>
+                              <Button
+                                size="sm"
+                                className="h-7 px-2 text-xs text-white"
+                                style={{ backgroundColor: primaryColor }}
+                                onClick={() => onSelectSuggestion?.(suggestion)}
+                              >
+                                Adicionar
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
               )
             ) : (
               // Pedidos do Cliente
@@ -755,7 +804,7 @@ export default function CartModal({
                 </div>
               )}
 
-              {visibleSmartSuggestions.length > 0 && (
+              {false && (
                 <div className="space-y-2">
                   <p className={`text-xs font-semibold uppercase tracking-wide ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
                     Complete seu pedido com
@@ -944,4 +993,3 @@ export default function CartModal({
 
   return createPortal(modalContent, document.body);
 }
-

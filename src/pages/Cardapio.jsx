@@ -864,6 +864,7 @@ export default function Cardapio() {
     const safeCombos = Array.isArray(comboDishesForDisplay) ? comboDishesForDisplay : [];
     const crossSellConfig = store?.cross_sell_config || {};
     const crossSellEnabled = crossSellConfig?.enabled !== false;
+    const comboSuggestionEnabled = crossSellEnabled && Boolean(crossSellConfig?.combo_offer?.enabled);
 
     const cartDishIds = new Set(safeCart.map((item) => String(item?.dish?.id || '')));
     const currentCartTotal = safeCart.reduce((sum, item) => sum + Number(item?.totalPrice || 0) * Number(item?.quantity || 1), 0);
@@ -1220,9 +1221,11 @@ export default function Cardapio() {
         .sort(byDisplayPriority)
         .forEach((item) => pushCartSuggestion(item, true));
 
-      comboItems
-        .sort(byDisplayPriority)
-        .forEach((item) => pushCartSuggestion(item, true));
+      if (comboSuggestionEnabled) {
+        comboItems
+          .sort(byDisplayPriority)
+          .forEach((item) => pushCartSuggestion(item, true));
+      }
 
       crossSellItems
         .sort(byDisplayPriority)
@@ -1399,6 +1402,19 @@ export default function Cardapio() {
   const cartSmartNudgeMain = merchandisingEngine.cartNudgeMain;
   const cartSmartNudgeSecondary = merchandisingEngine.cartNudgeSecondary;
   const checkoutSmartNudge = merchandisingEngine.checkoutNudge;
+
+  const cartSuggestionsEnabled = useMemo(() => {
+    const crossSellConfig = store?.cross_sell_config || {};
+    const crossSellEnabled = crossSellConfig?.enabled !== false;
+    const hasCrossSellSuggestion =
+      crossSellEnabled &&
+      ['beverage_offer', 'dessert_offer', 'combo_offer'].some((key) => {
+        const config = crossSellConfig?.[key];
+        return Boolean(config?.enabled && config?.dish_id);
+      });
+    const hasPromotionSuggestion = Array.isArray(activePromotions) && activePromotions.length > 0;
+    return hasPromotionSuggestion || hasCrossSellSuggestion;
+  }, [activePromotions, store?.cross_sell_config]);
 
   const showCommercialSections = selectedCategory === 'all' && !searchTerm?.trim();
   const showLegacyPromotionSurface = !showCommercialSections || commercialSections.length === 0;
@@ -3557,6 +3573,7 @@ export default function Cardapio() {
         smartSuggestions={cartUpsellSuggestions}
         smartNudgeMain={cartSmartNudgeMain}
         smartNudgeSecondary={cartSmartNudgeSecondary}
+        enableSmartSuggestions={cartSuggestionsEnabled}
         onSelectSuggestion={(suggestedDish) => {
           handleCommercialSuggestion(suggestedDish, 'cart');
         }}

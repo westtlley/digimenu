@@ -34,7 +34,7 @@ const DialogContent = React.forwardRef(({ className, children, size, "aria-descr
       data-dialog-size={size === "large" ? "large" : undefined}
       className={cn(
         // Mobile: Fullscreen
-        "fixed inset-0 z-50 flex flex-col w-full h-full max-w-full max-h-full gap-4 border-0 bg-background p-4 shadow-2xl duration-300 overflow-y-auto",
+        "fixed inset-0 z-50 flex flex-col w-full h-full min-w-0 max-w-full max-h-full gap-4 border-0 bg-background p-4 pb-[max(1rem,env(safe-area-inset-bottom,0px))] shadow-2xl duration-300 overflow-y-auto overflow-x-hidden",
         // Desktop: Centered modal (tamanho padrão)
         !size || size === "default"
           ? "sm:left-[50%] sm:top-[50%] sm:inset-auto sm:w-[calc(100%-2rem)] sm:max-w-lg sm:max-h-[90vh] sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-xl sm:p-6 sm:overflow-y-auto"

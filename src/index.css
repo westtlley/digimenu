@@ -109,6 +109,21 @@ button:focus-visible {
     --sidebar-accent-foreground: 240 5.9% 10%;
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+
+    /* Legacy theme vars (still used by several screens/components) */
+    --bg-primary: #ffffff;
+    --bg-secondary: #f8f9fa;
+    --bg-tertiary: #f1f3f5;
+    --bg-card: #ffffff;
+    --bg-input: #ffffff;
+    --bg-hover: #f5f5f5;
+    --text-primary: #1a1a1a;
+    --text-secondary: #4a5568;
+    --text-muted: #718096;
+    --text-disabled: #a0aec0;
+    --border-color: #e2e8f0;
+    --border-hover: #cbd5e0;
+    --border-focus: #f97316;
   }
   /* Premium dark mode: fundo ≠ card ≠ modal (Stripe/Linear style) */
   .dark {
@@ -144,6 +159,21 @@ button:focus-visible {
     --sidebar-accent-foreground: 220 33% 93%;
     --sidebar-border: 220 22% 18%;
     --sidebar-ring: 24 95% 53%;
+
+    /* Legacy theme vars (still used by several screens/components) */
+    --bg-primary: #0f172a;
+    --bg-secondary: #1e293b;
+    --bg-tertiary: #334155;
+    --bg-card: #1e293b;
+    --bg-input: #334155;
+    --bg-hover: #475569;
+    --text-primary: #f8fafc;
+    --text-secondary: #cbd5e1;
+    --text-muted: #94a3b8;
+    --text-disabled: #64748b;
+    --border-color: #334155;
+    --border-hover: #475569;
+    --border-focus: #f97316;
   }
 }
 
@@ -288,6 +318,70 @@ button:focus-visible {
   }
 }
 
+@layer utilities {
+  .safe-top { padding-top: env(safe-area-inset-top, 0px); }
+  .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .safe-left { padding-left: env(safe-area-inset-left, 0px); }
+  .safe-right { padding-right: env(safe-area-inset-right, 0px); }
+  .safe-x {
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+  .safe-y {
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .min-h-screen-mobile { min-height: 100dvh; min-height: 100vh; }
+}
+
+html, body, #root {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+#root {
+  min-width: 0;
+  isolation: isolate;
+}
+
+.mobile-page-shell {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+@media (max-width: 767px) {
+  .mobile-page-shell,
+  .mobile-page-shell main,
+  .mobile-page-shell section,
+  .mobile-page-shell article,
+  .mobile-page-shell header,
+  .mobile-page-shell footer,
+  .mobile-page-shell nav,
+  .mobile-page-shell div {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .mobile-page-shell img,
+  .mobile-page-shell video,
+  .mobile-page-shell canvas,
+  .mobile-page-shell svg {
+    max-width: 100%;
+    height: auto;
+  }
+
+  .mobile-scroll-x {
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    max-width: 100%;
+  }
+}
+
 /* Correção global para modais no desktop - garantir que não sejam cortados */
 @media (min-width: 640px) {
   /* Modal grande (ex.: Editar Assinante) – forçar tamanho/posição no desktop */
@@ -304,7 +398,6 @@ button:focus-visible {
   }
   
   /* Garantir que todos os DialogContent no desktop sejam centralizados e não cortados */
-  [role="dialog"],
   [data-radix-dialog-content] {
     max-height: 90vh !important;
     overflow-y: auto !important;
@@ -314,7 +407,6 @@ button:focus-visible {
   }
   
   /* Garantir que o conteúdo interno dos modais não seja cortado */
-  [role="dialog"] > *,
   [data-radix-dialog-content] > * {
     max-width: 100% !important;
     overflow-x: hidden !important;
@@ -322,7 +414,6 @@ button:focus-visible {
   }
   
   /* Forçar que modais com classes customizadas sejam centralizados */
-  [role="dialog"][class*="max-w"],
   [data-radix-dialog-content][class*="max-w"] {
     left: 50% !important;
     top: 50% !important;
@@ -334,7 +425,6 @@ button:focus-visible {
 }
 
 /* Garantir que modais não sejam cortados em qualquer resolução */
-[role="dialog"],
 [data-radix-dialog-content] {
   box-sizing: border-box !important;
   position: fixed !important;
@@ -353,12 +443,11 @@ button:focus-visible {
 }
 
 /* Garantir que containers com overflow-hidden não cortem modais */
-body:has([role="dialog"]) {
+body:has([data-radix-dialog-content]) {
   overflow: hidden !important;
 }
 
 /* Garantir que modais sempre apareçam acima de tudo */
-[role="dialog"],
 [data-radix-dialog-content] {
   z-index: 50 !important;
 }

@@ -1,6 +1,13 @@
+import { useEffect } from 'react';
+import toast from 'react-hot-toast';
 import { ThemeProvider } from '@/components/theme/ThemeProvider';
 
-export default function Layout({ children }) {
+export default function Layout({ children, currentPageName }) {
+  useEffect(() => {
+    // Evita toasts órfãos ao trocar entre páginas no mobile.
+    toast.dismiss();
+  }, [currentPageName]);
+
   return (
     <ThemeProvider>
       <style>{`
@@ -230,7 +237,9 @@ export default function Layout({ children }) {
           transition-duration: 150ms;
         }
       `}</style>
-      {children}
+      <div className="mobile-page-shell min-h-screen min-h-screen-mobile bg-background">
+        {children}
+      </div>
     </ThemeProvider>
   );
 }

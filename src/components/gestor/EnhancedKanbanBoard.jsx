@@ -94,6 +94,7 @@ export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = 
   const [compact, setCompact] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const [reduceMotion, setReduceMotion] = useState(false);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
   const queryClient = useQueryClient();
   const gestorOrdersKey = React.useMemo(() => ['gestorOrders', asSub ?? 'me'], [asSub]);
 
@@ -103,6 +104,19 @@ export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = 
     const f = () => setReduceMotion(m.matches);
     m.addEventListener('change', f);
     return () => m.removeEventListener('change', f);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mq = window.matchMedia('(max-width: 767px)');
+    const onChange = () => setIsMobileViewport(!!mq.matches);
+    onChange();
+    if (typeof mq.addEventListener === 'function') {
+      mq.addEventListener('change', onChange);
+      return () => mq.removeEventListener('change', onChange);
+    }
+    mq.addListener(onChange);
+    return () => mq.removeListener(onChange);
   }, []);
 
   // Atualizar "HÃ¡ X min" a cada 1 min
@@ -284,10 +298,10 @@ export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = 
             </div>
           </SkeletonTheme>
         </div>
-        <div className="overflow-x-auto pb-1">
-          <div className="flex gap-2.5 h-[calc(100dvh-18rem)] min-h-[460px] max-h-[78vh] min-w-[1180px]">
+        <div className={isMobileViewport ? 'pb-1' : 'overflow-x-auto pb-1 mobile-scroll-x'}>
+          <div className={isMobileViewport ? 'flex flex-col gap-3' : 'flex gap-2.5 h-[calc(100dvh-18rem)] min-h-[460px] max-h-[78vh] min-w-[1180px]'}>
             {COLUMNS.map(col => (
-              <div key={col.id} className={`flex-1 min-w-[190px] flex flex-col ${darkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-gray-50 border-gray-200'} border rounded-lg p-2`}>
+              <div key={col.id} className={`${isMobileViewport ? 'w-full' : 'flex-1 min-w-[190px]'} flex flex-col ${darkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-gray-50 border-gray-200'} border rounded-lg p-2`}>
                 <SkeletonTheme baseColor="#ebebeb" highlightColor="#f5f5f5">
                   <Skeleton height={36} className="mb-2" enableAnimation={!reduceMotion} />
                   <Skeleton count={3} height={100} style={{ marginBottom: 8 }} enableAnimation={!reduceMotion} />
@@ -327,7 +341,7 @@ export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = 
           {/* Filtros */}
           <div className="flex gap-2">
             <Select value={filterMethod} onValueChange={setFilterMethod}>
-              <SelectTrigger className={`w-[140px] ${darkMode ? 'bg-gray-700 border-gray-600' : ''}`}>
+              <SelectTrigger className={`w-[120px] sm:w-[140px] ${darkMode ? 'bg-gray-700 border-gray-600' : ''}`}>
                 <SelectValue placeholder="Tipo" />
               </SelectTrigger>
               <SelectContent>
@@ -354,8 +368,8 @@ export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = 
 
       {/* Kanban Board */}
       <DragDropContext onDragEnd={onDragEnd}>
-        <div className="overflow-x-auto pb-1">
-          <div className="flex gap-2.5 h-[calc(100dvh-18rem)] min-h-[460px] max-h-[78vh] min-w-[1180px]">
+        <div className={isMobileViewport ? 'pb-1' : 'overflow-x-auto pb-1 mobile-scroll-x'}>
+          <div className={isMobileViewport ? 'flex flex-col gap-3' : 'flex gap-2.5 h-[calc(100dvh-18rem)] min-h-[460px] max-h-[78vh] min-w-[1180px]'}>
           {COLUMNS.map(column => {
             const columnOrders = columnOrdersMap[column.id] || [];
             const Icon = column.icon;
@@ -364,7 +378,7 @@ export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = 
             return (
               <div 
                 key={column.id} 
-                className={`${isCollapsed ? 'w-10' : 'flex-1 min-w-[190px]'} transition-all duration-300 flex flex-col ${
+                className={`${isCollapsed && !isMobileViewport ? 'w-10' : (isMobileViewport ? 'w-full' : 'flex-1 min-w-[190px]')} transition-all duration-300 flex flex-col ${
                   darkMode 
                     ? `${column.darkBg} ${column.darkBorder} border` 
                     : `${column.bgColor} ${column.borderColor} border`
@@ -377,7 +391,7 @@ export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = 
                     darkMode ? 'border-gray-700' : 'border-gray-200'
                   }`}
                 >
-                  {isCollapsed ? (
+                  {isCollapsed && !isMobileViewport ? (
                     <div className="flex flex-col items-center gap-1.5 w-full">
                       <Icon className={`w-4 h-4 ${column.textColor}`} />
                       <span className={`text-xs font-bold ${darkMode ? 'text-gray-300' : 'text-gray-500'}`}>
@@ -408,13 +422,13 @@ export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = 
                 </button>
 
                 {/* Column Content */}
-                {!isCollapsed && (
+                {(!isCollapsed || isMobileViewport) && (
                   <Droppable droppableId={column.id}>
                     {(provided, snapshot) => (
                       <div
                         ref={provided.innerRef}
                         {...provided.droppableProps}
-                        className={`flex-1 overflow-y-auto p-1.5 space-y-1.5 transition-colors ${
+                        className={`${isMobileViewport ? 'max-h-[50dvh]' : 'flex-1'} overflow-y-auto p-1.5 space-y-1.5 transition-colors ${
                           snapshot.isDraggingOver 
                             ? darkMode ? 'bg-gray-700/50' : 'bg-gray-100/50'
                             : ''
