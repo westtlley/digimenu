@@ -744,6 +744,28 @@ export default function Cardapio() {
   }, [activeDishes]);
   const activePromotions = useMemo(() => (Array.isArray(promotionsResolved) ? promotionsResolved : []).filter(p => p.is_active), [promotionsResolved]);
   const activeCombos = useMemo(() => (Array.isArray(combosResolved) ? combosResolved : []).filter(c => c?.is_active !== false), [combosResolved]);
+  const welcomeCoupon = useMemo(() => {
+    const safeCoupons = Array.isArray(couponsResolved) ? couponsResolved : [];
+    const now = Date.now();
+
+    return safeCoupons.find((coupon) => {
+      if (!coupon || !coupon.code) return false;
+      if (!coupon.is_active) return false;
+
+      if (coupon.expires_at) {
+        const expiresAt = new Date(coupon.expires_at).getTime();
+        if (!Number.isNaN(expiresAt) && expiresAt < now) return false;
+      }
+
+      const maxUses = Number(coupon.max_uses || 0);
+      const currentUses = Number(coupon.current_uses || 0);
+      if (maxUses > 0 && currentUses >= maxUses) return false;
+
+      if (coupon.is_welcome === true || coupon.show_on_welcome === true) return true;
+
+      return String(coupon.code).toUpperCase().trim() === 'BEMVINDO10';
+    }) || null;
+  }, [couponsResolved]);
 
   const desktopHighlights = useMemo(() => {
     const promos = (Array.isArray(activePromotions) ? activePromotions : [])
@@ -1639,7 +1661,7 @@ export default function Cardapio() {
   }, [publicData, publicLoading, slug]);
 
   useEffect(() => {
-    if (!slug || !store) return;
+    if (!slug || !store || !welcomeCoupon) return;
 
     const storageKey = `welcome_discount_${slug}`;
     const hasSeen = localStorage.getItem(storageKey);
@@ -1651,7 +1673,7 @@ export default function Cardapio() {
 
       return () => clearTimeout(timer);
     }
-  }, [slug, store]);
+  }, [slug, store, welcomeCoupon]);
 
   // ✅ Erro ao carregar cardápio (404, 500, timeout, rede) — depois de TODOS os hooks
   if (slug && publicError) {
@@ -3658,6 +3680,7 @@ export default function Cardapio() {
         onApplyCoupon={(code) => handleApplyCoupon(code)}
         primaryColor={primaryColor}
         slug={slug}
+        coupon={welcomeCoupon}
       />
 
       <ComboBuilderModal

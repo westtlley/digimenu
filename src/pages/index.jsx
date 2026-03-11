@@ -149,7 +149,10 @@ function PagesContent() {
                 <Route path="/cardapio" element={<SmartRedirect />} />
                 <Route path="/Cardapio" element={<SmartRedirect />} />
                 <Route path="/admin" element={<Navigate to="/Admin" replace />} />
+                <Route path="/admin-master" element={<Navigate to="/Admin" replace />} />
                 <Route path="/painel" element={<Navigate to="/PainelAssinante" replace />} />
+                <Route path="/painelassinante" element={<Navigate to="/PainelAssinante" replace />} />
+                <Route path="/painel-assinante" element={<Navigate to="/PainelAssinante" replace />} />
                 <Route path="/painel/:slug" element={<SlugPainelRedirect />} />
                 <Route path="/gerente" element={<Navigate to="/PainelGerente" replace />} />
                 
@@ -212,6 +215,9 @@ function PagesContent() {
                 <Route path="/pagamento/sucesso" element={<PagamentoSucesso />} />
                 <Route path="/pagamento/falha" element={<PagamentoFalha />} />
                 <Route path="/pagamento/pendente" element={<PagamentoPendente />} />
+
+                {/* Fallback global: evita tela branca em URL inválida/legada sem rota */}
+                <Route path="*" element={<Navigate to="/" replace />} />
                 
             </Routes>
             </Suspense>
