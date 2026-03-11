@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent } from "@/components/ui/card";
-import { Plus, Trash2, Star, ChevronDown, ChevronUp, MoreVertical, Layers, Copy, FolderPlus, Menu, Settings, Files, Pencil, Gift, X, GripVertical, Search, Bookmark, Edit as EditIcon, UtensilsCrossed, LayoutGrid, CheckCircle, Package } from 'lucide-react';
+import { Plus, Trash2, Star, ChevronDown, ChevronUp, MoreVertical, Layers, Copy, FolderPlus, Menu, Settings, Files, Pencil, X, GripVertical, Search, Edit as EditIcon, UtensilsCrossed, LayoutGrid, CheckCircle, Package } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import ReuseGroupModal from './ReuseGroupModal';
 import ReorderModal from './ReorderModal';
@@ -1233,6 +1233,43 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
     );
   };
 
+  const reuseComplementGroupsToDish = (dishId, groupIds = []) => {
+    const dish = safeDishes.find(d => d.id === dishId);
+    if (!dish) return;
+
+    const ids = Array.isArray(groupIds) ? groupIds.filter(Boolean) : [];
+    if (ids.length === 0) return;
+
+    const existingIds = new Set((dish.complement_groups || []).map(cg => cg.group_id));
+    const newIds = ids.filter(groupId => !existingIds.has(groupId));
+    if (newIds.length === 0) {
+      toast('Todos os grupos selecionados já estão vinculados a este prato.');
+      return;
+    }
+
+    const updatedGroups = [
+      ...(dish.complement_groups || []),
+      ...newIds.map(groupId => ({ group_id: groupId, is_required: false }))
+    ];
+
+    updateDishMutation.mutate(
+      { id: dishId, data: { ...dish, complement_groups: updatedGroups } },
+      {
+        onSuccess: () => {
+          if (newIds.length < ids.length) {
+            toast.success(`${newIds.length} grupo(s) adicionado(s). ${ids.length - newIds.length} já estavam vinculados.`);
+          } else {
+            toast.success(`${newIds.length} grupo(s) adicionado(s) ao prato.`);
+          }
+        },
+        onSettled: () => {
+          queryClient.invalidateQueries({ queryKey: ['complementGroups', menuContext?.type, menuContext?.value] });
+          if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
+        }
+      }
+    );
+  };
+
   const removeGroupFromDish = (dishId, groupId) => {
     if (!confirm('Remover este grupo de complementos?')) return;
     
@@ -1594,9 +1631,12 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
 
       {/* Conteúdo das Abas */}
       {internalTab === 'categories' ? (
-        <CategoriesTab />
+        <CategoriesTab onSwitchToComplements={() => setInternalTab('complements')} />
       ) : internalTab === 'complements' ? (
-        <ComplementsTab />
+        <ComplementsTab
+          onSwitchToCategories={() => setInternalTab('categories')}
+          onOpenTemplates={() => setShowTemplatesModal(true)}
+        />
       ) : (
         <>
       {/* Desktop Header */}
@@ -1612,18 +1652,6 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
             <Button onClick={() => setShowReorderModal(true)} variant="outline">
               <Menu className="w-4 h-4 mr-2" />
               Reordenar
-            </Button>
-          )}
-          {canCreate('dishes') && (
-            <Button onClick={() => setShowTemplatesModal(true)} variant="outline">
-              <Bookmark className="w-4 h-4 mr-2" />
-              Templates
-            </Button>
-          )}
-          {canCreate('dishes') && (
-            <Button variant="outline" className="ml-auto" onClick={handleRedirectToPromotions}>
-              <Gift className="w-4 h-4 mr-2" />
-              Criar Combo
             </Button>
           )}
         </div>
@@ -2170,6 +2198,10 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
           });
         }}
         onCopyGroups={async (groupIds) => {
+          if (mobileComplementsDish?.id) {
+            reuseComplementGroupsToDish(mobileComplementsDish.id, groupIds);
+            return;
+          }
           for (const groupId of groupIds) {
             const originalGroup = safeComplementGroups.find(g => g.id === groupId);
             if (originalGroup) {
@@ -2559,9 +2591,9 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
           setCurrentDishForReuse(null);
         }}
         currentDish={currentDishForReuse ? safeDishes.find(d => d.id === currentDishForReuse) : null}
-        onSelect={(groupId) => {
+        onSelect={(groupIds) => {
           if (currentDishForReuse) {
-            reuseComplementGroupToDish(currentDishForReuse, groupId);
+            reuseComplementGroupsToDish(currentDishForReuse, groupIds);
           }
         }}
         availableGroups={safeComplementGroups}

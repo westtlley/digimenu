@@ -7,13 +7,13 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Plus, Trash2, GripVertical, ChevronUp, ChevronDown, Menu, FolderPlus, Search, Package } from 'lucide-react';
+import { Plus, Trash2, GripVertical, ChevronUp, ChevronDown, Menu, FolderPlus, Search, Package, LayoutGrid } from 'lucide-react';
 import EmptyState from '@/components/ui/EmptyState';
 import toast from 'react-hot-toast';
 import { usePermission } from '../permissions/usePermission';
 import { useMenuCategories, useMenuDishes } from '@/hooks/useMenuData';
 
-export default function CategoriesTab() {
+export default function CategoriesTab({ onSwitchToComplements }) {
   const [user, setUser] = React.useState(null);
   const [showModal, setShowModal] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -172,11 +172,23 @@ export default function CategoriesTab() {
             className="pl-10"
           />
         </div>
-        <Button onClick={() => setShowModal(true)} className="bg-orange-500 hover:bg-orange-600">
-          <Plus className="w-4 h-4 mr-2" />
-          Adicionar Categoria
-        </Button>
+        <div className="flex gap-2">
+          {typeof onSwitchToComplements === 'function' && (
+            <Button variant="outline" onClick={onSwitchToComplements}>
+              <LayoutGrid className="w-4 h-4 mr-2" />
+              Criar Grupo
+            </Button>
+          )}
+          <Button onClick={() => setShowModal(true)} className="bg-orange-500 hover:bg-orange-600">
+            <Plus className="w-4 h-4 mr-2" />
+            Adicionar Categoria
+          </Button>
+        </div>
       </div>
+
+      <p className="text-xs text-muted-foreground">
+        Dica: clique no nome da categoria para editar direto na lista.
+      </p>
 
       <div className="max-w-xl mx-auto space-y-3">
         {filteredCategories.length === 0 ? (
@@ -193,7 +205,7 @@ export default function CategoriesTab() {
             return (
               <div
                 key={category.id}
-                className="bg-white rounded-xl p-3 sm:p-4 shadow-sm flex items-center gap-2 sm:gap-4"
+                className="bg-card border border-border rounded-xl p-3 sm:p-4 shadow-sm flex items-center gap-2 sm:gap-4"
               >
                 <Menu className="w-5 h-5 text-gray-400" />
                 

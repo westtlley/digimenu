@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Trash2, X, GripVertical, Search, Package, Filter } from 'lucide-react';
+import { Plus, Trash2, X, GripVertical, Search, Package, Filter, Layers, Bookmark } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -88,7 +88,7 @@ function OptionItem({ option, group, optionIndex, provided, snapshot, onUpdate, 
 }
 
 // Componente separado para grupo com estado local
-function GroupItem({ group, groupIndex, provided, snapshot, updateMutation, deleteMutation, onAddOption, onToggleOption, onRemoveOption, onUpdateOption, onDragEndOptions, canEdit }) {
+function GroupItem({ group, groupIndex, provided, snapshot, updateMutation, deleteMutation, onAddOption, onToggleOption, onRemoveOption, onUpdateOption, onDragEndOptions, canEdit, dishes }) {
   const [localName, setLocalName] = useState(group.name || '');
   const [localMaxSelection, setLocalMaxSelection] = useState(group.max_selection?.toString() || '1');
 
@@ -110,7 +110,7 @@ function GroupItem({ group, groupIndex, provided, snapshot, updateMutation, dele
       ref={provided.innerRef}
       {...provided.draggableProps}
       className={cn(
-        "bg-white rounded-xl p-4 sm:p-5 shadow-sm border transition-all",
+        "bg-card rounded-xl p-4 sm:p-5 shadow-sm border border-border transition-all",
         snapshot.isDragging ? "shadow-2xl" : ""
       )}
     >
@@ -218,7 +218,7 @@ function GroupItem({ group, groupIndex, provided, snapshot, updateMutation, dele
   );
 }
 
-export default function ComplementsTab() {
+export default function ComplementsTab({ onSwitchToCategories, onOpenTemplates }) {
   const [user, setUser] = React.useState(null);
   const [showModal, setShowModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -511,11 +511,29 @@ export default function ComplementsTab() {
             <SelectItem value="optional">Opcionais</SelectItem>
           </SelectContent>
         </Select>
-        <Button onClick={() => setShowModal(true)} className="bg-gray-800 hover:bg-gray-900">
-          <Plus className="w-4 h-4 mr-2" />
-          Criar Novo Grupo
-        </Button>
+        <div className="flex gap-2 sm:ml-auto">
+          {typeof onSwitchToCategories === 'function' && (
+            <Button variant="outline" onClick={onSwitchToCategories}>
+              <Layers className="w-4 h-4 mr-2" />
+              Ver Categorias
+            </Button>
+          )}
+          {typeof onOpenTemplates === 'function' && (
+            <Button variant="outline" onClick={onOpenTemplates}>
+              <Bookmark className="w-4 h-4 mr-2" />
+              Templates
+            </Button>
+          )}
+          <Button onClick={() => setShowModal(true)} className="bg-gray-800 hover:bg-gray-900">
+            <Plus className="w-4 h-4 mr-2" />
+            Criar Novo Grupo
+          </Button>
+        </div>
       </div>
+
+      <p className="text-xs text-muted-foreground">
+        Dica: edite nome, obrigatoriedade, máximo e preço direto nos cards abaixo.
+      </p>
 
       <DragDropContext onDragEnd={handleDragEndGroups}>
         <Droppable droppableId="groups">
@@ -547,6 +565,7 @@ export default function ComplementsTab() {
                           onUpdateOption={updateOption}
                           onDragEndOptions={handleDragEndOptions}
                           canEdit={canEdit}
+                          dishes={dishes}
                         />
                       )}
                     </Draggable>

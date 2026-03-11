@@ -130,8 +130,8 @@ export default function ReuseGroupModal({ isOpen, onClose, onSelect, availableGr
             </Button>
             <Button 
               onClick={() => {
-                // ✅ Adicionar múltiplos grupos de uma vez
-                selectedGroups.forEach(groupId => onSelect(groupId));
+                // ✅ Confirma todos os grupos em um único payload
+                onSelect(selectedGroups);
                 setSelectedGroups([]);
                 onClose();
               }}
