@@ -40,20 +40,8 @@ import LGPDCompliance from '../components/admin/LGPDCompliance';
 import ManagerialAuthTab from '../components/admin/ManagerialAuthTab';
 import TablesTab from '../components/admin/TablesTab';
 import ColaboradorProfile from '@/components/colaboradores/ColaboradorProfile';
-
-function AccessDenied() {
-  return (
-    <div className="flex items-center justify-center h-96">
-      <div className="bg-card text-card-foreground border border-border p-8 rounded-xl shadow text-center">
-        <Lock className="w-10 h-10 text-red-500 mx-auto mb-3" />
-        <h2 className="text-lg font-semibold">Acesso não permitido</h2>
-        <p className="text-sm text-muted-foreground mt-2">
-          Esta funcionalidade não está disponível no seu plano atual.
-        </p>
-      </div>
-    </div>
-  );
-}
+import AccessDenied from '@/components/admin/AccessDenied';
+import PanelShell from '@/components/layout/PanelShell';
 
 export default function PainelGerente() {
   const navigate = useNavigate();
@@ -285,11 +273,9 @@ export default function PainelGerente() {
           />
         </div>
 
-        <main className="flex-1 overflow-y-auto bg-background">
-          <div className="p-4 lg:p-6 lg:max-w-6xl xl:max-w-7xl lg:mx-auto">
-            {renderContent()}
-          </div>
-        </main>
+        <PanelShell withMinHeight={false}>
+          {renderContent()}
+        </PanelShell>
       </div>
 
       {showProfileEdit && (

@@ -47,6 +47,8 @@ import { log } from '@/utils/logger';
 import { usePermission } from '../components/permissions/usePermission';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { useDocumentHead } from '@/hooks/useDocumentHead';
+import PanelShell from '@/components/layout/PanelShell';
+import ErrorState from '@/components/ui/ErrorState';
 
 // ✅ AccessDenied agora é importado de components/admin/AccessDenied.jsx
 
@@ -431,28 +433,16 @@ export default function Admin() {
         </div>
 
         {/* Content */}
-        <main className="flex-1 min-w-0 overflow-y-auto bg-background">
-          <div className="p-3 sm:p-4 lg:p-6 min-h-[60vh] lg:max-w-6xl xl:max-w-7xl lg:mx-auto">
-            <ErrorBoundary>
-              {renderTabContent()}
-            </ErrorBoundary>
-          </div>
-        </main>
+        <PanelShell contentClassName="p-3 sm:p-4 lg:p-6">
+          <ErrorBoundary>
+            {renderTabContent()}
+          </ErrorBoundary>
+        </PanelShell>
       </div>
     </div>
     );
   } catch (error) {
     console.error('❌ [Admin] Erro ao renderizar:', error);
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center p-8">
-          <h2 className="text-2xl font-bold text-foreground mb-2">Erro ao carregar Admin</h2>
-          <p className="text-muted-foreground mb-4">{error.message}</p>
-          <Button onClick={() => window.location.reload()}>
-            Recarregar Página
-          </Button>
-        </div>
-      </div>
-    );
+    return <ErrorState title="Erro ao carregar Admin" description={error.message} onRetry={() => window.location.reload()} tone="warning" />;
   }
 }

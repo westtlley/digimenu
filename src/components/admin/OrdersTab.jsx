@@ -12,6 +12,7 @@ import { Phone, MapPin, CreditCard, Trash2, Printer, Calendar, Filter, ShoppingC
 import jsPDF from 'jspdf';
 import { getFullAddress } from '@/utils/gestorExport';
 import EmptyState from '@/components/ui/EmptyState';
+import ErrorState from '@/components/ui/ErrorState';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import OrdersSkeleton from '../skeletons/OrdersSkeleton';
@@ -293,15 +294,12 @@ export default function OrdersTab({ isMaster, user, subscriberData, storeId, sto
 
   if (isError) {
     return (
-      <div className="p-6">
-        <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-6 text-center">
-          <p className="font-medium text-destructive mb-2">Não foi possível carregar os pedidos.</p>
-          <p className="text-sm text-muted-foreground mb-4">{error?.message || 'Erro de conexão.'}</p>
-          <Button onClick={() => refetch()} variant="outline">
-            Tentar novamente
-          </Button>
-        </div>
-      </div>
+      <ErrorState
+        title="Não foi possível carregar os pedidos"
+        description={error?.message || 'Erro de conexão.'}
+        tone="warning"
+        onRetry={() => refetch()}
+      />
     );
   }
 

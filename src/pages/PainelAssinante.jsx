@@ -46,20 +46,8 @@ import TablesTab from '../components/admin/TablesTab';
 import BeveragesTab from '../components/admin/BeveragesTab';
 import InventoryManagement from '../components/admin/InventoryManagement';
 import AffiliateProgram from '../components/admin/AffiliateProgram';
-
-function AccessDenied() {
-  return (
-    <div className="flex items-center justify-center h-96">
-      <div className="bg-card text-card-foreground border border-border p-8 rounded-xl shadow text-center">
-        <Lock className="w-10 h-10 text-red-500 mx-auto mb-3" />
-        <h2 className="text-lg font-semibold">Acesso não permitido</h2>
-        <p className="text-sm text-muted-foreground mt-2">
-          Esta funcionalidade não está disponível no seu plano atual.
-        </p>
-      </div>
-    </div>
-  );
-}
+import AccessDenied from '@/components/admin/AccessDenied';
+import PanelShell from '@/components/layout/PanelShell';
 
 export default function PainelAssinante() {
   // ✅ TODOS OS HOOKS DEVEM VIR ANTES DE QUALQUER RETURN CONDICIONAL
@@ -154,28 +142,29 @@ export default function PainelAssinante() {
   // Crítico: assinante de estabelecimento A não pode acessar painel de estabelecimento B pela URL
   if (inSlugContext && !canAccessSlug && user && !isMaster) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <div className="bg-card text-card-foreground rounded-2xl shadow-lg p-8 max-w-md text-center border border-border">
-          <Lock className="w-12 h-12 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-foreground mb-2">Acesso negado</h2>
-          <p className="text-muted-foreground mb-6">
-            Este painel pertence a outro estabelecimento. Acesse o painel da sua conta.
-          </p>
-          <Button
-            onClick={() => {
-              const lastSlug = localStorage.getItem('lastVisitedSlug');
-              if (lastSlug) navigate(`/s/${lastSlug}`);
-              else navigate('/colaborador');
-            }}
-            className="w-full"
-          >
-            Ir para meu painel
-          </Button>
-          <p className="mt-4 text-sm text-muted-foreground">
-            <Link to="/" className="text-primary hover:underline">Voltar ao início</Link>
-          </p>
-        </div>
-      </div>
+      <AccessDenied
+        context="subscriber"
+        title="Acesso negado"
+        message="Este painel pertence a outro estabelecimento. Acesse o painel da sua conta."
+        showContact={false}
+        customAction={
+          <>
+            <Button
+              onClick={() => {
+                const lastSlug = localStorage.getItem('lastVisitedSlug');
+                if (lastSlug) navigate(`/s/${lastSlug}`);
+                else navigate('/colaborador');
+              }}
+              className="w-full"
+            >
+              Ir para meu painel
+            </Button>
+            <Link to="/" className="block">
+              <Button variant="outline" className="w-full">Voltar ao início</Button>
+            </Link>
+          </>
+        }
+      />
     );
   }
   
@@ -192,16 +181,13 @@ export default function PainelAssinante() {
   // Se subscriberData for null mas o usuário não é master, pode ser que ainda não carregou
   if (!isMaster && subscriberData && subscriberData.status !== 'active') {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <div className="bg-card text-card-foreground rounded-2xl shadow-lg p-8 max-w-md text-center border border-border">
-          <div className="w-16 h-16 bg-destructive/15 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Lock className="w-8 h-8 text-red-600" />
-          </div>
-          <h2 className="text-2xl font-bold text-foreground mb-2">Assinatura Inativa</h2>
-          <p className="text-muted-foreground mb-6">
-            Sua assinatura está inativa. Entre em contato para renovar.
-          </p>
-          <div className="space-y-3">
+      <AccessDenied
+        context="subscriber"
+        title="Assinatura Inativa"
+        message="Sua assinatura está inativa. Entre em contato para renovar."
+        showContact={false}
+        customAction={
+          <>
             <a 
               href="https://wa.me/5586988196114" 
               target="_blank" 
@@ -221,9 +207,9 @@ export default function PainelAssinante() {
               <LogOut className="w-4 h-4 mr-2" />
               Sair
             </Button>
-          </div>
-        </div>
-      </div>
+          </>
+        }
+      />
     );
   }
 
@@ -461,8 +447,7 @@ export default function PainelAssinante() {
         </div>
 
         {/* Content */}
-        <main className="flex-1 overflow-y-auto bg-background">
-          <div className="p-4 lg:p-6 lg:max-w-6xl xl:max-w-7xl lg:mx-auto">
+        <PanelShell withMinHeight={false}>
             {/* Card Plano ativo + Período (só para assinante, não master) */}
             {!isMaster && subscriberData && (
               <div className="mb-4 p-3 sm:p-4 rounded-xl bg-card border border-border shadow-sm flex flex-wrap items-center gap-3 sm:gap-4">
@@ -497,8 +482,7 @@ export default function PainelAssinante() {
               </div>
             )}
             {renderContent()}
-          </div>
-        </main>
+        </PanelShell>
       </div>
     </div>
   );
