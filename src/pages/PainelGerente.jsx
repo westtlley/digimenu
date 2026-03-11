@@ -286,7 +286,7 @@ export default function PainelGerente() {
         </div>
 
         <main className="flex-1 overflow-y-auto bg-background">
-          <div className="p-4 lg:p-6">
+          <div className="p-4 lg:p-6 lg:max-w-6xl xl:max-w-7xl lg:mx-auto">
             {renderContent()}
           </div>
         </main>

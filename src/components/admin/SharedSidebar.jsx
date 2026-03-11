@@ -46,10 +46,10 @@ import { createPageUrl } from '@/utils';
  * Categorias organizadas logicamente
  */
 const MENU_STRUCTURE = [
-  // 📊 GESTÃO
+  // GESTÃO
   {
     id: 'gestao',
-    label: '📊 GESTÃO',
+    label: 'GESTÃO',
     icon: BarChart3,
     section: 'section',
     submenu: [
@@ -59,10 +59,10 @@ const MENU_STRUCTURE = [
     ]
   },
 
-  // 🧾 OPERAÇÃO
+  // OPERAÇÃO
   {
     id: 'operacao',
-    label: '🧾 OPERAÇÃO',
+    label: 'OPERAÇÃO',
     icon: ClipboardList,
     section: 'section',
     submenu: [
@@ -74,10 +74,10 @@ const MENU_STRUCTURE = [
     ]
   },
 
-  // 🍽️ CARDÁPIO
+  // CARDÁPIO
   {
     id: 'cardapio',
-    label: '🍽️ CARDÁPIO',
+    label: 'CARDÁPIO',
     icon: UtensilsCrossed,
     section: 'section',
     submenu: [
@@ -87,10 +87,10 @@ const MENU_STRUCTURE = [
     ]
   },
 
-  // 🧑‍🍳 GARÇOM
+  // GARÇOM
   {
     id: 'garcom',
-    label: '🧑‍🍳 GARÇOM',
+    label: 'GARÇOM',
     icon: Receipt,
     section: 'section',
     submenu: [
@@ -100,10 +100,10 @@ const MENU_STRUCTURE = [
     ]
   },
 
-  // 🚚 DELIVERY
+  // DELIVERY
   {
     id: 'delivery',
-    label: '🚚 DELIVERY',
+    label: 'DELIVERY',
     icon: MapPin,
     section: 'section',
     submenu: [
@@ -112,10 +112,10 @@ const MENU_STRUCTURE = [
     ]
   },
 
-  // ⚙️ SISTEMA
+  // SISTEMA
   {
     id: 'sistema',
-    label: '⚙️ SISTEMA',
+    label: 'SISTEMA',
     icon: Settings,
     section: 'section',
     submenu: [
@@ -129,10 +129,10 @@ const MENU_STRUCTURE = [
     ]
   },
 
-  // 💰 MARKETING
+  // MARKETING
   {
     id: 'marketing',
-    label: '💰 MARKETING',
+    label: 'MARKETING',
     icon: TrendingUp,
     section: 'section',
     submenu: [
@@ -178,6 +178,7 @@ export default function SharedSidebar({
   });
 
   const store = storeProp ?? stores[0];
+  const sidebarSubtitle = isMaster ? 'Administração Master' : isGerente ? 'Painel do Gerente' : 'Painel do Assinante';
 
   const hasModuleAccess = (module) => {
     if (isMaster) return true;
@@ -343,7 +344,7 @@ export default function SharedSidebar({
                 {store.name || 'Minha Loja'}
               </p>
               <p className="text-[10px] text-muted-foreground truncate">
-                Painel Admin
+                {sidebarSubtitle}
               </p>
             </div>
           </div>

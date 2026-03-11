@@ -113,19 +113,19 @@ export default function Admin() {
         <div className="min-h-screen flex items-center justify-center bg-background">
           <div className="text-center">
             <Loader2 className="w-8 h-8 animate-spin text-orange-500 mx-auto mb-4" />
-            <p className="text-white">Redirecionando para Painel do Assinante...</p>
+            <p className="text-sm text-muted-foreground">Redirecionando para Painel do Assinante...</p>
           </div>
         </div>
       );
     }
     return (
       <div className="min-h-screen flex items-center justify-center p-4" style={{ backgroundColor: 'var(--bg-primary)' }}>
-        <div className="rounded-2xl shadow-lg p-8 max-w-md text-center" style={{ backgroundColor: 'var(--bg-card)', border: `1px solid var(--border-color)` }}>
-          <div className="w-16 h-16 bg-red-900/20 rounded-full flex items-center justify-center mx-auto mb-4">
+        <div className="rounded-2xl shadow-lg p-8 max-w-md text-center bg-card text-card-foreground border border-border">
+          <div className="w-16 h-16 bg-destructive/15 rounded-full flex items-center justify-center mx-auto mb-4">
             <Lock className="w-8 h-8 text-red-500" />
           </div>
-          <h2 className="text-2xl font-bold text-white mb-2">Acesso Restrito</h2>
-          <p className="text-gray-400 mb-6">
+          <h2 className="text-2xl font-bold text-foreground mb-2">Acesso Restrito</h2>
+          <p className="text-muted-foreground mb-6">
             Esta página é exclusiva para administradores master. Assinantes devem acessar o Painel do Assinante.
           </p>
           <div className="space-y-3">
@@ -150,7 +150,7 @@ export default function Admin() {
               rel="noopener noreferrer"
               className="block"
             >
-              <Button variant="outline" className="w-full bg-green-50 hover:bg-green-100 border-green-200">
+              <Button variant="outline" className="w-full border-emerald-500/40 text-emerald-600 hover:bg-emerald-500/10 dark:text-emerald-400">
                 Falar no WhatsApp
               </Button>
             </a>
@@ -168,7 +168,7 @@ export default function Admin() {
               </Link>
             )}
             {user && (
-              <Button variant="ghost" onClick={handleLogout} className="w-full text-gray-400 hover:text-white hover:bg-[#2a2a2a]">
+              <Button variant="ghost" onClick={handleLogout} className="w-full text-muted-foreground hover:text-foreground hover:bg-muted">
                 <LogOut className="w-4 h-4 mr-2" />
                 Sair
               </Button>
@@ -306,10 +306,10 @@ export default function Admin() {
     log.admin.error('❌ [Admin] Tentativa de renderizar Admin sem ser master!');
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center text-white p-8">
+        <div className="text-center p-8">
           <Lock className="w-16 h-16 text-red-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold mb-2">Acesso Negado</h2>
-          <p className="mb-4">Esta página é exclusiva para administradores master.</p>
+          <h2 className="text-2xl font-bold text-foreground mb-2">Acesso Negado</h2>
+          <p className="text-muted-foreground mb-4">Esta página é exclusiva para administradores master.</p>
           <Link to="/PainelAssinante">
             <Button className="bg-orange-500 hover:bg-orange-600">
               Ir para Painel do Assinante
@@ -432,7 +432,7 @@ export default function Admin() {
 
         {/* Content */}
         <main className="flex-1 min-w-0 overflow-y-auto bg-background">
-          <div className="p-3 sm:p-4 lg:p-6 min-h-[60vh]">
+          <div className="p-3 sm:p-4 lg:p-6 min-h-[60vh] lg:max-w-6xl xl:max-w-7xl lg:mx-auto">
             <ErrorBoundary>
               {renderTabContent()}
             </ErrorBoundary>
@@ -445,9 +445,9 @@ export default function Admin() {
     console.error('❌ [Admin] Erro ao renderizar:', error);
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center text-white p-8">
-          <h2 className="text-2xl font-bold mb-2">Erro ao carregar Admin</h2>
-          <p className="mb-4">{error.message}</p>
+        <div className="text-center p-8">
+          <h2 className="text-2xl font-bold text-foreground mb-2">Erro ao carregar Admin</h2>
+          <p className="text-muted-foreground mb-4">{error.message}</p>
           <Button onClick={() => window.location.reload()}>
             Recarregar Página
           </Button>

@@ -79,6 +79,7 @@ export default function DashboardTab({ user, subscriberData, onNavigateToTab }) 
   const preparingOrders = orders.filter(o => ['accepted', 'preparing'].includes(o.status)).length;
   const readyOrders = orders.filter(o => o.status === 'ready').length;
   const deliveringOrders = orders.filter(o => o.status === 'out_for_delivery').length;
+  const pendingOrders = newOrders + preparingOrders + readyOrders + deliveringOrders;
 
   const activeDishes = dishes.filter(d => d.is_active !== false).length;
   const inactiveDishes = dishes.filter(d => d.is_active === false).length;
@@ -195,24 +196,32 @@ export default function DashboardTab({ user, subscriberData, onNavigateToTab }) 
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-0 px-4 pb-3">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            <div className="rounded-lg p-2.5 text-center" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
-              <p className="text-xl font-bold text-blue-600">{newOrders}</p>
-              <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>Novos</p>
+          {pendingOrders === 0 ? (
+            <div className="rounded-lg border border-dashed border-border p-4 text-center bg-muted/20">
+              <AlertCircle className="w-5 h-5 mx-auto mb-2 text-muted-foreground" />
+              <p className="text-sm font-medium text-foreground">Sem pedidos em andamento</p>
+              <p className="text-xs mt-1 text-muted-foreground">Os novos pedidos aparecerão aqui em tempo real.</p>
             </div>
-            <div className="rounded-lg p-2.5 text-center" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
-              <p className="text-xl font-bold text-yellow-600">{preparingOrders}</p>
-              <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>Preparando</p>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div className="rounded-lg p-2.5 text-center" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
+                <p className="text-xl font-bold text-blue-600">{newOrders}</p>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>Novos</p>
+              </div>
+              <div className="rounded-lg p-2.5 text-center" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
+                <p className="text-xl font-bold text-yellow-600">{preparingOrders}</p>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>Preparando</p>
+              </div>
+              <div className="rounded-lg p-2.5 text-center" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
+                <p className="text-xl font-bold text-green-600">{readyOrders}</p>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>Prontos</p>
+              </div>
+              <div className="rounded-lg p-2.5 text-center" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
+                <p className="text-xl font-bold text-purple-600">{deliveringOrders}</p>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>Em Entrega</p>
+              </div>
             </div>
-            <div className="rounded-lg p-2.5 text-center" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
-              <p className="text-xl font-bold text-green-600">{readyOrders}</p>
-              <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>Prontos</p>
-            </div>
-            <div className="rounded-lg p-2.5 text-center" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
-              <p className="text-xl font-bold text-purple-600">{deliveringOrders}</p>
-              <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>Em Entrega</p>
-            </div>
-          </div>
+          )}
           <div className="mt-3 flex flex-col sm:flex-row gap-2">
             <Link to={createPageUrl('GestorPedidos', currentSlug || undefined)} className="flex-1">
               <Button className="w-full min-h-touch">Ver Todos os Pedidos</Button>
@@ -269,6 +278,10 @@ export default function DashboardTab({ user, subscriberData, onNavigateToTab }) 
       </Card>
 
       {/* Atalhos Rápidos - ao clicar troca a aba (dishes, history, store) */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-foreground">Atalhos rápidos</h3>
+        <p className="text-xs text-muted-foreground">Ações mais usadas no dia a dia</p>
+      </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3">
         <Card 
           className="hover:shadow-lg transition-shadow cursor-pointer" 
@@ -324,11 +337,11 @@ export default function DashboardTab({ user, subscriberData, onNavigateToTab }) 
         <Card style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
           <CardHeader className="flex flex-row items-center gap-1.5 space-y-0 py-2 px-4 pb-0">
             <Info className="w-4 h-4 text-blue-500" />
-            <CardTitle className="text-base font-medium" style={{ color: 'var(--text-primary)' }}>Ajuda - Manual</CardTitle>
+            <CardTitle className="text-base font-medium" style={{ color: 'var(--text-primary)' }}>Ajuda e Manual</CardTitle>
           </CardHeader>
           <CardContent className="pt-2 px-4 pb-3">
             <p className="text-xs sm:text-sm mb-2" style={{ color: 'var(--text-secondary)' }}>Está com alguma dúvida sobre como usar?</p>
-            <Button variant="outline" className="w-full min-h-touch text-xs">ACESSAR MANUAL</Button>
+            <Button variant="outline" className="w-full min-h-touch text-xs">Acessar manual</Button>
           </CardContent>
         </Card>
         <Card style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
@@ -339,7 +352,7 @@ export default function DashboardTab({ user, subscriberData, onNavigateToTab }) 
           <CardContent className="pt-2 px-4 pb-3">
             <p className="text-xs sm:text-sm mb-2" style={{ color: 'var(--text-secondary)' }}>Abra um chamado e receberá um contato</p>
             <a href="https://wa.me/5586988196114" target="_blank" rel="noopener noreferrer" className="block">
-              <Button className="w-full bg-green-600 hover:bg-green-700 min-h-touch text-xs">ABRIR CHAMADO</Button>
+              <Button className="w-full bg-green-600 hover:bg-green-700 min-h-touch text-xs">Abrir chamado</Button>
             </a>
           </CardContent>
         </Card>

@@ -155,10 +155,10 @@ export default function PainelAssinante() {
   if (inSlugContext && !canAccessSlug && user && !isMaster) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8 max-w-md text-center">
+        <div className="bg-card text-card-foreground rounded-2xl shadow-lg p-8 max-w-md text-center border border-border">
           <Lock className="w-12 h-12 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Acesso negado</h2>
-          <p className="text-gray-600 dark:text-gray-400 mb-6">
+          <h2 className="text-xl font-bold text-foreground mb-2">Acesso negado</h2>
+          <p className="text-muted-foreground mb-6">
             Este painel pertence a outro estabelecimento. Acesse o painel da sua conta.
           </p>
           <Button
@@ -171,8 +171,8 @@ export default function PainelAssinante() {
           >
             Ir para meu painel
           </Button>
-          <p className="mt-4 text-sm text-gray-500">
-            <Link to="/" className="text-orange-600 hover:underline">Voltar ao início</Link>
+          <p className="mt-4 text-sm text-muted-foreground">
+            <Link to="/" className="text-primary hover:underline">Voltar ao início</Link>
           </p>
         </div>
       </div>
@@ -193,12 +193,12 @@ export default function PainelAssinante() {
   if (!isMaster && subscriberData && subscriberData.status !== 'active') {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md text-center">
-          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+        <div className="bg-card text-card-foreground rounded-2xl shadow-lg p-8 max-w-md text-center border border-border">
+          <div className="w-16 h-16 bg-destructive/15 rounded-full flex items-center justify-center mx-auto mb-4">
             <Lock className="w-8 h-8 text-red-600" />
           </div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">Assinatura Inativa</h2>
-          <p className="text-gray-600 mb-6">
+          <h2 className="text-2xl font-bold text-foreground mb-2">Assinatura Inativa</h2>
+          <p className="text-muted-foreground mb-6">
             Sua assinatura está inativa. Entre em contato para renovar.
           </p>
           <div className="space-y-3">
@@ -217,7 +217,7 @@ export default function PainelAssinante() {
                 Ver Cardápio
               </Button>
             </Link>
-            <Button variant="ghost" onClick={handleLogout} className="w-full text-gray-500">
+            <Button variant="ghost" onClick={handleLogout} className="w-full text-muted-foreground hover:text-foreground hover:bg-muted">
               <LogOut className="w-4 h-4 mr-2" />
               Sair
             </Button>
@@ -467,22 +467,22 @@ export default function PainelAssinante() {
             {!isMaster && subscriberData && (
               <div className="mb-4 p-3 sm:p-4 rounded-xl bg-card border border-border shadow-sm flex flex-wrap items-center gap-3 sm:gap-4">
                 <div className="flex items-center gap-2">
-                  <div className="p-1.5 rounded-lg bg-orange-100 dark:bg-orange-900/40">
-                    <Crown className="w-4 h-4 sm:w-5 sm:h-5 text-orange-600 dark:text-orange-400" />
+                  <div className="p-1.5 rounded-lg bg-primary/10">
+                    <Crown className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Plano ativo</p>
-                    <p className="font-semibold text-gray-900 dark:text-white">{planDisplayName || '—'}</p>
+                    <p className="text-xs font-medium text-muted-foreground">Plano ativo</p>
+                    <p className="font-semibold text-foreground">{planDisplayName || '—'}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 border-l border-gray-200 dark:border-gray-600 pl-3 sm:pl-4">
-                  <Calendar className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                <div className="flex items-center gap-2 border-l border-border pl-3 sm:pl-4">
+                  <Calendar className="w-4 h-4 text-muted-foreground" />
                   <div>
-                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Período</p>
-                    <p className="font-medium text-gray-800 dark:text-gray-200">{periodLabel}</p>
+                    <p className="text-xs font-medium text-muted-foreground">Período</p>
+                    <p className="font-medium text-foreground">{periodLabel}</p>
                   </div>
                 </div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 ml-auto">
+                <p className="text-xs text-muted-foreground ml-auto">
                   As ferramentas ao lado são as incluídas no seu plano pelo administrador.
                 </p>
               </div>

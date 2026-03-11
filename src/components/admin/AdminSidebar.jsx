@@ -42,10 +42,10 @@ import {
 import { createPageUrl } from '@/utils';
 
 const MENU_STRUCTURE = [
-  // 📊 GESTÃO
+  // GESTÃO
   {
     id: 'gestao',
-    label: '📊 GESTÃO',
+    label: 'GESTÃO',
     icon: BarChart3,
     section: 'section',
     submenu: [
@@ -55,10 +55,10 @@ const MENU_STRUCTURE = [
     ]
   },
 
-  // 🧾 OPERAÇÃO
+  // OPERAÇÃO
   {
     id: 'operacao',
-    label: '🧾 OPERAÇÃO',
+    label: 'OPERAÇÃO',
     icon: ClipboardList,
     section: 'section',
     submenu: [
@@ -70,10 +70,10 @@ const MENU_STRUCTURE = [
     ]
   },
 
-  // 🍽️ CARDÁPIO
+  // CARDÁPIO
   {
     id: 'cardapio',
-    label: '🍽️ CARDÁPIO',
+    label: 'CARDÁPIO',
     icon: UtensilsCrossed,
     section: 'section',
     submenu: [
@@ -83,10 +83,10 @@ const MENU_STRUCTURE = [
     ]
   },
 
-  // 🧑‍🍳 GARÇOM
+  // GARÇOM
   {
     id: 'garcom',
-    label: '🧑‍🍳 GARÇOM',
+    label: 'GARÇOM',
     icon: Receipt,
     section: 'section',
     submenu: [
@@ -96,10 +96,10 @@ const MENU_STRUCTURE = [
     ]
   },
 
-  // 🚚 DELIVERY
+  // DELIVERY
   {
     id: 'delivery',
-    label: '🚚 DELIVERY',
+    label: 'DELIVERY',
     icon: MapPin,
     section: 'section',
     submenu: [
@@ -108,10 +108,10 @@ const MENU_STRUCTURE = [
     ]
   },
 
-  // ⚙️ SISTEMA
+  // SISTEMA
   {
     id: 'sistema',
-    label: '⚙️ SISTEMA',
+    label: 'SISTEMA',
     icon: Settings,
     section: 'section',
     submenu: [
@@ -126,10 +126,10 @@ const MENU_STRUCTURE = [
     ]
   },
 
-  // 💰 MARKETING
+  // MARKETING
   {
     id: 'marketing',
-    label: '💰 MARKETING',
+    label: 'MARKETING',
     icon: TrendingUp,
     section: 'section',
     submenu: [
@@ -233,7 +233,16 @@ export default function AdminSidebar({ activeTab, setActiveTab, isMaster = false
                 const LeafIcon = leaf.icon;
                 const active = activeTab === leaf.id;
                 return (
-                  <button key={leaf.id} onClick={() => { setActiveTab(leaf.id); onClose?.(); }} className="p-2 rounded-lg flex items-center justify-center" style={{ backgroundColor: active ? 'hsl(var(--primary))' : 'transparent', color: active ? 'hsl(var(--primary-foreground))' : 'var(--text-secondary)' }} title={leaf.label}>
+                  <button
+                    key={leaf.id}
+                    onClick={() => { setActiveTab(leaf.id); onClose?.(); }}
+                    className={cn(
+                      "p-2 rounded-lg flex items-center justify-center transition-colors",
+                      active ? "bg-accent text-primary" : "text-muted-foreground hover:bg-accent"
+                    )}
+                    title={leaf.label}
+                    aria-label={leaf.label}
+                  >
                     <LeafIcon className="w-4 h-4" />
                   </button>
                 );
@@ -276,32 +285,19 @@ export default function AdminSidebar({ activeTab, setActiveTab, isMaster = false
           setActiveTab(item.id);
           if (onClose) onClose();
         }}
+        title={item.label}
+        aria-label={item.label}
         className={cn(
-          "w-full flex items-center gap-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
-          indent
+          "w-full flex items-center gap-3 py-2.5 rounded-r-lg text-sm font-medium transition-all duration-200 border-l-2 pl-2",
+          indent,
+          isActive
+            ? "bg-accent border-primary text-accent-foreground"
+            : "border-transparent text-foreground hover:bg-accent"
         )}
-        style={isActive ? { 
-          backgroundColor: 'hsl(var(--primary))', 
-          color: 'hsl(var(--primary-foreground))' 
-        } : { 
-          color: 'var(--text-secondary)' 
-        }}
-        onMouseEnter={(e) => {
-          if (!isActive) {
-            e.currentTarget.style.backgroundColor = 'var(--bg-tertiary, rgba(148,163,184,0.16))';
-            e.currentTarget.style.color = 'var(--text-primary)';
-          }
-        }}
-        onMouseLeave={(e) => {
-          if (!isActive) {
-            e.currentTarget.style.backgroundColor = 'transparent';
-            e.currentTarget.style.color = 'var(--text-secondary)';
-          }
-        }}
       >
         <Icon className={cn(
           "w-4 h-4 flex-shrink-0",
-          isActive ? "text-current" : "text-muted-foreground"
+          isActive ? "text-primary" : "text-muted-foreground"
         )} />
         {!collapsed && <span className="truncate">{item.label}</span>}
       </button>
