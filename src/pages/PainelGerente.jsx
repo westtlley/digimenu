@@ -3,7 +3,7 @@
  * com identidade própria (header roxo, "Painel do Gerente") e aba "Meu perfil" para preencher dados e foto.
  */
 import React, { useState, useEffect } from 'react';
-import { Loader2, Menu, Power, Shield, User } from 'lucide-react';
+import { Loader2, Lock, Menu, Power, Shield, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { apiClient as base44 } from '@/api/apiClient';
@@ -33,12 +33,27 @@ import PaymentMethodsTab from '../components/admin/PaymentMethodsTab';
 import PrinterConfig from '../components/gestor/PrinterConfig';
 import CaixaTab from '../components/admin/CaixaTab';
 import WhatsAppTab from '../components/admin/WhatsAppTab';
+import BeveragesTab from '../components/admin/BeveragesTab';
 import ColaboradoresTab from '../components/admin/ColaboradoresTab';
 import TwoFactorAuth from '../components/admin/TwoFactorAuth';
 import LGPDCompliance from '../components/admin/LGPDCompliance';
 import ManagerialAuthTab from '../components/admin/ManagerialAuthTab';
 import TablesTab from '../components/admin/TablesTab';
 import ColaboradorProfile from '@/components/colaboradores/ColaboradorProfile';
+
+function AccessDenied() {
+  return (
+    <div className="flex items-center justify-center h-96">
+      <div className="bg-card text-card-foreground border border-border p-8 rounded-xl shadow text-center">
+        <Lock className="w-10 h-10 text-red-500 mx-auto mb-3" />
+        <h2 className="text-lg font-semibold">Acesso não permitido</h2>
+        <p className="text-sm text-muted-foreground mt-2">
+          Esta funcionalidade não está disponível no seu plano atual.
+        </p>
+      </div>
+    </div>
+  );
+}
 
 export default function PainelGerente() {
   const navigate = useNavigate();
@@ -97,6 +112,10 @@ export default function PainelGerente() {
     );
   }
 
+  const isBasicPizzariaProfile =
+    String(subscriberData?.plan || '').toLowerCase() === 'basic' &&
+    hasModuleAccess('pizza_config');
+
   const renderContent = () => {
     switch (activeTab) {
       case 'meu_perfil':
@@ -129,55 +148,57 @@ export default function PainelGerente() {
       case 'dashboard':
         return <DashboardTab user={user} subscriberData={subscriberData} onNavigateToTab={handleSetActiveTab} />;
       case 'pdv':
-        return <div className="p-8 text-center">Use o botão PDV no header</div>;
+        return hasModuleAccess('pdv') ? <div className="p-8 text-center">Use o botão PDV no header</div> : <AccessDenied />;
       case 'caixa':
-        return <CaixaTab />;
+        return hasModuleAccess('caixa') ? <CaixaTab /> : <AccessDenied />;
       case 'orders':
-        return <OrdersTab />;
+        return hasModuleAccess('orders') ? <OrdersTab /> : <AccessDenied />;
       case 'history':
-        return <OrderHistoryTab />;
+        return hasModuleAccess('history') ? <OrderHistoryTab /> : <AccessDenied />;
       case 'clients':
-        return <ClientsTab />;
+        return hasModuleAccess('clients') ? <ClientsTab /> : <AccessDenied />;
       case 'financial':
-        return <FinancialTab />;
+        return hasModuleAccess('financial') ? <FinancialTab /> : <AccessDenied />;
       case 'dishes':
       case 'categories':
       case 'complements':
-        return (
+        return hasModuleAccess('dishes') && !isBasicPizzariaProfile ? (
           <DishesTab
             initialTab={activeTab === 'categories' ? 'categories' : activeTab === 'complements' ? 'complements' : 'dishes'}
           />
-        );
+        ) : <AccessDenied />;
       case 'pizza_config':
-        return <PizzaConfigTab />;
+        return hasModuleAccess('pizza_config') ? <PizzaConfigTab /> : <AccessDenied />;
+      case 'beverages':
+        return hasModuleAccess('dishes') ? <BeveragesTab /> : <AccessDenied />;
       case 'delivery_zones':
-        return <DeliveryZonesTab />;
+        return hasModuleAccess('delivery_zones') ? <DeliveryZonesTab /> : <AccessDenied />;
       case 'coupons':
-        return <CouponsTab />;
+        return hasModuleAccess('coupons') ? <CouponsTab /> : <AccessDenied />;
       case 'promotions':
-        return <PromotionsTab />;
+        return hasModuleAccess('promotions') ? <PromotionsTab /> : <AccessDenied />;
       case 'comandas':
-        return <ComandasTab subscriberEmail={asSub || user?.email} />;
+        return hasModuleAccess('comandas') ? <ComandasTab subscriberEmail={asSub || user?.email} /> : <AccessDenied />;
       case 'tables':
-        return <TablesTab />;
+        return hasModuleAccess('tables') ? <TablesTab /> : <AccessDenied />;
       case 'theme':
-        return <ThemeTab />;
+        return hasModuleAccess('theme') ? <ThemeTab /> : <AccessDenied />;
       case 'store':
-        return <StoreTab />;
+        return hasModuleAccess('store') ? <StoreTab /> : <AccessDenied />;
       case 'payments':
-        return <PaymentMethodsTab />;
+        return hasModuleAccess('payments') ? <PaymentMethodsTab /> : <AccessDenied />;
       case 'printer':
-        return <PrinterConfig />;
+        return hasModuleAccess('printer') ? <PrinterConfig /> : <AccessDenied />;
       case 'whatsapp':
-        return <WhatsAppTab />;
+        return hasModuleAccess('whatsapp') ? <WhatsAppTab /> : <AccessDenied />;
       case 'colaboradores':
-        return <ColaboradoresTab isGerentePanel />;
+        return hasModuleAccess('colaboradores') ? <ColaboradoresTab isGerentePanel /> : <AccessDenied />;
       case '2fa':
-        return <TwoFactorAuth user={user} />;
+        return hasModuleAccess('2fa') ? <TwoFactorAuth user={user} /> : <AccessDenied />;
       case 'managerial_auth':
         return hasModuleAccess('managerial_auth') ? <ManagerialAuthTab /> : <DashboardTab user={user} subscriberData={subscriberData} onNavigateToTab={handleSetActiveTab} />;
       case 'lgpd':
-        return <LGPDCompliance />;
+        return hasModuleAccess('lgpd') ? <LGPDCompliance /> : <AccessDenied />;
       default:
         return <DashboardTab user={user} subscriberData={subscriberData} onNavigateToTab={handleSetActiveTab} />;
     }
@@ -209,7 +230,13 @@ export default function PainelGerente() {
             {store?.id && (
               <WhatsAppComandaToggle store={store} subscriber={subscriberData} compact />
             )}
-            <MobileQuickMenu isMaster={false} hasGestorAccess={true} hasModuleAccess={() => true} slug={slug} plan={subscriberData?.plan || 'basic'} />
+            <MobileQuickMenu
+              isMaster={false}
+              hasGestorAccess={hasModuleAccess('orders')}
+              hasModuleAccess={hasModuleAccess}
+              slug={slug}
+              plan={subscriberData?.plan || 'basic'}
+            />
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button size="sm" variant="ghost" className="text-white hover:bg-white/10 flex min-h-touch min-w-touch" title="Sair">
@@ -253,6 +280,7 @@ export default function PainelGerente() {
             setCollapsed={setSidebarCollapsed}
             onClose={() => setShowMobileSidebar(false)}
             showStoreLogo={true}
+            store={store}
             extraTopItem={{ id: 'meu_perfil', label: 'Meu perfil', icon: User }}
           />
         </div>

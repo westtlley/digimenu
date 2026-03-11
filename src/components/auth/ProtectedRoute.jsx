@@ -84,13 +84,6 @@ export default function ProtectedRoute({
 
         // Verificar assinatura ativa
         if (requireActiveSubscription) {
-          // Assinante/dono tem acesso total aos apps conforme o plano
-          if (isAssinante) {
-            setAuthorized(true);
-            setLoading(false);
-            return;
-          }
-          
           // Gerente que acessa PainelAssinante → redirecionar para /colaborador (evita loop e loading duplo)
           if (isGerente && !isAssinante && location.pathname.toLowerCase().includes('painelassinante')) {
             navigate('/colaborador', { replace: true });

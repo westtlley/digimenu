@@ -181,10 +181,7 @@ export default function SharedSidebar({
 
   const hasModuleAccess = (module) => {
     if (isMaster) return true;
-    
-    // Gerente: cargo de confiança, acesso a todas as ferramentas (igual ao assinante)
-    if (isGerente) return true;
-    
+
     // ✅ Backend é a única fonte de verdade para permissões (já filtradas por plano)
     if (permissions && typeof permissions === 'object') {
       const modulePerms = permissions[module];

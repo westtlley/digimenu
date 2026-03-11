@@ -25,7 +25,11 @@ export function normalizeSlug(slug) {
  */
 export function canEditEstablishment(user, subscriberEmail) {
   if (user?.is_master) return true;
-  const userEmail = (user?.subscriber_email || user?.email || '').toLowerCase().trim();
+  const hasOperationalRole =
+    !!(user?.profile_role) ||
+    (Array.isArray(user?.profile_roles) && user.profile_roles.length > 0);
+  if (hasOperationalRole) return false;
+  const userEmail = (user?.email || '').toLowerCase().trim();
   const subEmail = (subscriberEmail || '').toLowerCase().trim();
   return userEmail === subEmail;
 }
