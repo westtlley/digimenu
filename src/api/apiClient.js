@@ -159,7 +159,7 @@ class ApiClient {
             const returnUrl = window.location.pathname + window.location.search || '/';
             setTimeout(() => {
               if (!window.location.pathname.includes('/login')) {
-                window.location.href = '/login?returnUrl=' + encodeURIComponent(returnUrl);
+                self.auth.redirectToLogin(returnUrl);
               }
             }, 50);
           }

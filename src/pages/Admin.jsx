@@ -139,7 +139,7 @@ export default function Admin() {
               </Link>
             )}
             {!user && (
-              <Link to={`/login?returnUrl=${encodeURIComponent('/Admin')}`} className="block">
+              <Link to={`/login/admin?returnUrl=${encodeURIComponent('/Admin')}`} className="block">
                 <Button className="w-full bg-orange-500 hover:bg-orange-600">
                   <LogIn className="w-4 h-4 mr-2" />
                   Fazer Login
