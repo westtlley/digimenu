@@ -10,6 +10,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Eye, EyeOff, LogIn, Loader2, Store, ArrowRight } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { preloadProtectedRoute } from '@/utils/preloadProtectedRoute';
+
+const isDev = typeof import.meta !== 'undefined' && import.meta.env?.DEV;
 
 export default function LoginAssinante() {
   const [email, setEmail] = useState('');
@@ -28,6 +31,7 @@ export default function LoginAssinante() {
         if (!ok) return;
         const me = await base44.auth.me();
         if (me && !me.is_master) {
+          await preloadProtectedRoute('/PainelAssinante');
           navigate('/PainelAssinante');
         }
       } catch (e) {
@@ -68,6 +72,16 @@ export default function LoginAssinante() {
           redirectUrl = returnUrl && returnUrl.includes('PainelAssinante') ? returnUrl : '/PainelAssinante';
         }
 
+        if (isDev) {
+          console.info('[AUTH] subscriber login success', {
+            email: userData?.email,
+            redirectUrl,
+          });
+        }
+        await preloadProtectedRoute(redirectUrl);
+        if (isDev) {
+          console.info('[ROUTE] redirecting after subscriber login', { to: redirectUrl });
+        }
         setTimeout(() => navigate(redirectUrl), 400);
       } else {
         setError('Erro ao fazer login. Tente novamente.');

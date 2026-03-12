@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { Suspense, lazy, useState, useEffect } from 'react';
 import { Loader2, Lock, LogOut, Menu, X, Store, Package, Receipt, Users, Settings, BarChart3, FileText, MapPin, Tag, Palette, CreditCard, Printer, MessageSquare, DollarSign, Power, Calculator, Truck, UtensilsCrossed, Calendar, Crown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -17,40 +17,55 @@ import { useDocumentHead } from '@/hooks/useDocumentHead';
 import toast from 'react-hot-toast';
 import SharedSidebar from '../components/admin/SharedSidebar';
 import InstallAppButton from '../components/InstallAppButton';
-import DashboardTab from '../components/admin/DashboardTab';
 import WhatsAppComandaToggle from '../components/admin/WhatsAppComandaToggle';
 import MobileQuickMenu from '../components/admin/MobileQuickMenu';
-import DishesTab from '../components/admin/DishesTab';
-import CategoriesTab from '../components/admin/CategoriesTab';
-import ComplementsTab from '../components/admin/ComplementsTab';
-import PizzaConfigTab from '../components/admin/PizzaConfigTab';
-import OrdersTab from '../components/admin/OrdersTab';
-import OrderHistoryTab from '../components/admin/OrderHistoryTab';
-import ClientsTab from '../components/admin/ClientsTab';
-import FinancialTab from '../components/admin/FinancialTab';
-import DeliveryZonesTab from '../components/admin/DeliveryZonesTab';
-import CouponsTab from '../components/admin/CouponsTab';
-import PromotionsTab from '../components/admin/PromotionsTab';
-import ThemeTab from '../components/admin/ThemeTab';
-import ComandasTab from '../components/admin/ComandasTab';
-import StoreTab from '../components/admin/StoreTab';
-import PaymentMethodsTab from '../components/admin/PaymentMethodsTab';
-import PrinterConfig from '../components/gestor/PrinterConfig';
-import CaixaTab from '../components/admin/CaixaTab';
-import WhatsAppTab from '../components/admin/WhatsAppTab';
-import ColaboradoresTab from '../components/admin/ColaboradoresTab';
-import TwoFactorAuth from '../components/admin/TwoFactorAuth';
-import LGPDCompliance from '../components/admin/LGPDCompliance';
-import ManagerialAuthTab from '../components/admin/ManagerialAuthTab';
-import TablesTab from '../components/admin/TablesTab';
-import BeveragesTab from '../components/admin/BeveragesTab';
-import InventoryManagement from '../components/admin/InventoryManagement';
-import AffiliateProgram from '../components/admin/AffiliateProgram';
 import AccessDenied from '@/components/admin/AccessDenied';
 import PanelShell from '@/components/layout/PanelShell';
 import ErrorBoundary from '@/components/ErrorBoundary';
 
+const isDev = typeof import.meta !== 'undefined' && import.meta.env?.DEV;
+if (isDev) {
+  console.info('[PAINEL_ASSINANTE] module loaded');
+}
+
+const DashboardTab = lazy(() => import('../components/admin/DashboardTab'));
+const DishesTab = lazy(() => import('../components/admin/DishesTab'));
+const PizzaConfigTab = lazy(() => import('../components/admin/PizzaConfigTab'));
+const OrdersTab = lazy(() => import('../components/admin/OrdersTab'));
+const OrderHistoryTab = lazy(() => import('../components/admin/OrderHistoryTab'));
+const ClientsTab = lazy(() => import('../components/admin/ClientsTab'));
+const FinancialTab = lazy(() => import('../components/admin/FinancialTab'));
+const DeliveryZonesTab = lazy(() => import('../components/admin/DeliveryZonesTab'));
+const CouponsTab = lazy(() => import('../components/admin/CouponsTab'));
+const PromotionsTab = lazy(() => import('../components/admin/PromotionsTab'));
+const ThemeTab = lazy(() => import('../components/admin/ThemeTab'));
+const ComandasTab = lazy(() => import('../components/admin/ComandasTab'));
+const StoreTab = lazy(() => import('../components/admin/StoreTab'));
+const PaymentMethodsTab = lazy(() => import('../components/admin/PaymentMethodsTab'));
+const PrinterConfig = lazy(() => import('../components/gestor/PrinterConfig'));
+const CaixaTab = lazy(() => import('../components/admin/CaixaTab'));
+const WhatsAppTab = lazy(() => import('../components/admin/WhatsAppTab'));
+const ColaboradoresTab = lazy(() => import('../components/admin/ColaboradoresTab'));
+const TwoFactorAuth = lazy(() => import('../components/admin/TwoFactorAuth'));
+const LGPDCompliance = lazy(() => import('../components/admin/LGPDCompliance'));
+const ManagerialAuthTab = lazy(() => import('../components/admin/ManagerialAuthTab'));
+const TablesTab = lazy(() => import('../components/admin/TablesTab'));
+const BeveragesTab = lazy(() => import('../components/admin/BeveragesTab'));
+const InventoryManagement = lazy(() => import('../components/admin/InventoryManagement'));
+const AffiliateProgram = lazy(() => import('../components/admin/AffiliateProgram'));
+
+function PanelContentLoader() {
+  return (
+    <div className="flex items-center justify-center py-12">
+      <Loader2 className="w-6 h-6 animate-spin text-orange-500" />
+    </div>
+  );
+}
+
 export default function PainelAssinante() {
+  if (isDev) {
+    console.info('[PAINEL_ASSINANTE] render start');
+  }
   // ✅ TODOS OS HOOKS DEVEM VIR ANTES DE QUALQUER RETURN CONDICIONAL
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -61,6 +76,15 @@ export default function PainelAssinante() {
 
   const { loading, permissions, isMaster, hasModuleAccess, user, subscriberData, refresh: refreshPermissions } = usePermission();
   const { percentUsed } = useEntitlements();
+  if (isDev) {
+    console.info('[PAINEL_ASSINANTE] state', {
+      loading,
+      isMaster,
+      userEmail: user?.email ?? null,
+      subscriberStatus: subscriberData?.status ?? null,
+      subscriberEmail: subscriberData?.email ?? null,
+    });
+  }
 
   // Recarregar contexto ao abrir o painel do assinante para aplicar alterações feitas pelo admin
   useEffect(() => {
@@ -483,10 +507,14 @@ export default function PainelAssinante() {
               </div>
             )}
             <ErrorBoundary>
-              {renderContent()}
+              <Suspense fallback={<PanelContentLoader />}>
+                {renderContent()}
+              </Suspense>
             </ErrorBoundary>
         </PanelShell>
       </div>
     </div>
   );
 }
+
+

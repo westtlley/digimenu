@@ -7,6 +7,13 @@ import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { logger } from '@/utils/logger';
 
+const isDev = typeof import.meta !== 'undefined' && import.meta.env?.DEV;
+const trace = (...args) => {
+  if (isDev) {
+    console.info('[PROTECTED_ROUTE]', ...args);
+  }
+};
+
 /**
  * Componente para proteger rotas que requerem email cadastrado
  * 
@@ -32,6 +39,12 @@ export default function ProtectedRoute({
   const location = useLocation();
 
   useEffect(() => {
+    trace('check start', {
+      path: location.pathname,
+      requireMaster,
+      requireActiveSubscription,
+      requiredRole,
+    });
     setAccessTimeout(false);
     const CHECK_TIMEOUT_MS = 20000;
     const timeoutId = setTimeout(() => {
@@ -44,7 +57,9 @@ export default function ProtectedRoute({
       try {
         // Verificar se está autenticado
         const isAuth = await base44.auth.isAuthenticated();
+        trace('isAuthenticated result', { path: location.pathname, isAuth });
         if (!isAuth) {
+          trace('redirect to login', { path: location.pathname });
           base44.auth.redirectToLogin(location.pathname);
           return;
         }
@@ -54,8 +69,18 @@ export default function ProtectedRoute({
         let contextData = null;
         try {
           contextData = await base44.get('/user/context', { _t: Date.now() });
+          trace('loaded canonical context', {
+            path: location.pathname,
+            email: contextData?.user?.email,
+            isMaster: contextData?.user?.is_master,
+            subscriberStatus: contextData?.subscriberData?.status ?? null,
+          });
         } catch (contextError) {
           logger.warn('[ProtectedRoute] Falha ao carregar /user/context, usando auth.me()', contextError);
+          trace('failed canonical context', {
+            path: location.pathname,
+            message: contextError?.message,
+          });
         }
 
         const userData = contextData?.user || rawUserData;
@@ -64,6 +89,7 @@ export default function ProtectedRoute({
 
         // Verificar se requer master
         if (requireMaster && !userData.is_master) {
+          trace('deny requireMaster', { path: location.pathname, email: userData?.email });
           setAuthorized(false);
           setLoading(false);
           return;
@@ -71,6 +97,7 @@ export default function ProtectedRoute({
 
         // Verificar role específico
         if (requiredRole && userData.role !== requiredRole) {
+          trace('deny requiredRole', { path: location.pathname, role: userData?.role, requiredRole });
           setAuthorized(false);
           setLoading(false);
           return;
@@ -78,6 +105,7 @@ export default function ProtectedRoute({
 
         // Se for master, tem acesso total
         if (userData.is_master) {
+          trace('allow master', { path: location.pathname, email: userData?.email });
           setAuthorized(true);
           setLoading(false);
           return;
@@ -95,12 +123,14 @@ export default function ProtectedRoute({
         if (requireActiveSubscription) {
           // Gerente que acessa PainelAssinante → redirecionar para /colaborador (evita loop e loading duplo)
           if (isGerente && !isAssinante && location.pathname.toLowerCase().includes('painelassinante')) {
+            trace('redirect gerente to colaborador', { path: location.pathname, email: userData?.email });
             navigate('/colaborador', { replace: true });
             setLoading(false);
             return;
           }
           // Gerente em outras rotas protegidas (ex.: GestorPedidos) pode acessar
           if (isGerente) {
+            trace('allow gerente', { path: location.pathname, email: userData?.email });
             setAuthorized(true);
             setLoading(false);
             return;
@@ -129,11 +159,13 @@ export default function ProtectedRoute({
             
             // Se for colaborador acessando sua rota específica, permitir
             if (isAccessingCorrectRoute) {
+              trace('allow collaborator route', { path: location.pathname, role });
               setAuthorized(true);
               setLoading(false);
               return;
             }
 
+            trace('deny collaborator wrong route', { path: location.pathname, role });
             navigate('/colaborador', { replace: true });
             setAuthorized(false);
             setLoading(false);
@@ -144,10 +176,25 @@ export default function ProtectedRoute({
             if (canonicalSubscriberData) {
               setSubscriberData(canonicalSubscriberData);
               setAuthorized(canonicalSubscriberData.status === 'active');
+              trace('subscriber decision', {
+                path: location.pathname,
+                email: userData?.email,
+                subscriberEmail: canonicalSubscriberData?.email,
+                status: canonicalSubscriberData?.status,
+                authorized: canonicalSubscriberData.status === 'active',
+              });
             } else if (userData.subscriber_email || userData.role !== 'customer') {
+              trace('allow subscriber fallback without canonical subscriberData', {
+                path: location.pathname,
+                email: userData?.email,
+              });
               setAuthorized(true);
               setSubscriberData(null);
             } else {
+              trace('deny no subscriber identity', {
+                path: location.pathname,
+                email: userData?.email,
+              });
               setAuthorized(false);
               setSubscriberData(null);
             }
@@ -156,20 +203,32 @@ export default function ProtectedRoute({
             // Em caso de erro na verificação, se tem subscriber_email, permitir acesso
             // (melhor UX - deixa PainelAssinante fazer verificação mais detalhada)
             if (userData.subscriber_email) {
+              trace('allow subscription error fallback', {
+                path: location.pathname,
+                email: userData?.email,
+                message: error?.message,
+              });
               setAuthorized(true);
               setSubscriberData(null);
             } else {
+              trace('deny subscription error without subscriber_email', {
+                path: location.pathname,
+                email: userData?.email,
+                message: error?.message,
+              });
               setAuthorized(false);
               setSubscriberData(null);
             }
           }
         } else {
           // Não requer assinatura ativa
+          trace('allow no active subscription requirement', { path: location.pathname });
           setAuthorized(true);
         }
 
       } catch (error) {
         logger.error('Error checking access:', error);
+        trace('deny exception', { path: location.pathname, message: error?.message });
         setAuthorized(false);
       } finally {
         clearTimeout(timeoutId);
@@ -259,3 +318,4 @@ export default function ProtectedRoute({
 
   return <>{children}</>;
 }
+

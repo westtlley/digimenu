@@ -12,6 +12,9 @@ import { Label } from '@/components/ui/label';
 import { Eye, EyeOff, LogIn, Loader2, Store, ArrowLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useLoginInfo } from '@/hooks/useLoginInfo';
+import { preloadProtectedRoute } from '@/utils/preloadProtectedRoute';
+
+const isDev = typeof import.meta !== 'undefined' && import.meta.env?.DEV;
 
 const THEME_DEFAULT = {
   primary: '#ea580c',
@@ -84,13 +87,16 @@ export default function LoginBySlug({ type: propType }) {
         }
         const roles = me?.profile_roles?.length ? me.profile_roles : me?.profile_role ? [me.profile_role] : [];
         if (roles.length > 0) {
+          await preloadProtectedRoute('/colaborador');
           navigate('/colaborador', { replace: true });
           return;
         }
         if (me?.is_master) {
+          await preloadProtectedRoute('/Admin');
           navigate('/Admin', { replace: true });
           return;
         }
+        await preloadProtectedRoute(slug ? `/s/${slug}/PainelAssinante` : '/PainelAssinante');
         navigate(slug ? `/s/${slug}/PainelAssinante` : '/PainelAssinante', { replace: true });
       } catch (e) {
         // não autenticado - deixar usuário fazer login
@@ -128,13 +134,29 @@ export default function LoginBySlug({ type: propType }) {
         const isColaborador = roles.length > 0;
         if (userData?.role === 'customer') {
           const safeReturn = returnUrl && returnUrl.startsWith('/') && !returnUrl.startsWith('//') ? returnUrl : (slug ? `/s/${slug}` : '/');
+          if (isDev) {
+            console.info('[AUTH] slug login success', { email: userData?.email, redirectUrl: safeReturn, loginType });
+          }
           navigate(safeReturn, { replace: true });
         } else if (isColaborador) {
+          if (isDev) {
+            console.info('[AUTH] slug login success', { email: userData?.email, redirectUrl: '/colaborador', loginType });
+          }
+          await preloadProtectedRoute('/colaborador');
           navigate('/colaborador', { replace: true });
         } else if (userData?.is_master) {
+          if (isDev) {
+            console.info('[AUTH] slug login success', { email: userData?.email, redirectUrl: '/Admin', loginType });
+          }
+          await preloadProtectedRoute('/Admin');
           navigate('/Admin', { replace: true });
         } else {
-          navigate(slug ? `/s/${slug}/PainelAssinante` : '/PainelAssinante', { replace: true });
+          const panelTarget = slug ? `/s/${slug}/PainelAssinante` : '/PainelAssinante';
+          if (isDev) {
+            console.info('[AUTH] slug login success', { email: userData?.email, redirectUrl: panelTarget, loginType });
+          }
+          await preloadProtectedRoute(panelTarget);
+          navigate(panelTarget, { replace: true });
         }
       } else {
         setError('Erro ao fazer login. Tente novamente.');

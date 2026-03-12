@@ -8,6 +8,9 @@ import { Eye, EyeOff, LogIn, Loader2, Lock, Store, Settings, User } from 'lucide
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { SYSTEM_NAME } from '@/config/branding';
+import { preloadProtectedRoute } from '@/utils/preloadProtectedRoute';
+
+const isDev = typeof import.meta !== 'undefined' && import.meta.env?.DEV;
 
 /**
  * Página de Login única. O formulário é o mesmo para todos.
@@ -41,6 +44,7 @@ export default function Login() {
           else if (me?.profile_role || me?.profile_roles?.length) to = '/colaborador';
           else to = me?.is_master ? '/Admin' : '/PainelAssinante';
         }
+        await preloadProtectedRoute(to);
         navigate(to, { replace: true });
       } catch (e) {
         // Não autenticado ou falha em me() - não fazer nada, deixar usuário fazer login
@@ -97,6 +101,16 @@ export default function Login() {
           }
         }
 
+        if (isDev) {
+          console.info('[AUTH] generic login success', {
+            email: userData?.email,
+            redirectUrl,
+          });
+        }
+        await preloadProtectedRoute(redirectUrl);
+        if (isDev) {
+          console.info('[ROUTE] redirecting after generic login', { to: redirectUrl });
+        }
         setTimeout(() => navigate(redirectUrl), 400);
       } else {
         setError('Erro ao fazer login. Tente novamente.');

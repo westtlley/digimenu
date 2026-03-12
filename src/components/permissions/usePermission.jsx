@@ -7,6 +7,12 @@ import { useSlugContext } from '@/hooks/useSlugContext';
 
 // Deduplicar chamada a /user/context: vários usePermission() montando ao mesmo tempo compartilham a mesma requisição
 let inFlightGetContext = null;
+const isDev = typeof import.meta !== 'undefined' && import.meta.env?.DEV;
+const trace = (...args) => {
+  if (isDev) {
+    console.info('[USE_PERMISSION]', ...args);
+  }
+};
 
 /**
  * Hook para verificar permissões do usuário atual
@@ -26,6 +32,10 @@ export function usePermission() {
   const { subscriberEmail: slugSubscriberEmail, inSlugContext } = useSlugContext();
 
   const loadPermissions = useCallback(async () => {
+    trace('load start', {
+      inSlugContext,
+      slugSubscriberEmail,
+    });
     let contextData = null;
     if (inFlightGetContext) {
       try {
@@ -62,6 +72,7 @@ export function usePermission() {
     try {
       try {
         if (!contextData || !contextData.user) {
+          trace('no canonical context returned');
           log.permission.warn('⚠️ [usePermission] Contexto não retornado pelo backend');
           setPermissions({});
           setUser(null);
@@ -72,6 +83,12 @@ export function usePermission() {
         }
 
         setUser(contextData.user);
+        trace('canonical context loaded', {
+          email: contextData.user?.email,
+          isMaster: contextData.user?.is_master,
+          subscriberStatus: contextData.subscriberData?.status ?? null,
+          subscriberEmail: contextData.subscriberData?.email ?? null,
+        });
 
         let perms = contextData.permissions;
         if (typeof perms === 'string') {
@@ -170,6 +187,7 @@ export function usePermission() {
         
       } catch (contextError) {
         // Fallback: se o endpoint novo não existir, usar método antigo
+        trace('fallback path activated', { message: contextError?.message });
         log.permission.warn('⚠️ [usePermission] Endpoint /user/context não disponível, usando fallback');
         
         const currentUser = await base44.auth.me();
@@ -186,6 +204,7 @@ export function usePermission() {
         setUser(currentUser);
 
         if (currentUser.is_master === true) {
+          trace('fallback resolved as master', { email: currentUser.email });
           const perms = {};
           const subscriber = {
             email: currentUser.email,
@@ -208,6 +227,11 @@ export function usePermission() {
             result = null;
           }
           if (result?.data?.subscriber) {
+            trace('fallback resolved subscriber', {
+              email: currentUser.email,
+              subscriberEmail: result.data.subscriber?.email,
+              status: result.data.subscriber?.status,
+            });
             const subscriber = result.data.subscriber;
             let perms = subscriber.permissions || {};
             if (typeof perms === 'string') {
@@ -223,6 +247,7 @@ export function usePermission() {
             const context = createUserContext(currentUser, subscriber, perms);
             setUserContext(context);
           } else {
+            trace('fallback using minimal subscriber context', { email: currentUser.email });
             const subscriberEmail = currentUser.subscriber_email || currentUser.email;
             const minimalSubscriber = {
               email: subscriberEmail,
@@ -240,12 +265,14 @@ export function usePermission() {
       }
     } catch (e) {
       log.permission.error('Error loading permissions:', e);
+      trace('load failed', { message: e?.message });
       setPermissions({});
       setSubscriberData(null);
       setUserContext(null);
       setLoading(false);
     } finally {
       setLoading(false);
+      trace('load finished');
     }
   }, [inSlugContext, slugSubscriberEmail]);
 
@@ -349,3 +376,5 @@ export function usePermission() {
     menuContext: stableMenuContext,
   };
 }
+
+

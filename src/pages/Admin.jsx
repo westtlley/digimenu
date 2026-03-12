@@ -1,45 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { Suspense, lazy, useState, useEffect } from 'react';
 import { Settings, LogOut, LogIn, Loader2, Package, Users, Lock, Menu, UtensilsCrossed, Calculator, Truck, KeyRound, BarChart3 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { useTheme } from '../components/theme/ThemeProvider';
 import ThemeToggle from '../components/ui/ThemeToggle';
 import { apiClient as base44 } from '@/api/apiClient';
 import AdminSidebar from '../components/admin/AdminSidebar';
-import DashboardTab from '../components/admin/DashboardTab';
 import UserAuthButton from '../components/atoms/UserAuthButton';
-import ClientsTab from '../components/admin/ClientsTab';
-import CaixaTab from '../components/admin/CaixaTab';
-import WhatsAppTab from '../components/admin/WhatsAppTab';
-import DishesTab from '../components/admin/DishesTab';
-import CategoriesTab from '../components/admin/CategoriesTab';
-import ComplementsTab from '../components/admin/ComplementsTab';
-import PizzaConfigTab from '../components/admin/PizzaConfigTab';
-import DeliveryZonesTab from '../components/admin/DeliveryZonesTab';
-import CouponsTab from '../components/admin/CouponsTab';
-import PromotionsTab from '../components/admin/PromotionsTab';
-import BeveragesTab from '../components/admin/BeveragesTab';
-import ThemeTab from '../components/admin/ThemeTab';
-import ComandasTab from '../components/admin/ComandasTab';
-import OrdersTab from '../components/admin/OrdersTab';
-import StoreTab from '../components/admin/StoreTab';
-import PaymentMethodsTab from '../components/admin/PaymentMethodsTab';
-import AssinarPageEditorTab from '../components/admin/AssinarPageEditorTab';
 import ChangePasswordDialog from '../components/admin/ChangePasswordDialog';
-import PrinterConfig from '../components/gestor/PrinterConfig';
-import FinancialTab from '../components/admin/FinancialTab';
-import OrderHistoryTab from '../components/admin/OrderHistoryTab';
 import ErrorBoundary from '../components/ErrorBoundary';
 import WhatsAppComandaToggle from '../components/admin/WhatsAppComandaToggle';
 import MobileQuickMenu from '../components/admin/MobileQuickMenu';
-import MasterSlugSettings from '../components/admin/MasterSlugSettings';
-import ServiceRequestsTab from '../components/admin/ServiceRequestsTab';
-import TablesTab from '../components/admin/TablesTab';
-import InventoryManagement from '../components/admin/InventoryManagement';
-import AffiliateProgram from '../components/admin/AffiliateProgram';
-import LGPDCompliance from '../components/admin/LGPDCompliance';
-import TwoFactorAuth from '../components/admin/TwoFactorAuth';
-import ColaboradoresTab from '../components/admin/ColaboradoresTab';
-import AccessDenied, { LoadingError } from '../components/admin/AccessDenied';
+import AccessDenied from '../components/admin/AccessDenied';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import InstallAppButton from '../components/InstallAppButton';
 import { createPageUrl } from '@/utils';
@@ -50,9 +21,52 @@ import { useDocumentHead } from '@/hooks/useDocumentHead';
 import PanelShell from '@/components/layout/PanelShell';
 import ErrorState from '@/components/ui/ErrorState';
 
+const isDev = typeof import.meta !== 'undefined' && import.meta.env?.DEV;
+if (isDev) {
+  console.info('[ADMIN] module loaded');
+}
+
+const DashboardTab = lazy(() => import('../components/admin/DashboardTab'));
+const ClientsTab = lazy(() => import('../components/admin/ClientsTab'));
+const CaixaTab = lazy(() => import('../components/admin/CaixaTab'));
+const WhatsAppTab = lazy(() => import('../components/admin/WhatsAppTab'));
+const DishesTab = lazy(() => import('../components/admin/DishesTab'));
+const PizzaConfigTab = lazy(() => import('../components/admin/PizzaConfigTab'));
+const DeliveryZonesTab = lazy(() => import('../components/admin/DeliveryZonesTab'));
+const CouponsTab = lazy(() => import('../components/admin/CouponsTab'));
+const PromotionsTab = lazy(() => import('../components/admin/PromotionsTab'));
+const BeveragesTab = lazy(() => import('../components/admin/BeveragesTab'));
+const ThemeTab = lazy(() => import('../components/admin/ThemeTab'));
+const ComandasTab = lazy(() => import('../components/admin/ComandasTab'));
+const OrdersTab = lazy(() => import('../components/admin/OrdersTab'));
+const StoreTab = lazy(() => import('../components/admin/StoreTab'));
+const PaymentMethodsTab = lazy(() => import('../components/admin/PaymentMethodsTab'));
+const AssinarPageEditorTab = lazy(() => import('../components/admin/AssinarPageEditorTab'));
+const PrinterConfig = lazy(() => import('../components/gestor/PrinterConfig'));
+const FinancialTab = lazy(() => import('../components/admin/FinancialTab'));
+const OrderHistoryTab = lazy(() => import('../components/admin/OrderHistoryTab'));
+const ServiceRequestsTab = lazy(() => import('../components/admin/ServiceRequestsTab'));
+const TablesTab = lazy(() => import('../components/admin/TablesTab'));
+const InventoryManagement = lazy(() => import('../components/admin/InventoryManagement'));
+const AffiliateProgram = lazy(() => import('../components/admin/AffiliateProgram'));
+const LGPDCompliance = lazy(() => import('../components/admin/LGPDCompliance'));
+const TwoFactorAuth = lazy(() => import('../components/admin/TwoFactorAuth'));
+const ColaboradoresTab = lazy(() => import('../components/admin/ColaboradoresTab'));
+
+function PanelContentLoader() {
+  return (
+    <div className="flex items-center justify-center py-12">
+      <Loader2 className="w-6 h-6 animate-spin text-orange-500" />
+    </div>
+  );
+}
+
 // ✅ AccessDenied agora é importado de components/admin/AccessDenied.jsx
 
 export default function Admin() {
+  if (isDev) {
+    console.info('[ADMIN] render start');
+  }
   const [activeTab, setActiveTab] = useState('dashboard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
@@ -63,6 +77,14 @@ export default function Admin() {
   // ✅ FONTE ÚNICA DE VERDADE - usePermission
   const { loading, permissions, isMaster, hasModuleAccess, user, subscriberData, canCreate, canUpdate, canDelete, canView } = usePermission();
   const { isDark, toggleTheme } = useTheme();
+  if (isDev) {
+    console.info('[ADMIN] state', {
+      loading,
+      isMaster,
+      userEmail: user?.email ?? null,
+      subscriberStatus: subscriberData?.status ?? null,
+    });
+  }
   
   // Buscar dados da loja para header
   const { data: stores = [] } = useQuery({
@@ -435,7 +457,9 @@ export default function Admin() {
         {/* Content */}
         <PanelShell contentClassName="p-3 sm:p-4 lg:p-6">
           <ErrorBoundary>
-            {renderTabContent()}
+            <Suspense fallback={<PanelContentLoader />}>
+              {renderTabContent()}
+            </Suspense>
           </ErrorBoundary>
         </PanelShell>
       </div>

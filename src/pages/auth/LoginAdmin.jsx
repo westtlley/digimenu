@@ -11,6 +11,9 @@ import { Label } from '@/components/ui/label';
 import { Eye, EyeOff, LogIn, Loader2, Settings, Shield, Lock } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { SYSTEM_LOGO_URL, SYSTEM_NAME } from '@/config/branding';
+import { preloadProtectedRoute } from '@/utils/preloadProtectedRoute';
+
+const isDev = typeof import.meta !== 'undefined' && import.meta.env?.DEV;
 
 export default function LoginAdmin() {
   const [email, setEmail] = useState('');
@@ -56,7 +59,14 @@ export default function LoginAdmin() {
         localStorage.setItem('auto_login_enabled', rememberMe ? 'true' : 'false');
         
         if (userData?.is_master) {
+          if (isDev) {
+            console.info('[AUTH] admin login success', { email: userData?.email, returnUrl });
+          }
+          await preloadProtectedRoute(returnUrl);
           toast.success('Acesso autorizado');
+          if (isDev) {
+            console.info('[ROUTE] redirecting to admin', { to: buildFreshReturnUrl(returnUrl) });
+          }
           setTimeout(() => navigate(buildFreshReturnUrl(returnUrl), { replace: true }), 400);
         } else {
           setError('Acesso restrito a administradores master');
