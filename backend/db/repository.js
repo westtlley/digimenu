@@ -1,6 +1,7 @@
 // Importar postgres.js diretamente (compatibilidade)
 import { query, getClient } from './postgres.js';
 import { agentLog } from '../utils/agentLog.js';
+import { decorateOrderEntity, normalizeOrderForPersistence } from '../utils/orderLifecycle.js';
 
 /**
  * Repositório genérico para entidades
@@ -17,6 +18,20 @@ function getSubscriberEmail(user) {
     return null; // Master só vê seus próprios (subscriber_email IS NULL)
   }
   return user?.subscriber_email || user?.email;
+}
+
+function normalizeEntityPayload(entityType, data, currentEntity = null) {
+  if (String(entityType || '').toLowerCase() !== 'order') {
+    return data;
+  }
+  return normalizeOrderForPersistence(data, currentEntity);
+}
+
+function decorateEntityRecord(entityType, entity) {
+  if (String(entityType || '').toLowerCase() !== 'order') {
+    return entity;
+  }
+  return decorateOrderEntity(entity);
 }
 
 /**
@@ -66,7 +81,7 @@ export async function listEntitiesForSubscriber(entityType, subscriberEmail, ord
       sql += ` ORDER BY created_at DESC`;
     }
     const result = await query(sql, params);
-    return result.rows.map(row => ({
+    return result.rows.map(row => decorateEntityRecord(entityType, {
       id: row.id.toString(),
       ...row.data,
       created_at: row.created_at,
@@ -213,7 +228,7 @@ export async function listEntities(entityType, filters = {}, orderBy = null, use
     const totalPages = Math.ceil(total / limit);
     
     // Converter JSONB para objetos normais (created_date = alias de created_at para compatibilidade)
-    const items = result.rows.map(row => ({
+    const items = result.rows.map(row => decorateEntityRecord(entityType, {
       id: row.id.toString(),
       ...row.data,
       created_at: row.created_at,
@@ -268,13 +283,13 @@ export async function getEntityById(entityType, id, user = null) {
     }
     
     const row = result.rows[0];
-    return {
+    return decorateEntityRecord(entityType, {
       id: row.id.toString(),
       ...row.data,
       created_at: row.created_at,
       created_date: row.created_at || row.data?.created_date,
       updated_at: row.updated_at
-    };
+    });
   } catch (error) {
     console.error(`Erro ao obter ${entityType} ${id}:`, error);
     throw error;
@@ -295,6 +310,8 @@ export async function createEntity(entityType, data, user = null, options = {}) 
     }
     agentLog({ location: 'repository.js:254', message: '[H2] Final subscriberEmail determined', data: { finalSubscriberEmail: finalSubscriberEmail || null }, timestamp: Date.now() });
 
+    const normalizedData = normalizeEntityPayload(entityType, data);
+
     const sql = `
       INSERT INTO entities (entity_type, data, subscriber_email)
       VALUES ($1, $2, $3)
@@ -303,19 +320,19 @@ export async function createEntity(entityType, data, user = null, options = {}) 
     
     const result = await query(sql, [
       entityType,
-      JSON.stringify(data),
+      JSON.stringify(normalizedData),
       finalSubscriberEmail // Pode ser null para master
     ]);
     agentLog({ location: 'repository.js:268', message: '[H2] Entity created successfully', data: { entityType, entityId: result.rows[0]?.id }, timestamp: Date.now() });
 
     const row = result.rows[0];
-    return {
+    return decorateEntityRecord(entityType, {
       id: row.id.toString(),
-      ...data,
+      ...normalizedData,
       created_at: row.created_at,
-      created_date: row.created_at || data?.created_date,
+      created_date: row.created_at || normalizedData?.created_date,
       updated_at: row.updated_at
-    };
+    });
   } catch (error) {
     agentLog({ location: 'repository.js:277', message: '[H2] Error in createEntity', data: { entityType, errorMessage: error.message, errorCode: error.code, errorStack: error.stack?.substring(0, 300) }, timestamp: Date.now() });
     console.error(`Erro ao criar ${entityType}:`, error);
@@ -335,11 +352,11 @@ export async function updateEntity(entityType, id, data, user = null) {
     }
     
     // Mesclar dados
-    const updatedData = {
+    const updatedData = normalizeEntityPayload(entityType, {
       ...existing,
       ...data,
       id: existing.id // Manter ID original
-    };
+    }, existing);
     delete updatedData.created_at;
     delete updatedData.updated_at;
     
@@ -375,13 +392,13 @@ export async function updateEntity(entityType, id, data, user = null) {
     }
     
     const row = result.rows[0];
-    return {
+    return decorateEntityRecord(entityType, {
       id: row.id.toString(),
       ...row.data,
       created_at: row.created_at,
       created_date: row.created_at || row.data?.created_date,
       updated_at: row.updated_at
-    };
+    });
   } catch (error) {
     console.error(`Erro ao atualizar ${entityType} ${id}:`, error);
     throw error;

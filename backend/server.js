@@ -47,6 +47,7 @@ import { requestLogger } from './utils/monitoring.js';
 import { scheduleBackups } from './utils/backup.js';
 import { analyticsMiddleware } from './utils/analytics.js';
 import { initializeCronJobs } from './utils/cronJobs.js';
+import { decorateOrderEntity, normalizeOrderForPersistence } from './utils/orderLifecycle.js';
 import {
   getEffectivePermissionsForSubscriber,
   normalizePlanPresetKey
@@ -1100,17 +1101,22 @@ async function isOrderAssignedToRequesterEntregador(req, currentOrder = {}, payl
 }
 
 async function enforceOrderOperationalStatusContract(req, res, currentOrder = {}, payload = {}) {
-  const nextStatus = normalizeLower(payload?.status);
-  if (!nextStatus) return true;
+  const hasOperationalStatusUpdate = payload?.status !== undefined || payload?.production_status !== undefined || payload?.delivery_status !== undefined;
+  if (!hasOperationalStatusUpdate) return true;
   if (req?.user?.is_master) return true;
+
+  const currentSnapshot = decorateOrderEntity(currentOrder);
+  const nextSnapshot = normalizeOrderForPersistence(payload, currentSnapshot);
+  const nextStatus = normalizeLower(nextSnapshot?.status);
+  if (!nextStatus) return true;
 
   const roles = getUserRoleList(req?.user);
   const isManagerRole = roles.includes('gerente') || roles.includes('gestor_pedidos');
   const isKitchenRole = roles.includes('cozinha') && !isManagerRole;
   const isEntregadorRole = roles.includes('entregador') && !isManagerRole;
 
-  const currentStatus = normalizeLower(currentOrder?.status);
-  const deliveryMethod = resolveOrderDeliveryMethod(currentOrder);
+  const currentStatus = normalizeLower(currentSnapshot?.status);
+  const deliveryMethod = resolveOrderDeliveryMethod(nextSnapshot);
   const isDeliveryOrder = deliveryMethod === 'delivery';
 
   if (DELIVERY_FLOW_STATUSES.has(nextStatus) && !isDeliveryOrder) {
@@ -2045,6 +2051,9 @@ app.post('/api/entities/:entity', authenticate, createLimiter, asyncHandler(asyn
   const entityCreateGuard = await enforceEntityWriteAccess(req, res, entity, 'POST', data);
   if (!entityCreateGuard.allowed) return;
   data = entityCreateGuard.sanitizedPayload;
+  if (String(entity).toLowerCase() === 'order') {
+    data = normalizeOrderForPersistence(data);
+  }
   if (String(entity).toLowerCase() === 'dish' && !req.user?.is_master) {
     const subscriberEmail = createOpts.forSubscriberEmail || data.owner_email || (req.user?.subscriber_email || req.user?.email);
     if (subscriberEmail) {
@@ -2071,7 +2080,9 @@ app.post('/api/entities/:entity', authenticate, createLimiter, asyncHandler(asyn
   } else if (db && db.entities) {
     if (!db.entities[entity]) db.entities[entity] = [];
     const now = new Date().toISOString();
-    newItem = { id: String(Date.now()), ...data, created_at: now, created_date: now, updated_at: now };
+    newItem = String(entity).toLowerCase() === 'order'
+      ? decorateOrderEntity({ id: String(Date.now()), ...data, created_at: now, created_date: now, updated_at: now })
+      : { id: String(Date.now()), ...data, created_at: now, created_date: now, updated_at: now };
     db.entities[entity].push(newItem);
     if (typeof saveDatabaseDebounced === 'function') saveDatabaseDebounced(db);
   } else return res.status(500).json({ error: 'Banco de dados não inicializado' });
@@ -2127,8 +2138,9 @@ app.put('/api/entities/:entity/:id', authenticate, asyncHandler(async (req, res)
     const updated = usePostgreSQL ? await repo.updateSubscriber(idVal, data) : (() => { const idx = db?.subscribers?.findIndex(s => s.id == idVal); if (idx < 0) throw new Error('Assinante não encontrado'); const e = db.subscribers[idx]; const m = { ...e, ...data, send_whatsapp_commands: data.send_whatsapp_commands ?? e.whatsapp_auto_enabled }; db.subscribers[idx] = m; if (saveDatabaseDebounced) saveDatabaseDebounced(db); return { ...m, send_whatsapp_commands: m.whatsapp_auto_enabled }; })();
     return res.json(updated);
   }
-  if (String(entity).toLowerCase() === 'order' && data.status) {
+  if (String(entity).toLowerCase() === 'order') {
     const currentOrder = usePostgreSQL ? await repo.getEntityById('Order', id, req.user) : db?.entities?.Order?.find(i => i.id === id || i.id === String(id));
+    data = normalizeOrderForPersistence(data, currentOrder || {});
     if (currentOrder?.status) {
       const { validateStatusTransition } = await import('./services/orderStatusValidation.service.js');
       const v = validateStatusTransition(currentOrder.status, data.status, { isMaster: req.user?.is_master, userRole: req.user?.profile_role || req.user?.role });
@@ -2145,7 +2157,7 @@ app.put('/api/entities/:entity/:id', authenticate, asyncHandler(async (req, res)
     const items = db.entities[entity] || [];
     const idx = items.findIndex(i => (i.id === id || i.id === String(id)) && (!asSub || i.owner_email === asSub));
     if (idx === -1) return res.status(404).json({ error: 'Entidade não encontrada' });
-    updatedItem = { ...items[idx], ...data, id: items[idx].id, updated_at: new Date().toISOString() };
+    updatedItem = String(entity).toLowerCase() === 'order' ? decorateOrderEntity({ ...items[idx], ...data, id: items[idx].id, updated_at: new Date().toISOString() }) : { ...items[idx], ...data, id: items[idx].id, updated_at: new Date().toISOString() };
     items[idx] = updatedItem;
     if (typeof saveDatabaseDebounced === 'function') saveDatabaseDebounced(db);
   } else return res.status(500).json({ error: 'Banco de dados não inicializado' });
@@ -5385,3 +5397,4 @@ server.listen(PORT, () => {
     console.log('⚠️ Modo desenvolvimento - algumas proteções estão desabilitadas');
   }
 });
+

@@ -2,7 +2,10 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import { base44 } from '@/api/base44Client';
-import { ORDER_STATUS } from '@/utils/constants';
+import {
+  ACTIVE_DELIVERY_FLOW_STATUSES,
+  getOrderDeliveryStatus,
+} from '@/utils/orderLifecycle';
 
 const FALLBACK_DELIVERY_POLLING_MS = 15000;
 
@@ -25,15 +28,7 @@ export function useDeliveryOrders(entregadorId, asSubscriber, isMaster = false) 
     queryKey: ['allDeliveryOrders', asSubscriber ?? 'me'],
     queryFn: async () => {
       const allTenantOrders = await base44.entities.Order.list(null, asSubscriber ? { as_subscriber: asSubscriber } : {});
-      return allTenantOrders.filter((order) =>
-        [
-          ORDER_STATUS.GOING_TO_STORE,
-          ORDER_STATUS.ARRIVED_AT_STORE,
-          ORDER_STATUS.PICKED_UP,
-          ORDER_STATUS.OUT_FOR_DELIVERY,
-          ORDER_STATUS.ARRIVED_AT_CUSTOMER,
-        ].includes(order.status)
-      );
+      return allTenantOrders.filter((order) => ACTIVE_DELIVERY_FLOW_STATUSES.has(getOrderDeliveryStatus(order)));
     },
     enabled: isMaster,
     refetchInterval: FALLBACK_DELIVERY_POLLING_MS,
@@ -42,21 +37,12 @@ export function useDeliveryOrders(entregadorId, asSubscriber, isMaster = false) 
   const displayOrders = isMaster ? allOrders : orders;
 
   const activeOrders = useMemo(
-    () =>
-      displayOrders.filter((order) =>
-        [
-          ORDER_STATUS.GOING_TO_STORE,
-          ORDER_STATUS.ARRIVED_AT_STORE,
-          ORDER_STATUS.PICKED_UP,
-          ORDER_STATUS.OUT_FOR_DELIVERY,
-          ORDER_STATUS.ARRIVED_AT_CUSTOMER,
-        ].includes(order.status)
-      ),
+    () => displayOrders.filter((order) => ACTIVE_DELIVERY_FLOW_STATUSES.has(getOrderDeliveryStatus(order))),
     [displayOrders]
   );
 
   const completedOrders = useMemo(
-    () => displayOrders.filter((order) => order.status === ORDER_STATUS.DELIVERED),
+    () => displayOrders.filter((order) => getOrderDeliveryStatus(order) === 'delivered'),
     [displayOrders]
   );
 

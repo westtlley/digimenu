@@ -1,4 +1,5 @@
 import { getClient } from '../db/postgres.js';
+import { decorateOrderEntity, normalizeOrderForPersistence } from '../utils/orderLifecycle.js';
 
 const PAYMENT_METHODS = new Set(['dinheiro', 'pix', 'debito', 'credito', 'outro']);
 const PAYMENT_LABELS = {
@@ -195,7 +196,7 @@ async function findExistingOrderByRequestId(client, ownerEmail, clientRequestId)
   );
 
   if (!result.rows.length) return null;
-  return mapEntityRow(result.rows[0]);
+  return decorateOrderEntity(mapEntityRow(result.rows[0]));
 }
 
 async function findExistingProductionOrderByRequestId(client, ownerEmail, clientRequestId) {
@@ -383,7 +384,7 @@ export async function finalizePdvSaleAtomic({ user, ownerEmail, payload = {} }) 
     if (createProductionOrder) {
       const productionItems = mapSaleItemsToProduction(items);
       if (productionItems.length > 0) {
-        const productionOrderData = {
+        const productionOrderData = normalizeOrderForPersistence({
           owner_email: ownerEmail,
           subscriber_email: ownerEmail,
           source: 'pdv',
@@ -408,7 +409,7 @@ export async function finalizePdvSaleAtomic({ user, ownerEmail, payload = {} }) 
           ...(payload.pdv_terminal_id ? { pdv_terminal_id: payload.pdv_terminal_id } : {}),
           ...(payload.pdv_terminal_name ? { pdv_terminal_name: payload.pdv_terminal_name } : {}),
           ...(payload.pdv_session_id ? { pdv_session_id: payload.pdv_session_id } : {}),
-        };
+        });
 
         const productionInsert = await transactionClient.query(
           `
@@ -419,7 +420,7 @@ export async function finalizePdvSaleAtomic({ user, ownerEmail, payload = {} }) 
           ['Order', JSON.stringify(productionOrderData), ownerEmail]
         );
 
-        createdProductionOrder = mapEntityRow(productionInsert.rows[0]);
+        createdProductionOrder = decorateOrderEntity(mapEntityRow(productionInsert.rows[0]));
         createdOrder.production_order_entity_id = createdProductionOrder.id;
         createdOrder.production_order_code = createdProductionOrder.order_code;
 

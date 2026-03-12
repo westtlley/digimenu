@@ -10,6 +10,7 @@ import toast from 'react-hot-toast';
 import KitchenDisplay from '@/components/cozinha/KitchenDisplay';
 import { printComanda } from '@/utils/gestorExport';
 import { createPageUrl } from '@/utils';
+import { getOrderDisplayStatus, getOrderProductionStatus, ORDER_PRODUCTION_STATUS } from '@/utils/orderLifecycle';
 
 export default function Cozinha() {
   const [user, setUser] = useState(null);
@@ -172,7 +173,21 @@ export default function Cozinha() {
   });
 
   const kitchenOrders = Array.isArray(orders)
-    ? orders.filter(o => ['new', 'accepted', 'preparing', 'ready'].includes(o.status))
+    ? orders.filter((order) => {
+        const productionStatus = getOrderProductionStatus(order);
+        const displayStatus = getOrderDisplayStatus(order);
+
+        if (
+          productionStatus === ORDER_PRODUCTION_STATUS.NEW ||
+          productionStatus === ORDER_PRODUCTION_STATUS.PENDING ||
+          productionStatus === ORDER_PRODUCTION_STATUS.ACCEPTED ||
+          productionStatus === ORDER_PRODUCTION_STATUS.PREPARING
+        ) {
+          return true;
+        }
+
+        return productionStatus === ORDER_PRODUCTION_STATUS.READY && displayStatus === ORDER_PRODUCTION_STATUS.READY;
+      })
     : [];
 
   const defaultPrepTime = 30;
@@ -195,14 +210,14 @@ export default function Cozinha() {
     const updates = {};
 
     if (newStatus === 'accepted') {
-      updates.status = 'accepted';
+      updates.production_status = 'accepted';
       updates.accepted_at = new Date().toISOString();
       updates.prep_time = order.prep_time || defaultPrepTime;
     } else if (newStatus === 'preparing') {
-      updates.status = 'preparing';
+      updates.production_status = 'preparing';
       updates.preparing_at = new Date().toISOString();
     } else if (newStatus === 'ready') {
-      updates.status = 'ready';
+      updates.production_status = 'ready';
       updates.ready_at = new Date().toISOString();
     }
 

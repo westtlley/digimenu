@@ -11,6 +11,7 @@ import { usePostgreSQL, getDb, getSaveDatabaseDebounced } from '../../config/app
 import { getClient } from '../../db/postgres.js';
 import { getPlanPermissions } from '../../utils/plans.js';
 import { normalizePlanPresetKey } from '../../utils/planPresetsForContext.js';
+import { decorateOrderEntity, normalizeOrderForPersistence } from '../../utils/orderLifecycle.js';
 
 function normalizeNeighborhood(value) {
   return String(value || '')
@@ -177,7 +178,7 @@ export async function createTableOrder(orderData, slug) {
 
     const order_code = generateTableOrderCode(tableNumber);
 
-    const finalOrderData = {
+    const finalOrderData = normalizeOrderForPersistence({
       order_code,
       items,
       total,
@@ -191,7 +192,7 @@ export async function createTableOrder(orderData, slug) {
       customer_email: customerEmail || null,
       observations: observations || null,
       created_date: new Date().toISOString()
-    };
+    });
 
     let newOrder;
 
@@ -207,13 +208,13 @@ export async function createTableOrder(orderData, slug) {
       ]);
 
       const row = result.rows[0];
-      newOrder = {
+      newOrder = decorateOrderEntity({
         id: row.id.toString(),
         ...finalOrderData,
         created_at: row.created_at,
         created_date: row.created_at || finalOrderData.created_date,
         updated_at: row.updated_at
-      };
+      });
 
       await transactionClient.query('COMMIT');
       transactionClient.release();
@@ -332,7 +333,7 @@ export async function createCardapioOrder(orderData, slug) {
   const total = roundMoney(Math.max(0, subtotal - discount + calculatedDeliveryFee));
 
   const order_code = generateOrderCode();
-  const finalOrderData = {
+  const finalOrderData = normalizeOrderForPersistence({
     order_code,
     customer_name: (orderData.customer_name || '').trim(),
     customer_phone: String(orderData.customer_phone || '').replace(/\D/g, ''),
@@ -358,7 +359,7 @@ export async function createCardapioOrder(orderData, slug) {
     source: 'public',
     created_date: new Date().toISOString(),
     owner_email: subscriberEmail
-  };
+  });
 
   let transactionClient = null;
   try {
@@ -408,7 +409,7 @@ export async function createCardapioOrder(orderData, slug) {
         ['Order', JSON.stringify(finalOrderData), subscriberEmail]
       );
       const row = insertResult.rows[0];
-      newOrder = { id: row.id.toString(), ...finalOrderData, created_at: row.created_at };
+      newOrder = decorateOrderEntity({ id: row.id.toString(), ...finalOrderData, created_at: row.created_at });
     } else {
       newOrder = await repo.createEntity('Order', finalOrderData, null, { forSubscriberEmail: subscriberEmail });
     }

@@ -21,6 +21,12 @@ import { useGeocoding } from '@/hooks/useGeocoding';
 import { useDebounce } from '@/hooks/useDebounce';
 import { formatCurrency, formatPhone, formatRelativeTime } from '@/utils/formatters';
 import { VEHICLE_ICONS, ORDER_STATUS, DEBOUNCE_DELAYS } from '@/utils/constants';
+import {
+  ACTIVE_DELIVERY_FLOW_STATUSES,
+  getOrderDeliveryStatus,
+  getOrderDisplayStatus,
+  ORDER_DELIVERY_STATUS,
+} from '@/utils/orderLifecycle';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import ErrorBoundary from '@/components/ErrorBoundary';
@@ -50,14 +56,6 @@ import QuickReportModal from '../components/entregador/QuickReportModal';
 import OrderItemsDetail from '../components/entregador/OrderItemsDetail';
 import DeliveryDashboard from '../components/entregador/DeliveryDashboard';
 import { usePermission } from '../components/permissions/usePermission';
-
-const ACTIVE_DELIVERY_STATUSES = new Set([
-  ORDER_STATUS.GOING_TO_STORE,
-  ORDER_STATUS.ARRIVED_AT_STORE,
-  ORDER_STATUS.PICKED_UP,
-  ORDER_STATUS.OUT_FOR_DELIVERY,
-  ORDER_STATUS.ARRIVED_AT_CUSTOMER,
-]);
 
 function upsertOrderById(currentOrders, incomingOrder) {
   const list = Array.isArray(currentOrders) ? [...currentOrders] : [];
@@ -165,11 +163,21 @@ export default function Entregador() {
   }, [normalizeTenantEmail, tenantIdentifier]);
 
   const isAvailableDeliveryOrder = useCallback((order) => {
-    return isTenantOrder(order) && order?.delivery_method === 'delivery' && order?.status === ORDER_STATUS.READY && !order?.entregador_id;
+    return (
+      isTenantOrder(order) &&
+      order?.delivery_method === 'delivery' &&
+      getOrderDisplayStatus(order) === ORDER_STATUS.READY &&
+      getOrderDeliveryStatus(order) === ORDER_DELIVERY_STATUS.WAITING_DRIVER &&
+      !order?.entregador_id
+    );
   }, [isTenantOrder]);
 
   const isTrackedActiveDeliveryOrder = useCallback((order) => {
-    return isTenantOrder(order) && order?.delivery_method === 'delivery' && ACTIVE_DELIVERY_STATUSES.has(order?.status);
+    return (
+      isTenantOrder(order) &&
+      order?.delivery_method === 'delivery' &&
+      ACTIVE_DELIVERY_FLOW_STATUSES.has(getOrderDeliveryStatus(order))
+    );
   }, [isTenantOrder]);
 
   const isAssignedToCurrentEntregador = useCallback((order) => {
@@ -254,7 +262,7 @@ export default function Entregador() {
 
   // Tocar som quando novo pedido chega
   useEffect(() => {
-    const activeCount = activeOrders.filter(o => o.status === ORDER_STATUS.OUT_FOR_DELIVERY).length;
+    const activeCount = activeOrders.filter((order) => getOrderDeliveryStatus(order) === ORDER_DELIVERY_STATUS.OUT_FOR_DELIVERY).length;
     if (activeCount > prevOrderCountRef.current && entregador?.sound_enabled !== false) {
       if (audioRef.current) {
         audioRef.current.volume = 1.0;
@@ -300,9 +308,9 @@ export default function Entregador() {
   }, [activeOrder, geocodedLocation]);
 
   const updateStatusMutation = useMutation({
-    mutationFn: ({ orderId, status }) => updateOrder(orderId, { 
-      status,
-      delivered_at: status === 'delivered' ? new Date().toISOString() : undefined
+    mutationFn: ({ orderId, deliveryStatus }) => updateOrder(orderId, { 
+      delivery_status: deliveryStatus,
+      delivered_at: deliveryStatus === ORDER_DELIVERY_STATUS.DELIVERED ? new Date().toISOString() : undefined
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: deliveryOrdersKey });
@@ -393,7 +401,10 @@ export default function Entregador() {
     const order = showProofModal;
     
     // Atualizar status para entregue
-    updateStatusMutation.mutate({ orderId: order.id, status: 'delivered' });
+    updateStatusMutation.mutate({
+      orderId: order.id,
+      deliveryStatus: ORDER_DELIVERY_STATUS.DELIVERED,
+    });
     
     // Atualizar entregador
     if (!entregador._isMaster) {
@@ -515,8 +526,7 @@ export default function Entregador() {
     setCancelSubmitting(true);
     try {
       await updateOrder(order.id, {
-        ...order,
-        status: 'cancelled',
+        delivery_status: ORDER_DELIVERY_STATUS.CANCELLED,
         rejection_reason: `Cancelado pelo entregador: ${reason}`,
       });
 
@@ -1072,9 +1082,8 @@ export default function Entregador() {
                       const store = stores[0];
 
                       await updateOrder(order.id, {
-                        ...order,
                         entregador_id: entregador.id,
-                        status: 'going_to_store',
+                        delivery_status: ORDER_DELIVERY_STATUS.GOING_TO_STORE,
                         store_latitude: store?.store_latitude || -5.0892,
                         store_longitude: store?.store_longitude || -42.8019
                       });
@@ -1159,8 +1168,8 @@ export default function Entregador() {
                       <Badge className="bg-gradient-to-r from-blue-600 to-blue-500 text-white font-bold px-2 md:px-3 py-1 shadow-lg text-xs">
                         #{order.order_code}
                       </Badge>
-                      <Badge className={statusMeta[order.status]?.badge || 'bg-gray-500 text-white'}>
-                        {statusMeta[order.status]?.label || 'Em andamento'}
+                      <Badge className={statusMeta[getOrderDeliveryStatus(order)]?.badge || 'bg-gray-500 text-white'}>
+                        {statusMeta[getOrderDeliveryStatus(order)]?.label || 'Em andamento'}
                       </Badge>
                       <span className={`text-xs font-medium ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                         {getTimeSince(order.created_date)}
@@ -1188,7 +1197,7 @@ export default function Entregador() {
 
                 {/* Progress Bar */}
                 <div className="mb-5">
-                  <DeliveryProgressBar status={order.status} darkMode={darkMode} />
+                  <DeliveryProgressBar status={getOrderDisplayStatus(order)} darkMode={darkMode} />
                 </div>
 
                 {/* Order Items Detail */}
@@ -1288,11 +1297,11 @@ export default function Entregador() {
 
                 <div className={`mb-3 p-3 rounded-xl border ${darkMode ? 'bg-gray-800/70 border-gray-700 text-gray-200' : 'bg-slate-50 border-slate-200 text-slate-700'}`}>
                   <p className="text-[11px] uppercase tracking-wide font-semibold opacity-80 mb-1">Proxima acao operacional</p>
-                  <p className="text-sm font-semibold">{statusMeta[order.status]?.nextStep || 'Acompanhar progresso da entrega'}</p>
+                  <p className="text-sm font-semibold">{statusMeta[getOrderDeliveryStatus(order)]?.nextStep || 'Acompanhar progresso da entrega'}</p>
                 </div>
 
                 {/* Botões baseados no status */}
-                {order.status === 'going_to_store' ? (
+                {getOrderDeliveryStatus(order) === ORDER_DELIVERY_STATUS.GOING_TO_STORE ? (
                   // Indo ao restaurante - botão cheguei
                   <div className="space-y-3">
                     <motion.div
@@ -1327,8 +1336,7 @@ export default function Entregador() {
                               order,
                               nextStatus: 'arrived_at_store',
                               payload: {
-                                ...order,
-                                status: 'arrived_at_store'
+                                delivery_status: ORDER_DELIVERY_STATUS.ARRIVED_AT_STORE,
                               },
                               successMessage: 'Chegada ao restaurante confirmada',
                               errorMessage: 'Erro ao confirmar chegada ao restaurante'
@@ -1343,7 +1351,7 @@ export default function Entregador() {
                       </motion.div>
                     </div>
                   </div>
-                ) : order.status === 'arrived_at_store' ? (
+                ) : getOrderDeliveryStatus(order) === ORDER_DELIVERY_STATUS.ARRIVED_AT_STORE ? (
                   // Chegou no restaurante - aguardando código
                   <div className="space-y-3">
                     <div>
@@ -1388,8 +1396,7 @@ export default function Entregador() {
                             order,
                             nextStatus: 'picked_up',
                             payload: {
-                              ...order,
-                              status: 'picked_up',
+                              delivery_status: ORDER_DELIVERY_STATUS.PICKED_UP,
                               picked_up_at: new Date().toISOString()
                             },
                             successMessage: 'Coleta confirmada',
@@ -1411,7 +1418,7 @@ export default function Entregador() {
                       </Button>
                     </motion.div>
                   </div>
-                ) : order.status === 'picked_up' ? (
+                ) : getOrderDeliveryStatus(order) === ORDER_DELIVERY_STATUS.PICKED_UP ? (
                   // Coletou o pedido - agora pode sair para entrega
                   <div className="space-y-3">
                     <motion.div
@@ -1435,8 +1442,7 @@ export default function Entregador() {
                             order,
                             nextStatus: 'out_for_delivery',
                             payload: {
-                              ...order,
-                              status: 'out_for_delivery'
+                              delivery_status: ORDER_DELIVERY_STATUS.OUT_FOR_DELIVERY,
                             },
                             successMessage: 'Entrega iniciada',
                             errorMessage: 'Erro ao iniciar entrega'
@@ -1450,7 +1456,7 @@ export default function Entregador() {
                       </Button>
                     </motion.div>
                   </div>
-                ) : order.status === 'out_for_delivery' ? (
+                ) : getOrderDeliveryStatus(order) === ORDER_DELIVERY_STATUS.OUT_FOR_DELIVERY ? (
                   // Indo ao cliente - botão cheguei
                   <div className="space-y-3">
                     <motion.div
@@ -1485,8 +1491,7 @@ export default function Entregador() {
                               order,
                               nextStatus: 'arrived_at_customer',
                               payload: {
-                                ...order,
-                                status: 'arrived_at_customer'
+                                delivery_status: ORDER_DELIVERY_STATUS.ARRIVED_AT_CUSTOMER,
                               },
                               successMessage: 'Chegada ao cliente confirmada',
                               errorMessage: 'Erro ao confirmar chegada ao cliente'
@@ -1501,7 +1506,7 @@ export default function Entregador() {
                       </motion.div>
                     </div>
                   </div>
-                ) : order.status === 'arrived_at_customer' ? (
+                ) : getOrderDeliveryStatus(order) === ORDER_DELIVERY_STATUS.ARRIVED_AT_CUSTOMER ? (
                   // Chegou no cliente - validação de código
                   <div className="space-y-3 md:space-y-4">
                     <div>

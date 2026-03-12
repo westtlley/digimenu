@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken';
 import { Server } from 'socket.io';
 
 import * as repo from '../db/repository.js';
+import { decorateOrderEntity } from '../utils/orderLifecycle.js';
 
 let io = null;
 
@@ -368,18 +369,20 @@ export function setupWebSocket(server) {
 export function emitOrderUpdate(order) {
   if (!io) return;
 
-  const subscriberEmail = normalizeEmail(order.owner_email || order.subscriber_email);
-  const customerEmail = normalizeEmail(order.customer_email);
-  const customerPhone = normalizePhone(order.customer_phone);
+  const normalizedOrder = decorateOrderEntity(order);
 
-  emitTenantScoped('order:updated', subscriberEmail, order, ['orders', 'kitchen', 'delivery']);
+  const subscriberEmail = normalizeEmail(normalizedOrder.owner_email || normalizedOrder.subscriber_email);
+  const customerEmail = normalizeEmail(normalizedOrder.customer_email);
+  const customerPhone = normalizePhone(normalizedOrder.customer_phone);
+
+  emitTenantScoped('order:updated', subscriberEmail, normalizedOrder, ['orders', 'kitchen', 'delivery']);
 
   if (customerEmail) {
-    io.to(`customer:${customerEmail}`).emit('order:updated', order);
+    io.to(`customer:${customerEmail}`).emit('order:updated', normalizedOrder);
   }
 
   if (customerPhone) {
-    io.to(`customer:phone:${customerPhone}`).emit('order:updated', order);
+    io.to(`customer:phone:${customerPhone}`).emit('order:updated', normalizedOrder);
   }
 }
 
@@ -389,8 +392,9 @@ export function emitOrderUpdate(order) {
 export function emitOrderCreated(order) {
   if (!io) return;
 
-  const subscriberEmail = normalizeEmail(order.owner_email || order.subscriber_email);
-  emitTenantScoped('order:created', subscriberEmail, order, ['orders', 'kitchen', 'delivery']);
+  const normalizedOrder = decorateOrderEntity(order);
+  const subscriberEmail = normalizeEmail(normalizedOrder.owner_email || normalizedOrder.subscriber_email);
+  emitTenantScoped('order:created', subscriberEmail, normalizedOrder, ['orders', 'kitchen', 'delivery']);
 }
 
 /**
