@@ -23,6 +23,19 @@ export default function LoginAdmin() {
   const [searchParams] = useSearchParams();
   const returnUrl = searchParams.get('returnUrl') || '/Admin';
 
+  const buildFreshReturnUrl = (path) => {
+    const safePath = typeof path === 'string' && path.startsWith('/') ? path : '/Admin';
+    if (typeof window === 'undefined') return safePath;
+
+    try {
+      const url = new URL(safePath, window.location.origin);
+      url.searchParams.set('_boot', Date.now().toString());
+      return `${url.pathname}${url.search}${url.hash}`;
+    } catch {
+      return safePath;
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -44,7 +57,7 @@ export default function LoginAdmin() {
         
         if (userData?.is_master) {
           toast.success('Acesso autorizado');
-          setTimeout(() => navigate(returnUrl), 400);
+          setTimeout(() => navigate(buildFreshReturnUrl(returnUrl), { replace: true }), 400);
         } else {
           setError('Acesso restrito a administradores master');
           toast.error('Acesso nÃ£o autorizado');

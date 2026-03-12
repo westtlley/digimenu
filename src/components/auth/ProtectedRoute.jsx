@@ -49,8 +49,17 @@ export default function ProtectedRoute({
           return;
         }
 
-        // Obter dados do usuário
-        const userData = await base44.auth.me();
+        // Obter dados do usuário e contexto canônico do backend
+        const rawUserData = await base44.auth.me();
+        let contextData = null;
+        try {
+          contextData = await base44.get('/user/context', { _t: Date.now() });
+        } catch (contextError) {
+          logger.warn('[ProtectedRoute] Falha ao carregar /user/context, usando auth.me()', contextError);
+        }
+
+        const userData = contextData?.user || rawUserData;
+        const canonicalSubscriberData = contextData?.subscriberData || null;
         setUser(userData);
 
         // Verificar se requer master
@@ -132,46 +141,15 @@ export default function ProtectedRoute({
           }
 
           try {
-            const result = await base44.functions.invoke('checkSubscriptionStatus', {
-              user_email: userData.email
-            });
-
-            const subscriber = result.data?.subscriber;
-            
-            // Se encontrou assinante e está ativo, permitir acesso
-            if (subscriber && subscriber.status === 'active') {
-              setSubscriberData(subscriber);
+            if (canonicalSubscriberData) {
+              setSubscriberData(canonicalSubscriberData);
+              setAuthorized(canonicalSubscriberData.status === 'active');
+            } else if (userData.subscriber_email || userData.role !== 'customer') {
               setAuthorized(true);
-            } 
-            // Se encontrou assinante mas está inativo, bloquear
-            else if (subscriber && subscriber.status !== 'active') {
+              setSubscriberData(null);
+            } else {
               setAuthorized(false);
-              setSubscriberData(subscriber);
-            }
-            // Se não encontrou assinante:
-            // - Se o usuário tem subscriber_email, pode ser problema na busca - permitir e deixar PainelAssinante verificar
-            // - Se não tem subscriber_email mas não é cliente (role !== 'customer'), pode ser assinante - permitir e deixar PainelAssinante verificar
-            // - Se é cliente (role === 'customer'), bloquear (clientes não acessam PainelAssinante)
-            else {
-              // Verificar se o usuário tem subscriber_email (indica que deveria ter assinante)
-              if (userData.subscriber_email) {
-                // Tem subscriber_email mas não encontrou assinante - pode ser problema temporário
-                // Permitir acesso e deixar PainelAssinante fazer verificação mais detalhada
-                setAuthorized(true);
-                setSubscriberData(null);
-              } 
-              // Se não tem subscriber_email mas não é cliente, pode ser assinante (subscriber_email pode ser null para assinantes)
-              // Permitir acesso e deixar PainelAssinante verificar (ele usa usePermission que tem lógica mais robusta)
-              else if (userData.role !== 'customer') {
-                // Não é cliente - pode ser assinante sem subscriber_email preenchido
-                // Permitir acesso e deixar PainelAssinante fazer verificação mais detalhada
-                setAuthorized(true);
-                setSubscriberData(null);
-              } else {
-                // É cliente - não deve acessar PainelAssinante
-                setAuthorized(false);
-                setSubscriberData(null);
-              }
+              setSubscriberData(null);
             }
           } catch (error) {
             logger.error('Error checking subscription:', error);
