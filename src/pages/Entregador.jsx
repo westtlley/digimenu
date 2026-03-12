@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
@@ -16,6 +16,7 @@ import { createPageUrl } from '@/utils';
 import { useSlugContext } from '@/hooks/useSlugContext';
 import { useEntregador } from '@/hooks/useEntregador';
 import { useDeliveryOrders } from '@/hooks/useDeliveryOrders';
+import { useOperationalOrdersRealtime } from '@/hooks/useOperationalOrdersRealtime';
 import { useGeocoding } from '@/hooks/useGeocoding';
 import { useDebounce } from '@/hooks/useDebounce';
 import { formatCurrency, formatPhone, formatRelativeTime } from '@/utils/formatters';
@@ -49,6 +50,34 @@ import QuickReportModal from '../components/entregador/QuickReportModal';
 import OrderItemsDetail from '../components/entregador/OrderItemsDetail';
 import DeliveryDashboard from '../components/entregador/DeliveryDashboard';
 import { usePermission } from '../components/permissions/usePermission';
+
+const ACTIVE_DELIVERY_STATUSES = new Set([
+  ORDER_STATUS.GOING_TO_STORE,
+  ORDER_STATUS.ARRIVED_AT_STORE,
+  ORDER_STATUS.PICKED_UP,
+  ORDER_STATUS.OUT_FOR_DELIVERY,
+  ORDER_STATUS.ARRIVED_AT_CUSTOMER,
+]);
+
+function upsertOrderById(currentOrders, incomingOrder) {
+  const list = Array.isArray(currentOrders) ? [...currentOrders] : [];
+  const existingIndex = list.findIndex((order) => String(order?.id) === String(incomingOrder?.id));
+
+  if (existingIndex >= 0) {
+    list[existingIndex] = {
+      ...list[existingIndex],
+      ...incomingOrder,
+    };
+    return list;
+  }
+
+  return [incomingOrder, ...list];
+}
+
+function removeOrderById(currentOrders, orderId) {
+  const list = Array.isArray(currentOrders) ? currentOrders : [];
+  return list.filter((order) => String(order?.id) !== String(orderId));
+}
 
 export default function Entregador() {
   const [deliveryCodeInput, setDeliveryCodeInput] = useState({});
@@ -120,9 +149,84 @@ export default function Entregador() {
   const availableOrdersKey = useMemo(() => ['availableOrders', tenantScope], [tenantScope]);
   const gestorOrdersKey = useMemo(() => ['gestorOrders', asSubscriber ?? 'me'], [asSubscriber]);
   const entregadoresKey = useMemo(() => ['entregadores', asSubscriber ?? 'me'], [asSubscriber]);
+  const realtimeRefetchTimeoutRef = useRef(null);
   const updateOrder = (orderId, payload) => base44.entities.Order.update(orderId, payload, entityOpts);
   const updateEntregador = (entregadorId, payload) => base44.entities.Entregador.update(entregadorId, payload, entityOpts);
   const listStores = () => base44.entities.Store.list(null, entityOpts);
+
+  const normalizeTenantEmail = useCallback((value) => {
+    const normalized = String(value || '').toLowerCase().trim();
+    return normalized || null;
+  }, []);
+
+  const isTenantOrder = useCallback((order) => {
+    const orderTenant = normalizeTenantEmail(order?.owner_email || order?.subscriber_email);
+    return Boolean(order?.id && tenantIdentifier && (!orderTenant || orderTenant === tenantIdentifier));
+  }, [normalizeTenantEmail, tenantIdentifier]);
+
+  const isAvailableDeliveryOrder = useCallback((order) => {
+    return isTenantOrder(order) && order?.delivery_method === 'delivery' && order?.status === ORDER_STATUS.READY && !order?.entregador_id;
+  }, [isTenantOrder]);
+
+  const isTrackedActiveDeliveryOrder = useCallback((order) => {
+    return isTenantOrder(order) && order?.delivery_method === 'delivery' && ACTIVE_DELIVERY_STATUSES.has(order?.status);
+  }, [isTenantOrder]);
+
+  const isAssignedToCurrentEntregador = useCallback((order) => {
+    if (!isTenantOrder(order) || !entregador?.id) return false;
+    return order?.delivery_method === 'delivery' && String(order?.entregador_id || '') === String(entregador.id);
+  }, [entregador?.id, isTenantOrder]);
+
+  const scheduleRealtimeSync = useCallback(() => {
+    if (realtimeRefetchTimeoutRef.current) return;
+
+    realtimeRefetchTimeoutRef.current = setTimeout(() => {
+      realtimeRefetchTimeoutRef.current = null;
+      queryClient.invalidateQueries({ queryKey: deliveryOrdersKey });
+      queryClient.invalidateQueries({ queryKey: allDeliveryOrdersKey });
+      queryClient.invalidateQueries({ queryKey: availableOrdersKey });
+      queryClient.invalidateQueries({ queryKey: gestorOrdersKey });
+    }, 250);
+  }, [allDeliveryOrdersKey, availableOrdersKey, deliveryOrdersKey, gestorOrdersKey, queryClient]);
+
+  const handleRealtimeDeliveryOrder = useCallback((order) => {
+    if (!isTenantOrder(order)) return;
+
+    queryClient.setQueryData(availableOrdersKey, (current) => {
+      if (isAvailableDeliveryOrder(order)) {
+        return upsertOrderById(current, order);
+      }
+      return removeOrderById(current, order.id);
+    });
+
+    queryClient.setQueryData(deliveryOrdersKey, (current) => {
+      if (!entregador?.id) return current;
+      if (isAssignedToCurrentEntregador(order)) {
+        return upsertOrderById(current, order);
+      }
+      return removeOrderById(current, order.id);
+    });
+
+    queryClient.setQueryData(allDeliveryOrdersKey, (current) => {
+      if (isTrackedActiveDeliveryOrder(order)) {
+        return upsertOrderById(current, order);
+      }
+      return removeOrderById(current, order.id);
+    });
+
+    scheduleRealtimeSync();
+  }, [
+    allDeliveryOrdersKey,
+    availableOrdersKey,
+    deliveryOrdersKey,
+    entregador?.id,
+    isAssignedToCurrentEntregador,
+    isAvailableDeliveryOrder,
+    isTenantOrder,
+    isTrackedActiveDeliveryOrder,
+    queryClient,
+    scheduleRealtimeSync,
+  ]);
 
   // Critical Notifications System
   const criticalNotifications = useCriticalNotifications(entregador?.id, {
@@ -213,7 +317,7 @@ export default function Entregador() {
 
   // Buscar pedidos disponíveis para aceitar (status: ready, delivery)
   const { data: availableOrders = [] } = useQuery({
-    queryKey: ['availableOrders', tenantScope],
+    queryKey: availableOrdersKey,
     queryFn: async () => {
       const orders = await base44.entities.Order.filter({
         status: 'ready',
@@ -224,8 +328,26 @@ export default function Entregador() {
       return orders.filter(o => !o.entregador_id);
     },
     enabled: !!entregador && entregador.status === 'available',
-    refetchInterval: 3000,
+    refetchInterval: 10000,
   });
+
+  useOperationalOrdersRealtime({
+    roomType: 'delivery',
+    enabled: canAccessDeliveryApp && !!tenantIdentifier && !!user,
+    asSubscriber: asSubscriber || null,
+    onOrderCreated: handleRealtimeDeliveryOrder,
+    onOrderUpdated: handleRealtimeDeliveryOrder,
+    onSocketUnavailable: () => {
+      console.warn('Realtime do entregador indisponivel. Polling segue como fallback.');
+    },
+  });
+
+  useEffect(() => () => {
+    if (realtimeRefetchTimeoutRef.current) {
+      clearTimeout(realtimeRefetchTimeoutRef.current);
+      realtimeRefetchTimeoutRef.current = null;
+    }
+  }, []);
 
   const toggleAvailabilityMutation = useMutation({
     mutationFn: async () => {

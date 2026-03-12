@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { apiClient as base44 } from '@/api/apiClient';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ChefHat, Loader2, LogOut, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useSlugContext } from '@/hooks/useSlugContext';
+import { useOperationalOrdersRealtime } from '@/hooks/useOperationalOrdersRealtime';
 import { usePermission } from '@/components/permissions/usePermission';
 import toast from 'react-hot-toast';
 import KitchenDisplay from '@/components/cozinha/KitchenDisplay';
@@ -32,6 +33,47 @@ export default function Cozinha() {
   const scopedEntityOpts = asSub ? { as_subscriber: asSub } : {};
   const cozinhaOrdersKey = useMemo(() => ['cozinhaOrders', tenantScope], [tenantScope]);
   const gestorOrdersKey = useMemo(() => ['gestorOrders', asSub ?? 'me'], [asSub]);
+  const realtimeRefetchTimeoutRef = useRef(null);
+
+  const normalizeTenantEmail = useCallback((value) => {
+    const normalized = String(value || '').toLowerCase().trim();
+    return normalized || null;
+  }, []);
+
+  const scheduleRealtimeSync = useCallback(() => {
+    if (realtimeRefetchTimeoutRef.current) return;
+
+    realtimeRefetchTimeoutRef.current = setTimeout(() => {
+      realtimeRefetchTimeoutRef.current = null;
+      queryClient.invalidateQueries({ queryKey: cozinhaOrdersKey });
+      queryClient.invalidateQueries({ queryKey: gestorOrdersKey });
+      queryClient.invalidateQueries({ queryKey: ['availableOrders', tenantScope] });
+    }, 250);
+  }, [cozinhaOrdersKey, gestorOrdersKey, queryClient, tenantScope]);
+
+  const handleRealtimeKitchenOrder = useCallback((order) => {
+    const orderTenant = normalizeTenantEmail(order?.owner_email || order?.subscriber_email);
+    if (!order?.id || !tenantIdentifier || (orderTenant && orderTenant !== tenantIdentifier)) {
+      return;
+    }
+
+    queryClient.setQueryData(cozinhaOrdersKey, (current) => {
+      const list = Array.isArray(current) ? [...current] : [];
+      const existingIndex = list.findIndex((item) => String(item?.id) === String(order.id));
+
+      if (existingIndex >= 0) {
+        list[existingIndex] = {
+          ...list[existingIndex],
+          ...order,
+        };
+        return list;
+      }
+
+      return [order, ...list];
+    });
+
+    scheduleRealtimeSync();
+  }, [cozinhaOrdersKey, normalizeTenantEmail, queryClient, scheduleRealtimeSync, tenantIdentifier]);
 
   useEffect(() => {
     if (slugLoading) return;
@@ -97,8 +139,26 @@ export default function Cozinha() {
     queryKey: cozinhaOrdersKey,
     queryFn: () => base44.entities.Order.list('-created_date', scopedEntityOpts),
     enabled: allowed && !!user,
-    refetchInterval: 8000,
+    refetchInterval: 15000,
   });
+
+  useOperationalOrdersRealtime({
+    roomType: 'kitchen',
+    enabled: allowed && !!user && !!tenantIdentifier,
+    asSubscriber: asSub || null,
+    onOrderCreated: handleRealtimeKitchenOrder,
+    onOrderUpdated: handleRealtimeKitchenOrder,
+    onSocketUnavailable: () => {
+      console.warn('Realtime da cozinha indisponivel. Polling segue como fallback.');
+    },
+  });
+
+  useEffect(() => () => {
+    if (realtimeRefetchTimeoutRef.current) {
+      clearTimeout(realtimeRefetchTimeoutRef.current);
+      realtimeRefetchTimeoutRef.current = null;
+    }
+  }, []);
 
   const updateMu = useMutation({
     mutationFn: ({ id, updates }) => base44.entities.Order.update(id, updates, scopedEntityOpts),
