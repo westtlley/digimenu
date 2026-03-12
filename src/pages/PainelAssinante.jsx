@@ -48,6 +48,7 @@ import InventoryManagement from '../components/admin/InventoryManagement';
 import AffiliateProgram from '../components/admin/AffiliateProgram';
 import AccessDenied from '@/components/admin/AccessDenied';
 import PanelShell from '@/components/layout/PanelShell';
+import ErrorBoundary from '@/components/ErrorBoundary';
 
 export default function PainelAssinante() {
   // ✅ TODOS OS HOOKS DEVEM VIR ANTES DE QUALQUER RETURN CONDICIONAL
@@ -481,7 +482,9 @@ export default function PainelAssinante() {
                 />
               </div>
             )}
-            {renderContent()}
+            <ErrorBoundary>
+              {renderContent()}
+            </ErrorBoundary>
         </PanelShell>
       </div>
     </div>

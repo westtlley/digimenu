@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,6 +23,7 @@ import { usePermission } from '../permissions/usePermission';
 import { useOrders } from '@/hooks/useOrders';
 import { useMenuDishes, useMenuCategories } from '@/hooks/useMenuData';
 import { useSlugContext } from '@/hooks/useSlugContext';
+import { ensureArray } from '@/utils/safeFetch';
 
 export default function DashboardTab({ user, subscriberData, onNavigateToTab }) {
   const [copiedLink, setCopiedLink] = useState(false);
@@ -66,23 +67,49 @@ export default function DashboardTab({ user, subscriberData, onNavigateToTab }) 
   const { data: dishes = [] } = useMenuDishes();
   const { data: categories = [] } = useMenuCategories();
 
+  const safeOrders = useMemo(
+    () =>
+      ensureArray(orders)
+        .filter((order) => order && typeof order === 'object')
+        .map((order) => ({
+          ...order,
+          items: ensureArray(order.items).filter((item) => item && typeof item === 'object'),
+        })),
+    [orders]
+  );
+
+  const safeDishes = useMemo(
+    () => ensureArray(dishes).filter((dish) => dish && typeof dish === 'object'),
+    [dishes]
+  );
+
+  const safeCategories = useMemo(
+    () => ensureArray(categories).filter((category) => category && typeof category === 'object'),
+    [categories]
+  );
+
+  const safePdvSales = useMemo(
+    () => ensureArray(pdvSales).filter((sale) => sale && typeof sale === 'object'),
+    [pdvSales]
+  );
+
   // Cálculos: exclui cancelados; faturamento só de entregues
   const today = moment().startOf('day');
-  const todayOrders = (orders || []).filter(o => moment(o.created_date).isSame(today, 'day') && o.status !== 'cancelled');
+  const todayOrders = safeOrders.filter(o => moment(o.created_date).isSame(today, 'day') && o.status !== 'cancelled');
   const todayRevenue = todayOrders.filter(o => o.status === 'delivered').reduce((sum, o) => sum + (o.total || 0), 0);
   
   const thisMonth = moment().startOf('month');
-  const monthOrders = (orders || []).filter(o => moment(o.created_date).isSameOrAfter(thisMonth) && o.status !== 'cancelled');
+  const monthOrders = safeOrders.filter(o => moment(o.created_date).isSameOrAfter(thisMonth) && o.status !== 'cancelled');
   const monthRevenue = monthOrders.filter(o => o.status === 'delivered').reduce((sum, o) => sum + (o.total || 0), 0);
 
-  const newOrders = orders.filter(o => o.status === 'new').length;
-  const preparingOrders = orders.filter(o => ['accepted', 'preparing'].includes(o.status)).length;
-  const readyOrders = orders.filter(o => o.status === 'ready').length;
-  const deliveringOrders = orders.filter(o => o.status === 'out_for_delivery').length;
+  const newOrders = safeOrders.filter(o => o.status === 'new').length;
+  const preparingOrders = safeOrders.filter(o => ['accepted', 'preparing'].includes(o.status)).length;
+  const readyOrders = safeOrders.filter(o => o.status === 'ready').length;
+  const deliveringOrders = safeOrders.filter(o => o.status === 'out_for_delivery').length;
   const pendingOrders = newOrders + preparingOrders + readyOrders + deliveringOrders;
 
-  const activeDishes = dishes.filter(d => d.is_active !== false).length;
-  const inactiveDishes = dishes.filter(d => d.is_active === false).length;
+  const activeDishes = safeDishes.filter(d => d.is_active !== false).length;
+  const inactiveDishes = safeDishes.filter(d => d.is_active === false).length;
 
   const daysRemaining = subscriberData?.expires_at
     ? moment(subscriberData.expires_at).diff(moment(), 'days')
@@ -113,7 +140,7 @@ export default function DashboardTab({ user, subscriberData, onNavigateToTab }) 
 
   const exportOrdersCSV = () => {
     const headers = ['Data', 'Código', 'Cliente', 'Status', 'Pagamento', 'Total'];
-    const rows = orders.map((o) => [
+    const rows = safeOrders.map((o) => [
       formatBrazilianDateTime(o.created_date),
       o.order_code || o.id?.toString().slice(-6),
       o.customer_name || '',
@@ -149,10 +176,10 @@ export default function DashboardTab({ user, subscriberData, onNavigateToTab }) 
       </div>
 
       {/* KPIs essenciais (primeira dobra) */}
-      <DashboardMetrics orders={orders} dishes={dishes} pdvSales={pdvSales} />
+      <DashboardMetrics orders={safeOrders} dishes={safeDishes} pdvSales={safePdvSales} />
 
       {/* Gráficos de Vendas: no máximo 2 úteis (condicional por shouldShowChart) */}
-      {(orders.length > 0 || pdvSales.length > 0) && <DashboardCharts orders={orders} pdvSales={pdvSales} />}
+      {(safeOrders.length > 0 || safePdvSales.length > 0) && <DashboardCharts orders={safeOrders} pdvSales={safePdvSales} />}
       {menuContext && <CommercialAnalyticsPanel menuContext={menuContext} />}
 
       {/* Stats Cards Rápidos */}
@@ -236,11 +263,11 @@ export default function DashboardTab({ user, subscriberData, onNavigateToTab }) 
       </Card>
 
       {/* Análises Avançadas (Indicadores + Métodos + Insights colapsáveis) */}
-      {orders.length > 0 && (
+      {safeOrders.length > 0 && (
         <DashboardAdvancedAnalytics 
-          orders={orders} 
-          dishes={dishes} 
-          categories={categories} 
+          orders={safeOrders} 
+          dishes={safeDishes} 
+          categories={safeCategories} 
         />
       )}
 

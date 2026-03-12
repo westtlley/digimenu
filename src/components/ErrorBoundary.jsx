@@ -2,6 +2,8 @@ import React from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
+const isDev = typeof import.meta !== 'undefined' && import.meta.env?.DEV;
+
 class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
@@ -33,7 +35,7 @@ class ErrorBoundary extends React.Component {
             <p className="text-gray-600 dark:text-gray-400 mb-6">
               Ocorreu um erro inesperado. Por favor, tente recarregar a página.
             </p>
-            {process.env.NODE_ENV === 'development' && this.state.error && (
+            {isDev && this.state.error && (
               <details className="mb-4 text-left">
                 <summary className="cursor-pointer text-sm text-gray-500 dark:text-gray-400 mb-2">
                   Detalhes do erro (desenvolvimento)

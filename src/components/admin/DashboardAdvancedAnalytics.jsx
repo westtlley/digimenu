@@ -11,17 +11,51 @@ import { Input } from "@/components/ui/input";
 
 const COLORS = ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'];
 
-export default function DashboardAdvancedAnalytics({ orders = [], dishes = [], categories = [] }) {
-  const [period, setPeriod] = useState('7');
-  const [revenueTarget, setRevenueTarget] = useState(() => {
+function readRevenueTarget() {
+  try {
     const saved = localStorage.getItem('dashboard_revenue_target');
     return saved ? parseFloat(saved) : 0;
-  });
+  } catch (_error) {
+    return 0;
+  }
+}
+
+function getStorageLength() {
+  try {
+    return localStorage.length;
+  } catch (_error) {
+    return 0;
+  }
+}
+
+function getStorageKey(index) {
+  try {
+    return localStorage.key(index);
+  } catch (_error) {
+    return null;
+  }
+}
+
+function getStorageItem(key) {
+  try {
+    return localStorage.getItem(key);
+  } catch (_error) {
+    return null;
+  }
+}
+
+export default function DashboardAdvancedAnalytics({ orders = [], dishes = [], categories = [] }) {
+  const [period, setPeriod] = useState('7');
+  const [revenueTarget, setRevenueTarget] = useState(() => readRevenueTarget());
   const { isDark } = useTheme();
 
   useEffect(() => {
     if (revenueTarget > 0) {
-      localStorage.setItem('dashboard_revenue_target', revenueTarget.toString());
+      try {
+        localStorage.setItem('dashboard_revenue_target', revenueTarget.toString());
+      } catch (_error) {
+        // Ignorar indisponibilidade de storage no browser atual.
+      }
     }
   }, [revenueTarget]);
 
@@ -183,10 +217,10 @@ export default function DashboardAdvancedAnalytics({ orders = [], dishes = [], c
     
     try {
       // Contar chaves de carrinho no localStorage
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
+      for (let i = 0; i < getStorageLength(); i++) {
+        const key = getStorageKey(i);
         if (key && key.startsWith('cardapio_cart_')) {
-          const cartData = localStorage.getItem(key);
+          const cartData = getStorageItem(key);
           if (cartData) {
             try {
               const cart = JSON.parse(cartData);
