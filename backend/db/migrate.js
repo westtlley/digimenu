@@ -224,6 +224,40 @@ export async function migrate() {
           );
         `);
 
+        // Bancos antigos podem ter analytics_events sem colunas novas (ex: slug).
+        // Garantimos compatibilidade antes de criar índices nessas colunas.
+        await query(`
+          DO $$
+          BEGIN
+            IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='analytics_events') THEN
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='analytics_events' AND column_name='event_category') THEN
+                ALTER TABLE analytics_events ADD COLUMN event_category VARCHAR(60);
+              END IF;
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='analytics_events' AND column_name='subscriber_email') THEN
+                ALTER TABLE analytics_events ADD COLUMN subscriber_email VARCHAR(255);
+              END IF;
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='analytics_events' AND column_name='slug') THEN
+                ALTER TABLE analytics_events ADD COLUMN slug VARCHAR(120);
+              END IF;
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='analytics_events' AND column_name='session_id') THEN
+                ALTER TABLE analytics_events ADD COLUMN session_id VARCHAR(120);
+              END IF;
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='analytics_events' AND column_name='path') THEN
+                ALTER TABLE analytics_events ADD COLUMN path TEXT;
+              END IF;
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='analytics_events' AND column_name='user_id') THEN
+                ALTER TABLE analytics_events ADD COLUMN user_id VARCHAR(255);
+              END IF;
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='analytics_events' AND column_name='properties') THEN
+                ALTER TABLE analytics_events ADD COLUMN properties JSONB DEFAULT '{}'::jsonb;
+              END IF;
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='analytics_events' AND column_name='created_at') THEN
+                ALTER TABLE analytics_events ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+              END IF;
+            END IF;
+          END $$;
+        `);
+
         await query(`
           CREATE INDEX IF NOT EXISTS idx_analytics_events_name_created
           ON analytics_events(event_name, created_at DESC);
