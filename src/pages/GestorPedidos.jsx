@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { 
@@ -36,7 +36,37 @@ import InstallAppButton from '../components/InstallAppButton';
 import { useManagerialAuth } from '@/hooks/useManagerialAuth';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useEntitlements } from '@/hooks/useEntitlements';
+import { useOperationalOrdersRealtime } from '@/hooks/useOperationalOrdersRealtime';
 import { LimitBlockModal } from '@/components/plans';
+
+function getOrderCreatedAtTimestamp(order) {
+  const value = order?.created_date ? new Date(order.created_date).getTime() : 0;
+  return Number.isFinite(value) ? value : 0;
+}
+
+function sortOrdersByCreatedDateDesc(list) {
+  return [...list].sort((left, right) => getOrderCreatedAtTimestamp(right) - getOrderCreatedAtTimestamp(left));
+}
+
+function upsertOrderById(list, order) {
+  const safeList = Array.isArray(list) ? [...list] : [];
+  const index = safeList.findIndex((item) => String(item?.id) === String(order?.id));
+
+  if (index >= 0) {
+    safeList[index] = {
+      ...safeList[index],
+      ...order,
+    };
+    return sortOrdersByCreatedDateDesc(safeList);
+  }
+
+  return sortOrdersByCreatedDateDesc([order, ...safeList]);
+}
+
+function removeOrderById(list, orderId) {
+  if (!Array.isArray(list)) return [];
+  return list.filter((item) => String(item?.id) !== String(orderId));
+}
 
 export default function GestorPedidos() {
   const [activeTab, setActiveTab] = useState('now'); // now, scheduled
@@ -69,6 +99,7 @@ export default function GestorPedidos() {
   const seenNewOrderIdsRef = useRef(new Set());
   const autoAcceptedIdsRef = useRef(new Set());
   const autoPrintedIdsRef = useRef(new Set());
+  const realtimeRefetchTimeoutRef = useRef(null);
   const queryClient = useQueryClient();
   const { isMaster, hasModuleAccess, canUpdate, loading: permLoading, user, subscriberData } = usePermission();
   const { slug, subscriberEmail, inSlugContext, loading: slugLoading, error: slugError } = useSlugContext();
@@ -81,6 +112,73 @@ export default function GestorPedidos() {
   // Em /s/:slug, master usa as_subscriber; assinante/colaborador jÃƒÂ¡ ÃƒÂ© filtrado pelo backend
   const asSub = (inSlugContext && isMaster && subscriberEmail) ? subscriberEmail : undefined;
   const canAccessSlug = !inSlugContext || isMaster || (user?.email || '').toLowerCase() === (subscriberEmail || '').toLowerCase() || (user?.subscriber_email || '').toLowerCase() === (subscriberEmail || '').toLowerCase();
+  const gestorOrdersKey = useMemo(() => ['gestorOrders', asSub ?? 'me'], [asSub]);
+  const entregadoresKey = useMemo(() => ['entregadores', asSub ?? 'me'], [asSub]);
+  const normalizeTenantEmail = useCallback((value) => String(value || '').toLowerCase().trim() || null, []);
+  const tenantIdentifier = useMemo(() => normalizeTenantEmail(asSub || user?.subscriber_email || user?.email), [
+    asSub,
+    normalizeTenantEmail,
+    user?.email,
+    user?.subscriber_email,
+  ]);
+
+  const isGestorRelevantOrder = useCallback((order) => {
+    if (!order?.id) return false;
+
+    const orderTenant = normalizeTenantEmail(order?.owner_email || order?.subscriber_email);
+    if (tenantIdentifier && orderTenant && orderTenant !== tenantIdentifier) {
+      return false;
+    }
+
+    const isPDV = String(order?.order_code || '').startsWith('PDV-');
+    const isBalcao = order?.delivery_method === 'balcao';
+    return !isPDV && !isBalcao;
+  }, [normalizeTenantEmail, tenantIdentifier]);
+
+  const scheduleRealtimeSync = useCallback(() => {
+    if (realtimeRefetchTimeoutRef.current) return;
+
+    realtimeRefetchTimeoutRef.current = setTimeout(() => {
+      realtimeRefetchTimeoutRef.current = null;
+      queryClient.invalidateQueries({ queryKey: gestorOrdersKey });
+      queryClient.invalidateQueries({ queryKey: entregadoresKey });
+    }, 250);
+  }, [entregadoresKey, gestorOrdersKey, queryClient]);
+
+  const handleRealtimeGestorOrder = useCallback((order) => {
+    const orderTenant = normalizeTenantEmail(order?.owner_email || order?.subscriber_email);
+    if (!order?.id || (tenantIdentifier && orderTenant && orderTenant !== tenantIdentifier)) {
+      return;
+    }
+
+    queryClient.setQueryData(gestorOrdersKey, (current) => {
+      if (isGestorRelevantOrder(order)) {
+        return upsertOrderById(current, order);
+      }
+
+      return removeOrderById(current, order.id);
+    });
+
+    scheduleRealtimeSync();
+  }, [
+    gestorOrdersKey,
+    isGestorRelevantOrder,
+    normalizeTenantEmail,
+    queryClient,
+    scheduleRealtimeSync,
+    tenantIdentifier,
+  ]);
+
+  useOperationalOrdersRealtime({
+    roomType: 'orders',
+    enabled: Boolean(user && hasAccess && canAccessSlug && tenantIdentifier),
+    asSubscriber: asSub || null,
+    onOrderCreated: handleRealtimeGestorOrder,
+    onOrderUpdated: handleRealtimeGestorOrder,
+    onSocketUnavailable: () => {
+      console.warn('[Gestor] Realtime indisponivel. Polling segue como fallback.');
+    },
+  });
 
   useEffect(() => {
     if (user && 'Notification' in window && Notification.permission === 'default') {
@@ -88,26 +186,30 @@ export default function GestorPedidos() {
     }
   }, [user]);
 
+  useEffect(() => {
+    return () => {
+      if (realtimeRefetchTimeoutRef.current) {
+        clearTimeout(realtimeRefetchTimeoutRef.current);
+        realtimeRefetchTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
   const { data: orders = [], isLoading } = useQuery({
-    queryKey: ['gestorOrders', asSub ?? 'me'],
+    queryKey: gestorOrdersKey,
     queryFn: async () => {
       const opts = asSub ? { as_subscriber: asSub } : {};
       const allOrders = await base44.entities.Order.list('-created_date', opts);
       // Filtrar apenas pedidos do cardÃƒÂ¡pio (nÃƒÂ£o do PDV/BalcÃƒÂ£o)
-      return allOrders.filter(order => {
-        // Bloquear pedidos PDV e de BalcÃƒÂ£o
-        const isPDV = order.order_code?.startsWith('PDV-');
-        const isBalcao = order.delivery_method === 'balcao';
-        return !isPDV && !isBalcao;
-      });
+      return allOrders.filter(isGestorRelevantOrder);
     },
-    refetchInterval: 3000, // Atualizar a cada 3 segundos para GPS em tempo real
+    refetchInterval: 10000,
   });
 
   const { data: entregadoresData } = useQuery({
-    queryKey: ['entregadores', asSub ?? 'me'],
+    queryKey: entregadoresKey,
     queryFn: () => base44.entities.Entregador.list(null, asSub ? { as_subscriber: asSub } : {}),
-    refetchInterval: 3000,
+    refetchInterval: 10000,
     retry: false,
   });
   const entregadores = useMemo(() => (entregadoresData != null ? entregadoresData : []), [entregadoresData]);
@@ -887,7 +989,6 @@ export default function GestorPedidos() {
       )}
 
 
-
       {/* Content */}
       <main className={`flex-1 transition-all duration-300 pb-20 lg:pb-0 ${sidebarCollapsed ? 'lg:ml-14' : 'lg:ml-52'}`}>
         <div className={`mx-auto p-4 xl:pr-14 ${(viewMode === 'kanban' || viewMode === 'delivery') ? 'max-w-screen-2xl' : 'max-w-[1240px]'}`}>
@@ -1152,6 +1253,3 @@ export default function GestorPedidos() {
     </div>
   );
 }
-
-
-
