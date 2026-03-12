@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { io } from 'socket.io-client';
 import { useQueryClient } from '@tanstack/react-query';
-import { BACKEND_BASE_URL } from '@/api/apiClient';
+import { apiClient, BACKEND_BASE_URL } from '@/api/apiClient';
 import toast from 'react-hot-toast';
 import { Bell } from 'lucide-react';
 
@@ -28,7 +28,12 @@ export function useComandaWebSocket({
     if (!subscriberEmail && !customerEmail && !customerPhone && !tableId && !tableNumber) return;
 
     // Conectar ao servidor WebSocket
+    const token = apiClient.auth.getToken();
     socketRef.current = io(SOCKET_URL, {
+      auth: {
+        token,
+        asSubscriber: token && subscriberEmail ? subscriberEmail : null
+      },
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionDelay: 2000,

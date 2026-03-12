@@ -341,6 +341,8 @@ class ApiClient {
         return response;
       },
 
+      getToken: () => self.token || localStorage.getItem('auth_token') || null,
+
       /**
        * Extrai slug da URL quando no formato /s/:slug/... ou /app/:slug/:app
        */

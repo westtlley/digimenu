@@ -81,8 +81,13 @@ export function useWaiterCallWebSocket(options = true) {
         const subscriberEmail = subscriberEmailOverride || user.subscriber_email || user.email;
         const waiterEmail = user.email;
         if (!subscriberEmail) return;
+        const token = base44.auth.getToken();
 
         socketRef.current = io(SOCKET_URL, {
+          auth: {
+            token,
+            asSubscriber: token && subscriberEmailOverride ? subscriberEmailOverride : null
+          },
           transports: ['websocket', 'polling'],
           reconnection: true,
           reconnectionDelay: 2000,

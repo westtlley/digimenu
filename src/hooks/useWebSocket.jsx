@@ -2,7 +2,7 @@ import { useEffect, useRef, useCallback } from 'react';
 import { io } from 'socket.io-client';
 import { orderNotifications, marketingNotifications } from '@/utils/pushService';
 import { requestNotificationPermission } from '@/utils/pushService';
-import { BACKEND_BASE_URL } from '@/api/apiClient';
+import { apiClient, BACKEND_BASE_URL } from '@/api/apiClient';
 import toast from 'react-hot-toast';
 
 const SOCKET_URL = import.meta.env.VITE_WS_URL || BACKEND_BASE_URL || 'http://localhost:3000';
@@ -35,7 +35,12 @@ export function useWebSocket({
     if (!subscriberEmail && !customerEmail && !customerPhone) return;
 
     // Conectar ao servidor WebSocket
+    const token = apiClient.auth.getToken();
     socketRef.current = io(SOCKET_URL, {
+      auth: {
+        token,
+        asSubscriber: token && subscriberEmail ? subscriberEmail : null
+      },
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionDelay: 2000,
