@@ -149,13 +149,13 @@ function PagesContent() {
                 <Route path="/" element={<SmartRedirect />} />
                 <Route path="/cardapio" element={<SmartRedirect />} />
                 <Route path="/Cardapio" element={<SmartRedirect />} />
-                <Route path="/admin" element={<Navigate to="/Admin" replace />} />
-                <Route path="/admin-master" element={<Navigate to="/Admin" replace />} />
-                <Route path="/painel" element={<Navigate to="/PainelAssinante" replace />} />
-                <Route path="/painelassinante" element={<Navigate to="/PainelAssinante" replace />} />
-                <Route path="/painel-assinante" element={<Navigate to="/PainelAssinante" replace />} />
+                <Route caseSensitive path="/admin" element={<Navigate to="/Admin" replace />} />
+                <Route caseSensitive path="/admin-master" element={<Navigate to="/Admin" replace />} />
+                <Route caseSensitive path="/painel" element={<Navigate to="/PainelAssinante" replace />} />
+                <Route caseSensitive path="/painelassinante" element={<Navigate to="/PainelAssinante" replace />} />
+                <Route caseSensitive path="/painel-assinante" element={<Navigate to="/PainelAssinante" replace />} />
                 <Route path="/painel/:slug" element={<SlugPainelRedirect />} />
-                <Route path="/gerente" element={<Navigate to="/PainelGerente" replace />} />
+                <Route caseSensitive path="/gerente" element={<Navigate to="/PainelGerente" replace />} />
                 
                 <Route path="/Assinantes" element={<ProtectedRoute requireMaster><Assinantes /></ProtectedRoute>} />
                 <Route path="/AdminMasterDashboard" element={<ProtectedRoute requireMaster><AdminMasterDashboard /></ProtectedRoute>} />

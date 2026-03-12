@@ -134,10 +134,14 @@ console.error = (...args) => {
   originalError.apply(console, args)
 }
 
-try {
-  window.sessionStorage.removeItem(CHUNK_RELOAD_STORAGE_KEY)
-} catch (_error) {
-  // Ignorar indisponibilidade de sessionStorage.
+if (typeof window !== 'undefined') {
+  window.setTimeout(() => {
+    try {
+      window.sessionStorage.removeItem(CHUNK_RELOAD_STORAGE_KEY)
+    } catch (_error) {
+      // Ignorar indisponibilidade de sessionStorage.
+    }
+  }, 5000)
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(
