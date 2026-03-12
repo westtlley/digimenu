@@ -1,8 +1,8 @@
-/**
- * Página de Login para Admin Master
+﻿/**
+ * PÃ¡gina de Login para Admin Master
  * Design exclusivo, seguro e profissional
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { apiClient as base44 } from '@/api/apiClient';
 import { Button } from '@/components/ui/button';
@@ -16,33 +16,12 @@ export default function LoginAdmin() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(true); // Padrão: SIM
+  const [rememberMe, setRememberMe] = useState(true); // PadrÃ£o: SIM
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const returnUrl = searchParams.get('returnUrl') || '/Admin';
-
-  useEffect(() => {
-    // Verificar se deve fazer auto-login
-    const shouldAutoLogin = localStorage.getItem('auto_login_enabled') !== 'false';
-    
-    const checkAuth = async () => {
-      if (!shouldAutoLogin) return; // Não fazer auto-login se desabilitado
-      
-      try {
-        const ok = await base44.auth.isAuthenticated();
-        if (!ok) return;
-        const me = await base44.auth.me();
-        if (me?.is_master) {
-          navigate('/Admin');
-        }
-      } catch (e) {
-        // Não autenticado
-      }
-    };
-    checkAuth();
-  }, [navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -60,21 +39,21 @@ export default function LoginAdmin() {
       const userData = response.user || response;
 
       if (response.token) {
-        // Salvar preferência de auto-login
+        // Salvar preferÃªncia de auto-login
         localStorage.setItem('auto_login_enabled', rememberMe ? 'true' : 'false');
         
         if (userData?.is_master) {
           toast.success('Acesso autorizado');
-          setTimeout(() => navigate('/Admin'), 400);
+          setTimeout(() => navigate(returnUrl), 400);
         } else {
           setError('Acesso restrito a administradores master');
-          toast.error('Acesso não autorizado');
+          toast.error('Acesso nÃ£o autorizado');
         }
       } else {
         setError('Erro ao fazer login. Tente novamente.');
       }
     } catch (err) {
-      const msg = err?.message || 'Credenciais inválidas. Tente novamente.';
+      const msg = err?.message || 'Credenciais invÃ¡lidas. Tente novamente.';
       setError(msg);
       toast.error(msg);
     } finally {
@@ -100,7 +79,7 @@ export default function LoginAdmin() {
             </p>
           </div>
 
-          {/* Formulário */}
+          {/* FormulÃ¡rio */}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <Label htmlFor="email" className="text-gray-300">
@@ -126,7 +105,7 @@ export default function LoginAdmin() {
                 <Input
                   id="password"
                   type={showPassword ? 'text' : 'password'}
-                  placeholder="••••••••"
+                  placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={loading}
@@ -209,3 +188,4 @@ export default function LoginAdmin() {
     </div>
   );
 }
+
