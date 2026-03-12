@@ -3,6 +3,9 @@
   "headers": [
     { "source": "/", "headers": [{ "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate" }] },
     { "source": "/index.html", "headers": [{ "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate" }] },
+    { "source": "/sw.js", "headers": [{ "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate" }] },
+    { "source": "/offline.html", "headers": [{ "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate" }] },
+    { "source": "/manifest.json", "headers": [{ "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate" }] },
     { "source": "/Admin", "headers": [{ "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate" }] },
     { "source": "/PainelAssinante", "headers": [{ "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate" }] },
     { "source": "/Login", "headers": [{ "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate" }] },

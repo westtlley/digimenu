@@ -6,15 +6,28 @@
 let serviceWorkerRegistration = null;
 let pushSubscription = null;
 
-// Registrar Service Worker
+async function unregisterLegacyServiceWorkers() {
+  if (!('serviceWorker' in navigator)) {
+    return [];
+  }
+
+  const registrations = await navigator.serviceWorker.getRegistrations();
+  await Promise.all(registrations.map((registration) => registration.unregister()));
+  return registrations;
+}
+
+// Registro desativado: o worker legado causava cache stale de HTML dos painéis.
 export async function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     try {
-      const registration = await navigator.serviceWorker.register('/sw.js');
-      serviceWorkerRegistration = registration;
-      return registration;
+      const registrations = await unregisterLegacyServiceWorkers();
+      serviceWorkerRegistration = null;
+      if (registrations.length > 0) {
+        console.info('[SW] Service workers legados removidos:', registrations.length);
+      }
+      return null;
     } catch (error) {
-      console.error('Erro ao registrar service worker:', error);
+      console.error('Erro ao limpar service workers legados:', error);
       return null;
     }
   }
