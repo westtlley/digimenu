@@ -266,42 +266,49 @@ export default function PizzaBuilderV2({
   const flavorsRemaining = Math.max(maxFlavors - selectedFlavorCount, 0);
   const flavorTargetText = maxFlavors === 1 ? '1 sabor' : `${maxFlavors} sabores`;
   const flavorHelperText = !selectedSize
-    ? 'Escolha o tamanho para liberar os sabores.'
+    ? 'Passo 1: escolha o tamanho da pizza.'
     : selectedFlavorCount === 0
-      ? `Escolha ${flavorTargetText} para montar sua pizza.`
+      ? `Passo 2: escolha ${flavorTargetText} para montar sua pizza.`
       : flavorsRemaining > 0
-        ? `Faltam ${flavorsRemaining} ${flavorsRemaining === 1 ? 'sabor' : 'sabores'} para completar.`
-        : 'Seleção de sabores concluída.';
+        ? `Faltam ${flavorsRemaining} ${flavorsRemaining === 1 ? 'sabor' : 'sabores'} para completar sua pizza.`
+        : 'Voce ja escolheu todos os sabores. Agora personalize sua pizza.';
   const borderHelperText = !selectedFlavors.length
-    ? 'Selecione os sabores primeiro.'
+    ? 'Depois dos sabores, voce pode escolher uma borda opcional.'
     : selectedEdge === null
-      ? 'Opcional. Confirme sua escolha para liberar extras e observações.'
+      ? 'Opcional. Escolha uma borda ou siga com a borda tradicional.'
       : selectedEdge.id === 'none'
-        ? 'Sem borda selecionada.'
-        : selectedEdge.name;
+        ? 'Borda tradicional selecionada.'
+        : `${selectedEdge.name} selecionada.`;
   const extrasHelperText = !selectedFlavors.length
-    ? 'Depois dos sabores você pode revisar extras.'
+    ? 'Extras opcionais ficam disponiveis depois dos sabores.'
     : hasBordersAvailable && selectedEdge === null
-      ? 'Confirme a borda para liberar os extras.'
+      ? 'Confirme a borda para revisar os extras.'
       : selectedExtras.length > 0
-        ? `${selectedExtras.length} extra${selectedExtras.length !== 1 ? 's' : ''} selecionado${selectedExtras.length !== 1 ? 's' : ''}.`
+        ? `${selectedExtras.length} extra${selectedExtras.length !== 1 ? 's' : ''} selecionado${selectedExtras.length !== 1 ? 's' : ''} para sua pizza.`
         : hasExtrasAvailable
-          ? 'Revise os extras antes de finalizar.'
-          : 'Sem extras configurados para esta pizza.';
+          ? 'Voce pode adicionar extras opcionais a sua pizza.'
+          : 'Nao ha extras disponiveis para esta pizza.';
   const observationsHelperText = !selectedFlavors.length
-    ? 'Observações ficam disponíveis após escolher os sabores.'
+    ? 'As observacoes ficam disponiveis depois da escolha dos sabores.'
     : hasBordersAvailable && selectedEdge === null
-      ? 'Confirme a borda para liberar observações.'
+      ? 'Confirme a borda para liberar o recado da cozinha.'
       : specifications
-        ? 'Observações adicionadas ao pedido.'
-        : 'Adicione observações se quiser personalizar ainda mais.';
+        ? 'Recado para a cozinha adicionado.'
+        : 'Se quiser, adicione um recado para a cozinha.';
   const ctaHelperText = !selectedSize
-    ? 'Escolha o tamanho para começar.'
+    ? 'Escolha o tamanho para continuar.'
     : !selectedFlavors.length
       ? flavorHelperText
       : hasExtrasAvailable && !extrasConfirmed
-        ? 'Revise os extras e toque em Confirmar para liberar o pedido.'
-        : 'Tudo pronto para adicionar ao pedido.';
+        ? 'Revise os extras e toque em Confirmar para continuar.'
+        : 'Sua pizza esta pronta para ir para o pedido.';
+  const ctaButtonLabel = !selectedSize
+    ? 'ESCOLHA O TAMANHO'
+    : !selectedFlavors.length
+      ? 'ESCOLHA OS SABORES'
+      : hasExtrasAvailable && !extrasConfirmed
+        ? 'CONFIRME OS EXTRAS'
+        : 'ADICIONAR AO PEDIDO';
 
   // CUSTOM VIEW (Montagem)
   const CustomView = () => (
@@ -312,7 +319,7 @@ export default function PizzaBuilderV2({
           <button onClick={onClose} className="text-white">
             <ChevronLeft size={24} />
           </button>
-          <h1 className="text-white font-black text-xl uppercase tracking-tighter">Minha Pizza</h1>
+          <h1 className="text-white font-black text-xl uppercase tracking-tighter">Monte sua pizza</h1>
         </div>
         <button onClick={onClose} className="text-white">
           <X size={24} />
@@ -443,24 +450,24 @@ export default function PizzaBuilderV2({
                   </motion.div>
                 </button>
                 <div className="mt-3 w-full max-w-md rounded-2xl border border-white/10 bg-black/45 px-5 py-4 text-center shadow-[0_18px_50px_rgba(0,0,0,0.28)] backdrop-blur-xl">
-                  <p className="text-[11px] text-orange-200/80 font-black uppercase tracking-[0.24em]">Total da pizza</p>
+                  <p className="text-[11px] text-orange-200/80 font-black uppercase tracking-[0.24em]">Valor final da sua pizza</p>
                   <div className="mt-1 flex items-end justify-center gap-2">
                     <span className="text-3xl md:text-4xl font-black text-white italic leading-none">{formatCurrency(calculatePrice())}</span>
                   </div>
                   <p className="mt-2 text-xs text-gray-400">
-                    O valor final atualiza com sabores premium, borda e extras.
+                    O valor final muda em tempo real com sabores, borda e extras.
                   </p>
                 </div>
                 <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
                   <Badge className="border border-white/10 bg-white/10 text-white text-[11px] font-bold px-3 py-1 rounded-full">
-                    {selectedSize ? selectedSize.name : 'Escolha o tamanho'}
+                    {selectedSize ? selectedSize.name : 'Escolha um tamanho'}
                   </Badge>
                   <Badge className="border border-white/10 bg-white/10 text-white text-[11px] font-bold px-3 py-1 rounded-full">
-                    {selectedSize ? `${selectedFlavorCount}/${maxFlavors} sabores` : 'Sem sabores'}
+                    {selectedSize ? `${selectedFlavorCount}/${maxFlavors} sabores` : 'Sabores pendentes'}
                   </Badge>
                   {selectedEdge !== null && (
                     <Badge className="border border-white/10 bg-white/10 text-white text-[11px] font-bold px-3 py-1 rounded-full">
-                      {selectedEdge.id === 'none' ? 'Sem borda' : selectedEdge.name}
+                      {selectedEdge.id === 'none' ? 'Borda tradicional' : selectedEdge.name}
                     </Badge>
                   )}
                 </div>
@@ -477,12 +484,12 @@ export default function PizzaBuilderV2({
                 )}
                 {selectedFlavors.length > 0 && selectedFlavors.length < maxFlavors && (
                   <p className="mt-2 text-xs font-bold uppercase tracking-wide text-amber-300/90">
-                    Faltam {flavorsRemaining} {flavorsRemaining === 1 ? 'sabor' : 'sabores'} para concluir
+                    Faltam {flavorsRemaining} {flavorsRemaining === 1 ? 'sabor' : 'sabores'} para completar sua pizza
                   </p>
                 )}
                 {selectedFlavors.length >= maxFlavors && (
                   <p className="mt-2 text-xs font-bold uppercase tracking-wide text-emerald-300/90">
-                    Sabores completos. Agora personalize sua pizza.
+                    Sabores completos. Agora voce pode personalizar sua pizza.
                   </p>
                 )}
               </div>
@@ -505,7 +512,7 @@ export default function PizzaBuilderV2({
               ) : (
                 <div className="space-y-2">
                   <label className="text-white text-xs font-black uppercase tracking-widest opacity-80">
-                    {useCategories ? 'Categoria:' : 'Tamanho:'}
+                    {useCategories ? 'Categoria da pizza:' : 'Tamanho da pizza:'}
                   </label>
                   <div className="relative">
                     {useCategories ? (
@@ -521,7 +528,7 @@ export default function PizzaBuilderV2({
                           setSelectedFlavors([]);
                         }}
                       >
-                        <option value="">Escolha a categoria</option>
+                        <option value="">Selecione a categoria</option>
                         {availableCategories.map(c => {
                           const sz = availableSizes.find(s => s.id === c.size_id);
                           return (
@@ -543,7 +550,7 @@ export default function PizzaBuilderV2({
                           setSelectedFlavors([]);
                         }}
                       >
-                        <option value="">Escolha o tamanho</option>
+                        <option value="">Selecione o tamanho</option>
                         {availableSizes.map(s => (
                           <option key={s.id} value={s.id}>
                             {s.name} - {s.slices} fatias - {s.max_flavors} {s.max_flavors === 1 ? 'sabor' : 'sabores'}
@@ -565,7 +572,7 @@ export default function PizzaBuilderV2({
                       {selectedFlavors.length > 0 ? (
                         <span>{selectedFlavors.map(f => f.name).join(' + ')}</span>
                       ) : (
-                        <span className="text-gray-500">{selectedSize ? 'Toque na pizza' : 'Escolha o tamanho'}</span>
+                        <span className="text-gray-500">{selectedSize ? 'Toque para escolher os sabores' : 'Escolha o tamanho para liberar os sabores'}</span>
                       )}
                     </p>
                   </div>
@@ -575,7 +582,7 @@ export default function PizzaBuilderV2({
                     className="px-3 py-1.5 rounded-lg text-xs font-black uppercase transition-all active:scale-95 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
                     style={{ backgroundColor: primaryColor, color: 'white' }}
                   >
-                    {maxFlavors === 1 && selectedFlavors.length >= 1 ? 'Ok' : selectedFlavors.length > 0 ? 'Alterar' : 'Escolher'}
+                    {maxFlavors === 1 && selectedFlavors.length >= 1 ? 'Sabores ok' : selectedFlavors.length > 0 ? 'Trocar sabores' : 'Escolher sabores'}
                   </button>
                 </div>
                 <p className="mt-2 text-xs leading-relaxed text-gray-400">
@@ -584,7 +591,7 @@ export default function PizzaBuilderV2({
               </div>
 
               {/* Título Personalização - só após sabores */}
-              <h3 className={`text-white text-xs font-black uppercase tracking-widest px-2 pt-2 ${selectedFlavors.length < 1 ? 'opacity-50' : 'opacity-80'}`}>Personalize sua pizza:</h3>
+              <h3 className={`text-white text-xs font-black uppercase tracking-widest px-2 pt-2 ${selectedFlavors.length < 1 ? 'opacity-50' : 'opacity-80'}`}>Agora personalize sua pizza:</h3>
               
               {/* Borda - só após pizza completa (sabores selecionados) */}
               <button 
@@ -599,7 +606,7 @@ export default function PizzaBuilderV2({
                   <div className="text-left">
                     <p className="text-[9px] text-gray-400 uppercase tracking-wider font-black">Borda</p>
                     <p className="text-white font-black text-xs">
-                      {selectedEdge && selectedEdge.id !== 'none' ? selectedEdge.name : 'Sem borda'}
+                      {selectedEdge && selectedEdge.id !== 'none' ? selectedEdge.name : 'Borda tradicional'}
                     </p>
                     <p className="mt-1 text-[11px] leading-relaxed text-gray-400 max-w-[16rem]">
                       {borderHelperText}
@@ -622,7 +629,7 @@ export default function PizzaBuilderV2({
                   <div className="text-left">
                     <p className="text-[9px] text-gray-400 uppercase tracking-wider font-black">Extras</p>
                     <p className="text-white font-black text-xs">
-                      {selectedExtras.length > 0 ? `${selectedExtras.length} selecionados` : 'Nenhum extra'}
+                      {selectedExtras.length > 0 ? `${selectedExtras.length} selecionados` : 'Extras opcionais'}
                     </p>
                     <p className="mt-1 text-[11px] leading-relaxed text-gray-400 max-w-[16rem]">
                       {extrasHelperText}
@@ -643,9 +650,9 @@ export default function PizzaBuilderV2({
                     <span className="text-lg">📝</span>
                   </div>
                   <div className="text-left">
-                    <p className="text-[9px] text-gray-400 uppercase tracking-wider font-black">Observações</p>
+                    <p className="text-[9px] text-gray-400 uppercase tracking-wider font-black">Recado para a cozinha</p>
                     <p className="text-white font-black text-xs">
-                      {specifications ? 'Adicionadas' : 'Adicionar observações'}
+                      {specifications ? 'Recado adicionado' : 'Algum recado para a cozinha?'}
                     </p>
                     <p className="mt-1 text-[11px] leading-relaxed text-gray-400 max-w-[16rem]">
                       {observationsHelperText}
@@ -660,11 +667,11 @@ export default function PizzaBuilderV2({
                 <div className="rounded-2xl border border-white/10 bg-black/35 p-4 shadow-[0_18px_50px_rgba(0,0,0,0.28)] backdrop-blur-xl">
                   <div className="mb-3 flex items-center justify-between gap-3">
                     <div>
-                      <p className="text-[11px] font-black uppercase tracking-[0.24em] text-gray-400">Pronto para pedir</p>
+                      <p className="text-[11px] font-black uppercase tracking-[0.24em] text-gray-400">Quase pronta</p>
                       <p className="mt-1 text-sm text-gray-300">{ctaHelperText}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-[11px] font-black uppercase tracking-[0.24em] text-gray-500">Total</p>
+                      <p className="text-[11px] font-black uppercase tracking-[0.24em] text-gray-500">Valor final</p>
                       <p className="text-2xl font-black text-white">{formatCurrency(calculatePrice())}</p>
                     </div>
                   </div>
@@ -674,7 +681,7 @@ export default function PizzaBuilderV2({
                     className="w-full text-white py-4 rounded-xl font-black text-base shadow-[0_10px_40px_rgba(0,0,0,0.5)] flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     style={{ backgroundColor: canAddToCart ? '#4caf50' : '#9ca3af' }}
                   >
-                    <ShoppingBag size={20} /> ADICIONAR AO PEDIDO
+                    <ShoppingBag size={20} /> {ctaButtonLabel}
                   </button>
                 </div>
               </div>
@@ -691,11 +698,11 @@ export default function PizzaBuilderV2({
         <div className="w-full max-w-md mx-auto rounded-2xl border border-white/10 bg-black/70 p-4 shadow-[0_18px_50px_rgba(0,0,0,0.35)] backdrop-blur-xl pointer-events-auto">
           <div className="mb-3 flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-[11px] font-black uppercase tracking-[0.24em] text-gray-400">Seu total</p>
+              <p className="text-[11px] font-black uppercase tracking-[0.24em] text-gray-400">Valor final</p>
               <p className="mt-1 text-sm text-gray-300 leading-relaxed">{ctaHelperText}</p>
             </div>
             <div className="text-right shrink-0">
-              <p className="text-[11px] font-black uppercase tracking-[0.24em] text-gray-500">Pizza</p>
+              <p className="text-[11px] font-black uppercase tracking-[0.24em] text-gray-500">Sua pizza</p>
               <p className="text-2xl font-black text-white">{formatCurrency(calculatePrice())}</p>
             </div>
           </div>
@@ -705,7 +712,7 @@ export default function PizzaBuilderV2({
             className="w-full text-white py-4 rounded-xl font-black text-base shadow-[0_10px_40px_rgba(0,0,0,0.5)] flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             style={{ backgroundColor: canAddToCart ? '#4caf50' : '#9ca3af' }}
           >
-            <ShoppingBag size={20} /> ADICIONAR AO PEDIDO
+            <ShoppingBag size={20} /> {ctaButtonLabel}
           </button>
         </div>
       </div>
@@ -721,7 +728,7 @@ export default function PizzaBuilderV2({
           <button onClick={() => setStep('custom')} className="text-white">
             <ChevronLeft size={24} strokeWidth={3} />
           </button>
-          <h1 className="text-white font-black text-lg uppercase tracking-tight">Selecione os Sabores</h1>
+          <h1 className="text-white font-black text-lg uppercase tracking-tight">Escolha os sabores da sua pizza</h1>
           <div className="w-6" />
         </div>
         <div className="relative">
@@ -907,7 +914,7 @@ export default function PizzaBuilderV2({
               style={{ backgroundColor: primaryColor }}
             >
               {type === 'multiple' 
-                ? `Confirmar (${current.length} selecionado${current.length !== 1 ? 's' : ''})` 
+                ? `Confirmar seleção (${current.length})` 
                 : 'Confirmar'}
             </button>
           </div>
@@ -925,9 +932,9 @@ export default function PizzaBuilderV2({
         {step === 'flavors' && <FlavorsView />}
         {step === 'borders' && (
           <SelectionOverlay 
-            title="Escolha a Borda" 
-            items={[{ id: 'none', name: 'Sem Borda', price: 0 }, ...availableEdges]} 
-            current={selectedEdge || { id: 'none', name: 'Sem Borda', price: 0 }} 
+            title="Escolha a borda da sua pizza" 
+            items={[{ id: 'none', name: 'Borda tradicional', price: 0 }, ...availableEdges]} 
+            current={selectedEdge || { id: 'none', name: 'Borda tradicional', price: 0 }} 
             onSelect={setSelectedEdge} 
             onClose={() => setStep('custom')} 
             type="single"
@@ -935,7 +942,7 @@ export default function PizzaBuilderV2({
         )}
         {step === 'extras' && (
           <SelectionOverlay 
-            title={`Adicionar Extras (máx. ${maxExtras})`} 
+            title={`Adicione extras à sua pizza (máx. ${maxExtras})`} 
             items={availableExtras} 
             current={selectedExtras} 
             onSelect={setSelectedExtras} 
@@ -947,7 +954,7 @@ export default function PizzaBuilderV2({
         )}
         {step === 'observations' && (
           <SelectionOverlay 
-            title="Observações" 
+            title="Recado para a cozinha" 
             items={[]} 
             current={specifications} 
             onSelect={setSpecifications} 
