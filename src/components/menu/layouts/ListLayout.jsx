@@ -56,6 +56,7 @@ export default function ListLayout({
   const Card = ({ dish, index }) => {
     const isOutOfStock = stockUtils?.isOutOfStock?.(dish.stock);
     const { toggleFavorite, isFavorite } = useFavorites(slug);
+    const priceLabel = dish?.price_label || '';
     return (
       <motion.div
         key={dish.id}
@@ -98,12 +99,19 @@ export default function ListLayout({
             </p>
           )}
           <div className="flex items-center justify-between">
-            <span 
-              className="text-xl font-bold"
-              style={{ color: primaryColor }}
-            >
-              {formatCurrency?.(dish.price) || `R$ ${dish.price?.toFixed(2) || '0,00'}`}
-            </span>
+            <div className="flex flex-col">
+              {priceLabel && (
+                <span className="text-[10px] font-medium text-muted-foreground">
+                  {priceLabel}
+                </span>
+              )}
+              <span 
+                className="text-xl font-bold"
+                style={{ color: primaryColor }}
+              >
+                {formatCurrency?.(dish.price) || `R$ ${dish.price?.toFixed(2) || '0,00'}`}
+              </span>
+            </div>
           </div>
         </div>
 

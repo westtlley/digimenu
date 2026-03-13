@@ -167,6 +167,7 @@ export default function CarouselLayout({
         {safeDishes.map((dish, index) => {
           const isOutOfStock = stockUtils?.isOutOfStock?.(dish.stock);
           const isLowStock = stockUtils?.isLowStock?.(dish.stock);
+          const priceLabel = dish?.price_label || '';
           return (
             <div
               key={dish.id}
@@ -252,12 +253,19 @@ export default function CarouselLayout({
                         {formatCurrency?.(dish.original_price)}
                       </span>
                     )}
-                    <span 
-                      className="text-xl md:text-lg font-bold"
-                      style={{ color: primaryColor }}
-                    >
-                      {formatCurrency?.(dish.price) || 'R$ 0,00'}
-                    </span>
+                    <div className="flex flex-col">
+                      {priceLabel && (
+                        <span className="text-[10px] font-medium text-muted-foreground">
+                          {priceLabel}
+                        </span>
+                      )}
+                      <span 
+                        className="text-xl md:text-lg font-bold"
+                        style={{ color: primaryColor }}
+                      >
+                        {formatCurrency?.(dish.price) || 'R$ 0,00'}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </motion.div>

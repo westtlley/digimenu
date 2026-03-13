@@ -27,6 +27,7 @@ export default function MasonryLayout({
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
       {dishes.map((dish, index) => {
         const isOutOfStock = stockUtils?.isOutOfStock?.(dish.stock);
+        const priceLabel = dish?.price_label || '';
         
         return (
           <motion.div
@@ -109,12 +110,19 @@ export default function MasonryLayout({
                     {formatCurrency?.(dish.original_price)}
                   </span>
                 )}
-                <span 
-                  className="text-lg md:text-xl font-bold"
-                  style={{ color: primaryColor }}
-                >
-                  {formatCurrency?.(dish.price) || 'R$ 0,00'}
-                </span>
+                <div className="flex flex-col">
+                  {priceLabel && (
+                    <span className="text-[10px] font-medium text-muted-foreground">
+                      {priceLabel}
+                    </span>
+                  )}
+                  <span 
+                    className="text-lg md:text-xl font-bold"
+                    style={{ color: primaryColor }}
+                  >
+                    {formatCurrency?.(dish.price) || 'R$ 0,00'}
+                  </span>
+                </div>
               </div>
             </div>
           </motion.div>

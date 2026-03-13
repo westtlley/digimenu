@@ -275,9 +275,9 @@ export default function PizzaBuilderV2({
   const borderHelperText = !selectedFlavors.length
     ? 'Depois dos sabores, voce pode escolher uma borda opcional.'
     : selectedEdge === null
-      ? 'Opcional. Escolha uma borda ou siga com a borda tradicional.'
+      ? 'Opcional. Escolha uma borda ou siga sem borda.'
       : selectedEdge.id === 'none'
-        ? 'Borda tradicional selecionada.'
+        ? 'Sem borda selecionada.'
         : `${selectedEdge.name} selecionada.`;
   const extrasHelperText = !selectedFlavors.length
     ? 'Extras opcionais ficam disponiveis depois dos sabores.'
@@ -286,7 +286,7 @@ export default function PizzaBuilderV2({
       : selectedExtras.length > 0
         ? `${selectedExtras.length} extra${selectedExtras.length !== 1 ? 's' : ''} selecionado${selectedExtras.length !== 1 ? 's' : ''} para sua pizza.`
         : hasExtrasAvailable
-          ? 'Voce pode adicionar extras opcionais a sua pizza.'
+          ? 'Voce pode seguir sem extras ou adicionar opcionais a sua pizza.'
           : 'Nao ha extras disponiveis para esta pizza.';
   const observationsHelperText = !selectedFlavors.length
     ? 'As observacoes ficam disponiveis depois da escolha dos sabores.'
@@ -467,7 +467,7 @@ export default function PizzaBuilderV2({
                   </Badge>
                   {selectedEdge !== null && (
                     <Badge className="border border-white/10 bg-white/10 text-white text-[11px] font-bold px-3 py-1 rounded-full">
-                      {selectedEdge.id === 'none' ? 'Borda tradicional' : selectedEdge.name}
+                      {selectedEdge.id === 'none' ? 'Sem borda' : selectedEdge.name}
                     </Badge>
                   )}
                 </div>
@@ -606,7 +606,7 @@ export default function PizzaBuilderV2({
                   <div className="text-left">
                     <p className="text-[9px] text-gray-400 uppercase tracking-wider font-black">Borda</p>
                     <p className="text-white font-black text-xs">
-                      {selectedEdge && selectedEdge.id !== 'none' ? selectedEdge.name : 'Borda tradicional'}
+                      {selectedEdge && selectedEdge.id !== 'none' ? selectedEdge.name : 'Sem borda'}
                     </p>
                     <p className="mt-1 text-[11px] leading-relaxed text-gray-400 max-w-[16rem]">
                       {borderHelperText}
@@ -629,7 +629,7 @@ export default function PizzaBuilderV2({
                   <div className="text-left">
                     <p className="text-[9px] text-gray-400 uppercase tracking-wider font-black">Extras</p>
                     <p className="text-white font-black text-xs">
-                      {selectedExtras.length > 0 ? `${selectedExtras.length} selecionados` : 'Extras opcionais'}
+                      {selectedExtras.length > 0 ? `${selectedExtras.length} selecionados` : 'Sem extras'}
                     </p>
                     <p className="mt-1 text-[11px] leading-relaxed text-gray-400 max-w-[16rem]">
                       {extrasHelperText}
@@ -933,8 +933,8 @@ export default function PizzaBuilderV2({
         {step === 'borders' && (
           <SelectionOverlay 
             title="Escolha a borda da sua pizza" 
-            items={[{ id: 'none', name: 'Borda tradicional', price: 0 }, ...availableEdges]} 
-            current={selectedEdge || { id: 'none', name: 'Borda tradicional', price: 0 }} 
+            items={[{ id: 'none', name: 'Sem borda', price: 0 }, ...availableEdges]} 
+            current={selectedEdge || { id: 'none', name: 'Sem borda', price: 0 }} 
             onSelect={setSelectedEdge} 
             onClose={() => setStep('custom')} 
             type="single"

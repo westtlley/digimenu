@@ -26,6 +26,8 @@ export default function DishCardWow({
 }) {
   const { toggleFavorite, isFavorite } = useFavorites(slug);
   const isAeroCard = menuCardStyle === 'aero';
+  const priceLabel = dish?.price_label || '';
+  const actionLabel = dish?.cta_label || (dish?.product_type === 'pizza' ? 'Montar' : 'Adicionar');
   const formatCurrency = (value) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
   };
@@ -220,6 +222,11 @@ export default function DishCardWow({
             whileHover={{ scale: 1.05 }}
             transition={{ type: "spring", stiffness: 300 }}
           >
+            {priceLabel && (
+              <p className="text-[10px] md:text-[9px] font-medium text-muted-foreground mb-0.5">
+                {priceLabel}
+              </p>
+            )}
             {dish.original_price && dish.original_price > dish.price ? (
               <div className="space-y-0.5">
                 <p className="text-[10px] md:text-[9px] text-muted-foreground line-through">
@@ -261,7 +268,7 @@ export default function DishCardWow({
                 }}
               >
                 <Sparkles className="w-3 h-3 mr-1" />
-                Adicionar
+                {actionLabel}
               </Button>
             )}
           </div>

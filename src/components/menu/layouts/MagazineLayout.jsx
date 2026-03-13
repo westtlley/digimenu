@@ -39,6 +39,7 @@ export default function MagazineLayout({
 
   const currentDish = dishes[currentPage];
   const isOutOfStock = stockUtils?.isOutOfStock?.(currentDish?.stock);
+  const priceLabel = currentDish?.price_label || '';
 
   const nextPage = () => {
     if (currentPage < totalPages - 1) {
@@ -172,12 +173,19 @@ export default function MagazineLayout({
                         {formatCurrency?.(currentDish.original_price)}
                       </span>
                     )}
-                    <span 
-                      className="text-4xl font-bold"
-                      style={{ color: primaryColor }}
-                    >
-                      {formatCurrency?.(currentDish?.price) || 'R$ 0,00'}
-                    </span>
+                    <div className="flex flex-col">
+                      {priceLabel && (
+                        <span className="text-[10px] font-medium text-gray-500 dark:text-gray-400">
+                          {priceLabel}
+                        </span>
+                      )}
+                      <span 
+                        className="text-4xl font-bold"
+                        style={{ color: primaryColor }}
+                      >
+                        {formatCurrency?.(currentDish?.price) || 'R$ 0,00'}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </motion.div>
@@ -278,12 +286,19 @@ export default function MagazineLayout({
                         {formatCurrency?.(currentDish.original_price)}
                       </span>
                     )}
-                    <span 
-                      className="text-3xl font-bold"
-                      style={{ color: primaryColor }}
-                    >
-                      {formatCurrency?.(currentDish?.price) || 'R$ 0,00'}
-                    </span>
+                    <div className="flex flex-col">
+                      {priceLabel && (
+                        <span className="text-[10px] font-medium text-gray-500 dark:text-gray-400">
+                          {priceLabel}
+                        </span>
+                      )}
+                      <span 
+                        className="text-3xl font-bold"
+                        style={{ color: primaryColor }}
+                      >
+                        {formatCurrency?.(currentDish?.price) || 'R$ 0,00'}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </motion.div>

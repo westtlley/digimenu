@@ -91,9 +91,20 @@ function CardapioSemLink() {
   );
 }
 
-function MiniDishCard({ item }) {
+function MiniDishCard({ item, onClick, formatCurrency: formatPrice }) {
   return (
-    <div className="flex flex-col items-center w-28 flex-shrink-0">
+    <div
+      className={`flex flex-col items-center w-28 flex-shrink-0 ${onClick ? 'cursor-pointer' : ''}`}
+      onClick={onClick}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onClick ? (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onClick();
+        }
+      } : undefined}
+    >
       <div className="w-28 h-20 rounded-xl overflow-hidden bg-muted flex-shrink-0">
         {item?.image ? (
           <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
@@ -102,6 +113,18 @@ function MiniDishCard({ item }) {
         )}
       </div>
       <p className="text-xs font-medium text-foreground mt-1 text-center line-clamp-2 w-full">{item?.name}</p>
+      {(item?.price_label || item?.price !== undefined) && (
+        <div className="mt-1 text-center w-full">
+          {item?.price_label && (
+            <p className="text-[10px] font-medium text-muted-foreground">{item.price_label}</p>
+          )}
+          {item?.price !== undefined && (
+            <p className="text-[11px] font-semibold text-foreground">
+              {formatPrice ? formatPrice(Number(item.price || 0)) : item.price}
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -738,10 +761,161 @@ export default function Cardapio() {
       return true;
     });
   }, [dishesResolved]);
+
+  const genericPizzaEntries = useMemo(() => {
+    const safePizzaCategories = Array.isArray(pizzaCategoriesResolved)
+      ? pizzaCategoriesResolved.filter((category) => category?.is_active !== false)
+      : [];
+    const safePizzaSizes = Array.isArray(pizzaSizesResolved)
+      ? pizzaSizesResolved.filter((size) => size?.is_active !== false)
+      : [];
+    const safePizzaEdges = Array.isArray(pizzaEdgesResolved)
+      ? pizzaEdgesResolved.filter((edge) => edge?.is_active !== false)
+      : [];
+    const safePizzaExtras = Array.isArray(pizzaExtrasResolved)
+      ? pizzaExtrasResolved.filter((extra) => extra?.is_active !== false)
+      : [];
+    const safePizzaFlavors = Array.isArray(pizzaFlavorsResolved)
+      ? pizzaFlavorsResolved.filter((flavor) => flavor?.is_active !== false)
+      : [];
+    const pizzaDishes = (Array.isArray(activeDishes) ? activeDishes : []).filter(
+      (dish) => dish?.product_type === 'pizza'
+    );
+
+    return safePizzaCategories.map((pizzaCategory) => {
+      const categoryId = String(pizzaCategory?.id || '');
+      const relatedDishes = pizzaDishes.filter(
+        (dish) => String(dish?.pizza_category_id || '') === categoryId
+      );
+
+      if (relatedDishes.length === 0) return null;
+
+      const representative =
+        relatedDishes.find((dish) => dish?.image) ||
+        relatedDishes.find((dish) => dish?.is_highlight) ||
+        relatedDishes[0];
+
+      const linkedSize = safePizzaSizes.find(
+        (size) => String(size?.id || '') === String(pizzaCategory?.size_id || '')
+      );
+
+      const categorySizeConfigs = relatedDishes
+        .flatMap((dish) => Array.isArray(dish?.pizza_config?.sizes) ? dish.pizza_config.sizes : [])
+        .filter((size) => String(size?.id || '') === String(pizzaCategory?.size_id || ''));
+
+      const mergedSizeConfig = categorySizeConfigs.find((size) => Number(size?.price_tradicional || 0) > 0)
+        || categorySizeConfigs[0]
+        || linkedSize
+        || null;
+
+      const mergedFlavorIds = [...new Set(
+        relatedDishes.flatMap((dish) => Array.isArray(dish?.pizza_config?.flavor_ids) ? dish.pizza_config.flavor_ids : [])
+      )].filter(Boolean);
+
+      const mergedEdgesMap = new Map();
+      relatedDishes.forEach((dish) => {
+        (Array.isArray(dish?.pizza_config?.edges) ? dish.pizza_config.edges : []).forEach((edge) => {
+          if (!edge?.id) return;
+          mergedEdgesMap.set(edge.id, edge);
+        });
+      });
+
+      const mergedExtrasMap = new Map();
+      relatedDishes.forEach((dish) => {
+        (Array.isArray(dish?.pizza_config?.extras) ? dish.pizza_config.extras : []).forEach((extra) => {
+          if (!extra?.id) return;
+          mergedExtrasMap.set(extra.id, extra);
+        });
+      });
+
+      const startingPrices = [
+        ...categorySizeConfigs.map((size) => Number(size?.price_tradicional || 0)),
+        ...categorySizeConfigs.map((size) => Number(size?.price_premium || 0)),
+        Number(linkedSize?.price_tradicional || 0),
+        Number(linkedSize?.price_premium || 0),
+        ...relatedDishes.map((dish) => Number(dish?.price || 0))
+      ].filter((price) => Number.isFinite(price) && price > 0);
+
+      const maxFlavors = Number(
+        pizzaCategory?.max_flavors ||
+        mergedSizeConfig?.max_flavors ||
+        linkedSize?.max_flavors ||
+        1
+      ) || 1;
+
+      const flavorCountLabel = `${maxFlavors} sabor${maxFlavors > 1 ? 'es' : ''}`;
+      const sizeLabel = linkedSize?.name || mergedSizeConfig?.name || 'Pizza';
+      const derivedName = String(pizzaCategory?.name || '').trim()
+        || `Pizza ${sizeLabel} - ${flavorCountLabel}`;
+
+      const description = String(pizzaCategory?.description || '').trim()
+        || `Monte sua pizza escolhendo ${flavorCountLabel}, borda e extras.`;
+
+      const searchTerms = relatedDishes
+        .flatMap((dish) => [dish?.name, dish?.description])
+        .filter(Boolean)
+        .join(' ');
+
+      const safeFlavorIds = mergedFlavorIds.length
+        ? mergedFlavorIds
+        : safePizzaFlavors.map((flavor) => flavor.id).filter(Boolean);
+
+      const safeEdges = mergedEdgesMap.size
+        ? Array.from(mergedEdgesMap.values())
+        : safePizzaEdges;
+
+      const safeExtras = mergedExtrasMap.size
+        ? Array.from(mergedExtrasMap.values())
+        : safePizzaExtras;
+
+      return {
+        ...representative,
+        id: representative?.id,
+        menu_entry_id: `pizza_entry_${categoryId}`,
+        name: derivedName,
+        description,
+        price: startingPrices.length > 0 ? Math.min(...startingPrices) : Number(representative?.price || 0),
+        price_label: 'A partir de',
+        cta_label: 'Montar',
+        is_generic_pizza_entry: true,
+        search_terms: searchTerms,
+        pizza_category_id: categoryId,
+        pizza_config: {
+          ...(representative?.pizza_config || {}),
+          sizes: mergedSizeConfig
+            ? [
+                {
+                  ...linkedSize,
+                  ...mergedSizeConfig,
+                  id: pizzaCategory?.size_id || mergedSizeConfig?.id || linkedSize?.id,
+                  max_flavors: maxFlavors
+                }
+              ]
+            : [],
+          flavor_ids: safeFlavorIds,
+          edges: safeEdges,
+          extras: safeExtras
+        },
+        is_highlight: relatedDishes.some((dish) => dish?.is_highlight),
+        is_new: relatedDishes.some((dish) => dish?.is_new),
+        is_popular: relatedDishes.some((dish) => dish?.is_popular)
+      };
+    }).filter(Boolean);
+  }, [
+    activeDishes,
+    pizzaCategoriesResolved,
+    pizzaEdgesResolved,
+    pizzaExtrasResolved,
+    pizzaFlavorsResolved,
+    pizzaSizesResolved
+  ]);
+
   const highlightDishes = useMemo(() => {
     const safeActiveDishes = Array.isArray(activeDishes) ? activeDishes : [];
-    return safeActiveDishes.filter((d) => d.is_highlight);
-  }, [activeDishes]);
+    const regularHighlights = safeActiveDishes.filter((dish) => dish.is_highlight && dish.product_type !== 'pizza');
+    const pizzaHighlights = genericPizzaEntries.filter((dish) => dish?.is_highlight);
+    return [...regularHighlights, ...pizzaHighlights];
+  }, [activeDishes, genericPizzaEntries]);
   const activePromotions = useMemo(() => (Array.isArray(promotionsResolved) ? promotionsResolved : []).filter(p => p.is_active), [promotionsResolved]);
   const activeCombos = useMemo(() => (Array.isArray(combosResolved) ? combosResolved : []).filter(c => c?.is_active !== false), [combosResolved]);
   const welcomeCoupon = useMemo(() => {
@@ -846,16 +1020,36 @@ export default function Cardapio() {
     const safeActiveDishes = Array.isArray(activeDishes) ? activeDishes : [];
     const isPizzaCategory = selectedCategory?.startsWith?.('pc_');
     const isBeverageCategory = selectedCategory === 'beverages' || selectedCategory?.startsWith?.('bc_');
-    if (isBeverageCategory) return [];
-    const pizzaCatId = isPizzaCategory ? selectedCategory.replace(/^pc_/, '') : null;
+    if (isBeverageCategory || isPizzaCategory) return [];
+
+    const normalizedSearch = String(searchTerm || '').trim().toLowerCase();
+
     return safeActiveDishes.filter((dish) => {
-      const matchesSearch = !searchTerm || dish.name?.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesCategory = selectedCategory === 'all'
-        || (isPizzaCategory && dish.product_type === 'pizza' && dish.pizza_category_id === pizzaCatId)
-        || (!isPizzaCategory && dish.category_id === selectedCategory);
+      if (dish?.product_type === 'pizza') return false;
+
+      const searchableText = `${dish?.name || ''} ${dish?.description || ''}`.toLowerCase();
+      const matchesSearch = !normalizedSearch || searchableText.includes(normalizedSearch);
+      const matchesCategory = selectedCategory === 'all' || dish.category_id === selectedCategory;
       return matchesSearch && matchesCategory;
     });
   }, [activeDishes, searchTerm, selectedCategory]);
+
+  const filteredGenericPizzaEntries = useMemo(() => {
+    const isBeverageCategory = selectedCategory === 'beverages' || selectedCategory?.startsWith?.('bc_');
+    if (isBeverageCategory) return [];
+
+    const normalizedSearch = String(searchTerm || '').trim().toLowerCase();
+    const selectedPizzaCategoryId = selectedCategory?.startsWith?.('pc_')
+      ? selectedCategory.replace(/^pc_/, '')
+      : null;
+
+    return genericPizzaEntries.filter((dish) => {
+      const searchableText = `${dish?.name || ''} ${dish?.description || ''} ${dish?.search_terms || ''}`.toLowerCase();
+      const matchesSearch = !normalizedSearch || searchableText.includes(normalizedSearch);
+      const matchesCategory = selectedCategory === 'all' || String(dish?.pizza_category_id || '') === String(selectedPizzaCategoryId || '');
+      return matchesSearch && matchesCategory;
+    });
+  }, [genericPizzaEntries, searchTerm, selectedCategory]);
 
   const filteredBeverages = useMemo(() => {
     if (selectedCategory !== 'all' && selectedCategory !== 'beverages' && !selectedCategory?.startsWith?.('bc_')) return [];
@@ -873,10 +1067,13 @@ export default function Cardapio() {
       return filteredBeverages;
     }
     if (selectedCategory === 'all') {
-      return [...filteredDishes, ...filteredBeverages, ...comboDishesForDisplay];
+      return [...filteredDishes, ...filteredGenericPizzaEntries, ...filteredBeverages, ...comboDishesForDisplay];
+    }
+    if (selectedCategory?.startsWith?.('pc_')) {
+      return filteredGenericPizzaEntries;
     }
     return filteredDishes;
-  }, [selectedCategory, filteredDishes, filteredBeverages, comboDishesForDisplay]);
+  }, [selectedCategory, filteredDishes, filteredGenericPizzaEntries, filteredBeverages, comboDishesForDisplay]);
 
   const merchandisingEngine = useMemo(() => {
     const safeCart = Array.isArray(cart) ? cart : [];
@@ -2892,12 +3089,41 @@ export default function Cardapio() {
                                 </div>
                                 <div className="flex gap-3">
                                   {items.slice(0, 3).map((it) => (
-                                    <MiniDishCard key={it.id} item={it} />
+                                    <MiniDishCard key={it.id} item={it} formatCurrency={formatCurrency} />
                                   ))}
                                 </div>
                               </div>
                             );
                           })}
+
+                          {filteredGenericPizzaEntries.length > 0 && (
+                            <div
+                              className="min-w-[560px] max-w-[560px] rounded-2xl border border-border bg-card shadow-sm p-4"
+                              style={{ scrollSnapAlign: 'start' }}
+                            >
+                              <div className="flex items-center justify-between mb-3">
+                                <h3 className="font-bold text-base text-foreground">Pizzas</h3>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8"
+                                  onClick={() => setSelectedCategory(`pc_${filteredGenericPizzaEntries[0]?.pizza_category_id}`)}
+                                >
+                                  Abrir
+                                </Button>
+                              </div>
+                              <div className="flex gap-3">
+                                {filteredGenericPizzaEntries.slice(0, 3).map((it) => (
+                                  <MiniDishCard
+                                    key={it.menu_entry_id || it.id}
+                                    item={it}
+                                    onClick={() => handleDishClick(it)}
+                                    formatCurrency={formatCurrency}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          )}
 
                           {(Array.isArray(activeBeverages) ? activeBeverages : []).length > 0 && (
                             <div
@@ -2912,7 +3138,7 @@ export default function Cardapio() {
                               </div>
                               <div className="flex gap-3">
                                 {filteredBeverages.slice(0, 3).map((it) => (
-                                  <MiniDishCard key={it.id} item={it} />
+                                  <MiniDishCard key={it.id} item={it} formatCurrency={formatCurrency} />
                                 ))}
                               </div>
                             </div>
@@ -2939,7 +3165,7 @@ export default function Cardapio() {
                               </div>
                               <div className="flex gap-3">
                                 {comboDishesForDisplay.slice(0, 3).map((it) => (
-                                  <MiniDishCard key={it.id} item={it} />
+                                  <MiniDishCard key={it.id} item={it} formatCurrency={formatCurrency} />
                                 ))}
                               </div>
                             </div>
@@ -3245,6 +3471,33 @@ export default function Cardapio() {
                           </div>
                         );
                       })}
+
+                    {filteredGenericPizzaEntries.length > 0 && (
+                      <div className="mb-6 md:mb-8">
+                        <div className="flex items-center gap-2 mb-4">
+                          <Flame className="w-4 h-4 flex-shrink-0" style={{ color: primaryColor }} />
+                          <h3 className="font-bold text-base md:text-lg text-foreground border-l-4 pl-2" style={{ borderColor: primaryColor }}>
+                            Pizzas
+                          </h3>
+                          <span className="text-xs text-muted-foreground">({filteredGenericPizzaEntries.length})</span>
+                        </div>
+                        <MenuLayoutWrapper
+                          layout={menuLayout}
+                          dishes={filteredGenericPizzaEntries}
+                          onDishClick={handleDishClick}
+                          primaryColor={primaryColor}
+                          textPrimaryColor={textPrimaryColor}
+                          textSecondaryColor={textSecondaryColor}
+                          loading={loadingDishes}
+                          stockUtils={stockUtils}
+                          formatCurrency={formatCurrency}
+                          slug={slug}
+                          gridColsDesktop={gridColsDesktop}
+                          autoplayIntervalMs={autoplayIntervalMs}
+                          menuCardStyle={menuCardStyle}
+                        />
+                      </div>
+                    )}
 
                     {beverageCategoriesResolved
                       .filter((cat) => cat?.is_active !== false)
