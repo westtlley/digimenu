@@ -10,6 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Badge } from '@/components/ui/badge';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Label } from '@/components/ui/label';
+import { matchesLegacyOrderStatusFilter } from '@/utils/orderLifecycle';
 
 const STATUS_OPTIONS = [
   { value: 'all', label: 'Todos os Status' },
@@ -86,7 +87,7 @@ export default function AdvancedOrderFilters({
 
     // Filtrar por status
     if (filterValues.status !== 'all') {
-      filtered = filtered.filter(o => o.status === filterValues.status);
+      filtered = filtered.filter((order) => matchesLegacyOrderStatusFilter(order, filterValues.status));
     }
 
     // Filtrar por período (created_at ou created_date)

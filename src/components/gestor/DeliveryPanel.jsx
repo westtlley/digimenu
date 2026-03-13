@@ -15,6 +15,10 @@ import { base44 } from '@/api/base44Client';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { toast } from "sonner";
 import { format } from 'date-fns';
+import {
+  isOrderDelivered,
+  isOrderReadyForDispatch,
+} from '@/utils/orderLifecycle';
 
 export default function DeliveryPanel({ entregadores, orders, stores = [], asSub = null }) {
   const safeOrders = Array.isArray(orders) ? orders : [];
@@ -50,7 +54,7 @@ export default function DeliveryPanel({ entregadores, orders, stores = [], asSub
 
   // Buscar histórico de entregas de cada entregador
   const getEntregadorHistory = (entregadorId) => {
-    return orders.filter(o => o.entregador_id === entregadorId && o.status === 'delivered');
+    return orders.filter((order) => order.entregador_id === entregadorId && isOrderDelivered(order));
   };
 
   const assignMutation = useMutation({
@@ -59,9 +63,8 @@ export default function DeliveryPanel({ entregadores, orders, stores = [], asSub
       const entregador = entregadores.find(e => e.id === entregadorId);
       
       await base44.entities.Order.update(orderId, {
-        ...order,
         entregador_id: entregadorId,
-        status: 'out_for_delivery'
+        delivery_status: 'out_for_delivery'
       }, scopedEntityOpts);
 
       await base44.entities.Entregador.update(entregadorId, {
@@ -79,7 +82,7 @@ export default function DeliveryPanel({ entregadores, orders, stores = [], asSub
 
   const availableEntregadores = safeEntregadores.filter(e => e.status === 'available');
   const busyEntregadores = safeEntregadores.filter(e => e.status === 'busy');
-  const readyOrders = safeOrders.filter(o => o.status === 'ready' && o.delivery_method === 'delivery');
+  const readyOrders = safeOrders.filter((order) => order.delivery_method === 'delivery' && isOrderReadyForDispatch(order));
 
   const [entregadorFormData, setEntregadorFormData] = useState({
     name: '',

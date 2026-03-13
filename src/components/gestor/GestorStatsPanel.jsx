@@ -27,6 +27,12 @@ import {
   AreaChart,
   Area,
 } from 'recharts';
+import {
+  isOrderDelivered,
+  isOrderInDeliveryFlow,
+  isOrderPreparationActive,
+  isOrderReadyForDispatch,
+} from '@/utils/orderLifecycle';
 
 export default function GestorStatsPanel({ orders = [], entregadores = [], darkMode = false }) {
   const safeOrders = Array.isArray(orders) ? orders : [];
@@ -79,16 +85,16 @@ export default function GestorStatsPanel({ orders = [], entregadores = [], darkM
       return d >= yesterday && d < today;
     });
 
-    const deliveredToday = todayOrders.filter((o) => o.status === 'delivered');
+    const deliveredToday = todayOrders.filter(isOrderDelivered);
     const totalRevenue = deliveredToday.reduce((sum, o) => sum + Number(o.total || 0), 0);
     const yesterdayRevenue = yesterdayOrders
-      .filter((o) => o.status === 'delivered')
+      .filter(isOrderDelivered)
       .reduce((sum, o) => sum + Number(o.total || 0), 0);
 
     const ticketMedio = deliveredToday.length > 0 ? totalRevenue / deliveredToday.length : 0;
-    const pendingOrders = safeOrders.filter((o) => ['new', 'accepted', 'preparing'].includes(o.status)).length;
-    const inDelivery = safeOrders.filter((o) => ['out_for_delivery', 'arrived_at_customer', 'going_to_store', 'picked_up'].includes(o.status)).length;
-    const kitchenQueue = safeOrders.filter((o) => ['new', 'accepted', 'preparing'].includes(o.status)).length;
+    const pendingOrders = safeOrders.filter(isOrderPreparationActive).length;
+    const inDelivery = safeOrders.filter(isOrderInDeliveryFlow).length;
+    const kitchenQueue = safeOrders.filter(isOrderPreparationActive).length;
     const activeEntregadores = safeEntregadores.filter((e) => ['available', 'busy'].includes(e.status)).length;
     const availableCouriers = safeEntregadores.filter((e) => e.status === 'available').length;
 
@@ -102,7 +108,7 @@ export default function GestorStatsPanel({ orders = [], entregadores = [], darkM
         : 0;
 
     const delayedOrders = safeOrders.filter((o) => {
-      if (!['new', 'accepted', 'preparing'].includes(o.status)) return false;
+      if (!isOrderPreparationActive(o)) return false;
       if (o.accepted_at) {
         const prepLimit = Number(o.prep_time || 30);
         return differenceInMinutes(now, new Date(o.accepted_at)) > prepLimit;
@@ -121,12 +127,12 @@ export default function GestorStatsPanel({ orders = [], entregadores = [], darkM
     const firstDayThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const firstDayLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const thisMonthDelivered = safeOrders.filter((o) => {
-      if (o.status !== 'delivered') return false;
+      if (!isOrderDelivered(o)) return false;
       const d = new Date(o.delivered_at || o.created_at || o.created_date || 0);
       return d >= firstDayThisMonth;
     }).length;
     const lastMonthDelivered = safeOrders.filter((o) => {
-      if (o.status !== 'delivered') return false;
+      if (!isOrderDelivered(o)) return false;
       const d = new Date(o.delivered_at || o.created_at || o.created_date || 0);
       return d >= firstDayLastMonth && d < firstDayThisMonth;
     }).length;
@@ -219,7 +225,7 @@ export default function GestorStatsPanel({ orders = [], entregadores = [], darkM
       if (Number.isFinite(hour) && hourBuckets[hour]) {
         hourBuckets[hour].pedidos += 1;
       }
-      if (o.status === 'delivered' && Number.isFinite(hour) && hourBuckets[hour]) {
+      if (isOrderDelivered(o) && Number.isFinite(hour) && hourBuckets[hour]) {
         hourBuckets[hour].receita += Number(o.total || 0);
       }
     });
@@ -227,10 +233,10 @@ export default function GestorStatsPanel({ orders = [], entregadores = [], darkM
     const chartByHour = hourBuckets.map((x) => ({ hora: x.name, quantidade: x.pedidos }));
     const revenueByHour = hourBuckets.map((x) => ({ name: x.name, receita: x.receita }));
 
-    const prep = todayOrders.filter((o) => ['new', 'accepted', 'preparing'].includes(o.status)).length;
-    const ready = todayOrders.filter((o) => ['ready', 'going_to_store', 'arrived_at_store', 'picked_up'].includes(o.status)).length;
-    const route = todayOrders.filter((o) => ['out_for_delivery', 'arrived_at_customer'].includes(o.status)).length;
-    const done = todayOrders.filter((o) => o.status === 'delivered').length;
+    const prep = todayOrders.filter(isOrderPreparationActive).length;
+    const ready = todayOrders.filter(isOrderReadyForDispatch).length;
+    const route = todayOrders.filter(isOrderInDeliveryFlow).length;
+    const done = todayOrders.filter(isOrderDelivered).length;
     const pieData = [
       { name: 'Em preparo', value: prep, color: '#f97316' },
       { name: 'Prontos', value: ready, color: '#22c55e' },
@@ -481,10 +487,10 @@ export default function GestorStatsPanel({ orders = [], entregadores = [], darkM
             <div className="flex justify-between mb-2">
               <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Taxa de conclusão</span>
               <span className={`text-sm font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                {todayOrders.length > 0 ? ((todayOrders.filter((o) => o.status === 'delivered').length / todayOrders.length) * 100).toFixed(1) : 0}%
+                {todayOrders.length > 0 ? ((todayOrders.filter(isOrderDelivered).length / todayOrders.length) * 100).toFixed(1) : 0}%
               </span>
             </div>
-            <Progress value={(todayOrders.filter((o) => o.status === 'delivered').length / Math.max(1, todayOrders.length)) * 100} className="h-2" />
+            <Progress value={(todayOrders.filter(isOrderDelivered).length / Math.max(1, todayOrders.length)) * 100} className="h-2" />
           </div>
           <div>
             <div className="flex justify-between mb-2">

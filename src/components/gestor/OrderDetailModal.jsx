@@ -16,6 +16,13 @@ import { printComanda as printComandaTicket } from '@/utils/gestorExport';
 import jsPDF from 'jspdf';
 import toast from 'react-hot-toast';
 import { OrderTimeline } from '../molecules/OrderTimeline';
+import {
+  getOrderDeliveryStatus,
+  getOrderDisplayStatus,
+  getOrderProductionStatus,
+  isOrderNewForGestor,
+  isOrderReadyForDispatch,
+} from '@/utils/orderLifecycle';
 
 const PAYMENT_LABELS = {
   pix: 'PIX',
@@ -39,6 +46,9 @@ export default function OrderDetailModal({
   suggestedPrepTime = 30, quickStatusKey, onClearQuickStatus,
   onViewMap, onDuplicate, onAddToPrintQueue,
 }) {
+  const productionStatus = useMemo(() => getOrderProductionStatus(order), [order]);
+  const deliveryStatus = useMemo(() => getOrderDeliveryStatus(order), [order]);
+  const displayStatus = useMemo(() => getOrderDisplayStatus(order), [order]);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [showDeliveryModal, setShowDeliveryModal] = useState(false);
   const [showRejectChangeModal, setShowRejectChangeModal] = useState(false);
@@ -63,34 +73,50 @@ export default function OrderDetailModal({
   const queryClient = useQueryClient();
   const gestorOrdersKey = useMemo(() => ['gestorOrders', asSub ?? 'me'], [asSub]);
 
+  const buildStatusUpdates = React.useCallback((nextStatus, extra = {}) => {
+    if (!nextStatus) return { ...extra };
+
+    if (['accepted', 'preparing', 'ready', 'cancelled'].includes(nextStatus)) {
+      return {
+        ...extra,
+        production_status: nextStatus,
+      };
+    }
+
+    return {
+      ...extra,
+      delivery_status: nextStatus,
+    };
+  }, []);
+
   // Atalho 1â€“4: aplicar status e limpar
   React.useEffect(() => {
     if (!quickStatusKey || updateMutation.isPending) return;
     const run = () => {
-      if (quickStatusKey === 'accepted' && order.status === 'new') {
+      if (quickStatusKey === 'accepted' && isOrderNewForGestor(order)) {
         const p = canAlterPrepPerOrder ? prepTime : (suggestedPrepTime || 30);
-        updateMutation.mutate({ id: order.id, updates: { status: 'accepted', accepted_at: new Date().toISOString(), prep_time: p } }, { onSuccess: () => onClearQuickStatus?.() });
+        updateMutation.mutate({ id: order.id, updates: buildStatusUpdates('accepted', { accepted_at: new Date().toISOString(), prep_time: p }) }, { onSuccess: () => onClearQuickStatus?.() });
         return;
       }
-      if (quickStatusKey === 'ready' && ['accepted', 'preparing'].includes(order.status)) {
-        const u = { status: 'ready', ready_at: new Date().toISOString() };
+      if (quickStatusKey === 'ready' && ['accepted', 'preparing'].includes(productionStatus)) {
+        const u = buildStatusUpdates('ready', { ready_at: new Date().toISOString() });
         if (!order.pickup_code) u.pickup_code = Math.floor(1000 + Math.random() * 9000).toString();
         if (!order.delivery_code && order.delivery_method === 'delivery') u.delivery_code = Math.floor(1000 + Math.random() * 9000).toString();
         updateMutation.mutate({ id: order.id, updates: u }, { onSuccess: () => onClearQuickStatus?.() });
         return;
       }
-      if (quickStatusKey === 'out_for_delivery' && ['ready', 'picked_up'].includes(order.status)) {
-        updateMutation.mutate({ id: order.id, updates: { status: 'out_for_delivery' } }, { onSuccess: () => onClearQuickStatus?.() });
+      if (quickStatusKey === 'out_for_delivery' && (isOrderReadyForDispatch(order) || deliveryStatus === 'picked_up')) {
+        updateMutation.mutate({ id: order.id, updates: buildStatusUpdates('out_for_delivery') }, { onSuccess: () => onClearQuickStatus?.() });
         return;
       }
-      if (quickStatusKey === 'delivered' && ['ready', 'out_for_delivery', 'arrived_at_customer'].includes(order.status)) {
-        updateMutation.mutate({ id: order.id, updates: { status: 'delivered', delivered_at: new Date().toISOString() } }, { onSuccess: () => onClearQuickStatus?.() });
+      if (quickStatusKey === 'delivered' && (isOrderReadyForDispatch(order) || ['out_for_delivery', 'arrived_at_customer'].includes(deliveryStatus))) {
+        updateMutation.mutate({ id: order.id, updates: buildStatusUpdates('delivered', { delivered_at: new Date().toISOString() }) }, { onSuccess: () => onClearQuickStatus?.() });
         return;
       }
       onClearQuickStatus?.();
     };
     run();
-  }, [quickStatusKey]);
+  }, [buildStatusUpdates, canAlterPrepPerOrder, deliveryStatus, isOrderNewForGestor, order, prepTime, productionStatus, quickStatusKey, suggestedPrepTime]);
 
   // Buscar logs do pedido
   const { data: orderLogs = [] } = useQuery({
@@ -101,49 +127,56 @@ export default function OrderDetailModal({
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, updates }) => {
+      const normalizedUpdates = updates.status ? buildStatusUpdates(updates.status, Object.fromEntries(
+        Object.entries(updates).filter(([key]) => key !== 'status')
+      )) : updates;
+      const nextOrder = { ...order, ...normalizedUpdates };
+      const nextDisplayStatus = getOrderDisplayStatus(nextOrder);
+      const nextProductionStatus = getOrderProductionStatus(nextOrder);
+
       // Validar status atual
-      if (updates.status === 'accepted' && order.status !== 'new') {
+      if (nextProductionStatus === 'accepted' && !isOrderNewForGestor(order)) {
         throw new Error('Apenas pedidos novos podem ser aceitos');
       }
       
-      if (updates.status === 'cancelled' && !['new', 'accepted'].includes(order.status)) {
+      if (nextProductionStatus === 'cancelled' && !['new', 'accepted', 'pending'].includes(productionStatus)) {
         throw new Error('Pedidos em andamento nÃ£o podem ser cancelados');
       }
       
       // Validar tempo de preparo ao aceitar
-      if (updates.status === 'accepted' && (!updates.prep_time || updates.prep_time < 5)) {
+      if (nextProductionStatus === 'accepted' && (!normalizedUpdates.prep_time || normalizedUpdates.prep_time < 5)) {
         throw new Error('Tempo de preparo deve ser no mÃ­nimo 5 minutos');
       }
       
       // Gerar cÃ³digos automaticamente quando ficar pronto
-      if (updates.status === 'ready') {
-        if (!order.pickup_code) {
-          updates.pickup_code = Math.floor(1000 + Math.random() * 9000).toString();
+      if (nextProductionStatus === 'ready') {
+        if (!order.pickup_code && !normalizedUpdates.pickup_code) {
+          normalizedUpdates.pickup_code = Math.floor(1000 + Math.random() * 9000).toString();
         }
-        if (!order.delivery_code && order.delivery_method === 'delivery') {
-          updates.delivery_code = Math.floor(1000 + Math.random() * 9000).toString();
+        if (!order.delivery_code && order.delivery_method === 'delivery' && !normalizedUpdates.delivery_code) {
+          normalizedUpdates.delivery_code = Math.floor(1000 + Math.random() * 9000).toString();
         }
       }
       
-      const payload = { ...order, ...updates };
+      const payload = { ...order, ...normalizedUpdates };
       const updateOpts = asSub ? { as_subscriber: asSub } : {};
       const res = await base44.entities.Order.update(id, payload, updateOpts);
       
       try {
         await base44.entities.OrderLog.create({
           order_id: id,
-          action: `Status alterado para ${updates.status}`,
-          old_status: order.status,
-          new_status: updates.status,
+          action: `Status alterado para ${nextDisplayStatus}`,
+          old_status: displayStatus,
+          new_status: nextDisplayStatus,
           user_email: user?.email,
-          details: updates.rejection_reason || null,
+          details: normalizedUpdates.rejection_reason || null,
           ...(asSub && { as_subscriber: asSub })
         });
       } catch (e) {
         console.log('Log error:', e);
       }
       
-      return { status: updates.status, order: res || payload };
+      return { status: nextDisplayStatus, order: res || payload };
     },
     onSuccess: (data) => {
       const newStatus = data?.status;
@@ -199,32 +232,33 @@ export default function OrderDetailModal({
       toast.error('Tempo de preparo deve ser entre 5 e 180 minutos');
       return;
     }
-    if (order.status !== 'new') {
+    if (!isOrderNewForGestor(order)) {
       toast.error('Este pedido jÃ¡ foi processado');
       return;
     }
     updateMutation.mutate({
       id: order.id,
-      updates: { 
-        status: 'accepted',
+      updates: buildStatusUpdates('accepted', { 
         accepted_at: new Date().toISOString(),
         prep_time: effectivePrep,
-      }
+      }),
     });
   };
 
   const handleNextStatus = () => {
     const statusFlow = {
-      'accepted': 'preparing',
-      'preparing': 'ready',
-      'ready': order.delivery_method === 'delivery' ? 'ready' : 'delivered',
-      'out_for_delivery': 'delivered',
+      accepted: 'preparing',
+      preparing: 'ready',
+      out_for_delivery: 'delivered',
     };
 
-    const nextStatus = statusFlow[order.status];
+    let nextStatus = statusFlow[productionStatus] || statusFlow[deliveryStatus];
+    if (!nextStatus && productionStatus === 'ready' && order.delivery_method !== 'delivery') {
+      nextStatus = 'delivered';
+    }
     if (!nextStatus) return;
 
-    const updates = { status: nextStatus };
+    const updates = buildStatusUpdates(nextStatus);
     if (nextStatus === 'ready') {
       updates.ready_at = new Date().toISOString();
     }
@@ -236,7 +270,7 @@ export default function OrderDetailModal({
   const handleReject = async () => {
     if (updateMutation.isPending) return;
     
-    if (!['new', 'accepted'].includes(order.status)) {
+    if (!['new', 'accepted', 'pending'].includes(productionStatus)) {
       toast.error('Este pedido nÃ£o pode mais ser cancelado');
       return;
     }
@@ -265,10 +299,9 @@ export default function OrderDetailModal({
     setCustomRejectionError(false);
     updateMutation.mutate({
       id: order.id,
-      updates: { 
-        status: 'cancelled', 
+      updates: buildStatusUpdates('cancelled', { 
         rejection_reason: finalReason,
-      }
+      }),
     });
     setShowRejectModal(false);
     setRejectionReason('');
@@ -304,12 +337,11 @@ export default function OrderDetailModal({
       const entregador = entregadores.find(e => e.id === selectedEntregador);
       
       // Gerar cÃ³digos se ainda nÃ£o existirem
-      const updates = { 
-        status: 'going_to_store', 
+      const updates = buildStatusUpdates('going_to_store', { 
         entregador_id: selectedEntregador,
         store_latitude: store?.store_latitude || -5.0892,
         store_longitude: store?.store_longitude || -42.8019
-      };
+      });
       
       if (!order.pickup_code) {
         updates.pickup_code = Math.floor(1000 + Math.random() * 9000).toString();
@@ -405,16 +437,16 @@ export default function OrderDetailModal({
             </div>
             
             {/* CÃ³digo de Retirada para Entregador - Apenas para o Gestor */}
-            {['ready', 'going_to_store', 'arrived_at_store', 'picked_up'].includes(order.status) && order.pickup_code && (
+            {(productionStatus === 'ready' || ['going_to_store', 'arrived_at_store', 'picked_up'].includes(deliveryStatus)) && order.pickup_code && (
               <div className="bg-white/20 backdrop-blur-sm border-2 border-white/50 rounded-xl p-3 text-center mt-3">
                 <p className="text-xs font-semibold mb-1">
-                  {order.status === 'picked_up' ? 'âœ… CÃ³digo Validado' : 'CÃ³digo de Retirada'}
+                  {deliveryStatus === 'picked_up' ? 'âœ… CÃ³digo Validado' : 'CÃ³digo de Retirada'}
                 </p>
                 <p className="text-4xl font-bold tracking-widest">
                   {order.pickup_code}
                 </p>
                 <p className="text-[10px] opacity-90 mt-1">
-                  {order.status === 'picked_up' ? 'Pedido coletado' : order.status === 'ready' ? 'Pronto para coleta' : 'ForneÃ§a ao entregador'}
+                  {deliveryStatus === 'picked_up' ? 'Pedido coletado' : productionStatus === 'ready' ? 'Pronto para coleta' : 'ForneÃ§a ao entregador'}
                 </p>
               </div>
             )}
@@ -636,7 +668,7 @@ export default function OrderDetailModal({
           <div className="p-4 border-t bg-gray-50 space-y-2">
             {/* Actions */}
             <div className="space-y-2">
-              {order.status === 'new' && (
+              {isOrderNewForGestor(order) && (
                 <>
                   {canAlterPrepPerOrder && (
                     <div className="flex items-center gap-2 mb-2 bg-white p-2 rounded border flex-wrap">
@@ -685,19 +717,19 @@ export default function OrderDetailModal({
                 </>
               )}
 
-              {order.status === 'accepted' && (
+              {productionStatus === 'accepted' && (
                 <Button onClick={handleNextStatus} className="rounded w-full bg-yellow-600 hover:bg-yellow-700 h-12 font-semibold transition-all duration-100">
                   <ChefHat className="w-5 h-5 mr-2" /> Iniciar Preparo
                 </Button>
               )}
 
-              {order.status === 'preparing' && (
+              {productionStatus === 'preparing' && (
                 <Button onClick={handleNextStatus} className="rounded w-full bg-green-600 hover:bg-green-700 h-12 font-semibold transition-all duration-100">
                   <CheckCircle className="w-5 h-5 mr-2" /> Marcar como Pronto
                 </Button>
               )}
 
-              {order.status === 'ready' && order.delivery_method === 'delivery' && (
+              {isOrderReadyForDispatch(order) && order.delivery_method === 'delivery' && (
                 <Button onClick={() => setShowDeliveryModal(true)} className="rounded w-full bg-blue-600 hover:bg-blue-700 h-12 font-semibold transition-all duration-100">
                   <Truck className="w-5 h-5 mr-2" /> Chamar Entregador
                 </Button>
@@ -705,13 +737,13 @@ export default function OrderDetailModal({
 
               {/* CÃ³digos exibidos no cabeÃ§alho do modal */}
 
-              {order.status === 'ready' && order.delivery_method === 'pickup' && (
+              {productionStatus === 'ready' && order.delivery_method === 'pickup' && (
                 <Button onClick={handleNextStatus} className="rounded w-full bg-green-600 hover:bg-green-700 h-12 font-semibold transition-all duration-100">
                   <CheckCircle className="w-5 h-5 mr-2" /> Marcar como Entregue
                 </Button>
               )}
 
-              {order.status === 'out_for_delivery' && (
+              {deliveryStatus === 'out_for_delivery' && (
                 <>
                   {order.entregador_id && (
                     <Button 
@@ -732,29 +764,29 @@ export default function OrderDetailModal({
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-2 border-t border-gray-200">
                 <Button
                   size="sm"
-                  variant={order.status === 'new' ? 'default' : 'outline'}
+                  variant={isOrderNewForGestor(order) ? 'default' : 'outline'}
                   className="min-h-touch bg-green-600 hover:bg-green-700 text-white border-0"
-                  disabled={order.status !== 'new' || updateMutation.isPending}
-                  onClick={() => { const p = canAlterPrepPerOrder ? prepTime : (suggestedPrepTime || 30); updateMutation.mutate({ id: order.id, updates: { status: 'accepted', accepted_at: new Date().toISOString(), prep_time: p } }); }}
+                  disabled={!isOrderNewForGestor(order) || updateMutation.isPending}
+                  onClick={() => { const p = canAlterPrepPerOrder ? prepTime : (suggestedPrepTime || 30); updateMutation.mutate({ id: order.id, updates: buildStatusUpdates('accepted', { accepted_at: new Date().toISOString(), prep_time: p }) }); }}
                 >
                   Aceitar
                 </Button>
                 <Button
                   size="sm"
-                  variant={['accepted', 'preparing'].includes(order.status) ? 'default' : 'outline'}
+                  variant={['accepted', 'preparing'].includes(productionStatus) ? 'default' : 'outline'}
                   className="min-h-touch bg-yellow-600 hover:bg-yellow-700 text-white border-0"
-                  disabled={!['accepted', 'preparing'].includes(order.status) || updateMutation.isPending}
-                  onClick={() => updateMutation.mutate({ id: order.id, updates: { status: 'preparing' } })}
+                  disabled={!['accepted', 'preparing'].includes(productionStatus) || updateMutation.isPending}
+                  onClick={() => updateMutation.mutate({ id: order.id, updates: buildStatusUpdates('preparing') })}
                 >
                   Preparo
                 </Button>
                 <Button
                   size="sm"
-                  variant={order.status === 'ready' ? 'default' : 'outline'}
+                  variant={productionStatus === 'ready' ? 'default' : 'outline'}
                   className="min-h-touch bg-emerald-600 hover:bg-emerald-700 text-white border-0"
-                  disabled={!['accepted', 'preparing'].includes(order.status) || updateMutation.isPending}
+                  disabled={!['accepted', 'preparing'].includes(productionStatus) || updateMutation.isPending}
                   onClick={() => {
-                    const u = { status: 'ready', ready_at: new Date().toISOString() };
+                    const u = buildStatusUpdates('ready', { ready_at: new Date().toISOString() });
                     if (!order.pickup_code) u.pickup_code = Math.floor(1000 + Math.random() * 9000).toString();
                     if (!order.delivery_code && order.delivery_method === 'delivery') u.delivery_code = Math.floor(1000 + Math.random() * 9000).toString();
                     updateMutation.mutate({ id: order.id, updates: u });
@@ -764,19 +796,19 @@ export default function OrderDetailModal({
                 </Button>
                 <Button
                   size="sm"
-                  variant={order.status === 'out_for_delivery' ? 'default' : 'outline'}
+                  variant={deliveryStatus === 'out_for_delivery' ? 'default' : 'outline'}
                   className="min-h-touch bg-blue-600 hover:bg-blue-700 text-white border-0"
-                  disabled={!['ready', 'picked_up'].includes(order.status) || updateMutation.isPending}
-                  onClick={() => updateMutation.mutate({ id: order.id, updates: { status: 'out_for_delivery' } })}
+                  disabled={!(isOrderReadyForDispatch(order) || deliveryStatus === 'picked_up') || updateMutation.isPending}
+                  onClick={() => updateMutation.mutate({ id: order.id, updates: buildStatusUpdates('out_for_delivery') })}
                 >
                   Saiu
                 </Button>
                 <Button
                   size="sm"
-                  variant={order.status === 'delivered' ? 'default' : 'outline'}
+                  variant={displayStatus === 'delivered' ? 'default' : 'outline'}
                   className="min-h-touch bg-gray-700 hover:bg-gray-800 text-white border-0"
-                  disabled={!['ready', 'out_for_delivery', 'arrived_at_customer'].includes(order.status) || updateMutation.isPending}
-                  onClick={() => updateMutation.mutate({ id: order.id, updates: { status: 'delivered', delivered_at: new Date().toISOString() } })}
+                  disabled={!(isOrderReadyForDispatch(order) || ['out_for_delivery', 'arrived_at_customer'].includes(deliveryStatus)) || updateMutation.isPending}
+                  onClick={() => updateMutation.mutate({ id: order.id, updates: buildStatusUpdates('delivered', { delivered_at: new Date().toISOString() }) })}
                 >
                   Entregue
                 </Button>
@@ -793,7 +825,7 @@ export default function OrderDetailModal({
                 )}
                 {order.customer_phone && (
                   <>
-                    <Button variant="outline" size="sm" onClick={() => { const p = order.customer_phone?.replace(/\D/g, ''); const msg = `OlÃ¡! Seu pedido #${order.order_code || order.id} estÃ¡: ${order.status}.`; window.open(`https://wa.me/55${p}?text=${encodeURIComponent(msg)}`, '_blank'); }}>
+                    <Button variant="outline" size="sm" onClick={() => { const p = order.customer_phone?.replace(/\D/g, ''); const msg = `OlÃ¡! Seu pedido #${order.order_code || order.id} estÃ¡: ${displayStatus}.`; window.open(`https://wa.me/55${p}?text=${encodeURIComponent(msg)}`, '_blank'); }}>
                       <Send className="w-4 h-4 mr-1" /> Enviar status
                     </Button>
                     <Button variant="outline" size="sm" onClick={() => window.open(`https://wa.me/55${order.customer_phone?.replace(/\D/g, '')}`, '_blank')}>

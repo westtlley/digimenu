@@ -1,194 +1,264 @@
-﻿/**
+/**
  * Order Status Validation Service
- * Valida transicoes de status de pedidos.
+ * Valida transicoes de status de pedidos por eixo operacional.
  */
 
 import { logger } from '../utils/logger.js';
+import {
+  decorateOrderEntity,
+  normalizeOrderForPersistence,
+  PRODUCTION_STATUS,
+  DELIVERY_STATUS,
+  resolveOrderDeliveryMethod,
+} from '../utils/orderLifecycle.js';
 
-/**
- * Status possiveis de um pedido.
- */
 export const ORDER_STATUSES = {
-  NEW: 'new',
-  PENDING: 'pending',
-  ACCEPTED: 'accepted',
-  PREPARING: 'preparing',
-  READY: 'ready',
-  GOING_TO_STORE: 'going_to_store',
-  ARRIVED_AT_STORE: 'arrived_at_store',
-  PICKED_UP: 'picked_up',
-  OUT_FOR_DELIVERY: 'out_for_delivery',
-  ARRIVED_AT_CUSTOMER: 'arrived_at_customer',
-  // Alias legado mantido por compatibilidade com dados antigos.
+  NEW: PRODUCTION_STATUS.NEW,
+  PENDING: PRODUCTION_STATUS.PENDING,
+  ACCEPTED: PRODUCTION_STATUS.ACCEPTED,
+  PREPARING: PRODUCTION_STATUS.PREPARING,
+  READY: PRODUCTION_STATUS.READY,
+  GOING_TO_STORE: DELIVERY_STATUS.GOING_TO_STORE,
+  ARRIVED_AT_STORE: DELIVERY_STATUS.ARRIVED_AT_STORE,
+  PICKED_UP: DELIVERY_STATUS.PICKED_UP,
+  OUT_FOR_DELIVERY: DELIVERY_STATUS.OUT_FOR_DELIVERY,
+  ARRIVED_AT_CUSTOMER: DELIVERY_STATUS.ARRIVED_AT_CUSTOMER,
   DELIVERING: 'delivering',
-  DELIVERED: 'delivered',
-  CANCELLED: 'cancelled'
+  DELIVERED: DELIVERY_STATUS.DELIVERED,
+  CANCELLED: DELIVERY_STATUS.CANCELLED,
 };
 
-function normalizeOrderStatus(status) {
-  const normalized = (status || '').toLowerCase().trim();
-  // Compatibilidade com status legado.
+const FINAL_PRODUCTION_STATUSES = new Set([
+  PRODUCTION_STATUS.CANCELLED,
+]);
+
+const FINAL_DELIVERY_STATUSES = new Set([
+  DELIVERY_STATUS.DELIVERED,
+  DELIVERY_STATUS.CANCELLED,
+]);
+
+const DELIVERY_FLOW_STATUSES = new Set([
+  DELIVERY_STATUS.GOING_TO_STORE,
+  DELIVERY_STATUS.ARRIVED_AT_STORE,
+  DELIVERY_STATUS.PICKED_UP,
+  DELIVERY_STATUS.OUT_FOR_DELIVERY,
+  DELIVERY_STATUS.ARRIVED_AT_CUSTOMER,
+]);
+
+const DELIVERY_WAITING_STATUSES = new Set([
+  DELIVERY_STATUS.PENDING,
+  DELIVERY_STATUS.WAITING_DRIVER,
+  DELIVERY_STATUS.WAITING_PICKUP,
+  DELIVERY_STATUS.NOT_REQUIRED,
+]);
+
+const PRODUCTION_TRANSITIONS = {
+  [PRODUCTION_STATUS.NEW]: [PRODUCTION_STATUS.ACCEPTED, PRODUCTION_STATUS.PREPARING, PRODUCTION_STATUS.READY, PRODUCTION_STATUS.CANCELLED],
+  [PRODUCTION_STATUS.PENDING]: [PRODUCTION_STATUS.ACCEPTED, PRODUCTION_STATUS.PREPARING, PRODUCTION_STATUS.READY, PRODUCTION_STATUS.CANCELLED],
+  [PRODUCTION_STATUS.ACCEPTED]: [PRODUCTION_STATUS.PREPARING, PRODUCTION_STATUS.READY, PRODUCTION_STATUS.CANCELLED],
+  [PRODUCTION_STATUS.PREPARING]: [PRODUCTION_STATUS.READY, PRODUCTION_STATUS.CANCELLED],
+  [PRODUCTION_STATUS.READY]: [PRODUCTION_STATUS.CANCELLED],
+  [PRODUCTION_STATUS.CANCELLED]: [],
+};
+
+const DELIVERY_TRANSITIONS = {
+  [DELIVERY_STATUS.PENDING]: [DELIVERY_STATUS.WAITING_DRIVER, DELIVERY_STATUS.WAITING_PICKUP, DELIVERY_STATUS.NOT_REQUIRED, DELIVERY_STATUS.CANCELLED],
+  [DELIVERY_STATUS.NOT_REQUIRED]: [DELIVERY_STATUS.DELIVERED, DELIVERY_STATUS.CANCELLED],
+  [DELIVERY_STATUS.WAITING_PICKUP]: [DELIVERY_STATUS.PICKED_UP, DELIVERY_STATUS.DELIVERED, DELIVERY_STATUS.CANCELLED],
+  [DELIVERY_STATUS.WAITING_DRIVER]: [
+    DELIVERY_STATUS.GOING_TO_STORE,
+    DELIVERY_STATUS.PICKED_UP,
+    DELIVERY_STATUS.OUT_FOR_DELIVERY,
+    DELIVERY_STATUS.DELIVERED,
+    DELIVERY_STATUS.CANCELLED,
+  ],
+  [DELIVERY_STATUS.GOING_TO_STORE]: [DELIVERY_STATUS.ARRIVED_AT_STORE, DELIVERY_STATUS.PICKED_UP, DELIVERY_STATUS.CANCELLED],
+  [DELIVERY_STATUS.ARRIVED_AT_STORE]: [DELIVERY_STATUS.PICKED_UP, DELIVERY_STATUS.CANCELLED],
+  [DELIVERY_STATUS.PICKED_UP]: [DELIVERY_STATUS.OUT_FOR_DELIVERY, DELIVERY_STATUS.DELIVERED, DELIVERY_STATUS.CANCELLED],
+  [DELIVERY_STATUS.OUT_FOR_DELIVERY]: [DELIVERY_STATUS.ARRIVED_AT_CUSTOMER, DELIVERY_STATUS.DELIVERED, DELIVERY_STATUS.CANCELLED],
+  [DELIVERY_STATUS.ARRIVED_AT_CUSTOMER]: [DELIVERY_STATUS.DELIVERED, DELIVERY_STATUS.CANCELLED],
+  [DELIVERY_STATUS.DELIVERED]: [],
+  [DELIVERY_STATUS.CANCELLED]: [],
+};
+
+function normalizeLegacyStatus(status) {
+  const normalized = String(status || '').toLowerCase().trim();
   if (normalized === ORDER_STATUSES.DELIVERING) {
     return ORDER_STATUSES.OUT_FOR_DELIVERY;
   }
-  return normalized;
+  return normalized || null;
 }
 
-/**
- * Mapa de transicoes validas de status.
- * Formato: { fromStatus: [toStatus1, toStatus2, ...] }
- */
-const VALID_TRANSITIONS = {
-  [ORDER_STATUSES.NEW]: [
-    ORDER_STATUSES.ACCEPTED,
-    ORDER_STATUSES.PREPARING,
-    ORDER_STATUSES.CANCELLED
-  ],
-  [ORDER_STATUSES.PENDING]: [
-    ORDER_STATUSES.ACCEPTED,
-    ORDER_STATUSES.CANCELLED
-  ],
-  [ORDER_STATUSES.ACCEPTED]: [
-    ORDER_STATUSES.PREPARING,
-    ORDER_STATUSES.CANCELLED
-  ],
-  [ORDER_STATUSES.PREPARING]: [
-    ORDER_STATUSES.READY,
-    ORDER_STATUSES.CANCELLED
-  ],
-  [ORDER_STATUSES.READY]: [
-    ORDER_STATUSES.GOING_TO_STORE,
-    ORDER_STATUSES.PICKED_UP,
-    ORDER_STATUSES.OUT_FOR_DELIVERY,
-    ORDER_STATUSES.DELIVERED,
-    ORDER_STATUSES.CANCELLED
-  ],
-  [ORDER_STATUSES.GOING_TO_STORE]: [
-    ORDER_STATUSES.ARRIVED_AT_STORE,
-    ORDER_STATUSES.CANCELLED
-  ],
-  [ORDER_STATUSES.ARRIVED_AT_STORE]: [
-    ORDER_STATUSES.PICKED_UP,
-    ORDER_STATUSES.CANCELLED
-  ],
-  [ORDER_STATUSES.PICKED_UP]: [
-    ORDER_STATUSES.OUT_FOR_DELIVERY,
-    ORDER_STATUSES.CANCELLED
-  ],
-  [ORDER_STATUSES.OUT_FOR_DELIVERY]: [
-    ORDER_STATUSES.ARRIVED_AT_CUSTOMER,
-    ORDER_STATUSES.DELIVERED,
-    ORDER_STATUSES.CANCELLED
-  ],
-  [ORDER_STATUSES.ARRIVED_AT_CUSTOMER]: [
-    ORDER_STATUSES.DELIVERED,
-    ORDER_STATUSES.CANCELLED
-  ],
-  // Compatibilidade com registros legados.
-  [ORDER_STATUSES.DELIVERING]: [
-    ORDER_STATUSES.ARRIVED_AT_CUSTOMER,
-    ORDER_STATUSES.DELIVERED,
-    ORDER_STATUSES.CANCELLED
-  ],
-  [ORDER_STATUSES.DELIVERED]: [
-    // Pedido entregue nao pode mudar de status (final)
-  ],
-  [ORDER_STATUSES.CANCELLED]: [
-    // Pedido cancelado nao pode mudar de status (final)
-  ]
-};
-
-/**
- * Status finais (nao podem ser alterados).
- */
-const FINAL_STATUSES = [
-  ORDER_STATUSES.DELIVERED,
-  ORDER_STATUSES.CANCELLED
-];
-
-/**
- * Valida se uma transicao de status e permitida.
- * @param {string} currentStatus - Status atual do pedido
- * @param {string} newStatus - Novo status desejado
- * @param {object} options - Opcoes de validacao
- * @param {boolean} options.isMaster - Se o usuario e master (bypass de validacao)
- * @param {string} options.userRole - Role do usuario (para validacoes especificas)
- * @returns {object} - { valid: boolean, message?: string }
- */
-export function validateStatusTransition(currentStatus, newStatus, options = {}) {
-  const { isMaster = false } = options;
-
-  // Master pode fazer qualquer transicao (bypass)
-  if (isMaster) {
+function validateAxisTransition(currentStatus, nextStatus, transitions, finalStatuses, axisLabel) {
+  if (!nextStatus || currentStatus === nextStatus) {
     return { valid: true };
   }
 
-  // Normalizar status
-  const current = normalizeOrderStatus(currentStatus);
-  const next = normalizeOrderStatus(newStatus);
-
-  // Se nao mudou, e valido (mas nao faz sentido)
-  if (current === next) {
-    return { valid: true, message: 'Status nao foi alterado' };
-  }
-
-  // Verificar se status atual e final
-  if (FINAL_STATUSES.includes(current)) {
+  if (finalStatuses.has(currentStatus)) {
     return {
       valid: false,
-      message: `Pedido com status "${current}" nao pode ser alterado. Status finais: ${FINAL_STATUSES.join(', ')}`
+      message: `${axisLabel} ja esta finalizado em "${currentStatus}" e nao pode retroceder.`,
     };
   }
 
-  // Verificar se novo status e valido
-  if (!Object.values(ORDER_STATUSES).includes(next)) {
+  const allowedTransitions = transitions[currentStatus] || [];
+  if (!allowedTransitions.includes(nextStatus)) {
     return {
       valid: false,
-      message: `Status invalido: "${next}". Status validos: ${Object.values(ORDER_STATUSES).join(', ')}`
-    };
-  }
-
-  // Verificar se a transicao e permitida
-  const allowedTransitions = VALID_TRANSITIONS[current] || [];
-  if (!allowedTransitions.includes(next)) {
-    return {
-      valid: false,
-      message: `Transicao invalida: "${current}" -> "${next}". ` +
-               `Transicoes permitidas de "${current}": ${allowedTransitions.join(', ') || 'nenhuma'}`
+      message: `Transicao invalida em ${axisLabel}: "${currentStatus}" -> "${nextStatus}". Permitidas: ${allowedTransitions.join(', ') || 'nenhuma'}`,
     };
   }
 
   return { valid: true };
 }
 
-/**
- * Obtem todas as transicoes validas a partir de um status.
- * @param {string} currentStatus - Status atual
- * @returns {string[]} - Array de status validos para transicao
- */
+export function validateProductionStatusTransition(currentStatus, newStatus, options = {}) {
+  if (options.isMaster) {
+    return { valid: true };
+  }
+
+  return validateAxisTransition(
+    String(currentStatus || '').toLowerCase().trim(),
+    String(newStatus || '').toLowerCase().trim(),
+    PRODUCTION_TRANSITIONS,
+    FINAL_PRODUCTION_STATUSES,
+    'producao'
+  );
+}
+
+export function validateDeliveryStatusTransition(currentStatus, newStatus, options = {}) {
+  if (options.isMaster) {
+    return { valid: true };
+  }
+
+  return validateAxisTransition(
+    String(currentStatus || '').toLowerCase().trim(),
+    String(newStatus || '').toLowerCase().trim(),
+    DELIVERY_TRANSITIONS,
+    FINAL_DELIVERY_STATUSES,
+    'entrega'
+  );
+}
+
+export function validateOrderAxisTransition(currentOrder, nextPayloadOrOrder, options = {}) {
+  const { isMaster = false } = options;
+  if (isMaster) {
+    return { valid: true };
+  }
+
+  const currentSnapshot = decorateOrderEntity(currentOrder || {});
+  const nextSnapshot = normalizeOrderForPersistence(nextPayloadOrOrder || {}, currentSnapshot);
+
+  const currentProductionStatus = currentSnapshot.production_status;
+  const nextProductionStatus = nextSnapshot.production_status;
+  const currentDeliveryStatus = currentSnapshot.delivery_status;
+  const nextDeliveryStatus = nextSnapshot.delivery_status;
+  const deliveryMethod = resolveOrderDeliveryMethod(nextSnapshot);
+
+  const productionValidation = validateProductionStatusTransition(currentProductionStatus, nextProductionStatus, options);
+  if (!productionValidation.valid) {
+    return productionValidation;
+  }
+
+  const deliveryValidation = validateDeliveryStatusTransition(currentDeliveryStatus, nextDeliveryStatus, options);
+  if (!deliveryValidation.valid) {
+    return deliveryValidation;
+  }
+
+  if (DELIVERY_FLOW_STATUSES.has(nextDeliveryStatus) && nextProductionStatus !== PRODUCTION_STATUS.READY) {
+    return {
+      valid: false,
+      message: `Transicao invalida: pedido nao pode entrar em entrega com production_status "${nextProductionStatus}".`,
+    };
+  }
+
+  if (nextDeliveryStatus === DELIVERY_STATUS.DELIVERED && nextProductionStatus !== PRODUCTION_STATUS.READY) {
+    return {
+      valid: false,
+      message: 'Entrega nao pode ser concluida antes da producao estar pronta.',
+    };
+  }
+
+  if (DELIVERY_FLOW_STATUSES.has(nextDeliveryStatus) && deliveryMethod !== 'delivery') {
+    return {
+      valid: false,
+      message: `Status de entrega "${nextDeliveryStatus}" exige delivery_method "delivery".`,
+    };
+  }
+
+  if (nextDeliveryStatus === DELIVERY_STATUS.WAITING_DRIVER && deliveryMethod !== 'delivery') {
+    return {
+      valid: false,
+      message: 'waiting_driver so e valido para pedidos delivery.',
+    };
+  }
+
+  if (nextDeliveryStatus === DELIVERY_STATUS.WAITING_PICKUP && !['pickup', 'balcao'].includes(deliveryMethod)) {
+    return {
+      valid: false,
+      message: 'waiting_pickup so e valido para retirada/balcao.',
+    };
+  }
+
+  if (
+    nextDeliveryStatus === DELIVERY_STATUS.NOT_REQUIRED &&
+    ['delivery', 'pickup', 'balcao'].includes(deliveryMethod) &&
+    nextProductionStatus === PRODUCTION_STATUS.READY
+  ) {
+    return {
+      valid: false,
+      message: 'Pedido pronto com metodo operacional precisa de estado de entrega/retirada coerente.',
+    };
+  }
+
+  return {
+    valid: true,
+    currentOrder: currentSnapshot,
+    nextOrder: nextSnapshot,
+    productionChanged: currentProductionStatus !== nextProductionStatus,
+    deliveryChanged: currentDeliveryStatus !== nextDeliveryStatus,
+  };
+}
+
+export function validateStatusTransition(currentStatus, newStatus, options = {}) {
+  if (options.isMaster) {
+    return { valid: true };
+  }
+
+  const current = normalizeLegacyStatus(currentStatus);
+  const next = normalizeLegacyStatus(newStatus);
+
+  if (!current || !next) {
+    return {
+      valid: false,
+      message: `Status invalido: "${next || current || 'vazio'}".`,
+    };
+  }
+
+  const currentSnapshot = decorateOrderEntity({ status: current, delivery_method: options.deliveryMethod });
+  const nextSnapshot = normalizeOrderForPersistence({ status: next, delivery_method: options.deliveryMethod }, currentSnapshot);
+
+  return validateOrderAxisTransition(currentSnapshot, nextSnapshot, options);
+}
+
 export function getValidNextStatuses(currentStatus) {
-  const current = normalizeOrderStatus(currentStatus);
-  return VALID_TRANSITIONS[current] || [];
+  const current = normalizeLegacyStatus(currentStatus);
+  if (!current) return [];
+
+  const currentSnapshot = decorateOrderEntity({ status: current });
+  const nextProductionStatuses = PRODUCTION_TRANSITIONS[currentSnapshot.production_status] || [];
+  const nextDeliveryStatuses = DELIVERY_TRANSITIONS[currentSnapshot.delivery_status] || [];
+  return Array.from(new Set([
+    ...nextProductionStatuses,
+    ...nextDeliveryStatuses,
+  ]));
 }
 
-/**
- * Verifica se um status e final (nao pode ser alterado).
- * @param {string} status - Status a verificar
- * @returns {boolean}
- */
 export function isFinalStatus(status) {
-  const normalized = normalizeOrderStatus(status);
-  return FINAL_STATUSES.includes(normalized);
+  const normalized = normalizeLegacyStatus(status);
+  return normalized === DELIVERY_STATUS.DELIVERED || normalized === DELIVERY_STATUS.CANCELLED;
 }
 
-/**
- * Valida e aplica transicao de status com logging.
- * @param {string} orderId - ID do pedido
- * @param {string} currentStatus - Status atual
- * @param {string} newStatus - Novo status
- * @param {object} options - Opcoes de validacao
- * @returns {object} - { valid: boolean, message?: string }
- */
 export function validateAndLogTransition(orderId, currentStatus, newStatus, options = {}) {
   const validation = validateStatusTransition(currentStatus, newStatus, options);
 
@@ -196,14 +266,14 @@ export function validateAndLogTransition(orderId, currentStatus, newStatus, opti
     logger.info(`Transicao de status valida: Pedido ${orderId}`, {
       from: currentStatus,
       to: newStatus,
-      userRole: options.userRole || 'unknown'
+      userRole: options.userRole || 'unknown',
     });
   } else {
     logger.warn(`Transicao de status invalida: Pedido ${orderId}`, {
       from: currentStatus,
       to: newStatus,
       reason: validation.message,
-      userRole: options.userRole || 'unknown'
+      userRole: options.userRole || 'unknown',
     });
   }
 

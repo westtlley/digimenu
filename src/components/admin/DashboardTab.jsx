@@ -24,6 +24,15 @@ import { useOrders } from '@/hooks/useOrders';
 import { useMenuDishes, useMenuCategories } from '@/hooks/useMenuData';
 import { useSlugContext } from '@/hooks/useSlugContext';
 import { ensureArray } from '@/utils/safeFetch';
+import {
+  getOrderDisplayStatus,
+  isOrderCancelled,
+  isOrderDelivered,
+  isOrderInDeliveryFlow,
+  isOrderPreparationActive,
+  isOrderReadyForDispatch,
+  isOrderNewForGestor,
+} from '@/utils/orderLifecycle';
 
 export default function DashboardTab({ user, subscriberData, onNavigateToTab }) {
   const [copiedLink, setCopiedLink] = useState(false);
@@ -95,17 +104,19 @@ export default function DashboardTab({ user, subscriberData, onNavigateToTab }) 
 
   // Cálculos: exclui cancelados; faturamento só de entregues
   const today = moment().startOf('day');
-  const todayOrders = safeOrders.filter(o => moment(o.created_date).isSame(today, 'day') && o.status !== 'cancelled');
-  const todayRevenue = todayOrders.filter(o => o.status === 'delivered').reduce((sum, o) => sum + (o.total || 0), 0);
+  const todayOrders = safeOrders.filter((order) => moment(order.created_date).isSame(today, 'day') && !isOrderCancelled(order));
+  const todayRevenue = todayOrders.filter(isOrderDelivered).reduce((sum, order) => sum + (order.total || 0), 0);
   
   const thisMonth = moment().startOf('month');
-  const monthOrders = safeOrders.filter(o => moment(o.created_date).isSameOrAfter(thisMonth) && o.status !== 'cancelled');
-  const monthRevenue = monthOrders.filter(o => o.status === 'delivered').reduce((sum, o) => sum + (o.total || 0), 0);
+  const monthOrders = safeOrders.filter((order) => moment(order.created_date).isSameOrAfter(thisMonth) && !isOrderCancelled(order));
+  const monthRevenue = monthOrders.filter(isOrderDelivered).reduce((sum, order) => sum + (order.total || 0), 0);
 
-  const newOrders = safeOrders.filter(o => o.status === 'new').length;
-  const preparingOrders = safeOrders.filter(o => ['accepted', 'preparing'].includes(o.status)).length;
-  const readyOrders = safeOrders.filter(o => o.status === 'ready').length;
-  const deliveringOrders = safeOrders.filter(o => o.status === 'out_for_delivery').length;
+  const newOrders = safeOrders.filter(isOrderNewForGestor).length;
+  const preparingOrders = safeOrders.filter(
+    (order) => isOrderPreparationActive(order) && !isOrderNewForGestor(order)
+  ).length;
+  const readyOrders = safeOrders.filter(isOrderReadyForDispatch).length;
+  const deliveringOrders = safeOrders.filter(isOrderInDeliveryFlow).length;
   const pendingOrders = newOrders + preparingOrders + readyOrders + deliveringOrders;
 
   const activeDishes = safeDishes.filter(d => d.is_active !== false).length;
@@ -136,7 +147,10 @@ export default function DashboardTab({ user, subscriberData, onNavigateToTab }) 
     window.open(`https://wa.me/?text=Confira nosso cardápio digital: ${menuLink}`, '_blank');
   };
 
-  const statusLabel = (s) => ({ new: 'Novo', accepted: 'Aceito', preparing: 'Preparando', ready: 'Pronto', out_for_delivery: 'Em Rota', delivered: 'Entregue', cancelled: 'Cancelado' }[s] || s);
+  const statusLabel = (order) => {
+    const status = getOrderDisplayStatus(order);
+    return ({ new: 'Novo', accepted: 'Aceito', preparing: 'Preparando', ready: 'Pronto', out_for_delivery: 'Em Rota', delivered: 'Entregue', cancelled: 'Cancelado' }[status] || status);
+  };
 
   const exportOrdersCSV = () => {
     const headers = ['Data', 'Código', 'Cliente', 'Status', 'Pagamento', 'Total'];
@@ -144,7 +158,7 @@ export default function DashboardTab({ user, subscriberData, onNavigateToTab }) 
       formatBrazilianDateTime(o.created_date),
       o.order_code || o.id?.toString().slice(-6),
       o.customer_name || '',
-      statusLabel(o.status),
+      statusLabel(o),
       o.payment_method || '',
       (o.total || 0).toFixed(2),
     ]);

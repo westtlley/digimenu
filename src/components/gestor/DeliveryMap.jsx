@@ -1,6 +1,7 @@
 import React from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Circle, Polyline } from 'react-leaflet';
 import { Badge } from "@/components/ui/badge";
+import { isOrderReadyForDispatch } from '@/utils/orderLifecycle';
 
 const createDeliveryIcon = (status) => {
   const color = status === 'available' ? '#22c55e' : status === 'busy' ? '#eab308' : '#9ca3af';
@@ -42,8 +43,8 @@ export default function DeliveryMap({ entregadores, orders, onSelectEntregador, 
     e.status !== 'offline' && e.current_latitude && e.current_longitude
   );
 
-  const pendingOrders = orders.filter(o => 
-    o.status === 'ready' && o.delivery_method === 'delivery'
+  const pendingOrders = orders.filter((o) =>
+    o.delivery_method === 'delivery' && isOrderReadyForDispatch(o)
   );
 
   // Extrair coordenadas da rota otimizada

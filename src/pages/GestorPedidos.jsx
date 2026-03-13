@@ -38,6 +38,10 @@ import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useEntitlements } from '@/hooks/useEntitlements';
 import { useOperationalOrdersRealtime } from '@/hooks/useOperationalOrdersRealtime';
 import { LimitBlockModal } from '@/components/plans';
+import {
+  isOrderFinalized,
+  isOrderNewForGestor,
+} from '@/utils/orderLifecycle';
 
 function getOrderCreatedAtTimestamp(order) {
   const value = order?.created_date ? new Date(order.created_date).getTime() : 0;
@@ -258,7 +262,7 @@ export default function GestorPedidos() {
 
       const prepTime = Math.max(5, Math.min(180, Number(gestorSettings.default_prep_time) || 30));
       const shouldAutoPrint = gestorSettings.auto_print === true;
-      const newOrders = orders.filter(o => o.status === 'new');
+      const newOrders = orders.filter(isOrderNewForGestor);
 
       (async () => {
         for (const o of newOrders) {
@@ -266,14 +270,14 @@ export default function GestorPedidos() {
           autoAcceptedIdsRef.current.add(o.id);
           try {
             const updatedOrder = await base44.entities.Order.update(o.id, {
-              status: 'accepted',
+              production_status: 'accepted',
               accepted_at: new Date().toISOString(),
               prep_time: prepTime,
             }, asSub ? { as_subscriber: asSub } : {});
 
             if (shouldAutoPrint && !autoPrintedIdsRef.current.has(o.id)) {
               autoPrintedIdsRef.current.add(o.id);
-              const autoPrintOrder = updatedOrder || { ...o, status: 'accepted' };
+              const autoPrintOrder = updatedOrder || { ...o, production_status: 'accepted' };
               const autoPrintRef = String(autoPrintOrder?.id || autoPrintOrder?.order_code || Date.now());
               const printed = printComanda(autoPrintOrder, {
                 jobId: `gestor-comanda-${autoPrintRef}`,
@@ -300,7 +304,7 @@ export default function GestorPedidos() {
     const shouldNotify = (status) => notificationConfig.notifyOnStatus?.[status] !== false;
     if (!shouldNotify('new')) return;
 
-    const newOrders = orders.filter(o => o.status === 'new');
+    const newOrders = orders.filter(isOrderNewForGestor);
     const seen = seenNewOrderIdsRef.current;
     const newIds = newOrders.map(o => o.id).filter(id => !seen.has(id));
     newOrders.forEach(o => seen.add(o.id));
@@ -364,7 +368,7 @@ export default function GestorPedidos() {
         const now = new Date();
         let didUpdate = false;
         for (const order of orders) {
-          if (!order.accepted_at || ['delivered', 'cancelled'].includes(order.status)) continue;
+          if (!order.accepted_at || isOrderFinalized(order)) continue;
           const acceptedTime = new Date(order.accepted_at);
           const prepTime = order.prep_time || 30;
           const minutesElapsed = (now - acceptedTime) / 1000 / 60;
@@ -375,7 +379,7 @@ export default function GestorPedidos() {
           }
           // mode === 'cancel'
           await base44.entities.Order.update(order.id, {
-            status: 'cancelled',
+            production_status: 'cancelled',
             rejection_reason: 'Cancelado automaticamente por atraso (tempo de preparo excedido)'
           }, asSub ? { as_subscriber: asSub } : {});
           didUpdate = true;
@@ -511,9 +515,9 @@ export default function GestorPedidos() {
       const isScheduled = order.scheduled_date && order.scheduled_time;
       
       if (activeTab === 'now') {
-        return !isScheduled || (isScheduled && order.status !== 'new');
+        return !isScheduled || (isScheduled && !isOrderNewForGestor(order));
       } else if (activeTab === 'scheduled') {
-        return isScheduled && order.status === 'new';
+        return isScheduled && isOrderNewForGestor(order);
       }
       
       return true;
@@ -533,10 +537,10 @@ export default function GestorPedidos() {
     let activeCount = 0;
 
     for (const order of orders) {
-      if (order.status === 'new') {
+      if (isOrderNewForGestor(order)) {
         newCount += 1;
       }
-      if (!['delivered', 'cancelled'].includes(order.status)) {
+      if (!isOrderFinalized(order)) {
         activeCount += 1;
       }
     }
@@ -545,7 +549,7 @@ export default function GestorPedidos() {
   }, [orders]);
 
   const kanbanOrders = useMemo(
-    () => (onlyNew ? filteredOrders.filter(o => o.status === 'new') : filteredOrders),
+    () => (onlyNew ? filteredOrders.filter(isOrderNewForGestor) : filteredOrders),
     [onlyNew, filteredOrders]
   );
   const newOrdersCount = orderCounters.newCount;
@@ -1226,9 +1230,34 @@ export default function GestorPedidos() {
                 setLimitBlockOpen(true);
                 return;
               }
-              const { id, order_code, created_date, delivered_at, accepted_at, ready_at, ...rest } = o;
+              const {
+                id,
+                order_code,
+                created_date,
+                delivered_at,
+                accepted_at,
+                ready_at,
+                status,
+                production_status,
+                delivery_status,
+                rejection_reason,
+                rejection_details,
+                entregador_id,
+                entregador_email,
+                pickup_code,
+                delivery_code,
+                delivered_date,
+                ...rest
+              } = o;
               try {
-                const data = { ...rest, status: 'new', created_date: new Date().toISOString(), ...(asSub && { as_subscriber: asSub }) };
+                const data = {
+                  ...rest,
+                  production_status: 'new',
+                  delivery_status: 'pending',
+                  status: 'new',
+                  created_date: new Date().toISOString(),
+                  ...(asSub && { as_subscriber: asSub }),
+                };
                 await base44.entities.Order.create(data);
                 queryClient.invalidateQueries({ queryKey: ['gestorOrders', asSub ?? 'me'] });
                 toast.success('Pedido duplicado.');

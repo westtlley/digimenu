@@ -48,6 +48,7 @@ import { scheduleBackups } from './utils/backup.js';
 import { analyticsMiddleware } from './utils/analytics.js';
 import { initializeCronJobs } from './utils/cronJobs.js';
 import { decorateOrderEntity, normalizeOrderForPersistence } from './utils/orderLifecycle.js';
+import { validateOrderAxisTransition } from './services/orderStatusValidation.service.js';
 import {
   getEffectivePermissionsForSubscriber,
   normalizePlanPresetKey
@@ -1116,38 +1117,55 @@ async function enforceOrderOperationalStatusContract(req, res, currentOrder = {}
   const isEntregadorRole = roles.includes('entregador') && !isManagerRole;
 
   const currentStatus = normalizeLower(currentSnapshot?.status);
+  const currentProductionStatus = normalizeLower(currentSnapshot?.production_status);
+  const nextProductionStatus = normalizeLower(nextSnapshot?.production_status);
+  const currentDeliveryStatus = normalizeLower(currentSnapshot?.delivery_status);
+  const nextDeliveryStatus = normalizeLower(nextSnapshot?.delivery_status);
+  const productionChanged = currentProductionStatus !== nextProductionStatus;
+  const deliveryChanged = currentDeliveryStatus !== nextDeliveryStatus;
   const deliveryMethod = resolveOrderDeliveryMethod(nextSnapshot);
   const isDeliveryOrder = deliveryMethod === 'delivery';
 
-  if (DELIVERY_FLOW_STATUSES.has(nextStatus) && !isDeliveryOrder) {
+  if (DELIVERY_FLOW_STATUSES.has(nextDeliveryStatus) && !isDeliveryOrder) {
     res.status(400).json({
       success: false,
       error: `Transicao invalida para pedidos nao-delivery (${deliveryMethod || 'sem tipo'}).`,
-      message: `Status "${nextStatus}" exige pedido de entrega.`,
+      message: `Status "${nextDeliveryStatus}" exige pedido de entrega.`,
       code: 'INVALID_STATUS_TRANSITION'
     });
     return false;
   }
 
-  if (isKitchenRole && (DELIVERY_FLOW_STATUSES.has(nextStatus) || nextStatus === 'delivered')) {
+  if (isKitchenRole && deliveryChanged) {
     res.status(403).json({
       error: 'Perfil cozinha nao pode executar estados de entrega.',
       code: 'ACTION_NOT_ALLOWED',
       entity: 'Order',
       action: 'update',
-      status: nextStatus
+      status: nextDeliveryStatus || nextStatus
     });
     return false;
   }
 
   if (isEntregadorRole) {
+    if (productionChanged) {
+      res.status(403).json({
+        error: 'Perfil entregador nao pode executar estados de producao.',
+        code: 'ACTION_NOT_ALLOWED',
+        entity: 'Order',
+        action: 'update',
+        status: nextProductionStatus || nextStatus
+      });
+      return false;
+    }
+
     if (!isDeliveryOrder) {
       res.status(403).json({
         error: 'Perfil entregador so pode operar pedidos de entrega.',
         code: 'ACTION_NOT_ALLOWED',
         entity: 'Order',
         action: 'update',
-        status: nextStatus
+        status: nextDeliveryStatus || nextStatus
       });
       return false;
     }
@@ -1163,24 +1181,24 @@ async function enforceOrderOperationalStatusContract(req, res, currentOrder = {}
       return false;
     }
 
-    if (nextStatus === 'cancelled' && !DELIVERY_CANCEL_ALLOWED_FROM.has(currentStatus)) {
+    if (nextDeliveryStatus === 'cancelled' && !DELIVERY_CANCEL_ALLOWED_FROM.has(currentDeliveryStatus)) {
       res.status(403).json({
         error: 'Entregador so pode cancelar durante a fase de entrega.',
         code: 'ACTION_NOT_ALLOWED',
         entity: 'Order',
         action: 'update',
-        status: nextStatus
+        status: nextDeliveryStatus
       });
       return false;
     }
 
-    if (nextStatus === 'delivered' && !DELIVERY_COMPLETION_ALLOWED_FROM.has(currentStatus)) {
+    if (nextDeliveryStatus === 'delivered' && !DELIVERY_COMPLETION_ALLOWED_FROM.has(currentDeliveryStatus)) {
       res.status(403).json({
         error: 'Entrega so pode ser concluida apos saida para entrega.',
         code: 'ACTION_NOT_ALLOWED',
         entity: 'Order',
         action: 'update',
-        status: nextStatus
+        status: nextDeliveryStatus
       });
       return false;
     }
@@ -1615,7 +1633,13 @@ function isSensitiveEntityAction(entityName, method, payload = {}) {
 
   if (entityNorm === 'order' && (httpMethod === 'PUT' || httpMethod === 'PATCH')) {
     const status = normalizeLower(payload?.status);
-    return status === 'cancelled';
+    const productionStatus = normalizeLower(payload?.production_status);
+    const deliveryStatus = normalizeLower(payload?.delivery_status);
+    return (
+      status === 'cancelled' ||
+      productionStatus === 'cancelled' ||
+      deliveryStatus === 'cancelled'
+    );
   }
 
   return false;
@@ -1638,8 +1662,10 @@ function evaluateOrderCollaboratorAction(roles = [], action, payload = {}) {
   }
 
   const nextStatus = normalizeLower(payload?.status);
-  if (!nextStatus) {
-    // Cozinha/entregador só podem alterar status do pedido.
+  const nextProductionStatus = normalizeLower(payload?.production_status);
+  const nextDeliveryStatus = normalizeLower(payload?.delivery_status);
+
+  if (!nextStatus && !nextProductionStatus && !nextDeliveryStatus) {
     if (roleSet.has('cozinha') || roleSet.has('entregador')) {
       return false;
     }
@@ -1649,11 +1675,13 @@ function evaluateOrderCollaboratorAction(roles = [], action, payload = {}) {
   if (isManagerRole) return true;
 
   if (roleSet.has('cozinha')) {
-    return ORDER_COLLABORATOR_STATUS_RULES.cozinha.has(nextStatus);
+    if (nextDeliveryStatus) return false;
+    return ORDER_COLLABORATOR_STATUS_RULES.cozinha.has(nextProductionStatus || nextStatus);
   }
 
   if (roleSet.has('entregador')) {
-    return ORDER_COLLABORATOR_STATUS_RULES.entregador.has(nextStatus);
+    if (nextProductionStatus) return false;
+    return ORDER_COLLABORATOR_STATUS_RULES.entregador.has(nextDeliveryStatus || nextStatus);
   }
 
   return false;
@@ -2141,10 +2169,19 @@ app.put('/api/entities/:entity/:id', authenticate, asyncHandler(async (req, res)
   if (String(entity).toLowerCase() === 'order') {
     const currentOrder = usePostgreSQL ? await repo.getEntityById('Order', id, req.user) : db?.entities?.Order?.find(i => i.id === id || i.id === String(id));
     data = normalizeOrderForPersistence(data, currentOrder || {});
-    if (currentOrder?.status) {
-      const { validateStatusTransition } = await import('./services/orderStatusValidation.service.js');
-      const v = validateStatusTransition(currentOrder.status, data.status, { isMaster: req.user?.is_master, userRole: req.user?.profile_role || req.user?.role });
-      if (!v.valid) return res.status(400).json({ success: false, error: v.message, message: v.message, code: 'INVALID_STATUS_TRANSITION' });
+    if (currentOrder) {
+      const validation = validateOrderAxisTransition(currentOrder, data, {
+        isMaster: req.user?.is_master,
+        userRole: req.user?.profile_role || req.user?.role,
+      });
+      if (!validation.valid) {
+        return res.status(400).json({
+          success: false,
+          error: validation.message,
+          message: validation.message,
+          code: 'INVALID_STATUS_TRANSITION',
+        });
+      }
       const contractOk = await enforceOrderOperationalStatusContract(req, res, currentOrder, data);
       if (!contractOk) return;
     }

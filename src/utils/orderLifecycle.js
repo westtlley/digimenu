@@ -124,3 +124,100 @@ export function getOrderDisplayStatus(order = {}) {
 
   return productionStatus || ORDER_PRODUCTION_STATUS.NEW;
 }
+
+export function isOrderCancelled(order = {}) {
+  return getOrderDisplayStatus(order) === ORDER_DELIVERY_STATUS.CANCELLED;
+}
+
+export function isOrderDelivered(order = {}) {
+  return getOrderDeliveryStatus(order) === ORDER_DELIVERY_STATUS.DELIVERED;
+}
+
+export function isOrderFinalized(order = {}) {
+  return isOrderCancelled(order) || isOrderDelivered(order);
+}
+
+export function isOrderNewForGestor(order = {}) {
+  const productionStatus = getOrderProductionStatus(order);
+  return (
+    productionStatus === ORDER_PRODUCTION_STATUS.NEW ||
+    productionStatus === ORDER_PRODUCTION_STATUS.PENDING
+  );
+}
+
+export function isOrderPreparationActive(order = {}) {
+  const productionStatus = getOrderProductionStatus(order);
+  return (
+    productionStatus === ORDER_PRODUCTION_STATUS.NEW ||
+    productionStatus === ORDER_PRODUCTION_STATUS.PENDING ||
+    productionStatus === ORDER_PRODUCTION_STATUS.ACCEPTED ||
+    productionStatus === ORDER_PRODUCTION_STATUS.PREPARING
+  );
+}
+
+export function isOrderReadyForDispatch(order = {}) {
+  const productionStatus = getOrderProductionStatus(order);
+  const deliveryStatus = getOrderDeliveryStatus(order);
+
+  if (productionStatus !== ORDER_PRODUCTION_STATUS.READY) {
+    return false;
+  }
+
+  return (
+    deliveryStatus === ORDER_DELIVERY_STATUS.PENDING ||
+    deliveryStatus === ORDER_DELIVERY_STATUS.NOT_REQUIRED ||
+    deliveryStatus === ORDER_DELIVERY_STATUS.WAITING_PICKUP ||
+    deliveryStatus === ORDER_DELIVERY_STATUS.WAITING_DRIVER
+  );
+}
+
+export function isOrderInDeliveryFlow(order = {}) {
+  return ACTIVE_DELIVERY_FLOW_STATUSES.has(getOrderDeliveryStatus(order));
+}
+
+export function getGestorOrderColumn(order = {}) {
+  if (isOrderFinalized(order)) {
+    return 'done';
+  }
+
+  if (isOrderInDeliveryFlow(order)) {
+    return 'delivery';
+  }
+
+  const productionStatus = getOrderProductionStatus(order);
+  if (productionStatus === ORDER_PRODUCTION_STATUS.READY) {
+    return 'ready';
+  }
+  if (productionStatus === ORDER_PRODUCTION_STATUS.PREPARING) {
+    return 'preparing';
+  }
+  if (productionStatus === ORDER_PRODUCTION_STATUS.ACCEPTED) {
+    return 'accepted';
+  }
+  return 'new';
+}
+
+export function matchesLegacyOrderStatusFilter(order = {}, legacyStatus = 'all') {
+  if (!legacyStatus || legacyStatus === 'all') {
+    return true;
+  }
+
+  switch (legacyStatus) {
+    case ORDER_PRODUCTION_STATUS.NEW:
+      return isOrderNewForGestor(order);
+    case ORDER_PRODUCTION_STATUS.ACCEPTED:
+      return getOrderProductionStatus(order) === ORDER_PRODUCTION_STATUS.ACCEPTED;
+    case ORDER_PRODUCTION_STATUS.PREPARING:
+      return getOrderProductionStatus(order) === ORDER_PRODUCTION_STATUS.PREPARING;
+    case ORDER_PRODUCTION_STATUS.READY:
+      return isOrderReadyForDispatch(order);
+    case ORDER_DELIVERY_STATUS.OUT_FOR_DELIVERY:
+      return isOrderInDeliveryFlow(order);
+    case ORDER_DELIVERY_STATUS.DELIVERED:
+      return isOrderDelivered(order);
+    case ORDER_DELIVERY_STATUS.CANCELLED:
+      return isOrderCancelled(order);
+    default:
+      return getOrderDisplayStatus(order) === legacyStatus;
+  }
+}

@@ -12,6 +12,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import toast from 'react-hot-toast';
 import { base44 } from '@/api/base44Client';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  ACTIVE_DELIVERY_FLOW_STATUSES,
+  getGestorOrderColumn,
+  getOrderDeliveryStatus,
+  getOrderDisplayStatus,
+  getOrderProductionStatus,
+  isOrderFinalized,
+  isOrderNewForGestor,
+} from '@/utils/orderLifecycle';
 
 const COLUMNS = [
   { 
@@ -129,7 +138,9 @@ export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = 
     mutationFn: async ({ orderId, newStatus }) => {
       const order = safeOrders.find(o => String(o.id) === String(orderId));
       if (!order) throw new Error('Pedido não encontrado');
-      const payload = { ...order, status: newStatus };
+      const payload = ['new', 'accepted', 'preparing', 'ready', 'cancelled'].includes(newStatus)
+        ? { production_status: newStatus }
+        : { delivery_status: newStatus };
       if (newStatus === 'ready') {
         payload.ready_at = new Date().toISOString();
         if (!order.pickup_code) payload.pickup_code = Math.floor(1000 + Math.random() * 9000).toString();
@@ -174,7 +185,7 @@ export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = 
   const columnOrdersMap = useMemo(() => {
     const byColumn = {};
     for (const column of COLUMNS) {
-      byColumn[column.id] = normalizedOrders.filter(order => column.statuses.includes(order.status));
+      byColumn[column.id] = normalizedOrders.filter((order) => getGestorOrderColumn(order) === column.id);
     }
     return byColumn;
   }, [normalizedOrders]);
@@ -196,14 +207,14 @@ export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = 
     const dt = orderDate(order);
     if (!dt) return false;
     return differenceInMinutes(new Date(now), new Date(dt)) > 30 && 
-           !['delivered', 'cancelled'].includes(order.status);
+           !isOrderFinalized(order);
   };
 
   const isVeryLate = (order) => {
     const dt = orderDate(order);
     if (!dt) return false;
     return differenceInMinutes(new Date(now), new Date(dt)) > 45 && 
-           !['delivered', 'cancelled'].includes(order.status);
+           !isOrderFinalized(order);
   };
 
   // UrgÃªncia por tempo de preparo (aceitos / em preparo): amarelo perto do limite, vermelho passou
@@ -214,12 +225,12 @@ export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = 
   const isPrepUrgent = (order) => {
     const mins = prepMinutesElapsed(order);
     const prep = order.prep_time || 30;
-    return mins != null && mins >= prep - 5 && mins < prep && !['delivered', 'cancelled'].includes(order.status);
+    return mins != null && mins >= prep - 5 && mins < prep && !isOrderFinalized(order);
   };
   const isPrepLate = (order) => {
     const mins = prepMinutesElapsed(order);
     const prep = order.prep_time || 30;
-    return mins != null && mins >= prep && !['delivered', 'cancelled'].includes(order.status);
+    return mins != null && mins >= prep && !isOrderFinalized(order);
   };
 
   const getPriorityMeta = (order) => {
@@ -260,19 +271,36 @@ export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = 
     } else if (targetColumn.id === 'ready') {
       newStatus = 'ready';
     } else if (targetColumn.id === 'delivery') {
-      if (['ready', 'going_to_store', 'arrived_at_store', 'picked_up', 'out_for_delivery', 'arrived_at_customer'].includes(order.status)) {
-        newStatus = order.status === 'ready' ? 'out_for_delivery' : order.status;
-      } else { toast.error('Pedido precisa estar pronto antes de ir para entrega'); return; }
+      if (order.delivery_method !== 'delivery') {
+        toast.error('A coluna de entrega exige pedido delivery');
+        return;
+      }
+      if (getOrderProductionStatus(order) !== 'ready') {
+        toast.error('Pedido precisa estar pronto antes de ir para entrega');
+        return;
+      }
+      const deliveryStatus = getOrderDeliveryStatus(order);
+      newStatus = ACTIVE_DELIVERY_FLOW_STATUSES.has(deliveryStatus) ? deliveryStatus : 'out_for_delivery';
     } else if (targetColumn.id === 'done') {
-      if (['out_for_delivery', 'arrived_at_customer', 'picked_up', 'going_to_store', 'arrived_at_store'].includes(order.status)) newStatus = 'delivered';
-      else { toast.error('Pedido precisa estar em entrega para ser finalizado'); return; }
+      newStatus = 'delivered';
     } else return;
 
     // Otimista: atualizar cache antes da API para o arraste fluir
     const prev = queryClient.getQueryData(gestorOrdersKey) || [];
-    queryClient.setQueryData(gestorOrdersKey, prev.map(o =>
-      String(o.id) === String(draggableId) ? { ...o, status: newStatus } : o
-    ));
+    queryClient.setQueryData(gestorOrdersKey, prev.map((o) => {
+      if (String(o.id) !== String(draggableId)) return o;
+      const optimisticOrder = ['new', 'accepted', 'preparing', 'ready', 'cancelled'].includes(newStatus)
+        ? { ...o, production_status: newStatus }
+        : { ...o, delivery_status: newStatus };
+      if (newStatus === 'ready') {
+        optimisticOrder.ready_at = new Date().toISOString();
+      }
+      if (newStatus === 'delivered') {
+        optimisticOrder.delivered_at = new Date().toISOString();
+      }
+      optimisticOrder.status = getOrderDisplayStatus(optimisticOrder);
+      return optimisticOrder;
+    }));
 
     updateOrderMutation.mutate(
         { orderId: draggableId, newStatus },
@@ -405,9 +433,9 @@ export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = 
                         <div className="text-left">
                           <p className={`font-semibold text-xs ${darkMode ? 'text-white' : 'text-gray-700'}`}>
                             {column.label}
-                            {column.id === 'new' && columnOrders.some(o => o.status === 'new') && (
+                            {column.id === 'new' && columnOrders.some(isOrderNewForGestor) && (
                               <span className={`ml-1 font-medium ${column.textColor}`}>
-                                · {columnOrders.filter(o => o.status === 'new').length} novo(s)
+                                · {columnOrders.filter(isOrderNewForGestor).length} novo(s)
                               </span>
                             )}
                           </p>

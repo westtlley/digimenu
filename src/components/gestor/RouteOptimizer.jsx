@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -6,6 +6,7 @@ import { MapPin, Navigation, Clock, TrendingUp, CheckCircle, Loader2 } from 'luc
 import { base44 } from '@/api/base44Client';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
+import { isOrderReadyForDispatch } from '@/utils/orderLifecycle';
 
 // Algoritmo de otimização de rota (Nearest Neighbor)
 const optimizeRoute = (orders, startPoint = { lat: -5.0892, lng: -42.8019 }) => {
@@ -75,9 +76,9 @@ export default function RouteOptimizer({ isOpen, onClose, entregador, orders, as
   const tenantQueryScope = asSub || 'me';
 
   // Filtrar pedidos prontos para entrega
-  const availableOrders = orders.filter(o => 
-    o.status === 'ready' && 
+  const availableOrders = orders.filter((o) =>
     o.delivery_method === 'delivery' &&
+    isOrderReadyForDispatch(o) &&
     !o.entregador_id
   );
 
@@ -128,7 +129,7 @@ export default function RouteOptimizer({ isOpen, onClose, entregador, orders, as
       // Atualizar todos os pedidos com o entregador
       for (const order of optimizedRoute.optimizedOrders) {
         await base44.entities.Order.update(order.id, {
-          status: 'out_for_delivery',
+          delivery_status: 'out_for_delivery',
           entregador_id: entregador.id
         }, scopedEntityOpts);
       }

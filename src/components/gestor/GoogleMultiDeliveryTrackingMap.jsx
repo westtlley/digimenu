@@ -6,6 +6,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { setOptions, importLibrary } from '@googlemaps/js-api-loader';
 import { Navigation, MapPin, Clock, Loader2, Users } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { getOrderDeliveryStatus, isOrderReadyForDispatch } from '@/utils/orderLifecycle';
 
 const DEFAULT_CENTER = { lat: -5.0892, lng: -42.8019 };
 
@@ -37,7 +38,7 @@ export default function GoogleMultiDeliveryTrackingMap({
 
   // Geocodificar endereços (Nominatim)
   useEffect(() => {
-    orders.filter(o => ['going_to_store', 'out_for_delivery'].includes(o.status) && o.address).forEach(async (order) => {
+    orders.filter((o) => ['going_to_store', 'out_for_delivery'].includes(getOrderDeliveryStatus(o)) && o.address).forEach(async (order) => {
       if (customerLocations[order.id]) return;
       try {
         const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(order.address)}&limit=1`);
@@ -69,7 +70,7 @@ export default function GoogleMultiDeliveryTrackingMap({
   }, [entregadores, orders, customerLocations, orsKey]);
 
   const activeEntregadores = entregadores.filter(e => (e.status === 'busy' || e.current_order_id) && e.current_latitude && e.current_longitude);
-  const pendingOrders = orders.filter(o => o.status === 'ready' && o.delivery_method === 'delivery');
+  const pendingOrders = orders.filter((o) => o.delivery_method === 'delivery' && isOrderReadyForDispatch(o));
 
   const allPoints = [
     ...activeEntregadores.map(e => ({ lat: e.current_latitude, lng: e.current_longitude })),
