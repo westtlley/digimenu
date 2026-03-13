@@ -5,6 +5,7 @@ import { MapPin, Navigation, Loader2, RefreshCw } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import GoogleProfessionalDeliveryMap from '../maps/GoogleProfessionalDeliveryMap';
+import { getOrderDeliveryStatus } from '@/utils/orderLifecycle';
 
 /**
  * Mapa ao vivo para o gestor com todos os entregadores ativos
@@ -16,7 +17,7 @@ export default function LiveDeliveryMap({ orders, entregadores, onSelectOrder })
   // Geocodificar endereços dos pedidos
   React.useEffect(() => {
     const activeOrders = orders.filter(o => 
-      o.status === 'out_for_delivery' && o.address
+      getOrderDeliveryStatus(o) === 'out_for_delivery' && o.address
     );
 
     activeOrders.forEach(async (order) => {
@@ -42,7 +43,7 @@ export default function LiveDeliveryMap({ orders, entregadores, onSelectOrder })
     });
   }, [orders]);
 
-  const activeDeliveries = orders.filter(o => o.status === 'out_for_delivery');
+  const activeDeliveries = orders.filter(o => getOrderDeliveryStatus(o) === 'out_for_delivery');
   const activeEntregadores = entregadores.filter(e => e.status === 'busy' || e.current_order_id);
 
   return (

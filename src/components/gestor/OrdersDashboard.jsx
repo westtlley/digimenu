@@ -6,6 +6,15 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { format, differenceInMinutes } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import {
+  getOrderDisplayStatus,
+  isOrderCancelled,
+  isOrderDelivered,
+  isOrderFinalized,
+  isOrderNewForGestor,
+  isOrderPreparationActive,
+  isOrderReadyForDispatch,
+} from '@/utils/orderLifecycle';
 
 const STATUS_CONFIG = {
   new: { label: 'Novo', color: 'bg-red-500', icon: Bell },
@@ -33,7 +42,7 @@ export default function OrdersDashboard({ orders, orderCounts, onSelectOrder }) 
   });
 
   const todayRevenue = todayOrders
-    .filter(o => o.status !== 'cancelled')
+    .filter((o) => !isOrderCancelled(o))
     .reduce((sum, o) => sum + (o.total || 0), 0);
 
   const avgPrepTime = todayOrders
@@ -44,9 +53,9 @@ export default function OrdersDashboard({ orders, orderCounts, onSelectOrder }) 
     }, 0);
 
   // New orders (most recent first)
-  const newOrders = orders.filter(o => o.status === 'new').slice(0, 5);
-  const preparingOrders = orders.filter(o => ['accepted', 'preparing'].includes(o.status)).slice(0, 5);
-  const readyOrders = orders.filter(o => o.status === 'ready').slice(0, 5);
+  const newOrders = orders.filter(isOrderNewForGestor).slice(0, 5);
+  const preparingOrders = orders.filter((o) => isOrderPreparationActive(o) && !isOrderNewForGestor(o)).slice(0, 5);
+  const readyOrders = orders.filter(isOrderReadyForDispatch).slice(0, 5);
 
   const getTimeElapsed = (date) => {
     if (!date) return '-';
@@ -57,7 +66,8 @@ export default function OrdersDashboard({ orders, orderCounts, onSelectOrder }) 
   };
 
   const OrderCard = ({ order, highlight }) => {
-    const status = STATUS_CONFIG[order.status] || STATUS_CONFIG.new;
+    const statusKey = getOrderDisplayStatus(order);
+    const status = STATUS_CONFIG[statusKey] || STATUS_CONFIG.new;
     const StatusIcon = status.icon;
     const elapsed = getTimeElapsed(order.created_date);
     const isLate = differenceInMinutes(new Date(), new Date(order.created_date)) > 30;
@@ -67,7 +77,7 @@ export default function OrdersDashboard({ orders, orderCounts, onSelectOrder }) 
         onClick={() => onSelectOrder(order)}
         className={`p-3 sm:p-4 rounded-xl border-2 cursor-pointer transition-all hover:shadow-lg ${
           highlight ? 'animate-pulse border-red-400 bg-red-50' : 'border-gray-200 bg-white hover:border-orange-300'
-        } ${isLate && order.status !== 'delivered' && order.status !== 'cancelled' ? 'ring-2 ring-red-500' : ''}`}
+        } ${isLate && !isOrderFinalized(order) ? 'ring-2 ring-red-500' : ''}`}
       >
         <div className="flex items-start justify-between mb-2">
           <div>

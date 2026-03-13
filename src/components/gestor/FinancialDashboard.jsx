@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useManagerialAuth } from '@/hooks/useManagerialAuth';
+import { isOrderCancelled } from '@/utils/orderLifecycle';
 
 export default function FinancialDashboard({ orders = [], pdvSales = [] }) {
   const { requireAuthorization, modal } = useManagerialAuth();
@@ -31,7 +32,7 @@ export default function FinancialDashboard({ orders = [], pdvSales = [] }) {
     // Filtrar pedidos online
     const filteredOrders = orders.filter(o => {
       const orderDate = new Date(o.created_date);
-      return orderDate >= startDate && o.status !== 'cancelled';
+      return orderDate >= startDate && !isOrderCancelled(o);
     });
 
     // Filtrar vendas PDV

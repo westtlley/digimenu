@@ -8,6 +8,11 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { differenceInMinutes } from 'date-fns';
+import {
+  getOrderDisplayStatus,
+  isOrderFinalized,
+  isOrderNewForGestor,
+} from '@/utils/orderLifecycle';
 
 const STATUS_CONFIG = {
   new: { label: 'Novo', color: 'bg-red-500', icon: Bell },
@@ -81,13 +86,13 @@ export default function OrderQueue({
           </div>
         ) : (
           orders.map(order => {
-            const status = STATUS_CONFIG[order.status] || STATUS_CONFIG.new;
+            const status = STATUS_CONFIG[getOrderDisplayStatus(order)] || STATUS_CONFIG.new;
             const StatusIcon = status.icon;
             // Usar created_at (do banco) ou created_date (fallback)
             const createdDate = order.created_at || order.created_date;
             const elapsed = getTimeElapsed(createdDate);
             const isLate = createdDate && differenceInMinutes(new Date(), new Date(createdDate)) > 30;
-            const isNew = order.status === 'new';
+            const isNew = isOrderNewForGestor(order);
 
             return (
               <div
@@ -95,7 +100,7 @@ export default function OrderQueue({
                 onClick={() => onSelectOrder(order)}
                 className={`bg-white rounded-xl p-3 sm:p-4 shadow-sm border-2 cursor-pointer transition-all hover:shadow-lg ${
                   isNew ? 'border-red-400 animate-pulse' : 'border-transparent hover:border-orange-300'
-                } ${isLate && !['delivered', 'cancelled'].includes(order.status) ? 'ring-2 ring-red-500' : ''}`}
+                } ${isLate && !isOrderFinalized(order) ? 'ring-2 ring-red-500' : ''}`}
               >
                 <div className="flex items-start justify-between mb-2">
                   <div>

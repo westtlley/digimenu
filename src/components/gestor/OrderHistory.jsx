@@ -12,6 +12,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { format, subDays, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import {
+  getOrderDisplayStatus,
+  isOrderCancelled,
+  isOrderDelivered,
+} from '@/utils/orderLifecycle';
 
 const STATUS_CONFIG = {
   delivered: { label: 'Entregue', color: 'bg-green-500' },
@@ -54,7 +59,7 @@ export default function OrderHistory() {
       order.customer_name?.toLowerCase().includes(searchTerm.toLowerCase());
 
     // Status
-    const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
+    const matchesStatus = statusFilter === 'all' || getOrderDisplayStatus(order) === statusFilter;
 
     // Date
     let matchesDate = true;
@@ -71,11 +76,11 @@ export default function OrderHistory() {
 
   // Stats
   const totalRevenue = filteredOrders
-    .filter(o => o.status === 'delivered')
+    .filter(isOrderDelivered)
     .reduce((sum, o) => sum + (o.total || 0), 0);
   
-  const totalOrders = filteredOrders.filter(o => o.status === 'delivered').length;
-  const cancelledOrders = filteredOrders.filter(o => o.status === 'cancelled').length;
+  const totalOrders = filteredOrders.filter(isOrderDelivered).length;
+  const cancelledOrders = filteredOrders.filter(isOrderCancelled).length;
 
   return (
     <div className="space-y-4">
@@ -155,7 +160,8 @@ export default function OrderHistory() {
                 </tr>
               ) : (
                 filteredOrders.map(order => {
-                  const status = STATUS_CONFIG[order.status] || { label: order.status, color: 'bg-gray-400' };
+                  const displayStatus = getOrderDisplayStatus(order);
+                  const status = STATUS_CONFIG[displayStatus] || { label: displayStatus, color: 'bg-gray-400' };
                   
                   return (
                     <tr key={order.id} className="hover:bg-gray-50">
@@ -177,7 +183,7 @@ export default function OrderHistory() {
                       </td>
                       <td className="px-4 py-3 text-center">
                         <Badge className={status.color + " text-xs"}>
-                          {order.status === 'delivered' ? (
+                          {isOrderDelivered(order) ? (
                             <CheckCircle className="w-3 h-3 mr-1" />
                           ) : (
                             <XCircle className="w-3 h-3 mr-1" />
