@@ -68,6 +68,24 @@ export default function PizzaConfigTab() {
     gcTime: 60000,
   });
 
+  const tenantSubscriberEmail = slug && publicCardapio?.subscriber_email && publicCardapio.subscriber_email !== 'master'
+    ? publicCardapio.subscriber_email
+    : null;
+  const scopedSubscriberEmail = menuContext?.type === 'subscriber' && menuContext?.value
+    ? menuContext.value
+    : tenantSubscriberEmail;
+  const fallbackOwnerEmail = slug ? null : (user?.subscriber_email || user?.email || null);
+  const entityOwnerEmail = scopedSubscriberEmail || fallbackOwnerEmail;
+  const entityContextOpts = scopedSubscriberEmail ? { as_subscriber: scopedSubscriberEmail } : {};
+
+  const normalizedSearchTerm = searchTerm.trim().toLowerCase();
+  const matchesSearch = useMemo(() => {
+    if (!normalizedSearchTerm) return () => true;
+    return (item) =>
+      String(item?.name || '').toLowerCase().includes(normalizedSearchTerm)
+      || String(item?.description || '').toLowerCase().includes(normalizedSearchTerm);
+  }, [normalizedSearchTerm]);
+
   // ✅ Admin API (usada quando não há slug); com slug usamos publicCardapio para exibir
   const { data: adminSizes = [] } = useQuery({
     queryKey: ['pizzaSizes', menuContext?.type, menuContext?.value],
@@ -123,12 +141,18 @@ export default function PizzaConfigTab() {
     enabled: !!menuContext && !slug,
   });
   const pizzaCategories = (slug && Array.isArray(publicCardapio?.pizzaCategories)) ? publicCardapio.pizzaCategories : (adminPizzaCategories || []);
+  const filteredPizzaCategories = useMemo(() => pizzaCategories.filter((item) => matchesSearch(item)), [pizzaCategories, matchesSearch]);
+  const filteredSizes = useMemo(() => sizes.filter((item) => matchesSearch(item)), [sizes, matchesSearch]);
+  const filteredFlavors = useMemo(() => flavors.filter((item) => matchesSearch(item)), [flavors, matchesSearch]);
+  const filteredEdges = useMemo(() => edges.filter((item) => matchesSearch(item)), [edges, matchesSearch]);
+  const filteredExtras = useMemo(() => extras.filter((item) => matchesSearch(item)), [extras, matchesSearch]);
 
   // Mutations - Sizes
   const createSizeMutation = useMutation({
     mutationFn: (data) => apiClient.entities.PizzaSize.create({
       ...data,
-      subscriber_email: user?.subscriber_email || user?.email
+      ...(entityOwnerEmail && { subscriber_email: entityOwnerEmail, owner_email: entityOwnerEmail }),
+      ...(scopedSubscriberEmail && { as_subscriber: scopedSubscriberEmail })
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzaSizes'] });
@@ -140,7 +164,7 @@ export default function PizzaConfigTab() {
   });
 
   const updateSizeMutation = useMutation({
-    mutationFn: ({ id, data }) => apiClient.entities.PizzaSize.update(id, data),
+    mutationFn: ({ id, data }) => apiClient.entities.PizzaSize.update(id, data, entityContextOpts),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzaSizes'] });
       if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
@@ -151,7 +175,7 @@ export default function PizzaConfigTab() {
   });
 
   const deleteSizeMutation = useMutation({
-    mutationFn: (id) => apiClient.entities.PizzaSize.delete(id),
+    mutationFn: (id) => apiClient.entities.PizzaSize.delete(id, entityContextOpts),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzaSizes'] });
       if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
@@ -163,7 +187,8 @@ export default function PizzaConfigTab() {
   const createFlavorMutation = useMutation({
     mutationFn: (data) => apiClient.entities.PizzaFlavor.create({
       ...data,
-      subscriber_email: user?.subscriber_email || user?.email
+      ...(entityOwnerEmail && { subscriber_email: entityOwnerEmail, owner_email: entityOwnerEmail }),
+      ...(scopedSubscriberEmail && { as_subscriber: scopedSubscriberEmail })
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzaFlavors'] });
@@ -175,7 +200,7 @@ export default function PizzaConfigTab() {
   });
 
   const updateFlavorMutation = useMutation({
-    mutationFn: ({ id, data }) => apiClient.entities.PizzaFlavor.update(id, data),
+    mutationFn: ({ id, data }) => apiClient.entities.PizzaFlavor.update(id, data, entityContextOpts),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzaFlavors'] });
       if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
@@ -186,7 +211,7 @@ export default function PizzaConfigTab() {
   });
 
   const deleteFlavorMutation = useMutation({
-    mutationFn: (id) => apiClient.entities.PizzaFlavor.delete(id),
+    mutationFn: (id) => apiClient.entities.PizzaFlavor.delete(id, entityContextOpts),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzaFlavors'] });
       if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
@@ -198,7 +223,8 @@ export default function PizzaConfigTab() {
   const createEdgeMutation = useMutation({
     mutationFn: (data) => apiClient.entities.PizzaEdge.create({
       ...data,
-      subscriber_email: user?.subscriber_email || user?.email
+      ...(entityOwnerEmail && { subscriber_email: entityOwnerEmail, owner_email: entityOwnerEmail }),
+      ...(scopedSubscriberEmail && { as_subscriber: scopedSubscriberEmail })
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzaEdges'] });
@@ -210,7 +236,7 @@ export default function PizzaConfigTab() {
   });
 
   const updateEdgeMutation = useMutation({
-    mutationFn: ({ id, data }) => apiClient.entities.PizzaEdge.update(id, data),
+    mutationFn: ({ id, data }) => apiClient.entities.PizzaEdge.update(id, data, entityContextOpts),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzaEdges'] });
       if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
@@ -221,7 +247,7 @@ export default function PizzaConfigTab() {
   });
 
   const deleteEdgeMutation = useMutation({
-    mutationFn: (id) => apiClient.entities.PizzaEdge.delete(id),
+    mutationFn: (id) => apiClient.entities.PizzaEdge.delete(id, entityContextOpts),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzaEdges'] });
       if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
@@ -233,7 +259,8 @@ export default function PizzaConfigTab() {
   const createExtraMutation = useMutation({
     mutationFn: (data) => apiClient.entities.PizzaExtra.create({
       ...data,
-      subscriber_email: user?.subscriber_email || user?.email
+      ...(entityOwnerEmail && { subscriber_email: entityOwnerEmail, owner_email: entityOwnerEmail }),
+      ...(scopedSubscriberEmail && { as_subscriber: scopedSubscriberEmail })
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzaExtras'] });
@@ -245,7 +272,7 @@ export default function PizzaConfigTab() {
   });
 
   const updateExtraMutation = useMutation({
-    mutationFn: ({ id, data }) => apiClient.entities.PizzaExtra.update(id, data),
+    mutationFn: ({ id, data }) => apiClient.entities.PizzaExtra.update(id, data, entityContextOpts),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzaExtras'] });
       if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
@@ -256,7 +283,7 @@ export default function PizzaConfigTab() {
   });
 
   const deleteExtraMutation = useMutation({
-    mutationFn: (id) => apiClient.entities.PizzaExtra.delete(id),
+    mutationFn: (id) => apiClient.entities.PizzaExtra.delete(id, entityContextOpts),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzaExtras'] });
       if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
@@ -268,7 +295,8 @@ export default function PizzaConfigTab() {
   const createCategoryMutation = useMutation({
     mutationFn: (data) => apiClient.entities.PizzaCategory.create({
       ...data,
-      subscriber_email: user?.subscriber_email || user?.email
+      ...(entityOwnerEmail && { subscriber_email: entityOwnerEmail, owner_email: entityOwnerEmail }),
+      ...(scopedSubscriberEmail && { as_subscriber: scopedSubscriberEmail })
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzaCategories'] });
@@ -280,7 +308,7 @@ export default function PizzaConfigTab() {
   });
 
   const updateCategoryMutation = useMutation({
-    mutationFn: ({ id, data }) => apiClient.entities.PizzaCategory.update(id, data),
+    mutationFn: ({ id, data }) => apiClient.entities.PizzaCategory.update(id, data, entityContextOpts),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzaCategories'] });
       if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
@@ -291,7 +319,7 @@ export default function PizzaConfigTab() {
   });
 
   const deleteCategoryMutation = useMutation({
-    mutationFn: (id) => apiClient.entities.PizzaCategory.delete(id),
+    mutationFn: (id) => apiClient.entities.PizzaCategory.delete(id, entityContextOpts),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzaCategories'] });
       if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
@@ -304,13 +332,20 @@ export default function PizzaConfigTab() {
       <Toaster position="top-center" />
       
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Configuração de Pizzas</h2>
-        <p className="text-gray-600">Gerencie tamanhos, sabores, bordas e extras para suas pizzas</p>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">Pizzaria</h2>
+        <p className="text-gray-600">Estruture entradas genericas do cardapio, sabores de montagem e personalizacoes do builder premium.</p>
+      </div>
+
+      <div className="mb-6 rounded-2xl border border-orange-200 bg-orange-50/80 p-4 text-sm text-orange-900">
+        <p className="font-semibold">Como o modelo funciona agora</p>
+        <p className="mt-1 text-orange-800">
+          As categorias de pizza representam as entradas comerciais do cardapio. Os sabores funcionam como repertorio interno do builder premium.
+        </p>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid grid-cols-2 w-full max-w-xs">
-          <TabsTrigger value="pizzas">Minhas Pizzas</TabsTrigger>
+          <TabsTrigger value="pizzas">Entradas</TabsTrigger>
           <TabsTrigger value="visual"><Settings className="w-4 h-4 mr-1" />Visual</TabsTrigger>
         </TabsList>
 
@@ -318,19 +353,18 @@ export default function PizzaConfigTab() {
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-4">
             <MyPizzasTab />
             <Card className="p-4 h-fit">
-              <h3 className="font-semibold mb-3">Configuração</h3>
-              <p className="text-xs text-gray-500 mb-3">Tamanhos, sabores, bordas e extras</p>
+              <h3 className="font-semibold mb-3">Base da montagem</h3>
+              <p className="text-xs text-gray-500 mb-3">Tamanhos, sabores, bordas e extras usados pelas entradas comerciais.</p>
               
               {/* Busca */}
               <div className="mb-3">
                 <div className="relative">
                   <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <Input
-                    placeholder="Buscar sabores, bordas ou extras..."
+                    placeholder="Buscar entradas, sabores, bordas ou extras..."
                     value={searchTerm}
                     onChange={(e) => {
                       setSearchTerm(e.target.value);
-                      // Detectar tipo baseado no contexto do accordion aberto
                     }}
                     className="pl-8 text-sm"
                   />
@@ -340,13 +374,14 @@ export default function PizzaConfigTab() {
               <Accordion type="multiple" defaultValue={['categories','sizes','flavors']} className="w-full">
                 <AccordionItem value="categories" className="border rounded-lg px-2">
                   <AccordionTrigger className="py-2 text-sm font-medium hover:no-underline">
-                    Categorias ({pizzaCategories.length}) — como em Pratos
+                    Entradas do cardapio ({pizzaCategories.length})
                   </AccordionTrigger>
                   <AccordionContent className="pb-2">
-                    <p className="text-[10px] text-gray-500 mb-2">Ex: Pizza M 1 sabor, Pizza G 2 sabores. Separam pizzas no cardápio. Reordene com as setas.</p>
-                    <Button size="sm" onClick={() => { setEditingCategory(null); setShowCategoryModal(true); }} className="mb-2 w-full"><Plus className="w-3 h-3 mr-1" />Nova Categoria</Button>
+                    <p className="text-[10px] text-gray-500 mb-2">Ex: Tradicional - 2 sabores ou Premium - 1 sabor. Estas entradas aparecem no cardapio publico e abrem o builder premium.</p>
+                    <Button size="sm" onClick={() => { setEditingCategory(null); setShowCategoryModal(true); }} className="mb-2 w-full"><Plus className="w-3 h-3 mr-1" />Nova entrada</Button>
                     <div className="space-y-1">
-                      {pizzaCategories.map((c, idx) => {
+                      {filteredPizzaCategories.map((c) => {
+                        const idx = pizzaCategories.findIndex((category) => category.id === c.id);
                         const sz = sizes.find(s => s.id === c.size_id);
                         const moveCategory = (dir) => {
                           const to = dir === 'up' ? idx - 1 : idx + 1;
@@ -373,13 +408,13 @@ export default function PizzaConfigTab() {
                 </AccordionItem>
                 <AccordionItem value="sizes" className="border rounded-lg px-2">
                   <AccordionTrigger className="py-2 text-sm font-medium hover:no-underline">
-                    Tamanhos ({sizes.length})
+                    Tamanhos e preco base ({sizes.length})
                   </AccordionTrigger>
                   <AccordionContent className="pb-2">
-                    <p className="text-[10px] text-gray-500 mb-2">Base: P, M, G com preço e fatias. Usados pelas categorias.</p>
+                    <p className="text-[10px] text-gray-500 mb-2">Definem fatias, limite de sabores e o valor inicial que aparece como "A partir de".</p>
                     <Button size="sm" onClick={() => { setEditingSize(null); setShowSizeModal(true); }} className="mb-2 w-full"><Plus className="w-3 h-3 mr-1" />Novo Tamanho</Button>
                     <div className="space-y-1">
-                      {sizes.map(s => (
+                      {filteredSizes.map(s => (
                         <div key={s.id} className="flex items-center gap-2 p-2 rounded border text-xs">
                           <span className="flex-1 truncate">{s.name} • {s.slices}f • {formatCurrency(s.price_tradicional)}</span>
                           <Switch checked={s.is_active} onCheckedChange={(c)=>updateSizeMutation.mutate({id:s.id,data:{...s,is_active:c}})} className="scale-75" />
@@ -392,12 +427,13 @@ export default function PizzaConfigTab() {
                 </AccordionItem>
                 <AccordionItem value="flavors" className="border rounded-lg px-2">
                   <AccordionTrigger className="py-2 text-sm font-medium hover:no-underline">
-                    Sabores ({flavors.length})
+                    Sabores de montagem ({flavors.length})
                   </AccordionTrigger>
                   <AccordionContent className="pb-2">
+                    <p className="text-[10px] text-gray-500 mb-2">Eles nao precisam ser itens principais do cardapio. Funcionam como opcoes do builder premium.</p>
                     <Button size="sm" onClick={() => { setEditingFlavor(null); setShowFlavorModal(true); }} className="mb-2 w-full"><Plus className="w-3 h-3 mr-1" />Novo</Button>
                     <div className="space-y-1">
-                      {flavors.map(f => (
+                      {filteredFlavors.map(f => (
                         <div key={f.id} className="flex items-center gap-2 p-2 rounded border text-xs">
                           {f.image && <img src={f.image} alt="" className="w-8 h-8 rounded object-cover flex-shrink-0" />}
                           <span className="flex-1 truncate">{f.name}</span>
@@ -417,7 +453,7 @@ export default function PizzaConfigTab() {
                   <AccordionContent className="pb-2">
                     <Button size="sm" onClick={() => { setEditingEdge(null); setShowEdgeModal(true); }} className="mb-2 w-full"><Plus className="w-3 h-3 mr-1" />Nova</Button>
                     <div className="space-y-1">
-                      {edges.map(e => (
+                      {filteredEdges.map(e => (
                         <div key={e.id} className="flex items-center gap-2 p-2 rounded border text-xs">
                           {e.image && <img src={e.image} alt="" className="w-8 h-8 rounded object-cover flex-shrink-0" />}
                           <span className="flex-1 truncate">{e.name} {formatCurrency(e.price)}</span>
@@ -436,7 +472,7 @@ export default function PizzaConfigTab() {
                   <AccordionContent className="pb-2">
                     <Button size="sm" onClick={() => { setEditingExtra(null); setShowExtraModal(true); }} className="mb-2 w-full"><Plus className="w-3 h-3 mr-1" />Novo</Button>
                     <div className="space-y-1 max-h-96 overflow-y-auto">
-                      {(searchTerm && searchType === 'extras' ? filteredExtras : extras).map(x => (
+                      {filteredExtras.map(x => (
                         <div key={x.id} className="flex items-center gap-2 p-2 rounded border text-xs">
                           {x.image && <img src={x.image} alt="" className="w-8 h-8 rounded object-cover flex-shrink-0" />}
                           <span className="flex-1 truncate">{x.name} {formatCurrency(x.price)}</span>
@@ -1144,17 +1180,18 @@ function CategoryModal({ isOpen, onClose, onSubmit, category, sizes = [] }) {
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md max-w-[95vw]">
         <DialogHeader>
-          <DialogTitle>{category ? 'Editar' : 'Nova'} Categoria</DialogTitle>
+          <DialogTitle>{category ? 'Editar' : 'Nova'} entrada comercial</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <Label>Nome da categoria *</Label>
+            <Label>Nome da entrada *</Label>
             <Input
               value={formData.name}
               onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-              placeholder="Ex: Pizza M 1 sabor, Pizza G 2 sabores"
+              placeholder="Ex: Tradicional - 2 sabores"
               required
             />
+            <p className="mt-1 text-xs text-gray-500">Este nome aparece no cardapio publico como entrada generica.</p>
           </div>
           <div>
             <Label>Tamanho *</Label>
@@ -1171,7 +1208,7 @@ function CategoryModal({ isOpen, onClose, onSubmit, category, sizes = [] }) {
             </select>
           </div>
           <div>
-            <Label>Máx. sabores (1-4) *</Label>
+            <Label>Max. sabores (1-4) *</Label>
             <Input
               type="number"
               min={1}
@@ -1190,3 +1227,5 @@ function CategoryModal({ isOpen, onClose, onSubmit, category, sizes = [] }) {
     </Dialog>
   );
 }
+
+
