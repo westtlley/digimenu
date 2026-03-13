@@ -60,9 +60,61 @@ export default function PizzaBuilderV2({
   const [specifications, setSpecifications] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [extrasConfirmed, setExtrasConfirmed] = useState(false);
-  const useCategories = categories?.length > 0;
+  const pizzaConfig = dish?.pizza_config || {};
+  const availableSizes = useMemo(() => {
+    const activeSizes = (sizes || []).filter((size) => size && size.is_active !== false);
+    const configuredSizes = Array.isArray(pizzaConfig.sizes) ? pizzaConfig.sizes.filter(Boolean) : [];
+
+    if (!configuredSizes.length) return activeSizes;
+
+    const configuredById = new Map(configuredSizes.map((size) => [size.id, size]));
+    return activeSizes
+      .filter((size) => configuredById.has(size.id))
+      .map((size) => ({ ...configuredById.get(size.id), ...size }));
+  }, [sizes, pizzaConfig.sizes]);
+  const allowedSizeIds = useMemo(
+    () => new Set(availableSizes.map((size) => size.id)),
+    [availableSizes]
+  );
+  const availableCategories = useMemo(() => {
+    const activeCategories = (categories || []).filter((category) => category && category.is_active !== false);
+    if (!allowedSizeIds.size) return activeCategories;
+    return activeCategories.filter((category) => allowedSizeIds.has(category.size_id));
+  }, [categories, allowedSizeIds]);
+  const allowedFlavorIds = useMemo(() => {
+    const configuredFlavorIds = Array.isArray(pizzaConfig.flavor_ids) ? pizzaConfig.flavor_ids.filter(Boolean) : [];
+    return new Set(configuredFlavorIds);
+  }, [pizzaConfig.flavor_ids]);
+  const availableFlavors = useMemo(() => {
+    const activeFlavors = (flavors || []).filter((flavor) => flavor && flavor.is_active !== false);
+    if (!allowedFlavorIds.size) return activeFlavors;
+    return activeFlavors.filter((flavor) => allowedFlavorIds.has(flavor.id));
+  }, [flavors, allowedFlavorIds]);
+  const availableEdges = useMemo(() => {
+    const activeEdges = (edges || []).filter((edge) => edge && edge.is_active !== false);
+    const configuredEdges = Array.isArray(pizzaConfig.edges) ? pizzaConfig.edges.filter((edge) => edge && edge.is_active !== false) : [];
+
+    if (!configuredEdges.length) return activeEdges;
+
+    const configuredById = new Map(configuredEdges.map((edge) => [edge.id, edge]));
+    return activeEdges
+      .filter((edge) => configuredById.has(edge.id))
+      .map((edge) => ({ ...configuredById.get(edge.id), ...edge }));
+  }, [edges, pizzaConfig.edges]);
+  const availableExtras = useMemo(() => {
+    const activeExtras = (extras || []).filter((extra) => extra && extra.is_active !== false);
+    const configuredExtras = Array.isArray(pizzaConfig.extras) ? pizzaConfig.extras.filter((extra) => extra && extra.is_active !== false) : [];
+
+    if (!configuredExtras.length) return activeExtras;
+
+    const configuredById = new Map(configuredExtras.map((extra) => [extra.id, extra]));
+    return activeExtras
+      .filter((extra) => configuredById.has(extra.id))
+      .map((extra) => ({ ...configuredById.get(extra.id), ...extra }));
+  }, [extras, pizzaConfig.extras]);
+  const useCategories = availableCategories.length > 0;
   const fixedCategory = dish?.pizza_category_id && useCategories
-    ? categories.find(c => c.id === dish.pizza_category_id)
+    ? availableCategories.find(c => c.id === dish.pizza_category_id)
     : null;
   const categoryIsFixed = !!fixedCategory;
 
@@ -73,8 +125,8 @@ export default function PizzaBuilderV2({
       setSelectedSize(size);
       if (useCategories && size) {
         const flavorCount = (editingItem.flavors || []).length;
-        const cat = categories.find(c => c.size_id === size.id && (c.max_flavors || 1) >= flavorCount)
-          || categories.find(c => c.size_id === size.id);
+        const cat = availableCategories.find(c => c.size_id === size.id && (c.max_flavors || 1) >= flavorCount)
+          || availableCategories.find(c => c.size_id === size.id);
         setSelectedCategory(cat || null);
       }
       setSelectedFlavors(editingItem.flavors || []);
@@ -84,11 +136,11 @@ export default function PizzaBuilderV2({
     } else {
       // Ordem: tamanho → sabores → personalize (não pré-selecionar tamanho)
       // Pré-preencher sabor baseado no nome da pizza clicada (apenas quando já tem tamanho)
-      if (dish && flavors.length > 0 && selectedFlavors.length === 0 && selectedSize) {
+      if (dish && availableFlavors.length > 0 && selectedFlavors.length === 0 && selectedSize) {
         const dishName = dish.name.toLowerCase();
         // Tentar encontrar o sabor que corresponde ao nome da pizza
         // Ex: "Pizza Calabresa" -> procura sabor "Calabresa"
-        const matchingFlavor = flavors.find(f => {
+        const matchingFlavor = availableFlavors.find(f => {
           if (!f || !f.name) return false;
           const flavorName = f.name.toLowerCase();
           // Remove "pizza" do nome do dish para comparar
@@ -101,17 +153,17 @@ export default function PizzaBuilderV2({
         }
       }
     }
-  }, [editingItem, sizes, dish, flavors, selectedSize, selectedFlavors.length, useCategories, categories]);
+  }, [editingItem, dish, availableCategories, availableFlavors, selectedSize, selectedFlavors.length, useCategories]);
 
   // Quando a pizza tem categoria fixa, inicializar por ela
   React.useEffect(() => {
     if (fixedCategory && !editingItem) {
       setSelectedCategory(fixedCategory);
-      const size = sizes.find(s => s.id === fixedCategory.size_id);
+      const size = availableSizes.find(s => s.id === fixedCategory.size_id);
       setSelectedSize(size || null);
       setSelectedFlavors([]);
     }
-  }, [fixedCategory?.id, sizes, editingItem]);
+  }, [fixedCategory?.id, availableSizes, editingItem]);
 
   // Reset extrasConfirmed quando tamanho/categoria mudar
   React.useEffect(() => {
@@ -120,10 +172,10 @@ export default function PizzaBuilderV2({
 
   // Sabores filtrados
   const filteredFlavors = useMemo(() => {
-    return (flavors || []).filter(f => 
-      f && f.is_active && f.name?.toLowerCase().includes(searchQuery.toLowerCase())
+    return availableFlavors.filter(f =>
+      f && f.name?.toLowerCase().includes(searchQuery.toLowerCase())
     );
-  }, [flavors, searchQuery]);
+  }, [availableFlavors, searchQuery]);
 
   // Agrupar sabores por categoria
   const flavorsByCategory = useMemo(() => {
@@ -144,11 +196,11 @@ export default function PizzaBuilderV2({
   // Toggle sabor
   const toggleFlavor = (flavor) => {
     if (!selectedSize) return;
+    const isSelected = selectedFlavors.some((selectedFlavor) => selectedFlavor.id === flavor.id);
     
     if (dish?.division_mode === 'exact') {
       // Modo exact: limite de sabores diferentes
       const uniqueFlavors = [...new Set(selectedFlavors.map(f => f.id))];
-      const isSelected = uniqueFlavors.includes(flavor.id);
       
       if (isSelected) {
         setSelectedFlavors(selectedFlavors.filter(f => f.id !== flavor.id));
@@ -156,9 +208,10 @@ export default function PizzaBuilderV2({
         setSelectedFlavors([...selectedFlavors, flavor]);
       }
     } else {
-      // Modo slice: preencher todas as fatias
-      const sliceCount = selectedSize.slices;
-      if (selectedFlavors.length < sliceCount) {
+      // Modo slice: manter limite comercial de sabores configurado
+      if (isSelected) {
+        setSelectedFlavors(selectedFlavors.filter((selectedFlavor) => selectedFlavor.id !== flavor.id));
+      } else if (selectedFlavors.length < maxFlavors) {
         setSelectedFlavors([...selectedFlavors, flavor]);
       }
     }
@@ -179,11 +232,11 @@ export default function PizzaBuilderV2({
     if (!selectedSize) return 0;
     
     const hasPremium = selectedFlavors.some(f => f.category === 'premium');
-    let basePrice = hasPremium ? selectedSize.price_premium : selectedSize.price_tradicional;
+    let basePrice = Number(hasPremium ? selectedSize.price_premium : selectedSize.price_tradicional) || 0;
     
-    if (selectedEdge && selectedEdge.price) basePrice += selectedEdge.price;
+    if (selectedEdge && selectedEdge.price) basePrice += Number(selectedEdge.price) || 0;
     
-    const extrasPrice = selectedExtras.reduce((sum, extra) => sum + (extra.price || 0), 0);
+    const extrasPrice = selectedExtras.reduce((sum, extra) => sum + (Number(extra.price) || 0), 0);
     
     return basePrice + extrasPrice;
   };
@@ -206,7 +259,8 @@ export default function PizzaBuilderV2({
   // --- TELAS ---
 
   const premiumMode = store?.enable_premium_pizza_visualization !== false;
-  const hasExtrasAvailable = (extras || []).filter(e => e && e.is_active).length > 0;
+  const hasBordersAvailable = availableEdges.length > 0;
+  const hasExtrasAvailable = availableExtras.length > 0;
   const canAddToCart = selectedSize && selectedFlavors.length > 0 && (!hasExtrasAvailable || extrasConfirmed);
 
   // CUSTOM VIEW (Montagem)
@@ -365,7 +419,7 @@ export default function PizzaBuilderV2({
                   <p className="text-white font-bold text-base md:text-lg">
                     {((selectedCategory || fixedCategory)?.name) || (() => {
                       const c = selectedCategory || fixedCategory;
-                      const sz = c ? sizes.find(s => s.id === c.size_id) : null;
+                      const sz = c ? availableSizes.find(s => s.id === c.size_id) : null;
                       return (c && sz) ? `${sz.name} • ${c.max_flavors || 1} sabor(es)` : '';
                     })()}
                   </p>
@@ -382,16 +436,16 @@ export default function PizzaBuilderV2({
                         style={{ backgroundColor: primaryColor, borderColor: '#c2410c' }}
                         value={selectedCategory?.id || ''}
                         onChange={(e) => {
-                          const cat = categories.find(c => c.id === e.target.value);
+                          const cat = availableCategories.find(c => c.id === e.target.value);
                           setSelectedCategory(cat || null);
-                          const size = cat ? sizes.find(s => s.id === cat.size_id) : null;
+                          const size = cat ? availableSizes.find(s => s.id === cat.size_id) : null;
                           setSelectedSize(size);
                           setSelectedFlavors([]);
                         }}
                       >
                         <option value="">Escolha a categoria</option>
-                        {(categories || []).map(c => {
-                          const sz = sizes.find(s => s.id === c.size_id);
+                        {availableCategories.map(c => {
+                          const sz = availableSizes.find(s => s.id === c.size_id);
                           return (
                             <option key={c.id} value={c.id}>
                               {c.name || (sz ? `${sz.name} ${c.max_flavors || 1} sabor(es)` : '')}
@@ -405,14 +459,14 @@ export default function PizzaBuilderV2({
                         style={{ backgroundColor: primaryColor, borderColor: '#c2410c' }}
                         value={selectedSize?.id || ''}
                         onChange={(e) => {
-                          const size = sizes.find(s => s.id === e.target.value);
+                          const size = availableSizes.find(s => s.id === e.target.value);
                           setSelectedSize(size);
                           setSelectedCategory(null);
                           setSelectedFlavors([]);
                         }}
                       >
                         <option value="">Escolha o tamanho</option>
-                        {(sizes || []).filter(s => s && s.is_active).map(s => (
+                        {availableSizes.map(s => (
                           <option key={s.id} value={s.id}>
                             {s.name} - {s.slices} fatias - {s.max_flavors} {s.max_flavors === 1 ? 'sabor' : 'sabores'}
                           </option>
@@ -428,7 +482,7 @@ export default function PizzaBuilderV2({
               <div className={`bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/5 ${!selectedSize ? 'opacity-60' : ''}`}>
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex-1 min-w-0">
-                    <p className="text-gray-400 text-xs uppercase tracking-widest font-black mb-1">🍕 Sabores</p>
+                    <p className="text-gray-400 text-xs uppercase tracking-widest font-black mb-1">Sabores</p>
                     <p className="text-white text-sm font-bold leading-tight truncate">
                       {selectedFlavors.length > 0 ? (
                         <span>{selectedFlavors.map(f => f.name).join(' + ')}</span>
@@ -438,7 +492,7 @@ export default function PizzaBuilderV2({
                     </p>
                   </div>
                   <button 
-                    onClick={() => selectedSize && maxFlavors > 1 && setStep('flavors')}
+                    onClick={() => selectedSize && setStep('flavors')}
                     disabled={!selectedSize || (maxFlavors === 1 && selectedFlavors.length >= 1)}
                     className="px-3 py-1.5 rounded-lg text-xs font-black uppercase transition-all active:scale-95 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
                     style={{ backgroundColor: primaryColor, color: 'white' }}
@@ -473,9 +527,9 @@ export default function PizzaBuilderV2({
 
               {/* Extras - só após borda (ou se não tiver bordas) */}
               <button 
-                onClick={() => (edges.length === 0 || selectedEdge !== null) && setStep('extras')}
-                disabled={edges.length > 0 && selectedEdge === null}
-                className={`w-full backdrop-blur-sm text-white py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-between shadow-md transition-all border border-white/5 ${(edges.length === 0 || selectedEdge !== null) ? 'bg-white/10 hover:bg-white/20 active:scale-95' : 'bg-white/5 opacity-50 cursor-not-allowed'}`}
+                onClick={() => (!hasBordersAvailable || selectedEdge !== null) && setStep('extras')}
+                disabled={hasBordersAvailable && selectedEdge === null}
+                className={`w-full backdrop-blur-sm text-white py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-between shadow-md transition-all border border-white/5 ${(!hasBordersAvailable || selectedEdge !== null) ? 'bg-white/10 hover:bg-white/20 active:scale-95' : 'bg-white/5 opacity-50 cursor-not-allowed'}`}
               >
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-full flex items-center justify-center bg-blue-500/20">
@@ -493,9 +547,9 @@ export default function PizzaBuilderV2({
 
               {/* Observações - só após borda (ou se não tiver bordas) */}
               <button 
-                onClick={() => (edges.length === 0 || selectedEdge !== null) && setStep('observations')}
-                disabled={edges.length > 0 && selectedEdge === null}
-                className={`w-full backdrop-blur-sm text-white py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-between shadow-md active:scale-95 transition-all border border-white/5 ${(edges.length === 0 || selectedEdge !== null) ? 'bg-white/10 hover:bg-white/20' : 'bg-white/5 opacity-50 cursor-not-allowed'}`}
+                onClick={() => (!hasBordersAvailable || selectedEdge !== null) && setStep('observations')}
+                disabled={hasBordersAvailable && selectedEdge === null}
+                className={`w-full backdrop-blur-sm text-white py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-between shadow-md active:scale-95 transition-all border border-white/5 ${(!hasBordersAvailable || selectedEdge !== null) ? 'bg-white/10 hover:bg-white/20' : 'bg-white/5 opacity-50 cursor-not-allowed'}`}
               >
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-full flex items-center justify-center bg-gray-500/20">
@@ -750,7 +804,7 @@ export default function PizzaBuilderV2({
         {step === 'borders' && (
           <SelectionOverlay 
             title="Escolha a Borda" 
-            items={[{ id: 'none', name: 'Sem Borda', price: 0 }, ...edges.filter(e => e && e.is_active)]} 
+            items={[{ id: 'none', name: 'Sem Borda', price: 0 }, ...availableEdges]} 
             current={selectedEdge || { id: 'none', name: 'Sem Borda', price: 0 }} 
             onSelect={setSelectedEdge} 
             onClose={() => setStep('custom')} 
@@ -760,7 +814,7 @@ export default function PizzaBuilderV2({
         {step === 'extras' && (
           <SelectionOverlay 
             title={`Adicionar Extras (máx. ${maxExtras})`} 
-            items={extras.filter(e => e && e.is_active)} 
+            items={availableExtras} 
             current={selectedExtras} 
             onSelect={setSelectedExtras} 
             onClose={() => setStep('custom')}

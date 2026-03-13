@@ -1760,15 +1760,16 @@ export default function Cardapio() {
     // Cross-sell será gerenciado pelo componente SmartUpsell baseado no carrinho
     
     // Rastrear combinação de pizza
-    if (dish.product_type === 'pizza' && item.selections?.flavors) {
+    const pizzaFlavors = Array.isArray(item?.selections?.flavors) ? item.selections.flavors : item?.flavors;
+    if (dish.product_type === 'pizza' && Array.isArray(pizzaFlavors) && pizzaFlavors.length > 0) {
       try {
-        const flavorIds = item.selections.flavors.map(f => f.id);
+        const flavorIds = pizzaFlavors.map(f => f.id).filter(Boolean);
         await base44.functions.invoke('trackPizzaCombination', {
           pizza_id: dish.id,
           flavor_ids: flavorIds
         });
       } catch (e) {
-        console.log('Erro ao rastrear combinação:', e);
+        console.error('Erro ao rastrear combinação de pizza:', e);
       }
     }
     
@@ -1786,7 +1787,6 @@ export default function Cardapio() {
   };
 
   const handleDishClick = (dish) => {
-    console.log('🍕 Clicou no prato:', dish.name, 'Tipo:', dish.product_type);
     void trackCommercialEvent(COMMERCIAL_EVENTS.PRODUCT_VIEW, {
       dish_id: dish?.id || null,
       dish_name: dish?.name || null,
@@ -1812,16 +1812,13 @@ export default function Cardapio() {
     
     // Se for bebida, usar modal específico de bebida
     if (dish.product_type === 'beverage') {
-      console.log('🥤 É bebida! Abrindo BeverageModal...');
       openBeverageDetails(dish);
       return;
     }
     
     if (dish.product_type === 'pizza') {
-      console.log('✅ É pizza! Abrindo PizzaBuilder...');
       openPizzaBuilder(dish);
     } else {
-      console.log('📦 Não é pizza, abrindo modal normal');
       openDishDetails(dish);
     }
   };
@@ -3628,27 +3625,19 @@ export default function Cardapio() {
       />
 
       {selectedPizza && (
-        <>
-          {console.log('🍕 Renderizando PizzaBuilderV2 para:', selectedPizza.name)}
-          {console.log('📏 Tamanhos disponíveis:', pizzaSizesResolved.length)}
-          {console.log('🎨 Sabores disponíveis:', pizzaFlavorsResolved.length)}
-          <PizzaBuilderV2
-            dish={selectedPizza}
-            sizes={pizzaSizesResolved}
-            flavors={pizzaFlavorsResolved}
-            edges={pizzaEdgesResolved}
-            extras={pizzaExtrasResolved}
-            categories={pizzaCategoriesResolved}
-            onAddToCart={handleAddToCart}
-            onClose={() => {
-              console.log('❌ Fechando PizzaBuilderV2');
-              closePizzaBuilder();
-            }}
-            primaryColor={primaryColor}
-            editingItem={editingCartItem}
-            store={store}
-          />
-        </>
+        <PizzaBuilderV2
+          dish={selectedPizza}
+          sizes={pizzaSizesResolved}
+          flavors={pizzaFlavorsResolved}
+          edges={pizzaEdgesResolved}
+          extras={pizzaExtrasResolved}
+          categories={pizzaCategoriesResolved}
+          onAddToCart={handleAddToCart}
+          onClose={closePizzaBuilder}
+          primaryColor={primaryColor}
+          editingItem={editingCartItem}
+          store={store}
+        />
       )}
 
       <OrderHistoryModal
