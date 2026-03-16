@@ -192,11 +192,18 @@ export default function PizzaBuilderV2({
   const effectiveMaxFlavors = selectedCategory?.max_flavors ?? selectedSize?.max_flavors ?? 1;
   const maxFlavors = Math.min(Math.max(effectiveMaxFlavors, 1), 4);
   const maxExtras = selectedSize?.max_extras ?? 5;
+  const isSingleFlavorPizza = maxFlavors === 1;
 
   // Toggle sabor
   const toggleFlavor = (flavor) => {
     if (!selectedSize) return;
     const isSelected = selectedFlavors.some((selectedFlavor) => selectedFlavor.id === flavor.id);
+
+    if (isSingleFlavorPizza) {
+      if (isSelected) return;
+      setSelectedFlavors([flavor]);
+      return;
+    }
     
     if (dish?.division_mode === 'exact') {
       // Modo exact: limite de sabores diferentes
@@ -269,6 +276,8 @@ export default function PizzaBuilderV2({
     ? 'Passo 1: escolha o tamanho da pizza.'
     : selectedFlavorCount === 0
       ? `Passo 2: escolha ${flavorTargetText} para montar sua pizza.`
+      : isSingleFlavorPizza
+        ? 'Sabor escolhido. Toque para trocar quando quiser.'
       : flavorsRemaining > 0
         ? `Faltam ${flavorsRemaining} ${flavorsRemaining === 1 ? 'sabor' : 'sabores'} para completar sua pizza.`
         : 'Voce ja escolheu todos os sabores. Agora personalize sua pizza.';
@@ -309,6 +318,19 @@ export default function PizzaBuilderV2({
       : hasExtrasAvailable && !extrasConfirmed
         ? 'CONFIRME OS EXTRAS'
         : 'ADICIONAR AO PEDIDO';
+  const selectedFlavorNames = selectedFlavors.map((flavor) => flavor?.name).filter(Boolean);
+  const selectedFlavorSummary = selectedFlavorNames.length > 0
+    ? selectedFlavorNames.join(' + ')
+    : 'Escolha os sabores para liberar a personalizacao.';
+  const previewStatusLabel = !selectedSize
+    ? 'Escolha o tamanho'
+    : selectedFlavorCount === 0
+      ? 'Monte os sabores'
+      : isSingleFlavorPizza
+        ? 'Toque para trocar o sabor'
+        : selectedFlavorCount < maxFlavors
+          ? 'Complete os sabores'
+          : 'Pizza pronta para personalizar';
 
   // CUSTOM VIEW (Montagem)
   const CustomView = () => (
@@ -338,9 +360,29 @@ export default function PizzaBuilderV2({
             {/* Coluna Esquerda - Pizza e Preço */}
             <div className={`space-y-3 lg:space-y-4 rounded-2xl p-4 ${premiumMode ? 'bg-black/40 backdrop-blur-xl border border-white/5 shadow-[0_24px_80px_rgba(0,0,0,0.35)]' : ''}`}>
               <div className="flex flex-col items-center justify-center py-1 relative min-w-0">
+                {premiumMode && (
+                  <div className="pointer-events-none absolute inset-x-4 top-8 h-40 rounded-full bg-[radial-gradient(circle_at_center,rgba(249,115,22,0.28),rgba(251,191,36,0.16),transparent_72%)] blur-2xl" />
+                )}
+                <div className="mb-4 w-full max-w-md rounded-2xl border border-white/10 bg-black/45 px-5 py-4 text-center shadow-[0_18px_50px_rgba(0,0,0,0.28)] backdrop-blur-xl">
+                  <p className="text-[11px] text-orange-200/80 font-black uppercase tracking-[0.24em]">Montagem premium</p>
+                  <h2 className="mt-2 text-xl font-black uppercase tracking-tight text-white md:text-2xl">
+                    {selectedCategory?.name || dish?.name || 'Sua pizza'}
+                  </h2>
+                  <p className="mt-2 text-sm text-gray-300 leading-relaxed">
+                    {selectedFlavorSummary}
+                  </p>
+                  <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+                    <Badge className="border border-white/10 bg-white/10 text-white text-[11px] font-bold px-3 py-1 rounded-full">
+                      {selectedSize ? selectedSize.name : 'Tamanho pendente'}
+                    </Badge>
+                    <Badge className="border border-white/10 bg-white/10 text-white text-[11px] font-bold px-3 py-1 rounded-full">
+                      {previewStatusLabel}
+                    </Badge>
+                  </div>
+                </div>
                 <button 
-                  onClick={() => selectedSize && (maxFlavors > 1 || selectedFlavors.length === 0) && setStep('flavors')}
-                  disabled={!selectedSize || (maxFlavors === 1 && selectedFlavors.length >= 1)}
+                  onClick={() => selectedSize && setStep('flavors')}
+                  disabled={!selectedSize}
                   className="relative w-[280px] h-[280px] sm:w-[340px] sm:h-[340px] lg:w-[420px] lg:h-[420px] pizza-container group cursor-pointer flex-shrink-0 disabled:opacity-70 disabled:cursor-not-allowed rounded-full overflow-hidden shadow-xl"
                 >
                   {premiumMode && selectedEdge && selectedEdge.id !== 'none' && (
@@ -448,6 +490,15 @@ export default function PizzaBuilderV2({
                       )}
                     </svg>
                   </motion.div>
+                  {selectedSize && (
+                    <div className="pointer-events-none absolute inset-x-6 bottom-5 rounded-full border border-white/10 bg-black/55 px-4 py-2 text-center text-[11px] font-black uppercase tracking-[0.2em] text-white shadow-lg backdrop-blur-xl">
+                      {selectedFlavorCount > 0
+                        ? isSingleFlavorPizza
+                          ? 'Toque para trocar o sabor'
+                          : 'Toque para revisar os sabores'
+                        : 'Toque para escolher os sabores'}
+                    </div>
+                  )}
                 </button>
                 <div className="mt-3 w-full max-w-md rounded-2xl border border-white/10 bg-black/45 px-5 py-4 text-center shadow-[0_18px_50px_rgba(0,0,0,0.28)] backdrop-blur-xl">
                   <p className="text-[11px] text-orange-200/80 font-black uppercase tracking-[0.24em]">Valor final da sua pizza</p>
@@ -457,6 +508,11 @@ export default function PizzaBuilderV2({
                   <p className="mt-2 text-xs text-gray-400">
                     O valor final muda em tempo real com sabores, borda e extras.
                   </p>
+                  {selectedFlavorNames.length > 0 && (
+                    <p className="mt-2 text-sm font-semibold text-white/90">
+                      {selectedFlavorSummary}
+                    </p>
+                  )}
                 </div>
                 <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
                   <Badge className="border border-white/10 bg-white/10 text-white text-[11px] font-bold px-3 py-1 rounded-full">
@@ -487,9 +543,14 @@ export default function PizzaBuilderV2({
                     Faltam {flavorsRemaining} {flavorsRemaining === 1 ? 'sabor' : 'sabores'} para completar sua pizza
                   </p>
                 )}
-                {selectedFlavors.length >= maxFlavors && (
+                {selectedFlavors.length >= maxFlavors && !isSingleFlavorPizza && (
                   <p className="mt-2 text-xs font-bold uppercase tracking-wide text-emerald-300/90">
                     Sabores completos. Agora voce pode personalizar sua pizza.
+                  </p>
+                )}
+                {selectedFlavors.length >= maxFlavors && isSingleFlavorPizza && (
+                  <p className="mt-2 text-xs font-bold uppercase tracking-wide text-emerald-300/90">
+                    Sabor definido. Toque novamente para trocar quando quiser.
                   </p>
                 )}
               </div>
@@ -578,11 +639,17 @@ export default function PizzaBuilderV2({
                   </div>
                   <button 
                     onClick={() => selectedSize && setStep('flavors')}
-                    disabled={!selectedSize || (maxFlavors === 1 && selectedFlavors.length >= 1)}
+                    disabled={!selectedSize}
                     className="px-3 py-1.5 rounded-lg text-xs font-black uppercase transition-all active:scale-95 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
                     style={{ backgroundColor: primaryColor, color: 'white' }}
                   >
-                    {maxFlavors === 1 && selectedFlavors.length >= 1 ? 'Sabores ok' : selectedFlavors.length > 0 ? 'Trocar sabores' : 'Escolher sabores'}
+                    {isSingleFlavorPizza
+                      ? selectedFlavors.length > 0
+                        ? 'Trocar sabor'
+                        : 'Escolher sabor'
+                      : selectedFlavors.length > 0
+                        ? 'Trocar sabores'
+                        : 'Escolher sabores'}
                   </button>
                 </div>
                 <p className="mt-2 text-xs leading-relaxed text-gray-400">
@@ -823,7 +890,11 @@ export default function PizzaBuilderV2({
             className={`px-8 py-3 rounded-xl font-black text-xs uppercase tracking-wide transition-all ${selectedFlavors.length > 0 ? 'text-white shadow-lg' : 'bg-gray-100 text-gray-400'}`}
             style={{ backgroundColor: selectedFlavors.length > 0 ? primaryColor : '#f3f4f6' }}
           >
-            Confirmar
+            {selectedFlavors.length === 0
+              ? 'Escolha um sabor'
+              : isSingleFlavorPizza
+                ? 'Usar este sabor'
+                : 'Confirmar sabores'}
           </button>
         </div>
       </footer>
