@@ -1325,11 +1325,9 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
   };
 
   const duplicateDish = async (dish) => {
-    const subscriberEmail = getSubscriberEmail();
     const newDish = {
       ...dish,
       name: `${dish.name} (Cópia)`,
-      ...(subscriberEmail && { as_subscriber: subscriberEmail, owner_email: subscriberEmail }),
       id: undefined,
       created_date: undefined,
       updated_date: undefined,
@@ -1338,11 +1336,9 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
   };
 
   const duplicateCategory = async (category) => {
-    const subscriberEmail = getSubscriberEmail();
     createCategoryMutation.mutate({
       name: `${category.name} (Cópia)`,
       order: safeCategories.length,
-      ...(subscriberEmail && { as_subscriber: subscriberEmail, owner_email: subscriberEmail })
     });
   };
 
@@ -2687,4 +2683,3 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
     </>
   );
 }
-

@@ -80,11 +80,11 @@ export default function BeveragesTab() {
 
   const createBeverageMutation = useMutation({
     mutationFn: (data) => {
-      const ownerEmail = subscriberContextEmail || user?.subscriber_email || user?.email;
+      const ownerEmail = subscriberContextEmail || user?.subscriber_email || user?.email; // Compatibilidade transitória: a entidade ainda persiste owner_email.
       return base44.entities.Dish.create({
         ...data,
         product_type: 'beverage',
-        ...(ownerEmail && { subscriber_email: ownerEmail, owner_email: ownerEmail }),
+        ...(ownerEmail && { owner_email: ownerEmail }),
         ...(subscriberContextEmail && { as_subscriber: subscriberContextEmail }),
       });
     },
@@ -114,10 +114,10 @@ export default function BeveragesTab() {
 
   const createCategoryMutation = useMutation({
     mutationFn: (data) => {
-      const ownerEmail = subscriberContextEmail || user?.subscriber_email || user?.email;
+      const ownerEmail = subscriberContextEmail || user?.subscriber_email || user?.email; // Compatibilidade transitória: a entidade ainda persiste owner_email.
       return base44.entities.BeverageCategory.create({
         ...data,
-        ...(ownerEmail && { subscriber_email: ownerEmail, owner_email: ownerEmail }),
+        ...(ownerEmail && { owner_email: ownerEmail }),
         ...(subscriberContextEmail && { as_subscriber: subscriberContextEmail }),
       });
     },

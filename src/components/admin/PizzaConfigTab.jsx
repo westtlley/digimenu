@@ -82,7 +82,7 @@ export default function PizzaConfigTab() {
     ? menuContext.subscriber_id ?? null
     : tenantSubscriberId;
   const fallbackOwnerEmail = slug ? null : (user?.subscriber_email || user?.email || null);
-  const entityOwnerEmail = scopedSubscriberEmail || fallbackOwnerEmail;
+  const entityOwnerEmail = scopedSubscriberEmail || fallbackOwnerEmail; // Compatibilidade transitória: o backend legado ainda persiste owner_email.
   const entityContextOpts = buildTenantEntityOpts({ subscriberId: scopedSubscriberId, subscriberEmail: scopedSubscriberEmail });
 
   const normalizedSearchTerm = searchTerm.trim().toLowerCase();
@@ -153,7 +153,7 @@ export default function PizzaConfigTab() {
   const createSizeMutation = useMutation({
     mutationFn: (data) => apiClient.entities.PizzaSize.create({
       ...data,
-      ...(entityOwnerEmail && { subscriber_email: entityOwnerEmail, owner_email: entityOwnerEmail }),
+      ...(entityOwnerEmail && { owner_email: entityOwnerEmail }),
       ...entityContextOpts
     }),
     onSuccess: () => {
@@ -189,7 +189,7 @@ export default function PizzaConfigTab() {
   const createFlavorMutation = useMutation({
     mutationFn: (data) => apiClient.entities.PizzaFlavor.create({
       ...data,
-      ...(entityOwnerEmail && { subscriber_email: entityOwnerEmail, owner_email: entityOwnerEmail }),
+      ...(entityOwnerEmail && { owner_email: entityOwnerEmail }),
       ...entityContextOpts
     }),
     onSuccess: () => {
@@ -225,7 +225,7 @@ export default function PizzaConfigTab() {
   const createEdgeMutation = useMutation({
     mutationFn: (data) => apiClient.entities.PizzaEdge.create({
       ...data,
-      ...(entityOwnerEmail && { subscriber_email: entityOwnerEmail, owner_email: entityOwnerEmail }),
+      ...(entityOwnerEmail && { owner_email: entityOwnerEmail }),
       ...entityContextOpts
     }),
     onSuccess: () => {
@@ -261,7 +261,7 @@ export default function PizzaConfigTab() {
   const createExtraMutation = useMutation({
     mutationFn: (data) => apiClient.entities.PizzaExtra.create({
       ...data,
-      ...(entityOwnerEmail && { subscriber_email: entityOwnerEmail, owner_email: entityOwnerEmail }),
+      ...(entityOwnerEmail && { owner_email: entityOwnerEmail }),
       ...entityContextOpts
     }),
     onSuccess: () => {
@@ -297,7 +297,7 @@ export default function PizzaConfigTab() {
   const createCategoryMutation = useMutation({
     mutationFn: (data) => apiClient.entities.PizzaCategory.create({
       ...data,
-      ...(entityOwnerEmail && { subscriber_email: entityOwnerEmail, owner_email: entityOwnerEmail }),
+      ...(entityOwnerEmail && { owner_email: entityOwnerEmail }),
       ...entityContextOpts
     }),
     onSuccess: () => {

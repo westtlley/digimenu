@@ -82,7 +82,7 @@ export default function MyPizzasTab() {
     ? menuContext.subscriber_id ?? null
     : tenantSubscriberId;
   const fallbackOwnerEmail = slug ? null : (user?.subscriber_email || user?.email || null);
-  const entityOwnerEmail = scopedSubscriberEmail || fallbackOwnerEmail;
+  const entityOwnerEmail = scopedSubscriberEmail || fallbackOwnerEmail; // Compatibilidade transitória: o backend legado ainda persiste owner_email.
   const entityContextOpts = buildTenantEntityOpts({ subscriberId: scopedSubscriberId, subscriberEmail: scopedSubscriberEmail });
 
   // ✅ Admin API para pratos (com fallback interno); quando temos publicCardapio, usamos ele para exibir
@@ -173,7 +173,7 @@ export default function MyPizzasTab() {
       return apiClient.entities.Dish.create({
         ...data,
         product_type: 'pizza',
-        ...(entityOwnerEmail && { subscriber_email: entityOwnerEmail, owner_email: entityOwnerEmail }),
+        ...(entityOwnerEmail && { owner_email: entityOwnerEmail }),
         ...entityContextOpts
       });
     },
