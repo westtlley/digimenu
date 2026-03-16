@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
+import { buildTenantEntityOpts, getTenantScopeKey } from '@/utils/tenantScope';
 
 const STORAGE_KEY_BASE = 'pending_messages';
 
@@ -8,9 +9,10 @@ const STORAGE_KEY_BASE = 'pending_messages';
  * Garante que mensagens sejam confirmadas pelo entregador
  */
 export function useMessageAlerts(entregadorId, options = {}) {
-  const { asSubscriber = null, tenantScope = 'self' } = options;
-  const storageKey = `${STORAGE_KEY_BASE}:${tenantScope}`;
-  const scopedEntityOpts = asSubscriber ? { as_subscriber: asSubscriber } : {};
+  const { asSubscriber = null, asSubscriberId = null, tenantScope = null } = options;
+  const resolvedTenantScope = tenantScope ?? getTenantScopeKey(asSubscriberId, asSubscriber, 'self');
+  const storageKey = `${STORAGE_KEY_BASE}:${resolvedTenantScope}`;
+  const scopedEntityOpts = buildTenantEntityOpts({ subscriberId: asSubscriberId, subscriberEmail: asSubscriber });
   const [pendingMessages, setPendingMessages] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -58,7 +60,7 @@ export function useMessageAlerts(entregadorId, options = {}) {
     fetchMessages();
     const interval = setInterval(fetchMessages, 5000);
     return () => clearInterval(interval);
-  }, [entregadorId, pendingMessages, asSubscriber, storageKey]);
+  }, [entregadorId, pendingMessages, asSubscriber, asSubscriberId, storageKey]);
 
   const confirmMessage = async (message) => {
     try {

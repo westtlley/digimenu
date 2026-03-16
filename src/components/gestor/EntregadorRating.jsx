@@ -6,20 +6,21 @@ import { Star } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from "sonner";
+import { buildTenantEntityOpts, getTenantScopeKey } from '@/utils/tenantScope';
 
-export default function EntregadorRating({ isOpen, onClose, entregador, orderId, asSub = null }) {
+export default function EntregadorRating({ isOpen, onClose, entregador, orderId, asSub = null, asSubId = null }) {
   const [rating, setRating] = useState(0);
   const [hoveredRating, setHoveredRating] = useState(0);
   const [comment, setComment] = useState('');
   const queryClient = useQueryClient();
-  const scopedEntityOpts = asSub ? { as_subscriber: asSub } : {};
-  const tenantQueryScope = asSub || 'me';
+  const scopedEntityOpts = buildTenantEntityOpts({ subscriberId: asSubId, subscriberEmail: asSub });
+  const tenantQueryScope = getTenantScopeKey(asSubId, asSub, 'me');
 
   const createRatingMutation = useMutation({
     mutationFn: async (data) => {
       await base44.entities.DeliveryRating.create({
         ...data,
-        ...(asSub ? { as_subscriber: asSub } : {}),
+        ...scopedEntityOpts,
       });
       
       // Atualizar média do entregador

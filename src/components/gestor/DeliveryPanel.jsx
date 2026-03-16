@@ -15,12 +15,13 @@ import { base44 } from '@/api/base44Client';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { toast } from "sonner";
 import { format } from 'date-fns';
+import { buildTenantEntityOpts, getTenantScopeKey } from '@/utils/tenantScope';
 import {
   isOrderDelivered,
   isOrderReadyForDispatch,
 } from '@/utils/orderLifecycle';
 
-export default function DeliveryPanel({ entregadores, orders, stores = [], asSub = null }) {
+export default function DeliveryPanel({ entregadores, orders, stores = [], asSub = null, asSubId = null }) {
   const safeOrders = Array.isArray(orders) ? orders : [];
   const safeEntregadores = Array.isArray(entregadores) ? entregadores : [];
   const [viewMode, setViewMode] = useState('list');
@@ -35,8 +36,11 @@ export default function DeliveryPanel({ entregadores, orders, stores = [], asSub
   const [editingEntregador, setEditingEntregador] = useState(null);
   const [showNewEntregadorModal, setShowNewEntregadorModal] = useState(false);
   const queryClient = useQueryClient();
-  const scopedEntityOpts = useMemo(() => (asSub ? { as_subscriber: asSub } : {}), [asSub]);
-  const tenantQueryScope = asSub || 'me';
+  const scopedEntityOpts = useMemo(
+    () => buildTenantEntityOpts({ subscriberId: asSubId, subscriberEmail: asSub }),
+    [asSub, asSubId]
+  );
+  const tenantQueryScope = useMemo(() => getTenantScopeKey(asSubId, asSub, 'me'), [asSub, asSubId]);
 
   // Buscar avaliações de todos os entregadores
   const { data: allRatings = [] } = useQuery({
@@ -101,7 +105,7 @@ export default function DeliveryPanel({ entregadores, orders, stores = [], asSub
       total_deliveries: 0,
       total_earnings: 0,
       rating: 5,
-      ...(asSub ? { as_subscriber: asSub } : {}),
+      ...scopedEntityOpts,
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['entregadores', tenantQueryScope] });
@@ -486,6 +490,7 @@ export default function DeliveryPanel({ entregadores, orders, stores = [], asSub
           entregador={selectedEntregador}
           orderId={selectedEntregador.current_order_id}
           asSub={asSub}
+          asSubId={asSubId}
         />
       )}
 
@@ -499,6 +504,7 @@ export default function DeliveryPanel({ entregadores, orders, stores = [], asSub
           entregador={selectedEntregador}
           orders={orders}
           asSub={asSub}
+          asSubId={asSubId}
         />
       )}
 
@@ -511,6 +517,7 @@ export default function DeliveryPanel({ entregadores, orders, stores = [], asSub
           }}
           darkMode={false}
           asSub={asSub}
+          asSubId={asSubId}
         />
       )}
 

@@ -22,6 +22,7 @@ import MobileQuickMenu from '../components/admin/MobileQuickMenu';
 import AccessDenied from '@/components/admin/AccessDenied';
 import PanelShell from '@/components/layout/PanelShell';
 import ErrorBoundary from '@/components/ErrorBoundary';
+import { buildTenantEntityOpts, getTenantScopeKey, userMatchesTenant } from '@/utils/tenantScope';
 
 const isDev = typeof import.meta !== 'undefined' && import.meta.env?.DEV;
 if (isDev) {
@@ -104,15 +105,21 @@ export default function PainelAssinante() {
       : `Válido até ${formatBrazilianDate(subscriberData.expires_at)}${daysRemaining !== null && daysRemaining > 0 ? ` (${daysRemaining} dias restantes)` : ''}`
     : 'Permanente';
 
-  const { slug, subscriberEmail, inSlugContext, loading: slugLoading, error: slugError } = useSlugContext();
+  const { slug, subscriberId, subscriberEmail, inSlugContext, loading: slugLoading, error: slugError } = useSlugContext();
   // Em slug context: usar subscriberEmail do slug para Store e dados (evita misturar com usuário logado de outro estabelecimento)
   const asSub = (inSlugContext && subscriberEmail) ? subscriberEmail : undefined;
-  const canAccessSlug = !inSlugContext || isMaster || (user?.email || '').toLowerCase() === (subscriberEmail || '').toLowerCase() || (user?.subscriber_email || '').toLowerCase() === (subscriberEmail || '').toLowerCase();
+  const asSubId = (inSlugContext && subscriberId != null) ? subscriberId : undefined;
+  const tenantScope = getTenantScopeKey(asSubId, asSub, 'me');
+  const scopedEntityOpts = buildTenantEntityOpts({ subscriberId: asSubId, subscriberEmail: asSub });
+  const canAccessSlug = !inSlugContext || isMaster || userMatchesTenant(user, {
+    subscriberId: asSubId,
+    subscriberEmail,
+  });
 
   // Buscar dados da loja: em slug context usa o assinante do slug; fora usa 'me'
   const { data: stores = [] } = useQuery({
-    queryKey: ['store', asSub ?? 'me'],
-    queryFn: () => base44.entities.Store.list(null, asSub ? { as_subscriber: asSub } : {}),
+    queryKey: ['store', tenantScope],
+    queryFn: () => base44.entities.Store.list(null, scopedEntityOpts),
     enabled: !inSlugContext || !!subscriberEmail,
   });
   const store = stores[0];
@@ -144,7 +151,10 @@ export default function PainelAssinante() {
   
   // Só o dono (assinante) pode acessar o Painel do Assinante. Gerente/colaborador que não é dono → /colaborador
   const ownerEmail = (subscriberData?.email || '').toLowerCase().trim();
-  const isOwner = ownerEmail && (user?.email || '').toLowerCase().trim() === ownerEmail;
+  const isOwner = userMatchesTenant(user, {
+    subscriberId: subscriberData?.id,
+    subscriberEmail: ownerEmail,
+  });
   const mustRedirectToColaborador = !isMaster && user && ((isColaborador && !isOwner) || (!isOwner && ownerEmail));
 
   useEffect(() => {
@@ -249,6 +259,12 @@ export default function PainelAssinante() {
     subscriberData?.email ??
     user?.subscriber_email ??
     user?.email;
+  let effectiveSubscriberIdForList =
+    asSubId ??
+    (inSlugContext && subscriberId != null ? subscriberId : null) ??
+    subscriberData?.id ??
+    user?.subscriber_id ??
+    null;
   if (!effectiveSubscriberForList && user?.email) {
     effectiveSubscriberForList = user.email;
   }
@@ -272,6 +288,7 @@ export default function PainelAssinante() {
             store={store}
             slug={slug}
             asSub={asSub}
+            asSubId={effectiveSubscriberIdForList}
             subscriberEmail={effectiveSubscriberForList}
             isMaster={isMaster}
             user={user}
@@ -315,7 +332,12 @@ export default function PainelAssinante() {
       case 'affiliates':
         return hasModuleAccess('affiliates') ? <AffiliateProgram /> : <AccessDenied />;
       case 'comandas':
-        return hasModuleAccess('comandas') ? <ComandasTab subscriberEmail={subscriberData?.email || subscriberEmail || user?.subscriber_email || user?.email} /> : <AccessDenied />;
+        return hasModuleAccess('comandas') ? (
+          <ComandasTab
+            subscriberEmail={effectiveSubscriberForList}
+            subscriberId={effectiveSubscriberIdForList}
+          />
+        ) : <AccessDenied />;
       case 'tables':
         return hasModuleAccess('tables') ? <TablesTab /> : <AccessDenied />;
       case 'theme':
@@ -516,5 +538,7 @@ export default function PainelAssinante() {
     </div>
   );
 }
+
+
 
 

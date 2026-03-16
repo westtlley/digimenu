@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useSlugContext } from './useSlugContext';
 import { createPageUrl } from '@/utils';
+import { userMatchesTenant } from '@/utils/tenantScope';
 
 /**
  * Hook para gerenciar dados do entregador
@@ -27,11 +28,13 @@ export function useEntregador() {
         setUser(userData);
         const normalizedSlugSubscriber = (subscriberEmail || '').toLowerCase().trim();
         const normalizedSlugSubscriberId = subscriberId ?? null;
-        const normalizedUserSubscriber = (userData?.subscriber_email || userData?.email || '').toLowerCase().trim();
         const tenantResolved = !inSlugContext || !!normalizedSlugSubscriber;
         const tenantMatchesSlug =
           !inSlugContext ||
-          (tenantResolved && (userData?.is_master === true || normalizedUserSubscriber === normalizedSlugSubscriber));
+          (tenantResolved && userMatchesTenant(userData, {
+            subscriberId: normalizedSlugSubscriberId,
+            subscriberEmail: normalizedSlugSubscriber,
+          }));
 
         if (!tenantResolved || !tenantMatchesSlug) {
           setEntregador(null);

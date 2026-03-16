@@ -8,6 +8,7 @@ import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { fetchAdminDishes, fetchAdminCategories, fetchAdminComplementGroups } from '@/services/adminMenuService';
 import { log } from '@/utils/logger';
 import { usePermission } from '@/components/permissions/usePermission';
+import { getMenuContextQueryKeyParts } from '@/utils/tenantScope';
 
 /**
  * Hook para buscar pratos do menu
@@ -19,7 +20,7 @@ export function useMenuDishes(options = {}) {
   const { menuContext } = usePermission();
 
   return useQuery({
-    queryKey: ['dishes', menuContext?.type, menuContext?.value],
+    queryKey: ['dishes', ...getMenuContextQueryKeyParts(menuContext)],
     queryFn: async () => {
       if (!menuContext) {
         log.menu.warn('⚠️ [useMenuDishes] menuContext não disponível');
@@ -46,7 +47,7 @@ export function useMenuCategories(options = {}) {
   const { menuContext } = usePermission();
 
   return useQuery({
-    queryKey: ['categories', menuContext?.type, menuContext?.value],
+    queryKey: ['categories', ...getMenuContextQueryKeyParts(menuContext)],
     queryFn: async () => {
       if (!menuContext) {
         log.menu.warn('⚠️ [useMenuCategories] menuContext não disponível');
@@ -73,7 +74,7 @@ export function useMenuComplementGroups(options = {}) {
   const { menuContext } = usePermission();
 
   return useQuery({
-    queryKey: ['complementGroups', menuContext?.type, menuContext?.value],
+    queryKey: ['complementGroups', ...getMenuContextQueryKeyParts(menuContext)],
     queryFn: async () => {
       if (!menuContext) {
         log.menu.warn('⚠️ [useMenuComplementGroups] menuContext não disponível');

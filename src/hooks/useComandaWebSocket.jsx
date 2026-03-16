@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { apiClient, BACKEND_BASE_URL } from '@/api/apiClient';
 import toast from 'react-hot-toast';
 import { Bell } from 'lucide-react';
+import { getTenantScopeKey } from '@/utils/tenantScope';
 
 const SOCKET_URL = import.meta.env.VITE_WS_URL || BACKEND_BASE_URL || 'http://localhost:3000';
 
@@ -11,6 +12,7 @@ const SOCKET_URL = import.meta.env.VITE_WS_URL || BACKEND_BASE_URL || 'http://lo
  * Hook para gerenciar WebSocket de comandas em tempo real
  */
 export function useComandaWebSocket({ 
+  subscriberId = null,
   subscriberEmail = null, 
   customerEmail = null, 
   customerPhone = null,
@@ -22,17 +24,19 @@ export function useComandaWebSocket({
 }) {
   const socketRef = useRef(null);
   const queryClient = useQueryClient();
+  const tenantScope = getTenantScopeKey(subscriberId, subscriberEmail, 'self');
 
   useEffect(() => {
     // Só conectar se tiver pelo menos um identificador
-    if (!subscriberEmail && !customerEmail && !customerPhone && !tableId && !tableNumber) return;
+    if (subscriberId == null && !subscriberEmail && !customerEmail && !customerPhone && !tableId && !tableNumber) return;
 
     // Conectar ao servidor WebSocket
     const token = apiClient.auth.getToken();
     socketRef.current = io(SOCKET_URL, {
       auth: {
         token,
-        asSubscriber: token && subscriberEmail ? subscriberEmail : null
+        asSubscriber: token && subscriberEmail ? subscriberEmail : null,
+        asSubscriberId: token && subscriberId != null ? subscriberId : null,
       },
       transports: ['websocket', 'polling'],
       reconnection: true,
@@ -47,6 +51,7 @@ export function useComandaWebSocket({
       
       // Inscrever em atualizações de comandas
       socket.emit('subscribe:comandas', {
+        subscriberId,
         subscriberEmail,
         customerEmail,
         customerPhone,
@@ -68,7 +73,7 @@ export function useComandaWebSocket({
       console.log('📋 Comanda atualizada via WebSocket:', comanda);
       
       // Invalidar cache do React Query para forçar atualização
-      queryClient.invalidateQueries({ queryKey: ['Comanda'] });
+      queryClient.invalidateQueries({ queryKey: ['Comanda', tenantScope] });
       
       // Chamar callback customizado
       if (onComandaUpdate) {
@@ -95,7 +100,7 @@ export function useComandaWebSocket({
     socket.on('comanda:created', (comanda) => {
       console.log('📋 Nova comanda via WebSocket:', comanda);
       
-      queryClient.invalidateQueries({ queryKey: ['Comanda'] });
+      queryClient.invalidateQueries({ queryKey: ['Comanda', tenantScope] });
       
       if (onComandaCreated) {
         onComandaCreated(comanda);
@@ -106,6 +111,7 @@ export function useComandaWebSocket({
     return () => {
       if (socketRef.current) {
         socketRef.current.emit('unsubscribe:comandas', {
+          subscriberId,
           subscriberEmail,
           customerEmail,
           customerPhone,
@@ -116,7 +122,7 @@ export function useComandaWebSocket({
         socketRef.current = null;
       }
     };
-  }, [subscriberEmail, customerEmail, customerPhone, tableId, tableNumber, onComandaUpdate, onComandaCreated, enableNotifications, queryClient]);
+  }, [subscriberId, subscriberEmail, customerEmail, customerPhone, tableId, tableNumber, onComandaUpdate, onComandaCreated, enableNotifications, queryClient, tenantScope]);
 
   return socketRef.current;
 }

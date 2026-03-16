@@ -21,6 +21,7 @@ import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { usePermission } from '@/components/permissions/usePermission';
 import { useOrders } from '@/hooks/useOrders';
 import { useEntityMutation } from '@/hooks/useEntityMutation';
+import { buildTenantEntityOpts, getMenuContextSubscriberEmail, getMenuContextSubscriberId } from '@/utils/tenantScope';
 
 const STATUS_CONFIG = {
   new: { label: 'Novo', color: 'bg-red-100 text-red-800' },
@@ -41,7 +42,7 @@ const PAYMENT_LABELS = {
 
 const isOrderPDV = (o) => !!(o?.order_code?.startsWith('PDV-') || o?.delivery_method === 'balcao');
 
-export default function OrdersTab({ isMaster, user, subscriberData, storeId, store, slug, asSub: asSubProp, subscriberEmail: subscriberEmailProp }) {
+export default function OrdersTab({ isMaster, user, subscriberData, storeId, store, slug, asSub: asSubProp, asSubId: asSubIdProp, subscriberEmail: subscriberEmailProp }) {
   const [dateFilter, setDateFilter] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
@@ -49,7 +50,9 @@ export default function OrdersTab({ isMaster, user, subscriberData, storeId, sto
   const isMobile = useIsMobile();
   const { subscriberData: subData, isMaster: isM, menuContext, loading: permissionLoading } = usePermission();
 
-  const asSub = (menuContext?.type === 'subscriber' && menuContext?.value) ? menuContext.value : (subscriberData?.email ?? subData?.email ?? asSubProp ?? subscriberEmailProp) || undefined;
+  const asSub = getMenuContextSubscriberEmail(menuContext, subscriberData?.email ?? subData?.email ?? asSubProp ?? subscriberEmailProp) || undefined;
+  const asSubId = getMenuContextSubscriberId(menuContext, subscriberData?.id ?? subData?.id ?? asSubIdProp) ?? undefined;
+  const scopedEntityOpts = buildTenantEntityOpts({ subscriberId: asSubId, subscriberEmail: asSub });
 
   // Verificar se tem acesso a funcionalidades avançadas (apenas Pro e Ultra)
   const plan = subscriberData?.plan || subData?.plan;
@@ -58,10 +61,12 @@ export default function OrdersTab({ isMaster, user, subscriberData, storeId, sto
 
   // Escopo para a listagem: priorizar props do PainelAssinante para disparar a query imediatamente
   const asSubForList = subscriberEmailProp ?? asSubProp ?? asSub;
+  const asSubIdForList = asSubIdProp ?? asSubId;
 
   const { data: orders = [], isLoading: ordersLoading, isError, error, refetch } = useOrders({
     orderBy: '-created_date',
     asSubFromParent: asSubForList,
+    asSubscriberIdFromParent: asSubIdForList,
   });
 
   useEffect(() => {
@@ -77,14 +82,14 @@ export default function OrdersTab({ isMaster, user, subscriberData, storeId, sto
 
   // ✅ NOVO: Usar hook useEntityMutation com tratamento de erro unificado (as_subscriber para dono alterar status)
   const updateMutation = useEntityMutation({
-    mutationFn: ({ id, data }) => base44.entities.Order.update(id, data, asSub ? { as_subscriber: asSub } : {}),
+    mutationFn: ({ id, data }) => base44.entities.Order.update(id, data, scopedEntityOpts),
     entityType: 'orders',
     successMessage: 'Pedido atualizado com sucesso!',
     errorMessage: 'Erro ao atualizar pedido'
   });
 
   const deleteMutation = useEntityMutation({
-    mutationFn: (id) => base44.entities.Order.delete(id, asSub ? { as_subscriber: asSub } : {}),
+    mutationFn: (id) => base44.entities.Order.delete(id, scopedEntityOpts),
     entityType: 'orders',
     successMessage: 'Pedido excluído com sucesso!',
     errorMessage: 'Erro ao excluir pedido'

@@ -24,6 +24,7 @@ import ComandaHistoryModal from '../components/garcom/ComandaHistoryModal';
 import ComandaCard from '../components/garcom/ComandaCard';
 import StatsCards from '../components/garcom/StatsCards';
 import ErrorBoundary from '../components/ErrorBoundary';
+import { userMatchesTenant } from '@/utils/tenantScope';
 
 export default function Garcom() {
   const [user, setUser] = useState(null);
@@ -77,22 +78,21 @@ export default function Garcom() {
           return;
         }
         // Verificar se tem perfil de garçom, é master, é assinante ou é gerente (acesso total)
-        const normalizedSlugSubscriber = (subscriberEmail || '').toLowerCase().trim();
-        const normalizedUserSubscriber = (me?.subscriber_email || me?.email || '').toLowerCase().trim();
         const tenantMatchesSlug =
           !inSlugContext ||
-          !normalizedSlugSubscriber ||
-          me?.is_master === true ||
-          normalizedUserSubscriber === normalizedSlugSubscriber;
-        const isAssinante = me?.subscriber_email && (me?.email || '').toLowerCase().trim() === (me?.subscriber_email || '').toLowerCase().trim();
+          !subscriberEmail ||
+          userMatchesTenant(me, {
+            subscriberId,
+            subscriberEmail,
+          });
         const roles = me?.profile_roles?.length ? me.profile_roles : me?.profile_role ? [me.profile_role] : [];
         const isGerente = roles.includes('gerente');
         const isGarcom = me?.profile_role === 'garcom' || roles.includes('garcom');
-        
-        // Se não tem subscriber_email mas tem email, pode ser o próprio assinante
-        const isOwner = !me.subscriber_email || (me.email && me.subscriber_email && me.email.toLowerCase().trim() === me.subscriber_email.toLowerCase().trim());
-        
-        const hasAccess = (isGarcom || me?.is_master === true || isAssinante || isGerente || isOwner) && tenantMatchesSlug;
+
+        const hasAccess = (isGarcom || me?.is_master === true || isGerente || userMatchesTenant(me, {
+          subscriberId,
+          subscriberEmail,
+        })) && tenantMatchesSlug;
         setAllowed(hasAccess);
       } catch (e) {
         if (!cancelled) {

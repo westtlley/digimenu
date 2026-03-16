@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { usePermission } from '@/components/permissions/usePermission';
+import { getMenuContextEntityOpts, getMenuContextQueryKeyParts } from '@/utils/tenantScope';
 
 export default function LoyaltyTab() {
   const [showRewardForm, setShowRewardForm] = useState(false);
@@ -32,31 +33,24 @@ export default function LoyaltyTab() {
 
   const queryClient = useQueryClient();
   const { menuContext } = usePermission();
+  const entityOpts = getMenuContextEntityOpts(menuContext);
 
   // ✅ CORREÇÃO: Buscar configurações de fidelidade com contexto do slug
   const { data: loyaltyConfigs = [] } = useQuery({
-    queryKey: ['loyaltyConfig', menuContext?.type, menuContext?.value],
+    queryKey: ['loyaltyConfig', ...getMenuContextQueryKeyParts(menuContext)],
     queryFn: async () => {
       if (!menuContext) return [];
-      const opts = {};
-      if (menuContext.type === 'subscriber' && menuContext.value) {
-        opts.as_subscriber = menuContext.value;
-      }
-      return base44.entities.LoyaltyConfig.list(null, opts);
+      return base44.entities.LoyaltyConfig.list(null, getMenuContextEntityOpts(menuContext));
     },
     enabled: !!menuContext,
   });
 
   // ✅ CORREÇÃO: Buscar recompensas com contexto do slug
   const { data: rewards = [] } = useQuery({
-    queryKey: ['loyaltyRewards', menuContext?.type, menuContext?.value],
+    queryKey: ['loyaltyRewards', ...getMenuContextQueryKeyParts(menuContext)],
     queryFn: async () => {
       if (!menuContext) return [];
-      const opts = {};
-      if (menuContext.type === 'subscriber' && menuContext.value) {
-        opts.as_subscriber = menuContext.value;
-      }
-      return base44.entities.LoyaltyReward.list(null, opts);
+      return base44.entities.LoyaltyReward.list(null, getMenuContextEntityOpts(menuContext));
     },
     enabled: !!menuContext,
   });
@@ -74,20 +68,20 @@ export default function LoyaltyTab() {
   const updateConfigMutation = useMutation({
     mutationFn: (data) => {
       if (loyaltyConfigs.length > 0) {
-        return base44.entities.LoyaltyConfig.update(loyaltyConfigs[0].id, data);
+        return base44.entities.LoyaltyConfig.update(loyaltyConfigs[0].id, data, entityOpts);
       }
-      return base44.entities.LoyaltyConfig.create(data);
+      return base44.entities.LoyaltyConfig.create({ ...data, ...entityOpts });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['loyaltyConfig'] });
+      queryClient.invalidateQueries({ queryKey: ['loyaltyConfig', ...getMenuContextQueryKeyParts(menuContext)] });
       toast.success('Configurações salvas!');
     }
   });
 
   const createRewardMutation = useMutation({
-    mutationFn: (data) => base44.entities.LoyaltyReward.create(data),
+    mutationFn: (data) => base44.entities.LoyaltyReward.create({ ...data, ...entityOpts }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['loyaltyRewards'] });
+      queryClient.invalidateQueries({ queryKey: ['loyaltyRewards', ...getMenuContextQueryKeyParts(menuContext)] });
       toast.success('Recompensa criada!');
       setShowRewardForm(false);
       setRewardForm({
@@ -98,9 +92,9 @@ export default function LoyaltyTab() {
   });
 
   const updateRewardMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.LoyaltyReward.update(id, data),
+    mutationFn: ({ id, data }) => base44.entities.LoyaltyReward.update(id, data, entityOpts),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['loyaltyRewards'] });
+      queryClient.invalidateQueries({ queryKey: ['loyaltyRewards', ...getMenuContextQueryKeyParts(menuContext)] });
       toast.success('Recompensa atualizada!');
       setShowRewardForm(false);
       setEditingReward(null);
@@ -108,9 +102,9 @@ export default function LoyaltyTab() {
   });
 
   const deleteRewardMutation = useMutation({
-    mutationFn: (id) => base44.entities.LoyaltyReward.delete(id),
+    mutationFn: (id) => base44.entities.LoyaltyReward.delete(id, entityOpts),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['loyaltyRewards'] });
+      queryClient.invalidateQueries({ queryKey: ['loyaltyRewards', ...getMenuContextQueryKeyParts(menuContext)] });
       toast.success('Recompensa excluída!');
     }
   });

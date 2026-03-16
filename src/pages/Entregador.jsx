@@ -56,6 +56,7 @@ import QuickReportModal from '../components/entregador/QuickReportModal';
 import OrderItemsDetail from '../components/entregador/OrderItemsDetail';
 import DeliveryDashboard from '../components/entregador/DeliveryDashboard';
 import { usePermission } from '../components/permissions/usePermission';
+import { buildTenantEntityOpts, getTenantScopeKey, userMatchesTenant } from '@/utils/tenantScope';
 
 function upsertOrderById(currentOrders, incomingOrder) {
   const list = Array.isArray(currentOrders) ? [...currentOrders] : [];
@@ -123,15 +124,18 @@ export default function Entregador() {
   const roles = user?.profile_roles?.length ? user.profile_roles : user?.profile_role ? [user.profile_role] : [];
   const isGerente = roles.includes('gerente');
   const isEntregador = user?.profile_role === 'entregador' || roles.includes('entregador');
-  const isAssinante = user?.subscriber_email && (user?.email || '').toLowerCase().trim() === (user?.subscriber_email || '').toLowerCase().trim();
-  const isOwner = !user?.subscriber_email || (user?.email && user?.subscriber_email && user?.email.toLowerCase().trim() === user?.subscriber_email.toLowerCase().trim());
   const normalizedSlugSubscriber = (subscriberEmail || '').toLowerCase().trim();
-  const normalizedUserSubscriber = (user?.subscriber_email || user?.email || '').toLowerCase().trim();
   const tenantResolved = !inSlugContext || !!normalizedSlugSubscriber;
   const tenantMatchesSlug =
     !inSlugContext ||
-    (tenantResolved && (isMasterUser || normalizedUserSubscriber === normalizedSlugSubscriber));
-  const hasRoleAccess = isMasterUser || isEntregador || isGerente || isAssinante || isOwner;
+    (tenantResolved && userMatchesTenant(user, {
+      subscriberId: tenantSubscriberId,
+      subscriberEmail,
+    }));
+  const hasRoleAccess = isMasterUser || isEntregador || isGerente || userMatchesTenant(user, {
+    subscriberId: tenantSubscriberId,
+    subscriberEmail,
+  });
   const hasOperationalModules = hasModuleAccess('orders') || hasModuleAccess('gestor_pedidos');
   const hasPlanAccess = isMasterUser || (hasModuleAccess('colaboradores') && hasOperationalModules);
   const canAccessDeliveryApp = tenantResolved && tenantMatchesSlug && hasPlanAccess && hasRoleAccess;
@@ -141,13 +145,11 @@ export default function Entregador() {
     : isEntregadorOperatorOnly
       ? createPageUrl('ColaboradorHome')
       : createPageUrl('PainelAssinante', slug || undefined);
-  const tenantScope = asSubscriberId ?? asSubscriber ?? tenantSubscriberId ?? tenantIdentifier ?? 'self';
-  const entityOpts = useMemo(() => {
-    const opts = {};
-    if (asSubscriberId != null) opts.as_subscriber_id = asSubscriberId;
-    if (asSubscriber) opts.as_subscriber = asSubscriber;
-    return opts;
-  }, [asSubscriber, asSubscriberId]);
+  const tenantScope = getTenantScopeKey(asSubscriberId ?? tenantSubscriberId, asSubscriber ?? tenantIdentifier, 'self');
+  const entityOpts = useMemo(() => buildTenantEntityOpts({
+    subscriberId: asSubscriberId,
+    subscriberEmail: asSubscriber,
+  }), [asSubscriber, asSubscriberId]);
   const deliveryOrdersKey = useMemo(() => ['deliveryOrders', entregador?.id, asSubscriberId ?? asSubscriber ?? 'me'], [entregador?.id, asSubscriber, asSubscriberId]);
   const allDeliveryOrdersKey = useMemo(() => ['allDeliveryOrders', asSubscriberId ?? asSubscriber ?? 'me'], [asSubscriber, asSubscriberId]);
   const availableOrdersKey = useMemo(() => ['availableOrders', tenantScope], [tenantScope]);
@@ -250,6 +252,7 @@ export default function Entregador() {
   // Critical Notifications System
   const criticalNotifications = useCriticalNotifications(entregador?.id, {
     asSubscriber,
+    asSubscriberId,
     tenantScope,
   });
 
@@ -341,7 +344,7 @@ export default function Entregador() {
       const orders = await base44.entities.Order.filter({
         status: 'ready',
         delivery_method: 'delivery',
-        ...(asSubscriber ? { as_subscriber: asSubscriber } : {})
+        ...entityOpts,
       });
       // Filtrar apenas pedidos sem entregador atribuído
       return orders.filter(o => !o.entregador_id);
@@ -653,11 +656,12 @@ export default function Entregador() {
       </audio>
 
       {/* Push Notifications */}
-      <PushNotifications 
-        entregador={entregador} 
-        enabled={entregador?.notifications_enabled !== false && !isPaused}
-        asSubscriber={asSubscriber}
-        tenantScope={tenantScope}
+        <PushNotifications 
+          entregador={entregador} 
+          enabled={entregador?.notifications_enabled !== false && !isPaused}
+          asSubscriber={asSubscriber}
+          asSubscriberId={asSubscriberId}
+          tenantScope={tenantScope}
       />
 
       {/* Battery Alert */}

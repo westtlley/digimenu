@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label";
 import toast from 'react-hot-toast';
 import { usePermission } from '../permissions/usePermission';
+import { getMenuContextEntityOpts, getMenuContextQueryKeyParts } from '@/utils/tenantScope';
 
 const DEFAULT_PAYMENT_METHODS = [
   { id: 'dinheiro', name: 'Dinheiro', icon: '💵', type: 'presencial', active: true },
@@ -45,17 +46,14 @@ export default function PaymentMethodsTab() {
 
   const qc = useQueryClient();
   const { menuContext } = usePermission();
+  const entityOpts = getMenuContextEntityOpts(menuContext);
   
   // ✅ CORREÇÃO: Buscar store com contexto do slug
   const { data: stores = [] } = useQuery({ 
-    queryKey: ['store', menuContext?.type, menuContext?.value], 
+    queryKey: ['store', ...getMenuContextQueryKeyParts(menuContext)], 
     queryFn: async () => {
       if (!menuContext) return [];
-      const opts = {};
-      if (menuContext.type === 'subscriber' && menuContext.value) {
-        opts.as_subscriber = menuContext.value;
-      }
-      return base44.entities.Store.list(null, opts);
+      return base44.entities.Store.list(null, getMenuContextEntityOpts(menuContext));
     },
     enabled: !!menuContext,
   });
@@ -63,8 +61,8 @@ export default function PaymentMethodsTab() {
   const storePaymentMethods = Array.isArray(store?.payment_methods) ? store.payment_methods : [];
 
   const updateStorePmMutation = useMutation({
-    mutationFn: (arr) => base44.entities.Store.update(store.id, { payment_methods: arr }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['store'] }); toast.success('Formas de pagamento atualizadas'); },
+    mutationFn: (arr) => base44.entities.Store.update(store.id, { payment_methods: arr }, entityOpts),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['store', ...getMenuContextQueryKeyParts(menuContext)] }); toast.success('Formas de pagamento atualizadas'); },
     onError: (e) => toast.error(e?.message || 'Erro'),
   });
 
@@ -84,10 +82,10 @@ export default function PaymentMethodsTab() {
       if (!store?.id) return Promise.resolve();
       return base44.entities.Store.update(store.id, { 
         payment_methods_config: JSON.stringify(methods) 
-      });
+      }, entityOpts);
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['store'] });
+      qc.invalidateQueries({ queryKey: ['store', ...getMenuContextQueryKeyParts(menuContext)] });
       toast.success('Métodos de pagamento salvos');
     },
     onError: () => toast.error('Erro ao salvar métodos'),

@@ -1,3 +1,5 @@
+import { getScopedStorageKey } from "./tenantScope";
+
 const BRIDGE_BASE_URL = "http://127.0.0.1:48931";
 const HEALTH_CACHE_KEY = "digimenu_print_bridge_health";
 const DEFAULT_PRINTER_CACHE_KEY = "digimenu_print_bridge_default_printer";
@@ -140,7 +142,9 @@ async function fetchJson(
 function getConfiguredPrinterName() {
   if (typeof window === "undefined") return "";
   try {
-    const raw = localStorage.getItem("printerConfigLocal");
+    const raw =
+      localStorage.getItem(getScopedStorageKey("printerConfigLocal", null, "global")) ||
+      localStorage.getItem("printerConfigLocal");
     if (!raw) return "";
     const parsed = JSON.parse(raw);
     return String(parsed?.printer_name || "").trim();

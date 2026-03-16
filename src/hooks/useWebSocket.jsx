@@ -11,6 +11,7 @@ const SOCKET_URL = import.meta.env.VITE_WS_URL || BACKEND_BASE_URL || 'http://lo
  * Hook para gerenciar conexão WebSocket e notificações em tempo real
  */
 export function useWebSocket({ 
+  subscriberId = null,
   subscriberEmail = null, 
   customerEmail = null, 
   customerPhone = null,
@@ -32,14 +33,15 @@ export function useWebSocket({
 
   useEffect(() => {
     // Só conectar se tiver pelo menos um identificador
-    if (!subscriberEmail && !customerEmail && !customerPhone) return;
+    if (subscriberId == null && !subscriberEmail && !customerEmail && !customerPhone) return;
 
     // Conectar ao servidor WebSocket
     const token = apiClient.auth.getToken();
     socketRef.current = io(SOCKET_URL, {
       auth: {
         token,
-        asSubscriber: token && subscriberEmail ? subscriberEmail : null
+        asSubscriber: token && subscriberEmail ? subscriberEmail : null,
+        asSubscriberId: token && subscriberId != null ? subscriberId : null,
       },
       transports: ['websocket', 'polling'],
       reconnection: true,
@@ -54,6 +56,7 @@ export function useWebSocket({
       
       // Inscrever em atualizações
       socket.emit('subscribe:orders', {
+        subscriberId,
         subscriberEmail,
         customerEmail,
         customerPhone
@@ -139,6 +142,7 @@ export function useWebSocket({
     return () => {
       if (socketRef.current) {
         socketRef.current.emit('unsubscribe:orders', {
+          subscriberId,
           subscriberEmail,
           customerEmail,
           customerPhone
@@ -147,7 +151,7 @@ export function useWebSocket({
         socketRef.current = null;
       }
     };
-  }, [subscriberEmail, customerEmail, customerPhone, onOrderUpdate, onOrderCreated, enableNotifications]);
+  }, [subscriberId, subscriberEmail, customerEmail, customerPhone, onOrderUpdate, onOrderCreated, enableNotifications]);
 
   return socketRef.current;
 }

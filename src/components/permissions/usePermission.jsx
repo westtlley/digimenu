@@ -4,6 +4,7 @@ import { log } from '@/utils/logger';
 import { createUserContext, isValidContext } from '@/utils/userContext';
 import { mergeWithPlanPreset } from '@/components/permissions/PlanPresets';
 import { useSlugContext } from '@/hooks/useSlugContext';
+import { userMatchesTenant } from '@/utils/tenantScope';
 
 // Deduplicar chamada a /user/context: vários usePermission() montando ao mesmo tempo compartilham a mesma requisição
 let inFlightGetContext = null;
@@ -119,8 +120,10 @@ export function usePermission() {
         // Isso garante que os dados sejam buscados do assinante correto baseado no slug
         if (inSlugContext && slugSubscriberEmail && !contextData.user.is_master) {
           // Se o subscriberEmail do slug for diferente do usuário logado, buscar dados do assinante do slug
-          if (slugSubscriberEmail.toLowerCase() !== (contextData.user.email || '').toLowerCase() &&
-              slugSubscriberEmail.toLowerCase() !== (contextData.user.subscriber_email || '').toLowerCase()) {
+          if (!userMatchesTenant(contextData.user, {
+            subscriberId: slugSubscriberId,
+            subscriberEmail: slugSubscriberEmail,
+          })) {
             try {
               // Buscar dados do assinante baseado no slug
               const slugSubscriberResult = await base44.functions.invoke('checkSubscriptionStatus', {

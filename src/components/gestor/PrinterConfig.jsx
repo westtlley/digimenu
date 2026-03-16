@@ -14,6 +14,7 @@ import toast from 'react-hot-toast';
 import { usePermission } from '../permissions/usePermission';
 import { thermalPrint } from '@/utils/thermalPrint';
 import { isBridgeAvailable, testBridgePrinter } from '@/utils/printBridgeClient';
+import { buildTenantEntityOpts, getMenuContextScopeKey, getScopedStorageKey } from '@/utils/tenantScope';
 
 const THERMAL_BRANDS_REGEX = /(epson|tm-|elgin|bematech|daruma|xprinter|thermal|termica|sunmi|tanca|pos-?58|pos-?80)/i;
 const PAPER_58_REGEX = /(58|58mm|pos-?58|rp58|m58)/i;
@@ -66,17 +67,22 @@ export default function PrinterConfig() {
   const [isDetecting, setIsDetecting] = useState(false);
   const queryClient = useQueryClient();
   const { menuContext } = usePermission();
+  const printerStorageKey = useMemo(() => getScopedStorageKey('printerConfigLocal', menuContext, 'global'), [menuContext]);
+  const menuScopeKey = useMemo(() => getMenuContextScopeKey(menuContext, 'global'), [menuContext]);
+  const scopedEntityOpts = useMemo(() => {
+    if (!menuContext || menuContext.type !== 'subscriber') return {};
+    return buildTenantEntityOpts({
+      subscriberId: menuContext.subscriber_id,
+      subscriberEmail: menuContext.value,
+    });
+  }, [menuContext]);
 
   // ✅ CORREÇÃO: Buscar configurações de impressora com contexto do slug
   const { data: configs = [] } = useQuery({
-    queryKey: ['printerConfig', menuContext?.type, menuContext?.value],
+    queryKey: ['printerConfig', menuScopeKey],
     queryFn: async () => {
       if (!menuContext) return [];
-      const opts = {};
-      if (menuContext.type === 'subscriber' && menuContext.value) {
-        opts.as_subscriber = menuContext.value;
-      }
-      return base44.entities.PrinterConfig.list(null, opts);
+      return base44.entities.PrinterConfig.list(null, scopedEntityOpts);
     },
     enabled: !!menuContext,
   });
@@ -91,22 +97,25 @@ export default function PrinterConfig() {
   useEffect(() => {
     if (!config?.id) return;
     try {
-      localStorage.setItem('printerConfigLocal', JSON.stringify(config));
+      localStorage.setItem(printerStorageKey, JSON.stringify(config));
     } catch (_) {}
-  }, [config]);
+  }, [config, printerStorageKey]);
 
   const saveMutation = useMutation({
     mutationFn: (data) => {
       if (config.id) {
-        return base44.entities.PrinterConfig.update(config.id, data);
+        return base44.entities.PrinterConfig.update(config.id, data, scopedEntityOpts);
       }
-      return base44.entities.PrinterConfig.create(data);
+      return base44.entities.PrinterConfig.create({
+        ...data,
+        ...scopedEntityOpts,
+      });
     },
     onSuccess: (_saved, payload) => {
       try {
-        localStorage.setItem('printerConfigLocal', JSON.stringify(payload || formData));
+        localStorage.setItem(printerStorageKey, JSON.stringify(payload || formData));
       } catch (_) {}
-      queryClient.invalidateQueries({ queryKey: ['printerConfig'] });
+      queryClient.invalidateQueries({ queryKey: ['printerConfig', menuScopeKey] });
       toast.success('✅ Configuração salva com sucesso!');
     },
     onError: (e) => toast.error('Erro ao salvar: ' + (e?.message || 'Desconhecido'))
@@ -550,3 +559,4 @@ Espaçamento: ${formData.line_spacing}
     </div>
   );
 }
+

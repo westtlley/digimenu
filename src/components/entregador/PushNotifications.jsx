@@ -2,20 +2,23 @@ import { useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import toast from 'react-hot-toast';
+import { buildTenantEntityOpts, getTenantScopeKey } from '@/utils/tenantScope';
 
-export default function PushNotifications({ entregador, enabled, asSubscriber = null, tenantScope = 'self' }) {
+export default function PushNotifications({ entregador, enabled, asSubscriber = null, asSubscriberId = null, tenantScope = null }) {
   const prevCountRef = useRef(0);
   const audioRef = useRef(null);
   const hasRequestedPermissionRef = useRef(false);
+  const resolvedTenantScope = tenantScope ?? getTenantScopeKey(asSubscriberId, asSubscriber, 'self');
+  const scopedEntityOpts = buildTenantEntityOpts({ subscriberId: asSubscriberId, subscriberEmail: asSubscriber });
 
   // Buscar pedidos disponíveis
   const { data: availableOrders = [] } = useQuery({
-    queryKey: ['availableOrdersNotif', tenantScope],
+    queryKey: ['availableOrdersNotif', resolvedTenantScope],
     queryFn: async () => {
       const orders = await base44.entities.Order.filter({
         status: 'ready',
         delivery_method: 'delivery',
-        ...(asSubscriber ? { as_subscriber: asSubscriber } : {}),
+        ...scopedEntityOpts,
       });
       return orders.filter(o => !o.entregador_id);
     },

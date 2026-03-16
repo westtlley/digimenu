@@ -3,10 +3,11 @@ import { X, Star, MessageSquare, Calendar, ThumbsUp, Award } from 'lucide-react'
 import { motion } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
+import { buildTenantEntityOpts, getTenantScopeKey } from '@/utils/tenantScope';
 
-export default function ReviewsHistory({ entregador, onClose, darkMode, asSub = null }) {
-  const scopedEntityOpts = asSub ? { as_subscriber: asSub } : {};
-  const tenantQueryScope = asSub || 'me';
+export default function ReviewsHistory({ entregador, onClose, darkMode, asSub = null, asSubId = null }) {
+  const scopedEntityOpts = buildTenantEntityOpts({ subscriberId: asSubId, subscriberEmail: asSub });
+  const tenantQueryScope = getTenantScopeKey(asSubId, asSub, 'me');
 
   const { data: ratings = [] } = useQuery({
     queryKey: ['deliveryRatings', entregador.id, tenantQueryScope],

@@ -16,6 +16,7 @@ import toast, { Toaster } from 'react-hot-toast';
 import PizzaVisualizationSettings from './PizzaVisualizationSettings';
 import MyPizzasTab from './MyPizzasTab';
 import { usePermission } from '../permissions/usePermission';
+import { buildTenantEntityOpts, getMenuContextEntityOpts, getMenuContextQueryKeyParts } from '@/utils/tenantScope';
 
 const formatCurrency = (value) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
@@ -71,12 +72,18 @@ export default function PizzaConfigTab() {
   const tenantSubscriberEmail = slug && publicCardapio?.subscriber_email && publicCardapio.subscriber_email !== 'master'
     ? publicCardapio.subscriber_email
     : null;
+  const tenantSubscriberId = slug && publicCardapio?.subscriber_id != null
+    ? publicCardapio.subscriber_id
+    : null;
   const scopedSubscriberEmail = menuContext?.type === 'subscriber' && menuContext?.value
     ? menuContext.value
     : tenantSubscriberEmail;
+  const scopedSubscriberId = menuContext?.type === 'subscriber'
+    ? menuContext.subscriber_id ?? null
+    : tenantSubscriberId;
   const fallbackOwnerEmail = slug ? null : (user?.subscriber_email || user?.email || null);
   const entityOwnerEmail = scopedSubscriberEmail || fallbackOwnerEmail;
-  const entityContextOpts = scopedSubscriberEmail ? { as_subscriber: scopedSubscriberEmail } : {};
+  const entityContextOpts = buildTenantEntityOpts({ subscriberId: scopedSubscriberId, subscriberEmail: scopedSubscriberEmail });
 
   const normalizedSearchTerm = searchTerm.trim().toLowerCase();
   const matchesSearch = useMemo(() => {
@@ -88,55 +95,50 @@ export default function PizzaConfigTab() {
 
   // ✅ Admin API (usada quando não há slug); com slug usamos publicCardapio para exibir
   const { data: adminSizes = [] } = useQuery({
-    queryKey: ['pizzaSizes', menuContext?.type, menuContext?.value],
+    queryKey: ['pizzaSizes', ...getMenuContextQueryKeyParts(menuContext)],
     queryFn: async () => {
       if (!menuContext) return [];
-      const opts = menuContext.type === 'subscriber' && menuContext.value ? { as_subscriber: menuContext.value } : {};
-      return apiClient.entities.PizzaSize.list('order', opts);
+      return apiClient.entities.PizzaSize.list('order', getMenuContextEntityOpts(menuContext));
     },
     enabled: !!menuContext && !slug,
   });
   const sizes = (slug && Array.isArray(publicCardapio?.pizzaSizes)) ? publicCardapio.pizzaSizes : (adminSizes || []);
 
   const { data: adminFlavors = [] } = useQuery({
-    queryKey: ['pizzaFlavors', menuContext?.type, menuContext?.value],
+    queryKey: ['pizzaFlavors', ...getMenuContextQueryKeyParts(menuContext)],
     queryFn: async () => {
       if (!menuContext) return [];
-      const opts = menuContext.type === 'subscriber' && menuContext.value ? { as_subscriber: menuContext.value } : {};
-      return apiClient.entities.PizzaFlavor.list('order', opts);
+      return apiClient.entities.PizzaFlavor.list('order', getMenuContextEntityOpts(menuContext));
     },
     enabled: !!menuContext && !slug,
   });
   const flavors = (slug && Array.isArray(publicCardapio?.pizzaFlavors)) ? publicCardapio.pizzaFlavors : (adminFlavors || []);
 
   const { data: adminEdges = [] } = useQuery({
-    queryKey: ['pizzaEdges', menuContext?.type, menuContext?.value],
+    queryKey: ['pizzaEdges', ...getMenuContextQueryKeyParts(menuContext)],
     queryFn: async () => {
       if (!menuContext) return [];
-      const opts = menuContext.type === 'subscriber' && menuContext.value ? { as_subscriber: menuContext.value } : {};
-      return apiClient.entities.PizzaEdge.list('order', opts);
+      return apiClient.entities.PizzaEdge.list('order', getMenuContextEntityOpts(menuContext));
     },
     enabled: !!menuContext && !slug,
   });
   const edges = (slug && Array.isArray(publicCardapio?.pizzaEdges)) ? publicCardapio.pizzaEdges : (adminEdges || []);
 
   const { data: adminExtras = [] } = useQuery({
-    queryKey: ['pizzaExtras', menuContext?.type, menuContext?.value],
+    queryKey: ['pizzaExtras', ...getMenuContextQueryKeyParts(menuContext)],
     queryFn: async () => {
       if (!menuContext) return [];
-      const opts = menuContext.type === 'subscriber' && menuContext.value ? { as_subscriber: menuContext.value } : {};
-      return apiClient.entities.PizzaExtra.list('order', opts);
+      return apiClient.entities.PizzaExtra.list('order', getMenuContextEntityOpts(menuContext));
     },
     enabled: !!menuContext && !slug,
   });
   const extras = (slug && Array.isArray(publicCardapio?.pizzaExtras)) ? publicCardapio.pizzaExtras : (adminExtras || []);
 
   const { data: adminPizzaCategories = [] } = useQuery({
-    queryKey: ['pizzaCategories', menuContext?.type, menuContext?.value],
+    queryKey: ['pizzaCategories', ...getMenuContextQueryKeyParts(menuContext)],
     queryFn: async () => {
       if (!menuContext) return [];
-      const opts = menuContext.type === 'subscriber' && menuContext.value ? { as_subscriber: menuContext.value } : {};
-      return apiClient.entities.PizzaCategory.list('order', opts);
+      return apiClient.entities.PizzaCategory.list('order', getMenuContextEntityOpts(menuContext));
     },
     enabled: !!menuContext && !slug,
   });
@@ -152,7 +154,7 @@ export default function PizzaConfigTab() {
     mutationFn: (data) => apiClient.entities.PizzaSize.create({
       ...data,
       ...(entityOwnerEmail && { subscriber_email: entityOwnerEmail, owner_email: entityOwnerEmail }),
-      ...(scopedSubscriberEmail && { as_subscriber: scopedSubscriberEmail })
+      ...entityContextOpts
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzaSizes'] });
@@ -188,7 +190,7 @@ export default function PizzaConfigTab() {
     mutationFn: (data) => apiClient.entities.PizzaFlavor.create({
       ...data,
       ...(entityOwnerEmail && { subscriber_email: entityOwnerEmail, owner_email: entityOwnerEmail }),
-      ...(scopedSubscriberEmail && { as_subscriber: scopedSubscriberEmail })
+      ...entityContextOpts
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzaFlavors'] });
@@ -224,7 +226,7 @@ export default function PizzaConfigTab() {
     mutationFn: (data) => apiClient.entities.PizzaEdge.create({
       ...data,
       ...(entityOwnerEmail && { subscriber_email: entityOwnerEmail, owner_email: entityOwnerEmail }),
-      ...(scopedSubscriberEmail && { as_subscriber: scopedSubscriberEmail })
+      ...entityContextOpts
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzaEdges'] });
@@ -260,7 +262,7 @@ export default function PizzaConfigTab() {
     mutationFn: (data) => apiClient.entities.PizzaExtra.create({
       ...data,
       ...(entityOwnerEmail && { subscriber_email: entityOwnerEmail, owner_email: entityOwnerEmail }),
-      ...(scopedSubscriberEmail && { as_subscriber: scopedSubscriberEmail })
+      ...entityContextOpts
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzaExtras'] });
@@ -296,7 +298,7 @@ export default function PizzaConfigTab() {
     mutationFn: (data) => apiClient.entities.PizzaCategory.create({
       ...data,
       ...(entityOwnerEmail && { subscriber_email: entityOwnerEmail, owner_email: entityOwnerEmail }),
-      ...(scopedSubscriberEmail && { as_subscriber: scopedSubscriberEmail })
+      ...entityContextOpts
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzaCategories'] });

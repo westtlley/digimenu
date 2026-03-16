@@ -7,6 +7,7 @@ import { base44 } from '@/api/base44Client';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { isOrderReadyForDispatch } from '@/utils/orderLifecycle';
+import { buildTenantEntityOpts, getTenantScopeKey } from '@/utils/tenantScope';
 
 // Algoritmo de otimização de rota (Nearest Neighbor)
 const optimizeRoute = (orders, startPoint = { lat: -5.0892, lng: -42.8019 }) => {
@@ -67,13 +68,16 @@ const getRandomCoordinates = () => ({
   lng: -42.8019 + (Math.random() - 0.5) * 0.1
 });
 
-export default function RouteOptimizer({ isOpen, onClose, entregador, orders, asSub = null }) {
+export default function RouteOptimizer({ isOpen, onClose, entregador, orders, asSub = null, asSubId = null }) {
   const [selectedOrders, setSelectedOrders] = useState([]);
   const [optimizedRoute, setOptimizedRoute] = useState(null);
   const [optimizing, setOptimizing] = useState(false);
   const queryClient = useQueryClient();
-  const scopedEntityOpts = useMemo(() => (asSub ? { as_subscriber: asSub } : {}), [asSub]);
-  const tenantQueryScope = asSub || 'me';
+  const scopedEntityOpts = useMemo(
+    () => buildTenantEntityOpts({ subscriberId: asSubId, subscriberEmail: asSub }),
+    [asSub, asSubId]
+  );
+  const tenantQueryScope = useMemo(() => getTenantScopeKey(asSubId, asSub, 'me'), [asSub, asSubId]);
 
   // Filtrar pedidos prontos para entrega
   const availableOrders = orders.filter((o) =>

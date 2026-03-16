@@ -20,6 +20,7 @@ import {
   Loader2,
   Users,
 } from 'lucide-react';
+import { userIsTenantOwner } from '@/utils/tenantScope';
 
 const APP_BUTTONS = [
   { id: 'painel', role: 'gerente', label: 'Painel do Gerente', page: 'PainelGerente', icon: LayoutDashboard, color: 'from-violet-600 to-violet-700', hoverColor: 'hover:from-violet-700 hover:to-violet-800' },
@@ -109,7 +110,7 @@ export default function ColaboradorHome() {
       : [];
   if (roles.length === 0 && user?.profile_role) roles = [String(user.profile_role).toLowerCase().trim()].filter(Boolean);
   // Gerente: acesso a todas as funções. Assinante (dono): também acesso total (is_owner do backend ou subscriber_email === email).
-  const isDono = user?.is_owner || (user?.subscriber_email && (user?.email || '').toLowerCase().trim() === (user?.subscriber_email || '').toLowerCase().trim());
+  const isDono = userIsTenantOwner(user);
   const isGerente = roles.includes('gerente') || isDono;
   const appSlug = user?.subscriber_slug || user?.slug || null;
 

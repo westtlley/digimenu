@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { usePermission } from '../permissions/usePermission';
 import { fetchAdminDishes } from '@/services/adminMenuService';
 import { keepPreviousData } from '@tanstack/react-query';
+import { buildTenantEntityOpts, getMenuContextEntityOpts, getMenuContextQueryKeyParts } from '@/utils/tenantScope';
 
 const formatCurrency = (value) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
@@ -73,14 +74,20 @@ export default function MyPizzasTab() {
   const tenantSubscriberEmail = slug && publicCardapio?.subscriber_email && publicCardapio.subscriber_email !== 'master'
     ? publicCardapio.subscriber_email
     : null;
+  const tenantSubscriberId = slug && publicCardapio?.subscriber_id != null
+    ? publicCardapio.subscriber_id
+    : null;
   const scopedSubscriberEmail = subscriberContextEmail || tenantSubscriberEmail || null;
+  const scopedSubscriberId = menuContext?.type === 'subscriber'
+    ? menuContext.subscriber_id ?? null
+    : tenantSubscriberId;
   const fallbackOwnerEmail = slug ? null : (user?.subscriber_email || user?.email || null);
   const entityOwnerEmail = scopedSubscriberEmail || fallbackOwnerEmail;
-  const entityContextOpts = scopedSubscriberEmail ? { as_subscriber: scopedSubscriberEmail } : {};
+  const entityContextOpts = buildTenantEntityOpts({ subscriberId: scopedSubscriberId, subscriberEmail: scopedSubscriberEmail });
 
   // ✅ Admin API para pratos (com fallback interno); quando temos publicCardapio, usamos ele para exibir
   const { data: adminDishesRaw = [], refetch: refetchDishes, isLoading: dishesLoading } = useQuery({
-    queryKey: ['dishes', menuContext?.type, menuContext?.value],
+    queryKey: ['dishes', ...getMenuContextQueryKeyParts(menuContext)],
     queryFn: async () => {
       if (!menuContext) return [];
       return await fetchAdminDishes(menuContext);
@@ -97,7 +104,7 @@ export default function MyPizzasTab() {
     if (menuContext && adminDishesRaw.length === 0 && !dishesLoading && !publicCardapio?.dishes?.length) {
       refetchDishes();
     }
-  }, [menuContext?.type, menuContext?.value]);
+  }, [menuContext?.type, menuContext?.value, menuContext?.subscriber_id]);
   
   // Fonte de pratos: público (slug) ou admin
   const dishesRaw = (slug && publicCardapio?.dishes) ? publicCardapio.dishes : (adminDishesRaw || []);
@@ -105,11 +112,10 @@ export default function MyPizzasTab() {
 
   // ✅ Tamanhos: público (slug) ou admin
   const { data: adminSizes = [] } = useQuery({
-    queryKey: ['pizzaSizes', menuContext?.type, menuContext?.value],
+    queryKey: ['pizzaSizes', ...getMenuContextQueryKeyParts(menuContext)],
     queryFn: async () => {
       if (!menuContext) return [];
-      const opts = menuContext.type === 'subscriber' && menuContext.value ? { as_subscriber: menuContext.value } : {};
-      return apiClient.entities.PizzaSize.list('order', opts);
+      return apiClient.entities.PizzaSize.list('order', getMenuContextEntityOpts(menuContext));
     },
     enabled: !!menuContext && !slug,
   });
@@ -117,11 +123,10 @@ export default function MyPizzasTab() {
 
   // ✅ Sabores: público (slug) ou admin
   const { data: adminFlavors = [] } = useQuery({
-    queryKey: ['pizzaFlavors', menuContext?.type, menuContext?.value],
+    queryKey: ['pizzaFlavors', ...getMenuContextQueryKeyParts(menuContext)],
     queryFn: async () => {
       if (!menuContext) return [];
-      const opts = menuContext.type === 'subscriber' && menuContext.value ? { as_subscriber: menuContext.value } : {};
-      return apiClient.entities.PizzaFlavor.list('order', opts);
+      return apiClient.entities.PizzaFlavor.list('order', getMenuContextEntityOpts(menuContext));
     },
     enabled: !!menuContext && !slug,
   });
@@ -129,36 +134,34 @@ export default function MyPizzasTab() {
 
   // ✅ Bordas: público (slug) ou admin
   const { data: adminEdges = [] } = useQuery({
-    queryKey: ['pizzaEdges', menuContext?.type, menuContext?.value],
+    queryKey: ['pizzaEdges', ...getMenuContextQueryKeyParts(menuContext)],
     queryFn: async () => {
       if (!menuContext) return [];
-      const opts = menuContext.type === 'subscriber' && menuContext.value ? { as_subscriber: menuContext.value } : {};
-      return apiClient.entities.PizzaEdge.list('order', opts);
+      return apiClient.entities.PizzaEdge.list('order', getMenuContextEntityOpts(menuContext));
     },
     enabled: !!menuContext && !slug,
   });
   const edges = (slug && publicCardapio?.pizzaEdges?.length) ? publicCardapio.pizzaEdges : (adminEdges || []);
 
   const { data: adminExtras = [] } = useQuery({
-    queryKey: ['pizzaExtras', menuContext?.type, menuContext?.value],
+    queryKey: ['pizzaExtras', ...getMenuContextQueryKeyParts(menuContext)],
     queryFn: () => apiClient.entities.PizzaExtra.list('order', entityContextOpts),
     enabled: !!menuContext && !slug,
   });
   const extras = (slug && publicCardapio?.pizzaExtras?.length) ? publicCardapio.pizzaExtras : (adminExtras || []);
 
   const { data: categories = [] } = useQuery({
-    queryKey: ['categories', menuContext?.type, menuContext?.value],
+    queryKey: ['categories', ...getMenuContextQueryKeyParts(menuContext)],
     queryFn: () => apiClient.entities.Category.list('order', entityContextOpts),
     enabled: !!menuContext && !slug,
   });
 
   // ✅ Categorias de pizza: público (slug) ou admin
   const { data: adminPizzaCategories = [] } = useQuery({
-    queryKey: ['pizzaCategories', menuContext?.type, menuContext?.value],
+    queryKey: ['pizzaCategories', ...getMenuContextQueryKeyParts(menuContext)],
     queryFn: async () => {
       if (!menuContext) return [];
-      const opts = menuContext.type === 'subscriber' && menuContext.value ? { as_subscriber: menuContext.value } : {};
-      return apiClient.entities.PizzaCategory.list('order', opts);
+      return apiClient.entities.PizzaCategory.list('order', getMenuContextEntityOpts(menuContext));
     },
     enabled: !!menuContext && !slug,
   });
@@ -171,12 +174,12 @@ export default function MyPizzasTab() {
         ...data,
         product_type: 'pizza',
         ...(entityOwnerEmail && { subscriber_email: entityOwnerEmail, owner_email: entityOwnerEmail }),
-        ...(scopedSubscriberEmail && { as_subscriber: scopedSubscriberEmail })
+        ...entityContextOpts
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzas'] });
-      queryClient.invalidateQueries({ queryKey: ['dishes', menuContext?.type, menuContext?.value] });
+      queryClient.invalidateQueries({ queryKey: ['dishes', ...getMenuContextQueryKeyParts(menuContext)] });
       if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
       toast.success('Pizza criada!');
       setShowPizzaModal(false);
@@ -188,7 +191,7 @@ export default function MyPizzasTab() {
     mutationFn: ({ id, data }) => apiClient.entities.Dish.update(id, data, entityContextOpts),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzas'] });
-      queryClient.invalidateQueries({ queryKey: ['dishes', menuContext?.type, menuContext?.value] });
+      queryClient.invalidateQueries({ queryKey: ['dishes', ...getMenuContextQueryKeyParts(menuContext)] });
       if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
       toast.success('Pizza atualizada!');
       setShowPizzaModal(false);
@@ -200,7 +203,7 @@ export default function MyPizzasTab() {
     mutationFn: (id) => apiClient.entities.Dish.delete(id, entityContextOpts),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzas'] });
-      queryClient.invalidateQueries({ queryKey: ['dishes', menuContext?.type, menuContext?.value] });
+      queryClient.invalidateQueries({ queryKey: ['dishes', ...getMenuContextQueryKeyParts(menuContext)] });
       if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
       toast.success('Pizza excluída!');
     },

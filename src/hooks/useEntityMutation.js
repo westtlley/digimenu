@@ -7,6 +7,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { log } from '@/utils/logger';
 import toast from 'react-hot-toast';
 import { usePermission } from '@/components/permissions/usePermission';
+import { getMenuContextQueryKeyParts } from '@/utils/tenantScope';
 
 /**
  * Hook genérico para mutations de entidades
@@ -52,7 +53,7 @@ export function useEntityMutation({
           // Invalidar com contexto se disponível
           if (menuContext) {
             queryClient.invalidateQueries({ 
-              queryKey: [key, menuContext.type, menuContext.value] 
+              queryKey: [key, ...getMenuContextQueryKeyParts(menuContext)] 
             });
           }
           // Também invalidar sem contexto (para compatibilidade)

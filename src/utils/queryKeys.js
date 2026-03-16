@@ -4,6 +4,7 @@
  */
 
 import { usePermission } from '@/components/permissions/usePermission';
+import { getMenuContextQueryKeyParts } from '@/utils/tenantScope';
 
 /**
  * Cria queryKey com contexto
@@ -18,7 +19,7 @@ export function createQueryKey(baseKey, menuContext, additionalKeys = {}) {
   
   // Adicionar contexto se disponível
   if (menuContext) {
-    base.push(menuContext.type, menuContext.value);
+    base.push(...getMenuContextQueryKeyParts(menuContext));
   }
   
   // Adicionar chaves adicionais

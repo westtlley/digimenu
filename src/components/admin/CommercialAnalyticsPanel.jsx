@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Eye, ShoppingCart, CheckCircle2, TrendingUp, Sparkles, Package } from 'lucide-react';
+import { getMenuContextEntityOpts, getMenuContextQueryKeyParts } from '@/utils/tenantScope';
 
 const toNumber = (value) => Number(value || 0);
 const formatPercent = (value) => `${Number(value || 0).toFixed(1)}%`;
@@ -59,14 +60,11 @@ export default function CommercialAnalyticsPanel({ menuContext }) {
   const [days, setDays] = React.useState(30);
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['commercialAnalyticsDashboard', menuContext?.type, menuContext?.value, days],
+    queryKey: ['commercialAnalyticsDashboard', ...getMenuContextQueryKeyParts(menuContext), days],
     enabled: !!menuContext,
     staleTime: 60 * 1000,
     queryFn: async () => {
-      const params = { days };
-      if (menuContext?.type === 'subscriber' && menuContext?.value) {
-        params.as_subscriber = menuContext.value;
-      }
+      const params = { days, ...getMenuContextEntityOpts(menuContext) };
       const response = await base44.get('/analytics/commercial-dashboard', params);
       return response?.metrics || {};
     }

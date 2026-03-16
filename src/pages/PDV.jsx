@@ -23,6 +23,7 @@ import { useUpsell } from '../components/hooks/useUpsell';
 import { usePDVHotkeys } from '../utils/pdvFunctions';
 import InstallAppButton from '../components/InstallAppButton';
 import FechamentoCaixaModal from '../components/pdv/FechamentoCaixaModal';
+import { getScopedStorageKey, getTenantScopeKey, userIsTenantOwner, userMatchesTenant } from '@/utils/tenantScope';
 import MenuVendasModal from '../components/pdv/MenuVendasModal';
 import AtalhosHelpModal from '../components/pdv/AtalhosHelpModal';
 import ReimpressaoVendaModal from '../components/pdv/ReimpressaoVendaModal';
@@ -74,7 +75,17 @@ export default function PDV() {
   const tenantSubscriberId = ((inSlugContext ? subscriberId ?? null : null) || fallbackSubscriberId);
   const asSub = (inSlugContext && isMaster && normalizedSlugSubscriber) ? normalizedSlugSubscriber : undefined;
   const asSubId = (inSlugContext && isMaster && subscriberId != null) ? subscriberId : undefined;
-  const tenantScope = asSubId ?? asSub ?? tenantSubscriberId ?? tenantIdentifier ?? 'none';
+  const tenantScope = getTenantScopeKey(asSubId ?? tenantSubscriberId, asSub ?? tenantIdentifier, 'none');
+  const gestorSettingsStorageKey = useMemo(() => {
+    const storageContext = (asSubId ?? tenantSubscriberId) != null || (asSub ?? tenantIdentifier)
+      ? {
+          type: 'subscriber',
+          value: asSub ?? tenantIdentifier,
+          subscriber_id: asSubId ?? tenantSubscriberId ?? null,
+        }
+      : null;
+    return getScopedStorageKey('gestorSettings', storageContext, 'global');
+  }, [asSub, asSubId, tenantIdentifier, tenantSubscriberId]);
 
   const [showMenuVendas, setShowMenuVendas] = useState(false);
   const [showFechamentoModal, setShowFechamentoModal] = useState(false);
@@ -117,28 +128,24 @@ export default function PDV() {
         });
         
         // Verificar se tem perfil de PDV, ÃƒÂ© master, ÃƒÂ© assinante ou ÃƒÂ© gerente (acesso total)
-        const isAssinante = me?.subscriber_email && (me?.email || '').toLowerCase().trim() === (me?.subscriber_email || '').toLowerCase().trim();
         const roles = me?.profile_roles?.length ? me.profile_roles : me?.profile_role ? [me.profile_role] : [];
         const isGerente = roles.includes('gerente');
         const isPDV = me?.profile_role === 'pdv' || roles.includes('pdv');
         
         // Se nÃƒÂ£o tem subscriber_email mas tem email, pode ser o prÃƒÂ³prio assinante
-        const isOwner = !me.subscriber_email || (me.email && me.subscriber_email && me.email.toLowerCase().trim() === me.subscriber_email.toLowerCase().trim());
+        const isOwner = userIsTenantOwner(me);
         
-        const slugSubscriberNormalized = (subscriberEmail || '').toLowerCase().trim();
-        const userSubscriberNormalized = (me?.subscriber_email || me?.email || '').toLowerCase().trim();
+        const matchesTenant = userMatchesTenant(me, { subscriberId, subscriberEmail });
         const tenantMatchesSlug =
           !inSlugContext ||
-          !slugSubscriberNormalized ||
           me?.is_master === true ||
-          userSubscriberNormalized === slugSubscriberNormalized;
-        const hasAccess = (isPDV || me?.is_master === true || isAssinante || isGerente || isOwner) && tenantMatchesSlug;
+          matchesTenant;
+        const hasAccess = (isPDV || me?.is_master === true || isGerente || isOwner) && tenantMatchesSlug;
         
         console.log('[PDV] Resultado da verificaÃƒÂ§ÃƒÂ£o:', {
-          isAssinante,
           isGerente,
           isPDV,
-          isOwner,
+          matchesTenant,
           tenantMatchesSlug,
           hasAccess
         });
@@ -817,7 +824,7 @@ export default function PDV() {
 
   const isAutoPrintEnabled = () => {
     try {
-      const settings = JSON.parse(localStorage.getItem('gestorSettings') || '{}');
+      const settings = JSON.parse(localStorage.getItem(gestorSettingsStorageKey) || '{}');
       return settings.auto_print === true;
     } catch (_) {
       return false;
@@ -1885,4 +1892,6 @@ export default function PDV() {
     </div>
   );
 }
+
+
 

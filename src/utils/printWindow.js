@@ -1,3 +1,5 @@
+import { getScopedStorageKey } from './tenantScope';
+
 const toNumber = (value, fallback) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
@@ -24,7 +26,9 @@ function getStoredPrinterConfig() {
   }
 
   try {
-    const raw = localStorage.getItem('printerConfigLocal');
+    const raw =
+      localStorage.getItem(getScopedStorageKey('printerConfigLocal', null, 'global')) ||
+      localStorage.getItem('printerConfigLocal');
     const parsed = raw ? JSON.parse(raw) : {};
     return {
       paperWidth: normalizePaperWidth(parsed.paper_width),

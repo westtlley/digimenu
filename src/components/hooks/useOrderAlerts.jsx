@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useNotificationSound } from './useNotificationSound';
+import { buildTenantEntityOpts, getTenantScopeKey } from '@/utils/tenantScope';
 
 const STORAGE_KEY_BASE = 'pending_orders';
 
@@ -9,9 +10,10 @@ const STORAGE_KEY_BASE = 'pending_orders';
  * Som contínuo + vibração até aceitar/rejeitar
  */
 export function useOrderAlerts(entregadorId, options = {}) {
-  const { asSubscriber = null, tenantScope = 'self' } = options;
-  const storageKey = `${STORAGE_KEY_BASE}:${tenantScope}`;
-  const scopedEntityOpts = asSubscriber ? { as_subscriber: asSubscriber } : {};
+  const { asSubscriber = null, asSubscriberId = null, tenantScope = null } = options;
+  const resolvedTenantScope = tenantScope ?? getTenantScopeKey(asSubscriberId, asSubscriber, 'self');
+  const storageKey = `${STORAGE_KEY_BASE}:${resolvedTenantScope}`;
+  const scopedEntityOpts = buildTenantEntityOpts({ subscriberId: asSubscriberId, subscriberEmail: asSubscriber });
   const [pendingOrders, setPendingOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const { play, stop } = useNotificationSound();
@@ -70,7 +72,7 @@ export function useOrderAlerts(entregadorId, options = {}) {
     fetchOrders();
     const interval = setInterval(fetchOrders, 3000);
     return () => clearInterval(interval);
-  }, [entregadorId, pendingOrders, play, asSubscriber, storageKey]);
+  }, [entregadorId, pendingOrders, play, asSubscriber, asSubscriberId, storageKey]);
 
   const startVibration = useCallback(() => {
     if (navigator.vibrate) {
@@ -132,7 +134,7 @@ export function useOrderAlerts(entregadorId, options = {}) {
         order_id: orderId,
         action: 'delivery_rejected',
         details: `Entregador rejeitou: ${reason}`,
-        ...(asSubscriber ? { as_subscriber: asSubscriber } : {}),
+        ...scopedEntityOpts,
       });
 
       // Remover do storage

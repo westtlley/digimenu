@@ -12,6 +12,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import toast from 'react-hot-toast';
 import AlertasDeSom from './AlertasDeSom';
+import { usePermission } from '@/components/permissions/usePermission';
+import { buildTenantEntityOpts, getMenuContextScopeKey, getScopedStorageKey } from '@/utils/tenantScope';
 
 const SECTIONS = [
   { id: 'alertas', label: 'Alertas de som', icon: Bell, group: 'gestor' },
@@ -39,43 +41,50 @@ export default function GestorSettings() {
   });
 
   const queryClient = useQueryClient();
+  const { menuContext } = usePermission();
+  const menuScopeKey = getMenuContextScopeKey(menuContext, 'global');
+  const gestorSettingsStorageKey = getScopedStorageKey('gestorSettings', null, 'global');
+  const scopedEntityOpts = buildTenantEntityOpts({
+    subscriberId: menuContext?.subscriber_id,
+    subscriberEmail: menuContext?.type === 'subscriber' ? menuContext?.value : null,
+  });
 
   const { data: templates = [] } = useQuery({
-    queryKey: ['messageTemplates'],
-    queryFn: () => base44.entities.MessageTemplate.list(),
+    queryKey: ['messageTemplates', menuScopeKey],
+    queryFn: () => base44.entities.MessageTemplate.list(null, scopedEntityOpts),
   });
 
   const { data: stores = [] } = useQuery({
-    queryKey: ['store'],
-    queryFn: () => base44.entities.Store.list(),
+    queryKey: ['store', menuScopeKey],
+    queryFn: () => base44.entities.Store.list(null, scopedEntityOpts),
   });
 
   const store = stores[0];
 
   useEffect(() => {
     try {
-      const saved = localStorage.getItem('gestorSettings');
+      const saved = localStorage.getItem(gestorSettingsStorageKey);
       if (saved) {
         const parsed = JSON.parse(saved);
         setSettings(prev => ({ ...prev, ...parsed }));
       }
     } catch (_) {}
-  }, []);
+  }, [gestorSettingsStorageKey]);
 
   const saveSettings = () => {
-    localStorage.setItem('gestorSettings', JSON.stringify(settings));
+    localStorage.setItem(gestorSettingsStorageKey, JSON.stringify(settings));
     toast.success('Configurações salvas!');
     window.dispatchEvent(new CustomEvent('gestorSettingsUpdated', { detail: settings }));
   };
 
   const createTemplateMutation = useMutation({
-    mutationFn: (data) => base44.entities.MessageTemplate.create(data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['messageTemplates'] }),
+    mutationFn: (data) => base44.entities.MessageTemplate.create({ ...data, ...scopedEntityOpts }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['messageTemplates', menuScopeKey] }),
   });
 
   const deleteTemplateMutation = useMutation({
-    mutationFn: (id) => base44.entities.MessageTemplate.delete(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['messageTemplates'] }),
+    mutationFn: (id) => base44.entities.MessageTemplate.delete(id, scopedEntityOpts),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['messageTemplates', menuScopeKey] }),
   });
 
   const [newTemplate, setNewTemplate] = useState({ title: '', message: '' });

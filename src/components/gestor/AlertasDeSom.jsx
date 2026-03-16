@@ -12,8 +12,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { SOUND_OPTIONS, getSoundUrl } from '@/utils/gestorSounds';
+import { getScopedStorageKey } from '@/utils/tenantScope';
 
-const STORAGE_KEY = 'gestor_notification_config';
+const getStorageKey = () => getScopedStorageKey('gestor_notification_config', null, 'global');
 
 const DEFAULT_CONFIG = {
   soundEnabled: true,
@@ -26,7 +27,7 @@ const DEFAULT_CONFIG = {
 
 function loadConfig() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(getStorageKey());
     if (!raw) return { ...DEFAULT_CONFIG };
     const c = JSON.parse(raw);
     return {
@@ -46,9 +47,9 @@ function saveConfig(partial) {
   try {
     const prev = loadConfig();
     const next = { ...prev, ...partial };
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(getStorageKey());
     const merged = raw ? { ...JSON.parse(raw), ...next } : next;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+    localStorage.setItem(getStorageKey(), JSON.stringify(merged));
     window.dispatchEvent(new CustomEvent('gestorNotificationConfigUpdated', { detail: merged }));
   } catch (_) {}
 }

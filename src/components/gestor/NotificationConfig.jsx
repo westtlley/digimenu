@@ -6,6 +6,7 @@ import { Switch } from '@/components/ui/switch';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { motion } from 'framer-motion';
+import { getScopedStorageKey } from '@/utils/tenantScope';
 
 const NOTIFICATION_STATUSES = [
   { value: 'new', label: 'Novos Pedidos', description: 'Quando receber um pedido novo' },
@@ -16,7 +17,7 @@ const NOTIFICATION_STATUSES = [
   { value: 'cancelled', label: 'Pedidos Cancelados', description: 'Quando um pedido for cancelado' },
 ];
 
-const STORAGE_KEY = 'gestor_notification_config';
+const getStorageKey = () => getScopedStorageKey('gestor_notification_config', null, 'global');
 
 export default function NotificationConfig({ onSettingsChange, darkMode = false }) {
   const [config, setConfig] = useState({
@@ -36,7 +37,7 @@ export default function NotificationConfig({ onSettingsChange, darkMode = false 
   // Carregar configurações salvas
   useEffect(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
+      const saved = localStorage.getItem(getStorageKey());
       if (saved) {
         const parsed = JSON.parse(saved);
         setConfig(parsed);
@@ -51,7 +52,7 @@ export default function NotificationConfig({ onSettingsChange, darkMode = false 
   const saveConfig = (newConfig) => {
     setConfig(newConfig);
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(newConfig));
+      localStorage.setItem(getStorageKey(), JSON.stringify(newConfig));
       onSettingsChange?.(newConfig);
     } catch (e) {
       console.error('Erro ao salvar configurações:', e);

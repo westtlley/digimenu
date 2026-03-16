@@ -18,6 +18,7 @@ import { Separator } from "@/components/ui/separator";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import MasterSlugSettings from './MasterSlugSettings';
 import { extractColorsFromImage } from '@/utils/extractColorsFromImage';
+import { getMenuContextEntityOpts, getMenuContextQueryKeyParts } from '@/utils/tenantScope';
 
 const DAYS_OF_WEEK = [
   { value: 0, label: 'Dom' },
@@ -100,14 +101,10 @@ export default function StoreTab() {
 
   // ✅ CORREÇÃO: Buscar store com contexto do slug
   const { data: stores = [] } = useQuery({
-    queryKey: ['store', menuContext?.type, menuContext?.value],
+    queryKey: ['store', ...getMenuContextQueryKeyParts(menuContext)],
     queryFn: async () => {
       if (!menuContext) return [];
-      const opts = {};
-      if (menuContext.type === 'subscriber' && menuContext.value) {
-        opts.as_subscriber = menuContext.value;
-      }
-      return base44.entities.Store.list(null, opts);
+      return base44.entities.Store.list(null, getMenuContextEntityOpts(menuContext));
     },
     enabled: !!menuContext,
   });
@@ -118,12 +115,11 @@ export default function StoreTab() {
   const updateStoreBannersMutation = useMutation({
     mutationFn: async (data) => {
       if (!store?.id) throw new Error('Loja não encontrada');
-      const opts = menuContext?.type === 'subscriber' && menuContext?.value ? { as_subscriber: menuContext.value } : {};
-      return base44.entities.Store.update(store.id, data, opts);
+      return base44.entities.Store.update(store.id, data, getMenuContextEntityOpts(menuContext));
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['store'] });
-      queryClient.invalidateQueries({ queryKey: ['store', menuContext?.type, menuContext?.value] });
+      queryClient.invalidateQueries({ queryKey: ['store', ...getMenuContextQueryKeyParts(menuContext)] });
       toast.success('Banners salvos');
     },
     onError: (e) => toast.error(e?.message || 'Erro ao salvar banners'),
@@ -364,13 +360,11 @@ export default function StoreTab() {
         setFormData(prev => ({ ...prev, logo: url, ...themeUpdate }));
 
         if (store?.id) {
-          const updateOpts = menuContext?.type === 'subscriber' && menuContext?.value
-            ? { as_subscriber: menuContext.value }
-            : {};
+          const updateOpts = getMenuContextEntityOpts(menuContext);
           await base44.entities.Store.update(store.id, { logo: url, ...themeUpdate }, updateOpts);
           queryClient.invalidateQueries({ queryKey: ['store'] });
           queryClient.invalidateQueries({ queryKey: ['stores'] });
-          queryClient.invalidateQueries({ queryKey: ['store', menuContext?.type, menuContext?.value] });
+          queryClient.invalidateQueries({ queryKey: ['store', ...getMenuContextQueryKeyParts(menuContext)] });
           toast.success('Logo e cores do tema atualizados a partir da logo.');
         } else {
           toast.success('Logo atualizada. Cores do tema serão aplicadas ao salvar.');

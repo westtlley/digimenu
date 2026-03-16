@@ -33,6 +33,7 @@ import {
   isOrderReadyForDispatch,
   isOrderNewForGestor,
 } from '@/utils/orderLifecycle';
+import { getMenuContextEntityOpts, getMenuContextQueryKeyParts } from '@/utils/tenantScope';
 
 export default function DashboardTab({ user, subscriberData, onNavigateToTab }) {
   const [copiedLink, setCopiedLink] = useState(false);
@@ -40,14 +41,10 @@ export default function DashboardTab({ user, subscriberData, onNavigateToTab }) 
 
   // ✅ CORREÇÃO: Usar menuContext para buscar dados do assinante correto
   const { data: stores = [] } = useQuery({
-    queryKey: ['store', menuContext?.type, menuContext?.value],
+    queryKey: ['store', ...getMenuContextQueryKeyParts(menuContext)],
     queryFn: async () => {
       if (!menuContext) return [];
-      const opts = {};
-      if (menuContext.type === 'subscriber' && menuContext.value) {
-        opts.as_subscriber = menuContext.value;
-      }
-      return base44.entities.Store.list(null, opts);
+      return base44.entities.Store.list(null, getMenuContextEntityOpts(menuContext));
     },
     enabled: !!menuContext,
   });
@@ -60,14 +57,10 @@ export default function DashboardTab({ user, subscriberData, onNavigateToTab }) 
 
   // ✅ CORREÇÃO: Buscar pdvSales com contexto
   const { data: pdvSales = [] } = useQuery({
-    queryKey: ['dashboardPDVSales', menuContext?.type, menuContext?.value],
+    queryKey: ['dashboardPDVSales', ...getMenuContextQueryKeyParts(menuContext)],
     queryFn: async () => {
       if (!menuContext) return [];
-      const opts = {};
-      if (menuContext.type === 'subscriber' && menuContext.value) {
-        opts.as_subscriber = menuContext.value;
-      }
-      return base44.entities.PedidoPDV.list('-created_date', opts);
+      return base44.entities.PedidoPDV.list('-created_date', getMenuContextEntityOpts(menuContext));
     },
     enabled: !!menuContext,
   });

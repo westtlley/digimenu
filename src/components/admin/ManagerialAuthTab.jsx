@@ -14,19 +14,25 @@ import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Key, Shield, Loader2, Save, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { buildTenantEntityOpts, getMenuContextEntityOpts, getMenuContextSubscriberEmail, getMenuContextSubscriberId, getTenantScopeKey, userIsTenantOwner } from '@/utils/tenantScope';
 
 export default function ManagerialAuthTab() {
   const queryClient = useQueryClient();
   const { user, menuContext } = usePermission();
-  const asSub = menuContext?.type === 'subscriber' ? menuContext.value : (user?.subscriber_email || user?.email);
-  const isOwner = !user?.is_master && (user?.email || '').toLowerCase() === (asSub || '').toLowerCase();
-  const canConfigure = isOwner || (user?.is_master && !!asSub);
+  const asSub = getMenuContextSubscriberEmail(menuContext, user?.subscriber_email || user?.email);
+  const asSubId = getMenuContextSubscriberId(menuContext, user?.subscriber_id);
+  const tenantScope = getTenantScopeKey(asSubId, asSub, 'self');
+  const scopedEntityOpts = menuContext?.type === 'subscriber'
+    ? getMenuContextEntityOpts(menuContext)
+    : buildTenantEntityOpts({ subscriberId: asSubId, subscriberEmail: asSub });
+  const isOwner = !user?.is_master && userIsTenantOwner(user);
+  const canConfigure = isOwner || (user?.is_master && (asSubId != null || !!asSub));
   const roles = user?.profile_roles?.length ? user.profile_roles : user?.profile_role ? [user.profile_role] : [];
   const isGerente = roles.includes('gerente');
 
   const { data, isLoading } = useQuery({
-    queryKey: ['managerial-auth', asSub],
-    queryFn: () => base44.get('/managerial-auth', asSub ? { as_subscriber: asSub } : {}),
+    queryKey: ['managerial-auth', tenantScope],
+    queryFn: () => base44.get('/managerial-auth', scopedEntityOpts),
   });
 
   const [assinanteForm, setAssinanteForm] = useState({ matricula: '', password: '', expirable: false, expires_at: '' });
@@ -41,11 +47,11 @@ export default function ManagerialAuthTab() {
         expirable: !!expirable,
         expires_at: expirable && expires_at ? expires_at : null,
       };
-      if (user?.is_master && asSub) body.as_subscriber = asSub;
+      if (user?.is_master) Object.assign(body, scopedEntityOpts);
       return base44.post('/managerial-auth', body);
     },
     onSuccess: (_, vars) => {
-      queryClient.invalidateQueries({ queryKey: ['managerial-auth'] });
+      queryClient.invalidateQueries({ queryKey: ['managerial-auth', tenantScope] });
       toast.success(vars.role === 'gerente' ? 'Autorização do Gerente salva.' : 'Sua autorização foi salva.');
       if (vars.role === 'assinante') setAssinanteForm({ matricula: '', password: '', expirable: false, expires_at: '' });
       else setGerenteForm({ matricula: '', password: '', expirable: false, expires_at: '' });

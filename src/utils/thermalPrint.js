@@ -10,6 +10,7 @@ import {
   primeBridgeAvailability,
   printViaBridge,
 } from './printBridgeClient';
+import { getScopedStorageKey } from './tenantScope';
 
 const DASH_LINE = '--------------------------------';
 const PRINT_LOG_PREFIX = '[print]';
@@ -64,7 +65,9 @@ function clearPrintGuard(printKey) {
 function getConfiguredPrinterName() {
   if (typeof window === 'undefined') return '';
   try {
-    const raw = localStorage.getItem('printerConfigLocal');
+    const raw =
+      localStorage.getItem(getScopedStorageKey('printerConfigLocal', null, 'global')) ||
+      localStorage.getItem('printerConfigLocal');
     const parsed = raw ? JSON.parse(raw) : null;
     return String(parsed?.printer_name || '').trim();
   } catch (_error) {

@@ -21,6 +21,7 @@ import {
   isOrderFinalized,
   isOrderNewForGestor,
 } from '@/utils/orderLifecycle';
+import { buildTenantEntityOpts } from '@/utils/tenantScope';
 
 const COLUMNS = [
   { 
@@ -94,7 +95,7 @@ const COLUMNS = [
 /**
  * Kanban melhorado com drag-and-drop, filtros e busca
  */
-export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = false, isLoading = false, asSub }) {
+export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = false, isLoading = false, asSub, asSubId = null }) {
   const safeOrders = Array.isArray(orders) ? orders : [];
   const [collapsedColumns, setCollapsedColumns] = useState({});
   const [searchTerm, setSearchTerm] = useState('');
@@ -105,7 +106,11 @@ export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = 
   const [reduceMotion, setReduceMotion] = useState(false);
   const [isMobileViewport, setIsMobileViewport] = useState(false);
   const queryClient = useQueryClient();
-  const gestorOrdersKey = React.useMemo(() => ['gestorOrders', asSub ?? 'me'], [asSub]);
+  const gestorOrdersKey = React.useMemo(() => ['gestorOrders', asSubId ?? asSub ?? 'me'], [asSub, asSubId]);
+  const scopedEntityOpts = React.useMemo(
+    () => buildTenantEntityOpts({ subscriberId: asSubId, subscriberEmail: asSub }),
+    [asSub, asSubId]
+  );
 
   useEffect(() => {
     const m = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -147,7 +152,7 @@ export default function EnhancedKanbanBoard({ orders, onSelectOrder, darkMode = 
         if (!order.delivery_code && order.delivery_method === 'delivery') payload.delivery_code = Math.floor(1000 + Math.random() * 9000).toString();
       }
       if (newStatus === 'delivered') payload.delivered_at = new Date().toISOString();
-      await base44.entities.Order.update(orderId, payload, asSub ? { as_subscriber: asSub } : {});
+      await base44.entities.Order.update(orderId, payload, scopedEntityOpts);
       return { orderId, newStatus };
     },
     onSuccess: () => {

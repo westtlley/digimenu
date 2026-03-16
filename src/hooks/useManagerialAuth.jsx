@@ -8,6 +8,7 @@ import { apiClient as base44 } from '@/api/apiClient';
 import { usePermission } from '@/components/permissions/usePermission';
 import ManagerialAuthModal from '@/components/admin/ManagerialAuthModal';
 import toast from 'react-hot-toast';
+import { buildTenantEntityOpts, getTenantScopeKey } from '@/utils/tenantScope';
 
 const PRO_PLUS_PLANS = new Set(['pro', 'ultra', 'premium', 'admin']);
 
@@ -28,6 +29,12 @@ const ACTION_LABELS = {
 export function useManagerialAuth() {
   const { user, menuContext, subscriberData } = usePermission();
   const asSub = menuContext?.type === 'subscriber' ? menuContext.value : (user?.subscriber_email || user?.email);
+  const asSubId = menuContext?.type === 'subscriber' ? menuContext.subscriber_id : user?.subscriber_id;
+  const tenantScope = getTenantScopeKey(asSubId, asSub, 'self');
+  const scopedEntityOpts = buildTenantEntityOpts({
+    subscriberId: asSubId,
+    subscriberEmail: asSub,
+  });
   const roles = user?.profile_roles?.length ? user.profile_roles : user?.profile_role ? [user.profile_role] : [];
   const isGerente = roles.includes('gerente');
   const isMaster = !!user?.is_master;
@@ -41,9 +48,9 @@ export function useManagerialAuth() {
   });
 
   const { data: authConfig } = useQuery({
-    queryKey: ['managerial-auth', asSub],
-    queryFn: () => base44.get('/managerial-auth', asSub ? { as_subscriber: asSub } : {}),
-    enabled: !!asSub && !isMaster && requiresManagerialAuth,
+    queryKey: ['managerial-auth', tenantScope],
+    queryFn: () => base44.get('/managerial-auth', scopedEntityOpts),
+    enabled: (!!asSub || asSubId != null) && !isMaster && requiresManagerialAuth,
   });
 
   const configured = (isMaster || !requiresManagerialAuth)

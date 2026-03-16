@@ -5,6 +5,7 @@ import { base44 } from '@/api/base44Client';
 import { BACKEND_BASE_URL } from '@/api/apiClient';
 import toast from 'react-hot-toast';
 import { Bell } from 'lucide-react';
+import { getTenantScopeKey } from '@/utils/tenantScope';
 
 const SOCKET_URL = import.meta.env.VITE_WS_URL || BACKEND_BASE_URL || 'http://localhost:3000';
 
@@ -24,10 +25,11 @@ export function useWaiterCallWebSocket(options = true) {
   const scopedEntityOpts = {};
   if (subscriberIdOverride != null) scopedEntityOpts.as_subscriber_id = subscriberIdOverride;
   if (subscriberEmailOverride) scopedEntityOpts.as_subscriber = subscriberEmailOverride;
+  const tenantScope = getTenantScopeKey(subscriberIdOverride, subscriberEmailOverride, 'self');
 
   // Buscar chamadas pendentes
   const { data: allWaiterCalls = [] } = useQuery({
-    queryKey: ['WaiterCall', (subscriberIdOverride ?? subscriberEmailOverride) || 'self'],
+    queryKey: ['WaiterCall', tenantScope],
     queryFn: async () => {
       try {
         return await base44.entities.WaiterCall.list('-created_at', { status: 'pending', ...scopedEntityOpts });
@@ -83,7 +85,7 @@ export function useWaiterCallWebSocket(options = true) {
         const subscriberEmail = subscriberEmailOverride || user.subscriber_email || user.email;
         const subscriberId = subscriberIdOverride || user.subscriber_id || null;
         const waiterEmail = user.email;
-        if (!subscriberEmail) return;
+        if (subscriberId == null && !subscriberEmail) return;
         const token = base44.auth.getToken();
 
         socketRef.current = io(SOCKET_URL, {
@@ -104,6 +106,7 @@ export function useWaiterCallWebSocket(options = true) {
           console.log('✅ WebSocket Garçom conectado:', socket.id);
           
           socket.emit('subscribe:waiter', {
+            subscriberId,
             subscriberEmail,
             waiterEmail
           });
@@ -122,7 +125,7 @@ export function useWaiterCallWebSocket(options = true) {
           console.log('🔔 Chamada de garçom via WebSocket:', call);
           
           // Invalidar query para buscar novas chamadas
-          queryClient.invalidateQueries({ queryKey: ['WaiterCall'] });
+          queryClient.invalidateQueries({ queryKey: ['WaiterCall', tenantScope] });
           
           // Adicionar à lista de chamadas pendentes
           setWaiterCalls(prev => {
@@ -185,7 +188,7 @@ export function useWaiterCallWebSocket(options = true) {
         socketRef.current = null;
       }
     };
-  }, [enabled, queryClient, subscriberEmailOverride, subscriberIdOverride]);
+  }, [enabled, queryClient, subscriberEmailOverride, subscriberIdOverride, tenantScope]);
 
   return {
     waiterCalls,

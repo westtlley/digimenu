@@ -12,6 +12,7 @@ import { Plus, Trash2, MapPin, Search, Filter, TrendingUp, Package } from 'lucid
 import EmptyState from '@/components/ui/EmptyState';
 import toast from 'react-hot-toast';
 import { usePermission } from '../permissions/usePermission';
+import { getMenuContextEntityOpts, getMenuContextQueryKeyParts } from '@/utils/tenantScope';
 
 export default function DeliveryZonesTab() {
   const [showModal, setShowModal] = useState(false);
@@ -30,17 +31,14 @@ export default function DeliveryZonesTab() {
 
   const queryClient = useQueryClient();
   const { menuContext } = usePermission();
+  const entityOpts = getMenuContextEntityOpts(menuContext);
 
   // ✅ CORREÇÃO: Buscar store com contexto do slug
   const { data: stores = [] } = useQuery({ 
-    queryKey: ['store', menuContext?.type, menuContext?.value], 
+    queryKey: ['store', ...getMenuContextQueryKeyParts(menuContext)], 
     queryFn: async () => {
       if (!menuContext) return [];
-      const opts = {};
-      if (menuContext.type === 'subscriber' && menuContext.value) {
-        opts.as_subscriber = menuContext.value;
-      }
-      return base44.entities.Store.list(null, opts);
+      return base44.entities.Store.list(null, getMenuContextEntityOpts(menuContext));
     },
     enabled: !!menuContext,
   });
@@ -60,9 +58,9 @@ export default function DeliveryZonesTab() {
   }, [store]);
 
   const updateStoreMutation = useMutation({
-    mutationFn: ({ data }) => base44.entities.Store.update(store.id, data),
+    mutationFn: ({ data }) => base44.entities.Store.update(store.id, data, entityOpts),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['store'] });
+      queryClient.invalidateQueries({ queryKey: ['store', ...getMenuContextQueryKeyParts(menuContext)] });
       toast.success('Configuração de entrega salva');
     },
     onError: (e) => toast.error(e?.message || 'Erro ao salvar'),
@@ -70,15 +68,11 @@ export default function DeliveryZonesTab() {
 
   // ✅ CORREÇÃO: Buscar zonas com contexto do slug
   const { data: zones = [] } = useQuery({
-    queryKey: ['deliveryZones', menuContext?.type, menuContext?.value],
+    queryKey: ['deliveryZones', ...getMenuContextQueryKeyParts(menuContext)],
     queryFn: async () => {
       if (!menuContext) return [];
       try {
-        const opts = {};
-        if (menuContext.type === 'subscriber' && menuContext.value) {
-          opts.as_subscriber = menuContext.value;
-        }
-        const result = await base44.entities.DeliveryZone.list('neighborhood', opts);
+        const result = await base44.entities.DeliveryZone.list('neighborhood', getMenuContextEntityOpts(menuContext));
         return Array.isArray(result) ? result : [];
       } catch (error) {
         console.error('Erro ao buscar zonas:', error);

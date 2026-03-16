@@ -11,6 +11,7 @@ import KitchenDisplay from '@/components/cozinha/KitchenDisplay';
 import { printComanda } from '@/utils/gestorExport';
 import { createPageUrl } from '@/utils';
 import { getOrderDisplayStatus, getOrderProductionStatus, ORDER_PRODUCTION_STATUS } from '@/utils/orderLifecycle';
+import { userMatchesTenant } from '@/utils/tenantScope';
 
 export default function Cozinha() {
   const [user, setUser] = useState(null);
@@ -104,20 +105,19 @@ export default function Cozinha() {
           return;
         }
 
-        const isAssinante = me?.subscriber_email && (me?.email || '').toLowerCase().trim() === (me?.subscriber_email || '').toLowerCase().trim();
         const roles = me?.profile_roles?.length ? me.profile_roles : me?.profile_role ? [me.profile_role] : [];
         const isGerente = roles.includes('gerente');
         const isCozinha = me?.profile_role === 'cozinha' || roles.includes('cozinha');
-        const isOwner = !me.subscriber_email || (me.email && me.subscriber_email && me.email.toLowerCase().trim() === me.subscriber_email.toLowerCase().trim());
-        const slugSubscriberNormalized = (subscriberEmail || '').toLowerCase().trim();
-        const userSubscriberNormalized = (me?.subscriber_email || me?.email || '').toLowerCase().trim();
+        const matchesTenant = userMatchesTenant(me, {
+          subscriberId: normalizedSlugSubscriberId,
+          subscriberEmail: subscriberEmail,
+        });
         const tenantMatchesSlug =
           !inSlugContext ||
-          !slugSubscriberNormalized ||
-          me?.is_master === true ||
-          userSubscriberNormalized === slugSubscriberNormalized;
+          !subscriberEmail ||
+          matchesTenant;
 
-        const hasProfileAccess = (isCozinha || me?.is_master === true || isAssinante || isGerente || isOwner) && tenantMatchesSlug;
+        const hasProfileAccess = (isCozinha || me?.is_master === true || matchesTenant || isGerente) && tenantMatchesSlug;
 
         console.log('[Cozinha] Verificando acesso:', {
           email: me.email,
@@ -125,10 +125,9 @@ export default function Cozinha() {
           profile_role: me.profile_role,
           profile_roles: me.profile_roles,
           is_master: me.is_master,
-          isAssinante,
           isGerente,
           isCozinha,
-          isOwner,
+          matchesTenant,
           hasProfileAccess,
           tenantMatchesSlug,
         });
@@ -252,9 +251,11 @@ export default function Cozinha() {
   const roles = user?.profile_roles?.length ? user.profile_roles : user?.profile_role ? [user.profile_role] : [];
   const isGerenteRole = roles.includes('gerente');
   const isCozinhaRole = user?.profile_role === 'cozinha' || roles.includes('cozinha');
-  const isAssinante = user?.subscriber_email && (user?.email || '').toLowerCase().trim() === (user?.subscriber_email || '').toLowerCase().trim();
-  const isOwner = !user?.subscriber_email || (user?.email && user?.subscriber_email && user?.email.toLowerCase().trim() === user?.subscriber_email.toLowerCase().trim());
-  const canAccessKitchen = allowed && (isMaster || hasModuleAccess('cozinha') || isCozinhaRole || isGerenteRole || isAssinante || isOwner);
+  const matchesTenant = userMatchesTenant(user, {
+    subscriberId: normalizedSlugSubscriberId,
+    subscriberEmail,
+  });
+  const canAccessKitchen = allowed && (isMaster || hasModuleAccess('cozinha') || isCozinhaRole || isGerenteRole || matchesTenant);
 
   if (!allowed || !canAccessKitchen) {
     return (

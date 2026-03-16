@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { logger } from '@/utils/logger';
+import { userMatchesTenant } from '@/utils/tenantScope';
 
 const isDev = typeof import.meta !== 'undefined' && import.meta.env?.DEV;
 const trace = (...args) => {
@@ -112,12 +113,15 @@ export default function ProtectedRoute({
         }
 
         // Verificar se é assinante/dono (acesso livre a todas as ferramentas)
-        const hasSubscriberEmailMatch = userData?.subscriber_email && (userData?.email || '').toLowerCase().trim() === (userData?.subscriber_email || '').toLowerCase().trim();
         const roles = userData?.profile_roles?.length ? userData.profile_roles : userData?.profile_role ? [userData.profile_role] : [];
         const isGerente = roles.includes('gerente');
         const isColaborador = roles.length > 0;
-        // Dono do estabelecimento: email === subscriber_email OU (sem perfil de colaborador e não é cliente)
-        const isAssinante = hasSubscriberEmailMatch || (roles.length === 0 && userData?.role !== 'customer' && !userData?.is_master);
+        const hasCanonicalTenantMatch = userMatchesTenant(userData, {
+          subscriberId: canonicalSubscriberData?.id ?? canonicalSubscriberData?.subscriber_id ?? null,
+          subscriberEmail: canonicalSubscriberData?.email ?? canonicalSubscriberData?.subscriber_email ?? userData?.subscriber_email,
+        });
+        // Dono do estabelecimento: tenant canonico OU (sem perfil de colaborador e nao e cliente)
+        const isAssinante = hasCanonicalTenantMatch || (roles.length === 0 && userData?.role !== 'customer' && !userData?.is_master);
 
         // Verificar assinatura ativa
         if (requireActiveSubscription) {
@@ -318,4 +322,6 @@ export default function ProtectedRoute({
 
   return <>{children}</>;
 }
+
+
 

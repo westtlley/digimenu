@@ -3,6 +3,8 @@
  * Usado em GestorPedidos (playNotificationSound) e na seção Alertas de som (GestorSettings).
  */
 
+import { getScopedStorageKey } from './tenantScope';
+
 export const SOUND_OPTIONS = [
   { id: 'phone_classic', name: 'Som 1 - Telefone', url: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3' },
   { id: 'phone_urgent', name: 'Som 2 - Urgente', url: 'https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3' },
@@ -14,7 +16,7 @@ export const SOUND_OPTIONS = [
   { id: 'ifood_02', name: 'Som 8', url: 'https://assets.mixkit.co/active_storage/sfx/2872/2872-preview.mp3' },
 ];
 
-const STORAGE_KEY = 'gestor_notification_config';
+const getStorageKey = () => getScopedStorageKey('gestor_notification_config', null, 'global');
 
 /**
  * Retorna a URL do áudio para o id (ou customSoundUrl quando id === 'custom').
@@ -30,7 +32,7 @@ export function getSoundUrl(id, customSoundUrl = null) {
  */
 export function getNotificationSoundConfig() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(getStorageKey());
     if (!raw) return { url: SOUND_OPTIONS[0].url, volume: 0.8 };
     const c = JSON.parse(raw);
     if (c.soundEnabled === false) return { url: SOUND_OPTIONS[0].url, volume: 0 };

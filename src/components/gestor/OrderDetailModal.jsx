@@ -1,4 +1,4 @@
-﻿import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { 
@@ -23,19 +23,20 @@ import {
   isOrderNewForGestor,
   isOrderReadyForDispatch,
 } from '@/utils/orderLifecycle';
+import { buildTenantEntityOpts, getScopedStorageKey } from '@/utils/tenantScope';
 
 const PAYMENT_LABELS = {
   pix: 'PIX',
   dinheiro: 'Dinheiro',
-  cartao_credito: 'CartÃ£o de CrÃ©dito',
-  cartao_debito: 'CartÃ£o de DÃ©bito',
+  cartao_credito: 'Cartão de Crédito',
+  cartao_debito: 'Cartão de Débito',
 };
 
 const REJECTION_REASONS = [
   'Loja fechada',
-  'Produto indisponÃ­vel',
-  'Problema no endereÃ§o',
-  'Ãrea fora de cobertura',
+  'Produto indisponível',
+  'Problema no endereço',
+  'Área fora de cobertura',
   'Pedido duplicado',
   'Outro motivo',
 ];
@@ -43,6 +44,7 @@ const REJECTION_REASONS = [
 export default function OrderDetailModal({ 
   order, entregadores, onClose, onUpdate, user,
   asSub,
+  asSubId = null,
   suggestedPrepTime = 30, quickStatusKey, onClearQuickStatus,
   onViewMap, onDuplicate, onAddToPrintQueue,
 }) {
@@ -65,13 +67,17 @@ export default function OrderDetailModal({
 
   const canAlterPrepPerOrder = (() => {
     try {
-      const g = JSON.parse(localStorage.getItem('gestorSettings') || '{}');
+      const g = JSON.parse(localStorage.getItem(getScopedStorageKey('gestorSettings', null, 'global')) || '{}');
       return g.can_alter_prep_per_order !== false;
     } catch { return true; }
   })();
 
   const queryClient = useQueryClient();
-  const gestorOrdersKey = useMemo(() => ['gestorOrders', asSub ?? 'me'], [asSub]);
+  const gestorOrdersKey = useMemo(() => ['gestorOrders', asSubId ?? asSub ?? 'me'], [asSub, asSubId]);
+  const scopedEntityOpts = useMemo(
+    () => buildTenantEntityOpts({ subscriberId: asSubId, subscriberEmail: asSub }),
+    [asSub, asSubId]
+  );
 
   const buildStatusUpdates = React.useCallback((nextStatus, extra = {}) => {
     if (!nextStatus) return { ...extra };
@@ -89,7 +95,7 @@ export default function OrderDetailModal({
     };
   }, []);
 
-  // Atalho 1â€“4: aplicar status e limpar
+  // Atalho 1–4: aplicar status e limpar
   React.useEffect(() => {
     if (!quickStatusKey || updateMutation.isPending) return;
     const run = () => {
@@ -140,15 +146,15 @@ export default function OrderDetailModal({
       }
       
       if (nextProductionStatus === 'cancelled' && !['new', 'accepted', 'pending'].includes(productionStatus)) {
-        throw new Error('Pedidos em andamento nÃ£o podem ser cancelados');
+        throw new Error('Pedidos em andamento não podem ser cancelados');
       }
       
       // Validar tempo de preparo ao aceitar
       if (nextProductionStatus === 'accepted' && (!normalizedUpdates.prep_time || normalizedUpdates.prep_time < 5)) {
-        throw new Error('Tempo de preparo deve ser no mÃ­nimo 5 minutos');
+        throw new Error('Tempo de preparo deve ser no mínimo 5 minutos');
       }
       
-      // Gerar cÃ³digos automaticamente quando ficar pronto
+      // Gerar códigos automaticamente quando ficar pronto
       if (nextProductionStatus === 'ready') {
         if (!order.pickup_code && !normalizedUpdates.pickup_code) {
           normalizedUpdates.pickup_code = Math.floor(1000 + Math.random() * 9000).toString();
@@ -159,8 +165,7 @@ export default function OrderDetailModal({
       }
       
       const payload = { ...order, ...normalizedUpdates };
-      const updateOpts = asSub ? { as_subscriber: asSub } : {};
-      const res = await base44.entities.Order.update(id, payload, updateOpts);
+      const res = await base44.entities.Order.update(id, payload, scopedEntityOpts);
       
       try {
         await base44.entities.OrderLog.create({
@@ -170,7 +175,7 @@ export default function OrderDetailModal({
           new_status: nextDisplayStatus,
           user_email: user?.email,
           details: normalizedUpdates.rejection_reason || null,
-          ...(asSub && { as_subscriber: asSub })
+          ...scopedEntityOpts
         });
       } catch (e) {
         console.log('Log error:', e);
@@ -187,19 +192,19 @@ export default function OrderDetailModal({
       audio.volume = 0.5;
       audio.play().catch(() => {});
       const messages = {
-        'accepted': 'âœ… Pedido aceito!',
-        'preparing': 'ðŸ‘¨â€ðŸ³ Em preparo!',
-        'ready': 'âœ… Pronto!',
-        'out_for_delivery': 'ðŸšš Saiu para entrega!',
-        'delivered': 'âœ… Entregue!',
-        'cancelled': 'âŒ Cancelado',
+        'accepted': '✅ Pedido aceito!',
+        'preparing': '👨‍🍳 Em preparo!',
+        'ready': '✅ Pronto!',
+        'out_for_delivery': '🚚 Saiu para entrega!',
+        'delivered': '✅ Entregue!',
+        'cancelled': '❌ Cancelado',
       };
       if (messages[newStatus]) toast.success(messages[newStatus]);
 
       if (newStatus === 'accepted' && isAutoPrintEnabled()) {
         const printed = printComandaTicket(updatedOrder);
         if (!printed) {
-          toast.error('Popup bloqueado. Permita popups para impressÃƒÂ£o automÃƒÂ¡tica.');
+          toast.error('Popup bloqueado. Permita popups para impressÃ£o automÃ¡tica.');
         }
       }
 
@@ -233,7 +238,7 @@ export default function OrderDetailModal({
       return;
     }
     if (!isOrderNewForGestor(order)) {
-      toast.error('Este pedido jÃ¡ foi processado');
+      toast.error('Este pedido já foi processado');
       return;
     }
     updateMutation.mutate({
@@ -271,7 +276,7 @@ export default function OrderDetailModal({
     if (updateMutation.isPending) return;
     
     if (!['new', 'accepted', 'pending'].includes(productionStatus)) {
-      toast.error('Este pedido nÃ£o pode mais ser cancelado');
+      toast.error('Este pedido não pode mais ser cancelado');
       return;
     }
     
@@ -286,13 +291,13 @@ export default function OrderDetailModal({
     
     if (rejectionReason === 'Outro motivo' && !customRejectionReason.trim()) {
       setCustomRejectionError(true);
-      toast.error('Descreva o motivo da rejeiÃ§Ã£o');
+      toast.error('Descreva o motivo da rejeição');
       return;
     }
     
     if (finalReason.length < 5) {
       if (rejectionReason === 'Outro motivo') setCustomRejectionError(true);
-      toast.error('Motivo muito curto. MÃ­nimo de 5 caracteres');
+      toast.error('Motivo muito curto. Mínimo de 5 caracteres');
       return;
     }
     
@@ -312,7 +317,7 @@ export default function OrderDetailModal({
   const handleAssignDelivery = async () => {
     if (updateMutation.isPending) return;
     
-    // ValidaÃ§Ãµes
+    // Validações
     if (!selectedEntregador) {
       toast.error('Selecione um entregador');
       return;
@@ -320,23 +325,23 @@ export default function OrderDetailModal({
     
     const entregador = entregadores.find(e => e.id === selectedEntregador);
     if (!entregador) {
-      toast.error('Entregador nÃ£o encontrado');
+      toast.error('Entregador não encontrado');
       return;
     }
     
     if (entregador.status !== 'available') {
-      toast.error('Entregador nÃ£o estÃ¡ disponÃ­vel');
+      toast.error('Entregador não está disponível');
       return;
     }
     
     try {
-      // Buscar configuraÃ§Ã£o da loja para coordenadas
-      const stores = await base44.entities.Store.list(null, asSub ? { as_subscriber: asSub } : {});
+      // Buscar configuração da loja para coordenadas
+      const stores = await base44.entities.Store.list(null, scopedEntityOpts);
       const store = stores[0];
       
       const entregador = entregadores.find(e => e.id === selectedEntregador);
       
-      // Gerar cÃ³digos se ainda nÃ£o existirem
+      // Gerar códigos se ainda não existirem
       const updates = buildStatusUpdates('going_to_store', { 
         entregador_id: selectedEntregador,
         store_latitude: store?.store_latitude || -5.0892,
@@ -357,16 +362,15 @@ export default function OrderDetailModal({
       
       // Atualizar entregador
       if (entregador) {
-        const updOpts = asSub ? { as_subscriber: asSub } : {};
         await base44.entities.Entregador.update(selectedEntregador, {
           ...entregador,
           current_order_id: order.id,
           status: 'busy'
-        }, updOpts);
+        }, scopedEntityOpts);
       }
       
       setShowDeliveryModal(false);
-      toast.success(`Entregador ${entregador.name} estÃ¡ indo buscar o pedido`);
+      toast.success(`Entregador ${entregador.name} está indo buscar o pedido`);
     } catch (e) {
       console.error('Assign delivery error:', e);
       toast.error('Erro ao atribuir entregador');
@@ -375,32 +379,30 @@ export default function OrderDetailModal({
 
   const handleApproveChangeRequest = async () => {
     try {
-      const opts = asSub ? { as_subscriber: asSub } : {};
-      await base44.entities.Order.update(order.id, { ...order, customer_change_status: 'approved' }, opts);
+      await base44.entities.Order.update(order.id, { ...order, customer_change_status: 'approved' }, scopedEntityOpts);
       queryClient.invalidateQueries({ queryKey: gestorOrdersKey });
-      toast.success('AlteraÃ§Ã£o do cliente aceita.');
+      toast.success('Alteração do cliente aceita.');
       onUpdate();
     } catch (e) {
-      toast.error(e?.message || 'Erro ao aceitar alteraÃ§Ã£o.');
+      toast.error(e?.message || 'Erro ao aceitar alteração.');
     }
   };
 
   const handleRejectChangeRequest = async () => {
     const motivo = (changeRejectMotivo || '').trim();
     if (motivo.length < 3) {
-      toast.error('Informe um breve motivo da reprovaÃ§Ã£o (mÃ­n. 3 caracteres).');
+      toast.error('Informe um breve motivo da reprovação (mín. 3 caracteres).');
       return;
     }
     try {
-      const opts = asSub ? { as_subscriber: asSub } : {};
-      await base44.entities.Order.update(order.id, { ...order, customer_change_status: 'rejected', customer_change_response: motivo }, opts);
+      await base44.entities.Order.update(order.id, { ...order, customer_change_status: 'rejected', customer_change_response: motivo }, scopedEntityOpts);
       queryClient.invalidateQueries({ queryKey: gestorOrdersKey });
-      toast.success('AlteraÃ§Ã£o reprovada.');
+      toast.success('Alteração reprovada.');
       setShowRejectChangeModal(false);
       setChangeRejectMotivo('');
       onUpdate();
     } catch (e) {
-      toast.error(e?.message || 'Erro ao reprovar alteraÃ§Ã£o.');
+      toast.error(e?.message || 'Erro ao reprovar alteração.');
     }
   };
 
@@ -410,7 +412,7 @@ export default function OrderDetailModal({
       toast.error('Popup bloqueado. Permita popups para imprimir.');
       return;
     }
-    toast.success('Comanda enviada para impressÃ£o!');
+    toast.success('Comanda enviada para impressão!');
   };
 
   const availableEntregadores = entregadores.filter(e => e.status === 'available');
@@ -428,7 +430,7 @@ export default function OrderDetailModal({
                   Pedido #{order.order_code || order.id?.slice(-6).toUpperCase()}
                 </p>
                 <p className="text-xs opacity-75">
-                  {(order.created_at || order.created_date) ? formatBrazilianDateTime(order.created_at || order.created_date) : 'â€”'}
+                  {(order.created_at || order.created_date) ? formatBrazilianDateTime(order.created_at || order.created_date) : '—'}
                 </p>
               </div>
               <button onClick={onClose} className="text-white">
@@ -436,17 +438,17 @@ export default function OrderDetailModal({
               </button>
             </div>
             
-            {/* CÃ³digo de Retirada para Entregador - Apenas para o Gestor */}
+            {/* Código de Retirada para Entregador - Apenas para o Gestor */}
             {(productionStatus === 'ready' || ['going_to_store', 'arrived_at_store', 'picked_up'].includes(deliveryStatus)) && order.pickup_code && (
               <div className="bg-white/20 backdrop-blur-sm border-2 border-white/50 rounded-xl p-3 text-center mt-3">
                 <p className="text-xs font-semibold mb-1">
-                  {deliveryStatus === 'picked_up' ? 'âœ… CÃ³digo Validado' : 'CÃ³digo de Retirada'}
+                  {deliveryStatus === 'picked_up' ? '✅ Código Validado' : 'Código de Retirada'}
                 </p>
                 <p className="text-4xl font-bold tracking-widest">
                   {order.pickup_code}
                 </p>
                 <p className="text-[10px] opacity-90 mt-1">
-                  {deliveryStatus === 'picked_up' ? 'Pedido coletado' : productionStatus === 'ready' ? 'Pronto para coleta' : 'ForneÃ§a ao entregador'}
+                  {deliveryStatus === 'picked_up' ? 'Pedido coletado' : productionStatus === 'ready' ? 'Pronto para coleta' : 'Forneça ao entregador'}
                 </p>
               </div>
             )}
@@ -458,11 +460,11 @@ export default function OrderDetailModal({
               <p className="font-bold text-base">{order.customer_name}</p>
               <p className="text-xs text-gray-600">{order.customer_phone}</p>
               {order.delivery_method === 'delivery' && order.address && (
-                <p className="text-xs text-gray-600">ðŸ“ {order.address}</p>
+                <p className="text-xs text-gray-600">📍 {order.address}</p>
               )}
               <div className="flex items-center gap-2 flex-wrap">
                 <Badge variant="outline" className="text-xs">
-                  {order.delivery_method === 'delivery' ? 'ðŸš´ Entrega' : 'ðŸª Retirada'}
+                  {order.delivery_method === 'delivery' ? '🚴 Entrega' : '🏪 Retirada'}
                 </Badge>
                 <Badge variant="outline" className="text-xs">
                   {PAYMENT_LABELS[order.payment_method] || order.payment_method}
@@ -470,19 +472,19 @@ export default function OrderDetailModal({
               </div>
               {order.scheduled_date && order.scheduled_time && (
                 <p className="text-xs text-blue-600 font-bold bg-blue-50 p-2 rounded">
-                  â° AGENDADO: {formatScheduledDateTime(order.scheduled_date, order.scheduled_time)}
+                  ⏰ AGENDADO: {formatScheduledDateTime(order.scheduled_date, order.scheduled_time)}
                 </p>
               )}
             </div>
 
-            {/* SolicitaÃ§Ã£o de alteraÃ§Ã£o/adicional do cliente */}
+            {/* Solicitação de alteração/adicional do cliente */}
             {order.customer_change_request && (
               <div className={`rounded-lg p-3 border ${
                 order.customer_change_status === 'approved' ? 'bg-green-50 border-green-200' :
                 order.customer_change_status === 'rejected' ? 'bg-red-50 border-red-200' :
                 'bg-amber-50 border-amber-200'
               }`}>
-                <p className="text-xs font-semibold text-gray-700 mb-1">âœï¸ SolicitaÃ§Ã£o do cliente</p>
+                <p className="text-xs font-semibold text-gray-700 mb-1">✏️ Solicitação do cliente</p>
                 <p className="text-sm text-gray-800">{order.customer_change_request}</p>
                 {(!order.customer_change_status || order.customer_change_status === 'pending') && (
                   <div className="flex gap-2 mt-2">
@@ -495,7 +497,7 @@ export default function OrderDetailModal({
                   </div>
                 )}
                 {order.customer_change_status === 'approved' && (
-                  <Badge className="mt-2 bg-green-600">AlteraÃ§Ã£o aceita</Badge>
+                  <Badge className="mt-2 bg-green-600">Alteração aceita</Badge>
                 )}
                 {order.customer_change_status === 'rejected' && (
                   <div className="mt-2">
@@ -512,7 +514,7 @@ export default function OrderDetailModal({
             <div className="space-y-2">
               <div>
                 <label className="text-xs font-medium text-gray-600 block mb-1">Notas internas</label>
-                <Textarea value={internalNotes} onChange={(e) => setInternalNotes(e.target.value)} placeholder="SÃ³ vocÃª vÃª" rows={2} className="resize-none text-sm focus:border-gray-800 focus:ring-1 focus:ring-gray-800/20 focus:outline-none" />
+                <Textarea value={internalNotes} onChange={(e) => setInternalNotes(e.target.value)} placeholder="Só você vê" rows={2} className="resize-none text-sm focus:border-gray-800 focus:ring-1 focus:ring-gray-800/20 focus:outline-none" />
                 <Button type="button" size="sm" variant="ghost" className="mt-1 h-7 text-xs" onClick={() => updateMutation.mutate({ id: order.id, updates: { internal_notes: internalNotes } })} disabled={updateMutation.isPending}>
                   Salvar notas
                 </Button>
@@ -535,7 +537,7 @@ export default function OrderDetailModal({
               className="w-full"
             >
               <Clock className="w-4 h-4 mr-2" />
-              {showTimeline ? 'Ocultar HistÃ³rico' : 'Ver HistÃ³rico do Pedido'}
+              {showTimeline ? 'Ocultar Histórico' : 'Ver Histórico do Pedido'}
             </Button>
 
             {showTimeline && (
@@ -564,7 +566,7 @@ export default function OrderDetailModal({
                             if (!g) return null;
                             const title = g.title || 'Itens do combo';
                             const isDrinkGroup = /bebid/i.test(title);
-                            const groupEmoji = isDrinkGroup ? 'ðŸ¥¤' : 'ðŸ½ï¸';
+                            const groupEmoji = isDrinkGroup ? '🥤' : '🍽️';
                             const groupLabel = isDrinkGroup ? 'BEBIDAS' : 'PRATOS';
                             const items = Array.isArray(g.items) ? g.items : [];
                             if (items.length === 0) return null;
@@ -585,16 +587,16 @@ export default function OrderDetailModal({
                                         const showIndex = instances.length > 1;
                                         return (
                                           <div key={instIdx} className="space-y-0.5">
-                                            <p>â€¢ {showIndex ? `${isDrinkGroup ? 'Bebida' : 'Prato'} ${instIdx + 1}: ` : ''}{name}</p>
+                                            <p>• {showIndex ? `${isDrinkGroup ? 'Bebida' : 'Prato'} ${instIdx + 1}: ` : ''}{name}</p>
                                             {inst?.selections && typeof inst.selections === 'object' && (
                                               <div className="ml-3 space-y-0.5">
                                                 {Object.values(inst.selections).flatMap((groupSel, si) => {
                                                   if (Array.isArray(groupSel)) {
                                                     return groupSel.map((opt, oi) => (
-                                                      opt?.name ? <p key={`${si}_${oi}`}>â†³ {opt.name}</p> : null
+                                                      opt?.name ? <p key={`${si}_${oi}`}>↳ {opt.name}</p> : null
                                                     ));
                                                   }
-                                                  if (groupSel?.name) return [<p key={si}>â†³ {groupSel.name}</p>];
+                                                  if (groupSel?.name) return [<p key={si}>↳ {groupSel.name}</p>];
                                                   return [null];
                                                 })}
                                               </div>
@@ -615,9 +617,9 @@ export default function OrderDetailModal({
                         <div className="ml-2 text-xs text-gray-600 mt-1 space-y-0.5">
                           {Object.entries(item.selections).map(([groupId, sel]) => {
                             if (Array.isArray(sel)) {
-                              return sel.map((opt, i) => <p key={i}>â€¢ {opt.name}</p>);
+                              return sel.map((opt, i) => <p key={i}>• {opt.name}</p>);
                             } else if (sel) {
-                              return <p key={groupId}>â€¢ {sel.name}</p>;
+                              return <p key={groupId}>• {sel.name}</p>;
                             }
                             return null;
                           })}
@@ -627,7 +629,7 @@ export default function OrderDetailModal({
 
                       {item.observations && (
                         <p className="ml-2 text-xs text-gray-600 italic mt-1">
-                          ðŸ“ {item.observations}
+                          📝 {item.observations}
                         </p>
                       )}
                       
@@ -689,7 +691,7 @@ export default function OrderDetailModal({
                     </div>
                   )}
                   {!canAlterPrepPerOrder && (
-                    <p className="text-xs text-gray-500 mb-2">Tempo de preparo: {suggestedPrepTime || 30} min (padrÃ£o)</p>
+                    <p className="text-xs text-gray-500 mb-2">Tempo de preparo: {suggestedPrepTime || 30} min (padrão)</p>
                   )}
                   <Button 
                     onClick={handleAccept} 
@@ -735,7 +737,7 @@ export default function OrderDetailModal({
                 </Button>
               )}
 
-              {/* CÃ³digos exibidos no cabeÃ§alho do modal */}
+              {/* Códigos exibidos no cabeçalho do modal */}
 
               {productionStatus === 'ready' && order.delivery_method === 'pickup' && (
                 <Button onClick={handleNextStatus} className="rounded w-full bg-green-600 hover:bg-green-700 h-12 font-semibold transition-all duration-100">
@@ -760,7 +762,7 @@ export default function OrderDetailModal({
                 </>
               )}
 
-              {/* Status rÃ¡pido: botÃµes em destaque para toque */}
+              {/* Status rápido: botões em destaque para toque */}
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-2 border-t border-gray-200">
                 <Button
                   size="sm"
@@ -825,7 +827,7 @@ export default function OrderDetailModal({
                 )}
                 {order.customer_phone && (
                   <>
-                    <Button variant="outline" size="sm" onClick={() => { const p = order.customer_phone?.replace(/\D/g, ''); const msg = `OlÃ¡! Seu pedido #${order.order_code || order.id} estÃ¡: ${displayStatus}.`; window.open(`https://wa.me/55${p}?text=${encodeURIComponent(msg)}`, '_blank'); }}>
+                    <Button variant="outline" size="sm" onClick={() => { const p = order.customer_phone?.replace(/\D/g, ''); const msg = `Olá! Seu pedido #${order.order_code || order.id} está: ${displayStatus}.`; window.open(`https://wa.me/55${p}?text=${encodeURIComponent(msg)}`, '_blank'); }}>
                       <Send className="w-4 h-4 mr-1" /> Enviar status
                     </Button>
                     <Button variant="outline" size="sm" onClick={() => window.open(`https://wa.me/55${order.customer_phone?.replace(/\D/g, '')}`, '_blank')}>
@@ -844,7 +846,7 @@ export default function OrderDetailModal({
                   </Button>
                 )}
               </div>
-              <p className="text-[10px] text-gray-400 mt-1">1â€“4: atalhos de status | Esc: fechar</p>
+              <p className="text-[10px] text-gray-400 mt-1">1–4: atalhos de status | Esc: fechar</p>
             </div>
           </div>
         </DialogContent>
@@ -854,9 +856,9 @@ export default function OrderDetailModal({
       <Dialog open={showRejectModal} onOpenChange={setShowRejectModal}>
         <DialogContent className="max-w-sm">
           <div className="space-y-4">
-            <DialogTitle className="font-bold text-lg text-red-600">âš ï¸ Rejeitar Pedido</DialogTitle>
+            <DialogTitle className="font-bold text-lg text-red-600">⚠️ Rejeitar Pedido</DialogTitle>
             <DialogDescription className="text-sm text-gray-600">
-              Tem certeza? Selecione o motivo da rejeiÃ§Ã£o. Esta aÃ§Ã£o nÃ£o pode ser desfeita.
+              Tem certeza? Selecione o motivo da rejeição. Esta ação não pode ser desfeita.
             </DialogDescription>
             <div className="space-y-2">
               {REJECTION_REASONS.map(reason => (
@@ -887,7 +889,7 @@ export default function OrderDetailModal({
                   className={`resize-none min-h-[52px] focus:outline-none focus:ring-1 focus:ring-gray-800/20 focus:border-gray-800 ${customRejectionError ? 'border-2 border-red-500' : ''}`}
                 />
                 <p className={`text-xs mt-1 ${customRejectionError ? 'text-red-500' : 'text-gray-500'}`}>
-                  MÃ­nimo de 5 caracteres
+                  Mínimo de 5 caracteres
                 </p>
               </div>
             )}
@@ -915,7 +917,7 @@ export default function OrderDetailModal({
                     Processando...
                   </>
                 ) : (
-                  'Confirmar RejeiÃ§Ã£o'
+                  'Confirmar Rejeição'
                 )}
               </Button>
             </div>
@@ -923,18 +925,18 @@ export default function OrderDetailModal({
         </DialogContent>
       </Dialog>
 
-      {/* Reprovar alteraÃ§Ã£o do cliente */}
+      {/* Reprovar alteração do cliente */}
       <Dialog open={showRejectChangeModal} onOpenChange={(open) => { setShowRejectChangeModal(open); if (!open) setChangeRejectMotivo(''); }}>
         <DialogContent className="max-w-sm">
           <div className="space-y-4">
-            <DialogTitle className="font-bold text-lg text-amber-700">Reprovar alteraÃ§Ã£o solicitada</DialogTitle>
+            <DialogTitle className="font-bold text-lg text-amber-700">Reprovar alteração solicitada</DialogTitle>
             <DialogDescription className="text-sm text-gray-600">
-              Informe um breve motivo para o cliente (mÃ­n. 3 caracteres). Ex.: &quot;Ingrediente indisponÃ­vel&quot;.
+              Informe um breve motivo para o cliente (mín. 3 caracteres). Ex.: &quot;Ingrediente indisponível&quot;.
             </DialogDescription>
             <Textarea
               value={changeRejectMotivo}
               onChange={(e) => setChangeRejectMotivo(e.target.value)}
-              placeholder="Motivo da reprovaÃ§Ã£o..."
+              placeholder="Motivo da reprovação..."
               rows={3}
               className="resize-none min-h-[52px] focus:border-gray-800 focus:ring-1 focus:ring-gray-800/20 focus:outline-none"
             />
@@ -943,7 +945,7 @@ export default function OrderDetailModal({
                 Cancelar
               </Button>
               <Button onClick={handleRejectChangeRequest} disabled={(changeRejectMotivo || '').trim().length < 3} className="rounded flex-1 bg-amber-600 hover:bg-amber-700 transition-all duration-100">
-                Reprovar alteraÃ§Ã£o
+                Reprovar alteração
               </Button>
             </div>
           </div>
@@ -956,7 +958,7 @@ export default function OrderDetailModal({
           <div className="space-y-4">
             <DialogTitle className="font-bold text-lg">Chamar Entregador</DialogTitle>
             {availableEntregadores.length === 0 ? (
-              <p className="text-center text-gray-500 py-4">Nenhum entregador disponÃ­vel</p>
+              <p className="text-center text-gray-500 py-4">Nenhum entregador disponível</p>
             ) : (
               <>
                 <div className="space-y-2">
@@ -1002,5 +1004,6 @@ export default function OrderDetailModal({
     </>
   );
 }
+
 
 

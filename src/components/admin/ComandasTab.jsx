@@ -27,6 +27,7 @@ import TransferItemsModal from './TransferItemsModal';
 import { usePermission } from '../permissions/usePermission';
 import { useMenuDishes } from '@/hooks/useMenuData';
 import { printComanda as printComandaTicket } from '@/utils/gestorExport';
+import { buildTenantEntityOpts, getMenuContextEntityOpts, getMenuContextQueryKeyParts, getTenantScopeKey } from '@/utils/tenantScope';
 
 const PAYMENT_METHODS = [
   { value: 'pix', label: 'PIX' },
@@ -41,7 +42,7 @@ const formatCurrency = (v) =>
 const formatDate = (d) =>
   d ? new Date(d).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '';
 
-export default function ComandasTab({ subscriberEmail = null }) {
+export default function ComandasTab({ subscriberEmail = null, subscriberId = null }) {
   const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
@@ -57,21 +58,20 @@ export default function ComandasTab({ subscriberEmail = null }) {
   const { menuContext } = usePermission();
   
   // ✅ CORREÇÃO: Obter subscriberEmail do menuContext quando disponível
-  const getSubscriberEmail = () => {
-    if (subscriberEmail) return subscriberEmail;
-    if (menuContext?.type === 'subscriber' && menuContext.value) {
-      return menuContext.value;
-    }
-    return null;
-  };
-
-  const effectiveSubscriberEmail = getSubscriberEmail();
+  const effectiveSubscriberEmail = subscriberEmail || (menuContext?.type === 'subscriber' ? menuContext.value : null);
+  const effectiveSubscriberId = subscriberId ?? (menuContext?.type === 'subscriber' ? menuContext.subscriber_id : null);
+  const tenantScope = getTenantScopeKey(effectiveSubscriberId, effectiveSubscriberEmail, 'self');
+  const scopedEntityOpts = subscriberId != null || subscriberEmail
+    ? buildTenantEntityOpts({ subscriberId: effectiveSubscriberId, subscriberEmail: effectiveSubscriberEmail })
+    : getMenuContextEntityOpts(menuContext);
+  const comandasQueryKeyBase = ['Comanda', ...getMenuContextQueryKeyParts(menuContext), tenantScope];
 
   // WebSocket para comandas em tempo real
   useComandaWebSocket({
     subscriberEmail: effectiveSubscriberEmail,
+    subscriberId: effectiveSubscriberId,
     onComandaUpdate: (comanda) => {
-      queryClient.setQueryData(['Comanda', menuContext?.type, menuContext?.value, statusFilter], (old) => {
+      queryClient.setQueryData([...comandasQueryKeyBase, statusFilter], (old) => {
         if (!old) return [comanda];
         const index = old.findIndex(c => c.id === comanda.id);
         if (index >= 0) {
@@ -83,20 +83,18 @@ export default function ComandasTab({ subscriberEmail = null }) {
       });
     },
     onComandaCreated: (comanda) => {
-      queryClient.invalidateQueries({ queryKey: ['Comanda', menuContext?.type, menuContext?.value] });
+      queryClient.invalidateQueries({ queryKey: comandasQueryKeyBase });
     },
     enableNotifications: false // Não mostrar notificações no admin
   });
 
   // ✅ CORREÇÃO: Buscar comandas com contexto do slug
   const { data: comandas = [], isLoading } = useQuery({
-    queryKey: ['Comanda', menuContext?.type, menuContext?.value, statusFilter],
+    queryKey: [...comandasQueryKeyBase, statusFilter],
     queryFn: async () => {
       if (!menuContext) return [];
       const params = statusFilter && statusFilter !== 'all' ? { status: statusFilter } : {};
-      if (menuContext.type === 'subscriber' && menuContext.value) {
-        params.as_subscriber = menuContext.value;
-      }
+      Object.assign(params, scopedEntityOpts);
       return base44.entities.Comanda.list('-created_at', params);
     },
     enabled: !!menuContext,
@@ -108,9 +106,9 @@ export default function ComandasTab({ subscriberEmail = null }) {
   const safeDishes = Array.isArray(dishes) ? dishes.filter((d) => d.is_active !== false) : [];
 
   const createMutation = useMutation({
-    mutationFn: (data) => base44.entities.Comanda.create(data),
+    mutationFn: (data) => base44.entities.Comanda.create({ ...data, ...scopedEntityOpts }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['Comanda'] });
+      queryClient.invalidateQueries({ queryKey: comandasQueryKeyBase });
       setFormOpen(false);
       setEditingComanda(null);
       toast.success('Comanda criada');
@@ -119,9 +117,9 @@ export default function ComandasTab({ subscriberEmail = null }) {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.Comanda.update(id, data),
+    mutationFn: ({ id, data }) => base44.entities.Comanda.update(id, data, scopedEntityOpts),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['Comanda'] });
+      queryClient.invalidateQueries({ queryKey: comandasQueryKeyBase });
       setFormOpen(false);
       setEditingComanda(null);
       toast.success('Comanda atualizada');

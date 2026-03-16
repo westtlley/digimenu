@@ -37,6 +37,7 @@ import { useManagerialAuth } from '@/hooks/useManagerialAuth';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useEntitlements } from '@/hooks/useEntitlements';
 import { useOperationalOrdersRealtime } from '@/hooks/useOperationalOrdersRealtime';
+import { buildTenantEntityOpts, getScopedStorageKey, userMatchesTenant } from '@/utils/tenantScope';
 import { LimitBlockModal } from '@/components/plans';
 import {
   isOrderFinalized,
@@ -78,7 +79,7 @@ export default function GestorPedidos() {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [soundEnabled, setSoundEnabled] = useState(() => {
     try {
-      const saved = localStorage.getItem('gestor_notification_config');
+      const saved = localStorage.getItem(gestorNotificationStorageKey);
       if (saved) {
         const config = JSON.parse(saved);
         return config.soundEnabled !== false;
@@ -105,7 +106,7 @@ export default function GestorPedidos() {
   const autoPrintedIdsRef = useRef(new Set());
   const realtimeRefetchTimeoutRef = useRef(null);
   const queryClient = useQueryClient();
-  const { isMaster, hasModuleAccess, canUpdate, loading: permLoading, user, subscriberData } = usePermission();
+  const { isMaster, hasModuleAccess, canUpdate, loading: permLoading, user, subscriberData, menuContext } = usePermission();
   const { slug, subscriberId, subscriberEmail, inSlugContext, loading: slugLoading, error: slugError } = useSlugContext();
   const { canCreateOrder, plan, effectiveLimits, usage, limitReached } = useEntitlements();
   const [limitBlockOpen, setLimitBlockOpen] = useState(false);
@@ -116,9 +117,15 @@ export default function GestorPedidos() {
   // Em /s/:slug, master usa as_subscriber; assinante/colaborador jÃƒÂ¡ ÃƒÂ© filtrado pelo backend
   const asSub = (inSlugContext && isMaster && subscriberEmail) ? subscriberEmail : undefined;
   const asSubId = (inSlugContext && isMaster && subscriberId != null) ? subscriberId : undefined;
-  const canAccessSlug = !inSlugContext || isMaster || (user?.email || '').toLowerCase() === (subscriberEmail || '').toLowerCase() || (user?.subscriber_email || '').toLowerCase() === (subscriberEmail || '').toLowerCase();
+  const canAccessSlug = !inSlugContext || isMaster || userMatchesTenant(user, {
+    subscriberId,
+    subscriberEmail,
+  });
   const gestorOrdersKey = useMemo(() => ['gestorOrders', asSubId ?? asSub ?? 'me'], [asSub, asSubId]);
   const entregadoresKey = useMemo(() => ['entregadores', asSubId ?? asSub ?? 'me'], [asSub, asSubId]);
+  const scopedEntityOpts = useMemo(() => buildTenantEntityOpts({ subscriberId: asSubId, subscriberEmail: asSub }), [asSub, asSubId]);
+  const gestorNotificationStorageKey = useMemo(() => getScopedStorageKey('gestor_notification_config', menuContext, 'global'), [menuContext]);
+  const gestorSettingsStorageKey = useMemo(() => getScopedStorageKey('gestorSettings', menuContext, 'global'), [menuContext]);
   const normalizeTenantEmail = useCallback((value) => String(value || '').toLowerCase().trim() || null, []);
   const tenantIdentifier = useMemo(() => normalizeTenantEmail(asSub || user?.subscriber_email || user?.email), [
     asSub,
@@ -252,13 +259,13 @@ export default function GestorPedidos() {
 
   const loadGestorSettings = () => {
     try {
-      const saved = localStorage.getItem('gestor_notification_config');
+      const saved = localStorage.getItem(gestorNotificationStorageKey);
       if (saved) {
         const config = JSON.parse(saved);
         setNotificationConfig(config);
         setSoundEnabled(config.soundEnabled !== false);
       }
-      const gs = localStorage.getItem('gestorSettings');
+      const gs = localStorage.getItem(gestorSettingsStorageKey);
       const gestorSettings = gs ? JSON.parse(gs) : {};
       if (gestorSettings.sound_notifications === false) setSoundEnabled(false);
     } catch (e) {
@@ -281,7 +288,7 @@ export default function GestorPedidos() {
   // Aceitar automaticamente (quando ativado em ConfiguraÃƒÂ§ÃƒÂµes do gestor) Ã¢â‚¬â€ update parcial para nÃƒÂ£o sobrescrever dados
   useEffect(() => {
     try {
-      const gs = localStorage.getItem('gestorSettings');
+      const gs = localStorage.getItem(gestorSettingsStorageKey);
       const gestorSettings = gs ? JSON.parse(gs) : {};
       if (!gestorSettings.auto_accept || !orders.length) return;
 
@@ -298,7 +305,7 @@ export default function GestorPedidos() {
               production_status: 'accepted',
               accepted_at: new Date().toISOString(),
               prep_time: prepTime,
-            }, asSub ? { as_subscriber: asSub } : {});
+            }, scopedEntityOpts);
 
             if (shouldAutoPrint && !autoPrintedIdsRef.current.has(o.id)) {
               autoPrintedIdsRef.current.add(o.id);
@@ -314,7 +321,7 @@ export default function GestorPedidos() {
               }
             }
 
-            queryClient.invalidateQueries({ queryKey: ['gestorOrders', asSub ?? 'me'] });
+            queryClient.invalidateQueries({ queryKey: gestorOrdersKey });
           } catch (e) {
             autoAcceptedIdsRef.current.delete(o.id);
           }
@@ -354,7 +361,7 @@ export default function GestorPedidos() {
   // "EstÃƒÂ¡ aÃƒÂ­?" (inatividade): apÃƒÂ³s N min sem interaÃƒÂ§ÃƒÂ£o, modal
   useEffect(() => {
     try {
-      const gs = JSON.parse(localStorage.getItem('gestorSettings') || '{}');
+      const gs = JSON.parse(localStorage.getItem(gestorSettingsStorageKey) || '{}');
       if (!gs.are_you_there_enabled) return;
       const mins = Math.max(1, Math.min(120, Number(gs.are_you_there_minutes) || 15));
       const ms = mins * 60 * 1000;
@@ -386,7 +393,7 @@ export default function GestorPedidos() {
   useEffect(() => {
     const checkLateOrders = async () => {
       try {
-        const gs = JSON.parse(localStorage.getItem('gestorSettings') || '{}');
+        const gs = JSON.parse(localStorage.getItem(gestorSettingsStorageKey) || '{}');
         const mode = gs.auto_cancel_mode || 'off'; // 'off' | 'alert' | 'cancel'
         if (mode === 'off') return;
         const marginMins = Math.max(0, Math.min(60, Number(gs.auto_cancel_minutes) ?? 10));
@@ -406,10 +413,10 @@ export default function GestorPedidos() {
           await base44.entities.Order.update(order.id, {
             production_status: 'cancelled',
             rejection_reason: 'Cancelado automaticamente por atraso (tempo de preparo excedido)'
-          }, asSub ? { as_subscriber: asSub } : {});
+          }, scopedEntityOpts);
           didUpdate = true;
         }
-        if (didUpdate) queryClient.invalidateQueries({ queryKey: ['gestorOrders', asSub ?? 'me'] });
+        if (didUpdate) queryClient.invalidateQueries({ queryKey: gestorOrdersKey });
       } catch (_) {}
     };
     const interval = setInterval(checkLateOrders, 60000);
@@ -452,7 +459,7 @@ export default function GestorPedidos() {
       // Ctrl/Cmd + R: Refresh (prevenir reload padrÃƒÂ£o)
       if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
         e.preventDefault();
-        queryClient.invalidateQueries({ queryKey: ['gestorOrders', asSub ?? 'me'] });
+        queryClient.invalidateQueries({ queryKey: gestorOrdersKey });
         toast.success('Pedidos atualizados!');
         return;
       }
@@ -700,7 +707,7 @@ export default function GestorPedidos() {
               <Button variant="ghost" size="icon" className="h-9 w-9 min-h-touch min-w-touch" onClick={() => setSoundEnabled(!soundEnabled)} title={soundEnabled ? 'Desligar som' : 'Ligar som'}>
                 {soundEnabled ? <Volume2 className="w-4 h-4 text-muted-foreground" /> : <VolumeX className="w-4 h-4 text-muted-foreground" />}
               </Button>
-              <Button variant="ghost" size="icon" className="h-9 w-9 min-h-touch min-w-touch" onClick={() => queryClient.invalidateQueries({ queryKey: ['gestorOrders', asSub ?? 'me'] })} title="Atualizar">
+              <Button variant="ghost" size="icon" className="h-9 w-9 min-h-touch min-w-touch" onClick={() => queryClient.invalidateQueries({ queryKey: gestorOrdersKey })} title="Atualizar">
                 <RefreshCw className={`w-4 h-4 text-muted-foreground ${isLoading ? 'animate-spin' : ''}`} />
               </Button>
               <Button variant="ghost" size="icon" className="h-9 w-9 min-h-touch min-w-touch hidden sm:flex" onClick={() => setViewMode('resumo')} title="Resumo">
@@ -1111,7 +1118,7 @@ export default function GestorPedidos() {
           <FinancialDashboard orders={orders} />
         )}
         {viewMode === 'delivery' && (
-          <DeliveryPanel entregadores={entregadores} orders={orders} stores={stores} asSub={asSub} />
+          <DeliveryPanel entregadores={entregadores} orders={orders} stores={stores} asSub={asSub} asSubId={asSubId} />
         )}
         {viewMode === 'settings' && (
           <GestorSettings />
@@ -1240,11 +1247,12 @@ export default function GestorPedidos() {
           entregadores={entregadores}
           onClose={() => setSelectedOrder(null)}
           onUpdate={(updatedOrder) => {
-            queryClient.invalidateQueries({ queryKey: ['gestorOrders', asSub ?? 'me'] });
+            queryClient.invalidateQueries({ queryKey: gestorOrdersKey });
             setSelectedOrder(updatedOrder ?? null);
           }}
           user={user}
           asSub={asSub}
+          asSubId={asSubId}
           suggestedPrepTime={suggestedPrepTime}
           quickStatusKey={quickStatusKey}
           onClearQuickStatus={() => setQuickStatusKey(null)}
@@ -1281,10 +1289,10 @@ export default function GestorPedidos() {
                   delivery_status: 'pending',
                   status: 'new',
                   created_date: new Date().toISOString(),
-                  ...(asSub && { as_subscriber: asSub }),
+                  ...scopedEntityOpts,
                 };
                 await base44.entities.Order.create(data);
-                queryClient.invalidateQueries({ queryKey: ['gestorOrders', asSub ?? 'me'] });
+                queryClient.invalidateQueries({ queryKey: gestorOrdersKey });
                 toast.success('Pedido duplicado.');
                 setSelectedOrder(null);
               } catch (e) { toast.error(e?.message || 'Erro ao duplicar.'); }
@@ -1307,3 +1315,4 @@ export default function GestorPedidos() {
     </div>
   );
 }
+

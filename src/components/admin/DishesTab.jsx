@@ -33,6 +33,7 @@ import MobileCategoryAccordion from './mobile/MobileCategoryAccordion';
 import MobileFloatingActions from './mobile/MobileFloatingActions';
 import MobileFilterChips from './mobile/MobileFilterChips';
 import MobileBottomSheet from './mobile/MobileBottomSheet';
+import { getMenuContextEntityOpts, getMenuContextQueryKeyParts, getMenuContextSubscriberEmail } from '@/utils/tenantScope';
 import MobileDishSkeleton from './mobile/MobileDishSkeleton';
 import MobileDishComplementsSheet from './mobile/MobileDishComplementsSheet';
 import toast from 'react-hot-toast';
@@ -676,27 +677,14 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
   });
 
   // ✅ Helper para obter subscriber_email correto baseado no contexto
-  const getSubscriberEmail = () => {
-    if (!menuContext) return user?.email || null;
-    
-    // Se for subscriber, usar o value do menuContext
-    if (menuContext.type === 'subscriber' && menuContext.value) {
-      return menuContext.value;
-    }
-    
-    // Master pode não ter subscriber_email (null é válido)
-    if (menuContext.type === 'slug') {
-      return null; // Master usa dados próprios
-    }
-    
-    // Fallback
-    return user?.email || null;
-  };
+  const getSubscriberEmail = () => getMenuContextSubscriberEmail(menuContext, user?.email);
+  const menuQueryKeyParts = getMenuContextQueryKeyParts(menuContext);
+  const menuEntityOpts = getMenuContextEntityOpts(menuContext);
 
   // ========= BUSCAR DADOS COM CONTEXTO =========
   // ✅ Admin API; quando slug (master) usamos publicCardapio para exibir
   const { data: adminDishes = [], isLoading: dishesLoading, error: dishesError, refetch: refetchDishes } = useQuery({
-    queryKey: ['dishes', menuContext?.type, menuContext?.value],
+    queryKey: ['dishes', ...menuQueryKeyParts],
     queryFn: async () => {
       if (!menuContext) return [];
       return await fetchAdminDishes(menuContext);
@@ -711,7 +699,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
   });
 
   const { data: adminCategories = [], isLoading: categoriesLoading, error: categoriesError, refetch: refetchCategories } = useQuery({
-    queryKey: ['categories', menuContext?.type, menuContext?.value],
+    queryKey: ['categories', ...menuQueryKeyParts],
     queryFn: async () => {
       if (!menuContext) return [];
       return await fetchAdminCategories(menuContext);
@@ -725,7 +713,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
   });
 
   const { data: adminComplementGroups = [], isLoading: groupsLoading, error: groupsError } = useQuery({
-    queryKey: ['complementGroups', menuContext?.type, menuContext?.value],
+    queryKey: ['complementGroups', ...menuQueryKeyParts],
     queryFn: async () => {
       if (!menuContext) return [];
       return await fetchAdminComplementGroups(menuContext);
@@ -768,12 +756,13 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
       const subscriberEmail = getSubscriberEmail();
       const dishData = {
         ...data,
-        ...(subscriberEmail && { as_subscriber: subscriberEmail, owner_email: subscriberEmail })
+        ...(subscriberEmail && { owner_email: subscriberEmail }),
+        ...menuEntityOpts
       };
       return base44.entities.Dish.create(dishData);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['dishes', menuContext?.type, menuContext?.value] });
+      queryClient.invalidateQueries({ queryKey: ['dishes', ...menuQueryKeyParts] });
       if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
       toast.success('Prato adicionado com sucesso!');
       closeDishModal();
@@ -785,11 +774,11 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
 
   const updateDishMutation = useMutation({
     mutationFn: ({ id, data }) => {
-      const opts = getSubscriberEmail() ? { as_subscriber: getSubscriberEmail() } : {};
+      const opts = menuEntityOpts;
       return base44.entities.Dish.update(id, data, opts);
     },
     onMutate: async ({ id, data }) => {
-      const key = ['dishes', menuContext?.type, menuContext?.value];
+      const key = ['dishes', ...menuQueryKeyParts];
       await queryClient.cancelQueries({ queryKey: key });
       const prev = queryClient.getQueryData(key);
       queryClient.setQueryData(key, (old) => {
@@ -800,24 +789,24 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
     },
     onError: (_err, _vars, ctx) => {
       if (ctx?.prev) {
-        queryClient.setQueryData(['dishes', menuContext?.type, menuContext?.value], ctx.prev);
+        queryClient.setQueryData(['dishes', ...menuQueryKeyParts], ctx.prev);
       }
       toast.error('Erro ao atualizar prato');
     },
     onSuccess: () => toast.success('Prato atualizado!'),
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['dishes', menuContext?.type, menuContext?.value] });
+      queryClient.invalidateQueries({ queryKey: ['dishes', ...menuQueryKeyParts] });
       if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
     }
   });
 
   const deleteDishMutation = useMutation({
     mutationFn: (id) => {
-      const opts = getSubscriberEmail() ? { as_subscriber: getSubscriberEmail() } : {};
+      const opts = menuEntityOpts;
       return base44.entities.Dish.delete(id, opts);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['dishes', menuContext?.type, menuContext?.value] });
+      queryClient.invalidateQueries({ queryKey: ['dishes', ...menuQueryKeyParts] });
       if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
       toast.success('Prato excluído');
     },
@@ -829,11 +818,12 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
       const subscriberEmail = getSubscriberEmail();
       return base44.entities.Category.create({
         ...data,
-        ...(subscriberEmail && { as_subscriber: subscriberEmail, owner_email: subscriberEmail })
+        ...(subscriberEmail && { owner_email: subscriberEmail }),
+        ...menuEntityOpts
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['categories', menuContext?.type, menuContext?.value] });
+      queryClient.invalidateQueries({ queryKey: ['categories', ...menuQueryKeyParts] });
       if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
       toast.success('Categoria criada com sucesso!');
       setShowCategoryModal(false);
@@ -844,11 +834,11 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
 
   const updateCategoryMutation = useMutation({
     mutationFn: ({ id, data }) => {
-      const opts = getSubscriberEmail() ? { as_subscriber: getSubscriberEmail() } : {};
+      const opts = menuEntityOpts;
       return base44.entities.Category.update(id, data, opts);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['categories', menuContext?.type, menuContext?.value] });
+      queryClient.invalidateQueries({ queryKey: ['categories', ...menuQueryKeyParts] });
       if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
       toast.success('Categoria atualizada!');
       setShowCategoryModal(false);
@@ -859,12 +849,12 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
 
   const deleteCategoryMutation = useMutation({
     mutationFn: (id) => {
-      const opts = getSubscriberEmail() ? { as_subscriber: getSubscriberEmail() } : {};
+      const opts = menuEntityOpts;
       return base44.entities.Category.delete(id, opts);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['categories', menuContext?.type, menuContext?.value] });
-      queryClient.invalidateQueries({ queryKey: ['dishes', menuContext?.type, menuContext?.value] });
+      queryClient.invalidateQueries({ queryKey: ['categories', ...menuQueryKeyParts] });
+      queryClient.invalidateQueries({ queryKey: ['dishes', ...menuQueryKeyParts] });
       if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
       toast.success('Categoria excluída');
     },
@@ -890,11 +880,12 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
       const subscriberEmail = getSubscriberEmail();
       return base44.entities.ComplementGroup.create({
         ...data,
-        ...(subscriberEmail && { as_subscriber: subscriberEmail, owner_email: subscriberEmail })
+        ...(subscriberEmail && { owner_email: subscriberEmail }),
+        ...menuEntityOpts
       });
     },
     onSuccess: (newGroup) => {
-      queryClient.invalidateQueries({ queryKey: ['complementGroups', menuContext?.type, menuContext?.value] });
+      queryClient.invalidateQueries({ queryKey: ['complementGroups', ...menuQueryKeyParts] });
       if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
       return newGroup;
     },
@@ -902,11 +893,11 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
 
   const updateComplementGroupMutation = useMutation({
     mutationFn: ({ id, data }) => {
-      const opts = getSubscriberEmail() ? { as_subscriber: getSubscriberEmail() } : {};
+      const opts = menuEntityOpts;
       return base44.entities.ComplementGroup.update(id, data, opts);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['complementGroups', menuContext?.type, menuContext?.value] });
+      queryClient.invalidateQueries({ queryKey: ['complementGroups', ...menuQueryKeyParts] });
       if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
     },
   });
@@ -1229,7 +1220,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
     ];
     updateDishMutation.mutate(
       { id: dishId, data: { ...dish, complement_groups: updatedGroups } },
-      { onSettled: () => { queryClient.invalidateQueries({ queryKey: ['complementGroups', menuContext?.type, menuContext?.value] }); if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] }); } }
+      { onSettled: () => { queryClient.invalidateQueries({ queryKey: ['complementGroups', ...menuQueryKeyParts] }); if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] }); } }
     );
   };
 
@@ -1263,7 +1254,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
           }
         },
         onSettled: () => {
-          queryClient.invalidateQueries({ queryKey: ['complementGroups', menuContext?.type, menuContext?.value] });
+          queryClient.invalidateQueries({ queryKey: ['complementGroups', ...menuQueryKeyParts] });
           if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
         }
       }
@@ -2696,3 +2687,4 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
     </>
   );
 }
+

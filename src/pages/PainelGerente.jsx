@@ -42,6 +42,7 @@ import TablesTab from '../components/admin/TablesTab';
 import ColaboradorProfile from '@/components/colaboradores/ColaboradorProfile';
 import AccessDenied from '@/components/admin/AccessDenied';
 import PanelShell from '@/components/layout/PanelShell';
+import { buildTenantEntityOpts, getTenantScopeKey } from '@/utils/tenantScope';
 
 export default function PainelGerente() {
   const navigate = useNavigate();
@@ -55,10 +56,13 @@ export default function PainelGerente() {
   const isGerente = roles.includes('gerente');
   const slug = subscriberData?.slug || null;
   const asSub = user?.subscriber_email || subscriberData?.email || null;
+  const asSubId = user?.subscriber_id ?? subscriberData?.id ?? null;
+  const tenantScope = getTenantScopeKey(asSubId, asSub, 'gerente');
+  const scopedEntityOpts = buildTenantEntityOpts({ subscriberId: asSubId, subscriberEmail: asSub });
 
   const { data: stores = [] } = useQuery({
-    queryKey: ['store', asSub ?? 'gerente'],
-    queryFn: () => base44.entities.Store.list(null, asSub ? { as_subscriber: asSub } : {}),
+    queryKey: ['store', tenantScope],
+    queryFn: () => base44.entities.Store.list(null, scopedEntityOpts),
   });
   const store = stores[0];
   useDocumentHead(store);
@@ -166,7 +170,7 @@ export default function PainelGerente() {
       case 'promotions':
         return hasModuleAccess('promotions') ? <PromotionsTab /> : <AccessDenied />;
       case 'comandas':
-        return hasModuleAccess('comandas') ? <ComandasTab subscriberEmail={asSub || user?.email} /> : <AccessDenied />;
+        return hasModuleAccess('comandas') ? <ComandasTab subscriberEmail={asSub || user?.email} subscriberId={asSubId} /> : <AccessDenied />;
       case 'tables':
         return hasModuleAccess('tables') ? <TablesTab /> : <AccessDenied />;
       case 'theme':
