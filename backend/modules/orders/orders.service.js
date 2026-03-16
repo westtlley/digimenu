@@ -86,6 +86,7 @@ export async function createTableOrder(orderData, slug) {
 
   // Buscar subscriber ou master pelo slug
   const { subscriber, isMaster, subscriberEmail } = await getSubscriberOrMasterBySlug(normalizedSlug);
+  const subscriberId = subscriber?.id ?? null;
   
   if (!subscriber && !isMaster) {
     throw new Error('Link não encontrado');
@@ -121,9 +122,12 @@ export async function createTableOrder(orderData, slug) {
           SELECT COUNT(*) as count
           FROM entities
           WHERE entity_type = 'Order'
-            AND subscriber_email = $1
+            AND (
+              ($3::int IS NOT NULL AND subscriber_id = $3)
+              OR subscriber_email = $1
+            )
             AND created_at >= $2
-        `, [subscriberEmail, firstDayOfMonth.toISOString()]);
+        `, [subscriberEmail, firstDayOfMonth.toISOString(), subscriberId]);
 
         const currentCount = parseInt(countResult.rows[0].count);
 
@@ -143,9 +147,12 @@ export async function createTableOrder(orderData, slug) {
           SELECT COUNT(*) as count
           FROM entities
           WHERE entity_type = 'Order'
-            AND subscriber_email = $1
+            AND (
+              ($3::int IS NOT NULL AND subscriber_id = $3)
+              OR subscriber_email = $1
+            )
             AND DATE(created_at) = DATE($2)
-        `, [subscriberEmail, today.toISOString()]);
+        `, [subscriberEmail, today.toISOString(), subscriberId]);
 
         const currentCount = parseInt(countResult.rows[0].count);
 
@@ -198,18 +205,21 @@ export async function createTableOrder(orderData, slug) {
 
     if (transactionClient) {
       const result = await transactionClient.query(`
-        INSERT INTO entities (entity_type, data, subscriber_email)
-        VALUES ($1, $2, $3)
-        RETURNING id, data, created_at, updated_at
+        INSERT INTO entities (entity_type, data, subscriber_email, subscriber_id)
+        VALUES ($1, $2, $3, $4)
+        RETURNING id, subscriber_id, subscriber_email, data, created_at, updated_at
       `, [
         'Order',
         JSON.stringify(finalOrderData),
-        subscriberEmail
+        subscriberEmail,
+        subscriberId
       ]);
 
       const row = result.rows[0];
       newOrder = decorateOrderEntity({
         id: row.id.toString(),
+        subscriber_id: row.subscriber_id ?? subscriberId,
+        subscriber_email: row.subscriber_email ?? subscriberEmail,
         ...finalOrderData,
         created_at: row.created_at,
         created_date: row.created_at || finalOrderData.created_date,
@@ -221,7 +231,8 @@ export async function createTableOrder(orderData, slug) {
       transactionClient = null;
     } else {
       newOrder = await repo.createEntity('Order', finalOrderData, null, {
-        forSubscriberEmail: subscriberEmail
+        forSubscriberEmail: subscriberEmail,
+        forSubscriberId: subscriberId,
       });
     }
 
@@ -259,6 +270,7 @@ export async function createCardapioOrder(orderData, slug) {
   if (!normalizedSlug) throw new Error('Slug obrigatório');
 
   const { subscriber, subscriberEmail } = await getSubscriberOrMasterBySlug(normalizedSlug);
+  const subscriberId = subscriber?.id ?? null;
   if (!subscriber) throw new Error('Link não encontrado');
 
   const validationErrors = validateCardapioOrderData(orderData);
@@ -379,8 +391,15 @@ export async function createCardapioOrder(orderData, slug) {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const countResult = await transactionClient.query(
-          `SELECT COUNT(*) as count FROM entities WHERE entity_type = 'Order' AND subscriber_email = $1 AND DATE(created_at) = DATE($2)`,
-          [subscriberEmail, today.toISOString()]
+          `SELECT COUNT(*) as count
+           FROM entities
+           WHERE entity_type = 'Order'
+             AND (
+               ($3::int IS NOT NULL AND subscriber_id = $3)
+               OR subscriber_email = $1
+             )
+             AND DATE(created_at) = DATE($2)`,
+          [subscriberEmail, today.toISOString(), subscriberId]
         );
         const currentCount = parseInt(countResult.rows[0].count);
         if (currentCount >= limitDay) {
@@ -391,8 +410,15 @@ export async function createCardapioOrder(orderData, slug) {
       if (limitMonth !== -1 && limitMonth != null) {
         const firstDay = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
         const countResult = await transactionClient.query(
-          `SELECT COUNT(*) as count FROM entities WHERE entity_type = 'Order' AND subscriber_email = $1 AND created_at >= $2`,
-          [subscriberEmail, firstDay.toISOString()]
+          `SELECT COUNT(*) as count
+           FROM entities
+           WHERE entity_type = 'Order'
+             AND (
+               ($3::int IS NOT NULL AND subscriber_id = $3)
+               OR subscriber_email = $1
+             )
+             AND created_at >= $2`,
+          [subscriberEmail, firstDay.toISOString(), subscriberId]
         );
         const currentCount = parseInt(countResult.rows[0].count);
         if (currentCount >= limitMonth) {
@@ -405,13 +431,22 @@ export async function createCardapioOrder(orderData, slug) {
     let newOrder;
     if (transactionClient) {
       const insertResult = await transactionClient.query(
-        `INSERT INTO entities (entity_type, data, subscriber_email) VALUES ($1, $2, $3) RETURNING id, data, created_at, updated_at`,
-        ['Order', JSON.stringify(finalOrderData), subscriberEmail]
+        `INSERT INTO entities (entity_type, data, subscriber_email, subscriber_id) VALUES ($1, $2, $3, $4) RETURNING id, subscriber_id, subscriber_email, data, created_at, updated_at`,
+        ['Order', JSON.stringify(finalOrderData), subscriberEmail, subscriberId]
       );
       const row = insertResult.rows[0];
-      newOrder = decorateOrderEntity({ id: row.id.toString(), ...finalOrderData, created_at: row.created_at });
+      newOrder = decorateOrderEntity({
+        id: row.id.toString(),
+        subscriber_id: row.subscriber_id ?? subscriberId,
+        subscriber_email: row.subscriber_email ?? subscriberEmail,
+        ...finalOrderData,
+        created_at: row.created_at,
+      });
     } else {
-      newOrder = await repo.createEntity('Order', finalOrderData, null, { forSubscriberEmail: subscriberEmail });
+      newOrder = await repo.createEntity('Order', finalOrderData, null, {
+        forSubscriberEmail: subscriberEmail,
+        forSubscriberId: subscriberId,
+      });
     }
 
     if (transactionClient) {

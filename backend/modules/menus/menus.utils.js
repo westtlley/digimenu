@@ -10,16 +10,18 @@ import { usePostgreSQL, getDb } from '../../config/appConfig.js';
  */
 export async function getSubscriberOrMasterBySlug(slug) {
   if (!usePostgreSQL) {
-    return { subscriber: null, isMaster: false, subscriberEmail: null };
+    return { subscriber: null, isMaster: false, subscriberEmail: null, subscriberId: null };
   }
 
   // Tentar buscar subscriber primeiro
   let subscriber = await repo.getSubscriberBySlug(slug);
   let isMaster = false;
   let subscriberEmail = null;
+  let subscriberId = null;
 
   if (subscriber) {
     subscriberEmail = subscriber.email;
+    subscriberId = subscriber.id ?? null;
   } else {
     // Se não encontrou subscriber, buscar usuário master pelo slug
     const { query } = await import('../../db/postgres.js');
@@ -32,11 +34,11 @@ export async function getSubscriberOrMasterBySlug(slug) {
       isMaster = true;
       subscriberEmail = null; // Master usa subscriber_email = NULL
     } else {
-      return { subscriber: null, isMaster: false, subscriberEmail: null };
+      return { subscriber: null, isMaster: false, subscriberEmail: null, subscriberId: null };
     }
   }
 
-  return { subscriber, isMaster, subscriberEmail };
+  return { subscriber, isMaster, subscriberEmail, subscriberId };
 }
 
 /**

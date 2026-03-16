@@ -16,7 +16,7 @@ const usePostgreSQL = !!process.env.DATABASE_URL;
  * Lista colaboradores agrupados por email
  */
 export async function listColaboradores(req, usePostgreSQL, db, repo) {
-  let { owner, subscriber } = await getOwnerAndSubscriber(req, usePostgreSQL, db, repo);
+  let { owner, subscriberId, subscriber } = await getOwnerAndSubscriber(req, usePostgreSQL, db, repo);
   
   // Gerente só pode ver colaboradores do próprio estabelecimento
   if (isRequesterGerente(req)) {
@@ -25,6 +25,7 @@ export async function listColaboradores(req, usePostgreSQL, db, repo) {
     subscriber = usePostgreSQL && repo.getSubscriberByEmail 
       ? await repo.getSubscriberByEmail(owner) 
       : (db?.subscribers ? db.subscribers.find(s => (s.email || '').toLowerCase().trim() === owner) || null : null);
+    subscriberId = subscriber?.id ?? req.user?.subscriber_id ?? null;
   }
   
   if (!canUseColaboradores(subscriber, req.user?.is_master, 'view')) {
@@ -39,7 +40,7 @@ export async function listColaboradores(req, usePostgreSQL, db, repo) {
   
   let list = [];
   if (usePostgreSQL && repo.listColaboradores) {
-    list = await repo.listColaboradores(owner);
+    list = await repo.listColaboradores(owner, subscriberId);
   } else if (db?.users) {
     list = db.users
       .filter(u => (u.subscriber_email || '').toLowerCase().trim() === owner && (u.profile_role || '').trim())
@@ -97,7 +98,7 @@ export async function listColaboradores(req, usePostgreSQL, db, repo) {
  * Cria um novo colaborador
  */
 export async function createColaborador(req, usePostgreSQL, db, repo, saveDatabaseDebounced) {
-  const { owner, subscriber } = await getOwnerAndSubscriber(req, usePostgreSQL, db, repo);
+  const { owner, subscriberId, subscriber } = await getOwnerAndSubscriber(req, usePostgreSQL, db, repo);
   
   if (!owner) {
     throw new Error('Informe o assinante (selecione o estabelecimento) para adicionar colaborador.');
@@ -161,7 +162,7 @@ export async function createColaborador(req, usePostgreSQL, db, repo, saveDataba
   // Verificar se já existe colaborador com este email e subscriber
   let existingColabs = [];
   if (usePostgreSQL) {
-    const all = await repo.listColaboradores(owner);
+    const all = await repo.listColaboradores(owner, subscriberId);
     existingColabs = all.filter(c => (c.email || '').toLowerCase().trim() === emailNorm);
   } else if (db?.users) {
     existingColabs = db.users.filter(u => 
@@ -188,6 +189,7 @@ export async function createColaborador(req, usePostgreSQL, db, repo, saveDataba
     is_master: false,
     role: 'user',
     subscriber_email: owner,
+    subscriber_id: subscriberId,
     profile_role: roleNorm,
     active: true
   };
@@ -235,7 +237,12 @@ export async function createColaborador(req, usePostgreSQL, db, repo, saveDataba
       
       if (existingUser) {
         const isCustomer = existingUser.role === 'customer';
-        const isColaborador = existingUser.profile_role && existingUser.subscriber_email === owner;
+        const isColaborador =
+          existingUser.profile_role &&
+          (
+            (subscriberId != null && Number(existingUser.subscriber_id) === Number(subscriberId)) ||
+            existingUser.subscriber_email === owner
+          );
         
         if (isCustomer) {
           throw new Error('Este email já está cadastrado como cliente. O sistema permite que o mesmo email seja cliente e colaborador, mas pode haver uma limitação técnica no banco de dados. Por favor, use um email diferente ou contate o suporte para verificar se a migration foi aplicada corretamente.');

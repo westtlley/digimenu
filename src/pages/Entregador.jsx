@@ -110,12 +110,13 @@ export default function Entregador() {
   
   // Hook customizado para entregador
   // ✅ SIMPLIFICADO: Backend valida acesso - se entregador não existir e não for master/entregador, mostrar erro
-  const { user, setUser, entregador, setEntregador, loading, asSubscriber, tenantIdentifier, isMaster } = useEntregador();
+  const { user, setUser, entregador, setEntregador, loading, asSubscriber, asSubscriberId, tenantSubscriberId, tenantIdentifier, isMaster } = useEntregador();
   
   // Hook customizado para pedidos
   const { orders: displayOrders, activeOrders, completedOrders, completedOrdersToday, stats: orderStats } = useDeliveryOrders(
     entregador?.id,
     asSubscriber,
+    asSubscriberId,
     isMaster
   );
   const isMasterUser = isMasterPerm || isMaster;
@@ -140,13 +141,18 @@ export default function Entregador() {
     : isEntregadorOperatorOnly
       ? createPageUrl('ColaboradorHome')
       : createPageUrl('PainelAssinante', slug || undefined);
-  const tenantScope = asSubscriber || tenantIdentifier || 'self';
-  const entityOpts = useMemo(() => (asSubscriber ? { as_subscriber: asSubscriber } : {}), [asSubscriber]);
-  const deliveryOrdersKey = useMemo(() => ['deliveryOrders', entregador?.id, asSubscriber ?? 'me'], [entregador?.id, asSubscriber]);
-  const allDeliveryOrdersKey = useMemo(() => ['allDeliveryOrders', asSubscriber ?? 'me'], [asSubscriber]);
+  const tenantScope = asSubscriberId ?? asSubscriber ?? tenantSubscriberId ?? tenantIdentifier ?? 'self';
+  const entityOpts = useMemo(() => {
+    const opts = {};
+    if (asSubscriberId != null) opts.as_subscriber_id = asSubscriberId;
+    if (asSubscriber) opts.as_subscriber = asSubscriber;
+    return opts;
+  }, [asSubscriber, asSubscriberId]);
+  const deliveryOrdersKey = useMemo(() => ['deliveryOrders', entregador?.id, asSubscriberId ?? asSubscriber ?? 'me'], [entregador?.id, asSubscriber, asSubscriberId]);
+  const allDeliveryOrdersKey = useMemo(() => ['allDeliveryOrders', asSubscriberId ?? asSubscriber ?? 'me'], [asSubscriber, asSubscriberId]);
   const availableOrdersKey = useMemo(() => ['availableOrders', tenantScope], [tenantScope]);
-  const gestorOrdersKey = useMemo(() => ['gestorOrders', asSubscriber ?? 'me'], [asSubscriber]);
-  const entregadoresKey = useMemo(() => ['entregadores', asSubscriber ?? 'me'], [asSubscriber]);
+  const gestorOrdersKey = useMemo(() => ['gestorOrders', asSubscriberId ?? asSubscriber ?? 'me'], [asSubscriber, asSubscriberId]);
+  const entregadoresKey = useMemo(() => ['entregadores', asSubscriberId ?? asSubscriber ?? 'me'], [asSubscriber, asSubscriberId]);
   const realtimeRefetchTimeoutRef = useRef(null);
   const updateOrder = (orderId, payload) => base44.entities.Order.update(orderId, payload, entityOpts);
   const updateEntregador = (entregadorId, payload) => base44.entities.Entregador.update(entregadorId, payload, entityOpts);
@@ -158,9 +164,14 @@ export default function Entregador() {
   }, []);
 
   const isTenantOrder = useCallback((order) => {
+    const orderTenantId = order?.subscriber_id ?? null;
     const orderTenant = normalizeTenantEmail(order?.owner_email || order?.subscriber_email);
-    return Boolean(order?.id && tenantIdentifier && (!orderTenant || orderTenant === tenantIdentifier));
-  }, [normalizeTenantEmail, tenantIdentifier]);
+    return Boolean(
+      order?.id &&
+      ((tenantSubscriberId != null && orderTenantId != null && String(orderTenantId) === String(tenantSubscriberId)) ||
+        (tenantIdentifier && (!orderTenant || orderTenant === tenantIdentifier)))
+    );
+  }, [normalizeTenantEmail, tenantIdentifier, tenantSubscriberId]);
 
   const isAvailableDeliveryOrder = useCallback((order) => {
     return (
@@ -341,8 +352,9 @@ export default function Entregador() {
 
   useOperationalOrdersRealtime({
     roomType: 'delivery',
-    enabled: canAccessDeliveryApp && !!tenantIdentifier && !!user,
+    enabled: canAccessDeliveryApp && (!!tenantIdentifier || tenantSubscriberId != null) && !!user,
     asSubscriber: asSubscriber || null,
+    asSubscriberId: asSubscriberId ?? tenantSubscriberId ?? null,
     onOrderCreated: handleRealtimeDeliveryOrder,
     onOrderUpdated: handleRealtimeDeliveryOrder,
     onSocketUnavailable: () => {

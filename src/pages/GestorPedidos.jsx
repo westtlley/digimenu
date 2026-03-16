@@ -106,7 +106,7 @@ export default function GestorPedidos() {
   const realtimeRefetchTimeoutRef = useRef(null);
   const queryClient = useQueryClient();
   const { isMaster, hasModuleAccess, canUpdate, loading: permLoading, user, subscriberData } = usePermission();
-  const { slug, subscriberEmail, inSlugContext, loading: slugLoading, error: slugError } = useSlugContext();
+  const { slug, subscriberId, subscriberEmail, inSlugContext, loading: slugLoading, error: slugError } = useSlugContext();
   const { canCreateOrder, plan, effectiveLimits, usage, limitReached } = useEntitlements();
   const [limitBlockOpen, setLimitBlockOpen] = useState(false);
 
@@ -115,9 +115,10 @@ export default function GestorPedidos() {
   const backPage = isMaster ? 'Admin' : 'PainelAssinante';
   // Em /s/:slug, master usa as_subscriber; assinante/colaborador jÃƒÂ¡ ÃƒÂ© filtrado pelo backend
   const asSub = (inSlugContext && isMaster && subscriberEmail) ? subscriberEmail : undefined;
+  const asSubId = (inSlugContext && isMaster && subscriberId != null) ? subscriberId : undefined;
   const canAccessSlug = !inSlugContext || isMaster || (user?.email || '').toLowerCase() === (subscriberEmail || '').toLowerCase() || (user?.subscriber_email || '').toLowerCase() === (subscriberEmail || '').toLowerCase();
-  const gestorOrdersKey = useMemo(() => ['gestorOrders', asSub ?? 'me'], [asSub]);
-  const entregadoresKey = useMemo(() => ['entregadores', asSub ?? 'me'], [asSub]);
+  const gestorOrdersKey = useMemo(() => ['gestorOrders', asSubId ?? asSub ?? 'me'], [asSub, asSubId]);
+  const entregadoresKey = useMemo(() => ['entregadores', asSubId ?? asSub ?? 'me'], [asSub, asSubId]);
   const normalizeTenantEmail = useCallback((value) => String(value || '').toLowerCase().trim() || null, []);
   const tenantIdentifier = useMemo(() => normalizeTenantEmail(asSub || user?.subscriber_email || user?.email), [
     asSub,
@@ -125,19 +126,24 @@ export default function GestorPedidos() {
     user?.email,
     user?.subscriber_email,
   ]);
+  const tenantSubscriberId = useMemo(() => asSubId ?? user?.subscriber_id ?? null, [asSubId, user?.subscriber_id]);
 
   const isGestorRelevantOrder = useCallback((order) => {
     if (!order?.id) return false;
 
+    const orderTenantId = order?.subscriber_id ?? null;
     const orderTenant = normalizeTenantEmail(order?.owner_email || order?.subscriber_email);
-    if (tenantIdentifier && orderTenant && orderTenant !== tenantIdentifier) {
+    if (
+      (tenantSubscriberId != null && orderTenantId != null && String(orderTenantId) !== String(tenantSubscriberId)) ||
+      (tenantIdentifier && orderTenant && orderTenant !== tenantIdentifier)
+    ) {
       return false;
     }
 
     const isPDV = String(order?.order_code || '').startsWith('PDV-');
     const isBalcao = order?.delivery_method === 'balcao';
     return !isPDV && !isBalcao;
-  }, [normalizeTenantEmail, tenantIdentifier]);
+  }, [normalizeTenantEmail, tenantIdentifier, tenantSubscriberId]);
 
   const scheduleRealtimeSync = useCallback(() => {
     if (realtimeRefetchTimeoutRef.current) return;
@@ -150,8 +156,13 @@ export default function GestorPedidos() {
   }, [entregadoresKey, gestorOrdersKey, queryClient]);
 
   const handleRealtimeGestorOrder = useCallback((order) => {
+    const orderTenantId = order?.subscriber_id ?? null;
     const orderTenant = normalizeTenantEmail(order?.owner_email || order?.subscriber_email);
-    if (!order?.id || (tenantIdentifier && orderTenant && orderTenant !== tenantIdentifier)) {
+    if (
+      !order?.id ||
+      (tenantSubscriberId != null && orderTenantId != null && String(orderTenantId) !== String(tenantSubscriberId)) ||
+      (tenantIdentifier && orderTenant && orderTenant !== tenantIdentifier)
+    ) {
       return;
     }
 
@@ -171,12 +182,14 @@ export default function GestorPedidos() {
     queryClient,
     scheduleRealtimeSync,
     tenantIdentifier,
+    tenantSubscriberId,
   ]);
 
   useOperationalOrdersRealtime({
     roomType: 'orders',
-    enabled: Boolean(user && hasAccess && canAccessSlug && tenantIdentifier),
+    enabled: Boolean(user && hasAccess && canAccessSlug && (tenantIdentifier || tenantSubscriberId != null)),
     asSubscriber: asSub || null,
+    asSubscriberId: asSubId ?? tenantSubscriberId ?? null,
     onOrderCreated: handleRealtimeGestorOrder,
     onOrderUpdated: handleRealtimeGestorOrder,
     onSocketUnavailable: () => {
@@ -202,7 +215,9 @@ export default function GestorPedidos() {
   const { data: orders = [], isLoading } = useQuery({
     queryKey: gestorOrdersKey,
     queryFn: async () => {
-      const opts = asSub ? { as_subscriber: asSub } : {};
+      const opts = {};
+      if (asSubId != null) opts.as_subscriber_id = asSubId;
+      if (asSub) opts.as_subscriber = asSub;
       const allOrders = await base44.entities.Order.list('-created_date', opts);
       // Filtrar apenas pedidos do cardÃƒÂ¡pio (nÃƒÂ£o do PDV/BalcÃƒÂ£o)
       return allOrders.filter(isGestorRelevantOrder);
@@ -212,15 +227,25 @@ export default function GestorPedidos() {
 
   const { data: entregadoresData } = useQuery({
     queryKey: entregadoresKey,
-    queryFn: () => base44.entities.Entregador.list(null, asSub ? { as_subscriber: asSub } : {}),
+    queryFn: () => {
+      const opts = {};
+      if (asSubId != null) opts.as_subscriber_id = asSubId;
+      if (asSub) opts.as_subscriber = asSub;
+      return base44.entities.Entregador.list(null, opts);
+    },
     refetchInterval: 10000,
     retry: false,
   });
   const entregadores = useMemo(() => (entregadoresData != null ? entregadoresData : []), [entregadoresData]);
 
   const { data: stores = [] } = useQuery({
-    queryKey: ['store', asSub ?? 'me'],
-    queryFn: () => base44.entities.Store.list(null, asSub ? { as_subscriber: asSub } : {}),
+    queryKey: ['store', asSubId ?? asSub ?? 'me'],
+    queryFn: () => {
+      const opts = {};
+      if (asSubId != null) opts.as_subscriber_id = asSubId;
+      if (asSub) opts.as_subscriber = asSub;
+      return base44.entities.Store.list(null, opts);
+    },
   });
   const store = stores[0] || { name: 'Gestor de Pedidos' };
   useDocumentHead(store);

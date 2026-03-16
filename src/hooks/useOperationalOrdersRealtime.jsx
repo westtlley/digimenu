@@ -19,6 +19,7 @@ export function useOperationalOrdersRealtime({
   roomType,
   enabled = true,
   asSubscriber = null,
+  asSubscriberId = null,
   onOrderCreated = null,
   onOrderUpdated = null,
   onSocketUnavailable = null,
@@ -47,6 +48,7 @@ export function useOperationalOrdersRealtime({
       auth: {
         token,
         asSubscriber: asSubscriber || null,
+        asSubscriberId: asSubscriberId != null ? asSubscriberId : null,
       },
       transports: ['websocket', 'polling'],
       reconnection: true,
@@ -80,7 +82,7 @@ export function useOperationalOrdersRealtime({
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [asSubscriber, enabled, roomType, onOrderCreatedRef, onOrderUpdatedRef, onSocketUnavailableRef]);
+  }, [asSubscriber, asSubscriberId, enabled, roomType, onOrderCreatedRef, onOrderUpdatedRef, onSocketUnavailableRef]);
 
   return socketRef.current;
 }

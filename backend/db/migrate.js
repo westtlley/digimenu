@@ -40,6 +40,103 @@ export async function migrate() {
 
     // Executar schema
     await query(schemaSQL);
+
+    // Tenant canônico por subscriber_id (incremental, mantendo subscriber_email compatível)
+    try {
+      await query(`
+        DO $$
+        BEGIN
+          IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'users')
+             AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'subscriber_id') THEN
+            ALTER TABLE users ADD COLUMN subscriber_id INTEGER;
+          END IF;
+
+          IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'customers')
+             AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'customers' AND column_name = 'subscriber_id') THEN
+            ALTER TABLE customers ADD COLUMN subscriber_id INTEGER;
+          END IF;
+
+          IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'entities')
+             AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'entities' AND column_name = 'subscriber_id') THEN
+            ALTER TABLE entities ADD COLUMN subscriber_id INTEGER;
+          END IF;
+
+          IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'analytics_events')
+             AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'analytics_events' AND column_name = 'subscriber_id') THEN
+            ALTER TABLE analytics_events ADD COLUMN subscriber_id INTEGER;
+          END IF;
+        END $$;
+      `);
+
+      await query(`
+        UPDATE users u
+        SET
+          subscriber_id = s.id,
+          subscriber_email = COALESCE(u.subscriber_email, s.email)
+        FROM subscribers s
+        WHERE u.subscriber_id IS NULL
+          AND (
+            (u.subscriber_email IS NOT NULL AND LOWER(TRIM(u.subscriber_email)) = LOWER(TRIM(s.email)))
+            OR (u.subscriber_email IS NOT NULL AND s.linked_user_email IS NOT NULL AND LOWER(TRIM(u.subscriber_email)) = LOWER(TRIM(s.linked_user_email)))
+            OR (u.subscriber_email IS NULL AND LOWER(TRIM(u.email)) = LOWER(TRIM(s.email)))
+            OR (u.subscriber_email IS NULL AND s.linked_user_email IS NOT NULL AND LOWER(TRIM(u.email)) = LOWER(TRIM(s.linked_user_email)))
+          );
+      `);
+
+      await query(`
+        UPDATE customers c
+        SET
+          subscriber_id = s.id,
+          subscriber_email = COALESCE(c.subscriber_email, s.email)
+        FROM subscribers s
+        WHERE c.subscriber_id IS NULL
+          AND (
+            (c.subscriber_email IS NOT NULL AND LOWER(TRIM(c.subscriber_email)) = LOWER(TRIM(s.email)))
+            OR (c.subscriber_email IS NOT NULL AND s.linked_user_email IS NOT NULL AND LOWER(TRIM(c.subscriber_email)) = LOWER(TRIM(s.linked_user_email)))
+          );
+      `);
+
+      await query(`
+        UPDATE entities e
+        SET
+          subscriber_id = s.id,
+          subscriber_email = COALESCE(e.subscriber_email, s.email)
+        FROM subscribers s
+        WHERE e.subscriber_id IS NULL
+          AND (
+            (e.subscriber_email IS NOT NULL AND LOWER(TRIM(e.subscriber_email)) = LOWER(TRIM(s.email)))
+            OR (e.subscriber_email IS NOT NULL AND s.linked_user_email IS NOT NULL AND LOWER(TRIM(e.subscriber_email)) = LOWER(TRIM(s.linked_user_email)))
+            OR (e.subscriber_email IS NULL AND (e.data->>'owner_email') IS NOT NULL AND LOWER(TRIM(e.data->>'owner_email')) = LOWER(TRIM(s.email)))
+            OR (e.subscriber_email IS NULL AND (e.data->>'owner_email') IS NOT NULL AND s.linked_user_email IS NOT NULL AND LOWER(TRIM(e.data->>'owner_email')) = LOWER(TRIM(s.linked_user_email)))
+          );
+      `);
+
+      await query(`
+        UPDATE analytics_events a
+        SET
+          subscriber_id = s.id,
+          subscriber_email = COALESCE(a.subscriber_email, s.email)
+        FROM subscribers s
+        WHERE a.subscriber_id IS NULL
+          AND (
+            (a.subscriber_email IS NOT NULL AND LOWER(TRIM(a.subscriber_email)) = LOWER(TRIM(s.email)))
+            OR (a.subscriber_email IS NOT NULL AND s.linked_user_email IS NOT NULL AND LOWER(TRIM(a.subscriber_email)) = LOWER(TRIM(s.linked_user_email)))
+            OR (a.slug IS NOT NULL AND LOWER(TRIM(a.slug)) = LOWER(TRIM(s.slug)))
+          );
+      `);
+
+      await query(`
+        CREATE INDEX IF NOT EXISTS idx_users_subscriber_id ON users(subscriber_id);
+        CREATE INDEX IF NOT EXISTS idx_customers_subscriber_id ON customers(subscriber_id);
+        CREATE INDEX IF NOT EXISTS idx_entities_subscriber_id ON entities(subscriber_id);
+        CREATE INDEX IF NOT EXISTS idx_entities_type_subscriber_id ON entities(entity_type, subscriber_id);
+        CREATE INDEX IF NOT EXISTS idx_analytics_events_subscriber_id_created ON analytics_events(subscriber_id, created_at DESC);
+      `);
+
+      console.log('✅ Migração de tenant canônico por subscriber_id concluída.');
+    } catch (error) {
+      console.warn('⚠️ Aviso ao aplicar migração subscriber_id (compatibilidade será mantida por email):', error.message);
+    }
     
         // Adicionar colunas do Google OAuth se não existirem
         try {

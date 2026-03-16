@@ -59,7 +59,7 @@ export default function PDV() {
   const queryClient = useQueryClient();
   const { isMaster } = usePermission();
   const { requireAuthorization, modal: authModal } = useManagerialAuth();
-  const { slug, subscriberEmail, inSlugContext, loading: slugLoading, error: slugError } = useSlugContext();
+  const { slug, subscriberId, subscriberEmail, inSlugContext, loading: slugLoading, error: slugError } = useSlugContext();
   const canonicalPdvPath = useMemo(() => createPageUrl('PDV', slug || undefined), [slug]);
   const normalizedSlugSubscriber = useMemo(
     () => (inSlugContext && subscriberEmail ? String(subscriberEmail).toLowerCase().trim() : null),
@@ -69,9 +69,12 @@ export default function PDV() {
     const candidate = user?.subscriber_email || user?.email;
     return candidate ? String(candidate).toLowerCase().trim() : null;
   }, [user?.subscriber_email, user?.email]);
+  const fallbackSubscriberId = useMemo(() => user?.subscriber_id ?? null, [user?.subscriber_id]);
   const tenantIdentifier = normalizedSlugSubscriber || fallbackSubscriber;
+  const tenantSubscriberId = ((inSlugContext ? subscriberId ?? null : null) || fallbackSubscriberId);
   const asSub = (inSlugContext && isMaster && normalizedSlugSubscriber) ? normalizedSlugSubscriber : undefined;
-  const tenantScope = asSub || tenantIdentifier || 'none';
+  const asSubId = (inSlugContext && isMaster && subscriberId != null) ? subscriberId : undefined;
+  const tenantScope = asSubId ?? asSub ?? tenantSubscriberId ?? tenantIdentifier ?? 'none';
 
   const [showMenuVendas, setShowMenuVendas] = useState(false);
   const [showFechamentoModal, setShowFechamentoModal] = useState(false);
@@ -166,8 +169,10 @@ export default function PDV() {
     : createPageUrl(backPage, isMaster ? undefined : slug || undefined);
 
   // master em contexto slug usa as_subscriber; demais usuÃ¡rios usam escopo do prÃ³prio token.
-  const subscriberIdentifier = tenantIdentifier;
-  const opts = asSub ? { as_subscriber: asSub } : {};
+  const subscriberIdentifier = tenantSubscriberId ?? tenantIdentifier;
+  const opts = {};
+  if (asSubId != null) opts.as_subscriber_id = asSubId;
+  if (asSub) opts.as_subscriber = asSub;
   const { data: dishes = [] } = useQuery({
     queryKey: ['dishes', tenantScope],
     queryFn: () => base44.entities.Dish.list(null, opts),
@@ -303,8 +308,10 @@ export default function PDV() {
       }
       return base44.entities.PDVSession.create({
         ...payload,
+        subscriber_id: tenantSubscriberId,
         subscriber_email: tenantIdentifier,
         owner_email: tenantIdentifier,
+        ...(asSubId != null ? { as_subscriber_id: asSubId } : {}),
         ...(asSub ? { as_subscriber: asSub } : {}),
       });
     },
@@ -348,9 +355,11 @@ export default function PDV() {
       }
       return base44.entities.CaixaOperation.create({
         ...data,
+        subscriber_id: tenantSubscriberId,
         subscriber_email: tenantIdentifier,
         owner_email: tenantIdentifier,
         operator: user?.email || 'operador',
+        ...(asSubId != null ? { as_subscriber_id: asSubId } : {}),
         ...(asSub ? { as_subscriber: asSub } : {}),
         date: new Date().toISOString()
       });
@@ -367,9 +376,11 @@ export default function PDV() {
       }
       return base44.entities.Caixa.create({
         ...data,
+        subscriber_id: tenantSubscriberId,
         subscriber_email: tenantIdentifier,
         owner_email: tenantIdentifier,
         opened_by: user?.email || tenantIdentifier,
+        ...(asSubId != null ? { as_subscriber_id: asSubId } : {}),
         ...(asSub ? { as_subscriber: asSub } : {}),
         terminal_id: pdvTerminalId || null,
         terminal_name: pdvTerminalName || null
@@ -827,8 +838,11 @@ export default function PDV() {
         saleClientRequestIdRef.current = generateClientRequestId();
       }
 
-      const endpoint = asSub
-        ? `/pdv/finalizar-venda?as_subscriber=${encodeURIComponent(asSub)}`
+      const queryParams = new URLSearchParams();
+      if (asSubId != null) queryParams.set('as_subscriber_id', String(asSubId));
+      if (asSub) queryParams.set('as_subscriber', asSub);
+      const endpoint = queryParams.toString()
+        ? `/pdv/finalizar-venda?${queryParams.toString()}`
         : '/pdv/finalizar-venda';
 
       const result = await base44.post(endpoint, {

@@ -66,9 +66,12 @@ export const login = asyncHandler(async (req, res) => {
 
   // Verificar se é assinante e garantir acesso automático aos perfis do plano
   let subscriber = null;
+  const subscriberId = user.subscriber_id || null;
   const subscriberEmail = user.subscriber_email || user.email;
   if (usePostgreSQL) {
-    subscriber = await repo.getSubscriberByEmail(subscriberEmail);
+    subscriber = subscriberId
+      ? await repo.getSubscriberById(subscriberId)
+      : await repo.getSubscriberByEmail(subscriberEmail);
   } else if (db?.subscribers) {
     subscriber = db.subscribers.find(s => (s.email || '').toLowerCase().trim() === subscriberEmail.toLowerCase().trim());
   }
@@ -95,6 +98,7 @@ export const getCurrentUser = asyncHandler(async (req, res) => {
     full_name: req.user.full_name,
     is_master: req.user.is_master,
     role: req.user.role,
+    subscriber_id: req.user.subscriber_id || null,
     subscriber_email: req.user.subscriber_email || null,
     profile_role: req.user.profile_role || null,
     slug: req.user.slug || null
@@ -105,7 +109,7 @@ export const getCurrentUser = asyncHandler(async (req, res) => {
     try {
       let list = [];
       if (usePostgreSQL && repo.listColaboradores) {
-        list = await repo.listColaboradores(req.user.subscriber_email);
+        list = await repo.listColaboradores(req.user.subscriber_email, req.user.subscriber_id || null);
       } else if (db?.users) {
         list = db.users
           .filter(u => (u.subscriber_email || '').toLowerCase().trim() === (req.user.subscriber_email || '').toLowerCase().trim() && (u.profile_role || '').trim())
@@ -147,9 +151,12 @@ export const getUserContext = asyncHandler(async (req, res) => {
     };
     permissions = {};
   } else {
+    const subscriberIdToFind = user.subscriber_id || null;
     const emailToFind = user.subscriber_email || user.email;
     if (usePostgreSQL) {
-      if (emailToFind) {
+      if (subscriberIdToFind) {
+        subscriber = await repo.getSubscriberById(subscriberIdToFind);
+      } else if (emailToFind) {
         subscriber = await repo.getSubscriberByEmail(emailToFind);
       }
     } else if (db && db.subscribers && emailToFind) {
@@ -159,13 +166,15 @@ export const getUserContext = asyncHandler(async (req, res) => {
     if (subscriber) {
       menuContext = {
         type: 'subscriber',
-        value: subscriber.email
+        value: subscriber.email,
+        subscriber_id: subscriber.id
       };
       permissions = getEffectivePermissionsForSubscriber(subscriber);
     } else {
       menuContext = {
         type: 'subscriber',
-        value: user.email
+        value: user.email,
+        subscriber_id: user.subscriber_id || null
       };
     }
   }
@@ -198,6 +207,7 @@ export const getUserContext = asyncHandler(async (req, res) => {
     }
 
     subscriberDataPayload = {
+      id: subscriber.id,
       email: subscriber.email,
       plan: normalizePlanPresetKey(subscriber.plan, { defaultPlan: 'basic' }) || 'basic',
       status: subscriber.status || 'active',
@@ -218,6 +228,7 @@ export const getUserContext = asyncHandler(async (req, res) => {
       is_master: user.is_master,
       role: user.role,
       slug: user.slug || null,
+      subscriber_id: user.subscriber_id || null,
       subscriber_email: user.subscriber_email || null,
       profile_role: user.profile_role || null,
       profile_roles: profileRoles.length ? profileRoles : null,

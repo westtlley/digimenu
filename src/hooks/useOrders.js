@@ -21,13 +21,18 @@ import { log } from '@/utils/logger';
  */
 export function useOrders(options = {}) {
   const { menuContext, loading: permissionLoading, user, subscriberData, isMaster } = usePermission();
-  const { orderBy = '-created_date', filters = {}, asSubFromParent, ...queryOptions } = options;
+  const { orderBy = '-created_date', filters = {}, asSubFromParent, asSubscriberIdFromParent, ...queryOptions } = options;
+  const parentSubscriberId = asSubscriberIdFromParent;
 
   // Escopo: priorizar asSubFromParent (vindo do PainelAssinante), depois menuContext, depois fallback assinante
   const fromPermission =
     (menuContext?.type === 'subscriber' && menuContext?.value) ||
     (!isMaster && (subscriberData?.email || user?.subscriber_email || user?.email));
+  const fromPermissionId =
+    (menuContext?.type === 'subscriber' && menuContext?.subscriber_id) ||
+    (!isMaster && (subscriberData?.id || user?.subscriber_id || null));
   const effectiveSubscriberRaw = asSubFromParent ?? fromPermission;
+  const effectiveSubscriberId = parentSubscriberId ?? fromPermissionId ?? null;
   const effectiveSubscriberNorm = effectiveSubscriberRaw ? String(effectiveSubscriberRaw).trim().toLowerCase() : null;
 
   // Habilitar quando: (pai passou asSub) OU (permissões carregadas e temos contexto)
@@ -36,13 +41,16 @@ export function useOrders(options = {}) {
   const isEnabled = (queryOptions.enabled !== false) && (enabledByParent || enabledByPermission);
 
   // Key estável: não incluir menuContext (evita re-fetch e flash vazio quando menuContext atualiza)
-  const stableKey = ['orders', effectiveSubscriberNorm ?? 'none', orderBy, JSON.stringify(filters || {})];
+  const stableKey = ['orders', effectiveSubscriberId ?? effectiveSubscriberNorm ?? 'none', orderBy, JSON.stringify(filters || {})];
 
   return useQuery({
     queryKey: stableKey,
     queryFn: async () => {
       try {
         const opts = {};
+        if (effectiveSubscriberId != null) {
+          opts.as_subscriber_id = effectiveSubscriberId;
+        }
         if (effectiveSubscriberNorm) {
           opts.as_subscriber = effectiveSubscriberNorm;
         }

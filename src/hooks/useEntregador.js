@@ -12,7 +12,7 @@ export function useEntregador() {
   const [user, setUser] = useState(null);
   const [entregador, setEntregador] = useState(null);
   const [loading, setLoading] = useState(true);
-  const { slug, subscriberEmail, inSlugContext, loading: slugLoading } = useSlugContext();
+  const { slug, subscriberId, subscriberEmail, inSlugContext, loading: slugLoading } = useSlugContext();
   const canonicalDeliveryPath = createPageUrl('Entregador', slug || undefined);
 
   useEffect(() => {
@@ -26,6 +26,7 @@ export function useEntregador() {
         if (cancelled) return;
         setUser(userData);
         const normalizedSlugSubscriber = (subscriberEmail || '').toLowerCase().trim();
+        const normalizedSlugSubscriberId = subscriberId ?? null;
         const normalizedUserSubscriber = (userData?.subscriber_email || userData?.email || '').toLowerCase().trim();
         const tenantResolved = !inSlugContext || !!normalizedSlugSubscriber;
         const tenantMatchesSlug =
@@ -40,11 +41,17 @@ export function useEntregador() {
         const asSub = (inSlugContext && userData?.is_master && normalizedSlugSubscriber)
           ? normalizedSlugSubscriber
           : undefined;
+        const asSubId = (inSlugContext && userData?.is_master && normalizedSlugSubscriberId != null)
+          ? normalizedSlugSubscriberId
+          : undefined;
+        const entityOpts = {};
+        if (asSubId != null) entityOpts.as_subscriber_id = asSubId;
+        if (asSub) entityOpts.as_subscriber = asSub;
 
         // ✅ SIMPLIFICADO: Tentar buscar entregador - backend valida permissões
         // Se não tiver acesso, backend retorna 403 e o erro será tratado pelo componente
         try {
-          const allEntregadores = await base44.entities.Entregador.list(null, asSub ? { as_subscriber: asSub } : {});
+          const allEntregadores = await base44.entities.Entregador.list(null, entityOpts);
           const matchedEntregador = allEntregadores.find(e => 
             e.email?.toLowerCase().trim() === userData.email?.toLowerCase().trim()
           );
@@ -69,6 +76,7 @@ export function useEntregador() {
               vibration_enabled: true,
               _isMaster: userData.is_master,
               _isVirtual: true,
+              _subscriberId: normalizedSlugSubscriberId || userData.subscriber_id || null,
               _subscriberEmail: normalizedSlugSubscriber || userData.subscriber_email || userData.email
             };
             setEntregador(virtualEntregador);
@@ -94,11 +102,12 @@ export function useEntregador() {
     return () => {
       cancelled = true;
     };
-  }, [canonicalDeliveryPath, inSlugContext, slugLoading, subscriberEmail]);
+  }, [canonicalDeliveryPath, inSlugContext, slugLoading, subscriberEmail, subscriberId]);
 
   const normalizedSlugSubscriber = (inSlugContext && subscriberEmail)
     ? String(subscriberEmail).toLowerCase().trim()
     : null;
+  const normalizedSlugSubscriberId = inSlugContext ? subscriberId ?? null : null;
   const fallbackSubscriber = user?.subscriber_email || user?.email;
   const tenantIdentifier = normalizedSlugSubscriber || (fallbackSubscriber ? String(fallbackSubscriber).toLowerCase().trim() : null);
 
@@ -110,7 +119,11 @@ export function useEntregador() {
     loading,
     // ✅ REMOVIDO: hasAccess - backend valida acesso via 403
     asSubscriber: (inSlugContext && user?.is_master && normalizedSlugSubscriber) ? normalizedSlugSubscriber : undefined,
+    asSubscriberId: (inSlugContext && user?.is_master && normalizedSlugSubscriberId != null) ? normalizedSlugSubscriberId : undefined,
+    tenantSubscriberId: normalizedSlugSubscriberId || user?.subscriber_id || null,
     tenantIdentifier,
     isMaster: user?.is_master || false
   };
 }
+
+

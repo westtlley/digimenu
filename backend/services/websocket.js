@@ -3,6 +3,7 @@ import { Server } from 'socket.io';
 
 import * as repo from '../db/repository.js';
 import { decorateOrderEntity } from '../utils/orderLifecycle.js';
+import { normalizeSubscriberId, resolveTenantContext } from '../utils/tenantContext.js';
 
 let io = null;
 
@@ -26,6 +27,15 @@ function normalizePhone(value) {
 
 function normalizeRole(value) {
   return String(value || '').trim().toLowerCase() || null;
+}
+
+function getTenantRoomKeyFromPayload(payload = {}) {
+  const subscriberId = normalizeSubscriberId(payload?.subscriber_id);
+  if (subscriberId != null) {
+    return String(subscriberId);
+  }
+
+  return normalizeEmail(payload?.owner_email || payload?.subscriber_email);
 }
 
 function extractSocketToken(socket) {
@@ -111,11 +121,23 @@ async function resolveSocketAuth(socket) {
       socket.handshake?.query?.as_subscriber ||
       socket.handshake?.query?.asSubscriber
   );
+  const requestedSupportTenantId = normalizeSubscriberId(
+    socket.handshake?.auth?.asSubscriberId ||
+      socket.handshake?.query?.as_subscriber_id ||
+      socket.handshake?.query?.asSubscriberId
+  );
 
   const isMaster = Boolean(user.is_master);
-  const tenantId = isMaster
-    ? requestedSupportTenant
-    : normalizeEmail(user.subscriber_email || user.email);
+  const tenantContext = isMaster
+    ? await resolveTenantContext({
+        subscriberId: requestedSupportTenantId,
+        subscriberEmail: requestedSupportTenant,
+      })
+    : await resolveTenantContext({
+        subscriberId: user.subscriber_id ?? null,
+        subscriberEmail: user.subscriber_email || user.email,
+      });
+
   const roles = await resolveSocketRoles(user);
 
   return {
@@ -123,14 +145,18 @@ async function resolveSocketAuth(socket) {
     isMaster,
     userId: user.id ?? null,
     email,
-    tenantId,
+    tenantId: tenantContext.subscriberId ?? null,
+    tenantEmail: tenantContext.subscriberEmail ?? null,
+    tenantKey: tenantContext.subscriberId != null
+      ? String(tenantContext.subscriberId)
+      : tenantContext.subscriberEmail,
     roles,
     profileRole: normalizeRole(user.profile_role),
   };
 }
 
 function getSocketTenant(socket) {
-  return normalizeEmail(socket.data?.auth?.tenantId);
+  return String(socket.data?.auth?.tenantKey || '').trim() || null;
 }
 
 function socketHasRole(socket, allowedRoles = []) {
@@ -157,6 +183,8 @@ function joinTenantRoom(socket, roomType) {
   socket.join(roomName);
   console.log(`Socket ${socket.id} joined ${roomName}`, {
     userId: socket.data?.auth?.userId || null,
+    tenantId: socket.data?.auth?.tenantId || null,
+    tenantEmail: socket.data?.auth?.tenantEmail || null,
     roles: socket.data?.auth?.roles || [],
   });
   return roomName;
@@ -278,6 +306,8 @@ export function setupWebSocket(server) {
     console.log('WebSocket client connected:', socket.id, {
       authenticated: auth.isAuthenticated === true,
       tenantId: auth.tenantId || null,
+      tenantEmail: auth.tenantEmail || null,
+      tenantKey: auth.tenantKey || null,
       roles: auth.roles || [],
     });
 
@@ -371,11 +401,11 @@ export function emitOrderUpdate(order) {
 
   const normalizedOrder = decorateOrderEntity(order);
 
-  const subscriberEmail = normalizeEmail(normalizedOrder.owner_email || normalizedOrder.subscriber_email);
+  const tenantKey = getTenantRoomKeyFromPayload(normalizedOrder);
   const customerEmail = normalizeEmail(normalizedOrder.customer_email);
   const customerPhone = normalizePhone(normalizedOrder.customer_phone);
 
-  emitTenantScoped('order:updated', subscriberEmail, normalizedOrder, ['orders', 'kitchen', 'delivery']);
+  emitTenantScoped('order:updated', tenantKey, normalizedOrder, ['orders', 'kitchen', 'delivery']);
 
   if (customerEmail) {
     io.to(`customer:${customerEmail}`).emit('order:updated', normalizedOrder);
@@ -393,8 +423,8 @@ export function emitOrderCreated(order) {
   if (!io) return;
 
   const normalizedOrder = decorateOrderEntity(order);
-  const subscriberEmail = normalizeEmail(normalizedOrder.owner_email || normalizedOrder.subscriber_email);
-  emitTenantScoped('order:created', subscriberEmail, normalizedOrder, ['orders', 'kitchen', 'delivery']);
+  const tenantKey = getTenantRoomKeyFromPayload(normalizedOrder);
+  emitTenantScoped('order:created', tenantKey, normalizedOrder, ['orders', 'kitchen', 'delivery']);
 }
 
 /**
@@ -421,13 +451,13 @@ export function emitFavoritePromotion(customerEmail, customerPhone, dish) {
 export function emitComandaUpdate(comanda) {
   if (!io) return;
 
-  const subscriberEmail = normalizeEmail(comanda.owner_email || comanda.subscriber_email);
+  const tenantKey = getTenantRoomKeyFromPayload(comanda);
   const customerEmail = normalizeEmail(comanda.customer_email);
   const customerPhone = normalizePhone(comanda.customer_phone);
   const tableId = String(comanda.table_id || '').trim();
   const tableNumber = String(comanda.table_number || comanda.table_name || '').trim();
 
-  emitTenantScoped('comanda:updated', subscriberEmail, comanda, ['comandas']);
+  emitTenantScoped('comanda:updated', tenantKey, comanda, ['comandas']);
 
   if (tableId) {
     io.to(`table:${tableId}`).emit('comanda:updated', comanda);
@@ -452,11 +482,11 @@ export function emitComandaUpdate(comanda) {
 export function emitComandaCreated(comanda) {
   if (!io) return;
 
-  const subscriberEmail = normalizeEmail(comanda.owner_email || comanda.subscriber_email);
+  const tenantKey = getTenantRoomKeyFromPayload(comanda);
   const tableId = String(comanda.table_id || '').trim();
   const tableNumber = String(comanda.table_number || comanda.table_name || '').trim();
 
-  emitTenantScoped('comanda:created', subscriberEmail, comanda, ['comandas']);
+  emitTenantScoped('comanda:created', tenantKey, comanda, ['comandas']);
 
   if (tableId) {
     io.to(`table:${tableId}`).emit('comanda:created', comanda);

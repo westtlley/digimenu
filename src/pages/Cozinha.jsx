@@ -17,23 +17,32 @@ export default function Cozinha() {
   const [loading, setLoading] = useState(true);
   const [allowed, setAllowed] = useState(false);
   const queryClient = useQueryClient();
-  const { slug, subscriberEmail, inSlugContext, loading: slugLoading } = useSlugContext();
+  const { slug, subscriberId, subscriberEmail, inSlugContext, loading: slugLoading } = useSlugContext();
   const { hasModuleAccess, isMaster } = usePermission();
   const canonicalKitchenPath = useMemo(() => createPageUrl('Cozinha', slug || undefined), [slug]);
   const normalizedSlugSubscriber = useMemo(
     () => (inSlugContext && subscriberEmail ? String(subscriberEmail).toLowerCase().trim() : null),
     [inSlugContext, subscriberEmail]
   );
+  const normalizedSlugSubscriberId = useMemo(
+    () => (inSlugContext ? subscriberId ?? null : null),
+    [inSlugContext, subscriberId]
+  );
   const fallbackSubscriber = useMemo(() => {
     const candidate = user?.subscriber_email || user?.email;
     return candidate ? String(candidate).toLowerCase().trim() : null;
   }, [user?.subscriber_email, user?.email]);
+  const fallbackSubscriberId = useMemo(() => user?.subscriber_id ?? null, [user?.subscriber_id]);
   const tenantIdentifier = normalizedSlugSubscriber || fallbackSubscriber;
+  const tenantSubscriberId = normalizedSlugSubscriberId || fallbackSubscriberId;
   const asSub = (inSlugContext && user?.is_master && normalizedSlugSubscriber) ? normalizedSlugSubscriber : undefined;
-  const tenantScope = asSub || tenantIdentifier || 'none';
-  const scopedEntityOpts = asSub ? { as_subscriber: asSub } : {};
+  const asSubId = (inSlugContext && user?.is_master && normalizedSlugSubscriberId != null) ? normalizedSlugSubscriberId : undefined;
+  const tenantScope = asSubId ?? asSub ?? tenantSubscriberId ?? tenantIdentifier ?? 'none';
+  const scopedEntityOpts = {};
+  if (asSubId != null) scopedEntityOpts.as_subscriber_id = asSubId;
+  if (asSub) scopedEntityOpts.as_subscriber = asSub;
   const cozinhaOrdersKey = useMemo(() => ['cozinhaOrders', tenantScope], [tenantScope]);
-  const gestorOrdersKey = useMemo(() => ['gestorOrders', asSub ?? 'me'], [asSub]);
+  const gestorOrdersKey = useMemo(() => ['gestorOrders', asSubId ?? asSub ?? 'me'], [asSub, asSubId]);
   const realtimeRefetchTimeoutRef = useRef(null);
 
   const normalizeTenantEmail = useCallback((value) => {
@@ -53,8 +62,12 @@ export default function Cozinha() {
   }, [cozinhaOrdersKey, gestorOrdersKey, queryClient, tenantScope]);
 
   const handleRealtimeKitchenOrder = useCallback((order) => {
+    const orderTenantId = order?.subscriber_id ?? null;
     const orderTenant = normalizeTenantEmail(order?.owner_email || order?.subscriber_email);
-    if (!order?.id || !tenantIdentifier || (orderTenant && orderTenant !== tenantIdentifier)) {
+    const tenantMismatch =
+      (tenantSubscriberId != null && orderTenantId != null && String(orderTenantId) !== String(tenantSubscriberId)) ||
+      (tenantIdentifier && orderTenant && orderTenant !== tenantIdentifier);
+    if (!order?.id || (!tenantSubscriberId && !tenantIdentifier) || tenantMismatch) {
       return;
     }
 
@@ -74,7 +87,7 @@ export default function Cozinha() {
     });
 
     scheduleRealtimeSync();
-  }, [cozinhaOrdersKey, normalizeTenantEmail, queryClient, scheduleRealtimeSync, tenantIdentifier]);
+  }, [cozinhaOrdersKey, normalizeTenantEmail, queryClient, scheduleRealtimeSync, tenantIdentifier, tenantSubscriberId]);
 
   useEffect(() => {
     if (slugLoading) return;
@@ -145,8 +158,9 @@ export default function Cozinha() {
 
   useOperationalOrdersRealtime({
     roomType: 'kitchen',
-    enabled: allowed && !!user && !!tenantIdentifier,
+    enabled: allowed && !!user && (!!tenantIdentifier || tenantSubscriberId != null),
     asSubscriber: asSub || null,
+    asSubscriberId: asSubId ?? tenantSubscriberId ?? null,
     onOrderCreated: handleRealtimeKitchenOrder,
     onOrderUpdated: handleRealtimeKitchenOrder,
     onSocketUnavailable: () => {

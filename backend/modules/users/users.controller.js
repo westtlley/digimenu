@@ -89,7 +89,7 @@ export const updateUserProfile = asyncHandler(async (req, res) => {
  */
 export const addRolesToColaborador = asyncHandler(async (req, res) => {
   try {
-    const { owner, subscriber } = await getOwnerAndSubscriber(req, usePostgreSQL, db, repo);
+    const { owner, subscriberId, subscriber } = await getOwnerAndSubscriber(req, usePostgreSQL, db, repo);
     if (!owner) return res.status(400).json({ error: 'Informe o assinante (selecione o estabelecimento) para adicionar perfis.' });
     if (!canUseColaboradores(subscriber, req.user?.is_master, 'update')) {
       return res.status(403).json({ error: 'Acesso a colaboradores nao permitido para este plano/perfil' });
@@ -117,7 +117,7 @@ export const addRolesToColaborador = asyncHandler(async (req, res) => {
     // Buscar colaboradores existentes
     let existingColabs = [];
     if (usePostgreSQL) {
-      const all = await repo.listColaboradores(owner);
+      const all = await repo.listColaboradores(owner, subscriberId);
       existingColabs = all.filter(c => (c.email || '').toLowerCase().trim() === emailNorm);
     } else if (db?.users) {
       existingColabs = db.users.filter(u => 
@@ -159,6 +159,7 @@ export const addRolesToColaborador = asyncHandler(async (req, res) => {
         is_master: false,
         role: 'user',
         subscriber_email: owner,
+        subscriber_id: subscriberId,
         profile_role: role
       };
       try {
@@ -200,7 +201,7 @@ export const addRolesToColaborador = asyncHandler(async (req, res) => {
  */
 export const updateColaborador = asyncHandler(async (req, res) => {
   try {
-    const { owner, subscriber } = await getOwnerAndSubscriber(req, usePostgreSQL, db, repo);
+    const { owner, subscriberId, subscriber } = await getOwnerAndSubscriber(req, usePostgreSQL, db, repo);
     if (!owner) return res.status(400).json({ error: 'Contexto do assinante necessário' });
     if (!canUseColaboradores(subscriber, req.user?.is_master, 'update')) {
       return res.status(403).json({ error: 'Acesso a colaboradores nao permitido para este plano/perfil' });
@@ -211,7 +212,7 @@ export const updateColaborador = asyncHandler(async (req, res) => {
     
     let u = null;
     if (usePostgreSQL) {
-      const all = await repo.listColaboradores(owner);
+      const all = await repo.listColaboradores(owner, subscriberId);
       u = all.find(x => String(x.id) === String(id)) || null;
     } else if (db?.users) {
       u = db.users.find(x => String(x.id) === String(id) && (x.subscriber_email || '').toLowerCase().trim() === owner && (x.profile_role || '').trim());
@@ -238,7 +239,7 @@ export const updateColaborador = asyncHandler(async (req, res) => {
       // Atualizar senha em todos os registros do mesmo email
       const emailNorm = (u.email || '').toLowerCase().trim();
       if (usePostgreSQL) {
-        const all = await repo.listColaboradores(owner);
+        const all = await repo.listColaboradores(owner, subscriberId);
         const sameEmail = all.filter(c => (c.email || '').toLowerCase().trim() === emailNorm);
         for (const colab of sameEmail) {
           await repo.updateUser(colab.id, { password: up.password });
@@ -291,7 +292,7 @@ export const updateColaborador = asyncHandler(async (req, res) => {
  */
 export const deleteColaborador = asyncHandler(async (req, res) => {
   try {
-    const { owner, subscriber } = await getOwnerAndSubscriber(req, usePostgreSQL, db, repo);
+    const { owner, subscriberId, subscriber } = await getOwnerAndSubscriber(req, usePostgreSQL, db, repo);
     if (!owner) return res.status(400).json({ error: 'Contexto do assinante necessário' });
     if (!canUseColaboradores(subscriber, req.user?.is_master, 'delete')) {
       return res.status(403).json({ error: 'Acesso a colaboradores nao permitido para este plano/perfil' });
@@ -302,7 +303,7 @@ export const deleteColaborador = asyncHandler(async (req, res) => {
     // Gerente não pode remover outro colaborador que tenha perfil Gerente
     let targetColab = null;
     if (usePostgreSQL && repo.listColaboradores) {
-      const all = await repo.listColaboradores(owner);
+      const all = await repo.listColaboradores(owner, subscriberId);
       targetColab = all.find(x => String(x.id) === String(id));
     } else if (db?.users) {
       targetColab = db.users.find(x => String(x.id) === String(id) && (x.subscriber_email || '').toLowerCase().trim() === owner && (x.profile_role || '').trim());
@@ -313,7 +314,7 @@ export const deleteColaborador = asyncHandler(async (req, res) => {
     }
     
     if (usePostgreSQL) {
-      const ok = await repo.deleteColaborador(id, owner);
+      const ok = await repo.deleteColaborador(id, owner, subscriberId);
       if (!ok) return res.status(404).json({ error: 'Colaborador não encontrado' });
     } else if (db?.users) {
       const idx = db.users.findIndex(x => String(x.id) === String(id) && (x.subscriber_email || '').toLowerCase().trim() === owner && (x.profile_role || '').trim());
@@ -336,7 +337,7 @@ export const deleteColaborador = asyncHandler(async (req, res) => {
  */
 export const toggleActiveColaborador = asyncHandler(async (req, res) => {
   try {
-    const { owner, subscriber } = await getOwnerAndSubscriber(req, usePostgreSQL, db, repo);
+    const { owner, subscriberId, subscriber } = await getOwnerAndSubscriber(req, usePostgreSQL, db, repo);
     if (!owner) return res.status(400).json({ error: 'Contexto do assinante necessário' });
     if (!canUseColaboradores(subscriber, req.user?.is_master, 'update')) {
       return res.status(403).json({ error: 'Acesso a colaboradores nao permitido para este plano/perfil' });
@@ -352,7 +353,7 @@ export const toggleActiveColaborador = asyncHandler(async (req, res) => {
     // Buscar colaborador
     let targetColab = null;
     if (usePostgreSQL && repo.listColaboradores) {
-      const all = await repo.listColaboradores(owner);
+      const all = await repo.listColaboradores(owner, subscriberId);
       targetColab = all.find(x => String(x.id) === String(id));
     } else if (db?.users) {
       targetColab = db.users.find(x => String(x.id) === String(id) && (x.subscriber_email || '').toLowerCase().trim() === owner && (x.profile_role || '').trim());

@@ -62,6 +62,7 @@ function trackEventJsonFallback(eventRow) {
     id: Date.now().toString(),
     event_name: eventRow.event_name,
     event_category: eventRow.event_category || null,
+    subscriber_id: eventRow.subscriber_id || null,
     subscriber_email: eventRow.subscriber_email || null,
     slug: eventRow.slug || null,
     session_id: eventRow.session_id || null,
@@ -92,6 +93,7 @@ export async function trackEvent(eventName, properties = {}, userId = null, cont
   const row = {
     event_name: safeEventName,
     event_category: normalizeString(context.eventCategory || context.category, 60),
+    subscriber_id: context.subscriberId != null ? Number(context.subscriberId) : null,
     subscriber_email: normalizeString(context.subscriberEmail, 255),
     slug: normalizeString(context.slug, 120),
     session_id: normalizeString(context.sessionId, 120),
@@ -104,11 +106,12 @@ export async function trackEvent(eventName, properties = {}, userId = null, cont
     if (usePostgreSQL) {
       await query(
         `INSERT INTO analytics_events
-          (event_name, event_category, subscriber_email, slug, session_id, path, user_id, properties, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, CURRENT_TIMESTAMP)`,
+          (event_name, event_category, subscriber_id, subscriber_email, slug, session_id, path, user_id, properties, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, CURRENT_TIMESTAMP)`,
         [
           row.event_name,
           row.event_category,
+          row.subscriber_id,
           row.subscriber_email,
           row.slug,
           row.session_id,

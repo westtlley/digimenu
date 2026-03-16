@@ -29,11 +29,12 @@ export function usePermission() {
   const [userContext, setUserContext] = useState(null);
 
   // ✅ NOVO: Obter contexto do slug quando estiver em /s/:slug
-  const { subscriberEmail: slugSubscriberEmail, inSlugContext } = useSlugContext();
+  const { subscriberId: slugSubscriberId, subscriberEmail: slugSubscriberEmail, inSlugContext } = useSlugContext();
 
   const loadPermissions = useCallback(async () => {
     trace('load start', {
       inSlugContext,
+      slugSubscriberId,
       slugSubscriberEmail,
     });
     let contextData = null;
@@ -86,6 +87,7 @@ export function usePermission() {
         trace('canonical context loaded', {
           email: contextData.user?.email,
           isMaster: contextData.user?.is_master,
+          subscriberId: contextData.subscriberData?.id ?? null,
           subscriberStatus: contextData.subscriberData?.status ?? null,
           subscriberEmail: contextData.subscriberData?.email ?? null,
         });
@@ -129,6 +131,7 @@ export function usePermission() {
                 const slugPlanSlug = (slugSubscriber.plan || 'basic').toString().toLowerCase().trim();
                 finalSubscriberData = {
                   ...slugSubscriber,
+                  id: slugSubscriber.id ?? slugSubscriberId ?? null,
                   plan: slugPlanSlug,
                   status: slugSubscriber.status || 'active'
                 };
@@ -162,7 +165,8 @@ export function usePermission() {
           // Sobrescrever menuContext para usar subscriberEmail do slug
           menuContextToUse = {
             type: 'subscriber',
-            value: slugSubscriberEmail
+            value: slugSubscriberEmail,
+            subscriber_id: slugSubscriberId ?? finalSubscriberData?.id ?? contextData.user?.subscriber_id ?? null
           };
         }
 
@@ -250,6 +254,7 @@ export function usePermission() {
             trace('fallback using minimal subscriber context', { email: currentUser.email });
             const subscriberEmail = currentUser.subscriber_email || currentUser.email;
             const minimalSubscriber = {
+              id: currentUser.subscriber_id || null,
               email: subscriberEmail,
               plan: 'basic',
               status: 'active',
@@ -274,7 +279,7 @@ export function usePermission() {
       setLoading(false);
       trace('load finished');
     }
-  }, [inSlugContext, slugSubscriberEmail]);
+  }, [inSlugContext, slugSubscriberEmail, slugSubscriberId]);
 
   useEffect(() => {
     loadPermissions();
@@ -356,7 +361,7 @@ export function usePermission() {
   // ✅ Estabilizar menuContext para evitar rerenders desnecessários nas queries
   const stableMenuContext = useMemo(() => {
     return userContext?.menuContext || null;
-  }, [userContext?.menuContext?.type, userContext?.menuContext?.value]);
+  }, [userContext?.menuContext?.type, userContext?.menuContext?.value, userContext?.menuContext?.subscriber_id]);
 
   return {
     permissions,

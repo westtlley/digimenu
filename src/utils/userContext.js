@@ -9,6 +9,7 @@
  * @typedef {Object} MenuContext
  * @property {'slug'|'subscriber'} type - Tipo de contexto
  * @property {string} value - Valor do contexto (slug ou subscriber_email)
+ * @property {number|null} [subscriber_id] - Identidade canônica do tenant quando aplicável
  */
 
 /**
@@ -41,6 +42,7 @@ export function createMenuContext(user, subscriberData) {
     return {
       type: 'subscriber',
       value: subscriberData.email,
+      subscriber_id: subscriberData.id ?? null,
     };
   }
 
@@ -48,6 +50,7 @@ export function createMenuContext(user, subscriberData) {
   return {
     type: 'subscriber',
     value: user?.email || null,
+    subscriber_id: user?.subscriber_id ?? null,
   };
 }
 

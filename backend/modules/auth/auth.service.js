@@ -286,6 +286,7 @@ export function prepareLoginResponse(user) {
       full_name: user.full_name,
       is_master: user.is_master,
       role: user.role,
+      subscriber_id: user.subscriber_id || null,
       subscriber_email: user.subscriber_email || null,
       profile_role: user.profile_role || null
     }

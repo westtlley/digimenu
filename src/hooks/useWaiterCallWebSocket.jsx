@@ -16,16 +16,18 @@ export function useWaiterCallWebSocket(options = true) {
     typeof options === 'object' && options !== null
       ? options
       : { enabled: Boolean(options) };
-  const { enabled = true, subscriberEmailOverride = null } = normalizedOptions;
+  const { enabled = true, subscriberEmailOverride = null, subscriberIdOverride = null } = normalizedOptions;
   const [waiterCalls, setWaiterCalls] = useState([]);
   const socketRef = useRef(null);
   const queryClient = useQueryClient();
   const audioRef = useRef(null);
-  const scopedEntityOpts = subscriberEmailOverride ? { as_subscriber: subscriberEmailOverride } : {};
+  const scopedEntityOpts = {};
+  if (subscriberIdOverride != null) scopedEntityOpts.as_subscriber_id = subscriberIdOverride;
+  if (subscriberEmailOverride) scopedEntityOpts.as_subscriber = subscriberEmailOverride;
 
   // Buscar chamadas pendentes
   const { data: allWaiterCalls = [] } = useQuery({
-    queryKey: ['WaiterCall', subscriberEmailOverride || 'self'],
+    queryKey: ['WaiterCall', (subscriberIdOverride ?? subscriberEmailOverride) || 'self'],
     queryFn: async () => {
       try {
         return await base44.entities.WaiterCall.list('-created_at', { status: 'pending', ...scopedEntityOpts });
@@ -79,6 +81,7 @@ export function useWaiterCallWebSocket(options = true) {
         if (!user) return;
 
         const subscriberEmail = subscriberEmailOverride || user.subscriber_email || user.email;
+        const subscriberId = subscriberIdOverride || user.subscriber_id || null;
         const waiterEmail = user.email;
         if (!subscriberEmail) return;
         const token = base44.auth.getToken();
@@ -86,7 +89,8 @@ export function useWaiterCallWebSocket(options = true) {
         socketRef.current = io(SOCKET_URL, {
           auth: {
             token,
-            asSubscriber: token && subscriberEmailOverride ? subscriberEmailOverride : null
+            asSubscriber: token && subscriberEmailOverride ? subscriberEmailOverride : null,
+            asSubscriberId: token && subscriberIdOverride != null ? subscriberIdOverride : subscriberId,
           },
           transports: ['websocket', 'polling'],
           reconnection: true,
@@ -181,7 +185,7 @@ export function useWaiterCallWebSocket(options = true) {
         socketRef.current = null;
       }
     };
-  }, [enabled, queryClient, subscriberEmailOverride]);
+  }, [enabled, queryClient, subscriberEmailOverride, subscriberIdOverride]);
 
   return {
     waiterCalls,

@@ -14,13 +14,15 @@ export function useComandas(statusFilter = 'open', options = true) {
     typeof options === 'object' && options !== null
       ? options
       : { enabled: Boolean(options) };
-  const { enabled = true, asSubscriber } = normalizedOptions;
+  const { enabled = true, asSubscriber, asSubscriberId = null } = normalizedOptions;
   const { online } = useOfflineSync();
   const queryClient = useQueryClient();
-  const scopedEntityOpts = asSubscriber ? { as_subscriber: asSubscriber } : {};
+  const scopedEntityOpts = {};
+  if (asSubscriberId != null) scopedEntityOpts.as_subscriber_id = asSubscriberId;
+  if (asSubscriber) scopedEntityOpts.as_subscriber = asSubscriber;
 
   const { data: comandas = [], isLoading } = useQuery({
-    queryKey: ['Comanda', statusFilter, online, asSubscriber || 'self'],
+    queryKey: ['Comanda', statusFilter, online, (asSubscriberId ?? asSubscriber) || 'self'],
     queryFn: async () => {
       const params = statusFilter && statusFilter !== 'all' ? { status: statusFilter, ...scopedEntityOpts } : { ...scopedEntityOpts };
       

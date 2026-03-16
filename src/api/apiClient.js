@@ -476,10 +476,13 @@ class ApiClient {
         },
 
         /**
-         * Obtém por ID. opts.as_subscriber para modo suporte.
+         * Obt??m por ID. opts.as_subscriber_id para tenant can??nico e opts.as_subscriber como fallback.
          */
         get: async (id, opts = {}) => {
-          const q = opts?.as_subscriber ? `?as_subscriber=${encodeURIComponent(opts.as_subscriber)}` : '';
+          const params = new URLSearchParams();
+          if (opts?.as_subscriber_id != null) params.set('as_subscriber_id', String(opts.as_subscriber_id));
+          if (opts?.as_subscriber) params.set('as_subscriber', String(opts.as_subscriber));
+          const q = params.toString() ? `?${params.toString()}` : '';
           return self.get(`/entities/${entityName}/${id}${q}`);
         },
 
@@ -491,19 +494,25 @@ class ApiClient {
         },
 
         /**
-         * Atualiza. Subscriber usa /subscribers/:id. opts.as_subscriber para modo suporte.
+         * Atualiza. Subscriber usa /subscribers/:id. opts.as_subscriber_id para tenant can??nico e opts.as_subscriber como fallback.
          */
         update: async (id, data, opts = {}) => {
-          const q = opts?.as_subscriber ? `?as_subscriber=${encodeURIComponent(opts.as_subscriber)}` : '';
+          const params = new URLSearchParams();
+          if (opts?.as_subscriber_id != null) params.set('as_subscriber_id', String(opts.as_subscriber_id));
+          if (opts?.as_subscriber) params.set('as_subscriber', String(opts.as_subscriber));
+          const q = params.toString() ? `?${params.toString()}` : '';
           if (String(entityName) === 'Subscriber') return self.put(`/subscribers/${id}`, data);
           return self.put(`/entities/${entityName}/${id}${q}`, data);
         },
 
         /**
-         * Deleta. opts.as_subscriber para modo suporte.
+         * Deleta. opts.as_subscriber_id para tenant can??nico e opts.as_subscriber como fallback.
          */
         delete: async (id, opts = {}) => {
-          const q = opts?.as_subscriber ? `?as_subscriber=${encodeURIComponent(opts.as_subscriber)}` : '';
+          const params = new URLSearchParams();
+          if (opts?.as_subscriber_id != null) params.set('as_subscriber_id', String(opts.as_subscriber_id));
+          if (opts?.as_subscriber) params.set('as_subscriber', String(opts.as_subscriber));
+          const q = params.toString() ? `?${params.toString()}` : '';
           return self.delete(`/entities/${entityName}/${id}${q}`);
         },
 
@@ -717,3 +726,4 @@ export const api = apiClient;
 
 // Exporta a classe para uso avançado
 export default ApiClient;
+

@@ -32,11 +32,30 @@ function mapEntityRow(row) {
   if (!row) return null;
   return {
     id: String(row.id),
+    subscriber_id: row.subscriber_id ?? null,
+    subscriber_email: row.subscriber_email ?? null,
     ...row.data,
     created_at: row.created_at,
     created_date: row.created_at || row?.data?.created_date,
     updated_at: row.updated_at,
   };
+}
+
+function buildTenantEntityWhere(emailParamRef, subscriberIdParamRef) {
+  return `
+    (
+      (${subscriberIdParamRef}::int IS NOT NULL AND subscriber_id = ${subscriberIdParamRef})
+      OR (
+        ${emailParamRef} IS NOT NULL
+        AND LOWER(TRIM(subscriber_email)) = LOWER(TRIM(${emailParamRef}))
+      )
+      OR (
+        ${emailParamRef} IS NOT NULL
+        AND subscriber_email IS NULL
+        AND LOWER(TRIM(COALESCE(data->>'owner_email', data->>'subscriber_email', ''))) = LOWER(TRIM(${emailParamRef}))
+      )
+    )
+  `;
 }
 
 function normalizePayments(payments = [], total) {
@@ -174,70 +193,52 @@ function mapSaleItemsToProduction(items = []) {
     .filter((item) => item.quantity > 0 && item.total_price >= 0);
 }
 
-async function findExistingOrderByRequestId(client, ownerEmail, clientRequestId) {
+async function findExistingOrderByRequestId(client, ownerEmail, ownerSubscriberId, clientRequestId) {
   const result = await client.query(
     `
-      SELECT id, data, created_at, updated_at
+      SELECT id, subscriber_id, subscriber_email, data, created_at, updated_at
       FROM entities
       WHERE entity_type = 'PedidoPDV'
         AND data->>'client_request_id' = $2
-        AND (
-          LOWER(TRIM(subscriber_email)) = LOWER(TRIM($1))
-          OR (
-            subscriber_email IS NULL
-            AND LOWER(TRIM(COALESCE(data->>'owner_email', data->>'subscriber_email', ''))) = LOWER(TRIM($1))
-          )
-        )
+        AND ${buildTenantEntityWhere('$1', '$3')}
       ORDER BY id DESC
       LIMIT 1
       FOR UPDATE
     `,
-    [ownerEmail, clientRequestId]
+    [ownerEmail, clientRequestId, ownerSubscriberId]
   );
 
   if (!result.rows.length) return null;
   return decorateOrderEntity(mapEntityRow(result.rows[0]));
 }
 
-async function findExistingProductionOrderByRequestId(client, ownerEmail, clientRequestId) {
+async function findExistingProductionOrderByRequestId(client, ownerEmail, ownerSubscriberId, clientRequestId) {
   const result = await client.query(
     `
-      SELECT id, data, created_at, updated_at
+      SELECT id, subscriber_id, subscriber_email, data, created_at, updated_at
       FROM entities
       WHERE entity_type = 'Order'
         AND data->>'source' = 'pdv'
         AND data->>'pdv_client_request_id' = $2
-        AND (
-          LOWER(TRIM(subscriber_email)) = LOWER(TRIM($1))
-          OR (
-            subscriber_email IS NULL
-            AND LOWER(TRIM(COALESCE(data->>'owner_email', data->>'subscriber_email', ''))) = LOWER(TRIM($1))
-          )
-        )
+        AND ${buildTenantEntityWhere('$1', '$3')}
       ORDER BY id DESC
       LIMIT 1
       FOR UPDATE
     `,
-    [ownerEmail, clientRequestId]
+    [ownerEmail, clientRequestId, ownerSubscriberId]
   );
 
   if (!result.rows.length) return null;
   return mapEntityRow(result.rows[0]);
 }
 
-async function listOrderOperations(client, ownerEmail, { id, order_code: orderCode, client_request_id: clientRequestId }) {
+async function listOrderOperations(client, ownerEmail, ownerSubscriberId, { id, order_code: orderCode, client_request_id: clientRequestId }) {
   const result = await client.query(
     `
-      SELECT id, data, created_at, updated_at
+      SELECT id, subscriber_id, subscriber_email, data, created_at, updated_at
       FROM entities
       WHERE entity_type = 'CaixaOperation'
-        AND (
-          LOWER(TRIM(subscriber_email)) = LOWER(TRIM($1))
-          OR (
-            subscriber_email IS NULL
-            AND LOWER(TRIM(COALESCE(data->>'owner_email', data->>'subscriber_email', ''))) = LOWER(TRIM($1))
-          )
-        )
+        AND ${buildTenantEntityWhere('$1', '$5')}
         AND (
           data->>'pedido_pdv_entity_id' = $2
           OR data->>'pedido_pdv_id' = $3
@@ -245,29 +246,23 @@ async function listOrderOperations(client, ownerEmail, { id, order_code: orderCo
         )
       ORDER BY id ASC
     `,
-    [ownerEmail, String(id), String(orderCode || ''), String(clientRequestId || '')]
+    [ownerEmail, String(id), String(orderCode || ''), String(clientRequestId || ''), ownerSubscriberId]
   );
 
   return result.rows.map(mapEntityRow);
 }
 
-async function assertOpenCaixaForTenant(client, caixaId, ownerEmail) {
+async function assertOpenCaixaForTenant(client, caixaId, ownerEmail, ownerSubscriberId) {
   const result = await client.query(
     `
-      SELECT id, data, created_at, updated_at
+      SELECT id, subscriber_id, subscriber_email, data, created_at, updated_at
       FROM entities
       WHERE entity_type = 'Caixa'
         AND id = $1
-        AND (
-          LOWER(TRIM(subscriber_email)) = LOWER(TRIM($2))
-          OR (
-            subscriber_email IS NULL
-            AND LOWER(TRIM(COALESCE(data->>'owner_email', data->>'subscriber_email', ''))) = LOWER(TRIM($2))
-          )
-        )
+        AND ${buildTenantEntityWhere('$2', '$3')}
       FOR UPDATE
     `,
-    [caixaId, ownerEmail]
+    [caixaId, ownerEmail, ownerSubscriberId]
   );
 
   if (!result.rows.length) {
@@ -282,7 +277,7 @@ async function assertOpenCaixaForTenant(client, caixaId, ownerEmail) {
   return caixa;
 }
 
-export async function finalizePdvSaleAtomic({ user, ownerEmail, payload = {} }) {
+export async function finalizePdvSaleAtomic({ user, ownerEmail, ownerSubscriberId = null, payload = {} }) {
   if (!ownerEmail) {
     throw createHttpError(403, 'Contexto do assinante inválido para finalizar venda.', 'PDV_CAIXA_CONTEXT_REQUIRED');
   }
@@ -319,11 +314,11 @@ export async function finalizePdvSaleAtomic({ user, ownerEmail, payload = {} }) 
     transactionClient = await getClient();
     await transactionClient.query('BEGIN');
 
-    const existingOrder = await findExistingOrderByRequestId(transactionClient, ownerEmail, clientRequestId);
+    const existingOrder = await findExistingOrderByRequestId(transactionClient, ownerEmail, ownerSubscriberId, clientRequestId);
     if (existingOrder) {
-      const existingOperations = await listOrderOperations(transactionClient, ownerEmail, existingOrder);
+      const existingOperations = await listOrderOperations(transactionClient, ownerEmail, ownerSubscriberId, existingOrder);
       const existingProductionOrder = createProductionOrder
-        ? await findExistingProductionOrderByRequestId(transactionClient, ownerEmail, clientRequestId)
+        ? await findExistingProductionOrderByRequestId(transactionClient, ownerEmail, ownerSubscriberId, clientRequestId)
         : null;
       await transactionClient.query('COMMIT');
       transactionClient.release();
@@ -341,12 +336,13 @@ export async function finalizePdvSaleAtomic({ user, ownerEmail, payload = {} }) 
       };
     }
 
-    await assertOpenCaixaForTenant(transactionClient, caixaId, ownerEmail);
+    await assertOpenCaixaForTenant(transactionClient, caixaId, ownerEmail, ownerSubscriberId);
 
     const nowIso = new Date().toISOString();
     const orderCode = payload.order_code || generateOrderCode();
     const pedidoData = {
       owner_email: ownerEmail,
+      subscriber_id: ownerSubscriberId,
       subscriber_email: ownerEmail,
       client_request_id: clientRequestId,
       order_code: orderCode,
@@ -370,13 +366,13 @@ export async function finalizePdvSaleAtomic({ user, ownerEmail, payload = {} }) 
       ...(payload.pdv_session_id ? { pdv_session_id: payload.pdv_session_id } : {}),
     };
 
-    const orderInsert = await transactionClient.query(
+      const orderInsert = await transactionClient.query(
       `
-        INSERT INTO entities (entity_type, data, subscriber_email)
-        VALUES ($1, $2, $3)
-        RETURNING id, data, created_at, updated_at
+        INSERT INTO entities (entity_type, data, subscriber_email, subscriber_id)
+        VALUES ($1, $2, $3, $4)
+        RETURNING id, subscriber_id, subscriber_email, data, created_at, updated_at
       `,
-      ['PedidoPDV', JSON.stringify(pedidoData), ownerEmail]
+      ['PedidoPDV', JSON.stringify(pedidoData), ownerEmail, ownerSubscriberId]
     );
     const createdOrder = mapEntityRow(orderInsert.rows[0]);
     let createdProductionOrder = null;
@@ -386,6 +382,7 @@ export async function finalizePdvSaleAtomic({ user, ownerEmail, payload = {} }) 
       if (productionItems.length > 0) {
         const productionOrderData = normalizeOrderForPersistence({
           owner_email: ownerEmail,
+          subscriber_id: ownerSubscriberId,
           subscriber_email: ownerEmail,
           source: 'pdv',
           source_ref_id: createdOrder.id,
@@ -413,11 +410,11 @@ export async function finalizePdvSaleAtomic({ user, ownerEmail, payload = {} }) 
 
         const productionInsert = await transactionClient.query(
           `
-            INSERT INTO entities (entity_type, data, subscriber_email)
-            VALUES ($1, $2, $3)
-            RETURNING id, data, created_at, updated_at
+            INSERT INTO entities (entity_type, data, subscriber_email, subscriber_id)
+            VALUES ($1, $2, $3, $4)
+            RETURNING id, subscriber_id, subscriber_email, data, created_at, updated_at
           `,
-          ['Order', JSON.stringify(productionOrderData), ownerEmail]
+          ['Order', JSON.stringify(productionOrderData), ownerEmail, ownerSubscriberId]
         );
 
         createdProductionOrder = decorateOrderEntity(mapEntityRow(productionInsert.rows[0]));
@@ -452,6 +449,7 @@ export async function finalizePdvSaleAtomic({ user, ownerEmail, payload = {} }) 
     for (const payment of normalizedPayments) {
       const operationData = {
         owner_email: ownerEmail,
+        subscriber_id: ownerSubscriberId,
         subscriber_email: ownerEmail,
         client_request_id: clientRequestId,
         caixa_id: caixaId,
@@ -469,11 +467,11 @@ export async function finalizePdvSaleAtomic({ user, ownerEmail, payload = {} }) 
 
       const operationInsert = await transactionClient.query(
         `
-          INSERT INTO entities (entity_type, data, subscriber_email)
-          VALUES ($1, $2, $3)
-          RETURNING id, data, created_at, updated_at
+          INSERT INTO entities (entity_type, data, subscriber_email, subscriber_id)
+          VALUES ($1, $2, $3, $4)
+          RETURNING id, subscriber_id, subscriber_email, data, created_at, updated_at
         `,
-        ['CaixaOperation', JSON.stringify(operationData), ownerEmail]
+        ['CaixaOperation', JSON.stringify(operationData), ownerEmail, ownerSubscriberId]
       );
       createdOperations.push(mapEntityRow(operationInsert.rows[0]));
     }

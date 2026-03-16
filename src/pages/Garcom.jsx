@@ -41,7 +41,7 @@ export default function Garcom() {
   const [historyCallsOpen, setHistoryCallsOpen] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showTips, setShowTips] = useState(false);
-  const { slug, subscriberEmail, inSlugContext, loading: slugLoading } = useSlugContext();
+  const { slug, subscriberId, subscriberEmail, inSlugContext, loading: slugLoading } = useSlugContext();
 
   // Debounce da busca
   const debouncedSearchTerm = useDebounce(searchTerm, DEBOUNCE_DELAYS.SEARCH);
@@ -58,6 +58,10 @@ export default function Garcom() {
     if (!inSlugContext || !tenantIdentifier) return null;
     return user?.is_master === true ? tenantIdentifier : null;
   }, [allowed, inSlugContext, tenantIdentifier, user?.is_master]);
+  const asSubscriberIdForMaster = useMemo(() => {
+    if (!allowed || !inSlugContext || subscriberId == null) return null;
+    return user?.is_master === true ? subscriberId : null;
+  }, [allowed, inSlugContext, subscriberId, user?.is_master]);
 
   useEffect(() => {
     if (slugLoading) return;
@@ -109,10 +113,12 @@ export default function Garcom() {
   const { comandas, isLoading, stats, createMutation, updateMutation, online } = useComandas(statusFilter, {
     enabled: allowed,
     asSubscriber: asSubscriberForMaster,
+    asSubscriberId: asSubscriberIdForMaster,
   });
 
   // WebSocket para atualização em tempo real
   useComandaWebSocket({
+    subscriberId: allowed ? (asSubscriberIdForMaster ?? subscriberId ?? user?.subscriber_id ?? null) : null,
     subscriberEmail: allowed ? tenantIdentifier : null,
   });
 
@@ -120,12 +126,15 @@ export default function Garcom() {
   const { waiterCalls, allWaiterCalls, setWaiterCalls } = useWaiterCallWebSocket({
     enabled: allowed,
     subscriberEmailOverride: asSubscriberForMaster,
+    subscriberIdOverride: asSubscriberIdForMaster,
   });
 
   // Buscar pratos
-  const dishListOpts = asSubscriberForMaster ? { as_subscriber: asSubscriberForMaster } : {};
+  const dishListOpts = {};
+  if (asSubscriberIdForMaster != null) dishListOpts.as_subscriber_id = asSubscriberIdForMaster;
+  if (asSubscriberForMaster) dishListOpts.as_subscriber = asSubscriberForMaster;
   const { data: dishes = [] } = useQuery({
-    queryKey: ['Dish', asSubscriberForMaster || 'self'],
+    queryKey: ['Dish', (asSubscriberIdForMaster ?? asSubscriberForMaster) || 'self'],
     queryFn: () => base44.entities.Dish.list(null, dishListOpts),
     enabled: allowed && !slugLoading,
   });

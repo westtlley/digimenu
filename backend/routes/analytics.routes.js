@@ -34,25 +34,27 @@ const resolveSubscriberFromSlug = async (slug) => {
 
   if (usePostgreSQL) {
     const subscriber = await repo.getSubscriberBySlug(normalizedSlug);
-    if (subscriber?.email) return subscriber.email;
+    if (subscriber?.email) return { email: subscriber.email, id: subscriber.id ?? null };
 
     const masterResult = await query(
-      'SELECT email FROM users WHERE slug = $1 AND is_master = TRUE LIMIT 1',
+      'SELECT id, email FROM users WHERE slug = $1 AND is_master = TRUE LIMIT 1',
       [normalizedSlug]
     );
-    return masterResult.rows[0]?.email || null;
+    return masterResult.rows[0]
+      ? { email: masterResult.rows[0].email, id: null }
+      : null;
   }
 
   const db = getDb();
   const subscriber = (db?.subscribers || []).find(
     (item) => String(item?.slug || '').toLowerCase() === normalizedSlug
   );
-  if (subscriber?.email) return subscriber.email;
+  if (subscriber?.email) return { email: subscriber.email, id: subscriber.id ?? null };
 
   const master = (db?.users || []).find(
     (item) => item?.is_master && String(item?.slug || '').toLowerCase() === normalizedSlug
   );
-  return master?.email || null;
+  return master?.email ? { email: master.email, id: null } : null;
 };
 
 /**
@@ -68,11 +70,15 @@ router.post('/events', async (req, res) => {
     }
 
     const slug = normalizeSlug(body.slug);
-    const authSubscriber = req.user?.subscriber_email || req.user?.email || null;
+    const authSubscriber = {
+      id: req.user?.subscriber_id || null,
+      email: req.user?.subscriber_email || req.user?.email || null,
+    };
     const subscriberFromSlug = await resolveSubscriberFromSlug(slug);
     // Nunca confiar em subscriber_email enviado no body.
     // Isolamento por tenant só por token autenticado ou slug resolvido no backend.
-    const subscriberEmail = authSubscriber || subscriberFromSlug || null;
+    const subscriberEmail = authSubscriber.email || subscriberFromSlug?.email || null;
+    const subscriberId = authSubscriber.id || subscriberFromSlug?.id || null;
 
     if (!subscriberEmail) {
       return res.json({ ok: true, ignored: true, reason: 'SUBSCRIBER_NOT_RESOLVED' });
@@ -84,6 +90,7 @@ router.post('/events', async (req, res) => {
       req.user?.id || null,
       {
         subscriberEmail,
+        subscriberId,
         slug,
         sessionId: normalizeString(body.session_id || req.headers['x-session-id'], 120),
         path: normalizeString(body.path || req.path, 500),

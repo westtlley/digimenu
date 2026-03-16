@@ -15,10 +15,12 @@ export function useSlugContext() {
     enabled: !!slug,
   });
 
+  const subscriberId = publicData?.subscriber_id ?? null;
   const subscriberEmail = publicData?.subscriber_email || null;
 
   return {
     slug: slug || null,
+    subscriberId,
     subscriberEmail,
     inSlugContext: !!slug,
     loading: !!slug && loading,

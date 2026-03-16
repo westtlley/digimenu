@@ -7,6 +7,11 @@ import { getEffectivePermissionsForSubscriber } from '../../utils/planPresetsFor
 export const COLAB_ROLES = ['entregador', 'cozinha', 'pdv', 'garcom', 'gerente'];
 
 const normalizeLower = (value = '') => String(value || '').toLowerCase().trim();
+const normalizeSubscriberId = (value) => {
+  if (value == null || value === '') return null;
+  const parsed = Number.parseInt(String(value), 10);
+  return Number.isFinite(parsed) ? parsed : null;
+};
 
 function parseSubscriberPermissionMap(subscriber) {
   return getEffectivePermissionsForSubscriber(subscriber);
@@ -28,14 +33,32 @@ function hasModuleActionPermission(permissionMap, moduleName, action) {
  * Obtém owner e subscriber do request
  */
 export async function getOwnerAndSubscriber(req, usePostgreSQL, db, repo) {
-  const owner = (req.query.as_subscriber || req.user?._contextForSubscriber || req.user?.subscriber_email || req.user?.email || '').toString().toLowerCase().trim();
+  const requestedSubscriberId = normalizeSubscriberId(
+    req.query.as_subscriber_id ??
+    req.user?._contextForSubscriberId ??
+    req.user?.subscriber_id ??
+    null
+  );
+  const requestedSubscriberEmail = (
+    req.query.as_subscriber ||
+    req.user?._contextForSubscriber ||
+    req.user?.subscriber_email ||
+    (!req.user?.is_master ? req.user?.email : '')
+  ).toString().toLowerCase().trim();
   let subscriber = null;
   if (usePostgreSQL) {
-    subscriber = await repo.getSubscriberByEmail(owner);
+    subscriber = requestedSubscriberId != null
+      ? await repo.getSubscriberById(requestedSubscriberId)
+      : await repo.getSubscriberByEmail(requestedSubscriberEmail);
   } else if (db?.subscribers) {
-    subscriber = db.subscribers.find(s => (s.email || '').toLowerCase().trim() === owner) || null;
+    subscriber = db.subscribers.find((s) => {
+      if (requestedSubscriberId != null && Number(s.id) === Number(requestedSubscriberId)) return true;
+      return (s.email || '').toLowerCase().trim() === requestedSubscriberEmail;
+    }) || null;
   }
-  return { owner, subscriber };
+  const owner = normalizeLower(subscriber?.email || requestedSubscriberEmail);
+  const subscriberId = normalizeSubscriberId(subscriber?.id ?? requestedSubscriberId);
+  return { owner, subscriberId, subscriber };
 }
 
 /**

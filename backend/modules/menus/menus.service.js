@@ -18,7 +18,7 @@ export async function getPublicMenuBySlug(slug) {
 
   logger.info(`🔍 [public/cardapio] Buscando cardápio para slug: "${normalizedSlug}"`);
 
-  const { subscriber, isMaster, subscriberEmail } = await getSubscriberOrMasterBySlug(normalizedSlug);
+  const { subscriber, isMaster, subscriberEmail, subscriberId } = await getSubscriberOrMasterBySlug(normalizedSlug);
 
   if (!subscriber && !isMaster) {
     logger.warn(`❌ [public/cardapio] Slug não encontrado nem como subscriber nem como master`);
@@ -65,6 +65,7 @@ export async function getPublicMenuBySlug(slug) {
   });
 
   return {
+    subscriber_id: subscriberId || null,
     subscriber_email: subscriberEmail || 'master',
     is_master: isMaster,
     store,

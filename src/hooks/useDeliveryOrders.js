@@ -12,22 +12,26 @@ const FALLBACK_DELIVERY_POLLING_MS = 15000;
 /**
  * Hook para gerenciar pedidos de entrega
  */
-export function useDeliveryOrders(entregadorId, asSubscriber, isMaster = false) {
+export function useDeliveryOrders(entregadorId, asSubscriber, asSubscriberId = null, isMaster = false) {
+  const scopedEntityOpts = {};
+  if (asSubscriberId != null) scopedEntityOpts.as_subscriber_id = asSubscriberId;
+  if (asSubscriber) scopedEntityOpts.as_subscriber = asSubscriber;
+
   const { data: orders = [] } = useQuery({
-    queryKey: ['deliveryOrders', entregadorId, asSubscriber ?? 'me'],
+    queryKey: ['deliveryOrders', entregadorId, asSubscriberId ?? asSubscriber ?? 'me'],
     queryFn: () =>
       base44.entities.Order.filter({
         entregador_id: entregadorId,
-        ...(asSubscriber && { as_subscriber: asSubscriber }),
+        ...scopedEntityOpts,
       }),
     enabled: !!entregadorId && !isMaster,
     refetchInterval: FALLBACK_DELIVERY_POLLING_MS,
   });
 
   const { data: allOrders = [] } = useQuery({
-    queryKey: ['allDeliveryOrders', asSubscriber ?? 'me'],
+    queryKey: ['allDeliveryOrders', asSubscriberId ?? asSubscriber ?? 'me'],
     queryFn: async () => {
-      const allTenantOrders = await base44.entities.Order.list(null, asSubscriber ? { as_subscriber: asSubscriber } : {});
+      const allTenantOrders = await base44.entities.Order.list(null, scopedEntityOpts);
       return allTenantOrders.filter((order) => ACTIVE_DELIVERY_FLOW_STATUSES.has(getOrderDeliveryStatus(order)));
     },
     enabled: isMaster,

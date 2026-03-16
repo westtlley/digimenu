@@ -3,7 +3,7 @@
  * Separa lógica de admin do cardápio público
  * 
  * ✅ Master usa slug ou null (próprios dados)
- * ✅ Subscriber usa subscriber_email
+ * ✅ Subscriber usa subscriber_id canônico com fallback por subscriber_email
  */
 
 import { base44 } from '@/api/base44Client';
@@ -64,7 +64,7 @@ async function getReliableSlug(menuContext) {
 /**
  * Busca pratos no contexto do admin
  * 
- * @param {Object} menuContext - Contexto do menu { type: 'slug'|'subscriber', value: string }
+ * @param {Object} menuContext - Contexto do menu { type: 'slug'|'subscriber', value: string, subscriber_id?: number }
  * @returns {Promise<Array>}
  */
 export async function fetchAdminDishes(menuContext) {
@@ -75,6 +75,9 @@ export async function fetchAdminDishes(menuContext) {
     
     // Se for subscriber, usar as_subscriber
     if (menuContext.type === 'subscriber' && menuContext.value) {
+      if (menuContext.subscriber_id != null) {
+        opts.as_subscriber_id = menuContext.subscriber_id;
+      }
       opts.as_subscriber = menuContext.value;
       log.menu.debug('✅ [adminMenuService] Passando as_subscriber:', menuContext.value);
     }
@@ -131,6 +134,9 @@ export async function fetchAdminCategories(menuContext) {
 
     const opts = {};
     if (menuContext.type === 'subscriber' && menuContext.value) {
+      if (menuContext.subscriber_id != null) {
+        opts.as_subscriber_id = menuContext.subscriber_id;
+      }
       opts.as_subscriber = menuContext.value;
     }
 
@@ -183,6 +189,9 @@ export async function fetchAdminComplementGroups(menuContext) {
 
     const opts = {};
     if (menuContext.type === 'subscriber' && menuContext.value) {
+      if (menuContext.subscriber_id != null) {
+        opts.as_subscriber_id = menuContext.subscriber_id;
+      }
       opts.as_subscriber = menuContext.value;
     }
 

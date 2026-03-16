@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS users (
   is_master BOOLEAN DEFAULT FALSE,
   role VARCHAR(50) DEFAULT 'user',
   profile_role VARCHAR(50),
+  subscriber_id INTEGER REFERENCES subscribers(id),
   subscriber_email VARCHAR(255),
 
   -- google oauth / profile
@@ -83,6 +84,7 @@ CREATE TABLE IF NOT EXISTS customers (
   city VARCHAR(255),
   state VARCHAR(50),
   zipcode VARCHAR(50),
+  subscriber_id INTEGER REFERENCES subscribers(id),
   subscriber_email VARCHAR(255), -- Multi-tenancy
   birth_date DATE,
   cpf VARCHAR(20),
@@ -97,6 +99,7 @@ CREATE TABLE IF NOT EXISTS entities (
   id SERIAL PRIMARY KEY,
   entity_type VARCHAR(100) NOT NULL, -- 'Dish', 'Category', 'Store', etc.
   data JSONB NOT NULL,
+  subscriber_id INTEGER REFERENCES subscribers(id),
   subscriber_email VARCHAR(255), -- Multi-tenancy: isolamento por assinante
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -104,10 +107,14 @@ CREATE TABLE IF NOT EXISTS entities (
 
 -- Índices para performance
 CREATE INDEX IF NOT EXISTS idx_entities_type ON entities(entity_type);
+CREATE INDEX IF NOT EXISTS idx_entities_subscriber_id ON entities(subscriber_id);
 CREATE INDEX IF NOT EXISTS idx_entities_subscriber ON entities(subscriber_email);
 CREATE INDEX IF NOT EXISTS idx_entities_type_subscriber ON entities(entity_type, subscriber_email);
+CREATE INDEX IF NOT EXISTS idx_entities_type_subscriber_id ON entities(entity_type, subscriber_id);
+CREATE INDEX IF NOT EXISTS idx_customers_subscriber_id ON customers(subscriber_id);
 CREATE INDEX IF NOT EXISTS idx_customers_subscriber ON customers(subscriber_email);
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_users_subscriber_id ON users(subscriber_id);
 CREATE INDEX IF NOT EXISTS idx_users_subscriber_email ON users(subscriber_email);
 CREATE INDEX IF NOT EXISTS idx_subscribers_email ON subscribers(email);
 CREATE INDEX IF NOT EXISTS idx_subscribers_status ON subscribers(status);

@@ -1,23 +1,54 @@
-// Importar postgres.js diretamente (compatibilidade)
+﻿// Importar postgres.js diretamente (compatibilidade)
 import { query, getClient } from './postgres.js';
 import { agentLog } from '../utils/agentLog.js';
 import { decorateOrderEntity, normalizeOrderForPersistence } from '../utils/orderLifecycle.js';
+import {
+  normalizeEmail,
+  normalizeSubscriberId,
+  resolveTenantContext,
+  resolveTenantContextForUser,
+} from '../utils/tenantContext.js';
 
 /**
- * Repositório genérico para entidades
+ * RepositÃ³rio genÃ©rico para entidades
  * Suporta multi-tenancy com isolamento por subscriber_email
  */
 
-// Obter subscriber_email do usuário atual
+// Obter subscriber_email do usuÃ¡rio atual
 // Master em modo suporte: user._contextForSubscriber = email do assinante
-function getSubscriberEmail(user) {
-  if (user?._contextForSubscriber && user?.is_master) {
-    return user._contextForSubscriber;
+function getGlobalTenantClause() {
+  return '(subscriber_id IS NULL AND subscriber_email IS NULL)';
+}
+
+function buildTenantScopeClause(params, tenantContext, options = {}) {
+  const {
+    includeLegacyOwnerEmail = true,
+    additionalEmails = [],
+  } = options;
+
+  const clauses = [];
+  const subscriberId = normalizeSubscriberId(tenantContext?.subscriberId);
+  const subscriberEmail = normalizeEmail(tenantContext?.subscriberEmail);
+  const linkedUserEmail = normalizeEmail(tenantContext?.linkedUserEmail);
+
+  if (subscriberId != null) {
+    params.push(subscriberId);
+    clauses.push(`subscriber_id = $${params.length}`);
   }
-  if (user?.is_master) {
-    return null; // Master só vê seus próprios (subscriber_email IS NULL)
-  }
-  return user?.subscriber_email || user?.email;
+
+  const emailCandidates = [subscriberEmail, linkedUserEmail, ...additionalEmails.map(normalizeEmail)]
+    .filter(Boolean);
+
+  emailCandidates.forEach((candidate) => {
+    params.push(candidate);
+    const idx = params.length;
+    clauses.push(`LOWER(TRIM(subscriber_email)) = LOWER(TRIM($${idx}))`);
+    if (includeLegacyOwnerEmail) {
+      clauses.push(`((data->>'owner_email') IS NOT NULL AND LOWER(TRIM(data->>'owner_email')) = LOWER(TRIM($${idx})))`);
+    }
+  });
+
+  return clauses.length > 0 ? `(${clauses.join(' OR ')})` : getGlobalTenantClause();
 }
 
 function normalizeEntityPayload(entityType, data, currentEntity = null) {
@@ -40,37 +71,16 @@ function decorateEntityRecord(entityType, entity) {
  */
 export async function listEntitiesForSubscriber(entityType, subscriberEmail, orderBy = null) {
   try {
+    const tenantContext = await resolveTenantContext({ subscriberEmail });
+    const altEmail = arguments.length >= 4 ? arguments[3] : null;
+
     let sql = `
-      SELECT id, data, created_at, updated_at
+      SELECT id, subscriber_id, subscriber_email, data, created_at, updated_at
       FROM entities
       WHERE entity_type = $1
-        AND (
-          subscriber_email = $2
-          OR (subscriber_email IS NOT NULL AND LOWER(TRIM(subscriber_email)) = LOWER(TRIM($2)))
-          OR (subscriber_email IS NULL AND (data->>'owner_email') = $2)
-        )
     `;
-    const params = [entityType, subscriberEmail];
-
-    // Compatibilidade: se o usuário loga via linked_user_email, entidades podem ter sido salvas com subscriber_email = linked.
-    // Permitir listar também por esse email alternativo quando fornecido.
-    const altEmail = arguments.length >= 4 ? arguments[3] : null;
-    if (altEmail && String(altEmail).trim()) {
-      sql = `
-        SELECT id, data, created_at, updated_at
-        FROM entities
-        WHERE entity_type = $1
-          AND (
-            subscriber_email = $2
-            OR (subscriber_email IS NOT NULL AND LOWER(TRIM(subscriber_email)) = LOWER(TRIM($2)))
-            OR (subscriber_email IS NULL AND (data->>'owner_email') = $2)
-            OR subscriber_email = $3
-            OR (subscriber_email IS NOT NULL AND LOWER(TRIM(subscriber_email)) = LOWER(TRIM($3)))
-            OR (subscriber_email IS NULL AND (data->>'owner_email') = $3)
-          )
-      `;
-      params.push(altEmail);
-    }
+    const params = [entityType];
+    sql += ` AND ${buildTenantScopeClause(params, tenantContext, { additionalEmails: [altEmail] })}`;
 
     if (orderBy) {
       const direction = orderBy.startsWith('-') ? 'DESC' : 'ASC';
@@ -83,6 +93,8 @@ export async function listEntitiesForSubscriber(entityType, subscriberEmail, ord
     const result = await query(sql, params);
     return result.rows.map(row => decorateEntityRecord(entityType, {
       id: row.id.toString(),
+      subscriber_id: row.subscriber_id ?? null,
+      subscriber_email: row.subscriber_email ?? null,
       ...row.data,
       created_at: row.created_at,
       updated_at: row.updated_at
@@ -97,13 +109,14 @@ export async function listEntitiesForSubscriber(entityType, subscriberEmail, ord
 export async function listAllServiceRequests() {
   try {
     const result = await query(`
-      SELECT id, subscriber_email, data, created_at, updated_at
+      SELECT id, subscriber_id, subscriber_email, data, created_at, updated_at
       FROM entities
       WHERE entity_type = 'ServiceRequest'
       ORDER BY created_at DESC
     `);
     return result.rows.map(row => ({
       id: row.id.toString(),
+      subscriber_id: row.subscriber_id ?? null,
       subscriber_email: row.subscriber_email,
       ...row.data,
       created_at: row.created_at,
@@ -115,45 +128,34 @@ export async function listAllServiceRequests() {
   }
 }
 
-// Listar entidades com paginação
+// Listar entidades com paginaÃ§Ã£o
 export async function listEntities(entityType, filters = {}, orderBy = null, user = null, pagination = {}) {
   try {
     const { page = 1, limit = 50 } = pagination;
     const offset = (page - 1) * limit;
-    const subscriberEmail = getSubscriberEmail(user);
+    const tenantContext = await resolveTenantContextForUser(user);
     
-    // ✅ LOG: Ver o que está sendo usado como filtro
-    console.log('🔍 [listEntities]', {
+    // âœ… LOG: Ver o que estÃ¡ sendo usado como filtro
+    console.log('ðŸ” [listEntities]', {
       entityType,
-      subscriberEmail,
+      subscriberId: tenantContext?.subscriberId || null,
+      subscriberEmail: tenantContext?.subscriberEmail || null,
       user_email: user?.email,
       user_is_master: user?.is_master,
       user_contextForSubscriber: user?._contextForSubscriber,
+      user_contextForSubscriberId: user?._contextForSubscriberId,
       filters_count: Object.keys(filters).length
     });
     
-    // Query principal com paginação
+    // Query principal com paginaÃ§Ã£o
     let sql = `
-      SELECT id, data, created_at, updated_at
+      SELECT id, subscriber_id, subscriber_email, data, created_at, updated_at
       FROM entities
       WHERE entity_type = $1
     `;
     const params = [entityType];
     
-    // Filtro por assinante (multi-tenancy). Inclui legado: coluna subscriber_email OU data->>'owner_email'
-    if (subscriberEmail) {
-      const subParam = params.length + 1;
-      sql += ` AND (LOWER(TRIM(subscriber_email)) = LOWER(TRIM($${subParam})) OR (subscriber_email IS NULL AND (data->>'owner_email') IS NOT NULL AND LOWER(TRIM(data->>'owner_email')) = LOWER(TRIM($${subParam}))))`;
-      params.push(subscriberEmail);
-      console.log('✅ [listEntities] Filtrando por subscriber/owner:', subscriberEmail);
-    } else if (user?.is_master) {
-      // Master: apenas seus próprios (subscriber_email IS NULL)
-      sql += ` AND subscriber_email IS NULL`;
-      console.log('✅ [listEntities] Master sem contexto: filtrando por NULL');
-    } else {
-      sql += ` AND subscriber_email IS NULL`;
-      console.log('✅ [listEntities] Sem user: filtrando por NULL');
-    }
+    sql += ` AND ${buildTenantScopeClause(params, tenantContext)}`;
     
     // Aplicar filtros do JSONB
     if (Object.keys(filters).length > 0) {
@@ -176,15 +178,7 @@ export async function listEntities(entityType, filters = {}, orderBy = null, use
     `;
     const countParams = [entityType];
     
-    if (subscriberEmail) {
-      const subParam = countParams.length + 1;
-      countSql += ` AND (LOWER(TRIM(subscriber_email)) = LOWER(TRIM($${subParam})) OR (subscriber_email IS NULL AND (data->>'owner_email') IS NOT NULL AND LOWER(TRIM(data->>'owner_email')) = LOWER(TRIM($${subParam}))))`;
-      countParams.push(subscriberEmail);
-    } else if (user?.is_master) {
-      countSql += ` AND subscriber_email IS NULL`;
-    } else {
-      countSql += ` AND subscriber_email IS NULL`;
-    }
+    countSql += ` AND ${buildTenantScopeClause(countParams, tenantContext)}`;
     
     // Aplicar mesmos filtros na contagem
     if (Object.keys(filters).length > 0) {
@@ -199,7 +193,7 @@ export async function listEntities(entityType, filters = {}, orderBy = null, use
       });
     }
     
-    // Ordenação (created_at/updated_at são colunas da tabela; created_date = alias para created_at; demais vêm de data->>field)
+    // OrdenaÃ§Ã£o (created_at/updated_at sÃ£o colunas da tabela; created_date = alias para created_at; demais vÃªm de data->>field)
     if (orderBy) {
       const direction = orderBy.startsWith('-') ? 'DESC' : 'ASC';
       const field = orderBy.replace(/^-/, '');
@@ -214,7 +208,7 @@ export async function listEntities(entityType, filters = {}, orderBy = null, use
       sql += ` ORDER BY created_at DESC`;
     }
     
-    // ✅ PAGINAÇÃO
+    // âœ… PAGINAÃ‡ÃƒO
     sql += ` LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
     params.push(limit, offset);
     
@@ -230,13 +224,15 @@ export async function listEntities(entityType, filters = {}, orderBy = null, use
     // Converter JSONB para objetos normais (created_date = alias de created_at para compatibilidade)
     const items = result.rows.map(row => decorateEntityRecord(entityType, {
       id: row.id.toString(),
+      subscriber_id: row.subscriber_id ?? null,
+      subscriber_email: row.subscriber_email ?? null,
       ...row.data,
       created_at: row.created_at,
       created_date: row.created_at || row.data?.created_date,
       updated_at: row.updated_at
     }));
     
-    // Retornar com paginação
+    // Retornar com paginaÃ§Ã£o
     return {
       items,
       pagination: {
@@ -257,24 +253,16 @@ export async function listEntities(entityType, filters = {}, orderBy = null, use
 // Obter entidade por ID
 export async function getEntityById(entityType, id, user = null) {
   try {
-    const subscriberEmail = getSubscriberEmail(user);
+    const tenantContext = await resolveTenantContextForUser(user);
     
     let sql = `
-      SELECT id, data, created_at, updated_at
+      SELECT id, subscriber_id, subscriber_email, data, created_at, updated_at
       FROM entities
       WHERE entity_type = $1 AND id = $2
     `;
     const params = [entityType, parseInt(id)];
     
-    if (subscriberEmail) {
-      const subParam = params.length + 1;
-      sql += ` AND (LOWER(TRIM(subscriber_email)) = LOWER(TRIM($${subParam})) OR (subscriber_email IS NULL AND (data->>'owner_email') IS NOT NULL AND LOWER(TRIM(data->>'owner_email')) = LOWER(TRIM($${subParam}))))`;
-      params.push(subscriberEmail);
-    } else if (user?.is_master) {
-      sql += ` AND subscriber_email IS NULL`;
-    } else {
-      sql += ` AND subscriber_email IS NULL`;
-    }
+    sql += ` AND ${buildTenantScopeClause(params, tenantContext)}`;
     
     const result = await query(sql, params);
     
@@ -285,6 +273,8 @@ export async function getEntityById(entityType, id, user = null) {
     const row = result.rows[0];
     return decorateEntityRecord(entityType, {
       id: row.id.toString(),
+      subscriber_id: row.subscriber_id ?? null,
+      subscriber_email: row.subscriber_email ?? null,
       ...row.data,
       created_at: row.created_at,
       created_date: row.created_at || row.data?.created_date,
@@ -297,37 +287,50 @@ export async function getEntityById(entityType, id, user = null) {
 }
 
 // Criar entidade
-// options.forSubscriberEmail: força subscriber_email na row (quando assinante e temos subscriber)
+// options.forSubscriberEmail: forÃ§a subscriber_email na row (quando assinante e temos subscriber)
 export async function createEntity(entityType, data, user = null, options = {}) {
   try {
-    const subscriberEmail = options.forSubscriberEmail ?? getSubscriberEmail(user);
-    agentLog({ location: 'repository.js:249', message: '[H2] createEntity called', data: { entityType, subscriberEmail: subscriberEmail || null, userId: user?.id, isMaster: user?.is_master }, timestamp: Date.now() });
-    
-    // Se subscriberEmail é null/undefined e não é master, tentar obter do user
-    let finalSubscriberEmail = subscriberEmail;
-    if (!finalSubscriberEmail && user && !user.is_master) {
-      finalSubscriberEmail = user.subscriber_email || user.email;
-    }
-    agentLog({ location: 'repository.js:254', message: '[H2] Final subscriberEmail determined', data: { finalSubscriberEmail: finalSubscriberEmail || null }, timestamp: Date.now() });
+    const tenantContext = options.forSubscriberId || options.forSubscriberEmail
+      ? await resolveTenantContext({
+          subscriberId: options.forSubscriberId ?? null,
+          subscriberEmail: options.forSubscriberEmail ?? null,
+        })
+      : await resolveTenantContextForUser(user);
+
+    agentLog({
+      location: 'repository.js:createEntity',
+      message: '[H2] createEntity called',
+      data: {
+        entityType,
+        subscriberId: tenantContext?.subscriberId || null,
+        subscriberEmail: tenantContext?.subscriberEmail || null,
+        userId: user?.id,
+        isMaster: user?.is_master,
+      },
+      timestamp: Date.now(),
+    });
 
     const normalizedData = normalizeEntityPayload(entityType, data);
 
     const sql = `
-      INSERT INTO entities (entity_type, data, subscriber_email)
-      VALUES ($1, $2, $3)
-      RETURNING id, data, created_at, updated_at
+      INSERT INTO entities (entity_type, data, subscriber_email, subscriber_id)
+      VALUES ($1, $2, $3, $4)
+      RETURNING id, subscriber_id, subscriber_email, data, created_at, updated_at
     `;
     
     const result = await query(sql, [
       entityType,
       JSON.stringify(normalizedData),
-      finalSubscriberEmail // Pode ser null para master
+      tenantContext?.subscriberEmail || null,
+      tenantContext?.subscriberId || null,
     ]);
-    agentLog({ location: 'repository.js:268', message: '[H2] Entity created successfully', data: { entityType, entityId: result.rows[0]?.id }, timestamp: Date.now() });
+    agentLog({ location: 'repository.js:createEntity', message: '[H2] Entity created successfully', data: { entityType, entityId: result.rows[0]?.id }, timestamp: Date.now() });
 
     const row = result.rows[0];
     return decorateEntityRecord(entityType, {
       id: row.id.toString(),
+      subscriber_id: row.subscriber_id ?? null,
+      subscriber_email: row.subscriber_email ?? null,
       ...normalizedData,
       created_at: row.created_at,
       created_date: row.created_at || normalizedData?.created_date,
@@ -343,12 +346,12 @@ export async function createEntity(entityType, data, user = null, options = {}) 
 // Atualizar entidade
 export async function updateEntity(entityType, id, data, user = null) {
   try {
-    const subscriberEmail = getSubscriberEmail(user);
+    const tenantContext = await resolveTenantContextForUser(user);
     
     // Buscar entidade existente
     const existing = await getEntityById(entityType, id, user);
     if (!existing) {
-      throw new Error('Entidade não encontrada');
+      throw new Error('Entidade nÃ£o encontrada');
     }
     
     // Mesclar dados
@@ -360,40 +363,31 @@ export async function updateEntity(entityType, id, data, user = null) {
     delete updatedData.created_at;
     delete updatedData.updated_at;
     
-    const sql = `
-      UPDATE entities
-      SET data = $1, updated_at = CURRENT_TIMESTAMP
-      WHERE entity_type = $2 AND id = $3
-      ${
-        subscriberEmail
-          ? `AND (
-              LOWER(TRIM(subscriber_email)) = LOWER(TRIM($4))
-              OR (subscriber_email IS NULL AND (data->>'owner_email') IS NOT NULL AND LOWER(TRIM(data->>'owner_email')) = LOWER(TRIM($4)))
-            )`
-          : 'AND subscriber_email IS NULL'
-      }
-      RETURNING id, data, created_at, updated_at
-    `;
-    
     const params = [
       JSON.stringify(updatedData),
       entityType,
       parseInt(id)
     ];
+
+    const scopedSql = `
+      UPDATE entities
+      SET data = $1, updated_at = CURRENT_TIMESTAMP
+      WHERE entity_type = $2 AND id = $3
+      AND ${buildTenantScopeClause(params, tenantContext)}
+      RETURNING id, subscriber_id, subscriber_email, data, created_at, updated_at
+    `;
     
-    if (subscriberEmail) {
-      params.push(subscriberEmail);
-    }
-    
-    const result = await query(sql, params);
+    const result = await query(scopedSql, params);
     
     if (result.rows.length === 0) {
-      throw new Error('Entidade não encontrada ou sem permissão');
+      throw new Error('Entidade nÃ£o encontrada ou sem permissÃ£o');
     }
     
     const row = result.rows[0];
     return decorateEntityRecord(entityType, {
       id: row.id.toString(),
+      subscriber_id: row.subscriber_id ?? null,
+      subscriber_email: row.subscriber_email ?? null,
       ...row.data,
       created_at: row.created_at,
       created_date: row.created_at || row.data?.created_date,
@@ -408,7 +402,7 @@ export async function updateEntity(entityType, id, data, user = null) {
 // Deletar entidade
 export async function deleteEntity(entityType, id, user = null) {
   try {
-    const subscriberEmail = getSubscriberEmail(user);
+    const tenantContext = await resolveTenantContextForUser(user);
     
     let sql = `
       DELETE FROM entities
@@ -416,12 +410,7 @@ export async function deleteEntity(entityType, id, user = null) {
     `;
     const params = [entityType, parseInt(id)];
     
-    if (subscriberEmail) {
-      sql += ` AND subscriber_email = $3`;
-      params.push(subscriberEmail);
-    } else {
-      sql += ` AND subscriber_email IS NULL`;
-    }
+    sql += ` AND ${buildTenantScopeClause(params, tenantContext)}`;
     
     const result = await query(sql, params);
     
@@ -434,14 +423,14 @@ export async function deleteEntity(entityType, id, user = null) {
 
 /**
  * Retorna a primeira PaymentConfig global (subscriber_email IS NULL).
- * Usado pela página pública /assinar para exibir preços e dias de trial editados pelo admin.
+ * Usado pela pÃ¡gina pÃºblica /assinar para exibir preÃ§os e dias de trial editados pelo admin.
  */
 export async function getFirstPaymentConfigGlobal() {
   try {
     const result = await query(`
-      SELECT id, data, created_at, updated_at
+      SELECT id, subscriber_id, subscriber_email, data, created_at, updated_at
       FROM entities
-      WHERE entity_type = 'PaymentConfig' AND subscriber_email IS NULL
+      WHERE entity_type = 'PaymentConfig' AND subscriber_id IS NULL AND subscriber_email IS NULL
       ORDER BY updated_at DESC NULLS LAST
       LIMIT 1
     `);
@@ -455,7 +444,7 @@ export async function getFirstPaymentConfigGlobal() {
 }
 
 /**
- * Retorna o próximo número para código de Comanda (ex: C-001, C-002).
+ * Retorna o prÃ³ximo nÃºmero para cÃ³digo de Comanda (ex: C-001, C-002).
  * owner: subscriber_email do assinante ou null para master (subscriber_email IS NULL).
  */
 export async function getNextComandaCode(owner) {
@@ -469,49 +458,51 @@ export async function getNextComandaCode(owner) {
     `;
     const params = [];
     if (owner != null && String(owner).trim() !== '') {
-      sql += ` AND subscriber_email = $1`;
-      params.push(String(owner).trim());
+      const tenantContext = await resolveTenantContext({ subscriberEmail: owner });
+      sql += ` AND ${buildTenantScopeClause(params, tenantContext)}`;
     } else {
-      sql += ` AND subscriber_email IS NULL`;
+      sql += ` AND ${getGlobalTenantClause()}`;
     }
     const result = await query(sql, params);
     const nextNum = result.rows[0]?.next_num || 1;
     return 'C-' + String(nextNum).padStart(3, '0');
   } catch (error) {
-    console.error('Erro ao obter próximo código Comanda:', error);
+    console.error('Erro ao obter prÃ³ximo cÃ³digo Comanda:', error);
     return 'C-001';
   }
 }
 
-// Criar múltiplas entidades
+// Criar mÃºltiplas entidades
 export async function createEntitiesBulk(entityType, items, user = null) {
   try {
-    const subscriberEmail = getSubscriberEmail(user);
+    const tenantContext = await resolveTenantContextForUser(user);
     
     if (items.length === 0) {
       return [];
     }
     
     const values = items.map((item, index) => {
-      const baseIndex = index * 3;
-      return `($1, $${baseIndex + 2}, $${baseIndex + 3})`;
+      const baseIndex = index * 4;
+      return `($1, $${baseIndex + 2}, $${baseIndex + 3}, $${baseIndex + 4})`;
     }).join(', ');
     
     const params = [entityType];
     items.forEach(item => {
-      params.push(JSON.stringify(item), subscriberEmail);
+      params.push(JSON.stringify(item), tenantContext?.subscriberEmail || null, tenantContext?.subscriberId || null);
     });
     
     const sql = `
-      INSERT INTO entities (entity_type, data, subscriber_email)
+      INSERT INTO entities (entity_type, data, subscriber_email, subscriber_id)
       VALUES ${values}
-      RETURNING id, data, created_at, updated_at
+      RETURNING id, subscriber_id, subscriber_email, data, created_at, updated_at
     `;
     
     const result = await query(sql, params);
     
     return result.rows.map(row => ({
       id: row.id.toString(),
+      subscriber_id: row.subscriber_id ?? null,
+      subscriber_email: row.subscriber_email ?? null,
       ...row.data,
       created_at: row.created_at,
       updated_at: row.updated_at
@@ -537,7 +528,7 @@ export async function getUserByEmail(email) {
 }
 
 /**
- * Retorna o usuário a usar no login quando há múltiplos registros com o mesmo email.
+ * Retorna o usuÃ¡rio a usar no login quando hÃ¡ mÃºltiplos registros com o mesmo email.
  * Prioriza: 1) master (is_master=true) para garantir acesso Admin/Assinantes; 2) colaborador (profile_role).
  */
 export async function getLoginUserByEmail(email) {
@@ -564,7 +555,7 @@ export async function getUserById(id) {
 }
 
 export async function createUser(userData) {
-  const cols = ['email', 'full_name', 'password', 'is_master', 'role', 'subscriber_email', 'google_id', 'google_photo'];
+  const cols = ['email', 'full_name', 'password', 'is_master', 'role', 'subscriber_email', 'subscriber_id', 'google_id', 'google_photo'];
   const vals = [
     userData.email,
     userData.full_name,
@@ -572,6 +563,7 @@ export async function createUser(userData) {
     userData.is_master || false,
     userData.role || 'user',
     userData.subscriber_email || null,
+    normalizeSubscriberId(userData.subscriber_id),
     userData.google_id || null,
     userData.google_photo || null
   ];
@@ -579,7 +571,7 @@ export async function createUser(userData) {
     cols.push('profile_role');
     vals.push(userData.profile_role);
   }
-  // Adicionar campo active se fornecido (default true) - opcional; se a coluna não existir, tentar sem ela
+  // Adicionar campo active se fornecido (default true) - opcional; se a coluna nÃ£o existir, tentar sem ela
   if (userData.active !== undefined) {
     cols.push('active');
     vals.push(userData.active !== false); // Default true
@@ -592,7 +584,7 @@ export async function createUser(userData) {
     );
     return result.rows[0];
   } catch (err) {
-    // Se a coluna "active" não existir (migration não aplicada), tentar novamente sem ela
+    // Se a coluna "active" nÃ£o existir (migration nÃ£o aplicada), tentar novamente sem ela
     const isActiveColumnError = err?.code === '42703' || (err?.message && /column "active" does not exist/i.test(err.message));
     if (isActiveColumnError && userData.active !== undefined) {
       const colsWithoutActive = cols.filter(c => c !== 'active');
@@ -649,6 +641,10 @@ export async function updateUser(id, userData) {
     updates.push(`subscriber_email = $${paramIndex++}`);
     values.push(userData.subscriber_email);
   }
+  if (userData.subscriber_id !== undefined) {
+    updates.push(`subscriber_id = $${paramIndex++}`);
+    values.push(normalizeSubscriberId(userData.subscriber_id));
+  }
   if (userData.photo !== undefined) {
     updates.push(`photo = $${paramIndex++}`);
     values.push(userData.photo);
@@ -696,9 +692,9 @@ export async function updateUser(id, userData) {
   return result.rows[0] || null;
 }
 
-/** Lista colaboradores (usuários com profile_role) de um assinante */
-export async function listColaboradores(ownerEmail) {
-  // Verificar se a coluna active existe antes de usá-la
+/** Lista colaboradores (usuÃ¡rios com profile_role) de um assinante */
+export async function listColaboradores(ownerEmail, ownerSubscriberId = null) {
+  // Verificar se a coluna active existe antes de usÃ¡-la
   let includeActive = false;
   try {
     const checkResult = await query(`
@@ -709,27 +705,36 @@ export async function listColaboradores(ownerEmail) {
     includeActive = checkResult.rows.length > 0;
   } catch (e) {
     // Se falhar, usar sem active
-    console.warn('⚠️ [listColaboradores] Não foi possível verificar coluna active, usando sem ela');
+    console.warn('âš ï¸ [listColaboradores] NÃ£o foi possÃ­vel verificar coluna active, usando sem ela');
   }
   
   const activeField = includeActive ? ', COALESCE(active, true) as active' : '';
   const result = await query(
-    `SELECT id, email, full_name, profile_role${activeField}, created_at, updated_at
+    `SELECT id, email, full_name, profile_role, subscriber_id, subscriber_email${activeField}, created_at, updated_at
      FROM users
-     WHERE LOWER(TRIM(subscriber_email)) = LOWER(TRIM($1)) AND profile_role IS NOT NULL
+     WHERE (
+       ($2::int IS NOT NULL AND subscriber_id = $2)
+       OR LOWER(TRIM(subscriber_email)) = LOWER(TRIM($1))
+     )
+       AND profile_role IS NOT NULL
      ORDER BY full_name`,
-    [ownerEmail]
+    [ownerEmail, normalizeSubscriberId(ownerSubscriberId)]
   );
   return result.rows;
 }
 
-/** Remove colaborador (usuário com profile_role do assinante) */
-export async function deleteColaborador(id, ownerEmail) {
+/** Remove colaborador (usuÃ¡rio com profile_role do assinante) */
+export async function deleteColaborador(id, ownerEmail, ownerSubscriberId = null) {
   const result = await query(
     `DELETE FROM users
-     WHERE id = $1 AND LOWER(TRIM(subscriber_email)) = LOWER(TRIM($2)) AND profile_role IS NOT NULL
+     WHERE id = $1
+       AND (
+         ($3::int IS NOT NULL AND subscriber_id = $3)
+         OR LOWER(TRIM(subscriber_email)) = LOWER(TRIM($2))
+       )
+       AND profile_role IS NOT NULL
      RETURNING id`,
-    [id, ownerEmail]
+    [id, ownerEmail, normalizeSubscriberId(ownerSubscriberId)]
   );
   return (result.rows[0] && result.rows[0].id) != null;
 }
@@ -739,12 +744,12 @@ export async function deleteColaborador(id, ownerEmail) {
 // =======================
 
 /**
- * Lista assinantes com paginação opcional.
+ * Lista assinantes com paginaÃ§Ã£o opcional.
  * @param {Object} options - { page, limit, orderBy, orderDir }
  * @returns {Array|Object} - Sem options: array de rows. Com page/limit: { data, pagination }.
  */
 export async function listSubscribers(options = {}) {
-  console.log('🔍 [repository.listSubscribers] Iniciando query no PostgreSQL...');
+  console.log('ðŸ” [repository.listSubscribers] Iniciando query no PostgreSQL...');
   const page = Math.max(1, parseInt(options.page, 10) || 1);
   const limit = Math.min(100, Math.max(10, parseInt(options.limit, 10) || 50));
   const orderBy = options.orderBy || 'created_at';
@@ -755,20 +760,20 @@ export async function listSubscribers(options = {}) {
     ? orderBy
     : 'created_at';
 
-  console.log('🔍 [repository.listSubscribers] usePagination:', usePagination, 'page:', page, 'limit:', limit);
+  console.log('ðŸ” [repository.listSubscribers] usePagination:', usePagination, 'page:', page, 'limit:', limit);
 
   let dataRows;
   let total = 0;
 
   if (usePagination) {
-    console.log('🔍 [repository.listSubscribers] Executando COUNT...');
+    console.log('ðŸ” [repository.listSubscribers] Executando COUNT...');
     const countResult = await query('SELECT COUNT(*)::int as total FROM subscribers');
     total = countResult.rows[0]?.total ?? 0;
-    console.log('✅ [repository.listSubscribers] Total de assinantes:', total);
+    console.log('âœ… [repository.listSubscribers] Total de assinantes:', total);
     
     const offset = (page - 1) * limit;
 
-    console.log('🔍 [repository.listSubscribers] Executando SELECT com LIMIT/OFFSET...');
+    console.log('ðŸ” [repository.listSubscribers] Executando SELECT com LIMIT/OFFSET...');
     const result = await query(
       `
       SELECT id, email, name, plan, status, slug, created_at, updated_at,
@@ -782,7 +787,7 @@ export async function listSubscribers(options = {}) {
       [limit, offset]
     );
     dataRows = result.rows;
-    console.log('✅ [repository.listSubscribers] Retornando', dataRows.length, 'assinantes');
+    console.log('âœ… [repository.listSubscribers] Retornando', dataRows.length, 'assinantes');
 
     return {
       data: dataRows,
@@ -795,7 +800,7 @@ export async function listSubscribers(options = {}) {
     };
   }
 
-  console.log('🔍 [repository.listSubscribers] Executando SELECT sem paginação...');
+  console.log('ðŸ” [repository.listSubscribers] Executando SELECT sem paginaÃ§Ã£o...');
   const result = await query(`
     SELECT id, email, name, plan, status, slug, created_at, updated_at,
            password_token, token_expires_at, has_password, linked_user_email,
@@ -818,7 +823,7 @@ export async function getSubscriberByEmail(email) {
   return result.rows[0] || null;
 }
 
-/** Busca assinante pelo slug do link do cardápio (ex: /s/meu-restaurante) */
+/** Busca assinante pelo slug do link do cardÃ¡pio (ex: /s/meu-restaurante) */
 export async function getSubscriberBySlug(slug) {
   if (!slug || String(slug).trim() === '') return null;
   const normalized = String(slug).trim().toLowerCase();
@@ -837,20 +842,20 @@ export async function getSubscriberById(id) {
 
 export async function createSubscriber(subscriberData) {
   try {
-    console.log('📝 [REPOSITORY] createSubscriber chamado com:', {
+    console.log('ðŸ“ [REPOSITORY] createSubscriber chamado com:', {
       email: subscriberData.email,
       name: subscriberData.name,
       plan: subscriberData.plan,
       hasPermissions: !!subscriberData.permissions
     });
     
-    // Garantir que permissions seja um objeto válido
+    // Garantir que permissions seja um objeto vÃ¡lido
     let permissions = subscriberData.permissions || {};
     if (typeof permissions === 'string') {
       try {
         permissions = JSON.parse(permissions);
       } catch (e) {
-        console.warn('⚠️ Permissões inválidas, usando objeto vazio:', e);
+        console.warn('âš ï¸ PermissÃµes invÃ¡lidas, usando objeto vazio:', e);
         permissions = {};
       }
     }
@@ -863,19 +868,19 @@ export async function createSubscriber(subscriberData) {
     const expires_at = subscriberData.expires_at || null;
     const permissionsJson = JSON.stringify(permissions);
     const whatsapp_auto_enabled = subscriberData.whatsapp_auto_enabled !== undefined ? subscriberData.whatsapp_auto_enabled : true;
-    // slug: link do cardápio (ex: /s/meu-restaurante). Normalizar como em updateSubscriber.
+    // slug: link do cardÃ¡pio (ex: /s/meu-restaurante). Normalizar como em updateSubscriber.
     const rawSlug = subscriberData.slug;
     const slug = (rawSlug == null || rawSlug === '') ? null : (String(rawSlug).trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') || null);
     
-    // Verificar se slug já existe (apenas se não for null/vazio)
+    // Verificar se slug jÃ¡ existe (apenas se nÃ£o for null/vazio)
     if (slug) {
       const existingSubscriber = await getSubscriberBySlug(slug);
       if (existingSubscriber) {
-        // Se já existe e não é o mesmo email (upsert), lançar erro
+        // Se jÃ¡ existe e nÃ£o Ã© o mesmo email (upsert), lanÃ§ar erro
         if (existingSubscriber.email.toLowerCase() !== email.toLowerCase()) {
-          throw new Error(`Slug "${slug}" já está em uso por outro restaurante. Escolha outro slug.`);
+          throw new Error(`Slug "${slug}" jÃ¡ estÃ¡ em uso por outro restaurante. Escolha outro slug.`);
         }
-        // Se é o mesmo email (upsert), permitir atualização
+        // Se Ã© o mesmo email (upsert), permitir atualizaÃ§Ã£o
       }
     }
     // linked_user_email: email personalizado para acesso ao painel
@@ -888,7 +893,7 @@ export async function createSubscriber(subscriberData) {
       ? subscriberData.tags.filter(t => t && String(t).trim())
       : null;
     
-    console.log('📝 [REPOSITORY] Valores preparados:', {
+    console.log('ðŸ“ [REPOSITORY] Valores preparados:', {
       email,
       name,
       plan,
@@ -938,14 +943,14 @@ export async function createSubscriber(subscriberData) {
       ]
     );
     
-    console.log('✅ [REPOSITORY] Assinante criado com sucesso:', result.rows[0]?.id || result.rows[0]?.email);
+    console.log('âœ… [REPOSITORY] Assinante criado com sucesso:', result.rows[0]?.id || result.rows[0]?.email);
     return result.rows[0];
   } catch (error) {
-    console.error('❌ [REPOSITORY] Erro em createSubscriber:', error);
-    console.error('❌ [REPOSITORY] Código do erro:', error.code);
-    console.error('❌ [REPOSITORY] Mensagem do erro:', error.message);
-    console.error('❌ [REPOSITORY] Detalhes do erro:', error.detail);
-    console.error('❌ [REPOSITORY] Stack trace:', error.stack);
+    console.error('âŒ [REPOSITORY] Erro em createSubscriber:', error);
+    console.error('âŒ [REPOSITORY] CÃ³digo do erro:', error.code);
+    console.error('âŒ [REPOSITORY] Mensagem do erro:', error.message);
+    console.error('âŒ [REPOSITORY] Detalhes do erro:', error.detail);
+    console.error('âŒ [REPOSITORY] Stack trace:', error.stack);
     throw error;
   }
 }
@@ -1021,7 +1026,7 @@ export async function cleanupExpiredTokens() {
 }
 
 export async function updateSubscriber(emailOrId, subscriberData) {
-  // Verificar se slug está sendo atualizado e se já existe em outro assinante
+  // Verificar se slug estÃ¡ sendo atualizado e se jÃ¡ existe em outro assinante
   if (subscriberData.slug !== undefined) {
     const raw = subscriberData.slug;
     const newSlug = (raw === null || raw === '') ? null : (String(raw).trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') || null);
@@ -1034,10 +1039,10 @@ export async function updateSubscriber(emailOrId, subscriberData) {
         ? await getSubscriberById(identifier)
         : await getSubscriberByEmail(identifier);
       
-      // Verificar se slug já existe em outro assinante
+      // Verificar se slug jÃ¡ existe em outro assinante
       const existingSubscriber = await getSubscriberBySlug(newSlug);
       if (existingSubscriber && existingSubscriber.id !== currentSubscriber?.id) {
-        throw new Error(`Slug "${newSlug}" já está em uso por outro restaurante. Escolha outro slug.`);
+        throw new Error(`Slug "${newSlug}" jÃ¡ estÃ¡ em uso por outro restaurante. Escolha outro slug.`);
       }
     }
   }
@@ -1060,7 +1065,7 @@ export async function updateSubscriber(emailOrId, subscriberData) {
   }
   if (subscriberData.expires_at !== undefined) {
     updates.push(`expires_at = $${paramIndex++}`);
-    // Converter string vazia para null (PostgreSQL não aceita "" para timestamp)
+    // Converter string vazia para null (PostgreSQL nÃ£o aceita "" para timestamp)
     values.push(subscriberData.expires_at === '' || subscriberData.expires_at === null ? null : subscriberData.expires_at);
   }
   if (subscriberData.permissions !== undefined) {
@@ -1113,7 +1118,7 @@ export async function updateSubscriber(emailOrId, subscriberData) {
   }
   if (subscriberData.token_expires_at !== undefined) {
     updates.push(`token_expires_at = $${paramIndex++}`);
-    // Converter string vazia para null (PostgreSQL não aceita "" para timestamp)
+    // Converter string vazia para null (PostgreSQL nÃ£o aceita "" para timestamp)
     values.push(subscriberData.token_expires_at === '' || subscriberData.token_expires_at === null ? null : subscriberData.token_expires_at);
   }
   if (subscriberData.has_password !== undefined) {
@@ -1129,7 +1134,7 @@ export async function updateSubscriber(emailOrId, subscriberData) {
   }
 
   if (updates.length === 0) {
-    // Se não há updates, apenas retornar o assinante
+    // Se nÃ£o hÃ¡ updates, apenas retornar o assinante
     // Tentar por email primeiro, depois por ID
     const byEmail = await getSubscriberByEmail(emailOrId);
     if (byEmail) return byEmail;
@@ -1151,9 +1156,9 @@ export async function updateSubscriber(emailOrId, subscriberData) {
 
   let result = await query(sql, values);
   
-  // Se não encontrou por email, tentar por ID
+  // Se nÃ£o encontrou por email, tentar por ID
   if (result.rows.length === 0) {
-    values[values.length - 1] = emailOrId; // Substituir o último valor
+    values[values.length - 1] = emailOrId; // Substituir o Ãºltimo valor
     sql = `
       UPDATE subscribers
       SET ${updates.join(', ')}
@@ -1174,7 +1179,7 @@ export async function deleteSubscriber(emailOrId) {
   );
   
   if (result.rows.length === 0) {
-    // Se não encontrou por email, tentar por id
+    // Se nÃ£o encontrou por email, tentar por id
     result = await query(
       'DELETE FROM subscribers WHERE id = $1 RETURNING *',
       [emailOrId]
@@ -1217,8 +1222,22 @@ export async function listCustomers(subscriberEmail = null) {
   const params = [];
   
   if (subscriberEmail) {
-    sql += ' WHERE subscriber_email = $1';
-    params.push(subscriberEmail);
+    const tenantContext = await resolveTenantContext({ subscriberEmail });
+    const clauses = [];
+
+    if (tenantContext?.subscriberId != null) {
+      params.push(tenantContext.subscriberId);
+      clauses.push(`subscriber_id = $${params.length}`);
+    }
+
+    if (tenantContext?.subscriberEmail) {
+      params.push(tenantContext.subscriberEmail);
+      clauses.push(`LOWER(TRIM(subscriber_email)) = LOWER(TRIM($${params.length}))`);
+    }
+
+    if (clauses.length > 0) {
+      sql += ` WHERE (${clauses.join(' OR ')})`;
+    }
   }
   
   sql += ' ORDER BY created_at DESC';
@@ -1228,9 +1247,10 @@ export async function listCustomers(subscriberEmail = null) {
 }
 
 export async function createCustomer(customerData, subscriberEmail = null) {
+  const tenantContext = await resolveTenantContext({ subscriberEmail });
   const result = await query(
-    `INSERT INTO customers (email, name, phone, address, address_number, complement, neighborhood, city, state, zipcode, subscriber_email, birth_date, cpf, password_hash)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+    `INSERT INTO customers (email, name, phone, address, address_number, complement, neighborhood, city, state, zipcode, subscriber_email, subscriber_id, birth_date, cpf, password_hash)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
      RETURNING *`,
     [
       customerData.email,
@@ -1243,7 +1263,8 @@ export async function createCustomer(customerData, subscriberEmail = null) {
       customerData.city,
       customerData.state || null,
       customerData.zipcode,
-      subscriberEmail,
+      tenantContext?.subscriberEmail || null,
+      tenantContext?.subscriberId || null,
       customerData.birth_date || null,
       customerData.cpf || null,
       customerData.password_hash || null
@@ -1277,11 +1298,11 @@ export async function updateCustomer(id, customerData) {
 }
 
 /**
- * Salvar pagamento no histórico
+ * Salvar pagamento no histÃ³rico
  */
 export async function savePayment(paymentData) {
   if (!pool) {
-    logger.warn('⚠️ PostgreSQL não disponível - pagamentos não serão salvos');
+    logger.warn('âš ï¸ PostgreSQL nÃ£o disponÃ­vel - pagamentos nÃ£o serÃ£o salvos');
     return null;
   }
   
@@ -1312,10 +1333,10 @@ export async function savePayment(paymentData) {
       ]
     );
     
-    logger.log('✅ Pagamento salvo:', result.rows[0].id);
+    logger.log('âœ… Pagamento salvo:', result.rows[0].id);
     return result.rows[0];
   } catch (error) {
-    logger.error('❌ Erro ao salvar pagamento:', error);
+    logger.error('âŒ Erro ao salvar pagamento:', error);
     return null;
   }
 }
@@ -1338,17 +1359,17 @@ export async function listPayments(subscriberEmail) {
     
     return result.rows;
   } catch (error) {
-    logger.error('❌ Erro ao listar pagamentos:', error);
+    logger.error('âŒ Erro ao listar pagamentos:', error);
     return [];
   }
 }
 
 // -----------------------
-// Autorização gerencial (matrícula + senha para controle de ações sensíveis)
+// AutorizaÃ§Ã£o gerencial (matrÃ­cula + senha para controle de aÃ§Ãµes sensÃ­veis)
 // -----------------------
 
 /**
- * Busca configuração de autorização de um assinante para um role (assinante ou gerente).
+ * Busca configuraÃ§Ã£o de autorizaÃ§Ã£o de um assinante para um role (assinante ou gerente).
  */
 export async function getManagerialAuthorization(subscriberEmail, role) {
   try {
@@ -1376,13 +1397,13 @@ export async function getManagerialAuthorization(subscriberEmail, role) {
 }
 
 /**
- * Cria ou atualiza autorização gerencial. Apenas o assinante (dono) deve chamar.
+ * Cria ou atualiza autorizaÃ§Ã£o gerencial. Apenas o assinante (dono) deve chamar.
  */
 export async function setManagerialAuthorization(subscriberEmail, role, { matricula, passwordHash, expiresAt }) {
   const normalized = (subscriberEmail || '').toString().trim();
   const roleNorm = role === 'gerente' ? 'gerente' : 'assinante';
   if (!normalized || !matricula || !passwordHash) {
-    throw new Error('subscriber_email, matricula e senha são obrigatórios');
+    throw new Error('subscriber_email, matricula e senha sÃ£o obrigatÃ³rios');
   }
   await query(
     `INSERT INTO managerial_authorizations (subscriber_email, role, matricula, password_hash, expires_at, updated_at)
@@ -1396,8 +1417,8 @@ export async function setManagerialAuthorization(subscriberEmail, role, { matric
 }
 
 /**
- * Valida matrícula e senha para o role do usuário no estabelecimento.
- * Retorna true se válido (e não expirado).
+ * Valida matrÃ­cula e senha para o role do usuÃ¡rio no estabelecimento.
+ * Retorna true se vÃ¡lido (e nÃ£o expirado).
  */
 export async function validateManagerialAuthorization(subscriberEmail, role, matricula, passwordPlain) {
   if (!subscriberEmail || !role || !matricula || !passwordPlain) return false;
@@ -1416,3 +1437,4 @@ export async function validateManagerialAuthorization(subscriberEmail, role, mat
     return false;
   }
 }
+
