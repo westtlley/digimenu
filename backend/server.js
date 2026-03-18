@@ -47,16 +47,15 @@ import { requestLogger } from './utils/monitoring.js';
 import { scheduleBackups } from './utils/backup.js';
 import { analyticsMiddleware } from './utils/analytics.js';
 import { initializeCronJobs } from './utils/cronJobs.js';
-import { decorateOrderEntity, normalizeLower, normalizeOrderForPersistence } from './utils/orderLifecycle.js';
+import { decorateOrderEntity, normalizeOrderForPersistence } from './utils/orderLifecycle.js';
 import { applyTenantContextToUser, resolveTenantContext } from './utils/tenantContext.js';
 import { validateOrderAxisTransition } from './services/orderStatusValidation.service.js';
 import { createOrderOperationalContract } from './modules/orders/orderOperationalContract.js';
 import { createComandaOrderBridge } from './modules/comandas/comandaOrderBridge.js';
 import { createRequestedTenantScopeApplier } from './modules/tenant/requestedTenantScope.js';
-import {
-  getEffectivePermissionsForSubscriber,
-  normalizePlanPresetKey
-} from './utils/planPresetsForContext.js';
+import { ENTITY_ACCESS_CONFIG, normalizeEntityName } from './modules/entities/entityAccessConfig.js';
+import { createManagerialEntityAuth } from './modules/entities/managerialEntityAuth.js';
+import { createEntityAccessGuard } from './modules/entities/entityAccessGuard.js';
 import analyticsRoutes from './routes/analytics.routes.js';
 import backupRoutes from './routes/backup.routes.js';
 import subscriberBackupRoutes from './routes/subscriberBackup.routes.js';
@@ -355,6 +354,32 @@ const { upsertComandaProductionOrder } = createComandaOrderBridge({
 const { applyRequestedTenantScope } = createRequestedTenantScopeApplier({
   applyTenantContextToUser,
   resolveTenantContext,
+});
+
+const managerialEntityAuth = createManagerialEntityAuth({
+  repo,
+  db,
+  usePostgreSQL,
+});
+
+const {
+  ensureManagerialAuthPlanEnabled,
+  getManagerialSubscriberAndRole,
+  isRequesterOwnerForManagerialAuth,
+  registerManagerialAuthSession,
+} = managerialEntityAuth;
+
+const {
+  applyBasicScopeFilterToItems,
+  applyBasicScopeToEntityResult,
+  enforceEntityReadAccess,
+  enforceEntityWriteAccess,
+  parseSubscriberPermissionMap,
+} = createEntityAccessGuard({
+  repo,
+  db,
+  usePostgreSQL,
+  managerialEntityAuth,
 });
 
 // âœ… FunÃ§Ã£o generatePasswordTokenForSubscriber movida para: backend/modules/auth/auth.service.js
@@ -944,595 +969,6 @@ app.use('/api/subscribers', establishmentsRoutes);
 // =======================
 // ðŸ“¦ ENTITIES + MANAGERIAL-AUTH (registrar antes de menus/orders para evitar 404)
 // =======================
-function getManagerialSubscriberAndRole(req) {
-  const owner = (req.body?.as_subscriber || req.query?.as_subscriber || req.user?._contextForSubscriber || req.user?.subscriber_email || req.user?.email || '').toString().toLowerCase().trim();
-  const isGerente = isRequesterGerente(req);
-  const role = req.user?.is_master ? null : (isGerente ? 'gerente' : 'assinante');
-  return { owner, role };
-}
-const MANAGERIAL_AUTH_ALLOWED_PLANS = new Set(['pro', 'ultra', 'admin']);
-
-function canUseManagerialAuthForPlan(plan) {
-  const planNorm = normalizePlanPresetKey(plan, { defaultPlan: null, allowNull: true });
-  return !!(planNorm && MANAGERIAL_AUTH_ALLOWED_PLANS.has(planNorm));
-}
-
-async function getManagerialAuthSubscriber(owner) {
-  if (!owner) return null;
-  if (usePostgreSQL) {
-    return await repo.getSubscriberByEmail(owner);
-  }
-  if (db?.subscribers) {
-    return db.subscribers.find(s => (s.email || '').toLowerCase().trim() === owner) || null;
-  }
-  return null;
-}
-
-async function ensureManagerialAuthPlanEnabled(owner, res) {
-  const subscriber = await getManagerialAuthSubscriber(owner);
-  if (!subscriber) {
-    res.status(404).json({ error: 'Assinante nÃ£o encontrado para este contexto.' });
-    return null;
-  }
-  if (!canUseManagerialAuthForPlan(subscriber.plan)) {
-    res.status(403).json({ error: 'AutorizaÃ§Ã£o gerencial disponÃ­vel apenas nos planos Pro e Ultra' });
-    return null;
-  }
-  return subscriber;
-}
-
-const ENTITY_ACCESS_CONFIG = {
-  // PDV/Caixa (hardening jÃ¡ existente)
-  caixa: { module: 'caixa', allowedCollaboratorRoles: new Set(['gerente', 'pdv']), enforceRead: true },
-  caixaoperation: { module: 'caixa', allowedCollaboratorRoles: new Set(['gerente', 'pdv']), enforceRead: true },
-  pedidopdv: { module: 'pdv', allowedCollaboratorRoles: new Set(['gerente', 'pdv']), enforceRead: true },
-  pdvsession: { module: 'pdv', allowedCollaboratorRoles: new Set(['gerente', 'pdv']), enforceRead: true },
-
-  // CardÃ¡pio e configuraÃ§Ã£o
-  dish: { module: 'dishes', allowedCollaboratorRoles: new Set(['gerente']), enforceRead: true },
-  category: { module: 'dishes', allowedCollaboratorRoles: new Set(['gerente']) },
-  complementgroup: { module: 'dishes', allowedCollaboratorRoles: new Set(['gerente']) },
-  combo: { module: 'dishes', allowedCollaboratorRoles: new Set(['gerente']), enforceRead: true },
-  beveragecategory: { module: 'dishes', allowedCollaboratorRoles: new Set(['gerente']) },
-  dishingredient: { module: 'dishes', allowedCollaboratorRoles: new Set(['gerente']) },
-  ingredient: { module: 'dishes', allowedCollaboratorRoles: new Set(['gerente']) },
-  flavor: { module: 'pizza_config', allowedCollaboratorRoles: new Set(['gerente']) },
-  flavorcategory: { module: 'pizza_config', allowedCollaboratorRoles: new Set(['gerente']) },
-  pizzacategory: { module: 'pizza_config', allowedCollaboratorRoles: new Set(['gerente']) },
-  pizzaedge: { module: 'pizza_config', allowedCollaboratorRoles: new Set(['gerente']) },
-  pizzaextra: { module: 'pizza_config', allowedCollaboratorRoles: new Set(['gerente']) },
-  pizzaflavor: { module: 'pizza_config', allowedCollaboratorRoles: new Set(['gerente']) },
-  pizzasize: { module: 'pizza_config', allowedCollaboratorRoles: new Set(['gerente']) },
-  pizzavisualizationconfig: { module: 'pizza_config', allowedCollaboratorRoles: new Set(['gerente']) },
-  deliveryzone: { module: 'delivery_zones', allowedCollaboratorRoles: new Set(['gerente']) },
-  coupon: { module: 'coupons', allowedCollaboratorRoles: new Set(['gerente']) },
-  promotion: { module: 'promotions', allowedCollaboratorRoles: new Set(['gerente']) },
-  store: { module: 'store', allowedCollaboratorRoles: new Set(['gerente']) },
-  storeconfig: { module: 'store', allowedCollaboratorRoles: new Set(['gerente']) },
-  subscriber: { module: 'store', allowedCollaboratorRoles: new Set(['gerente']), enforceRead: true },
-  paymentconfig: { module: 'payments', allowedCollaboratorRoles: new Set(['gerente']), enforceRead: true },
-  loyaltyconfig: { module: 'promotions', allowedCollaboratorRoles: new Set(['gerente']), enforceRead: true },
-  loyaltyreward: { module: 'promotions', allowedCollaboratorRoles: new Set(['gerente']), enforceRead: true },
-  notification: { module: 'promotions', allowedCollaboratorRoles: new Set(['gerente']), enforceRead: true },
-  messagetemplate: { module: 'gestor_pedidos', allowedCollaboratorRoles: new Set(['gerente', 'gestor_pedidos']), enforceRead: true },
-  customer: { module: 'clients', allowedCollaboratorRoles: new Set(['gerente', 'gestor_pedidos']) },
-  printerconfig: { module: 'printer', allowedCollaboratorRoles: new Set(['gerente', 'pdv']), enforceRead: true },
-  stockmovement: { module: 'inventory', allowedCollaboratorRoles: new Set(['gerente']) },
-  affiliate: { module: 'affiliates', allowedCollaboratorRoles: new Set(['gerente']) },
-  referral: { module: 'affiliates', allowedCollaboratorRoles: new Set(['gerente']) },
-  user2fa: { module: '2fa', allowedCollaboratorRoles: new Set(['gerente']) },
-  servicerequest: { module: 'dashboard', allowedCollaboratorRoles: new Set(), enforceRead: true },
-
-  // OperaÃ§Ã£o
-  order: { module: 'orders', allowedCollaboratorRoles: new Set(['gerente', 'gestor_pedidos', 'cozinha', 'entregador']) },
-  comanda: { module: 'comandas', allowedCollaboratorRoles: new Set(['gerente', 'garcom', 'pdv']) },
-  table: { module: 'tables', allowedCollaboratorRoles: new Set(['gerente', 'garcom']) },
-  waitercall: { module: 'garcom', allowedCollaboratorRoles: new Set(['gerente', 'garcom']) },
-  entregador: { module: 'gestor_pedidos', allowedCollaboratorRoles: new Set(['gerente', 'gestor_pedidos']) },
-};
-
-const ORDER_COLLABORATOR_STATUS_RULES = {
-  cozinha: new Set(['accepted', 'preparing', 'ready']),
-  entregador: new Set([
-    'going_to_store',
-    'arrived_at_store',
-    'picked_up',
-    'out_for_delivery',
-    'arrived_at_customer',
-    'delivered',
-    'cancelled'
-  ]),
-};
-
-const MANAGERIAL_AUTH_SESSION_TTL_MS = Number(process.env.MANAGERIAL_AUTH_SESSION_TTL_MS || (10 * 60 * 1000));
-const managerialAuthSessions = new Map();
-
-const normalizeEntityName = (entity = '') => normalizeLower(entity).replace(/\s+/g, '');
-
-const hasProfileRole = (user) => !!normalizeLower(user?.profile_role);
-
-function getUserRoleList(user) {
-  const fromList = Array.isArray(user?.profile_roles)
-    ? user.profile_roles.map((role) => normalizeLower(role)).filter(Boolean)
-    : [];
-  const fromSingle = normalizeLower(user?.profile_role);
-  const roles = fromSingle ? [fromSingle, ...fromList] : fromList;
-  return [...new Set(roles)];
-}
-
-function isOwnerForSubscriber(user, ownerEmail) {
-  if (!user || !ownerEmail) return false;
-  if (user?.is_master) return true;
-  if (hasProfileRole(user)) return false;
-  const ownerNorm = normalizeLower(ownerEmail);
-  const userEmail = normalizeLower(user.email);
-  const userSubscriber = normalizeLower(user.subscriber_email);
-  return userEmail === ownerNorm || userSubscriber === ownerNorm;
-}
-
-function getEntityCrudAction(method) {
-  const m = String(method || '').toUpperCase();
-  if (m === 'POST') return 'create';
-  if (m === 'PUT' || m === 'PATCH') return 'update';
-  if (m === 'DELETE') return 'delete';
-  return null;
-}
-
-function hasModuleActionPermission(permissionMap, moduleName, action) {
-  const modulePermissions = permissionMap?.[moduleName];
-  if (Array.isArray(modulePermissions)) {
-    return modulePermissions.includes(action) || modulePermissions.includes('*');
-  }
-  if (modulePermissions === true) return true;
-  if (modulePermissions && typeof modulePermissions === 'object') {
-    return modulePermissions[action] === true;
-  }
-  return false;
-}
-
-function parseSubscriberPermissionMap(subscriber) {
-  return getEffectivePermissionsForSubscriber(subscriber);
-}
-
-function resolveBasicMenuProfile(permissionMap = {}) {
-  const pizzaPermissions = permissionMap?.pizza_config;
-  if (Array.isArray(pizzaPermissions) && pizzaPermissions.length > 0) {
-    return 'pizzaria';
-  }
-  return 'restaurante';
-}
-
-function isAllowedDishTypeForBasicProfile(productType, profile) {
-  const normalizedType = normalizeLower(productType || 'dish');
-  if (profile === 'pizzaria') {
-    return normalizedType === 'pizza' || normalizedType === 'beverage';
-  }
-  // restaurante
-  return normalizedType !== 'pizza';
-}
-
-function isAllowedComboModeForBasicProfile(comboMode, profile) {
-  const normalizedMode = normalizeLower(comboMode);
-  if (!normalizedMode) return true;
-  if (profile === 'pizzaria') return normalizedMode === 'pizzas_beverages';
-  // restaurante
-  return normalizedMode === 'dishes_beverages';
-}
-
-async function getEntityRecordForScope(entityNorm, id, user) {
-  if (!id) return null;
-  const canonicalEntity = entityNorm === 'dish' ? 'Dish' : entityNorm === 'combo' ? 'Combo' : null;
-  if (!canonicalEntity) return null;
-
-  if (usePostgreSQL) {
-    return await repo.getEntityById(canonicalEntity, id, user || null);
-  }
-
-  const list = db?.entities?.[canonicalEntity];
-  if (!Array.isArray(list)) return null;
-  return list.find((item) => String(item?.id || '') === String(id || '')) || null;
-}
-
-async function resolveEntityScopeData(entityNorm, method, payload, req) {
-  if (!(entityNorm === 'dish' || entityNorm === 'combo')) return payload || {};
-  const methodUpper = String(method || '').toUpperCase();
-  const needsExistingLookup = methodUpper !== 'POST';
-  if (!needsExistingLookup) return payload || {};
-
-  const existing = await getEntityRecordForScope(entityNorm, req?.params?.id, req?.user);
-  if (!existing || typeof existing !== 'object') return payload || {};
-
-  return {
-    ...existing,
-    ...(payload || {})
-  };
-}
-
-function applyBasicScopeFilterToItems(entityNorm, items, permissionMap) {
-  if (!Array.isArray(items) || items.length === 0) return items;
-  const profile = resolveBasicMenuProfile(permissionMap);
-
-  if (entityNorm === 'dish') {
-    return items.filter((item) => isAllowedDishTypeForBasicProfile(item?.product_type, profile));
-  }
-
-  if (entityNorm === 'combo') {
-    return items.filter((item) => isAllowedComboModeForBasicProfile(item?.combo_mode, profile));
-  }
-
-  return items;
-}
-
-function applyBasicScopeToEntityResult(entityNorm, result, permissionMap) {
-  if (!result) return result;
-  if (Array.isArray(result)) {
-    return applyBasicScopeFilterToItems(entityNorm, result, permissionMap);
-  }
-  if (Array.isArray(result?.items)) {
-    return {
-      ...result,
-      items: applyBasicScopeFilterToItems(entityNorm, result.items, permissionMap)
-    };
-  }
-  return result;
-}
-
-async function enforceBasicPlanEntityScope(req, res, entityNorm, method, payload, subscriber, permissionMap) {
-  const plan = normalizePlanPresetKey(subscriber?.plan, { defaultPlan: 'basic' }) || 'basic';
-  if (plan !== 'basic') return { allowed: true, scopedPayload: payload };
-  if (!(entityNorm === 'dish' || entityNorm === 'combo')) return { allowed: true, scopedPayload: payload };
-
-  const scopedPayload = await resolveEntityScopeData(entityNorm, method, payload, req);
-  const profile = resolveBasicMenuProfile(permissionMap);
-
-  if (entityNorm === 'dish') {
-    const productType = normalizeLower(scopedPayload?.product_type || 'dish');
-    if (!isAllowedDishTypeForBasicProfile(productType, profile)) {
-      const blockedModule = productType === 'pizza' ? 'pizza_config' : 'dishes';
-      res.status(403).json({
-        error: `Plano bÃ¡sico (${profile}) nÃ£o permite operar este tipo de item no cardÃ¡pio.`,
-        code: 'ACTION_NOT_ALLOWED',
-        module: blockedModule,
-        action: getEntityCrudAction(method) || 'view',
-        profile
-      });
-      return { allowed: false };
-    }
-  }
-
-  if (entityNorm === 'combo') {
-    const comboMode = normalizeLower(scopedPayload?.combo_mode || '');
-    if (comboMode && !isAllowedComboModeForBasicProfile(comboMode, profile)) {
-      res.status(403).json({
-        error: `Plano bÃ¡sico (${profile}) nÃ£o permite este modo de combo.`,
-        code: 'ACTION_NOT_ALLOWED',
-        module: 'combo',
-        action: getEntityCrudAction(method) || 'view',
-        profile
-      });
-      return { allowed: false };
-    }
-  }
-
-  return { allowed: true, scopedPayload };
-}
-
-function shouldEnforceEntityRead(config) {
-  return !!(config && config.enforceRead === true);
-}
-
-function getManagerialAuthSessionKey(req, ownerEmail, role) {
-  const requester = normalizeLower(req?.user?.id || req?.user?.email);
-  return `${requester}|${normalizeLower(ownerEmail)}|${normalizeLower(role)}`;
-}
-
-function pruneManagerialAuthSessions() {
-  const now = Date.now();
-  for (const [key, expiresAt] of managerialAuthSessions.entries()) {
-    if (!expiresAt || expiresAt <= now) {
-      managerialAuthSessions.delete(key);
-    }
-  }
-}
-
-function registerManagerialAuthSession(req, ownerEmail, role) {
-  if (!req?.user || !ownerEmail || !role) return;
-  pruneManagerialAuthSessions();
-  const key = getManagerialAuthSessionKey(req, ownerEmail, role);
-  managerialAuthSessions.set(key, Date.now() + MANAGERIAL_AUTH_SESSION_TTL_MS);
-}
-
-function hasRecentManagerialAuthSession(req, ownerEmail, role) {
-  if (!req?.user || !ownerEmail || !role) return false;
-  pruneManagerialAuthSessions();
-  const key = getManagerialAuthSessionKey(req, ownerEmail, role);
-  const expiresAt = managerialAuthSessions.get(key);
-  return !!(expiresAt && expiresAt > Date.now());
-}
-
-function extractManagerialCredentials(payload = {}) {
-  const fromObject = (payload?.managerial_auth && typeof payload.managerial_auth === 'object')
-    ? payload.managerial_auth
-    : ((payload?.managerialAuth && typeof payload.managerialAuth === 'object') ? payload.managerialAuth : null);
-  const matricula = normalizeLower(fromObject?.matricula || payload?.managerial_matricula || payload?.managerialMatricula);
-  const passwordRaw = fromObject?.password ?? payload?.managerial_password ?? payload?.managerialPassword;
-  const password = typeof passwordRaw === 'string' ? passwordRaw : '';
-  return { matricula, password };
-}
-
-function stripManagerialCredentials(payload = {}) {
-  if (!payload || typeof payload !== 'object') return payload;
-  const sanitized = { ...payload };
-  delete sanitized.managerial_auth;
-  delete sanitized.managerialAuth;
-  delete sanitized.managerial_matricula;
-  delete sanitized.managerial_password;
-  delete sanitized.managerialMatricula;
-  delete sanitized.managerialPassword;
-  return sanitized;
-}
-
-
-function isSensitiveEntityAction(entityName, method, payload = {}) {
-  const entityNorm = normalizeEntityName(entityName);
-  const httpMethod = String(method || '').toUpperCase();
-  if (entityNorm === 'order' && httpMethod === 'DELETE') return true;
-
-  if (entityNorm === 'caixa') {
-    if (httpMethod === 'POST') return true;
-    if (httpMethod === 'PUT' || httpMethod === 'PATCH') {
-      const status = normalizeLower(payload?.status);
-      return status === 'closed' || payload?.closing_date !== undefined || payload?.closing_amount_cash !== undefined;
-    }
-    return false;
-  }
-
-  if (entityNorm === 'caixaoperation') {
-    const type = normalizeLower(payload?.type);
-    return type === 'sangria' || type === 'suprimento';
-  }
-
-  if (entityNorm === 'pedidopdv' && (httpMethod === 'PUT' || httpMethod === 'PATCH')) {
-    const status = normalizeLower(payload?.status);
-    return status.startsWith('cancel') || payload?.canceled === true;
-  }
-
-  if (entityNorm === 'order' && (httpMethod === 'PUT' || httpMethod === 'PATCH')) {
-    const status = normalizeLower(payload?.status);
-    const productionStatus = normalizeLower(payload?.production_status);
-    const deliveryStatus = normalizeLower(payload?.delivery_status);
-    return (
-      status === 'cancelled' ||
-      productionStatus === 'cancelled' ||
-      deliveryStatus === 'cancelled'
-    );
-  }
-
-  return false;
-}
-
-function evaluateOrderCollaboratorAction(roles = [], action, payload = {}) {
-  const roleSet = new Set(roles);
-  const isManagerRole = roleSet.has('gerente') || roleSet.has('gestor_pedidos');
-
-  if (action === 'delete') {
-    return isManagerRole;
-  }
-
-  if (action === 'create') {
-    return isManagerRole;
-  }
-
-  if (action !== 'update') {
-    return true;
-  }
-
-  const nextStatus = normalizeLower(payload?.status);
-  const nextProductionStatus = normalizeLower(payload?.production_status);
-  const nextDeliveryStatus = normalizeLower(payload?.delivery_status);
-
-  if (!nextStatus && !nextProductionStatus && !nextDeliveryStatus) {
-    if (roleSet.has('cozinha') || roleSet.has('entregador')) {
-      return false;
-    }
-    return true;
-  }
-
-  if (isManagerRole) return true;
-
-  if (roleSet.has('cozinha')) {
-    if (nextDeliveryStatus) return false;
-    return ORDER_COLLABORATOR_STATUS_RULES.cozinha.has(nextProductionStatus || nextStatus);
-  }
-
-  if (roleSet.has('entregador')) {
-    if (nextProductionStatus) return false;
-    return ORDER_COLLABORATOR_STATUS_RULES.entregador.has(nextDeliveryStatus || nextStatus);
-  }
-
-  return false;
-}
-
-async function resolveSubscriberContextForEntity(req, payload = {}) {
-  const payloadOwner = normalizeLower(payload?.owner_email || payload?.as_subscriber);
-  const queryOwner = normalizeLower(req?.query?.as_subscriber);
-  const contextOwner = normalizeLower(req?.user?._contextForSubscriber);
-  const userSubscriber = normalizeLower(req?.user?.subscriber_email);
-  const userEmail = normalizeLower(req?.user?.email);
-  let owner = queryOwner || payloadOwner || contextOwner || userSubscriber || userEmail;
-
-  let subscriber = null;
-  if (owner) {
-    if (usePostgreSQL) {
-      subscriber = await repo.getSubscriberByEmail(owner);
-    } else if (db?.subscribers) {
-      subscriber = db.subscribers.find((item) => normalizeLower(item?.email) === owner) || null;
-    }
-  }
-
-  if (!subscriber && !req?.user?.is_master && userSubscriber && userSubscriber !== owner) {
-    owner = userSubscriber;
-    if (usePostgreSQL) {
-      subscriber = await repo.getSubscriberByEmail(owner);
-    } else if (db?.subscribers) {
-      subscriber = db.subscribers.find((item) => normalizeLower(item?.email) === owner) || null;
-    }
-  }
-
-  const normalizedOwner = normalizeLower(subscriber?.email || owner);
-  return { ownerEmail: normalizedOwner, subscriber };
-}
-
-async function enforceEntityReadAccess(req, res, entity, payload = {}) {
-  const entityNorm = normalizeEntityName(entity);
-  const config = ENTITY_ACCESS_CONFIG[entityNorm];
-  if (!shouldEnforceEntityRead(config)) {
-    return { allowed: true };
-  }
-
-  if (req?.user?.is_master) {
-    return { allowed: true };
-  }
-
-  const { ownerEmail, subscriber } = await resolveSubscriberContextForEntity(req, payload);
-  if (!ownerEmail || !subscriber) {
-    res.status(403).json({
-      error: 'Contexto do assinante invalido para esta leitura.',
-      code: 'ACTION_NOT_ALLOWED'
-    });
-    return { allowed: false };
-  }
-
-  const action = 'view';
-  const permissionMap = parseSubscriberPermissionMap(subscriber);
-  if (!hasModuleActionPermission(permissionMap, config.module, action)) {
-    res.status(403).json({
-      error: `Plano atual nao permite ${config.module.toUpperCase()} (${action}).`,
-      code: 'PLAN_FEATURE_NOT_AVAILABLE',
-      module: config.module,
-      action,
-      plan: normalizePlanPresetKey(subscriber.plan, { defaultPlan: 'basic' }) || 'basic'
-    });
-    return { allowed: false };
-  }
-
-  const isOwner = isOwnerForSubscriber(req.user, ownerEmail);
-  if (!isOwner) {
-    const roles = getUserRoleList(req.user);
-    const allowedRole = roles.some((role) => config.allowedCollaboratorRoles.has(role));
-    if (!allowedRole) {
-      res.status(403).json({
-        error: 'Perfil sem permissao para visualizar este modulo.',
-        code: 'ROLE_NOT_ALLOWED'
-      });
-      return { allowed: false };
-    }
-  }
-
-  const basicScopeCheck = await enforceBasicPlanEntityScope(req, res, entityNorm, 'GET', payload, subscriber, permissionMap);
-  if (!basicScopeCheck.allowed) {
-    return { allowed: false };
-  }
-
-  return { allowed: true, ownerEmail, subscriber, permissionMap };
-}
-
-async function enforceEntityWriteAccess(req, res, entity, method, payload = {}) {
-  const entityNorm = normalizeEntityName(entity);
-  const config = ENTITY_ACCESS_CONFIG[entityNorm];
-  const sanitizedPayload = stripManagerialCredentials(payload);
-
-  if (!config) {
-    return { allowed: true, sanitizedPayload };
-  }
-
-  if (req?.user?.is_master) {
-    return { allowed: true, sanitizedPayload };
-  }
-
-  const { ownerEmail, subscriber } = await resolveSubscriberContextForEntity(req, sanitizedPayload);
-  if (!ownerEmail || !subscriber) {
-    res.status(403).json({
-      error: 'Contexto do assinante invÃ¡lido para esta operaÃ§Ã£o.',
-      code: 'ACTION_NOT_ALLOWED'
-    });
-    return { allowed: false };
-  }
-
-  const action = getEntityCrudAction(method);
-  const permissionMap = parseSubscriberPermissionMap(subscriber);
-  if (!action || !hasModuleActionPermission(permissionMap, config.module, action)) {
-    res.status(403).json({
-      error: `Plano atual nÃ£o permite ${config.module.toUpperCase()} (${action || 'acao'}).`,
-      code: 'PLAN_FEATURE_NOT_AVAILABLE',
-      module: config.module,
-      action,
-      plan: normalizePlanPresetKey(subscriber.plan, { defaultPlan: 'basic' }) || 'basic'
-    });
-    return { allowed: false };
-  }
-
-  const isOwner = isOwnerForSubscriber(req.user, ownerEmail);
-  if (!isOwner) {
-    const roles = getUserRoleList(req.user);
-    const allowedRole = roles.some((role) => config.allowedCollaboratorRoles.has(role));
-    if (!allowedRole) {
-      res.status(403).json({
-        error: 'Perfil sem permissÃ£o para operar este mÃ³dulo.',
-        code: 'ROLE_NOT_ALLOWED'
-      });
-      return { allowed: false };
-    }
-
-    if (entityNorm === 'order' && !evaluateOrderCollaboratorAction(roles, action, sanitizedPayload)) {
-      res.status(403).json({
-        error: 'AÃ§Ã£o nÃ£o permitida para este perfil operacional em pedidos.',
-        code: 'ACTION_NOT_ALLOWED',
-        entity: 'Order',
-        action
-      });
-      return { allowed: false };
-    }
-
-    if (isSensitiveEntityAction(entityNorm, method, sanitizedPayload)) {
-      const { role: managerialRole } = getManagerialSubscriberAndRole(req);
-      const hasRecentAuth = hasRecentManagerialAuthSession(req, ownerEmail, managerialRole);
-
-      if (!hasRecentAuth) {
-        const { matricula, password } = extractManagerialCredentials(payload);
-        let validFromInlineAuth = false;
-        if (matricula && password && usePostgreSQL && repo.validateManagerialAuthorization) {
-          validFromInlineAuth = await repo.validateManagerialAuthorization(ownerEmail, managerialRole, matricula, password);
-          if (validFromInlineAuth) {
-            registerManagerialAuthSession(req, ownerEmail, managerialRole);
-          }
-        }
-
-        if (!validFromInlineAuth) {
-          res.status(403).json({
-            error: 'AutorizaÃ§Ã£o gerencial obrigatÃ³ria para esta aÃ§Ã£o sensÃ­vel.',
-            code: 'MANAGERIAL_AUTH_REQUIRED'
-          });
-          return { allowed: false };
-        }
-      }
-    }
-  }
-
-  const basicScopeCheck = await enforceBasicPlanEntityScope(req, res, entityNorm, method, sanitizedPayload, subscriber, permissionMap);
-  if (!basicScopeCheck.allowed) {
-    return { allowed: false };
-  }
-
-  return {
-    allowed: true,
-    sanitizedPayload: basicScopeCheck.scopedPayload || sanitizedPayload,
-    ownerEmail,
-    subscriber,
-    permissionMap
-  };
-}
-
 const entitiesAndManagerialRouter = express.Router();
 entitiesAndManagerialRouter.get('/managerial-auth', authenticate, asyncHandler(async (req, res) => {
   if (!usePostgreSQL || !repo.getManagerialAuthorization) {
@@ -1541,7 +977,7 @@ entitiesAndManagerialRouter.get('/managerial-auth', authenticate, asyncHandler(a
   const { owner, role } = getManagerialSubscriberAndRole(req);
   if (!owner) return res.status(400).json({ error: 'Contexto do estabelecimento necessÃ¡rio' });
   if (!(await ensureManagerialAuthPlanEnabled(owner, res))) return;
-  const isOwner = (req.user?.is_master && owner) || (!req.user?.is_master && (req.user?.email || '').toLowerCase().trim() === owner);
+  const isOwner = isRequesterOwnerForManagerialAuth(req, owner);
   if (!isOwner) {
     const authGerente = await repo.getManagerialAuthorization(owner, 'gerente');
     return res.json({
@@ -1565,7 +1001,7 @@ entitiesAndManagerialRouter.post('/managerial-auth', authenticate, asyncHandler(
   const { owner, role } = getManagerialSubscriberAndRole(req);
   if (!owner) return res.status(400).json({ error: 'Contexto do estabelecimento necessÃ¡rio' });
   if (!(await ensureManagerialAuthPlanEnabled(owner, res))) return;
-  const isOwner = (req.user?.is_master && owner) || (!req.user?.is_master && (req.user?.email || '').toLowerCase().trim() === owner);
+  const isOwner = isRequesterOwnerForManagerialAuth(req, owner);
   if (!isOwner) return res.status(403).json({ error: 'Apenas o dono do estabelecimento pode criar ou alterar autorizaÃ§Ãµes.' });
   const { role: bodyRole, matricula, password, expirable, expires_at } = req.body || {};
   const targetRole = bodyRole === 'gerente' ? 'gerente' : 'assinante';
