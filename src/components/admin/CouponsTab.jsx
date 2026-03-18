@@ -13,6 +13,7 @@ import { Plus, Trash2, Ticket, Percent, DollarSign, Calendar, Copy, Search, Filt
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { usePermission } from '../permissions/usePermission';
+import { getMenuContextEntityOpts, getMenuContextQueryKeyParts } from '@/utils/tenantScope';
 
 export default function CouponsTab() {
   const [showModal, setShowModal] = useState(false);
@@ -31,39 +32,37 @@ export default function CouponsTab() {
 
   const queryClient = useQueryClient();
   const { menuContext } = usePermission();
+  const menuContextQueryKey = getMenuContextQueryKeyParts(menuContext);
+  const scopedEntityOpts = getMenuContextEntityOpts(menuContext);
 
   // ✅ CORREÇÃO: Buscar cupons com contexto do slug
   const { data: coupons = [] } = useQuery({
-    queryKey: ['coupons', menuContext?.type, menuContext?.value],
+    queryKey: ['coupons', ...menuContextQueryKey],
     queryFn: async () => {
       if (!menuContext) return [];
-      const opts = {};
-      if (menuContext.type === 'subscriber' && menuContext.value) {
-        opts.as_subscriber = menuContext.value;
-      }
-      return base44.entities.Coupon.list('-created_date', opts);
+      return base44.entities.Coupon.list('-created_date', scopedEntityOpts);
     },
     enabled: !!menuContext,
   });
 
   const createMutation = useMutation({
-    mutationFn: (data) => base44.entities.Coupon.create(data),
+    mutationFn: (data) => base44.entities.Coupon.create({ ...data, ...scopedEntityOpts }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['coupons'] });
+      queryClient.invalidateQueries({ queryKey: ['coupons', ...menuContextQueryKey] });
       closeModal();
       toast.success('Cupom criado com sucesso!');
     },
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.Coupon.update(id, data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['coupons'] }),
+    mutationFn: ({ id, data }) => base44.entities.Coupon.update(id, data, scopedEntityOpts),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['coupons', ...menuContextQueryKey] }),
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.Coupon.delete(id),
+    mutationFn: (id) => base44.entities.Coupon.delete(id, scopedEntityOpts),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['coupons'] });
+      queryClient.invalidateQueries({ queryKey: ['coupons', ...menuContextQueryKey] });
       toast.success('Cupom excluído!');
     },
   });

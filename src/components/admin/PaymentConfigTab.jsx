@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { usePermission } from '../permissions/usePermission';
+import { getMenuContextEntityOpts, getMenuContextQueryKeyParts } from '@/utils/tenantScope';
 
 export default function PaymentConfigTab() {
   const [config, setConfig] = useState({
@@ -39,17 +40,15 @@ export default function PaymentConfigTab() {
 
   const queryClient = useQueryClient();
   const { menuContext } = usePermission();
+  const menuContextQueryKey = getMenuContextQueryKeyParts(menuContext);
+  const scopedEntityOpts = getMenuContextEntityOpts(menuContext);
 
   // ✅ CORREÇÃO: Buscar configurações de pagamento com contexto do slug
   const { data: paymentConfigs = [], isLoading } = useQuery({
-    queryKey: ['paymentConfig', menuContext?.type, menuContext?.value],
+    queryKey: ['paymentConfig', ...menuContextQueryKey],
     queryFn: async () => {
       if (!menuContext) return [];
-      const opts = {};
-      if (menuContext.type === 'subscriber' && menuContext.value) {
-        opts.as_subscriber = menuContext.value;
-      }
-      return base44.entities.PaymentConfig.list(null, opts);
+      return base44.entities.PaymentConfig.list(null, scopedEntityOpts);
     },
     enabled: !!menuContext,
   });
@@ -63,13 +62,13 @@ export default function PaymentConfigTab() {
   const saveMutation = useMutation({
     mutationFn: async (data) => {
       if (paymentConfigs.length > 0) {
-        return base44.entities.PaymentConfig.update(paymentConfigs[0].id, data);
+        return base44.entities.PaymentConfig.update(paymentConfigs[0].id, data, scopedEntityOpts);
       } else {
-        return base44.entities.PaymentConfig.create(data);
+        return base44.entities.PaymentConfig.create({ ...data, ...scopedEntityOpts });
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['paymentConfig'] });
+      queryClient.invalidateQueries({ queryKey: ['paymentConfig', ...menuContextQueryKey] });
       const toast = document.createElement('div');
       toast.className = 'fixed top-4 right-4 z-[9999] bg-green-600 text-white px-6 py-4 rounded-xl shadow-2xl';
       toast.innerHTML = '✅ Configurações salvas!';

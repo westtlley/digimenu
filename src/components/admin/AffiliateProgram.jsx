@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,6 +13,7 @@ import { toast } from 'react-hot-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { usePermission } from '../permissions/usePermission';
 import { useOrders } from '@/hooks/useOrders';
+import { getMenuContextEntityOpts, getMenuContextQueryKeyParts, getScopedStorageKey } from '@/utils/tenantScope';
 
 /**
  * AffiliateProgram - Programa de Afiliados
@@ -25,10 +26,13 @@ import { useOrders } from '@/hooks/useOrders';
 export default function AffiliateProgram() {
   const queryClient = useQueryClient();
   const { menuContext } = usePermission();
+  const menuContextQueryKey = getMenuContextQueryKeyParts(menuContext);
+  const scopedEntityOpts = getMenuContextEntityOpts(menuContext);
+  const affiliateSettingsKey = getScopedStorageKey('affiliateSettings', menuContext, 'global');
   
   // Carregar configurações do localStorage ou usar padrões
   const loadSettings = () => {
-    const saved = localStorage.getItem('affiliateSettings');
+    const saved = localStorage.getItem(affiliateSettingsKey) || localStorage.getItem('affiliateSettings');
     if (saved) {
       try {
         return JSON.parse(saved);
@@ -46,30 +50,26 @@ export default function AffiliateProgram() {
 
   const [settings, setSettings] = useState(loadSettings());
 
+  useEffect(() => {
+    setSettings(loadSettings());
+  }, [affiliateSettingsKey]);
+
   // ✅ CORREÇÃO: Buscar afiliados com contexto do slug
   const { data: affiliates = [] } = useQuery({
-    queryKey: ['affiliates', menuContext?.type, menuContext?.value],
+    queryKey: ['affiliates', ...menuContextQueryKey],
     queryFn: async () => {
       if (!menuContext) return [];
-      const opts = {};
-      if (menuContext.type === 'subscriber' && menuContext.value) {
-        opts.as_subscriber = menuContext.value;
-      }
-      return base44.entities.Affiliate.list(null, opts);
+      return base44.entities.Affiliate.list(null, scopedEntityOpts);
     },
     enabled: !!menuContext,
   });
 
   // ✅ CORREÇÃO: Buscar referrals com contexto do slug
   const { data: referrals = [] } = useQuery({
-    queryKey: ['referrals', menuContext?.type, menuContext?.value],
+    queryKey: ['referrals', ...menuContextQueryKey],
     queryFn: async () => {
       if (!menuContext) return [];
-      const opts = {};
-      if (menuContext.type === 'subscriber' && menuContext.value) {
-        opts.as_subscriber = menuContext.value;
-      }
-      return base44.entities.Referral.list(null, opts);
+      return base44.entities.Referral.list(null, scopedEntityOpts);
     },
     enabled: !!menuContext,
   });
@@ -95,11 +95,11 @@ export default function AffiliateProgram() {
   const updateSettingsMutation = useMutation({
     mutationFn: async (newSettings) => {
       // Salvar configurações em localStorage ou criar entidade AffiliateSettings
-      localStorage.setItem('affiliateSettings', JSON.stringify(newSettings));
+      localStorage.setItem(affiliateSettingsKey, JSON.stringify(newSettings));
       return { success: true, settings: newSettings };
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['affiliateSettings']);
+      queryClient.invalidateQueries({ queryKey: ['affiliateSettings', ...menuContextQueryKey] });
       toast.success('Configurações atualizadas!');
     },
   });
@@ -371,3 +371,12 @@ export default function AffiliateProgram() {
     </div>
   );
 }
+
+
+
+
+
+
+
+
+

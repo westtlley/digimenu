@@ -13,10 +13,13 @@ import { toast } from 'react-hot-toast';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { usePermission } from '../permissions/usePermission';
 import { useMenuDishes } from '@/hooks/useMenuData';
+import { getMenuContextEntityOpts, getMenuContextQueryKeyParts } from '@/utils/tenantScope';
 
 export default function InventoryManagement() {
   const queryClient = useQueryClient();
   const { menuContext } = usePermission();
+  const menuContextQueryKey = getMenuContextQueryKeyParts(menuContext);
+  const scopedEntityOpts = getMenuContextEntityOpts(menuContext);
   const [isIngredientDialogOpen, setIsIngredientDialogOpen] = useState(false);
   const [isDishIngredientDialogOpen, setIsDishIngredientDialogOpen] = useState(false);
   const [editingIngredient, setEditingIngredient] = useState(null);
@@ -36,14 +39,10 @@ export default function InventoryManagement() {
 
   // ✅ CORREÇÃO: Buscar ingredientes com contexto do slug
   const { data: ingredients = [] } = useQuery({
-    queryKey: ['ingredients', menuContext?.type, menuContext?.value],
+    queryKey: ['ingredients', ...menuContextQueryKey],
     queryFn: async () => {
       if (!menuContext) return [];
-      const opts = {};
-      if (menuContext.type === 'subscriber' && menuContext.value) {
-        opts.as_subscriber = menuContext.value;
-      }
-      return base44.entities.Ingredient.list(null, opts);
+      return base44.entities.Ingredient.list(null, scopedEntityOpts);
     },
     enabled: !!menuContext,
   });
@@ -53,14 +52,10 @@ export default function InventoryManagement() {
 
   // ✅ CORREÇÃO: Buscar dishIngredients com contexto do slug
   const { data: dishIngredients = [] } = useQuery({
-    queryKey: ['dishIngredients', menuContext?.type, menuContext?.value],
+    queryKey: ['dishIngredients', ...menuContextQueryKey],
     queryFn: async () => {
       if (!menuContext) return [];
-      const opts = {};
-      if (menuContext.type === 'subscriber' && menuContext.value) {
-        opts.as_subscriber = menuContext.value;
-      }
-      return base44.entities.DishIngredient.list(null, opts);
+      return base44.entities.DishIngredient.list(null, scopedEntityOpts);
     },
     enabled: !!menuContext,
   });
@@ -108,10 +103,10 @@ export default function InventoryManagement() {
 
   const createIngredientMutation = useMutation({
     mutationFn: async (data) => {
-      return base44.entities.Ingredient.create(data);
+      return base44.entities.Ingredient.create({ ...data, ...scopedEntityOpts });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['ingredients']);
+      queryClient.invalidateQueries({ queryKey: ['ingredients', ...menuContextQueryKey] });
       toast.success('Ingrediente criado com sucesso!');
       setIsIngredientDialogOpen(false);
       resetIngredientForm();
@@ -123,10 +118,10 @@ export default function InventoryManagement() {
 
   const updateIngredientMutation = useMutation({
     mutationFn: async ({ id, data }) => {
-      return base44.entities.Ingredient.update(id, data);
+      return base44.entities.Ingredient.update(id, data, scopedEntityOpts);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['ingredients']);
+      queryClient.invalidateQueries({ queryKey: ['ingredients', ...menuContextQueryKey] });
       toast.success('Ingrediente atualizado com sucesso!');
       setIsIngredientDialogOpen(false);
       resetIngredientForm();
@@ -138,10 +133,10 @@ export default function InventoryManagement() {
 
   const deleteIngredientMutation = useMutation({
     mutationFn: async (id) => {
-      return base44.entities.Ingredient.delete(id);
+      return base44.entities.Ingredient.delete(id, scopedEntityOpts);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['ingredients']);
+      queryClient.invalidateQueries({ queryKey: ['ingredients', ...menuContextQueryKey] });
       toast.error('Ingrediente deletado com sucesso!');
     },
     onError: (error) => {
@@ -153,11 +148,12 @@ export default function InventoryManagement() {
     mutationFn: async (data) => {
       return base44.entities.DishIngredient.create({
         ...data,
-        dish_id: selectedDish.id
+        dish_id: selectedDish.id,
+        ...scopedEntityOpts
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['dishIngredients']);
+      queryClient.invalidateQueries({ queryKey: ['dishIngredients', ...menuContextQueryKey] });
       toast.success('Ingrediente adicionado ao prato!');
       setIsDishIngredientDialogOpen(false);
       resetDishIngredientForm();
@@ -214,7 +210,8 @@ export default function InventoryManagement() {
       ingredient_id: ingredientId,
       type, // 'entry', 'exit', 'adjustment'
       quantity,
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
+      ...scopedEntityOpts
     }).then(() => {
       // Atualizar estoque do ingrediente
       const ingredient = ingredients.find(i => i.id === ingredientId);
@@ -224,9 +221,9 @@ export default function InventoryManagement() {
         ? (ingredient.current_stock || 0) - quantity
         : quantity;
       
-      base44.entities.Ingredient.update(ingredientId, { current_stock: newStock })
+      base44.entities.Ingredient.update(ingredientId, { current_stock: newStock }, scopedEntityOpts)
         .then(() => {
-          queryClient.invalidateQueries(['ingredients']);
+          queryClient.invalidateQueries({ queryKey: ['ingredients', ...menuContextQueryKey] });
           toast.success('Estoque atualizado!');
         });
     });
@@ -560,3 +557,11 @@ export default function InventoryManagement() {
     </div>
   );
 }
+
+
+
+
+
+
+
+

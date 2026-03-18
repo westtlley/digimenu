@@ -12,6 +12,7 @@ import EmptyState from '@/components/ui/EmptyState';
 import toast from 'react-hot-toast';
 import { usePermission } from '../permissions/usePermission';
 import { useMenuCategories, useMenuDishes } from '@/hooks/useMenuData';
+import { getMenuContextEntityOpts, getMenuContextQueryKeyParts, getMenuContextSubscriberEmail } from '@/utils/tenantScope';
 
 export default function CategoriesTab({ onSwitchToComplements }) {
   const [user, setUser] = React.useState(null);
@@ -21,6 +22,9 @@ export default function CategoriesTab({ onSwitchToComplements }) {
 
   const queryClient = useQueryClient();
   const { menuContext } = usePermission();
+  const menuContextQueryKey = getMenuContextQueryKeyParts(menuContext);
+  const scopedEntityOpts = getMenuContextEntityOpts(menuContext);
+  const scopedSubscriberEmail = getMenuContextSubscriberEmail(menuContext);
 
   React.useEffect(() => {
     const loadUser = async () => {
@@ -72,18 +76,17 @@ export default function CategoriesTab({ onSwitchToComplements }) {
 
   const createMutation = useMutation({
     mutationFn: async (data) => {
+      const ownerEmail = scopedSubscriberEmail || user?.subscriber_email || user?.email; // Compatibilidade transitória: a entidade ainda persiste owner_email.
       const categoryData = {
         ...data,
-        owner_email: user?.subscriber_email || user?.email
+        ...(ownerEmail && { owner_email: ownerEmail }),
+        ...scopedEntityOpts,
       };
-      if (menuContext?.type === 'subscriber' && menuContext?.value) {
-        categoryData.as_subscriber = menuContext.value;
-      }
       return base44.entities.Category.create(categoryData);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['categories'] });
-      queryClient.invalidateQueries({ queryKey: ['dishes'] });
+      queryClient.invalidateQueries({ queryKey: ['categories', ...menuContextQueryKey] });
+      queryClient.invalidateQueries({ queryKey: ['dishes', ...menuContextQueryKey] });
       setShowModal(false);
       setNewCategoryName('');
       toast.success('✅ Categoria criada!');
@@ -93,16 +96,14 @@ export default function CategoriesTab({ onSwitchToComplements }) {
     },
   });
 
-  const getEntityOpts = () => (menuContext?.type === 'subscriber' && menuContext?.value) ? { as_subscriber: menuContext.value } : {};
-
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.Category.update(id, data, getEntityOpts()),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['categories'] }),
+    mutationFn: ({ id, data }) => base44.entities.Category.update(id, data, scopedEntityOpts),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['categories', ...menuContextQueryKey] }),
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.Category.delete(id, getEntityOpts()),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['categories'] }),
+    mutationFn: (id) => base44.entities.Category.delete(id, scopedEntityOpts),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['categories', ...menuContextQueryKey] }),
   });
 
   const handleSubmit = (e) => {
@@ -295,3 +296,8 @@ export default function CategoriesTab({ onSwitchToComplements }) {
     </div>
   );
 }
+
+
+
+
+

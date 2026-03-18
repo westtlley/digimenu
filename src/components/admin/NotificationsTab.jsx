@@ -10,6 +10,7 @@ import { Bell, Send, Megaphone, Package, AlertCircle } from 'lucide-react';
 import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { usePermission } from '../permissions/usePermission';
+import { getMenuContextEntityOpts, getMenuContextQueryKeyParts } from '@/utils/tenantScope';
 
 export default function NotificationsTab() {
   const [notificationForm, setNotificationForm] = useState({
@@ -21,25 +22,23 @@ export default function NotificationsTab() {
 
   const queryClient = useQueryClient();
   const { menuContext } = usePermission();
+  const menuContextQueryKey = getMenuContextQueryKeyParts(menuContext);
+  const scopedEntityOpts = getMenuContextEntityOpts(menuContext);
 
   // ✅ CORREÇÃO: Buscar notificações com contexto do slug
   const { data: notifications = [] } = useQuery({
-    queryKey: ['notifications', menuContext?.type, menuContext?.value],
+    queryKey: ['notifications', ...menuContextQueryKey],
     queryFn: async () => {
       if (!menuContext) return [];
-      const opts = {};
-      if (menuContext.type === 'subscriber' && menuContext.value) {
-        opts.as_subscriber = menuContext.value;
-      }
-      return base44.entities.Notification.list('-created_date', 50, opts);
+      return base44.entities.Notification.list('-created_date', 50, scopedEntityOpts);
     },
     enabled: !!menuContext,
   });
 
   const sendNotificationMutation = useMutation({
-    mutationFn: (data) => base44.entities.Notification.create(data),
+    mutationFn: (data) => base44.entities.Notification.create({ ...data, ...scopedEntityOpts }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['notifications', ...menuContextQueryKey] });
       toast.success('Notificação enviada!');
       setNotificationForm({
         title: '',

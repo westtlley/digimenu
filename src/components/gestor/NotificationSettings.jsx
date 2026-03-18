@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { apiClient as base44 } from '@/api/apiClient';
+import { getScopedStorageKey } from '@/utils/tenantScope';
 
 const SOUND_OPTIONS = [
   { 
@@ -50,6 +51,7 @@ const SOUND_OPTIONS = [
 ];
 
 export default function NotificationSettings() {
+  const storageKey = getScopedStorageKey('notificationSettings', null, 'global');
   const [settings, setSettings] = useState({
     soundEnabled: true,
     volume: 80,
@@ -62,15 +64,15 @@ export default function NotificationSettings() {
   const fileInputRef = useRef(null);
 
   useEffect(() => {
-    const saved = localStorage.getItem('notificationSettings');
+    const saved = localStorage.getItem(storageKey) || localStorage.getItem('notificationSettings');
     if (saved) {
       setSettings(JSON.parse(saved));
     }
-  }, []);
+  }, [storageKey]);
 
   const saveSettings = (newSettings) => {
     setSettings(newSettings);
-    localStorage.setItem('notificationSettings', JSON.stringify(newSettings));
+    localStorage.setItem(storageKey, JSON.stringify(newSettings));
   };
 
   const playTestSound = (soundId) => {
@@ -322,3 +324,7 @@ export default function NotificationSettings() {
     </div>
   );
 }
+
+
+
+

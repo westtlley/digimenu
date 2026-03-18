@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Bookmark, Trash2, Plus, Copy, Edit2, Check, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { usePermission } from '../permissions/usePermission';
+import { getMenuContextEntityOpts, getMenuContextQueryKeyParts } from '@/utils/tenantScope';
 
 // ✅ Componente para item de template com edição de nome
 function TemplateItem({ template, displayName, onUse, onDelete, onEdit }) {
@@ -104,15 +105,13 @@ export default function ComplementTemplates({ isOpen, onClose, onUseTemplate }) 
 
   // ✅ CORREÇÃO: Buscar grupos de complementos com contexto do slug
   const { menuContext } = usePermission();
+  const menuContextQueryKey = getMenuContextQueryKeyParts(menuContext);
+  const scopedEntityOpts = getMenuContextEntityOpts(menuContext);
   const { data: complementGroups = [] } = useQuery({
-    queryKey: ['complementGroups', menuContext?.type, menuContext?.value],
+    queryKey: ['complementGroups', ...menuContextQueryKey],
     queryFn: async () => {
       if (!menuContext) return [];
-      const opts = {};
-      if (menuContext.type === 'subscriber' && menuContext.value) {
-        opts.as_subscriber = menuContext.value;
-      }
-      return base44.entities.ComplementGroup.list('order', opts);
+      return base44.entities.ComplementGroup.list('order', scopedEntityOpts);
     },
     enabled: !!menuContext,
     refetchOnMount: 'always',
@@ -129,6 +128,7 @@ export default function ComplementTemplates({ isOpen, onClose, onUseTemplate }) 
       const templatePromises = groups.map(g => 
         base44.entities.ComplementGroup.create({
           ...g,
+          ...scopedEntityOpts,
           name: g.name, // ✅ Manter nome original, sem [TEMPLATE]
           is_template: true, // ✅ Marcar como template
           id: undefined,
@@ -139,16 +139,16 @@ export default function ComplementTemplates({ isOpen, onClose, onUseTemplate }) 
       return Promise.all(templatePromises);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['complementGroups'] });
+      queryClient.invalidateQueries({ queryKey: ['complementGroups', ...menuContextQueryKey] });
       toast.success('Template salvo com sucesso!');
       setSelectedGroups([]);
     },
   });
 
   const deleteTemplateMutation = useMutation({
-    mutationFn: (id) => base44.entities.ComplementGroup.delete(id),
+    mutationFn: (id) => base44.entities.ComplementGroup.delete(id, scopedEntityOpts),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['complementGroups'] });
+      queryClient.invalidateQueries({ queryKey: ['complementGroups', ...menuContextQueryKey] });
       toast.success('Template excluído');
     },
   });
@@ -161,6 +161,7 @@ export default function ComplementTemplates({ isOpen, onClose, onUseTemplate }) 
       // ✅ Criar uma cópia do grupo de complemento (remover is_template)
       const newGroup = await base44.entities.ComplementGroup.create({
         ...template,
+        ...scopedEntityOpts,
         name: template.name.replace('[TEMPLATE]', '').trim(), // ✅ Remover [TEMPLATE] se existir
         is_template: false, // ✅ Não é template, é grupo normal
         id: undefined,
@@ -170,7 +171,7 @@ export default function ComplementTemplates({ isOpen, onClose, onUseTemplate }) 
       return newGroup;
     },
     onSuccess: (newGroup) => {
-      queryClient.invalidateQueries({ queryKey: ['complementGroups'] });
+      queryClient.invalidateQueries({ queryKey: ['complementGroups', ...menuContextQueryKey] });
       toast.success('Template aplicado!');
       onUseTemplate(newGroup);
       onClose();
@@ -189,7 +190,7 @@ export default function ComplementTemplates({ isOpen, onClose, onUseTemplate }) 
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['complementGroups'] });
+      queryClient.invalidateQueries({ queryKey: ['complementGroups', ...menuContextQueryKey] });
       toast.success('Nome do template atualizado!');
     },
   });
@@ -283,3 +284,4 @@ export default function ComplementTemplates({ isOpen, onClose, onUseTemplate }) 
     </Dialog>
   );
 }
+

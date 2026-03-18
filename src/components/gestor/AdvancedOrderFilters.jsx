@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Search, Filter, X, Calendar, User, Phone, Package, DollarSign, Truck, CreditCard, Star, Save, Bookmark } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-const SAVED_FILTERS_KEY = 'gestor_saved_filters';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -11,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Label } from '@/components/ui/label';
 import { matchesLegacyOrderStatusFilter } from '@/utils/orderLifecycle';
+import { getScopedStorageKey } from '@/utils/tenantScope';
 
 const STATUS_OPTIONS = [
   { value: 'all', label: 'Todos os Status' },
@@ -43,6 +43,7 @@ export default function AdvancedOrderFilters({
   onSearchChange,
   entregadores = [],
 }) {
+  const savedFiltersStorageKey = getScopedStorageKey('gestor_saved_filters', null, 'global');
   const [isOpen, setIsOpen] = useState(false);
   const [savedFilters, setSavedFilters] = useState([]);
   const [saveFilterName, setSaveFilterName] = useState('');
@@ -236,13 +237,13 @@ export default function AdvancedOrderFilters({
 
   useEffect(() => {
     try {
-      const raw = localStorage.getItem(SAVED_FILTERS_KEY);
+      const raw = localStorage.getItem(savedFiltersStorageKey);
       if (raw) {
         const list = JSON.parse(raw);
         setSavedFilters(Array.isArray(list) ? list : []);
       }
     } catch (_) {}
-  }, []);
+  }, [savedFiltersStorageKey]);
 
   const saveCurrentFilters = () => {
     const name = (saveFilterName || '').trim();
@@ -252,7 +253,7 @@ export default function AdvancedOrderFilters({
     }
     const list = [...savedFilters.filter(s => s.name !== name), { name, filters: { ...filters } }];
     setSavedFilters(list);
-    localStorage.setItem(SAVED_FILTERS_KEY, JSON.stringify(list));
+    localStorage.setItem(savedFiltersStorageKey, JSON.stringify(list));
     setSaveFilterName('');
     toast.success('Filtros salvos');
   };
@@ -267,7 +268,7 @@ export default function AdvancedOrderFilters({
   const removeSavedFilter = (name) => {
     const list = savedFilters.filter(s => s.name !== name);
     setSavedFilters(list);
-    localStorage.setItem(SAVED_FILTERS_KEY, JSON.stringify(list));
+    localStorage.setItem(savedFiltersStorageKey, JSON.stringify(list));
     toast.success('Combinação removida');
   };
 
@@ -672,3 +673,9 @@ export default function AdvancedOrderFilters({
     </div>
   );
 }
+
+
+
+
+
+

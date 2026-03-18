@@ -21,9 +21,15 @@ import {
   Loader2, Download, Upload, Plus, Pencil, Trash2, Clock, GripVertical, Gift
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { buildTenantEntityOpts } from '@/utils/tenantScope';
 
 export default function SubscriberDataViewer({ subscriber, onBack }) {
   const queryClient = useQueryClient();
+  const subscriberScopeKey = subscriber?.id ?? subscriber?.email ?? 'subscriber';
+  const scopedEntityOpts = buildTenantEntityOpts({
+    subscriberId: subscriber?.id,
+    subscriberEmail: subscriber?.email,
+  });
   const [categoryFormOpen, setCategoryFormOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
   const [dishFormOpen, setDishFormOpen] = useState(false);
@@ -46,7 +52,7 @@ export default function SubscriberDataViewer({ subscriber, onBack }) {
   const [complementForm, setComplementForm] = useState({ group_id: '', name: '', price: '', is_active: true });
 
   const { data: profileData, isLoading, isError, error } = useQuery({
-    queryKey: ['subscriberProfile', subscriber?.email],
+    queryKey: ['subscriberProfile', subscriberScopeKey],
     queryFn: async () => {
       const res = await base44.functions.invoke('getFullSubscriberProfile', {
         subscriber_email: subscriber.email
@@ -100,9 +106,9 @@ export default function SubscriberDataViewer({ subscriber, onBack }) {
   }
 
   const { data = {}, stats = {} } = profileData;
-  const opts = { as_subscriber: subscriber.email };
+  const opts = scopedEntityOpts;
 
-  const refetch = () => queryClient.invalidateQueries({ queryKey: ['subscriberProfile', subscriber.email] });
+  const refetch = () => queryClient.invalidateQueries({ queryKey: ['subscriberProfile', subscriberScopeKey] });
 
   const handleCategorySubmit = async (formData) => {
     setSaving(true);
@@ -111,7 +117,7 @@ export default function SubscriberDataViewer({ subscriber, onBack }) {
         await base44.entities.Category.update(editingCategory.id, formData, opts);
         toast.success('Categoria atualizada');
       } else {
-        await base44.entities.Category.create({ ...formData, as_subscriber: subscriber.email });
+        await base44.entities.Category.create({ ...formData, ...scopedEntityOpts });
         toast.success('Categoria criada');
       }
       refetch();
@@ -158,7 +164,7 @@ export default function SubscriberDataViewer({ subscriber, onBack }) {
         await base44.entities.Dish.update(editingDish.id, payload, opts);
         toast.success('Prato atualizado');
       } else {
-        await base44.entities.Dish.create({ ...payload, as_subscriber: subscriber.email });
+        await base44.entities.Dish.create({ ...payload, ...scopedEntityOpts });
         toast.success('Prato criado');
       }
       refetch();
@@ -198,7 +204,7 @@ export default function SubscriberDataViewer({ subscriber, onBack }) {
       } else {
         await base44.entities.ComplementGroup.create({
           ...payload,
-          as_subscriber: subscriber.email
+          ...scopedEntityOpts
         });
         toast.success('Grupo criado');
       }
@@ -311,7 +317,7 @@ export default function SubscriberDataViewer({ subscriber, onBack }) {
         await base44.entities.Combo.update(editingCombo.id, comboData, opts);
         toast.success('Combo atualizado');
       } else {
-        await base44.entities.Combo.create({ ...comboData, as_subscriber: subscriber.email });
+        await base44.entities.Combo.create({ ...comboData, ...scopedEntityOpts });
         toast.success('Combo criado');
       }
       refetch();
@@ -1044,3 +1050,7 @@ export default function SubscriberDataViewer({ subscriber, onBack }) {
     </div>
   );
 }
+
+
+
+

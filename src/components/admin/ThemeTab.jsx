@@ -45,6 +45,7 @@ import { Badge } from "@/components/ui/badge";
 import { extractColorsFromImage } from '@/utils/extractColorsFromImage';
 import { Image as ImageIcon } from 'lucide-react';
 import { usePermission } from '../permissions/usePermission';
+import { getMenuContextEntityOpts, getMenuContextQueryKeyParts } from '@/utils/tenantScope';
 
 const PRESET_COLORS = [
   { name: 'Laranja', primary: '#f97316', secondary: '#1f2937', accent: '#eab308' },
@@ -117,17 +118,15 @@ export default function ThemeTab() {
 
   const queryClient = useQueryClient();
   const { menuContext } = usePermission();
+  const menuContextQueryKey = getMenuContextQueryKeyParts(menuContext);
+  const scopedEntityOpts = getMenuContextEntityOpts(menuContext);
 
   // ✅ CORREÇÃO: Buscar store com contexto do slug
   const { data: stores = [] } = useQuery({
-    queryKey: ['store', menuContext?.type, menuContext?.value],
+    queryKey: ['store', ...menuContextQueryKey],
     queryFn: async () => {
       if (!menuContext) return [];
-      const opts = {};
-      if (menuContext.type === 'subscriber' && menuContext.value) {
-        opts.as_subscriber = menuContext.value;
-      }
-      return base44.entities.Store.list(null, opts);
+      return base44.entities.Store.list(null, scopedEntityOpts);
     },
     enabled: !!menuContext,
   });
@@ -168,9 +167,9 @@ export default function ThemeTab() {
   }, [activeTheme]);
 
   const updateMutation = useMutation({
-    mutationFn: (data) => base44.entities.Store.update(store.id, data),
+    mutationFn: (data) => base44.entities.Store.update(store.id, data, scopedEntityOpts),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['store'] });
+      queryClient.invalidateQueries({ queryKey: ['store', ...menuContextQueryKey] });
       setHasChanges(false);
       toast.success('Tema salvo com sucesso!');
     },

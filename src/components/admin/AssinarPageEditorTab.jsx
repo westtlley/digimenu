@@ -47,6 +47,7 @@ import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import toast from 'react-hot-toast';
 import { SYSTEM_NAME } from '@/config/branding';
+import { getMenuContextEntityOpts, getMenuContextQueryKeyParts } from '@/utils/tenantScope';
 
 const ICON_OPTS = [
   { value: 'Smartphone', label: 'Smartphone' },
@@ -111,6 +112,8 @@ const PLAN_LABELS = { free: 'Grátis', basic: 'Básico', pro: 'Pro', ultra: 'Ult
 export default function AssinarPageEditorTab() {
   const queryClient = useQueryClient();
   const { menuContext } = usePermission();
+  const menuContextQueryKey = getMenuContextQueryKeyParts(menuContext);
+  const scopedEntityOpts = getMenuContextEntityOpts(menuContext);
   const [form, setForm] = useState({
     ...DEFAULTS,
     plans_override: JSON.parse(JSON.stringify(PLANS_OVERRIDE_DEFAULTS)),
@@ -119,14 +122,10 @@ export default function AssinarPageEditorTab() {
 
   // ✅ CORREÇÃO: Buscar configurações de pagamento com contexto do slug
   const { data: list = [], isLoading } = useQuery({
-    queryKey: ['paymentConfig', menuContext?.type, menuContext?.value],
+    queryKey: ['paymentConfig', ...menuContextQueryKey],
     queryFn: async () => {
       if (!menuContext) return [];
-      const opts = {};
-      if (menuContext.type === 'subscriber' && menuContext.value) {
-        opts.as_subscriber = menuContext.value;
-      }
-      return base44.entities.PaymentConfig.list(null, opts);
+      return base44.entities.PaymentConfig.list(null, scopedEntityOpts);
     },
     enabled: !!menuContext,
   });
@@ -231,12 +230,12 @@ export default function AssinarPageEditorTab() {
         whatsapp_number: data.whatsapp_number || '',
       };
       if (config?.id) {
-        return base44.entities.PaymentConfig.update(config.id, payload);
+        return base44.entities.PaymentConfig.update(config.id, payload, scopedEntityOpts);
       }
-      return base44.entities.PaymentConfig.create(payload);
+      return base44.entities.PaymentConfig.create({ ...payload, ...scopedEntityOpts });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['paymentConfig'] });
+      queryClient.invalidateQueries({ queryKey: ['paymentConfig', ...menuContextQueryKey] });
       toast.success('✅ Página Assinar salva com sucesso!');
     },
     onError: (e) => toast.error(e?.message || 'Erro ao salvar'),
@@ -697,3 +696,10 @@ export default function AssinarPageEditorTab() {
     </div>
   );
 }
+
+
+
+
+
+
+

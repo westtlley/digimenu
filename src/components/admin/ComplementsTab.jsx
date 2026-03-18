@@ -15,6 +15,7 @@ import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import toast from 'react-hot-toast';
 import { usePermission } from '../permissions/usePermission';
 import { useMenuDishes } from '@/hooks/useMenuData';
+import { getMenuContextEntityOpts, getMenuContextQueryKeyParts } from '@/utils/tenantScope';
 
 // Componente separado para opção individual com estado local
 function OptionItem({ option, group, optionIndex, provided, snapshot, onUpdate, onToggle, onRemove, canEdit }) {
@@ -244,17 +245,15 @@ export default function ComplementsTab({ onSwitchToCategories, onOpenTemplates }
   }, []);
 
   // ✅ CORREÇÃO: Usar hook com contexto automático
-  const { menuContext } = usePermission();
+  const { menuContext, canUpdate, isMaster } = usePermission();
+  const menuContextQueryKey = getMenuContextQueryKeyParts(menuContext);
+  const scopedEntityOpts = getMenuContextEntityOpts(menuContext);
   const { data: groups = [] } = useQuery({
-    queryKey: ['complementGroups', menuContext?.type, menuContext?.value],
+    queryKey: ['complementGroups', ...menuContextQueryKey],
     queryFn: async () => {
       if (!menuContext) return [];
       try {
-        const opts = {};
-        if (menuContext.type === 'subscriber' && menuContext.value) {
-          opts.as_subscriber = menuContext.value;
-        }
-        const result = await base44.entities.ComplementGroup.list('order', opts);
+        const result = await base44.entities.ComplementGroup.list('order', scopedEntityOpts);
         return Array.isArray(result) ? result : [];
       } catch (error) {
         console.error('Erro ao buscar grupos:', error);
@@ -311,14 +310,16 @@ export default function ComplementsTab({ onSwitchToCategories, onOpenTemplates }
 
   const createMutation = useMutation({
     mutationFn: async (data) => {
+      const ownerEmail = user?.subscriber_email || user?.email; // Compatibilidade transitória: a entidade ainda persiste owner_email.
       const groupData = {
         ...data,
-        owner_email: user?.subscriber_email || user?.email
+        ...(ownerEmail && { owner_email: ownerEmail }),
+        ...scopedEntityOpts
       };
       return base44.entities.ComplementGroup.create(groupData);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['complementGroups'] });
+      queryClient.invalidateQueries({ queryKey: ['complementGroups', ...menuContextQueryKey] });
       setShowModal(false);
       setFormData({ name: '', is_required: true, max_selection: 1 });
       toast.success('✅ Grupo criado!');
@@ -326,16 +327,16 @@ export default function ComplementsTab({ onSwitchToCategories, onOpenTemplates }
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.ComplementGroup.update(id, data),
+    mutationFn: ({ id, data }) => base44.entities.ComplementGroup.update(id, data, scopedEntityOpts),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['complementGroups'] });
+      queryClient.invalidateQueries({ queryKey: ['complementGroups', ...menuContextQueryKey] });
       toast.success('✅ Salvo!');
     },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.ComplementGroup.delete(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['complementGroups'] }),
+    mutationFn: (id) => base44.entities.ComplementGroup.delete(id, scopedEntityOpts),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['complementGroups', ...menuContextQueryKey] }),
   });
 
   const handleCreateGroup = (e) => {
@@ -357,20 +358,20 @@ export default function ComplementsTab({ onSwitchToCategories, onOpenTemplates }
     items.splice(result.destination.index, 0, reordered);
 
     // Atualização otimista
-    queryClient.setQueryData(['complementGroups'], items.map((g, idx) => ({ ...g, order: idx })));
+    queryClient.setQueryData(['complementGroups', ...menuContextQueryKey], items.map((g, idx) => ({ ...g, order: idx })));
 
     // Atualizar todos os grupos em paralelo
     const updatePromises = items.map((group, index) => 
-      base44.entities.ComplementGroup.update(group.id, { order: index })
+      base44.entities.ComplementGroup.update(group.id, { order: index }, scopedEntityOpts)
     );
 
       try {
         await Promise.all(updatePromises);
-        queryClient.invalidateQueries({ queryKey: ['complementGroups'] });
+        queryClient.invalidateQueries({ queryKey: ['complementGroups', ...menuContextQueryKey] });
         toast.success('✅ Ordem atualizada!');
       } catch (error) {
       console.error("Erro ao reordenar grupos:", error);
-      queryClient.invalidateQueries({ queryKey: ['complementGroups'] });
+      queryClient.invalidateQueries({ queryKey: ['complementGroups', ...menuContextQueryKey] });
     }
   };
 
@@ -436,8 +437,7 @@ export default function ComplementsTab({ onSwitchToCategories, onOpenTemplates }
     });
   };
 
-  // Verificar permissões: master OU assinante com can_edit
-  const canEdit = user?.is_master || user?.can_edit;
+  const canEdit = isMaster || canUpdate('dishes');
 
   return (
     <div className="p-4 sm:p-6 space-y-6">
@@ -630,3 +630,11 @@ export default function ComplementsTab({ onSwitchToCategories, onOpenTemplates }
     </div>
   );
 }
+
+
+
+
+
+
+
+

@@ -48,6 +48,10 @@ export default function OrderDetailModal({
   suggestedPrepTime = 30, quickStatusKey, onClearQuickStatus,
   onViewMap, onDuplicate, onAddToPrintQueue,
 }) {
+  const gestorSettingsStorageKey = useMemo(
+    () => getScopedStorageKey('gestorSettings', null, 'global'),
+    []
+  );
   const productionStatus = useMemo(() => getOrderProductionStatus(order), [order]);
   const deliveryStatus = useMemo(() => getOrderDeliveryStatus(order), [order]);
   const displayStatus = useMemo(() => getOrderDisplayStatus(order), [order]);
@@ -67,7 +71,7 @@ export default function OrderDetailModal({
 
   const canAlterPrepPerOrder = (() => {
     try {
-      const g = JSON.parse(localStorage.getItem(getScopedStorageKey('gestorSettings', null, 'global')) || '{}');
+      const g = JSON.parse(localStorage.getItem(gestorSettingsStorageKey) || localStorage.getItem('gestorSettings') || '{}');
       return g.can_alter_prep_per_order !== false;
     } catch { return true; }
   })();
@@ -223,7 +227,7 @@ export default function OrderDetailModal({
 
   const isAutoPrintEnabled = () => {
     try {
-      const settings = JSON.parse(localStorage.getItem('gestorSettings') || '{}');
+      const settings = JSON.parse(localStorage.getItem(gestorSettingsStorageKey) || localStorage.getItem('gestorSettings') || '{}');
       return settings.auto_print === true;
     } catch (_) {
       return false;

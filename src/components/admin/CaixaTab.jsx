@@ -18,6 +18,7 @@ import moment from 'moment';
 import toast, { Toaster } from 'react-hot-toast';
 import { usePermission } from '../permissions/usePermission';
 import { useManagerialAuth } from '@/hooks/useManagerialAuth';
+import { getMenuContextEntityOpts, getMenuContextQueryKeyParts } from '@/utils/tenantScope';
 
 export default function CaixaTab() {
   const [showOpenModal, setShowOpenModal] = useState(false);
@@ -36,45 +37,38 @@ export default function CaixaTab() {
   const queryClient = useQueryClient();
   const { menuContext } = usePermission();
   const { requireAuthorization, modal } = useManagerialAuth();
+  const menuContextQueryKey = getMenuContextQueryKeyParts(menuContext);
+  const scopedEntityOpts = getMenuContextEntityOpts(menuContext);
+  const caixasQueryKey = ['caixas', ...menuContextQueryKey];
+  const caixaOperationsQueryKey = ['caixaOperations', ...menuContextQueryKey];
+  const pdvSessionsQueryKey = ['pdvSessions', ...menuContextQueryKey];
 
   // ✅ CORREÇÃO: Buscar caixas com contexto do slug
   const { data: caixas = [] } = useQuery({
-    queryKey: ['caixas', menuContext?.type, menuContext?.value],
+    queryKey: caixasQueryKey,
     queryFn: async () => {
       if (!menuContext) return [];
-      const opts = {};
-      if (menuContext.type === 'subscriber' && menuContext.value) {
-        opts.as_subscriber = menuContext.value;
-      }
-      return base44.entities.Caixa.list('-opening_date', opts);
+      return base44.entities.Caixa.list('-opening_date', scopedEntityOpts);
     },
     enabled: !!menuContext,
   });
 
   // ✅ CORREÇÃO: Buscar operações com contexto do slug
   const { data: operations = [] } = useQuery({
-    queryKey: ['caixaOperations', menuContext?.type, menuContext?.value],
+    queryKey: caixaOperationsQueryKey,
     queryFn: async () => {
       if (!menuContext) return [];
-      const opts = {};
-      if (menuContext.type === 'subscriber' && menuContext.value) {
-        opts.as_subscriber = menuContext.value;
-      }
-      return base44.entities.CaixaOperation.list('-date', opts);
+      return base44.entities.CaixaOperation.list('-date', scopedEntityOpts);
     },
     enabled: !!menuContext,
   });
 
   // Sessões PDV ativas (multi-PDV: quem está em qual terminal)
   const { data: pdvSessionsRaw = [] } = useQuery({
-    queryKey: ['pdvSessions', menuContext?.type, menuContext?.value],
+    queryKey: pdvSessionsQueryKey,
     queryFn: async () => {
       if (!menuContext) return [];
-      const opts = { ended_at: 'null' };
-      if (menuContext.type === 'subscriber' && menuContext.value) {
-        opts.as_subscriber = menuContext.value;
-      }
-      return base44.entities.PDVSession.list('-created_at', opts).catch(() => []);
+      return base44.entities.PDVSession.list('-created_at', { ended_at: 'null', ...scopedEntityOpts }).catch(() => []);
     },
     enabled: !!menuContext,
   });
@@ -105,11 +99,12 @@ export default function CaixaTab() {
         ...data,
         subscriber_email: user.subscriber_email || user.email,
         owner_email: user.subscriber_email || user.email,
-        opened_by: user.email
+        opened_by: user.email,
+        ...scopedEntityOpts
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['caixas'] });
+      queryClient.invalidateQueries({ queryKey: caixasQueryKey });
       setShowOpenModal(false);
       setOpeningAmount('');
       toast.success('✅ Caixa aberto com sucesso!');
@@ -147,11 +142,11 @@ export default function CaixaTab() {
       delete updateData.updated_date;
       delete updateData.created_by;
       
-      return base44.entities.Caixa.update(id, updateData, opts || {});
+      return base44.entities.Caixa.update(id, updateData, opts || scopedEntityOpts);
     },
     onSuccess: (updatedCaixa, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['caixas'] });
-      queryClient.invalidateQueries({ queryKey: ['caixaOperations'] });
+      queryClient.invalidateQueries({ queryKey: caixasQueryKey });
+      queryClient.invalidateQueries({ queryKey: caixaOperationsQueryKey });
       setShowCloseModal(false);
       setSelectedCaixa((prev) => {
         if (!prev) return prev;
@@ -197,12 +192,13 @@ export default function CaixaTab() {
       return base44.entities.CaixaOperation.create({
         ...data,
         operator: user.email,
-        date: new Date().toISOString()
+        date: new Date().toISOString(),
+        ...scopedEntityOpts
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['caixaOperations'] });
-      queryClient.invalidateQueries({ queryKey: ['caixas'] });
+      queryClient.invalidateQueries({ queryKey: caixaOperationsQueryKey });
+      queryClient.invalidateQueries({ queryKey: caixasQueryKey });
     },
   });
 
@@ -261,11 +257,7 @@ export default function CaixaTab() {
     });
 
     // Buscar dados frescos do banco antes de atualizar, usando mesmos opts da listagem
-    const opts = {};
-    if (menuContext?.type === 'subscriber' && menuContext?.value) {
-      opts.as_subscriber = menuContext.value;
-    }
-    const freshCaixas = await base44.entities.Caixa.list('-opening_date', opts);
+    const freshCaixas = await base44.entities.Caixa.list('-opening_date', scopedEntityOpts);
     const freshCaixa = freshCaixas.find(c => c.id === selectedCaixa.id);
 
     if (!freshCaixa) {
@@ -283,9 +275,9 @@ export default function CaixaTab() {
     delete updateData.updated_date;
     delete updateData.created_by;
 
-    await base44.entities.Caixa.update(selectedCaixa.id, updateData, opts);
+    await base44.entities.Caixa.update(selectedCaixa.id, updateData, scopedEntityOpts);
 
-    queryClient.invalidateQueries({ queryKey: ['caixas'] });
+    queryClient.invalidateQueries({ queryKey: caixasQueryKey });
     setShowWithdrawalModal(false);
     setWithdrawalData({ amount: '', reason: '' });
     toast.success('💰 Sangria registrada');
@@ -307,11 +299,7 @@ export default function CaixaTab() {
     });
 
     // Buscar dados frescos do banco antes de atualizar, usando mesmos opts da listagem
-    const opts = {};
-    if (menuContext?.type === 'subscriber' && menuContext?.value) {
-      opts.as_subscriber = menuContext.value;
-    }
-    const freshCaixas = await base44.entities.Caixa.list('-opening_date', opts);
+    const freshCaixas = await base44.entities.Caixa.list('-opening_date', scopedEntityOpts);
     const freshCaixa = freshCaixas.find(c => c.id === selectedCaixa.id);
 
     if (!freshCaixa) {
@@ -329,9 +317,9 @@ export default function CaixaTab() {
     delete updateData.updated_date;
     delete updateData.created_by;
 
-    await base44.entities.Caixa.update(selectedCaixa.id, updateData, opts);
+    await base44.entities.Caixa.update(selectedCaixa.id, updateData, scopedEntityOpts);
 
-    queryClient.invalidateQueries({ queryKey: ['caixas'] });
+    queryClient.invalidateQueries({ queryKey: caixasQueryKey });
     setShowSupplyModal(false);
     setSupplyData({ amount: '', reason: '' });
     toast.success('💵 Suprimento registrado');
@@ -357,11 +345,7 @@ export default function CaixaTab() {
     };
 
     // Buscar dados frescos do banco antes de fechar, usando mesmos opts da listagem
-    const opts = {};
-    if (menuContext?.type === 'subscriber' && menuContext?.value) {
-      opts.as_subscriber = menuContext.value;
-    }
-    const freshCaixas = await base44.entities.Caixa.list('-opening_date', opts);
+    const freshCaixas = await base44.entities.Caixa.list('-opening_date', scopedEntityOpts);
     const freshCaixa = freshCaixas.find(c => c.id === selectedCaixa.id);
 
     if (!freshCaixa) {
@@ -383,7 +367,7 @@ export default function CaixaTab() {
       totals,
       closingCash: actualCash,
       closingNotes: closingNotes + (actualCash !== expectedCash ? `\n\nDiferença: ${formatCurrency(actualCash - expectedCash)}` : ''),
-      opts
+      scopedEntityOpts
     });
   };
 

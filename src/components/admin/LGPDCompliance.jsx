@@ -11,6 +11,7 @@ import { toast } from 'react-hot-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { usePermission } from '../permissions/usePermission';
 import { useOrders } from '@/hooks/useOrders';
+import { getMenuContextEntityOpts, getMenuContextQueryKeyParts } from '@/utils/tenantScope';
 
 /**
  * LGPDCompliance - Conformidade com LGPD
@@ -23,18 +24,16 @@ import { useOrders } from '@/hooks/useOrders';
 export default function LGPDCompliance() {
   const queryClient = useQueryClient();
   const { menuContext } = usePermission();
+  const menuContextQueryKey = getMenuContextQueryKeyParts(menuContext);
+  const scopedEntityOpts = getMenuContextEntityOpts(menuContext);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
 
   // ✅ CORREÇÃO: Buscar clientes com contexto do slug
   const { data: customers = [] } = useQuery({
-    queryKey: ['customers', menuContext?.type, menuContext?.value],
+    queryKey: ['customers', ...menuContextQueryKey],
     queryFn: async () => {
       if (!menuContext) return [];
-      const opts = {};
-      if (menuContext.type === 'subscriber' && menuContext.value) {
-        opts.as_subscriber = menuContext.value;
-      }
-      return base44.entities.Customer.list(null, opts);
+      return base44.entities.Customer.list(null, scopedEntityOpts);
     },
     enabled: !!menuContext,
   });
@@ -108,7 +107,7 @@ export default function LGPDCompliance() {
         address: null,
         lgpd_deleted: true,
         lgpd_deleted_at: new Date().toISOString(),
-      });
+      }, scopedEntityOpts);
 
       // Anonimizar pedidos relacionados
       const customerOrders = orders.filter(o => 
@@ -122,14 +121,14 @@ export default function LGPDCompliance() {
           customer_email: `removed_${Date.now()}@deleted.local`,
           customer_phone: null,
           customer_address: null,
-        });
+        }, scopedEntityOpts);
       }
 
       return true;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['customers']);
-      queryClient.invalidateQueries(['orders']);
+      queryClient.invalidateQueries({ queryKey: ['customers', ...menuContextQueryKey] });
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
       toast.success('Dados removidos conforme LGPD');
     },
     onError: (error) => {
@@ -299,3 +298,7 @@ export default function LGPDCompliance() {
     </div>
   );
 }
+
+
+
+

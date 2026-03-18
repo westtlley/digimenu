@@ -15,6 +15,7 @@ import { useTheme } from '@/components/theme/ThemeProvider';
 import { usePermission } from '../permissions/usePermission';
 import { useSlugContext } from '@/hooks/useSlugContext';
 import { formatCurrency } from '@/utils/formatters';
+import { getMenuContextEntityOpts, getMenuContextQueryKeyParts } from '@/utils/tenantScope';
 
 const TABLE_STATUSES = {
   available: { label: 'Disponível', color: 'bg-green-500' },
@@ -27,6 +28,8 @@ export default function TablesTab() {
   const { isDark } = useTheme();
   const queryClient = useQueryClient();
   const { menuContext } = usePermission();
+  const menuContextQueryKey = getMenuContextQueryKeyParts(menuContext);
+  const scopedEntityOpts = getMenuContextEntityOpts(menuContext);
   const { slug: urlSlug } = useSlugContext();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTable, setEditingTable] = useState(null);
@@ -52,28 +55,20 @@ export default function TablesTab() {
 
   // ✅ CORREÇÃO: Buscar mesas com contexto do slug
   const { data: tables = [] } = useQuery({
-    queryKey: ['tables', menuContext?.type, menuContext?.value],
+    queryKey: ['tables', ...menuContextQueryKey],
     queryFn: async () => {
       if (!menuContext) return [];
-      const opts = {};
-      if (menuContext.type === 'subscriber' && menuContext.value) {
-        opts.as_subscriber = menuContext.value;
-      }
-      return base44.entities.Table.list(null, opts);
+      return base44.entities.Table.list(null, scopedEntityOpts);
     },
     enabled: !!menuContext,
   });
 
   // ✅ CORREÇÃO: Buscar comandas com contexto do slug
   const { data: comandas = [] } = useQuery({
-    queryKey: ['Comanda', menuContext?.type, menuContext?.value],
+    queryKey: ['Comanda', ...menuContextQueryKey],
     queryFn: async () => {
       if (!menuContext) return [];
-      const opts = { status: 'open' };
-      if (menuContext.type === 'subscriber' && menuContext.value) {
-        opts.as_subscriber = menuContext.value;
-      }
-      return base44.entities.Comanda.list('-created_at', opts);
+      return base44.entities.Comanda.list('-created_at', { status: 'open', ...scopedEntityOpts });
     },
     enabled: !!menuContext,
   });
@@ -87,10 +82,10 @@ export default function TablesTab() {
         const baseUrl = window.location.origin;
         data.qr_code = `${baseUrl}/mesa/${data.table_number}${effectiveSlug ? `?slug=${effectiveSlug}` : ''}`;
       }
-      return base44.entities.Table.create(data);
+      return base44.entities.Table.create({ ...data, ...scopedEntityOpts });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['tables']);
+      queryClient.invalidateQueries({ queryKey: ['tables', ...menuContextQueryKey] });
       toast.success('Mesa criada com sucesso!');
       setIsDialogOpen(false);
       resetForm();
@@ -102,10 +97,10 @@ export default function TablesTab() {
 
   const updateTableMutation = useMutation({
     mutationFn: async ({ id, data }) => {
-      return base44.entities.Table.update(id, data);
+      return base44.entities.Table.update(id, data, scopedEntityOpts);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['tables']);
+      queryClient.invalidateQueries({ queryKey: ['tables', ...menuContextQueryKey] });
       toast.success('Mesa atualizada com sucesso!');
       setIsDialogOpen(false);
       resetForm();
@@ -117,10 +112,10 @@ export default function TablesTab() {
 
   const deleteTableMutation = useMutation({
     mutationFn: async (id) => {
-      return base44.entities.Table.delete(id);
+      return base44.entities.Table.delete(id, scopedEntityOpts);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['tables']);
+      queryClient.invalidateQueries({ queryKey: ['tables', ...menuContextQueryKey] });
       toast.success('Mesa deletada com sucesso!');
     },
     onError: (error) => {
@@ -137,10 +132,10 @@ export default function TablesTab() {
         reservation_customer_name: data.customer_name,
         reservation_customer_phone: data.customer_phone || '',
         reservation_guests: data.guests || 1
-      });
+      }, scopedEntityOpts);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['tables']);
+      queryClient.invalidateQueries({ queryKey: ['tables', ...menuContextQueryKey] });
       toast.success('Reserva confirmada!');
       setReservationModalOpen(false);
       setTableToReserve(null);
@@ -160,10 +155,10 @@ export default function TablesTab() {
         reservation_customer_name: null,
         reservation_customer_phone: null,
         reservation_guests: null
-      });
+      }, scopedEntityOpts);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['tables']);
+      queryClient.invalidateQueries({ queryKey: ['tables', ...menuContextQueryKey] });
       toast.success('Reserva cancelada.');
     },
     onError: (error) => {
@@ -628,3 +623,9 @@ export default function TablesTab() {
     </div>
   );
 }
+
+
+
+
+
+

@@ -9,6 +9,7 @@ import { apiClient as base44 } from '@/api/apiClient';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { usePermission } from '../permissions/usePermission';
+import { getMenuContextEntityOpts, getMenuContextQueryKeyParts } from '@/utils/tenantScope';
 
 /**
  * PAINEL DE CONFIGURAÇÃO DE VISUALIZAÇÃO DE PIZZA
@@ -19,17 +20,15 @@ import { usePermission } from '../permissions/usePermission';
 export default function PizzaVisualizationSettings() {
   const queryClient = useQueryClient();
   const { menuContext } = usePermission();
+  const menuContextQueryKey = getMenuContextQueryKeyParts(menuContext);
+  const scopedEntityOpts = getMenuContextEntityOpts(menuContext);
 
   // ✅ CORREÇÃO: Buscar configuração atual da loja com contexto do slug
   const { data: store, isLoading: loadingStore } = useQuery({
-    queryKey: ['store', menuContext?.type, menuContext?.value],
+    queryKey: ['store', ...menuContextQueryKey],
     queryFn: async () => {
       if (!menuContext) return null;
-      const opts = {};
-      if (menuContext.type === 'subscriber' && menuContext.value) {
-        opts.as_subscriber = menuContext.value;
-      }
-      const stores = await base44.entities.Store.list(null, opts);
+      const stores = await base44.entities.Store.list(null, scopedEntityOpts);
       return stores[0];
     },
     enabled: !!menuContext,
@@ -49,10 +48,10 @@ export default function PizzaVisualizationSettings() {
       }
       return await base44.entities.Store.update(store.id, {
         enable_premium_pizza_visualization: enabled
-      });
+      }, scopedEntityOpts);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['store'] });
+      queryClient.invalidateQueries({ queryKey: ['store', ...menuContextQueryKey] });
       toast.success('Configuração salva com sucesso!');
     },
     onError: (error) => {

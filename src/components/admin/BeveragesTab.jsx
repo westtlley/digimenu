@@ -15,6 +15,7 @@ import toast from 'react-hot-toast';
 import { uploadToCloudinary } from '@/utils/cloudinaryUpload';
 import { usePermission } from '@/components/permissions/usePermission';
 import { useMenuDishes } from '@/hooks/useMenuData';
+import { getMenuContextEntityOpts, getMenuContextQueryKeyParts, getMenuContextSubscriberEmail } from '@/utils/tenantScope';
 
 const formatCurrency = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
 
@@ -54,23 +55,18 @@ export default function BeveragesTab() {
 
   // ✅ CORREÇÃO: Usar hook com contexto automático
   const { menuContext, loading: permissionLoading } = usePermission();
-  const subscriberContextEmail = menuContext?.type === 'subscriber' && menuContext?.value
-    ? menuContext.value
-    : null;
-  const entityContextOpts = subscriberContextEmail ? { as_subscriber: subscriberContextEmail } : {};
+  const menuContextQueryKey = getMenuContextQueryKeyParts(menuContext);
+  const subscriberContextEmail = getMenuContextSubscriberEmail(menuContext);
+  const entityContextOpts = getMenuContextEntityOpts(menuContext);
   const { data: dishesRaw = [], isLoading: dishesLoading } = useMenuDishes();
   const beverages = useMemo(() => (dishesRaw || []).filter(d => d.product_type === 'beverage'), [dishesRaw]);
 
   // ✅ CORREÇÃO: Buscar categorias de bebidas com contexto do slug
   const { data: beverageCategories = [], isLoading: categoriesLoading } = useQuery({
-    queryKey: ['beverageCategories', menuContext?.type, menuContext?.value],
+    queryKey: ['beverageCategories', ...menuContextQueryKey],
     queryFn: async () => {
       if (!menuContext) return [];
-      const opts = {};
-      if (menuContext.type === 'subscriber' && menuContext.value) {
-        opts.as_subscriber = menuContext.value;
-      }
-      return base44.entities.BeverageCategory.list('order', opts);
+      return base44.entities.BeverageCategory.list('order', entityContextOpts);
     },
     enabled: !!menuContext,
   });
@@ -85,11 +81,11 @@ export default function BeveragesTab() {
         ...data,
         product_type: 'beverage',
         ...(ownerEmail && { owner_email: ownerEmail }),
-        ...(subscriberContextEmail && { as_subscriber: subscriberContextEmail }),
+        ...entityContextOpts,
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['dishes', menuContext?.type, menuContext?.value] });
+      queryClient.invalidateQueries({ queryKey: ['dishes', ...menuContextQueryKey] });
       toast.success('Bebida criada!');
       closeBeverageModal();
     },
@@ -98,7 +94,7 @@ export default function BeveragesTab() {
   const updateBeverageMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.Dish.update(id, data, entityContextOpts),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['dishes', menuContext?.type, menuContext?.value] });
+      queryClient.invalidateQueries({ queryKey: ['dishes', ...menuContextQueryKey] });
       toast.success('Bebida atualizada!');
       closeBeverageModal();
     },
@@ -107,7 +103,7 @@ export default function BeveragesTab() {
   const deleteBeverageMutation = useMutation({
     mutationFn: (id) => base44.entities.Dish.delete(id, entityContextOpts),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['dishes', menuContext?.type, menuContext?.value] });
+      queryClient.invalidateQueries({ queryKey: ['dishes', ...menuContextQueryKey] });
       toast.success('Bebida excluída!');
     },
   });
@@ -118,11 +114,11 @@ export default function BeveragesTab() {
       return base44.entities.BeverageCategory.create({
         ...data,
         ...(ownerEmail && { owner_email: ownerEmail }),
-        ...(subscriberContextEmail && { as_subscriber: subscriberContextEmail }),
+        ...entityContextOpts,
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['beverageCategories', menuContext?.type, menuContext?.value] });
+      queryClient.invalidateQueries({ queryKey: ['beverageCategories', ...menuContextQueryKey] });
       setShowCategoryModal(false);
       setNewCategoryName('');
       toast.success('Categoria criada!');

@@ -16,6 +16,7 @@ import ComboModalUnified from './ComboModalUnified';
 import LoyaltyTab from './LoyaltyTab';
 import { usePermission } from '../permissions/usePermission';
 import { useMenuCategories, useMenuDishes } from '@/hooks/useMenuData';
+import { getMenuContextEntityOpts, getMenuContextQueryKeyParts } from '@/utils/tenantScope';
 
 const DEFAULT_CROSS_SELL = {
   enabled: true,
@@ -74,17 +75,15 @@ export default function PromotionsTab() {
 
   const queryClient = useQueryClient();
   const { menuContext } = usePermission();
+  const menuContextQueryKey = getMenuContextQueryKeyParts(menuContext);
+  const scopedEntityOpts = getMenuContextEntityOpts(menuContext);
 
   // ✅ CORREÇÃO: Buscar promoções com contexto do slug
   const { data: promotions = [] } = useQuery({
-    queryKey: ['promotions', menuContext?.type, menuContext?.value],
+    queryKey: ['promotions', ...menuContextQueryKey],
     queryFn: async () => {
       if (!menuContext) return [];
-      const opts = {};
-      if (menuContext.type === 'subscriber' && menuContext.value) {
-        opts.as_subscriber = menuContext.value;
-      }
-      return base44.entities.Promotion.list(null, opts);
+      return base44.entities.Promotion.list(null, scopedEntityOpts);
     },
     enabled: !!menuContext,
   });
@@ -98,54 +97,42 @@ export default function PromotionsTab() {
     refetchBeverageCategories();
     refetchPizzaCategories();
 
-    queryClient.invalidateQueries({ queryKey: ['dishes', menuContext?.type, menuContext?.value] });
-    queryClient.invalidateQueries({ queryKey: ['categories', menuContext?.type, menuContext?.value] });
-    queryClient.invalidateQueries({ queryKey: ['beverageCategories', menuContext?.type, menuContext?.value] });
-    queryClient.invalidateQueries({ queryKey: ['pizzaCategories', menuContext?.type, menuContext?.value] });
-  }, [showComboModal, showModal, menuContext?.type, menuContext?.value]);
+    queryClient.invalidateQueries({ queryKey: ['dishes', ...menuContextQueryKey] });
+    queryClient.invalidateQueries({ queryKey: ['categories', ...menuContextQueryKey] });
+    queryClient.invalidateQueries({ queryKey: ['beverageCategories', ...menuContextQueryKey] });
+    queryClient.invalidateQueries({ queryKey: ['pizzaCategories', ...menuContextQueryKey] });
+  }, [menuContextQueryKey, queryClient, showComboModal, showModal]);
 
   // ✅ CORREÇÃO: Usar hook com contexto automático
   const { data: dishes = [], refetch: refetchDishes } = useMenuDishes({ refetchOnMount: 'always' });
   const { data: categories = [], refetch: refetchCategories } = useMenuCategories({ refetchOnMount: 'always' });
 
   const { data: beverageCategories = [], refetch: refetchBeverageCategories } = useQuery({
-    queryKey: ['beverageCategories', menuContext?.type, menuContext?.value],
+    queryKey: ['beverageCategories', ...menuContextQueryKey],
     queryFn: async () => {
       if (!menuContext) return [];
 
-      const opts = {};
-      if (menuContext.type === 'subscriber' && menuContext.value) {
-        opts.as_subscriber = menuContext.value;
-      }
-      return base44.entities.BeverageCategory.list('order', opts);
+      return base44.entities.BeverageCategory.list('order', scopedEntityOpts);
     },
     enabled: !!menuContext,
   });
 
   const { data: pizzaCategories = [], refetch: refetchPizzaCategories } = useQuery({
-    queryKey: ['pizzaCategories', menuContext?.type, menuContext?.value],
+    queryKey: ['pizzaCategories', ...menuContextQueryKey],
     queryFn: async () => {
       if (!menuContext) return [];
 
-      const opts = {};
-      if (menuContext.type === 'subscriber' && menuContext.value) {
-        opts.as_subscriber = menuContext.value;
-      }
-      return base44.entities.PizzaCategory.list('order', opts);
+      return base44.entities.PizzaCategory.list('order', scopedEntityOpts);
     },
     enabled: !!menuContext,
   });
 
   // ✅ CORREÇÃO: Buscar combos com contexto do slug
   const { data: combos = [] } = useQuery({
-    queryKey: ['combos', menuContext?.type, menuContext?.value],
+    queryKey: ['combos', ...menuContextQueryKey],
     queryFn: async () => {
       if (!menuContext) return [];
-      const opts = {};
-      if (menuContext.type === 'subscriber' && menuContext.value) {
-        opts.as_subscriber = menuContext.value;
-      }
-      return base44.entities.Combo.list(null, opts);
+      return base44.entities.Combo.list(null, scopedEntityOpts);
     },
     enabled: !!menuContext,
   });
@@ -183,32 +170,26 @@ export default function PromotionsTab() {
   };
 
   const createMutation = useMutation({
-    mutationFn: (data) => base44.entities.Promotion.create(data),
+    mutationFn: (data) => base44.entities.Promotion.create({ ...data, ...scopedEntityOpts }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['promotions'] });
+      queryClient.invalidateQueries({ queryKey: ['promotions', ...menuContextQueryKey] });
       closeModal();
       toast.success('Promoção criada!');
     },
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.Promotion.update(id, data),
+    mutationFn: ({ id, data }) => base44.entities.Promotion.update(id, data, scopedEntityOpts),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['promotions'] });
+      queryClient.invalidateQueries({ queryKey: ['promotions', ...menuContextQueryKey] });
       toast.success('Promoção atualizada!');
     },
   });
 
   const createComboMutation = useMutation({
-    mutationFn: async (data) => {
-      const opts = {};
-      if (menuContext?.type === 'subscriber' && menuContext.value) {
-        opts.as_subscriber = menuContext.value;
-      }
-      return base44.entities.Combo.create(data, opts);
-    },
+    mutationFn: async (data) => base44.entities.Combo.create({ ...data, ...scopedEntityOpts }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['combos', menuContext?.type, menuContext?.value] });
+      queryClient.invalidateQueries({ queryKey: ['combos', ...menuContextQueryKey] });
       toast.success('Combo criado!');
       setShowComboModal(false);
       setEditingCombo(null);
@@ -216,15 +197,9 @@ export default function PromotionsTab() {
   });
 
   const updateComboMutation = useMutation({
-    mutationFn: async ({ id, data }) => {
-      const opts = {};
-      if (menuContext?.type === 'subscriber' && menuContext.value) {
-        opts.as_subscriber = menuContext.value;
-      }
-      return base44.entities.Combo.update(id, data, opts);
-    },
+    mutationFn: async ({ id, data }) => base44.entities.Combo.update(id, data, scopedEntityOpts),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['combos', menuContext?.type, menuContext?.value] });
+      queryClient.invalidateQueries({ queryKey: ['combos', ...menuContextQueryKey] });
       toast.success('Combo atualizado!');
       setShowComboModal(false);
       setEditingCombo(null);
@@ -233,14 +208,10 @@ export default function PromotionsTab() {
 
   const deleteComboMutation = useMutation({
     mutationFn: async (id) => {
-      const opts = {};
-      if (menuContext?.type === 'subscriber' && menuContext.value) {
-        opts.as_subscriber = menuContext.value;
-      }
-      return base44.entities.Combo.delete(id, opts);
+      return base44.entities.Combo.delete(id, scopedEntityOpts);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['combos', menuContext?.type, menuContext?.value] });
+      queryClient.invalidateQueries({ queryKey: ['combos', ...menuContextQueryKey] });
       toast.success('Combo excluído!');
     },
   });
@@ -674,3 +645,9 @@ export default function PromotionsTab() {
     </div>
   );
 }
+
+
+
+
+
+

@@ -5,9 +5,12 @@ import FinancialDashboard from '../gestor/FinancialDashboard';
 import FinancialSkeleton from '../skeletons/FinancialSkeleton';
 import { useOrders } from '@/hooks/useOrders';
 import { usePermission } from '../permissions/usePermission';
+import { getMenuContextEntityOpts, getMenuContextQueryKeyParts } from '@/utils/tenantScope';
 
 export default function FinancialTab() {
   const { menuContext } = usePermission();
+  const menuContextQueryKey = getMenuContextQueryKeyParts(menuContext);
+  const scopedEntityOpts = getMenuContextEntityOpts(menuContext);
   
   // ✅ NOVO: Usar hook useOrders com contexto automático
   const { data: orders = [], isLoading: ordersLoading } = useOrders({
@@ -16,14 +19,10 @@ export default function FinancialTab() {
 
   // ✅ CORREÇÃO: Buscar pdvSales com contexto do slug
   const { data: pdvSales = [], isLoading: pdvLoading } = useQuery({
-    queryKey: ['pedidosPDV', menuContext?.type, menuContext?.value],
+    queryKey: ['pedidosPDV', ...menuContextQueryKey],
     queryFn: async () => {
       if (!menuContext) return [];
-      const opts = {};
-      if (menuContext.type === 'subscriber' && menuContext.value) {
-        opts.as_subscriber = menuContext.value;
-      }
-      return base44.entities.PedidoPDV.list('-created_date', opts);
+      return base44.entities.PedidoPDV.list('-created_date', scopedEntityOpts);
     },
     enabled: !!menuContext,
   });
