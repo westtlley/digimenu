@@ -28,7 +28,6 @@ import cors from 'cors';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import passport from 'passport';
-import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import crypto from 'crypto';
 import { setupWebSocket, emitOrderUpdate, emitOrderCreated, emitComandaUpdate, emitComandaCreated, emitWaiterCall, emitTableUpdate } from './services/websocket.js';
 import { getAIResponse, isAIAvailable } from './services/chatAI.js';
@@ -66,6 +65,7 @@ import affiliatesRoutes from './routes/affiliates.routes.js';
 import lgpdRoutes from './routes/lgpd.routes.js';
 import authRoutes, { getUserContext } from './modules/auth/auth.routes.js';
 import * as authController from './modules/auth/auth.controller.js';
+import { registerGoogleAuth } from './modules/auth/googleAuthSetup.js';
 import { generatePasswordTokenForSubscriber } from './modules/auth/auth.service.js';
 import usersRoutes, { colaboradoresRouter } from './modules/users/users.routes.js';
 import * as usersController from './modules/users/users.controller.js';
@@ -585,199 +585,21 @@ const authenticate = async (req, res, next) => {
 // =======================
 // ðŸ” GOOGLE OAUTH CONFIGURATION
 // =======================
-if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET) {
-  // Configurar estratÃ©gia Google OAuth
-  passport.use(new GoogleStrategy({
-    clientID: GOOGLE_CLIENT_ID,
-    clientSecret: GOOGLE_CLIENT_SECRET,
-    callbackURL: GOOGLE_CALLBACK_URL
-  },
-  async (accessToken, refreshToken, profile, done) => {
-    try {
-      const email = profile.emails?.[0]?.value;
-      const name = profile.displayName || profile.name?.givenName || 'UsuÃ¡rio';
-      const googleId = profile.id;
-      const photo = profile.photos?.[0]?.value;
-
-      if (!email) {
-        return done(new Error('Email nÃ£o fornecido pelo Google'), null);
-      }
-
-      // Buscar ou criar usuÃ¡rio
-      let user;
-      const emailLower = email.toLowerCase();
-      
-      if (usePostgreSQL) {
-        user = await repo.getUserByEmail(emailLower);
-        
-        if (!user) {
-          // Criar novo usuÃ¡rio como cliente (role='customer')
-          user = await repo.createUser({
-            email: emailLower,
-            full_name: name,
-            role: 'customer', // Cliente por padrÃ£o quando faz login via Google
-            is_master: false,
-            subscriber_email: null,
-            google_id: googleId,
-            google_photo: photo
-          });
-          
-          // Criar tambÃ©m registro na tabela customers
-          try {
-            await repo.createCustomer({
-              email: emailLower,
-              name: name,
-              phone: null,
-              address: null,
-              complement: null,
-              neighborhood: null,
-              city: null,
-              zipcode: null,
-              subscriber_email: null,
-              birth_date: null,
-              cpf: null,
-              password_hash: null
-            }, null);
-          } catch (customerError) {
-            console.warn('âš ï¸ Erro ao criar customer via Google OAuth (nÃ£o crÃ­tico):', customerError.message);
-          }
-        } else if (!user.google_id) {
-          // Atualizar usuÃ¡rio existente com dados do Google
-          user = await repo.updateUser(user.id, {
-            google_id: googleId,
-            google_photo: photo
-          });
-        }
-      } else if (db && db.users) {
-        user = db.users.find(u => (u.email || '').toLowerCase() === emailLower);
-        
-        if (!user) {
-          // Criar novo usuÃ¡rio como cliente
-          const newUser = {
-            id: Date.now().toString(),
-            email: emailLower,
-            full_name: name,
-            role: 'customer', // Cliente por padrÃ£o
-            is_master: false,
-            subscriber_email: null,
-            google_id: googleId,
-            google_photo: photo,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          };
-          db.users.push(newUser);
-          
-          // Criar tambÃ©m registro na tabela customers
-          if (db.customers) {
-            const newCustomer = {
-              id: String(Date.now() + 1),
-              email: emailLower,
-              name: name,
-              phone: null,
-              address: null,
-              complement: null,
-              neighborhood: null,
-              city: null,
-              zipcode: null,
-              subscriber_email: null,
-              birth_date: null,
-              cpf: null,
-              password_hash: null,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            };
-            db.customers.push(newCustomer);
-          }
-          
-          if (saveDatabaseDebounced) {
-            saveDatabaseDebounced(db);
-          }
-          user = newUser;
-        } else if (!user.google_id) {
-          // Atualizar usuÃ¡rio existente
-          user.google_id = googleId;
-          user.google_photo = photo;
-          user.updated_at = new Date().toISOString();
-          if (saveDatabaseDebounced) {
-            saveDatabaseDebounced(db);
-          }
-        }
-      }
-
-      return done(null, user);
-    } catch (error) {
-      console.error('Erro ao processar login Google:', error);
-      return done(error, null);
-    }
-  }));
-
-  // Serializar usuÃ¡rio para sessÃ£o (nÃ£o usado, mas necessÃ¡rio)
-  passport.serializeUser((user, done) => {
-    done(null, user.id);
-  });
-
-  passport.deserializeUser(async (id, done) => {
-    try {
-      let user;
-      if (usePostgreSQL) {
-        user = await repo.getUserById(id);
-      } else if (db && db.users) {
-        user = db.users.find(u => u.id === id);
-      }
-      done(null, user || null);
-    } catch (error) {
-      done(error, null);
-    }
-  });
-
-  // Rota para iniciar autenticaÃ§Ã£o Google
-  app.get('/api/auth/google',
-    passport.authenticate('google', { scope: ['profile', 'email'] })
-  );
-
-  // Callback do Google OAuth
-  app.get('/api/auth/google/callback',
-    passport.authenticate('google', { session: false, failureRedirect: `${FRONTEND_URL}/login?error=google_auth_failed` }),
-    async (req, res) => {
-      try {
-        const user = req.user;
-
-        if (!user) {
-          return res.redirect(`${FRONTEND_URL}/login?error=user_not_found`);
-        }
-
-        // Gerar token JWT
-        const token = jwt.sign(
-          {
-            id: user.id,
-            email: user.email,
-            role: user.role,
-            is_master: user.is_master
-          },
-          JWT_SECRET,
-          { expiresIn: '7d' }
-        );
-
-        // Armazenar token ativo
-        activeTokens[token] = user.email;
-
-        // Redirecionar para frontend com token
-        res.redirect(`${FRONTEND_URL}/auth/callback?token=${token}&email=${encodeURIComponent(user.email)}&name=${encodeURIComponent(user.full_name || '')}`);
-      } catch (error) {
-        console.error('Erro no callback Google:', error);
-        res.redirect(`${FRONTEND_URL}/login?error=callback_error`);
-      }
-    }
-  );
-
-  const callbackUrl = GOOGLE_CALLBACK_URL;
-  console.log('âœ… Google OAuth configurado');
-  console.log('ðŸ”— URL de Callback:', callbackUrl);
-  console.log('ðŸ“‹ IMPORTANTE: Adicione esta URL exata no Google Cloud Console:');
-  console.log('   â†’ URIs de redirecionamento autorizados:', callbackUrl);
-} else {
-  console.log('âš ï¸ Google OAuth nÃ£o configurado (GOOGLE_CLIENT_ID ou GOOGLE_CLIENT_SECRET nÃ£o definidos)');
-}
+registerGoogleAuth({
+  app,
+  passport,
+  repo,
+  db,
+  saveDatabaseDebounced,
+  usePostgreSQL,
+  FRONTEND_URL,
+  GOOGLE_CLIENT_ID,
+  GOOGLE_CLIENT_SECRET,
+  GOOGLE_CALLBACK_URL,
+  jwt,
+  JWT_SECRET,
+  activeTokens,
+});
 
 // =======================
 // ðŸ” AUTHENTICATION MODULE
