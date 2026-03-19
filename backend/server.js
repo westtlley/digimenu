@@ -56,6 +56,7 @@ import { createEntityAccessGuard } from './modules/entities/entityAccessGuard.js
 import { createEntityHandlers } from './modules/entities/entityHandlers.js';
 import { createEntityBulkHandler } from './modules/entities/entityBulkHandler.js';
 import { createFinalizeSaleHandler } from './modules/pdv/finalizeSaleHandler.js';
+import { createManagerialAuthHandlers } from './modules/managerialAuth/managerialAuthHandlers.js';
 import analyticsRoutes from './routes/analytics.routes.js';
 import backupRoutes from './routes/backup.routes.js';
 import subscriberBackupRoutes from './routes/subscriberBackup.routes.js';
@@ -363,13 +364,6 @@ const managerialEntityAuth = createManagerialEntityAuth({
 });
 
 const {
-  ensureManagerialAuthPlanEnabled,
-  getManagerialSubscriberAndRole,
-  isRequesterOwnerForManagerialAuth,
-  registerManagerialAuthSession,
-} = managerialEntityAuth;
-
-const {
   applyBasicScopeFilterToItems,
   applyBasicScopeToEntityResult,
   enforceEntityReadAccess,
@@ -413,6 +407,13 @@ const finalizeSaleHandler = createFinalizeSaleHandler({
   applyRequestedTenantScope,
   enforceEntityWriteAccess,
   finalizePdvSaleAtomic,
+});
+
+const managerialAuthHandlers = createManagerialAuthHandlers({
+  repo,
+  usePostgreSQL,
+  bcrypt,
+  managerialEntityAuth,
 });
 
 // âœ… FunÃ§Ã£o generatePasswordTokenForSubscriber movida para: backend/modules/auth/auth.service.js
@@ -1003,76 +1004,21 @@ app.use('/api/subscribers', establishmentsRoutes);
 // ðŸ“¦ ENTITIES + MANAGERIAL-AUTH (registrar antes de menus/orders para evitar 404)
 // =======================
 const entitiesAndManagerialRouter = express.Router();
-entitiesAndManagerialRouter.get('/managerial-auth', authenticate, asyncHandler(async (req, res) => {
-  if (!usePostgreSQL || !repo.getManagerialAuthorization) {
-    return res.status(503).json({ error: 'AutorizaÃ§Ã£o gerencial requer PostgreSQL' });
-  }
-  const { owner, role } = getManagerialSubscriberAndRole(req);
-  if (!owner) return res.status(400).json({ error: 'Contexto do estabelecimento necessÃ¡rio' });
-  if (!(await ensureManagerialAuthPlanEnabled(owner, res))) return;
-  const isOwner = isRequesterOwnerForManagerialAuth(req, owner);
-  if (!isOwner) {
-    const authGerente = await repo.getManagerialAuthorization(owner, 'gerente');
-    return res.json({
-      assinante: null,
-      gerente: authGerente ? { configured: true, expires_at: authGerente.expires_at } : { configured: false },
-    });
-  }
-  const [authAssinante, authGerente] = await Promise.all([
-    repo.getManagerialAuthorization(owner, 'assinante'),
-    repo.getManagerialAuthorization(owner, 'gerente'),
-  ]);
-  return res.json({
-    assinante: authAssinante ? { configured: true, matricula: authAssinante.matricula, expires_at: authAssinante.expires_at } : { configured: false },
-    gerente: authGerente ? { configured: true, matricula: authGerente.matricula, expires_at: authGerente.expires_at } : { configured: false },
-  });
-}));
-entitiesAndManagerialRouter.post('/managerial-auth', authenticate, asyncHandler(async (req, res) => {
-  if (!usePostgreSQL || !repo.setManagerialAuthorization) {
-    return res.status(503).json({ error: 'AutorizaÃ§Ã£o gerencial requer PostgreSQL' });
-  }
-  const { owner, role } = getManagerialSubscriberAndRole(req);
-  if (!owner) return res.status(400).json({ error: 'Contexto do estabelecimento necessÃ¡rio' });
-  if (!(await ensureManagerialAuthPlanEnabled(owner, res))) return;
-  const isOwner = isRequesterOwnerForManagerialAuth(req, owner);
-  if (!isOwner) return res.status(403).json({ error: 'Apenas o dono do estabelecimento pode criar ou alterar autorizaÃ§Ãµes.' });
-  const { role: bodyRole, matricula, password, expirable, expires_at } = req.body || {};
-  const targetRole = bodyRole === 'gerente' ? 'gerente' : 'assinante';
-  if (!matricula || !password || String(password).length < 6) {
-    return res.status(400).json({ error: 'MatrÃ­cula e senha (mÃ­n. 6 caracteres) sÃ£o obrigatÃ³rios.' });
-  }
-  const expiresAt = expirable && expires_at ? new Date(expires_at) : null;
-  const passwordHash = await bcrypt.hash(String(password), 10);
-  await repo.setManagerialAuthorization(owner, targetRole, {
-    matricula: String(matricula).trim(),
-    passwordHash,
-    expiresAt: expiresAt || null,
-  });
-  const updated = await repo.getManagerialAuthorization(owner, targetRole);
-  return res.json({
-    success: true,
-    role: targetRole,
-    configured: true,
-    expires_at: updated?.expires_at ?? null,
-  });
-}));
-entitiesAndManagerialRouter.post('/managerial-auth/validate', authenticate, asyncHandler(async (req, res) => {
-  if (!usePostgreSQL || !repo.validateManagerialAuthorization) {
-    return res.status(503).json({ error: 'AutorizaÃ§Ã£o gerencial requer PostgreSQL' });
-  }
-  const { owner, role } = getManagerialSubscriberAndRole(req);
-  if (!owner || !role) return res.status(400).json({ error: 'Acesso nÃ£o permitido para este perfil.' });
-  if (!(await ensureManagerialAuthPlanEnabled(owner, res))) return;
-  const { matricula, password } = req.body || {};
-  if (!matricula || !password) {
-    return res.status(400).json({ error: 'MatrÃ­cula e senha sÃ£o obrigatÃ³rios.' });
-  }
-  const valid = await repo.validateManagerialAuthorization(owner, role, matricula, password);
-  if (valid) {
-    registerManagerialAuthSession(req, owner, role);
-  }
-  return res.json({ valid: !!valid });
-}));
+entitiesAndManagerialRouter.get(
+  '/managerial-auth',
+  authenticate,
+  asyncHandler(managerialAuthHandlers.getManagerialAuth)
+);
+entitiesAndManagerialRouter.post(
+  '/managerial-auth',
+  authenticate,
+  asyncHandler(managerialAuthHandlers.upsertManagerialAuth)
+);
+entitiesAndManagerialRouter.post(
+  '/managerial-auth/validate',
+  authenticate,
+  asyncHandler(managerialAuthHandlers.validateManagerialAuth)
+);
 // Listar entidades (evitar 404 em produÃ§Ã£o quando rotas sÃ£o testadas antes de menus/orders)
 entitiesAndManagerialRouter.get(
   '/entities/:entity',
