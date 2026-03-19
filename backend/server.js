@@ -47,15 +47,14 @@ import { requestLogger } from './utils/monitoring.js';
 import { scheduleBackups } from './utils/backup.js';
 import { analyticsMiddleware } from './utils/analytics.js';
 import { initializeCronJobs } from './utils/cronJobs.js';
-import { decorateOrderEntity, normalizeOrderForPersistence } from './utils/orderLifecycle.js';
 import { applyTenantContextToUser, resolveTenantContext } from './utils/tenantContext.js';
-import { validateOrderAxisTransition } from './services/orderStatusValidation.service.js';
 import { createOrderOperationalContract } from './modules/orders/orderOperationalContract.js';
 import { createComandaOrderBridge } from './modules/comandas/comandaOrderBridge.js';
 import { createRequestedTenantScopeApplier } from './modules/tenant/requestedTenantScope.js';
 import { ENTITY_ACCESS_CONFIG, normalizeEntityName } from './modules/entities/entityAccessConfig.js';
 import { createManagerialEntityAuth } from './modules/entities/managerialEntityAuth.js';
 import { createEntityAccessGuard } from './modules/entities/entityAccessGuard.js';
+import { createEntityHandlers } from './modules/entities/entityHandlers.js';
 import analyticsRoutes from './routes/analytics.routes.js';
 import backupRoutes from './routes/backup.routes.js';
 import subscriberBackupRoutes from './routes/subscriberBackup.routes.js';
@@ -380,6 +379,26 @@ const {
   db,
   usePostgreSQL,
   managerialEntityAuth,
+});
+
+const entityHandlers = createEntityHandlers({
+  repo,
+  db,
+  usePostgreSQL,
+  saveDatabaseDebounced,
+  applyRequestedTenantScope,
+  enforceEntityReadAccess,
+  enforceEntityWriteAccess,
+  parseSubscriberPermissionMap,
+  applyBasicScopeToEntityResult,
+  applyBasicScopeFilterToItems,
+  enforceOrderOperationalStatusContract,
+  upsertComandaProductionOrder,
+  emitOrderCreated,
+  emitOrderUpdate,
+  emitComandaCreated,
+  emitComandaUpdate,
+  emitTableUpdate,
 });
 
 // âœ… FunÃ§Ã£o generatePasswordTokenForSubscriber movida para: backend/modules/auth/auth.service.js
@@ -1041,291 +1060,33 @@ entitiesAndManagerialRouter.post('/managerial-auth/validate', authenticate, asyn
   return res.json({ valid: !!valid });
 }));
 // Listar entidades (evitar 404 em produÃ§Ã£o quando rotas sÃ£o testadas antes de menus/orders)
-entitiesAndManagerialRouter.get('/entities/:entity', authenticate, asyncHandler(async (req, res) => {
-  try {
-    const { entity } = req.params;
-    const entityNorm = normalizeEntityName(entity);
-    const { order_by, as_subscriber, as_subscriber_id, page, limit, ...filters } = req.query;
-    const scopedTenant = await applyRequestedTenantScope(req, {
-      subscriberId: as_subscriber_id,
-      subscriberEmail: as_subscriber,
-    });
-    const entityReadGuard = await enforceEntityReadAccess(req, res, entity, { owner_email: filters.owner_email || scopedTenant?.subscriberEmail || as_subscriber });
-    if (!entityReadGuard.allowed) return;
-    const pagination = { page: page ? parseInt(page) : 1, limit: limit ? parseInt(limit) : 50 };
-    let result;
-    if (usePostgreSQL) {
-      if (req.user && !req.user?.is_master && !filters.owner_email) {
-        const subscriber = req.user._contextForSubscriberId
-          ? await repo.getSubscriberById(req.user._contextForSubscriberId)
-          : await repo.getSubscriberByEmail(req.user._contextForSubscriber || req.user.subscriber_email || req.user.email);
-        if (subscriber) filters.owner_email = subscriber.email;
-      }
-      result = await repo.listEntities(entity, filters, order_by, req.user || null, pagination);
-    } else if (db && db.entities) {
-      let items = db.entities[entity] || [];
-      if (req.user?.is_master && as_subscriber) items = items.filter(item => item.owner_email === as_subscriber);
-      else if (req.user?.is_master || !req.user) items = items.filter(item => !item.owner_email);
-      else {
-        const subscriber = db.subscribers?.find(s => s.email === req.user.email);
-        items = subscriber ? items.filter(item => !item.owner_email || item.owner_email === subscriber.email) : [];
-      }
-      if (Object.keys(filters).length > 0) {
-        items = items.filter(item => Object.entries(filters).every(([key, value]) =>
-          (value === 'null' || value === null) ? (item[key] === null || item[key] === undefined) : item[key] == value
-        ));
-      }
-      if (order_by) {
-        const desc = order_by.startsWith('-');
-        const field = desc ? order_by.replace(/^-/, '') : order_by;
-        const getVal = (item) => {
-          const v = item[field] ?? item.created_at ?? item.created_date;
-          return v ? new Date(v).getTime() : 0;
-        };
-        items.sort((a, b) => {
-          const aVal = getVal(a);
-          const bVal = getVal(b);
-          if (aVal < bVal) return desc ? 1 : -1;
-          if (aVal > bVal) return desc ? -1 : 1;
-          return 0;
-        });
-      }
-      const total = items.length;
-      const start = (pagination.page - 1) * pagination.limit;
-      const totalPages = Math.ceil(total / pagination.limit);
-      result = {
-        items: items.slice(start, start + pagination.limit),
-        pagination: { page: pagination.page, limit: pagination.limit, total, totalPages, hasNext: pagination.page < totalPages, hasPrev: pagination.page > 1 }
-      };
-    } else {
-      return res.status(500).json({ error: 'Banco de dados nÃ£o inicializado' });
-    }
-    if (!req.user?.is_master && entityReadGuard?.subscriber && (entityNorm === 'dish' || entityNorm === 'combo')) {
-      const permissionMap = entityReadGuard.permissionMap || parseSubscriberPermissionMap(entityReadGuard.subscriber);
-      result = applyBasicScopeToEntityResult(entityNorm, result, permissionMap);
-    }
-
-    res.json(result);
-  } catch (error) {
-    console.error('Erro ao listar entidades:', sanitizeForLog({ error: error.message }));
-    throw error;
-  }
-}));
-entitiesAndManagerialRouter.get('/entities/:entity/:id', authenticate, async (req, res) => {
-  try {
-    const { entity, id } = req.params;
-    const entityNorm = normalizeEntityName(entity);
-    const asSub = req.query.as_subscriber;
-    const asSubId = req.query.as_subscriber_id;
-    const scopedTenant = await applyRequestedTenantScope(req, {
-      subscriberId: asSubId,
-      subscriberEmail: asSub,
-    });
-    const entityReadGuard = await enforceEntityReadAccess(req, res, entity, { owner_email: scopedTenant?.subscriberEmail || asSub || req.query.owner_email });
-    if (!entityReadGuard.allowed) return;
-    let item;
-    if (usePostgreSQL) item = await repo.getEntityById(entity, id, req.user);
-    else if (db?.entities?.[entity]) {
-      const arr = db.entities[entity];
-      item = arr.find(i => (i.id === id || i.id === String(id)) && (!asSub || i.owner_email === asSub)) || null;
-    } else item = null;
-    if (!item) return res.status(404).json({ error: 'Entidade nÃ£o encontrada' });
-    if (!req.user?.is_master && entityReadGuard?.subscriber && (entityNorm === 'dish' || entityNorm === 'combo')) {
-      const permissionMap = entityReadGuard.permissionMap || parseSubscriberPermissionMap(entityReadGuard.subscriber);
-      const filtered = applyBasicScopeFilterToItems(entityNorm, [item], permissionMap);
-      if (!filtered.length) {
-        return res.status(404).json({ error: 'Entidade nÃ£o encontrada' });
-      }
-    }
-    res.json(item);
-  } catch (error) {
-    console.error('Erro ao obter entidade:', error);
-    res.status(500).json({ error: 'Erro interno no servidor' });
-  }
-});
+entitiesAndManagerialRouter.get(
+  '/entities/:entity',
+  authenticate,
+  asyncHandler(entityHandlers.listEntities)
+);
+entitiesAndManagerialRouter.get(
+  '/entities/:entity/:id',
+  authenticate,
+  entityHandlers.getEntityById
+);
 // Entities CRUD - must run BEFORE entitiesAndManagerialRouter (which returns 404 for unmatched methods)
-app.post('/api/entities/:entity', authenticate, createLimiter, asyncHandler(async (req, res) => {
-  const { entity } = req.params;
-  let data = { ...req.body };
-  const asSub = data.as_subscriber || req.query.as_subscriber;
-  const asSubId = data.as_subscriber_id || req.query.as_subscriber_id;
-  let createOpts = {};
-  const scopedTenant = await applyRequestedTenantScope(req, {
-    subscriberId: asSubId,
-    subscriberEmail: asSub,
-  });
-  delete data.as_subscriber;
-  delete data.as_subscriber_id;
-  if (scopedTenant?.subscriberEmail) {
-    data.owner_email = data.owner_email || scopedTenant.subscriberEmail;
-    createOpts.forSubscriberEmail = scopedTenant.subscriberEmail;
-    createOpts.forSubscriberId = scopedTenant.subscriberId || null;
-  }
-  if (!req.user?.is_master) {
-    const subEmail = req.user?._contextForSubscriber || req.user?.subscriber_email || req.user?.email;
-    const subscriber = usePostgreSQL
-      ? (req.user?._contextForSubscriberId
-          ? await repo.getSubscriberById(req.user._contextForSubscriberId)
-          : await repo.getSubscriberByEmail(subEmail))
-      : db?.subscribers?.find(s => (s.email || '').toLowerCase() === (subEmail || '').toLowerCase());
-    if (subscriber) {
-      if (!data.owner_email) data.owner_email = subscriber.email;
-      createOpts.forSubscriberEmail = subscriber.email;
-      createOpts.forSubscriberId = subscriber.id;
-    }
-  }
-  if (data.owner_email && !createOpts.forSubscriberEmail) {
-    const ownerSub = usePostgreSQL ? await repo.getSubscriberByEmail(data.owner_email) : db?.subscribers?.find(s => (s.email || '').toLowerCase() === (data.owner_email || '').toLowerCase());
-    if (ownerSub) {
-      createOpts.forSubscriberEmail = ownerSub.email;
-      createOpts.forSubscriberId = ownerSub.id;
-    }
-    else if (String(entity).toLowerCase() === 'order') return res.status(400).json({ error: 'owner_email não é um assinante válido. Pedido do cardápio por link precisa do dono do cardápio.' });
-  }
-  const entityCreateGuard = await enforceEntityWriteAccess(req, res, entity, 'POST', data);
-  if (!entityCreateGuard.allowed) return;
-  data = entityCreateGuard.sanitizedPayload;
-  if (String(entity).toLowerCase() === 'order') {
-    data = normalizeOrderForPersistence(data);
-  }
-  if (String(entity).toLowerCase() === 'dish' && !req.user?.is_master) {
-    const subscriberEmail = createOpts.forSubscriberEmail || data.owner_email || (req.user?.subscriber_email || req.user?.email);
-    if (subscriberEmail) {
-      const { validateProductsLimit } = await import('./services/planValidation.service.js');
-      const productLimit = await validateProductsLimit(subscriberEmail, null, req.user?.is_master);
-      if (!productLimit.valid) return res.status(403).json({ error: productLimit.error || `Limite de produtos excedido.`, code: 'PRODUCT_LIMIT_EXCEEDED', limit: productLimit.limit, current: productLimit.current });
-    }
-  }
-  if (String(entity).toLowerCase() === 'order' && !req.user?.is_master) {
-    const subscriberEmail = createOpts.forSubscriberEmail || data.owner_email || (req.user?.subscriber_email || req.user?.email);
-    if (subscriberEmail) {
-      const { validateOrdersPerDayLimit } = await import('./services/planValidation.service.js');
-      const orderLimit = await validateOrdersPerDayLimit(subscriberEmail, req.user?.is_master);
-      if (!orderLimit.valid) return res.status(403).json({ error: orderLimit.error || `Limite de pedidos por dia excedido.`, code: 'ORDER_LIMIT_EXCEEDED', limit: orderLimit.limit, current: orderLimit.current });
-    }
-  }
-  if (String(entity) === 'Comanda' && !(data.code && String(data.code).trim())) {
-    const owner = createOpts.forSubscriberEmail || data.owner_email || null;
-    data.code = (usePostgreSQL && repo.getNextComandaCode) ? await repo.getNextComandaCode(owner) : 'C-001';
-  }
-  let newItem;
-  if (usePostgreSQL) {
-    newItem = await repo.createEntity(entity, data, req.user, createOpts);
-  } else if (db && db.entities) {
-    if (!db.entities[entity]) db.entities[entity] = [];
-    const now = new Date().toISOString();
-    newItem = String(entity).toLowerCase() === 'order'
-      ? decorateOrderEntity({ id: String(Date.now()), ...data, created_at: now, created_date: now, updated_at: now })
-      : { id: String(Date.now()), ...data, created_at: now, created_date: now, updated_at: now };
-    db.entities[entity].push(newItem);
-    if (typeof saveDatabaseDebounced === 'function') saveDatabaseDebounced(db);
-  } else return res.status(500).json({ error: 'Banco de dados não inicializado' });
-  if (String(entity).toLowerCase() === 'comanda') {
-    try {
-      await upsertComandaProductionOrder(
-        newItem,
-        req.user,
-        createOpts.forSubscriberEmail || data.owner_email || null
-      );
-    } catch (bridgeError) {
-      console.error('Erro ao sincronizar comanda na fila de producao:', bridgeError?.message || bridgeError);
-    }
-  }
-  if (String(entity).toLowerCase() === 'order') emitOrderCreated(newItem);
-  else if (String(entity).toLowerCase() === 'comanda') emitComandaCreated(newItem);
-  console.log(`✅ [${entity}] Item criado:`, newItem.id);
-  res.status(201).json(newItem);
-}));
-app.put('/api/entities/:entity/:id', authenticate, asyncHandler(async (req, res) => {
-  const { entity, id } = req.params;
-  let data = req.body;
-  const asSub = req.query.as_subscriber;
-  const asSubId = req.query.as_subscriber_id;
-  await applyRequestedTenantScope(req, {
-    subscriberId: asSubId,
-    subscriberEmail: asSub,
-  });
-  const entityUpdateGuard = await enforceEntityWriteAccess(req, res, entity, 'PUT', data);
-  if (!entityUpdateGuard.allowed) return;
-  data = entityUpdateGuard.sanitizedPayload;
-  if (String(entity).toLowerCase() === 'subscriber') {
-    const idVal = /^\d+$/.test(String(id)) ? parseInt(id, 10) : id;
-    const updated = usePostgreSQL ? await repo.updateSubscriber(idVal, data) : (() => { const idx = db?.subscribers?.findIndex(s => s.id == idVal); if (idx < 0) throw new Error('Assinante nÃ£o encontrado'); const e = db.subscribers[idx]; const m = { ...e, ...data, send_whatsapp_commands: data.send_whatsapp_commands ?? e.whatsapp_auto_enabled }; db.subscribers[idx] = m; if (saveDatabaseDebounced) saveDatabaseDebounced(db); return { ...m, send_whatsapp_commands: m.whatsapp_auto_enabled }; })();
-    return res.json(updated);
-  }
-  if (String(entity).toLowerCase() === 'order') {
-    const currentOrder = usePostgreSQL ? await repo.getEntityById('Order', id, req.user) : db?.entities?.Order?.find(i => i.id === id || i.id === String(id));
-    data = normalizeOrderForPersistence(data, currentOrder || {});
-    if (currentOrder) {
-      const validation = validateOrderAxisTransition(currentOrder, data, {
-        isMaster: req.user?.is_master,
-        userRole: req.user?.profile_role || req.user?.role,
-      });
-      if (!validation.valid) {
-        return res.status(400).json({
-          success: false,
-          error: validation.message,
-          message: validation.message,
-          code: 'INVALID_STATUS_TRANSITION',
-        });
-      }
-      const contractOk = await enforceOrderOperationalStatusContract(req, res, currentOrder, data);
-      if (!contractOk) return;
-    }
-  }
-  let updatedItem;
-  if (usePostgreSQL) {
-    updatedItem = await repo.updateEntity(entity, id, data, req.user);
-    if (!updatedItem) return res.status(404).json({ error: 'Entidade nÃ£o encontrada' });
-  } else if (db?.entities) {
-    const items = db.entities[entity] || [];
-    const idx = items.findIndex(i => (i.id === id || i.id === String(id)) && (!asSub || i.owner_email === asSub));
-    if (idx === -1) return res.status(404).json({ error: 'Entidade nÃ£o encontrada' });
-    updatedItem = String(entity).toLowerCase() === 'order' ? decorateOrderEntity({ ...items[idx], ...data, id: items[idx].id, updated_at: new Date().toISOString() }) : { ...items[idx], ...data, id: items[idx].id, updated_at: new Date().toISOString() };
-    items[idx] = updatedItem;
-    if (typeof saveDatabaseDebounced === 'function') saveDatabaseDebounced(db);
-  } else return res.status(500).json({ error: 'Banco de dados nÃ£o inicializado' });
-  if (String(entity).toLowerCase() === 'comanda') {
-    try {
-      await upsertComandaProductionOrder(
-        updatedItem,
-        req.user,
-        updatedItem?.owner_email || updatedItem?.subscriber_email || null
-      );
-    } catch (bridgeError) {
-      console.error('Erro ao sincronizar atualizacao de comanda na producao:', bridgeError?.message || bridgeError);
-    }
-  }
-  if (String(entity).toLowerCase() === 'order') emitOrderUpdate(updatedItem);
-  else if (String(entity).toLowerCase() === 'comanda') emitComandaUpdate(updatedItem);
-  else if (String(entity).toLowerCase() === 'table') emitTableUpdate(updatedItem);
-  console.log(`âœ… [${entity}] Item atualizado:`, id);
-  res.json(updatedItem);
-}));
-app.delete('/api/entities/:entity/:id', authenticate, asyncHandler(async (req, res) => {
-  const { entity, id } = req.params;
-  const asSub = req.query.as_subscriber;
-  const asSubId = req.query.as_subscriber_id;
-  await applyRequestedTenantScope(req, {
-    subscriberId: asSubId,
-    subscriberEmail: asSub,
-  });
-  const entityDeleteGuard = await enforceEntityWriteAccess(req, res, entity, 'DELETE', {});
-  if (!entityDeleteGuard.allowed) return;
-  let deleted = false;
-  if (usePostgreSQL) deleted = await repo.deleteEntity(entity, id, req.user);
-  else if (db?.entities) {
-    const items = db.entities[entity] || [];
-    const idx = items.findIndex(i => (i.id === id || i.id === String(id)) && (!asSub || i.owner_email === asSub));
-    if (idx === -1) return res.status(404).json({ error: 'Entidade nÃ£o encontrada' });
-    items.splice(idx, 1);
-    deleted = true;
-    if (typeof saveDatabaseDebounced === 'function') saveDatabaseDebounced(db);
-  } else return res.status(500).json({ error: 'Banco de dados nÃ£o inicializado' });
-  if (!deleted) return res.status(404).json({ error: 'Entidade nÃ£o encontrada' });
-  console.log(`âœ… [${entity}] Item deletado:`, id);
-  res.json({ success: true });
-}));
+app.post(
+  '/api/entities/:entity',
+  authenticate,
+  createLimiter,
+  asyncHandler(entityHandlers.createEntity)
+);
+app.put(
+  '/api/entities/:entity/:id',
+  authenticate,
+  asyncHandler(entityHandlers.updateEntity)
+);
+app.delete(
+  '/api/entities/:entity/:id',
+  authenticate,
+  asyncHandler(entityHandlers.deleteEntity)
+);
 app.post('/api/entities/:entity/bulk', authenticate, createLimiter, asyncHandler(async (req, res) => {
   const { entity } = req.params;
   const { items: itemsToCreate } = req.body || {};
