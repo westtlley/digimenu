@@ -73,6 +73,10 @@ import { isRequesterGerente } from './modules/users/users.utils.js';
 import establishmentsRoutes from './modules/establishments/establishments.routes.js';
 import * as establishmentsController from './modules/establishments/establishments.controller.js';
 import { createUpdateSubscriberFunctionHandler } from './modules/establishments/updateSubscriberFunctionHandler.js';
+import {
+  createCreateSubscriberFunctionHandler,
+  createGetSubscribersFunctionHandler,
+} from './modules/establishments/subscriberFunctionHandlers.js';
 import menusRoutes from './modules/menus/menus.routes.js';
 import ordersRoutes from './modules/orders/orders.routes.js';
 import { initializeAppConfig } from './config/appConfig.js';
@@ -418,6 +422,14 @@ const managerialAuthHandlers = createManagerialAuthHandlers({
 });
 
 const updateSubscriberFunctionHandler = createUpdateSubscriberFunctionHandler({
+  establishmentsController,
+});
+
+const createSubscriberFunctionHandler = createCreateSubscriberFunctionHandler({
+  establishmentsController,
+});
+
+const getSubscribersFunctionHandler = createGetSubscribersFunctionHandler({
   establishmentsController,
 });
 
@@ -1073,30 +1085,10 @@ app.post(
 app.post('/api/functions/updateSubscriber', authenticate, updateSubscriberFunctionHandler);
 
 // createSubscriber via /api/functions/createSubscriber
-app.post('/api/functions/createSubscriber', authenticate, async (req, res) => {
-  try {
-    if (!req.user?.is_master) {
-      return res.status(403).json({ error: 'Acesso negado' });
-    }
-    await establishmentsController.createSubscriber(req, res, () => {});
-  } catch (error) {
-    console.error('âŒ [createSubscriber] Erro:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
+app.post('/api/functions/createSubscriber', authenticate, createSubscriberFunctionHandler);
 
 // getSubscribers via /api/functions/getSubscribers
-app.post('/api/functions/getSubscribers', authenticate, async (req, res) => {
-  try {
-    if (!req.user?.is_master) {
-      return res.status(403).json({ error: 'Acesso negado' });
-    }
-    await establishmentsController.listSubscribers(req, res, () => {});
-  } catch (error) {
-    console.error('âŒ [getSubscribers] Erro:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
+app.post('/api/functions/getSubscribers', authenticate, getSubscribersFunctionHandler);
 
 // getFullSubscriberProfile: rota explÃ­cita para evitar 404 quando /api Ã© montado antes do handler genÃ©rico
 app.post('/api/functions/getFullSubscriberProfile', authenticate, async (req, res) => {
@@ -2884,19 +2876,13 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
     
     // âœ… getSubscribers: delegar ao establishments (frontend chama /api/functions/getSubscribers)
     if (name === 'getSubscribers') {
-      if (!req.user?.is_master) {
-        return res.status(403).json({ error: 'Acesso negado' });
-      }
-      await establishmentsController.listSubscribers(req, res, () => {});
+      await getSubscribersFunctionHandler(req, res);
       return;
     }
     
     // âœ… createSubscriber: delegar ao establishments (frontend chama /api/functions/createSubscriber)
     if (name === 'createSubscriber') {
-      if (!req.user?.is_master) {
-        return res.status(403).json({ error: 'Acesso negado' });
-      }
-      await establishmentsController.createSubscriber(req, res, () => {});
+      await createSubscriberFunctionHandler(req, res);
       return;
     }
     
