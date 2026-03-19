@@ -1548,57 +1548,6 @@ app.post('/api/auth/reset-password', validate(schemas.resetPassword), asyncHandl
 // - COLAB_ROLES
 
 // =======================
-// ðŸ”— INFORMAÃ‡Ã•ES PÃšBLICAS PARA PÃGINA DE LOGIN POR SLUG (logo, tema, nome)
-// =======================
-app.get('/api/public/login-info/:slug', asyncHandler(async (req, res) => {
-  if (!usePostgreSQL) {
-    return res.status(503).json({ found: false, error: 'Requer PostgreSQL' });
-  }
-  const slug = (req.params.slug || '').trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-  if (!slug) return res.status(400).json({ found: false, error: 'Slug invÃ¡lido' });
-
-  let subscriber = await repo.getSubscriberBySlug(slug);
-  let isMaster = false;
-  let se = null;
-  if (subscriber) {
-    se = subscriber.email;
-  } else {
-    const { query } = await import('./db/postgres.js');
-    const masterResult = await query('SELECT id, email, slug FROM users WHERE slug = $1 AND is_master = TRUE', [slug]);
-    if (masterResult.rows.length > 0) {
-      isMaster = true;
-      se = null;
-    } else {
-      return res.json({ found: false, slug });
-    }
-  }
-
-  let storeList = [];
-  if (isMaster) {
-    const { query } = await import('./db/postgres.js');
-    const rows = await query(`SELECT id, data FROM entities WHERE entity_type = 'Store' AND subscriber_email IS NULL ORDER BY updated_at DESC NULLS LAST LIMIT 1`);
-    storeList = rows.rows.map(row => ({ id: row.id.toString(), ...row.data }));
-  } else {
-    storeList = await repo.listEntitiesForSubscriber('Store', se, null);
-  }
-  const raw = Array.isArray(storeList) && storeList[0] ? storeList[0] : {};
-  const name = raw.name || 'Estabelecimento';
-  const logo = raw.logo || null;
-  const theme_primary = raw.theme_primary_color || raw.primary_color || null;
-  const theme_secondary = raw.theme_secondary_color || raw.secondary_color || null;
-  const theme_accent = raw.theme_accent_color || raw.accent_color || null;
-  return res.json({
-    found: true,
-    slug,
-    name,
-    logo,
-    theme_primary_color: theme_primary,
-    theme_secondary_color: theme_secondary,
-    theme_accent_color: theme_accent,
-  });
-}));
-
-// =======================
 // ðŸ”— CONFIG DA PÃGINA DE VENDAS /assinar (planos, preÃ§os, trial) â€” pÃºblico
 // =======================
 app.get('/api/public/assinar-config', asyncHandler(async (req, res) => {
