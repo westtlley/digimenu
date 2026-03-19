@@ -72,6 +72,7 @@ import * as usersController from './modules/users/users.controller.js';
 import { isRequesterGerente } from './modules/users/users.utils.js';
 import establishmentsRoutes from './modules/establishments/establishments.routes.js';
 import * as establishmentsController from './modules/establishments/establishments.controller.js';
+import { createUpdateSubscriberFunctionHandler } from './modules/establishments/updateSubscriberFunctionHandler.js';
 import menusRoutes from './modules/menus/menus.routes.js';
 import ordersRoutes from './modules/orders/orders.routes.js';
 import { initializeAppConfig } from './config/appConfig.js';
@@ -414,6 +415,10 @@ const managerialAuthHandlers = createManagerialAuthHandlers({
   usePostgreSQL,
   bcrypt,
   managerialEntityAuth,
+});
+
+const updateSubscriberFunctionHandler = createUpdateSubscriberFunctionHandler({
+  establishmentsController,
 });
 
 // âœ… FunÃ§Ã£o generatePasswordTokenForSubscriber movida para: backend/modules/auth/auth.service.js
@@ -1065,30 +1070,7 @@ app.post(
 // ðŸ”§ FUNCTIONS - Rotas especÃ­ficas ANTES dos routers (evitar 404)
 // =======================
 // updateSubscriber via /api/functions/updateSubscriber
-app.post('/api/functions/updateSubscriber', authenticate, async (req, res) => {
-  try {
-    console.log('ðŸ”§ [updateSubscriber] Chamado por:', req.user?.email, 'is_master:', req.user?.is_master);
-    
-    if (!req.user?.is_master) {
-      return res.status(403).json({ error: 'Acesso negado' });
-    }
-    
-    const { id, data: updateData, originalData } = req.body || {};
-    console.log('ðŸ”§ [updateSubscriber] ID:', id, 'tem data:', !!updateData);
-    
-    if (!id) {
-      return res.status(400).json({ error: 'id Ã© obrigatÃ³rio' });
-    }
-    
-    req.params = { ...req.params, id: String(id) };
-    req.body = updateData || req.body || {};
-    
-    await establishmentsController.updateSubscriber(req, res, () => {});
-  } catch (error) {
-    console.error('âŒ [updateSubscriber] Erro:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
+app.post('/api/functions/updateSubscriber', authenticate, updateSubscriberFunctionHandler);
 
 // createSubscriber via /api/functions/createSubscriber
 app.post('/api/functions/createSubscriber', authenticate, async (req, res) => {
@@ -2920,16 +2902,7 @@ app.post('/api/functions/:name', authenticate, async (req, res) => {
     
     // âœ… updateSubscriber: delegar ao establishments (frontend envia { id, data, originalData })
     if (name === 'updateSubscriber') {
-      if (!req.user?.is_master) {
-        return res.status(403).json({ error: 'Acesso negado' });
-      }
-      const { id, data: updateData, originalData } = data || {};
-      if (!id) {
-        return res.status(400).json({ error: 'id Ã© obrigatÃ³rio' });
-      }
-      req.params = { ...req.params, id: String(id) };
-      req.body = updateData || data || {};
-      await establishmentsController.updateSubscriber(req, res, () => {});
+      await updateSubscriberFunctionHandler(req, res);
       return;
     }
     
