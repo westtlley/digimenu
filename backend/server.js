@@ -51,10 +51,11 @@ import { applyTenantContextToUser, resolveTenantContext } from './utils/tenantCo
 import { createOrderOperationalContract } from './modules/orders/orderOperationalContract.js';
 import { createComandaOrderBridge } from './modules/comandas/comandaOrderBridge.js';
 import { createRequestedTenantScopeApplier } from './modules/tenant/requestedTenantScope.js';
-import { ENTITY_ACCESS_CONFIG, normalizeEntityName } from './modules/entities/entityAccessConfig.js';
 import { createManagerialEntityAuth } from './modules/entities/managerialEntityAuth.js';
 import { createEntityAccessGuard } from './modules/entities/entityAccessGuard.js';
 import { createEntityHandlers } from './modules/entities/entityHandlers.js';
+import { createEntityBulkHandler } from './modules/entities/entityBulkHandler.js';
+import { createFinalizeSaleHandler } from './modules/pdv/finalizeSaleHandler.js';
 import analyticsRoutes from './routes/analytics.routes.js';
 import backupRoutes from './routes/backup.routes.js';
 import subscriberBackupRoutes from './routes/subscriberBackup.routes.js';
@@ -399,6 +400,19 @@ const entityHandlers = createEntityHandlers({
   emitComandaCreated,
   emitComandaUpdate,
   emitTableUpdate,
+});
+
+const entityBulkHandler = createEntityBulkHandler({
+  repo,
+  db,
+  usePostgreSQL,
+  saveDatabaseDebounced,
+});
+
+const finalizeSaleHandler = createFinalizeSaleHandler({
+  applyRequestedTenantScope,
+  enforceEntityWriteAccess,
+  finalizePdvSaleAtomic,
 });
 
 // âœ… FunÃ§Ã£o generatePasswordTokenForSubscriber movida para: backend/modules/auth/auth.service.js
@@ -1087,78 +1101,19 @@ app.delete(
   authenticate,
   asyncHandler(entityHandlers.deleteEntity)
 );
-app.post('/api/entities/:entity/bulk', authenticate, createLimiter, asyncHandler(async (req, res) => {
-  const { entity } = req.params;
-  const { items: itemsToCreate } = req.body || {};
-  const entityNorm = normalizeEntityName(entity);
-  if (ENTITY_ACCESS_CONFIG[entityNorm] && !req.user?.is_master) {
-    return res.status(403).json({
-      error: 'OperaÃ§Ã£o em lote nÃ£o permitida para entidades protegidas.',
-      code: 'BULK_NOT_ALLOWED_FOR_SENSITIVE_ENTITY'
-    });
-  }
-  let newItems;
-  if (usePostgreSQL) newItems = await repo.createEntitiesBulk(entity, itemsToCreate, req.user);
-  else if (db?.entities) {
-    if (!db.entities[entity]) db.entities[entity] = [];
-    newItems = (itemsToCreate || []).map(d => ({ id: String(Date.now()) + Math.random().toString(36).substr(2, 9), ...d, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }));
-    db.entities[entity].push(...newItems);
-    if (saveDatabaseDebounced) saveDatabaseDebounced(db);
-  } else return res.status(500).json({ error: 'Banco de dados nÃ£o inicializado' });
-  console.log(`âœ… [${entity}] ${newItems?.length || 0} itens criados`);
-  res.status(201).json(newItems || []);
-}));
+app.post(
+  '/api/entities/:entity/bulk',
+  authenticate,
+  createLimiter,
+  asyncHandler(entityBulkHandler)
+);
 
-app.post('/api/pdv/finalizar-venda', authenticate, createLimiter, asyncHandler(async (req, res) => {
-  const payload = req.body || {};
-  const asSub = req.query?.as_subscriber || payload?.as_subscriber;
-  const asSubId = req.query?.as_subscriber_id || payload?.as_subscriber_id;
-  await applyRequestedTenantScope(req, {
-    subscriberId: asSubId,
-    subscriberEmail: asSub,
-  });
-
-  if (!payload?.client_request_id || !String(payload.client_request_id).trim()) {
-    return res.status(400).json({
-      error: 'client_request_id Ã© obrigatÃ³rio.',
-      code: 'CLIENT_REQUEST_ID_REQUIRED'
-    });
-  }
-
-  const pdvGuard = await enforceEntityWriteAccess(req, res, 'PedidoPDV', 'POST', {
-    owner_email: payload.owner_email || asSub || req.user?._contextForSubscriber || req.user?.subscriber_email || req.user?.email
-  });
-  if (!pdvGuard.allowed) return;
-
-  const ownerEmail = pdvGuard.ownerEmail || pdvGuard.subscriber?.email;
-  const caixaGuard = await enforceEntityWriteAccess(req, res, 'CaixaOperation', 'POST', {
-    owner_email: ownerEmail,
-    type: 'venda_pdv'
-  });
-  if (!caixaGuard.allowed) return;
-
-  try {
-    const result = await finalizePdvSaleAtomic({
-      user: req.user,
-      ownerEmail,
-      ownerSubscriberId: caixaGuard.subscriber?.id || pdvGuard.subscriber?.id || req.user?._contextForSubscriberId || null,
-      payload: {
-        ...payload,
-        owner_email: ownerEmail
-      }
-    });
-    return res.status(result.idempotent ? 200 : 201).json(result);
-  } catch (error) {
-    const status = Number(error?.status) || 500;
-    if (status >= 500) {
-      console.error('âŒ [PDV] Erro ao finalizar venda:', error);
-    }
-    return res.status(status).json({
-      error: error?.message || 'Erro ao finalizar venda PDV.',
-      code: error?.code || 'PDV_FINALIZE_SALE_ERROR'
-    });
-  }
-}));
+app.post(
+  '/api/pdv/finalizar-venda',
+  authenticate,
+  createLimiter,
+  asyncHandler(finalizeSaleHandler)
+);
 
 // =======================
 // ðŸ”§ FUNCTIONS - Rotas especÃ­ficas ANTES dos routers (evitar 404)
