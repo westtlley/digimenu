@@ -6,6 +6,7 @@ import FinancialSkeleton from '../skeletons/FinancialSkeleton';
 import { useOrders } from '@/hooks/useOrders';
 import { usePermission } from '../permissions/usePermission';
 import { getMenuContextEntityOpts, getMenuContextQueryKeyParts } from '@/utils/tenantScope';
+import { normalizeOperationalDayCutoffTime } from '@/utils/operationalShift';
 
 export default function FinancialTab() {
   const { menuContext } = usePermission();
@@ -26,12 +27,22 @@ export default function FinancialTab() {
     },
     enabled: !!menuContext,
   });
+  const { data: stores = [], isLoading: storeLoading } = useQuery({
+    queryKey: ['financialStore', ...menuContextQueryKey],
+    queryFn: async () => {
+      if (!menuContext) return [];
+      return base44.entities.Store.list(null, scopedEntityOpts);
+    },
+    enabled: !!menuContext,
+  });
+  const store = stores[0] || null;
+  const operationalCutoffTime = normalizeOperationalDayCutoffTime(store?.operational_day_cutoff_time);
 
-  const isLoading = ordersLoading || pdvLoading;
+  const isLoading = ordersLoading || pdvLoading || storeLoading;
 
   if (isLoading) {
     return <FinancialSkeleton />;
   }
 
-  return <FinancialDashboard orders={orders} pdvSales={pdvSales} />;
+  return <FinancialDashboard orders={orders} pdvSales={pdvSales} operationalCutoffTime={operationalCutoffTime} />;
 }

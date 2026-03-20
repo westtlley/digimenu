@@ -11,6 +11,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Label } from '@/components/ui/label';
 import { matchesLegacyOrderStatusFilter } from '@/utils/orderLifecycle';
 import { getScopedStorageKey } from '@/utils/tenantScope';
+import {
+  buildCustomOperationalRange,
+  buildOperationalRange,
+  getEntityOperationalDate,
+} from '@/utils/operationalShift';
 
 const STATUS_OPTIONS = [
   { value: 'all', label: 'Todos os Status' },
@@ -42,6 +47,7 @@ export default function AdvancedOrderFilters({
   searchTerm,
   onSearchChange,
   entregadores = [],
+  operationalCutoffTime = '05:00',
 }) {
   const savedFiltersStorageKey = getScopedStorageKey('gestor_saved_filters', null, 'global');
   const [isOpen, setIsOpen] = useState(false);
@@ -85,39 +91,20 @@ export default function AdvancedOrderFilters({
   const applyFilters = (filterValues) => {
     const list = Array.isArray(orders) ? orders : [];
     let filtered = [...list];
+    const getOperationalDate = (order) => getEntityOperationalDate(order, operationalCutoffTime);
 
     // Filtrar por status
     if (filterValues.status !== 'all') {
       filtered = filtered.filter((order) => matchesLegacyOrderStatusFilter(order, filterValues.status));
     }
 
-    // Filtrar por período (created_at ou created_date)
-    const getOrderDate = (o) => o.created_at || o.created_date;
-    const now = new Date();
-    if (filterValues.period === 'today') {
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      filtered = filtered.filter(o => {
-        const dt = getOrderDate(o);
-        if (!dt) return true; // manter se data ausente (evita esconder pedidos)
-        const d = new Date(dt);
-        if (isNaN(d.getTime())) return true; // manter se data inválida
-        return d >= today;
-      });
-    } else if (filterValues.period === 'week') {
-      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      filtered = filtered.filter(o => {
-        const dt = getOrderDate(o);
-        if (!dt) return true;
-        const d = new Date(dt);
-        return !isNaN(d.getTime()) && d >= weekAgo;
-      });
-    } else if (filterValues.period === 'month') {
-      const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-      filtered = filtered.filter(o => {
-        const dt = getOrderDate(o);
-        if (!dt) return true;
-        const d = new Date(dt);
-        return !isNaN(d.getTime()) && d >= monthAgo;
+    // Filtrar por período operacional
+    if (filterValues.period !== 'all') {
+      const { startKey, endKey } = buildOperationalRange(filterValues.period, operationalCutoffTime);
+      filtered = filtered.filter((order) => {
+        const operationalDate = getOperationalDate(order);
+        if (!operationalDate) return false;
+        return operationalDate >= startKey && operationalDate <= endKey;
       });
     }
 
@@ -158,21 +145,18 @@ export default function AdvancedOrderFilters({
     }
 
     // Filtrar por intervalo de datas
-    if (filterValues.dateStart) {
-      const startDate = new Date(filterValues.dateStart);
-      startDate.setHours(0, 0, 0, 0);
-      filtered = filtered.filter(o => {
-        const orderDate = new Date(o.created_at || o.created_date);
-        return orderDate >= startDate;
-      });
-    }
-
-    if (filterValues.dateEnd) {
-      const endDate = new Date(filterValues.dateEnd);
-      endDate.setHours(23, 59, 59, 999);
-      filtered = filtered.filter(o => {
-        const orderDate = new Date(o.created_at || o.created_date);
-        return orderDate <= endDate;
+    if (filterValues.dateStart || filterValues.dateEnd) {
+      const { startKey, endKey } = buildCustomOperationalRange(
+        filterValues.dateStart || filterValues.dateEnd,
+        filterValues.dateEnd || filterValues.dateStart,
+        operationalCutoffTime
+      );
+      filtered = filtered.filter((order) => {
+        const operationalDate = getOperationalDate(order);
+        if (!operationalDate) return false;
+        if (startKey && operationalDate < startKey) return false;
+        if (endKey && operationalDate > endKey) return false;
+        return true;
       });
     }
 

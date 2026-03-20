@@ -1,4 +1,10 @@
 import { normalizeLower } from '../../utils/orderLifecycle.js';
+import {
+  findOpenCaixaForTenant,
+  getShiftOperationalContext,
+  getStoreOperationalSettings,
+  resolveOperationalDate,
+} from '../caixa/operationalShift.js';
 
 const COMANDA_PRODUCTION_SYNCABLE_STATUS = new Set(['open']);
 const ORDER_FINAL_STATUSES = new Set(['delivered', 'cancelled']);
@@ -129,6 +135,30 @@ export function createComandaOrderBridge({
     if (!canSync) return;
 
     const nowIso = new Date().toISOString();
+    const storeSettings = await getStoreOperationalSettings({
+      repo,
+      db,
+      usePostgreSQL,
+      ownerEmail,
+      ownerSubscriberId: null,
+    });
+    const openShift = linkedOrder?.shift_id
+      ? { id: linkedOrder.shift_id, ...linkedOrder }
+      : await findOpenCaixaForTenant({
+          repo,
+          db,
+          usePostgreSQL,
+          ownerEmail,
+          ownerSubscriberId: null,
+        });
+    const shiftContext = openShift
+      ? getShiftOperationalContext(openShift, storeSettings, linkedOrder?.created_date || nowIso)
+      : null;
+    const operationalDate = linkedOrder?.operational_date || resolveOperationalDate(
+      linkedOrder?.created_date || nowIso,
+      linkedOrder?.operational_day_cutoff_time || storeSettings.cutoffTime,
+      linkedOrder?.operational_timezone || storeSettings.timeZone
+    );
     const basePayload = {
       owner_email: ownerEmail,
       subscriber_email: ownerEmail,
@@ -149,6 +179,11 @@ export function createComandaOrderBridge({
       delivery_fee: 0,
       total,
       created_by: comanda.created_by || reqUser?.email || null,
+      operational_date: shiftContext?.operationalDate || operationalDate,
+      operational_day_cutoff_time: shiftContext?.cutoffTime || linkedOrder?.operational_day_cutoff_time || storeSettings.cutoffTime,
+      operational_timezone: shiftContext?.timeZone || linkedOrder?.operational_timezone || storeSettings.timeZone,
+      ...(openShift?.id ? { shift_id: String(openShift.id) } : {}),
+      ...(shiftContext?.turnLabel ? { turn_label: shiftContext.turnLabel } : {}),
     };
 
     if (!linkedOrder) {

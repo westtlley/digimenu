@@ -12,6 +12,13 @@ import { getClient } from '../../db/postgres.js';
 import { getPlanPermissions } from '../../utils/plans.js';
 import { normalizePlanPresetKey } from '../../utils/planPresetsForContext.js';
 import { decorateOrderEntity, normalizeOrderForPersistence } from '../../utils/orderLifecycle.js';
+import {
+  findOpenCaixaForTenant,
+  getStoreOperationalSettings,
+  normalizeOperationalDayCutoffTime,
+  resolveOperationalDate,
+  getShiftOperationalContext,
+} from '../caixa/operationalShift.js';
 
 function normalizeNeighborhood(value) {
   return String(value || '')
@@ -185,6 +192,29 @@ export async function createTableOrder(orderData, slug) {
 
     const order_code = generateTableOrderCode(tableNumber);
 
+    const storeSettings = await getStoreOperationalSettings({
+      repo,
+      db: getDb(),
+      usePostgreSQL,
+      ownerEmail: subscriberEmail,
+      ownerSubscriberId: subscriberId,
+    });
+    const operationalDate = resolveOperationalDate(
+      new Date(),
+      storeSettings.cutoffTime,
+      storeSettings.timeZone
+    );
+    const openShift = await findOpenCaixaForTenant({
+      repo,
+      db: getDb(),
+      usePostgreSQL,
+      ownerEmail: subscriberEmail,
+      ownerSubscriberId: subscriberId,
+    });
+    const shiftContext = openShift
+      ? getShiftOperationalContext(openShift, storeSettings, new Date())
+      : null;
+
     const finalOrderData = normalizeOrderForPersistence({
       order_code,
       items,
@@ -198,7 +228,12 @@ export async function createTableOrder(orderData, slug) {
       customer_phone: customerPhone || null,
       customer_email: customerEmail || null,
       observations: observations || null,
-      created_date: new Date().toISOString()
+      created_date: new Date().toISOString(),
+      operational_date: shiftContext?.operationalDate || operationalDate,
+      operational_day_cutoff_time: shiftContext?.cutoffTime || storeSettings.cutoffTime,
+      operational_timezone: shiftContext?.timeZone || storeSettings.timeZone,
+      ...(openShift?.id ? { shift_id: String(openShift.id) } : {}),
+      ...(shiftContext?.turnLabel ? { turn_label: shiftContext.turnLabel } : {}),
     });
 
     let newOrder;
@@ -344,6 +379,24 @@ export async function createCardapioOrder(orderData, slug) {
 
   const total = roundMoney(Math.max(0, subtotal - discount + calculatedDeliveryFee));
 
+  const operationalCutoffTime = normalizeOperationalDayCutoffTime(store?.operational_day_cutoff_time);
+  const operationalTimeZone = String(
+    store?.operational_timezone || process.env.OPERATIONAL_TIMEZONE || 'America/Sao_Paulo'
+  ).trim() || 'America/Sao_Paulo';
+  const operationalDate = resolveOperationalDate(new Date(), operationalCutoffTime, operationalTimeZone);
+  const openShift = await findOpenCaixaForTenant({
+    repo,
+    db: getDb(),
+    usePostgreSQL,
+    ownerEmail: subscriberEmail,
+    ownerSubscriberId: subscriberId,
+  });
+  const shiftContext = openShift
+    ? getShiftOperationalContext(openShift, {
+        cutoffTime: operationalCutoffTime,
+        timeZone: operationalTimeZone,
+      }, new Date())
+    : null;
   const order_code = generateOrderCode();
   const finalOrderData = normalizeOrderForPersistence({
     order_code,
@@ -370,7 +423,12 @@ export async function createCardapioOrder(orderData, slug) {
     status: 'new',
     source: 'public',
     created_date: new Date().toISOString(),
-    owner_email: subscriberEmail
+    owner_email: subscriberEmail,
+    operational_date: shiftContext?.operationalDate || operationalDate,
+    operational_day_cutoff_time: shiftContext?.cutoffTime || operationalCutoffTime,
+    operational_timezone: shiftContext?.timeZone || operationalTimeZone,
+    ...(openShift?.id ? { shift_id: String(openShift.id) } : {}),
+    ...(shiftContext?.turnLabel ? { turn_label: shiftContext.turnLabel } : {}),
   });
 
   let transactionClient = null;

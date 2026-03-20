@@ -428,8 +428,11 @@ function generateReceiptContent(saleData, store) {
  */
 function generateClosingReportContent(reportData) {
   const {
+    storeName,
     operatorName,
     terminalName,
+    operationalDate,
+    turnLabel,
     dhInicial,
     dhFinal,
     abertura,
@@ -448,10 +451,15 @@ function generateClosingReportContent(reportData) {
     qtdDinheiro,
     totalPix,
     qtdPix,
+    totalOutro,
+    qtdOutro,
     totalTroco,
     totalDesconto,
     totalAcrescimo,
     qtdeCupons,
+    expectedBalance,
+    closingBalance,
+    differenceAmount,
     canceladosEmTela = 0,
     canceladosEmTelaValor = 0
   } = reportData;
@@ -462,8 +470,11 @@ function generateClosingReportContent(reportData) {
       
       <div class="lineText">${DASH_LINE}</div>
       
+      ${storeName ? `<div class="center bold">${storeName}</div>` : ''}
       <div>OPERADOR: ${operatorName || '-'}</div>
       <div>CAIXA: ${terminalName || '1'}</div>
+      ${operationalDate ? `<div>DIA OPERACIONAL: ${operationalDate}</div>` : ''}
+      ${turnLabel ? `<div>TURNO: ${turnLabel}</div>` : ''}
       <div>DH INICIAL: ${dhInicial || '-'}</div>
       <div>DH FINAL: ${dhFinal || '(CAIXA ABERTO)'}</div>
       
@@ -496,10 +507,22 @@ function generateClosingReportContent(reportData) {
       </div>
       ` : ''}
       <div class="item-3col bold">
-        <div>(=)SALDO EM CAIXA</div>
+        <div>(=)SALDO ESPERADO</div>
         <div></div>
-        <div class="text-right">${formatCurrency(saldoEmCaixa || 0)}</div>
+        <div class="text-right">${formatCurrency(expectedBalance ?? saldoEmCaixa ?? 0)}</div>
       </div>
+      ${closingBalance != null ? `
+      <div class="item-3col">
+        <div>(=)SALDO INFORMADO</div>
+        <div></div>
+        <div class="text-right">${formatCurrency(closingBalance)}</div>
+      </div>
+      <div class="item-3col bold">
+        <div>(=)DIFERENCA</div>
+        <div></div>
+        <div class="text-right">${formatCurrency(differenceAmount || 0)}</div>
+      </div>
+      ` : ''}
       
       <div class="lineText">${DASH_LINE}</div>
       <div class="bold">FORMA DE PAGAMENTO</div>
@@ -525,6 +548,13 @@ function generateClosingReportContent(reportData) {
         <div class="text-right">${qtdPix || 0}</div>
         <div class="text-right">${formatCurrency(totalPix || 0)}</div>
       </div>
+      ${(Number(totalOutro) || 0) > 0 ? `
+      <div class="item-3col">
+        <div>OUTROS</div>
+        <div class="text-right">${qtdOutro || 0}</div>
+        <div class="text-right">${formatCurrency(totalOutro || 0)}</div>
+      </div>
+      ` : ''}
       <div class="item-3col bold">
         <div>TOTAL</div>
         <div></div>

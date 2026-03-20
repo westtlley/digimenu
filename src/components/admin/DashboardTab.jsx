@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,12 +9,11 @@ import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { 
   Share2, DollarSign, ExternalLink, Info, CheckCircle, Clock, 
-  Package, TrendingUp, ShoppingCart, Users, AlertCircle, Copy, Download
+  Package, ShoppingCart, Users, AlertCircle, Copy, Download
 } from 'lucide-react';
 import { formatBrazilianDateTime } from '@/components/utils/dateUtils';
 import moment from 'moment';
 import StatCard from '@/components/ui/StatCard';
-import { SkeletonStats } from '@/components/ui/skeleton';
 import DashboardMetrics from './DashboardMetrics';
 import DashboardCharts from './DashboardCharts';
 import DashboardAdvancedAnalytics from './DashboardAdvancedAnalytics';
@@ -34,6 +33,12 @@ import {
   isOrderNewForGestor,
 } from '@/utils/orderLifecycle';
 import { getMenuContextEntityOpts, getMenuContextQueryKeyParts } from '@/utils/tenantScope';
+import {
+  buildOperationalRange,
+  getEntityOperationalDate,
+  isRecordInOperationalRange,
+  normalizeOperationalDayCutoffTime,
+} from '@/utils/operationalShift';
 
 export default function DashboardTab({ user, subscriberData, onNavigateToTab }) {
   const [copiedLink, setCopiedLink] = useState(false);
@@ -49,6 +54,7 @@ export default function DashboardTab({ user, subscriberData, onNavigateToTab }) 
     enabled: !!menuContext,
   });
   const store = stores[0];
+  const operationalCutoffTime = normalizeOperationalDayCutoffTime(store?.operational_day_cutoff_time);
 
   // ✅ CORREÇÃO: Usar hook useOrders com contexto automático
   const { data: orders = [] } = useOrders({
@@ -96,13 +102,55 @@ export default function DashboardTab({ user, subscriberData, onNavigateToTab }) 
   );
 
   // Cálculos: exclui cancelados; faturamento só de entregues
-  const today = moment().startOf('day');
-  const todayOrders = safeOrders.filter((order) => moment(order.created_date).isSame(today, 'day') && !isOrderCancelled(order));
-  const todayRevenue = todayOrders.filter(isOrderDelivered).reduce((sum, order) => sum + (order.total || 0), 0);
-  
-  const thisMonth = moment().startOf('month');
-  const monthOrders = safeOrders.filter((order) => moment(order.created_date).isSameOrAfter(thisMonth) && !isOrderCancelled(order));
-  const monthRevenue = monthOrders.filter(isOrderDelivered).reduce((sum, order) => sum + (order.total || 0), 0);
+  const todayOperationalRange = useMemo(
+    () => buildOperationalRange('today', operationalCutoffTime),
+    [operationalCutoffTime]
+  );
+  const monthOperationalRange = useMemo(
+    () => buildOperationalRange('month', operationalCutoffTime),
+    [operationalCutoffTime]
+  );
+  const todayOrders = safeOrders.filter((order) => (
+    !isOrderCancelled(order) &&
+    isRecordInOperationalRange(
+      order,
+      todayOperationalRange.startKey,
+      todayOperationalRange.endKey,
+      operationalCutoffTime
+    )
+  ));
+  const todayRevenue = (
+    todayOrders.filter(isOrderDelivered).reduce((sum, order) => sum + Number(order.total || 0), 0) +
+    safePdvSales
+      .filter((sale) => isRecordInOperationalRange(
+        sale,
+        todayOperationalRange.startKey,
+        todayOperationalRange.endKey,
+        operationalCutoffTime
+      ))
+      .reduce((sum, sale) => sum + Number(sale.total || 0), 0)
+  );
+
+  const monthOrders = safeOrders.filter((order) => (
+    !isOrderCancelled(order) &&
+    isRecordInOperationalRange(
+      order,
+      monthOperationalRange.startKey,
+      monthOperationalRange.endKey,
+      operationalCutoffTime
+    )
+  ));
+  const monthRevenue = (
+    monthOrders.filter(isOrderDelivered).reduce((sum, order) => sum + Number(order.total || 0), 0) +
+    safePdvSales
+      .filter((sale) => isRecordInOperationalRange(
+        sale,
+        monthOperationalRange.startKey,
+        monthOperationalRange.endKey,
+        operationalCutoffTime
+      ))
+      .reduce((sum, sale) => sum + Number(sale.total || 0), 0)
+  );
 
   const newOrders = safeOrders.filter(isOrderNewForGestor).length;
   const preparingOrders = safeOrders.filter(
@@ -146,9 +194,10 @@ export default function DashboardTab({ user, subscriberData, onNavigateToTab }) 
   };
 
   const exportOrdersCSV = () => {
-    const headers = ['Data', 'Código', 'Cliente', 'Status', 'Pagamento', 'Total'];
+    const headers = ['Dia Operacional', 'Data/Hora', 'Código', 'Cliente', 'Status', 'Pagamento', 'Total'];
     const rows = safeOrders.map((o) => [
-      formatBrazilianDateTime(o.created_date),
+      getEntityOperationalDate(o, operationalCutoffTime) || '-',
+      formatBrazilianDateTime(o.created_at || o.created_date),
       o.order_code || o.id?.toString().slice(-6),
       o.customer_name || '',
       statusLabel(o),
@@ -183,10 +232,21 @@ export default function DashboardTab({ user, subscriberData, onNavigateToTab }) 
       </div>
 
       {/* KPIs essenciais (primeira dobra) */}
-      <DashboardMetrics orders={safeOrders} dishes={safeDishes} pdvSales={safePdvSales} />
+      <DashboardMetrics
+        orders={safeOrders}
+        dishes={safeDishes}
+        pdvSales={safePdvSales}
+        operationalCutoffTime={operationalCutoffTime}
+      />
 
       {/* Gráficos de Vendas: no máximo 2 úteis (condicional por shouldShowChart) */}
-      {(safeOrders.length > 0 || safePdvSales.length > 0) && <DashboardCharts orders={safeOrders} pdvSales={safePdvSales} />}
+      {(safeOrders.length > 0 || safePdvSales.length > 0) && (
+        <DashboardCharts
+          orders={safeOrders}
+          pdvSales={safePdvSales}
+          operationalCutoffTime={operationalCutoffTime}
+        />
+      )}
       {menuContext && <CommercialAnalyticsPanel menuContext={menuContext} />}
 
       {/* Stats Cards Rápidos */}
@@ -271,10 +331,11 @@ export default function DashboardTab({ user, subscriberData, onNavigateToTab }) 
 
       {/* Análises Avançadas (Indicadores + Métodos + Insights colapsáveis) */}
       {safeOrders.length > 0 && (
-        <DashboardAdvancedAnalytics 
-          orders={safeOrders} 
-          dishes={safeDishes} 
-          categories={safeCategories} 
+        <DashboardAdvancedAnalytics
+          orders={safeOrders}
+          dishes={safeDishes}
+          categories={safeCategories}
+          operationalCutoffTime={operationalCutoffTime}
         />
       )}
 

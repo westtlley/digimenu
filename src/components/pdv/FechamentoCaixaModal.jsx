@@ -4,11 +4,16 @@ import { Button } from '@/components/ui/button';
 import { Printer, Lock, LogOut } from 'lucide-react';
 import { formatCurrency } from '@/utils/formatters';
 import { printCashClosingReport } from '@/utils/thermalPrint';
+import {
+  buildCaixaShiftSummary,
+  formatOperationalDateLabel,
+  getCaixaClosedAt,
+  getCaixaOpenedAt,
+} from '@/utils/operationalShift';
 
 /**
- * Modal de Fechamento de Caixa – modelo igual aos prints (relatório + formas de pagamento + adicionais).
- * Props: open, onOpenChange, caixa, operations (desta caixa), storeName, operatorName, terminalName,
- * onPrint, onFecharClick (parent deve envolver com requireAuthorization('fechar_caixa', ...))
+ * Modal de fechamento de caixa.
+ * Mantem o layout anterior, mas usa o resumo operacional do turno.
  */
 export default function FechamentoCaixaModal({
   open,
@@ -20,37 +25,51 @@ export default function FechamentoCaixaModal({
   terminalName = '',
   canceledInScreenCount = 0,
   canceledInScreenTotal = 0,
+  operationalCutoffTime = '05:00',
   onPrint,
   onFecharClick,
 }) {
   if (!caixa) return null;
 
-  const ops = operations.filter((op) => String(op.caixa_id) === String(caixa.id));
-  const vendas = ops.filter((op) => op.type === 'venda_pdv');
-  const sangrias = ops.filter((op) => op.type === 'sangria');
-  const suprimentos = ops.filter((op) => op.type === 'suprimento');
+  const summary = buildCaixaShiftSummary({
+    caixa,
+    operations,
+    closingBalance: caixa?.closing_balance ?? caixa?.closing_amount_cash ?? null,
+    canceledCount: canceledInScreenCount,
+    canceledAmount: canceledInScreenTotal,
+    cutoffTime: operationalCutoffTime,
+  });
 
-  const totalCredito = vendas.filter((op) => op.payment_method === 'credito').reduce((s, op) => s + op.amount, 0);
-  const totalDebito = vendas.filter((op) => op.payment_method === 'debito').reduce((s, op) => s + op.amount, 0);
-  const totalDinheiro = vendas.filter((op) => op.payment_method === 'dinheiro').reduce((s, op) => s + op.amount, 0);
-  const totalPix = vendas.filter((op) => op.payment_method === 'pix').reduce((s, op) => s + op.amount, 0);
-  const totalOutro = vendas.filter((op) => op.payment_method === 'outro').reduce((s, op) => s + op.amount, 0);
-  const qtdDinheiro = vendas.filter((op) => op.payment_method === 'dinheiro').length;
-  const totalVendas = totalCredito + totalDebito + totalDinheiro + totalPix + totalOutro;
+  const totalCredito = summary.paymentTotals.credit;
+  const totalDebito = summary.paymentTotals.debit;
+  const totalDinheiro = summary.paymentTotals.cash;
+  const totalPix = summary.paymentTotals.pix;
+  const totalOutro = summary.paymentTotals.other;
+  const qtdDinheiro = summary.sales.filter((operation) => operation.payment_method === 'dinheiro').length;
+  const qtdCredito = summary.sales.filter((operation) => operation.payment_method === 'credito').length;
+  const qtdDebito = summary.sales.filter((operation) => operation.payment_method === 'debito').length;
+  const qtdPix = summary.sales.filter((operation) => operation.payment_method === 'pix').length;
+  const qtdOutro = summary.sales.filter((operation) => operation.payment_method === 'outro').length;
 
-  const abertura = Number(caixa.opening_amount_cash) || 0;
-  const totalSangrias = sangrias.reduce((s, op) => s + op.amount, 0);
-  const totalSuprimentos = suprimentos.reduce((s, op) => s + op.amount, 0);
-  const saldoEmCaixa = abertura + totalDinheiro + totalSuprimentos - totalSangrias;
-
-  const totalTroco = vendas.reduce((s, op) => s + (op.change || 0), 0);
-  const qtdeCupons = vendas.length;
-
-  const dhInicial = caixa.opening_date
-    ? new Date(caixa.opening_date).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })
+  const dhInicial = getCaixaOpenedAt(caixa)
+    ? new Date(getCaixaOpenedAt(caixa)).toLocaleString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      })
     : '-';
-  const dhFinal = caixa.status === 'closed' && caixa.closing_date
-    ? new Date(caixa.closing_date).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })
+  const dhFinal = caixa.status === 'closed' && getCaixaClosedAt(caixa)
+    ? new Date(getCaixaClosedAt(caixa)).toLocaleString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      })
     : '(CAIXA ABERTO)';
   const origemFechamento = String(caixa?.closing_source || '').toLowerCase() === 'pdv'
     ? 'PDV'
@@ -66,38 +85,42 @@ export default function FechamentoCaixaModal({
       return;
     }
 
-    // Preparar dados para impressão térmica
-    const reportData = {
+    printCashClosingReport({
+      storeName,
       operatorName,
       terminalName,
+      operationalDate: summary.operationalDate,
+      turnLabel: caixa?.turn_label || summary.turnLabel,
       dhInicial,
       dhFinal,
-      abertura,
-      totalVendas,
-      qtdVendas: vendas.length,
-      totalSangrias,
-      qtdSangrias: sangrias.length,
-      totalSuprimentos,
-      qtdSuprimentos: suprimentos.length,
-      saldoEmCaixa,
+      abertura: summary.openingBalance,
+      totalVendas: summary.totalSales,
+      qtdVendas: summary.salesCount,
+      totalSangrias: summary.totalSangrias,
+      qtdSangrias: summary.sangrias.length,
+      totalSuprimentos: summary.totalSuprimentos,
+      qtdSuprimentos: summary.suprimentos.length,
+      saldoEmCaixa: summary.expectedBalance,
+      expectedBalance: summary.expectedBalance,
+      closingBalance: summary.closingBalance,
+      differenceAmount: summary.differenceAmount,
       totalCredito,
-      qtdCredito: vendas.filter(op => op.payment_method === 'credito').length,
+      qtdCredito,
       totalDebito,
-      qtdDebito: vendas.filter(op => op.payment_method === 'debito').length,
+      qtdDebito,
       totalDinheiro,
       qtdDinheiro,
       totalPix,
-      qtdPix: vendas.filter(op => op.payment_method === 'pix').length,
-      totalTroco,
-      totalDesconto: 0, // TODO: calcular se houver desconto nas vendas
-      totalAcrescimo: 0, // TODO: calcular se houver acréscimo nas vendas
-      qtdeCupons,
+      qtdPix,
+      totalOutro,
+      qtdOutro,
+      totalTroco: summary.totalChange,
+      totalDesconto: 0,
+      totalAcrescimo: 0,
+      qtdeCupons: summary.salesCount,
       canceladosEmTela: canceledInScreenCount,
-      canceladosEmTelaValor: canceledInScreenTotal
-    };
-
-    // Usar função de impressão térmica
-    printCashClosingReport(reportData, 'css');
+      canceladosEmTelaValor: canceledInScreenTotal,
+    }, 'css');
   };
 
   return (
@@ -108,10 +131,12 @@ export default function FechamentoCaixaModal({
         </DialogHeader>
 
         <div ref={refImprimir} className="flex-1 overflow-y-auto px-6 py-4 space-y-4 text-sm">
-          <div className="text-center font-bold text-base">RELATÓRIO DE FECHAMENTO</div>
+          <div className="text-center font-bold text-base">RELATORIO DE FECHAMENTO</div>
           <div className="space-y-1">
             <p><strong>OPERADOR:</strong> {operatorName || caixa.opened_by || '-'}</p>
-            <p><strong>CAIXA:</strong> {terminalName || caixa.id || '1'}</p>
+            <p><strong>CAIXA:</strong> {terminalName || caixa.terminal_name || caixa.id || '1'}</p>
+            <p><strong>DIA OPERACIONAL:</strong> {formatOperationalDateLabel(summary.operationalDate)}</p>
+            {caixa?.turn_label && <p><strong>TURNO:</strong> {caixa.turn_label}</p>}
             <p><strong>DH INICIAL:</strong> {dhInicial}</p>
             <p><strong>DH FINAL:</strong> {dhFinal}</p>
             {caixa.status === 'closed' && (
@@ -120,24 +145,52 @@ export default function FechamentoCaixaModal({
           </div>
 
           <div className="line" />
-          <div className="font-semibold">MOVIMENTAÇÕES</div>
+          <div className="font-semibold">MOVIMENTACOES</div>
           <table className="w-full text-sm">
             <tbody>
               <tr>
                 <td>(+) ABERTURA DE CAIXA</td>
                 <td>1</td>
-                <td className="text-right">{formatCurrency(abertura)}</td>
+                <td className="text-right">{formatCurrency(summary.openingBalance)}</td>
               </tr>
               <tr>
                 <td>(+) VENDAS EM DINHEIRO</td>
                 <td>{qtdDinheiro}</td>
                 <td className="text-right">{formatCurrency(totalDinheiro)}</td>
               </tr>
+              {summary.totalSuprimentos > 0 && (
+                <tr>
+                  <td>(+) SUPRIMENTOS</td>
+                  <td>{summary.suprimentos.length}</td>
+                  <td className="text-right">{formatCurrency(summary.totalSuprimentos)}</td>
+                </tr>
+              )}
+              {summary.totalSangrias > 0 && (
+                <tr>
+                  <td>(-) SANGRIAS</td>
+                  <td>{summary.sangrias.length}</td>
+                  <td className="text-right">-{formatCurrency(summary.totalSangrias)}</td>
+                </tr>
+              )}
               <tr className="font-bold">
-                <td>(=) SALDO EM CAIXA</td>
+                <td>(=) SALDO ESPERADO</td>
                 <td></td>
-                <td className="text-right">{formatCurrency(saldoEmCaixa)}</td>
+                <td className="text-right">{formatCurrency(summary.expectedBalance)}</td>
               </tr>
+              {summary.closingBalance != null && (
+                <>
+                  <tr>
+                    <td>(=) SALDO INFORMADO</td>
+                    <td></td>
+                    <td className="text-right">{formatCurrency(summary.closingBalance)}</td>
+                  </tr>
+                  <tr className={`font-bold ${summary.differenceAmount === 0 ? '' : summary.differenceAmount > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    <td>(=) DIFERENCA</td>
+                    <td></td>
+                    <td className="text-right">{formatCurrency(summary.differenceAmount)}</td>
+                  </tr>
+                </>
+              )}
             </tbody>
           </table>
 
@@ -145,12 +198,12 @@ export default function FechamentoCaixaModal({
           <div className="font-semibold">FORMA DE PAGAMENTO</div>
           <table className="w-full text-sm">
             <tbody>
-              <tr><td>C. CRÉDITO</td><td>{vendas.filter(o => o.payment_method === 'credito').length}</td><td className="text-right">{formatCurrency(totalCredito)}</td></tr>
-              <tr><td>C. DÉBITO</td><td>{vendas.filter(o => o.payment_method === 'debito').length}</td><td className="text-right">{formatCurrency(totalDebito)}</td></tr>
-              <tr><td>DINHEIRO</td><td>{vendas.filter(o => o.payment_method === 'dinheiro').length}</td><td className="text-right">{formatCurrency(totalDinheiro)}</td></tr>
-              <tr><td>PIX</td><td>{vendas.filter(o => o.payment_method === 'pix').length}</td><td className="text-right">{formatCurrency(totalPix)}</td></tr>
-              <tr><td>OUTROS</td><td>{vendas.filter(o => o.payment_method === 'outro').length}</td><td className="text-right">{formatCurrency(totalOutro)}</td></tr>
-              <tr className="font-bold"><td>TOTAL</td><td></td><td className="text-right">{formatCurrency(totalVendas)}</td></tr>
+              <tr><td>C. CREDITO</td><td>{qtdCredito}</td><td className="text-right">{formatCurrency(totalCredito)}</td></tr>
+              <tr><td>C. DEBITO</td><td>{qtdDebito}</td><td className="text-right">{formatCurrency(totalDebito)}</td></tr>
+              <tr><td>DINHEIRO</td><td>{qtdDinheiro}</td><td className="text-right">{formatCurrency(totalDinheiro)}</td></tr>
+              <tr><td>PIX</td><td>{qtdPix}</td><td className="text-right">{formatCurrency(totalPix)}</td></tr>
+              <tr><td>OUTROS</td><td>{qtdOutro}</td><td className="text-right">{formatCurrency(totalOutro)}</td></tr>
+              <tr className="font-bold"><td>TOTAL</td><td></td><td className="text-right">{formatCurrency(summary.totalSales)}</td></tr>
             </tbody>
           </table>
 
@@ -174,8 +227,8 @@ export default function FechamentoCaixaModal({
           <div className="font-semibold">ADICIONAIS</div>
           <table className="w-full text-sm">
             <tbody>
-              <tr><td>TROCO</td><td className="text-right">{formatCurrency(totalTroco)}</td></tr>
-              <tr><td>QTDE CUPONS</td><td className="text-right">{qtdeCupons}</td></tr>
+              <tr><td>TROCO</td><td className="text-right">{formatCurrency(summary.totalChange)}</td></tr>
+              <tr><td>QTDE CUPONS</td><td className="text-right">{summary.salesCount}</td></tr>
             </tbody>
           </table>
         </div>

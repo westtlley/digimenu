@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Search, Calendar, User, DollarSign, Filter, Download, Eye, X, Package, Phone, MapPin, CreditCard } from 'lucide-react';
@@ -15,6 +15,14 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { usePermission } from '@/components/permissions/usePermission';
 import { useOrders } from '@/hooks/useOrders';
+import { getMenuContextEntityOpts, getMenuContextQueryKeyParts } from '@/utils/tenantScope';
+import {
+  buildCustomOperationalRange,
+  buildOperationalRange,
+  formatOperationalDateLabel,
+  getEntityOperationalDate,
+  normalizeOperationalDayCutoffTime,
+} from '@/utils/operationalShift';
 
 const statusConfig = {
   new: { label: 'Novo', color: 'bg-blue-500' },
@@ -29,7 +37,7 @@ const statusConfig = {
 const isOrderPDV = (o) => !!(o?.order_code?.startsWith('PDV-') || o?.delivery_method === 'balcao');
 
 export default function OrderHistoryTab() {
-  const { subscriberData, isMaster } = usePermission();
+  const { subscriberData, isMaster, menuContext } = usePermission();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterPayment, setFilterPayment] = useState('all');
@@ -42,6 +50,8 @@ export default function OrderHistoryTab() {
   const [showFilters, setShowFilters] = useState(false);
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
+  const menuContextQueryKey = getMenuContextQueryKeyParts(menuContext);
+  const scopedEntityOpts = getMenuContextEntityOpts(menuContext);
   
   // Verificar se tem acesso a funcionalidades avançadas (apenas Pro e Ultra)
   const hasAdvancedAccess = isMaster || 
@@ -51,6 +61,16 @@ export default function OrderHistoryTab() {
   const { data: orders = [], isLoading } = useOrders({
     orderBy: '-created_date'
   });
+  const { data: stores = [] } = useQuery({
+    queryKey: ['orderHistoryStore', ...menuContextQueryKey],
+    queryFn: async () => {
+      if (!menuContext) return [];
+      return base44.entities.Store.list(null, scopedEntityOpts);
+    },
+    enabled: !!menuContext,
+  });
+  const store = stores[0] || null;
+  const operationalCutoffTime = normalizeOperationalDayCutoffTime(store?.operational_day_cutoff_time);
 
   // Pull to refresh
   const { isRefreshing } = usePullToRefresh(() => {
@@ -61,35 +81,31 @@ export default function OrderHistoryTab() {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
   };
 
+  const getDisplayDate = (order) => order?.created_at || order?.created_date || null;
+  const getOperationalDate = (order) => getEntityOperationalDate(order, operationalCutoffTime);
+  const formatOrderDateTime = (order) => {
+    const date = getDisplayDate(order);
+    return date ? formatBrazilianDateTime(date) : '-';
+  };
+  const formatOrderOperationalDate = (order) => formatOperationalDateLabel(getOperationalDate(order));
+
   const filterByDate = (order) => {
-    if (!order.created_date) return false;
-    const orderDate = new Date(order.created_date);
-    const today = new Date();
-    
     if (dateFilter === 'custom') {
-      if (!customDateStart || !customDateEnd) return false;
-      const start = new Date(customDateStart);
-      const end = new Date(customDateEnd);
-      end.setHours(23, 59, 59, 999);
-      return orderDate >= start && orderDate <= end;
+      const { startKey, endKey } = buildCustomOperationalRange(
+        customDateStart,
+        customDateEnd,
+        operationalCutoffTime
+      );
+      if (!startKey || !endKey) return false;
+      const operationalDate = getOperationalDate(order);
+      return !!operationalDate && operationalDate >= startKey && operationalDate <= endKey;
     }
-    
-    switch (dateFilter) {
-      case 'today':
-        return orderDate.toDateString() === today.toDateString();
-      case 'week':
-        const weekAgo = new Date(today);
-        weekAgo.setDate(today.getDate() - 7);
-        return orderDate >= weekAgo;
-      case 'month':
-        const monthAgo = new Date(today);
-        monthAgo.setMonth(today.getMonth() - 1);
-        return orderDate >= monthAgo;
-      case 'all':
-        return true;
-      default:
-        return true;
-    }
+
+    const { startKey, endKey } = buildOperationalRange(dateFilter, operationalCutoffTime);
+    if (!startKey || !endKey) return true;
+
+    const operationalDate = getOperationalDate(order);
+    return !!operationalDate && operationalDate >= startKey && operationalDate <= endKey;
   };
 
   const filteredOrders = orders.filter(order => {
@@ -112,9 +128,10 @@ export default function OrderHistoryTab() {
     .reduce((sum, o) => sum + (o.total || 0), 0);
 
   const exportToCSV = () => {
-    const headers = ['Data', 'Código', 'Cliente', 'Status', 'Pagamento', 'Total'];
+    const headers = ['Dia Operacional', 'Data/Hora', 'Código', 'Cliente', 'Status', 'Pagamento', 'Total'];
     const rows = filteredOrders.map(o => [
-      formatBrazilianDateTime(o.created_date),
+      formatOrderOperationalDate(o),
+      formatOrderDateTime(o),
       o.order_code || o.id?.slice(-6),
       o.customer_name,
       statusConfig[o.status]?.label || o.status,
@@ -435,7 +452,7 @@ export default function OrderHistoryTab() {
                       </div>
                       <h3 className="font-bold text-sm mb-1 truncate">{order.customer_name}</h3>
                       <p className="text-xs text-muted-foreground">
-                        {order.created_date && formatBrazilianDateTime(order.created_date)}
+                        {formatOrderDateTime(order)} · op. {formatOrderOperationalDate(order)}
                       </p>
                     </div>
                     <Button
@@ -504,7 +521,8 @@ export default function OrderHistoryTab() {
                     setShowDetailModal(true);
                   }}>
                     <td className="px-4 py-3 text-sm">
-                      {order.created_date && formatBrazilianDateTime(order.created_date)}
+                      <div>{formatOrderDateTime(order)}</div>
+                      <div className="text-xs text-muted-foreground">op. {formatOrderOperationalDate(order)}</div>
                     </td>
                     <td className="px-4 py-3 text-sm font-medium">
                       #{order.order_code || order.id?.slice(-6)}
@@ -591,7 +609,8 @@ export default function OrderHistoryTab() {
                 </div>
                 <div>
                   <p className="text-xs sm:text-sm text-muted-foreground mb-1">Data</p>
-                  <p className="font-semibold text-xs sm:text-sm">{formatBrazilianDateTime(selectedOrder.created_date)}</p>
+                  <p className="font-semibold text-xs sm:text-sm">{formatOrderDateTime(selectedOrder)}</p>
+                  <p className="text-[11px] text-muted-foreground mt-1">Dia operacional: {formatOrderOperationalDate(selectedOrder)}</p>
                 </div>
                 <div>
                   <p className="text-xs sm:text-sm text-muted-foreground mb-1">Status</p>

@@ -53,6 +53,7 @@ import { createEntityAccessGuard } from './modules/entities/entityAccessGuard.js
 import { createEntityHandlers } from './modules/entities/entityHandlers.js';
 import { createEntityBulkHandler } from './modules/entities/entityBulkHandler.js';
 import { createFinalizeSaleHandler } from './modules/pdv/finalizeSaleHandler.js';
+import { createCaixaShiftHandlers } from './modules/caixa/caixaShiftHandlers.js';
 import { createManagerialAuthHandlers } from './modules/managerialAuth/managerialAuthHandlers.js';
 import analyticsRoutes from './routes/analytics.routes.js';
 import backupRoutes from './routes/backup.routes.js';
@@ -406,6 +407,14 @@ const finalizeSaleHandler = createFinalizeSaleHandler({
   applyRequestedTenantScope,
   enforceEntityWriteAccess,
   finalizePdvSaleAtomic,
+});
+
+const caixaShiftHandlers = createCaixaShiftHandlers({
+  repo,
+  db,
+  usePostgreSQL,
+  applyRequestedTenantScope,
+  enforceEntityWriteAccess,
 });
 
 const managerialAuthHandlers = createManagerialAuthHandlers({
@@ -889,6 +898,24 @@ app.post(
   authenticate,
   createLimiter,
   asyncHandler(finalizeSaleHandler)
+);
+app.post(
+  '/api/caixa/open',
+  authenticate,
+  createLimiter,
+  asyncHandler(caixaShiftHandlers.openShift)
+);
+app.post(
+  '/api/caixa/movement',
+  authenticate,
+  createLimiter,
+  asyncHandler(caixaShiftHandlers.createMovement)
+);
+app.post(
+  '/api/caixa/:id/close',
+  authenticate,
+  createLimiter,
+  asyncHandler(caixaShiftHandlers.closeShift)
 );
 
 // =======================

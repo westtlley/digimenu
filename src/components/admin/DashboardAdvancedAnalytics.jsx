@@ -8,6 +8,12 @@ import { Clock, CreditCard, TrendingUp, Users, AlertTriangle, Calendar, Target, 
 import { useTheme } from '@/components/theme/ThemeProvider';
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import {
+  buildOperationalRange,
+  getEntityOperationalDate,
+  isRecordInOperationalRange,
+  shiftOperationalDate,
+} from '@/utils/operationalShift';
 
 const COLORS = ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'];
 
@@ -44,8 +50,12 @@ function getStorageItem(key) {
   }
 }
 
-export default function DashboardAdvancedAnalytics({ orders = [], dishes = [], categories = [] }) {
-  const [period, setPeriod] = useState('7');
+export default function DashboardAdvancedAnalytics({
+  orders = [],
+  dishes = [],
+  categories = [],
+  operationalCutoffTime = '05:00',
+}) {
   const [revenueTarget, setRevenueTarget] = useState(() => readRevenueTarget());
   const { isDark } = useTheme();
 
@@ -65,7 +75,7 @@ export default function DashboardAdvancedAnalytics({ orders = [], dishes = [], c
     
     const validOrders = (orders || []).filter(o => o.status !== 'cancelled');
     validOrders.forEach(order => {
-      const hour = moment(order.created_date).hour();
+      const hour = moment(order.created_at || order.created_date).hour();
       hours[hour].orders += 1;
       if (order.status === 'delivered') {
         hours[hour].revenue += order.total || 0;
@@ -76,12 +86,13 @@ export default function DashboardAdvancedAnalytics({ orders = [], dishes = [], c
       ...h,
       label: `${h.hour.toString().padStart(2, '0')}:00`
     }));
-  }, [orders]);
+  }, [orders, operationalCutoffTime]);
 
   // Análise de Métodos de Pagamento
   const paymentMethodsData = useMemo(() => {
     const methods = {};
     const validOrders = (orders || []).filter(o => o.status === 'delivered');
+    const operationalToday = buildOperationalRange('today', operationalCutoffTime).startKey;
     
     validOrders.forEach(order => {
       const method = order.payment_method || 'Não informado';
@@ -132,7 +143,10 @@ export default function DashboardAdvancedAnalytics({ orders = [], dishes = [], c
     
     const validOrders = (orders || []).filter(o => o.status !== 'cancelled');
     validOrders.forEach(order => {
-      const dayOfWeek = moment(order.created_date).day();
+      const operationalDate = getEntityOperationalDate(order, operationalCutoffTime);
+      const dayOfWeek = operationalDate
+        ? moment(operationalDate, 'YYYY-MM-DD').day()
+        : moment(order.created_at || order.created_date).day();
       weekData[dayOfWeek].orders += 1;
       if (order.status === 'delivered') {
         weekData[dayOfWeek].revenue += order.total || 0;
@@ -140,7 +154,7 @@ export default function DashboardAdvancedAnalytics({ orders = [], dishes = [], c
     });
 
     return weekData;
-  }, [orders]);
+  }, [orders, operationalCutoffTime]);
 
   // Taxa de Cancelamento
   const cancellationRate = useMemo(() => {
@@ -152,15 +166,15 @@ export default function DashboardAdvancedAnalytics({ orders = [], dishes = [], c
   // Tempo Médio de Preparo
   const avgPrepTime = useMemo(() => {
     const deliveredOrders = orders.filter(o => 
-      o.status === 'delivered' && 
-      o.created_date && 
+      o.status === 'delivered' &&
+      (o.created_at || o.created_date) &&
       o.delivered_date
     );
     
     if (deliveredOrders.length === 0) return null;
     
     const totalMinutes = deliveredOrders.reduce((sum, order) => {
-      const start = moment(order.created_date);
+      const start = moment(order.created_at || order.created_date);
       const end = moment(order.delivered_date);
       return sum + end.diff(start, 'minutes');
     }, 0);
@@ -193,9 +207,14 @@ export default function DashboardAdvancedAnalytics({ orders = [], dishes = [], c
 
   // Meta de Faturamento vs Realizado
   const revenueProgress = useMemo(() => {
-    const thisMonth = moment().startOf('month');
+    const monthRange = buildOperationalRange('month', operationalCutoffTime);
     const monthOrders = (orders || []).filter(o => 
-      moment(o.created_date).isSameOrAfter(thisMonth) && 
+      isRecordInOperationalRange(
+        o,
+        monthRange.startKey,
+        monthRange.endKey,
+        operationalCutoffTime
+      ) &&
       o.status === 'delivered'
     );
     const actualRevenue = monthOrders.reduce((sum, o) => sum + (o.total || 0), 0);
@@ -207,7 +226,7 @@ export default function DashboardAdvancedAnalytics({ orders = [], dishes = [], c
       progress: Math.min(progress, 100),
       remaining: Math.max(0, revenueTarget - actualRevenue)
     };
-  }, [orders, revenueTarget]);
+  }, [orders, revenueTarget, operationalCutoffTime]);
 
   // Taxa de Abandono de Carrinho
   const cartAbandonmentRate = useMemo(() => {
@@ -256,15 +275,16 @@ export default function DashboardAdvancedAnalytics({ orders = [], dishes = [], c
     const days = 7;
     const dailyRevenue = {};
     const validOrders = (orders || []).filter(o => o.status === 'delivered');
+    const operationalToday = buildOperationalRange('today', operationalCutoffTime).startKey;
     
     // Calcular receita por dia nos últimos 7 dias
     for (let i = 0; i < days; i++) {
-      const date = moment().subtract(i, 'days').startOf('day');
-      const dayOrders = validOrders.filter(o => 
-        moment(o.created_date).isSame(date, 'day')
+      const dateKey = shiftOperationalDate(operationalToday, -i);
+      const dayOrders = validOrders.filter(o =>
+        getEntityOperationalDate(o, operationalCutoffTime) === dateKey
       );
       const revenue = dayOrders.reduce((sum, o) => sum + (o.total || 0), 0);
-      dailyRevenue[date.format('YYYY-MM-DD')] = revenue;
+      dailyRevenue[dateKey] = revenue;
     }
     
     // Calcular média móvel
@@ -276,9 +296,9 @@ export default function DashboardAdvancedAnalytics({ orders = [], dishes = [], c
     // Previsão para os próximos 7 dias (usando tendência simples)
     const forecast = [];
     for (let i = 1; i <= 7; i++) {
-      const date = moment().add(i, 'days');
+      const dateKey = shiftOperationalDate(operationalToday, i);
       forecast.push({
-        date: date.format('DD/MM'),
+        date: moment(dateKey, 'YYYY-MM-DD').format('DD/MM'),
         predicted: avgRevenue * (1 + (i * 0.02)), // Crescimento de 2% por dia
         confidence: Math.max(60, 100 - (i * 5)) // Confiança diminui com o tempo
       });
@@ -291,7 +311,7 @@ export default function DashboardAdvancedAnalytics({ orders = [], dishes = [], c
         ? (values[0] > values[values.length - 1] ? 'up' : 'down')
         : 'stable'
     };
-  }, [orders]);
+  }, [orders, operationalCutoffTime]);
 
   // Taxa de Entrega (delivery rate)
   const deliveryRate = useMemo(() => {

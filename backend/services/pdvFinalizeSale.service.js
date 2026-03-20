@@ -1,5 +1,10 @@
 import { getClient } from '../db/postgres.js';
 import { decorateOrderEntity, normalizeOrderForPersistence } from '../utils/orderLifecycle.js';
+import * as repo from '../db/repository.js';
+import {
+  getShiftOperationalContext,
+  getStoreOperationalSettings,
+} from '../modules/caixa/operationalShift.js';
 
 const PAYMENT_METHODS = new Set(['dinheiro', 'pix', 'debito', 'credito', 'outro']);
 const PAYMENT_LABELS = {
@@ -336,7 +341,20 @@ export async function finalizePdvSaleAtomic({ user, ownerEmail, ownerSubscriberI
       };
     }
 
-    await assertOpenCaixaForTenant(transactionClient, caixaId, ownerEmail, ownerSubscriberId);
+    const openCaixa = await assertOpenCaixaForTenant(
+      transactionClient,
+      caixaId,
+      ownerEmail,
+      ownerSubscriberId
+    );
+    const storeSettings = await getStoreOperationalSettings({
+      repo,
+      db: null,
+      usePostgreSQL: true,
+      ownerEmail,
+      ownerSubscriberId,
+    });
+    const shiftContext = getShiftOperationalContext(openCaixa, storeSettings, new Date());
 
     const nowIso = new Date().toISOString();
     const orderCode = payload.order_code || generateOrderCode();
@@ -357,6 +375,11 @@ export async function finalizePdvSaleAtomic({ user, ownerEmail, ownerSubscriberI
       payment_amount: totalTendered,
       change: totalChange,
       caixa_id: caixaId,
+      shift_id: String(openCaixa.id || caixaId),
+      operational_date: shiftContext.operationalDate,
+      operational_day_cutoff_time: shiftContext.cutoffTime,
+      operational_timezone: shiftContext.timeZone,
+      turn_label: shiftContext.turnLabel,
       seller_email: payload.seller_email || operatorEmail,
       seller_name: operatorName,
       payments: normalizedPayments,
@@ -401,6 +424,11 @@ export async function finalizePdvSaleAtomic({ user, ownerEmail, ownerSubscriberI
           delivery_fee: 0,
           total,
           payment_method: buildPaymentSummary(normalizedPayments),
+          shift_id: String(openCaixa.id || caixaId),
+          operational_date: shiftContext.operationalDate,
+          operational_day_cutoff_time: shiftContext.cutoffTime,
+          operational_timezone: shiftContext.timeZone,
+          turn_label: shiftContext.turnLabel,
           created_by: operatorEmail || payload.seller_email || null,
           created_date: nowIso,
           ...(payload.pdv_terminal_id ? { pdv_terminal_id: payload.pdv_terminal_id } : {}),
@@ -453,6 +481,7 @@ export async function finalizePdvSaleAtomic({ user, ownerEmail, ownerSubscriberI
         subscriber_email: ownerEmail,
         client_request_id: clientRequestId,
         caixa_id: caixaId,
+        shift_id: String(openCaixa.id || caixaId),
         type: 'venda_pdv',
         description: `PDV #${orderCode} - ${pedidoData.customer_name} (${payment.methodLabel})`,
         amount: payment.amount,
@@ -463,6 +492,10 @@ export async function finalizePdvSaleAtomic({ user, ownerEmail, ownerSubscriberI
         pedido_pdv_entity_id: createdOrder.id,
         operator: operatorEmail,
         date: nowIso,
+        operational_date: shiftContext.operationalDate,
+        operational_day_cutoff_time: shiftContext.cutoffTime,
+        operational_timezone: shiftContext.timeZone,
+        turn_label: shiftContext.turnLabel,
       };
 
       const operationInsert = await transactionClient.query(

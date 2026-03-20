@@ -38,6 +38,7 @@ import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useEntitlements } from '@/hooks/useEntitlements';
 import { useOperationalOrdersRealtime } from '@/hooks/useOperationalOrdersRealtime';
 import { buildTenantEntityOpts, getScopedStorageKey, userMatchesTenant } from '@/utils/tenantScope';
+import { normalizeOperationalDayCutoffTime } from '@/utils/operationalShift';
 import { LimitBlockModal } from '@/components/plans';
 import {
   isOrderFinalized,
@@ -255,6 +256,7 @@ export default function GestorPedidos() {
     },
   });
   const store = stores[0] || { name: 'Gestor de Pedidos' };
+  const operationalCutoffTime = normalizeOperationalDayCutoffTime(store?.operational_day_cutoff_time);
   useDocumentHead(store);
 
   const loadGestorSettings = () => {
@@ -1051,6 +1053,7 @@ export default function GestorPedidos() {
               orders={orders}
               entregadores={entregadores}
               darkMode={false}
+              operationalCutoffTime={operationalCutoffTime}
             />
             <div className="rounded-2xl border border-border bg-card p-4">
               <p className="text-sm font-semibold text-foreground mb-2">Ações rápidas da operação</p>
@@ -1080,6 +1083,7 @@ export default function GestorPedidos() {
                 searchTerm={searchTerm}
                 onSearchChange={setSearchTerm}
                 entregadores={entregadores}
+                operationalCutoffTime={operationalCutoffTime}
               />
             </div>
             <Button
@@ -1111,11 +1115,12 @@ export default function GestorPedidos() {
               orders={orders}
               entregadores={entregadores}
               darkMode={false}
+              operationalCutoffTime={operationalCutoffTime}
             />
           </div>
         )}
         {viewMode === 'resumo' && (
-          <FinancialDashboard orders={orders} />
+          <FinancialDashboard orders={orders} operationalCutoffTime={operationalCutoffTime} />
         )}
         {viewMode === 'delivery' && (
           <DeliveryPanel entregadores={entregadores} orders={orders} stores={stores} asSub={asSub} asSubId={asSubId} />

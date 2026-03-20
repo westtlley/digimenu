@@ -39,6 +39,7 @@ export default function StoreTab() {
     theme_primary_color: '', theme_secondary_color: '', theme_accent_color: '',
     is_open: null, accepting_orders: true, pause_message: '',
     opening_time: '08:00', closing_time: '18:00', working_days: [1, 2, 3, 4, 5],
+    operational_day_cutoff_time: '05:00',
     cross_sell_config: {
       enabled: true,
       beverage_offer: {
@@ -188,6 +189,7 @@ export default function StoreTab() {
         opening_time: store.opening_time || '08:00',
         closing_time: store.closing_time || '18:00',
         working_days: store.working_days || [1, 2, 3, 4, 5],
+        operational_day_cutoff_time: store.operational_day_cutoff_time || '05:00',
         cross_sell_config: store.cross_sell_config || prev.cross_sell_config,
       }));
     }
@@ -806,6 +808,32 @@ export default function StoreTab() {
                   </div>
                 </>
               )}
+
+              <Separator />
+              <div>
+                <Label htmlFor="operational-day-cutoff-time" className="mb-2 block font-semibold">
+                  Virada Operacional do Caixa
+                </Label>
+                <div className="grid sm:grid-cols-[180px_1fr] gap-4 items-start">
+                  <Input
+                    id="operational-day-cutoff-time"
+                    type="time"
+                    value={formData.operational_day_cutoff_time || '05:00'}
+                    onChange={(e) => setFormData((prev) => ({
+                      ...prev,
+                      operational_day_cutoff_time: e.target.value || '05:00',
+                    }))}
+                  />
+                  <div className="text-xs text-gray-600 space-y-1">
+                    <p>
+                      Vendas e pedidos criados antes deste horario continuam no mesmo dia operacional anterior.
+                    </p>
+                    <p>
+                      Exemplo: com virada em 05:00, vendas feitas entre 00:00 e 04:59 continuam no turno operacional da noite anterior.
+                    </p>
+                  </div>
+                </div>
+              </div>
             </CardContent>
           </Card>
 

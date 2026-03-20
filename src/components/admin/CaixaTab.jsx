@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,6 +19,18 @@ import toast, { Toaster } from 'react-hot-toast';
 import { usePermission } from '../permissions/usePermission';
 import { useManagerialAuth } from '@/hooks/useManagerialAuth';
 import { getMenuContextEntityOpts, getMenuContextQueryKeyParts } from '@/utils/tenantScope';
+import {
+  buildCaixaShiftSummary,
+  formatOperationalDateLabel,
+  getCaixaClosedAt,
+  getCaixaOpenedAt,
+  normalizeOperationalDayCutoffTime,
+} from '@/utils/operationalShift';
+import {
+  closeCaixaShift,
+  createCaixaShiftMovement,
+  openCaixaShift,
+} from '@/services/caixaShiftService';
 
 export default function CaixaTab() {
   const [showOpenModal, setShowOpenModal] = useState(false);
@@ -43,7 +55,7 @@ export default function CaixaTab() {
   const caixaOperationsQueryKey = ['caixaOperations', ...menuContextQueryKey];
   const pdvSessionsQueryKey = ['pdvSessions', ...menuContextQueryKey];
 
-  // ✅ CORREÇÃO: Buscar caixas com contexto do slug
+  // âœ… CORREÃ‡ÃƒO: Buscar caixas com contexto do slug
   const { data: caixas = [] } = useQuery({
     queryKey: caixasQueryKey,
     queryFn: async () => {
@@ -53,7 +65,7 @@ export default function CaixaTab() {
     enabled: !!menuContext,
   });
 
-  // ✅ CORREÇÃO: Buscar operações com contexto do slug
+  // âœ… CORREÃ‡ÃƒO: Buscar operaÃ§Ãµes com contexto do slug
   const { data: operations = [] } = useQuery({
     queryKey: caixaOperationsQueryKey,
     queryFn: async () => {
@@ -63,7 +75,7 @@ export default function CaixaTab() {
     enabled: !!menuContext,
   });
 
-  // Sessões PDV ativas (multi-PDV: quem está em qual terminal)
+  // SessÃµes PDV ativas (multi-PDV: quem estÃ¡ em qual terminal)
   const { data: pdvSessionsRaw = [] } = useQuery({
     queryKey: pdvSessionsQueryKey,
     queryFn: async () => {
@@ -91,62 +103,50 @@ export default function CaixaTab() {
   });
   const displayedActiveSessions = latestSessionsByTerminal.slice(0, 5);
   const hiddenActiveSessionsCount = Math.max(0, latestSessionsByTerminal.length - displayedActiveSessions.length);
+  const { data: stores = [] } = useQuery({
+    queryKey: ['store', ...menuContextQueryKey],
+    queryFn: async () => {
+      if (!menuContext) return [];
+      return base44.entities.Store.list(null, scopedEntityOpts);
+    },
+    enabled: !!menuContext,
+  });
+  const store = stores[0] || null;
+  const operationalCutoffTime = normalizeOperationalDayCutoffTime(store?.operational_day_cutoff_time);
+
+  const refreshCaixaQueries = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: caixasQueryKey }),
+      queryClient.invalidateQueries({ queryKey: caixaOperationsQueryKey }),
+    ]);
+  };
 
   const openCaixaMutation = useMutation({
     mutationFn: async (data) => {
       const user = await base44.auth.me();
-      return base44.entities.Caixa.create({
+      return openCaixaShift({
         ...data,
-        subscriber_email: user.subscriber_email || user.email,
-        owner_email: user.subscriber_email || user.email,
         opened_by: user.email,
-        ...scopedEntityOpts
-      });
+      }, scopedEntityOpts);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: caixasQueryKey });
+    onSuccess: async () => {
+      await refreshCaixaQueries();
       setShowOpenModal(false);
       setOpeningAmount('');
-      toast.success('✅ Caixa aberto com sucesso!');
+      toast.success('Caixa aberto com sucesso!');
     },
   });
 
   const closeCaixaMutation = useMutation({
-    mutationFn: async ({ id, freshCaixa, totals, closingCash, closingNotes, opts }) => {
-      const user = await base44.auth.me();
-      
-      // Usar spread operator com freshCaixa e sobrescrever apenas o necessário
-      const updateData = {
-  ...freshCaixa,
-
-  // 🔐 Campo obrigatório garantido
-  opening_amount_cash: Number(freshCaixa.opening_amount_cash) || 0,
-
-  status: 'closed',
-  closing_source: 'painel_assinante',
-  total_cash: totals.cash,
-  total_pix: totals.pix,
-  total_debit: totals.debit,
-  total_credit: totals.credit,
-  total_other: totals.other,
-  closing_amount_cash: Number(closingCash) || 0,
-  closing_notes: closingNotes || '',
-  closed_by: user.email,
-  closing_date: new Date().toISOString()
-};
-
-      
-      // Remover campos que não devem ser atualizados
-      delete updateData.id;
-      delete updateData.created_date;
-      delete updateData.updated_date;
-      delete updateData.created_by;
-      
-      return base44.entities.Caixa.update(id, updateData, opts || scopedEntityOpts);
-    },
-    onSuccess: (updatedCaixa, variables) => {
-      queryClient.invalidateQueries({ queryKey: caixasQueryKey });
-      queryClient.invalidateQueries({ queryKey: caixaOperationsQueryKey });
+    mutationFn: async ({ id, closingCash, closingNotes }) => closeCaixaShift(id, {
+      closing_amount_cash: Number(closingCash) || 0,
+      closing_balance: Number(closingCash) || 0,
+      closing_notes: closingNotes || '',
+      closing_source: 'painel_assinante',
+    }, scopedEntityOpts),
+    onSuccess: async (result, variables) => {
+      const updatedCaixa = result?.caixa || result;
+      await refreshCaixaQueries();
       setShowCloseModal(false);
       setSelectedCaixa((prev) => {
         if (!prev) return prev;
@@ -163,7 +163,7 @@ export default function CaixaTab() {
       });
       setClosingCashAmount('');
       setClosingNotes('');
-      toast.success('✅ Caixa fechado com sucesso!');
+      toast.success('Caixa fechado com sucesso!');
     },
     onError: (error) => {
       console.error('Erro ao fechar caixa:', error);
@@ -171,11 +171,11 @@ export default function CaixaTab() {
       const statusMatch = message.match(/\b(401|403|500)\b/);
       const statusCode = statusMatch?.[1];
       if (statusCode === '401') {
-        toast.error('Não autorizado. Faça login novamente e tente fechar o caixa.');
+        toast.error('Nao autorizado. Faca login novamente e tente fechar o caixa.');
         return;
       }
       if (statusCode === '403') {
-        toast.error('Sem permissão para fechar caixa neste estabelecimento.');
+        toast.error('Sem permissao para fechar caixa neste estabelecimento.');
         return;
       }
       if (statusCode === '500') {
@@ -189,61 +189,55 @@ export default function CaixaTab() {
   const createOperationMutation = useMutation({
     mutationFn: async (data) => {
       const user = await base44.auth.me();
-      return base44.entities.CaixaOperation.create({
+      return createCaixaShiftMovement({
         ...data,
         operator: user.email,
-        date: new Date().toISOString(),
-        ...scopedEntityOpts
-      });
+      }, scopedEntityOpts);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: caixaOperationsQueryKey });
-      queryClient.invalidateQueries({ queryKey: caixasQueryKey });
+    onSuccess: async (result) => {
+      if (result?.caixa) {
+        setSelectedCaixa((prev) => (
+          prev && String(prev.id) === String(result.caixa.id)
+            ? result.caixa
+            : prev
+        ));
+      }
+      await refreshCaixaQueries();
     },
   });
 
   const handleOpenCaixa = () => {
     const openCaixas = caixas.filter(c => c.status === 'open');
     if (openCaixas.length > 0) {
-      toast.error('❌ Já existe um caixa aberto!');
+      toast.error('Ja existe um caixa aberto!');
       return;
     }
 
     openCaixaMutation.mutate({
       opening_amount_cash: parseFloat(openingAmount) || 0,
-      opening_date: new Date().toISOString(),
-      status: 'open',
-      total_cash: 0,
-      total_pix: 0,
-      total_debit: 0,
-      total_credit: 0,
-      total_other: 0,
-      withdrawals: 0,
-      supplies: 0
     });
   };
 
   const handleWithdrawal = async () => {
-    if (!withdrawalData.amount || !withdrawalData.reason) {
+    if (!selectedCaixa || !withdrawalData.amount || !withdrawalData.reason) {
       toast.error('Preencha todos os campos');
       return;
     }
 
-    // Calcular saldo atual antes de permitir sangria
-    const caixaOps = operations.filter(op => op.caixa_id === selectedCaixa.id);
-    const vendas = caixaOps.filter(op => op.type === 'venda_pdv');
-    const sangrias = caixaOps.filter(op => op.type === 'sangria');
-    const suprimentos = caixaOps.filter(op => op.type === 'suprimento');
-
-    const cashVendas = vendas.filter(op => op.payment_method === 'dinheiro').reduce((sum, op) => sum + op.amount, 0);
-    const totalSangrias = sangrias.reduce((sum, op) => sum + op.amount, 0);
-    const totalSuprimentos = suprimentos.reduce((sum, op) => sum + op.amount, 0);
-    
-    const saldoAtual = (selectedCaixa.opening_amount_cash || 0) + cashVendas + totalSuprimentos - totalSangrias;
     const withdrawalAmount = parseFloat(withdrawalData.amount);
+    if (!Number.isFinite(withdrawalAmount) || withdrawalAmount <= 0) {
+      toast.error('Informe um valor valido para a sangria');
+      return;
+    }
 
-    if (withdrawalAmount > saldoAtual) {
-      toast.error(`⚠️ Saldo insuficiente! Saldo atual: ${formatCurrency(saldoAtual)}`);
+    const selectedSummary = buildCaixaShiftSummary({
+      caixa: selectedCaixa,
+      operations,
+      closingBalance: selectedCaixa?.closing_balance ?? selectedCaixa?.closing_amount_cash ?? null,
+      cutoffTime: operationalCutoffTime,
+    });
+    if (withdrawalAmount > selectedSummary.expectedBalance) {
+      toast.error(`Saldo insuficiente! Saldo atual: ${formatCurrency(selectedSummary.expectedBalance)}`);
       return;
     }
 
@@ -251,41 +245,25 @@ export default function CaixaTab() {
       caixa_id: selectedCaixa.id,
       type: 'sangria',
       description: `Sangria: ${withdrawalData.reason}`,
-      amount: parseFloat(withdrawalData.amount),
+      amount: withdrawalAmount,
       payment_method: 'dinheiro',
-      reason: withdrawalData.reason
+      reason: withdrawalData.reason,
     });
 
-    // Buscar dados frescos do banco antes de atualizar, usando mesmos opts da listagem
-    const freshCaixas = await base44.entities.Caixa.list('-opening_date', scopedEntityOpts);
-    const freshCaixa = freshCaixas.find(c => c.id === selectedCaixa.id);
-
-    if (!freshCaixa) {
-      toast.error('Caixa não encontrado');
-      return;
-    }
-
-    // Usar spread para garantir todos os campos
-    const updateData = {
-      ...freshCaixa,
-      withdrawals: (freshCaixa.withdrawals || 0) + parseFloat(withdrawalData.amount)
-    };
-    delete updateData.id;
-    delete updateData.created_date;
-    delete updateData.updated_date;
-    delete updateData.created_by;
-
-    await base44.entities.Caixa.update(selectedCaixa.id, updateData, scopedEntityOpts);
-
-    queryClient.invalidateQueries({ queryKey: caixasQueryKey });
     setShowWithdrawalModal(false);
     setWithdrawalData({ amount: '', reason: '' });
-    toast.success('💰 Sangria registrada');
+    toast.success('Sangria registrada');
   };
 
   const handleSupply = async () => {
-    if (!supplyData.amount || !supplyData.reason) {
+    if (!selectedCaixa || !supplyData.amount || !supplyData.reason) {
       toast.error('Preencha todos os campos');
+      return;
+    }
+
+    const supplyAmount = parseFloat(supplyData.amount);
+    if (!Number.isFinite(supplyAmount) || supplyAmount <= 0) {
+      toast.error('Informe um valor valido para o suprimento');
       return;
     }
 
@@ -293,81 +271,32 @@ export default function CaixaTab() {
       caixa_id: selectedCaixa.id,
       type: 'suprimento',
       description: `Suprimento: ${supplyData.reason}`,
-      amount: parseFloat(supplyData.amount),
+      amount: supplyAmount,
       payment_method: 'dinheiro',
-      reason: supplyData.reason
+      reason: supplyData.reason,
     });
 
-    // Buscar dados frescos do banco antes de atualizar, usando mesmos opts da listagem
-    const freshCaixas = await base44.entities.Caixa.list('-opening_date', scopedEntityOpts);
-    const freshCaixa = freshCaixas.find(c => c.id === selectedCaixa.id);
-
-    if (!freshCaixa) {
-      toast.error('Caixa não encontrado');
-      return;
-    }
-
-    // Usar spread para garantir todos os campos
-    const updateData = {
-      ...freshCaixa,
-      supplies: (freshCaixa.supplies || 0) + parseFloat(supplyData.amount)
-    };
-    delete updateData.id;
-    delete updateData.created_date;
-    delete updateData.updated_date;
-    delete updateData.created_by;
-
-    await base44.entities.Caixa.update(selectedCaixa.id, updateData, scopedEntityOpts);
-
-    queryClient.invalidateQueries({ queryKey: caixasQueryKey });
     setShowSupplyModal(false);
     setSupplyData({ amount: '', reason: '' });
-    toast.success('💵 Suprimento registrado');
+    toast.success('Suprimento registrado');
   };
 
   const handleCloseCaixa = async () => {
     if (!selectedCaixa || !closingCashAmount) {
-      toast.error('Informe o valor em dinheiro físico para fechamento');
+      toast.error('Informe o valor em dinheiro fisico para fechamento');
       return;
     }
-
-    const cashOperations = operations.filter(op => 
-      op.caixa_id === selectedCaixa.id && op.type === 'venda_pdv'
-    );
-
-    // Calcular totais por forma de pagamento
-    const totals = {
-      cash: cashOperations.filter(op => op.payment_method === 'dinheiro').reduce((sum, op) => sum + op.amount, 0),
-      pix: cashOperations.filter(op => op.payment_method === 'pix').reduce((sum, op) => sum + op.amount, 0),
-      debit: cashOperations.filter(op => op.payment_method === 'debito').reduce((sum, op) => sum + op.amount, 0),
-      credit: cashOperations.filter(op => op.payment_method === 'credito').reduce((sum, op) => sum + op.amount, 0),
-      other: cashOperations.filter(op => op.payment_method === 'outro').reduce((sum, op) => sum + op.amount, 0),
-    };
-
-    // Buscar dados frescos do banco antes de fechar, usando mesmos opts da listagem
-    const freshCaixas = await base44.entities.Caixa.list('-opening_date', scopedEntityOpts);
-    const freshCaixa = freshCaixas.find(c => c.id === selectedCaixa.id);
-
-    if (!freshCaixa) {
-      toast.error('Caixa não encontrado');
-      return;
-    }
-
-    const expectedCash = 
-      (freshCaixa.opening_amount_cash || 0) +
-      totals.cash +
-      (freshCaixa.supplies || 0) -
-      (freshCaixa.withdrawals || 0);
 
     const actualCash = parseFloat(closingCashAmount);
+    if (!Number.isFinite(actualCash) || actualCash < 0) {
+      toast.error('Informe um valor valido de fechamento');
+      return;
+    }
 
     closeCaixaMutation.mutate({
       id: selectedCaixa.id,
-      freshCaixa,
-      totals,
       closingCash: actualCash,
-      closingNotes: closingNotes + (actualCash !== expectedCash ? `\n\nDiferença: ${formatCurrency(actualCash - expectedCash)}` : ''),
-      scopedEntityOpts
+      closingNotes,
     });
   };
 
@@ -396,21 +325,32 @@ export default function CaixaTab() {
   });
   const closedCaixas = filteredCaixas.filter(c => c.status === 'closed');
   const visibleClosedCaixas = closedCaixas.slice(0, 6);
+  const activeCaixaSummary = useMemo(() => (
+    activeCaixa
+      ? buildCaixaShiftSummary({
+          caixa: activeCaixa,
+          operations,
+          closingBalance: activeCaixa?.closing_balance ?? activeCaixa?.closing_amount_cash ?? null,
+          cutoffTime: operationalCutoffTime,
+        })
+      : null
+  ), [activeCaixa, operations, operationalCutoffTime]);
 
   // View caixa aberto
   if (selectedCaixa) {
-    const caixaOps = operations.filter(op => op.caixa_id === selectedCaixa.id);
-    const vendas = caixaOps.filter(op => op.type === 'venda_pdv');
-    const sangrias = caixaOps.filter(op => op.type === 'sangria');
-    const suprimentos = caixaOps.filter(op => op.type === 'suprimento');
-
-    const totalVendas = vendas.reduce((sum, op) => sum + op.amount, 0);
-    const totalSangrias = sangrias.reduce((sum, op) => sum + op.amount, 0);
-    const totalSuprimentos = suprimentos.reduce((sum, op) => sum + op.amount, 0);
-
-    const cashVendas = vendas.filter(op => op.payment_method === 'dinheiro').reduce((sum, op) => sum + op.amount, 0);
-    const saldoAtual = (selectedCaixa.opening_amount_cash || 0) + cashVendas + totalSuprimentos - totalSangrias;
-
+    const caixaSummary = buildCaixaShiftSummary({
+      caixa: selectedCaixa,
+      operations,
+      closingBalance: selectedCaixa?.closing_balance ?? selectedCaixa?.closing_amount_cash ?? null,
+      cutoffTime: operationalCutoffTime,
+    });
+    const caixaOps = caixaSummary.operations;
+    const vendas = caixaSummary.sales;
+    const totalVendas = caixaSummary.totalSales;
+    const totalSangrias = caixaSummary.totalSangrias;
+    const totalSuprimentos = caixaSummary.totalSuprimentos;
+    const cashVendas = caixaSummary.paymentTotals.cash;
+    const saldoAtual = caixaSummary.expectedBalance;
     const isClosed = selectedCaixa.status === 'closed';
 
     return (
@@ -427,16 +367,23 @@ export default function CaixaTab() {
               <div>
                 <h2 className="text-2xl font-bold">Detalhes do Caixa</h2>
                 <p className="text-sm text-muted-foreground">
-                  Aberto em {moment(selectedCaixa.opening_date).format('DD/MM/YYYY HH:mm')}
+                  Aberto em {moment(getCaixaOpenedAt(selectedCaixa)).format('DD/MM/YYYY HH:mm')}
                   {selectedCaixa.opened_by && <> por {selectedCaixa.opened_by}</>}
                 </p>
+                <p className="text-sm text-muted-foreground">
+                  Dia operacional: {formatOperationalDateLabel(caixaSummary.operationalDate)}
+                  {caixaSummary.turnLabel ? <> Â· {caixaSummary.turnLabel}</> : null}
+                </p>
                 {isClosed && selectedCaixa.closed_by && (
-                  <p className="text-sm text-muted-foreground">Fechado por: {selectedCaixa.closed_by}</p>
+                  <p className="text-sm text-muted-foreground">
+                    Fechado por: {selectedCaixa.closed_by}
+                    {getCaixaClosedAt(selectedCaixa) ? <> Â· {moment(getCaixaClosedAt(selectedCaixa)).format('DD/MM/YYYY HH:mm')}</> : null}
+                  </p>
                 )}
               </div>
             </div>
             <Badge className={isClosed ? 'bg-muted text-muted-foreground' : 'bg-green-500'}>
-              {isClosed ? '🔒 Fechado' : '✅ Aberto'}
+              {isClosed ? 'ðŸ”’ Fechado' : 'âœ… Aberto'}
             </Badge>
           </div>
 
@@ -444,7 +391,7 @@ export default function CaixaTab() {
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm text-muted-foreground">💵 Dinheiro</CardTitle>
+                <CardTitle className="text-sm text-muted-foreground">ðŸ’µ Dinheiro</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-2xl font-bold">{formatCurrency(cashVendas)}</p>
@@ -453,7 +400,7 @@ export default function CaixaTab() {
 
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm text-muted-foreground">📲 PIX</CardTitle>
+                <CardTitle className="text-sm text-muted-foreground">ðŸ“² PIX</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-2xl font-bold">
@@ -464,7 +411,7 @@ export default function CaixaTab() {
 
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm text-muted-foreground">💳 Débito</CardTitle>
+                <CardTitle className="text-sm text-muted-foreground">ðŸ’³ DÃ©bito</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-2xl font-bold">
@@ -475,7 +422,7 @@ export default function CaixaTab() {
 
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm text-muted-foreground">💳 Crédito</CardTitle>
+                <CardTitle className="text-sm text-muted-foreground">ðŸ’³ CrÃ©dito</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-2xl font-bold">
@@ -486,7 +433,7 @@ export default function CaixaTab() {
 
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm text-muted-foreground">🧾 Outros</CardTitle>
+                <CardTitle className="text-sm text-muted-foreground">ðŸ§¾ Outros</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-2xl font-bold">
@@ -496,11 +443,11 @@ export default function CaixaTab() {
             </Card>
           </div>
 
-          {/* Saldo e Ações */}
+          {/* Saldo e AÃ§Ãµes */}
           <div className="grid lg:grid-cols-3 gap-6">
             <Card className="lg:col-span-2">
               <CardHeader>
-                <CardTitle>Controle de Dinheiro Físico</CardTitle>
+                <CardTitle>Controle de Dinheiro FÃ­sico</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
@@ -531,8 +478,13 @@ export default function CaixaTab() {
                 </div>
 
                 <div className="bg-gradient-to-r from-green-500 to-green-600 p-6 rounded-xl text-primary-foreground">
-                  <p className="text-sm opacity-90 mb-2">💵 Saldo Atual em Dinheiro</p>
+                  <p className="text-sm opacity-90 mb-2">ðŸ’µ Saldo Esperado em Dinheiro</p>
                   <p className="text-4xl font-bold">{formatCurrency(saldoAtual)}</p>
+                  {isClosed && caixaSummary.closingBalance != null && (
+                    <p className="text-sm mt-2 opacity-90">
+                      Informado: {formatCurrency(caixaSummary.closingBalance)} · Diferença: {formatCurrency(caixaSummary.differenceAmount)}
+                    </p>
+                  )}
                 </div>
 
                 {!isClosed && (
@@ -564,7 +516,7 @@ export default function CaixaTab() {
                 <div className="text-center py-6">
                   <p className="text-sm text-muted-foreground mb-2">Total Geral</p>
                   <p className="text-4xl font-bold text-green-600">{formatCurrency(totalVendas)}</p>
-                  <p className="text-xs text-muted-foreground mt-2">{vendas.length} vendas registradas</p>
+                  <p className="text-xs text-muted-foreground mt-2">{caixaSummary.salesCount} vendas registradas</p>
                 </div>
 
                 {!isClosed && (
@@ -572,21 +524,21 @@ export default function CaixaTab() {
                     onClick={() => requireAuthorization('fechar_caixa', () => setShowCloseModal(true))}
                     className="w-full bg-primary hover:bg-primary/90 h-14 text-lg"
                   >
-                    🔒 Fechar Caixa
+                    ðŸ”’ Fechar Caixa
                   </Button>
                 )}
               </CardContent>
             </Card>
           </div>
 
-          {/* Movimentações */}
+          {/* MovimentaÃ§Ãµes */}
           <Card>
             <CardHeader>
-              <CardTitle>Histórico de Movimentações</CardTitle>
+              <CardTitle>HistÃ³rico de MovimentaÃ§Ãµes</CardTitle>
             </CardHeader>
             <CardContent>
               {caixaOps.length === 0 ? (
-                <p className="text-center text-muted-foreground py-8">Nenhuma movimentação registrada</p>
+                <p className="text-center text-muted-foreground py-8">Nenhuma movimentaÃ§Ã£o registrada</p>
               ) : (
                 <div className="space-y-2 max-h-96 overflow-y-auto">
                   {caixaOps.map(op => (
@@ -599,16 +551,16 @@ export default function CaixaTab() {
                           <p className="font-medium text-sm">{op.description}</p>
                           <p className="text-xs text-muted-foreground">
                             {moment(op.date).format('DD/MM HH:mm')}
-                            {op.operator && <> · Operador: {op.operator}</>}
+                            {op.operator && <> Â· Operador: {op.operator}</>}
                           </p>
                           {op.type === 'venda_pdv' && (
                             <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
-                              <div>💳 {op.payment_method}</div>
+                              <div>ðŸ’³ {op.payment_method}</div>
                               {op.payment_amount && (
-                                <div>💵 Recebido: {formatCurrency(op.payment_amount)}</div>
+                                <div>ðŸ’µ Recebido: {formatCurrency(op.payment_amount)}</div>
                               )}
                               {op.change > 0 && (
-                                <div>💸 Troco: {formatCurrency(op.change)}</div>
+                                <div>ðŸ’¸ Troco: {formatCurrency(op.change)}</div>
                               )}
                             </div>
                           )}
@@ -640,7 +592,7 @@ export default function CaixaTab() {
             <div className="space-y-4 py-4">
               <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg">
                 <p className="text-sm text-yellow-800">
-                  ⚠️ Após o fechamento, o caixa não poderá ser editado
+                  âš ï¸ ApÃ³s o fechamento, o caixa nÃ£o poderÃ¡ ser editado
                 </p>
               </div>
 
@@ -656,7 +608,7 @@ export default function CaixaTab() {
               </div>
 
               <div>
-                <Label className="font-semibold">Valor Real em Dinheiro Físico (R$) *</Label>
+                <Label className="font-semibold">Valor Real em Dinheiro FÃ­sico (R$) *</Label>
                 <Input
                   type="number"
                   step="0.01"
@@ -666,7 +618,7 @@ export default function CaixaTab() {
                   className="text-xl font-bold h-14 text-center border-2"
                   autoFocus
                 />
-                <p className="text-xs text-muted-foreground mt-1">Informe o valor físico contado no caixa</p>
+                <p className="text-xs text-muted-foreground mt-1">Informe o valor fÃ­sico contado no caixa</p>
                 {closingCashAmount && parseFloat(closingCashAmount) !== saldoAtual && (
                   <div className={`mt-2 p-3 rounded-lg ${
                     parseFloat(closingCashAmount) > saldoAtual 
@@ -676,7 +628,7 @@ export default function CaixaTab() {
                     <p className={`text-sm font-semibold ${
                       parseFloat(closingCashAmount) > saldoAtual ? 'text-green-800' : 'text-red-800'
                     }`}>
-                      {parseFloat(closingCashAmount) > saldoAtual ? '✅' : '⚠️'} Diferença: {formatCurrency(Math.abs(parseFloat(closingCashAmount) - saldoAtual))}
+                      {parseFloat(closingCashAmount) > saldoAtual ? 'âœ…' : 'âš ï¸'} DiferenÃ§a: {formatCurrency(Math.abs(parseFloat(closingCashAmount) - saldoAtual))}
                       {parseFloat(closingCashAmount) > saldoAtual ? ' (Sobra)' : ' (Falta)'}
                     </p>
                   </div>
@@ -684,11 +636,11 @@ export default function CaixaTab() {
               </div>
 
               <div>
-                <Label>Observações (opcional)</Label>
+                <Label>ObservaÃ§Ãµes (opcional)</Label>
                 <Textarea
                   value={closingNotes}
                   onChange={(e) => setClosingNotes(e.target.value)}
-                  placeholder="Adicione observações sobre o fechamento..."
+                  placeholder="Adicione observaÃ§Ãµes sobre o fechamento..."
                   rows={3}
                 />
               </div>
@@ -729,20 +681,19 @@ export default function CaixaTab() {
                   className="text-lg font-semibold"
                 />
                 {withdrawalData.amount && selectedCaixa && (() => {
-                  const caixaOps = operations.filter(op => op.caixa_id === selectedCaixa.id);
-                  const vendas = caixaOps.filter(op => op.type === 'venda_pdv');
-                  const sangrias = caixaOps.filter(op => op.type === 'sangria');
-                  const suprimentos = caixaOps.filter(op => op.type === 'suprimento');
-                  const cashVendas = vendas.filter(op => op.payment_method === 'dinheiro').reduce((sum, op) => sum + op.amount, 0);
-                  const totalSangrias = sangrias.reduce((sum, op) => sum + op.amount, 0);
-                  const totalSuprimentos = suprimentos.reduce((sum, op) => sum + op.amount, 0);
-                  const saldoAtual = (selectedCaixa.opening_amount_cash || 0) + cashVendas + totalSuprimentos - totalSangrias;
+                  const summary = buildCaixaShiftSummary({
+                    caixa: selectedCaixa,
+                    operations,
+                    closingBalance: selectedCaixa?.closing_balance ?? selectedCaixa?.closing_amount_cash ?? null,
+                    cutoffTime: operationalCutoffTime,
+                  });
+                  const saldoAtual = summary.expectedBalance;
                   const withdrawalAmount = parseFloat(withdrawalData.amount);
                   const isValid = withdrawalAmount <= saldoAtual;
                   return (
                     <div className={`mt-2 p-2 rounded text-xs ${isValid ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
-                      Saldo disponível: {formatCurrency(saldoAtual)}
-                      {!isValid && <span className="block font-semibold mt-1">⚠️ Valor excede o saldo disponível!</span>}
+                      Saldo disponÃ­vel: {formatCurrency(saldoAtual)}
+                      {!isValid && <span className="block font-semibold mt-1">âš ï¸ Valor excede o saldo disponÃ­vel!</span>}
                     </div>
                   );
                 })()}
@@ -752,7 +703,7 @@ export default function CaixaTab() {
                 <Input
                   value={withdrawalData.reason}
                   onChange={(e) => setWithdrawalData({...withdrawalData, reason: e.target.value})}
-                  placeholder="Ex: Depósito bancário, pagamento fornecedor..."
+                  placeholder="Ex: DepÃ³sito bancÃ¡rio, pagamento fornecedor..."
                 />
               </div>
             </div>
@@ -788,7 +739,7 @@ export default function CaixaTab() {
                 <Input
                   value={supplyData.reason}
                   onChange={(e) => setSupplyData({...supplyData, reason: e.target.value})}
-                  placeholder="Ex: Fundo adicional, reforço de caixa..."
+                  placeholder="Ex: Fundo adicional, reforÃ§o de caixa..."
                 />
               </div>
             </div>
@@ -814,8 +765,8 @@ export default function CaixaTab() {
       <div className="space-y-6 p-6">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-3xl font-bold">💰 Controle de Caixa</h2>
-            <p className="text-muted-foreground">Gerencie abertura, fechamento e movimentações diárias</p>
+            <h2 className="text-3xl font-bold">ðŸ’° Controle de Caixa</h2>
+            <p className="text-muted-foreground">Gerencie abertura, fechamento e movimentaÃ§Ãµes diÃ¡rias</p>
           </div>
           <Button
             onClick={() => requireAuthorization('abrir_caixa', () => setShowOpenModal(true))}
@@ -827,12 +778,12 @@ export default function CaixaTab() {
           </Button>
         </div>
 
-        {/* Sessões PDV ativas (multi-PDV: quem está em qual terminal) */}
+        {/* SessÃµes PDV ativas (multi-PDV: quem estÃ¡ em qual terminal) */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Calculator className="w-5 h-5" />
-              Sessões PDV ativas
+              SessÃµes PDV ativas
             </CardTitle>
             <p className="text-sm text-muted-foreground">Colaboradores logados em cada terminal PDV</p>
           </CardHeader>
@@ -875,13 +826,19 @@ export default function CaixaTab() {
                     <DollarSign className="w-8 h-8 text-primary-foreground" />
                   </div>
                   <div>
-                    <Badge className="bg-green-500 mb-2">✅ Caixa Aberto</Badge>
+                    <Badge className="bg-green-500 mb-2">âœ… Caixa Aberto</Badge>
                     <p className="text-sm text-muted-foreground">
-                      Aberto em {moment(activeCaixa.opening_date).format('DD/MM/YYYY HH:mm')}
+                      Aberto em {moment(getCaixaOpenedAt(activeCaixa)).format('DD/MM/YYYY HH:mm')}
                       {activeCaixa.opened_by && <> por {activeCaixa.opened_by}</>}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Dia operacional: {formatOperationalDateLabel(activeCaixaSummary?.operationalDate)}
                     </p>
                     <p className="text-xl font-bold text-green-600">
                       Fundo Inicial: {formatCurrency(activeCaixa.opening_amount_cash)}
+                    </p>
+                    <p className="text-sm font-medium text-green-700">
+                      Saldo esperado: {formatCurrency(activeCaixaSummary?.expectedBalance)}
                     </p>
                   </div>
                 </div>
@@ -899,7 +856,7 @@ export default function CaixaTab() {
             <CardContent className="p-12 text-center">
               <AlertTriangle className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-xl font-bold text-muted-foreground mb-2">Nenhum caixa aberto</h3>
-              <p className="text-muted-foreground mb-6">Abra um caixa para começar a registrar vendas</p>
+              <p className="text-muted-foreground mb-6">Abra um caixa para comeÃ§ar a registrar vendas</p>
             </CardContent>
           </Card>
         )}
@@ -929,7 +886,7 @@ export default function CaixaTab() {
         </div>
 
         <div>
-          <h3 className="text-xl font-bold mb-4">📋 Histórico de Caixas</h3>
+          <h3 className="text-xl font-bold mb-4">ðŸ“‹ HistÃ³rico de Caixas</h3>
           {closedCaixas.length === 0 ? (
             <Card>
               <CardContent className="p-8 text-center text-muted-foreground">
@@ -938,48 +895,56 @@ export default function CaixaTab() {
             </Card>
           ) : (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {visibleClosedCaixas.map(caixa => (
-                <Card
-                  key={caixa.id}
-                  className="cursor-pointer hover:shadow-lg transition-shadow"
-                  onClick={() => setSelectedCaixa(caixa)}
-                >
-                  <CardContent className="p-4">
-                    <Badge className="bg-muted/500 mb-3">🔒 Fechado</Badge>
-                    <p className="text-sm text-muted-foreground mb-2">
-                      {moment(caixa.opening_date).format('DD/MM/YYYY')}
-                    </p>
-                    {(caixa.opened_by || caixa.closed_by) && (
-                      <p className="text-xs text-muted-foreground mb-2">
-                        {caixa.opened_by && <>Aberto por: {caixa.opened_by}</>}
-                        {caixa.opened_by && caixa.closed_by && ' · '}
-                        {caixa.closed_by && <>Fechado por: {caixa.closed_by}</>}
+              {visibleClosedCaixas.map((caixa) => {
+                const caixaSummary = buildCaixaShiftSummary({
+                  caixa,
+                  operations,
+                  closingBalance: caixa?.closing_balance ?? caixa?.closing_amount_cash ?? null,
+                  cutoffTime: operationalCutoffTime,
+                });
+
+                return (
+                  <Card
+                    key={caixa.id}
+                    className="cursor-pointer hover:shadow-lg transition-shadow"
+                    onClick={() => setSelectedCaixa(caixa)}
+                  >
+                    <CardContent className="p-4">
+                      <Badge className="bg-muted/500 mb-3">ðŸ”’ Fechado</Badge>
+                      <p className="text-sm text-muted-foreground mb-1">
+                        {formatOperationalDateLabel(caixaSummary.operationalDate)}
                       </p>
-                    )}
-                    <p className="text-xs text-muted-foreground mb-2">{getClosingSourceLabel(caixa)}</p>
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span>Vendas</span>
-                        <span className="font-bold">
-                          {formatCurrency(
-                            (caixa.total_cash || 0) +
-                            (caixa.total_pix || 0) +
-                            (caixa.total_debit || 0) +
-                            (caixa.total_credit || 0) +
-                            (caixa.total_other || 0)
-                          )}
-                        </span>
+                      <p className="text-xs text-muted-foreground mb-2">
+                        Abertura: {moment(getCaixaOpenedAt(caixa)).format('DD/MM/YYYY HH:mm')}
+                      </p>
+                      {(caixa.opened_by || caixa.closed_by) && (
+                        <p className="text-xs text-muted-foreground mb-2">
+                          {caixa.opened_by && <>Aberto por: {caixa.opened_by}</>}
+                          {caixa.opened_by && caixa.closed_by && ' Â· '}
+                          {caixa.closed_by && <>Fechado por: {caixa.closed_by}</>}
+                        </p>
+                      )}
+                      <p className="text-xs text-muted-foreground mb-2">{getClosingSourceLabel(caixa)}</p>
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span>Vendas</span>
+                          <span className="font-bold">{formatCurrency(caixaSummary.totalSales)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span>Saldo esperado</span>
+                          <span className="font-bold">{formatCurrency(caixaSummary.expectedBalance)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm pt-2 border-t">
+                          <span className="font-medium">Fechamento</span>
+                          <span className="font-bold text-green-600">
+                            {formatCurrency(caixaSummary.closingBalance)}
+                          </span>
+                        </div>
                       </div>
-                      <div className="flex justify-between text-sm pt-2 border-t">
-                        <span className="font-medium">Fechamento</span>
-                        <span className="font-bold text-green-600">
-                          {formatCurrency(caixa.closing_amount_cash)}
-                        </span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           )}
         </div>
@@ -992,7 +957,7 @@ export default function CaixaTab() {
             <div className="space-y-4 py-4">
               <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
                 <p className="text-sm text-blue-800">
-                  💡 Informe o valor em dinheiro físico que você está colocando no caixa para começar o dia
+                  ðŸ’¡ Informe o valor em dinheiro fÃ­sico que vocÃª estÃ¡ colocando no caixa para comeÃ§ar o dia
                 </p>
               </div>
               <div>
@@ -1027,3 +992,6 @@ export default function CaixaTab() {
     </>
   );
 }
+
+
+

@@ -33,8 +33,18 @@ import {
   isOrderPreparationActive,
   isOrderReadyForDispatch,
 } from '@/utils/orderLifecycle';
+import {
+  buildOperationalRange,
+  getEntityOperationalDate,
+  shiftOperationalDate,
+} from '@/utils/operationalShift';
 
-export default function GestorStatsPanel({ orders = [], entregadores = [], darkMode = false }) {
+export default function GestorStatsPanel({
+  orders = [],
+  entregadores = [],
+  darkMode = false,
+  operationalCutoffTime = '05:00',
+}) {
   const safeOrders = Array.isArray(orders) ? orders : [];
   const safeEntregadores = Array.isArray(entregadores) ? entregadores : [];
 
@@ -66,23 +76,29 @@ export default function GestorStatsPanel({ orders = [], entregadores = [], darkM
     bottleneckHint,
   } = useMemo(() => {
     const now = new Date();
-    const today = new Date(now);
-    today.setHours(0, 0, 0, 0);
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    const todayRange = buildOperationalRange('today', operationalCutoffTime);
+    const monthRange = buildOperationalRange('month', operationalCutoffTime);
+    const yesterdayKey = shiftOperationalDate(todayRange.startKey, -1);
+    const previousMonthRange = monthRange.startKey && monthRange.endKey
+      ? {
+          startKey: shiftOperationalDate(monthRange.startKey, -30),
+          endKey: shiftOperationalDate(monthRange.endKey, -30),
+        }
+      : { startKey: null, endKey: null };
 
     const getDate = (o) => new Date(o.created_date || o.created_at || 0);
+    const isInOperationalRange = (order, range) => {
+      const dateKey = getEntityOperationalDate(order, operationalCutoffTime);
+      if (!dateKey) return false;
+      return !range?.startKey || !range?.endKey || (dateKey >= range.startKey && dateKey <= range.endKey);
+    };
 
     const todayOrders = safeOrders.filter((o) => {
-      const d = getDate(o);
-      return d >= today && d < tomorrow;
+      return isInOperationalRange(o, todayRange);
     });
 
     const yesterdayOrders = safeOrders.filter((o) => {
-      const d = getDate(o);
-      return d >= yesterday && d < today;
+      return getEntityOperationalDate(o, operationalCutoffTime) === yesterdayKey;
     });
 
     const deliveredToday = todayOrders.filter(isOrderDelivered);
@@ -124,17 +140,13 @@ export default function GestorStatsPanel({ orders = [], entregadores = [], darkM
     const ordersDelta = todayOrders.length - yesterdayOrders.length;
     const revenueDelta = totalRevenue - yesterdayRevenue;
 
-    const firstDayThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const firstDayLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const thisMonthDelivered = safeOrders.filter((o) => {
       if (!isOrderDelivered(o)) return false;
-      const d = new Date(o.delivered_at || o.created_at || o.created_date || 0);
-      return d >= firstDayThisMonth;
+      return isInOperationalRange(o, monthRange);
     }).length;
     const lastMonthDelivered = safeOrders.filter((o) => {
       if (!isOrderDelivered(o)) return false;
-      const d = new Date(o.delivered_at || o.created_at || o.created_date || 0);
-      return d >= firstDayLastMonth && d < firstDayThisMonth;
+      return isInOperationalRange(o, previousMonthRange);
     }).length;
     const monthDeltaPct =
       lastMonthDelivered > 0
@@ -269,7 +281,7 @@ export default function GestorStatsPanel({ orders = [], entregadores = [], darkM
       delayForecastMins,
       bottleneckHint,
     };
-  }, [safeOrders, safeEntregadores]);
+  }, [safeOrders, safeEntregadores, operationalCutoffTime]);
 
   const cardGradient = {
     blue: darkMode ? 'from-blue-900/50 to-blue-800/30 border-blue-700' : 'from-blue-50 to-blue-100 border-blue-200',
