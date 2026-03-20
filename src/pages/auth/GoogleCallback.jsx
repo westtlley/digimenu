@@ -33,8 +33,8 @@ export default function GoogleCallback() {
       }
       
       try {
-        // Salvar token
-        localStorage.setItem('token', token);
+        // Persistir o token usando o contrato canônico do client HTTP.
+        apiClient.setToken(token);
         
         // Buscar dados do usuário
         const user = await apiClient.auth.me();
@@ -62,7 +62,7 @@ export default function GoogleCallback() {
       } catch (err) {
         console.error('Erro ao processar callback:', err);
         toast.error('Erro ao fazer login. Tente novamente.');
-        localStorage.removeItem('token');
+        apiClient.removeToken();
         localStorage.removeItem('user');
         navigate('/login');
       }
