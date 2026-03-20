@@ -9,6 +9,10 @@ function normalizeSlugValue(slug) {
   return String(slug || '').trim().toLowerCase();
 }
 
+function normalizeEmailValue(email) {
+  return String(email || '').trim().toLowerCase();
+}
+
 function sortEntityItems(items = [], orderBy = null) {
   const list = Array.isArray(items) ? [...items] : [];
   if (!orderBy) {
@@ -39,6 +43,184 @@ function filterJsonEntities(entityMap = {}, entityType, predicate, orderBy = nul
   return sortEntityItems(items, orderBy);
 }
 
+function buildSlugLookupResult({
+  subscriber = null,
+  isMaster = false,
+  subscriberEmail = null,
+  subscriberId = null,
+  source = 'none',
+  attemptedSources = [],
+  fallbackUsed = false,
+  missReason = null,
+} = {}) {
+  return {
+    subscriber,
+    isMaster,
+    subscriberEmail,
+    subscriberId,
+    source,
+    attemptedSources,
+    fallbackUsed,
+    missReason,
+  };
+}
+
+function buildEmptyMenuEntities(meta = {}) {
+  return {
+    storeList: [],
+    dishes: [],
+    categories: [],
+    complementGroups: [],
+    combos: [],
+    pizzaSizes: [],
+    pizzaFlavors: [],
+    pizzaEdges: [],
+    pizzaExtras: [],
+    pizzaCategories: [],
+    beverageCategories: [],
+    deliveryZones: [],
+    coupons: [],
+    promotions: [],
+    tables: [],
+    loyaltyConfigs: [],
+    loyaltyRewards: [],
+    source: 'none',
+    attemptedSources: [],
+    fallbackUsed: false,
+    missReason: null,
+    ...meta,
+  };
+}
+
+function hasValidMenuEntities(entities = {}) {
+  const collections = [
+    entities.storeList,
+    entities.dishes,
+    entities.categories,
+    entities.complementGroups,
+    entities.combos,
+    entities.pizzaSizes,
+    entities.pizzaFlavors,
+    entities.pizzaEdges,
+    entities.pizzaExtras,
+    entities.pizzaCategories,
+    entities.beverageCategories,
+    entities.deliveryZones,
+    entities.coupons,
+    entities.promotions,
+    entities.tables,
+    entities.loyaltyConfigs,
+    entities.loyaltyRewards,
+  ];
+
+  return collections.some((items) => Array.isArray(items) && items.length > 0);
+}
+
+function buildJsonEntityPredicate(subscriberEmail, isMaster, entities) {
+  if (isMaster) {
+    return (item) => !item?.owner_email;
+  }
+
+  const db = getDb();
+  const subscribers = Array.isArray(db?.subscribers) ? db.subscribers : [];
+  const subscriber = subscribers.find(
+    (item) => normalizeEmailValue(item?.email) === normalizeEmailValue(subscriberEmail)
+  ) || null;
+  const altEmail = normalizeEmailValue(subscriber?.linked_user_email);
+  const normalizedEmail = normalizeEmailValue(subscriberEmail);
+
+  return (item) => {
+    const owner = normalizeEmailValue(item?.owner_email);
+    if (!owner) {
+      return true;
+    }
+    return owner === normalizedEmail || (!!altEmail && owner === altEmail);
+  };
+}
+
+function loadJsonMenuEntities(subscriberEmail, isMaster) {
+  const db = getDb();
+  const entities = db?.entities || {};
+  const predicate = buildJsonEntityPredicate(subscriberEmail, isMaster, entities);
+  return buildJsonMenuEntities(entities, predicate);
+}
+
+async function resolveJsonSubscriberOrMasterBySlug(slug) {
+  const db = getDb();
+  const subscribers = Array.isArray(db?.subscribers) ? db.subscribers : [];
+  const users = Array.isArray(db?.users) ? db.users : [];
+
+  const subscriber = subscribers.find((item) => normalizeSlugValue(item?.slug) === slug) || null;
+  if (subscriber) {
+    return buildSlugLookupResult({
+      subscriber,
+      isMaster: false,
+      subscriberEmail: subscriber.email || null,
+      subscriberId: subscriber.id ?? null,
+      source: 'json',
+      attemptedSources: ['json'],
+    });
+  }
+
+  const master = users.find(
+    (item) => item?.is_master === true && normalizeSlugValue(item?.slug) === slug
+  ) || null;
+
+  if (master) {
+    return buildSlugLookupResult({
+      subscriber: null,
+      isMaster: true,
+      subscriberEmail: null,
+      subscriberId: null,
+      source: 'json',
+      attemptedSources: ['json'],
+    });
+  }
+
+  return buildSlugLookupResult({
+    source: 'none',
+    attemptedSources: ['json'],
+    missReason: 'json-miss',
+  });
+}
+
+async function resolvePostgresSubscriberOrMasterBySlug(slug) {
+  const subscriber = await repo.getSubscriberBySlug(slug);
+  if (subscriber) {
+    return buildSlugLookupResult({
+      subscriber,
+      isMaster: false,
+      subscriberEmail: subscriber.email || null,
+      subscriberId: subscriber.id ?? null,
+      source: 'postgres',
+      attemptedSources: ['postgres'],
+    });
+  }
+
+  const { query } = await import('../../db/postgres.js');
+  const masterResult = await query(
+    'SELECT id, email, slug FROM users WHERE slug IS NOT NULL AND LOWER(TRIM(slug)) = $1 AND is_master = TRUE',
+    [slug]
+  );
+
+  if (masterResult.rows.length > 0) {
+    return buildSlugLookupResult({
+      subscriber: null,
+      isMaster: true,
+      subscriberEmail: null,
+      subscriberId: null,
+      source: 'postgres',
+      attemptedSources: ['postgres'],
+    });
+  }
+
+  return buildSlugLookupResult({
+    source: 'none',
+    attemptedSources: ['postgres'],
+    missReason: 'postgres-miss',
+  });
+}
+
 /**
  * Resolve a subscriber or master account by public slug.
  */
@@ -46,56 +228,35 @@ export async function getSubscriberOrMasterBySlug(slug) {
   const normalizedSlug = normalizeSlugValue(slug);
 
   if (!normalizedSlug) {
-    return { subscriber: null, isMaster: false, subscriberEmail: null, subscriberId: null };
+    return buildSlugLookupResult({ missReason: 'invalid-slug' });
   }
 
   if (!usePostgreSQL) {
-    const db = getDb();
-    const subscribers = Array.isArray(db?.subscribers) ? db.subscribers : [];
-    const users = Array.isArray(db?.users) ? db.users : [];
-
-    const subscriber = subscribers.find((item) => normalizeSlugValue(item?.slug) === normalizedSlug) || null;
-    if (subscriber) {
-      return {
-        subscriber,
-        isMaster: false,
-        subscriberEmail: subscriber.email || null,
-        subscriberId: subscriber.id ?? null,
-      };
-    }
-
-    const master = users.find(
-      (item) => item?.is_master === true && normalizeSlugValue(item?.slug) === normalizedSlug
-    ) || null;
-
-    if (master) {
-      return { subscriber: null, isMaster: true, subscriberEmail: null, subscriberId: null };
-    }
-
-    return { subscriber: null, isMaster: false, subscriberEmail: null, subscriberId: null };
+    return resolveJsonSubscriberOrMasterBySlug(normalizedSlug);
   }
 
-  const subscriber = await repo.getSubscriberBySlug(normalizedSlug);
-  if (subscriber) {
+  const postgresResult = await resolvePostgresSubscriberOrMasterBySlug(normalizedSlug);
+  if (postgresResult.subscriber || postgresResult.isMaster) {
+    return postgresResult;
+  }
+
+  const jsonResult = await resolveJsonSubscriberOrMasterBySlug(normalizedSlug);
+  if (jsonResult.subscriber || jsonResult.isMaster) {
     return {
-      subscriber,
-      isMaster: false,
-      subscriberEmail: subscriber.email,
-      subscriberId: subscriber.id ?? null,
+      ...jsonResult,
+      source: 'json',
+      attemptedSources: ['postgres', 'json'],
+      fallbackUsed: true,
+      missReason: postgresResult.missReason || 'postgres-miss',
     };
   }
 
-  const { query } = await import('../../db/postgres.js');
-  const masterResult = await query(
-    'SELECT id, email, slug FROM users WHERE slug = $1 AND is_master = TRUE',
-    [normalizedSlug]
-  );
-
-  if (masterResult.rows.length > 0) {
-    return { subscriber: null, isMaster: true, subscriberEmail: null, subscriberId: null };
-  }
-
-  return { subscriber: null, isMaster: false, subscriberEmail: null, subscriberId: null };
+  return buildSlugLookupResult({
+    source: 'none',
+    attemptedSources: ['postgres', 'json'],
+    fallbackUsed: true,
+    missReason: 'postgres-miss-and-json-miss',
+  });
 }
 
 function buildJsonMenuEntities(entities, predicate) {
@@ -124,29 +285,24 @@ function buildJsonMenuEntities(entities, predicate) {
  * Load all menu entities for a subscriber or master public slug.
  */
 export async function getMenuEntities(subscriberEmail, isMaster) {
+  const loadJsonEntitiesResult = () => {
+    const jsonEntities = loadJsonMenuEntities(subscriberEmail, isMaster);
+    return {
+      ...jsonEntities,
+      source: 'json',
+      attemptedSources: ['json'],
+      fallbackUsed: false,
+      missReason: hasValidMenuEntities(jsonEntities) ? null : 'json-empty',
+    };
+  };
+
   if (!usePostgreSQL) {
-    const db = getDb();
-    const entities = db?.entities || {};
-
-    if (isMaster) {
-      return buildJsonMenuEntities(entities, (item) => !item?.owner_email);
-    }
-
-    const subscribers = Array.isArray(db?.subscribers) ? db.subscribers : [];
-    const subscriber = subscribers.find(
-      (item) => String(item?.email || '').toLowerCase().trim() === String(subscriberEmail || '').toLowerCase().trim()
-    ) || null;
-    const altEmail = String(subscriber?.linked_user_email || '').toLowerCase().trim();
-    const normalizedEmail = String(subscriberEmail || '').toLowerCase().trim();
-
-    return buildJsonMenuEntities(entities, (item) => {
-      const owner = String(item?.owner_email || '').toLowerCase().trim();
-      return !owner || owner === normalizedEmail || (!!altEmail && owner === altEmail);
-    });
+    return loadJsonEntitiesResult();
   }
 
   const { query } = await import('../../db/postgres.js');
 
+  let postgresEntities;
   if (isMaster) {
     const [
       storeList,
@@ -220,7 +376,73 @@ export async function getMenuEntities(subscriberEmail, isMaster) {
       ),
     ]);
 
-    return {
+    postgresEntities = {
+      storeList,
+      dishes,
+      categories,
+      complementGroups,
+      combos,
+      pizzaSizes,
+      pizzaFlavors,
+      pizzaEdges,
+      pizzaExtras,
+      pizzaCategories,
+      beverageCategories,
+      deliveryZones,
+      coupons,
+      promotions,
+      tables,
+      loyaltyConfigs,
+      loyaltyRewards,
+    };
+  } else {
+    let altEmail = null;
+    try {
+      const sub = await repo.getSubscriberByEmail(subscriberEmail);
+      altEmail = sub?.linked_user_email || null;
+    } catch {
+      altEmail = null;
+    }
+
+    const [
+      storeList,
+      dishes,
+      categories,
+      complementGroups,
+      combos,
+      pizzaSizes,
+      pizzaFlavors,
+      pizzaEdges,
+      pizzaExtras,
+      pizzaCategories,
+      beverageCategories,
+      deliveryZones,
+      coupons,
+      promotions,
+      tables,
+      loyaltyConfigs,
+      loyaltyRewards,
+    ] = await Promise.all([
+      repo.listEntitiesForSubscriber('Store', subscriberEmail, null, altEmail),
+      repo.listEntitiesForSubscriber('Dish', subscriberEmail, 'order', altEmail),
+      repo.listEntitiesForSubscriber('Category', subscriberEmail, 'order', altEmail),
+      repo.listEntitiesForSubscriber('ComplementGroup', subscriberEmail, 'order', altEmail),
+      repo.listEntitiesForSubscriber('Combo', subscriberEmail, null, altEmail),
+      repo.listEntitiesForSubscriber('PizzaSize', subscriberEmail, 'order', altEmail),
+      repo.listEntitiesForSubscriber('PizzaFlavor', subscriberEmail, 'order', altEmail),
+      repo.listEntitiesForSubscriber('PizzaEdge', subscriberEmail, null, altEmail),
+      repo.listEntitiesForSubscriber('PizzaExtra', subscriberEmail, null, altEmail),
+      repo.listEntitiesForSubscriber('PizzaCategory', subscriberEmail, 'order', altEmail),
+      repo.listEntitiesForSubscriber('BeverageCategory', subscriberEmail, 'order', altEmail),
+      repo.listEntitiesForSubscriber('DeliveryZone', subscriberEmail, null, altEmail),
+      repo.listEntitiesForSubscriber('Coupon', subscriberEmail, null, altEmail),
+      repo.listEntitiesForSubscriber('Promotion', subscriberEmail, null, altEmail),
+      repo.listEntitiesForSubscriber('Table', subscriberEmail, 'table_number', altEmail),
+      repo.listEntitiesForSubscriber('LoyaltyConfig', subscriberEmail, null, altEmail),
+      repo.listEntitiesForSubscriber('LoyaltyReward', subscriberEmail, null, altEmail),
+    ]);
+
+    postgresEntities = {
       storeList,
       dishes,
       categories,
@@ -241,71 +463,34 @@ export async function getMenuEntities(subscriberEmail, isMaster) {
     };
   }
 
-  let altEmail = null;
-  try {
-    const sub = await repo.getSubscriberByEmail(subscriberEmail);
-    altEmail = sub?.linked_user_email || null;
-  } catch {
-    altEmail = null;
+  if (hasValidMenuEntities(postgresEntities)) {
+    return {
+      ...postgresEntities,
+      source: 'postgres',
+      attemptedSources: ['postgres'],
+      fallbackUsed: false,
+      missReason: null,
+    };
   }
 
-  const [
-    storeList,
-    dishes,
-    categories,
-    complementGroups,
-    combos,
-    pizzaSizes,
-    pizzaFlavors,
-    pizzaEdges,
-    pizzaExtras,
-    pizzaCategories,
-    beverageCategories,
-    deliveryZones,
-    coupons,
-    promotions,
-    tables,
-    loyaltyConfigs,
-    loyaltyRewards,
-  ] = await Promise.all([
-    repo.listEntitiesForSubscriber('Store', subscriberEmail, null, altEmail),
-    repo.listEntitiesForSubscriber('Dish', subscriberEmail, 'order', altEmail),
-    repo.listEntitiesForSubscriber('Category', subscriberEmail, 'order', altEmail),
-    repo.listEntitiesForSubscriber('ComplementGroup', subscriberEmail, 'order', altEmail),
-    repo.listEntitiesForSubscriber('Combo', subscriberEmail, null, altEmail),
-    repo.listEntitiesForSubscriber('PizzaSize', subscriberEmail, 'order', altEmail),
-    repo.listEntitiesForSubscriber('PizzaFlavor', subscriberEmail, 'order', altEmail),
-    repo.listEntitiesForSubscriber('PizzaEdge', subscriberEmail, null, altEmail),
-    repo.listEntitiesForSubscriber('PizzaExtra', subscriberEmail, null, altEmail),
-    repo.listEntitiesForSubscriber('PizzaCategory', subscriberEmail, 'order', altEmail),
-    repo.listEntitiesForSubscriber('BeverageCategory', subscriberEmail, 'order', altEmail),
-    repo.listEntitiesForSubscriber('DeliveryZone', subscriberEmail, null, altEmail),
-    repo.listEntitiesForSubscriber('Coupon', subscriberEmail, null, altEmail),
-    repo.listEntitiesForSubscriber('Promotion', subscriberEmail, null, altEmail),
-    repo.listEntitiesForSubscriber('Table', subscriberEmail, 'table_number', altEmail),
-    repo.listEntitiesForSubscriber('LoyaltyConfig', subscriberEmail, null, altEmail),
-    repo.listEntitiesForSubscriber('LoyaltyReward', subscriberEmail, null, altEmail),
-  ]);
+  const jsonEntities = loadJsonMenuEntities(subscriberEmail, isMaster);
+  if (hasValidMenuEntities(jsonEntities)) {
+    return {
+      ...jsonEntities,
+      source: 'json',
+      attemptedSources: ['postgres', 'json'],
+      fallbackUsed: true,
+      missReason: 'postgres-empty',
+    };
+  }
 
-  return {
-    storeList,
-    dishes,
-    categories,
-    complementGroups,
-    combos,
-    pizzaSizes,
-    pizzaFlavors,
-    pizzaEdges,
-    pizzaExtras,
-    pizzaCategories,
-    beverageCategories,
-    deliveryZones,
-    coupons,
-    promotions,
-    tables,
-    loyaltyConfigs,
-    loyaltyRewards,
-  };
+  return buildEmptyMenuEntities({
+    ...postgresEntities,
+    source: 'none',
+    attemptedSources: ['postgres', 'json'],
+    fallbackUsed: true,
+    missReason: 'postgres-empty-and-json-empty',
+  });
 }
 
 /**
