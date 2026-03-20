@@ -26,7 +26,6 @@ import express from 'express';
 import http from 'http';
 import cors from 'cors';
 import bcrypt from 'bcrypt';
-import jwt from 'jsonwebtoken';
 import passport from 'passport';
 import { setupWebSocket, emitOrderUpdate, emitOrderCreated, emitComandaUpdate, emitComandaCreated, emitTableUpdate } from './services/websocket.js';
 import { getAIResponse, isAIAvailable } from './services/chatAI.js';
@@ -39,7 +38,6 @@ import { migrate } from './db/migrate.js';
 import * as repo from './db/repository.js';
 import { logger } from './utils/logger.js';
 import { validateJWTSecret, setupHelmet, sanitizeMiddleware } from './middlewares/security.js';
-import { storeToken, getToken, deleteToken } from './utils/tokenStorage.js';
 import { requestLogger } from './utils/monitoring.js';
 import { scheduleBackups } from './utils/backup.js';
 import { analyticsMiddleware } from './utils/analytics.js';
@@ -65,7 +63,7 @@ import lgpdRoutes from './routes/lgpd.routes.js';
 import authRoutes, { getUserContext } from './modules/auth/auth.routes.js';
 import * as authController from './modules/auth/auth.controller.js';
 import { registerGoogleAuth } from './modules/auth/googleAuthSetup.js';
-import { generatePasswordTokenForSubscriber } from './modules/auth/auth.service.js';
+import { generatePasswordTokenForSubscriber, generateToken } from './modules/auth/auth.service.js';
 import usersRoutes, { colaboradoresRouter } from './modules/users/users.routes.js';
 import * as usersController from './modules/users/users.controller.js';
 import establishmentsRoutes from './modules/establishments/establishments.routes.js';
@@ -81,6 +79,7 @@ import { initializeAppConfig } from './config/appConfig.js';
 import { apiLimiter, createLimiter } from './middlewares/rateLimit.js';
 import { errorHandler, asyncHandler } from './middlewares/errorHandler.js';
 import { compressionMiddleware } from './middlewares/compression.js';
+import { authenticate } from './middlewares/auth.js';
 
 // =======================
 // âš™ï¸ APP SETUP
@@ -128,7 +127,7 @@ const assertNotLocalhostInProduction = (name, value) => {
 };
 
 // âœ… VALIDAR JWT_SECRET (obrigatÃ³rio em produÃ§Ã£o)
-const JWT_SECRET = validateJWTSecret();
+validateJWTSecret();
 
 const FRONTEND_URL = assertNotLocalhostInProduction(
   'FRONTEND_URL',
@@ -326,15 +325,10 @@ if (!usePostgreSQL) {
   })();
 }
 
-// Tokens agora sÃ£o gerenciados pelo tokenStorage (Redis ou banco)
-// Mantido para compatibilidade durante migraÃ§Ã£o
-const activeTokens = {};
-
 // Compartilha contexto global (db/tokens) para serviÃ§os que usam appConfig.
 initializeAppConfig({
   db,
   saveDatabaseDebounced,
-  activeTokens
 });
 
 const { enforceOrderOperationalStatusContract } = createOrderOperationalContract({
@@ -437,153 +431,6 @@ const getSubscribersFunctionHandler = createGetSubscribersFunctionHandler({
 });
 
 // =======================
-// ðŸ” AUTH HELPERS
-// =======================
-const extractTokenFromRequest = req =>
-  req.headers.authorization?.startsWith('Bearer ')
-    ? req.headers.authorization.slice(7)
-    : null;
-
-// Rotas pÃºblicas que nÃ£o precisam de autenticaÃ§Ã£o
-const publicRoutes = [
-  '/api/health',
-  '/api/upload-image',
-  '/api/auth/login',
-  '/api/auth/me',  // Permitir chamadas de verificaÃ§Ã£o de auth
-  '/api/auth/set-password',
-  '/api/auth/forgot-password',
-  '/api/auth/reset-password',
-  '/api/auth/google',
-  '/api/auth/google/callback',
-  '/api/public/cardapio',  // /api/public/cardapio/:slug â€” link Ãºnico do cardÃ¡pio por assinante
-  '/api/public/login-info', // /api/public/login-info/:slug â€” dados para pÃ¡gina de login por estabelecimento
-  '/api/public/chat',      // Chat do assistente (IA) â€” pÃºblico para o cardÃ¡pio
-  '/api/public/assinar-config',   // Config da pÃ¡gina de vendas (planos, preÃ§os, trial) para /assinar
-  '/api/analytics/events', // IngestÃ£o de eventos comerciais do cardÃ¡pio/carrinho/checkout (pÃºblico)
-  '/api/entities/PaymentConfig',  // ConfiguraÃ§Ãµes de pagamento pÃºblicas para o cardÃ¡pio
-  '/api/entities/MenuItem',  // Itens do menu pÃºblicos para o cardÃ¡pio
-  '/api/entities/Category',  // Categorias pÃºblicas para o cardÃ¡pio
-  '/api/entities/Subscriber',  // Info do assinante pÃºblica para o cardÃ¡pio
-  '/api/functions/registerCustomer'  // Cadastro de clientes (pÃºblico)
-];
-
-const isPublicRoute = (path) => {
-  return publicRoutes.some(route => path.startsWith(route));
-};
-
-const authenticate = async (req, res, next) => {
-  // Rotas pÃºblicas nÃ£o precisam de autenticaÃ§Ã£o
-  if (isPublicRoute(req.path)) {
-    // Para rotas pÃºblicas, apenas passar adiante sem verificar token
-    // O token pode ser verificado opcionalmente dentro da rota se necessÃ¡rio
-    const token = extractTokenFromRequest(req);
-    if (token) {
-      try {
-        const decoded = jwt.verify(token, JWT_SECRET);
-        let user;
-        if (usePostgreSQL) {
-          user = await repo.getLoginUserByEmail(decoded.email);
-        } else if (db && db.users) {
-          const matches = db.users.filter(u => (u.email || '').toLowerCase() === (decoded.email || '').toLowerCase());
-          user = matches.find(u => u.profile_role) || matches[0];
-        }
-        if (user) {
-          req.user = user;
-        }
-      } catch (err) {
-        // Token invÃ¡lido em rota pÃºblica - apenas ignorar
-      }
-    }
-    return next();
-  }
-
-  const token = extractTokenFromRequest(req);
-  
-  // Se nÃ£o tem token, usar usuÃ¡rio padrÃ£o (modo desenvolvimento)
-  if (!token) {
-    console.log('âš ï¸ [authenticate] Sem token:', { path: req.path, method: req.method });
-    if (process.env.NODE_ENV !== 'production') {
-      // Em desenvolvimento, permitir sem token
-      if (usePostgreSQL) {
-        req.user = await repo.getUserByEmail('admin@digimenu.com');
-      } else if (db && db.users && db.users.length > 0) {
-        req.user = db.users[0];
-      } else {
-        return res.status(401).json({ error: 'UsuÃ¡rio padrÃ£o nÃ£o encontrado' });
-      }
-      console.log('âœ… [authenticate] Usando usuÃ¡rio padrÃ£o (dev)');
-      return next();
-    }
-    // Em produÃ§Ã£o, retornar erro se nÃ£o tiver token
-    return res.status(401).json({ error: 'Token de autenticaÃ§Ã£o necessÃ¡rio' });
-  }
-
-  // Tentar validar JWT
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    console.log('âœ… [authenticate] Token vÃ¡lido:', { email: decoded.email, id: decoded.id });
-    
-    let user;
-    if (usePostgreSQL) {
-      user = await repo.getLoginUserByEmail(decoded.email);
-      if (!user) {
-        user = await repo.getUserByEmail('admin@digimenu.com');
-      }
-    } else if (db && db.users) {
-      const matches = db.users.filter(u => (u.email || '').toLowerCase() === (decoded.email || '').toLowerCase());
-      user = matches.find(u => u.profile_role) || matches[0] || db.users[0];
-    } else {
-      return res.status(401).json({ error: 'Banco de dados nÃ£o inicializado' });
-    }
-    
-    if (!user) {
-      console.log('âŒ [authenticate] UsuÃ¡rio nÃ£o encontrado:', decoded.email);
-      return res.status(401).json({ error: 'UsuÃ¡rio nÃ£o encontrado' });
-    }
-    
-    req.user = user;
-    console.log('âœ… [authenticate] UsuÃ¡rio autenticado:', { email: user.email, is_master: user.is_master });
-    return next();
-  } catch (error) {
-    // JWT invÃ¡lido - tentar mÃ©todo alternativo (buscar em activeTokens)
-    const email = activeTokens[token];
-    if (email) {
-      let user;
-      if (usePostgreSQL) {
-        user = await repo.getLoginUserByEmail(email);
-        if (!user) {
-          user = await repo.getUserByEmail('admin@digimenu.com');
-        }
-      } else if (db && db.users) {
-        const matches = db.users.filter(u => (u.email || '').toLowerCase() === (email || '').toLowerCase());
-        user = matches.find(u => u.profile_role) || matches[0] || db.users[0];
-      } else {
-        return res.status(401).json({ error: 'Banco de dados nÃ£o inicializado' });
-      }
-      req.user = user;
-      return next();
-    }
-    
-    // Se nÃ£o encontrou em activeTokens e estÃ¡ em desenvolvimento, usar padrÃ£o
-    if (process.env.NODE_ENV !== 'production') {
-      // Apenas logar em desenvolvimento
-      console.warn('âš ï¸ JWT invÃ¡lido, usando usuÃ¡rio padrÃ£o (dev mode)');
-      if (usePostgreSQL) {
-        req.user = await repo.getUserByEmail('admin@digimenu.com');
-      } else if (db && db.users && db.users.length > 0) {
-        req.user = db.users[0];
-      } else {
-        return res.status(401).json({ error: 'UsuÃ¡rio padrÃ£o nÃ£o encontrado' });
-      }
-      return next();
-    }
-    
-    // Em produÃ§Ã£o, retornar erro
-    return res.status(401).json({ error: 'Token invÃ¡lido ou expirado' });
-  }
-};
-
-// =======================
 // ðŸ” GOOGLE OAUTH CONFIGURATION
 // =======================
 registerGoogleAuth({
@@ -597,9 +444,7 @@ registerGoogleAuth({
   GOOGLE_CLIENT_ID,
   GOOGLE_CLIENT_SECRET,
   GOOGLE_CALLBACK_URL,
-  jwt,
-  JWT_SECRET,
-  activeTokens,
+  generateToken,
 });
 
 // =======================

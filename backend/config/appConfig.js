@@ -14,12 +14,10 @@ export const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 // Values initialized by server.js during bootstrap
 let db = null;
 let saveDatabaseDebounced = null;
-let activeTokens = {};
 
 export function initializeAppConfig(config) {
   db = config.db;
   saveDatabaseDebounced = config.saveDatabaseDebounced;
-  activeTokens = config.activeTokens || {};
 }
 
 export function getDb() {
@@ -30,8 +28,4 @@ export function getSaveDatabaseDebounced() {
   return saveDatabaseDebounced;
 }
 
-export function getActiveTokens() {
-  return activeTokens;
-}
-
-export { db, saveDatabaseDebounced, activeTokens };
+export { db, saveDatabaseDebounced };

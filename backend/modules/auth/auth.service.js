@@ -16,7 +16,6 @@ const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 const usePostgreSQL = !!process.env.DATABASE_URL;
 
 // Armazenamento temporário de tokens (em produção, usar Redis)
-const activeTokens = {};
 const passwordTokens = {};
 
 /**
@@ -28,18 +27,15 @@ export function generateToken(user) {
       id: user.id,
       email: user.email,
       role: user.role,
-      is_master: user.is_master
+      is_master: user.is_master,
+      subscriber_id: user.subscriber_id || null,
+      subscriber_email: user.subscriber_email || null,
+      profile_role: user.profile_role || null,
+      profile_roles: Array.isArray(user.profile_roles) ? user.profile_roles : null
     },
     JWT_SECRET,
     { expiresIn: '7d' }
   );
-}
-
-/**
- * Armazena token ativo
- */
-export function storeActiveToken(token, email) {
-  activeTokens[token] = email;
 }
 
 /**
@@ -276,7 +272,6 @@ export async function ensurePlanCollaborators(user, subscriber, db = null, saveD
  */
 export function prepareLoginResponse(user) {
   const token = generateToken(user);
-  storeActiveToken(token, user.email);
   
   return {
     token,

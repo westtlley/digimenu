@@ -11,9 +11,7 @@ export function registerGoogleAuth({
   GOOGLE_CLIENT_ID,
   GOOGLE_CLIENT_SECRET,
   GOOGLE_CALLBACK_URL,
-  jwt,
-  JWT_SECRET,
-  activeTokens,
+  generateToken,
 }) {
   if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
     console.log('⚠️ Google OAuth não configurado (GOOGLE_CLIENT_ID ou GOOGLE_CLIENT_SECRET não definidos)');
@@ -174,18 +172,7 @@ export function registerGoogleAuth({
           return res.redirect(`${FRONTEND_URL}/login?error=user_not_found`);
         }
 
-        const token = jwt.sign(
-          {
-            id: user.id,
-            email: user.email,
-            role: user.role,
-            is_master: user.is_master
-          },
-          JWT_SECRET,
-          { expiresIn: '7d' }
-        );
-
-        activeTokens[token] = user.email;
+        const token = generateToken(user);
 
         return res.redirect(
           `${FRONTEND_URL}/auth/callback?token=${token}&email=${encodeURIComponent(user.email)}&name=${encodeURIComponent(user.full_name || '')}`
