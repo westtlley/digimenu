@@ -1,39 +1,30 @@
 /**
- * Menus Controller - Handlers de rotas de menus
- * Orquestra as requisições e chama o service apropriado
+ * Menus Controller - handlers for public menu routes.
  */
 
 import * as menusService from './menus.service.js';
 import { asyncHandler } from '../../middlewares/errorHandler.js';
 import { logger } from '../../utils/logger.js';
-import { usePostgreSQL } from '../../config/appConfig.js';
 
 /**
- * Dados públicos para a página de login por estabelecimento (logo, tema, nome).
+ * Public branding data for slug login pages.
  */
 export const getPublicLoginInfo = asyncHandler(async (req, res) => {
-  if (!usePostgreSQL) {
-    return res.status(503).json({ found: false, error: 'Requer PostgreSQL' });
-  }
   const slug = (req.params.slug || '').trim();
   const data = await menusService.getPublicLoginInfo(slug);
   res.json(data);
 });
 
 /**
- * Obtém cardápio público por slug
+ * Public menu by slug.
  */
 export const getPublicMenuBySlug = asyncHandler(async (req, res) => {
-  if (!usePostgreSQL) {
-    return res.status(503).json({ error: 'Cardápio por link requer PostgreSQL. Configure DATABASE_URL.' });
-  }
-
   try {
     const { slug } = req.params;
     const menuData = await menusService.getPublicMenuBySlug(slug);
     res.json(menuData);
   } catch (error) {
-    logger.error('❌ Erro ao buscar cardápio público:', error);
+    logger.error('Public menu lookup failed:', error);
     if (error.message === 'Slug inválido') {
       return res.status(400).json({ error: error.message });
     }
