@@ -51,8 +51,8 @@ import { useUpsell } from '@/components/hooks/useUpsell';
 import { useCoupons } from '@/components/hooks/useCoupons';
 import { useCustomer } from '@/components/hooks/useCustomer';
 import { useDocumentHead } from '@/hooks/useDocumentHead';
-import { useAdaptedTheme } from '@/hooks/useAdaptedTheme';
 import { useFavoritePromotions } from '@/hooks/useFavoritePromotions';
+import { useStorefrontTheme } from '@/hooks/useStorefrontTheme';
 
 // Services & Utils
 import { orderService } from '@/components/services/orderService';
@@ -60,6 +60,7 @@ import { whatsappService } from '@/components/services/whatsappService';
 import { stockUtils } from '@/components/utils/stockUtils';
 import { formatCurrency } from '@/utils/formatters';
 import { COMMERCIAL_EVENTS, getCommercialSignalsForSlug, trackCommercialEvent, trackCommercialEventOnce } from '@/utils/commercialAnalytics';
+import { withAlpha } from '@/utils/storefrontTheme';
 
 /** Landing quando não há slug: / ou /cardapio — não exibe cardápio de nenhum estabelecimento. */
 function CardapioSemLink() {
@@ -711,21 +712,33 @@ export default function Cardapio() {
     mutationFn: ({ id, data }) => base44.entities.Coupon.update(id, data)
   });
 
-  // Adaptar cores do tema para modo escuro
-  const adaptedTheme = useAdaptedTheme(store);
+  const storefrontTheme = useStorefrontTheme(store);
   
-  const primaryColor = adaptedTheme.primary;
-  const textPrimaryColor = adaptedTheme.textPrimary;
-  const textSecondaryColor = adaptedTheme.textSecondary;
-  const headerBg = store?.theme_header_bg || '#ffffff';
-  const headerText = store?.theme_header_text || '#000000';
-  const autoplayIntervalMs = Number(store?.menu_autoplay_interval_ms) > 0 ? Number(store?.menu_autoplay_interval_ms) : 4500;
-  const menuLayoutMobile = store?.menu_layout_mobile || store?.menu_layout || 'grid';
-  const menuLayoutDesktop = store?.menu_layout_desktop || store?.menu_layout || 'grid';
-  const menuCardStyle = store?.theme_menu_card_style || 'solid';
+  const primaryColor = storefrontTheme.primary;
+  const textPrimaryColor = storefrontTheme.textPrimary;
+  const textSecondaryColor = storefrontTheme.textSecondary;
+  const headerBg = storefrontTheme.headerBg;
+  const headerText = storefrontTheme.headerText;
+  const autoplayIntervalMs = storefrontTheme.menu_autoplay_interval_ms;
+  const menuLayoutMobile = storefrontTheme.menu_layout_mobile;
+  const menuLayoutDesktop = storefrontTheme.menu_layout_desktop;
+  const menuCardStyle = storefrontTheme.theme_menu_card_style;
   const menuLayout = isDesktopViewport ? menuLayoutDesktop : menuLayoutMobile; // grid, list, carousel, magazine, masonry
-  const gridColsDesktop = store?.menu_grid_cols_desktop;
+  const gridColsDesktop = storefrontTheme.menu_grid_cols_desktop;
   const desktopCarouselMode = isDesktopViewport && menuLayout === 'carousel';
+  const ctaBg = storefrontTheme.ctaBg;
+  const ctaText = storefrontTheme.ctaText;
+  const activeCategoryStyle = {
+    backgroundColor: ctaBg,
+    color: ctaText,
+    borderColor: withAlpha(ctaBg, 0.18),
+    boxShadow: `0 12px 24px ${withAlpha(ctaBg, 0.24)}`,
+  };
+  const inactiveCategoryStyle = {
+    backgroundColor: withAlpha(storefrontTheme.surfaceAlt, 0.95),
+    color: storefrontTheme.textSecondary,
+    borderColor: storefrontTheme.borderColor,
+  };
 
   // Store Status
   const { isStoreUnavailable, isStoreClosed, isStorePaused, isAutoModeClosed, getNextOpenTime, getStatusDisplay } = useStoreStatus(store || {});
@@ -2459,7 +2472,11 @@ export default function Cardapio() {
     <div className={desktopCarouselMode
       ? "h-screen overflow-hidden bg-background flex flex-col"
       : "min-h-screen min-h-screen-mobile bg-background flex flex-col"
-    }>
+    }
+    style={{
+      background: `linear-gradient(180deg, ${withAlpha(storefrontTheme.surfaceAlt, 0.65)}, ${storefrontTheme.surface})`,
+      color: storefrontTheme.textPrimary,
+    }}>
       {/* Splash - logo do restaurante e cor principal */}
       <AnimatePresence>
         {showSplash && (
@@ -2468,7 +2485,7 @@ export default function Cardapio() {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.35 }}
             className="fixed inset-0 z-[9999] flex flex-col items-center justify-center"
-            style={{ backgroundColor: primaryColor }}
+            style={{ backgroundColor: ctaBg, color: ctaText }}
           >
             <motion.div
               initial={{ scale: 0.85, opacity: 0 }}
@@ -2483,18 +2500,19 @@ export default function Cardapio() {
                   className="h-24 w-24 max-w-[280px] object-contain drop-shadow-lg rounded-xl"
                 />
               )}
-              <p className="text-primary-foreground font-semibold text-xl text-center drop-shadow-sm">
+              <p className="font-semibold text-xl text-center drop-shadow-sm" style={{ color: ctaText }}>
                 {store?.name || 'Cardápio'}
               </p>
               {loadingTimeout && publicError && (
                 <div className="mt-4 text-center max-w-sm">
-                  <p className="text-primary-foreground/90 text-sm mb-3">Erro ao carregar cardápio</p>
+                  <p className="text-sm mb-3" style={{ color: withAlpha(ctaText, 0.92) }}>Erro ao carregar cardapio</p>
                   <Button
                     onClick={() => {
                       setLoadingTimeout(false);
                       window.location.reload();
                     }}
-                    className="bg-card text-orange-500 hover:bg-muted px-4 py-2 rounded-lg font-medium"
+                    className="px-4 py-2 rounded-lg font-medium"
+                    style={{ backgroundColor: storefrontTheme.surface, color: storefrontTheme.primary }}
                   >
                     Tentar Novamente
                   </Button>
@@ -2504,7 +2522,8 @@ export default function Cardapio() {
                 <motion.div
                   animate={{ opacity: [0.4, 1, 0.4] }}
                   transition={{ duration: 0.8, repeat: Infinity }}
-                  className="h-1 w-24 rounded-full bg-primary-foreground/70"
+                  className="h-1 w-24 rounded-full"
+                  style={{ backgroundColor: withAlpha(ctaText, 0.72) }}
                 />
               )}
             </motion.div>
@@ -2534,17 +2553,23 @@ export default function Cardapio() {
           />
           
           {/* Overlay Gradient */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/30"></div>
+          <div
+            className="absolute inset-0"
+            style={{ background: `linear-gradient(180deg, ${storefrontTheme.heroOverlayStart}, ${storefrontTheme.heroOverlayEnd})` }}
+          />
           
           {/* Desktop: linha única - Logo | Search | Ícones */}
           <div className="absolute inset-0 z-30 flex flex-col md:flex-row md:items-center md:justify-between md:gap-4 md:px-4 md:py-3">
             <div className="flex items-center gap-3 pt-4 pl-4 md:pt-0 md:pl-0 md:flex-shrink-0">
               {store?.logo && (
-                <div className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-white/95 backdrop-blur-sm p-1 shadow-2xl border-2 border-white/50 flex-shrink-0">
+                <div
+                  className="w-12 h-12 md:w-14 md:h-14 rounded-full backdrop-blur-sm p-1 shadow-2xl border-2 flex-shrink-0"
+                  style={{ backgroundColor: withAlpha(storefrontTheme.surface, 0.92), borderColor: storefrontTheme.heroChromeBorder }}
+                >
                   <img src={store?.logo} alt={store?.name || 'Restaurante'} className="w-full h-full rounded-full object-cover" />
                 </div>
               )}
-              <div className="text-white">
+              <div style={{ color: storefrontTheme.heroText }}>
                 <h1 className="text-lg md:text-xl font-bold drop-shadow-lg leading-tight truncate max-w-[54vw] md:max-w-none">{store?.name || 'Restaurante'}</h1>
                 <div className="flex items-center gap-1 md:hidden">
                   <span className={`w-1.5 h-1.5 rounded-full ${isStoreOpen ? 'bg-green-400' : 'bg-red-400'}`}></span>
@@ -2556,12 +2581,17 @@ export default function Cardapio() {
             {/* Search - desktop sempre visível; mobile via ícone */}
             <div className={`absolute top-20 left-4 right-4 md:static md:flex-1 md:max-w-xl md:mx-4 z-30 ${(searchOpen || searchTerm) ? 'block' : 'hidden'} md:block`}>
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/80 md:text-muted-foreground" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 md:text-muted-foreground" style={{ color: withAlpha(storefrontTheme.heroText, 0.78) }} />
                 <Input
                   placeholder="O que você procura hoje?"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 h-11 md:h-10 text-base bg-white/90 md:bg-white/95 backdrop-blur-sm border-white/30 text-foreground placeholder:text-muted-foreground"
+                  className="pl-10 h-11 md:h-10 text-base backdrop-blur-sm placeholder:text-muted-foreground"
+                  style={{
+                    backgroundColor: withAlpha(storefrontTheme.surface, 0.94),
+                    borderColor: storefrontTheme.heroChromeBorder,
+                    color: storefrontTheme.textPrimary,
+                  }}
                 />
               </div>
             </div>
@@ -2569,17 +2599,19 @@ export default function Cardapio() {
             <div className="absolute top-4 right-4 md:static flex items-center gap-2 md:flex-shrink-0">
               <button
                 onClick={() => setSearchOpen((v) => !v)}
-                className="md:hidden p-2 rounded-full min-h-touch min-w-touch bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-colors text-white flex items-center justify-center"
+                className="md:hidden p-2 rounded-full min-h-touch min-w-touch backdrop-blur-sm transition-colors flex items-center justify-center"
+                style={{ backgroundColor: storefrontTheme.heroChromeBg, color: storefrontTheme.heroText }}
                 title="Pesquisar"
                 aria-label="Pesquisar"
               >
                 {searchOpen ? <X className="w-5 h-5" /> : <Search className="w-5 h-5" />}
               </button>
-              <ThemeToggle className="text-white hover:bg-white/20" />
+              <ThemeToggle className="hover:bg-transparent" style={{ color: storefrontTheme.heroText }} />
               <div className="hidden md:flex items-center gap-2">
                 <InstallAppButton pageName="Cardápio" compact />
                 <button 
-                  className="p-2 rounded-full min-h-touch min-w-touch bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-colors text-white flex items-center justify-center" 
+                  className="p-2 rounded-full min-h-touch min-w-touch backdrop-blur-sm transition-colors flex items-center justify-center" 
+                  style={{ backgroundColor: storefrontTheme.heroChromeBg, color: storefrontTheme.heroText }}
                   onClick={() => {
                     if (navigator.share) {
                       navigator.share({ title: store?.name || 'Cardápio', text: `Confira o cardápio de ${store?.name || 'nosso restaurante'}`, url: window.location.href }).catch(() => {});
@@ -2593,7 +2625,11 @@ export default function Cardapio() {
                   <Share2 className="w-5 h-5" />
                 </button>
                 <button 
-                  className={`p-0.5 rounded-full backdrop-blur-sm transition-all ${isAuthenticated ? 'bg-green-500/90 hover:bg-green-600' : 'bg-white/20 hover:bg-white/30'} text-white relative`}
+                  className="p-0.5 rounded-full backdrop-blur-sm transition-all relative"
+                  style={{
+                    backgroundColor: isAuthenticated ? withAlpha('#16a34a', 0.9) : storefrontTheme.heroChromeBg,
+                    color: storefrontTheme.heroText,
+                  }}
                   onClick={() => {
                     if (isAuthenticated) setShowCustomerProfile(true);
                     else window.location.href = slug ? `/s/${slug}/login/cliente?returnUrl=${encodeURIComponent(window.location.pathname)}` : `/?returnUrl=${encodeURIComponent(window.location.pathname)}`;
@@ -2614,7 +2650,8 @@ export default function Cardapio() {
                   )}
                 </button>
                 <button 
-                  className="p-2 rounded-full relative bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-colors text-white" 
+                  className="p-2 rounded-full relative backdrop-blur-sm transition-colors" 
+                  style={{ backgroundColor: storefrontTheme.heroChromeBg, color: storefrontTheme.heroText }}
                   onClick={() => openCartModal()}
                 >
                   <ShoppingCart className="w-5 h-5" />
@@ -2630,7 +2667,7 @@ export default function Cardapio() {
         </div>
       ) : (
         /* Header - Apenas quando NÃO tem banner. Desktop: linha única com pesquisa rente */
-        <header className="border-b border-border sticky top-0 z-40 pb-4 md:pb-2 lg:py-2 lg:pb-2 bg-card">
+        <header className="sticky top-0 z-40 pb-4 md:pb-2 lg:py-2 lg:pb-2 border-b" style={{ backgroundColor: headerBg, color: headerText, borderColor: storefrontTheme.borderColor }}>
           <div className="max-w-7xl mx-auto px-4 pt-6 md:pt-3 md:py-3 lg:px-6">
             {/* Desktop: logo | search | ícones em uma linha */}
             <div className="flex flex-col md:flex-row md:items-center md:gap-4 lg:flex-nowrap lg:justify-between lg:gap-6">
@@ -2639,35 +2676,43 @@ export default function Cardapio() {
                   {store?.logo ? (
                     <img src={store?.logo} alt={store?.name || 'Restaurante'} className="w-16 h-16 md:w-14 md:h-14 rounded-xl object-cover shadow-md" />
                   ) : (
-                    <div className="w-16 h-16 md:w-14 md:h-14 rounded-xl flex items-center justify-center text-3xl shadow-md" style={{ backgroundColor: primaryColor }}>
+                    <div className="w-16 h-16 md:w-14 md:h-14 rounded-xl flex items-center justify-center text-3xl shadow-md" style={{ backgroundColor: ctaBg, color: ctaText }}>
                       🍽️
                     </div>
                   )}
                   <div>
-                    <h1 className="font-bold text-xl md:text-lg text-foreground truncate max-w-[50vw] md:max-w-none">{store?.name || 'Restaurante'}</h1>
+                    <h1 className="font-bold text-xl md:text-lg truncate max-w-[50vw] md:max-w-none" style={{ color: headerText }}>{store?.name || 'Restaurante'}</h1>
                     {store?.min_order_value > 0 && (
-                      <p className="text-xs text-muted-foreground">Pedido mín. {formatCurrency(store?.min_order_value || 0)}</p>
+                      <p className="text-xs" style={{ color: withAlpha(headerText, 0.78) }}>Pedido min. {formatCurrency(store?.min_order_value || 0)}</p>
                     )}
                   </div>
                 </div>
                 <div className="flex items-center gap-1 md:hidden">
                   <ThemeToggle />
-                  <button onClick={() => setSearchOpen(v => !v)} className="p-2 rounded-lg min-h-touch min-w-touch text-muted-foreground hover:text-foreground" title="Pesquisar">
+                  <button onClick={() => setSearchOpen(v => !v)} className="p-2 rounded-lg min-h-touch min-w-touch" style={{ color: withAlpha(headerText, 0.82) }} title="Pesquisar">
                     {searchOpen ? <X className="w-5 h-5" /> : <Search className="w-5 h-5" />}
                   </button>
                 </div>
               </div>
               {/* Search - rente no desktop; collapsible no mobile */}
               <div className={`relative flex-1 md:max-w-xl md:mx-4 lg:max-w-[700px] lg:mx-auto lg:flex-1 ${searchOpen ? 'block' : 'hidden'} md:block`}>
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                <Input placeholder="O que você procura hoje?" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 h-10 text-base" autoFocus={searchOpen} />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" style={{ color: withAlpha(headerText, 0.72) }} />
+                <Input
+                  placeholder="O que você procura hoje?"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 h-10 text-base"
+                  autoFocus={searchOpen}
+                  style={{ backgroundColor: withAlpha(storefrontTheme.surface, 0.94), borderColor: storefrontTheme.borderColor, color: storefrontTheme.textPrimary }}
+                />
               </div>
               {/* Ícones - ocultos no mobile (já estão na linha de cima); lg: destaque leve no carrinho */}
               <div className="hidden md:flex items-center gap-2 flex-shrink-0 lg:gap-1">
-                <button className="p-2 rounded-lg transition-colors text-muted-foreground hover:text-foreground hover:bg-muted" onClick={() => { if (navigator.share) { navigator.share({ title: store?.name || 'Cardápio', text: `Confira o cardápio de ${store?.name || 'nosso restaurante'}`, url: window.location.href }).catch(() => {}); } else { navigator.clipboard.writeText(window.location.href); toast.success('Link copiado!'); } }} title="Compartilhar"><Share2 className="w-5 h-5" /></button>
-                <ThemeToggle className="text-muted-foreground hover:text-foreground hover:bg-muted" />
+                <button className="p-2 rounded-lg transition-colors" style={{ color: withAlpha(headerText, 0.82), backgroundColor: withAlpha(storefrontTheme.surface, 0.16) }} onClick={() => { if (navigator.share) { navigator.share({ title: store?.name || 'Cardápio', text: `Confira o cardápio de ${store?.name || 'nosso restaurante'}`, url: window.location.href }).catch(() => {}); } else { navigator.clipboard.writeText(window.location.href); toast.success('Link copiado!'); } }} title="Compartilhar"><Share2 className="w-5 h-5" /></button>
+                <ThemeToggle className="hover:bg-transparent" style={{ color: withAlpha(headerText, 0.82) }} />
                 <button 
-                  className={`relative p-0.5 rounded-lg transition-all ${isAuthenticated ? 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20' : 'text-muted-foreground hover:text-foreground hover:bg-muted'} text-white`} 
+                  className="relative p-0.5 rounded-lg transition-all" 
+                  style={{ backgroundColor: isAuthenticated ? withAlpha('#16a34a', 0.14) : withAlpha(storefrontTheme.surface, 0.16), color: isAuthenticated ? '#16a34a' : withAlpha(headerText, 0.82) }}
                   onClick={() => isAuthenticated ? setShowCustomerProfile(true) : (window.location.href = slug ? `/s/${slug}/login/cliente?returnUrl=${encodeURIComponent(window.location.pathname)}` : `/?returnUrl=${encodeURIComponent(window.location.pathname)}`)} 
                   title={isAuthenticated ? "Meu Perfil" : "Entrar"}
                 >
@@ -2684,11 +2729,11 @@ export default function Cardapio() {
                     </>
                   )}
                 </button>
-                <button className={`p-2 rounded-lg relative transition-colors text-muted-foreground hover:text-foreground hover:bg-muted lg:rounded-md ${cart.length > 0 ? 'lg:ring-2 lg:ring-primary/30 lg:bg-primary/5' : ''}`} onClick={() => openCartModal()}><ShoppingCart className="w-5 h-5" />{cart.length > 0 && <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">{cartItemsCount}</span>}</button>
+                <button className={`p-2 rounded-lg relative transition-colors lg:rounded-md ${cart.length > 0 ? 'lg:ring-2' : ''}`} style={{ color: withAlpha(headerText, 0.82), backgroundColor: withAlpha(storefrontTheme.surface, 0.16), ringColor: withAlpha(ctaBg, 0.28) }} onClick={() => openCartModal()}><ShoppingCart className="w-5 h-5" />{cart.length > 0 && <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">{cartItemsCount}</span>}</button>
               </div>
             </div>
             <div className="text-center mt-2 md:mt-1 lg:mt-1">
-              <span className={`text-xs font-medium ${getStatusDisplay.color}`}>● {getStatusDisplay.text}</span>
+              <span className="text-xs font-medium" style={{ color: getStatusDisplay.color?.includes('green') ? '#16a34a' : '#dc2626' }}>● {getStatusDisplay.text}</span>
             </div>
           </div>
         </header>
@@ -2924,18 +2969,14 @@ export default function Cardapio() {
         </div>
       )}
 
-      <div className={`bg-card border-b border-border z-30 ${desktopCarouselMode ? '' : 'sticky md:static'} ${store?.banner_image ? 'md:top-0 top-0' : 'md:top-[88px] top-[165px]'}`}>
+      <div className={`border-b z-30 ${desktopCarouselMode ? '' : 'sticky md:static'} ${store?.banner_image ? 'md:top-0 top-0' : 'md:top-[88px] top-[165px]'}`} style={{ backgroundColor: withAlpha(storefrontTheme.surface, 0.94), borderColor: storefrontTheme.borderColor }}>
         <div className="max-w-7xl mx-auto px-4 lg:px-6">
           <div className="flex items-center justify-between gap-3 md:py-3 py-4 lg:py-2">
             <div className="flex gap-2 overflow-x-auto scrollbar-hide flex-1">
               <button
                 onClick={() => setSelectedCategory('all')}
-                className={`relative px-6 md:px-8 py-2.5 md:py-3 rounded-full text-sm md:text-base font-semibold whitespace-nowrap transition-all duration-200 lg:px-4 lg:py-2 lg:rounded-lg lg:scale-100 lg:shadow-none ${
-                  selectedCategory === 'all'
-                    ? 'text-white shadow-lg scale-105 lg:border-b-2 lg:border-white/80 lg:rounded-b-none'
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                }`}
-                style={selectedCategory === 'all' ? { backgroundColor: primaryColor, color: 'white' } : {}}
+                className={`relative px-6 md:px-8 py-2.5 md:py-3 rounded-full text-sm md:text-base font-semibold whitespace-nowrap transition-all duration-200 lg:px-4 lg:py-2 lg:rounded-lg lg:scale-100 lg:shadow-none ${selectedCategory === 'all' ? 'scale-105 lg:rounded-b-none' : ''}`}
+                style={selectedCategory === 'all' ? activeCategoryStyle : inactiveCategoryStyle}
               >
                 Todos
               </button>
@@ -2943,12 +2984,8 @@ export default function Cardapio() {
                 <button
                   key={cat.id}
                   onClick={() => setSelectedCategory(cat.id)}
-                  className={`relative px-6 md:px-8 py-2.5 md:py-3 rounded-full text-sm md:text-base font-semibold whitespace-nowrap transition-all duration-200 lg:px-4 lg:py-2 lg:rounded-lg lg:scale-100 lg:shadow-none ${
-                    selectedCategory === cat.id
-                      ? 'text-white shadow-lg scale-105 lg:border-b-2 lg:border-white/80 lg:rounded-b-none'
-                      : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                  }`}
-                  style={selectedCategory === cat.id ? { backgroundColor: primaryColor, color: 'white' } : {}}
+                  className={`relative px-6 md:px-8 py-2.5 md:py-3 rounded-full text-sm md:text-base font-semibold whitespace-nowrap transition-all duration-200 lg:px-4 lg:py-2 lg:rounded-lg lg:scale-100 lg:shadow-none ${selectedCategory === cat.id ? 'scale-105 lg:rounded-b-none' : ''}`}
+                  style={selectedCategory === cat.id ? activeCategoryStyle : inactiveCategoryStyle}
                 >
                   {cat.name}
                 </button>
@@ -2961,12 +2998,8 @@ export default function Cardapio() {
                   <button
                     key={pcKey}
                     onClick={() => setSelectedCategory(pcKey)}
-                    className={`relative px-6 md:px-8 py-2.5 md:py-3 rounded-full text-sm md:text-base font-semibold whitespace-nowrap transition-all duration-200 lg:px-4 lg:py-2 lg:rounded-lg lg:scale-100 lg:shadow-none ${
-                      selectedCategory === pcKey
-                        ? 'text-white shadow-lg scale-105 lg:border-b-2 lg:border-white/80 lg:rounded-b-none'
-                        : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                    }`}
-                    style={selectedCategory === pcKey ? { backgroundColor: primaryColor, color: 'white' } : {}}
+                    className={`relative px-6 md:px-8 py-2.5 md:py-3 rounded-full text-sm md:text-base font-semibold whitespace-nowrap transition-all duration-200 lg:px-4 lg:py-2 lg:rounded-lg lg:scale-100 lg:shadow-none ${selectedCategory === pcKey ? 'scale-105 lg:rounded-b-none' : ''}`}
+                    style={selectedCategory === pcKey ? activeCategoryStyle : inactiveCategoryStyle}
                   >
                     {label}
                   </button>
@@ -2981,12 +3014,8 @@ export default function Cardapio() {
                         <button
                           key={bcKey}
                           onClick={() => setSelectedCategory(bcKey)}
-                          className={`relative px-6 md:px-8 py-2.5 md:py-3 rounded-full text-sm md:text-base font-semibold whitespace-nowrap transition-all duration-200 lg:px-4 lg:py-2 lg:rounded-lg lg:scale-100 lg:shadow-none ${
-                            selectedCategory === bcKey
-                              ? 'text-white shadow-lg scale-105 lg:border-b-2 lg:border-white/80 lg:rounded-b-none'
-                              : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                          }`}
-                          style={selectedCategory === bcKey ? { backgroundColor: primaryColor, color: 'white' } : {}}
+                          className={`relative px-6 md:px-8 py-2.5 md:py-3 rounded-full text-sm md:text-base font-semibold whitespace-nowrap transition-all duration-200 lg:px-4 lg:py-2 lg:rounded-lg lg:scale-100 lg:shadow-none ${selectedCategory === bcKey ? 'scale-105 lg:rounded-b-none' : ''}`}
+                          style={selectedCategory === bcKey ? activeCategoryStyle : inactiveCategoryStyle}
                         >
                           {bc.name}
                         </button>
@@ -2995,12 +3024,8 @@ export default function Cardapio() {
                   ) : (
                     <button
                       onClick={() => setSelectedCategory('beverages')}
-                      className={`relative px-6 md:px-8 py-2.5 md:py-3 rounded-full text-sm md:text-base font-semibold whitespace-nowrap transition-all duration-200 lg:px-4 lg:py-2 lg:rounded-lg lg:scale-100 lg:shadow-none ${
-                        selectedCategory === 'beverages'
-                          ? 'text-white shadow-lg scale-105 lg:border-b-2 lg:border-white/80 lg:rounded-b-none'
-                          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                      }`}
-                      style={selectedCategory === 'beverages' ? { backgroundColor: primaryColor, color: 'white' } : {}}
+                      className={`relative px-6 md:px-8 py-2.5 md:py-3 rounded-full text-sm md:text-base font-semibold whitespace-nowrap transition-all duration-200 lg:px-4 lg:py-2 lg:rounded-lg lg:scale-100 lg:shadow-none ${selectedCategory === 'beverages' ? 'scale-105 lg:rounded-b-none' : ''}`}
+                      style={selectedCategory === 'beverages' ? activeCategoryStyle : inactiveCategoryStyle}
                     >
                       Bebidas
                     </button>
@@ -3184,6 +3209,7 @@ export default function Cardapio() {
                       primaryColor={primaryColor}
                       textPrimaryColor={textPrimaryColor}
                       textSecondaryColor={textSecondaryColor}
+                      theme={storefrontTheme}
                       loading={loadingDishes}
                       stockUtils={stockUtils}
                       formatCurrency={formatCurrency}
@@ -3241,6 +3267,7 @@ export default function Cardapio() {
                     promotions={activePromotions}
                     dishes={dishesResolved}
                     primaryColor={primaryColor}
+                    theme={storefrontTheme}
                     onSelectPromotion={setSelectedDish}
                     store={store}
                     autoplayIntervalMs={autoplayIntervalMs}
@@ -3300,18 +3327,19 @@ export default function Cardapio() {
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="mb-6 p-4 rounded-xl bg-gradient-to-r from-orange-50 via-amber-50 to-orange-50 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-orange-900/20 border border-orange-200 dark:border-orange-800"
+                  className="mb-6 p-4 rounded-xl border"
+                  style={{ background: `linear-gradient(135deg, ${withAlpha(storefrontTheme.surfaceAlt, 0.92)}, ${withAlpha(storefrontTheme.primary, 0.08)})`, borderColor: storefrontTheme.borderColor }}
                 >
                   <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center flex-shrink-0">
+                      <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: ctaBg, color: ctaText }}>
                         <Gift className="w-5 h-5" />
                       </div>
                       <div>
-                        <p className="font-semibold text-gray-900 dark:text-white text-sm">
+                        <p className="font-semibold text-sm" style={{ color: storefrontTheme.textPrimary }}>
                           Cadastre-se gratuitamente
                         </p>
-                        <p className="text-xs text-gray-600 dark:text-gray-400">
+                        <p className="text-xs" style={{ color: storefrontTheme.textSecondary }}>
                           Ganhe pontos, promoções exclusivas e muito mais
                         </p>
                       </div>
@@ -3325,12 +3353,14 @@ export default function Cardapio() {
                         }}
                         variant="outline"
                         className="text-sm font-medium px-4 py-2 h-auto whitespace-nowrap w-full sm:w-auto"
+                        style={{ borderColor: storefrontTheme.borderColor, color: storefrontTheme.textPrimary }}
                       >
                         Entrar
                       </Button>
                       <Button
                         onClick={() => setShowQuickSignup(true)}
-                        className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white text-sm font-medium px-4 py-2 h-auto whitespace-nowrap w-full sm:w-auto"
+                        className="text-sm font-medium px-4 py-2 h-auto whitespace-nowrap w-full sm:w-auto"
+                        style={{ backgroundColor: ctaBg, color: ctaText }}
                       >
                         <Gift className="w-4 h-4 mr-2" />
                         Cadastrar-se
@@ -3377,6 +3407,7 @@ export default function Cardapio() {
                           primaryColor={primaryColor}
                           textPrimaryColor={textPrimaryColor}
                           textSecondaryColor={textSecondaryColor}
+                          theme={storefrontTheme}
                           loading={loadingDishes}
                           stockUtils={stockUtils}
                           formatCurrency={formatCurrency}
@@ -3408,6 +3439,7 @@ export default function Cardapio() {
                           index={index}
                           primaryColor={primaryColor}
                           textPrimaryColor={textPrimaryColor}
+                          theme={storefrontTheme}
                           slug={slug}
                           gridColsDesktop={gridColsDesktop}
                           menuCardStyle={menuCardStyle}
@@ -3460,6 +3492,7 @@ export default function Cardapio() {
                               primaryColor={primaryColor}
                               textPrimaryColor={textPrimaryColor}
                               textSecondaryColor={textSecondaryColor}
+                              theme={storefrontTheme}
                               loading={loadingDishes}
                               stockUtils={stockUtils}
                               formatCurrency={formatCurrency}
@@ -3488,6 +3521,7 @@ export default function Cardapio() {
                           primaryColor={primaryColor}
                           textPrimaryColor={textPrimaryColor}
                           textSecondaryColor={textSecondaryColor}
+                          theme={storefrontTheme}
                           loading={loadingDishes}
                           stockUtils={stockUtils}
                           formatCurrency={formatCurrency}
@@ -3523,6 +3557,7 @@ export default function Cardapio() {
                               primaryColor={primaryColor}
                               textPrimaryColor={textPrimaryColor}
                               textSecondaryColor={textSecondaryColor}
+                              theme={storefrontTheme}
                               loading={loadingDishes}
                               stockUtils={stockUtils}
                               formatCurrency={formatCurrency}
@@ -3565,6 +3600,7 @@ export default function Cardapio() {
                     primaryColor={primaryColor}
                     textPrimaryColor={textPrimaryColor}
                     textSecondaryColor={textSecondaryColor}
+                    theme={storefrontTheme}
                     loading={loadingDishes}
                     stockUtils={stockUtils}
                     formatCurrency={formatCurrency}
@@ -3663,28 +3699,28 @@ export default function Cardapio() {
 
       {/* Footer */}
       {!desktopCarouselMode && (
-      <footer className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950 border-t border-gray-200 dark:border-gray-800 mt-auto pb-20 md:pb-0">
+      <footer className="border-t mt-auto pb-20 md:pb-0" style={{ backgroundColor: storefrontTheme.footerBg, color: storefrontTheme.footerText, borderColor: withAlpha(storefrontTheme.footerText, 0.12) }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             {/* Bloco Esquerdo: Logo + Nome + Endereço + Horário */}
             <div className="flex items-center gap-3 min-w-0">
               {store?.logo && (
-                <img src={store?.logo} alt={store?.name || 'Restaurante'} className="w-10 h-10 rounded-lg object-cover flex-shrink-0 border border-gray-200 dark:border-gray-700" />
+                <img src={store?.logo} alt={store?.name || 'Restaurante'} className="w-10 h-10 rounded-lg object-cover flex-shrink-0 border" style={{ borderColor: withAlpha(storefrontTheme.footerText, 0.18) }} />
               )}
               <div className="min-w-0">
-                <p className="font-bold text-sm text-gray-900 dark:text-white truncate">{store?.name || 'Restaurante'}</p>
+                <p className="font-bold text-sm truncate" style={{ color: storefrontTheme.footerText }}>{store?.name || 'Restaurante'}</p>
                 {store?.slogan && (
-                  <p className="text-gray-500 dark:text-gray-400 text-xs italic truncate">"{store?.slogan}"</p>
+                  <p className="text-xs italic truncate" style={{ color: withAlpha(storefrontTheme.footerText, 0.74) }}>"{store?.slogan}"</p>
                 )}
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
                   {store?.address && (
-                    <span className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                    <span className="flex items-center gap-1 text-xs" style={{ color: withAlpha(storefrontTheme.footerText, 0.74) }}>
                       <MapPin className="w-3 h-3 flex-shrink-0" style={{ color: primaryColor }} />
                       <span className="truncate">{store?.address}</span>
                     </span>
                   )}
                   {store?.opening_time && store?.closing_time && (
-                    <span className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                    <span className="flex items-center gap-1 text-xs" style={{ color: withAlpha(storefrontTheme.footerText, 0.74) }}>
                       <Clock className="w-3 h-3 flex-shrink-0" style={{ color: primaryColor }} />
                       {store?.opening_time} - {store?.closing_time}
                       {store?.working_days && store.working_days.length > 0 && (() => {
@@ -3703,14 +3739,15 @@ export default function Cardapio() {
 
             {/* Bloco Direito: Ícones de redes sociais apenas */}
             <div className="flex items-center gap-2 flex-shrink-0">
-              <span className="text-xs text-gray-400 dark:text-gray-500 mr-1 hidden sm:inline">Siga-nos</span>
+              <span className="text-xs mr-1 hidden sm:inline" style={{ color: withAlpha(storefrontTheme.footerText, 0.58) }}>Siga-nos</span>
               <div className="flex gap-2">
                 {store?.whatsapp && (
                   <a 
                     href={`https://wa.me/55${store?.whatsapp?.replace(/\D/g, '') || ''}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center justify-center w-9 h-9 bg-green-500 hover:bg-green-600 text-white rounded-full transition-all shadow-md hover:shadow-lg transform hover:scale-110"
+                    className="flex items-center justify-center w-9 h-9 rounded-full transition-all shadow-md hover:shadow-lg transform hover:scale-110"
+                    style={{ backgroundColor: withAlpha(storefrontTheme.footerText, 0.12), color: storefrontTheme.footerText }}
                     title="WhatsApp"
                   >
                     <MessageSquare className="w-5 h-5" />
@@ -3721,7 +3758,8 @@ export default function Cardapio() {
                     href={store?.instagram?.startsWith('http') ? store.instagram : `https://instagram.com/${store?.instagram?.replace(/^@/, '') || ''}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center justify-center w-9 h-9 bg-gradient-to-br from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white rounded-full transition-all shadow-md hover:shadow-lg transform hover:scale-110"
+                    className="flex items-center justify-center w-9 h-9 rounded-full transition-all shadow-md hover:shadow-lg transform hover:scale-110"
+                    style={{ backgroundColor: withAlpha(storefrontTheme.footerText, 0.12), color: storefrontTheme.footerText }}
                     title="Instagram"
                   >
                     <Instagram className="w-5 h-5" />
@@ -3732,7 +3770,8 @@ export default function Cardapio() {
                     href={store?.facebook?.startsWith('http') ? store.facebook : `https://facebook.com/${store?.facebook || ''}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center justify-center w-9 h-9 bg-blue-600 hover:bg-blue-700 text-white rounded-full transition-all shadow-md hover:shadow-lg transform hover:scale-110"
+                    className="flex items-center justify-center w-9 h-9 rounded-full transition-all shadow-md hover:shadow-lg transform hover:scale-110"
+                    style={{ backgroundColor: withAlpha(storefrontTheme.footerText, 0.12), color: storefrontTheme.footerText }}
                     title="Facebook"
                   >
                     <Facebook className="w-5 h-5" />
@@ -3743,7 +3782,8 @@ export default function Cardapio() {
                     href={store?.tiktok?.startsWith('http') ? store.tiktok : `https://tiktok.com/@${store?.tiktok?.replace(/^@/, '') || ''}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center justify-center w-9 h-9 bg-black hover:bg-gray-800 text-white rounded-full transition-all shadow-md hover:shadow-lg transform hover:scale-110"
+                    className="flex items-center justify-center w-9 h-9 rounded-full transition-all shadow-md hover:shadow-lg transform hover:scale-110"
+                    style={{ backgroundColor: withAlpha(storefrontTheme.footerText, 0.12), color: storefrontTheme.footerText }}
                     title="TikTok"
                   >
                     <Music2 className="w-5 h-5" />
@@ -3752,16 +3792,16 @@ export default function Cardapio() {
               </div>
             </div>
           </div>
-          <div className="border-t border-gray-200 dark:border-gray-800 mt-3 pt-2 flex items-center justify-between gap-2">
-            <p className="text-xs text-gray-400 dark:text-gray-500">&copy; {new Date().getFullYear()} {store?.name || 'Restaurante'}</p>
-            <p className="text-xs text-gray-400 dark:text-gray-500">Powered by <span className="font-semibold" style={{ color: primaryColor }}>{SYSTEM_NAME}</span></p>
+          <div className="border-t mt-3 pt-2 flex items-center justify-between gap-2" style={{ borderColor: withAlpha(storefrontTheme.footerText, 0.12) }}>
+            <p className="text-xs" style={{ color: withAlpha(storefrontTheme.footerText, 0.58) }}>&copy; {new Date().getFullYear()} {store?.name || 'Restaurante'}</p>
+            <p className="text-xs" style={{ color: withAlpha(storefrontTheme.footerText, 0.58) }}>Powered by <span className="font-semibold" style={{ color: primaryColor }}>{SYSTEM_NAME}</span></p>
           </div>
         </div>
       </footer>
       )}
 
       {desktopCarouselMode && (
-        <div className="hidden lg:flex items-center justify-between gap-4 px-6 py-2 border-t border-border bg-card text-xs text-muted-foreground">
+        <div className="hidden lg:flex items-center justify-between gap-4 px-6 py-2 border-t text-xs" style={{ backgroundColor: storefrontTheme.footerBg, color: storefrontTheme.footerText, borderColor: withAlpha(storefrontTheme.footerText, 0.12) }}>
           <div className="flex items-center gap-2 min-w-0">
             <Clock className="w-4 h-4 flex-shrink-0" style={{ color: primaryColor }} />
             <span className="truncate">
@@ -3769,7 +3809,7 @@ export default function Cardapio() {
               {store?.opening_time && store?.closing_time ? ` — ${store.opening_time} - ${store.closing_time}` : ''}
             </span>
           </div>
-          <div className="text-center font-medium text-foreground/80">
+          <div className="text-center font-medium" style={{ color: withAlpha(storefrontTheme.footerText, 0.82) }}>
             {SYSTEM_NAME}
           </div>
           <div className="flex items-center gap-2">
@@ -3778,7 +3818,8 @@ export default function Cardapio() {
                 href={store?.instagram?.startsWith('http') ? store.instagram : `https://instagram.com/${store?.instagram?.replace(/^@/, '') || ''}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="p-2 rounded-full hover:bg-muted transition-colors"
+                className="p-2 rounded-full transition-colors"
+                style={{ backgroundColor: withAlpha(storefrontTheme.footerText, 0.12), color: storefrontTheme.footerText }}
                 title="Instagram"
               >
                 <Instagram className="w-4 h-4" />
@@ -3789,7 +3830,8 @@ export default function Cardapio() {
                 href={store?.facebook?.startsWith('http') ? store.facebook : `https://facebook.com/${store?.facebook || ''}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="p-2 rounded-full hover:bg-muted transition-colors"
+                className="p-2 rounded-full transition-colors"
+                style={{ backgroundColor: withAlpha(storefrontTheme.footerText, 0.12), color: storefrontTheme.footerText }}
                 title="Facebook"
               >
                 <Facebook className="w-4 h-4" />
@@ -3800,7 +3842,8 @@ export default function Cardapio() {
                 href={store?.tiktok?.startsWith('http') ? store.tiktok : `https://tiktok.com/@${store?.tiktok?.replace(/^@/, '') || ''}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="p-2 rounded-full hover:bg-muted transition-colors"
+                className="p-2 rounded-full transition-colors"
+                style={{ backgroundColor: withAlpha(storefrontTheme.footerText, 0.12), color: storefrontTheme.footerText }}
                 title="TikTok"
               >
                 <Music2 className="w-4 h-4" />

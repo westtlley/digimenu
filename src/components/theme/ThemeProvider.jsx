@@ -140,6 +140,10 @@ export const useTheme = () => {
   return context;
 };
 
+// Alias explicito para separar o dominio do tema do app do tema da loja publica.
+export const useAppTheme = useTheme;
+export const APP_THEME_PRESETS = THEME_PRESETS;
+
 function parseColorToRgb(input) {
   const value = String(input || '').trim();
   if (!value) return null;

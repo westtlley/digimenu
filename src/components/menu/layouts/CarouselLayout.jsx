@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import DishSkeleton from '../DishSkeleton';
+import { withAlpha } from '@/utils/storefrontTheme';
 
 export default function CarouselLayout({ 
   dishes, 
@@ -9,6 +10,7 @@ export default function CarouselLayout({
   primaryColor,
   textPrimaryColor,
   textSecondaryColor,
+  theme,
   loading = false,
   stockUtils,
   formatCurrency,
@@ -28,6 +30,13 @@ export default function CarouselLayout({
 
   const safeDishes = useMemo(() => (Array.isArray(dishes) ? dishes : []), [dishes]);
   const isAeroCard = menuCardStyle === 'aero';
+  const cardSurface = theme?.surface || 'hsl(var(--card))';
+  const cardAltSurface = theme?.surfaceAlt || 'hsl(var(--muted))';
+  const cardBorder = theme?.borderColor || 'hsl(var(--border))';
+  const badgeBg = theme?.badgeBg || primaryColor;
+  const badgeText = theme?.badgeText || '#ffffff';
+  const ctaBg = theme?.ctaBg || primaryColor;
+  const ctaText = theme?.ctaText || '#ffffff';
 
   useEffect(() => {
     if (!scrollRef.current) return;
@@ -90,8 +99,8 @@ export default function CarouselLayout({
       {showNav && (
       <button
         onClick={() => scroll('left')}
-        className="absolute left-2 top-1/2 -translate-y-1/2 z-10 p-2 md:p-3 rounded-full bg-white dark:bg-gray-800 shadow-lg border border-gray-200 dark:border-gray-700 hover:shadow-xl transition-all"
-        style={{ color: primaryColor }}
+        className="absolute left-2 top-1/2 -translate-y-1/2 z-10 p-2 md:p-3 rounded-full shadow-lg border hover:shadow-xl transition-all"
+        style={{ color: primaryColor, backgroundColor: withAlpha(cardSurface, 0.96), borderColor: cardBorder }}
         aria-label="Anterior"
       >
         <ChevronLeft className="w-5 h-5 md:w-6 md:h-6" />
@@ -186,17 +195,25 @@ export default function CarouselLayout({
                 className={`
                   relative
                   rounded-xl overflow-hidden shadow-md border-2 transition-all cursor-pointer
-                  ${isAeroCard ? 'bg-card/60 supports-[backdrop-filter]:bg-card/45 backdrop-blur-xl border-border/70' : 'bg-card'}
                   flex flex-col md:h-[clamp(200px,22vh,260px)]
                   ${isOutOfStock 
-                    ? 'opacity-50 cursor-not-allowed border-gray-200 dark:border-gray-700' 
-                    : 'hover:shadow-xl border-gray-200 dark:border-gray-700 hover:scale-[1.02]'
+                    ? 'opacity-50 cursor-not-allowed' 
+                    : 'hover:shadow-xl hover:scale-[1.02]'
                   }
                 `}
-                style={!isOutOfStock && !isAeroCard ? { borderColor: 'transparent' } : {}}
+                style={isAeroCard
+                  ? {
+                      backgroundColor: withAlpha(cardSurface, 0.66),
+                      borderColor: withAlpha(cardBorder, 0.9),
+                      backdropFilter: 'blur(18px)',
+                    }
+                  : {
+                      backgroundColor: cardSurface,
+                      borderColor: cardBorder,
+                    }}
               >
                 {/* Imagem - Mobile maior */}
-                <div className="relative w-full h-44 md:h-[clamp(110px,12vh,145px)] bg-gray-100 dark:bg-gray-800 overflow-hidden">
+                <div className="relative w-full h-44 md:h-[clamp(110px,12vh,145px)] overflow-hidden" style={{ backgroundColor: cardAltSurface }}>
                   {dish.image ? (
                     <img 
                       src={dish.image} 
@@ -216,15 +233,15 @@ export default function CarouselLayout({
                   {/* Badges */}
                   <div className="absolute top-2 left-2 flex flex-col gap-1">
                     {dish.is_new && (
-                      <span className="px-2 py-1 bg-green-500 text-white text-xs font-bold rounded-full">✨ NOVO</span>
+                      <span className="px-2 py-1 text-xs font-bold rounded-full" style={{ backgroundColor: badgeBg, color: badgeText }}>✨ NOVO</span>
                     )}
                     {dish.is_popular && (
-                      <span className="px-2 py-1 bg-purple-500 text-white text-xs font-bold rounded-full">🔥 POPULAR</span>
+                      <span className="px-2 py-1 text-xs font-bold rounded-full" style={{ backgroundColor: ctaBg, color: ctaText }}>🔥 POPULAR</span>
                     )}
                   </div>
                   {dish.original_price && dish.original_price > dish.price && (
                     <div className="absolute top-2 right-2">
-                      <span className="px-2 py-1 bg-red-500 text-white text-xs font-bold rounded-full">
+                      <span className="px-2 py-1 text-xs font-bold rounded-full" style={{ backgroundColor: badgeBg, color: badgeText }}>
                         -{Math.round(((dish.original_price - dish.price) / dish.original_price) * 100)}%
                       </span>
                     </div>
@@ -255,7 +272,7 @@ export default function CarouselLayout({
                     )}
                     <div className="flex flex-col">
                       {priceLabel && (
-                        <span className="text-[10px] font-medium text-muted-foreground">
+                        <span className="text-[10px] font-medium" style={{ color: textSecondaryColor || theme?.textSecondary || 'hsl(var(--muted-foreground))' }}>
                           {priceLabel}
                         </span>
                       )}
@@ -278,8 +295,8 @@ export default function CarouselLayout({
       {showNav && (
       <button
         onClick={() => scroll('right')}
-        className="absolute right-2 top-1/2 -translate-y-1/2 z-10 p-2 md:p-3 rounded-full bg-white dark:bg-gray-800 shadow-lg border border-gray-200 dark:border-gray-700 hover:shadow-xl transition-all"
-        style={{ color: primaryColor }}
+        className="absolute right-2 top-1/2 -translate-y-1/2 z-10 p-2 md:p-3 rounded-full shadow-lg border hover:shadow-xl transition-all"
+        style={{ color: primaryColor, backgroundColor: withAlpha(cardSurface, 0.96), borderColor: cardBorder }}
         aria-label="Próximo"
       >
         <ChevronRight className="w-5 h-5 md:w-6 md:h-6" />

@@ -143,6 +143,7 @@ export default function GridLayout({
   onDishClick, 
   primaryColor,
   textPrimaryColor,
+  theme,
   loading = false,
   stockUtils,
   slug = null,
@@ -208,6 +209,7 @@ export default function GridLayout({
             isLowStock={isLowStock}
             primaryColor={primaryColor}
             textPrimaryColor={textPrimaryColor}
+            theme={theme}
             slug={slug}
             menuCardStyle={menuCardStyle}
           />

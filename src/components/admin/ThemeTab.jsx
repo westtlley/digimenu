@@ -1,127 +1,58 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { base44 } from '@/api/base44Client';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  Palette, 
-  Save, 
-  Check, 
-  Sparkles, 
-  Zap, 
-  Eye, 
-  Sun, 
-  Moon, 
-  Monitor,
-  Brush,
-  Settings,
-  Download,
-  Upload,
-  RotateCcw,
-  Star,
-  Layers,
-  LayoutGrid,
-  Menu,
-  BookOpen
-} from 'lucide-react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Check, Eye, Image as ImageIcon, LayoutGrid, Monitor, Palette, Save, ShieldCheck, Sparkles, Smartphone, Wand2 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { useTheme, THEME_PRESETS } from '@/components/theme/ThemeProvider';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { useAppTheme } from '@/components/theme/ThemeProvider';
 import { extractColorsFromImage } from '@/utils/extractColorsFromImage';
-import { Image as ImageIcon } from 'lucide-react';
-import { usePermission } from '../permissions/usePermission';
 import { getMenuContextEntityOpts, getMenuContextQueryKeyParts } from '@/utils/tenantScope';
+import { usePermission } from '../permissions/usePermission';
+import StorefrontThemePreview from './theme/StorefrontThemePreview';
+import {
+  buildStorefrontThemePayload,
+  getContrastRatio,
+  getStorefrontLayoutMeta,
+  resolveStorefrontTheme,
+  STOREFRONT_LAYOUT_OPTIONS,
+  STOREFRONT_THEME_PRESETS,
+  withAlpha,
+} from '@/utils/storefrontTheme';
 
-const PRESET_COLORS = [
-  { name: 'Laranja', primary: '#f97316', secondary: '#1f2937', accent: '#eab308' },
-  { name: 'Verde', primary: '#22c55e', secondary: '#1f2937', accent: '#10b981' },
-  { name: 'Azul', primary: '#3b82f6', secondary: '#1e293b', accent: '#0ea5e9' },
-  { name: 'Vermelho', primary: '#ef4444', secondary: '#1f2937', accent: '#f97316' },
-  { name: 'Roxo', primary: '#8b5cf6', secondary: '#1e1b4b', accent: '#a855f7' },
-  { name: 'Rosa', primary: '#ec4899', secondary: '#1f2937', accent: '#f472b6' },
+const GRID_OPTIONS = [2, 3, 4, 5];
+const AUTOPLAY_OPTIONS = [3500, 4500, 6000, 8000];
+const CARD_STYLE_OPTIONS = [
+  { value: 'solid', label: 'Solido', description: 'Mais direto, seguro e legivel.' },
+  { value: 'aero', label: 'Aero', description: 'Mais premium, com mais atmosfera visual.' },
 ];
 
-const GRADIENT_PRESETS = [
-  { name: 'Sunset', start: '#ff6b6b', end: '#ffd93d', direction: 'to-br' },
-  { name: 'Ocean', start: '#667eea', end: '#764ba2', direction: 'to-r' },
-  { name: 'Fire', start: '#ff416c', end: '#ff4b2b', direction: 'to-r' },
-  { name: 'Forest', start: '#134e5e', end: '#71b280', direction: 'to-br' },
-  { name: 'Aurora', start: '#a8edea', end: '#fed6e3', direction: 'to-r' },
-  { name: 'Royal', start: '#141e30', end: '#243b55', direction: 'to-br' },
-];
-
-const DIRECTION_LABELS = {
-  'to-r': '→ Horizontal',
-  'to-br': '↘ Diagonal SE',
-  'to-b': '↓ Vertical',
-  'to-bl': '↙ Diagonal SO',
-  'to-l': '← Horizontal Inv.',
-  'to-tl': '↖ Diagonal NO',
-  'to-t': '↑ Vertical Inv.',
-  'to-tr': '↗ Diagonal NE',
-};
+function ColorField({ label, value, onChange, hint }) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <Label className="text-sm font-medium">{label}</Label>
+        {hint ? <span className="text-[11px] text-muted-foreground">{hint}</span> : null}
+      </div>
+      <div className="flex items-center gap-3">
+        <Input type="color" value={value} onChange={(event) => onChange(event.target.value)} className="h-11 w-16 rounded-xl p-1" />
+        <Input value={value} onChange={(event) => onChange(event.target.value)} className="h-11 font-mono text-sm" />
+      </div>
+    </div>
+  );
+}
 
 export default function ThemeTab() {
-  const { 
-    currentTheme, 
-    activeTheme, 
-    customTheme,
-    setTheme, 
-    setCustomThemeColors, 
-    resetToPreset,
-    themes 
-  } = useTheme();
-
-  const [colors, setColors] = useState({
-    theme_primary_color: '#f97316',
-    theme_secondary_color: '#1f2937',
-    theme_accent_color: '#eab308',
-    theme_gradient_enabled: false,
-    theme_gradient_start: '#f97316',
-    theme_gradient_end: '#ef4444',
-    theme_gradient_direction: 'to-r',
-    theme_button_style: 'rounded',
-    theme_shadow_enabled: true,
-    theme_menu_card_style: 'solid', // solid, aero
-    menu_layout: 'grid', // grid, list, carousel, magazine, masonry
-    menu_layout_mobile: 'grid',
-    menu_layout_desktop: 'grid',
-  });
-
-  const [customColors, setCustomColors] = useState({
-    bgPrimary: activeTheme.colors.bgPrimary,
-    bgSecondary: activeTheme.colors.bgSecondary,
-    bgCard: activeTheme.colors.bgCard,
-    textPrimary: activeTheme.colors.textPrimary,
-    textSecondary: activeTheme.colors.textSecondary,
-    borderColor: activeTheme.colors.borderColor,
-    accent: activeTheme.colors.accent,
-  });
-
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [hasChanges, setHasChanges] = useState(false);
-
-  const queryClient = useQueryClient();
+  const { activeTheme } = useAppTheme();
   const { menuContext } = usePermission();
+  const queryClient = useQueryClient();
   const menuContextQueryKey = getMenuContextQueryKeyParts(menuContext);
   const scopedEntityOpts = getMenuContextEntityOpts(menuContext);
 
-  // ✅ CORREÇÃO: Buscar store com contexto do slug
   const { data: stores = [] } = useQuery({
     queryKey: ['store', ...menuContextQueryKey],
     queryFn: async () => {
@@ -131,1088 +62,447 @@ export default function ThemeTab() {
     enabled: !!menuContext,
   });
 
-  const store = stores[0];
+  const { data: dishes = [] } = useQuery({
+    queryKey: ['theme-preview-dishes', ...menuContextQueryKey],
+    queryFn: async () => {
+      if (!menuContext) return [];
+      return base44.entities.Dish.list('order', scopedEntityOpts);
+    },
+    enabled: !!menuContext,
+  });
+
+  const { data: categories = [] } = useQuery({
+    queryKey: ['theme-preview-categories', ...menuContextQueryKey],
+    queryFn: async () => {
+      if (!menuContext) return [];
+      return base44.entities.Category.list('order', scopedEntityOpts);
+    },
+    enabled: !!menuContext,
+  });
+
+  const store = stores[0] || null;
+  const persistedTheme = useMemo(() => buildStorefrontThemePayload(store || {}), [store]);
+  const persistedSignature = useMemo(() => JSON.stringify(persistedTheme), [persistedTheme]);
+  const [draft, setDraft] = useState(persistedTheme);
+  const [isExtractingColors, setIsExtractingColors] = useState(false);
 
   useEffect(() => {
-    if (store) {
-      const baseLayout = store.menu_layout || 'grid';
-      setColors({
-        theme_primary_color: store.theme_primary_color || '#f97316',
-        theme_secondary_color: store.theme_secondary_color || '#1f2937',
-        theme_accent_color: store.theme_accent_color || '#eab308',
-        theme_gradient_enabled: store.theme_gradient_enabled || false,
-        theme_gradient_start: store.theme_gradient_start || '#f97316',
-        theme_gradient_end: store.theme_gradient_end || '#ef4444',
-        theme_gradient_direction: store.theme_gradient_direction || 'to-r',
-        theme_button_style: store.theme_button_style || 'rounded',
-        theme_shadow_enabled: store.theme_shadow_enabled !== false,
-        theme_menu_card_style: store.theme_menu_card_style || 'solid',
-        menu_layout: baseLayout,
-        menu_layout_mobile: store.menu_layout_mobile || baseLayout,
-        menu_layout_desktop: store.menu_layout_desktop || baseLayout,
-      });
-    }
-  }, [store]);
+    setDraft(persistedTheme);
+  }, [persistedSignature]);
 
-  useEffect(() => {
-    setCustomColors({
-      bgPrimary: activeTheme.colors.bgPrimary,
-      bgSecondary: activeTheme.colors.bgSecondary,
-      bgCard: activeTheme.colors.bgCard,
-      textPrimary: activeTheme.colors.textPrimary,
-      textSecondary: activeTheme.colors.textSecondary,
-      borderColor: activeTheme.colors.borderColor,
-      accent: activeTheme.colors.accent,
-    });
-  }, [activeTheme]);
+  const normalizedDraft = useMemo(() => buildStorefrontThemePayload(draft), [draft]);
+  const hasChanges = JSON.stringify(normalizedDraft) !== persistedSignature;
+  const previewTheme = useMemo(
+    () => resolveStorefrontTheme(normalizedDraft, { isDark: activeTheme?.mode === 'dark' }),
+    [activeTheme?.mode, normalizedDraft],
+  );
+
+  const contrastChecks = useMemo(() => {
+    const checks = [
+      {
+        id: 'cta',
+        label: 'CTA principal',
+        ratio: getContrastRatio(normalizedDraft.theme_cta_bg, normalizedDraft.theme_cta_text),
+      },
+      {
+        id: 'hero',
+        label: 'Hero',
+        ratio: getContrastRatio(normalizedDraft.theme_hero_bg, normalizedDraft.theme_hero_text),
+      },
+      {
+        id: 'footer',
+        label: 'Footer',
+        ratio: getContrastRatio(normalizedDraft.theme_footer_bg, normalizedDraft.theme_footer_text),
+      },
+      {
+        id: 'badge',
+        label: 'Badge',
+        ratio: getContrastRatio(normalizedDraft.theme_badge_bg, normalizedDraft.theme_badge_text),
+      },
+    ];
+
+    return checks.map((check) => ({
+      ...check,
+      ok: Number(check.ratio || 0) >= 4.5,
+    }));
+  }, [normalizedDraft]);
 
   const updateMutation = useMutation({
-    mutationFn: (data) => base44.entities.Store.update(store.id, data, scopedEntityOpts),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['store', ...menuContextQueryKey] });
-      setHasChanges(false);
-      toast.success('Tema salvo com sucesso!');
+    mutationFn: async (payload) => {
+      if (!store?.id) throw new Error('Loja nao encontrada');
+      return base44.entities.Store.update(store.id, payload, scopedEntityOpts);
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['store', ...menuContextQueryKey] });
+      toast.success('Tema da loja salvo com sucesso.');
+    },
+    onError: (error) => {
+      toast.error(error?.message || 'Nao foi possivel salvar o tema da loja.');
     },
   });
 
-  const handleColorChange = (key, value) => {
-    setColors(prev => ({ ...prev, [key]: value }));
-    setHasChanges(true);
+  const updateDraftField = (field, value) => {
+    setDraft((current) => ({ ...current, [field]: value }));
   };
 
-  const handleMenuLayoutChange = (target, value) => {
-    handleColorChange(target, value);
-  };
-
-  const handleCustomColorChange = (key, value) => {
-    const newColors = { ...customColors, [key]: value };
-    setCustomColors(newColors);
-    setCustomThemeColors(newColors);
-    setHasChanges(true);
-  };
-
-  const applyPreset = (preset) => {
-    setColors(prev => ({
-      ...prev,
+  const handlePresetApply = (presetKey) => {
+    const preset = STOREFRONT_THEME_PRESETS.find((item) => item.key === presetKey) || STOREFRONT_THEME_PRESETS[0];
+    setDraft((current) => ({
+      ...current,
+      storefront_theme_preset: preset.key,
       theme_primary_color: preset.primary,
       theme_secondary_color: preset.secondary,
       theme_accent_color: preset.accent,
+      theme_surface_color: preset.surface,
+      theme_surface_alt_color: preset.surfaceAlt,
+      theme_cta_bg: preset.primary,
+      theme_hero_bg: preset.secondary,
+      theme_badge_bg: preset.accent,
+      theme_footer_bg: preset.secondary,
     }));
-    setHasChanges(true);
   };
-
-  const applyGradientPreset = (preset) => {
-    setColors(prev => ({
-      ...prev,
-      theme_gradient_start: preset.start,
-      theme_gradient_end: preset.end,
-      theme_gradient_direction: preset.direction,
-      theme_gradient_enabled: true,
-    }));
-    setHasChanges(true);
-  };
-
-  const [isExtractingColors, setIsExtractingColors] = useState(false);
 
   const extractColorsFromLogo = async () => {
     if (!store?.logo) {
-      toast.error('Por favor, adicione uma logo primeiro em Configurações da Loja');
+      toast.error('Adicione uma logo em Loja antes de extrair as cores.');
       return;
     }
 
     setIsExtractingColors(true);
     try {
-      const extractedColors = await extractColorsFromImage(store.logo);
-      setColors(prev => ({
-        ...prev,
-        theme_primary_color: extractedColors.primary,
-        theme_secondary_color: extractedColors.secondary,
-        theme_accent_color: extractedColors.accent,
+      const extracted = await extractColorsFromImage(store.logo);
+      setDraft((current) => ({
+        ...current,
+        theme_primary_color: extracted.primary,
+        theme_secondary_color: extracted.secondary,
+        theme_accent_color: extracted.accent,
+        theme_cta_bg: extracted.primary,
+        theme_hero_bg: extracted.secondary,
+        theme_badge_bg: extracted.accent,
       }));
-      setHasChanges(true);
-      toast.success('Cores extraídas da logo com sucesso!');
+      toast.success('Cores extraidas da logo e aplicadas ao storefront.');
     } catch (error) {
-      console.error('Erro ao extrair cores:', error);
-      toast.error('Erro ao extrair cores da logo. Verifique se a imagem está acessível.');
+      console.error('Erro ao extrair cores da logo:', error);
+      toast.error('Nao foi possivel extrair as cores da logo.');
     } finally {
       setIsExtractingColors(false);
     }
   };
 
+  const handleReset = () => {
+    setDraft(persistedTheme);
+    toast.success('Edicao resetada para o ultimo tema salvo.');
+  };
+
   const handleSave = () => {
-    setShowConfirm(true);
+    updateMutation.mutate(normalizedDraft);
   };
 
-  const confirmSave = () => {
-    updateMutation.mutate({ ...store, ...colors });
-    setShowConfirm(false);
-  };
+  const inactiveControls = [
+    'Gradiente do hero',
+    'Estilo de botao generico',
+    'Sombras globais',
+    'Cores avancadas do painel',
+  ];
 
-  const getGradientStyle = () => {
-    if (!colors.theme_gradient_enabled) {
-      return { backgroundColor: colors.theme_primary_color };
-    }
-    const directionMap = {
-      'to-r': 'to right',
-      'to-br': 'to bottom right',
-      'to-b': 'to bottom',
-      'to-bl': 'to bottom left',
-      'to-l': 'to left',
-      'to-tl': 'to top left',
-      'to-t': 'to top',
-      'to-tr': 'to top right',
-    };
-    return {
-      background: `linear-gradient(${directionMap[colors.theme_gradient_direction]}, ${colors.theme_gradient_start}, ${colors.theme_gradient_end})`
-    };
-  };
-
-  const getButtonClass = () => {
-    const base = 'px-4 py-2 text-white font-medium transition-all';
-    const shadow = colors.theme_shadow_enabled ? 'shadow-lg hover:shadow-xl' : '';
-    const style = {
-      'rounded': 'rounded-lg',
-      'square': 'rounded-none',
-      'pill': 'rounded-full',
-    }[colors.theme_button_style];
-    return `${base} ${style} ${shadow}`;
-  };
+  if (!store) {
+    return (
+      <div className="p-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>Tema da loja publica</CardTitle>
+            <CardDescription>
+              Crie uma loja antes de personalizar a vitrine publica.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
 
   return (
-    <div className="p-3 sm:p-4 max-w-7xl mx-auto space-y-4">
-      {/* Header com gradiente */}
-      <div 
-        className="relative rounded-xl p-4 sm:p-6 overflow-hidden"
+    <div className="p-3 sm:p-4 max-w-7xl mx-auto space-y-6">
+      <div
+        className="rounded-3xl border p-5 sm:p-6"
         style={{
-          background: `linear-gradient(135deg, ${activeTheme.colors.accent}15, ${activeTheme.colors.accent}05)`,
-          border: `1px solid ${activeTheme.colors.borderColor}`
+          background: `linear-gradient(135deg, ${withAlpha(activeTheme.colors.accent, 0.14)}, ${withAlpha(activeTheme.colors.bgSecondary, 0.96)})`,
+          borderColor: activeTheme.colors.borderColor,
         }}
       >
-        <div className="relative z-10">
-          <div className="flex items-center gap-3 mb-2">
-            <div 
-              className="p-2 rounded-lg"
-              style={{ backgroundColor: `${activeTheme.colors.accent}20` }}
-            >
-              <Palette className="w-6 h-6" style={{ color: activeTheme.colors.accent }} />
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="space-y-2">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-2xl flex items-center justify-center" style={{ backgroundColor: withAlpha(activeTheme.colors.accent, 0.18), color: activeTheme.colors.accent }}>
+                <Palette className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-foreground">Storefront Theme V2</h2>
+                <p className="text-sm text-muted-foreground">Branding da loja publica, separado do tema do painel.</p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-2xl font-bold" style={{ color: activeTheme.colors.textPrimary }}>
-                Personalização de Temas
-              </h2>
-              <p className="text-sm" style={{ color: activeTheme.colors.textSecondary }}>
-                Configure a aparência do seu painel administrativo
-              </p>
+            <div className="flex flex-wrap gap-2">
+              <Badge variant="outline" className="border">AppTheme continua no painel</Badge>
+              <Badge variant="outline" className="border">StorefrontTheme agora tem contrato proprio</Badge>
+              <Badge variant="outline" className="border">Preview mobile + desktop</Badge>
             </div>
+          </div>
+
+          <div className="rounded-2xl border px-4 py-3 max-w-md" style={{ backgroundColor: 'hsl(var(--card))', borderColor: activeTheme.colors.borderColor }}>
+            <p className="text-sm font-semibold text-foreground mb-1">O que este modulo altera</p>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Hero, categorias, cards, CTA, banners de destaque e footer da loja publica. O tema do admin continua separado e nao e editado aqui.
+            </p>
           </div>
         </div>
       </div>
 
-      <Tabs defaultValue="presets" className="w-full">
-        <TabsList className="grid w-full grid-cols-5 mb-6" style={{ backgroundColor: activeTheme.colors.bgSecondary }}>
-          <TabsTrigger value="presets" className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800">
-            <Star className="w-4 h-4 mr-2" />
-            Temas
-          </TabsTrigger>
-          <TabsTrigger value="colors" className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800">
-            <Palette className="w-4 h-4 mr-2" />
-            Cores
-          </TabsTrigger>
-          <TabsTrigger value="gradient" className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800">
-            <Sparkles className="w-4 h-4 mr-2" />
-            Gradientes
-          </TabsTrigger>
-          <TabsTrigger value="layout" className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800">
-            <Layers className="w-4 h-4 mr-2" />
-            Layout
-          </TabsTrigger>
-          <TabsTrigger value="advanced" className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800">
-            <Settings className="w-4 h-4 mr-2" />
-            Avançado
-          </TabsTrigger>
-        </TabsList>
-
-        {/* Presets Tab */}
-        <TabsContent value="presets" className="space-y-6">
-          <Card style={{ backgroundColor: activeTheme.colors.bgCard, borderColor: activeTheme.colors.borderColor }}>
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
+        <div className="space-y-6">
+          <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Layers className="w-5 h-5" />
-                Temas Pré-definidos
-              </CardTitle>
+              <CardTitle className="flex items-center gap-2"><Sparkles className="w-5 h-5" /> Presets comerciais</CardTitle>
               <CardDescription>
-                Escolha um tema pronto ou personalize suas cores
+                Presets seguros para acelerar a criacao de uma loja bonita sem adivinhacao.
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {Object.entries(themes).map(([key, theme]) => (
+            <CardContent className="grid gap-3 md:grid-cols-2">
+              {STOREFRONT_THEME_PRESETS.map((preset) => {
+                const isActive = normalizedDraft.storefront_theme_preset === preset.key;
+                return (
                   <button
-                    key={key}
-                    onClick={() => {
-                      setTheme(key);
-                      resetToPreset();
-                    }}
-                    className={`relative p-3 rounded-lg border transition-all text-left group ${
-                      currentTheme === key && !customTheme
-                        ? 'ring-2 ring-offset-1'
-                        : 'hover:border-opacity-60'
-                    }`}
+                    key={preset.key}
+                    type="button"
+                    onClick={() => handlePresetApply(preset.key)}
+                    className="text-left rounded-2xl border p-4 transition-all hover:-translate-y-0.5"
                     style={{
-                      backgroundColor: theme.colors.bgCard,
-                      borderColor: currentTheme === key && !customTheme 
-                        ? activeTheme.colors.accent 
-                        : activeTheme.colors.borderColor,
-                      ringColor: activeTheme.colors.accent,
+                      backgroundColor: isActive ? withAlpha(preset.primary, 0.08) : 'hsl(var(--card))',
+                      borderColor: isActive ? preset.primary : 'hsl(var(--border))',
+                      boxShadow: isActive ? `0 16px 30px ${withAlpha(preset.primary, 0.16)}` : 'none',
                     }}
                   >
-                    {currentTheme === key && !customTheme && (
-                      <div className="absolute top-1 right-1">
-                        <Badge 
-                          className="bg-green-500 text-white text-xs"
-                          style={{ backgroundColor: activeTheme.colors.accent }}
-                        >
-                          <Check className="w-3 h-3 mr-1" />
-                          Ativo
-                        </Badge>
-                      </div>
-                    )}
-                    <div className="flex items-center gap-2 mb-2">
-                      {theme.mode === 'dark' ? (
-                        <Moon className="w-4 h-4" style={{ color: theme.colors.accent }} />
-                      ) : (
-                        <Sun className="w-4 h-4" style={{ color: theme.colors.accent }} />
-                      )}
+                    <div className="flex items-start justify-between gap-3 mb-3">
                       <div>
-                        <h3 className="font-semibold text-sm" style={{ color: theme.colors.textPrimary }}>
-                          {theme.name}
-                        </h3>
-                        <p className="text-xs" style={{ color: theme.colors.textSecondary }}>
-                          {theme.mode === 'dark' ? 'Modo Escuro' : 'Modo Claro'}
-                        </p>
+                        <p className="font-semibold text-foreground">{preset.label}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{preset.description}</p>
                       </div>
+                      <Badge className="border-0" style={{ backgroundColor: withAlpha(preset.primary, 0.14), color: preset.primary }}>
+                        {preset.badge}
+                      </Badge>
                     </div>
-                    <div className="flex gap-1">
-                      <div 
-                        className="w-6 h-6 rounded"
-                        style={{ backgroundColor: theme.colors.bgPrimary }}
-                      />
-                      <div 
-                        className="w-6 h-6 rounded"
-                        style={{ backgroundColor: theme.colors.bgSecondary }}
-                      />
-                      <div 
-                        className="w-6 h-6 rounded"
-                        style={{ backgroundColor: theme.colors.accent }}
-                      />
-                    </div>
-                  </button>
-                ))}
-              </div>
-
-              {customTheme && (
-                <div className="mt-6 p-4 rounded-lg border-2 border-dashed" style={{ borderColor: activeTheme.colors.borderColor }}>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-semibold" style={{ color: activeTheme.colors.textPrimary }}>
-                        Tema Personalizado
-                      </h3>
-                      <p className="text-sm" style={{ color: activeTheme.colors.textSecondary }}>
-                        Você está usando um tema customizado
-                      </p>
-                    </div>
-                    <Button
-                      variant="outline"
-                      onClick={resetToPreset}
-                      size="sm"
-                    >
-                      <RotateCcw className="w-4 h-4 mr-2" />
-                      Resetar
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Colors Tab */}
-        <TabsContent value="colors" className="space-y-6">
-          {/* Preview */}
-          <Card style={{ backgroundColor: activeTheme.colors.bgCard, borderColor: activeTheme.colors.borderColor }}>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Eye className="w-5 h-5" />
-                Preview em Tempo Real
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex gap-3 items-center flex-wrap">
-                  <div 
-                    className={getButtonClass()}
-                    style={getGradientStyle()}
-                  >
-                    Botão Primário
-                  </div>
-                  <div 
-                    className="px-4 py-2 rounded-lg text-white font-medium"
-                    style={{ backgroundColor: colors.theme_secondary_color }}
-                  >
-                    Secundário
-                  </div>
-                  <div 
-                    className="px-4 py-2 rounded-lg text-white font-medium"
-                    style={{ backgroundColor: colors.theme_accent_color }}
-                  >
-                    Destaque
-                  </div>
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="p-3 rounded text-center" style={{ backgroundColor: colors.theme_primary_color }}>
-                    <p className="text-white text-xs font-medium">Primária</p>
-                    <p className="text-white text-xs opacity-80 truncate">{colors.theme_primary_color}</p>
-                  </div>
-                  <div className="p-3 rounded text-center" style={{ backgroundColor: colors.theme_secondary_color }}>
-                    <p className="text-white text-xs font-medium">Secundária</p>
-                    <p className="text-white text-xs opacity-80 truncate">{colors.theme_secondary_color}</p>
-                  </div>
-                  <div className="p-3 rounded text-center" style={{ backgroundColor: colors.theme_accent_color }}>
-                    <p className="text-white text-xs font-medium">Destaque</p>
-                    <p className="text-white text-xs opacity-80 truncate">{colors.theme_accent_color}</p>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Extract Colors from Logo */}
-          {store?.logo && (
-            <Card style={{ backgroundColor: activeTheme.colors.bgCard, borderColor: activeTheme.colors.borderColor }}>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <ImageIcon className="w-5 h-5" />
-                  Extrair Cores da Logo
-                </CardTitle>
-                <CardDescription>
-                  Extrai automaticamente as cores principais da sua logo para usar como tema
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-4">
-                  <div className="w-20 h-20 rounded-lg overflow-hidden border-2 flex-shrink-0" style={{ borderColor: activeTheme.colors.borderColor }}>
-                    <img src={store.logo} alt="Logo" className="w-full h-full object-cover" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm mb-3" style={{ color: activeTheme.colors.textSecondary }}>
-                      Clique no botão abaixo para extrair as cores dominantes da sua logo e aplicá-las automaticamente como tema.
-                    </p>
-                    <Button
-                      onClick={extractColorsFromLogo}
-                      disabled={isExtractingColors}
-                      style={{ backgroundColor: activeTheme.colors.accent }}
-                    >
-                      {isExtractingColors ? (
-                        <>
-                          <Zap className="w-4 h-4 mr-2 animate-spin" />
-                          Extraindo cores...
-                        </>
-                      ) : (
-                        <>
-                          <ImageIcon className="w-4 h-4 mr-2" />
-                          Extrair Cores da Logo
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Presets */}
-          <Card style={{ backgroundColor: activeTheme.colors.bgCard, borderColor: activeTheme.colors.borderColor }}>
-            <CardHeader>
-              <CardTitle>Temas de Cores Prontos</CardTitle>
-              <CardDescription>Escolha uma paleta de cores pré-definida</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
-                {PRESET_COLORS.map(preset => (
-                  <button
-                    key={preset.name}
-                    onClick={() => applyPreset(preset)}
-                    className={`p-3 rounded-xl border-2 hover:border-opacity-60 transition-all text-center group ${
-                      colors.theme_primary_color === preset.primary 
-                        ? 'ring-2 ring-offset-2' 
-                        : ''
-                    }`}
-                    style={{
-                      borderColor: colors.theme_primary_color === preset.primary 
-                        ? activeTheme.colors.accent 
-                        : activeTheme.colors.borderColor,
-                      ringColor: activeTheme.colors.accent,
-                    }}
-                  >
-                    <div className="flex gap-1 justify-center mb-2">
-                      <div className="w-5 h-5 rounded-full border-2 border-white shadow-sm" style={{ backgroundColor: preset.primary }} />
-                      <div className="w-5 h-5 rounded-full border-2 border-white shadow-sm" style={{ backgroundColor: preset.secondary }} />
-                      <div className="w-5 h-5 rounded-full border-2 border-white shadow-sm" style={{ backgroundColor: preset.accent }} />
-                    </div>
-                    <span className="text-xs font-medium">{preset.name}</span>
-                    {colors.theme_primary_color === preset.primary && (
-                      <Check className="w-3 h-3 mx-auto mt-1" style={{ color: activeTheme.colors.accent }} />
-                    )}
-                  </button>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Custom Colors */}
-          <Card style={{ backgroundColor: activeTheme.colors.bgCard, borderColor: activeTheme.colors.borderColor }}>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Brush className="w-5 h-5" />
-                Cores Personalizadas
-              </CardTitle>
-              <CardDescription>Ajuste cada cor individualmente</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid sm:grid-cols-3 gap-6">
-                <div>
-                  <Label className="text-sm font-medium mb-2 block">Cor Primária</Label>
-                  <div className="flex gap-2">
-                    <input
-                      type="color"
-                      value={colors.theme_primary_color}
-                      onChange={(e) => handleColorChange('theme_primary_color', e.target.value)}
-                      className="w-14 h-12 rounded-lg border-2 cursor-pointer"
-                      style={{ borderColor: activeTheme.colors.borderColor }}
-                    />
-                    <Input
-                      value={colors.theme_primary_color}
-                      onChange={(e) => handleColorChange('theme_primary_color', e.target.value)}
-                      className="font-mono uppercase text-sm"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium mb-2 block">Cor Secundária</Label>
-                  <div className="flex gap-2">
-                    <input
-                      type="color"
-                      value={colors.theme_secondary_color}
-                      onChange={(e) => handleColorChange('theme_secondary_color', e.target.value)}
-                      className="w-14 h-12 rounded-lg border-2 cursor-pointer"
-                      style={{ borderColor: activeTheme.colors.borderColor }}
-                    />
-                    <Input
-                      value={colors.theme_secondary_color}
-                      onChange={(e) => handleColorChange('theme_secondary_color', e.target.value)}
-                      className="font-mono uppercase text-sm"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium mb-2 block">Cor de Destaque</Label>
-                  <div className="flex gap-2">
-                    <input
-                      type="color"
-                      value={colors.theme_accent_color}
-                      onChange={(e) => handleColorChange('theme_accent_color', e.target.value)}
-                      className="w-14 h-12 rounded-lg border-2 cursor-pointer"
-                      style={{ borderColor: activeTheme.colors.borderColor }}
-                    />
-                    <Input
-                      value={colors.theme_accent_color}
-                      onChange={(e) => handleColorChange('theme_accent_color', e.target.value)}
-                      className="font-mono uppercase text-sm"
-                    />
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Advanced Theme Colors */}
-          <Card style={{ backgroundColor: activeTheme.colors.bgCard, borderColor: activeTheme.colors.borderColor }}>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Settings className="w-5 h-5" />
-                Cores Avançadas do Tema
-              </CardTitle>
-              <CardDescription>Personalize cores de fundo, texto e bordas</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {Object.entries(customColors).map(([key, value]) => (
-                  <div key={key}>
-                    <Label className="text-xs font-medium mb-2 block capitalize">
-                      {key.replace(/([A-Z])/g, ' $1').trim()}
-                    </Label>
                     <div className="flex gap-2">
-                      <input
-                        type="color"
-                        value={value}
-                        onChange={(e) => handleCustomColorChange(key, e.target.value)}
-                        className="w-12 h-10 rounded-lg border-2 cursor-pointer"
-                        style={{ borderColor: activeTheme.colors.borderColor }}
-                      />
-                      <Input
-                        value={value}
-                        onChange={(e) => handleCustomColorChange(key, e.target.value)}
-                        className="font-mono text-xs"
-                      />
+                      {[preset.primary, preset.secondary, preset.accent, preset.surfaceAlt].map((color) => (
+                        <span key={color} className="w-10 h-10 rounded-xl border" style={{ backgroundColor: color, borderColor: withAlpha(color, 0.4) }} />
+                      ))}
                     </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Gradient Tab */}
-        <TabsContent value="gradient" className="space-y-6">
-          <Card style={{ backgroundColor: activeTheme.colors.bgCard, borderColor: activeTheme.colors.borderColor }}>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Habilitar Gradiente</CardTitle>
-                  <CardDescription>Aplica efeito de gradiente nos botões primários</CardDescription>
-                </div>
-                <Switch
-                  checked={colors.theme_gradient_enabled}
-                  onCheckedChange={(checked) => handleColorChange('theme_gradient_enabled', checked)}
-                />
-              </div>
-            </CardHeader>
-          </Card>
-
-          {colors.theme_gradient_enabled && (
-            <>
-              <Card style={{ backgroundColor: activeTheme.colors.bgCard, borderColor: activeTheme.colors.borderColor }}>
-                <CardHeader>
-                  <CardTitle>Preview do Gradiente</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div 
-                    className="w-full h-32 rounded-xl flex items-center justify-center text-white text-lg font-bold shadow-lg"
-                    style={getGradientStyle()}
-                  >
-                    Gradiente Aplicado
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card style={{ backgroundColor: activeTheme.colors.bgCard, borderColor: activeTheme.colors.borderColor }}>
-                <CardHeader>
-                  <CardTitle>Gradientes Prontos</CardTitle>
-                  <CardDescription>Escolha um gradiente pré-definido</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    {GRADIENT_PRESETS.map(preset => (
-                      <button
-                        key={preset.name}
-                        onClick={() => applyGradientPreset(preset)}
-                        className="group relative overflow-hidden rounded-lg border transition-all"
-                        style={{
-                          borderColor: colors.theme_gradient_start === preset.start && colors.theme_gradient_end === preset.end
-                            ? activeTheme.colors.accent
-                            : activeTheme.colors.borderColor
-                        }}
-                      >
-                        <div 
-                          className="h-16 flex items-center justify-center text-white text-sm font-medium"
-                          style={{
-                            background: `linear-gradient(${preset.direction === 'to-r' ? 'to right' : preset.direction === 'to-br' ? 'to bottom right' : 'to right'}, ${preset.start}, ${preset.end})`
-                          }}
-                        >
-                          {preset.name}
-                        </div>
-                        {colors.theme_gradient_start === preset.start && colors.theme_gradient_end === preset.end && (
-                          <div className="absolute top-2 right-2 bg-white rounded-full p-1">
-                            <Check className="w-3 h-3" style={{ color: activeTheme.colors.accent }} />
-                          </div>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card style={{ backgroundColor: activeTheme.colors.bgCard, borderColor: activeTheme.colors.borderColor }}>
-                <CardHeader>
-                  <CardTitle>Gradiente Personalizado</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="grid sm:grid-cols-2 gap-4">
-                      <div>
-                        <Label className="text-sm font-medium mb-2 block">Cor Inicial</Label>
-                        <div className="flex gap-2">
-                          <input
-                            type="color"
-                            value={colors.theme_gradient_start}
-                            onChange={(e) => handleColorChange('theme_gradient_start', e.target.value)}
-                            className="w-14 h-12 rounded-lg border-2 cursor-pointer"
-                            style={{ borderColor: activeTheme.colors.borderColor }}
-                          />
-                          <Input
-                            value={colors.theme_gradient_start}
-                            onChange={(e) => handleColorChange('theme_gradient_start', e.target.value)}
-                            className="font-mono uppercase text-sm"
-                          />
-                        </div>
+                    {isActive ? (
+                      <div className="mt-3 inline-flex items-center gap-1 text-xs font-medium" style={{ color: preset.primary }}>
+                        <Check className="w-3.5 h-3.5" /> Preset aplicado
                       </div>
-                      <div>
-                        <Label className="text-sm font-medium mb-2 block">Cor Final</Label>
-                        <div className="flex gap-2">
-                          <input
-                            type="color"
-                            value={colors.theme_gradient_end}
-                            onChange={(e) => handleColorChange('theme_gradient_end', e.target.value)}
-                            className="w-14 h-12 rounded-lg border-2 cursor-pointer"
-                            style={{ borderColor: activeTheme.colors.borderColor }}
-                          />
-                          <Input
-                            value={colors.theme_gradient_end}
-                            onChange={(e) => handleColorChange('theme_gradient_end', e.target.value)}
-                            className="font-mono uppercase text-sm"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                    <div>
-                      <Label className="text-sm font-medium mb-2 block">Direção do Gradiente</Label>
-                      <Select
-                        value={colors.theme_gradient_direction}
-                        onValueChange={(value) => handleColorChange('theme_gradient_direction', value)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Object.entries(DIRECTION_LABELS).map(([value, label]) => (
-                            <SelectItem key={value} value={value}>{label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </>
-          )}
-        </TabsContent>
-
-        {/* Advanced Tab */}
-        <TabsContent value="advanced" className="space-y-6">
-          <Card style={{ backgroundColor: activeTheme.colors.bgCard, borderColor: activeTheme.colors.borderColor }}>
-            <CardHeader>
-              <CardTitle>Estilo dos Botões</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-3 gap-3">
-                {[
-                  { value: 'rounded', label: 'Arredondado', class: 'rounded-lg' },
-                  { value: 'square', label: 'Quadrado', class: 'rounded-none' },
-                  { value: 'pill', label: 'Pílula', class: 'rounded-full' },
-                ].map(style => (
-                  <button
-                    key={style.value}
-                    onClick={() => handleColorChange('theme_button_style', style.value)}
-                    className={`p-4 border-2 transition-all ${
-                      colors.theme_button_style === style.value 
-                        ? 'ring-2 ring-offset-2' 
-                        : ''
-                    }`}
-                    style={{
-                      borderColor: colors.theme_button_style === style.value 
-                        ? activeTheme.colors.accent 
-                        : activeTheme.colors.borderColor,
-                      ringColor: activeTheme.colors.accent,
-                    }}
-                  >
-                    <div 
-                      className={`w-full h-10 ${style.class} mb-2 flex items-center justify-center text-white text-xs font-medium`}
-                      style={{ backgroundColor: activeTheme.colors.accent }}
-                    >
-                      Exemplo
-                    </div>
-                    <span className="text-xs font-medium">{style.label}</span>
-                    {colors.theme_button_style === style.value && (
-                      <Check className="w-3 h-3 mx-auto mt-1" style={{ color: activeTheme.colors.accent }} />
-                    )}
+                    ) : null}
                   </button>
-                ))}
-              </div>
+                );
+              })}
             </CardContent>
           </Card>
 
-          <Card style={{ backgroundColor: activeTheme.colors.bgCard, borderColor: activeTheme.colors.borderColor }}>
+          <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Sombras nos Elementos</CardTitle>
-                  <CardDescription>Adiciona profundidade visual aos botões e cards</CardDescription>
-                </div>
-                <Switch
-                  checked={colors.theme_shadow_enabled}
-                  onCheckedChange={(checked) => handleColorChange('theme_shadow_enabled', checked)}
-                />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-4">
-                <div 
-                  className={`p-4 text-white rounded-lg text-center font-medium ${
-                    colors.theme_shadow_enabled ? 'shadow-lg' : ''
-                  }`}
-                  style={{ backgroundColor: activeTheme.colors.accent }}
-                >
-                  Com Sombra
-                </div>
-                <div 
-                  className="p-4 text-white rounded-lg text-center font-medium"
-                  style={{ backgroundColor: activeTheme.colors.accent }}
-                >
-                  Sem Sombra
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card style={{ backgroundColor: activeTheme.colors.bgCard, borderColor: activeTheme.colors.borderColor }}>
-            <CardHeader>
-              <CardTitle>Estilo dos Cards do Cardápio</CardTitle>
+              <CardTitle className="flex items-center gap-2"><Wand2 className="w-5 h-5" /> Tokens oficiais do storefront</CardTitle>
               <CardDescription>
-                Define a superfície dos cards de pratos/bebidas no cardápio público
+                So mostramos o que ja chega de verdade na vitrine publica.
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {[
-                  { value: 'solid', label: 'Sólido', hint: 'Visual clássico com fundo opaco' },
-                  { value: 'aero', label: 'Aero (vidro fosco)', hint: 'Transparência com blur para efeito premium' },
-                ].map((item) => (
-                  <button
-                    key={item.value}
-                    onClick={() => handleColorChange('theme_menu_card_style', item.value)}
-                    className={`p-4 rounded-xl border-2 text-left transition-all ${
-                      colors.theme_menu_card_style === item.value
-                        ? 'ring-2 ring-offset-2'
-                        : ''
-                    }`}
-                    style={{
-                      borderColor: colors.theme_menu_card_style === item.value
-                        ? activeTheme.colors.accent
-                        : activeTheme.colors.borderColor,
-                      ringColor: activeTheme.colors.accent,
-                    }}
-                  >
-                    <div className="font-semibold mb-1">{item.label}</div>
-                    <p className="text-sm text-muted-foreground">{item.hint}</p>
-                    <div
-                      className={`mt-3 h-14 rounded-lg border ${
-                        item.value === 'aero'
-                          ? 'bg-card/60 supports-[backdrop-filter]:bg-card/45 backdrop-blur-xl'
-                          : 'bg-card'
-                      }`}
-                      style={{ borderColor: activeTheme.colors.borderColor }}
-                    />
-                  </button>
-                ))}
+            <CardContent className="space-y-6">
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border p-4" style={{ backgroundColor: withAlpha(previewTheme.surfaceAlt, 0.7), borderColor: previewTheme.borderColor }}>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Extrair paleta da logo</p>
+                  <p className="text-xs text-muted-foreground">Mantemos esse atalho porque ele ja ajuda bastante no onboarding visual.</p>
+                </div>
+                <Button type="button" variant="outline" onClick={extractColorsFromLogo} disabled={isExtractingColors || !store?.logo}>
+                  <ImageIcon className="w-4 h-4 mr-2" />
+                  {isExtractingColors ? 'Extraindo...' : 'Usar cores da logo'}
+                </Button>
+              </div>
+
+              <div className="grid gap-5 md:grid-cols-2">
+                <ColorField label="Primaria" value={normalizedDraft.theme_primary_color} onChange={(value) => updateDraftField('theme_primary_color', value)} hint="Preco e destaque" />
+                <ColorField label="Secundaria" value={normalizedDraft.theme_secondary_color} onChange={(value) => updateDraftField('theme_secondary_color', value)} hint="Hero e profundidade" />
+                <ColorField label="Accent" value={normalizedDraft.theme_accent_color} onChange={(value) => updateDraftField('theme_accent_color', value)} hint="Badges e pontos de apoio" />
+                <ColorField label="Surface" value={normalizedDraft.theme_surface_color} onChange={(value) => updateDraftField('theme_surface_color', value)} hint="Fundo principal do cardapio" />
+                <ColorField label="Surface alt" value={normalizedDraft.theme_surface_alt_color} onChange={(value) => updateDraftField('theme_surface_alt_color', value)} hint="Pills, secoes e blocos auxiliares" />
+                <ColorField label="Texto primario" value={normalizedDraft.theme_text_primary} onChange={(value) => updateDraftField('theme_text_primary', value)} hint="Titulos e blocos de leitura" />
+                <ColorField label="Texto secundario" value={normalizedDraft.theme_text_secondary} onChange={(value) => updateDraftField('theme_text_secondary', value)} hint="Descricoes e suporte" />
+                <ColorField label="CTA fundo" value={normalizedDraft.theme_cta_bg} onChange={(value) => updateDraftField('theme_cta_bg', value)} hint="Botao principal" />
+                <ColorField label="CTA texto" value={normalizedDraft.theme_cta_text} onChange={(value) => updateDraftField('theme_cta_text', value)} hint="Legibilidade do CTA" />
+                <ColorField label="Hero fundo" value={normalizedDraft.theme_hero_bg} onChange={(value) => updateDraftField('theme_hero_bg', value)} hint="Header e topo da vitrine" />
+                <ColorField label="Hero texto" value={normalizedDraft.theme_hero_text} onChange={(value) => updateDraftField('theme_hero_text', value)} hint="Texto sobre o hero" />
+                <ColorField label="Badge fundo" value={normalizedDraft.theme_badge_bg} onChange={(value) => updateDraftField('theme_badge_bg', value)} hint="Badges e microdestaques" />
+                <ColorField label="Badge texto" value={normalizedDraft.theme_badge_text} onChange={(value) => updateDraftField('theme_badge_text', value)} hint="Legibilidade das badges" />
+                <ColorField label="Footer fundo" value={normalizedDraft.theme_footer_bg} onChange={(value) => updateDraftField('theme_footer_bg', value)} hint="Rodape da loja" />
+                <ColorField label="Footer texto" value={normalizedDraft.theme_footer_text} onChange={(value) => updateDraftField('theme_footer_text', value)} hint="Texto do rodape" />
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
 
-        <TabsContent value="layout" className="space-y-6">
-          <Card style={{ backgroundColor: activeTheme.colors.bgCard, borderColor: activeTheme.colors.borderColor }}>
+          <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Layers className="w-5 h-5" />
-                Layout do Cardápio
-              </CardTitle>
+              <CardTitle className="flex items-center gap-2"><LayoutGrid className="w-5 h-5" /> Layouts e comportamento</CardTitle>
               <CardDescription>
-                Escolha como os pratos serão exibidos no cardápio digital
+                Mobile e desktop com maturidade clara: recomendado, avancado ou experimental.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <div className="grid gap-5 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2"><Smartphone className="w-4 h-4" /> Layout mobile</Label>
+                  <Select value={normalizedDraft.menu_layout_mobile} onValueChange={(value) => updateDraftField('menu_layout_mobile', value)}>
+                    <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {STOREFRONT_LAYOUT_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label} � {option.maturity}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">{getStorefrontLayoutMeta(normalizedDraft.menu_layout_mobile).description}</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2"><Monitor className="w-4 h-4" /> Layout desktop</Label>
+                  <Select value={normalizedDraft.menu_layout_desktop} onValueChange={(value) => updateDraftField('menu_layout_desktop', value)}>
+                    <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {STOREFRONT_LAYOUT_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label} � {option.maturity}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">{getStorefrontLayoutMeta(normalizedDraft.menu_layout_desktop).description}</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Estilo de card</Label>
+                  <Select value={normalizedDraft.theme_menu_card_style} onValueChange={(value) => updateDraftField('theme_menu_card_style', value)}>
+                    <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {CARD_STYLE_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    {CARD_STYLE_OPTIONS.find((option) => option.value === normalizedDraft.theme_menu_card_style)?.description}
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Colunas no desktop</Label>
+                  <Select value={String(normalizedDraft.menu_grid_cols_desktop)} onValueChange={(value) => updateDraftField('menu_grid_cols_desktop', Number(value))}>
+                    <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {GRID_OPTIONS.map((option) => (
+                        <SelectItem key={option} value={String(option)}>{option} colunas</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">Mantemos apenas densidades realmente usaveis.</p>
+                </div>
+
+                <div className="space-y-2 md:col-span-2">
+                  <Label>Autoplay do carrossel</Label>
+                  <Select value={String(normalizedDraft.menu_autoplay_interval_ms)} onValueChange={(value) => updateDraftField('menu_autoplay_interval_ms', Number(value))}>
+                    <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {AUTOPLAY_OPTIONS.map((option) => (
+                        <SelectItem key={option} value={String(option)}>{`${option / 1000}s`}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">So tem efeito real quando o layout escolhido e carrossel.</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><ShieldCheck className="w-5 h-5" /> Guardrails e transparencia</CardTitle>
+              <CardDescription>
+                Menos mentira, mais previsibilidade. Se um controle nao chega ao storefront, ele sai da UI principal.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-6">
-                <div>
-                  <Label className="mb-3 block">Estilo de Apresentação (Mobile)</Label>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <button
-                      onClick={() => handleMenuLayoutChange('menu_layout_mobile', 'grid')}
-                      className={`p-4 rounded-xl border-2 transition-all text-left ${
-                        colors.menu_layout_mobile === 'grid'
-                          ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20'
-                          : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 mb-2">
-                        <LayoutGrid className="w-5 h-5" />
-                        <span className="font-semibold">Grid (Padrão)</span>
-                      </div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        Blocos lado a lado, ideal para visualização rápida
-                      </p>
-                      <div className="mt-3 grid grid-cols-2 gap-2">
-                        <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                        <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                        <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                        <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                      </div>
-                    </button>
-
-                    <button
-                      onClick={() => handleMenuLayoutChange('menu_layout_mobile', 'list')}
-                      className={`p-4 rounded-xl border-2 transition-all text-left ${
-                        colors.menu_layout_mobile === 'list'
-                          ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20'
-                          : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 mb-2">
-                        <Menu className="w-5 h-5" />
-                        <span className="font-semibold">Lista</span>
-                      </div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        Lista horizontal com imagens, mais compacta
-                      </p>
-                      <div className="mt-3 space-y-2">
-                        <div className="h-12 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                        <div className="h-12 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                      </div>
-                    </button>
-
-                    <button
-                      onClick={() => handleMenuLayoutChange('menu_layout_mobile', 'carousel')}
-                      className={`p-4 rounded-xl border-2 transition-all text-left ${
-                        colors.menu_layout_mobile === 'carousel'
-                          ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20'
-                          : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 mb-2">
-                        <Eye className="w-5 h-5" />
-                        <span className="font-semibold">Carrossel</span>
-                      </div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        Deslize horizontalmente pelos pratos
-                      </p>
-                      <div className="mt-3 flex gap-2 overflow-hidden">
-                        <div className="h-20 w-32 bg-gray-200 dark:bg-gray-700 rounded flex-shrink-0"></div>
-                        <div className="h-20 w-32 bg-gray-200 dark:bg-gray-700 rounded flex-shrink-0"></div>
-                      </div>
-                    </button>
-
-                    <button
-                      onClick={() => handleMenuLayoutChange('menu_layout_mobile', 'magazine')}
-                      className={`p-4 rounded-xl border-2 transition-all text-left ${
-                        colors.menu_layout_mobile === 'magazine'
-                          ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20'
-                          : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 mb-2">
-                        <BookOpen className="w-5 h-5" />
-                        <span className="font-semibold">Cardápio Impresso</span>
-                      </div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        Como folhear um cardápio físico, página por página
-                      </p>
-                      <div className="mt-3 grid grid-cols-2 gap-2">
-                        <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                        <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                      </div>
-                    </button>
-
-                    <button
-                      onClick={() => handleMenuLayoutChange('menu_layout_mobile', 'masonry')}
-                      className={`p-4 rounded-xl border-2 transition-all text-left ${
-                        colors.menu_layout_mobile === 'masonry'
-                          ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20'
-                          : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 mb-2">
-                        <Layers className="w-5 h-5" />
-                        <span className="font-semibold">Masonry</span>
-                      </div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        Layout estilo Pinterest, colunas com alturas variadas
-                      </p>
-                      <div className="mt-3 columns-2 gap-2">
-                        <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded mb-2"></div>
-                        <div className="h-24 bg-gray-200 dark:bg-gray-700 rounded mb-2"></div>
-                      </div>
-                    </button>
+              <div className="grid gap-3 md:grid-cols-2">
+                {contrastChecks.map((check) => (
+                  <div
+                    key={check.id}
+                    className="rounded-2xl border p-4"
+                    style={{
+                      backgroundColor: check.ok ? withAlpha(previewTheme.primary, 0.06) : withAlpha('#ef4444', 0.08),
+                      borderColor: check.ok ? withAlpha(previewTheme.primary, 0.18) : withAlpha('#ef4444', 0.25),
+                    }}
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <p className="text-sm font-semibold text-foreground">{check.label}</p>
+                      <Badge className="border-0" style={{ backgroundColor: check.ok ? withAlpha(previewTheme.primary, 0.16) : withAlpha('#ef4444', 0.16), color: check.ok ? previewTheme.primary : '#b91c1c' }}>
+                        {check.ok ? 'OK' : 'Ajustar'}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Contraste atual: {check.ratio.toFixed(2)}:1</p>
                   </div>
+                ))}
+              </div>
+
+              <div className="rounded-2xl border p-4" style={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))' }}>
+                <p className="text-sm font-semibold text-foreground mb-3">Controles retirados deste lote</p>
+                <div className="flex flex-wrap gap-2">
+                  {inactiveControls.map((label) => (
+                    <Badge key={label} variant="outline" className="border text-xs">{label}</Badge>
+                  ))}
                 </div>
-
-                <div>
-                  <Label className="mb-3 block">Estilo de Apresentação (Desktop)</Label>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <button
-                      onClick={() => handleMenuLayoutChange('menu_layout_desktop', 'grid')}
-                      className={`p-4 rounded-xl border-2 transition-all text-left ${
-                        colors.menu_layout_desktop === 'grid'
-                          ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20'
-                          : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 mb-2">
-                        <LayoutGrid className="w-5 h-5" />
-                        <span className="font-semibold">Grid (Padrão)</span>
-                      </div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        Blocos lado a lado, ideal para visualização rápida
-                      </p>
-                      <div className="mt-3 grid grid-cols-2 gap-2">
-                        <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                        <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                        <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                        <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                      </div>
-                    </button>
-
-                    <button
-                      onClick={() => handleMenuLayoutChange('menu_layout_desktop', 'list')}
-                      className={`p-4 rounded-xl border-2 transition-all text-left ${
-                        colors.menu_layout_desktop === 'list'
-                          ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20'
-                          : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 mb-2">
-                        <Menu className="w-5 h-5" />
-                        <span className="font-semibold">Lista</span>
-                      </div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        Lista horizontal com imagens, mais compacta
-                      </p>
-                      <div className="mt-3 space-y-2">
-                        <div className="h-12 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                        <div className="h-12 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                      </div>
-                    </button>
-
-                    <button
-                      onClick={() => handleMenuLayoutChange('menu_layout_desktop', 'carousel')}
-                      className={`p-4 rounded-xl border-2 transition-all text-left ${
-                        colors.menu_layout_desktop === 'carousel'
-                          ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20'
-                          : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 mb-2">
-                        <Eye className="w-5 h-5" />
-                        <span className="font-semibold">Carrossel</span>
-                      </div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        Deslize horizontalmente pelos pratos
-                      </p>
-                      <div className="mt-3 flex gap-2 overflow-hidden">
-                        <div className="h-20 w-32 bg-gray-200 dark:bg-gray-700 rounded flex-shrink-0"></div>
-                        <div className="h-20 w-32 bg-gray-200 dark:bg-gray-700 rounded flex-shrink-0"></div>
-                      </div>
-                    </button>
-
-                    <button
-                      onClick={() => handleMenuLayoutChange('menu_layout_desktop', 'magazine')}
-                      className={`p-4 rounded-xl border-2 transition-all text-left ${
-                        colors.menu_layout_desktop === 'magazine'
-                          ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20'
-                          : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 mb-2">
-                        <BookOpen className="w-5 h-5" />
-                        <span className="font-semibold">Cardápio Impresso</span>
-                      </div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        Como folhear um cardápio físico, página por página
-                      </p>
-                      <div className="mt-3 grid grid-cols-2 gap-2">
-                        <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                        <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                      </div>
-                    </button>
-
-                    <button
-                      onClick={() => handleMenuLayoutChange('menu_layout_desktop', 'masonry')}
-                      className={`p-4 rounded-xl border-2 transition-all text-left ${
-                        colors.menu_layout_desktop === 'masonry'
-                          ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20'
-                          : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 mb-2">
-                        <Layers className="w-5 h-5" />
-                        <span className="font-semibold">Masonry</span>
-                      </div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        Layout estilo Pinterest, colunas com alturas variadas
-                      </p>
-                      <div className="mt-3 columns-2 gap-2">
-                        <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded mb-2"></div>
-                        <div className="h-24 bg-gray-200 dark:bg-gray-700 rounded mb-2"></div>
-                      </div>
-                    </button>
-                  </div>
-                </div>
+                <p className="text-xs text-muted-foreground mt-3">
+                  Eles voltam quando tiverem efeito real no storefront. Por enquanto, preferimos uma UI honesta a um configurador que promete mais do que entrega.
+                </p>
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
-      </Tabs>
+        </div>
 
-      {/* Save Button */}
-      <div className="flex gap-3 sticky bottom-0 bg-white dark:bg-gray-900 p-4 -mx-4 sm:-mx-6 border-t" style={{ backgroundColor: activeTheme.colors.bgPrimary, borderColor: activeTheme.colors.borderColor }}>
-        <Button 
-          onClick={() => window.location.reload()} 
-          variant="outline"
-          className="flex-1"
-        >
-          <RotateCcw className="w-4 h-4 mr-2" />
-          Resetar
-        </Button>
-        <Button 
-          onClick={handleSave} 
-          disabled={!hasChanges}
-          className="flex-1"
-          style={{ 
-            backgroundColor: hasChanges ? activeTheme.colors.accent : undefined,
-            opacity: hasChanges ? 1 : 0.5
-          }}
-        >
-          <Save className="w-4 h-4 mr-2" />
-          Salvar Alterações
-        </Button>
+        <div className="space-y-6 xl:sticky xl:top-4 self-start">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><Eye className="w-5 h-5" /> Preview real da vitrine</CardTitle>
+              <CardDescription>
+                O preview usa blocos reais do storefront e prioriza os dados atuais da sua loja quando eles existem.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <StorefrontThemePreview store={{ ...store, ...normalizedDraft }} theme={previewTheme} dishes={dishes} categories={categories} />
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
-      {/* Confirmation Dialog */}
-      <AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar Alterações</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tem certeza que deseja salvar as novas configurações de tema? As alterações serão aplicadas imediatamente no cardápio.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmSave} style={{ backgroundColor: activeTheme.colors.accent }}>
-              <Check className="w-4 h-4 mr-2" />
-              Confirmar
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <div className="sticky bottom-0 z-20 rounded-3xl border bg-background/95 backdrop-blur p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between" style={{ borderColor: 'hsl(var(--border))' }}>
+        <div>
+          <p className="text-sm font-semibold text-foreground">Tema da loja publica</p>
+          <p className="text-xs text-muted-foreground">
+            AppTheme do painel segue separado. Aqui salvamos apenas o contrato oficial do storefront.
+          </p>
+        </div>
+        <div className="flex gap-3">
+          <Button type="button" variant="outline" onClick={handleReset} disabled={!hasChanges || updateMutation.isPending}>
+            Resetar edicao
+          </Button>
+          <Button type="button" onClick={handleSave} disabled={!hasChanges || updateMutation.isPending}>
+            <Save className="w-4 h-4 mr-2" />
+            {updateMutation.isPending ? 'Salvando...' : 'Salvar tema'}
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Button } from './button';
 import { Sun, Moon } from 'lucide-react';
-import { useTheme } from '@/components/theme/ThemeProvider';
+import { useAppTheme } from '@/components/theme/ThemeProvider';
 import { cn } from '@/lib/utils';
 
 /**
@@ -10,11 +10,12 @@ import { cn } from '@/lib/utils';
  */
 export default function ThemeToggle({ 
   className, 
+  style,
   variant = 'ghost', 
   size = 'icon',
   showLabel = false 
 }) {
-  const { isDark, toggleTheme } = useTheme();
+  const { isDark, toggleTheme } = useAppTheme();
 
   return (
     <Button
@@ -22,6 +23,7 @@ export default function ThemeToggle({
       variant={variant}
       size={size}
       className={cn(className)}
+      style={style}
       title={isDark ? 'Alternar para modo claro' : 'Alternar para modo escuro'}
       aria-label={isDark ? 'Alternar para modo claro' : 'Alternar para modo escuro'}
     >

@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sparkles, Heart } from 'lucide-react';
 import { useFavorites } from '@/hooks/useFavorites';
+import { withAlpha } from '@/utils/storefrontTheme';
 
 /**
  * 🎯 DishCard com efeitos WOW épicos
@@ -21,11 +22,19 @@ export default function DishCardWow({
   isLowStock = false,
   primaryColor = '#f97316',
   textPrimaryColor,
+  theme,
   slug = null,
   menuCardStyle = 'solid'
 }) {
   const { toggleFavorite, isFavorite } = useFavorites(slug);
   const isAeroCard = menuCardStyle === 'aero';
+  const cardSurface = theme?.surface || 'hsl(var(--card))';
+  const cardBorder = theme?.borderColor || 'hsl(var(--border))';
+  const cardAltSurface = theme?.surfaceAlt || 'hsl(var(--muted))';
+  const titleColor = theme?.textPrimary || textPrimaryColor || 'hsl(var(--foreground))';
+  const descriptionColor = theme?.textSecondary || 'hsl(var(--muted-foreground))';
+  const ctaBg = theme?.ctaBg || primaryColor;
+  const ctaText = theme?.ctaText || '#ffffff';
   const priceLabel = dish?.price_label || '';
   const actionLabel = dish?.cta_label || (dish?.product_type === 'pizza' ? 'Montar' : 'Adicionar');
   const formatCurrency = (value) => {
@@ -113,11 +122,18 @@ export default function DishCardWow({
         group relative rounded-xl md:rounded-lg
         overflow-hidden shadow-sm cursor-pointer h-full flex flex-col
         lg:shadow-md lg:hover:shadow-lg lg:transition-shadow
-        ${isAeroCard
-          ? 'bg-card/60 supports-[backdrop-filter]:bg-card/45 backdrop-blur-xl border border-border/70'
-          : 'bg-card border border-border'}
         ${isOutOfStock ? 'opacity-60 cursor-not-allowed' : ''}
       `}
+      style={isAeroCard
+        ? {
+            backgroundColor: withAlpha(cardSurface, 0.68),
+            border: `1px solid ${withAlpha(cardBorder, 0.9)}`,
+            backdropFilter: 'blur(18px)',
+          }
+        : {
+            backgroundColor: cardSurface,
+            border: `1px solid ${cardBorder}`,
+          }}
       onClick={() => !isOutOfStock && onClick(dish)}
     >
       {/* Shimmer/Shine Effect (só em hover) */}
@@ -164,7 +180,7 @@ export default function DishCardWow({
       ))}
 
       {/* Imagem — ícone do cardápio quadrado em todas as telas */}
-      <div className="relative h-44 md:h-36 lg:h-40 bg-gray-100 dark:bg-gray-800 overflow-hidden shrink-0">
+      <div className="relative h-44 md:h-36 lg:h-40 overflow-hidden shrink-0" style={{ backgroundColor: cardAltSurface }}>
         {dish.image ? (
           <>
             {/* Placeholder com pulse */}
@@ -205,13 +221,13 @@ export default function DishCardWow({
       </div>
 
       {/* Info do Prato - lg: nome e preço mais legíveis no desktop */}
-      <div className={`p-4 md:p-3 lg:p-4 space-y-2 md:space-y-2 lg:space-y-3 flex-1 flex flex-col ${isAeroCard ? 'bg-transparent' : 'bg-card'}`}>
-        <h3 className="font-bold text-sm md:text-xs lg:text-base text-foreground line-clamp-2 min-h-[40px] md:min-h-[36px] lg:min-h-[2.75rem] group-hover:text-primary transition-colors">
+      <div className="p-4 md:p-3 lg:p-4 space-y-2 md:space-y-2 lg:space-y-3 flex-1 flex flex-col">
+        <h3 className="font-bold text-sm md:text-xs lg:text-base line-clamp-2 min-h-[40px] md:min-h-[36px] lg:min-h-[2.75rem] transition-colors" style={{ color: titleColor }}>
           {dish.name}
         </h3>
         
         {dish.description && (
-          <p className="text-xs text-muted-foreground line-clamp-1 md:hidden">
+          <p className="text-xs line-clamp-1 md:hidden" style={{ color: descriptionColor }}>
             {dish.description}
           </p>
         )}
@@ -223,7 +239,7 @@ export default function DishCardWow({
             transition={{ type: "spring", stiffness: 300 }}
           >
             {priceLabel && (
-              <p className="text-[10px] md:text-[9px] font-medium text-muted-foreground mb-0.5">
+              <p className="text-[10px] md:text-[9px] font-medium mb-0.5" style={{ color: descriptionColor }}>
                 {priceLabel}
               </p>
             )}
@@ -252,7 +268,8 @@ export default function DishCardWow({
           <div className="flex items-center gap-2">
             <button
               onClick={(e) => { e.stopPropagation(); toggleFavorite(dish); }}
-              className="p-1.5 rounded-full hover:bg-muted transition-colors"
+              className="p-1.5 rounded-full transition-colors"
+              style={{ backgroundColor: isFavorite(dish.id) ? withAlpha(ctaBg, 0.12) : 'transparent' }}
               aria-label={isFavorite(dish.id) ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
             >
               <Heart className={`w-4 h-4 transition-colors ${isFavorite(dish.id) ? 'fill-red-500 text-red-500' : 'text-muted-foreground hover:text-red-400'}`} />
@@ -260,8 +277,8 @@ export default function DishCardWow({
             {!isOutOfStock && (
               <Button
                 size="sm"
-                className="h-8 px-3 text-xs font-semibold text-white"
-                style={{ backgroundColor: primaryColor }}
+                className="h-8 px-3 text-xs font-semibold"
+                style={{ backgroundColor: ctaBg, color: ctaText, boxShadow: `0 12px 22px ${withAlpha(ctaBg, 0.24)}` }}
                 onClick={(e) => {
                   e.stopPropagation();
                   onClick(dish);

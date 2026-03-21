@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Heart } from 'lucide-react';
 import { useFavorites } from '@/hooks/useFavorites';
+import { withAlpha } from '@/utils/storefrontTheme';
 
 export default function ListLayout({ 
   dishes, 
@@ -9,6 +10,7 @@ export default function ListLayout({
   primaryColor,
   textPrimaryColor,
   textSecondaryColor,
+  theme,
   loading = false,
   stockUtils,
   formatCurrency,
@@ -32,6 +34,13 @@ export default function ListLayout({
   const hasCombos = comboItems.length > 0;
 
   const [comboIndex, setComboIndex] = useState(0);
+  const cardSurface = theme?.surface || 'hsl(var(--card))';
+  const cardAltSurface = theme?.surfaceAlt || 'hsl(var(--muted))';
+  const cardBorder = theme?.borderColor || 'hsl(var(--border))';
+  const badgeBg = theme?.badgeBg || primaryColor;
+  const badgeText = theme?.badgeText || '#ffffff';
+  const ctaBg = theme?.ctaBg || primaryColor;
+  const ctaText = theme?.ctaText || '#ffffff';
 
   useEffect(() => {
     if (comboItems.length <= 1) return;
@@ -66,13 +75,21 @@ export default function ListLayout({
         onClick={() => !isOutOfStock && onDishClick(dish)}
         className={`
           flex items-center gap-3 p-3 md:p-4 rounded-xl border transition-all cursor-pointer
-          ${isAeroCard ? 'bg-card/60 supports-[backdrop-filter]:bg-card/45 backdrop-blur-xl border-border/70' : 'bg-card'}
           ${isOutOfStock 
-            ? 'opacity-50 cursor-not-allowed border-gray-200 dark:border-gray-700' 
-            : 'hover:shadow-lg border-gray-200 dark:border-gray-700 hover:border-opacity-80'
+            ? 'opacity-50 cursor-not-allowed' 
+            : 'hover:shadow-lg hover:border-opacity-80'
           }
         `}
-        style={!isOutOfStock && !isAeroCard ? { borderColor: 'transparent' } : {}}
+        style={isAeroCard
+          ? {
+              backgroundColor: withAlpha(cardSurface, 0.66),
+              borderColor: withAlpha(cardBorder, 0.9),
+              backdropFilter: 'blur(18px)',
+            }
+          : {
+              backgroundColor: cardSurface,
+              borderColor: cardBorder,
+            }}
       >
         {/* Conteúdo */}
         <div className="flex-1 min-w-0">
@@ -87,7 +104,7 @@ export default function ListLayout({
               <span className="text-yellow-500 text-sm">⭐</span>
             )}
             {dish.is_new && (
-              <span className="text-green-500 text-xs font-bold bg-green-100 dark:bg-green-900 px-2 py-0.5 rounded">NOVO</span>
+              <span className="text-xs font-bold px-2 py-0.5 rounded" style={{ color: badgeText, backgroundColor: badgeBg }}>NOVO</span>
             )}
           </div>
           {dish.description && (
@@ -118,7 +135,8 @@ export default function ListLayout({
         {/* Favorito */}
         <button
           onClick={(e) => { e.stopPropagation(); toggleFavorite(dish); }}
-          className="flex-shrink-0 p-1.5 rounded-full hover:bg-muted transition-colors self-center"
+          className="flex-shrink-0 p-1.5 rounded-full transition-colors self-center"
+          style={{ backgroundColor: isFavorite(dish.id) ? withAlpha(ctaBg, 0.12) : 'transparent' }}
           aria-label={isFavorite(dish.id) ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
         >
           <Heart className={`w-4 h-4 transition-colors ${isFavorite(dish.id) ? 'fill-red-500 text-red-500' : 'text-muted-foreground hover:text-red-400'}`} />
@@ -133,7 +151,7 @@ export default function ListLayout({
               className="w-full h-full object-cover"
             />
           ) : (
-            <div className="w-full h-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+            <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: cardAltSurface }}>
               <svg viewBox="0 0 24 24" className="w-8 h-8 opacity-30" fill="none" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 3c-1.5 0-3 .6-4 1.8A5.98 5.98 0 0 0 6 9c0 2.5 1.5 4.5 3.5 5.4V17H8a1 1 0 0 0 0 2h8a1 1 0 0 0 0-2h-1.5v-2.6C16.5 13.5 18 11.5 18 9c0-1.7-.7-3.2-2-4.2C15 3.6 13.5 3 12 3Z" /><path strokeLinecap="round" d="M9.5 17h5" /></svg>
             </div>
           )}
@@ -158,14 +176,14 @@ export default function ListLayout({
         onClick={() => !isOutOfStock && onDishClick(dish)}
         className="relative flex items-center gap-3 p-3 md:p-4 rounded-xl overflow-hidden shadow-lg cursor-pointer border"
         style={{
-          borderColor: primaryColor + '40',
-          background: `linear-gradient(135deg, ${primaryColor}dd, ${primaryColor}bb)`
+          borderColor: withAlpha(ctaBg, 0.32),
+          background: `linear-gradient(135deg, ${theme?.heroBg || ctaBg}, ${ctaBg})`
         }}
       >
         <div className="absolute inset-0 bg-black/30" />
         <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-12 -mt-12" />
         <div className="relative flex-1 min-w-0 text-white" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.7)' }}>
-          <div className="inline-flex items-center px-2 py-1 rounded-md bg-white/90 text-black text-xs font-bold mb-2">
+          <div className="inline-flex items-center px-2 py-1 rounded-md text-xs font-bold mb-2" style={{ backgroundColor: badgeBg, color: badgeText }}>
             Combo
           </div>
           <h3 className="font-bold text-base mb-1 truncate">{dish.name}</h3>

@@ -13,27 +13,9 @@ import { Eye, EyeOff, LogIn, Loader2, Store, ArrowLeft, AlertTriangle, RefreshCw
 import toast from 'react-hot-toast';
 import { useLoginInfo } from '@/hooks/useLoginInfo';
 import { preloadProtectedRoute } from '@/utils/preloadProtectedRoute';
+import { resolveStorefrontTheme } from '@/utils/storefrontTheme';
 
 const isDev = typeof import.meta !== 'undefined' && import.meta.env?.DEV;
-
-const THEME_DEFAULT = {
-  primary: '#ea580c',
-  primaryHover: '#c2410c',
-  secondary: '#f97316',
-  accent: '#fb923c',
-};
-
-function getThemeStyles(data) {
-  if (!data?.found) return THEME_DEFAULT;
-  const p = data.theme_primary_color || THEME_DEFAULT.primary;
-  const s = data.theme_secondary_color || data.theme_primary_color || THEME_DEFAULT.secondary;
-  return {
-    primary: p,
-    primaryHover: p,
-    secondary: s,
-    accent: data.theme_accent_color || s,
-  };
-}
 
 export default function LoginBySlug({ type: propType }) {
   const { slug, type: urlType } = useParams();
@@ -60,7 +42,7 @@ export default function LoginBySlug({ type: propType }) {
   const [error, setError] = useState('');
 
   const storeName = loginInfo?.found ? loginInfo.name : 'Estabelecimento';
-  const theme = getThemeStyles(loginInfo);
+  const theme = resolveStorefrontTheme(loginInfo || {});
   const basePath = slug ? `/s/${slug}` : '';
 
   // Marcar estabelecimento como "página de origem" para redirecionar / sempre ao cardápio/login dele
@@ -105,7 +87,7 @@ export default function LoginBySlug({ type: propType }) {
         }
         await preloadProtectedRoute(slug ? `/s/${slug}/PainelAssinante` : '/PainelAssinante');
         navigate(slug ? `/s/${slug}/PainelAssinante` : '/PainelAssinante', { replace: true });
-      } catch (e) {
+      } catch {
         // não autenticado - deixar usuário fazer login
       }
     };
@@ -416,3 +398,4 @@ export default function LoginBySlug({ type: propType }) {
     </div>
   );
 }
+

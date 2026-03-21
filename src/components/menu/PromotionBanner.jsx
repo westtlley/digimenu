@@ -1,14 +1,15 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Badge } from "@/components/ui/badge";
 import { Zap, Percent, Truck } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { formatCurrency } from '@/utils/formatters';
+import { withAlpha } from '@/utils/storefrontTheme';
 
-export default function PromotionBanner({ promotions = [], dishes = [], primaryColor, onSelectPromotion, store, autoplayIntervalMs = 4500 }) {
-  if (promotions.length === 0) return null;
-
+export default function PromotionBanner({ promotions = [], dishes = [], primaryColor, theme, onSelectPromotion, store, autoplayIntervalMs = 4500 }) {
   const [isDesktop, setIsDesktop] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
+  const safePromotions = Array.isArray(promotions) ? promotions : [];
+  const safeDishes = Array.isArray(dishes) ? dishes : [];
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -20,18 +21,23 @@ export default function PromotionBanner({ promotions = [], dishes = [], primaryC
   }, []);
 
   const promosWithDish = useMemo(() => {
-    const safePromos = Array.isArray(promotions) ? promotions : [];
-    const safeDishes = Array.isArray(dishes) ? dishes : [];
-    return safePromos
+    return safePromotions
       .map((promo) => {
         const dish = safeDishes.find(d => d?.id === promo?.offer_dish_id);
         return dish ? { promo, dish } : null;
       })
       .filter(Boolean);
-  }, [promotions, dishes]);
+  }, [safeDishes, safePromotions]);
 
   const visibleCount = isDesktop ? 2 : 1;
   const maxSlides = promosWithDish.length;
+  const cardSurface = theme?.surface || 'hsl(var(--card))';
+  const badgeBg = theme?.badgeBg || '#facc15';
+  const badgeText = theme?.badgeText || '#111827';
+  const heroBg = theme?.heroBg || primaryColor;
+  const heroText = theme?.heroText || '#ffffff';
+
+  if (safePromotions.length === 0) return null;
 
   useEffect(() => {
     if (maxSlides <= visibleCount) return;
@@ -62,8 +68,8 @@ export default function PromotionBanner({ promotions = [], dishes = [], primaryC
   return (
     <section className="mb-8">
       <div className="flex items-center gap-2 mb-4">
-        <Zap className="w-5 h-5 fill-yellow-400 text-yellow-400" />
-        <h2 className="font-bold text-lg">Promoções Ativas</h2>
+        <Zap className="w-5 h-5" style={{ color: theme?.primary || primaryColor, fill: withAlpha(theme?.accent || primaryColor, 0.9) }} />
+        <h2 className="font-bold text-lg" style={{ color: theme?.textPrimary || 'hsl(var(--foreground))' }}>Promocoes ativas</h2>
       </div>
       
       {/* Banner de Entrega Grátis - Estilo das imagens */}
@@ -71,15 +77,16 @@ export default function PromotionBanner({ promotions = [], dishes = [], primaryC
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-4 bg-gradient-to-r from-green-500 to-green-600 rounded-2xl overflow-hidden shadow-lg"
+          className="mb-4 rounded-2xl overflow-hidden shadow-lg border"
+          style={{ background: `linear-gradient(135deg, ${heroBg}, ${theme?.primary || primaryColor})`, borderColor: withAlpha(theme?.primary || primaryColor, 0.25) }}
         >
           <div className="p-4 flex items-center gap-4">
-            <div className="w-16 h-16 flex-shrink-0 bg-white/20 rounded-xl flex items-center justify-center">
-              <Truck className="w-8 h-8 text-white" />
+            <div className="w-16 h-16 flex-shrink-0 rounded-xl flex items-center justify-center" style={{ backgroundColor: withAlpha(cardSurface, 0.2) }}>
+              <Truck className="w-8 h-8" style={{ color: heroText }} />
             </div>
-            <div className="flex-1 text-white">
-              <h3 className="font-bold text-base md:text-lg mb-1">Entrega grátis em algumas regiões</h3>
-              <p className="text-sm md:text-base opacity-90">Aproveite já!</p>
+            <div className="flex-1" style={{ color: heroText }}>
+              <h3 className="font-bold text-base md:text-lg mb-1">Entrega gratis em algumas regioes</h3>
+              <p className="text-sm md:text-base opacity-90">Aproveite ja.</p>
             </div>
           </div>
         </motion.div>
@@ -102,23 +109,23 @@ export default function PromotionBanner({ promotions = [], dishes = [], primaryC
                 whileHover={{ y: -4, scale: 1.02 }}
                 className="relative h-32 rounded-2xl overflow-hidden shadow-lg cursor-pointer border-2"
                 style={{ 
-                  borderColor: primaryColor + '40',
-                  background: `linear-gradient(135deg, ${primaryColor}dd, ${primaryColor}bb)`
+                  borderColor: withAlpha(theme?.primary || primaryColor, 0.32),
+                  background: `linear-gradient(135deg, ${heroBg}, ${theme?.primary || primaryColor})`
                 }}
                 onClick={() => onSelectPromotion && onSelectPromotion(dish)}
               >
                 <div className="absolute inset-0 bg-black/30" />
                 <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16" />
                 <div className="relative p-4 flex items-center gap-4">
-                  <div className="w-20 h-20 flex-shrink-0 rounded-xl overflow-hidden bg-white/20 shadow-lg">
+                  <div className="w-20 h-20 flex-shrink-0 rounded-xl overflow-hidden shadow-lg" style={{ backgroundColor: withAlpha(cardSurface, 0.22) }}>
                     {dish.image ? (
                       <img src={dish.image} alt={dish.name} className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-2xl">🍽️</div>
                     )}
                   </div>
-                  <div className="flex-1 text-white min-w-0" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.7)' }}>
-                    <Badge className="bg-yellow-400 text-black mb-2 font-bold">
+                  <div className="flex-1 min-w-0" style={{ color: heroText, textShadow: '0 1px 3px rgba(0,0,0,0.7)' }}>
+                    <Badge className="mb-2 font-bold border-0" style={{ backgroundColor: badgeBg, color: badgeText }}>
                       <Percent className="w-3 h-3 mr-1" />
                       -{discount}%
                     </Badge>

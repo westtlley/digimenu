@@ -1,5 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { withAlpha } from '@/utils/storefrontTheme';
 
 export default function MasonryLayout({ 
   dishes, 
@@ -7,12 +8,18 @@ export default function MasonryLayout({
   primaryColor,
   textPrimaryColor,
   textSecondaryColor,
+  theme,
   loading = false,
   stockUtils,
   formatCurrency,
   menuCardStyle = 'solid'
 }) {
   const isAeroCard = menuCardStyle === 'aero';
+  const cardSurface = theme?.surface || 'hsl(var(--card))';
+  const cardAltSurface = theme?.surfaceAlt || 'hsl(var(--muted))';
+  const cardBorder = theme?.borderColor || 'hsl(var(--border))';
+  const badgeBg = theme?.badgeBg || primaryColor;
+  const badgeText = theme?.badgeText || '#ffffff';
   if (loading) {
     return (
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
@@ -39,16 +46,24 @@ export default function MasonryLayout({
             className={`
               rounded-xl overflow-hidden border-2 transition-all cursor-pointer
               shadow-md hover:shadow-xl
-              ${isAeroCard ? 'bg-card/60 supports-[backdrop-filter]:bg-card/45 backdrop-blur-xl border-border/70' : 'bg-card'}
               ${isOutOfStock 
-                ? 'opacity-50 cursor-not-allowed border-gray-200 dark:border-gray-700' 
-                : 'hover:scale-[1.02] border-gray-200 dark:border-gray-700'
+                ? 'opacity-50 cursor-not-allowed' 
+                : 'hover:scale-[1.02]'
               }
             `}
-            style={!isOutOfStock && !isAeroCard ? { borderColor: 'transparent' } : {}}
+            style={isAeroCard
+              ? {
+                  backgroundColor: withAlpha(cardSurface, 0.66),
+                  borderColor: withAlpha(cardBorder, 0.9),
+                  backdropFilter: 'blur(18px)',
+                }
+              : {
+                  backgroundColor: cardSurface,
+                  borderColor: cardBorder,
+                }}
           >
             {/* Imagem com altura fixa para harmonia visual */}
-            <div className="w-full overflow-hidden bg-gray-100 dark:bg-gray-800 relative h-44 md:h-36 lg:h-40">
+            <div className="w-full overflow-hidden relative h-44 md:h-36 lg:h-40" style={{ backgroundColor: cardAltSurface }}>
               {dish.image ? (
                 <img 
                   src={dish.image} 
@@ -69,19 +84,19 @@ export default function MasonryLayout({
               {/* Badges sobrepostas */}
               <div className="absolute top-2 left-2 flex flex-col gap-1">
                 {dish.is_new && (
-                  <span className="px-2 py-1 bg-green-500 text-white text-xs font-bold rounded-full shadow-lg">
+                  <span className="px-2 py-1 text-xs font-bold rounded-full shadow-lg" style={{ backgroundColor: badgeBg, color: badgeText }}>
                     ✨ NOVO
                   </span>
                 )}
                 {dish.is_popular && (
-                  <span className="px-2 py-1 bg-purple-500 text-white text-xs font-bold rounded-full shadow-lg">
+                  <span className="px-2 py-1 text-xs font-bold rounded-full shadow-lg" style={{ backgroundColor: primaryColor, color: theme?.ctaText || '#ffffff' }}>
                     🔥 POPULAR
                   </span>
                 )}
               </div>
               {dish.original_price && dish.original_price > dish.price && (
                 <div className="absolute top-2 right-2">
-                  <span className="px-2 py-1 bg-red-500 text-white text-xs font-bold rounded-full shadow-lg">
+                  <span className="px-2 py-1 text-xs font-bold rounded-full shadow-lg" style={{ backgroundColor: badgeBg, color: badgeText }}>
                     -{Math.round(((dish.original_price - dish.price) / dish.original_price) * 100)}%
                   </span>
                 </div>
@@ -89,7 +104,7 @@ export default function MasonryLayout({
             </div>
 
             {/* Conteúdo - sempre visível */}
-            <div className={`p-3 md:p-4 ${isAeroCard ? 'bg-transparent' : 'bg-card'}`}>
+            <div className="p-3 md:p-4">
               <h3 
                 className="font-bold text-sm md:text-base mb-2 line-clamp-2"
                 style={{ color: textPrimaryColor || 'inherit' }}
@@ -106,7 +121,7 @@ export default function MasonryLayout({
               )}
               <div className="flex items-baseline gap-2 flex-wrap">
                 {dish.original_price && dish.original_price > dish.price && (
-                  <span className="text-sm text-gray-400 line-through">
+                  <span className="text-sm line-through" style={{ color: theme?.textSecondary || 'hsl(var(--muted-foreground))' }}>
                     {formatCurrency?.(dish.original_price)}
                   </span>
                 )}

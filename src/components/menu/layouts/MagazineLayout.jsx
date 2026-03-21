@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight, BookOpen } from 'lucide-react';
+import { withAlpha } from '@/utils/storefrontTheme';
 
 export default function MagazineLayout({ 
   dishes, 
@@ -8,6 +9,7 @@ export default function MagazineLayout({
   primaryColor,
   textPrimaryColor,
   textSecondaryColor,
+  theme,
   loading = false,
   stockUtils,
   formatCurrency,
@@ -16,6 +18,11 @@ export default function MagazineLayout({
   const [currentPage, setCurrentPage] = useState(0);
   const totalPages = dishes.length;
   const isAeroCard = menuCardStyle === 'aero';
+  const cardSurface = theme?.surface || 'hsl(var(--card))';
+  const cardAltSurface = theme?.surfaceAlt || 'hsl(var(--muted))';
+  const cardBorder = theme?.borderColor || 'hsl(var(--border))';
+  const badgeBg = theme?.badgeBg || primaryColor;
+  const badgeText = theme?.badgeText || '#ffffff';
 
   if (loading) {
     return (
@@ -89,7 +96,7 @@ export default function MagazineLayout({
       {/* Indicador de Página */}
       <div className="flex items-center justify-center gap-2 mb-4">
         <BookOpen className="w-4 h-4" style={{ color: primaryColor }} />
-        <span className="text-sm text-gray-600 dark:text-gray-400">
+        <span className="text-sm" style={{ color: textSecondaryColor || theme?.textSecondary || 'hsl(var(--muted-foreground))' }}>
           Página {currentPage + 1} de {totalPages}
         </span>
       </div>
@@ -98,7 +105,12 @@ export default function MagazineLayout({
       <div className="relative w-full max-w-4xl mx-auto">
         {/* Desktop: Horizontal */}
         <div className="hidden md:block">
-          <div className={`relative aspect-[4/3] rounded-2xl shadow-2xl overflow-hidden border-2 ${isAeroCard ? 'bg-card/60 supports-[backdrop-filter]:bg-card/45 backdrop-blur-xl border-border/70' : 'bg-card border-gray-200 dark:border-gray-700'}`}>
+          <div
+            className="relative aspect-[4/3] rounded-2xl shadow-2xl overflow-hidden border-2"
+            style={isAeroCard
+              ? { backgroundColor: withAlpha(cardSurface, 0.66), borderColor: withAlpha(cardBorder, 0.9), backdropFilter: 'blur(18px)' }
+              : { backgroundColor: cardSurface, borderColor: cardBorder }}
+          >
             <AnimatePresence mode="wait" custom={direction}>
               <motion.div
                 key={currentPage}
@@ -123,7 +135,7 @@ export default function MagazineLayout({
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-800 text-6xl">
+                    <div className="w-full h-full flex items-center justify-center text-6xl" style={{ backgroundColor: cardAltSurface }}>
                       🍽️
                     </div>
                   )}
@@ -135,7 +147,7 @@ export default function MagazineLayout({
                 </div>
 
                 {/* Conteúdo lado direito */}
-                <div className="w-1/2 p-8 flex flex-col justify-between bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800">
+                <div className="w-1/2 p-8 flex flex-col justify-between" style={{ background: `linear-gradient(135deg, ${withAlpha(cardAltSurface, 0.9)}, ${cardSurface})` }}>
                   <div>
                     <h2 
                       className="text-3xl font-bold mb-4"
@@ -156,12 +168,12 @@ export default function MagazineLayout({
                         <span className="text-2xl">⭐</span>
                       )}
                       {currentDish?.is_new && (
-                        <span className="px-3 py-1 bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 rounded-full text-xs font-bold">
+                        <span className="px-3 py-1 rounded-full text-xs font-bold" style={{ backgroundColor: badgeBg, color: badgeText }}>
                           NOVO
                         </span>
                       )}
                       {currentDish?.is_popular && (
-                        <span className="px-3 py-1 bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 rounded-full text-xs font-bold">
+                        <span className="px-3 py-1 rounded-full text-xs font-bold" style={{ backgroundColor: primaryColor, color: theme?.ctaText || '#ffffff' }}>
                           🔥 POPULAR
                         </span>
                       )}
@@ -195,7 +207,12 @@ export default function MagazineLayout({
 
         {/* Mobile: Vertical */}
         <div className="md:hidden">
-          <div className={`relative min-h-[70vh] rounded-2xl shadow-2xl overflow-hidden border-2 ${isAeroCard ? 'bg-card/60 supports-[backdrop-filter]:bg-card/45 backdrop-blur-xl border-border/70' : 'bg-card border-gray-200 dark:border-gray-700'}`}>
+          <div
+            className="relative min-h-[70vh] rounded-2xl shadow-2xl overflow-hidden border-2"
+            style={isAeroCard
+              ? { backgroundColor: withAlpha(cardSurface, 0.66), borderColor: withAlpha(cardBorder, 0.9), backdropFilter: 'blur(18px)' }
+              : { backgroundColor: cardSurface, borderColor: cardBorder }}
+          >
             <AnimatePresence mode="wait" custom={direction}>
               <motion.div
                 key={currentPage}
@@ -236,7 +253,7 @@ export default function MagazineLayout({
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-800 text-5xl">
+                    <div className="w-full h-full flex items-center justify-center text-5xl" style={{ backgroundColor: cardAltSurface }}>
                       🍽️
                     </div>
                   )}
@@ -248,7 +265,7 @@ export default function MagazineLayout({
                 </div>
 
                 {/* Conteúdo embaixo */}
-                <div className="flex-1 p-6 flex flex-col justify-between bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800">
+                <div className="flex-1 p-6 flex flex-col justify-between" style={{ background: `linear-gradient(135deg, ${withAlpha(cardAltSurface, 0.9)}, ${cardSurface})` }}>
                   <div>
                     <h2 
                       className="text-2xl font-bold mb-3"
@@ -269,12 +286,12 @@ export default function MagazineLayout({
                         <span className="text-xl">⭐</span>
                       )}
                       {currentDish?.is_new && (
-                        <span className="px-2 py-1 bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 rounded-full text-xs font-bold">
+                        <span className="px-2 py-1 rounded-full text-xs font-bold" style={{ backgroundColor: badgeBg, color: badgeText }}>
                           NOVO
                         </span>
                       )}
                       {currentDish?.is_popular && (
-                        <span className="px-2 py-1 bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 rounded-full text-xs font-bold">
+                        <span className="px-2 py-1 rounded-full text-xs font-bold" style={{ backgroundColor: primaryColor, color: theme?.ctaText || '#ffffff' }}>
                           🔥 POPULAR
                         </span>
                       )}
