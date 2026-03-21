@@ -6,6 +6,92 @@ import { query, testConnection } from './postgres.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+async function ensureIntegerSubscriberIdColumn({
+  tableName,
+  matchConditionSql,
+  fillSubscriberEmailSql = null,
+  addForeignKey = false,
+  addIndexes = [],
+}) {
+  const columnTypeResult = await query(
+    `
+      SELECT data_type
+      FROM information_schema.columns
+      WHERE table_name = $1
+        AND column_name = 'subscriber_id'
+      LIMIT 1
+    `,
+    [tableName]
+  );
+
+  if (columnTypeResult.rows.length === 0) {
+    await query(`ALTER TABLE ${tableName} ADD COLUMN subscriber_id INTEGER;`);
+    console.log(`✅ ${tableName}.subscriber_id criado como INTEGER.`);
+    return;
+  }
+
+  const dataType = String(columnTypeResult.rows[0]?.data_type || '').toLowerCase();
+  if (dataType === 'integer') {
+    return;
+  }
+
+  console.warn(`⚠️ ${tableName}.subscriber_id está como ${dataType}. Corrigindo para INTEGER...`);
+
+  await query(`ALTER TABLE ${tableName} ADD COLUMN IF NOT EXISTS subscriber_id_tmp INTEGER;`);
+  await query(`UPDATE ${tableName} SET subscriber_id_tmp = NULL;`);
+
+  await query(`
+    UPDATE ${tableName} target
+    SET subscriber_id_tmp = s.id
+    FROM subscribers s
+    WHERE target.subscriber_id_tmp IS NULL
+      AND (${matchConditionSql});
+  `);
+
+  if (fillSubscriberEmailSql) {
+    await query(`
+      UPDATE ${tableName} target
+      SET subscriber_email = COALESCE(target.subscriber_email, ${fillSubscriberEmailSql})
+      WHERE target.subscriber_id_tmp IS NOT NULL;
+    `);
+  }
+
+  const fkResult = await query(
+    `
+      SELECT tc.constraint_name
+      FROM information_schema.table_constraints tc
+      JOIN information_schema.key_column_usage kcu
+        ON tc.constraint_name = kcu.constraint_name
+       AND tc.table_schema = kcu.table_schema
+      WHERE tc.table_name = $1
+        AND tc.constraint_type = 'FOREIGN KEY'
+        AND kcu.column_name = 'subscriber_id'
+    `,
+    [tableName]
+  );
+
+  for (const row of fkResult.rows) {
+    await query(`ALTER TABLE ${tableName} DROP CONSTRAINT IF EXISTS ${row.constraint_name};`);
+  }
+
+  for (const indexName of addIndexes) {
+    await query(`DROP INDEX IF EXISTS ${indexName};`);
+  }
+
+  await query(`ALTER TABLE ${tableName} DROP COLUMN subscriber_id;`);
+  await query(`ALTER TABLE ${tableName} RENAME COLUMN subscriber_id_tmp TO subscriber_id;`);
+
+  if (addForeignKey) {
+    await query(`
+      ALTER TABLE ${tableName}
+      ADD CONSTRAINT ${tableName}_subscriber_id_fkey
+      FOREIGN KEY (subscriber_id) REFERENCES subscribers(id);
+    `);
+  }
+
+  console.log(`✅ ${tableName}.subscriber_id corrigido para INTEGER.`);
+}
+
 // Executar migração do schema
 export async function migrate() {
   try {
@@ -43,30 +129,54 @@ export async function migrate() {
 
     // Tenant canônico por subscriber_id (incremental, mantendo subscriber_email compatível)
     try {
-      await query(`
-        DO $$
-        BEGIN
-          IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'users')
-             AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'subscriber_id') THEN
-            ALTER TABLE users ADD COLUMN subscriber_id INTEGER;
-          END IF;
+      await ensureIntegerSubscriberIdColumn({
+        tableName: 'users',
+        matchConditionSql: `
+          (target.subscriber_email IS NOT NULL AND LOWER(TRIM(target.subscriber_email)) = LOWER(TRIM(s.email)))
+          OR (target.subscriber_email IS NOT NULL AND s.linked_user_email IS NOT NULL AND LOWER(TRIM(target.subscriber_email)) = LOWER(TRIM(s.linked_user_email)))
+          OR (target.subscriber_email IS NULL AND LOWER(TRIM(target.email)) = LOWER(TRIM(s.email)))
+          OR (target.subscriber_email IS NULL AND s.linked_user_email IS NOT NULL AND LOWER(TRIM(target.email)) = LOWER(TRIM(s.linked_user_email)))
+        `,
+        fillSubscriberEmailSql: 's.email',
+        addForeignKey: true,
+        addIndexes: ['idx_users_subscriber_id'],
+      });
 
-          IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'customers')
-             AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'customers' AND column_name = 'subscriber_id') THEN
-            ALTER TABLE customers ADD COLUMN subscriber_id INTEGER;
-          END IF;
+      await ensureIntegerSubscriberIdColumn({
+        tableName: 'customers',
+        matchConditionSql: `
+          (target.subscriber_email IS NOT NULL AND LOWER(TRIM(target.subscriber_email)) = LOWER(TRIM(s.email)))
+          OR (target.subscriber_email IS NOT NULL AND s.linked_user_email IS NOT NULL AND LOWER(TRIM(target.subscriber_email)) = LOWER(TRIM(s.linked_user_email)))
+        `,
+        fillSubscriberEmailSql: 's.email',
+        addForeignKey: true,
+        addIndexes: ['idx_customers_subscriber_id'],
+      });
 
-          IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'entities')
-             AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'entities' AND column_name = 'subscriber_id') THEN
-            ALTER TABLE entities ADD COLUMN subscriber_id INTEGER;
-          END IF;
+      await ensureIntegerSubscriberIdColumn({
+        tableName: 'entities',
+        matchConditionSql: `
+          (target.subscriber_email IS NOT NULL AND LOWER(TRIM(target.subscriber_email)) = LOWER(TRIM(s.email)))
+          OR (target.subscriber_email IS NOT NULL AND s.linked_user_email IS NOT NULL AND LOWER(TRIM(target.subscriber_email)) = LOWER(TRIM(s.linked_user_email)))
+          OR (target.subscriber_email IS NULL AND (target.data->>'owner_email') IS NOT NULL AND LOWER(TRIM(target.data->>'owner_email')) = LOWER(TRIM(s.email)))
+          OR (target.subscriber_email IS NULL AND (target.data->>'owner_email') IS NOT NULL AND s.linked_user_email IS NOT NULL AND LOWER(TRIM(target.data->>'owner_email')) = LOWER(TRIM(s.linked_user_email)))
+        `,
+        fillSubscriberEmailSql: 's.email',
+        addForeignKey: true,
+        addIndexes: ['idx_entities_subscriber_id', 'idx_entities_type_subscriber_id'],
+      });
 
-          IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'analytics_events')
-             AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'analytics_events' AND column_name = 'subscriber_id') THEN
-            ALTER TABLE analytics_events ADD COLUMN subscriber_id INTEGER;
-          END IF;
-        END $$;
-      `);
+      await ensureIntegerSubscriberIdColumn({
+        tableName: 'analytics_events',
+        matchConditionSql: `
+          (target.subscriber_email IS NOT NULL AND LOWER(TRIM(target.subscriber_email)) = LOWER(TRIM(s.email)))
+          OR (target.subscriber_email IS NOT NULL AND s.linked_user_email IS NOT NULL AND LOWER(TRIM(target.subscriber_email)) = LOWER(TRIM(s.linked_user_email)))
+          OR (target.slug IS NOT NULL AND LOWER(TRIM(target.slug)) = LOWER(TRIM(s.slug)))
+        `,
+        fillSubscriberEmailSql: 's.email',
+        addForeignKey: false,
+        addIndexes: ['idx_analytics_events_subscriber_id_created'],
+      });
 
       await query(`
         UPDATE users u
