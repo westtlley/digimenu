@@ -52,7 +52,9 @@ async function ensureIntegerSubscriberIdColumn({
     await query(`
       UPDATE ${tableName} target
       SET subscriber_email = COALESCE(target.subscriber_email, ${fillSubscriberEmailSql})
-      WHERE target.subscriber_id_tmp IS NOT NULL;
+      FROM subscribers s
+      WHERE target.subscriber_id_tmp IS NOT NULL
+        AND s.id = target.subscriber_id_tmp;
     `);
   }
 
