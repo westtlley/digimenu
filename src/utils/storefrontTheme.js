@@ -242,66 +242,67 @@ export function getStorefrontLayoutMeta(layout) {
 }
 
 export function buildStorefrontThemePayload(input = {}) {
-  const preset = getStorefrontPreset(input.storefront_theme_preset);
+  const source = input && typeof input === 'object' ? input : {};
+  const preset = getStorefrontPreset(source.storefront_theme_preset);
 
-  const primary = normalizeColor(input.theme_primary_color, preset.primary || DEFAULT_PRIMARY);
-  const secondary = normalizeColor(input.theme_secondary_color, preset.secondary || DEFAULT_SECONDARY);
-  const accent = normalizeColor(input.theme_accent_color, preset.accent || DEFAULT_ACCENT);
+  const primary = normalizeColor(source.theme_primary_color, preset.primary || DEFAULT_PRIMARY);
+  const secondary = normalizeColor(source.theme_secondary_color, preset.secondary || DEFAULT_SECONDARY);
+  const accent = normalizeColor(source.theme_accent_color, preset.accent || DEFAULT_ACCENT);
 
   const surfaceBase = normalizeColor(
-    input.theme_surface_color,
+    source.theme_surface_color,
     preset.surface || mixColors(secondary, DEFAULT_SURFACE, 0.92),
   );
   const surfaceAltBase = normalizeColor(
-    input.theme_surface_alt_color,
+    source.theme_surface_alt_color,
     preset.surfaceAlt || mixColors(primary, DEFAULT_SURFACE_ALT, 0.9),
   );
 
   const textPrimaryFallback = pickReadableText(surfaceBase);
   const textPrimary = ensureReadableText(
-    input.theme_text_primary,
+    source.theme_text_primary,
     surfaceBase,
     textPrimaryFallback,
   );
   const textSecondary = ensureReadableText(
-    input.theme_text_secondary,
+    source.theme_text_secondary,
     surfaceBase,
     deriveSecondaryText(textPrimary, surfaceBase),
   );
 
-  const ctaBg = normalizeColor(input.theme_cta_bg, primary);
+  const ctaBg = normalizeColor(source.theme_cta_bg, primary);
   const ctaText = ensureReadableText(
-    input.theme_cta_text,
+    source.theme_cta_text,
     ctaBg,
     pickReadableText(ctaBg),
   );
 
-  const heroBg = normalizeColor(input.theme_hero_bg, secondary);
+  const heroBg = normalizeColor(source.theme_hero_bg, secondary);
   const heroText = ensureReadableText(
-    input.theme_hero_text,
+    source.theme_hero_text,
     heroBg,
     pickReadableText(heroBg),
   );
 
-  const badgeBg = normalizeColor(input.theme_badge_bg, accent);
+  const badgeBg = normalizeColor(source.theme_badge_bg, accent);
   const badgeText = ensureReadableText(
-    input.theme_badge_text,
+    source.theme_badge_text,
     badgeBg,
     pickReadableText(badgeBg),
   );
 
   const footerBg = normalizeColor(
-    input.theme_footer_bg,
+    source.theme_footer_bg,
     mixColors(heroBg, '#020617', 0.28),
   );
   const footerText = ensureReadableText(
-    input.theme_footer_text,
+    source.theme_footer_text,
     footerBg,
     pickReadableText(footerBg),
   );
 
-  const menuLayoutMobile = normalizeLayout(input.menu_layout_mobile || input.menu_layout);
-  const menuLayoutDesktop = normalizeLayout(input.menu_layout_desktop || input.menu_layout);
+  const menuLayoutMobile = normalizeLayout(source.menu_layout_mobile || source.menu_layout);
+  const menuLayoutDesktop = normalizeLayout(source.menu_layout_desktop || source.menu_layout);
 
   return {
     storefront_theme_preset: preset.key,
@@ -322,12 +323,12 @@ export function buildStorefrontThemePayload(input = {}) {
     theme_footer_text: footerText,
     theme_header_bg: heroBg,
     theme_header_text: heroText,
-    theme_menu_card_style: normalizeCardStyle(input.theme_menu_card_style),
+    theme_menu_card_style: normalizeCardStyle(source.theme_menu_card_style),
     menu_layout: menuLayoutDesktop,
     menu_layout_mobile: menuLayoutMobile,
     menu_layout_desktop: menuLayoutDesktop,
-    menu_grid_cols_desktop: normalizeGridCols(input.menu_grid_cols_desktop),
-    menu_autoplay_interval_ms: normalizeAutoplay(input.menu_autoplay_interval_ms),
+    menu_grid_cols_desktop: normalizeGridCols(source.menu_grid_cols_desktop),
+    menu_autoplay_interval_ms: normalizeAutoplay(source.menu_autoplay_interval_ms),
   };
 }
 
