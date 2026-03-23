@@ -11,7 +11,6 @@ import KitchenDisplay from '@/components/cozinha/KitchenDisplay';
 import { printComanda } from '@/utils/gestorExport';
 import { createPageUrl } from '@/utils';
 import { getOrderDisplayStatus, getOrderProductionStatus, ORDER_PRODUCTION_STATUS } from '@/utils/orderLifecycle';
-import { userMatchesTenant } from '@/utils/tenantScope';
 
 export default function Cozinha() {
   const [user, setUser] = useState(null);
@@ -19,7 +18,7 @@ export default function Cozinha() {
   const [allowed, setAllowed] = useState(false);
   const queryClient = useQueryClient();
   const { slug, subscriberId, subscriberEmail, inSlugContext, loading: slugLoading } = useSlugContext();
-  const { hasModuleAccess, isMaster } = usePermission();
+  const { hasModuleAccess, isMaster, canAccessOperationalRoute } = usePermission();
   const canonicalKitchenPath = useMemo(() => createPageUrl('Cozinha', slug || undefined), [slug]);
   const normalizedSlugSubscriber = useMemo(
     () => (inSlugContext && subscriberEmail ? String(subscriberEmail).toLowerCase().trim() : null),
@@ -105,19 +104,12 @@ export default function Cozinha() {
           return;
         }
 
-        const roles = me?.profile_roles?.length ? me.profile_roles : me?.profile_role ? [me.profile_role] : [];
-        const isGerente = roles.includes('gerente');
-        const isCozinha = me?.profile_role === 'cozinha' || roles.includes('cozinha');
-        const matchesTenant = userMatchesTenant(me, {
+        const hasProfileAccess = canAccessOperationalRoute({
           subscriberId: normalizedSlugSubscriberId,
-          subscriberEmail: subscriberEmail,
-        });
-        const tenantMatchesSlug =
-          !inSlugContext ||
-          !subscriberEmail ||
-          matchesTenant;
-
-        const hasProfileAccess = (isCozinha || me?.is_master === true || matchesTenant || isGerente) && tenantMatchesSlug;
+          subscriberEmail,
+          inSlugContext,
+          allowedRoles: ['cozinha'],
+        }, me);
 
         console.log('[Cozinha] Verificando acesso:', {
           email: me.email,
@@ -125,11 +117,7 @@ export default function Cozinha() {
           profile_role: me.profile_role,
           profile_roles: me.profile_roles,
           is_master: me.is_master,
-          isGerente,
-          isCozinha,
-          matchesTenant,
           hasProfileAccess,
-          tenantMatchesSlug,
         });
 
         setAllowed(hasProfileAccess);
@@ -146,7 +134,7 @@ export default function Cozinha() {
     return () => {
       cancelled = true;
     };
-  }, [canonicalKitchenPath, inSlugContext, slugLoading, subscriberEmail]);
+  }, [canAccessOperationalRoute, canonicalKitchenPath, inSlugContext, slugLoading, subscriberEmail, normalizedSlugSubscriberId]);
 
   const { data: orders = [], isLoading: ordersLoading } = useQuery({
     queryKey: cozinhaOrdersKey,
@@ -248,14 +236,16 @@ export default function Cozinha() {
     );
   }
 
-  const roles = user?.profile_roles?.length ? user.profile_roles : user?.profile_role ? [user.profile_role] : [];
-  const isGerenteRole = roles.includes('gerente');
-  const isCozinhaRole = user?.profile_role === 'cozinha' || roles.includes('cozinha');
-  const matchesTenant = userMatchesTenant(user, {
-    subscriberId: normalizedSlugSubscriberId,
-    subscriberEmail,
-  });
-  const canAccessKitchen = allowed && (isMaster || hasModuleAccess('cozinha') || isCozinhaRole || isGerenteRole || matchesTenant);
+  const canAccessKitchen =
+    allowed &&
+    (isMaster ||
+      hasModuleAccess('cozinha') ||
+      canAccessOperationalRoute({
+        subscriberId: normalizedSlugSubscriberId,
+        subscriberEmail,
+        inSlugContext,
+        allowedRoles: ['cozinha'],
+      }, user));
 
   if (!allowed || !canAccessKitchen) {
     return (

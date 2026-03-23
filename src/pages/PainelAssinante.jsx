@@ -22,7 +22,7 @@ import MobileQuickMenu from '../components/admin/MobileQuickMenu';
 import AccessDenied from '@/components/admin/AccessDenied';
 import PanelShell from '@/components/layout/PanelShell';
 import ErrorBoundary from '@/components/ErrorBoundary';
-import { buildTenantEntityOpts, getTenantScopeKey, userMatchesTenant } from '@/utils/tenantScope';
+import { buildTenantEntityOpts, getTenantScopeKey } from '@/utils/tenantScope';
 
 const isDev = typeof import.meta !== 'undefined' && import.meta.env?.DEV;
 if (isDev) {
@@ -75,7 +75,7 @@ export default function PainelAssinante() {
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  const { loading, permissions, isMaster, hasModuleAccess, user, subscriberData, refresh: refreshPermissions } = usePermission();
+  const { loading, permissions, isMaster, hasModuleAccess, hasRole, canAccessTenant, user, subscriberData, refresh: refreshPermissions, userRoles } = usePermission();
   const { percentUsed } = useEntitlements();
   if (isDev) {
     console.info('[PAINEL_ASSINANTE] state', {
@@ -111,9 +111,10 @@ export default function PainelAssinante() {
   const asSubId = (inSlugContext && subscriberId != null) ? subscriberId : undefined;
   const tenantScope = getTenantScopeKey(asSubId, asSub, 'me');
   const scopedEntityOpts = buildTenantEntityOpts({ subscriberId: asSubId, subscriberEmail: asSub });
-  const canAccessSlug = !inSlugContext || isMaster || userMatchesTenant(user, {
+  const canAccessSlug = !inSlugContext || isMaster || canAccessTenant({
     subscriberId: asSubId,
     subscriberEmail,
+    inSlugContext: true,
   });
 
   // Buscar dados da loja: em slug context usa o assinante do slug; fora usa 'me'
@@ -145,15 +146,15 @@ export default function PainelAssinante() {
   // Verificar se é gerente (pode acessar mesmo sem assinatura ativa)
   // Suporta tanto profile_role (string) quanto profile_roles (array)
   // Só verificar se user estiver carregado
-  const roles = user ? (user?.profile_roles?.length ? user.profile_roles : user?.profile_role ? [user.profile_role] : []) : [];
-  const isGerente = roles.length > 0 && roles.includes('gerente');
-  const isColaborador = roles.length > 0;
+  const isGerente = hasRole('gerente', user);
+  const isColaborador = userRoles.length > 0;
   
   // Só o dono (assinante) pode acessar o Painel do Assinante. Gerente/colaborador que não é dono → /colaborador
   const ownerEmail = (subscriberData?.email || '').toLowerCase().trim();
-  const isOwner = userMatchesTenant(user, {
+  const isOwner = Boolean(subscriberData?.id || ownerEmail) && canAccessTenant({
     subscriberId: subscriberData?.id,
     subscriberEmail: ownerEmail,
+    inSlugContext: true,
   });
   const mustRedirectToColaborador = !isMaster && user && ((isColaborador && !isOwner) || (!isOwner && ownerEmail));
 

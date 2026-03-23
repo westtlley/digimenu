@@ -4,7 +4,7 @@ import { log } from '@/utils/logger';
 import { createUserContext, isValidContext } from '@/utils/userContext';
 import { mergeWithPlanPreset } from '@/components/permissions/PlanPresets';
 import { useSlugContext } from '@/hooks/useSlugContext';
-import { userMatchesTenant } from '@/utils/tenantScope';
+import { userIsTenantOwner, userMatchesTenant } from '@/utils/tenantScope';
 
 // Deduplicar chamada a /user/context: vários usePermission() montando ao mesmo tempo compartilham a mesma requisição
 let inFlightGetContext = null;
@@ -14,6 +14,86 @@ const trace = (...args) => {
     console.info('[USE_PERMISSION]', ...args);
   }
 };
+
+export function getUserRoles(userData) {
+  if (!userData) return [];
+
+  const rawRoles = Array.isArray(userData.profile_roles) && userData.profile_roles.length > 0
+    ? userData.profile_roles
+    : userData?.profile_role
+      ? [userData.profile_role]
+      : [];
+
+  return rawRoles
+    .map((role) => String(role || '').toLowerCase().trim())
+    .filter(Boolean);
+}
+
+export function getPrimaryUserRole(userData) {
+  return getUserRoles(userData)[0] || null;
+}
+
+export function hasUserRole(userData, role) {
+  const normalizedRole = String(role || '').toLowerCase().trim();
+  if (!normalizedRole) return false;
+  return getUserRoles(userData).includes(normalizedRole);
+}
+
+export function hasAnyUserRole(userData, roles = []) {
+  return roles.some((role) => hasUserRole(userData, role));
+}
+
+export function isCollaboratorUser(userData) {
+  return getUserRoles(userData).length > 0;
+}
+
+export function canAccessTenantScope(userData, {
+  subscriberId = null,
+  subscriberEmail = null,
+  inSlugContext = false,
+} = {}) {
+  if (!userData) return false;
+  if (!inSlugContext) return true;
+  if (subscriberId == null && !subscriberEmail) return true;
+  return userMatchesTenant(userData, { subscriberId, subscriberEmail });
+}
+
+export function canAccessOperationalApp(userData, {
+  subscriberId = null,
+  subscriberEmail = null,
+  inSlugContext = false,
+  allowedRoles = [],
+  allowManager = true,
+  allowOwner = true,
+  allowMaster = true,
+} = {}) {
+  if (!userData) return false;
+  if (!canAccessTenantScope(userData, { subscriberId, subscriberEmail, inSlugContext })) {
+    return false;
+  }
+
+  if (allowMaster && userData?.is_master === true) {
+    return true;
+  }
+
+  if (allowedRoles.length > 0 && hasAnyUserRole(userData, allowedRoles)) {
+    return true;
+  }
+
+  if (allowManager && hasUserRole(userData, 'gerente')) {
+    return true;
+  }
+
+  if (allowOwner) {
+    if (inSlugContext) {
+      return userMatchesTenant(userData, { subscriberId, subscriberEmail });
+    }
+
+    return userIsTenantOwner(userData);
+  }
+
+  return false;
+}
 
 /**
  * Hook para verificar permissões do usuário atual
@@ -302,6 +382,12 @@ export function usePermission() {
 
   // ✅ isMaster baseado APENAS em user.is_master (definido ANTES das funções que o usam)
   const isMaster = user?.is_master === true;
+  const userRoles = useMemo(() => getUserRoles(user), [user?.profile_roles, user?.profile_role]);
+  const isOwner = useMemo(() => userIsTenantOwner(user), [user?.is_owner, user?.email, user?.subscriber_email]);
+  const hasRole = useCallback((role, targetUser = user) => hasUserRole(targetUser, role), [user]);
+  const hasAnyRole = useCallback((roles, targetUser = user) => hasAnyUserRole(targetUser, roles), [user]);
+  const canAccessTenant = useCallback((config, targetUser = user) => canAccessTenantScope(targetUser, config), [user]);
+  const canAccessOperationalRoute = useCallback((config, targetUser = user) => canAccessOperationalApp(targetUser, config), [user]);
 
   /**
    * Verifica se o usuário tem acesso a um módulo
@@ -378,11 +464,18 @@ export function usePermission() {
     canUpdate,
     canDelete,
     canView,
+    hasRole,
+    hasAnyRole,
+    canAccessTenant,
+    canAccessOperationalRoute,
+    userRoles,
+    isOwner,
     refresh,
     // ✅ Novo: contexto de usuário pronto para uso
     userContext,
     menuContext: stableMenuContext,
   };
 }
+
 
 

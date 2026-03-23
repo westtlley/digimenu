@@ -14,21 +14,19 @@ import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Key, Shield, Loader2, Save, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { buildTenantEntityOpts, getMenuContextEntityOpts, getMenuContextSubscriberEmail, getMenuContextSubscriberId, getTenantScopeKey, userIsTenantOwner } from '@/utils/tenantScope';
+import { buildTenantEntityOpts, getMenuContextEntityOpts, getMenuContextSubscriberEmail, getMenuContextSubscriberId, getTenantScopeKey } from '@/utils/tenantScope';
 
 export default function ManagerialAuthTab() {
   const queryClient = useQueryClient();
-  const { user, menuContext } = usePermission();
+  const { user, menuContext, hasRole, isOwner } = usePermission();
   const asSub = getMenuContextSubscriberEmail(menuContext, user?.subscriber_email || user?.email);
   const asSubId = getMenuContextSubscriberId(menuContext, user?.subscriber_id);
   const tenantScope = getTenantScopeKey(asSubId, asSub, 'self');
   const scopedEntityOpts = menuContext?.type === 'subscriber'
     ? getMenuContextEntityOpts(menuContext)
     : buildTenantEntityOpts({ subscriberId: asSubId, subscriberEmail: asSub });
-  const isOwner = !user?.is_master && userIsTenantOwner(user);
   const canConfigure = isOwner || (user?.is_master && (asSubId != null || !!asSub));
-  const roles = user?.profile_roles?.length ? user.profile_roles : user?.profile_role ? [user.profile_role] : [];
-  const isGerente = roles.includes('gerente');
+  const isGerente = hasRole('gerente', user);
 
   const { data, isLoading } = useQuery({
     queryKey: ['managerial-auth', tenantScope],

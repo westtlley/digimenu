@@ -56,7 +56,7 @@ import QuickReportModal from '../components/entregador/QuickReportModal';
 import OrderItemsDetail from '../components/entregador/OrderItemsDetail';
 import DeliveryDashboard from '../components/entregador/DeliveryDashboard';
 import { usePermission } from '../components/permissions/usePermission';
-import { buildTenantEntityOpts, getTenantScopeKey, userMatchesTenant } from '@/utils/tenantScope';
+import { buildTenantEntityOpts, getTenantScopeKey } from '@/utils/tenantScope';
 
 function upsertOrderById(currentOrders, incomingOrder) {
   const list = Array.isArray(currentOrders) ? [...currentOrders] : [];
@@ -105,7 +105,7 @@ export default function Entregador() {
   const statusTransitionLocksRef = useRef(new Set());
   const queryClient = useQueryClient();
   const { slug, subscriberEmail, inSlugContext } = useSlugContext();
-  const { isMaster: isMasterPerm, hasModuleAccess, loading: permissionLoading } = usePermission();
+  const { isMaster: isMasterPerm, hasModuleAccess, loading: permissionLoading, hasRole, canAccessOperationalRoute, canAccessTenant } = usePermission();
   
   // Plano básico não tem acesso ao App Entregador
   
@@ -121,25 +121,25 @@ export default function Entregador() {
     isMaster
   );
   const isMasterUser = isMasterPerm || isMaster;
-  const roles = user?.profile_roles?.length ? user.profile_roles : user?.profile_role ? [user.profile_role] : [];
-  const isGerente = roles.includes('gerente');
-  const isEntregador = user?.profile_role === 'entregador' || roles.includes('entregador');
   const normalizedSlugSubscriber = (subscriberEmail || '').toLowerCase().trim();
   const tenantResolved = !inSlugContext || !!normalizedSlugSubscriber;
   const tenantMatchesSlug =
     !inSlugContext ||
-    (tenantResolved && userMatchesTenant(user, {
+    (tenantResolved && canAccessTenant({
       subscriberId: tenantSubscriberId,
       subscriberEmail,
-    }));
-  const hasRoleAccess = isMasterUser || isEntregador || isGerente || userMatchesTenant(user, {
+      inSlugContext: true,
+    }, user));
+  const hasRoleAccess = canAccessOperationalRoute({
     subscriberId: tenantSubscriberId,
     subscriberEmail,
-  });
+    inSlugContext,
+    allowedRoles: ['entregador'],
+  }, user);
   const hasOperationalModules = hasModuleAccess('orders') || hasModuleAccess('gestor_pedidos');
   const hasPlanAccess = isMasterUser || (hasModuleAccess('colaboradores') && hasOperationalModules);
   const canAccessDeliveryApp = tenantResolved && tenantMatchesSlug && hasPlanAccess && hasRoleAccess;
-  const isEntregadorOperatorOnly = isEntregador && !isGerente && !isMasterUser;
+  const isEntregadorOperatorOnly = hasRole('entregador', user) && !hasRole('gerente', user) && !isMasterUser;
   const fallbackBackUrl = isMasterUser
     ? createPageUrl('Admin')
     : isEntregadorOperatorOnly

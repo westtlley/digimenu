@@ -24,7 +24,7 @@ import ComandaHistoryModal from '../components/garcom/ComandaHistoryModal';
 import ComandaCard from '../components/garcom/ComandaCard';
 import StatsCards from '../components/garcom/StatsCards';
 import ErrorBoundary from '../components/ErrorBoundary';
-import { userMatchesTenant } from '@/utils/tenantScope';
+import { canAccessOperationalApp } from '@/components/permissions/usePermission';
 
 export default function Garcom() {
   const [user, setUser] = useState(null);
@@ -78,21 +78,12 @@ export default function Garcom() {
           return;
         }
         // Verificar se tem perfil de garçom, é master, é assinante ou é gerente (acesso total)
-        const tenantMatchesSlug =
-          !inSlugContext ||
-          !subscriberEmail ||
-          userMatchesTenant(me, {
-            subscriberId,
-            subscriberEmail,
-          });
-        const roles = me?.profile_roles?.length ? me.profile_roles : me?.profile_role ? [me.profile_role] : [];
-        const isGerente = roles.includes('gerente');
-        const isGarcom = me?.profile_role === 'garcom' || roles.includes('garcom');
-
-        const hasAccess = (isGarcom || me?.is_master === true || isGerente || userMatchesTenant(me, {
+        const hasAccess = canAccessOperationalApp(me, {
           subscriberId,
           subscriberEmail,
-        })) && tenantMatchesSlug;
+          inSlugContext,
+          allowedRoles: ['garcom'],
+        });
         setAllowed(hasAccess);
       } catch (e) {
         if (!cancelled) {
@@ -107,7 +98,7 @@ export default function Garcom() {
     return () => {
       cancelled = true;
     };
-  }, [canonicalGarcomPath, inSlugContext, slugLoading, subscriberEmail]);
+  }, [canonicalGarcomPath, inSlugContext, slugLoading, subscriberEmail, subscriberId]);
 
   // Hook customizado para comandas
   const { comandas, isLoading, stats, createMutation, updateMutation, online } = useComandas(statusFilter, {

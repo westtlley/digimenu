@@ -51,9 +51,8 @@ export default function PainelGerente() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showProfileEdit, setShowProfileEdit] = useState(false);
 
-  const { loading, permissions, isMaster, hasModuleAccess, user, subscriberData } = usePermission();
-  const roles = user?.profile_roles?.length ? user.profile_roles : user?.profile_role ? [user.profile_role] : [];
-  const isGerente = roles.includes('gerente');
+  const { loading, permissions, isMaster, hasModuleAccess, hasRole, user, subscriberData } = usePermission();
+  const isGerente = hasRole('gerente', user);
   const slug = subscriberData?.slug || null;
   const asSub = user?.subscriber_email || subscriberData?.email || null;
   const asSubId = user?.subscriber_id ?? subscriberData?.id ?? null;

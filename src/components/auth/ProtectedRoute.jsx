@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { logger } from '@/utils/logger';
-import { userMatchesTenant } from '@/utils/tenantScope';
+import { canAccessOperationalApp, canAccessTenantScope, getPrimaryUserRole, getUserRoles, hasUserRole, isCollaboratorUser } from '@/components/permissions/usePermission';
 
 const isDev = typeof import.meta !== 'undefined' && import.meta.env?.DEV;
 const trace = (...args) => {
@@ -97,7 +97,7 @@ export default function ProtectedRoute({
         }
 
         // Verificar role específico
-        if (requiredRole && userData.role !== requiredRole) {
+        if (requiredRole && userData.role !== requiredRole && !hasUserRole(userData, requiredRole)) {
           trace('deny requiredRole', { path: location.pathname, role: userData?.role, requiredRole });
           setAuthorized(false);
           setLoading(false);
@@ -113,12 +113,13 @@ export default function ProtectedRoute({
         }
 
         // Verificar se é assinante/dono (acesso livre a todas as ferramentas)
-        const roles = userData?.profile_roles?.length ? userData.profile_roles : userData?.profile_role ? [userData.profile_role] : [];
-        const isGerente = roles.includes('gerente');
-        const isColaborador = roles.length > 0;
-        const hasCanonicalTenantMatch = userMatchesTenant(userData, {
+        const roles = getUserRoles(userData);
+        const isGerente = hasUserRole(userData, 'gerente');
+        const isColaborador = isCollaboratorUser(userData);
+        const hasCanonicalTenantMatch = canAccessTenantScope(userData, {
           subscriberId: canonicalSubscriberData?.id ?? canonicalSubscriberData?.subscriber_id ?? null,
           subscriberEmail: canonicalSubscriberData?.email ?? canonicalSubscriberData?.subscriber_email ?? userData?.subscriber_email,
+          inSlugContext: true,
         });
         // Dono do estabelecimento: tenant canonico OU (sem perfil de colaborador e nao e cliente)
         const isAssinante = hasCanonicalTenantMatch || (roles.length === 0 && userData?.role !== 'customer' && !userData?.is_master);
@@ -145,7 +146,7 @@ export default function ProtectedRoute({
           // NOTA: Gerente já foi verificado acima e pode acessar tudo
           if (isColaborador && !isGerente) {
             const path = location.pathname.toLowerCase();
-            const role = roles[0]; // Pega o primeiro role
+            const role = getPrimaryUserRole(userData);
             
             // Verificar se está acessando a rota correta para seu perfil
             // Suporta rotas com e sem slug (ex: /Entregador ou /s/slug/Entregador)
@@ -162,7 +163,12 @@ export default function ProtectedRoute({
             );
             
             // Se for colaborador acessando sua rota específica, permitir
-            if (isAccessingCorrectRoute) {
+            if (isAccessingCorrectRoute && canAccessOperationalApp(userData, {
+              subscriberId: canonicalSubscriberData?.id ?? canonicalSubscriberData?.subscriber_id ?? null,
+              subscriberEmail: canonicalSubscriberData?.email ?? canonicalSubscriberData?.subscriber_email ?? userData?.subscriber_email,
+              inSlugContext: false,
+              allowedRoles: [role],
+            })) {
               trace('allow collaborator route', { path: location.pathname, role });
               setAuthorized(true);
               setLoading(false);
