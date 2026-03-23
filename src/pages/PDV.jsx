@@ -266,7 +266,8 @@ export default function PDV() {
     enabled: !!user && allowed,
   });
   // Filtrar sessÃƒÆ’Ã‚Âµes ativas no frontend (ended_at null/undefined)
-  const activePdvSessions = Array.isArray(pdvSessionsRaw) ? pdvSessionsRaw.filter(s => !s.ended_at) : [];
+  const safePdvSessions = Array.isArray(pdvSessionsRaw) ? pdvSessionsRaw.filter(Boolean) : [];
+  const activePdvSessions = safePdvSessions.filter((session) => !session?.ended_at);
   const currentCaixaSummary = useMemo(
     () => buildCaixaShiftSummary({
       caixa: openCaixa,
@@ -314,8 +315,9 @@ export default function PDV() {
     enabled: !!user && allowed,
   });
 
+  const safePromotions = Array.isArray(promotions) ? promotions.filter(Boolean) : [];
   const { showUpsellModal, upsellPromotions, checkUpsell, resetUpsell, closeUpsell } = useUpsell(
-    Array.isArray(promotions) ? promotions : [],
+    safePromotions,
     cart.reduce((s, i) => s + (i.totalPrice || 0) * (i.quantity || 1), 0)
   );
 
@@ -379,7 +381,7 @@ export default function PDV() {
 
   useEffect(() => {
     if (!user || !allowed || pdvSession) return;
-    const mySession = activePdvSessions.find(s => s.operator_email === user.email);
+    const mySession = activePdvSessions.find((session) => session?.operator_email === user.email);
     if (mySession) {
       setPdvSession(mySession);
       setPdvTerminalId(mySession.terminal_id ?? mySession.terminal_name ?? '');
@@ -539,7 +541,9 @@ export default function PDV() {
     });
   };
 
-  const safeDishes = Array.isArray(dishes) ? dishes : [];
+  const safeCaixas = Array.isArray(caixas) ? caixas.filter(Boolean) : [];
+  const safeComplementGroups = Array.isArray(complementGroups) ? complementGroups.filter(Boolean) : [];
+  const safeDishes = Array.isArray(dishes) ? dishes.filter(Boolean) : [];
   const activeDishes = safeDishes.filter(d => d && d.is_active !== false);
   const safeCategories = Array.isArray(categories) ? categories.filter((cat) => cat && cat.name && cat.is_active !== false) : [];
   const safeBeverageCategories = Array.isArray(beverageCategories)
@@ -586,7 +590,7 @@ export default function PDV() {
       return;
     }
 
-    const dishGroups = complementGroups.filter(group =>
+    const dishGroups = safeComplementGroups.filter(group =>
       dish.complement_groups?.some(cg => cg.group_id === group.id)
     );
 
@@ -763,7 +767,7 @@ export default function PDV() {
   }
 
   const handleOpenCaixa = () => {
-    const existingOpenCaixa = (Array.isArray(caixas) ? caixas : []).find((c) => c?.status === 'open');
+    const existingOpenCaixa = safeCaixas.find((c) => c?.status === 'open');
     if (existingOpenCaixa || openCaixa?.status === 'open') {
       if (existingOpenCaixa) {
         setOpenCaixa(existingOpenCaixa);
@@ -1923,6 +1927,7 @@ export default function PDV() {
     </div>
   );
 }
+
 
 
 
