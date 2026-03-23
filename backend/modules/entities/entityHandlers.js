@@ -133,10 +133,10 @@ export function createEntityHandlers({
       let result;
 
       if (usePostgreSQL) {
-        if (req.user && !req.user?.is_master && !filters.owner_email) {
-          const subscriber = await findScopedUserSubscriber({ repo, db, usePostgreSQL }, req);
-          if (subscriber) filters.owner_email = subscriber.email;
-        }
+        // No PostgreSQL, o tenant scoping do repositório já usa subscriber_id/subscriber_email
+        // e ainda cobre owner_email legado como compatibilidade. Forçar owner_email aqui
+        // volta a esconder registros antigos que pertencem ao assinante, mas ficaram com
+        // owner_email divergente ou nulo após as migrações.
         result = await repo.listEntities(entity, filters, order_by, req.user || null, pagination);
       } else if (db && db.entities) {
         let items = db.entities[entity] || [];
