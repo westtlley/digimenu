@@ -23,6 +23,12 @@ import {
 import toast from 'react-hot-toast';
 import { buildTenantEntityOpts } from '@/utils/tenantScope';
 
+function sameCategoryId(left, right) {
+  if (left === null || left === undefined || left === '') return false;
+  if (right === null || right === undefined || right === '') return false;
+  return String(left) === String(right);
+}
+
 export default function SubscriberDataViewer({ subscriber, onBack }) {
   const queryClient = useQueryClient();
   const subscriberScopeKey = subscriber?.id ?? subscriber?.email ?? 'subscriber';
@@ -513,7 +519,7 @@ export default function SubscriberDataViewer({ subscriber, onBack }) {
                   <tr key={dish.id} className="hover:bg-muted/40">
                     <td className="px-4 py-3 text-sm">{dish.name}</td>
                     <td className="px-4 py-3 text-sm text-muted-foreground">
-                      {(data.categories||[]).find(c => c.id === dish.category_id)?.name || '-'}
+                      {(data.categories||[]).find(c => sameCategoryId(c.id, dish.category_id))?.name || '-'}
                     </td>
                     <td className="px-4 py-3 text-sm font-medium">{formatCurrency(dish.price)}</td>
                     <td className="px-4 py-3 text-sm text-muted-foreground">{(dish.complement_groups || []).length}</td>

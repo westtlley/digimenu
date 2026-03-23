@@ -52,6 +52,12 @@ export default function CategoriesTab({ onSwitchToComplements }) {
     );
   }, [categories, searchTerm]);
 
+  const sameCategoryId = (left, right) => {
+    if (left === null || left === undefined || left === '') return false;
+    if (right === null || right === undefined || right === '') return false;
+    return String(left) === String(right);
+  };
+
   // Estatísticas
   const stats = useMemo(() => {
     const safeCategories = Array.isArray(categories) ? categories : [];
@@ -60,7 +66,7 @@ export default function CategoriesTab({ onSwitchToComplements }) {
     const totalDishes = safeDishes.length;
     const dishesByCategory = safeCategories.map(cat => ({
       category: cat,
-      count: safeDishes.filter(d => d.category_id === cat.id).length
+      count: safeDishes.filter(d => sameCategoryId(d.category_id, cat.id)).length
     }));
     const categoriesWithDishes = dishesByCategory.filter(item => item.count > 0).length;
     const emptyCategories = totalCategories - categoriesWithDishes;
@@ -202,7 +208,7 @@ export default function CategoriesTab({ onSwitchToComplements }) {
           />
         ) : (
           filteredCategories.map((category, index) => {
-            const dishCount = dishes.filter(d => d.category_id === category.id).length;
+            const dishCount = dishes.filter(d => sameCategoryId(d.category_id, category.id)).length;
             return (
               <div
                 key={category.id}

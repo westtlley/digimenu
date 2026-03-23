@@ -576,6 +576,17 @@ export function DishRow({ dish, complementGroups, expanded, onToggleExpand, onEd
   );
 }
 
+function normalizeCategoryId(value) {
+  if (value === null || value === undefined || value === '') return '';
+  return String(value);
+}
+
+function sameCategoryId(left, right) {
+  const normalizedLeft = normalizeCategoryId(left);
+  const normalizedRight = normalizeCategoryId(right);
+  return normalizedLeft !== '' && normalizedLeft === normalizedRight;
+}
+
 // ========= COMPONENT =========
 export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, initialTab = 'dishes' }) {
   log.admin.debug('🍽️ [DishesTab] Componente montado, initialTab:', initialTab);
@@ -1364,7 +1375,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
       dish.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       dish.description?.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesCategory = filterCategory === 'all' || dish.category_id === filterCategory;
+    const matchesCategory = filterCategory === 'all' || sameCategoryId(dish.category_id, filterCategory);
     
     const matchesStatus = filterStatus === 'all' || 
       (filterStatus === 'active' && dish.is_active !== false) ||
@@ -1380,11 +1391,15 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
 
   const dishesByCategory = {};
   safeCategories.forEach(cat => {
-    dishesByCategory[cat.id] = filteredDishes.filter(d => d.category_id === cat.id);
+    dishesByCategory[normalizeCategoryId(cat.id)] = filteredDishes.filter((d) =>
+      sameCategoryId(d.category_id, cat.id)
+    );
   });
   // Pratos sem categoria (ou com category_id inexistente) — exibir mesmo quando categories=[] para corrigir bug de "não mostra nada até criar categoria"
   const dishesWithoutCategory = filteredDishes.filter(
-    d => !d.category_id || !safeCategories.some(c => c.id === d.category_id)
+    (d) =>
+      !normalizeCategoryId(d.category_id) ||
+      !safeCategories.some((c) => sameCategoryId(c.id, d.category_id))
   );
 
   const handleBulkStatusChange = (status) => {
@@ -1426,7 +1441,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
     const filters = [];
     if (searchTerm) filters.push({ key: 'search', label: `"${searchTerm}"` });
     if (filterCategory !== 'all') {
-      const cat = safeCategories.find(c => c.id === filterCategory);
+      const cat = safeCategories.find((c) => sameCategoryId(c.id, filterCategory));
       if (cat) filters.push({ key: 'category', label: cat.name });
     }
     if (filterStatus !== 'all') {
@@ -1708,7 +1723,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
                 <SelectContent>
                 <SelectItem value="all">Todas categorias</SelectItem>
                 {safeCategories.map(cat => (
-                  <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                  <SelectItem key={cat.id} value={normalizeCategoryId(cat.id)}>{cat.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -1821,7 +1836,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
           </MobileCategoryAccordion>
         )}
         {safeCategories.map((category) => {
-          const categoryDishes = dishesByCategory[category.id] || [];
+          const categoryDishes = dishesByCategory[normalizeCategoryId(category.id)] || [];
           const isExpanded = expandedCategories[category.id] !== false;
 
           return (
@@ -1963,7 +1978,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
           </div>
         )}
         {safeCategories.map((category, categoryIndex) => {
-          const categoryDishes = dishesByCategory[category.id] || [];
+          const categoryDishes = dishesByCategory[normalizeCategoryId(category.id)] || [];
           const isExpanded = expandedCategories[category.id] !== false;
 
           return (
@@ -2244,7 +2259,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
                 <SelectContent>
                 <SelectItem value="all">Todas categorias</SelectItem>
                 {safeCategories.map(cat => (
-                  <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                  <SelectItem key={cat.id} value={normalizeCategoryId(cat.id)}>{cat.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -2337,12 +2352,12 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
               </div>
               <div>
                 <Label className="text-sm font-medium mb-2 block">Categoria *</Label>
-                <Select value={dishFormData.category_id} onValueChange={(value) => setDishFormData(prev => ({ ...prev, category_id: value }))} required>
+                <Select value={normalizeCategoryId(dishFormData.category_id)} onValueChange={(value) => setDishFormData(prev => ({ ...prev, category_id: value }))} required>
                   <SelectTrigger className="min-h-touch">
                     <SelectValue placeholder="Selecione" />
                   </SelectTrigger>
                 <SelectContent>
-                  {safeCategories.map(cat => <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>)}
+                  {safeCategories.map(cat => <SelectItem key={cat.id} value={normalizeCategoryId(cat.id)}>{cat.name}</SelectItem>)}
                 </SelectContent>
                 </Select>
               </div>
