@@ -9,9 +9,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Check,
-  Eye,
   Image as ImageIcon,
   LayoutGrid,
   Monitor,
@@ -39,27 +39,27 @@ import {
 const GRID_OPTIONS = [2, 3, 4, 5];
 const AUTOPLAY_OPTIONS = [3500, 4500, 6000, 8000];
 const CARD_STYLE_OPTIONS = [
-  { value: 'solid', label: 'Solido', description: 'Mais direto, seguro e legivel.' },
-  { value: 'aero', label: 'Aero', description: 'Mais premium, com mais atmosfera visual.' },
+  { value: 'solid', label: 'Solido', description: 'Leitura direta e segura para menus densos.' },
+  { value: 'aero', label: 'Aero', description: 'Mais atmosfera e acabamento premium.' },
 ];
 
 const COLOR_GROUPS = [
   {
     id: 'branding',
     title: 'Cores principais',
-    description: 'O nucleo da identidade da loja. Comece por aqui.',
+    description: 'A base da identidade visual da loja.',
     fields: [
       { key: 'theme_primary_color', label: 'Cor principal', hint: 'Preco, destaque e decisao.' },
-      { key: 'theme_secondary_color', label: 'Cor secundaria', hint: 'Hero, profundidade e atmosfera.' },
+      { key: 'theme_secondary_color', label: 'Cor secundaria', hint: 'Topo, profundidade e clima.' },
       { key: 'theme_accent_color', label: 'Cor de destaque', hint: 'Badges e pontos de apoio.' },
     ],
   },
   {
     id: 'actions',
     title: 'Botoes e acoes',
-    description: 'A parte que puxa clique e conversao.',
+    description: 'Os pontos que puxam clique e conversao.',
     fields: [
-      { key: 'theme_cta_bg', label: 'Cor dos botoes', hint: 'Botao principal e pontos de acao.' },
+      { key: 'theme_cta_bg', label: 'Cor dos botoes', hint: 'CTA principal e chamadas fortes.' },
       { key: 'theme_cta_text', label: 'Texto do botao', hint: 'Legibilidade do CTA.' },
     ],
   },
@@ -69,33 +69,32 @@ const COLOR_GROUPS = [
     description: 'Conforto visual e qualidade percebida.',
     fields: [
       { key: 'theme_surface_color', label: 'Fundo do cardapio', hint: 'Superficie principal da vitrine.' },
-      { key: 'theme_surface_alt_color', label: 'Blocos de apoio', hint: 'Pills, faixas e superficies auxiliares.' },
-      { key: 'theme_text_primary', label: 'Texto principal', hint: 'Titulos e informacao central.' },
-      { key: 'theme_text_secondary', label: 'Texto secundario', hint: 'Descricoes e suporte.' },
+      { key: 'theme_surface_alt_color', label: 'Blocos de apoio', hint: 'Pills, faixas e secoes auxiliares.' },
+      { key: 'theme_text_primary', label: 'Texto principal', hint: 'Titulos e informacoes centrais.' },
+      { key: 'theme_text_secondary', label: 'Texto secundario', hint: 'Descricoes e apoio.' },
     ],
   },
   {
     id: 'extras',
     title: 'Extras avancados',
-    description: 'Ajustes finos para hero, badges e rodape.',
+    description: 'Hero, badges e rodape.',
     fields: [
-      { key: 'theme_hero_bg', label: 'Fundo do topo', hint: 'Header e hero acompanham esta cor.' },
-      { key: 'theme_hero_text', label: 'Texto do topo', hint: 'Leitura sobre o topo da loja.' },
-      { key: 'theme_badge_bg', label: 'Fundo das badges', hint: 'Selos, status e microdestaques.' },
+      { key: 'theme_hero_bg', label: 'Fundo do topo', hint: 'Header e hero neste lote.' },
+      { key: 'theme_hero_text', label: 'Texto do topo', hint: 'Leitura sobre o hero.' },
+      { key: 'theme_badge_bg', label: 'Fundo das badges', hint: 'Selos e microdestaques.' },
       { key: 'theme_badge_text', label: 'Texto das badges', hint: 'Legibilidade dos selos.' },
-      { key: 'theme_footer_bg', label: 'Fundo do rodape', hint: 'Fechamento da vitrine publica.' },
+      { key: 'theme_footer_bg', label: 'Fundo do rodape', hint: 'Fechamento da vitrine.' },
       { key: 'theme_footer_text', label: 'Texto do rodape', hint: 'Leitura no rodape.' },
     ],
   },
 ];
 
-function SectionIntro({ eyebrow, title, description, action }) {
+function CompactHeader({ title, description, action }) {
   return (
-    <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-      <div className="space-y-1.5">
-        {eyebrow ? <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">{eyebrow}</p> : null}
-        <h3 className="text-xl sm:text-2xl font-semibold text-foreground">{title}</h3>
-        {description ? <p className="text-sm leading-relaxed text-muted-foreground max-w-2xl">{description}</p> : null}
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <div className="space-y-1">
+        <h3 className="text-lg font-semibold text-foreground">{title}</h3>
+        <p className="text-sm text-muted-foreground leading-relaxed max-w-xl">{description}</p>
       </div>
       {action ? <div className="shrink-0">{action}</div> : null}
     </div>
@@ -107,94 +106,58 @@ function PresetCard({ preset, active, onApply }) {
     <button
       type="button"
       onClick={() => onApply(preset.key)}
-      className="group text-left rounded-[28px] border p-5 transition-all duration-200 hover:-translate-y-0.5"
+      className="text-left rounded-[24px] border p-4 transition-all hover:-translate-y-0.5"
       style={{
         background: active
-          ? `linear-gradient(145deg, ${withAlpha(preset.primary, 0.16)}, ${withAlpha(preset.surfaceAlt, 0.92)})`
-          : `linear-gradient(145deg, ${withAlpha(preset.surface, 0.96)}, ${withAlpha(preset.surfaceAlt, 0.9)})`,
-        borderColor: active ? withAlpha(preset.primary, 0.72) : withAlpha(preset.secondary, 0.2),
-        boxShadow: active ? `0 22px 44px ${withAlpha(preset.primary, 0.22)}` : '0 12px 30px rgba(15, 23, 42, 0.12)',
+          ? `linear-gradient(145deg, ${withAlpha(preset.primary, 0.14)}, ${withAlpha(preset.surfaceAlt, 0.92)})`
+          : `linear-gradient(145deg, ${withAlpha(preset.surface, 0.96)}, ${withAlpha(preset.surfaceAlt, 0.88)})`,
+        borderColor: active ? withAlpha(preset.primary, 0.64) : withAlpha(preset.secondary, 0.18),
+        boxShadow: active ? `0 18px 38px ${withAlpha(preset.primary, 0.18)}` : '0 10px 24px rgba(15, 23, 42, 0.08)',
       }}
     >
-      <div className="flex items-start justify-between gap-4">
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <p className="text-lg font-semibold text-foreground">{preset.label}</p>
-            <Badge className="border-0" style={{ backgroundColor: withAlpha(preset.primary, 0.18), color: preset.primary }}>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="text-base font-semibold text-foreground">{preset.label}</p>
+            <Badge className="border-0" style={{ backgroundColor: withAlpha(preset.primary, 0.16), color: preset.primary }}>
               {preset.badge}
             </Badge>
           </div>
-          <p className="text-sm leading-relaxed text-muted-foreground max-w-xs">{preset.description}</p>
+          <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{preset.description}</p>
         </div>
         {active ? (
-          <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ backgroundColor: withAlpha(preset.primary, 0.18), color: preset.primary }}>
-            <Check className="w-5 h-5" />
+          <div className="w-8 h-8 rounded-2xl flex items-center justify-center" style={{ backgroundColor: withAlpha(preset.primary, 0.16), color: preset.primary }}>
+            <Check className="w-4 h-4" />
           </div>
         ) : null}
       </div>
 
-      <div className="mt-5 flex items-center gap-3">
+      <div className="mt-4 flex gap-2">
         {[preset.primary, preset.secondary, preset.accent, preset.surfaceAlt].map((color) => (
-          <span
-            key={color}
-            className="h-12 flex-1 rounded-2xl border"
-            style={{ backgroundColor: color, borderColor: withAlpha(color, 0.4) }}
-          />
+          <span key={color} className="h-10 flex-1 rounded-2xl border" style={{ backgroundColor: color, borderColor: withAlpha(color, 0.38) }} />
         ))}
-      </div>
-
-      <div className="mt-4 flex items-center justify-between gap-3 text-xs">
-        <span className="text-muted-foreground">Aplicacao imediata no preview</span>
-        <span className="font-medium" style={{ color: active ? preset.primary : 'hsl(var(--muted-foreground))' }}>
-          {active ? 'Preset ativo' : 'Aplicar preset'}
-        </span>
       </div>
     </button>
   );
 }
-function ColorTokenField({ label, hint, value, onChange, changed }) {
+
+function CompactColorField({ label, hint, value, onChange, changed }) {
   return (
-    <div className="rounded-3xl border p-4 space-y-4 bg-card/90">
+    <div className="rounded-2xl border p-3 bg-card/90 space-y-3">
       <div className="flex items-start justify-between gap-3">
         <div className="space-y-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <p className="text-sm font-semibold text-foreground">{label}</p>
-            {changed ? (
-              <Badge variant="outline" className="border text-[10px] uppercase tracking-wide">
-                Ajustado
-              </Badge>
-            ) : null}
+            <p className="text-sm font-medium text-foreground">{label}</p>
+            {changed ? <Badge variant="outline" className="border text-[10px]">Novo</Badge> : null}
           </div>
-          <p className="text-xs leading-relaxed text-muted-foreground">{hint}</p>
+          <p className="text-[11px] leading-relaxed text-muted-foreground">{hint}</p>
         </div>
-        <div className="px-2.5 py-1 rounded-full border text-[11px] font-mono text-muted-foreground bg-background/70">
-          {String(value || '').toUpperCase()}
-        </div>
-      </div>
-
-      <div className="flex items-center gap-4">
         <label className="relative shrink-0 cursor-pointer">
-          <Input
-            type="color"
-            value={value}
-            onChange={(event) => onChange(event.target.value)}
-            className="absolute inset-0 opacity-0 cursor-pointer"
-          />
-          <span
-            className="block h-14 w-14 rounded-2xl border shadow-inner"
-            style={{ backgroundColor: value, borderColor: withAlpha(value, 0.35) }}
-          />
+          <Input type="color" value={value} onChange={(event) => onChange(event.target.value)} className="absolute inset-0 opacity-0 cursor-pointer" />
+          <span className="block h-10 w-10 rounded-xl border shadow-inner" style={{ backgroundColor: value, borderColor: withAlpha(value, 0.35) }} />
         </label>
-        <div className="flex-1 rounded-2xl border p-3 bg-background/60">
-          <div className="h-6 rounded-xl" style={{ background: `linear-gradient(135deg, ${withAlpha(value, 0.92)}, ${withAlpha(value, 0.42)})` }} />
-        </div>
       </div>
-
-      <Input
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="h-10 font-mono text-xs bg-background/70"
-      />
+      <Input value={value} onChange={(event) => onChange(event.target.value)} className="h-9 font-mono text-xs bg-background/70" />
     </div>
   );
 }
@@ -214,25 +177,25 @@ function LayoutPreviewMini({ layout, accent }) {
       {pattern.map((type, index) => (
         <div key={`${layout}-${index}`} className="grid gap-2 grid-cols-2">
           {type === 'list' ? (
-            <div className="col-span-2 h-5 rounded-xl" style={{ backgroundColor: withAlpha(accent, 0.18) }} />
+            <div className="col-span-2 h-4 rounded-xl" style={{ backgroundColor: withAlpha(accent, 0.16) }} />
           ) : type === 'wide' ? (
-            <div className="col-span-2 h-10 rounded-2xl" style={{ background: `linear-gradient(135deg, ${withAlpha(accent, 0.28)}, ${withAlpha(accent, 0.08)})` }} />
+            <div className="col-span-2 h-8 rounded-2xl" style={{ background: `linear-gradient(135deg, ${withAlpha(accent, 0.26)}, ${withAlpha(accent, 0.08)})` }} />
           ) : type === 'hero' ? (
-            <div className="col-span-2 h-12 rounded-2xl" style={{ backgroundColor: withAlpha(accent, 0.14) }} />
+            <div className="col-span-2 h-10 rounded-2xl" style={{ backgroundColor: withAlpha(accent, 0.14) }} />
           ) : type === 'split' ? (
             <>
-              <div className="h-8 rounded-xl" style={{ backgroundColor: withAlpha(accent, 0.12) }} />
-              <div className="h-8 rounded-xl" style={{ backgroundColor: withAlpha(accent, 0.08) }} />
+              <div className="h-7 rounded-xl" style={{ backgroundColor: withAlpha(accent, 0.12) }} />
+              <div className="h-7 rounded-xl" style={{ backgroundColor: withAlpha(accent, 0.08) }} />
             </>
           ) : type === 'masonry' ? (
             <>
-              <div className="h-7 rounded-xl" style={{ backgroundColor: withAlpha(accent, 0.14) }} />
-              <div className="h-10 rounded-xl" style={{ backgroundColor: withAlpha(accent, 0.09) }} />
+              <div className="h-6 rounded-xl" style={{ backgroundColor: withAlpha(accent, 0.14) }} />
+              <div className="h-9 rounded-xl" style={{ backgroundColor: withAlpha(accent, 0.09) }} />
             </>
           ) : (
             <>
-              <div className="h-8 rounded-xl" style={{ backgroundColor: withAlpha(accent, 0.14) }} />
-              <div className="h-8 rounded-xl" style={{ backgroundColor: withAlpha(accent, 0.09) }} />
+              <div className="h-7 rounded-xl" style={{ backgroundColor: withAlpha(accent, 0.14) }} />
+              <div className="h-7 rounded-xl" style={{ backgroundColor: withAlpha(accent, 0.09) }} />
             </>
           )}
         </div>
@@ -240,27 +203,24 @@ function LayoutPreviewMini({ layout, accent }) {
     </div>
   );
 }
-
 function LayoutOptionCard({ option, active, onSelect, accent }) {
   return (
     <button
       type="button"
       onClick={() => onSelect(option.value)}
-      className="text-left rounded-3xl border p-4 transition-all hover:-translate-y-0.5"
+      className="text-left rounded-2xl border p-3 transition-all hover:-translate-y-0.5"
       style={{
         backgroundColor: active ? withAlpha(accent, 0.08) : 'hsl(var(--card))',
-        borderColor: active ? withAlpha(accent, 0.55) : 'hsl(var(--border))',
-        boxShadow: active ? `0 16px 34px ${withAlpha(accent, 0.14)}` : 'none',
+        borderColor: active ? withAlpha(accent, 0.52) : 'hsl(var(--border))',
+        boxShadow: active ? `0 14px 30px ${withAlpha(accent, 0.12)}` : 'none',
       }}
     >
       <div className="flex items-start justify-between gap-3 mb-3">
         <div>
-          <p className="text-sm font-semibold text-foreground">{option.label}</p>
-          <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{option.description}</p>
+          <p className="text-sm font-medium text-foreground">{option.label}</p>
+          <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">{option.description}</p>
         </div>
-        <Badge variant="outline" className="border text-[10px] uppercase tracking-wide">
-          {option.maturity}
-        </Badge>
+        <Badge variant="outline" className="border text-[10px] uppercase tracking-wide">{option.maturity}</Badge>
       </div>
       <LayoutPreviewMini layout={option.value} accent={accent} />
     </button>
@@ -272,25 +232,25 @@ function CardStyleOption({ option, active, onSelect, accent }) {
     <button
       type="button"
       onClick={() => onSelect(option.value)}
-      className="text-left rounded-3xl border p-4 transition-all hover:-translate-y-0.5"
+      className="text-left rounded-2xl border p-3 transition-all hover:-translate-y-0.5"
       style={{
         backgroundColor: active ? withAlpha(accent, 0.08) : 'hsl(var(--card))',
-        borderColor: active ? withAlpha(accent, 0.55) : 'hsl(var(--border))',
-        boxShadow: active ? `0 16px 34px ${withAlpha(accent, 0.14)}` : 'none',
+        borderColor: active ? withAlpha(accent, 0.52) : 'hsl(var(--border))',
+        boxShadow: active ? `0 14px 30px ${withAlpha(accent, 0.12)}` : 'none',
       }}
     >
-      <div className="flex items-center justify-between gap-3 mb-4">
+      <div className="flex items-center justify-between gap-3 mb-3">
         <div>
-          <p className="text-sm font-semibold text-foreground">{option.label}</p>
-          <p className="text-xs text-muted-foreground mt-1">{option.description}</p>
+          <p className="text-sm font-medium text-foreground">{option.label}</p>
+          <p className="text-[11px] text-muted-foreground mt-1">{option.description}</p>
         </div>
         {active ? (
-          <div className="w-8 h-8 rounded-2xl flex items-center justify-center" style={{ backgroundColor: withAlpha(accent, 0.15), color: accent }}>
+          <div className="w-7 h-7 rounded-xl flex items-center justify-center" style={{ backgroundColor: withAlpha(accent, 0.15), color: accent }}>
             <Check className="w-4 h-4" />
           </div>
         ) : null}
       </div>
-      <div className="rounded-2xl border p-3 bg-background/60 space-y-2">
+      <div className="rounded-2xl border p-3 bg-background/60">
         <div
           className="rounded-2xl border p-3"
           style={option.value === 'aero'
@@ -352,6 +312,8 @@ export default function ThemeTab() {
   const [draft, setDraft] = useState(persistedTheme);
   const [isExtractingColors, setIsExtractingColors] = useState(false);
   const [autoApply, setAutoApply] = useState(false);
+  const [editorTab, setEditorTab] = useState('colors');
+  const [layoutTarget, setLayoutTarget] = useState('mobile');
 
   useEffect(() => {
     setDraft(persistedTheme);
@@ -364,37 +326,21 @@ export default function ThemeTab() {
     () => resolveStorefrontTheme(normalizedDraft, { isDark: activeTheme?.mode === 'dark' }),
     [activeTheme?.mode, normalizedDraft],
   );
+
   const contrastChecks = useMemo(() => {
     const checks = [
-      {
-        id: 'cta',
-        label: 'Botao principal',
-        ratio: getContrastRatio(normalizedDraft.theme_cta_bg, normalizedDraft.theme_cta_text),
-      },
-      {
-        id: 'hero',
-        label: 'Topo da loja',
-        ratio: getContrastRatio(normalizedDraft.theme_hero_bg, normalizedDraft.theme_hero_text),
-      },
-      {
-        id: 'footer',
-        label: 'Rodape',
-        ratio: getContrastRatio(normalizedDraft.theme_footer_bg, normalizedDraft.theme_footer_text),
-      },
-      {
-        id: 'badge',
-        label: 'Badges',
-        ratio: getContrastRatio(normalizedDraft.theme_badge_bg, normalizedDraft.theme_badge_text),
-      },
+      { id: 'cta', label: 'Botao principal', ratio: getContrastRatio(normalizedDraft.theme_cta_bg, normalizedDraft.theme_cta_text) },
+      { id: 'hero', label: 'Topo da loja', ratio: getContrastRatio(normalizedDraft.theme_hero_bg, normalizedDraft.theme_hero_text) },
+      { id: 'footer', label: 'Rodape', ratio: getContrastRatio(normalizedDraft.theme_footer_bg, normalizedDraft.theme_footer_text) },
+      { id: 'badge', label: 'Badges', ratio: getContrastRatio(normalizedDraft.theme_badge_bg, normalizedDraft.theme_badge_text) },
     ];
 
-    return checks.map((check) => ({
-      ...check,
-      ok: Number(check.ratio || 0) >= 4.5,
-    }));
+    return checks.map((check) => ({ ...check, ok: Number(check.ratio || 0) >= 4.5 }));
   }, [normalizedDraft]);
 
   const failingChecks = contrastChecks.filter((item) => !item.ok);
+  const mainColorGroups = COLOR_GROUPS.filter((group) => group.id !== 'extras');
+  const extrasGroup = COLOR_GROUPS.find((group) => group.id === 'extras');
 
   const updateMutation = useMutation({
     mutationFn: async ({ payload }) => {
@@ -443,26 +389,32 @@ export default function ThemeTab() {
 
   const extractColorsFromLogo = async () => {
     if (!store?.logo) {
-      toast.error('Adicione uma logo em Loja antes de extrair as cores.');
+      toast.error('A loja precisa ter uma logo para extrair a paleta.');
       return;
     }
 
-    setIsExtractingColors(true);
     try {
+      setIsExtractingColors(true);
       const extracted = await extractColorsFromImage(store.logo);
+      if (!extracted?.primary) {
+        toast.error('Nao foi possivel extrair cores suficientes da logo.');
+        return;
+      }
+
       setDraft((current) => ({
         ...current,
-        theme_primary_color: extracted.primary,
-        theme_secondary_color: extracted.secondary,
-        theme_accent_color: extracted.accent,
-        theme_cta_bg: extracted.primary,
-        theme_hero_bg: extracted.secondary,
-        theme_badge_bg: extracted.accent,
+        storefront_theme_preset: current.storefront_theme_preset || 'amber',
+        theme_primary_color: extracted.primary || current.theme_primary_color,
+        theme_secondary_color: extracted.secondary || current.theme_secondary_color,
+        theme_accent_color: extracted.accent || current.theme_accent_color,
+        theme_cta_bg: extracted.primary || current.theme_cta_bg,
+        theme_hero_bg: extracted.secondary || current.theme_hero_bg,
+        theme_badge_bg: extracted.accent || current.theme_badge_bg,
+        theme_footer_bg: extracted.secondary || current.theme_footer_bg,
       }));
-      toast.success('Cores extraidas da logo e aplicadas ao storefront.');
+      toast.success('Paleta aplicada com base na logo.');
     } catch (error) {
-      console.error('Erro ao extrair cores da logo:', error);
-      toast.error('Nao foi possivel extrair as cores da logo.');
+      toast.error(error?.message || 'Nao foi possivel extrair as cores da logo.');
     } finally {
       setIsExtractingColors(false);
     }
@@ -470,7 +422,7 @@ export default function ThemeTab() {
 
   const handleReset = () => {
     setDraft(persistedTheme);
-    toast.success('Edicao resetada para o ultimo tema salvo.');
+    toast.success('Alteracoes visuais descartadas.');
   };
 
   const handleSave = () => {
@@ -478,30 +430,35 @@ export default function ThemeTab() {
   };
 
   const saveStatusLabel = updateMutation.isPending
-    ? 'Aplicando alteracoes...'
-    : autoApply
-      ? hasChanges
-        ? 'Ajustes aguardando aplicacao automatica'
-        : 'Alteracoes sincronizadas automaticamente'
-      : hasChanges
-        ? 'Voce tem alteracoes prontas para salvar'
-        : 'Nenhuma alteracao pendente';
+    ? 'Salvando...'
+    : hasChanges
+      ? autoApply
+        ? 'Aplicacao automatica ligada'
+        : 'Alteracoes prontas para salvar'
+      : 'Tudo sincronizado';
+
+  const currentLayoutValue = layoutTarget === 'mobile'
+    ? normalizedDraft.menu_layout_mobile
+    : normalizedDraft.menu_layout_desktop;
+
+  const saveLayoutValue = (value) => {
+    updateDraftField(layoutTarget === 'mobile' ? 'menu_layout_mobile' : 'menu_layout_desktop', value);
+  };
 
   const inactiveControls = [
-    'Gradiente generico do hero',
-    'Estilo de botao abstrato',
-    'Sombras globais do storefront',
-    'Cores do painel administrativo',
+    'Gradientes e sombras globais',
+    'Estilos de botao extras',
+    'Variantes decorativas que nao chegam na vitrine real',
   ];
 
   if (!store) {
     return (
-      <div className="p-4">
-        <Card>
+      <div className="max-w-4xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+        <Card className="rounded-[28px] border-dashed">
           <CardHeader>
-            <CardTitle>Tema da loja publica</CardTitle>
+            <CardTitle>Nenhuma loja encontrada</CardTitle>
             <CardDescription>
-              Crie uma loja antes de personalizar a vitrine publica.
+              O studio de vitrine precisa de uma loja carregada para editar o tema publico.
             </CardDescription>
           </CardHeader>
         </Card>
@@ -510,282 +467,381 @@ export default function ThemeTab() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-5 sm:px-6 lg:px-8 space-y-8">
-      <section
-        className="rounded-[32px] border overflow-hidden"
-        style={{
-          background: `linear-gradient(135deg, ${withAlpha(previewTheme.secondary, 0.24)}, ${withAlpha(activeTheme.colors.bgSecondary, 0.94)})`,
-          borderColor: withAlpha(previewTheme.primary, 0.16),
-          boxShadow: `0 28px 70px ${withAlpha(previewTheme.primary, 0.1)}`,
-        }}
-      >
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1.25fr)_360px] p-6 sm:p-8">
-          <div className="space-y-5">
-            <div className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground bg-background/60">
-              <Palette className="w-3.5 h-3.5" />
-              Storefront Theme V2
-            </div>
-            <div className="space-y-3 max-w-3xl">
-              <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight text-foreground">
-                Estudio visual da loja publica
-              </h2>
-              <p className="text-sm sm:text-base leading-relaxed text-muted-foreground max-w-2xl">
-                Aqui a gente cuida da vitrine que o cliente final ve. O tema do painel continua separado. Presets, preview real, guardrails e personalizacao agora seguem um fluxo mais comercial e menos tecnico.
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Badge variant="outline" className="border">AppTheme continua no painel</Badge>
-              <Badge variant="outline" className="border">Preview mobile + desktop</Badge>
-              <Badge variant="outline" className="border">Tokens oficiais do storefront</Badge>
-            </div>
-          </div>
-
-          <div className="rounded-[28px] border bg-background/72 backdrop-blur p-5 space-y-4" style={{ borderColor: withAlpha(previewTheme.primary, 0.18) }}>
-            <div>
-              <p className="text-sm font-semibold text-foreground">Status da edicao</p>
-              <p className="text-xs text-muted-foreground mt-1">{saveStatusLabel}</p>
-            </div>
-
-            <div className="rounded-2xl border p-4 bg-card/75 space-y-3">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold text-foreground">Aplicar automaticamente</p>
-                  <p className="text-xs text-muted-foreground">Opcional. Quando ligado, salvamos os ajustes apos pequenas pausas.</p>
-                </div>
-                <Switch checked={autoApply} onCheckedChange={setAutoApply} />
-              </div>
-            </div>
-
-            <div className="rounded-2xl border p-4 space-y-3" style={{ backgroundColor: withAlpha(previewTheme.surfaceAlt, 0.7), borderColor: previewTheme.borderColor }}>
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold text-foreground">Saude visual</p>
-                  <p className="text-xs text-muted-foreground">Checamos contraste nos pontos que mais impactam leitura e clique.</p>
-                </div>
-                <Badge className="border-0" style={{ backgroundColor: failingChecks.length === 0 ? withAlpha(previewTheme.primary, 0.16) : withAlpha('#ef4444', 0.14), color: failingChecks.length === 0 ? previewTheme.primary : '#b91c1c' }}>
-                  {failingChecks.length === 0 ? 'Tudo OK' : `${failingChecks.length} ajuste${failingChecks.length > 1 ? 's' : ''}`}
+    <div className="max-w-7xl mx-auto px-4 py-5 sm:px-6 lg:px-8 space-y-5">
+      <Card className="rounded-[30px] border bg-card/80 backdrop-blur-sm">
+        <CardContent className="p-4 sm:p-5 lg:p-6">
+          <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge variant="outline" className="border text-[11px]">
+                  Storefront Theme V2
                 </Badge>
+                <Badge className="border-0 bg-primary/10 text-primary">Vitrine da loja</Badge>
+                {failingChecks.length > 0 ? (
+                  <Badge variant="outline" className="border-amber-400/40 text-amber-600">
+                    {failingChecks.length} contraste(s) pedem ajuste
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="border-emerald-400/40 text-emerald-600">
+                    Contraste em dia
+                  </Badge>
+                )}
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                {contrastChecks.map((check) => (
-                  <div key={check.id} className="rounded-2xl border px-3 py-2.5" style={{ backgroundColor: check.ok ? withAlpha(previewTheme.primary, 0.06) : withAlpha('#ef4444', 0.08), borderColor: check.ok ? withAlpha(previewTheme.primary, 0.16) : withAlpha('#ef4444', 0.2) }}>
-                    <p className="text-xs font-semibold text-foreground">{check.label}</p>
-                    <p className="text-[11px] text-muted-foreground mt-1">{check.ratio.toFixed(2)}:1</p>
-                  </div>
-                ))}
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-foreground">
+                  Estudio visual da sua loja
+                </h1>
+                <p className="text-sm sm:text-base text-muted-foreground max-w-2xl leading-relaxed">
+                  Escolha um preset, veja o preview real e ajuste so o que realmente chega na vitrine publica.
+                </p>
               </div>
             </div>
 
-            <div className="flex gap-3">
-              <Button type="button" variant="outline" onClick={handleReset} disabled={!hasChanges || updateMutation.isPending} className="flex-1">
-                Resetar
-              </Button>
-              <Button type="button" onClick={handleSave} disabled={!hasChanges || updateMutation.isPending} className="flex-1">
-                <Save className="w-4 h-4 mr-2" />
-                {updateMutation.isPending ? 'Salvando...' : 'Salvar tema'}
-              </Button>
+            <div className="grid gap-3 sm:grid-cols-[minmax(210px,1fr)_auto] xl:min-w-[420px]">
+              <div className="rounded-[22px] border bg-background/60 p-4 space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Fluxo de edicao</p>
+                    <p className="text-xs text-muted-foreground">Menos cliques e menos scroll desnecessario.</p>
+                  </div>
+                  <Switch checked={autoApply} onCheckedChange={setAutoApply} />
+                </div>
+                <div className="flex items-center justify-between gap-3 text-xs">
+                  <div>
+                    <p className="font-medium text-foreground">Aplicar automaticamente</p>
+                    <p className="text-muted-foreground">
+                      {autoApply ? 'Mudancas sao salvas apos uma pausa curta.' : 'Use o botao salvar quando terminar.'}
+                    </p>
+                  </div>
+                  <Badge variant="outline" className="border text-[10px]">
+                    {saveStatusLabel}
+                  </Badge>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:items-end gap-2">
+                <Button variant="outline" className="w-full sm:w-auto" onClick={handleReset} disabled={!hasChanges || updateMutation.isPending}>
+                  Descartar
+                </Button>
+                <Button className="w-full sm:w-auto gap-2" onClick={handleSave} disabled={!hasChanges || updateMutation.isPending}>
+                  <Save className="w-4 h-4" />
+                  Salvar tema
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
-      </section>
-      <section className="space-y-5">
-        <SectionIntro
-          eyebrow="01. Entrada rapida"
-          title="Escolha um ponto de partida bonito"
-          description="Os presets agora sao a porta de entrada da tela. Eles aceleram a configuracao e deixam o usuario vendo resultado logo de cara."
-        />
-        <div className="grid gap-4 md:grid-cols-2">
-          {STOREFRONT_THEME_PRESETS.map((preset) => (
-            <PresetCard
-              key={preset.key}
-              preset={preset}
-              active={normalizedDraft.storefront_theme_preset === preset.key}
-              onApply={handlePresetApply}
-            />
-          ))}
-        </div>
-      </section>
+        </CardContent>
+      </Card>
 
-      <section className="space-y-5">
-        <SectionIntro
-          eyebrow="02. Preview principal"
-          title="Como seu cliente vera"
-          description="O preview agora ocupa o centro da experiencia. Ele usa blocos reais do storefront e prioriza a leitura da vitrine em mobile, sem esconder o desktop."
-          action={(
-            <Badge variant="outline" className="border px-3 py-1.5">
-              <Eye className="w-3.5 h-3.5 mr-1.5" /> Preview fiel
-            </Badge>
-          )}
-        />
-        <Card className="border-0 shadow-none bg-transparent">
-          <CardContent className="p-0">
-            <StorefrontThemePreview store={{ ...store, ...normalizedDraft }} theme={previewTheme} dishes={dishes} categories={categories} />
-          </CardContent>
-        </Card>
-      </section>
-
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(340px,0.9fr)]">
-        <section className="space-y-5">
-          <SectionIntro
-            eyebrow="03. Personalizacao"
-            title="Ajustes com linguagem de negocio"
-            description="Organizamos os controles por intencao visual: identidade, conversao, leitura e detalhes finos."
-            action={(
-              <Button type="button" variant="outline" onClick={extractColorsFromLogo} disabled={isExtractingColors || !store?.logo}>
-                <ImageIcon className="w-4 h-4 mr-2" />
-                {isExtractingColors ? 'Extraindo...' : 'Usar cores da logo'}
-              </Button>
-            )}
-          />
-
-          <Card className="rounded-[32px] border-0 shadow-none" style={{ backgroundColor: withAlpha(previewTheme.surfaceAlt, 0.38) }}>
-            <CardContent className="p-3 sm:p-4">
-              <Accordion type="multiple" defaultValue={['branding', 'actions', 'reading']} className="space-y-3">
-                {COLOR_GROUPS.map((group) => (
-                  <AccordionItem key={group.id} value={group.id} className="rounded-[28px] border bg-card/88 px-5 py-1">
-                    <AccordionTrigger className="hover:no-underline py-5">
-                      <div className="text-left">
-                        <p className="text-base font-semibold text-foreground">{group.title}</p>
-                        <p className="text-sm text-muted-foreground mt-1">{group.description}</p>
-                      </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="pb-5">
-                      <div className="grid gap-4 md:grid-cols-2">
-                        {group.fields.map((field) => (
-                          <ColorTokenField
-                            key={field.key}
-                            label={field.label}
-                            hint={field.hint}
-                            value={normalizedDraft[field.key]}
-                            onChange={(value) => updateDraftField(field.key, value)}
-                            changed={normalizedDraft[field.key] !== persistedTheme[field.key]}
-                          />
-                        ))}
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                ))}
-              </Accordion>
-            </CardContent>
-          </Card>
-        </section>
-
-        <section className="space-y-5">
-          <SectionIntro
-            eyebrow="04. Layout e estilo"
-            title="Escolha a apresentacao da vitrine"
-            description="Layout mobile, layout desktop e estilo de card agora aparecem como escolhas visuais, nao como selects soltos."
-          />
-
-          <Card className="rounded-[32px] border-0 shadow-none" style={{ backgroundColor: withAlpha(previewTheme.surfaceAlt, 0.38) }}>
-            <CardContent className="p-5 space-y-6">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-foreground flex items-center gap-2"><Smartphone className="w-4 h-4" /> Layout mobile</p>
-                    <p className="text-xs text-muted-foreground mt-1">Melhor equilibrio entre vitrine, leitura e navegacao em telas pequenas.</p>
-                  </div>
-                  <Badge variant="outline" className="border">{getStorefrontLayoutMeta(normalizedDraft.menu_layout_mobile).maturity}</Badge>
-                </div>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {STOREFRONT_LAYOUT_OPTIONS.map((option) => (
-                    <LayoutOptionCard
-                      key={`mobile-${option.value}`}
-                      option={option}
-                      active={normalizedDraft.menu_layout_mobile === option.value}
-                      onSelect={(value) => updateDraftField('menu_layout_mobile', value)}
-                      accent={previewTheme.primary}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-foreground flex items-center gap-2"><Monitor className="w-4 h-4" /> Layout desktop</p>
-                    <p className="text-xs text-muted-foreground mt-1">Mais area para catalogo, banners e densidade visual controlada.</p>
-                  </div>
-                  <Badge variant="outline" className="border">{getStorefrontLayoutMeta(normalizedDraft.menu_layout_desktop).maturity}</Badge>
-                </div>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {STOREFRONT_LAYOUT_OPTIONS.map((option) => (
-                    <LayoutOptionCard
-                      key={`desktop-${option.value}`}
-                      option={option}
-                      active={normalizedDraft.menu_layout_desktop === option.value}
-                      onSelect={(value) => updateDraftField('menu_layout_desktop', value)}
-                      accent={previewTheme.secondary}
-                    />
-                  ))}
-                </div>
-              </div>
-              <div className="space-y-4">
-                <div>
-                  <p className="text-sm font-semibold text-foreground flex items-center gap-2"><LayoutGrid className="w-4 h-4" /> Estilo de card</p>
-                  <p className="text-xs text-muted-foreground mt-1">Defina se a leitura vai ser mais direta ou mais atmosferica.</p>
-                </div>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {CARD_STYLE_OPTIONS.map((option) => (
-                    <CardStyleOption
-                      key={option.value}
-                      option={option}
-                      active={normalizedDraft.theme_menu_card_style === option.value}
-                      onSelect={(value) => updateDraftField('theme_menu_card_style', value)}
-                      accent={previewTheme.accent}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Colunas no desktop</Label>
-                  <Select value={String(normalizedDraft.menu_grid_cols_desktop)} onValueChange={(value) => updateDraftField('menu_grid_cols_desktop', Number(value))}>
-                    <SelectTrigger className="h-12 rounded-2xl bg-background/70"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {GRID_OPTIONS.map((option) => (
-                        <SelectItem key={option} value={String(option)}>{option} colunas</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Velocidade do carrossel</Label>
-                  <Select value={String(normalizedDraft.menu_autoplay_interval_ms)} onValueChange={(value) => updateDraftField('menu_autoplay_interval_ms', Number(value))}>
-                    <SelectTrigger className="h-12 rounded-2xl bg-background/70"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {AUTOPLAY_OPTIONS.map((option) => (
-                        <SelectItem key={option} value={String(option)}>{`${option / 1000}s`}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="rounded-[32px] border-0 shadow-none" style={{ backgroundColor: withAlpha(previewTheme.surfaceAlt, 0.38) }}>
-            <CardContent className="p-5 space-y-4">
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ backgroundColor: withAlpha(previewTheme.primary, 0.14), color: previewTheme.primary }}>
-                  <ShieldCheck className="w-5 h-5" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-foreground">Transparencia do modulo</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Mantivemos fora da UI principal tudo o que ainda nao chega ao storefront de forma confiavel.
-                  </p>
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {inactiveControls.map((label) => (
-                  <Badge key={label} variant="outline" className="border text-xs">{label}</Badge>
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,430px)_minmax(0,1fr)] items-start">
+        <div className="space-y-5">
+          <Card className="rounded-[28px] border">
+            <CardHeader className="pb-4">
+              <CompactHeader
+                title="Presets comerciais"
+                description="Comece por uma direcao segura. Os presets aplicam a base visual da vitrine de uma vez."
+              />
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+                {STOREFRONT_THEME_PRESETS.map((preset) => (
+                  <PresetCard
+                    key={preset.key}
+                    preset={preset}
+                    active={normalizedDraft.storefront_theme_preset === preset.key}
+                    onApply={handlePresetApply}
+                  />
                 ))}
               </div>
             </CardContent>
           </Card>
-        </section>
+
+          <Tabs value={editorTab} onValueChange={setEditorTab} className="space-y-4">
+            <TabsList className="grid h-auto grid-cols-3 rounded-[20px] p-1.5 bg-muted/70">
+              <TabsTrigger value="colors" className="rounded-2xl py-2.5 text-xs sm:text-sm gap-2">
+                <Palette className="w-4 h-4" />
+                Cores
+              </TabsTrigger>
+              <TabsTrigger value="layout" className="rounded-2xl py-2.5 text-xs sm:text-sm gap-2">
+                <LayoutGrid className="w-4 h-4" />
+                Layout
+              </TabsTrigger>
+              <TabsTrigger value="advanced" className="rounded-2xl py-2.5 text-xs sm:text-sm gap-2">
+                <ShieldCheck className="w-4 h-4" />
+                Extras
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="colors" className="mt-0">
+              <Card className="rounded-[28px] border">
+                <CardHeader className="pb-4">
+                  <CompactHeader
+                    title="Personalizacao principal"
+                    description="As cores abaixo realmente aparecem no storefront. Voce ajusta marca, leitura e conversao sem afundar a pagina em campos tecnicos."
+                    action={(
+                      <Button
+                        variant="outline"
+                        className="gap-2"
+                        onClick={extractColorsFromLogo}
+                        disabled={isExtractingColors || !store?.logo}
+                      >
+                        <ImageIcon className="w-4 h-4" />
+                        {isExtractingColors ? 'Extraindo...' : 'Usar cores da logo'}
+                      </Button>
+                    )}
+                  />
+                </CardHeader>
+                <CardContent className="pt-0">
+                  <Accordion type="multiple" defaultValue={['branding']} className="space-y-3">
+                    {mainColorGroups.map((group) => (
+                      <AccordionItem key={group.id} value={group.id} className="border rounded-[22px] px-4 bg-card/70">
+                        <AccordionTrigger className="py-4 hover:no-underline">
+                          <div className="text-left">
+                            <p className="text-sm font-semibold text-foreground">{group.title}</p>
+                            <p className="text-xs text-muted-foreground mt-1">{group.description}</p>
+                          </div>
+                        </AccordionTrigger>
+                        <AccordionContent className="pb-4">
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            {group.fields.map((field) => (
+                              <CompactColorField
+                                key={field.key}
+                                label={field.label}
+                                hint={field.hint}
+                                value={normalizedDraft[field.key]}
+                                changed={normalizedDraft[field.key] !== persistedTheme[field.key]}
+                                onChange={(value) => updateDraftField(field.key, value)}
+                              />
+                            ))}
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    ))}
+                  </Accordion>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="layout" className="mt-0">
+              <Card className="rounded-[28px] border">
+                <CardHeader className="pb-4">
+                  <CompactHeader
+                    title="Layout e estilo"
+                    description="Escolha como o cliente navega no mobile e no desktop. Mostramos um grupo por vez para a decisao ficar leve."
+                  />
+                </CardHeader>
+                <CardContent className="pt-0 space-y-5">
+                  <div className="inline-flex items-center gap-2 rounded-full border p-1 bg-muted/40">
+                    {[
+                      { key: 'mobile', label: 'Mobile', icon: Smartphone },
+                      { key: 'desktop', label: 'Desktop', icon: Monitor },
+                    ].map((item) => {
+                      const Icon = item.icon;
+                      const active = layoutTarget === item.key;
+                      return (
+                        <button
+                          key={item.key}
+                          type="button"
+                          onClick={() => setLayoutTarget(item.key)}
+                          className="inline-flex items-center gap-2 rounded-full px-3.5 py-2 text-xs font-semibold transition-colors"
+                          style={active
+                            ? { backgroundColor: previewTheme.ctaBg, color: previewTheme.ctaText }
+                            : { color: previewTheme.textSecondary }}
+                        >
+                          <Icon className="w-3.5 h-3.5" />
+                          {item.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {STOREFRONT_LAYOUT_OPTIONS.map((option) => (
+                      <LayoutOptionCard
+                        key={`${layoutTarget}-${option.value}`}
+                        option={option}
+                        active={currentLayoutValue === option.value}
+                        onSelect={saveLayoutValue}
+                        accent={previewTheme.primary}
+                      />
+                    ))}
+                  </div>
+
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">Estilo do card</p>
+                      <p className="text-xs text-muted-foreground mt-1">Muda o acabamento dos produtos sem trocar o layout.</p>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {CARD_STYLE_OPTIONS.map((option) => (
+                        <CardStyleOption
+                          key={option.value}
+                          option={option}
+                          active={normalizedDraft.theme_menu_card_style === option.value}
+                          onSelect={(value) => updateDraftField('theme_menu_card_style', value)}
+                          accent={previewTheme.primary}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Card className="rounded-[22px] border bg-card/70">
+                      <CardContent className="p-4 space-y-2">
+                        <Label className="text-sm font-medium">Colunas no desktop</Label>
+                        <Select
+                          value={String(normalizedDraft.menu_grid_cols_desktop)}
+                          onValueChange={(value) => updateDraftField('menu_grid_cols_desktop', Number(value))}
+                        >
+                          <SelectTrigger className="h-11 rounded-xl">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {GRID_OPTIONS.map((value) => (
+                              <SelectItem key={value} value={String(value)}>
+                                {value} colunas
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="rounded-[22px] border bg-card/70">
+                      <CardContent className="p-4 space-y-2">
+                        <Label className="text-sm font-medium">Ritmo do carrossel</Label>
+                        <Select
+                          value={String(normalizedDraft.menu_autoplay_interval_ms)}
+                          onValueChange={(value) => updateDraftField('menu_autoplay_interval_ms', Number(value))}
+                        >
+                          <SelectTrigger className="h-11 rounded-xl">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {AUTOPLAY_OPTIONS.map((value) => (
+                              <SelectItem key={value} value={String(value)}>
+                                {(value / 1000).toFixed(1).replace('.', ',')} segundos
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="advanced" className="mt-0">
+              <div className="space-y-4">
+                <Card className="rounded-[28px] border">
+                  <CardHeader className="pb-4">
+                    <CompactHeader
+                      title="Ajustes extras"
+                      description="Hero, badge e rodape ficam aqui para nao competir com o basico. So abra quando precisar lapidar o acabamento."
+                    />
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    <Accordion type="single" collapsible defaultValue="">
+                      <AccordionItem value="extras" className="border rounded-[22px] px-4 bg-card/70">
+                        <AccordionTrigger className="py-4 hover:no-underline">
+                          <div className="text-left">
+                            <p className="text-sm font-semibold text-foreground">{extrasGroup?.title}</p>
+                            <p className="text-xs text-muted-foreground mt-1">{extrasGroup?.description}</p>
+                          </div>
+                        </AccordionTrigger>
+                        <AccordionContent className="pb-4">
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            {extrasGroup?.fields.map((field) => (
+                              <CompactColorField
+                                key={field.key}
+                                label={field.label}
+                                hint={field.hint}
+                                value={normalizedDraft[field.key]}
+                                changed={normalizedDraft[field.key] !== persistedTheme[field.key]}
+                                onChange={(value) => updateDraftField(field.key, value)}
+                              />
+                            ))}
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    </Accordion>
+                  </CardContent>
+                </Card>
+
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <Card className="rounded-[24px] border">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base">Saude visual</CardTitle>
+                      <CardDescription>Cheque rapido de contraste nos pontos que mais afetam leitura.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="grid gap-3 sm:grid-cols-2">
+                      {contrastChecks.map((check) => (
+                        <div key={check.id} className="rounded-2xl border p-3 bg-card/70">
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="text-sm font-medium text-foreground">{check.label}</p>
+                            <Badge
+                              variant="outline"
+                              className={check.ok ? 'border-emerald-400/40 text-emerald-600' : 'border-amber-400/40 text-amber-600'}
+                            >
+                              {check.ok ? 'OK' : 'Ajustar'}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-2">
+                            Contraste {Number(check.ratio || 0).toFixed(2)}:1
+                          </p>
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+
+                  <Card className="rounded-[24px] border">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base">O que fica para depois</CardTitle>
+                      <CardDescription>
+                        Limpamos a tela e deixamos visivel so o que hoje chega de verdade na vitrine.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="rounded-2xl border p-3 bg-card/70">
+                        <p className="text-sm font-medium text-foreground">Controles pausados neste lote</p>
+                        <div className="flex flex-wrap gap-2 mt-3">
+                          {inactiveControls.map((item) => (
+                            <Badge key={item} variant="outline" className="border text-[11px]">
+                              {item}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="rounded-2xl border p-3 bg-card/70 text-sm text-muted-foreground leading-relaxed">
+                        O studio agora prioriza identidade, leitura e CTA. Itens decorativos ou inconsistentes sairam da rota principal para evitar promessa falsa.
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
+        </div>
+
+        <div className="xl:sticky xl:top-4 self-start">
+          <Card className="rounded-[30px] border overflow-hidden">
+            <CardHeader className="pb-4">
+              <CompactHeader
+                title="Preview da vitrine"
+                description="O preview fica em destaque o tempo todo para o usuario decidir olhando o resultado, nao uma lista de campos."
+              />
+            </CardHeader>
+            <CardContent className="pt-0">
+              <StorefrontThemePreview
+                store={{ ...store, ...normalizedDraft }}
+                theme={previewTheme}
+                dishes={dishes}
+                categories={categories}
+              />
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );
