@@ -41,7 +41,8 @@ export function createEntityAccessGuard({
     const ownerNorm = normalizeLower(ownerEmail);
     const userEmail = normalizeLower(user.email);
     const userSubscriber = normalizeLower(user.subscriber_email);
-    return userEmail === ownerNorm || userSubscriber === ownerNorm;
+    const scopedSubscriber = normalizeLower(user?._contextForSubscriber);
+    return userEmail === ownerNorm || userSubscriber === ownerNorm || scopedSubscriber === ownerNorm;
   }
 
   function getEntityCrudAction(method) {
