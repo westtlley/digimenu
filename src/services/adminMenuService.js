@@ -10,6 +10,10 @@ import { base44 } from '@/api/base44Client';
 import { safeFetch, ensureArray } from '@/utils/safeFetch';
 import { log } from '@/utils/logger';
 
+function emitMenuDiagnostics(event, payload = {}) {
+  console.info(`[MENU_DIAG] ${event}`, payload);
+}
+
 /**
  * Obtém o slug mais confiável para fallback público
  * Prioridade: subscriberData.slug (banco) > user.slug > menuContext.value (se slug) > URL
@@ -82,6 +86,11 @@ export async function fetchAdminDishes(menuContext) {
       log.menu.debug('✅ [adminMenuService] Passando as_subscriber:', menuContext.value);
     }
 
+    emitMenuDiagnostics('dishes.request', {
+      menuContext,
+      opts,
+    });
+
     log.menu.debug('📤 [adminMenuService] Chamando Dish.list com opts:', opts);
     
     const fetchPublicFallback = async () => {
@@ -89,15 +98,34 @@ export async function fetchAdminDishes(menuContext) {
 
       if (!slugToUse) {
         log.menu.error('❌ [adminMenuService] Sem slug disponível para fallback de pratos');
+        emitMenuDiagnostics('dishes.fallback.no_slug', {
+          menuContext,
+          opts,
+        });
         return [];
       }
 
       try {
         const publicData = await base44.get(`/public/cardapio/${slugToUse}`);
         log.menu.log('✅ [adminMenuService] Dados públicos como fallback:', publicData.dishes?.length || 0, 'pratos');
-        return ensureArray(publicData.dishes);
+        const fallbackDishes = ensureArray(publicData.dishes);
+        emitMenuDiagnostics('dishes.fallback.success', {
+          slug: slugToUse,
+          count: fallbackDishes.length,
+          sample: fallbackDishes.slice(0, 3).map((dish) => ({
+            id: dish?.id ?? null,
+            name: dish?.name ?? null,
+            category_id: dish?.category_id ?? null,
+            product_type: dish?.product_type ?? null,
+          })),
+        });
+        return fallbackDishes;
       } catch (publicError) {
         log.menu.error('❌ [adminMenuService] Fallback público de pratos também falhou:', publicError);
+        emitMenuDiagnostics('dishes.fallback.error', {
+          slug: slugToUse,
+          message: publicError?.message || String(publicError),
+        });
         return [];
       }
     };
@@ -108,10 +136,21 @@ export async function fetchAdminDishes(menuContext) {
       
       log.menu.debug('✅ [adminMenuService] Pratos recebidos:', ensureArray(result).length, 'pratos');
       log.menu.debug('📋 [adminMenuService] Amostra:', ensureArray(result).slice(0, 3).map(d => d.name));
+      emitMenuDiagnostics('dishes.admin.success', {
+        opts,
+        count: ensureArray(result).length,
+        sample: ensureArray(result).slice(0, 3).map((dish) => ({
+          id: dish?.id ?? null,
+          name: dish?.name ?? null,
+          category_id: dish?.category_id ?? null,
+          product_type: dish?.product_type ?? null,
+        })),
+      });
       
       // Se a rota admin retornar vazio, tentar fallback público
       if (ensureArray(result).length === 0) {
         log.menu.warn('⚠️ [adminMenuService] Rota admin retornou 0 pratos, tentando fallback público');
+        emitMenuDiagnostics('dishes.admin.empty', { opts });
         return await fetchPublicFallback();
       }
       
@@ -119,10 +158,18 @@ export async function fetchAdminDishes(menuContext) {
     } catch (adminError) {
       log.menu.error('❌ [adminMenuService] Erro na rota admin:', adminError);
       log.menu.warn('⚠️ [adminMenuService] Rota admin de pratos falhou, tentando fallback público');
+      emitMenuDiagnostics('dishes.admin.error', {
+        opts,
+        message: adminError?.message || String(adminError),
+      });
       return await fetchPublicFallback();
     }
   } catch (error) {
     log.menu.error('❌ [adminMenuService] Erro ao buscar pratos:', error);
+    emitMenuDiagnostics('dishes.service.error', {
+      menuContext,
+      message: error?.message || String(error),
+    });
     return [];
   }
 }
@@ -145,11 +192,24 @@ export async function fetchAdminCategories(menuContext) {
       opts.as_subscriber = menuContext.value;
     }
 
+    emitMenuDiagnostics('categories.request', {
+      menuContext,
+      opts,
+    });
+
     try {
       const promise = base44.entities.Category.list('order', opts);
       const result = await safeFetch(promise, 10000, 'Timeout ao buscar categorias');
       
       log.menu.debug('✅ [adminMenuService] Categorias recebidas:', ensureArray(result).length);
+      emitMenuDiagnostics('categories.admin.success', {
+        opts,
+        count: ensureArray(result).length,
+        sample: ensureArray(result).slice(0, 3).map((category) => ({
+          id: category?.id ?? null,
+          name: category?.name ?? null,
+        })),
+      });
       
       // Se a rota admin retornar vazio, tentar fallback público
       if (ensureArray(result).length === 0) {
@@ -159,7 +219,16 @@ export async function fetchAdminCategories(menuContext) {
         
         if (slugToUse) {
           const publicData = await base44.get(`/public/cardapio/${slugToUse}`);
-          return ensureArray(publicData.categories);
+          const fallbackCategories = ensureArray(publicData.categories);
+          emitMenuDiagnostics('categories.fallback.success', {
+            slug: slugToUse,
+            count: fallbackCategories.length,
+            sample: fallbackCategories.slice(0, 3).map((category) => ({
+              id: category?.id ?? null,
+              name: category?.name ?? null,
+            })),
+          });
+          return fallbackCategories;
         }
       }
       
@@ -167,17 +236,34 @@ export async function fetchAdminCategories(menuContext) {
     } catch (adminError) {
       // ✅ FALLBACK: Tentar rota pública
       log.menu.warn('⚠️ [adminMenuService] Rota admin falhou, tentando fallback público');
+      emitMenuDiagnostics('categories.admin.error', {
+        opts,
+        message: adminError?.message || String(adminError),
+      });
       
       const slugToUse = await getReliableSlug(menuContext);
       
       if (slugToUse) {
         const publicData = await base44.get(`/public/cardapio/${slugToUse}`);
-        return ensureArray(publicData.categories);
+        const fallbackCategories = ensureArray(publicData.categories);
+        emitMenuDiagnostics('categories.fallback.success', {
+          slug: slugToUse,
+          count: fallbackCategories.length,
+          sample: fallbackCategories.slice(0, 3).map((category) => ({
+            id: category?.id ?? null,
+            name: category?.name ?? null,
+          })),
+        });
+        return fallbackCategories;
       }
       throw adminError;
     }
   } catch (error) {
     log.menu.error('❌ [adminMenuService] Erro ao buscar categorias:', error);
+    emitMenuDiagnostics('categories.service.error', {
+      menuContext,
+      message: error?.message || String(error),
+    });
     return [];
   }
 }

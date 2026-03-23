@@ -1402,6 +1402,75 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
       !safeCategories.some((c) => sameCategoryId(c.id, d.category_id))
   );
 
+  useEffect(() => {
+    if (permissionLoading || !menuContext) return;
+
+    const categorySummary = safeCategories.slice(0, 8).map((category) => ({
+      id: normalizeCategoryId(category?.id),
+      name: category?.name || null,
+      count: (dishesByCategory[normalizeCategoryId(category?.id)] || []).length,
+    }));
+
+    console.info('[DISHES_TAB_DIAG] state', {
+      menuContext,
+      user: user ? {
+        email: user.email || null,
+        subscriber_email: user.subscriber_email || null,
+        subscriber_id: user.subscriber_id ?? null,
+        is_master: user.is_master === true,
+        profile_role: user.profile_role || null,
+        profile_roles: Array.isArray(user.profile_roles) ? user.profile_roles : null,
+      } : null,
+      rawCounts: {
+        dishes: Array.isArray(dishes) ? dishes.length : 0,
+        categories: safeCategories.length,
+        complementGroups: safeComplementGroups.length,
+      },
+      filteredCounts: {
+        safeDishes: safeDishes.length,
+        filteredDishes: filteredDishes.length,
+        dishesWithoutCategory: dishesWithoutCategory.length,
+      },
+      activeFilters: {
+        searchTerm,
+        filterCategory,
+        filterStatus,
+        filterType,
+      },
+      categorySummary,
+      sampleDish: safeDishes[0]
+        ? {
+            id: safeDishes[0].id ?? null,
+            name: safeDishes[0].name ?? null,
+            category_id: safeDishes[0].category_id ?? null,
+            product_type: safeDishes[0].product_type ?? null,
+            is_active: safeDishes[0].is_active ?? null,
+          }
+        : null,
+    });
+  }, [
+    permissionLoading,
+    menuContext?.type,
+    menuContext?.value,
+    menuContext?.subscriber_id,
+    user?.email,
+    user?.subscriber_email,
+    user?.subscriber_id,
+    user?.is_master,
+    user?.profile_role,
+    Array.isArray(user?.profile_roles) ? user.profile_roles.join('|') : '',
+    Array.isArray(dishes) ? dishes.length : 0,
+    safeCategories.length,
+    safeComplementGroups.length,
+    safeDishes.length,
+    filteredDishes.length,
+    dishesWithoutCategory.length,
+    searchTerm,
+    filterCategory,
+    filterStatus,
+    filterType,
+  ]);
+
   const handleBulkStatusChange = (status) => {
     if (selectedDishes.length === 0) return;
     selectedDishes.forEach(dishId => {

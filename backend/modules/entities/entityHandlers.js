@@ -119,11 +119,30 @@ export function createEntityHandlers({
     try {
       const { entity } = req.params;
       const entityNorm = normalizeEntityName(entity);
+      const shouldTraceEntity = entityNorm === 'dish' || entityNorm === 'category';
       const { order_by, as_subscriber, as_subscriber_id, page, limit, ...filters } = req.query;
       const scopedTenant = await applyRequestedTenantScope(req, {
         subscriberId: as_subscriber_id,
         subscriberEmail: as_subscriber,
       });
+      if (shouldTraceEntity) {
+        console.log('[ENTITY_LIST_DIAG] request', {
+          entity: entityNorm,
+          as_subscriber: as_subscriber || null,
+          as_subscriber_id: as_subscriber_id || null,
+          scopedTenant,
+          user: {
+            email: req.user?.email || null,
+            subscriber_email: req.user?.subscriber_email || null,
+            subscriber_id: req.user?.subscriber_id ?? null,
+            is_master: req.user?.is_master === true,
+            profile_role: req.user?.profile_role || null,
+            context_subscriber: req.user?._contextForSubscriber || null,
+            context_subscriber_id: req.user?._contextForSubscriberId ?? null,
+          },
+          filters,
+        });
+      }
       const entityReadGuard = await enforceEntityReadAccess(req, res, entity, {
         owner_email: filters.owner_email || scopedTenant?.subscriberEmail || as_subscriber,
       });
@@ -162,6 +181,31 @@ export function createEntityHandlers({
         const permissionMap =
           entityReadGuard.permissionMap || parseSubscriberPermissionMap(entityReadGuard.subscriber);
         result = applyBasicScopeToEntityResult(entityNorm, result, permissionMap);
+      }
+
+      if (shouldTraceEntity) {
+        const itemCount = Array.isArray(result?.items)
+          ? result.items.length
+          : Array.isArray(result)
+            ? result.length
+            : 0;
+        const sampleItems = Array.isArray(result?.items)
+          ? result.items.slice(0, 3)
+          : Array.isArray(result)
+            ? result.slice(0, 3)
+            : [];
+        console.log('[ENTITY_LIST_DIAG] result', {
+          entity: entityNorm,
+          count: itemCount,
+          sample: sampleItems.map((item) => ({
+            id: item?.id ?? null,
+            name: item?.name ?? null,
+            category_id: item?.category_id ?? null,
+            product_type: item?.product_type ?? null,
+            owner_email: item?.owner_email ?? null,
+            subscriber_email: item?.subscriber_email ?? null,
+          })),
+        });
       }
 
       res.json(result);

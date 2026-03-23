@@ -303,16 +303,53 @@ export function createEntityAccessGuard({
   async function enforceEntityReadAccess(req, res, entity, payload = {}) {
     const entityNorm = normalizeEntityName(entity);
     const config = ENTITY_ACCESS_CONFIG[entityNorm];
+    const shouldTraceEntity = entityNorm === 'dish' || entityNorm === 'category';
     if (!shouldEnforceEntityRead(config)) {
+      if (shouldTraceEntity) {
+        console.log('[ENTITY_READ_DIAG] skip_enforce', {
+          entity: entityNorm,
+          reason: 'config.enforceRead=false',
+          user: {
+            email: req?.user?.email || null,
+            subscriber_email: req?.user?.subscriber_email || null,
+            subscriber_id: req?.user?.subscriber_id ?? null,
+            profile_role: req?.user?.profile_role || null,
+            is_master: req?.user?.is_master === true,
+          },
+        });
+      }
       return { allowed: true };
     }
 
     if (req?.user?.is_master) {
+      if (shouldTraceEntity) {
+        console.log('[ENTITY_READ_DIAG] allow_master', {
+          entity: entityNorm,
+          user: {
+            email: req?.user?.email || null,
+          },
+        });
+      }
       return { allowed: true };
     }
 
     const { ownerEmail, subscriber } = await resolveSubscriberContextForEntity(req, payload);
     if (!ownerEmail || !subscriber) {
+      if (shouldTraceEntity) {
+        console.log('[ENTITY_READ_DIAG] deny_invalid_context', {
+          entity: entityNorm,
+          ownerEmail: ownerEmail || null,
+          subscriberFound: !!subscriber,
+          payloadOwner: payload?.owner_email || payload?.as_subscriber || null,
+          queryAsSubscriber: req?.query?.as_subscriber || null,
+          user: {
+            email: req?.user?.email || null,
+            subscriber_email: req?.user?.subscriber_email || null,
+            subscriber_id: req?.user?.subscriber_id ?? null,
+            profile_role: req?.user?.profile_role || null,
+          },
+        });
+      }
       res.status(403).json({
         error: 'Contexto do assinante invalido para esta leitura.',
         code: 'ACTION_NOT_ALLOWED',
@@ -323,6 +360,20 @@ export function createEntityAccessGuard({
     const action = 'view';
     const permissionMap = parseSubscriberPermissionMap(subscriber);
     if (!hasModuleActionPermission(permissionMap, config.module, action)) {
+      if (shouldTraceEntity) {
+        console.log('[ENTITY_READ_DIAG] deny_plan_permission', {
+          entity: entityNorm,
+          module: config.module,
+          action,
+          ownerEmail,
+          subscriber: {
+            id: subscriber?.id ?? null,
+            email: subscriber?.email || null,
+            plan: subscriber?.plan || null,
+          },
+          permissionMap,
+        });
+      }
       res.status(403).json({
         error: `Plano atual nao permite ${config.module.toUpperCase()} (${action}).`,
         code: 'PLAN_FEATURE_NOT_AVAILABLE',
@@ -338,6 +389,21 @@ export function createEntityAccessGuard({
       const roles = getUserRoleList(req.user);
       const allowedRole = roles.some((role) => config.allowedCollaboratorRoles.has(role));
       if (!allowedRole) {
+        if (shouldTraceEntity) {
+          console.log('[ENTITY_READ_DIAG] deny_role', {
+            entity: entityNorm,
+            ownerEmail,
+            roles,
+            allowedRoles: Array.from(config.allowedCollaboratorRoles),
+            user: {
+              email: req?.user?.email || null,
+              subscriber_email: req?.user?.subscriber_email || null,
+              subscriber_id: req?.user?.subscriber_id ?? null,
+              profile_role: req?.user?.profile_role || null,
+              context_subscriber: req?.user?._contextForSubscriber || null,
+            },
+          });
+        }
         res.status(403).json({
           error: 'Perfil sem permissao para visualizar este modulo.',
           code: 'ROLE_NOT_ALLOWED',
@@ -349,6 +415,26 @@ export function createEntityAccessGuard({
     const basicScopeCheck = await enforceBasicPlanEntityScope(req, res, entityNorm, 'GET', payload, subscriber, permissionMap);
     if (!basicScopeCheck.allowed) {
       return { allowed: false };
+    }
+
+    if (shouldTraceEntity) {
+      console.log('[ENTITY_READ_DIAG] allow', {
+        entity: entityNorm,
+        ownerEmail,
+        isOwner,
+        user: {
+          email: req?.user?.email || null,
+          subscriber_email: req?.user?.subscriber_email || null,
+          subscriber_id: req?.user?.subscriber_id ?? null,
+          profile_role: req?.user?.profile_role || null,
+          context_subscriber: req?.user?._contextForSubscriber || null,
+        },
+        subscriber: {
+          id: subscriber?.id ?? null,
+          email: subscriber?.email || null,
+          plan: subscriber?.plan || null,
+        },
+      });
     }
 
     return { allowed: true, ownerEmail, subscriber, permissionMap };
