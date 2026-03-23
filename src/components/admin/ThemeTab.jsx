@@ -106,7 +106,7 @@ function PresetCard({ preset, active, onApply }) {
     <button
       type="button"
       onClick={() => onApply(preset.key)}
-      className="text-left rounded-[24px] border p-4 transition-all hover:-translate-y-0.5"
+      className="text-left rounded-[24px] border p-5 transition-all hover:-translate-y-0.5"
       style={{
         background: active
           ? `linear-gradient(145deg, ${withAlpha(preset.primary, 0.14)}, ${withAlpha(preset.surfaceAlt, 0.92)})`
@@ -132,9 +132,9 @@ function PresetCard({ preset, active, onApply }) {
         ) : null}
       </div>
 
-      <div className="mt-4 flex gap-2">
+      <div className="mt-5 flex gap-2.5">
         {[preset.primary, preset.secondary, preset.accent, preset.surfaceAlt].map((color) => (
-          <span key={color} className="h-10 flex-1 rounded-2xl border" style={{ backgroundColor: color, borderColor: withAlpha(color, 0.38) }} />
+          <span key={color} className="h-11 flex-1 rounded-2xl border" style={{ backgroundColor: color, borderColor: withAlpha(color, 0.38) }} />
         ))}
       </div>
     </button>
@@ -143,21 +143,21 @@ function PresetCard({ preset, active, onApply }) {
 
 function CompactColorField({ label, hint, value, onChange, changed }) {
   return (
-    <div className="rounded-2xl border p-3 bg-card/90 space-y-3">
+    <div className="rounded-2xl border p-4 bg-card/90 space-y-4">
       <div className="flex items-start justify-between gap-3">
         <div className="space-y-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <p className="text-sm font-medium text-foreground">{label}</p>
             {changed ? <Badge variant="outline" className="border text-[10px]">Novo</Badge> : null}
           </div>
-          <p className="text-[11px] leading-relaxed text-muted-foreground">{hint}</p>
+          <p className="text-xs leading-relaxed text-muted-foreground">{hint}</p>
         </div>
         <label className="relative shrink-0 cursor-pointer">
           <Input type="color" value={value} onChange={(event) => onChange(event.target.value)} className="absolute inset-0 opacity-0 cursor-pointer" />
-          <span className="block h-10 w-10 rounded-xl border shadow-inner" style={{ backgroundColor: value, borderColor: withAlpha(value, 0.35) }} />
+          <span className="block h-11 w-11 rounded-xl border shadow-inner" style={{ backgroundColor: value, borderColor: withAlpha(value, 0.35) }} />
         </label>
       </div>
-      <Input value={value} onChange={(event) => onChange(event.target.value)} className="h-9 font-mono text-xs bg-background/70" />
+      <Input value={value} onChange={(event) => onChange(event.target.value)} className="h-10 font-mono text-xs bg-background/70" />
     </div>
   );
 }
@@ -208,7 +208,7 @@ function LayoutOptionCard({ option, active, onSelect, accent }) {
     <button
       type="button"
       onClick={() => onSelect(option.value)}
-      className="text-left rounded-2xl border p-3 transition-all hover:-translate-y-0.5"
+      className="text-left rounded-2xl border p-4 transition-all hover:-translate-y-0.5"
       style={{
         backgroundColor: active ? withAlpha(accent, 0.08) : 'hsl(var(--card))',
         borderColor: active ? withAlpha(accent, 0.52) : 'hsl(var(--border))',
@@ -232,7 +232,7 @@ function CardStyleOption({ option, active, onSelect, accent }) {
     <button
       type="button"
       onClick={() => onSelect(option.value)}
-      className="text-left rounded-2xl border p-3 transition-all hover:-translate-y-0.5"
+      className="text-left rounded-2xl border p-4 transition-all hover:-translate-y-0.5"
       style={{
         backgroundColor: active ? withAlpha(accent, 0.08) : 'hsl(var(--card))',
         borderColor: active ? withAlpha(accent, 0.52) : 'hsl(var(--border))',
@@ -250,7 +250,7 @@ function CardStyleOption({ option, active, onSelect, accent }) {
           </div>
         ) : null}
       </div>
-      <div className="rounded-2xl border p-3 bg-background/60">
+      <div className="rounded-2xl border p-4 bg-background/60">
         <div
           className="rounded-2xl border p-3"
           style={option.value === 'aero'
@@ -467,7 +467,7 @@ export default function ThemeTab() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-5 sm:px-6 lg:px-8 space-y-5">
+    <div className="w-full px-4 py-5 sm:px-6 xl:px-8 2xl:px-10 space-y-6">
       <Card className="rounded-[30px] border bg-card/80 backdrop-blur-sm">
         <CardContent className="p-4 sm:p-5 lg:p-6">
           <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
@@ -533,7 +533,7 @@ export default function ThemeTab() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,430px)_minmax(0,1fr)] items-start">
+      <div className="grid gap-6 xl:grid-cols-[minmax(520px,1fr)_minmax(460px,1.04fr)] 2xl:grid-cols-[minmax(560px,0.98fr)_minmax(540px,1.02fr)] items-start">
         <div className="space-y-5">
           <Card className="rounded-[28px] border">
             <CardHeader className="pb-4">
@@ -543,7 +543,7 @@ export default function ThemeTab() {
               />
             </CardHeader>
             <CardContent className="pt-0">
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+              <div className="grid gap-4 md:grid-cols-2">
                 {STOREFRONT_THEME_PRESETS.map((preset) => (
                   <PresetCard
                     key={preset.key}
@@ -602,7 +602,7 @@ export default function ThemeTab() {
                           </div>
                         </AccordionTrigger>
                         <AccordionContent className="pb-4">
-                          <div className="grid gap-3 sm:grid-cols-2">
+                          <div className="grid gap-4 md:grid-cols-2">
                             {group.fields.map((field) => (
                               <CompactColorField
                                 key={field.key}
@@ -655,7 +655,7 @@ export default function ThemeTab() {
                     })}
                   </div>
 
-                  <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="grid gap-4 md:grid-cols-2">
                     {STOREFRONT_LAYOUT_OPTIONS.map((option) => (
                       <LayoutOptionCard
                         key={`${layoutTarget}-${option.value}`}
@@ -672,7 +672,7 @@ export default function ThemeTab() {
                       <p className="text-sm font-semibold text-foreground">Estilo do card</p>
                       <p className="text-xs text-muted-foreground mt-1">Muda o acabamento dos produtos sem trocar o layout.</p>
                     </div>
-                    <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="grid gap-4 md:grid-cols-2">
                       {CARD_STYLE_OPTIONS.map((option) => (
                         <CardStyleOption
                           key={option.value}
@@ -685,7 +685,7 @@ export default function ThemeTab() {
                     </div>
                   </div>
 
-                  <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="grid gap-4 md:grid-cols-2">
                     <Card className="rounded-[22px] border bg-card/70">
                       <CardContent className="p-4 space-y-2">
                         <Label className="text-sm font-medium">Colunas no desktop</Label>
@@ -751,7 +751,7 @@ export default function ThemeTab() {
                           </div>
                         </AccordionTrigger>
                         <AccordionContent className="pb-4">
-                          <div className="grid gap-3 sm:grid-cols-2">
+                          <div className="grid gap-4 md:grid-cols-2">
                             {extrasGroup?.fields.map((field) => (
                               <CompactColorField
                                 key={field.key}
@@ -769,13 +769,13 @@ export default function ThemeTab() {
                   </CardContent>
                 </Card>
 
-                <div className="grid gap-4 lg:grid-cols-2">
+                <div className="grid gap-4 xl:grid-cols-2">
                   <Card className="rounded-[24px] border">
                     <CardHeader className="pb-3">
                       <CardTitle className="text-base">Saude visual</CardTitle>
                       <CardDescription>Cheque rapido de contraste nos pontos que mais afetam leitura.</CardDescription>
                     </CardHeader>
-                    <CardContent className="grid gap-3 sm:grid-cols-2">
+                    <CardContent className="grid gap-3 md:grid-cols-2">
                       {contrastChecks.map((check) => (
                         <div key={check.id} className="rounded-2xl border p-3 bg-card/70">
                           <div className="flex items-center justify-between gap-3">
@@ -824,7 +824,7 @@ export default function ThemeTab() {
           </Tabs>
         </div>
 
-        <div className="xl:sticky xl:top-4 self-start">
+        <div className="xl:sticky xl:top-6 self-start">
           <Card className="rounded-[30px] border overflow-hidden">
             <CardHeader className="pb-4">
               <CompactHeader

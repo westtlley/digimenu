@@ -316,7 +316,7 @@ export default function StorefrontThemePreview({ store, theme, dishes, categorie
       };
 
   return (
-    <div className="space-y-5 rounded-[32px] border p-4 sm:p-5 lg:p-6" style={{ backgroundColor: withAlpha(theme.surfaceAlt, 0.5), borderColor: theme.borderColor }}>
+    <div className="space-y-5 rounded-[32px] border p-4 sm:p-5 lg:p-6 xl:p-7" style={{ backgroundColor: withAlpha(theme.surfaceAlt, 0.5), borderColor: theme.borderColor }}>
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <p className="text-sm font-semibold" style={{ color: theme.textPrimary }}>Como seu cliente vera</p>
@@ -349,7 +349,7 @@ export default function StorefrontThemePreview({ store, theme, dishes, categorie
         </div>
       </div>
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.25fr)_minmax(300px,0.85fr)] items-start">
+      <div className="grid gap-5 2xl:grid-cols-[minmax(0,1.18fr)_minmax(320px,0.82fr)] items-start">
         <PreviewFrame
           label={primaryViewport.label}
           icon={primaryViewport.icon}
@@ -377,7 +377,7 @@ export default function StorefrontThemePreview({ store, theme, dishes, categorie
             device={secondaryViewport.device}
           />
 
-          <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
+          <div className="grid gap-3 md:grid-cols-3 2xl:grid-cols-1">
             <div className="rounded-2xl border p-4" style={{ backgroundColor: theme.surface, borderColor: theme.borderColor }}>
               <div className="flex items-center gap-2 mb-2" style={{ color: theme.primary }}>
                 <LayoutGrid className="w-4 h-4" />
