@@ -84,6 +84,24 @@ export async function fetchAdminDishes(menuContext) {
 
     log.menu.debug('📤 [adminMenuService] Chamando Dish.list com opts:', opts);
     
+    const fetchPublicFallback = async () => {
+      const slugToUse = await getReliableSlug(menuContext);
+
+      if (!slugToUse) {
+        log.menu.error('❌ [adminMenuService] Sem slug disponível para fallback de pratos');
+        return [];
+      }
+
+      try {
+        const publicData = await base44.get(`/public/cardapio/${slugToUse}`);
+        log.menu.log('✅ [adminMenuService] Dados públicos como fallback:', publicData.dishes?.length || 0, 'pratos');
+        return ensureArray(publicData.dishes);
+      } catch (publicError) {
+        log.menu.error('❌ [adminMenuService] Fallback público de pratos também falhou:', publicError);
+        return [];
+      }
+    };
+
     try {
       const promise = base44.entities.Dish.list('order', opts);
       const result = await safeFetch(promise, 10000, 'Timeout ao buscar pratos');
@@ -94,27 +112,14 @@ export async function fetchAdminDishes(menuContext) {
       // Se a rota admin retornar vazio, tentar fallback público
       if (ensureArray(result).length === 0) {
         log.menu.warn('⚠️ [adminMenuService] Rota admin retornou 0 pratos, tentando fallback público');
-        
-        const slugToUse = await getReliableSlug(menuContext);
-        
-        if (slugToUse) {
-          try {
-            const publicData = await base44.get(`/public/cardapio/${slugToUse}`);
-            
-            log.menu.log('✅ [adminMenuService] Dados públicos como fallback:', publicData.dishes?.length || 0, 'pratos');
-            return ensureArray(publicData.dishes);
-          } catch (publicError) {
-            log.menu.error('❌ [adminMenuService] Fallback público também falhou:', publicError);
-          }
-        } else {
-          log.menu.error('❌ [adminMenuService] Sem slug disponível para fallback');
-        }
+        return await fetchPublicFallback();
       }
       
       return ensureArray(result);
     } catch (adminError) {
       log.menu.error('❌ [adminMenuService] Erro na rota admin:', adminError);
-      return [];
+      log.menu.warn('⚠️ [adminMenuService] Rota admin de pratos falhou, tentando fallback público');
+      return await fetchPublicFallback();
     }
   } catch (error) {
     log.menu.error('❌ [adminMenuService] Erro ao buscar pratos:', error);
