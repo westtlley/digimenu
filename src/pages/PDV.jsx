@@ -29,6 +29,7 @@ import AtalhosHelpModal from '../components/pdv/AtalhosHelpModal';
 import ReimpressaoVendaModal from '../components/pdv/ReimpressaoVendaModal';
 import { formatCurrency } from '@/utils/formatters';
 import { printReceipt, printCashClosingReport } from '@/utils/thermalPrint';
+import { userIsTenantOwner, userMatchesTenant } from '@/utils/tenantScope';
 import {
   buildCaixaShiftSummary,
   formatOperationalDateLabel,
@@ -71,7 +72,7 @@ export default function PDV() {
   const queryClient = useQueryClient();
   const { isMaster, hasRole, canAccessOperationalRoute } = usePermission();
   const { requireAuthorization, modal: authModal } = useManagerialAuth();
-  const { slug, subscriberId, subscriberEmail, inSlugContext, loading: slugLoading, error: slugError } = useSlugContext();
+  const { slug, subscriberId, subscriberEmail, inSlugContext, loading: slugLoading } = useSlugContext();
   const canonicalPdvPath = useMemo(() => createPageUrl('PDV', slug || undefined), [slug]);
   const normalizedSlugSubscriber = useMemo(
     () => (inSlugContext && subscriberEmail ? String(subscriberEmail).toLowerCase().trim() : null),
@@ -138,16 +139,32 @@ export default function PDV() {
           is_master: me.is_master
         });
         
-        const hasAccess = canAccessOperationalRoute({
+        const hasAccessByHelper = canAccessOperationalRoute({
           subscriberId,
           subscriberEmail,
           inSlugContext,
           allowedRoles: ['pdv'],
         }, me);
-        
+
+        const tenantMatch = inSlugContext
+          ? userMatchesTenant(me, { subscriberId, subscriberEmail })
+          : true;
+        const directRoleAccess = me?.is_master === true || hasRole('gerente', me) || hasRole('pdv', me);
+        const ownerAccess = userIsTenantOwner(me);
+        const subscriberAccess = tenantMatch
+          && !hasRole('entregador', me)
+          && !hasRole('cozinha', me)
+          && !hasRole('garcom', me)
+          && me?.role !== 'customer'
+          && !!(me?.subscriber_email || me?.subscriber_id);
+        const hasAccess = hasAccessByHelper || directRoleAccess || ownerAccess || subscriberAccess;
+
         console.log('[PDV] access result', {
           isGerente: hasRole('gerente', me),
           isPDV: hasRole('pdv', me),
+          ownerAccess,
+          tenantMatch,
+          helperAccess: hasAccessByHelper,
           hasAccess
         });
         
@@ -190,6 +207,12 @@ export default function PDV() {
   const { data: categories = [] } = useQuery({
     queryKey: ['categories', tenantScope],
     queryFn: () => base44.entities.Category.list('order', opts),
+    enabled: !!user && allowed,
+  });
+
+  const { data: beverageCategories = [] } = useQuery({
+    queryKey: ['beverageCategories', tenantScope],
+    queryFn: () => base44.entities.BeverageCategory.list('order', opts).catch(() => []),
     enabled: !!user && allowed,
   });
 
@@ -518,13 +541,32 @@ export default function PDV() {
 
   const safeDishes = Array.isArray(dishes) ? dishes : [];
   const activeDishes = safeDishes.filter(d => d && d.is_active !== false);
+  const safeCategories = Array.isArray(categories) ? categories.filter((cat) => cat && cat.name && cat.is_active !== false) : [];
+  const safeBeverageCategories = Array.isArray(beverageCategories)
+    ? beverageCategories.filter((cat) => cat && cat.name && cat.is_active !== false)
+    : [];
+  const activeBeverages = activeDishes.filter((dish) => dish?.product_type === 'beverage');
+  const visibleMenuCategories = safeCategories.filter((cat) =>
+    activeDishes.some(
+      (dish) => dish?.product_type !== 'beverage' && String(dish?.category_id) === String(cat.id)
+    )
+  );
+  const visibleBeverageCategories = safeBeverageCategories.filter((cat) =>
+    activeBeverages.some((dish) => String(dish?.category_id) === String(cat.id))
+  );
   const hasPizzas = activeDishes.some(d => d.product_type === 'pizza');
   const filteredDishes = activeDishes.filter(d => {
     if (!d || !d.name) return false;
     const matchesSearch = !searchTerm || d.name.toLowerCase().includes(searchTerm.toLowerCase());
     let matchesCategory = true;
     if (selectedCategory === 'pizzas') matchesCategory = d.product_type === 'pizza';
-    else if (selectedCategory !== 'all') matchesCategory = d.category_id === selectedCategory;
+    else if (selectedCategory === 'beverages') matchesCategory = d.product_type === 'beverage';
+    else if (selectedCategory?.startsWith?.('bc_')) {
+      const beverageCategoryId = selectedCategory.replace(/^bc_/, '');
+      matchesCategory = d.product_type === 'beverage' && String(d.category_id) === String(beverageCategoryId);
+    } else if (selectedCategory !== 'all') {
+      matchesCategory = d.product_type !== 'beverage' && String(d.category_id) === String(selectedCategory);
+    }
     return matchesSearch && matchesCategory;
   });
 
@@ -1243,7 +1285,7 @@ export default function PDV() {
                     PIZZAS
                   </button>
                 )}
-                {(categories || []).filter(cat => cat && cat.name).map(cat => (
+                {visibleMenuCategories.map(cat => (
                   <button
                     key={cat.id}
                     onClick={() => setSelectedCategory(cat.id)}
@@ -1256,6 +1298,39 @@ export default function PDV() {
                     {(cat.name || 'Categoria').toUpperCase()}
                   </button>
                 ))}
+                {activeBeverages.length > 0 && (
+                  <>
+                    {visibleBeverageCategories.length > 0 ? (
+                      visibleBeverageCategories.map((cat) => {
+                        const beverageCategoryKey = `bc_${cat.id}`;
+                        return (
+                          <button
+                            key={beverageCategoryKey}
+                            onClick={() => setSelectedCategory(beverageCategoryKey)}
+                            className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-bold whitespace-nowrap transition-colors min-h-touch ${
+                              selectedCategory === beverageCategoryKey
+                                ? 'bg-orange-500 text-primary-foreground'
+                                : 'bg-card text-foreground hover:bg-muted border border-border'
+                            }`}
+                          >
+                            {(cat.name || 'Bebidas').toUpperCase()}
+                          </button>
+                        );
+                      })
+                    ) : (
+                      <button
+                        onClick={() => setSelectedCategory('beverages')}
+                        className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-bold whitespace-nowrap transition-colors min-h-touch ${
+                          selectedCategory === 'beverages'
+                            ? 'bg-orange-500 text-primary-foreground'
+                            : 'bg-card text-foreground hover:bg-muted border border-border'
+                        }`}
+                      >
+                        BEBIDAS
+                      </button>
+                    )}
+                  </>
+                )}
               </div>
             </div>
 
