@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent } from "@/components/ui/card";
-import { Plus, Trash2, Star, ChevronDown, ChevronUp, MoreVertical, Layers, Copy, FolderPlus, Menu, Settings, Files, Pencil, X, GripVertical, Search, Edit as EditIcon, UtensilsCrossed, LayoutGrid, CheckCircle, Package } from 'lucide-react';
+import { Plus, Trash2, Star, ChevronDown, ChevronUp, MoreVertical, Layers, Copy, FolderPlus, Menu, Settings, Files, Pencil, GripVertical, Search, Edit as EditIcon, UtensilsCrossed, LayoutGrid, CheckCircle, Package, Play, Pause } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import ReuseGroupModal from './ReuseGroupModal';
 import ReorderModal from './ReorderModal';
@@ -45,7 +45,7 @@ import { uploadToCloudinary } from '@/utils/cloudinaryUpload';
 import { formatCurrency } from '@/utils/formatters';
 
 // ========= DishRow (extraído para evitar erro de parser no build) =========
-export function DishRow({ dish, complementGroups, expanded, onToggleExpand, onEdit, onDelete, onDuplicate, onUpdate, onToggleOption, onUpdateOptionName, onUpdateOptionImage, onUpdateOptionPrice, onRemoveOption, onAddOption, onAddGroup, onReuseGroup, onRemoveGroup, onOpenReuseModal, allComplementGroups, allDishes, onEditGroup, getGroupUsageInfo, formatCurrency, updateDishMutation, updateComplementGroupMutation, createComplementGroupMutation, isSelected, onToggleSelection, canEdit, canCreate, canDelete, setBulkEditGroup, setShowBulkEditModal }) {
+export function DishRow({ dish, complementGroups, expanded, onToggleExpand, onEdit, onDelete, onDuplicate, onUpdate, onToggleOption, onUpdateOptionName, onUpdateOptionImage, onUpdateOptionPrice, onRemoveOption, onDuplicateOption, onAddOption, onAddGroup, onReuseGroup, onRemoveGroup, onOpenReuseModal, allComplementGroups, allDishes, onEditGroup, getGroupUsageInfo, formatCurrency, updateDishMutation, updateComplementGroupMutation, createComplementGroupMutation, isSelected, onToggleSelection, canEdit, canCreate, canDelete, setBulkEditGroup, setShowBulkEditModal }) {
   const [editingOptionId, setEditingOptionId] = useState(null);
   const [editingOptionValue, setEditingOptionValue] = useState('');
   const [editingOptionPrice, setEditingOptionPrice] = useState(null);
@@ -223,13 +223,23 @@ export function DishRow({ dish, complementGroups, expanded, onToggleExpand, onEd
           )}
         </div>
 
-        <Switch 
-          checked={dish.is_active !== false} 
-          onCheckedChange={(checked) => {
-            if (canEdit) onUpdate({ is_active: checked });
-          }} 
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className={`h-9 w-9 rounded-full border transition-colors ${
+            dish.is_active !== false
+              ? 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100'
+              : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+          }`}
+          onClick={() => {
+            if (canEdit) onUpdate({ is_active: dish.is_active === false });
+          }}
           disabled={!canEdit}
-        />
+          title={dish.is_active !== false ? 'Pausar item' : 'Ativar item'}
+        >
+          {dish.is_active !== false ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
+        </Button>
         
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -510,24 +520,75 @@ export function DishRow({ dish, complementGroups, expanded, onToggleExpand, onEd
                       </div>
                       
                       <div className="flex items-center gap-2">
-                        <Switch 
-                          checked={opt.is_active !== false} 
-                          onCheckedChange={() => {
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className={`h-8 w-8 rounded-full border transition-colors ${
+                            opt.is_active !== false
+                              ? 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100'
+                              : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                          }`}
+                          onClick={() => {
                             if (canEdit) onToggleOption(group.id, opt.id, opt.is_active !== false);
                           }}
                           disabled={!canEdit}
-                        />
-                        {canDelete && (
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            onClick={() => onRemoveOption(group.id, opt.id)}
-                            className="text-red-500 hover:text-red-700 h-8 w-8 p-0"
-                          >
-                            <X className="w-4 h-4" />
-                          </Button>
+                          title={opt.is_active !== false ? 'Pausar opção' : 'Ativar opção'}
+                        >
+                          {opt.is_active !== false ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 ml-0.5" />}
+                        </Button>
+                        {(canEdit || canCreate || canDelete) && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
+                                <MoreVertical className="w-4 h-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              {canEdit && (
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setEditingOptionId(opt.id);
+                                    setEditingOptionValue(opt.name);
+                                  }}
+                                >
+                                  <Pencil className="w-4 h-4 mr-2" />
+                                  Editar opção
+                                </DropdownMenuItem>
+                              )}
+                              {canEdit && (
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setEditingOptionPrice(opt.id);
+                                    setEditingPriceValue((opt.price || 0).toString());
+                                  }}
+                                >
+                                  <Settings className="w-4 h-4 mr-2" />
+                                  Editar preço
+                                </DropdownMenuItem>
+                              )}
+                              {canCreate && (
+                                <DropdownMenuItem onClick={() => onDuplicateOption(group.id, opt.id)}>
+                                  <Copy className="w-4 h-4 mr-2" />
+                                  Duplicar opção
+                                </DropdownMenuItem>
+                              )}
+                              {canDelete && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={() => onRemoveOption(group.id, opt.id)}
+                                    className="text-red-600"
+                                  >
+                                    <Trash2 className="w-4 h-4 mr-2" />
+                                    Remover opção
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         )}
-                                </div>
+                      </div>
                               </div>
                             )}
                           </Draggable>
@@ -1165,6 +1226,28 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
     updateComplementGroupMutation.mutate({
       id: groupId,
       data: { ...group, options: newOptions }
+    });
+  };
+
+  const duplicateComplementOption = (groupId, optionId) => {
+    const group = safeComplementGroups.find(g => g.id === groupId);
+    if (!group) return;
+
+    const option = (group.options || []).find(opt => opt.id === optionId);
+    if (!option) return;
+
+    const duplicatedOption = {
+      ...option,
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      name: option.name ? `${option.name} (Cópia)` : 'Nova opção (Cópia)',
+    };
+
+    updateComplementGroupMutation.mutate({
+      id: groupId,
+      data: {
+        ...group,
+        options: [...(group.options || []), duplicatedOption],
+      }
     });
   };
 
@@ -2019,6 +2102,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
                     onUpdateOptionPrice={updateComplementOptionPrice}
                     onUpdateOptionImage={updateComplementOptionImage}
                     onRemoveOption={removeComplementOption}
+                    onDuplicateOption={duplicateComplementOption}
                     onAddOption={addNewComplementOption}
                     onAddGroup={() => addNewComplementGroupToDish(dish.id)}
                     onReuseGroup={(groupId) => reuseComplementGroupToDish(dish.id, groupId)}
@@ -2151,6 +2235,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
                       onUpdateOptionImage={updateComplementOptionImage}
                       onUpdateOptionPrice={updateComplementOptionPrice}
                       onRemoveOption={removeComplementOption}
+                      onDuplicateOption={duplicateComplementOption}
                       onAddOption={addNewComplementOption}
                       onAddGroup={() => addNewComplementGroupToDish(dish.id)}
                       onReuseGroup={(groupId) => reuseComplementGroupToDish(dish.id, groupId)}
