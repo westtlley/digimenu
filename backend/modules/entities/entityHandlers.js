@@ -8,6 +8,7 @@ import {
   decorateOrderEntity,
   normalizeOrderForPersistence,
 } from '../../utils/orderLifecycle.js';
+import { normalizePlanPresetKey } from '../../utils/planPresetsForContext.js';
 import { normalizeEntityName } from './entityAccessConfig.js';
 
 function findLocalSubscriberByEmail(db, email) {
@@ -96,6 +97,11 @@ function paginateItems(items, pagination) {
   };
 }
 
+function shouldApplyBasicReadScope(subscriber) {
+  const plan = normalizePlanPresetKey(subscriber?.plan, { defaultPlan: 'basic' }) || 'basic';
+  return plan === 'basic';
+}
+
 export function createEntityHandlers({
   repo,
   db,
@@ -177,7 +183,12 @@ export function createEntityHandlers({
         return res.status(500).json({ error: 'Banco de dados nao inicializado' });
       }
 
-      if (!req.user?.is_master && entityReadGuard?.subscriber && (entityNorm === 'dish' || entityNorm === 'combo')) {
+      if (
+        !req.user?.is_master &&
+        entityReadGuard?.subscriber &&
+        shouldApplyBasicReadScope(entityReadGuard.subscriber) &&
+        (entityNorm === 'dish' || entityNorm === 'combo')
+      ) {
         const permissionMap =
           entityReadGuard.permissionMap || parseSubscriberPermissionMap(entityReadGuard.subscriber);
         result = applyBasicScopeToEntityResult(entityNorm, result, permissionMap);
@@ -247,7 +258,12 @@ export function createEntityHandlers({
 
       if (!item) return res.status(404).json({ error: 'Entidade nao encontrada' });
 
-      if (!req.user?.is_master && entityReadGuard?.subscriber && (entityNorm === 'dish' || entityNorm === 'combo')) {
+      if (
+        !req.user?.is_master &&
+        entityReadGuard?.subscriber &&
+        shouldApplyBasicReadScope(entityReadGuard.subscriber) &&
+        (entityNorm === 'dish' || entityNorm === 'combo')
+      ) {
         const permissionMap =
           entityReadGuard.permissionMap || parseSubscriberPermissionMap(entityReadGuard.subscriber);
         const filtered = applyBasicScopeFilterToItems(entityNorm, [item], permissionMap);
