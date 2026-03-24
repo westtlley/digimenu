@@ -43,9 +43,10 @@ import { useManagerialAuth } from '@/hooks/useManagerialAuth';
 import DishesSkeleton from '../skeletons/DishesSkeleton';
 import { uploadToCloudinary } from '@/utils/cloudinaryUpload';
 import { formatCurrency } from '@/utils/formatters';
+import AdminImagePickerDialog from './media/AdminImagePickerDialog';
 
 // ========= DishRow (extraído para evitar erro de parser no build) =========
-export function DishRow({ dish, complementGroups, expanded, onToggleExpand, onEdit, onDelete, onDuplicate, onUpdate, onToggleOption, onUpdateOptionName, onUpdateOptionImage, onUpdateOptionPrice, onRemoveOption, onDuplicateOption, onAddOption, onAddGroup, onReuseGroup, onRemoveGroup, onOpenReuseModal, allComplementGroups, allDishes, onEditGroup, getGroupUsageInfo, formatCurrency, updateDishMutation, updateComplementGroupMutation, createComplementGroupMutation, isSelected, onToggleSelection, canEdit, canCreate, canDelete, setBulkEditGroup, setShowBulkEditModal }) {
+export function DishRow({ dish, complementGroups, expanded, onToggleExpand, onEdit, onDelete, onDuplicate, onUpdate, onToggleOption, onUpdateOptionName, onOpenOptionImagePicker, onUpdateOptionPrice, onRemoveOption, onDuplicateOption, onAddOption, onAddGroup, onReuseGroup, onRemoveGroup, onOpenReuseModal, allComplementGroups, allDishes, onEditGroup, getGroupUsageInfo, formatCurrency, updateDishMutation, updateComplementGroupMutation, createComplementGroupMutation, isSelected, onToggleSelection, canEdit, canCreate, canDelete, setBulkEditGroup, setShowBulkEditModal }) {
   const [editingOptionId, setEditingOptionId] = useState(null);
   const [editingOptionValue, setEditingOptionValue] = useState('');
   const [editingOptionPrice, setEditingOptionPrice] = useState(null);
@@ -418,7 +419,11 @@ export function DishRow({ dish, complementGroups, expanded, onToggleExpand, onEd
                                  <GripVertical className="w-4 h-4 text-muted-foreground flex-shrink-0 cursor-grab active:cursor-grabbing" />
                                 )}
                       {canEdit ? (
-                        <label className="cursor-pointer relative">
+                        <button
+                          type="button"
+                          onClick={() => onOpenOptionImagePicker(group.id, opt.id)}
+                          className="cursor-pointer relative group rounded-xl"
+                        >
                           {opt.image ? (
                             <img src={opt.image} alt={opt.name} className="w-12 h-12 rounded object-cover" />
                           ) : (
@@ -426,21 +431,8 @@ export function DishRow({ dish, complementGroups, expanded, onToggleExpand, onEd
                               +
                             </div>
                           )}
-                          <input
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) {
-                                setUploadingImageForOption(opt.id);
-                                onUpdateOptionImage(group.id, opt.id, file).then(() => {
-                                  setUploadingImageForOption(null);
-                                });
-                              }
-                            }}
-                          />
-                        </label>
+                          <div className="pointer-events-none absolute inset-0 rounded bg-black/0 transition-colors group-hover:bg-black/10" />
+                        </button>
                       ) : (
                         opt.image ? (
                           <img src={opt.image} alt={opt.name} className="w-12 h-12 rounded object-cover" />
@@ -689,6 +681,14 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [mobileComplementsDish, setMobileComplementsDish] = useState(null);
   const [internalTab, setInternalTab] = useState(initialTab); // ✅ Aba interna: 'dishes', 'categories', 'complements'
+  const [imagePickerState, setImagePickerState] = useState({
+    open: false,
+    target: null,
+    groupId: null,
+    optionId: null,
+    title: 'Adicionar foto',
+    folder: 'dishes',
+  });
   
   // ✅ Atualizar aba quando initialTab mudar
   useEffect(() => {
@@ -979,6 +979,45 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
   const safeDishes = (Array.isArray(dishes) ? dishes : []).filter(d => d.product_type !== 'pizza' && d.product_type !== 'beverage');
   const safeCategories = Array.isArray(categories) ? categories : [];
   const safeComplementGroups = Array.isArray(complementGroups) ? complementGroups : [];
+  const imageLibrary = React.useMemo(() => {
+    const entries = [];
+    const seen = new Set();
+
+    const addImage = (url, label, meta) => {
+      const normalizedUrl = String(url || '').trim();
+      if (!normalizedUrl || seen.has(normalizedUrl)) return;
+      seen.add(normalizedUrl);
+      entries.push({
+        url: normalizedUrl,
+        label,
+        meta,
+      });
+    };
+
+    if (dishFormData.image) {
+      addImage(dishFormData.image, dishFormData.name || 'Imagem atual', 'Imagem já aplicada neste prato');
+    }
+
+    safeDishes.forEach((dish) => {
+      addImage(
+        dish?.image,
+        dish?.name || 'Prato',
+        dish?.category_id ? `Categoria ${dish.category_id}` : 'Imagem de prato já cadastrada'
+      );
+    });
+
+    safeComplementGroups.forEach((group) => {
+      (group?.options || []).forEach((option) => {
+        addImage(
+          option?.image,
+          option?.name || 'Complemento',
+          group?.name ? `Grupo ${group.name}` : 'Imagem de complemento'
+        );
+      });
+    });
+
+    return entries;
+  }, [dishFormData.image, dishFormData.name, safeDishes, safeComplementGroups]);
 
  // ========= FUNÇÕES PRINCIPAIS =========
   const openDishModal = (dish = null, categoryId = '', productType = 'preparado') => {
@@ -1109,21 +1148,68 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
     }
   };
 
+  const setComplementOptionImageUrl = async (groupId, optionId, imageUrl) => {
+    const group = safeComplementGroups.find(g => g.id === groupId);
+    if (!group) return;
+
+    const updatedOptions = (group.options || []).map(opt =>
+      opt.id === optionId ? { ...opt, image: imageUrl } : opt
+    );
+
+    await updateComplementGroupMutation.mutateAsync({
+      id: groupId,
+      data: { ...group, options: updatedOptions }
+    });
+  };
+
+  const openDishImagePicker = () => {
+    setImagePickerState({
+      open: true,
+      target: 'dish',
+      groupId: null,
+      optionId: null,
+      title: dishFormData.image ? 'Alterar foto do prato' : 'Adicionar foto',
+      folder: 'dishes',
+    });
+  };
+
+  const openOptionImagePicker = (groupId, optionId) => {
+    setImagePickerState({
+      open: true,
+      target: 'option',
+      groupId,
+      optionId,
+      title: 'Adicionar foto',
+      folder: 'complements',
+    });
+  };
+
+  const closeImagePicker = () => {
+    setImagePickerState({
+      open: false,
+      target: null,
+      groupId: null,
+      optionId: null,
+      title: 'Adicionar foto',
+      folder: 'dishes',
+    });
+  };
+
+  const handleImagePickerSelect = async (imageUrl) => {
+    if (imagePickerState.target === 'dish') {
+      setDishFormData(prev => ({ ...prev, image: imageUrl }));
+      return;
+    }
+
+    if (imagePickerState.target === 'option' && imagePickerState.groupId && imagePickerState.optionId) {
+      await setComplementOptionImageUrl(imagePickerState.groupId, imagePickerState.optionId, imageUrl);
+    }
+  };
+
   const handleOptionImageUpload = async (groupId, optionId, file) => {
     try {
       const imageUrl = await uploadToCloudinary(file, 'complements');
-
-      const group = safeComplementGroups.find(g => g.id === groupId);
-      if (!group) return;
-
-      const updatedOptions = (group.options || []).map(opt =>
-        opt.id === optionId ? { ...opt, image: imageUrl } : opt
-      );
-
-      await updateComplementGroupMutation.mutateAsync({
-        id: groupId,
-        data: { ...group, options: updatedOptions }
-      });
+      await setComplementOptionImageUrl(groupId, optionId, imageUrl);
 
       toast.success("Imagem salva com sucesso!");
     } catch (err) {
@@ -2100,7 +2186,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
                     onToggleOption={toggleComplementOption}
                     onUpdateOptionName={updateComplementOptionName}
                     onUpdateOptionPrice={updateComplementOptionPrice}
-                    onUpdateOptionImage={updateComplementOptionImage}
+                    onOpenOptionImagePicker={openOptionImagePicker}
                     onRemoveOption={removeComplementOption}
                     onDuplicateOption={duplicateComplementOption}
                     onAddOption={addNewComplementOption}
@@ -2232,8 +2318,8 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
                       onUpdate={(data) => updateDishMutation.mutate({ id: dish.id, data })}
                       onToggleOption={toggleComplementOption}
                       onUpdateOptionName={updateComplementOptionName}
-                      onUpdateOptionImage={updateComplementOptionImage}
                       onUpdateOptionPrice={updateComplementOptionPrice}
+                      onOpenOptionImagePicker={openOptionImagePicker}
                       onRemoveOption={removeComplementOption}
                       onDuplicateOption={duplicateComplementOption}
                       onAddOption={addNewComplementOption}
@@ -2384,8 +2470,21 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
         }}
         onUpdateOptionName={updateComplementOptionName}
         onUpdateOptionPrice={updateComplementOptionPrice}
-        onUpdateOptionImage={updateComplementOptionImage}
+        onOpenImagePicker={openOptionImagePicker}
+        onDuplicateOption={duplicateComplementOption}
         formatCurrency={formatCurrency}
+      />
+
+      <AdminImagePickerDialog
+        open={imagePickerState.open}
+        onOpenChange={(open) => {
+          if (!open) closeImagePicker();
+        }}
+        title={imagePickerState.title}
+        description="Use uma foto limpa e bem iluminada para deixar o cardápio mais profissional."
+        folder={imagePickerState.folder}
+        existingImages={imageLibrary}
+        onSelectImage={handleImagePickerSelect}
       />
 
       {/* Mobile Filters Bottom Sheet */}
@@ -2641,15 +2740,45 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
 
             <div>
               <Label className="text-sm font-medium mb-2 block">Imagem</Label>
-              <Input 
-                type="file" 
-                accept="image/*" 
-                onChange={handleImageUpload} 
-                className="min-h-touch"
-              />
-              {dishFormData.image && (
-                <img src={dishFormData.image} alt="" className="mt-2 w-20 h-20 sm:w-24 sm:h-24 object-cover rounded" />
-              )}
+              <div className="rounded-2xl border border-dashed border-border bg-muted/20 p-4">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                  <div className="h-24 w-24 overflow-hidden rounded-2xl border border-border bg-background shadow-sm">
+                    {dishFormData.image ? (
+                      <img src={dishFormData.image} alt={dishFormData.name || 'Imagem do prato'} className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-center text-xs text-muted-foreground">
+                        Sem foto
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex-1 space-y-2">
+                    <p className="text-sm font-medium text-foreground">Capriche na foto principal do prato</p>
+                    <div className="space-y-1 text-xs text-muted-foreground">
+                      <p>Formatos: JPG, JPEG, PNG e HEIC</p>
+                      <p>Peso máximo: 10 MB</p>
+                      <p>Resolução mínima: 300x300</p>
+                      <p>Recomendamos usar uma foto quadrada para destacar melhor na vitrine.</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                  <Button type="button" variant="outline" onClick={openDishImagePicker}>
+                    {dishFormData.image ? 'Trocar foto' : 'Adicionar foto'}
+                  </Button>
+                  {dishFormData.image && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="text-red-600 hover:text-red-700"
+                      onClick={() => setDishFormData(prev => ({ ...prev, image: '' }))}
+                    >
+                      Remover foto
+                    </Button>
+                  )}
+                </div>
+              </div>
             </div>
 
             {/* 🎥 Link do Vídeo — visível junto com Imagem e Destaques */}
