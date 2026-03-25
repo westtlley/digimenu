@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Star, Layers, Search, UtensilsCrossed, LayoutGrid } from 'lucide-react';
+import { Plus, Star, Layers, Search, UtensilsCrossed, LayoutGrid, Calculator } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import ReuseGroupModal from './ReuseGroupModal';
 import ReorderModal from './ReorderModal';
@@ -25,6 +25,7 @@ import ProductTypeModal from './ProductTypeModal';
 import MenuView from './catalog/MenuView';
 import ProductsView from './catalog/ProductsView';
 import ComplementsView from './catalog/ComplementsView';
+import PDVCatalogView from './catalog/PDV/PDVCatalogView';
 import DishRow from './catalog/components/DishRow';
 import DishFormModal from './catalog/modals/DishFormModal';
 import DishDeleteModal from './catalog/modals/DishDeleteModal';
@@ -57,6 +58,7 @@ function sameCategoryId(left, right) {
 function normalizeInternalTab(value) {
   if (value === 'products') return 'products';
   if (value === 'complements') return 'complements';
+  if (value === 'pdv') return 'pdv';
   return 'menu';
 }
 
@@ -1151,8 +1153,16 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
   };
 
   const activeFilters = getActiveFilters();
-  const currentViewLabel = internalTab === 'products' ? 'Produtos' : internalTab === 'complements' ? 'Complementos' : 'Cardápio';
+  const currentViewLabel =
+    internalTab === 'products'
+      ? 'Produtos'
+      : internalTab === 'complements'
+        ? 'Complementos'
+        : internalTab === 'pdv'
+          ? 'PDV'
+          : 'Cardápio';
   const activeProductsCount = safeDishes.filter(d => d.is_active !== false).length;
+  const pdvStorageKey = `digimenu:pdv-catalog:${menuContext?.type || 'default'}:${menuContext?.value || getSubscriberEmail() || 'global'}`;
 
   const clearAllFilters = () => {
     setSearchTerm('');
@@ -1307,7 +1317,9 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
                 ? 'Banco de produtos com busca, filtros e ações rápidas.'
                 : internalTab === 'complements'
                   ? 'Grupos reutilizáveis para personalizar o pedido.'
-                  : 'Organize categorias e produtos como o cliente enxerga.'}
+                  : internalTab === 'pdv'
+                    ? 'Controle visual do que vai aparecer no caixa.'
+                    : 'Organize categorias e produtos como o cliente enxerga.'}
             </p>
           </div>
 
@@ -1325,6 +1337,11 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
               )}
             </button>
           ) : internalTab === 'menu' && canCreate('dishes') ? (
+            <Button size="sm" onClick={() => handleOpenProductTypeModal(safeCategories[0]?.id || '')}>
+              <Plus className="mr-1 h-4 w-4" />
+              Novo produto
+            </Button>
+          ) : internalTab === 'pdv' && canCreate('dishes') ? (
             <Button size="sm" onClick={() => handleOpenProductTypeModal(safeCategories[0]?.id || '')}>
               <Plus className="mr-1 h-4 w-4" />
               Novo produto
@@ -1377,6 +1394,17 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
             <LayoutGrid className="mr-2 inline h-4 w-4" />
             Complementos
           </button>
+          <button
+            onClick={() => setInternalTab('pdv')}
+            className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+              internalTab === 'pdv'
+                ? 'border-orange-500 text-orange-500'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Calculator className="mr-2 inline h-4 w-4" />
+            PDV
+          </button>
         </div>
       </div>
 
@@ -1411,6 +1439,16 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
             }`}
           >
             Complementos
+          </button>
+          <button
+            onClick={() => setInternalTab('pdv')}
+            className={`flex-shrink-0 border-b-2 px-4 py-3 text-xs font-medium transition-colors ${
+              internalTab === 'pdv'
+                ? 'border-orange-500 text-orange-500'
+                : 'border-transparent text-muted-foreground'
+            }`}
+          >
+            PDV
           </button>
         </div>
       </div>
@@ -1447,6 +1485,29 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
           renderMobileDishCard={renderMobileDishCard}
           renderProductListRow={renderProductListRow}
           normalizeCategoryId={normalizeCategoryId}
+        />
+      ) : internalTab === 'pdv' ? (
+        <PDVCatalogView
+          storageKey={pdvStorageKey}
+          safeDishes={safeDishes}
+          safeCategories={safeCategories}
+          canCreateProducts={canCreate('dishes')}
+          canEditProducts={canUpdate('dishes')}
+          canCreate={canCreate('dishes')}
+          canDelete={canDelete('dishes')}
+          onOpenNewProduct={() => handleOpenProductTypeModal(safeCategories[0]?.id || '')}
+          onEditDish={openDishModal}
+          onDeleteDish={requestDeleteDish}
+          onDuplicateDish={duplicateDish}
+          onToggleDishActive={(dish) => {
+            if (!canUpdate('dishes')) return;
+            updateDishMutation.mutate({
+              id: dish.id,
+              data: { is_active: dish.is_active === false },
+            });
+          }}
+          normalizeCategoryId={normalizeCategoryId}
+          formatCurrency={formatCurrency}
         />
       ) : (
         <MenuView
@@ -1824,4 +1885,5 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
     </>
   );
 }
+
 

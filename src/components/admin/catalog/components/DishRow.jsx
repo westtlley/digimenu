@@ -6,6 +6,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { ChevronDown, ChevronUp, Copy, Edit as EditIcon, Files, Layers, MoreVertical, Pencil, Play, Pause, Plus, Settings, Trash2, GripVertical } from 'lucide-react';
 import DishStatusToggle from './DishStatusToggle';
+import ChannelToggle from './ChannelToggle';
 function MenuDishRow({ dish, complementGroups, expanded, onToggleExpand, onEdit, onDelete, onDuplicate, onUpdate, onToggleOption, onUpdateOptionName, onOpenOptionImagePicker, onUpdateOptionPrice, onRemoveOption, onDuplicateOption, onAddOption, onAddGroup, onReuseGroup, onRemoveGroup, onOpenReuseModal, allComplementGroups, allDishes, onEditGroup, getGroupUsageInfo, formatCurrency, updateDishMutation, updateComplementGroupMutation, createComplementGroupMutation, isSelected, onToggleSelection, canEdit, canCreate, canDelete, setBulkEditGroup, setShowBulkEditModal }) {
   const [editingOptionId, setEditingOptionId] = useState(null);
   const [editingOptionValue, setEditingOptionValue] = useState('');
@@ -583,11 +584,15 @@ function ProductListRow({
   dish,
   categoryName,
   isSelected,
+  showSelection = true,
+  showPDVControls = false,
+  pdvEnabled = false,
   onToggleSelection,
   onEdit,
   onDelete,
   onDuplicate,
   onToggleActive,
+  onTogglePDV,
   canEdit,
   canCreate,
   canDelete,
@@ -595,15 +600,22 @@ function ProductListRow({
 }) {
   const isInactive = dish?.is_active === false;
   const hasDiscount = dish?.original_price && dish?.original_price > dish?.price;
+  const gridClass = showPDVControls
+    ? 'grid-cols-[auto_4rem_minmax(0,1.8fr)_minmax(0,1fr)_7rem_8rem_8rem_auto]'
+    : 'grid-cols-[auto_4rem_minmax(0,1.8fr)_minmax(0,1fr)_7rem_7rem_auto]';
 
   return (
-    <div className={`grid grid-cols-[auto_4rem_minmax(0,1.8fr)_minmax(0,1fr)_7rem_7rem_auto] items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3 transition-shadow hover:shadow-sm ${isSelected ? 'ring-2 ring-blue-500' : ''}`}>
-      <input
-        type="checkbox"
-        checked={isSelected}
-        onChange={onToggleSelection}
-        className="h-4 w-4 rounded"
-      />
+    <div className={`grid ${gridClass} items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3 transition-shadow hover:shadow-sm ${isSelected ? 'ring-2 ring-blue-500' : ''}`}>
+      {showSelection ? (
+        <input
+          type="checkbox"
+          checked={isSelected}
+          onChange={onToggleSelection}
+          className="h-4 w-4 rounded"
+        />
+      ) : (
+        <div className="h-4 w-4" />
+      )}
 
       <div className="h-16 w-16 overflow-hidden rounded-xl bg-muted">
         {dish?.image ? (
@@ -640,10 +652,31 @@ function ProductListRow({
       </div>
 
       <div>
-        <Badge variant={isInactive ? 'outline' : 'default'} className={`text-xs ${isInactive ? 'text-muted-foreground' : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100'}`}>
-          {isInactive ? 'Inativo' : 'Ativo'}
-        </Badge>
+        <div className="flex flex-col gap-1">
+          <Badge variant={isInactive ? 'outline' : 'default'} className={`w-fit text-xs ${isInactive ? 'text-muted-foreground' : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100'}`}>
+            {isInactive ? 'Inativo' : 'Ativo'}
+          </Badge>
+          {showPDVControls && (
+            <Badge
+              variant="secondary"
+              className={`w-fit text-xs ${pdvEnabled ? 'bg-blue-100 text-blue-700 hover:bg-blue-100' : 'bg-slate-100 text-slate-600 hover:bg-slate-100'}`}
+            >
+              {pdvEnabled ? 'PDV ativo' : 'PDV off'}
+            </Badge>
+          )}
+        </div>
       </div>
+
+      {showPDVControls && (
+        <div>
+          <ChannelToggle
+            enabled={pdvEnabled}
+            onToggle={onTogglePDV}
+            disabled={!canEdit}
+            title={pdvEnabled ? 'Desativar no PDV' : 'Ativar no PDV'}
+          />
+        </div>
+      )}
 
       <div className="flex items-center justify-end gap-2">
         <DishStatusToggle
