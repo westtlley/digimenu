@@ -239,7 +239,7 @@ export default function AdminImagePickerDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent size="large" className="max-w-4xl p-0 overflow-hidden">
+      <DialogContent size="large" className="flex max-h-[92vh] max-w-4xl flex-col overflow-hidden p-0">
         <div className="border-b border-border px-6 py-5">
           <DialogHeader className="space-y-2 text-left">
             <DialogTitle className="text-3xl font-semibold tracking-tight">{title}</DialogTitle>
@@ -249,8 +249,8 @@ export default function AdminImagePickerDialog({
           </DialogHeader>
         </div>
 
-        <div className="px-6 pb-6">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <div className="flex min-h-0 flex-1 flex-col px-6 pb-6">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex min-h-0 flex-1 flex-col">
             <div className="flex items-center justify-between pt-4">
               <TabsList className="bg-transparent p-0 h-auto gap-4">
                 <TabsTrigger
@@ -273,7 +273,7 @@ export default function AdminImagePickerDialog({
               </Badge>
             </div>
 
-            <TabsContent value="upload" className="mt-6">
+            <TabsContent value="upload" className="mt-6 flex-1 overflow-y-auto">
               {!showPreviewEditor ? (
                 <div className="space-y-4">
                   <div
@@ -387,7 +387,7 @@ export default function AdminImagePickerDialog({
               )}
             </TabsContent>
 
-            <TabsContent value="library" className="mt-6">
+            <TabsContent value="library" className="mt-6 flex min-h-0 flex-1 flex-col">
               {libraryItems.length === 0 ? (
                 <div className="rounded-2xl border border-border bg-muted/20 px-6 py-16 text-center">
                   <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">
@@ -399,7 +399,7 @@ export default function AdminImagePickerDialog({
                   </p>
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="flex min-h-0 flex-1 flex-col space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="text-base font-semibold text-foreground">Arquivos salvos</h3>
@@ -410,8 +410,9 @@ export default function AdminImagePickerDialog({
                     <Badge variant="outline">{libraryItems.length} imagens</Badge>
                   </div>
 
-                  <ScrollArea className="max-h-[420px] pr-2">
-                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-border bg-muted/10">
+                    <ScrollArea className="h-full">
+                      <div className="grid gap-4 p-4 sm:grid-cols-2 lg:grid-cols-3">
                       {libraryItems.map((image) => {
                         const isSelected = selectedLibraryUrl === image.url;
                         return (
@@ -419,13 +420,34 @@ export default function AdminImagePickerDialog({
                             key={image.url}
                             type="button"
                             onClick={() => setSelectedLibraryUrl(image.url)}
+                            aria-pressed={isSelected}
                             className={cn(
-                              'overflow-hidden rounded-2xl border text-left transition-all',
-                              isSelected ? 'border-primary shadow-md ring-2 ring-primary/20' : 'border-border hover:border-primary/40'
+                              'group relative overflow-hidden rounded-2xl border bg-background text-left transition-all focus:outline-none focus:ring-2 focus:ring-primary/30',
+                              isSelected
+                                ? 'border-primary shadow-md ring-2 ring-primary/20'
+                                : 'border-border hover:border-primary/40 hover:shadow-sm'
                             )}
                           >
+                            <div className="pointer-events-none absolute right-3 top-3 z-10">
+                              <Badge
+                                variant={isSelected ? 'default' : 'secondary'}
+                                className={cn(
+                                  'transition-colors',
+                                  isSelected ? 'bg-primary text-primary-foreground' : 'bg-background/90 text-foreground'
+                                )}
+                              >
+                                {isSelected ? 'Selecionada' : 'Selecionar'}
+                              </Badge>
+                            </div>
                             <div className="aspect-[4/3] overflow-hidden bg-muted">
-                              <img src={image.url} alt={image.label || 'Imagem da biblioteca'} className="h-full w-full object-cover" />
+                              <img
+                                src={image.url}
+                                alt={image.label || 'Imagem da biblioteca'}
+                                className={cn(
+                                  'h-full w-full object-cover transition-transform duration-200',
+                                  isSelected ? 'scale-[1.02]' : 'group-hover:scale-[1.02]'
+                                )}
+                              />
                             </div>
                             <div className="space-y-1 p-3">
                               <div className="flex items-center justify-between gap-2">
@@ -437,17 +459,26 @@ export default function AdminImagePickerDialog({
                           </button>
                         );
                       })}
-                    </div>
-                  </ScrollArea>
+                      </div>
+                    </ScrollArea>
+                  </div>
 
-                  <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+                  <div className="flex flex-col gap-3 border-t border-border/80 pt-4 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-sm text-muted-foreground">
+                      {selectedLibraryUrl ? 'Imagem selecionada. Clique em usar imagem para aplicar no item.' : 'Escolha uma imagem da biblioteca para aplicar no item.'}
+                    </p>
                     <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                       Cancelar
                     </Button>
-                    <Button type="button" onClick={handleSelectLibraryImage} disabled={!selectedLibraryUrl || isSaving}>
-                      {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                      Selecionar
-                    </Button>
+                    <div className="flex gap-3">
+                      <Button type="button" variant="outline" onClick={() => setSelectedLibraryUrl(null)} disabled={!selectedLibraryUrl || isSaving}>
+                        Limpar seleção
+                      </Button>
+                      <Button type="button" onClick={handleSelectLibraryImage} disabled={!selectedLibraryUrl || isSaving}>
+                        {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                        Usar imagem
+                      </Button>
+                    </div>
                   </div>
                 </div>
               )}
