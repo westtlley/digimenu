@@ -242,9 +242,9 @@ export default function AdminImagePickerDialog({
       <DialogContent
         size="large"
         className={cn(
-          'max-w-4xl overflow-hidden p-0',
+          'max-w-4xl p-0',
           needsConstrainedLayout
-            ? 'flex h-[min(92dvh,820px)] max-h-[92dvh] flex-col'
+            ? 'flex h-[min(92dvh,820px)] max-h-[92dvh] flex-col overflow-hidden'
             : 'max-h-[92dvh]'
         )}
       >
