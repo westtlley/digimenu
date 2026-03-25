@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -586,14 +586,18 @@ function ProductListRow({
   isSelected,
   showSelection = true,
   showPDVControls = false,
+  showPDVCode = false,
   pdvEnabled = false,
   pdvToggleLoading = false,
+  pdvCode = null,
+  pdvCodeLoading = false,
   onToggleSelection,
   onEdit,
   onDelete,
   onDuplicate,
   onToggleActive,
   onTogglePDV,
+  onChangePDVCode,
   canEdit,
   canCreate,
   canDelete,
@@ -601,9 +605,39 @@ function ProductListRow({
 }) {
   const isInactive = dish?.is_active === false;
   const hasDiscount = dish?.original_price && dish?.original_price > dish?.price;
+  const normalizedPdvCode = typeof pdvCode === 'string' && pdvCode.trim() ? pdvCode.trim() : null;
+  const [isEditingPdvCode, setIsEditingPdvCode] = useState(false);
+  const [pdvCodeDraft, setPdvCodeDraft] = useState(normalizedPdvCode || '');
   const gridClass = showPDVControls
-    ? 'grid-cols-[auto_4rem_minmax(0,1.8fr)_minmax(0,1fr)_7rem_8rem_8rem_auto]'
+    ? showPDVCode
+      ? 'grid-cols-[auto_4rem_minmax(0,1.8fr)_minmax(0,1fr)_7rem_8rem_10rem_8rem_auto]'
+      : 'grid-cols-[auto_4rem_minmax(0,1.8fr)_minmax(0,1fr)_7rem_8rem_8rem_auto]'
     : 'grid-cols-[auto_4rem_minmax(0,1.8fr)_minmax(0,1fr)_7rem_7rem_auto]';
+  const canEditPdvCode = showPDVCode && canEdit && typeof onChangePDVCode === 'function';
+
+  useEffect(() => {
+    if (!isEditingPdvCode) {
+      setPdvCodeDraft(normalizedPdvCode || '');
+    }
+  }, [normalizedPdvCode, isEditingPdvCode]);
+
+  const commitPdvCode = () => {
+    if (!canEditPdvCode || pdvCodeLoading) {
+      setIsEditingPdvCode(false);
+      return;
+    }
+
+    const nextCode = pdvCodeDraft.trim();
+    const currentCode = normalizedPdvCode || '';
+
+    if (nextCode === currentCode) {
+      setIsEditingPdvCode(false);
+      return;
+    }
+
+    onChangePDVCode(nextCode || null);
+    setIsEditingPdvCode(false);
+  };
 
   return (
     <div className={`grid ${gridClass} items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3 transition-shadow hover:shadow-sm ${isSelected ? 'ring-2 ring-blue-500' : ''}`}>
@@ -667,6 +701,54 @@ function ProductListRow({
           )}
         </div>
       </div>
+
+      {showPDVControls && showPDVCode && (
+        <div className="min-w-0">
+          {isEditingPdvCode ? (
+            <Input
+              value={pdvCodeDraft}
+              onChange={(event) => setPdvCodeDraft(event.target.value.slice(0, 20))}
+              onBlur={commitPdvCode}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  event.currentTarget.blur();
+                }
+                if (event.key === 'Escape') {
+                  setPdvCodeDraft(normalizedPdvCode || '');
+                  setIsEditingPdvCode(false);
+                }
+              }}
+              className="h-9 text-sm"
+              maxLength={20}
+              disabled={pdvCodeLoading}
+              autoFocus
+              placeholder="Codigo PDV"
+            />
+          ) : (
+            <button
+              type="button"
+              className={`flex min-h-9 w-full items-center rounded-lg border px-3 py-2 text-left text-sm transition-colors ${
+                canEditPdvCode
+                  ? 'border-border bg-background hover:border-orange-300 hover:bg-orange-50/40'
+                  : 'border-transparent bg-muted/40'
+              } ${pdvCodeLoading ? 'cursor-wait opacity-70' : ''}`}
+              onClick={() => {
+                if (!canEditPdvCode || pdvCodeLoading) return;
+                setIsEditingPdvCode(true);
+              }}
+              disabled={!canEditPdvCode || pdvCodeLoading}
+              title={canEditPdvCode ? 'Clique para editar o codigo PDV' : 'Codigo PDV'}
+            >
+              {normalizedPdvCode ? (
+                <span className="truncate font-medium text-foreground">{normalizedPdvCode}</span>
+              ) : (
+                <span className="text-xs font-medium text-muted-foreground">Sem codigo</span>
+              )}
+            </button>
+          )}
+        </div>
+      )}
 
       {showPDVControls && (
         <div>

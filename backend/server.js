@@ -759,6 +759,11 @@ app.patch(
   authenticate,
   asyncHandler(pdvCatalogHandler.patchDishPdvStatus)
 );
+app.patch(
+  '/api/dishes/:id/pdv-code',
+  authenticate,
+  asyncHandler(pdvCatalogHandler.patchDishPdvCode)
+);
 app.post(
   '/api/caixa/open',
   authenticate,

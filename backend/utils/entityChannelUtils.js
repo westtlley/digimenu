@@ -2,6 +2,15 @@ function isPlainObject(value) {
   return !!value && typeof value === 'object' && !Array.isArray(value);
 }
 
+function normalizeChannelCode(value) {
+  if (value === undefined || value === null) {
+    return null;
+  }
+
+  const normalized = String(value).trim();
+  return normalized ? normalized : null;
+}
+
 export function deepMergeEntityData(baseValue, patchValue) {
   if (!isPlainObject(baseValue) || !isPlainObject(patchValue)) {
     if (patchValue === undefined) {
@@ -45,6 +54,7 @@ export function normalizeDishChannels(entity) {
       pdv: {
         ...pdv,
         enabled: typeof pdv.enabled === 'boolean' ? pdv.enabled : true,
+        code: normalizeChannelCode(pdv.code),
       },
     },
   };

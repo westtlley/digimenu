@@ -1201,9 +1201,25 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
     return `/dishes/${dishId}/pdv${query}`;
   }, [pdvEntityOpts?.as_subscriber, pdvEntityOpts?.as_subscriber_id]);
 
+  const buildDishPdvCodeEndpoint = React.useCallback((dishId) => {
+    const params = new URLSearchParams();
+    if (pdvEntityOpts?.as_subscriber_id != null) {
+      params.set('as_subscriber_id', String(pdvEntityOpts.as_subscriber_id));
+    }
+    if (pdvEntityOpts?.as_subscriber) {
+      params.set('as_subscriber', String(pdvEntityOpts.as_subscriber));
+    }
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return `/dishes/${dishId}/pdv-code${query}`;
+  }, [pdvEntityOpts?.as_subscriber, pdvEntityOpts?.as_subscriber_id]);
+
   const persistDishPdvStatus = React.useCallback((dishId, enabled) => {
     return apiClient.patch(buildDishPdvEndpoint(dishId), { enabled });
   }, [buildDishPdvEndpoint]);
+
+  const persistDishPdvCode = React.useCallback((dishId, code) => {
+    return apiClient.patch(buildDishPdvCodeEndpoint(dishId), { code });
+  }, [buildDishPdvCodeEndpoint]);
 
   const refreshPdvCatalog = React.useCallback(async () => {
     if (slug) {
@@ -1556,6 +1572,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
             });
           }}
           onPersistPdvStatus={persistDishPdvStatus}
+          onPersistPdvCode={persistDishPdvCode}
           onRefreshCatalog={refreshPdvCatalog}
           normalizeCategoryId={normalizeCategoryId}
           formatCurrency={formatCurrency}

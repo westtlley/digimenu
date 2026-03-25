@@ -25,6 +25,20 @@ function normalizeDishId(value) {
   return String(value);
 }
 
+function normalizePdvCode(value) {
+  if (value === null || value === undefined) return null;
+  const normalized = String(value).trim();
+  return normalized ? normalized : null;
+}
+
+function hasOwnEntry(object, key) {
+  return Object.prototype.hasOwnProperty.call(object || {}, key);
+}
+
+function areCodesEqual(left, right) {
+  return normalizePdvCode(left) === normalizePdvCode(right);
+}
+
 function getDefaultDishPdvEnabled(dish) {
   return dish?.is_active !== false;
 }
@@ -32,6 +46,10 @@ function getDefaultDishPdvEnabled(dish) {
 function getBackendDishPdvEnabled(dish) {
   const enabled = dish?.channels?.pdv?.enabled;
   return typeof enabled === 'boolean' ? enabled : null;
+}
+
+function getBackendDishPdvCode(dish) {
+  return normalizePdvCode(dish?.channels?.pdv?.code);
 }
 
 export default function PDVCatalogView({
@@ -48,10 +66,12 @@ export default function PDVCatalogView({
   onDuplicateDish,
   onToggleDishActive,
   onPersistPdvStatus,
+  onPersistPdvCode,
   onRefreshCatalog,
   normalizeCategoryId,
   formatCurrency,
 }) {
+  const codeStorageKey = `${storageKey}:codes`;
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
@@ -59,21 +79,30 @@ export default function PDVCatalogView({
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedDishIds, setSelectedDishIds] = useState([]);
   const [pdvCache, setPdvCache] = useState({});
+  const [pdvCodeCache, setPdvCodeCache] = useState({});
   const [optimisticPdvState, setOptimisticPdvState] = useState({});
+  const [optimisticPdvCodes, setOptimisticPdvCodes] = useState({});
   const [pendingDishIds, setPendingDishIds] = useState({});
+  const [pendingCodeDishIds, setPendingCodeDishIds] = useState({});
   const [bulkUpdating, setBulkUpdating] = useState(false);
   const [storageLoaded, setStorageLoaded] = useState(false);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
     setPdvCache(safeParseJson(window.localStorage.getItem(storageKey)));
+    setPdvCodeCache(safeParseJson(window.localStorage.getItem(codeStorageKey)));
     setStorageLoaded(true);
-  }, [storageKey]);
+  }, [storageKey, codeStorageKey]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !storageLoaded) return;
     window.localStorage.setItem(storageKey, JSON.stringify(pdvCache));
   }, [storageKey, pdvCache, storageLoaded]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !storageLoaded) return;
+    window.localStorage.setItem(codeStorageKey, JSON.stringify(pdvCodeCache));
+  }, [codeStorageKey, pdvCodeCache, storageLoaded]);
 
   useEffect(() => {
     if (!selectionMode) {
@@ -102,6 +131,26 @@ export default function PDVCatalogView({
   }, [safeDishes, storageLoaded]);
 
   useEffect(() => {
+    if (!storageLoaded || safeDishes.length === 0) return;
+    setPdvCodeCache((prev) => {
+      let changed = false;
+      const next = { ...prev };
+
+      safeDishes.forEach((dish) => {
+        const dishId = normalizeDishId(dish?.id);
+        if (!dishId) return;
+        const backendCode = getBackendDishPdvCode(dish);
+        if (!hasOwnEntry(next, dishId) || !areCodesEqual(next[dishId], backendCode)) {
+          next[dishId] = backendCode;
+          changed = true;
+        }
+      });
+
+      return changed ? next : prev;
+    });
+  }, [safeDishes, storageLoaded]);
+
+  useEffect(() => {
     if (safeDishes.length === 0) return;
     setOptimisticPdvState((prev) => {
       let changed = false;
@@ -112,6 +161,26 @@ export default function PDVCatalogView({
         const backendEnabled = getBackendDishPdvEnabled(dish);
         if (!dishId || typeof backendEnabled !== 'boolean') return;
         if (typeof next[dishId] === 'boolean' && next[dishId] === backendEnabled) {
+          delete next[dishId];
+          changed = true;
+        }
+      });
+
+      return changed ? next : prev;
+    });
+  }, [safeDishes]);
+
+  useEffect(() => {
+    if (safeDishes.length === 0) return;
+    setOptimisticPdvCodes((prev) => {
+      let changed = false;
+      const next = { ...prev };
+
+      safeDishes.forEach((dish) => {
+        const dishId = normalizeDishId(dish?.id);
+        const backendCode = getBackendDishPdvCode(dish);
+        if (!dishId || !hasOwnEntry(next, dishId)) return;
+        if (areCodesEqual(next[dishId], backendCode)) {
           delete next[dishId];
           changed = true;
         }
@@ -135,7 +204,24 @@ export default function PDVCatalogView({
     return getDefaultDishPdvEnabled(dish);
   };
 
+  const getDishPDVCode = (dish) => {
+    const dishId = normalizeDishId(dish?.id);
+    if (hasOwnEntry(optimisticPdvCodes, dishId)) {
+      return normalizePdvCode(optimisticPdvCodes[dishId]);
+    }
+
+    const backendCode = getBackendDishPdvCode(dish);
+    if (backendCode !== null) return backendCode;
+
+    if (hasOwnEntry(pdvCodeCache, dishId)) {
+      return normalizePdvCode(pdvCodeCache[dishId]);
+    }
+
+    return null;
+  };
+
   const isDishPending = (dishId) => !!pendingDishIds[normalizeDishId(dishId)] || bulkUpdating;
+  const isDishCodePending = (dishId) => !!pendingCodeDishIds[normalizeDishId(dishId)] || bulkUpdating;
 
   const syncDishPdvStatus = async (dish, enabled) => {
     const dishId = normalizeDishId(dish?.id);
@@ -190,12 +276,81 @@ export default function PDVCatalogView({
     }
   };
 
+  const syncDishPdvCode = async (dish, nextCode) => {
+    const dishId = normalizeDishId(dish?.id);
+    if (!dishId || isDishCodePending(dishId)) return;
+
+    const normalizedNextCode = normalizePdvCode(nextCode);
+    const previousResolvedCode = getDishPDVCode(dish);
+    const hadCachedCode = hasOwnEntry(pdvCodeCache, dishId);
+    const previousCachedCode = pdvCodeCache[dishId];
+
+    setOptimisticPdvCodes((prev) => ({ ...prev, [dishId]: normalizedNextCode }));
+    setPendingCodeDishIds((prev) => ({ ...prev, [dishId]: true }));
+    setPdvCodeCache((prev) => ({ ...prev, [dishId]: normalizedNextCode }));
+
+    try {
+      let response = null;
+      if (typeof onPersistPdvCode === 'function') {
+        response = await onPersistPdvCode(dishId, normalizedNextCode, dish);
+      }
+
+      setPendingCodeDishIds((prev) => {
+        const next = { ...prev };
+        delete next[dishId];
+        return next;
+      });
+      setPdvCodeCache((prev) => ({ ...prev, [dishId]: normalizedNextCode }));
+
+      if (response?.warning?.message) {
+        toast(response.warning.message, { icon: '⚠️' });
+      }
+
+      if (typeof onRefreshCatalog === 'function') {
+        try {
+          await onRefreshCatalog();
+        } catch (_refreshError) {
+          // O cache local preserva o estado visual atÃ© a prÃ³xima sincronizaÃ§Ã£o.
+        }
+      }
+    } catch (_error) {
+      setOptimisticPdvCodes((prev) => {
+        const next = { ...prev };
+        delete next[dishId];
+        return next;
+      });
+      setPendingCodeDishIds((prev) => {
+        const next = { ...prev };
+        delete next[dishId];
+        return next;
+      });
+      setPdvCodeCache((prev) => {
+        const next = { ...prev };
+        if (hadCachedCode) {
+          next[dishId] = previousCachedCode;
+        } else {
+          delete next[dishId];
+        }
+        return next;
+      });
+      toast.error('Nao foi possivel atualizar o codigo PDV.');
+      return;
+    }
+
+    if (!areCodesEqual(previousResolvedCode, normalizedNextCode)) {
+      toast.success(normalizedNextCode ? 'Codigo PDV atualizado.' : 'Codigo PDV removido.');
+    }
+  };
+
   const filteredPDVDishes = useMemo(() => {
     return safeDishes.filter((dish) => {
+      const normalizedSearch = searchTerm.toLowerCase();
+      const pdvCode = getDishPDVCode(dish);
       const matchesSearch =
         !searchTerm ||
         dish.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        dish.description?.toLowerCase().includes(searchTerm.toLowerCase());
+        dish.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        pdvCode?.toLowerCase().includes(normalizedSearch);
 
       const matchesCategory =
         filterCategory === 'all' || normalizeCategoryId(dish.category_id) === filterCategory;
@@ -213,7 +368,7 @@ export default function PDVCatalogView({
 
       return matchesSearch && matchesCategory && matchesStatus && matchesPDV;
     });
-  }, [safeDishes, searchTerm, filterCategory, filterStatus, filterPdvStatus, optimisticPdvState, pdvCache, normalizeCategoryId]);
+  }, [safeDishes, searchTerm, filterCategory, filterStatus, filterPdvStatus, optimisticPdvState, optimisticPdvCodes, pdvCache, pdvCodeCache, normalizeCategoryId]);
 
   const pdvActiveCount = safeDishes.filter((dish) => getDishPDVEnabled(dish)).length;
   const pdvInactiveCount = Math.max(safeDishes.length - pdvActiveCount, 0);
@@ -356,6 +511,8 @@ export default function PDVCatalogView({
       'Sem categoria';
     const pdvEnabled = getDishPDVEnabled(dish);
     const pdvLoading = isDishPending(dishId);
+    const pdvCode = getDishPDVCode(dish);
+    const pdvCodeLoading = isDishCodePending(dishId);
 
     return (
       <div
@@ -394,6 +551,12 @@ export default function PDVCatalogView({
                 </Badge>
               </div>
               <p className="mt-1 text-xs text-muted-foreground">{categoryName}</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Codigo PDV:{' '}
+                <span className={pdvCode ? 'font-medium text-foreground' : 'font-medium'}>
+                  {pdvCode || 'Sem codigo'}
+                </span>
+              </p>
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -409,7 +572,7 @@ export default function PDVCatalogView({
                   loading={pdvLoading}
                   title={pdvEnabled ? 'Desativar no PDV' : 'Ativar no PDV'}
                 />
-                <Button variant="outline" size="sm" onClick={() => onEditDish(dish)} disabled={!canEditProducts || pdvLoading}>
+                <Button variant="outline" size="sm" onClick={() => onEditDish(dish)} disabled={!canEditProducts || pdvLoading || pdvCodeLoading}>
                   Editar
                 </Button>
               </div>
@@ -497,7 +660,7 @@ export default function PDVCatalogView({
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   className="pl-10"
-                  placeholder="Buscar produto no PDV..."
+                  placeholder="Buscar por nome ou codigo PDV..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -592,7 +755,7 @@ export default function PDVCatalogView({
 
         <div className="space-y-3 rounded-xl border border-border bg-card p-4 shadow-sm">
           <Input
-            placeholder="Buscar produto no PDV..."
+            placeholder="Buscar por nome ou codigo PDV..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -660,13 +823,14 @@ export default function PDVCatalogView({
           />
         ) : (
           <div className="space-y-3">
-            <div className={`grid ${selectionMode ? 'grid-cols-[auto_4rem_minmax(0,1.8fr)_minmax(0,1fr)_7rem_8rem_8rem_auto]' : 'grid-cols-[1.5rem_4rem_minmax(0,1.8fr)_minmax(0,1fr)_7rem_8rem_8rem_auto]'} gap-3 px-4 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground`}>
+            <div className={`grid ${selectionMode ? 'grid-cols-[auto_4rem_minmax(0,1.8fr)_minmax(0,1fr)_7rem_8rem_10rem_8rem_auto]' : 'grid-cols-[1.5rem_4rem_minmax(0,1.8fr)_minmax(0,1fr)_7rem_8rem_10rem_8rem_auto]'} gap-3 px-4 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground`}>
               <span />
               <span>Imagem</span>
               <span>Produto</span>
               <span>Categoria</span>
               <span>Preço</span>
               <span>Status geral</span>
+              <span>Codigo PDV</span>
               <span>Disponível no PDV</span>
               <span className="text-right">Ações</span>
             </div>
@@ -687,12 +851,16 @@ export default function PDVCatalogView({
                   showPDVControls
                   pdvEnabled={getDishPDVEnabled(dish)}
                   pdvToggleLoading={isDishPending(dish.id)}
+                  showPDVCode
+                  pdvCode={getDishPDVCode(dish)}
+                  pdvCodeLoading={isDishCodePending(dish.id)}
                   onToggleSelection={() => toggleDishSelection(dish.id)}
                   onEdit={() => onEditDish(dish)}
                   onDelete={() => onDeleteDish(dish)}
                   onDuplicate={() => onDuplicateDish(dish)}
                   onToggleActive={() => onToggleDishActive(dish)}
                   onTogglePDV={() => syncDishPdvStatus(dish, !getDishPDVEnabled(dish))}
+                  onChangePDVCode={(nextCode) => syncDishPdvCode(dish, nextCode)}
                   canEdit={canEditProducts}
                   canCreate={canCreate}
                   canDelete={canDelete}
