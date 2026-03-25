@@ -8,6 +8,7 @@ import EmptyState from '../../../atoms/EmptyState';
 import DishRow from '../components/DishRow';
 import ChannelToggle from '../components/ChannelToggle';
 import { CheckCircle, Layers, Package, Plus, Power, Search } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 function safeParseJson(raw) {
   if (!raw) return {};
@@ -17,6 +18,20 @@ function safeParseJson(raw) {
   } catch {
     return {};
   }
+}
+
+function normalizeDishId(value) {
+  if (value === null || value === undefined || value === '') return '';
+  return String(value);
+}
+
+function getDefaultDishPdvEnabled(dish) {
+  return dish?.is_active !== false;
+}
+
+function getBackendDishPdvEnabled(dish) {
+  const enabled = dish?.channels?.pdv?.enabled;
+  return typeof enabled === 'boolean' ? enabled : null;
 }
 
 export default function PDVCatalogView({
@@ -32,6 +47,8 @@ export default function PDVCatalogView({
   onDeleteDish,
   onDuplicateDish,
   onToggleDishActive,
+  onPersistPdvStatus,
+  onRefreshCatalog,
   normalizeCategoryId,
   formatCurrency,
 }) {
@@ -41,19 +58,22 @@ export default function PDVCatalogView({
   const [filterPdvStatus, setFilterPdvStatus] = useState('all');
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedDishIds, setSelectedDishIds] = useState([]);
-  const [pdvOverrides, setPdvOverrides] = useState({});
+  const [pdvCache, setPdvCache] = useState({});
+  const [optimisticPdvState, setOptimisticPdvState] = useState({});
+  const [pendingDishIds, setPendingDishIds] = useState({});
+  const [bulkUpdating, setBulkUpdating] = useState(false);
   const [storageLoaded, setStorageLoaded] = useState(false);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    setPdvOverrides(safeParseJson(window.localStorage.getItem(storageKey)));
+    setPdvCache(safeParseJson(window.localStorage.getItem(storageKey)));
     setStorageLoaded(true);
   }, [storageKey]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !storageLoaded) return;
-    window.localStorage.setItem(storageKey, JSON.stringify(pdvOverrides));
-  }, [storageKey, pdvOverrides, storageLoaded]);
+    window.localStorage.setItem(storageKey, JSON.stringify(pdvCache));
+  }, [storageKey, pdvCache, storageLoaded]);
 
   useEffect(() => {
     if (!selectionMode) {
@@ -61,23 +81,113 @@ export default function PDVCatalogView({
     }
   }, [selectionMode]);
 
+  useEffect(() => {
+    if (!storageLoaded || safeDishes.length === 0) return;
+    setPdvCache((prev) => {
+      let changed = false;
+      const next = { ...prev };
+
+      safeDishes.forEach((dish) => {
+        const dishId = normalizeDishId(dish?.id);
+        const backendEnabled = getBackendDishPdvEnabled(dish);
+        if (!dishId || typeof backendEnabled !== 'boolean') return;
+        if (next[dishId] !== backendEnabled) {
+          next[dishId] = backendEnabled;
+          changed = true;
+        }
+      });
+
+      return changed ? next : prev;
+    });
+  }, [safeDishes, storageLoaded]);
+
+  useEffect(() => {
+    if (safeDishes.length === 0) return;
+    setOptimisticPdvState((prev) => {
+      let changed = false;
+      const next = { ...prev };
+
+      safeDishes.forEach((dish) => {
+        const dishId = normalizeDishId(dish?.id);
+        const backendEnabled = getBackendDishPdvEnabled(dish);
+        if (!dishId || typeof backendEnabled !== 'boolean') return;
+        if (typeof next[dishId] === 'boolean' && next[dishId] === backendEnabled) {
+          delete next[dishId];
+          changed = true;
+        }
+      });
+
+      return changed ? next : prev;
+    });
+  }, [safeDishes]);
+
   const getDishPDVEnabled = (dish) => {
-    const override = pdvOverrides[dish?.id];
-    if (typeof override === 'boolean') return override;
-    return dish?.is_active !== false;
+    const dishId = normalizeDishId(dish?.id);
+    const optimisticValue = optimisticPdvState[dishId];
+    if (typeof optimisticValue === 'boolean') return optimisticValue;
+
+    const backendEnabled = getBackendDishPdvEnabled(dish);
+    if (typeof backendEnabled === 'boolean') return backendEnabled;
+
+    const cachedValue = pdvCache[dishId];
+    if (typeof cachedValue === 'boolean') return cachedValue;
+
+    return getDefaultDishPdvEnabled(dish);
   };
 
-  const setDishPDVEnabled = (dish, enabled) => {
-    const defaultValue = dish?.is_active !== false;
-    setPdvOverrides((prev) => {
-      const next = { ...prev };
-      if (enabled === defaultValue) {
-        delete next[dish.id];
-      } else {
-        next[dish.id] = enabled;
+  const isDishPending = (dishId) => !!pendingDishIds[normalizeDishId(dishId)] || bulkUpdating;
+
+  const syncDishPdvStatus = async (dish, enabled) => {
+    const dishId = normalizeDishId(dish?.id);
+    if (!dishId || isDishPending(dishId)) return;
+
+    const previousCachedValue = pdvCache[dishId];
+    const hadCachedValue = typeof previousCachedValue === 'boolean';
+
+    setOptimisticPdvState((prev) => ({ ...prev, [dishId]: enabled }));
+    setPendingDishIds((prev) => ({ ...prev, [dishId]: true }));
+    setPdvCache((prev) => ({ ...prev, [dishId]: enabled }));
+
+    try {
+      if (typeof onPersistPdvStatus === 'function') {
+        await onPersistPdvStatus(dishId, enabled, dish);
       }
-      return next;
-    });
+      setPendingDishIds((prev) => {
+        const next = { ...prev };
+        delete next[dishId];
+        return next;
+      });
+      setPdvCache((prev) => ({ ...prev, [dishId]: enabled }));
+
+      if (typeof onRefreshCatalog === 'function') {
+        try {
+          await onRefreshCatalog();
+        } catch (_refreshError) {
+          // A persistência já foi concluída; o cache local mantém o estado consistente.
+        }
+      }
+    } catch (_error) {
+      setOptimisticPdvState((prev) => {
+        const next = { ...prev };
+        delete next[dishId];
+        return next;
+      });
+      setPendingDishIds((prev) => {
+        const next = { ...prev };
+        delete next[dishId];
+        return next;
+      });
+      setPdvCache((prev) => {
+        const next = { ...prev };
+        if (hadCachedValue) {
+          next[dishId] = previousCachedValue;
+        } else {
+          delete next[dishId];
+        }
+        return next;
+      });
+      toast.error('Nao foi possivel atualizar a disponibilidade no PDV.');
+    }
   };
 
   const filteredPDVDishes = useMemo(() => {
@@ -103,34 +213,133 @@ export default function PDVCatalogView({
 
       return matchesSearch && matchesCategory && matchesStatus && matchesPDV;
     });
-  }, [safeDishes, searchTerm, filterCategory, filterStatus, filterPdvStatus, pdvOverrides, normalizeCategoryId]);
+  }, [safeDishes, searchTerm, filterCategory, filterStatus, filterPdvStatus, optimisticPdvState, pdvCache, normalizeCategoryId]);
 
   const pdvActiveCount = safeDishes.filter((dish) => getDishPDVEnabled(dish)).length;
   const pdvInactiveCount = Math.max(safeDishes.length - pdvActiveCount, 0);
   const selectedCount = selectedDishIds.length;
 
   const toggleDishSelection = (dishId) => {
+    const normalizedId = normalizeDishId(dishId);
     setSelectedDishIds((prev) =>
-      prev.includes(dishId) ? prev.filter((id) => id !== dishId) : [...prev, dishId]
+      prev.includes(normalizedId) ? prev.filter((id) => id !== normalizedId) : [...prev, normalizedId]
     );
   };
 
-  const handleBulkPdvStatus = (enabled) => {
-    if (selectedDishIds.length === 0) return;
-    setPdvOverrides((prev) => {
+  const handleBulkPdvStatus = async (enabled) => {
+    if (selectedDishIds.length === 0 || bulkUpdating) return;
+
+    const selectedDishes = safeDishes.filter((dish) => selectedDishIds.includes(normalizeDishId(dish?.id)));
+    if (selectedDishes.length === 0) return;
+
+    const previousStateByDishId = selectedDishes.reduce((acc, dish) => {
+      const dishId = normalizeDishId(dish?.id);
+      acc[dishId] = {
+        resolved: getDishPDVEnabled(dish),
+        cached: pdvCache[dishId],
+        hasCached: typeof pdvCache[dishId] === 'boolean',
+      };
+      return acc;
+    }, {});
+
+    setBulkUpdating(true);
+    setPendingDishIds((prev) => {
       const next = { ...prev };
-      selectedDishIds.forEach((dishId) => {
-        const dish = safeDishes.find((item) => item.id === dishId);
-        if (!dish) return;
-        const defaultValue = dish.is_active !== false;
-        if (enabled === defaultValue) {
-          delete next[dishId];
+      selectedDishes.forEach((dish) => {
+        next[normalizeDishId(dish?.id)] = true;
+      });
+      return next;
+    });
+    setOptimisticPdvState((prev) => {
+      const next = { ...prev };
+      selectedDishes.forEach((dish) => {
+        next[normalizeDishId(dish?.id)] = enabled;
+      });
+      return next;
+    });
+    setPdvCache((prev) => {
+      const next = { ...prev };
+      selectedDishes.forEach((dish) => {
+        next[normalizeDishId(dish?.id)] = enabled;
+      });
+      return next;
+    });
+
+    const results = await Promise.allSettled(
+      selectedDishes.map((dish) => {
+        if (typeof onPersistPdvStatus === 'function') {
+          return onPersistPdvStatus(normalizeDishId(dish?.id), enabled, dish);
+        }
+        return Promise.resolve();
+      })
+    );
+
+    const failedIds = [];
+    let successCount = 0;
+
+    results.forEach((result, index) => {
+      const dishId = normalizeDishId(selectedDishes[index]?.id);
+      if (result.status === 'fulfilled') {
+        successCount += 1;
+      } else {
+        failedIds.push(dishId);
+      }
+    });
+
+    setOptimisticPdvState((prev) => {
+      const next = { ...prev };
+      failedIds.forEach((dishId) => {
+        delete next[dishId];
+      });
+      return next;
+    });
+    setPendingDishIds((prev) => {
+      const next = { ...prev };
+      selectedDishes.forEach((dish) => {
+        delete next[normalizeDishId(dish?.id)];
+      });
+      return next;
+    });
+    setPdvCache((prev) => {
+      const next = { ...prev };
+      failedIds.forEach((dishId) => {
+        const previousState = previousStateByDishId[dishId];
+        if (previousState?.hasCached) {
+          next[dishId] = previousState.cached;
         } else {
-          next[dishId] = enabled;
+          delete next[dishId];
         }
       });
       return next;
     });
+    setBulkUpdating(false);
+    setSelectedDishIds(failedIds);
+
+    if (successCount > 0 && typeof onRefreshCatalog === 'function') {
+      try {
+        await onRefreshCatalog();
+      } catch (_refreshError) {
+        // O estado otimista bem-sucedido continua refletido no cache local.
+      }
+    }
+
+    if (failedIds.length === 0) {
+      toast.success(
+        enabled
+          ? 'Produtos ativados no PDV com sucesso.'
+          : 'Produtos desativados no PDV com sucesso.'
+      );
+      return;
+    }
+
+    if (successCount === 0) {
+      toast.error('Nao foi possivel atualizar os produtos selecionados no PDV.');
+      return;
+    }
+
+    toast.error(
+      `${failedIds.length} produto${failedIds.length !== 1 ? 's' : ''} nao puderam ser atualizados no PDV.`
+    );
   };
 
   const clearFilters = () => {
@@ -141,22 +350,24 @@ export default function PDVCatalogView({
   };
 
   const renderMobileCard = (dish) => {
+    const dishId = normalizeDishId(dish?.id);
     const categoryName =
       safeCategories.find((cat) => normalizeCategoryId(cat.id) === normalizeCategoryId(dish.category_id))?.name ||
       'Sem categoria';
     const pdvEnabled = getDishPDVEnabled(dish);
+    const pdvLoading = isDishPending(dishId);
 
     return (
       <div
         key={dish.id}
-        className={`rounded-2xl border border-border bg-card p-4 shadow-sm ${selectedDishIds.includes(dish.id) ? 'ring-2 ring-orange-500' : ''}`}
+        className={`rounded-2xl border border-border bg-card p-4 shadow-sm ${selectedDishIds.includes(dishId) ? 'ring-2 ring-orange-500' : ''}`}
       >
         <div className="flex items-start gap-3">
           {selectionMode && (
             <input
               type="checkbox"
-              checked={selectedDishIds.includes(dish.id)}
-              onChange={() => toggleDishSelection(dish.id)}
+              checked={selectedDishIds.includes(dishId)}
+              onChange={() => toggleDishSelection(dishId)}
               className="mt-1 h-4 w-4 rounded"
             />
           )}
@@ -194,10 +405,11 @@ export default function PDVCatalogView({
               <div className="flex flex-wrap items-center gap-2">
                 <ChannelToggle
                   enabled={pdvEnabled}
-                  onToggle={() => setDishPDVEnabled(dish, !pdvEnabled)}
+                  onToggle={() => syncDishPdvStatus(dish, !pdvEnabled)}
+                  loading={pdvLoading}
                   title={pdvEnabled ? 'Desativar no PDV' : 'Ativar no PDV'}
                 />
-                <Button variant="outline" size="sm" onClick={() => onEditDish(dish)} disabled={!canEditProducts}>
+                <Button variant="outline" size="sm" onClick={() => onEditDish(dish)} disabled={!canEditProducts || pdvLoading}>
                   Editar
                 </Button>
               </div>
@@ -220,7 +432,7 @@ export default function PDVCatalogView({
               </p>
             </div>
             <div className="flex flex-wrap gap-3">
-              <Button variant={selectionMode ? 'default' : 'outline'} onClick={() => setSelectionMode((prev) => !prev)}>
+              <Button variant={selectionMode ? 'default' : 'outline'} onClick={() => setSelectionMode((prev) => !prev)} disabled={bulkUpdating}>
                 Selecionar múltiplos
               </Button>
               {canCreateProducts && (
@@ -351,13 +563,13 @@ export default function PDVCatalogView({
               {selectedCount} produto{selectedCount !== 1 ? 's' : ''} selecionado{selectedCount !== 1 ? 's' : ''}
             </span>
             <div className="flex flex-wrap gap-2">
-              <Button variant="outline" size="sm" onClick={() => handleBulkPdvStatus(true)}>
+              <Button variant="outline" size="sm" onClick={() => handleBulkPdvStatus(true)} disabled={bulkUpdating}>
                 Ativar no PDV
               </Button>
-              <Button variant="outline" size="sm" onClick={() => handleBulkPdvStatus(false)}>
+              <Button variant="outline" size="sm" onClick={() => handleBulkPdvStatus(false)} disabled={bulkUpdating}>
                 Desativar no PDV
               </Button>
-              <Button variant="ghost" size="sm" onClick={() => setSelectionMode(false)}>
+              <Button variant="ghost" size="sm" onClick={() => setSelectionMode(false)} disabled={bulkUpdating}>
                 Cancelar
               </Button>
             </div>
@@ -367,7 +579,7 @@ export default function PDVCatalogView({
 
       <div className="space-y-3 px-4 pb-24 lg:hidden">
         <div className="flex items-center gap-2">
-          <Button variant={selectionMode ? 'default' : 'outline'} size="sm" onClick={() => setSelectionMode((prev) => !prev)}>
+          <Button variant={selectionMode ? 'default' : 'outline'} size="sm" onClick={() => setSelectionMode((prev) => !prev)} disabled={bulkUpdating}>
             Selecionar múltiplos
           </Button>
           {canCreateProducts && (
@@ -470,16 +682,17 @@ export default function PDVCatalogView({
                   variant="products"
                   dish={dish}
                   categoryName={categoryName}
-                  isSelected={selectedDishIds.includes(dish.id)}
+                  isSelected={selectedDishIds.includes(normalizeDishId(dish.id))}
                   showSelection={selectionMode}
                   showPDVControls
                   pdvEnabled={getDishPDVEnabled(dish)}
+                  pdvToggleLoading={isDishPending(dish.id)}
                   onToggleSelection={() => toggleDishSelection(dish.id)}
                   onEdit={() => onEditDish(dish)}
                   onDelete={() => onDeleteDish(dish)}
                   onDuplicate={() => onDuplicateDish(dish)}
                   onToggleActive={() => onToggleDishActive(dish)}
-                  onTogglePDV={() => setDishPDVEnabled(dish, !getDishPDVEnabled(dish))}
+                  onTogglePDV={() => syncDishPdvStatus(dish, !getDishPDVEnabled(dish))}
                   canEdit={canEditProducts}
                   canCreate={canCreate}
                   canDelete={canDelete}

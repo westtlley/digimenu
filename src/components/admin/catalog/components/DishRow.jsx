@@ -587,6 +587,7 @@ function ProductListRow({
   showSelection = true,
   showPDVControls = false,
   pdvEnabled = false,
+  pdvToggleLoading = false,
   onToggleSelection,
   onEdit,
   onDelete,
@@ -673,6 +674,7 @@ function ProductListRow({
             enabled={pdvEnabled}
             onToggle={onTogglePDV}
             disabled={!canEdit}
+            loading={pdvToggleLoading}
             title={pdvEnabled ? 'Desativar no PDV' : 'Ativar no PDV'}
           />
         </div>

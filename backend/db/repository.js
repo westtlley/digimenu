@@ -3,6 +3,10 @@ import { query, getClient } from './postgres.js';
 import { agentLog } from '../utils/agentLog.js';
 import { decorateOrderEntity, normalizeOrderForPersistence } from '../utils/orderLifecycle.js';
 import {
+  deepMergeEntityData,
+  normalizeEntityChannelDefaults,
+} from '../utils/entityChannelUtils.js';
+import {
   normalizeEmail,
   normalizeSubscriberId,
   resolveTenantContext,
@@ -60,7 +64,7 @@ function normalizeEntityPayload(entityType, data, currentEntity = null) {
 
 function decorateEntityRecord(entityType, entity) {
   if (String(entityType || '').toLowerCase() !== 'order') {
-    return entity;
+    return normalizeEntityChannelDefaults(entityType, entity);
   }
   return decorateOrderEntity(entity);
 }
@@ -355,11 +359,14 @@ export async function updateEntity(entityType, id, data, user = null) {
     }
     
     // Mesclar dados
-    const updatedData = normalizeEntityPayload(entityType, {
-      ...existing,
-      ...data,
-      id: existing.id // Manter ID original
-    }, existing);
+    const updatedData = normalizeEntityPayload(
+      entityType,
+      deepMergeEntityData(existing, {
+        ...(data || {}),
+        id: existing.id,
+      }),
+      existing
+    );
     delete updatedData.created_at;
     delete updatedData.updated_at;
     
@@ -499,7 +506,7 @@ export async function createEntitiesBulk(entityType, items, user = null) {
     
     const result = await query(sql, params);
     
-    return result.rows.map(row => ({
+    return result.rows.map(row => decorateEntityRecord(entityType, {
       id: row.id.toString(),
       subscriber_id: row.subscriber_id ?? null,
       subscriber_email: row.subscriber_email ?? null,

@@ -33,7 +33,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import MobileDishCard from './mobile/MobileDishCard';
 import MobileFilterChips from './mobile/MobileFilterChips';
 import MobileBottomSheet from './mobile/MobileBottomSheet';
-import { getMenuContextEntityOpts, getMenuContextQueryKeyParts, getMenuContextSubscriberEmail } from '@/utils/tenantScope';
+import {
+  buildTenantEntityOpts,
+  getMenuContextEntityOpts,
+  getMenuContextQueryKeyParts,
+  getMenuContextSubscriberEmail,
+} from '@/utils/tenantScope';
 import MobileDishSkeleton from './mobile/MobileDishSkeleton';
 import MobileDishComplementsSheet from './mobile/MobileDishComplementsSheet';
 import toast from 'react-hot-toast';
@@ -1163,6 +1168,50 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
           : 'Cardápio';
   const activeProductsCount = safeDishes.filter(d => d.is_active !== false).length;
   const pdvStorageKey = `digimenu:pdv-catalog:${menuContext?.type || 'default'}:${menuContext?.value || getSubscriberEmail() || 'global'}`;
+  const pdvEntityOpts = React.useMemo(() => {
+    if (menuEntityOpts?.as_subscriber_id != null || menuEntityOpts?.as_subscriber) {
+      return menuEntityOpts;
+    }
+
+    if (slug) {
+      return buildTenantEntityOpts({
+        subscriberId: publicCardapio?.subscriber_id ?? null,
+        subscriberEmail: publicCardapio?.subscriber_email ?? null,
+      });
+    }
+
+    return {};
+  }, [
+    menuEntityOpts?.as_subscriber,
+    menuEntityOpts?.as_subscriber_id,
+    slug,
+    publicCardapio?.subscriber_email,
+    publicCardapio?.subscriber_id,
+  ]);
+
+  const buildDishPdvEndpoint = React.useCallback((dishId) => {
+    const params = new URLSearchParams();
+    if (pdvEntityOpts?.as_subscriber_id != null) {
+      params.set('as_subscriber_id', String(pdvEntityOpts.as_subscriber_id));
+    }
+    if (pdvEntityOpts?.as_subscriber) {
+      params.set('as_subscriber', String(pdvEntityOpts.as_subscriber));
+    }
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return `/dishes/${dishId}/pdv${query}`;
+  }, [pdvEntityOpts?.as_subscriber, pdvEntityOpts?.as_subscriber_id]);
+
+  const persistDishPdvStatus = React.useCallback((dishId, enabled) => {
+    return apiClient.patch(buildDishPdvEndpoint(dishId), { enabled });
+  }, [buildDishPdvEndpoint]);
+
+  const refreshPdvCatalog = React.useCallback(async () => {
+    if (slug) {
+      await queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
+      return;
+    }
+    await refetchDishes();
+  }, [queryClient, refetchDishes, slug]);
 
   const clearAllFilters = () => {
     setSearchTerm('');
@@ -1506,6 +1555,8 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
               data: { is_active: dish.is_active === false },
             });
           }}
+          onPersistPdvStatus={persistDishPdvStatus}
+          onRefreshCatalog={refreshPdvCatalog}
           normalizeCategoryId={normalizeCategoryId}
           formatCurrency={formatCurrency}
         />

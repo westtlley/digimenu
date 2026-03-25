@@ -51,6 +51,7 @@ import { createEntityAccessGuard } from './modules/entities/entityAccessGuard.js
 import { createEntityHandlers } from './modules/entities/entityHandlers.js';
 import { createEntityBulkHandler } from './modules/entities/entityBulkHandler.js';
 import { createFinalizeSaleHandler } from './modules/pdv/finalizeSaleHandler.js';
+import { createPdvCatalogHandler } from './modules/pdv/pdvCatalogHandler.js';
 import { createCaixaShiftHandlers } from './modules/caixa/caixaShiftHandlers.js';
 import { createManagerialAuthHandlers } from './modules/managerialAuth/managerialAuthHandlers.js';
 import analyticsRoutes from './routes/analytics.routes.js';
@@ -403,6 +404,15 @@ const finalizeSaleHandler = createFinalizeSaleHandler({
   finalizePdvSaleAtomic,
 });
 
+const pdvCatalogHandler = createPdvCatalogHandler({
+  repo,
+  db,
+  usePostgreSQL,
+  saveDatabaseDebounced,
+  applyRequestedTenantScope,
+  enforceEntityWriteAccess,
+});
+
 const caixaShiftHandlers = createCaixaShiftHandlers({
   repo,
   db,
@@ -743,6 +753,11 @@ app.post(
   authenticate,
   createLimiter,
   asyncHandler(finalizeSaleHandler)
+);
+app.patch(
+  '/api/dishes/:id/pdv',
+  authenticate,
+  asyncHandler(pdvCatalogHandler.patchDishPdvStatus)
 );
 app.post(
   '/api/caixa/open',

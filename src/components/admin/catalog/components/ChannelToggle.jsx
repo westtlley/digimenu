@@ -5,16 +5,18 @@ export default function ChannelToggle({
   enabled = false,
   onToggle,
   disabled = false,
+  loading = false,
   title,
   activeLabel = 'ON',
   inactiveLabel = 'OFF',
+  loadingLabel = 'Salvando...',
   className = '',
 }) {
   return (
     <Button
       type="button"
       variant="outline"
-      disabled={disabled}
+      disabled={disabled || loading}
       onClick={onToggle}
       title={title || (enabled ? 'Desativar no canal' : 'Ativar no canal')}
       className={`h-9 min-w-[76px] rounded-full border px-3 text-xs font-semibold transition-colors ${
@@ -26,9 +28,9 @@ export default function ChannelToggle({
       <span
         className={`mr-2 inline-block h-2.5 w-2.5 rounded-full ${
           enabled ? 'bg-emerald-500' : 'bg-slate-400'
-        }`}
+        } ${loading ? 'animate-pulse' : ''}`}
       />
-      {enabled ? activeLabel : inactiveLabel}
+      {loading ? loadingLabel : (enabled ? activeLabel : inactiveLabel)}
     </Button>
   );
 }

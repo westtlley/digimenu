@@ -8,6 +8,10 @@ import {
   decorateOrderEntity,
   normalizeOrderForPersistence,
 } from '../../utils/orderLifecycle.js';
+import {
+  deepMergeEntityData,
+  normalizeEntityChannelDefaults,
+} from '../../utils/entityChannelUtils.js';
 import { normalizePlanPresetKey } from '../../utils/planPresetsForContext.js';
 import { normalizeEntityName } from './entityAccessConfig.js';
 
@@ -97,6 +101,10 @@ function paginateItems(items, pagination) {
   };
 }
 
+function normalizeLocalEntityRecord(entityType, item) {
+  return normalizeEntityChannelDefaults(entityType, item);
+}
+
 function shouldApplyBasicReadScope(subscriber) {
   const plan = normalizePlanPresetKey(subscriber?.plan, { defaultPlan: 'basic' }) || 'basic';
   return plan === 'basic';
@@ -178,6 +186,7 @@ export function createEntityHandlers({
 
         items = applyMemoryFilters(items, filters);
         items = sortItems(items, order_by);
+        items = items.map((item) => normalizeLocalEntityRecord(entity, item));
         result = paginateItems(items, pagination);
       } else {
         return res.status(500).json({ error: 'Banco de dados nao inicializado' });
@@ -252,6 +261,7 @@ export function createEntityHandlers({
               (entry.id === id || entry.id === String(id)) &&
               (!asSub || entry.owner_email === asSub)
           ) || null;
+        item = item ? normalizeLocalEntityRecord(entity, item) : null;
       } else {
         item = null;
       }
@@ -388,13 +398,13 @@ export function createEntityHandlers({
               created_date: now,
               updated_at: now,
             })
-          : {
+          : normalizeLocalEntityRecord(entity, {
               id: String(Date.now()),
               ...data,
               created_at: now,
               created_date: now,
               updated_at: now,
-            };
+            });
       db.entities[entity].push(newItem);
       if (typeof saveDatabaseDebounced === 'function') saveDatabaseDebounced(db);
     } else {
@@ -508,17 +518,15 @@ export function createEntityHandlers({
       updatedItem =
         entityNorm === 'order'
           ? decorateOrderEntity({
-              ...items[index],
-              ...data,
+              ...deepMergeEntityData(items[index], data || {}),
               id: items[index].id,
               updated_at: new Date().toISOString(),
             })
-          : {
-              ...items[index],
-              ...data,
+          : normalizeLocalEntityRecord(entity, {
+              ...deepMergeEntityData(items[index], data || {}),
               id: items[index].id,
               updated_at: new Date().toISOString(),
-            };
+            });
       items[index] = updatedItem;
       if (typeof saveDatabaseDebounced === 'function') saveDatabaseDebounced(db);
     } else {
