@@ -113,6 +113,8 @@ export default function PDV() {
   const [closingNotes, setClosingNotes] = useState('');
   const [highlightedDishId, setHighlightedDishId] = useState(null);
   const [highlightedCartItemId, setHighlightedCartItemId] = useState(null);
+  const [pdvCodeFieldStatus, setPdvCodeFieldStatus] = useState('idle');
+  const [pdvCodeFieldMessage, setPdvCodeFieldMessage] = useState('Bipe ou digite o código e pressione Enter.');
   
   // Tracking de cancelamentos em tela (para relatÃƒÆ’Ã‚Â³rio de fechamento)
   const [canceledInScreenCount, setCanceledInScreenCount] = useState(0);
@@ -120,6 +122,10 @@ export default function PDV() {
   const saleClientRequestIdRef = useRef(null);
   const pdvCodeInputRef = useRef(null);
   const shouldRefocusPdvCodeRef = useRef(false);
+  const pdvCodeFeedbackTimerRef = useRef(null);
+  const pdvCodeRefocusTimerRef = useRef(null);
+  const scannerSequenceRef = useRef({ startedAt: 0, lastAt: 0, count: 0 });
+  const pdvCodeFocusBlockedRef = useRef(false);
 
   // Verificar autenticaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o e permissÃƒÆ’Ã‚Â£o
   useEffect(() => {
@@ -597,23 +603,119 @@ export default function PDV() {
     return matchesSearch && matchesCategory;
   });
 
-  const focusPdvCodeInput = React.useCallback((selectText = false) => {
+  const getDishComplementGroups = React.useCallback((dish) => {
+    if (!dish) return [];
+    return safeComplementGroups.filter((group) =>
+      dish.complement_groups?.some((cg) => String(cg?.group_id) === String(group?.id))
+    );
+  }, [safeComplementGroups]);
+
+  const dishRequiresConfiguration = React.useCallback((dish) => {
+    if (!dish) return false;
+    if (dish.product_type === 'pizza' && pizzaSizes?.length > 0 && pizzaFlavors?.length > 0) {
+      return true;
+    }
+    return getDishComplementGroups(dish).length > 0;
+  }, [getDishComplementGroups, pizzaFlavors, pizzaSizes]);
+
+  const isPdvCodeFocusBlocked = !!(
+    showTerminalModal
+    || showPaymentModal
+    || showMobileCart
+    || !!selectedDish
+    || !!selectedPizza
+    || showOpenCaixaModal
+    || showHistoryModal
+    || showSuccessModal
+    || showMenuVendas
+    || showFechamentoModal
+    || showSangriaModal
+    || showSuprimentoModal
+    || showCloseCaixaDialog
+    || showAtalhosHelp
+    || showReimpressaoModal
+    || showUpsellModal
+  );
+
+  useEffect(() => {
+    pdvCodeFocusBlockedRef.current = isPdvCodeFocusBlocked;
+  }, [isPdvCodeFocusBlocked]);
+
+  const resetScannerSequence = React.useCallback(() => {
+    scannerSequenceRef.current = { startedAt: 0, lastAt: 0, count: 0 };
+  }, []);
+
+  const setPdvCodeFeedback = React.useCallback((status, message, resetDelay = 0) => {
+    setPdvCodeFieldStatus(status);
+    setPdvCodeFieldMessage(message);
+
+    if (pdvCodeFeedbackTimerRef.current) {
+      window.clearTimeout(pdvCodeFeedbackTimerRef.current);
+      pdvCodeFeedbackTimerRef.current = null;
+    }
+
+    if (resetDelay > 0) {
+      pdvCodeFeedbackTimerRef.current = window.setTimeout(() => {
+        setPdvCodeFieldStatus('idle');
+        setPdvCodeFieldMessage('Bipe ou digite o código e pressione Enter.');
+        pdvCodeFeedbackTimerRef.current = null;
+      }, resetDelay);
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (pdvCodeFeedbackTimerRef.current) {
+        window.clearTimeout(pdvCodeFeedbackTimerRef.current);
+      }
+      if (pdvCodeRefocusTimerRef.current) {
+        window.clearTimeout(pdvCodeRefocusTimerRef.current);
+      }
+    };
+  }, []);
+
+  const focusPdvCodeInput = React.useCallback(({ selectText = false, force = false } = {}) => {
     if (typeof window === 'undefined') return;
     window.requestAnimationFrame(() => {
-      if (!pdvCodeInputRef.current) return;
-      pdvCodeInputRef.current.focus();
+      if (!pdvCodeInputRef.current || pdvCodeFocusBlockedRef.current) return;
+      const activeElement = document.activeElement;
+      const activeTag = activeElement?.tagName?.toLowerCase?.();
+      const activeIsTextInput = !!(
+        activeElement
+        && activeElement !== document.body
+        && activeElement !== pdvCodeInputRef.current
+        && (
+          ['input', 'textarea', 'select'].includes(activeTag)
+          || activeElement.getAttribute?.('contenteditable') === 'true'
+          || activeElement.getAttribute?.('role') === 'combobox'
+        )
+      );
+      const activeInsideDialog = !!activeElement?.closest?.('[role="dialog"], [data-radix-popper-content-wrapper]');
+      if (!force && (activeIsTextInput || activeInsideDialog)) return;
+      pdvCodeInputRef.current.focus({ preventScroll: true });
       if (selectText && typeof pdvCodeInputRef.current.select === 'function') {
         pdvCodeInputRef.current.select();
       }
     });
   }, []);
 
+  const schedulePdvCodeFocus = React.useCallback((options = {}, delay = 0) => {
+    if (typeof window === 'undefined') return;
+    if (pdvCodeRefocusTimerRef.current) {
+      window.clearTimeout(pdvCodeRefocusTimerRef.current);
+    }
+    pdvCodeRefocusTimerRef.current = window.setTimeout(() => {
+      pdvCodeRefocusTimerRef.current = null;
+      focusPdvCodeInput(options);
+    }, delay);
+  }, [focusPdvCodeInput]);
+
   useEffect(() => {
-    if (!allowed || !pdvSession || showTerminalModal || showPaymentModal || showMobileCart || !!selectedDish || !!selectedPizza) {
+    if (!allowed || !pdvSession || isPdvCodeFocusBlocked) {
       return;
     }
-    focusPdvCodeInput(false);
-  }, [allowed, pdvSession, showTerminalModal, showPaymentModal, showMobileCart, selectedDish, selectedPizza, focusPdvCodeInput]);
+    focusPdvCodeInput();
+  }, [allowed, pdvSession, isPdvCodeFocusBlocked, focusPdvCodeInput]);
 
   useEffect(() => {
     if (!highlightedDishId && !highlightedCartItemId) return undefined;
@@ -624,49 +726,145 @@ export default function PDV() {
     return () => window.clearTimeout(timer);
   }, [highlightedDishId, highlightedCartItemId]);
 
-  const handlePdvCodeSubmit = () => {
+  const registerScannerKeypress = React.useCallback((event) => {
+    const now = Date.now();
+
+    if (event.key === 'Enter') {
+      const sequence = scannerSequenceRef.current;
+      const scannerLike = sequence.count >= 4
+        && sequence.startedAt > 0
+        && (now - sequence.startedAt) <= 350
+        && (now - sequence.lastAt) <= 100;
+      resetScannerSequence();
+      return scannerLike;
+    }
+
+    if (event.key === 'Escape') {
+      resetScannerSequence();
+      setPdvCodeInput('');
+      setPdvCodeFeedback('idle', 'Bipe ou digite o código e pressione Enter.');
+      return false;
+    }
+
+    const isPrintableKey = event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey;
+    if (!isPrintableKey) return false;
+
+    const previous = scannerSequenceRef.current;
+    const gap = previous.lastAt ? now - previous.lastAt : Number.POSITIVE_INFINITY;
+    const shouldRestart = !previous.startedAt || gap > 180;
+    const nextSequence = shouldRestart
+      ? { startedAt: now, lastAt: now, count: 1 }
+      : { startedAt: previous.startedAt, lastAt: now, count: previous.count + 1 };
+
+    scannerSequenceRef.current = nextSequence;
+
+    const isScannerLikeBurst = nextSequence.count >= 4
+      && gap <= 45
+      && (now - nextSequence.startedAt) <= 250;
+
+    if (isScannerLikeBurst) {
+      setPdvCodeFeedback('scanning', 'Leitura rapida detectada. Aguardando Enter...');
+    }
+
+    return false;
+  }, [resetScannerSequence, setPdvCodeFeedback]);
+
+  const handlePdvCodeFieldChange = React.useCallback((value) => {
+    setPdvCodeInput(value);
+    if (!value) {
+      resetScannerSequence();
+      setPdvCodeFeedback('idle', 'Bipe ou digite o código e pressione Enter.');
+      return;
+    }
+
+    if (pdvCodeFieldStatus === 'error') {
+      setPdvCodeFeedback('idle', 'Codigo ajustado. Pressione Enter para tentar novamente.');
+      return;
+    }
+
+    if (pdvCodeFieldStatus === 'success') {
+      setPdvCodeFeedback('idle', 'Pronto para a proxima leitura.');
+    }
+  }, [pdvCodeFieldStatus, resetScannerSequence, setPdvCodeFeedback]);
+
+  const handlePdvCodeError = React.useCallback((message, { scannerLike = false } = {}) => {
+    toast.error(message);
+    setPdvCodeFeedback(
+      'error',
+      scannerLike ? `${message}. Pronto para uma nova leitura.` : `${message}. Revise o codigo e tente novamente.`,
+      1800
+    );
+
+    if (scannerLike) {
+      setPdvCodeInput('');
+      schedulePdvCodeFocus({ force: true }, 40);
+      return;
+    }
+
+    schedulePdvCodeFocus({ selectText: true, force: true }, 40);
+  }, [schedulePdvCodeFocus, setPdvCodeFeedback]);
+
+  const handlePdvCodeSubmit = ({ scannerLike = false } = {}) => {
     const normalizedCode = normalizePdvCode(pdvCodeInput);
 
     if (!normalizedCode) {
-      focusPdvCodeInput(false);
+      setPdvCodeFeedback('error', 'Digite um codigo para iniciar a leitura.', 1500);
+      schedulePdvCodeFocus({ force: true }, 30);
       return;
     }
 
     const matchedDishes = pdvCodeIndex.get(normalizedCode) || [];
     if (matchedDishes.length === 0) {
-      toast.error('Produto não encontrado');
-      focusPdvCodeInput(true);
+      handlePdvCodeError('Produto nao encontrado', { scannerLike });
       return;
     }
 
     if (matchedDishes.length > 1) {
-      toast('Código duplicado. Usando o primeiro produto encontrado.', { icon: '⚠️' });
+      toast('Codigo duplicado. Usando o primeiro produto encontrado.', { icon: '!' });
     }
 
     const dish = matchedDishes[0];
     if (!isDishEnabledInPdv(dish)) {
-      toast.error('Produto desativado no PDV');
-      focusPdvCodeInput(true);
+      handlePdvCodeError('Produto desativado no PDV', { scannerLike });
       return;
     }
 
     if (!openCaixa) {
-      toast.error('Abra o caixa para iniciar as vendas.');
+      handlePdvCodeError('Abra o caixa para iniciar as vendas', { scannerLike });
       setShowOpenCaixaModal(true);
-      focusPdvCodeInput(true);
       return;
     }
 
     if (isCaixaLocked) {
-      toast.error('Caixa travado. Faça uma retirada em Caixa para continuar.');
-      focusPdvCodeInput(true);
+      handlePdvCodeError('Caixa travado. Faca uma retirada em Caixa para continuar', { scannerLike });
       return;
     }
 
+    const opensSelectionFlow = dishRequiresConfiguration(dish);
     shouldRefocusPdvCodeRef.current = true;
     setPdvCodeInput('');
+    setPdvCodeFeedback(
+      'success',
+      opensSelectionFlow
+        ? `${dish.name} localizado. Continue a selecao para concluir.`
+        : `${dish.name} adicionado. Pronto para a proxima leitura.`,
+      1400
+    );
     handleDishClick(dish);
   };
+
+  const handlePdvSurfacePointerDown = React.useCallback((event) => {
+    if (!allowed || !pdvSession) return;
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    if (target.closest('[role="dialog"], [data-radix-popper-content-wrapper], [data-pdv-code-input="true"]')) {
+      return;
+    }
+    if (target.closest('input, textarea, select, [contenteditable="true"], [role="combobox"]')) {
+      return;
+    }
+    schedulePdvCodeFocus({ force: false }, 60);
+  }, [allowed, pdvSession, schedulePdvCodeFocus]);
 
   const handleDishClick = (dish) => {
     if (!openCaixa) {
@@ -684,9 +882,7 @@ export default function PDV() {
       return;
     }
 
-    const dishGroups = safeComplementGroups.filter(group =>
-      dish.complement_groups?.some(cg => cg.group_id === group.id)
-    );
+    const dishGroups = getDishComplementGroups(dish);
 
     if (dishGroups.length > 0) {
       setSelectedDish(dish);
@@ -720,8 +916,11 @@ export default function PDV() {
 
     if (shouldRefocusPdvCodeRef.current) {
       shouldRefocusPdvCodeRef.current = false;
-      focusPdvCodeInput(false);
+      schedulePdvCodeFocus({ force: true }, 50);
+      return;
     }
+
+    schedulePdvCodeFocus({ force: false }, 120);
   };
 
   const handleUpsellAccept = (promotion) => {
@@ -748,12 +947,14 @@ export default function PDV() {
       removeItem(id);
     } else {
       setCart(cart.map(item => item.id === id ? { ...item, quantity: newQuantity } : item));
+      schedulePdvCodeFocus({ force: false }, 120);
     }
   };
 
   const removeItem = (id) => {
     setCart(cart.filter(item => item.id !== id));
     toast.success('Item removido');
+    schedulePdvCodeFocus({ force: false }, 120);
   };
 
   const clearCart = () => {
@@ -767,6 +968,7 @@ export default function PDV() {
       setShowMobileCart(false);
       saleClientRequestIdRef.current = null;
       toast('Nenhuma venda em andamento para cancelar');
+      schedulePdvCodeFocus({ force: false }, 120);
       return;
     }
 
@@ -789,6 +991,7 @@ export default function PDV() {
     saleClientRequestIdRef.current = null;
     resetUpsell();
     toast.success('Venda em andamento cancelada');
+    schedulePdvCodeFocus({ force: false }, 120);
   };
 
   usePDVHotkeys({
@@ -1075,7 +1278,10 @@ export default function PDV() {
   };
 
   return (
-    <div className="min-h-screen min-h-screen-mobile h-screen flex flex-col bg-muted/40">
+    <div
+      className="min-h-screen min-h-screen-mobile h-screen flex flex-col bg-muted/40"
+      onPointerDownCapture={handlePdvSurfacePointerDown}
+    >
       {authModal}
 
       {/* Header Fixo */}
@@ -1367,12 +1573,45 @@ export default function PDV() {
           {/* COLUNA ESQUERDA - PRODUTOS (70%) */}
           <div className="flex flex-col bg-card h-full overflow-hidden">
             <div className="flex-shrink-0 border-b border-border bg-card px-3 sm:px-4 py-3">
-              <div className="rounded-xl border border-orange-200 bg-orange-50/60 p-3 dark:border-orange-900/60 dark:bg-orange-950/20">
+              <div
+                className={`rounded-xl border p-3 transition-all ${
+                  pdvCodeFieldStatus === 'success'
+                    ? 'border-emerald-300 bg-emerald-50/80 shadow-sm dark:border-emerald-800 dark:bg-emerald-950/20'
+                    : pdvCodeFieldStatus === 'error'
+                      ? 'border-red-300 bg-red-50/80 shadow-sm dark:border-red-900 dark:bg-red-950/20'
+                      : pdvCodeFieldStatus === 'scanning'
+                        ? 'border-sky-300 bg-sky-50/80 shadow-sm dark:border-sky-800 dark:bg-sky-950/20'
+                        : 'border-orange-200 bg-orange-50/60 dark:border-orange-900/60 dark:bg-orange-950/20'
+                }`}
+                data-pdv-code-input="true"
+              >
                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold text-foreground">Código PDV</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold text-foreground">Leitura por codigo</p>
+                      <Badge
+                        variant="outline"
+                        className={`h-6 px-2 text-[11px] font-semibold ${
+                          pdvCodeFieldStatus === 'success'
+                            ? 'border-emerald-400 text-emerald-700 dark:text-emerald-300'
+                            : pdvCodeFieldStatus === 'error'
+                              ? 'border-red-400 text-red-700 dark:text-red-300'
+                              : pdvCodeFieldStatus === 'scanning'
+                                ? 'border-sky-400 text-sky-700 dark:text-sky-300'
+                                : 'border-orange-300 text-orange-700 dark:text-orange-300'
+                        }`}
+                      >
+                        {pdvCodeFieldStatus === 'success'
+                          ? 'Leitura ok'
+                          : pdvCodeFieldStatus === 'error'
+                            ? 'Falha'
+                            : pdvCodeFieldStatus === 'scanning'
+                              ? 'Scanner'
+                              : 'Pronto'}
+                      </Badge>
+                    </div>
                     <p className="text-xs text-muted-foreground">
-                      Digite o código e pressione Enter para adicionar rápido ao caixa.
+                      {pdvCodeFieldMessage}
                     </p>
                   </div>
                   <div className="relative w-full md:max-w-sm">
@@ -1380,15 +1619,29 @@ export default function PDV() {
                     <Input
                       ref={pdvCodeInputRef}
                       value={pdvCodeInput}
-                      onChange={(e) => setPdvCodeInput(e.target.value)}
+                      onChange={(e) => handlePdvCodeFieldChange(e.target.value)}
                       onKeyDown={(e) => {
+                        const scannerLike = registerScannerKeypress(e);
                         if (e.key === 'Enter') {
                           e.preventDefault();
-                          handlePdvCodeSubmit();
+                          handlePdvCodeSubmit({ scannerLike });
                         }
                       }}
-                      placeholder="Digite o código do produto..."
-                      className="h-11 border-orange-200 bg-card pl-10 text-sm"
+                      onFocus={() => {
+                        if (!pdvCodeInput) {
+                          setPdvCodeFeedback('idle', 'Bipe ou digite o codigo e pressione Enter.');
+                        }
+                      }}
+                      placeholder="Bipe ou digite o codigo do produto..."
+                      className={`h-11 bg-card pl-10 text-sm transition-all ${
+                        pdvCodeFieldStatus === 'success'
+                          ? 'border-emerald-300 ring-2 ring-emerald-200 dark:border-emerald-800 dark:ring-emerald-900/40'
+                          : pdvCodeFieldStatus === 'error'
+                            ? 'border-red-300 ring-2 ring-red-200 dark:border-red-900 dark:ring-red-900/40'
+                            : pdvCodeFieldStatus === 'scanning'
+                              ? 'border-sky-300 ring-2 ring-sky-200 dark:border-sky-800 dark:ring-sky-900/40'
+                              : 'border-orange-200'
+                      }`}
                       inputMode="text"
                       autoCapitalize="off"
                       autoCorrect="off"
