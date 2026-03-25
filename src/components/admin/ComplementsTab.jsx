@@ -92,6 +92,13 @@ function OptionItem({ option, group, optionIndex, provided, snapshot, onUpdate, 
 function GroupItem({ group, groupIndex, provided, snapshot, updateMutation, deleteMutation, onAddOption, onToggleOption, onRemoveOption, onUpdateOption, onDragEndOptions, canEdit, dishes }) {
   const [localName, setLocalName] = useState(group.name || '');
   const [localMaxSelection, setLocalMaxSelection] = useState(group.max_selection?.toString() || '1');
+  const linkedDishes = useMemo(() => {
+    const safeDishes = Array.isArray(dishes) ? dishes : [];
+    return safeDishes.filter((dish) => dish?.complement_groups?.some((cg) => cg.group_id === group.id));
+  }, [dishes, group.id]);
+  const activeOptionsCount = Array.isArray(group.options)
+    ? group.options.filter((option) => option?.is_active !== false).length
+    : 0;
 
   const handleNameBlur = () => {
     if (localName !== group.name) {
@@ -129,9 +136,25 @@ function GroupItem({ group, groupIndex, provided, snapshot, updateMutation, dele
               className="font-bold text-lg bg-transparent border-b border-transparent hover:border-gray-300 focus:border-orange-500 focus:outline-none w-full"
               placeholder="Nome do grupo"
             />
-            <Badge variant="outline" className="text-xs mt-1">
-              {(group.options || []).length} itens
-            </Badge>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Badge variant="outline" className="text-xs">
+                {(group.options || []).length} itens
+              </Badge>
+              <Badge variant="secondary" className="text-xs">
+                {linkedDishes.length} produto{linkedDishes.length === 1 ? '' : 's'} usando este grupo
+              </Badge>
+              <Badge
+                variant={activeOptionsCount > 0 ? 'default' : 'outline'}
+                className={cn(
+                  "text-xs",
+                  activeOptionsCount > 0 ? "bg-green-100 text-green-700 hover:bg-green-100" : ""
+                )}
+              >
+                {activeOptionsCount > 0
+                  ? `${activeOptionsCount} opção${activeOptionsCount === 1 ? '' : 'ões'} ativa${activeOptionsCount === 1 ? '' : 's'}`
+                  : 'Sem opções ativas'}
+              </Badge>
+            </div>
           </div>
         </div>
         <Button
@@ -153,6 +176,39 @@ function GroupItem({ group, groupIndex, provided, snapshot, updateMutation, dele
         >
           <Trash2 className="w-4 h-4" />
         </Button>
+      </div>
+
+      <div className="mb-4 rounded-xl border border-border/80 bg-muted/30 p-3">
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-medium text-foreground">Produtos vinculados</p>
+            <p className="text-xs text-muted-foreground">
+              Veja rapidamente onde este grupo aparece no cardápio.
+            </p>
+          </div>
+          <Badge variant="outline" className="text-xs">
+            {linkedDishes.length} vínculo{linkedDishes.length === 1 ? '' : 's'}
+          </Badge>
+        </div>
+
+        {linkedDishes.length === 0 ? (
+          <p className="text-xs text-muted-foreground">
+            Este grupo ainda não está associado a nenhum produto.
+          </p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {linkedDishes.slice(0, 4).map((dish) => (
+              <Badge key={dish.id} variant="secondary" className="max-w-full px-2 py-1 text-xs">
+                <span className="truncate">{dish.name}</span>
+              </Badge>
+            ))}
+            {linkedDishes.length > 4 && (
+              <Badge variant="outline" className="text-xs">
+                +{linkedDishes.length - 4} produto{linkedDishes.length - 4 === 1 ? '' : 's'}
+              </Badge>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Configurações */}
@@ -244,7 +300,7 @@ export default function ComplementsTab({ onSwitchToCategories, onOpenTemplates }
     loadUser();
   }, []);
 
-  // ✅ CORREÇÃO: Usar hook com contexto automático
+  // Ã¢Å“â€¦ CORREÃƒâ€¡ÃƒÆ’O: Usar hook com contexto automÃƒÂ¡tico
   const { menuContext, canUpdate, isMaster } = usePermission();
   const menuContextQueryKey = getMenuContextQueryKeyParts(menuContext);
   const scopedEntityOpts = getMenuContextEntityOpts(menuContext);
@@ -265,7 +321,7 @@ export default function ComplementsTab({ onSwitchToCategories, onOpenTemplates }
     refetchOnMount: 'always',
   });
 
-  // ✅ CORREÇÃO: Usar hook com contexto automático
+  // Ã¢Å“â€¦ CORREÃƒâ€¡ÃƒÆ’O: Usar hook com contexto automÃƒÂ¡tico
   const { data: dishes = [] } = useMenuDishes();
 
   // Filtrar grupos
@@ -285,7 +341,7 @@ export default function ComplementsTab({ onSwitchToCategories, onOpenTemplates }
     return result;
   }, [groups, searchTerm, filterRequired]);
 
-  // Estatísticas
+  // EstatÃƒÂ­sticas
   const stats = useMemo(() => {
     const safeGroups = Array.isArray(groups) ? groups : [];
     const safeDishes = Array.isArray(dishes) ? dishes : [];
@@ -310,7 +366,7 @@ export default function ComplementsTab({ onSwitchToCategories, onOpenTemplates }
 
   const createMutation = useMutation({
     mutationFn: async (data) => {
-      const ownerEmail = user?.subscriber_email || user?.email; // Compatibilidade transitória: a entidade ainda persiste owner_email.
+      const ownerEmail = user?.subscriber_email || user?.email; // Compatibilidade transitÃƒÂ³ria: a entidade ainda persiste owner_email.
       const groupData = {
         ...data,
         ...(ownerEmail && { owner_email: ownerEmail }),
@@ -322,7 +378,7 @@ export default function ComplementsTab({ onSwitchToCategories, onOpenTemplates }
       queryClient.invalidateQueries({ queryKey: ['complementGroups', ...menuContextQueryKey] });
       setShowModal(false);
       setFormData({ name: '', is_required: true, max_selection: 1 });
-      toast.success('✅ Grupo criado!');
+      toast.success('Grupo criado!');
     },
   });
 
@@ -330,7 +386,7 @@ export default function ComplementsTab({ onSwitchToCategories, onOpenTemplates }
     mutationFn: ({ id, data }) => base44.entities.ComplementGroup.update(id, data, scopedEntityOpts),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['complementGroups', ...menuContextQueryKey] });
-      toast.success('✅ Salvo!');
+      toast.success('Salvo!');
     },
   });
 
@@ -357,7 +413,7 @@ export default function ComplementsTab({ onSwitchToCategories, onOpenTemplates }
     const [reordered] = items.splice(result.source.index, 1);
     items.splice(result.destination.index, 0, reordered);
 
-    // Atualização otimista
+    // AtualizaÃƒÂ§ÃƒÂ£o otimista
     queryClient.setQueryData(['complementGroups', ...menuContextQueryKey], items.map((g, idx) => ({ ...g, order: idx })));
 
     // Atualizar todos os grupos em paralelo
@@ -368,7 +424,7 @@ export default function ComplementsTab({ onSwitchToCategories, onOpenTemplates }
       try {
         await Promise.all(updatePromises);
         queryClient.invalidateQueries({ queryKey: ['complementGroups', ...menuContextQueryKey] });
-        toast.success('✅ Ordem atualizada!');
+        toast.success('Ordem atualizada!');
       } catch (error) {
       console.error("Erro ao reordenar grupos:", error);
       queryClient.invalidateQueries({ queryKey: ['complementGroups', ...menuContextQueryKey] });
@@ -515,7 +571,7 @@ export default function ComplementsTab({ onSwitchToCategories, onOpenTemplates }
           {typeof onSwitchToCategories === 'function' && (
             <Button variant="outline" onClick={onSwitchToCategories}>
               <Layers className="w-4 h-4 mr-2" />
-              Ver Categorias
+              Ver Cardápio
             </Button>
           )}
           {typeof onOpenTemplates === 'function' && (
@@ -532,7 +588,7 @@ export default function ComplementsTab({ onSwitchToCategories, onOpenTemplates }
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Dica: edite nome, obrigatoriedade, máximo e preço direto nos cards abaixo.
+        Dica: organize grupos reutilizáveis, veja onde estão em uso e ajuste nome, obrigatoriedade e preço direto nos cards.
       </p>
 
       <DragDropContext onDragEnd={handleDragEndGroups}>

@@ -1,9 +1,9 @@
 import React from 'react';
 import { cn } from "@/lib/utils";
 
-// ✅ Categorias e Complementos agora estão dentro de Pratos
+// ✅ Cardápio concentra visão do menu, produtos e complementos
 const TABS = [
-  { id: 'dishes', label: 'Pratos' },
+  { id: 'dishes', label: 'Cardápio' },
   { id: 'coupons', label: 'Cupons' },
   { id: 'promotions', label: 'Promoções' },
   { id: 'orders', label: 'Pedidos' },

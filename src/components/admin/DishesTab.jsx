@@ -24,8 +24,9 @@ import CategoryForm from './CategoryForm';
 import ComplementTemplates from './ComplementTemplates';
 import BulkEditOptions from './BulkEditOptions';
 import ProductTypeModal from './ProductTypeModal';
-import CategoriesTab from './CategoriesTab';
-import ComplementsTab from './ComplementsTab';
+import MenuView from './catalog/MenuView';
+import ProductsView from './catalog/ProductsView';
+import ComplementsView from './catalog/ComplementsView';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import MobileDishCard from './mobile/MobileDishCard';
@@ -45,7 +46,7 @@ import { uploadToCloudinary } from '@/utils/cloudinaryUpload';
 import { formatCurrency } from '@/utils/formatters';
 import AdminImagePickerDialog from './media/AdminImagePickerDialog';
 
-// ========= DishRow (extraído para evitar erro de parser no build) =========
+// ========= DishRow (extraÃ­do para evitar erro de parser no build) =========
 export function DishRow({ dish, complementGroups, expanded, onToggleExpand, onEdit, onDelete, onDuplicate, onUpdate, onToggleOption, onUpdateOptionName, onOpenOptionImagePicker, onUpdateOptionPrice, onRemoveOption, onDuplicateOption, onAddOption, onAddGroup, onReuseGroup, onRemoveGroup, onOpenReuseModal, allComplementGroups, allDishes, onEditGroup, getGroupUsageInfo, formatCurrency, updateDishMutation, updateComplementGroupMutation, createComplementGroupMutation, isSelected, onToggleSelection, canEdit, canCreate, canDelete, setBulkEditGroup, setShowBulkEditModal }) {
   const [editingOptionId, setEditingOptionId] = useState(null);
   const [editingOptionValue, setEditingOptionValue] = useState('');
@@ -96,8 +97,8 @@ export function DishRow({ dish, complementGroups, expanded, onToggleExpand, onEd
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
                 <h3 className="font-medium text-base">{dish.name} {dish.portion && <span className="text-muted-foreground">({dish.portion})</span>}</h3>
-                {dish.is_new && <Badge variant="outline" className="text-sm bg-green-50 text-green-700">✨ Novo</Badge>}
-                {dish.is_popular && <Badge variant="outline" className="text-sm bg-purple-50 text-purple-700">🔥 Popular</Badge>}
+                {dish.is_new && <Badge variant="outline" className="text-sm bg-green-50 text-green-700">âœ¨ Novo</Badge>}
+                {dish.is_popular && <Badge variant="outline" className="text-sm bg-purple-50 text-purple-700">ðŸ”¥ Popular</Badge>}
               </div>
               <p className="text-sm text-muted-foreground line-clamp-1">{dish.description}</p>
               {dish.tags && dish.tags.length > 0 && (
@@ -111,7 +112,7 @@ export function DishRow({ dish, complementGroups, expanded, onToggleExpand, onEd
                 </div>
               )}
               {dish.internal_notes && (
-                <p className="text-sm text-orange-600 mt-1">📝 {dish.internal_notes}</p>
+                <p className="text-sm text-orange-600 mt-1">ðŸ“ {dish.internal_notes}</p>
               )}
             </div>
             <Badge 
@@ -121,7 +122,7 @@ export function DishRow({ dish, complementGroups, expanded, onToggleExpand, onEd
                 if (canEdit) onUpdate({ is_highlight: !dish.is_highlight });
               }}
             >
-              {dish.is_highlight ? '⭐ Destaque' : 'Destaque'}
+              {dish.is_highlight ? 'â­ Destaque' : 'Destaque'}
             </Badge>
           </div>
           <div className="flex items-center gap-3 text-sm text-muted-foreground">
@@ -132,7 +133,7 @@ export function DishRow({ dish, complementGroups, expanded, onToggleExpand, onEd
               <span className="text-green-600">Estoque: Ilimitado</span>
             )}
             {dish.prep_time && (
-              <span>⏱️ {dish.prep_time}min</span>
+              <span>â±ï¸ {dish.prep_time}min</span>
             )}
           </div>
         </div>
@@ -330,7 +331,7 @@ export function DishRow({ dish, complementGroups, expanded, onToggleExpand, onEd
                           });
                         }}
                       >
-                        {linked?.is_required ? '✓ Obrigatório' : 'Opcional'}
+                        {linked?.is_required ? 'Obrigatório' : 'Opcional'}
                       </Badge>
                                   {isOriginal ? (
                                     <Badge variant="outline" className="text-xs bg-green-50 text-green-700">Original</Badge>
@@ -353,7 +354,7 @@ export function DishRow({ dish, complementGroups, expanded, onToggleExpand, onEd
                                       setBulkEditGroup(group);
                                       setShowBulkEditModal(true);
                                     }} 
-                                    title="Edição em massa"
+                                    title="EdiÃ§Ã£o em massa"
                                   >
                                     <EditIcon className="w-4 h-4" />
                                   </Button>
@@ -640,9 +641,133 @@ function sameCategoryId(left, right) {
   return normalizedLeft !== '' && normalizedLeft === normalizedRight;
 }
 
+function normalizeInternalTab(value) {
+  if (value === 'products') return 'products';
+  if (value === 'complements') return 'complements';
+  return 'menu';
+}
+
+function ProductListRow({
+  dish,
+  categoryName,
+  isSelected,
+  onToggleSelection,
+  onEdit,
+  onDelete,
+  onDuplicate,
+  onToggleActive,
+  canEdit,
+  canCreate,
+  canDelete,
+  formatCurrency,
+}) {
+  const isInactive = dish?.is_active === false;
+  const hasDiscount = dish?.original_price && dish?.original_price > dish?.price;
+
+  return (
+    <div className={`grid grid-cols-[auto_4rem_minmax(0,1.8fr)_minmax(0,1fr)_7rem_7rem_auto] items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3 transition-shadow hover:shadow-sm ${isSelected ? 'ring-2 ring-blue-500' : ''}`}>
+      <input
+        type="checkbox"
+        checked={isSelected}
+        onChange={onToggleSelection}
+        className="h-4 w-4 rounded"
+      />
+
+      <div className="h-16 w-16 overflow-hidden rounded-xl bg-muted">
+        {dish?.image ? (
+          <img src={dish.image} alt={dish.name} className={`h-full w-full object-cover ${isInactive ? 'grayscale' : ''}`} />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-[11px] text-muted-foreground">Sem foto</div>
+        )}
+      </div>
+
+      <div className="min-w-0">
+        <div className="flex items-center gap-2">
+          <p className="truncate text-sm font-semibold text-foreground">{dish?.name || 'Produto sem nome'}</p>
+          {dish?.is_highlight && <Badge variant="outline" className="text-[10px]">Destaque</Badge>}
+        </div>
+        <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{dish?.description || 'Sem descrição'}</p>
+      </div>
+
+      <div className="min-w-0">
+        <Badge variant="secondary" className="max-w-full truncate text-xs">
+          {categoryName || 'Sem categoria'}
+        </Badge>
+        {dish?.product_type && (
+          <p className="mt-1 truncate text-[11px] text-muted-foreground">
+            {dish.product_type === 'preparado' ? 'Produto principal' : dish.product_type}
+          </p>
+        )}
+      </div>
+
+      <div className="text-sm">
+        {hasDiscount && (
+          <p className="text-[11px] text-muted-foreground line-through">{formatCurrency(dish.original_price)}</p>
+        )}
+        <p className={`font-semibold ${hasDiscount ? 'text-green-600' : 'text-foreground'}`}>{formatCurrency(dish?.price || 0)}</p>
+      </div>
+
+      <div>
+        <Badge variant={isInactive ? 'outline' : 'default'} className={`text-xs ${isInactive ? 'text-muted-foreground' : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100'}`}>
+          {isInactive ? 'Inativo' : 'Ativo'}
+        </Badge>
+      </div>
+
+      <div className="flex items-center justify-end gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className={`h-9 w-9 rounded-full border transition-colors ${
+            dish?.is_active !== false
+              ? 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100'
+              : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+          }`}
+          onClick={onToggleActive}
+          disabled={!canEdit}
+          title={dish?.is_active !== false ? 'Pausar item' : 'Ativar item'}
+        >
+          {dish?.is_active !== false ? <Pause className="h-4 w-4" /> : <Play className="ml-0.5 h-4 w-4" />}
+        </Button>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full">
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {canEdit && (
+              <DropdownMenuItem onClick={onEdit}>
+                <Pencil className="mr-2 h-4 w-4" />
+                Editar produto
+              </DropdownMenuItem>
+            )}
+            {canCreate && (
+              <DropdownMenuItem onClick={onDuplicate}>
+                <Files className="mr-2 h-4 w-4" />
+                Duplicar produto
+              </DropdownMenuItem>
+            )}
+            {canDelete && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={onDelete} className="text-red-600">
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Remover produto
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </div>
+  );
+}
+
 // ========= COMPONENT =========
-export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, initialTab = 'dishes' }) {
-  log.admin.debug('🍽️ [DishesTab] Componente montado, initialTab:', initialTab);
+export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, initialTab = 'menu' }) {
+  log.admin.debug('ðŸ½ï¸ [DishesTab] Componente montado, initialTab:', initialTab);
   
   const [user, setUser] = React.useState(null);
   const [showDishModal, setShowDishModal] = useState(false);
@@ -680,7 +805,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
   const [selectedDishes, setSelectedDishes] = useState([]);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [mobileComplementsDish, setMobileComplementsDish] = useState(null);
-  const [internalTab, setInternalTab] = useState(initialTab); // ✅ Aba interna: 'dishes', 'categories', 'complements'
+  const [internalTab, setInternalTab] = useState(normalizeInternalTab(initialTab));
   const [imagePickerState, setImagePickerState] = useState({
     open: false,
     target: null,
@@ -690,21 +815,21 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
     folder: 'dishes',
   });
   
-  // ✅ Atualizar aba quando initialTab mudar
+  // âœ… Atualizar aba quando initialTab mudar
   useEffect(() => {
     if (initialTab) {
-      setInternalTab(initialTab);
+      setInternalTab(normalizeInternalTab(initialTab));
     }
   }, [initialTab]);
 
-  // ✅ NOVO: Usar menuContext do usePermission (loading: aguardar contexto antes de buscar pratos)
+  // âœ… NOVO: Usar menuContext do usePermission (loading: aguardar contexto antes de buscar pratos)
   const { canCreate, canUpdate, canDelete, hasModuleAccess, subscriberData, menuContext, user: permissionUser, loading: permissionLoading } = usePermission();
   const { canAddProduct, plan, effectiveLimits, usage, limitReached } = useEntitlements();
   const [limitBlockOpen, setLimitBlockOpen] = useState(false);
   const hasPizzaService = hasModuleAccess('pizza_config');
   const canEdit = canUpdate('dishes');
   
-  log.admin.debug('🍽️ [DishesTab] Permissões:', {
+  log.admin.debug('ðŸ½ï¸ [DishesTab] PermissÃµes:', {
     canCreate: canCreate('dishes'),
     canUpdate: canUpdate('dishes'),
     canDelete: canDelete('dishes'),
@@ -713,20 +838,20 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
     menuContext
   });
   
-  // ✅ Usar user do usePermission se disponível, senão carregar
+  // âœ… Usar user do usePermission se disponÃ­vel, senÃ£o carregar
   React.useEffect(() => {
     if (permissionUser) {
       setUser(permissionUser);
-      log.admin.debug('🍽️ [DishesTab] Usuário do usePermission:', permissionUser?.email);
+      log.admin.debug('ðŸ½ï¸ [DishesTab] UsuÃ¡rio do usePermission:', permissionUser?.email);
     } else {
       const loadUser = async () => {
         try {
-          log.admin.debug('🍽️ [DishesTab] Carregando usuário...');
+          log.admin.debug('ðŸ½ï¸ [DishesTab] Carregando usuÃ¡rio...');
           const userData = await base44.auth.me();
-          log.admin.debug('🍽️ [DishesTab] Usuário carregado:', userData?.email);
+          log.admin.debug('ðŸ½ï¸ [DishesTab] UsuÃ¡rio carregado:', userData?.email);
           setUser(userData);
         } catch (e) {
-          log.admin.error('🍽️ [DishesTab] Error loading user:', e);
+          log.admin.error('ðŸ½ï¸ [DishesTab] Error loading user:', e);
         }
       };
       loadUser();
@@ -736,7 +861,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
   const queryClient = useQueryClient();
   const slug = menuContext?.type === 'slug' ? menuContext?.value : null;
 
-  // ✅ Para master (slug): buscar cardápio público e usar para pratos, categorias e grupos
+  // âœ… Para master (slug): buscar cardÃ¡pio pÃºblico e usar para pratos, categorias e grupos
   const { data: publicCardapio, isLoading: publicCardapioLoading } = useQuery({
     queryKey: ['publicCardapio', slug],
     queryFn: async () => {
@@ -748,13 +873,13 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
     gcTime: 60000,
   });
 
-  // ✅ Helper para obter subscriber_email correto baseado no contexto
+  // âœ… Helper para obter subscriber_email correto baseado no contexto
   const getSubscriberEmail = () => getMenuContextSubscriberEmail(menuContext, user?.email);
   const menuQueryKeyParts = getMenuContextQueryKeyParts(menuContext);
   const menuEntityOpts = getMenuContextEntityOpts(menuContext);
 
   // ========= BUSCAR DADOS COM CONTEXTO =========
-  // ✅ Admin API; quando slug (master) usamos publicCardapio para exibir
+  // âœ… Admin API; quando slug (master) usamos publicCardapio para exibir
   const { data: adminDishes = [], isLoading: dishesLoading, error: dishesError, refetch: refetchDishes } = useQuery({
     queryKey: ['dishes', ...menuQueryKeyParts],
     queryFn: async () => {
@@ -798,7 +923,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
     gcTime: 120000,
   });
 
-  // ✅ Fonte única: cardápio público (slug) ou admin
+  // âœ… Fonte Ãºnica: cardÃ¡pio pÃºblico (slug) ou admin
   const dishes = (slug && Array.isArray(publicCardapio?.dishes)) ? publicCardapio.dishes : (adminDishes || []);
   const categories = (slug && Array.isArray(publicCardapio?.categories)) ? publicCardapio.categories : (adminCategories || []);
   const complementGroups = (slug && Array.isArray(publicCardapio?.complementGroups)) ? publicCardapio.complementGroups : (adminComplementGroups || []);
@@ -813,7 +938,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
     }
   }, [menuContext?.type, menuContext?.value, slug]);
 
-  // Corrige bug: categorias vazias mas pratos têm category_id → refetch categorias
+  // Corrige bug: categorias vazias mas pratos tÃªm category_id â†’ refetch categorias
   useEffect(() => {
     const dishesWithCategory = (dishes || []).filter(d => d.category_id && d.product_type !== 'pizza' && d.product_type !== 'beverage');
     const cats = Array.isArray(categories) ? categories : [];
@@ -880,7 +1005,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['dishes', ...menuQueryKeyParts] });
       if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
-      toast.success('Prato excluído');
+      toast.success('Prato excluÃ­do');
     },
     onError: () => toast.error('Erro ao excluir prato')
   });
@@ -928,7 +1053,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
       queryClient.invalidateQueries({ queryKey: ['categories', ...menuQueryKeyParts] });
       queryClient.invalidateQueries({ queryKey: ['dishes', ...menuQueryKeyParts] });
       if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
-      toast.success('Categoria excluída');
+      toast.success('Categoria excluÃ­da');
     },
     onError: () => toast.error('Erro ao excluir categoria')
   });
@@ -974,8 +1099,8 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
     },
   });
 
-  // Validações de segurança - DECLARADAS AQUI PARA ESTAREM DISPONÍVEIS EM TODAS AS FUNÇÕES
-  // ✅ Filtrar pizzas E bebidas (bebidas vão para BeveragesTab)
+  // ValidaÃ§Ãµes de seguranÃ§a - DECLARADAS AQUI PARA ESTAREM DISPONÃVEIS EM TODAS AS FUNÃ‡Ã•ES
+  // âœ… Filtrar pizzas E bebidas (bebidas vÃ£o para BeveragesTab)
   const safeDishes = (Array.isArray(dishes) ? dishes : []).filter(d => d.product_type !== 'pizza' && d.product_type !== 'beverage');
   const safeCategories = Array.isArray(categories) ? categories : [];
   const safeComplementGroups = Array.isArray(complementGroups) ? complementGroups : [];
@@ -995,14 +1120,14 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
     };
 
     if (dishFormData.image) {
-      addImage(dishFormData.image, dishFormData.name || 'Imagem atual', 'Imagem já aplicada neste prato');
+      addImage(dishFormData.image, dishFormData.name || 'Imagem atual', 'Imagem jÃ¡ aplicada neste prato');
     }
 
     safeDishes.forEach((dish) => {
       addImage(
         dish?.image,
         dish?.name || 'Prato',
-        dish?.category_id ? `Categoria ${dish.category_id}` : 'Imagem de prato já cadastrada'
+        dish?.category_id ? `Categoria ${dish.category_id}` : 'Imagem de prato jÃ¡ cadastrada'
       );
     });
 
@@ -1019,7 +1144,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
     return entries;
   }, [dishFormData.image, dishFormData.name, safeDishes, safeComplementGroups]);
 
- // ========= FUNÇÕES PRINCIPAIS =========
+ // ========= FUNÃ‡Ã•ES PRINCIPAIS =========
   const openDishModal = (dish = null, categoryId = '', productType = 'preparado') => {
     if (dish) {
       setEditingDish(dish);
@@ -1078,7 +1203,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
       onNavigateToPromotions();
       return;
     }
-    toast('Gerencie combos na aba Promoções.');
+    toast('Gerencie combos na aba PromoÃ§Ãµes.');
   };
 
   const closeDishModal = () => {
@@ -1092,17 +1217,17 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
     e.preventDefault();
     
     if (!dishFormData.name.trim()) {
-      toast.error('O nome do prato é obrigatório');
+      toast.error('O nome do prato Ã© obrigatÃ³rio');
       return;
     }
     
     if (!dishFormData.price || parseFloat(dishFormData.price) < 0) {
-      toast.error('Informe um preço válido');
+      toast.error('Informe um preÃ§o vÃ¡lido');
       return;
     }
     
     if (dishFormData.original_price && parseFloat(dishFormData.original_price) < parseFloat(dishFormData.price)) {
-      toast.error('O preço original não pode ser menor que o preço atual');
+      toast.error('O preÃ§o original nÃ£o pode ser menor que o preÃ§o atual');
       return;
     }
     
@@ -1255,9 +1380,9 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
   };
 
   const addNewComplementOption = (groupId) => {
-    const name = prompt('Nome da opção:');
+    const name = prompt('Nome da opÃ§Ã£o:');
     if (!name) return;
-    const priceStr = prompt('Preço adicional (deixe em branco para R$ 0,00):', '0');
+    const priceStr = prompt('PreÃ§o adicional (deixe em branco para R$ 0,00):', '0');
     const price = parseFloat(priceStr) || 0;
     
     const group = safeComplementGroups.find(g => g.id === groupId);
@@ -1390,7 +1515,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
     
     const alreadyLinked = dish.complement_groups?.some(cg => cg.group_id === groupId);
     if (alreadyLinked) {
-      alert('Este grupo já está vinculado a este prato');
+      alert('Este grupo jÃ¡ estÃ¡ vinculado a este prato');
       return;
     }
 
@@ -1414,7 +1539,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
     const existingIds = new Set((dish.complement_groups || []).map(cg => cg.group_id));
     const newIds = ids.filter(groupId => !existingIds.has(groupId));
     if (newIds.length === 0) {
-      toast('Todos os grupos selecionados já estão vinculados a este prato.');
+      toast('Todos os grupos selecionados jÃ¡ estÃ£o vinculados a este prato.');
       return;
     }
 
@@ -1428,7 +1553,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
       {
         onSuccess: () => {
           if (newIds.length < ids.length) {
-            toast.success(`${newIds.length} grupo(s) adicionado(s). ${ids.length - newIds.length} já estavam vinculados.`);
+            toast.success(`${newIds.length} grupo(s) adicionado(s). ${ids.length - newIds.length} jÃ¡ estavam vinculados.`);
           } else {
             toast.success(`${newIds.length} grupo(s) adicionado(s) ao prato.`);
           }
@@ -1564,7 +1689,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
       sameCategoryId(d.category_id, cat.id)
     );
   });
-  // Pratos sem categoria (ou com category_id inexistente) — exibir mesmo quando categories=[] para corrigir bug de "não mostra nada até criar categoria"
+  // Pratos sem categoria (ou com category_id inexistente) â€” exibir mesmo quando categories=[] para corrigir bug de "nÃ£o mostra nada atÃ© criar categoria"
   const dishesWithoutCategory = filteredDishes.filter(
     (d) =>
       !normalizeCategoryId(d.category_id) ||
@@ -1701,11 +1826,11 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
 
   const availableTags = ['vegetariano', 'vegano', 'sem_gluten', 'picante', 'fit'];
   const tagLabels = {
-    vegetariano: '🥗 Vegetariano',
-    vegano: '🌱 Vegano',
-    sem_gluten: '🌾 Sem Glúten',
-    picante: '🌶️ Picante',
-    fit: '💪 Fit'
+    vegetariano: 'ðŸ¥— Vegetariano',
+    vegano: 'ðŸŒ± Vegano',
+    sem_gluten: 'ðŸŒ¾ Sem GlÃºten',
+    picante: 'ðŸŒ¶ï¸ Picante',
+    fit: 'ðŸ’ª Fit'
   };
 
   const moveCategoryUp = (index) => {
@@ -1729,8 +1854,119 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
   };
 
   const activeFilters = getActiveFilters();
+  const currentViewLabel = internalTab === 'products' ? 'Produtos' : internalTab === 'complements' ? 'Complementos' : 'Cardápio';
+  const activeProductsCount = safeDishes.filter(d => d.is_active !== false).length;
 
-  // Mostrar skeleton enquanto contexto não carregou OU enquanto dados estão sendo buscados (evita tela vazia ao abrir)
+  const clearAllFilters = () => {
+    setSearchTerm('');
+    setFilterCategory('all');
+    setFilterStatus('all');
+    setFilterType('all');
+  };
+
+  const renderMobileDishCard = (dish) => (
+    <MobileDishCard
+      key={dish.id}
+      dish={dish}
+      onEdit={() => openDishModal(dish)}
+      onDuplicate={() => duplicateDish(dish)}
+      onDelete={() => handleDeleteDishWithAuth(dish.id)}
+      onToggleActive={(checked) => {
+        if (!canUpdate('dishes')) return;
+        updateDishMutation.mutate({
+          id: dish.id,
+          data: { is_active: checked },
+        });
+      }}
+      onToggleHighlight={(checked) => {
+        if (!canUpdate('dishes')) return;
+        updateDishMutation.mutate({
+          id: dish.id,
+          data: { is_highlight: checked },
+        });
+      }}
+      onToggleComplements={() => setMobileComplementsDish(dish)}
+      complementGroupsCount={dish.complement_groups?.length || 0}
+      formatCurrency={formatCurrency}
+      canEdit={canUpdate('dishes')}
+    />
+  );
+
+  const renderDesktopDishRow = (dish) => (
+    <DishRow
+      key={dish.id}
+      dish={dish}
+      isSelected={selectedDishes.includes(dish.id)}
+      onToggleSelection={() => toggleDishSelection(dish.id)}
+      complementGroups={safeComplementGroups}
+      expanded={expandedDishes[dish.id]}
+      onToggleExpand={() => toggleDishExpansion(dish.id)}
+      onEdit={() => openDishModal(dish)}
+      onDelete={() => handleDeleteDishWithAuth(dish.id)}
+      onDuplicate={() => duplicateDish(dish)}
+      onUpdate={(data) => updateDishMutation.mutate({ id: dish.id, data })}
+      onToggleOption={toggleComplementOption}
+      onUpdateOptionName={updateComplementOptionName}
+      onUpdateOptionPrice={updateComplementOptionPrice}
+      onOpenOptionImagePicker={openOptionImagePicker}
+      onRemoveOption={removeComplementOption}
+      onDuplicateOption={duplicateComplementOption}
+      onAddOption={addNewComplementOption}
+      onAddGroup={() => addNewComplementGroupToDish(dish.id)}
+      onReuseGroup={(groupId) => reuseComplementGroupToDish(dish.id, groupId)}
+      onRemoveGroup={(groupId) => removeGroupFromDish(dish.id, groupId)}
+      onOpenReuseModal={() => {
+        setCurrentDishForReuse(dish.id);
+        setShowReuseGroupModal(true);
+      }}
+      allComplementGroups={safeComplementGroups}
+      allDishes={safeDishes}
+      onEditGroup={(group) => {
+        const linked = dish.complement_groups?.find(cg => cg.group_id === group.id);
+        openGroupSettings({ ...group, is_required: linked?.is_required || false }, dish.id);
+      }}
+      getGroupUsageInfo={getGroupUsageInfo}
+      formatCurrency={formatCurrency}
+      updateDishMutation={updateDishMutation}
+      updateComplementGroupMutation={updateComplementGroupMutation}
+      createComplementGroupMutation={createComplementGroupMutation}
+      canEdit={canUpdate('dishes')}
+      canCreate={canCreate('dishes')}
+      canDelete={canDelete('dishes')}
+      setBulkEditGroup={setBulkEditGroup}
+      setShowBulkEditModal={setShowBulkEditModal}
+    />
+  );
+
+  const renderProductListRow = (dish) => {
+    const categoryName = safeCategories.find((cat) => sameCategoryId(cat.id, dish.category_id))?.name || 'Sem categoria';
+
+    return (
+      <ProductListRow
+        key={dish.id}
+        dish={dish}
+        categoryName={categoryName}
+        isSelected={selectedDishes.includes(dish.id)}
+        onToggleSelection={() => toggleDishSelection(dish.id)}
+        onEdit={() => openDishModal(dish)}
+        onDelete={() => handleDeleteDishWithAuth(dish.id)}
+        onDuplicate={() => duplicateDish(dish)}
+        onToggleActive={() => {
+          if (!canUpdate('dishes')) return;
+          updateDishMutation.mutate({
+            id: dish.id,
+            data: { is_active: dish.is_active === false },
+          });
+        }}
+        canEdit={canUpdate('dishes')}
+        canCreate={canCreate('dishes')}
+        canDelete={canDelete('dishes')}
+        formatCurrency={formatCurrency}
+      />
+    );
+  };
+
+  // Mostrar skeleton enquanto contexto nÃ£o carregou OU enquanto dados estÃ£o sendo buscados (evita tela vazia ao abrir)
   const isLoading = permissionLoading || !menuContext || isLoadingDishes || isLoadingCategories || isLoadingGroups;
   const hasError = dishesError || categoriesError || groupsError;
 
@@ -1743,7 +1979,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
   }
 
   if (hasError) {
-    log.admin.error('🍽️ [DishesTab] Erro ao carregar:', { dishesError, categoriesError, groupsError });
+    log.admin.error('ðŸ½ï¸ [DishesTab] Erro ao carregar:', { dishesError, categoriesError, groupsError });
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-8">
         <div className="text-center">
@@ -1764,60 +2000,72 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
       <Toaster position="top-center" />
       {/* Mobile Header */}
       <div className="lg:hidden sticky top-0 z-30 bg-card border-b border-border px-4 py-3">
-        <div className="flex items-center justify-between mb-3">
-          <h1 className="text-xl font-bold text-foreground">Cardápio</h1>
-          <button
-            onClick={() => setShowMobileFilters(true)}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-muted active:bg-muted/80 transition-colors"
-          >
-            <Search className="w-4 h-4" />
-            <span className="text-sm font-medium">Filtros</span>
-            {activeFilters.length > 0 && (
-              <span className="w-5 h-5 bg-orange-500 text-primary-foreground text-xs rounded-full flex items-center justify-center">
-                {activeFilters.length}
-              </span>
-            )}
-          </button>
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div>
+            <h1 className="text-xl font-bold text-foreground">{currentViewLabel}</h1>
+            <p className="text-xs text-muted-foreground">
+              {internalTab === 'products'
+                ? 'Banco de produtos com busca, filtros e ações rápidas.'
+                : internalTab === 'complements'
+                  ? 'Grupos reutilizáveis para personalizar o pedido.'
+                  : 'Organize categorias e produtos como o cliente enxerga.'}
+            </p>
+          </div>
+
+          {internalTab === 'products' ? (
+            <button
+              onClick={() => setShowMobileFilters(true)}
+              className="flex items-center gap-2 rounded-xl bg-muted px-3 py-2 transition-colors active:bg-muted/80"
+            >
+              <Search className="h-4 w-4" />
+              <span className="text-sm font-medium">Filtros</span>
+              {activeFilters.length > 0 && (
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-orange-500 text-xs text-primary-foreground">
+                  {activeFilters.length}
+                </span>
+              )}
+            </button>
+          ) : internalTab === 'menu' && canCreate('dishes') ? (
+            <Button size="sm" onClick={() => handleOpenProductTypeModal(safeCategories[0]?.id || '')}>
+              <Plus className="mr-1 h-4 w-4" />
+              Novo produto
+            </Button>
+          ) : null}
         </div>
-        
-        {activeFilters.length > 0 && (
+
+        {internalTab === 'products' && activeFilters.length > 0 && (
           <MobileFilterChips
             filters={activeFilters}
             onRemoveFilter={removeFilter}
-            onClearAll={() => {
-              setSearchTerm('');
-              setFilterCategory('all');
-              setFilterStatus('all');
-              setFilterType('all');
-            }}
+            onClearAll={clearAllFilters}
           />
         )}
       </div>
 
-      {/* ✅ Abas Internas: Pratos, Categorias, Complementos */}
-      <div className="hidden lg:block border-b border-border bg-card">
-        <div className="px-6 flex gap-1">
+      {/* Cardápio IA V2: Cardápio / Produtos / Complementos */}
+      <div className="hidden border-b border-border bg-card lg:block">
+        <div className="flex gap-1 px-6">
           <button
-            onClick={() => setInternalTab('dishes')}
+            onClick={() => setInternalTab('menu')}
             className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-              internalTab === 'dishes'
+              internalTab === 'menu'
                 ? 'border-orange-500 text-orange-500'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
-            <UtensilsCrossed className="w-4 h-4 inline mr-2" />
-            Pratos
+            <Layers className="mr-2 inline h-4 w-4" />
+            Cardápio
           </button>
           <button
-            onClick={() => setInternalTab('categories')}
+            onClick={() => setInternalTab('products')}
             className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-              internalTab === 'categories'
+              internalTab === 'products'
                 ? 'border-orange-500 text-orange-500'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
-            <Layers className="w-4 h-4 inline mr-2" />
-            Categorias
+            <UtensilsCrossed className="mr-2 inline h-4 w-4" />
+            Produtos
           </button>
           <button
             onClick={() => setInternalTab('complements')}
@@ -1827,38 +2075,37 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
                 : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
-            <LayoutGrid className="w-4 h-4 inline mr-2" />
+            <LayoutGrid className="mr-2 inline h-4 w-4" />
             Complementos
           </button>
         </div>
       </div>
 
-      {/* Mobile: Abas internas */}
-      <div className="lg:hidden border-b border-border bg-card sticky top-[73px] z-20">
+      <div className="sticky top-[73px] z-20 border-b border-border bg-card lg:hidden">
         <div className="flex overflow-x-auto scrollbar-hide">
           <button
-            onClick={() => setInternalTab('dishes')}
-            className={`px-4 py-3 text-xs font-medium border-b-2 transition-colors flex-shrink-0 ${
-              internalTab === 'dishes'
+            onClick={() => setInternalTab('menu')}
+            className={`flex-shrink-0 border-b-2 px-4 py-3 text-xs font-medium transition-colors ${
+              internalTab === 'menu'
                 ? 'border-orange-500 text-orange-500'
                 : 'border-transparent text-muted-foreground'
             }`}
           >
-            Pratos
+            Cardápio
           </button>
           <button
-            onClick={() => setInternalTab('categories')}
-            className={`px-4 py-3 text-xs font-medium border-b-2 transition-colors flex-shrink-0 ${
-              internalTab === 'categories'
+            onClick={() => setInternalTab('products')}
+            className={`flex-shrink-0 border-b-2 px-4 py-3 text-xs font-medium transition-colors ${
+              internalTab === 'products'
                 ? 'border-orange-500 text-orange-500'
                 : 'border-transparent text-muted-foreground'
             }`}
           >
-            Categorias
+            Produtos
           </button>
           <button
             onClick={() => setInternalTab('complements')}
-            className={`px-4 py-3 text-xs font-medium border-b-2 transition-colors flex-shrink-0 ${
+            className={`flex-shrink-0 border-b-2 px-4 py-3 text-xs font-medium transition-colors ${
               internalTab === 'complements'
                 ? 'border-orange-500 text-orange-500'
                 : 'border-transparent text-muted-foreground'
@@ -1869,530 +2116,83 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
         </div>
       </div>
 
-      {/* Conteúdo das Abas */}
-      {internalTab === 'categories' ? (
-        <CategoriesTab onSwitchToComplements={() => setInternalTab('complements')} />
-      ) : internalTab === 'complements' ? (
-        <ComplementsTab
-          onSwitchToCategories={() => setInternalTab('categories')}
+      {/* ConteÃºdo das Abas */}
+      {internalTab === 'complements' ? (
+        <ComplementsView
+          onBackToMenu={() => setInternalTab('menu')}
           onOpenTemplates={() => setShowTemplatesModal(true)}
         />
+      ) : internalTab === 'products' ? (
+        <ProductsView
+          canCreateProducts={canCreate('dishes')}
+          safeDishes={safeDishes}
+          safeCategories={safeCategories}
+          safeComplementGroups={safeComplementGroups}
+          filteredDishes={filteredDishes}
+          activeProductsCount={activeProductsCount}
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          filterCategory={filterCategory}
+          setFilterCategory={setFilterCategory}
+          filterStatus={filterStatus}
+          setFilterStatus={setFilterStatus}
+          filterType={filterType}
+          setFilterType={setFilterType}
+          clearAllFilters={clearAllFilters}
+          selectedDishes={selectedDishes}
+          onBulkActivate={() => handleBulkStatusChange(true)}
+          onBulkDeactivate={() => handleBulkStatusChange(false)}
+          onBulkDelete={handleBulkDeleteWithAuth}
+          onClearSelection={() => setSelectedDishes([])}
+          onOpenNewProduct={() => handleOpenProductTypeModal(safeCategories[0]?.id || '')}
+          renderMobileDishCard={renderMobileDishCard}
+          renderProductListRow={renderProductListRow}
+          normalizeCategoryId={normalizeCategoryId}
+        />
       ) : (
-        <>
-      {/* Desktop Header */}
-      <div className="hidden lg:block p-6">
-        <div className="flex flex-wrap gap-3 mb-6">
-          {canCreate('dishes') && (
-            <Button onClick={() => setShowCategoryModal(true)} variant="outline">
-              <FolderPlus className="w-4 h-4 mr-2" />
-              Nova Categoria
-            </Button>
-          )}
-          {canUpdate('dishes') && (
-            <Button onClick={() => setShowReorderModal(true)} variant="outline">
-              <Menu className="w-4 h-4 mr-2" />
-              Reordenar
-            </Button>
-          )}
-        </div>
-
-        {/* Estatísticas */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <Card className="border-l-4 border-l-blue-500">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Total de Pratos</p>
-                  <p className="text-2xl font-bold">{safeDishes.length}</p>
-                </div>
-                <Package className="w-8 h-8 text-blue-500" />
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="border-l-4 border-l-green-500">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Ativos</p>
-                  <p className="text-2xl font-bold text-green-600">
-                    {safeDishes.filter(d => d.is_active !== false).length}
-                  </p>
-                </div>
-                <CheckCircle className="w-8 h-8 text-green-500" />
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="border-l-4 border-l-orange-500">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Categorias</p>
-                  <p className="text-2xl font-bold text-orange-600">{safeCategories.length}</p>
-                </div>
-                <Layers className="w-8 h-8 text-orange-500" />
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="border-l-4 border-l-purple-500">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Complementos</p>
-                  <p className="text-2xl font-bold text-purple-600">{safeComplementGroups.length}</p>
-                </div>
-                <Settings className="w-8 h-8 text-purple-500" />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Desktop Filtros e Busca */}
-        <div className="bg-card rounded-xl border border-border p-4 mb-6 space-y-4 shadow-sm">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <Input 
-              placeholder="🔍 Buscar pratos..." 
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-            <Select value={filterCategory} onValueChange={setFilterCategory}>
-              <SelectTrigger>
-                <SelectValue placeholder="Todas categorias" />
-              </SelectTrigger>
-                <SelectContent>
-                <SelectItem value="all">Todas categorias</SelectItem>
-                {safeCategories.map(cat => (
-                  <SelectItem key={cat.id} value={normalizeCategoryId(cat.id)}>{cat.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger>
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os status</SelectItem>
-                <SelectItem value="active">✓ Ativos</SelectItem>
-                <SelectItem value="inactive">✗ Inativos</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={filterType} onValueChange={setFilterType}>
-              <SelectTrigger>
-                <SelectValue placeholder="Tipo" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os tipos</SelectItem>
-                <SelectItem value="highlight">⭐ Destaques</SelectItem>
-                <SelectItem value="new">✨ Novos</SelectItem>
-                <SelectItem value="popular">🔥 Populares</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          
-          {(searchTerm || filterCategory !== 'all' || filterStatus !== 'all' || filterType !== 'all') && (
-            <div className="flex items-center justify-between pt-3 border-t">
-              <p className="text-sm text-muted-foreground">
-                {filteredDishes.length} prato{filteredDishes.length !== 1 ? 's' : ''} encontrado{filteredDishes.length !== 1 ? 's' : ''}
-              </p>
-              <Button 
-                variant="ghost" 
-                size="sm"
-                onClick={() => {
-                  setSearchTerm('');
-                  setFilterCategory('all');
-                  setFilterStatus('all');
-                  setFilterType('all');
-                }}
-              >
-                Limpar filtros
-              </Button>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Ações em Massa */}
-      {selectedDishes.length > 0 && (
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6 flex items-center justify-between">
-          <span className="text-sm font-medium text-blue-900">
-            {selectedDishes.length} prato{selectedDishes.length !== 1 ? 's' : ''} selecionado{selectedDishes.length !== 1 ? 's' : ''}
-          </span>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => handleBulkStatusChange(true)}>
-              Ativar
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => handleBulkStatusChange(false)}>
-              Desativar
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleBulkDeleteWithAuth} className="text-red-600">
-              Excluir
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => setSelectedDishes([])}>
-              Cancelar
-            </Button>
-          </div>
-        </div>
+        <MenuView
+          canCreateProducts={canCreate('dishes')}
+          canUpdateProducts={canUpdate('dishes')}
+          canDeleteProducts={canDelete('dishes')}
+          safeCategories={safeCategories}
+          safeComplementGroups={safeComplementGroups}
+          safeDishes={safeDishes}
+          dishesWithoutCategory={dishesWithoutCategory}
+          dishesByCategory={dishesByCategory}
+          expandedCategories={expandedCategories}
+          selectedDishes={selectedDishes}
+          activeProductsCount={activeProductsCount}
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          filterCategory={filterCategory}
+          setFilterCategory={setFilterCategory}
+          filterStatus={filterStatus}
+          setFilterStatus={setFilterStatus}
+          clearAllFilters={clearAllFilters}
+          onOpenCategoryModal={() => setShowCategoryModal(true)}
+          onOpenNewProduct={(categoryId) => handleOpenProductTypeModal(categoryId || safeCategories[0]?.id || '')}
+          onCreateCombo={handleRedirectToPromotions}
+          onOpenReorder={() => setShowReorderModal(true)}
+          onToggleCategoryExpansion={toggleCategoryExpansion}
+          onEditCategory={editCategory}
+          onDuplicateCategory={duplicateCategory}
+          onDeleteCategory={handleDeleteCategoryWithAuth}
+          onMoveCategoryUp={moveCategoryUp}
+          onMoveCategoryDown={moveCategoryDown}
+          onSetSelectedDishes={setSelectedDishes}
+          renderMobileDishCard={renderMobileDishCard}
+          renderDesktopDishRow={renderDesktopDishRow}
+          normalizeCategoryId={normalizeCategoryId}
+        />
       )}
 
-      {/* Mobile Lista por Categoria */}
-      <div className="lg:hidden px-4 pb-24 space-y-3">
-        {/* Sem categoria: pratos órfãos ou quando categories=[] — evita "não mostra nada" até criar categoria */}
-        {dishesWithoutCategory.length > 0 && (
-          <MobileCategoryAccordion
-            key="__sem_categoria__"
-            category={{ id: '__sem_categoria__', name: 'Sem categoria' }}
-            dishCount={dishesWithoutCategory.length}
-            isExpanded={expandedCategories['__sem_categoria__'] !== false}
-            onToggle={() => toggleCategoryExpansion('__sem_categoria__')}
-            onAddDish={() => handleOpenProductTypeModal(safeCategories[0]?.id || '')}
-            onEdit={() => {}}
-            onDuplicate={() => {}}
-            onDelete={() => {}}
-          >
-            {dishesWithoutCategory.map((dish) => (
-              <MobileDishCard
-                key={dish.id}
-                dish={dish}
-                onEdit={() => openDishModal(dish)}
-                onDuplicate={() => duplicateDish(dish)}
-                onDelete={() => {
-                  handleDeleteDishWithAuth(dish.id);
-                }}
-                onToggleActive={(checked) => {
-                  if (!canUpdate('dishes')) return;
-                  updateDishMutation.mutate({ id: dish.id, data: { is_active: checked } });
-                }}
-                onToggleHighlight={(checked) => {
-                  if (!canUpdate('dishes')) return;
-                  updateDishMutation.mutate({ id: dish.id, data: { is_highlight: checked } });
-                }}
-                onToggleComplements={() => setMobileComplementsDish(dish)}
-                complementGroupsCount={dish.complement_groups?.length || 0}
-                formatCurrency={formatCurrency}
-                canEdit={canUpdate('dishes')}
-              />
-            ))}
-          </MobileCategoryAccordion>
-        )}
-        {safeCategories.map((category) => {
-          const categoryDishes = dishesByCategory[normalizeCategoryId(category.id)] || [];
-          const isExpanded = expandedCategories[category.id] !== false;
-
-          return (
-            <MobileCategoryAccordion
-              key={category.id}
-              category={category}
-              dishCount={categoryDishes.length}
-              isExpanded={isExpanded}
-              onToggle={() => toggleCategoryExpansion(category.id)}
-              onAddDish={() => handleOpenProductTypeModal(category.id)}
-              onEdit={() => editCategory(category)}
-              onDuplicate={() => duplicateCategory(category)}
-              onDelete={() => handleDeleteCategoryWithAuth(category.id)}
-            >
-              {categoryDishes.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground text-sm">
-                  Nenhum prato nesta categoria
-                </div>
-              ) : (
-                categoryDishes.map((dish) => (
-                  <MobileDishCard
-                    key={dish.id}
-                    dish={dish}
-                    onEdit={() => openDishModal(dish)}
-                    onDuplicate={() => duplicateDish(dish)}
-                    onDelete={() => handleDeleteDishWithAuth(dish.id)}
-                    onToggleActive={(checked) => {
-                      if (!canUpdate('dishes')) return;
-                      updateDishMutation.mutate({ 
-                        id: dish.id, 
-                        data: { is_active: checked } 
-                      });
-                    }}
-                    onToggleHighlight={(checked) => {
-                      if (!canUpdate('dishes')) return;
-                      updateDishMutation.mutate({ 
-                        id: dish.id, 
-                        data: { is_highlight: checked } 
-                      });
-                    }}
-                    onToggleComplements={() => setMobileComplementsDish(dish)}
-                    complementGroupsCount={dish.complement_groups?.length || 0}
-                    formatCurrency={formatCurrency}
-                    canEdit={canUpdate('dishes')}
-                  />
-                ))
-              )}
-            </MobileCategoryAccordion>
-          );
-        })}
-
-        {safeCategories.length === 0 && safeDishes.length === 0 && (
-          <EmptyState
-            icon={UtensilsCrossed}
-            title="Você ainda não cadastrou nenhum prato"
-            description="Comece criando categorias e adicionando seus pratos ao cardápio"
-            actionLabel="Criar primeira categoria"
-            onAction={() => setShowCategoryModal(true)}
-          />
-        )}
-
-        {safeCategories.length > 0 && safeDishes.length === 0 && (
-          <EmptyState
-            icon={UtensilsCrossed}
-            title="Você ainda não cadastrou nenhum prato"
-            description="Adicione pratos às categorias criadas para começar a vender"
-            actionLabel="Cadastrar primeiro prato"
-            onAction={() => openDishModal(null, safeCategories[0]?.id || '')}
-          />
-        )}
-      </div>
-
-      {/* Desktop Lista por Categoria */}
-      <div className="hidden lg:block px-6 pb-6 space-y-4">
-        {/* Sem categoria: pratos órfãos ou quando categories=[] — evita "não mostra nada" até criar categoria */}
-        {dishesWithoutCategory.length > 0 && (
-          <div className="bg-muted/50 rounded-xl overflow-hidden">
-            <div className="flex items-center justify-between p-4 bg-card border border-border-b cursor-pointer hover:bg-muted/50" onClick={() => toggleCategoryExpansion('__sem_categoria__')}>
-              <div className="flex items-center gap-3">
-                <Menu className="w-5 h-5 text-muted-foreground" />
-                <h2 className="font-bold text-lg">Sem categoria</h2>
-                <Badge variant="secondary" className="text-xs">{dishesWithoutCategory.length} itens</Badge>
-              </div>
-              <div className="flex items-center gap-2">
-                {canCreate('dishes') && (
-                  <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); handleOpenProductTypeModal(safeCategories[0]?.id || ''); }}>
-                    <Plus className="w-4 h-4 mr-1" />
-                    Adicionar prato
-                  </Button>
-                )}
-                {expandedCategories['__sem_categoria__'] !== false ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-              </div>
-            </div>
-            {expandedCategories['__sem_categoria__'] !== false && (
-              <div className="p-4 space-y-3">
-                {dishesWithoutCategory.map((dish) => (
-                  <DishRow
-                    key={dish.id}
-                    dish={dish}
-                    isSelected={selectedDishes.includes(dish.id)}
-                    onToggleSelection={() => toggleDishSelection(dish.id)}
-                    complementGroups={safeComplementGroups}
-                    expanded={expandedDishes[dish.id]}
-                    onToggleExpand={() => toggleDishExpansion(dish.id)}
-                    onEdit={() => openDishModal(dish)}
-                    onDelete={() => handleDeleteDishWithAuth(dish.id)}
-                    onDuplicate={() => duplicateDish(dish)}
-                    onUpdate={(data) => updateDishMutation.mutate({ id: dish.id, data })}
-                    onToggleOption={toggleComplementOption}
-                    onUpdateOptionName={updateComplementOptionName}
-                    onUpdateOptionPrice={updateComplementOptionPrice}
-                    onOpenOptionImagePicker={openOptionImagePicker}
-                    onRemoveOption={removeComplementOption}
-                    onDuplicateOption={duplicateComplementOption}
-                    onAddOption={addNewComplementOption}
-                    onAddGroup={() => addNewComplementGroupToDish(dish.id)}
-                    onReuseGroup={(groupId) => reuseComplementGroupToDish(dish.id, groupId)}
-                    onRemoveGroup={(groupId) => removeGroupFromDish(dish.id, groupId)}
-                    onOpenReuseModal={() => { setCurrentDishForReuse(dish.id); setShowReuseGroupModal(true); }}
-                    allComplementGroups={safeComplementGroups}
-                    allDishes={safeDishes}
-                    onEditGroup={(group) => {
-                      const linked = dish.complement_groups?.find(cg => cg.group_id === group.id);
-                      openGroupSettings({ ...group, is_required: linked?.is_required || false }, dish.id);
-                    }}
-                    getGroupUsageInfo={getGroupUsageInfo}
-                    formatCurrency={formatCurrency}
-                    updateDishMutation={updateDishMutation}
-                    updateComplementGroupMutation={updateComplementGroupMutation}
-                    createComplementGroupMutation={createComplementGroupMutation}
-                    canEdit={canUpdate('dishes')}
-                    canCreate={canCreate('dishes')}
-                    canDelete={canDelete('dishes')}
-                    setBulkEditGroup={setBulkEditGroup}
-                    setShowBulkEditModal={setShowBulkEditModal}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-        {safeCategories.map((category, categoryIndex) => {
-          const categoryDishes = dishesByCategory[normalizeCategoryId(category.id)] || [];
-          const isExpanded = expandedCategories[category.id] !== false;
-
-          return (
-            <div key={category.id} className="bg-muted/50 rounded-xl overflow-hidden">
-              <div className="flex items-center justify-between p-4 bg-card border border-border-b cursor-pointer hover:bg-muted/50" onClick={() => toggleCategoryExpansion(category.id)}>
-                <div className="flex items-center gap-3">
-                  {canUpdate('dishes') && (
-                    <div className="flex flex-col gap-0.5">
-                      <button onClick={(e) => { e.stopPropagation(); moveCategoryUp(categoryIndex); }} disabled={categoryIndex === 0} className="p-0.5 hover:bg-muted/70 rounded disabled:opacity-30">
-                        <ChevronUp className="w-4 h-4" />
-                      </button>
-                      <button onClick={(e) => { e.stopPropagation(); moveCategoryDown(categoryIndex); }} disabled={categoryIndex === safeCategories.length - 1} className="p-0.5 hover:bg-muted/70 rounded disabled:opacity-30">
-                        <ChevronDown className="w-4 h-4" />
-                      </button>
-                    </div>
-                  )}
-                  <Menu className="w-5 h-5 text-muted-foreground" />
-                  <h2 className="font-bold text-lg">{category.name}</h2>
-                  <Badge variant="secondary" className="text-xs">{categoryDishes.length} itens</Badge>
-                </div>
-                <div className="flex items-center gap-2">
-                  {selectedDishes.length > 0 && (
-                    <Button variant="outline" size="sm" onClick={(e) => {
-                      e.stopPropagation();
-                      const categoryDishIds = categoryDishes.map(d => d.id);
-                      const allSelected = categoryDishIds.every(id => selectedDishes.includes(id));
-                      if (allSelected) {
-                        setSelectedDishes(prev => prev.filter(id => !categoryDishIds.includes(id)));
-                      } else {
-                        setSelectedDishes(prev => [...new Set([...prev, ...categoryDishIds])]);
-                      }
-                    }}>
-                      {categoryDishes.every(d => selectedDishes.includes(d.id)) ? '☑' : '☐'} Selecionar todos
-                    </Button>
-                  )}
-                  {canCreate('dishes') && (
-                    <Button variant="outline" size="sm" onClick={(e) => {
-                      e.stopPropagation();
-                      handleOpenProductTypeModal(category.id);
-                    }}>
-                      <Plus className="w-4 h-4 mr-1" />
-                      Adicionar prato
-                    </Button>
-                  )}
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                      <Button variant="ghost" size="icon">
-                        <MoreVertical className="w-4 h-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      {canUpdate('dishes') && (
-                        <DropdownMenuItem onClick={() => editCategory(category)}>
-                          <Pencil className="w-4 h-4 mr-2" />
-                          Editar categoria
-                        </DropdownMenuItem>
-                      )}
-                      {canCreate('dishes') && (
-                        <DropdownMenuItem onClick={() => duplicateCategory(category)}>
-                          <Files className="w-4 h-4 mr-2" />
-                          Duplicar categoria
-                        </DropdownMenuItem>
-                      )}
-                      {canDelete('dishes') && (
-                        <>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={() => handleDeleteCategoryWithAuth(category.id)} className="text-red-600">
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Remover categoria
-                          </DropdownMenuItem>
-                        </>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                  {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-                </div>
-              </div>
-
-              {isExpanded && (
-                <div className="p-4 space-y-3">
-                  {categoryDishes.length === 0 ? (
-                    <div className="p-4 text-center text-muted-foreground text-sm">
-                      Nenhum prato nesta categoria
-                    </div>
-                  ) : (
-                    categoryDishes.map((dish) => (
-                      <DishRow 
-                      key={dish.id} 
-                      dish={dish}
-                      isSelected={selectedDishes.includes(dish.id)}
-                      onToggleSelection={() => toggleDishSelection(dish.id)} 
-                      complementGroups={safeComplementGroups}
-                      expanded={expandedDishes[dish.id]}
-                      onToggleExpand={() => toggleDishExpansion(dish.id)}
-                      onEdit={() => openDishModal(dish)}
-                      onDelete={() => handleDeleteDishWithAuth(dish.id)}
-                      onDuplicate={() => duplicateDish(dish)}
-                      onUpdate={(data) => updateDishMutation.mutate({ id: dish.id, data })}
-                      onToggleOption={toggleComplementOption}
-                      onUpdateOptionName={updateComplementOptionName}
-                      onUpdateOptionPrice={updateComplementOptionPrice}
-                      onOpenOptionImagePicker={openOptionImagePicker}
-                      onRemoveOption={removeComplementOption}
-                      onDuplicateOption={duplicateComplementOption}
-                      onAddOption={addNewComplementOption}
-                      onAddGroup={() => addNewComplementGroupToDish(dish.id)}
-                      onReuseGroup={(groupId) => reuseComplementGroupToDish(dish.id, groupId)}
-                      onRemoveGroup={(groupId) => removeGroupFromDish(dish.id, groupId)}
-                      onOpenReuseModal={() => {
-                        setCurrentDishForReuse(dish.id);
-                        setShowReuseGroupModal(true);
-                      }}
-                      allComplementGroups={safeComplementGroups}
-                      allDishes={safeDishes}
-                      onEditGroup={(group) => {
-                        const linked = dish.complement_groups?.find(cg => cg.group_id === group.id);
-                        openGroupSettings({ ...group, is_required: linked?.is_required || false }, dish.id);
-                      }}
-                      getGroupUsageInfo={getGroupUsageInfo}
-                      formatCurrency={formatCurrency}
-                      updateDishMutation={updateDishMutation}
-                      updateComplementGroupMutation={updateComplementGroupMutation}
-                      createComplementGroupMutation={createComplementGroupMutation}
-                      canEdit={canUpdate('dishes')}
-                      canCreate={canCreate('dishes')}
-                      canDelete={canDelete('dishes')}
-                      setBulkEditGroup={setBulkEditGroup}
-                      setShowBulkEditModal={setShowBulkEditModal}
-                    />
-                    ))
-                  )}
-                </div>
-              )}
-            </div>
-          );
-        })}
-
-        {safeCategories.length === 0 && safeDishes.length === 0 && (
-          <EmptyState
-            icon={UtensilsCrossed}
-            title="Você ainda não cadastrou nenhum prato"
-            description="Comece criando categorias e adicionando seus pratos ao cardápio"
-            actionLabel="Criar primeira categoria"
-            onAction={() => setShowCategoryModal(true)}
-          />
-        )}
-
-        {safeCategories.length > 0 && safeDishes.length === 0 && (
-          <EmptyState
-            icon={UtensilsCrossed}
-            title="Você ainda não cadastrou nenhum prato"
-            description="Adicione pratos às categorias criadas para começar a vender"
-            actionLabel="Cadastrar primeiro prato"
-            onAction={() => openDishModal(null, safeCategories[0]?.id || '')}
-          />
-        )}
-      </div>
-
-      {/* Mobile FAB */}
-      {canCreate('dishes') && (
-        <div className="lg:hidden">
-          <MobileFloatingActions
-            onAddDish={() => handleOpenProductTypeModal(safeCategories[0]?.id || '')}
-            onAddCategory={() => setShowCategoryModal(true)}
-          />
-        </div>
-      )}
-
-      {/* Modal Seleção de Tipo de Produto */}
+      {/* Modal SeleÃ§Ã£o de Tipo de Produto */}
       <ProductTypeModal
         isOpen={showProductTypeModal}
         onClose={() => setShowProductTypeModal(false)}
         onSelectType={handleSelectProductType}
         categoryId={selectedCategoryForNewDish}
-        categoryDishes={Array.isArray(dishesByCategory[selectedCategoryForNewDish]) ? dishesByCategory[selectedCategoryForNewDish] : []}
+        categoryDishes={Array.isArray(dishesByCategory[normalizeCategoryId(selectedCategoryForNewDish)]) ? dishesByCategory[normalizeCategoryId(selectedCategoryForNewDish)] : []}
         onRedirectToPizzas={handleRedirectToPizzas}
         hasPizzaService={hasPizzaService}
         subscriberName={subscriberData?.name || user?.full_name || ''}
@@ -2405,7 +2205,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
         plan={plan}
         limit={effectiveLimits?.products ?? 0}
         used={usage?.productsCount ?? 0}
-        suggestion="Pro libera até 800 produtos."
+        suggestion="Pro libera atÃ© 800 produtos."
       />
 
       {/* Mobile Complements Sheet */}
@@ -2542,9 +2342,9 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
             <div className="grid grid-cols-2 gap-2">
               {[
                 { value: 'all', label: 'Todos' },
-                { value: 'highlight', label: '⭐ Destaques' },
-                { value: 'new', label: '✨ Novos' },
-                { value: 'popular', label: '🔥 Populares' }
+                { value: 'highlight', label: 'â­ Destaques' },
+                { value: 'new', label: 'âœ¨ Novos' },
+                { value: 'popular', label: 'ðŸ”¥ Populares' }
               ].map(type => (
                 <button
                   key={type.value}
@@ -2569,8 +2369,6 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
           </Button>
         </div>
       </MobileBottomSheet>
-        </>
-      )}
 
       {/* Modal Nova/Editar Categoria */}
       <CategoryForm
@@ -2589,7 +2387,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
         <DialogContent className="sm:max-w-2xl max-w-[95vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingDish ? 'Editar Prato' : 'Adicionar Prato'}</DialogTitle>
-            <DialogDescription className="sr-only">Formulário para adicionar ou editar um prato do cardápio.</DialogDescription>
+            <DialogDescription className="sr-only">FormulÃ¡rio para adicionar ou editar um prato do cardÃ¡pio.</DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleDishSubmit} className="space-y-4">
@@ -2618,13 +2416,13 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <Label className="text-sm font-medium mb-2 block">Preço de (R$)</Label>
+                <Label className="text-sm font-medium mb-2 block">PreÃ§o de (R$)</Label>
                 <Input 
                   type="number" 
                   step="0.01" 
                   value={dishFormData.original_price} 
                   onChange={(e) => setDishFormData(prev => ({ ...prev, original_price: e.target.value }))} 
-                  placeholder="Preço original" 
+                  placeholder="PreÃ§o original" 
                   className="min-h-touch"
                 />
               </div>
@@ -2636,7 +2434,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
                   value={dishFormData.price} 
                   onChange={(e) => setDishFormData(prev => ({ ...prev, price: e.target.value }))} 
                   required 
-                  placeholder="Preço atual" 
+                  placeholder="PreÃ§o atual" 
                   className="min-h-touch"
                 />
               </div>
@@ -2664,7 +2462,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
                 </div>
               </div>
               <div>
-                <Label className="text-sm font-medium mb-2 block">Porção</Label>
+                <Label className="text-sm font-medium mb-2 block">PorÃ§Ã£o</Label>
                 <Input 
                   value={dishFormData.portion} 
                   onChange={(e) => setDishFormData(prev => ({ ...prev, portion: e.target.value }))} 
@@ -2681,15 +2479,15 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
                   variant={dishFormData.product_type === 'preparado' ? 'default' : 'outline'}
                   className="cursor-default"
                 >
-                  {dishFormData.product_type === 'preparado' ? '🍳 Preparado' : 
-                   dishFormData.product_type === 'industrializado' ? '📦 Industrializado' : 
-                   '🍕 Pizza'}
+                  {dishFormData.product_type === 'preparado' ? 'ðŸ³ Preparado' : 
+                   dishFormData.product_type === 'industrializado' ? 'ðŸ“¦ Industrializado' : 
+                   'ðŸ• Pizza'}
                 </Badge>
               </div>
             </div>
 
             <div>
-              <Label className="text-sm font-medium mb-2 block">Descrição</Label>
+              <Label className="text-sm font-medium mb-2 block">DescriÃ§Ã£o</Label>
               <Textarea 
                 value={dishFormData.description} 
                 onChange={(e) => setDishFormData(prev => ({ ...prev, description: e.target.value }))} 
@@ -2728,7 +2526,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
             </div>
 
             <div>
-              <Label className="text-sm font-medium mb-2 block">Observações Internas (não visíveis ao cliente)</Label>
+              <Label className="text-sm font-medium mb-2 block">Observações internas (não visíveis ao cliente)</Label>
               <Textarea 
                 value={dishFormData.internal_notes} 
                 onChange={(e) => setDishFormData(prev => ({ ...prev, internal_notes: e.target.value }))} 
@@ -2756,8 +2554,8 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
                     <p className="text-sm font-medium text-foreground">Capriche na foto principal do prato</p>
                     <div className="space-y-1 text-xs text-muted-foreground">
                       <p>Formatos: JPG, JPEG, PNG e HEIC</p>
-                      <p>Peso máximo: 10 MB</p>
-                      <p>Resolução mínima: 300x300</p>
+                      <p>Peso mÃ¡ximo: 10 MB</p>
+                      <p>ResoluÃ§Ã£o mÃ­nima: 300x300</p>
                       <p>Recomendamos usar uma foto quadrada para destacar melhor na vitrine.</p>
                     </div>
                   </div>
@@ -2781,10 +2579,10 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
               </div>
             </div>
 
-            {/* 🎥 Link do Vídeo — visível junto com Imagem e Destaques */}
+            {/* ðŸŽ¥ Link do VÃ­deo â€” visÃ­vel junto com Imagem e Destaques */}
             <div className="p-4 border-2 border-orange-300 dark:border-orange-700 rounded-lg bg-orange-50 dark:bg-orange-900/30 shadow-sm">
               <Label htmlFor="video_url" className="text-base font-semibold mb-2 block text-orange-700 dark:text-orange-300">
-                🎥 Link do Vídeo (YouTube ou Vimeo)
+                ðŸŽ¥ Link do VÃ­deo (YouTube ou Vimeo)
               </Label>
               <Input 
                 id="video_url"
@@ -2795,12 +2593,12 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
                 className="w-full bg-card"
               />
               <p className="text-xs text-orange-600 dark:text-orange-400 mt-2">
-                O vídeo aparece no cardápio ao clicar na imagem do prato.
+                O vÃ­deo aparece no cardÃ¡pio ao clicar na imagem do prato.
               </p>
               {dishFormData.video_url && (
                 <div className="mt-3 flex items-center justify-between p-3 bg-card rounded-lg border border-border">
                   <Label htmlFor="video_autoplay" className="cursor-pointer text-sm font-medium">
-                    Reprodução automática
+                    ReproduÃ§Ã£o automÃ¡tica
                   </Label>
                   <Switch
                     id="video_autoplay"
@@ -2813,17 +2611,17 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div className="flex items-center justify-between p-3 sm:p-4 bg-muted/50 rounded min-h-touch">
-                <Label className="text-sm font-medium">⭐ Destaque</Label>
+                <Label className="text-sm font-medium">â­ Destaque</Label>
                 <Switch checked={dishFormData.is_highlight} onCheckedChange={(checked) => setDishFormData(prev => ({ ...prev, is_highlight: checked }))} />
               </div>
               <div className="flex items-center justify-between p-3 sm:p-4 bg-muted/50 rounded min-h-touch">
-                <Label className="text-sm font-medium">✨ Novo</Label>
+                <Label className="text-sm font-medium">âœ¨ Novo</Label>
                 <Switch checked={dishFormData.is_new} onCheckedChange={(checked) => setDishFormData(prev => ({ ...prev, is_new: checked }))} />
               </div>
             </div>
 
             <div className="flex items-center justify-between p-3 sm:p-4 bg-muted/50 rounded min-h-touch">
-              <Label className="text-sm font-medium">🔥 Mais Vendido</Label>
+              <Label className="text-sm font-medium">ðŸ”¥ Mais Vendido</Label>
               <Switch checked={dishFormData.is_popular} onCheckedChange={(checked) => setDishFormData(prev => ({ ...prev, is_popular: checked }))} />
             </div>
 
@@ -2889,7 +2687,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
       <Dialog open={showGroupSettingsModal} onOpenChange={setShowGroupSettingsModal}>
         <DialogContent className="sm:max-w-md max-w-[95vw]">
           <DialogHeader>
-            <DialogTitle>Configurações do Grupo</DialogTitle>
+            <DialogTitle>Configurações do grupo</DialogTitle>
             <DialogDescription className="sr-only">Configurações do grupo de complementos.</DialogDescription>
           </DialogHeader>
           {editingGroup && (
@@ -2906,7 +2704,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
                 <Switch checked={editingGroup.is_required} onCheckedChange={(checked) => setEditingGroup(prev => ({ ...prev, is_required: checked }))} />
               </div>
               <div>
-                <Label>Máximo de Seleções</Label>
+                <Label>Máximo de seleções</Label>
                 <p className="text-xs text-muted-foreground mb-2">Quantas opções o cliente pode escolher</p>
                 <Input type="number" min="1" value={editingGroup.max_selection || 1} onChange={(e) => setEditingGroup(prev => ({ ...prev, max_selection: parseInt(e.target.value) || 1 }))} />
               </div>
@@ -2959,7 +2757,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
         }}
       />
 
-      {/* Modal Edição em Massa */}
+      {/* Modal EdiÃ§Ã£o em Massa */}
       {bulkEditGroup && (
         <BulkEditOptions
           isOpen={showBulkEditModal}
@@ -2981,3 +2779,4 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
     </>
   );
 }
+
