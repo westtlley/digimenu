@@ -47,6 +47,7 @@ export default function PDV() {
   const [loading, setLoading] = useState(true);
   const [allowed, setAllowed] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [pdvCodeInput, setPdvCodeInput] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [cart, setCart] = useState([]);
   const [discountReais, setDiscountReais] = useState('');
@@ -110,11 +111,15 @@ export default function PDV() {
   const [suprimentoData, setSuprimentoData] = useState({ amount: '', reason: '' });
   const [closingCashAmount, setClosingCashAmount] = useState('');
   const [closingNotes, setClosingNotes] = useState('');
+  const [highlightedDishId, setHighlightedDishId] = useState(null);
+  const [highlightedCartItemId, setHighlightedCartItemId] = useState(null);
   
   // Tracking de cancelamentos em tela (para relatÃƒÆ’Ã‚Â³rio de fechamento)
   const [canceledInScreenCount, setCanceledInScreenCount] = useState(0);
   const [canceledInScreenTotal, setCanceledInScreenTotal] = useState(0);
   const saleClientRequestIdRef = useRef(null);
+  const pdvCodeInputRef = useRef(null);
+  const shouldRefocusPdvCodeRef = useRef(false);
 
   // Verificar autenticaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o e permissÃƒÆ’Ã‚Â£o
   useEffect(() => {
@@ -544,6 +549,24 @@ export default function PDV() {
   const safeCaixas = Array.isArray(caixas) ? caixas.filter(Boolean) : [];
   const safeComplementGroups = Array.isArray(complementGroups) ? complementGroups.filter(Boolean) : [];
   const safeDishes = Array.isArray(dishes) ? dishes.filter(Boolean) : [];
+  const normalizePdvCode = (value) => {
+    if (value === null || value === undefined) return '';
+    return String(value).trim().toLowerCase();
+  };
+  const isDishEnabledInPdv = (dish) => dish?.is_active !== false && dish?.channels?.pdv?.enabled !== false;
+  const pdvCodeIndex = useMemo(() => {
+    const index = new Map();
+
+    safeDishes.forEach((dish) => {
+      const normalizedCode = normalizePdvCode(dish?.channels?.pdv?.code);
+      if (!normalizedCode) return;
+      const currentItems = index.get(normalizedCode) || [];
+      currentItems.push(dish);
+      index.set(normalizedCode, currentItems);
+    });
+
+    return index;
+  }, [safeDishes]);
   const activeDishes = safeDishes.filter(d => d && d.is_active !== false);
   const safeCategories = Array.isArray(categories) ? categories.filter((cat) => cat && cat.name && cat.is_active !== false) : [];
   const safeBeverageCategories = Array.isArray(beverageCategories)
@@ -573,6 +596,77 @@ export default function PDV() {
     }
     return matchesSearch && matchesCategory;
   });
+
+  const focusPdvCodeInput = React.useCallback((selectText = false) => {
+    if (typeof window === 'undefined') return;
+    window.requestAnimationFrame(() => {
+      if (!pdvCodeInputRef.current) return;
+      pdvCodeInputRef.current.focus();
+      if (selectText && typeof pdvCodeInputRef.current.select === 'function') {
+        pdvCodeInputRef.current.select();
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!allowed || !pdvSession || showTerminalModal || showPaymentModal || showMobileCart || !!selectedDish || !!selectedPizza) {
+      return;
+    }
+    focusPdvCodeInput(false);
+  }, [allowed, pdvSession, showTerminalModal, showPaymentModal, showMobileCart, selectedDish, selectedPizza, focusPdvCodeInput]);
+
+  useEffect(() => {
+    if (!highlightedDishId && !highlightedCartItemId) return undefined;
+    const timer = window.setTimeout(() => {
+      setHighlightedDishId(null);
+      setHighlightedCartItemId(null);
+    }, 1200);
+    return () => window.clearTimeout(timer);
+  }, [highlightedDishId, highlightedCartItemId]);
+
+  const handlePdvCodeSubmit = () => {
+    const normalizedCode = normalizePdvCode(pdvCodeInput);
+
+    if (!normalizedCode) {
+      focusPdvCodeInput(false);
+      return;
+    }
+
+    const matchedDishes = pdvCodeIndex.get(normalizedCode) || [];
+    if (matchedDishes.length === 0) {
+      toast.error('Produto não encontrado');
+      focusPdvCodeInput(true);
+      return;
+    }
+
+    if (matchedDishes.length > 1) {
+      toast('Código duplicado. Usando o primeiro produto encontrado.', { icon: '⚠️' });
+    }
+
+    const dish = matchedDishes[0];
+    if (!isDishEnabledInPdv(dish)) {
+      toast.error('Produto desativado no PDV');
+      focusPdvCodeInput(true);
+      return;
+    }
+
+    if (!openCaixa) {
+      toast.error('Abra o caixa para iniciar as vendas.');
+      setShowOpenCaixaModal(true);
+      focusPdvCodeInput(true);
+      return;
+    }
+
+    if (isCaixaLocked) {
+      toast.error('Caixa travado. Faça uma retirada em Caixa para continuar.');
+      focusPdvCodeInput(true);
+      return;
+    }
+
+    shouldRefocusPdvCodeRef.current = true;
+    setPdvCodeInput('');
+    handleDishClick(dish);
+  };
 
   const handleDishClick = (dish) => {
     if (!openCaixa) {
@@ -618,9 +712,16 @@ export default function PDV() {
       setTimeout(() => checkUpsell(newTotal), 100);
       return next;
     });
+    setHighlightedDishId(String(item?.dish?.id || ''));
+    setHighlightedCartItemId(String(newItem.id));
     setSelectedDish(null);
     setSelectedPizza(null);
     toast.success(`${item.dish.name} adicionado!`);
+
+    if (shouldRefocusPdvCodeRef.current) {
+      shouldRefocusPdvCodeRef.current = false;
+      focusPdvCodeInput(false);
+    }
   };
 
   const handleUpsellAccept = (promotion) => {
@@ -1265,6 +1366,38 @@ export default function PDV() {
           
           {/* COLUNA ESQUERDA - PRODUTOS (70%) */}
           <div className="flex flex-col bg-card h-full overflow-hidden">
+            <div className="flex-shrink-0 border-b border-border bg-card px-3 sm:px-4 py-3">
+              <div className="rounded-xl border border-orange-200 bg-orange-50/60 p-3 dark:border-orange-900/60 dark:bg-orange-950/20">
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-foreground">Código PDV</p>
+                    <p className="text-xs text-muted-foreground">
+                      Digite o código e pressione Enter para adicionar rápido ao caixa.
+                    </p>
+                  </div>
+                  <div className="relative w-full md:max-w-sm">
+                    <Receipt className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-orange-500" />
+                    <Input
+                      ref={pdvCodeInputRef}
+                      value={pdvCodeInput}
+                      onChange={(e) => setPdvCodeInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handlePdvCodeSubmit();
+                        }
+                      }}
+                      placeholder="Digite o código do produto..."
+                      className="h-11 border-orange-200 bg-card pl-10 text-sm"
+                      inputMode="text"
+                      autoCapitalize="off"
+                      autoCorrect="off"
+                      spellCheck={false}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
             
             {/* Categorias */}
             <div className="flex-shrink-0 bg-muted/40 border-b px-3 sm:px-4 py-2 sm:py-3">
@@ -1358,7 +1491,11 @@ export default function PDV() {
                   <button
                     key={dish.id}
                     onClick={() => handleDishClick(dish)}
-                    className="group bg-card rounded-xl border-2 border-border hover:border-orange-400 hover:shadow-md transition-all overflow-hidden"
+                    className={`group rounded-xl border-2 bg-card overflow-hidden transition-all ${
+                      String(highlightedDishId || '') === String(dish.id)
+                        ? 'border-emerald-400 ring-2 ring-emerald-200 shadow-lg'
+                        : 'border-border hover:border-orange-400 hover:shadow-md'
+                    }`}
                   >
                     <div className="aspect-square bg-muted/50 overflow-hidden">
                       {dish.image ? (
@@ -1421,7 +1558,14 @@ export default function PDV() {
                 </div>
               ) : (
                 cart.map((item) => (
-                  <div key={item.id} className="bg-card rounded-lg p-3 border border-border">
+                  <div
+                    key={item.id}
+                    className={`rounded-lg p-3 border transition-all ${
+                      String(highlightedCartItemId || '') === String(item.id)
+                        ? 'border-emerald-400 bg-emerald-50/60 shadow-sm dark:bg-emerald-950/20'
+                        : 'border-border bg-card'
+                    }`}
+                  >
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex-1 pr-2">
                         <h4 className="font-bold text-primary-foreground text-sm mb-1">
@@ -1591,7 +1735,14 @@ export default function PDV() {
 
           <div className="flex-1 overflow-y-auto p-4 space-y-2">
             {cart.map((item) => (
-              <div key={item.id} className="bg-card rounded-lg p-3">
+              <div
+                key={item.id}
+                className={`rounded-lg p-3 transition-all ${
+                  String(highlightedCartItemId || '') === String(item.id)
+                    ? 'bg-emerald-50/70 ring-2 ring-emerald-300 dark:bg-emerald-950/20'
+                    : 'bg-card'
+                }`}
+              >
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex-1">
                     <h4 className="font-bold text-primary-foreground text-sm">{item.dish.name}</h4>
