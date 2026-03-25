@@ -235,10 +235,19 @@ export default function AdminImagePickerDialog({
   };
 
   const showPreviewEditor = Boolean(selectedFile && previewUrl);
+  const needsConstrainedLayout = activeTab === 'library' || showPreviewEditor;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent size="large" className="flex h-[min(92dvh,820px)] max-h-[92dvh] max-w-4xl flex-col overflow-hidden p-0">
+      <DialogContent
+        size="large"
+        className={cn(
+          'max-w-4xl overflow-hidden p-0',
+          needsConstrainedLayout
+            ? 'flex h-[min(92dvh,820px)] max-h-[92dvh] flex-col'
+            : 'max-h-[92dvh]'
+        )}
+      >
         <div className="border-b border-border px-6 py-5">
           <DialogHeader className="space-y-2 text-left">
             <DialogTitle className="text-3xl font-semibold tracking-tight">{title}</DialogTitle>
@@ -248,8 +257,12 @@ export default function AdminImagePickerDialog({
           </DialogHeader>
         </div>
 
-        <div className="flex min-h-0 flex-1 flex-col px-6 pb-6">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex min-h-0 flex-1 flex-col">
+        <div className={cn('px-6 pb-6', needsConstrainedLayout ? 'flex min-h-0 flex-1 flex-col' : 'flex flex-col')}>
+          <Tabs
+            value={activeTab}
+            onValueChange={setActiveTab}
+            className={cn('flex flex-col', needsConstrainedLayout ? 'min-h-0 flex-1' : '')}
+          >
             <div className="flex items-center justify-between pt-4">
               <TabsList className="bg-transparent p-0 h-auto gap-4">
                 <TabsTrigger
@@ -272,7 +285,10 @@ export default function AdminImagePickerDialog({
               </Badge>
             </div>
 
-            <TabsContent value="upload" className="mt-6 flex-1 overflow-y-auto">
+            <TabsContent
+              value="upload"
+              className={cn('mt-6', showPreviewEditor ? 'flex-1 overflow-y-auto' : 'overflow-visible')}
+            >
               {!showPreviewEditor ? (
                 <div className="space-y-4">
                   <div
