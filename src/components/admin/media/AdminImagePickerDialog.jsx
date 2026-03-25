@@ -238,7 +238,7 @@ export default function AdminImagePickerDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent size="large" className="flex max-h-[92vh] max-w-4xl flex-col overflow-hidden p-0">
+      <DialogContent size="large" className="flex h-[min(92dvh,820px)] max-h-[92dvh] max-w-4xl flex-col overflow-hidden p-0">
         <div className="border-b border-border px-6 py-5">
           <DialogHeader className="space-y-2 text-left">
             <DialogTitle className="text-3xl font-semibold tracking-tight">{title}</DialogTitle>
@@ -386,7 +386,7 @@ export default function AdminImagePickerDialog({
               )}
             </TabsContent>
 
-            <TabsContent value="library" className="mt-6 flex min-h-0 flex-1 flex-col">
+            <TabsContent value="library" className="mt-6 flex min-h-0 flex-1 flex-col overflow-hidden">
               {libraryItems.length === 0 ? (
                 <div className="rounded-2xl border border-border bg-muted/20 px-6 py-16 text-center">
                   <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">
@@ -398,8 +398,8 @@ export default function AdminImagePickerDialog({
                   </p>
                 </div>
               ) : (
-                <div className="flex min-h-0 flex-1 flex-col space-y-4">
-                  <div className="flex items-center justify-between">
+                <div className="flex min-h-0 flex-1 flex-col">
+                  <div className="flex items-center justify-between pb-4">
                     <div>
                       <h3 className="text-base font-semibold text-foreground">Arquivos salvos</h3>
                       <p className="text-sm text-muted-foreground">
@@ -409,8 +409,8 @@ export default function AdminImagePickerDialog({
                     <Badge variant="outline">{libraryItems.length} imagens</Badge>
                   </div>
 
-                  <div className="rounded-2xl border border-border bg-muted/10">
-                    <div className="max-h-[52vh] min-h-[320px] overflow-y-auto p-4 pr-3">
+                  <div className="min-h-0 flex-1 rounded-2xl border border-border bg-muted/10">
+                    <div className="h-full overflow-y-auto p-4 pr-3">
                       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                       {libraryItems.map((image) => {
                         const isSelected = selectedLibraryUrl === image.url;
@@ -462,14 +462,14 @@ export default function AdminImagePickerDialog({
                     </div>
                   </div>
 
-                  <div className="flex flex-col gap-3 border-t border-border/80 pt-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="sticky bottom-0 mt-4 flex flex-col gap-3 border-t border-border/80 bg-background/95 pt-4 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-sm text-muted-foreground">
                       {selectedLibraryUrl ? 'Imagem selecionada. Clique em usar imagem para aplicar no item.' : 'Escolha uma imagem da biblioteca para aplicar no item.'}
                     </p>
-                    <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                      Cancelar
-                    </Button>
-                    <div className="flex gap-3">
+                    <div className="flex flex-col gap-3 sm:flex-row">
+                      <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                        Cancelar
+                      </Button>
                       <Button type="button" variant="outline" onClick={() => setSelectedLibraryUrl(null)} disabled={!selectedLibraryUrl || isSaving}>
                         Limpar seleção
                       </Button>
