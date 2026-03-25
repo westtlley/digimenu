@@ -4,7 +4,6 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Slider } from '@/components/ui/slider';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { uploadToCloudinary } from '@/utils/cloudinaryUpload';
@@ -410,9 +409,9 @@ export default function AdminImagePickerDialog({
                     <Badge variant="outline">{libraryItems.length} imagens</Badge>
                   </div>
 
-                  <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-border bg-muted/10">
-                    <ScrollArea className="h-full">
-                      <div className="grid gap-4 p-4 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="rounded-2xl border border-border bg-muted/10">
+                    <div className="max-h-[52vh] min-h-[320px] overflow-y-auto p-4 pr-3">
+                      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                       {libraryItems.map((image) => {
                         const isSelected = selectedLibraryUrl === image.url;
                         return (
@@ -460,7 +459,7 @@ export default function AdminImagePickerDialog({
                         );
                       })}
                       </div>
-                    </ScrollArea>
+                    </div>
                   </div>
 
                   <div className="flex flex-col gap-3 border-t border-border/80 pt-4 sm:flex-row sm:items-center sm:justify-between">
