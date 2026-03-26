@@ -8,9 +8,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
-import { Plus, Trash2, Pencil, Star, Settings, Search, ChevronUp, ChevronDown } from 'lucide-react';
+import { Plus, Trash2, Pencil, Search, ChevronUp, ChevronDown } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import PizzaVisualizationSettings from './PizzaVisualizationSettings';
 import MyPizzasTab from './MyPizzasTab';
@@ -241,7 +241,7 @@ const buildPizzaPricingInsights = (sizes = []) => {
 
 export default function PizzaConfigTab() {
   const [user, setUser] = React.useState(null);
-  const [activeTab, setActiveTab] = useState('menu');
+  const [activeTab, setActiveTab] = useState('overview');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTemplateId, setSelectedTemplateId] = useState(() => getRecommendedPizzaTemplateId('other'));
   const [runningAssistantActionId, setRunningAssistantActionId] = useState('');
@@ -1547,6 +1547,39 @@ export default function PizzaConfigTab() {
         </p>
       </div>
 
+      <div className="sticky top-4 z-20 mb-6 -mx-1 rounded-3xl bg-slate-100/80 px-1 py-1 backdrop-blur">
+        <div className="flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
+          {[
+            { id: 'overview', label: 'Visao Geral' },
+            { id: 'menu', label: 'Entradas do Cardapio' },
+            { id: 'rules', label: 'Regras de Montagem' },
+            { id: 'flavors', label: 'Sabores' },
+            { id: 'sizes', label: 'Tamanhos e Precos' },
+            { id: 'addons', label: 'Bordas e Extras' },
+            { id: 'preview', label: 'Preview' },
+            { id: 'intelligence', label: 'Inteligencia & Oportunidades' },
+          ].map((section) => {
+            const active = activeTab === section.id;
+            return (
+              <button
+                key={section.id}
+                type="button"
+                onClick={() => setActiveTab(section.id)}
+                className={`rounded-xl px-4 py-2 text-sm font-medium transition-all ${
+                  active
+                    ? 'bg-slate-900 text-white shadow-sm'
+                    : 'bg-white text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                {section.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {activeTab === 'overview' ? (
+      <>
       <div className="mb-6 grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
         <Card className="rounded-3xl border-slate-200 p-5 shadow-sm">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -1641,7 +1674,69 @@ export default function PizzaConfigTab() {
           </Card>
         </div>
       </div>
+      <div className="mb-6 grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
+        <Card className="rounded-3xl border-slate-200 p-5 shadow-sm">
+          <Badge variant="outline" className="border-orange-200 bg-orange-50 text-orange-700">Acoes principais</Badge>
+          <h3 className="mt-3 text-lg font-semibold text-slate-900">Resolva os pontos principais sem procurar</h3>
+          <p className="mt-2 text-sm leading-6 text-slate-600">
+            Estas acoes ficam aqui para encurtar o caminho. As configuracoes detalhadas continuam nas secoes tecnicas.
+          </p>
 
+          <div className="mt-4 grid gap-3">
+            <Button
+              type="button"
+              className="justify-start bg-orange-500 hover:bg-orange-600"
+              onClick={handleAutoImproveStructure}
+              disabled={!canRunAdminActions || !autoImprovePlan.canImprove}
+            >
+              Melhorar estrutura automaticamente
+            </Button>
+            <Button type="button" variant="outline" className="justify-start" onClick={() => setActiveTab('intelligence')}>
+              Abrir inteligencia e oportunidades
+            </Button>
+            <Button type="button" variant="outline" className="justify-start" onClick={() => setActiveTab('preview')}>
+              Ver preview do cliente
+            </Button>
+            <Button type="button" variant="outline" className="justify-start" onClick={() => setActiveTab('menu')}>
+              Revisar entradas do cardapio
+            </Button>
+          </div>
+        </Card>
+
+        <Card className="rounded-3xl border-slate-200 p-5 shadow-sm">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600">Mapa da pizzaria</Badge>
+              <h3 className="mt-3 text-lg font-semibold text-slate-900">Tudo organizado por etapa, sem scroll longo</h3>
+            </div>
+            <Badge className="w-fit bg-slate-900 text-white">Secao ativa: Visao Geral</Badge>
+          </div>
+
+          <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {pizzaGuideSteps.map((step) => (
+              <button
+                key={step.id}
+                type="button"
+                onClick={() => setActiveTab(step.id)}
+                className="rounded-2xl border border-slate-200 bg-white p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-sm"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-sm font-semibold text-slate-600">
+                    {step.step}
+                  </span>
+                  <Badge variant="outline">{step.metric}</Badge>
+                </div>
+                <p className="mt-3 text-sm font-semibold text-slate-900">{step.title}</p>
+                <p className="mt-2 text-xs leading-5 text-slate-600">{step.description}</p>
+              </button>
+            ))}
+          </div>
+        </Card>
+      </div>
+      </>
+      ) : null}
+
+      {activeTab === 'intelligence' ? (
       <div className="mb-6 space-y-4">
         <Card className="rounded-3xl border-slate-200 p-5 shadow-sm">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -1973,16 +2068,9 @@ export default function PizzaConfigTab() {
           </div>
         </Card>
       </div>
+      ) : null}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="flex h-auto w-full flex-wrap justify-start gap-2 rounded-2xl border border-slate-200 bg-white p-2">
-          <TabsTrigger value="menu">Entradas do Cardapio</TabsTrigger>
-          <TabsTrigger value="rules">Regras de Montagem</TabsTrigger>
-          <TabsTrigger value="flavors">Sabores</TabsTrigger>
-          <TabsTrigger value="sizes">Tamanhos e Precos</TabsTrigger>
-          <TabsTrigger value="addons">Bordas e Extras</TabsTrigger>
-          <TabsTrigger value="preview"><Settings className="mr-2 h-4 w-4" />Preview</TabsTrigger>
-        </TabsList>
 
         <TabsContent value="menu" className="space-y-4">
           <Card className="rounded-2xl border-slate-200 p-5 shadow-sm">
