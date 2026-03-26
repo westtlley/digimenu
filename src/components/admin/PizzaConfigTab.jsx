@@ -17,6 +17,13 @@ import MyPizzasTab from './MyPizzasTab';
 import { usePermission } from '../permissions/usePermission';
 import { buildTenantEntityOpts, getMenuContextEntityOpts, getMenuContextQueryKeyParts } from '@/utils/tenantScope';
 import { fetchAdminDishes } from '@/services/adminMenuService';
+import {
+  PIZZA_BUSINESS_PROFILES,
+  buildPizzaEntryCommercialModel,
+  buildPizzaStorageScopeKey,
+  getPizzaBusinessProfile,
+  summarizePizzaCommercialReadiness,
+} from '@/utils/pizzaBusinessIntelligence';
 
 const formatCurrency = (value) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
@@ -67,6 +74,13 @@ const getRecommendedSizeRank = (size) => {
   if (name.includes('media')) score += 25;
   if ((Number(size?.max_flavors) || 1) >= 2) score += 20;
   return score;
+};
+
+const getRecommendedPizzaTemplateId = (profileId) => {
+  if (profileId === 'premium') return 'premium';
+  if (profileId === 'delivery' || profileId === 'dark-kitchen') return 'delivery';
+  if (profileId === 'neighborhood') return 'traditional';
+  return 'traditional';
 };
 
 const buildPizzaPricingInsights = (sizes = []) => {
@@ -229,7 +243,7 @@ export default function PizzaConfigTab() {
   const [user, setUser] = React.useState(null);
   const [activeTab, setActiveTab] = useState('menu');
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedTemplateId, setSelectedTemplateId] = useState('delivery');
+  const [selectedTemplateId, setSelectedTemplateId] = useState(() => getRecommendedPizzaTemplateId('other'));
   const [runningAssistantActionId, setRunningAssistantActionId] = useState('');
   
   // Modals
@@ -289,6 +303,39 @@ export default function PizzaConfigTab() {
   const fallbackOwnerEmail = slug ? null : (user?.subscriber_email || user?.email || null);
   const entityOwnerEmail = scopedSubscriberEmail || fallbackOwnerEmail; // Compatibilidade transitÃ³ria: o backend legado ainda persiste owner_email.
   const entityContextOpts = buildTenantEntityOpts({ subscriberId: scopedSubscriberId, subscriberEmail: scopedSubscriberEmail });
+  const profileStorageKey = useMemo(
+    () => buildPizzaStorageScopeKey({
+      slug,
+      subscriberEmail: scopedSubscriberEmail,
+      subscriberId: scopedSubscriberId,
+      ownerEmail: entityOwnerEmail,
+      suffix: 'profile',
+    }),
+    [entityOwnerEmail, scopedSubscriberEmail, scopedSubscriberId, slug]
+  );
+  const evolutionModeStorageKey = useMemo(
+    () => buildPizzaStorageScopeKey({
+      slug,
+      subscriberEmail: scopedSubscriberEmail,
+      subscriberId: scopedSubscriberId,
+      ownerEmail: entityOwnerEmail,
+      suffix: 'evolution-mode',
+    }),
+    [entityOwnerEmail, scopedSubscriberEmail, scopedSubscriberId, slug]
+  );
+  const evolutionSnapshotStorageKey = useMemo(
+    () => buildPizzaStorageScopeKey({
+      slug,
+      subscriberEmail: scopedSubscriberEmail,
+      subscriberId: scopedSubscriberId,
+      ownerEmail: entityOwnerEmail,
+      suffix: 'evolution-snapshot',
+    }),
+    [entityOwnerEmail, scopedSubscriberEmail, scopedSubscriberId, slug]
+  );
+  const [businessProfileId, setBusinessProfileId] = useState('other');
+  const [evolutionModeEnabled, setEvolutionModeEnabled] = useState(true);
+  const [evolutionDelta, setEvolutionDelta] = useState(null);
 
   const normalizedSearchTerm = searchTerm.trim().toLowerCase();
   const matchesSearch = useMemo(() => {
@@ -375,6 +422,28 @@ export default function PizzaConfigTab() {
   const activePizzaEntries = useMemo(
     () => pizzaEntries.filter((dish) => dish?.is_active !== false),
     [pizzaEntries]
+  );
+  const businessProfile = useMemo(
+    () => getPizzaBusinessProfile(businessProfileId),
+    [businessProfileId]
+  );
+  const entryReadinessById = useMemo(() => {
+    return Object.fromEntries(
+      pizzaEntries.map((pizza) => {
+        const entryCategory = pizzaCategories.find((item) => item.id === pizza?.pizza_category_id) || null;
+        return [String(pizza.id), buildPizzaEntryCommercialModel({
+          pizza,
+          entryCategory,
+          sizes,
+          flavors,
+          profileId: businessProfileId,
+        })];
+      })
+    );
+  }, [businessProfileId, flavors, pizzaCategories, pizzaEntries, sizes]);
+  const commercialSummary = useMemo(
+    () => summarizePizzaCommercialReadiness(entryReadinessById, pizzaEntries),
+    [entryReadinessById, pizzaEntries]
   );
   const flavorUsageById = useMemo(() => {
     return pizzaEntries.reduce((accumulator, dish) => {
@@ -631,6 +700,42 @@ export default function PizzaConfigTab() {
       || pricingInsights.metrics.find((metric) => metric.isActive && metric.tradPrice > 0);
   }, [pricingInsights.metrics]);
   const canRunAdminActions = Boolean(menuContext) && !slug;
+  const recommendedTemplateId = useMemo(
+    () => getRecommendedPizzaTemplateId(businessProfileId),
+    [businessProfileId]
+  );
+  const commercialSummaryPresentation = useMemo(() => {
+    if (commercialSummary.level === 'FORTE') {
+      return {
+        title: 'Seu cardapio esta forte para vender',
+        description: 'A base comercial esta consistente e o sistema entende que sua pizzaria ja transmite seguranca.',
+        className: 'border-emerald-200 bg-emerald-50/80',
+        badgeClass: 'border-emerald-200 bg-white text-emerald-700',
+      };
+    }
+    if (commercialSummary.level === 'BOM') {
+      return {
+        title: 'Seu cardapio esta em bom nivel',
+        description: 'A estrutura ja convence, mas ainda existem oportunidades claras para subir ticket e melhorar escolha.',
+        className: 'border-sky-200 bg-sky-50/80',
+        badgeClass: 'border-sky-200 bg-white text-sky-700',
+      };
+    }
+    if (commercialSummary.level === 'FRACO') {
+      return {
+        title: 'Seu cardapio ainda esta fragil',
+        description: 'Hoje o sistema ve entradas fracas demais. Vale agir nas recomendacoes para ganhar confianca de venda.',
+        className: 'border-rose-200 bg-rose-50/80',
+        badgeClass: 'border-rose-200 bg-white text-rose-700',
+      };
+    }
+    return {
+      title: 'Seu cardapio esta em evolucao',
+      description: 'A base ja funciona, mas ainda existem ajustes importantes para deixar a pizzaria mais forte e vendavel.',
+      className: 'border-amber-200 bg-amber-50/80',
+      badgeClass: 'border-amber-200 bg-white text-amber-700',
+    };
+  }, [commercialSummary.level]);
   const pizzaTemplateCards = useMemo(() => ([
     {
       id: 'lean',
@@ -816,6 +921,172 @@ export default function PizzaConfigTab() {
       upsellLift: Math.max(upsellTicket - premiumTicket, 0),
     };
   }, [previewEdges, previewExtras, previewFlavorOptions, previewSelectedEdge, previewSelectedExtras, previewSelectedSize]);
+  const adaptiveRecommendations = useMemo(() => {
+    const recommendations = [];
+    const upsellReady = edges.some((edge) => edge?.is_active !== false) || extras.some((extra) => extra?.is_active !== false);
+    const premiumReadyEntries = Object.values(entryReadinessById).filter((entry) => entry?.hasPremiumFlavor).length;
+
+    if (commercialSummary.weak > 0) {
+      recommendations.push({
+        id: 'weak-entries',
+        severity: 'critical',
+        title: 'Entradas fracas ainda travam seu cardapio',
+        description: `${commercialSummary.weak} entrada(s) ainda tem baixo potencial de venda.`,
+        impact: 'Resolver isso tende a melhorar conversao e confianca no cardapio.',
+        actionLabel: 'Revisar entradas',
+        action: 'menu',
+      });
+    }
+
+    if ((businessProfileId === 'premium' || businessProfileId === 'delivery') && premiumReadyEntries === 0) {
+      recommendations.push({
+        id: 'premium-missing',
+        severity: businessProfileId === 'premium' ? 'critical' : 'important',
+        title: 'Premium ainda nao entrou no jogo',
+        description: businessProfileId === 'premium'
+          ? 'Seu perfil pede premium ativo para sustentar ticket.'
+          : 'Delivery forte costuma vender melhor quando premium aparece com clareza.',
+        impact: 'Ativar premium cria um passo extra de ticket medio sem mexer no fluxo base.',
+        actionLabel: 'Ativar premium',
+        action: 'premium-improvement',
+      });
+    }
+
+    if (!upsellReady) {
+      recommendations.push({
+        id: 'upsell-off',
+        severity: 'important',
+        title: 'Voce nao esta aproveitando upsell',
+        description: 'Borda e adicionais ainda nao aparecem com forca para o cliente.',
+        impact: 'Ativar upsell deixa a entrada mais forte sem mudar o builder real.',
+        actionLabel: 'Ativar upsell',
+        action: 'upsell-activation',
+      });
+    }
+
+    if ((businessProfileId === 'delivery' || businessProfileId === 'dark-kitchen') && activeSizes.length > 3) {
+      recommendations.push({
+        id: 'too-many-sizes',
+        severity: 'opportunity',
+        title: 'Sua estrutura esta ampla demais para delivery',
+        description: 'Muitos tamanhos podem deixar a escolha mais lenta e cansativa.',
+        impact: 'Revisar a matriz ajuda a deixar o pedido mais rapido.',
+        actionLabel: 'Revisar tamanhos',
+        action: 'sizes',
+      });
+    }
+
+    if (businessProfileId === 'premium' && firstLowPremiumMetric) {
+      recommendations.push({
+        id: 'premium-gap',
+        severity: 'important',
+        title: 'Premium pouco valorizado no maior argumento de venda',
+        description: `${firstLowPremiumMetric.name} ainda nao comunica bem a diferenca premium.`,
+        impact: 'Ajustar essa escada deixa o premium mais confiavel para vender.',
+        actionLabel: 'Abrir matriz',
+        action: 'sizes',
+      });
+    }
+
+    if (pizzaEntries.length === 0 && pizzaCategories.length > 0 && sizes.length > 0 && flavors.length > 0) {
+      recommendations.push({
+        id: 'first-entry',
+        severity: 'opportunity',
+        title: 'Voce ja pode montar sua primeira entrada',
+        description: 'A base tecnica ja existe. Agora vale transformar isso em oferta vendavel.',
+        impact: 'Uma primeira entrada pronta acelera o onboarding e o teste do builder.',
+        actionLabel: 'Ir para entradas',
+        action: 'menu',
+      });
+    }
+
+    return recommendations.slice(0, 5);
+  }, [activeSizes.length, businessProfileId, commercialSummary.weak, edges, entryReadinessById, extras, firstLowPremiumMetric, flavors.length, pizzaCategories.length, pizzaEntries.length, sizes.length]);
+  const visibleAdaptiveRecommendations = useMemo(
+    () => (evolutionModeEnabled
+      ? adaptiveRecommendations
+      : adaptiveRecommendations.filter((item) => item.severity !== 'opportunity')),
+    [adaptiveRecommendations, evolutionModeEnabled]
+  );
+  const evolutionSummary = useMemo(() => {
+    if (!evolutionDelta) {
+      return {
+        title: 'Acompanhando a evolucao da pizzaria',
+        description: 'Quando a estrutura melhorar, o sistema mostra o que subiu e o que ficou mais forte.',
+      };
+    }
+
+    const improvements = [];
+    if (evolutionDelta.deltaStrong > 0) improvements.push(`+${evolutionDelta.deltaStrong} forte(s)`);
+    if (evolutionDelta.deltaGood > 0) improvements.push(`+${evolutionDelta.deltaGood} boa(s)`);
+    if (evolutionDelta.deltaWeak < 0) improvements.push(`${Math.abs(evolutionDelta.deltaWeak)} fraca(s) a menos`);
+
+    return {
+      title: 'Seu cardapio melhorou',
+      description: improvements.length > 0
+        ? `${improvements.join(' • ')} desde a ultima leitura.`
+        : `O nivel mudou de ${evolutionDelta.previousLevel} para ${evolutionDelta.currentLevel}.`,
+    };
+  }, [evolutionDelta]);
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const savedProfile = window.localStorage.getItem(profileStorageKey);
+    const savedMode = window.localStorage.getItem(evolutionModeStorageKey);
+    if (savedProfile) {
+      setBusinessProfileId(savedProfile);
+      setSelectedTemplateId(getRecommendedPizzaTemplateId(savedProfile));
+    }
+    if (savedMode) {
+      setEvolutionModeEnabled(savedMode === 'true');
+    }
+  }, [evolutionModeStorageKey, profileStorageKey]);
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(profileStorageKey, businessProfileId);
+  }, [businessProfileId, profileStorageKey]);
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(evolutionModeStorageKey, String(evolutionModeEnabled));
+  }, [evolutionModeEnabled, evolutionModeStorageKey]);
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const nextSnapshot = {
+      strong: commercialSummary.strong,
+      good: commercialSummary.good,
+      regular: commercialSummary.regular,
+      weak: commercialSummary.weak,
+      level: commercialSummary.level,
+      updatedAt: Date.now(),
+    };
+
+    try {
+      const raw = window.localStorage.getItem(evolutionSnapshotStorageKey);
+      if (raw) {
+        const previousSnapshot = JSON.parse(raw);
+        const deltaStrong = nextSnapshot.strong - Number(previousSnapshot?.strong || 0);
+        const deltaWeak = nextSnapshot.weak - Number(previousSnapshot?.weak || 0);
+        const deltaGood = nextSnapshot.good - Number(previousSnapshot?.good || 0);
+
+        if (deltaStrong !== 0 || deltaWeak !== 0 || deltaGood !== 0 || nextSnapshot.level !== previousSnapshot?.level) {
+          setEvolutionDelta({
+            deltaStrong,
+            deltaWeak,
+            deltaGood,
+            previousLevel: previousSnapshot?.level || 'REGULAR',
+            currentLevel: nextSnapshot.level,
+          });
+        }
+      }
+      window.localStorage.setItem(evolutionSnapshotStorageKey, JSON.stringify(nextSnapshot));
+    } catch (error) {
+      console.error('Erro ao salvar snapshot evolutivo da pizzaria:', error);
+    }
+  }, [commercialSummary.good, commercialSummary.level, commercialSummary.strong, commercialSummary.weak, evolutionSnapshotStorageKey]);
 
   React.useEffect(() => {
     if (!previewEntries.length) return;
@@ -824,6 +1095,10 @@ export default function PizzaConfigTab() {
       return previewEntries[0].id;
     });
   }, [previewEntries]);
+
+  React.useEffect(() => {
+    setSelectedTemplateId((current) => current || recommendedTemplateId);
+  }, [recommendedTemplateId]);
 
   React.useEffect(() => {
     if (!previewEntry) return;
@@ -1168,6 +1443,32 @@ export default function PizzaConfigTab() {
       toast.error('Nao foi possivel aplicar a melhoria automatica agora.');
     }
   }, [autoImprovePlan, canRunAdminActions, handleAssistantAction]);
+  const handleAdaptiveRecommendation = React.useCallback(async (recommendation) => {
+    if (!recommendation) return;
+
+    if (recommendation.action === 'menu') {
+      setActiveTab('menu');
+      toast('Levamos voce para as entradas do cardapio para agir no ponto certo.');
+      return;
+    }
+    if (recommendation.action === 'sizes') {
+      setActiveTab('sizes');
+      toast('Abrimos a matriz de tamanhos para voce ajustar a decisao comercial.');
+      return;
+    }
+    if (recommendation.action === 'premium-improvement') {
+      await handleAssistantAction('premium-improvement');
+      return;
+    }
+    if (recommendation.action === 'upsell-activation') {
+      await handleAssistantAction('upsell-activation');
+      return;
+    }
+    if (recommendation.action === 'recommended-sizes') {
+      await handleAssistantAction('recommended-sizes');
+      return;
+    }
+  }, [handleAssistantAction]);
 
   const handleTemplateAction = React.useCallback(async (templateId) => {
     setSelectedTemplateId(templateId);
@@ -1200,6 +1501,10 @@ export default function PizzaConfigTab() {
       setActiveTab('preview');
     }
   }, [handleAssistantAction]);
+  const handleBusinessProfileChange = React.useCallback((profileId) => {
+    setBusinessProfileId(profileId);
+    setSelectedTemplateId(getRecommendedPizzaTemplateId(profileId));
+  }, []);
 
   const togglePreviewFlavor = (flavorId) => {
     const normalizedId = String(flavorId);
@@ -1242,7 +1547,157 @@ export default function PizzaConfigTab() {
         </p>
       </div>
 
+      <div className="mb-6 grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+        <Card className="rounded-3xl border-slate-200 p-5 shadow-sm">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600">Perfil adaptativo</Badge>
+              <h3 className="mt-3 text-xl font-semibold text-slate-900">Qual o perfil da sua pizzaria?</h3>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+                O sistema ajusta leitura, score, templates e oportunidades para o seu jeito de vender. Isso fica salvo so para esta operacao.
+              </p>
+            </div>
+            <Badge className="w-fit bg-slate-900 text-white">{businessProfile.badge}</Badge>
+          </div>
+
+          <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {PIZZA_BUSINESS_PROFILES.map((profile) => {
+              const active = businessProfileId === profile.id;
+              return (
+                <button
+                  key={profile.id}
+                  type="button"
+                  onClick={() => handleBusinessProfileChange(profile.id)}
+                  className={`rounded-2xl border p-4 text-left transition-all duration-200 ${
+                    active
+                      ? 'border-orange-300 bg-orange-50 shadow-sm ring-2 ring-orange-100'
+                      : 'border-slate-200 bg-white hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-sm'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-semibold text-slate-900">{profile.label}</p>
+                    <Badge variant={active ? 'default' : 'outline'} className={active ? 'bg-orange-500 hover:bg-orange-500' : ''}>
+                      {profile.badge}
+                    </Badge>
+                  </div>
+                  <p className="mt-2 text-xs leading-5 text-slate-600">{profile.description}</p>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-slate-900">Recomendacao principal para {businessProfile.label}</p>
+                <p className="mt-1 text-sm text-slate-600">{businessProfile.description}</p>
+              </div>
+              <Badge variant="outline" className="border-orange-200 bg-white text-orange-700">
+                Template sugerido: {pizzaTemplateCards.find((template) => template.id === recommendedTemplateId)?.name || 'Tradicional'}
+              </Badge>
+            </div>
+          </div>
+        </Card>
+
+        <div className="space-y-4">
+          <Card className={`rounded-3xl p-5 shadow-sm ${commercialSummaryPresentation.className}`}>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <Badge variant="outline" className={commercialSummaryPresentation.badgeClass}>Leitura continua</Badge>
+                <h3 className="mt-3 text-lg font-semibold text-slate-900">{commercialSummaryPresentation.title}</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-700">{commercialSummaryPresentation.description}</p>
+              </div>
+              <Badge variant="outline" className={commercialSummaryPresentation.badgeClass}>{commercialSummary.level}</Badge>
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <div className="rounded-2xl border border-white/80 bg-white/80 p-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Entradas fortes</p>
+                <p className="mt-2 text-2xl font-semibold text-slate-900">{commercialSummary.strong + commercialSummary.good}</p>
+              </div>
+              <div className="rounded-2xl border border-white/80 bg-white/80 p-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Entradas fracas</p>
+                <p className="mt-2 text-2xl font-semibold text-slate-900">{commercialSummary.weak}</p>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="rounded-3xl border-slate-200 p-5 shadow-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600">Evolucao automatica</Badge>
+                <h3 className="mt-3 text-lg font-semibold text-slate-900">Continuar melhorando automaticamente</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-600">
+                  O sistema segue observando novas oportunidades e oculta alertas resolvidos sem mexer nos seus dados sozinho.
+                </p>
+              </div>
+              <Switch checked={evolutionModeEnabled} onCheckedChange={setEvolutionModeEnabled} />
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+              <p className="text-sm font-semibold text-slate-900">{evolutionSummary.title}</p>
+              <p className="mt-1 text-sm text-slate-600">{evolutionSummary.description}</p>
+            </div>
+          </Card>
+        </div>
+      </div>
+
       <div className="mb-6 space-y-4">
+        <Card className="rounded-3xl border-slate-200 p-5 shadow-sm">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600">Oportunidades para melhorar vendas</Badge>
+              <h3 className="mt-3 text-xl font-semibold text-slate-900">O sistema continua te mostrando o proximo passo</h3>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+                Estas recomendacoes se adaptam ao seu perfil, somem quando voce resolve e mantem a pizzaria sempre em evolucao.
+              </p>
+            </div>
+            <Badge variant="outline" className="w-fit">{visibleAdaptiveRecommendations.length} oportunidade(s)</Badge>
+          </div>
+
+          {visibleAdaptiveRecommendations.length > 0 ? (
+            <div className="mt-5 grid gap-3 xl:grid-cols-3">
+              {visibleAdaptiveRecommendations.map((recommendation) => {
+                const toneClass = recommendation.severity === 'critical'
+                  ? 'border-rose-200 bg-rose-50/80'
+                  : recommendation.severity === 'important'
+                    ? 'border-amber-200 bg-amber-50/80'
+                    : 'border-sky-200 bg-sky-50/80';
+                const badgeLabel = recommendation.severity === 'critical'
+                  ? 'Critico'
+                  : recommendation.severity === 'important'
+                    ? 'Importante'
+                    : 'Oportunidade';
+
+                return (
+                  <div key={recommendation.id} className={`rounded-2xl border p-4 shadow-sm ${toneClass}`}>
+                    <div className="flex items-center justify-between gap-3">
+                      <Badge variant="outline" className="bg-white text-slate-700">{badgeLabel}</Badge>
+                      <Badge variant="outline" className="bg-white text-slate-700">{businessProfile.badge}</Badge>
+                    </div>
+                    <h4 className="mt-3 text-base font-semibold text-slate-900">{recommendation.title}</h4>
+                    <p className="mt-2 text-sm leading-6 text-slate-700">{recommendation.description}</p>
+                    <div className="mt-3 rounded-xl border border-white/80 bg-white/80 p-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Impacto estimado</p>
+                      <p className="mt-1 text-sm text-slate-700">{recommendation.impact}</p>
+                    </div>
+                    <Button type="button" className="mt-4 bg-slate-900 hover:bg-slate-800" onClick={() => handleAdaptiveRecommendation(recommendation)}>
+                      {recommendation.actionLabel}
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50/80 p-5">
+              <p className="text-sm font-semibold text-emerald-800">Nenhum alerta relevante agora.</p>
+              <p className="mt-2 text-sm text-emerald-700">
+                Sua estrutura esta acompanhada e, se surgir uma nova oportunidade, ela vai aparecer aqui com acao rapida.
+              </p>
+            </div>
+          )}
+        </Card>
+
         <Card className="rounded-3xl border-slate-200 p-5 shadow-sm">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
@@ -1439,11 +1894,19 @@ export default function PizzaConfigTab() {
               <div className="grid gap-3 xl:grid-cols-2">
                 {pizzaTemplateCards.map((template) => {
                   const selected = selectedTemplateId === template.id;
+                  const recommended = recommendedTemplateId === template.id;
                   return (
                     <div key={template.id} className={`rounded-2xl border p-4 transition-all ${selected ? 'ring-2 ring-orange-100' : ''} ${template.accent}`}>
                       <div className="flex items-center justify-between gap-3">
                         <p className="font-semibold">{template.name}</p>
-                        <Badge variant="outline" className="border-current/20 bg-white/70">{template.badge}</Badge>
+                        <div className="flex flex-wrap justify-end gap-2">
+                          {recommended ? (
+                            <Badge variant="outline" className="border-orange-200 bg-white text-orange-700">
+                              Mais indicado para seu perfil
+                            </Badge>
+                          ) : null}
+                          <Badge variant="outline" className="border-current/20 bg-white/70">{template.badge}</Badge>
+                        </div>
                       </div>
                       <p className="mt-2 text-sm font-medium">{template.audience}</p>
                       <p className="mt-2 text-sm leading-6">{template.description}</p>
@@ -1529,7 +1992,7 @@ export default function PizzaConfigTab() {
               Esta aba concentra as entradas comerciais do cardapio. E aqui que voce decide nome publico, preco inicial e qual regra de montagem cada entrada usa.
             </p>
           </Card>
-          <MyPizzasTab />
+          <MyPizzasTab businessProfileId={businessProfileId} />
         </TabsContent>
 
         <TabsContent value="rules" className="space-y-4">

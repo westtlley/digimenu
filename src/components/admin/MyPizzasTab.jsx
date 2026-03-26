@@ -15,6 +15,7 @@ import { usePermission } from '../permissions/usePermission';
 import { fetchAdminDishes } from '@/services/adminMenuService';
 import { keepPreviousData } from '@tanstack/react-query';
 import { buildTenantEntityOpts, getMenuContextEntityOpts, getMenuContextQueryKeyParts } from '@/utils/tenantScope';
+import { buildPizzaEntryCommercialModel, summarizePizzaCommercialReadiness } from '@/utils/pizzaBusinessIntelligence';
 
 const formatCurrency = (value) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
@@ -132,100 +133,14 @@ const getCatalogLevelPresentation = (level) => {
   };
 };
 
-const buildPizzaEntryReadiness = ({ pizza, entryCategory, sizes, flavors }) => {
-  const configuredSizes = Array.isArray(pizza?.pizza_config?.sizes) ? pizza.pizza_config.sizes.filter(Boolean) : [];
-  const fallbackSize = sizes.find((size) => size.id === entryCategory?.size_id) || null;
-  const effectiveSizes = configuredSizes.length > 0 ? configuredSizes : (fallbackSize ? [fallbackSize] : []);
-  const activeSizes = effectiveSizes.filter((size) => size?.is_active !== false);
-  const allowedFlavorIds = Array.isArray(pizza?.pizza_config?.flavor_ids) ? pizza.pizza_config.flavor_ids : [];
-  const activeFlavors = flavors.filter((flavor) => allowedFlavorIds.includes(flavor.id) && flavor?.is_active !== false);
-  const hasPremiumFlavor = activeFlavors.some((flavor) => flavor.category === 'premium');
-  const hasPrice = activeSizes.some((size) => Number(size?.price_tradicional || 0) > 0 || Number(size?.price_premium || 0) > 0)
-    || Number(pizza?.price || 0) > 0;
-  const hasEdges = (pizza?.pizza_config?.edges || []).some((edge) => edge?.is_active !== false);
-  const hasExtras = (pizza?.pizza_config?.extras || []).some((extra) => extra?.is_active !== false);
-  const activeSizeCount = activeSizes.length;
-  const activeFlavorCount = activeFlavors.length;
-  const premiumDelta = activeSizes.reduce((maxValue, size) => {
-    const delta = (Number(size?.price_premium || 0) - Number(size?.price_tradicional || 0));
-    return Math.max(maxValue, delta);
-  }, 0);
-
-  const essentialChecks = [
-    { label: 'Nome definido', done: Boolean(String(pizza?.name || '').trim()) },
-    { label: 'Regra vinculada', done: Boolean(entryCategory) },
-    { label: 'Tamanhos ativos', done: activeSizes.length > 0 },
-    { label: 'Sabores vinculados', done: activeFlavors.length > 0 },
-    { label: 'Preco coerente', done: hasPrice }
-  ];
-
-  const completedEssentials = essentialChecks.filter((check) => check.done).length;
-  const isComplete = completedEssentials === essentialChecks.length && pizza?.is_active !== false;
-  const isAlmostReady = completedEssentials >= essentialChecks.length - 1 && completedEssentials < essentialChecks.length;
-  const status = isComplete ? 'Completa' : (isAlmostReady ? 'Quase pronta' : 'Incompleta');
-  const commercialScore =
-    (activeSizeCount >= 2 ? 1 : activeSizeCount === 1 ? 0.5 : 0)
-    + (activeFlavorCount >= 6 ? 1 : activeFlavorCount >= 3 ? 0.5 : 0)
-    + (hasPremiumFlavor ? 1 : 0)
-    + (hasEdges ? 0.5 : 0)
-    + (hasExtras ? 0.5 : 0)
-    + (hasPrice ? 1 : 0)
-    + ((Number(entryCategory?.max_flavors) || 1) >= 2 ? 0.5 : 0);
-  const commercialScoreValue = Number(commercialScore.toFixed(1));
-  const salesStrength = commercialScore >= 4.8 ? 'Forte' : (commercialScore >= 3.5 ? 'Boa' : (commercialScore >= 2.2 ? 'Regular' : 'Fraca'));
-  const commercialPotential = commercialScore >= 4 ? 'Alto potencial' : (commercialScore >= 2.5 ? 'Medio potencial' : 'Baixo potencial');
-  const upsellPotential = hasEdges && (hasExtras || hasPremiumFlavor)
-    ? 'Upsell forte'
-    : ((hasEdges || hasExtras || hasPremiumFlavor) ? 'Upsell moderado' : 'Upsell limitado');
-  const confidenceLabel = salesStrength === 'Forte'
-    ? (hasPremiumFlavor && premiumDelta >= 6 ? 'Forte para ticket medio' : 'Alta chance de venda')
-    : (salesStrength === 'Boa'
-      ? (activeSizeCount >= 2 ? 'Boa para delivery' : 'Boa estrutura comercial')
-      : (salesStrength === 'Regular' ? 'Precisa melhorar' : 'Baixo potencial'));
-  const directFeedback = salesStrength === 'Fraca'
-    ? 'Essa entrada tem baixo potencial de venda.'
-    : (!hasPremiumFlavor && activeFlavorCount > 0
-      ? 'Premium pouco aproveitado.'
-      : ((!hasEdges && !hasExtras)
-        ? 'Upsell inexistente.'
-        : (salesStrength === 'Forte' && hasPremiumFlavor && premiumDelta >= 6
-          ? 'Forte para ticket medio.'
-          : (activeSizeCount >= 2 ? 'Boa estrutura para delivery.' : 'Estrutura comercial consistente.'))));
-
-  const suggestions = [];
-  if (!entryCategory) suggestions.push('Vincule uma regra de montagem para definir o que o cliente realmente pode montar.');
-  if (activeSizes.length === 0) suggestions.push('Ative ao menos um tamanho para evitar entrada sem preco ou sem opcao no builder.');
-  if (activeFlavors.length === 0) suggestions.push('Vincule sabores ativos para a entrada aparecer com opcoes reais no builder.');
-  if (!hasPrice) suggestions.push('Revise o preco base desta entrada para ela ficar pronta para venda.');
-  if ((entryCategory?.max_flavors || 1) >= 2 && activeSizes.length <= 1) suggestions.push('Entradas com ate 2 sabores costumam performar melhor com tamanhos M e G ativos.');
-  if (activeFlavors.length > 0 && !hasPremiumFlavor) suggestions.push('Considere liberar pelo menos um sabor premium para ampliar ticket medio.');
-  if (!hasEdges) suggestions.push('Adicionar ao menos uma borda ajuda a transformar a entrada em oferta mais premium.');
-  if (!hasExtras) suggestions.push('Adicionar extras opcionais pode aumentar conversao sem pesar no fluxo.');
-  if (hasPremiumFlavor && premiumDelta > 0 && premiumDelta < 6) suggestions.push('A diferenca entre tradicional e premium pode estar baixa para destacar valor percebido.');
-
-  const optionalChecks = [
-    { label: 'Borda configurada', done: hasEdges, tone: 'Opcional' },
-    { label: 'Adicionais configurados', done: hasExtras, tone: 'Opcional' }
-  ];
-
-  return {
-    status,
-    completedEssentials,
-    totalEssentials: essentialChecks.length,
-    essentialChecks,
-    optionalChecks,
-    suggestions: suggestions.slice(0, 3),
-    hasPremiumFlavor,
-    activeSizeCount,
-    activeFlavorCount,
-    premiumDelta,
-    commercialScoreValue,
-    salesStrength,
-    confidenceLabel,
-    directFeedback,
-    commercialPotential,
-    upsellPotential
-  };
+const buildPizzaEntryReadiness = ({ pizza, entryCategory, sizes, flavors, businessProfileId }) => {
+  return buildPizzaEntryCommercialModel({
+    pizza,
+    entryCategory,
+    sizes,
+    flavors,
+    profileId: businessProfileId,
+  });
 };
 
 const clonePizzaSize = (size) => ({
@@ -252,7 +167,7 @@ const clonePizzaExtra = (extra) => ({
   is_active: extra.is_active,
 });
 
-export default function MyPizzasTab() {
+export default function MyPizzasTab({ businessProfileId = 'other' }) {
   const [user, setUser] = useState(null);
   const [showPizzaModal, setShowPizzaModal] = useState(false);
   const [editingPizza, setEditingPizza] = useState(null);
@@ -387,26 +302,12 @@ export default function MyPizzasTab() {
     return Object.fromEntries(
       pizzas.map((pizza) => {
         const entryCategory = pizzaCategories.find((item) => item.id === pizza.pizza_category_id) || null;
-        return [String(pizza.id), buildPizzaEntryReadiness({ pizza, entryCategory, sizes, flavors })];
+        return [String(pizza.id), buildPizzaEntryReadiness({ pizza, entryCategory, sizes, flavors, businessProfileId })];
       })
     );
-  }, [pizzas, pizzaCategories, sizes, flavors]);
+  }, [businessProfileId, pizzas, pizzaCategories, sizes, flavors]);
   const readinessSummary = React.useMemo(() => {
-    return pizzas.reduce((accumulator, pizza) => {
-      const readiness = pizzaReadinessById[String(pizza.id)];
-      if (pizza?.is_active === false) {
-        accumulator.inactive += 1;
-        return accumulator;
-      }
-      if (readiness?.salesStrength === 'Forte') accumulator.strong += 1;
-      else if (readiness?.salesStrength === 'Boa') accumulator.good += 1;
-      else if (readiness?.salesStrength === 'Regular') accumulator.regular += 1;
-      else accumulator.weak += 1;
-      if (readiness?.status === 'Completa') accumulator.complete += 1;
-      else if (readiness?.status === 'Quase pronta') accumulator.almost += 1;
-      else accumulator.incomplete += 1;
-      return accumulator;
-    }, { complete: 0, almost: 0, incomplete: 0, inactive: 0, strong: 0, good: 0, regular: 0, weak: 0 });
+    return summarizePizzaCommercialReadiness(pizzaReadinessById, pizzas);
   }, [pizzas, pizzaReadinessById]);
   const overallCatalogLevel = React.useMemo(() => {
     const activeEntries = readinessSummary.strong + readinessSummary.good + readinessSummary.regular + readinessSummary.weak;
@@ -858,12 +759,12 @@ export default function MyPizzasTab() {
                   const flavorMixLabel = summarizeFlavorMix(allowedFlavors);
                   const allowsBorders = (pizza.pizza_config?.edges?.length || 0) > 0;
                   const allowsExtras = (pizza.pizza_config?.extras?.length || 0) > 0;
-                  const readiness = pizzaReadinessById[String(pizza.id)] || buildPizzaEntryReadiness({ pizza, entryCategory, sizes, flavors });
+                  const readiness = pizzaReadinessById[String(pizza.id)] || buildPizzaEntryReadiness({ pizza, entryCategory, sizes, flavors, businessProfileId });
                   const statusPresentation = getEntryStatusPresentation(readiness.status);
                   const strengthPresentation = getSalesStrengthPresentation(readiness.salesStrength);
                   const improvementPlan = buildReadyToSellPlan(pizza);
                   const projectedReadiness = improvementPlan.changes.length > 0
-                    ? buildPizzaEntryReadiness({ pizza: improvementPlan.patch, entryCategory, sizes, flavors })
+                    ? buildPizzaEntryReadiness({ pizza: improvementPlan.patch, entryCategory, sizes, flavors, businessProfileId })
                     : readiness;
 
                   return (
