@@ -8,6 +8,7 @@ export default function PDVTopSellingPanel({
   items = [],
   onUseDish,
   highlightedDishId = null,
+  getDefaultQuantity,
 }) {
   return (
     <div className="flex-shrink-0 border-b bg-card px-4 py-3">
@@ -37,6 +38,7 @@ export default function PDVTopSellingPanel({
           if (!dish) return null;
 
           const isHighlighted = String(highlightedDishId || '') === String(dish.id);
+          const defaultQuantity = Math.max(1, Number(getDefaultQuantity?.(dish.id) || 1));
 
           return (
             <div
@@ -82,6 +84,11 @@ export default function PDVTopSellingPanel({
                         : 'Montar')
                       : formatCurrency(Number(dish.price || 0))}
                   </p>
+                  {defaultQuantity > 1 && (
+                    <Badge variant="outline" className="mt-2 border-blue-300 text-blue-700 dark:text-blue-300">
+                      x{defaultQuantity} padrao
+                    </Badge>
+                  )}
                 </div>
 
                 <Button

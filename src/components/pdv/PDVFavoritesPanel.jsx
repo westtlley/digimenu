@@ -9,6 +9,7 @@ export default function PDVFavoritesPanel({
   highlightedSlot = null,
   onUseFavorite,
   onRemoveFavorite,
+  getDefaultQuantity,
 }) {
   return (
     <div className="flex-shrink-0 border-b bg-card px-4 py-3">
@@ -37,6 +38,7 @@ export default function PDVFavoritesPanel({
             hasDishRecord,
           } = slotData;
           const isHighlighted = String(highlightedSlot || '') === String(slot);
+          const defaultQuantity = dish ? Math.max(1, Number(getDefaultQuantity?.(dish.id) || 1)) : 1;
 
           if (!isAssigned) {
             return (
@@ -103,6 +105,11 @@ export default function PDVFavoritesPanel({
                   ) : (
                     <Badge variant="outline" className="border-red-300 text-red-700 dark:text-red-300">
                       Produto ausente
+                    </Badge>
+                  )}
+                  {defaultQuantity > 1 && (
+                    <Badge variant="outline" className="border-blue-300 text-blue-700 dark:text-blue-300">
+                      x{defaultQuantity} padrao
                     </Badge>
                   )}
                 </div>

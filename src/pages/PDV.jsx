@@ -22,6 +22,7 @@ import { useManagerialAuth } from '@/hooks/useManagerialAuth';
 import { useUpsell } from '../components/hooks/useUpsell';
 import { usePDVKeyboardShortcuts } from '@/hooks/usePDVKeyboardShortcuts';
 import { usePDVStats, getPdvDishScore } from '@/hooks/usePDVStats';
+import { usePDVDefaultQuantities } from '@/hooks/usePDVDefaultQuantities';
 import InstallAppButton from '../components/InstallAppButton';
 import FechamentoCaixaModal from '../components/pdv/FechamentoCaixaModal';
 import { getScopedStorageKey, getTenantScopeKey } from '@/utils/tenantScope';
@@ -136,7 +137,20 @@ export default function PDV() {
       : null;
     return getScopedStorageKey('pdvStats', storageContext, 'global');
   }, [asSub, asSubId, tenantIdentifier, tenantSubscriberId]);
+  const pdvDefaultQtyStorageKey = useMemo(() => {
+    const storageContext = (asSubId ?? tenantSubscriberId) != null || (asSub ?? tenantIdentifier)
+      ? {
+          type: 'subscriber',
+          value: asSub ?? tenantIdentifier,
+          subscriber_id: asSubId ?? tenantSubscriberId ?? null,
+        }
+      : null;
+    return getScopedStorageKey('pdvDefaultQty', storageContext, 'global');
+  }, [asSub, asSubId, tenantIdentifier, tenantSubscriberId]);
   const { pdvStats, recordDishUsage } = usePDVStats({ storageKey: pdvStatsStorageKey });
+  const { getDefaultQuantity, setDishDefaultQuantity } = usePDVDefaultQuantities({
+    storageKey: pdvDefaultQtyStorageKey,
+  });
 
   const [showMenuVendas, setShowMenuVendas] = useState(false);
   const [showFechamentoModal, setShowFechamentoModal] = useState(false);
@@ -1136,7 +1150,11 @@ export default function PDV() {
       toast.error('Caixa travado. FaÃ§a uma retirada em Caixa para continuar.');
       return;
     }
-    const newItem = { ...item, quantity: 1, id: Date.now() };
+    const explicitQuantity = Number(item?.quantity);
+    const resolvedQuantity = Number.isFinite(explicitQuantity) && explicitQuantity > 0
+      ? Math.max(1, Math.round(explicitQuantity))
+      : getDefaultQuantity(item?.dish?.id);
+    const newItem = { ...item, quantity: resolvedQuantity, id: Date.now() };
     setCart(prev => {
       const next = [...prev, newItem];
       const newTotal = next.reduce((s, i) => s + (i.totalPrice || 0) * (i.quantity || 1), 0);
@@ -1148,7 +1166,11 @@ export default function PDV() {
     recordDishUsage(item?.dish?.id);
     setSelectedDish(null);
     setSelectedPizza(null);
-    toast.success(`${item.dish.name} adicionado!`);
+    toast.success(
+      resolvedQuantity > 1
+        ? `${item.dish.name} x${resolvedQuantity} adicionado!`
+        : `${item.dish.name} adicionado!`
+    );
 
     if (shouldRefocusPdvCodeRef.current) {
       shouldRefocusPdvCodeRef.current = false;
@@ -1158,6 +1180,14 @@ export default function PDV() {
 
     schedulePdvCodeFocus({ force: false }, 120);
   };
+
+  const updateDishDefaultQuantity = React.useCallback((dishId, nextQuantity) => {
+    const normalizedDishId = String(dishId || '').trim();
+    if (!normalizedDishId) return;
+
+    setDishDefaultQuantity(normalizedDishId, nextQuantity);
+    schedulePdvCodeFocus({ force: false }, 60);
+  }, [schedulePdvCodeFocus, setDishDefaultQuantity]);
 
   const handleUpsellAccept = (promotion) => {
     if (!promotion) return;
@@ -1172,7 +1202,8 @@ export default function PDV() {
     const promoItem = {
       dish: { ...promoDish, price: promotion.offer_price },
       totalPrice: promotion.offer_price,
-      selections: {}
+      selections: {},
+      quantity: 1,
     };
     addToCart(promoItem);
     closeUpsell();
@@ -2120,12 +2151,14 @@ export default function PDV() {
               highlightedSlot={highlightedFavoriteSlot}
               onUseFavorite={triggerFavoriteSlot}
               onRemoveFavorite={removeFavoriteSlot}
+              getDefaultQuantity={getDefaultQuantity}
             />
 
             <PDVTopSellingPanel
               items={pdvTopSellingItems}
               highlightedDishId={highlightedDishId}
               onUseDish={handleDishClick}
+              getDefaultQuantity={getDefaultQuantity}
             />
             
             {/* Categorias */}
@@ -2219,6 +2252,7 @@ export default function PDV() {
                 {filteredDishes.map((dish) => {
                   const favoriteSlot = favoriteSlotByDishId[String(dish.id)];
                   const isFavorite = Boolean(favoriteSlot);
+                  const defaultQuantity = getDefaultQuantity(dish.id);
                   const favoriteButtonLabel = isFavorite
                     ? `Atalho ${favoriteSlot}`
                     : nextAvailableFavoriteSlot
@@ -2261,9 +2295,46 @@ export default function PDV() {
                               ? (dish.pizza_config?.sizes?.[0] ? formatCurrency(dish.pizza_config.sizes[0].price_tradicional) : 'Montar')
                               : formatCurrency(dish.price)}
                           </div>
+                          {defaultQuantity > 1 && (
+                            <Badge variant="outline" className="mt-2 border-blue-300 text-blue-700 dark:text-blue-300">
+                              x{defaultQuantity} padrao
+                            </Badge>
+                          )}
                         </div>
                       </button>
                       <div className="border-t border-border/70 bg-muted/20 p-2">
+                        <div className="mb-2 flex items-center justify-between gap-2 rounded-lg border border-border/70 bg-background/70 px-2 py-1.5">
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                              Qtd padrao
+                            </p>
+                            <p className="text-[11px] text-muted-foreground">
+                              Entra x{defaultQuantity} no caixa
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => updateDishDefaultQuantity(dish.id, defaultQuantity - 1)}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border bg-background text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                              disabled={defaultQuantity <= 1}
+                              aria-label={`Diminuir quantidade padrao de ${dish.name}`}
+                            >
+                              <Minus className="h-4 w-4" />
+                            </button>
+                            <div className="min-w-[2.5rem] rounded-md bg-muted px-2 py-1 text-center text-sm font-bold text-foreground">
+                              {defaultQuantity}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => updateDishDefaultQuantity(dish.id, defaultQuantity + 1)}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border bg-background text-foreground transition-colors hover:bg-muted"
+                              aria-label={`Aumentar quantidade padrao de ${dish.name}`}
+                            >
+                              <Plus className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </div>
                         <button
                           type="button"
                           onClick={() => toggleDishFavorite(dish)}
@@ -2832,4 +2903,3 @@ export default function PDV() {
     </div>
   );
 }
-
