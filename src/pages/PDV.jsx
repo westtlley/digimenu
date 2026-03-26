@@ -21,6 +21,7 @@ import { usePermission } from '../components/permissions/usePermission';
 import { useManagerialAuth } from '@/hooks/useManagerialAuth';
 import { useUpsell } from '../components/hooks/useUpsell';
 import { usePDVKeyboardShortcuts } from '@/hooks/usePDVKeyboardShortcuts';
+import { usePDVStats, getPdvDishScore } from '@/hooks/usePDVStats';
 import InstallAppButton from '../components/InstallAppButton';
 import FechamentoCaixaModal from '../components/pdv/FechamentoCaixaModal';
 import { getScopedStorageKey, getTenantScopeKey } from '@/utils/tenantScope';
@@ -28,6 +29,7 @@ import MenuVendasModal from '../components/pdv/MenuVendasModal';
 import AtalhosHelpModal from '../components/pdv/AtalhosHelpModal';
 import ReimpressaoVendaModal from '../components/pdv/ReimpressaoVendaModal';
 import PDVFavoritesPanel from '../components/pdv/PDVFavoritesPanel';
+import PDVTopSellingPanel from '../components/pdv/PDVTopSellingPanel';
 import { formatCurrency } from '@/utils/formatters';
 import { printReceipt, printCashClosingReport } from '@/utils/thermalPrint';
 import { userIsTenantOwner, userMatchesTenant } from '@/utils/tenantScope';
@@ -124,6 +126,17 @@ export default function PDV() {
       : null;
     return getScopedStorageKey('pdvFavorites', storageContext, 'global');
   }, [asSub, asSubId, tenantIdentifier, tenantSubscriberId]);
+  const pdvStatsStorageKey = useMemo(() => {
+    const storageContext = (asSubId ?? tenantSubscriberId) != null || (asSub ?? tenantIdentifier)
+      ? {
+          type: 'subscriber',
+          value: asSub ?? tenantIdentifier,
+          subscriber_id: asSubId ?? tenantSubscriberId ?? null,
+        }
+      : null;
+    return getScopedStorageKey('pdvStats', storageContext, 'global');
+  }, [asSub, asSubId, tenantIdentifier, tenantSubscriberId]);
+  const { pdvStats, recordDishUsage } = usePDVStats({ storageKey: pdvStatsStorageKey });
 
   const [showMenuVendas, setShowMenuVendas] = useState(false);
   const [showFechamentoModal, setShowFechamentoModal] = useState(false);
@@ -677,6 +690,31 @@ export default function PDV() {
     }),
     [dishById, pdvFavorites]
   );
+  const pdvTopSellingItems = useMemo(() => {
+    const now = Date.now();
+
+    return safeDishes
+      .filter((dish) => dish && dish.name && isDishEnabledInPdv(dish))
+      .map((dish) => {
+        const stat = pdvStats?.[String(dish.id)];
+        if (!stat?.count) return null;
+
+        return {
+          dish,
+          count: stat.count,
+          lastUsedAt: stat.lastUsedAt || 0,
+          score: getPdvDishScore(stat, now),
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        if (b.count !== a.count) return b.count - a.count;
+        if (b.lastUsedAt !== a.lastUsedAt) return b.lastUsedAt - a.lastUsedAt;
+        return String(a?.dish?.name || '').localeCompare(String(b?.dish?.name || ''));
+      })
+      .slice(0, 5);
+  }, [pdvStats, safeDishes]);
   const safeCategories = Array.isArray(categories) ? categories.filter((cat) => cat && cat.name && cat.is_active !== false) : [];
   const safeBeverageCategories = Array.isArray(beverageCategories)
     ? beverageCategories.filter((cat) => cat && cat.name && cat.is_active !== false)
@@ -1107,6 +1145,7 @@ export default function PDV() {
     });
     setHighlightedDishId(String(item?.dish?.id || ''));
     setHighlightedCartItemId(String(newItem.id));
+    recordDishUsage(item?.dish?.id);
     setSelectedDish(null);
     setSelectedPizza(null);
     toast.success(`${item.dish.name} adicionado!`);
@@ -2082,6 +2121,12 @@ export default function PDV() {
               onUseFavorite={triggerFavoriteSlot}
               onRemoveFavorite={removeFavoriteSlot}
             />
+
+            <PDVTopSellingPanel
+              items={pdvTopSellingItems}
+              highlightedDishId={highlightedDishId}
+              onUseDish={handleDishClick}
+            />
             
             {/* Categorias */}
             <div className="flex-shrink-0 bg-muted/40 border-b px-3 sm:px-4 py-2 sm:py-3">
@@ -2787,11 +2832,4 @@ export default function PDV() {
     </div>
   );
 }
-
-
-
-
-
-
-
 
