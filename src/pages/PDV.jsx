@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Search, Receipt, ShoppingCart, AlertTriangle, ArrowLeft, Trash2, Plus, Minus, X, History, Clock, Loader2, LogOut, CreditCard, Wallet, TrendingUp, TrendingDown, Lock } from 'lucide-react';
+import { Search, Receipt, ShoppingCart, AlertTriangle, ArrowLeft, Trash2, Plus, Minus, X, History, Clock, Loader2, LogOut, CreditCard, Wallet, TrendingUp, TrendingDown, Lock, Star } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -27,6 +27,7 @@ import { getScopedStorageKey, getTenantScopeKey } from '@/utils/tenantScope';
 import MenuVendasModal from '../components/pdv/MenuVendasModal';
 import AtalhosHelpModal from '../components/pdv/AtalhosHelpModal';
 import ReimpressaoVendaModal from '../components/pdv/ReimpressaoVendaModal';
+import PDVFavoritesPanel from '../components/pdv/PDVFavoritesPanel';
 import { formatCurrency } from '@/utils/formatters';
 import { printReceipt, printCashClosingReport } from '@/utils/thermalPrint';
 import { userIsTenantOwner, userMatchesTenant } from '@/utils/tenantScope';
@@ -41,6 +42,20 @@ import {
   createCaixaShiftMovement,
   openCaixaShift,
 } from '@/services/caixaShiftService';
+
+const PDV_FAVORITE_SLOTS = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
+
+function normalizePdvFavorites(rawValue) {
+  if (!rawValue || typeof rawValue !== 'object') return {};
+  return PDV_FAVORITE_SLOTS.reduce((accumulator, slot) => {
+    const rawDishId = rawValue?.[slot];
+    if (rawDishId === null || rawDishId === undefined) return accumulator;
+    const normalizedDishId = String(rawDishId).trim();
+    if (!normalizedDishId) return accumulator;
+    accumulator[slot] = normalizedDishId;
+    return accumulator;
+  }, {});
+}
 
 export default function PDV() {
   const [user, setUser] = useState(null);
@@ -99,6 +114,16 @@ export default function PDV() {
       : null;
     return getScopedStorageKey('gestorSettings', storageContext, 'global');
   }, [asSub, asSubId, tenantIdentifier, tenantSubscriberId]);
+  const pdvFavoritesStorageKey = useMemo(() => {
+    const storageContext = (asSubId ?? tenantSubscriberId) != null || (asSub ?? tenantIdentifier)
+      ? {
+          type: 'subscriber',
+          value: asSub ?? tenantIdentifier,
+          subscriber_id: asSubId ?? tenantSubscriberId ?? null,
+        }
+      : null;
+    return getScopedStorageKey('pdvFavorites', storageContext, 'global');
+  }, [asSub, asSubId, tenantIdentifier, tenantSubscriberId]);
 
   const [showMenuVendas, setShowMenuVendas] = useState(false);
   const [showFechamentoModal, setShowFechamentoModal] = useState(false);
@@ -117,6 +142,8 @@ export default function PDV() {
   const [pdvCodeFieldMessage, setPdvCodeFieldMessage] = useState('Bipe ou digite o código e pressione Enter.');
   const [showPdvSuggestions, setShowPdvSuggestions] = useState(false);
   const [activePdvSuggestionIndex, setActivePdvSuggestionIndex] = useState(0);
+  const [pdvFavorites, setPdvFavorites] = useState({});
+  const [highlightedFavoriteSlot, setHighlightedFavoriteSlot] = useState(null);
   
   // Tracking de cancelamentos em tela (para relatÃƒÆ’Ã‚Â³rio de fechamento)
   const [canceledInScreenCount, setCanceledInScreenCount] = useState(0);
@@ -128,6 +155,24 @@ export default function PDV() {
   const pdvCodeRefocusTimerRef = useRef(null);
   const scannerSequenceRef = useRef({ startedAt: 0, lastAt: 0, count: 0 });
   const pdvCodeFocusBlockedRef = useRef(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const rawFavorites = window.localStorage.getItem(pdvFavoritesStorageKey);
+      const parsedFavorites = rawFavorites ? JSON.parse(rawFavorites) : {};
+      setPdvFavorites(normalizePdvFavorites(parsedFavorites));
+    } catch (error) {
+      console.warn('[PDV] Nao foi possivel carregar favoritos rapidos:', error);
+      setPdvFavorites({});
+    }
+  }, [pdvFavoritesStorageKey]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const normalizedFavorites = normalizePdvFavorites(pdvFavorites);
+    window.localStorage.setItem(pdvFavoritesStorageKey, JSON.stringify(normalizedFavorites));
+  }, [pdvFavorites, pdvFavoritesStorageKey]);
 
   // Verificar autenticaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o e permissÃƒÆ’Ã‚Â£o
   useEffect(() => {
@@ -602,6 +647,36 @@ export default function PDV() {
     && exactPdvCodeMatches.length === 0
     && pdvCodeSuggestions.length > 0;
   const activeDishes = safeDishes.filter(d => d && d.is_active !== false);
+  const dishById = useMemo(
+    () => new Map(safeDishes.map((dish) => [String(dish.id), dish])),
+    [safeDishes]
+  );
+  const favoriteSlotByDishId = useMemo(
+    () => Object.entries(normalizePdvFavorites(pdvFavorites)).reduce((accumulator, [slot, dishId]) => {
+      accumulator[String(dishId)] = slot;
+      return accumulator;
+    }, {}),
+    [pdvFavorites]
+  );
+  const nextAvailableFavoriteSlot = useMemo(
+    () => PDV_FAVORITE_SLOTS.find((slot) => !pdvFavorites?.[slot]) || null,
+    [pdvFavorites]
+  );
+  const pdvFavoriteSlots = useMemo(
+    () => PDV_FAVORITE_SLOTS.map((slot) => {
+      const mappedDishId = pdvFavorites?.[slot] ? String(pdvFavorites[slot]) : null;
+      const mappedDish = mappedDishId ? dishById.get(mappedDishId) || null : null;
+      return {
+        slot,
+        dishId: mappedDishId,
+        dish: mappedDish,
+        isAssigned: Boolean(mappedDishId),
+        hasDishRecord: Boolean(mappedDish),
+        isEnabled: mappedDish ? isDishEnabledInPdv(mappedDish) : false,
+      };
+    }),
+    [dishById, pdvFavorites]
+  );
   const safeCategories = Array.isArray(categories) ? categories.filter((cat) => cat && cat.name && cat.is_active !== false) : [];
   const safeBeverageCategories = Array.isArray(beverageCategories)
     ? beverageCategories.filter((cat) => cat && cat.name && cat.is_active !== false)
@@ -781,13 +856,14 @@ export default function PDV() {
   }, [normalizedPdvCodeInput, pdvCodeFieldStatus, pdvCodeIndex, pdvCodeSuggestions.length, showPdvSuggestions]);
 
   useEffect(() => {
-    if (!highlightedDishId && !highlightedCartItemId) return undefined;
+    if (!highlightedDishId && !highlightedCartItemId && !highlightedFavoriteSlot) return undefined;
     const timer = window.setTimeout(() => {
       setHighlightedDishId(null);
       setHighlightedCartItemId(null);
+      setHighlightedFavoriteSlot(null);
     }, 1200);
     return () => window.clearTimeout(timer);
-  }, [highlightedDishId, highlightedCartItemId]);
+  }, [highlightedDishId, highlightedCartItemId, highlightedFavoriteSlot]);
 
   const registerScannerKeypress = React.useCallback((event) => {
     const now = Date.now();
@@ -1115,6 +1191,91 @@ export default function PDV() {
     schedulePdvCodeFocus({ force: false }, 120);
   };
 
+  const toggleDishFavorite = React.useCallback((dish) => {
+    if (!dish?.id) return;
+
+    const normalizedDishId = String(dish.id);
+    const existingSlot = favoriteSlotByDishId[normalizedDishId];
+
+    if (existingSlot) {
+      setPdvFavorites((current) => {
+        const next = { ...normalizePdvFavorites(current) };
+        delete next[existingSlot];
+        return next;
+      });
+      toast.success(`Atalho ${existingSlot} liberado.`);
+      schedulePdvCodeFocus({ force: false }, 60);
+      return;
+    }
+
+    if (!nextAvailableFavoriteSlot) {
+      toast.error('Todos os atalhos 1-9 ja estao ocupados.');
+      schedulePdvCodeFocus({ force: false }, 60);
+      return;
+    }
+
+    setPdvFavorites((current) => normalizePdvFavorites({
+      ...current,
+      [nextAvailableFavoriteSlot]: normalizedDishId,
+    }));
+    setHighlightedFavoriteSlot(nextAvailableFavoriteSlot);
+    toast.success(`${dish.name} salvo no atalho ${nextAvailableFavoriteSlot}.`);
+    schedulePdvCodeFocus({ force: false }, 60);
+  }, [favoriteSlotByDishId, nextAvailableFavoriteSlot, schedulePdvCodeFocus]);
+
+  const removeFavoriteSlot = React.useCallback((slot) => {
+    const normalizedSlot = String(slot);
+    const mappedDishId = pdvFavorites?.[normalizedSlot];
+    if (!mappedDishId) return;
+
+    setPdvFavorites((current) => {
+      const next = { ...normalizePdvFavorites(current) };
+      delete next[normalizedSlot];
+      return next;
+    });
+
+    const mappedDish = dishById.get(String(mappedDishId));
+    toast.success(
+      mappedDish?.name
+        ? `${mappedDish.name} removido do atalho ${normalizedSlot}.`
+        : `Atalho ${normalizedSlot} liberado.`
+    );
+    schedulePdvCodeFocus({ force: false }, 60);
+  }, [dishById, pdvFavorites, schedulePdvCodeFocus]);
+
+  const triggerFavoriteSlot = React.useCallback((slot) => {
+    const normalizedSlot = String(slot);
+    const mappedDishId = pdvFavorites?.[normalizedSlot];
+
+    if (!mappedDishId) {
+      toast('Atalho vazio. Defina um favorito primeiro.');
+      schedulePdvCodeFocus({ force: false }, 60);
+      return;
+    }
+
+    const dish = dishById.get(String(mappedDishId));
+    if (!dish) {
+      toast.error('Produto favorito nao encontrado.');
+      schedulePdvCodeFocus({ force: false }, 60);
+      return;
+    }
+
+    if (!isDishEnabledInPdv(dish)) {
+      toast.error('Produto desativado no PDV.');
+      schedulePdvCodeFocus({ force: false }, 60);
+      return;
+    }
+
+    setHighlightedFavoriteSlot(normalizedSlot);
+    setHighlightedDishId(String(dish.id));
+
+    if (openCaixa && !isCaixaLocked) {
+      shouldRefocusPdvCodeRef.current = true;
+    }
+
+    handleDishClick(dish);
+  }, [dishById, isCaixaLocked, openCaixa, pdvFavorites, schedulePdvCodeFocus]);
+
   const resetPdvCodeShortcutState = React.useCallback(({ clearInput = false } = {}) => {
     resetScannerSequence();
     setShowPdvSuggestions(false);
@@ -1218,6 +1379,7 @@ export default function PDV() {
     onToggleCart: toggleKeyboardCart,
     onRemoveLastItem: removeLastCartItem,
     onAdjustLastItemQuantity: adjustLastCartItemQuantity,
+    onFavoriteSlot: triggerFavoriteSlot,
     onOpenHelp: () => setShowAtalhosHelp(true),
   });
   useEffect(() => {
@@ -1913,6 +2075,13 @@ export default function PDV() {
                 </div>
               </div>
             </div>
+
+            <PDVFavoritesPanel
+              slots={pdvFavoriteSlots}
+              highlightedSlot={highlightedFavoriteSlot}
+              onUseFavorite={triggerFavoriteSlot}
+              onRemoveFavorite={removeFavoriteSlot}
+            />
             
             {/* Categorias */}
             <div className="flex-shrink-0 bg-muted/40 border-b px-3 sm:px-4 py-2 sm:py-3">
@@ -2002,41 +2171,83 @@ export default function PDV() {
             {/* Grid de Produtos - Com Scroll */}
             <div className="flex-1 overflow-y-auto p-4">
               <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
-                {filteredDishes.map(dish => (
-                  <button
-                    key={dish.id}
-                    onClick={() => handleDishClick(dish)}
-                    className={`group rounded-xl border-2 bg-card overflow-hidden transition-all ${
-                      String(highlightedDishId || '') === String(dish.id)
-                        ? 'border-emerald-400 ring-2 ring-emerald-200 shadow-lg'
-                        : 'border-border hover:border-orange-400 hover:shadow-md'
-                    }`}
-                  >
-                    <div className="aspect-square bg-muted/50 overflow-hidden">
-                      {dish.image ? (
-                        <img
-                          src={dish.image}
-                          alt={dish.name}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-5xl">
-                          ðŸ½ï¸
+                {filteredDishes.map((dish) => {
+                  const favoriteSlot = favoriteSlotByDishId[String(dish.id)];
+                  const isFavorite = Boolean(favoriteSlot);
+                  const favoriteButtonLabel = isFavorite
+                    ? `Atalho ${favoriteSlot}`
+                    : nextAvailableFavoriteSlot
+                      ? `Salvar no ${nextAvailableFavoriteSlot}`
+                      : 'Atalhos cheios';
+
+                  return (
+                    <div
+                      key={dish.id}
+                      className={`rounded-xl border-2 bg-card overflow-hidden transition-all ${
+                        String(highlightedDishId || '') === String(dish.id)
+                          ? 'border-emerald-400 ring-2 ring-emerald-200 shadow-lg'
+                          : 'border-border hover:border-orange-400 hover:shadow-md'
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => handleDishClick(dish)}
+                        className="group block w-full text-left"
+                      >
+                        <div className="aspect-square bg-muted/50 overflow-hidden">
+                          {dish.image ? (
+                            <img
+                              src={dish.image}
+                              alt={dish.name}
+                              className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-5xl">
+                              ðŸ½ï¸
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
-                    <div className="p-3">
-                      <h4 className="font-bold text-sm text-foreground mb-2 line-clamp-2 min-h-[40px]">
-                        {dish.name}
-                      </h4>
-                      <div className="text-xl font-bold text-orange-600">
-                        {dish.product_type === 'pizza'
-                          ? (dish.pizza_config?.sizes?.[0] ? formatCurrency(dish.pizza_config.sizes[0].price_tradicional) : 'Montar')
-                          : formatCurrency(dish.price)}
+                        <div className="p-3">
+                          <h4 className="font-bold text-sm text-foreground mb-2 line-clamp-2 min-h-[40px]">
+                            {dish.name}
+                          </h4>
+                          <div className="text-xl font-bold text-orange-600">
+                            {dish.product_type === 'pizza'
+                              ? (dish.pizza_config?.sizes?.[0] ? formatCurrency(dish.pizza_config.sizes[0].price_tradicional) : 'Montar')
+                              : formatCurrency(dish.price)}
+                          </div>
+                        </div>
+                      </button>
+                      <div className="border-t border-border/70 bg-muted/20 p-2">
+                        <button
+                          type="button"
+                          onClick={() => toggleDishFavorite(dish)}
+                          className={`flex w-full items-center justify-between gap-2 rounded-lg px-2 py-2 text-left text-xs font-semibold transition-colors ${
+                            isFavorite
+                              ? 'bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/20 dark:text-amber-300'
+                              : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
+                          }`}
+                        >
+                          <span className="flex min-w-0 items-center gap-2">
+                            <Star
+                              className={`h-4 w-4 flex-shrink-0 ${
+                                isFavorite ? 'fill-current text-amber-500' : 'text-muted-foreground'
+                              }`}
+                            />
+                            <span className="truncate">
+                              {favoriteButtonLabel}
+                            </span>
+                          </span>
+                          {isFavorite && (
+                            <span className="rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700 dark:bg-amber-900/40 dark:text-amber-200">
+                              Favorito
+                            </span>
+                          )}
+                        </button>
                       </div>
                     </div>
-                  </button>
-                ))}
+                  );
+                })}
               </div>
 
               {filteredDishes.length === 0 && (
@@ -2209,6 +2420,7 @@ export default function PDV() {
         <div className="hidden lg:flex flex-shrink-0 px-4 py-2 bg-card border-t border-border text-muted-foreground text-xs justify-center gap-6 flex-wrap">
           <span><kbd className="px-1.5 py-0.5 bg-muted rounded">?</kbd> Ajuda</span>
           <span><kbd className="px-1.5 py-0.5 bg-muted rounded">F2</kbd> Codigo</span>
+          <span><kbd className="px-1.5 py-0.5 bg-muted rounded">1-9</kbd> Favoritos</span>
           <span><kbd className="px-1.5 py-0.5 bg-muted rounded">F3</kbd> Comanda</span>
           <span><kbd className="px-1.5 py-0.5 bg-muted rounded">F4</kbd> Pagamento</span>
           <span><kbd className="px-1.5 py-0.5 bg-muted rounded">Ctrl</kbd> + <kbd className="px-1.5 py-0.5 bg-muted rounded">Backspace</kbd> Ultimo item</span>
@@ -2575,7 +2787,6 @@ export default function PDV() {
     </div>
   );
 }
-
 
 
 

@@ -31,6 +31,13 @@ const shortcutSections = [
       { key: '-', label: 'Diminuir quantidade', description: 'Subtrai 1 unidade do ultimo item da comanda.' },
     ],
   },
+  {
+    title: 'Favoritos rapidos',
+    tone: 'text-amber-600 dark:text-amber-300',
+    items: [
+      { key: '1-9', label: 'Adicionar favorito', description: 'Dispara o produto salvo em cada tecla rapida sem navegar pelo cardapio.' },
+    ],
+  },
 ];
 
 export default function AtalhosHelpModal({ open, onOpenChange }) {

@@ -33,6 +33,7 @@ export function usePDVKeyboardShortcuts({
   onToggleCart,
   onRemoveLastItem,
   onAdjustLastItemQuantity,
+  onFavoriteSlot,
   onOpenHelp,
 }) {
   const handlersRef = React.useRef({
@@ -42,6 +43,7 @@ export function usePDVKeyboardShortcuts({
     onToggleCart,
     onRemoveLastItem,
     onAdjustLastItemQuantity,
+    onFavoriteSlot,
     onOpenHelp,
   });
 
@@ -52,6 +54,7 @@ export function usePDVKeyboardShortcuts({
     onToggleCart,
     onRemoveLastItem,
     onAdjustLastItemQuantity,
+    onFavoriteSlot,
     onOpenHelp,
   };
 
@@ -100,6 +103,12 @@ export function usePDVKeyboardShortcuts({
       if (event.key === 'F4') {
         event.preventDefault();
         handlersRef.current.onOpenPayment?.();
+        return;
+      }
+
+      if (!event.ctrlKey && !event.metaKey && !event.altKey && /^[1-9]$/.test(String(event.key || ''))) {
+        event.preventDefault();
+        handlersRef.current.onFavoriteSlot?.(String(event.key));
         return;
       }
 
