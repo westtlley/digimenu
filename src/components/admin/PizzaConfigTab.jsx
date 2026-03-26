@@ -14,6 +14,8 @@ import { Plus, Trash2, Pencil, Search, ChevronUp, ChevronDown } from 'lucide-rea
 import toast, { Toaster } from 'react-hot-toast';
 import PizzaVisualizationSettings from './PizzaVisualizationSettings';
 import MyPizzasTab from './MyPizzasTab';
+import PizzaOverviewPanel from './pizza/PizzaOverviewPanel';
+import PizzaInsightsPanel from './pizza/PizzaInsightsPanel';
 import { usePermission } from '../permissions/usePermission';
 import { buildTenantEntityOpts, getMenuContextEntityOpts, getMenuContextQueryKeyParts } from '@/utils/tenantScope';
 import { fetchAdminDishes } from '@/services/adminMenuService';
@@ -238,6 +240,17 @@ const buildPizzaPricingInsights = (sizes = []) => {
     highlights,
   };
 };
+
+const PIZZA_SECTION_NAV_ITEMS = [
+  { id: 'overview', label: 'Visao Geral', mobileLabel: 'Geral' },
+  { id: 'menu', label: 'Entradas do Cardapio', mobileLabel: 'Entradas' },
+  { id: 'rules', label: 'Regras de Montagem', mobileLabel: 'Regras' },
+  { id: 'flavors', label: 'Sabores', mobileLabel: 'Sabores' },
+  { id: 'sizes', label: 'Tamanhos e Precos', mobileLabel: 'Precos' },
+  { id: 'addons', label: 'Bordas e Extras', mobileLabel: 'Extras' },
+  { id: 'preview', label: 'Preview', mobileLabel: 'Preview' },
+  { id: 'intelligence', label: 'Inteligencia & Oportunidades', mobileLabel: 'Insights' },
+];
 
 export default function PizzaConfigTab() {
   const [user, setUser] = React.useState(null);
@@ -587,6 +600,10 @@ export default function PizzaConfigTab() {
       metric: `${previewEntries.length} vitrine(s)`
     }
   ]), [pizzaEntries.length, pizzaCategories.length, flavors.length, sizes.length, edges.length, extras.length, previewEntries.length]);
+  const pizzaGuideStepCards = useMemo(
+    () => pizzaGuideSteps.map((step) => ({ ...step, onSelect: () => setActiveTab(step.id) })),
+    [pizzaGuideSteps]
+  );
   const pizzaGuidanceCards = useMemo(() => {
     const activePremiumFlavors = flavors.filter((flavor) => flavor?.is_active !== false && flavor?.category === 'premium').length;
     const activeEdges = edges.filter((edge) => edge?.is_active !== false).length;
@@ -813,10 +830,6 @@ export default function PizzaConfigTab() {
       ],
     },
   ]), [activePremiumFlavors.length, activeSizes.length, firstLowPremiumMetric, inactiveEdges.length, inactiveExtras.length, inactivePremiumFlavors.length, missingRecommendedSizes.length]);
-  const selectedPizzaTemplate = useMemo(
-    () => pizzaTemplateCards.find((template) => template.id === selectedTemplateId) || pizzaTemplateCards[0] || null,
-    [pizzaTemplateCards, selectedTemplateId]
-  );
   const assistantActions = useMemo(() => {
     const actions = [];
     if (missingRecommendedSizes.length > 0) {
@@ -1535,542 +1548,108 @@ export default function PizzaConfigTab() {
   };
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-5 lg:p-6">
       <Toaster position="top-center" />
 
-      <div className="mb-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="mb-5 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:mb-6 sm:p-6">
         <Badge variant="outline" className="border-orange-200 bg-orange-50 text-orange-700">Pizzaria IA V2</Badge>
-        <h2 className="mt-3 text-3xl font-semibold tracking-tight text-slate-900">Organize a pizzaria de cima para baixo</h2>
+        <h2 className="mt-3 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">Organize a pizzaria de cima para baixo</h2>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
           Primeiro voce define o que aparece no cardapio. Depois ajusta como o cliente monta cada pizza.
           Por ultimo organiza sabores, tamanhos, bordas e extras que alimentam o builder publico.
         </p>
       </div>
-
-      <div className="sticky top-4 z-20 mb-6 -mx-1 rounded-3xl bg-slate-100/80 px-1 py-1 backdrop-blur">
-        <div className="flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
-          {[
-            { id: 'overview', label: 'Visao Geral' },
-            { id: 'menu', label: 'Entradas do Cardapio' },
-            { id: 'rules', label: 'Regras de Montagem' },
-            { id: 'flavors', label: 'Sabores' },
-            { id: 'sizes', label: 'Tamanhos e Precos' },
-            { id: 'addons', label: 'Bordas e Extras' },
-            { id: 'preview', label: 'Preview' },
-            { id: 'intelligence', label: 'Inteligencia & Oportunidades' },
-          ].map((section) => {
-            const active = activeTab === section.id;
-            return (
-              <button
-                key={section.id}
-                type="button"
-                onClick={() => setActiveTab(section.id)}
-                className={`rounded-xl px-4 py-2 text-sm font-medium transition-all ${
-                  active
-                    ? 'bg-slate-900 text-white shadow-sm'
-                    : 'bg-white text-slate-600 hover:bg-slate-100'
-                }`}
-              >
-                {section.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {activeTab === 'overview' ? (
-      <>
-      <div className="mb-6 grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
-        <Card className="rounded-3xl border-slate-200 p-5 shadow-sm">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600">Perfil adaptativo</Badge>
-              <h3 className="mt-3 text-xl font-semibold text-slate-900">Qual o perfil da sua pizzaria?</h3>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-                O sistema ajusta leitura, score, templates e oportunidades para o seu jeito de vender. Isso fica salvo so para esta operacao.
-              </p>
-            </div>
-            <Badge className="w-fit bg-slate-900 text-white">{businessProfile.badge}</Badge>
-          </div>
-
-          <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {PIZZA_BUSINESS_PROFILES.map((profile) => {
-              const active = businessProfileId === profile.id;
-              return (
-                <button
-                  key={profile.id}
-                  type="button"
-                  onClick={() => handleBusinessProfileChange(profile.id)}
-                  className={`rounded-2xl border p-4 text-left transition-all duration-200 ${
-                    active
-                      ? 'border-orange-300 bg-orange-50 shadow-sm ring-2 ring-orange-100'
-                      : 'border-slate-200 bg-white hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-sm'
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-sm font-semibold text-slate-900">{profile.label}</p>
-                    <Badge variant={active ? 'default' : 'outline'} className={active ? 'bg-orange-500 hover:bg-orange-500' : ''}>
-                      {profile.badge}
-                    </Badge>
-                  </div>
-                  <p className="mt-2 text-xs leading-5 text-slate-600">{profile.description}</p>
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <p className="text-sm font-semibold text-slate-900">Recomendacao principal para {businessProfile.label}</p>
-                <p className="mt-1 text-sm text-slate-600">{businessProfile.description}</p>
-              </div>
-              <Badge variant="outline" className="border-orange-200 bg-white text-orange-700">
-                Template sugerido: {pizzaTemplateCards.find((template) => template.id === recommendedTemplateId)?.name || 'Tradicional'}
-              </Badge>
-            </div>
-          </div>
-        </Card>
-
-        <div className="space-y-4">
-          <Card className={`rounded-3xl p-5 shadow-sm ${commercialSummaryPresentation.className}`}>
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <Badge variant="outline" className={commercialSummaryPresentation.badgeClass}>Leitura continua</Badge>
-                <h3 className="mt-3 text-lg font-semibold text-slate-900">{commercialSummaryPresentation.title}</h3>
-                <p className="mt-2 text-sm leading-6 text-slate-700">{commercialSummaryPresentation.description}</p>
-              </div>
-              <Badge variant="outline" className={commercialSummaryPresentation.badgeClass}>{commercialSummary.level}</Badge>
-            </div>
-
-            <div className="mt-4 grid grid-cols-2 gap-3">
-              <div className="rounded-2xl border border-white/80 bg-white/80 p-3">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Entradas fortes</p>
-                <p className="mt-2 text-2xl font-semibold text-slate-900">{commercialSummary.strong + commercialSummary.good}</p>
-              </div>
-              <div className="rounded-2xl border border-white/80 bg-white/80 p-3">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Entradas fracas</p>
-                <p className="mt-2 text-2xl font-semibold text-slate-900">{commercialSummary.weak}</p>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="rounded-3xl border-slate-200 p-5 shadow-sm">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600">Evolucao automatica</Badge>
-                <h3 className="mt-3 text-lg font-semibold text-slate-900">Continuar melhorando automaticamente</h3>
-                <p className="mt-2 text-sm leading-6 text-slate-600">
-                  O sistema segue observando novas oportunidades e oculta alertas resolvidos sem mexer nos seus dados sozinho.
-                </p>
-              </div>
-              <Switch checked={evolutionModeEnabled} onCheckedChange={setEvolutionModeEnabled} />
-            </div>
-
-            <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
-              <p className="text-sm font-semibold text-slate-900">{evolutionSummary.title}</p>
-              <p className="mt-1 text-sm text-slate-600">{evolutionSummary.description}</p>
-            </div>
-          </Card>
-        </div>
-      </div>
-      <div className="mb-6 grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
-        <Card className="rounded-3xl border-slate-200 p-5 shadow-sm">
-          <Badge variant="outline" className="border-orange-200 bg-orange-50 text-orange-700">Acoes principais</Badge>
-          <h3 className="mt-3 text-lg font-semibold text-slate-900">Resolva os pontos principais sem procurar</h3>
-          <p className="mt-2 text-sm leading-6 text-slate-600">
-            Estas acoes ficam aqui para encurtar o caminho. As configuracoes detalhadas continuam nas secoes tecnicas.
-          </p>
-
-          <div className="mt-4 grid gap-3">
-            <Button
-              type="button"
-              className="justify-start bg-orange-500 hover:bg-orange-600"
-              onClick={handleAutoImproveStructure}
-              disabled={!canRunAdminActions || !autoImprovePlan.canImprove}
-            >
-              Melhorar estrutura automaticamente
-            </Button>
-            <Button type="button" variant="outline" className="justify-start" onClick={() => setActiveTab('intelligence')}>
-              Abrir inteligencia e oportunidades
-            </Button>
-            <Button type="button" variant="outline" className="justify-start" onClick={() => setActiveTab('preview')}>
-              Ver preview do cliente
-            </Button>
-            <Button type="button" variant="outline" className="justify-start" onClick={() => setActiveTab('menu')}>
-              Revisar entradas do cardapio
-            </Button>
-          </div>
-        </Card>
-
-        <Card className="rounded-3xl border-slate-200 p-5 shadow-sm">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600">Mapa da pizzaria</Badge>
-              <h3 className="mt-3 text-lg font-semibold text-slate-900">Tudo organizado por etapa, sem scroll longo</h3>
-            </div>
-            <Badge className="w-fit bg-slate-900 text-white">Secao ativa: Visao Geral</Badge>
-          </div>
-
-          <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {pizzaGuideSteps.map((step) => (
-              <button
-                key={step.id}
-                type="button"
-                onClick={() => setActiveTab(step.id)}
-                className="rounded-2xl border border-slate-200 bg-white p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-sm"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-sm font-semibold text-slate-600">
-                    {step.step}
-                  </span>
-                  <Badge variant="outline">{step.metric}</Badge>
-                </div>
-                <p className="mt-3 text-sm font-semibold text-slate-900">{step.title}</p>
-                <p className="mt-2 text-xs leading-5 text-slate-600">{step.description}</p>
-              </button>
-            ))}
-          </div>
-        </Card>
-      </div>
-      </>
-      ) : null}
-
-      {activeTab === 'intelligence' ? (
-      <div className="mb-6 space-y-4">
-        <Card className="rounded-3xl border-slate-200 p-5 shadow-sm">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600">Oportunidades para melhorar vendas</Badge>
-              <h3 className="mt-3 text-xl font-semibold text-slate-900">O sistema continua te mostrando o proximo passo</h3>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-                Estas recomendacoes se adaptam ao seu perfil, somem quando voce resolve e mantem a pizzaria sempre em evolucao.
-              </p>
-            </div>
-            <Badge variant="outline" className="w-fit">{visibleAdaptiveRecommendations.length} oportunidade(s)</Badge>
-          </div>
-
-          {visibleAdaptiveRecommendations.length > 0 ? (
-            <div className="mt-5 grid gap-3 xl:grid-cols-3">
-              {visibleAdaptiveRecommendations.map((recommendation) => {
-                const toneClass = recommendation.severity === 'critical'
-                  ? 'border-rose-200 bg-rose-50/80'
-                  : recommendation.severity === 'important'
-                    ? 'border-amber-200 bg-amber-50/80'
-                    : 'border-sky-200 bg-sky-50/80';
-                const badgeLabel = recommendation.severity === 'critical'
-                  ? 'Critico'
-                  : recommendation.severity === 'important'
-                    ? 'Importante'
-                    : 'Oportunidade';
-
-                return (
-                  <div key={recommendation.id} className={`rounded-2xl border p-4 shadow-sm ${toneClass}`}>
-                    <div className="flex items-center justify-between gap-3">
-                      <Badge variant="outline" className="bg-white text-slate-700">{badgeLabel}</Badge>
-                      <Badge variant="outline" className="bg-white text-slate-700">{businessProfile.badge}</Badge>
-                    </div>
-                    <h4 className="mt-3 text-base font-semibold text-slate-900">{recommendation.title}</h4>
-                    <p className="mt-2 text-sm leading-6 text-slate-700">{recommendation.description}</p>
-                    <div className="mt-3 rounded-xl border border-white/80 bg-white/80 p-3">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Impacto estimado</p>
-                      <p className="mt-1 text-sm text-slate-700">{recommendation.impact}</p>
-                    </div>
-                    <Button type="button" className="mt-4 bg-slate-900 hover:bg-slate-800" onClick={() => handleAdaptiveRecommendation(recommendation)}>
-                      {recommendation.actionLabel}
-                    </Button>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50/80 p-5">
-              <p className="text-sm font-semibold text-emerald-800">Nenhum alerta relevante agora.</p>
-              <p className="mt-2 text-sm text-emerald-700">
-                Sua estrutura esta acompanhada e, se surgir uma nova oportunidade, ela vai aparecer aqui com acao rapida.
-              </p>
-            </div>
-          )}
-        </Card>
-
-        <Card className="rounded-3xl border-slate-200 p-5 shadow-sm">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600">Guia permanente da pizzaria</Badge>
-              <h3 className="mt-3 text-xl font-semibold text-slate-900">O sistema te conduz pela ordem comercial certa</h3>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Cada etapa abaixo explica em que momento da configuracao voce esta. As abas continuam as mesmas, mas agora a leitura e guiada.</p>
-            </div>
-            <Badge className="w-fit bg-slate-900 text-white">Etapa atual: {pizzaGuideSteps.find((step) => step.id === activeTab)?.title || 'Pizzaria'}</Badge>
-          </div>
-
-          <div className="mt-5 grid gap-3 xl:grid-cols-6">
-            {pizzaGuideSteps.map((step) => {
-              const active = activeTab === step.id;
-              return (
-                <button
-                  key={step.id}
-                  type="button"
-                  onClick={() => setActiveTab(step.id)}
-                  className={`rounded-2xl border p-4 text-left transition-all duration-200 ${
-                    active
-                      ? 'border-orange-300 bg-orange-50 shadow-sm ring-2 ring-orange-100'
-                      : 'border-slate-200 bg-white hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-sm'
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <span className={`inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold ${
-                      active ? 'bg-orange-500 text-white' : 'bg-slate-100 text-slate-600'
-                    }`}>
-                      {step.step}
-                    </span>
-                    <Badge variant={active ? 'default' : 'outline'} className={active ? 'bg-orange-500 hover:bg-orange-500' : ''}>{step.metric}</Badge>
-                  </div>
-                  <p className="mt-3 text-sm font-semibold text-slate-900">{step.title}</p>
-                  <p className="mt-2 text-xs leading-5 text-slate-600">{step.description}</p>
-                </button>
-              );
-            })}
-          </div>
-        </Card>
-
-        {pizzaGuidanceCards.length > 0 ? (
-          <div className="grid gap-4 xl:grid-cols-3">
-            {pizzaGuidanceCards.map((card) => (
-              <Card key={card.title} className={`rounded-2xl border p-5 shadow-sm ${
-                card.tone === 'emerald' ? 'border-emerald-200 bg-emerald-50/70' :
-                card.tone === 'amber' ? 'border-amber-200 bg-amber-50/70' :
-                card.tone === 'rose' ? 'border-rose-200 bg-rose-50/70' :
-                card.tone === 'sky' ? 'border-sky-200 bg-sky-50/70' :
-                'border-violet-200 bg-violet-50/70'
-              }`}>
-                <Badge variant="outline" className="border-white/70 bg-white/70 text-slate-700">Decisao assistida</Badge>
-                <h4 className="mt-3 text-lg font-semibold text-slate-900">{card.title}</h4>
-                <p className="mt-2 text-sm leading-6 text-slate-700">{card.description}</p>
-              </Card>
-            ))}
-          </div>
-        ) : null}
-
-        <Card className="rounded-2xl border-slate-200 p-5 shadow-sm">
-          <div className="grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
-            <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5">
-              <Badge variant="outline" className="border-slate-200 bg-white text-slate-600">Comece por aqui</Badge>
-              <h3 className="mt-3 text-lg font-semibold text-slate-900">Escolha um caminho e deixe o sistema aplicar o que for seguro</h3>
-              <p className="mt-2 text-sm leading-6 text-slate-600">
-                Os templates agora viram acao. O que for sensivel abre em modo assistido; o que for seguro o sistema aplica com confirmacao.
-              </p>
-
-              <div className="mt-4 space-y-3">
-                {[
-                  '1. Escolha um template comercial',
-                  '2. Aplique correcoes rapidas',
-                  '3. Revise impacto no preview',
-                  '4. Publique a entrada com mais seguranca',
-                ].map((step) => (
-                  <div key={step} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-700">
-                    <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-600">
-                      {step.slice(0, 1)}
-                    </span>
-                    <span>{step.slice(3)}</span>
-                  </div>
-                ))}
-              </div>
-
-              {selectedPizzaTemplate ? (
-                <div className="mt-4 rounded-2xl border border-orange-200 bg-orange-50/80 p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="font-semibold text-slate-900">{selectedPizzaTemplate.name}</p>
-                    <Badge variant="outline" className="border-orange-200 bg-white">{selectedPizzaTemplate.badge}</Badge>
-                  </div>
-                  <p className="mt-2 text-sm text-slate-700">{selectedPizzaTemplate.audience}</p>
-                  <div className="mt-3 space-y-2">
-                    {selectedPizzaTemplate.impact.map((item) => (
-                      <div key={item} className="rounded-xl bg-white/80 px-3 py-2 text-sm text-slate-700">
-                        {item}
-                      </div>
-                    ))}
-                  </div>
-                  <div className="mt-4 grid gap-3 md:grid-cols-2">
-                    <div className="rounded-xl border border-orange-200 bg-white/80 p-3">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Antes</p>
-                      <div className="mt-2 space-y-2">
-                        {autoImprovePlan.before.map((item) => (
-                          <div key={item} className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700">
-                            {item}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 p-3">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Depois</p>
-                      <div className="mt-2 space-y-2">
-                        {autoImprovePlan.after.map((item) => (
-                          <div key={item} className="rounded-lg bg-white px-3 py-2 text-sm text-slate-700">
-                            {item}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-            </div>
-
-            <div className="space-y-4">
-              <div className={`rounded-2xl border p-4 shadow-sm ${
-                autoImprovePlan.level === 'FORTE'
-                  ? 'border-emerald-200 bg-emerald-50/80'
-                  : autoImprovePlan.level === 'BOM'
-                    ? 'border-sky-200 bg-sky-50/80'
-                    : autoImprovePlan.level === 'REGULAR'
-                      ? 'border-amber-200 bg-amber-50/80'
-                      : 'border-rose-200 bg-rose-50/80'
-              }`}>
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                  <div>
-                    <Badge variant="outline" className="border-white/80 bg-white/80 text-slate-700">Melhoria automatica</Badge>
-                    <h3 className="mt-3 text-lg font-semibold text-slate-900">{autoImprovePlan.summary}</h3>
-                    <p className="mt-2 text-sm leading-6 text-slate-700">
-                      O sistema mostra o impacto antes e depois para voce agir com confianca, sem mexer no calculo real automaticamente.
-                    </p>
-                  </div>
-                  <Button
-                    type="button"
-                    className="bg-orange-500 hover:bg-orange-600"
-                    onClick={handleAutoImproveStructure}
-                    disabled={!canRunAdminActions || !autoImprovePlan.canImprove}
-                  >
-                    Melhorar estrutura automaticamente
-                  </Button>
-                </div>
-
-                <div className="mt-4 grid gap-3 md:grid-cols-2">
-                  <div className="rounded-xl border border-slate-200 bg-white/80 p-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Antes</p>
-                    <div className="mt-2 space-y-2">
-                      {autoImprovePlan.before.map((item) => (
-                        <div key={item} className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700">
-                          {item}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="rounded-xl border border-emerald-200 bg-white/80 p-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Depois</p>
-                    <div className="mt-2 space-y-2">
-                      {autoImprovePlan.after.map((item) => (
-                        <div key={item} className="rounded-lg bg-emerald-50/60 px-3 py-2 text-sm text-slate-700">
-                          {item}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {autoImprovePlan.impact.length > 0 ? (
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    {autoImprovePlan.impact.map((item) => (
-                      <Badge key={item} variant="outline" className="border-slate-200 bg-white text-slate-700">
-                        {item}
-                      </Badge>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <Badge variant="outline" className="border-orange-200 bg-orange-50 text-orange-700">Templates aplicaveis</Badge>
-                  <h3 className="mt-3 text-lg font-semibold text-slate-900">Modelos comerciais com execucao assistida</h3>
-                </div>
-                <Badge variant="outline" className="w-fit">{canRunAdminActions ? 'Pode aplicar agora' : 'Modo leitura'}</Badge>
-              </div>
-
-              <div className="grid gap-3 xl:grid-cols-2">
-                {pizzaTemplateCards.map((template) => {
-                  const selected = selectedTemplateId === template.id;
-                  const recommended = recommendedTemplateId === template.id;
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <div className="sticky top-2 z-20 -mx-1 rounded-3xl bg-slate-100/80 px-1 py-1 backdrop-blur sm:top-4">
+          <div className="rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
+            <div className="-mx-2 overflow-x-auto px-2 md:hidden">
+              <div className="flex w-max gap-2 pb-1">
+                {PIZZA_SECTION_NAV_ITEMS.map((section) => {
+                  const active = activeTab === section.id;
                   return (
-                    <div key={template.id} className={`rounded-2xl border p-4 transition-all ${selected ? 'ring-2 ring-orange-100' : ''} ${template.accent}`}>
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="font-semibold">{template.name}</p>
-                        <div className="flex flex-wrap justify-end gap-2">
-                          {recommended ? (
-                            <Badge variant="outline" className="border-orange-200 bg-white text-orange-700">
-                              Mais indicado para seu perfil
-                            </Badge>
-                          ) : null}
-                          <Badge variant="outline" className="border-current/20 bg-white/70">{template.badge}</Badge>
-                        </div>
-                      </div>
-                      <p className="mt-2 text-sm font-medium">{template.audience}</p>
-                      <p className="mt-2 text-sm leading-6">{template.description}</p>
-                      <div className="mt-3 space-y-2">
-                        {template.impact.map((item) => (
-                          <div key={item} className="rounded-xl border border-white/70 bg-white/70 px-3 py-2 text-sm">
-                            {item}
-                          </div>
-                        ))}
-                      </div>
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        <Button
-                          type="button"
-                          variant={selected ? 'default' : 'outline'}
-                          className={selected ? 'bg-slate-900 hover:bg-slate-800' : ''}
-                          onClick={() => setSelectedTemplateId(template.id)}
-                        >
-                          Ver impacto
-                        </Button>
-                        <Button
-                          type="button"
-                          onClick={() => handleTemplateAction(template.id)}
-                          className="bg-orange-500 hover:bg-orange-600"
-                          disabled={!canRunAdminActions && template.actionMode !== 'assist'}
-                        >
-                          {template.actionLabel}
-                        </Button>
-                      </div>
-                    </div>
+                    <button
+                      key={section.id}
+                      type="button"
+                      onClick={() => setActiveTab(section.id)}
+                      className={`rounded-xl px-3 py-2 text-sm font-medium transition-all ${
+                        active
+                          ? 'bg-slate-900 text-white shadow-sm'
+                          : 'bg-white text-slate-600 hover:bg-slate-100'
+                      }`}
+                    >
+                      {section.mobileLabel}
+                    </button>
                   );
                 })}
               </div>
+            </div>
 
-              {assistantActions.length > 0 ? (
-                <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600">Acoes recomendadas</Badge>
-                      <p className="mt-2 text-sm font-semibold text-slate-900">Transforme insight em ajuste com poucos cliques</p>
-                    </div>
-                    <Badge variant="outline">{assistantActions.length} prioridade(s)</Badge>
-                  </div>
-                  <div className="mt-4 grid gap-3">
-                    {assistantActions.map((action) => (
-                      <div key={action.id} className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-4 lg:flex-row lg:items-center lg:justify-between">
-                        <div>
-                          <p className="text-sm font-semibold text-slate-900">{action.title}</p>
-                          <p className="mt-1 text-sm text-slate-600">{action.description}</p>
-                        </div>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => handleAssistantAction(action.id)}
-                          disabled={runningAssistantActionId === action.id || !canRunAdminActions}
-                        >
-                          {runningAssistantActionId === action.id ? 'Aplicando...' : action.actionLabel}
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
+            <div className="hidden flex-wrap gap-2 md:flex">
+              {PIZZA_SECTION_NAV_ITEMS.map((section) => {
+                const active = activeTab === section.id;
+                return (
+                  <button
+                    key={section.id}
+                    type="button"
+                    onClick={() => setActiveTab(section.id)}
+                    className={`rounded-xl px-4 py-2 text-sm font-medium transition-all ${
+                      active
+                        ? 'bg-slate-900 text-white shadow-sm'
+                        : 'bg-white text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    {section.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
-        </Card>
-      </div>
-      ) : null}
+        </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <TabsContent value="overview" className="space-y-4">
+          <PizzaOverviewPanel
+            profiles={PIZZA_BUSINESS_PROFILES}
+            businessProfile={businessProfile}
+            businessProfileId={businessProfileId}
+            onBusinessProfileChange={handleBusinessProfileChange}
+            pizzaTemplateCards={pizzaTemplateCards}
+            recommendedTemplateId={recommendedTemplateId}
+            commercialSummaryPresentation={commercialSummaryPresentation}
+            commercialSummary={commercialSummary}
+            evolutionModeEnabled={evolutionModeEnabled}
+            onEvolutionModeChange={setEvolutionModeEnabled}
+            evolutionSummary={evolutionSummary}
+            canRunAdminActions={canRunAdminActions}
+            autoImprovePlan={autoImprovePlan}
+            onAutoImproveStructure={handleAutoImproveStructure}
+            onOpenInsights={() => setActiveTab('intelligence')}
+            onOpenPreview={() => setActiveTab('preview')}
+            onOpenMenu={() => setActiveTab('menu')}
+            pizzaGuideSteps={pizzaGuideStepCards}
+          />
+        </TabsContent>
+
+        <TabsContent value="intelligence" className="space-y-4">
+          <PizzaInsightsPanel
+            businessProfile={businessProfile}
+            visibleAdaptiveRecommendations={visibleAdaptiveRecommendations}
+            onAdaptiveRecommendation={handleAdaptiveRecommendation}
+            pizzaGuidanceCards={pizzaGuidanceCards}
+            autoImprovePlan={autoImprovePlan}
+            onAutoImproveStructure={handleAutoImproveStructure}
+            canRunAdminActions={canRunAdminActions}
+            pizzaTemplateCards={pizzaTemplateCards.map((template) => ({
+              ...template,
+              recommended: recommendedTemplateId === template.id,
+            }))}
+            selectedTemplateId={selectedTemplateId}
+            onSelectTemplateId={setSelectedTemplateId}
+            onTemplateAction={handleTemplateAction}
+            assistantActions={assistantActions}
+            runningAssistantActionId={runningAssistantActionId}
+            onAssistantAction={handleAssistantAction}
+          />
+        </TabsContent>
 
         <TabsContent value="menu" className="space-y-4">
           <Card className="rounded-2xl border-slate-200 p-5 shadow-sm">
@@ -3563,6 +3142,7 @@ function CategoryModal({ isOpen, onClose, onSubmit, category, sizes = [] }) {
     </Dialog>
   );
 }
+
 
 
 
