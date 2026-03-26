@@ -3,10 +3,36 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Keyboard } from 'lucide-react';
 
-/**
- * Modal de Ajuda com Atalhos (F1)
- * Exibe tabela completa de atalhos disponíveis no PDV
- */
+const shortcutSections = [
+  {
+    title: 'Leitura e foco',
+    tone: 'text-orange-600 dark:text-orange-300',
+    items: [
+      { key: '? / F1', label: 'Ajuda', description: 'Abre este painel de atalhos.' },
+      { key: 'F2', label: 'Focar codigo', description: 'Limpa o campo de codigo e prepara o PDV para digitacao ou scanner.' },
+      { key: 'Esc', label: 'Estado pronto', description: 'Com o campo vazio e sem modal aberto, fecha sugestoes residuais e volta ao estado pronto.' },
+    ],
+  },
+  {
+    title: 'Operacao rapida',
+    tone: 'text-emerald-600 dark:text-emerald-300',
+    items: [
+      { key: 'F3', label: 'Alternar comanda', description: 'Abre ou fecha a comanda em telas compactas.' },
+      { key: 'F4', label: 'Pagamento', description: 'Abre o fluxo de pagamento quando a venda esta pronta.' },
+      { key: 'Enter', label: 'Finalizar rapido', description: 'Fora de inputs, inicia o pagamento usando o mesmo fluxo normal do PDV.' },
+    ],
+  },
+  {
+    title: 'Carrinho',
+    tone: 'text-sky-600 dark:text-sky-300',
+    items: [
+      { key: 'Ctrl + Backspace', label: 'Remover ultimo item', description: 'Remove o item mais recente da comanda.' },
+      { key: '+', label: 'Aumentar quantidade', description: 'Soma 1 unidade ao ultimo item da comanda.' },
+      { key: '-', label: 'Diminuir quantidade', description: 'Subtrai 1 unidade do ultimo item da comanda.' },
+    ],
+  },
+];
+
 export default function AtalhosHelpModal({ open, onOpenChange }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -19,128 +45,25 @@ export default function AtalhosHelpModal({ open, onOpenChange }) {
         </DialogHeader>
 
         <div className="space-y-6">
-          {/* Barra Principal */}
-          <div>
-            <h3 className="font-bold text-lg mb-3 text-blue-600 dark:text-blue-400">Barra Principal</h3>
-            <table className="w-full text-sm">
-              <thead className="bg-gray-100 dark:bg-gray-800">
-                <tr>
-                  <th className="text-left p-2 border">Tecla</th>
-                  <th className="text-left p-2 border">Função</th>
-                  <th className="text-left p-2 border">Descrição</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td className="p-2 border"><kbd className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded">F1</kbd></td>
-                  <td className="p-2 border font-semibold">Ajuda</td>
-                  <td className="p-2 border">Abre este modal de atalhos</td>
-                </tr>
-                <tr>
-                  <td className="p-2 border"><kbd className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded">F2</kbd></td>
-                  <td className="p-2 border font-semibold">Menu de Vendas</td>
-                  <td className="p-2 border">Abre menu com Suprimento, Sangria, Reimpressão, Fechamento, etc.</td>
-                </tr>
-                <tr>
-                  <td className="p-2 border"><kbd className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded">F4</kbd></td>
-                  <td className="p-2 border font-semibold">Fechamento</td>
-                  <td className="p-2 border">Abre relatório de fechamento de caixa</td>
-                </tr>
-                <tr>
-                  <td className="p-2 border"><kbd className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded">F9</kbd></td>
-                  <td className="p-2 border font-semibold">Cancelar Venda</td>
-                  <td className="p-2 border">Cancela a venda atual (limpa carrinho)</td>
-                </tr>
-                <tr>
-                  <td className="p-2 border"><kbd className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded">F11</kbd></td>
-                  <td className="p-2 border font-semibold">Recebimento</td>
-                  <td className="p-2 border">Abre tela de pagamento para finalizar venda</td>
-                </tr>
-              </tbody>
-            </table>
+          <div className="rounded-xl border border-border bg-muted/30 p-4 text-sm text-muted-foreground">
+            Atalhos pensados para operacao rapida de caixa. O scanner continua com prioridade no campo de codigo e os atalhos nao disparam enquanto voce estiver digitando em formularios ou usando modais do PDV.
           </div>
 
-          {/* Menu de Vendas (quando F2 está aberto) */}
-          <div>
-            <h3 className="font-bold text-lg mb-3 text-green-600 dark:text-green-400">Menu de Vendas (F2)</h3>
-            <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">Atalhos disponíveis quando o Menu de Vendas está aberto:</p>
-            <table className="w-full text-sm">
-              <thead className="bg-gray-100 dark:bg-gray-800">
-                <tr>
-                  <th className="text-left p-2 border">Tecla</th>
-                  <th className="text-left p-2 border">Função</th>
-                  <th className="text-left p-2 border">Descrição</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td className="p-2 border"><kbd className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded">F2</kbd></td>
-                  <td className="p-2 border font-semibold">Suprimento</td>
-                  <td className="p-2 border">Entrada de dinheiro no caixa</td>
-                </tr>
-                <tr>
-                  <td className="p-2 border"><kbd className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded">F3</kbd></td>
-                  <td className="p-2 border font-semibold">Sangria</td>
-                  <td className="p-2 border">Retirada de dinheiro do caixa</td>
-                </tr>
-                <tr>
-                  <td className="p-2 border"><kbd className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded">F4</kbd></td>
-                  <td className="p-2 border font-semibold">Reimpressão Venda</td>
-                  <td className="p-2 border">Reimprimir cupom/nota de venda anterior</td>
-                </tr>
-                <tr>
-                  <td className="p-2 border"><kbd className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded">F5</kbd></td>
-                  <td className="p-2 border font-semibold">Fechamento Caixa</td>
-                  <td className="p-2 border">Fechar caixa e gerar relatório</td>
-                </tr>
-                <tr>
-                  <td className="p-2 border"><kbd className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded">F6</kbd></td>
-                  <td className="p-2 border font-semibold">Abertura Caixa</td>
-                  <td className="p-2 border">Abrir caixa (desabilitado quando já aberto)</td>
-                </tr>
-                <tr>
-                  <td className="p-2 border"><kbd className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded">F7</kbd></td>
-                  <td className="p-2 border font-semibold">Cancelar Venda</td>
-                  <td className="p-2 border">Cancela venda inteira</td>
-                </tr>
-                <tr>
-                  <td className="p-2 border"><kbd className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded">ESC</kbd></td>
-                  <td className="p-2 border font-semibold">Sair</td>
-                  <td className="p-2 border">Fechar menu</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          {/* Atalhos com Alt */}
-          <div>
-            <h3 className="font-bold text-lg mb-3 text-purple-600 dark:text-purple-400">Atalhos com Alt</h3>
-            <table className="w-full text-sm">
-              <thead className="bg-gray-100 dark:bg-gray-800">
-                <tr>
-                  <th className="text-left p-2 border">Atalho</th>
-                  <th className="text-left p-2 border">Função</th>
-                  <th className="text-left p-2 border">Descrição</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td className="p-2 border"><kbd className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded">Alt+D</kbd></td>
-                  <td className="p-2 border font-semibold">Descontos/Acréscimos</td>
-                  <td className="p-2 border">Aplicar desconto ou acréscimo na venda</td>
-                </tr>
-                <tr>
-                  <td className="p-2 border"><kbd className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded">Alt+G</kbd></td>
-                  <td className="p-2 border font-semibold">Abrir Gaveta</td>
-                  <td className="p-2 border">Comando para abrir gaveta de dinheiro</td>
-                </tr>
-                <tr>
-                  <td className="p-2 border"><kbd className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded">Alt+I</kbd></td>
-                  <td className="p-2 border font-semibold">Observação</td>
-                  <td className="p-2 border">Adicionar observação no item selecionado</td>
-                </tr>
-              </tbody>
-            </table>
+          <div className="grid gap-4">
+            {shortcutSections.map((section) => (
+              <section key={section.title} className="rounded-xl border border-border bg-card p-4">
+                <h3 className={`mb-3 text-base font-semibold ${section.tone}`}>{section.title}</h3>
+                <div className="space-y-2">
+                  {section.items.map((item) => (
+                    <div key={`${section.title}-${item.key}`} className="grid gap-1 rounded-lg border border-border/70 bg-muted/20 p-3 md:grid-cols-[180px_180px_1fr] md:items-center md:gap-3">
+                      <div className="font-mono text-xs font-semibold uppercase tracking-wide text-foreground">{item.key}</div>
+                      <div className="text-sm font-semibold text-foreground">{item.label}</div>
+                      <div className="text-sm text-muted-foreground">{item.description}</div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            ))}
           </div>
         </div>
 

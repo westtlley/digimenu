@@ -20,7 +20,7 @@ import UpsellModal from '../components/menu/UpsellModal';
 import { usePermission } from '../components/permissions/usePermission';
 import { useManagerialAuth } from '@/hooks/useManagerialAuth';
 import { useUpsell } from '../components/hooks/useUpsell';
-import { usePDVHotkeys } from '../utils/pdvFunctions';
+import { usePDVKeyboardShortcuts } from '@/hooks/usePDVKeyboardShortcuts';
 import InstallAppButton from '../components/InstallAppButton';
 import FechamentoCaixaModal from '../components/pdv/FechamentoCaixaModal';
 import { getScopedStorageKey, getTenantScopeKey } from '@/utils/tenantScope';
@@ -1115,43 +1115,111 @@ export default function PDV() {
     schedulePdvCodeFocus({ force: false }, 120);
   };
 
-  usePDVHotkeys({
-    onOpenHelp: () => setShowAtalhosHelp(true),
-    onOpenMenuVendas: () => {
-      if (!pdvSession) {
-        toast.error('Selecione o terminal PDV para usar os atalhos.');
-        return;
-      }
-      setShowMenuVendas(true);
-    },
-    onOpenFechamento: () => {
-      if (!pdvSession) {
-        toast.error('Selecione o terminal PDV para usar os atalhos.');
-        return;
-      }
-      if (!openCaixa) {
-        toast.error('Abra o caixa para acessar o fechamento.');
-        return;
-      }
-      requireAuthorization('fechar_caixa', () => setShowFechamentoModal(true));
-    },
-    onCancelSale: clearCart,
-    onFinishSale: () => {
-      if (!openCaixa) {
+  const resetPdvCodeShortcutState = React.useCallback(({ clearInput = false } = {}) => {
+    resetScannerSequence();
+    setShowPdvSuggestions(false);
+    setActivePdvSuggestionIndex(0);
+    if (clearInput) {
+      setPdvCodeInput('');
+    }
+    setPdvCodeFeedback('idle', 'Bipe ou digite o codigo e pressione Enter.');
+  }, [resetScannerSequence, setPdvCodeFeedback]);
+
+  const focusPdvCodeFromShortcut = React.useCallback(() => {
+    resetPdvCodeShortcutState({ clearInput: true });
+    schedulePdvCodeFocus({ force: true }, 20);
+  }, [resetPdvCodeShortcutState, schedulePdvCodeFocus]);
+
+  const openPaymentFlow = React.useCallback(({ closeMobileCart = false } = {}) => {
+    if (!openCaixa) {
       toast.error('Abra o caixa para iniciar as vendas.');
-        return;
+      if (closeMobileCart) {
+        setShowMobileCart(false);
       }
-      if (isCaixaLocked) {
-      toast.error('Caixa travado. FaÃ§a uma retirada em Caixa para continuar.');
-        return;
-      }
-      if (cart.length === 0) {
-        toast.error('Adicione itens Ã  comanda antes de finalizar.');
-        return;
-      }
-      setShowPaymentModal(true);
+      setShowOpenCaixaModal(true);
+      return;
+    }
+    if (isCaixaLocked) {
+      toast.error('Caixa travado. Faca uma retirada em Caixa para continuar.');
+      return;
+    }
+    if (cart.length === 0) {
+      toast.error('Adicione itens a comanda antes de finalizar.');
+      return;
+    }
+    if (closeMobileCart) {
+      setShowMobileCart(false);
+    }
+    setShowPaymentModal(true);
+  }, [cart.length, isCaixaLocked, openCaixa]);
+
+  const removeLastCartItem = React.useCallback(() => {
+    const lastItem = cart[cart.length - 1];
+    if (!lastItem) {
+      toast('Nenhum item na comanda.');
+      schedulePdvCodeFocus({ force: false }, 60);
+      return;
+    }
+    setHighlightedCartItemId(String(lastItem.id));
+    removeItem(lastItem.id);
+  }, [cart, schedulePdvCodeFocus]);
+
+  const adjustLastCartItemQuantity = React.useCallback((delta) => {
+    const lastItem = cart[cart.length - 1];
+    if (!lastItem) {
+      toast('Nenhum item na comanda.');
+      schedulePdvCodeFocus({ force: false }, 60);
+      return;
+    }
+    setHighlightedCartItemId(String(lastItem.id));
+    updateQuantity(lastItem.id, lastItem.quantity + delta);
+  }, [cart, schedulePdvCodeFocus]);
+
+  const toggleKeyboardCart = React.useCallback(() => {
+    const isMobileViewport = typeof window !== 'undefined' && window.matchMedia('(max-width: 1023px)').matches;
+    if (!isMobileViewport) {
+      schedulePdvCodeFocus({ force: false }, 40);
+      return;
+    }
+    setShowMobileCart((current) => !current);
+  }, [schedulePdvCodeFocus]);
+
+  const isKeyboardShortcutBlocked = !!(
+    showTerminalModal
+    || showPaymentModal
+    || !!selectedDish
+    || !!selectedPizza
+    || showOpenCaixaModal
+    || showHistoryModal
+    || showSuccessModal
+    || showMenuVendas
+    || showFechamentoModal
+    || showSangriaModal
+    || showSuprimentoModal
+    || showCloseCaixaDialog
+    || showAtalhosHelp
+    || showReimpressaoModal
+    || showUpsellModal
+  );
+
+  usePDVKeyboardShortcuts({
+    enabled: allowed && !!pdvSession,
+    codeInputRef: pdvCodeInputRef,
+    codeInputValue: pdvCodeInput,
+    isModalOpen: isKeyboardShortcutBlocked,
+    isCartOverlayOpen: showMobileCart,
+    canToggleCart: !!pdvSession,
+    onFocusCode: focusPdvCodeFromShortcut,
+    onResetCodeState: () => {
+      resetPdvCodeShortcutState({ clearInput: false });
+      schedulePdvCodeFocus({ force: true }, 20);
     },
-  }, showMenuVendas);
+    onOpenPayment: () => openPaymentFlow(),
+    onToggleCart: toggleKeyboardCart,
+    onRemoveLastItem: removeLastCartItem,
+    onAdjustLastItemQuantity: adjustLastCartItemQuantity,
+    onOpenHelp: () => setShowAtalhosHelp(true),
+  });
   useEffect(() => {
     if (!showPaymentModal) {
       saleClientRequestIdRef.current = null;
@@ -1440,7 +1508,7 @@ export default function PDV() {
               size="sm"
               onClick={() => pdvSession && setShowMenuVendas(true)}
               className="text-primary-foreground hover:bg-card h-10 hidden sm:flex"
-              title="Menu de Vendas (F2) - Suprimento, Sangria, Fechamento"
+              title="Menu de Vendas - Suprimento, Sangria, Fechamento"
             >
               <Wallet className="w-4 h-4 mr-2" />
               Menu
@@ -2121,11 +2189,7 @@ export default function PDV() {
                 </Button>
                 <Button
                   onClick={() => {
-                    if (isCaixaLocked) {
-                      toast.error('Caixa travado. FaÃ§a uma retirada em Caixa para continuar.');
-                      return;
-                    }
-                    setShowPaymentModal(true);
+                    openPaymentFlow();
                   }}
                   disabled={cart.length === 0}
                   className="h-9 bg-green-600 hover:bg-green-700 font-bold text-sm"
@@ -2143,11 +2207,12 @@ export default function PDV() {
       {/* Barra de atalhos (desktop) */}
       {pdvSession && (
         <div className="hidden lg:flex flex-shrink-0 px-4 py-2 bg-card border-t border-border text-muted-foreground text-xs justify-center gap-6 flex-wrap">
-          <span><kbd className="px-1.5 py-0.5 bg-muted rounded">F1</kbd> Ajuda</span>
-          <span><kbd className="px-1.5 py-0.5 bg-muted rounded">F2</kbd> Menu de Vendas</span>
-          <span><kbd className="px-1.5 py-0.5 bg-muted rounded">F4</kbd> Fechamento</span>
-          <span><kbd className="px-1.5 py-0.5 bg-muted rounded">F9</kbd> Cancelar venda</span>
-          <span><kbd className="px-1.5 py-0.5 bg-muted rounded">F11</kbd> Recebimento</span>
+          <span><kbd className="px-1.5 py-0.5 bg-muted rounded">?</kbd> Ajuda</span>
+          <span><kbd className="px-1.5 py-0.5 bg-muted rounded">F2</kbd> Codigo</span>
+          <span><kbd className="px-1.5 py-0.5 bg-muted rounded">F3</kbd> Comanda</span>
+          <span><kbd className="px-1.5 py-0.5 bg-muted rounded">F4</kbd> Pagamento</span>
+          <span><kbd className="px-1.5 py-0.5 bg-muted rounded">Ctrl</kbd> + <kbd className="px-1.5 py-0.5 bg-muted rounded">Backspace</kbd> Ultimo item</span>
+          <span><kbd className="px-1.5 py-0.5 bg-muted rounded">+</kbd>/<kbd className="px-1.5 py-0.5 bg-muted rounded">-</kbd> Qtde</span>
         </div>
       )}
 
@@ -2235,22 +2300,7 @@ export default function PDV() {
             </div>
             <Button
               onClick={() => {
-                if (!openCaixa) {
-      toast.error('Abra o caixa para iniciar as vendas.');
-                  setShowMobileCart(false);
-                  setShowOpenCaixaModal(true);
-                  return;
-                }
-                if (isCaixaLocked) { 
-      toast.error('Caixa travado. FaÃ§a uma retirada em Caixa para continuar.');
-                  return; 
-                }
-                if (cart.length === 0) {
-                  toast.error('Adicione itens Ã  comanda antes de finalizar.');
-                  return;
-                }
-                setShowMobileCart(false);
-                setShowPaymentModal(true);
+                openPaymentFlow({ closeMobileCart: true });
               }}
               disabled={cart.length === 0 || !openCaixa || isCaixaLocked}
               className="w-full min-h-[48px] h-12 bg-green-600 hover:bg-green-700 font-bold disabled:opacity-50 disabled:cursor-not-allowed"
