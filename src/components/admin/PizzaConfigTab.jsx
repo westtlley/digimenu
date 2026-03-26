@@ -745,6 +745,77 @@ export default function PizzaConfigTab() {
     }
     return actions.slice(0, 3);
   }, [firstLowPremiumMetric, inactiveEdges.length, inactiveExtras.length, inactivePremiumFlavors.length, missingRecommendedSizes]);
+  const autoImprovePlan = useMemo(() => {
+    const activeUpsellReady = edges.some((edge) => edge?.is_active !== false) || extras.some((extra) => extra?.is_active !== false);
+    const projectedSizeCount = activeSizes.length + missingRecommendedSizes.length;
+    const projectedPremiumCount = activePremiumFlavors.length + inactivePremiumFlavors.length;
+    const projectedUpsellReady = activeUpsellReady || inactiveEdges.length > 0 || inactiveExtras.length > 0;
+    const actions = [];
+    const impact = [];
+
+    if (missingRecommendedSizes.length > 0) {
+      actions.push(`Ativar ${missingRecommendedSizes.map((size) => size.name).join(', ')} para ampliar a vitrine.`);
+      impact.push('Mais clareza de escolha entre tamanhos no cardapio.');
+    }
+    if (inactivePremiumFlavors.length > 0) {
+      actions.push(`Ligar ${inactivePremiumFlavors.length} sabor(es) premium para reforcar ticket medio.`);
+      impact.push('Premium passa a aparecer como decisao de valor, nao so opcao tecnica.');
+    }
+    if (inactiveEdges.length > 0 || inactiveExtras.length > 0) {
+      actions.push('Abrir caminho de upsell com borda e adicional basicos.');
+      impact.push('Upsell deixa de ser invisivel e passa a empurrar ticket final.');
+    }
+    if (firstLowPremiumMetric) {
+      actions.push(`Levar voce para revisar a escada premium do tamanho ${firstLowPremiumMetric.name}.`);
+      impact.push('A diferenca premium fica mais confiavel para vender sem parecer cara demais.');
+    }
+
+    const level = actions.length === 0 ? 'FORTE' : (actions.length === 1 ? 'BOM' : (actions.length === 2 ? 'REGULAR' : 'ATENCAO'));
+    const summary = level === 'FORTE'
+      ? 'Sua estrutura global ja esta forte para venda.'
+      : level === 'BOM'
+        ? 'A base esta boa, mas um ajuste automatico pode deixá-la mais confiavel.'
+        : level === 'REGULAR'
+          ? 'Ainda existe espaco real para melhorar venda e ticket com pouco esforco.'
+          : 'A estrutura pede correcao guiada para ficar convincente no cardapio.';
+
+    return {
+      actions,
+      before: [
+        `${activeSizes.length} tamanho(s) ativo(s) hoje`,
+        activePremiumFlavors.length > 0 ? `${activePremiumFlavors.length} sabor(es) premium ativo(s)` : 'Premium ainda fraco ou ausente',
+        activeUpsellReady ? 'Upsell ja aparece para o cliente' : 'Upsell ainda nao aparece com clareza',
+      ],
+      after: [
+        `${projectedSizeCount} tamanho(s) fortes depois da melhoria`,
+        projectedPremiumCount > 0 ? `Premium presente em ${projectedPremiumCount} sabor(es)` : 'Premium continua neutro',
+        projectedUpsellReady ? 'Ticket ganha caminho claro de borda/extras' : 'Upsell segue neutro',
+      ],
+      impact: impact.slice(0, 3),
+      summary,
+      level,
+      canImprove: actions.length > 0,
+    };
+  }, [activePremiumFlavors.length, activeSizes.length, edges, extras, firstLowPremiumMetric, inactiveEdges.length, inactiveExtras.length, inactivePremiumFlavors.length, missingRecommendedSizes]);
+  const previewTicketSimulation = useMemo(() => {
+    const baseTicket = Number(previewSelectedSize?.price_tradicional || 0);
+    const premiumTicket = previewFlavorOptions.some((flavor) => flavor.category === 'premium')
+      ? (Number(previewSelectedSize?.price_premium || previewSelectedSize?.price_tradicional || 0))
+      : baseTicket;
+    const upsellEdgeValue = Number((previewSelectedEdge || previewEdges[0] || null)?.price || 0);
+    const upsellExtraValue = previewSelectedExtras.length > 0
+      ? previewSelectedExtras.reduce((sum, extra) => sum + (Number(extra?.price) || 0), 0)
+      : Number(previewExtras[0]?.price || 0);
+    const upsellTicket = premiumTicket + upsellEdgeValue + upsellExtraValue;
+
+    return {
+      baseTicket,
+      premiumTicket,
+      upsellTicket,
+      premiumLift: Math.max(premiumTicket - baseTicket, 0),
+      upsellLift: Math.max(upsellTicket - premiumTicket, 0),
+    };
+  }, [previewEdges, previewExtras, previewFlavorOptions, previewSelectedEdge, previewSelectedExtras, previewSelectedSize]);
 
   React.useEffect(() => {
     if (!previewEntries.length) return;
@@ -971,7 +1042,8 @@ export default function PizzaConfigTab() {
     return true;
   }, [entityContextOpts, invalidatePizzaConfigQueries]);
 
-  const handleAssistantAction = React.useCallback(async (actionId) => {
+  const handleAssistantAction = React.useCallback(async (actionId, options = {}) => {
+    const { skipConfirm = false, silent = false, openPremiumEditor = true } = options;
     if (!canRunAdminActions) {
       toast('As acoes automaticas so ficam disponiveis no admin da loja.');
       return false;
@@ -982,10 +1054,10 @@ export default function PizzaConfigTab() {
 
       if (actionId === 'recommended-sizes') {
         if (missingRecommendedSizes.length === 0) {
-          toast('Os tamanhos recomendados ja estao ativos.');
+          if (!silent) toast('Os tamanhos recomendados ja estao ativos.');
           return false;
         }
-        const accepted = window.confirm(
+        const accepted = skipConfirm ? true : window.confirm(
           `Vamos ativar ${missingRecommendedSizes.map((size) => size.name).join(', ')} para deixar a vitrine mais forte. Deseja continuar?`
         );
         if (!accepted) return false;
@@ -997,7 +1069,7 @@ export default function PizzaConfigTab() {
           })),
         });
         if (applied) {
-          toast.success('Tamanhos recomendados ativados.');
+          if (!silent) toast.success('Tamanhos recomendados ativados.');
           setActiveTab('sizes');
         }
         return applied;
@@ -1007,10 +1079,10 @@ export default function PizzaConfigTab() {
         const edgeToActivate = inactiveEdges[0] || null;
         const extraToActivate = inactiveExtras[0] || null;
         if (!edgeToActivate && !extraToActivate) {
-          toast('A estrutura de upsell ja esta pronta.');
+          if (!silent) toast('A estrutura de upsell ja esta pronta.');
           return false;
         }
-        const accepted = window.confirm(
+        const accepted = skipConfirm ? true : window.confirm(
           `Vamos ligar ${edgeToActivate ? `borda ${edgeToActivate.name}` : 'a borda ja ativa'}${edgeToActivate && extraToActivate ? ' e ' : ''}${extraToActivate ? `adicional ${extraToActivate.name}` : ''}. Deseja continuar?`
         );
         if (!accepted) return false;
@@ -1020,7 +1092,7 @@ export default function PizzaConfigTab() {
           extras: extraToActivate ? [{ id: extraToActivate.id, data: { ...extraToActivate, is_active: true } }] : [],
         });
         if (applied) {
-          toast.success('Upsell basico ativado.');
+          if (!silent) toast.success('Upsell basico ativado.');
           setActiveTab('addons');
         }
         return applied;
@@ -1029,7 +1101,7 @@ export default function PizzaConfigTab() {
       if (actionId === 'premium-improvement') {
         let applied = false;
         if (inactivePremiumFlavors.length > 0) {
-          const accepted = window.confirm(
+          const accepted = skipConfirm ? true : window.confirm(
             `Vamos ativar ${inactivePremiumFlavors.length} sabor(es) premium para reforcar ticket medio e, em seguida, abrir a matriz de precos. Deseja continuar?`
           );
           if (!accepted) return false;
@@ -1041,16 +1113,18 @@ export default function PizzaConfigTab() {
             })),
           });
           if (applied) {
-            toast.success('Sabores premium ativados. Revise a escada de precos a seguir.');
+            if (!silent) toast.success('Sabores premium ativados. Revise a escada de precos a seguir.');
           }
         }
         if (firstLowPremiumMetric) {
           const targetSize = sizes.find((size) => String(size.id) === String(firstLowPremiumMetric.id)) || null;
           setActiveTab('sizes');
-          if (targetSize) {
+          if (targetSize && openPremiumEditor) {
             setEditingSize(targetSize);
             setShowSizeModal(true);
-            toast('Abrimos o tamanho mais sensivel para voce revisar a diferenca premium.');
+            if (!silent) toast('Abrimos o tamanho mais sensivel para voce revisar a diferenca premium.');
+          } else if (!silent) {
+            toast('A matriz de precos foi destacada para voce revisar a diferenca premium.');
           }
         } else if (!applied) {
           setActiveTab('sizes');
@@ -1067,6 +1141,33 @@ export default function PizzaConfigTab() {
 
     return false;
   }, [applySafeUpdates, canRunAdminActions, firstLowPremiumMetric, inactiveEdges, inactiveExtras, inactivePremiumFlavors, missingRecommendedSizes, sizes]);
+
+  const handleAutoImproveStructure = React.useCallback(async () => {
+    if (!canRunAdminActions) {
+      toast('A melhoria automatica so fica disponivel no admin da loja.');
+      return;
+    }
+    if (!autoImprovePlan.canImprove) {
+      toast('A estrutura global ja esta forte. Vale apenas revisar o preview final.');
+      return;
+    }
+
+    const accepted = window.confirm(
+      `Vamos melhorar a estrutura automaticamente.\n\nANTES:\n- ${autoImprovePlan.before.join('\n- ')}\n\nDEPOIS:\n- ${autoImprovePlan.after.join('\n- ')}\n\nDeseja continuar?`
+    );
+    if (!accepted) return;
+
+    try {
+      await handleAssistantAction('recommended-sizes', { skipConfirm: true, silent: true });
+      await handleAssistantAction('upsell-activation', { skipConfirm: true, silent: true });
+      await handleAssistantAction('premium-improvement', { skipConfirm: true, silent: true, openPremiumEditor: false });
+      setActiveTab('preview');
+      toast.success('Estrutura automatica aplicada. Revise o impacto no preview.');
+    } catch (error) {
+      console.error('Erro ao melhorar estrutura da pizzaria:', error);
+      toast.error('Nao foi possivel aplicar a melhoria automatica agora.');
+    }
+  }, [autoImprovePlan, canRunAdminActions, handleAssistantAction]);
 
   const handleTemplateAction = React.useCallback(async (templateId) => {
     setSelectedTemplateId(templateId);
@@ -1239,11 +1340,94 @@ export default function PizzaConfigTab() {
                       </div>
                     ))}
                   </div>
+                  <div className="mt-4 grid gap-3 md:grid-cols-2">
+                    <div className="rounded-xl border border-orange-200 bg-white/80 p-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Antes</p>
+                      <div className="mt-2 space-y-2">
+                        {autoImprovePlan.before.map((item) => (
+                          <div key={item} className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                            {item}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 p-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Depois</p>
+                      <div className="mt-2 space-y-2">
+                        {autoImprovePlan.after.map((item) => (
+                          <div key={item} className="rounded-lg bg-white px-3 py-2 text-sm text-slate-700">
+                            {item}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               ) : null}
             </div>
 
             <div className="space-y-4">
+              <div className={`rounded-2xl border p-4 shadow-sm ${
+                autoImprovePlan.level === 'FORTE'
+                  ? 'border-emerald-200 bg-emerald-50/80'
+                  : autoImprovePlan.level === 'BOM'
+                    ? 'border-sky-200 bg-sky-50/80'
+                    : autoImprovePlan.level === 'REGULAR'
+                      ? 'border-amber-200 bg-amber-50/80'
+                      : 'border-rose-200 bg-rose-50/80'
+              }`}>
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <Badge variant="outline" className="border-white/80 bg-white/80 text-slate-700">Melhoria automatica</Badge>
+                    <h3 className="mt-3 text-lg font-semibold text-slate-900">{autoImprovePlan.summary}</h3>
+                    <p className="mt-2 text-sm leading-6 text-slate-700">
+                      O sistema mostra o impacto antes e depois para voce agir com confianca, sem mexer no calculo real automaticamente.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    className="bg-orange-500 hover:bg-orange-600"
+                    onClick={handleAutoImproveStructure}
+                    disabled={!canRunAdminActions || !autoImprovePlan.canImprove}
+                  >
+                    Melhorar estrutura automaticamente
+                  </Button>
+                </div>
+
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                  <div className="rounded-xl border border-slate-200 bg-white/80 p-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Antes</p>
+                    <div className="mt-2 space-y-2">
+                      {autoImprovePlan.before.map((item) => (
+                        <div key={item} className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                          {item}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-emerald-200 bg-white/80 p-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Depois</p>
+                    <div className="mt-2 space-y-2">
+                      {autoImprovePlan.after.map((item) => (
+                        <div key={item} className="rounded-lg bg-emerald-50/60 px-3 py-2 text-sm text-slate-700">
+                          {item}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {autoImprovePlan.impact.length > 0 ? (
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {autoImprovePlan.impact.map((item) => (
+                      <Badge key={item} variant="outline" className="border-slate-200 bg-white text-slate-700">
+                        {item}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <Badge variant="outline" className="border-orange-200 bg-orange-50 text-orange-700">Templates aplicaveis</Badge>
@@ -1790,6 +1974,30 @@ export default function PizzaConfigTab() {
                             {previewSizeInsight.classification}
                           </Badge>
                         ) : null}
+                        <div className="mt-4 grid gap-2">
+                          <div className="rounded-xl border border-slate-200 bg-white px-3 py-3">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Ticket base</p>
+                            <p className="mt-1 text-sm font-semibold text-slate-900">{formatCurrency(previewTicketSimulation.baseTicket)}</p>
+                          </div>
+                          <div className="rounded-xl border border-amber-200 bg-amber-50/70 px-3 py-3">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-700">Com premium</p>
+                            <p className="mt-1 text-sm font-semibold text-slate-900">{formatCurrency(previewTicketSimulation.premiumTicket)}</p>
+                            <p className="mt-1 text-xs text-slate-600">
+                              {previewTicketSimulation.premiumLift > 0
+                                ? `Premium eleva ${formatCurrency(previewTicketSimulation.premiumLift)}`
+                                : 'Sem ganho premium nesta combinacao'}
+                            </p>
+                          </div>
+                          <div className="rounded-xl border border-violet-200 bg-violet-50/70 px-3 py-3">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-violet-700">Com upsell</p>
+                            <p className="mt-1 text-sm font-semibold text-slate-900">{formatCurrency(previewTicketSimulation.upsellTicket)}</p>
+                            <p className="mt-1 text-xs text-slate-600">
+                              {previewTicketSimulation.upsellLift > 0
+                                ? `Borda e adicionais somam ${formatCurrency(previewTicketSimulation.upsellLift)}`
+                                : 'Sem impacto de upsell nesta simulacao'}
+                            </p>
+                          </div>
+                        </div>
                       </div>
                     </div>
 
@@ -2010,6 +2218,9 @@ export default function PizzaConfigTab() {
                                 {insight}
                               </div>
                             ))}
+                            <div className="rounded-xl bg-emerald-500/10 px-3 py-2 text-sm text-emerald-100">
+                              Ticket base {formatCurrency(previewTicketSimulation.baseTicket)} • premium {formatCurrency(previewTicketSimulation.premiumTicket)} • com upsell {formatCurrency(previewTicketSimulation.upsellTicket)}
+                            </div>
                           </div>
                         </div>
 

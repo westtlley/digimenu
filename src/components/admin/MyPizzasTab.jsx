@@ -70,6 +70,68 @@ const getEntryStatusPresentation = (status) => {
   };
 };
 
+const getSalesStrengthPresentation = (strength) => {
+  if (strength === 'Forte') {
+    return {
+      badgeClass: 'border-emerald-200 bg-emerald-100 text-emerald-700',
+      cardClass: 'border-emerald-200 bg-emerald-50/80',
+      helper: 'Alta chance de venda',
+    };
+  }
+  if (strength === 'Boa') {
+    return {
+      badgeClass: 'border-sky-200 bg-sky-100 text-sky-700',
+      cardClass: 'border-sky-200 bg-sky-50/80',
+      helper: 'Boa para delivery',
+    };
+  }
+  if (strength === 'Regular') {
+    return {
+      badgeClass: 'border-amber-200 bg-amber-100 text-amber-700',
+      cardClass: 'border-amber-200 bg-amber-50/80',
+      helper: 'Precisa melhorar',
+    };
+  }
+  return {
+    badgeClass: 'border-rose-200 bg-rose-100 text-rose-700',
+    cardClass: 'border-rose-200 bg-rose-50/80',
+    helper: 'Baixo potencial',
+  };
+};
+
+const getCatalogLevelPresentation = (level) => {
+  if (level === 'FORTE') {
+    return {
+      title: 'Seu cardapio esta em nivel FORTE',
+      description: 'A base comercial esta consistente e o sistema entende que voce ja tem boas chances de venda.',
+      cardClass: 'border-emerald-200 bg-emerald-50/80',
+      badgeClass: 'border-emerald-200 bg-white text-emerald-700',
+    };
+  }
+  if (level === 'BOM') {
+    return {
+      title: 'Seu cardapio esta em nivel BOM',
+      description: 'A estrutura ja convence, mas ainda existe espaco claro para subir ticket e reduzir atrito.',
+      cardClass: 'border-sky-200 bg-sky-50/80',
+      badgeClass: 'border-sky-200 bg-white text-sky-700',
+    };
+  }
+  if (level === 'REGULAR') {
+    return {
+      title: 'Seu cardapio esta em nivel REGULAR',
+      description: 'A pizzaria ja funciona, mas algumas entradas ainda deixam dinheiro na mesa.',
+      cardClass: 'border-amber-200 bg-amber-50/80',
+      badgeClass: 'border-amber-200 bg-white text-amber-700',
+    };
+  }
+  return {
+    title: 'Seu cardapio esta em nivel FRACO',
+    description: 'Ainda vale corrigir a base comercial para o cliente perceber mais valor e encontrar opcao real.',
+    cardClass: 'border-rose-200 bg-rose-50/80',
+    badgeClass: 'border-rose-200 bg-white text-rose-700',
+  };
+};
+
 const buildPizzaEntryReadiness = ({ pizza, entryCategory, sizes, flavors }) => {
   const configuredSizes = Array.isArray(pizza?.pizza_config?.sizes) ? pizza.pizza_config.sizes.filter(Boolean) : [];
   const fallbackSize = sizes.find((size) => size.id === entryCategory?.size_id) || null;
@@ -109,10 +171,26 @@ const buildPizzaEntryReadiness = ({ pizza, entryCategory, sizes, flavors }) => {
     + (hasExtras ? 0.5 : 0)
     + (hasPrice ? 1 : 0)
     + ((Number(entryCategory?.max_flavors) || 1) >= 2 ? 0.5 : 0);
+  const commercialScoreValue = Number(commercialScore.toFixed(1));
+  const salesStrength = commercialScore >= 4.8 ? 'Forte' : (commercialScore >= 3.5 ? 'Boa' : (commercialScore >= 2.2 ? 'Regular' : 'Fraca'));
   const commercialPotential = commercialScore >= 4 ? 'Alto potencial' : (commercialScore >= 2.5 ? 'Medio potencial' : 'Baixo potencial');
   const upsellPotential = hasEdges && (hasExtras || hasPremiumFlavor)
     ? 'Upsell forte'
     : ((hasEdges || hasExtras || hasPremiumFlavor) ? 'Upsell moderado' : 'Upsell limitado');
+  const confidenceLabel = salesStrength === 'Forte'
+    ? (hasPremiumFlavor && premiumDelta >= 6 ? 'Forte para ticket medio' : 'Alta chance de venda')
+    : (salesStrength === 'Boa'
+      ? (activeSizeCount >= 2 ? 'Boa para delivery' : 'Boa estrutura comercial')
+      : (salesStrength === 'Regular' ? 'Precisa melhorar' : 'Baixo potencial'));
+  const directFeedback = salesStrength === 'Fraca'
+    ? 'Essa entrada tem baixo potencial de venda.'
+    : (!hasPremiumFlavor && activeFlavorCount > 0
+      ? 'Premium pouco aproveitado.'
+      : ((!hasEdges && !hasExtras)
+        ? 'Upsell inexistente.'
+        : (salesStrength === 'Forte' && hasPremiumFlavor && premiumDelta >= 6
+          ? 'Forte para ticket medio.'
+          : (activeSizeCount >= 2 ? 'Boa estrutura para delivery.' : 'Estrutura comercial consistente.'))));
 
   const suggestions = [];
   if (!entryCategory) suggestions.push('Vincule uma regra de montagem para definir o que o cliente realmente pode montar.');
@@ -141,6 +219,10 @@ const buildPizzaEntryReadiness = ({ pizza, entryCategory, sizes, flavors }) => {
     activeSizeCount,
     activeFlavorCount,
     premiumDelta,
+    commercialScoreValue,
+    salesStrength,
+    confidenceLabel,
+    directFeedback,
     commercialPotential,
     upsellPotential
   };
@@ -316,12 +398,28 @@ export default function MyPizzasTab() {
         accumulator.inactive += 1;
         return accumulator;
       }
+      if (readiness?.salesStrength === 'Forte') accumulator.strong += 1;
+      else if (readiness?.salesStrength === 'Boa') accumulator.good += 1;
+      else if (readiness?.salesStrength === 'Regular') accumulator.regular += 1;
+      else accumulator.weak += 1;
       if (readiness?.status === 'Completa') accumulator.complete += 1;
       else if (readiness?.status === 'Quase pronta') accumulator.almost += 1;
       else accumulator.incomplete += 1;
       return accumulator;
-    }, { complete: 0, almost: 0, incomplete: 0, inactive: 0 });
+    }, { complete: 0, almost: 0, incomplete: 0, inactive: 0, strong: 0, good: 0, regular: 0, weak: 0 });
   }, [pizzas, pizzaReadinessById]);
+  const overallCatalogLevel = React.useMemo(() => {
+    const activeEntries = readinessSummary.strong + readinessSummary.good + readinessSummary.regular + readinessSummary.weak;
+    if (activeEntries === 0) return 'REGULAR';
+    if (readinessSummary.strong >= Math.max(readinessSummary.good, 1) && readinessSummary.weak === 0) return 'FORTE';
+    if ((readinessSummary.strong + readinessSummary.good) >= (readinessSummary.regular + readinessSummary.weak)) return 'BOM';
+    if (readinessSummary.weak > readinessSummary.strong) return 'FRACO';
+    return 'REGULAR';
+  }, [readinessSummary]);
+  const catalogLevelPresentation = React.useMemo(
+    () => getCatalogLevelPresentation(overallCatalogLevel),
+    [overallCatalogLevel]
+  );
 
   // Mutations
   const createPizzaMutation = useMutation({
@@ -485,6 +583,122 @@ export default function MyPizzasTab() {
       },
     });
   }, [canApplyAssistantActions, edges, extras, updatePizzaMutation]);
+  const invalidatePizzaEntryQueries = React.useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['pizzas'] });
+    queryClient.invalidateQueries({ queryKey: ['dishes', ...getMenuContextQueryKeyParts(menuContext)] });
+    if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
+  }, [menuContext, queryClient, slug]);
+
+  const handleImproveWeakEntries = React.useCallback(async () => {
+    if (!canApplyAssistantActions) {
+      toast('As automacoes ficam disponiveis no painel da loja.');
+      return;
+    }
+
+    const targetEntries = pizzas.filter((pizza) => {
+      if (pizza?.is_active === false) return false;
+      const readiness = pizzaReadinessById[String(pizza.id)];
+      return readiness?.salesStrength === 'Fraca' || readiness?.salesStrength === 'Regular';
+    });
+
+    if (targetEntries.length === 0) {
+      toast('As entradas principais ja estao com boa estrutura comercial.');
+      return;
+    }
+
+    const plans = targetEntries
+      .map((pizza) => ({ pizza, plan: buildReadyToSellPlan(pizza) }))
+      .filter(({ plan }) => plan.changes.length > 0);
+
+    if (plans.length === 0) {
+      toast('As entradas fracas ja estao no limite seguro de automacao.');
+      return;
+    }
+
+    const accepted = window.confirm(
+      `Vamos melhorar ${plans.length} entrada(s) com estrutura segura para venda. Isso pode ativar tamanhos, sabores, borda ou adicional quando a base ja existir. Deseja continuar?`
+    );
+    if (!accepted) return;
+
+    try {
+      await Promise.all(
+        plans.map(({ pizza, plan }) => apiClient.entities.Dish.update(pizza.id, plan.patch, entityContextOpts))
+      );
+      invalidatePizzaEntryQueries();
+      toast.success(`${plans.length} entrada(s) receberam melhoria automatica.`);
+    } catch (error) {
+      console.error('Erro ao melhorar entradas fracas:', error);
+      toast.error('Nao foi possivel melhorar as entradas agora.');
+    }
+  }, [buildReadyToSellPlan, canApplyAssistantActions, entityContextOpts, invalidatePizzaEntryQueries, pizzaReadinessById, pizzas]);
+
+  const handleQuickStartPizza = React.useCallback(async () => {
+    if (!canApplyAssistantActions) {
+      toast('A criacao rapida fica disponivel no painel da loja.');
+      return;
+    }
+
+    const activeCatalogSizes = sizes.filter((size) => size?.is_active !== false);
+    const activeCatalogFlavors = flavors.filter((flavor) => flavor?.is_active !== false);
+    const activeCatalogEdges = edges.filter((edge) => edge?.is_active !== false);
+    const activeCatalogExtras = extras.filter((extra) => extra?.is_active !== false);
+    const defaultFoodCategory = categories.find((category) => String(category?.name || '').toLowerCase().includes('pizza')) || categories[0] || null;
+    const suggestedPizzaCategory = pizzaCategories.find((category) => category?.is_active !== false && !pizzas.some((pizza) => String(pizza?.pizza_category_id) === String(category.id)))
+      || pizzaCategories.find((category) => category?.is_active !== false)
+      || pizzaCategories[0]
+      || null;
+
+    if (!suggestedPizzaCategory || activeCatalogSizes.length === 0 || activeCatalogFlavors.length === 0) {
+      toast('Ative ao menos uma regra, um tamanho e um sabor para criar a pizzaria rapida.');
+      return;
+    }
+
+    const maxFlavors = Math.max(Number(suggestedPizzaCategory?.max_flavors) || 1, 1);
+    const recommendedSizes = [...activeCatalogSizes]
+      .sort((left, right) => ((Number(right?.max_flavors) || 1) + (Number(right?.slices) || 0)) - ((Number(left?.max_flavors) || 1) + (Number(left?.slices) || 0)))
+      .slice(0, maxFlavors >= 2 ? 2 : 1)
+      .map(clonePizzaSize);
+    const recommendedFlavors = activeCatalogFlavors
+      .slice(0, Math.min(maxFlavors >= 2 ? 6 : 4, activeCatalogFlavors.length));
+    const defaultFlavor = recommendedFlavors[0] || null;
+    const payload = {
+      name: `Pizza ${maxFlavors >= 2 ? `${maxFlavors} Sabores` : '1 Sabor'}`,
+      description: 'Entrada pronta para vender criada com estrutura comercial segura.',
+      category_id: defaultFoodCategory?.id || '',
+      pizza_category_id: suggestedPizzaCategory?.id || '',
+      default_flavor_id: defaultFlavor?.id || '',
+      division_mode: 'slices',
+      is_highlight: false,
+      is_active: true,
+      is_new: false,
+      is_popular: true,
+      pizza_config: {
+        sizes: recommendedSizes,
+        flavor_ids: recommendedFlavors.map((flavor) => flavor.id),
+        edges: activeCatalogEdges[0] ? [clonePizzaEdge(activeCatalogEdges[0])] : [],
+        extras: activeCatalogExtras[0] ? [clonePizzaExtra(activeCatalogExtras[0])] : [],
+      },
+    };
+
+    const accepted = window.confirm(
+      `Vamos criar uma entrada comercial pronta para vender usando a regra ${suggestedPizzaCategory.name}, ${recommendedSizes.length} tamanho(s) e ${recommendedFlavors.length} sabor(es). Deseja continuar?`
+    );
+    if (!accepted) return;
+
+    try {
+      await apiClient.entities.Dish.create({
+        ...payload,
+        product_type: 'pizza',
+        ...(entityOwnerEmail && { owner_email: entityOwnerEmail }),
+        ...entityContextOpts,
+      });
+      invalidatePizzaEntryQueries();
+      toast.success('Entrada rapida criada. Agora voce ja tem uma base pronta para vender.');
+    } catch (error) {
+      console.error('Erro ao criar pizzaria rapida:', error);
+      toast.error('Nao foi possivel criar a pizzaria rapida agora.');
+    }
+  }, [canApplyAssistantActions, categories, edges, entityContextOpts, entityOwnerEmail, extras, flavors, invalidatePizzaEntryQueries, pizzaCategories, pizzas, sizes]);
 
   const openPizzaModal = (pizza = null) => {
     if (pizza) {
@@ -519,14 +733,63 @@ export default function MyPizzasTab() {
             <h3 className="text-lg font-semibold">Entradas do cardapio</h3>
             <p className="text-sm text-gray-600">Aqui voce gerencia o que o cliente enxerga no cardapio. A regra de montagem vem da aba Regras de Montagem.</p>
           </div>
-          <Button 
-            onClick={() => openPizzaModal()} 
-            className="bg-orange-500"
-            disabled={!canCreatePizza}
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Nova entrada
-          </Button>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleImproveWeakEntries}
+              disabled={!canApplyAssistantActions || readinessSummary.weak + readinessSummary.regular === 0}
+            >
+              Melhorar entradas fracas
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleQuickStartPizza}
+              disabled={!canApplyAssistantActions || !canCreatePizza}
+            >
+              Criar pizzaria pronta
+            </Button>
+            <Button 
+              onClick={() => openPizzaModal()} 
+              className="bg-orange-500"
+              disabled={!canCreatePizza}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Nova entrada
+            </Button>
+          </div>
+        </div>
+
+        <div className={`rounded-3xl border p-5 shadow-sm ${catalogLevelPresentation.cardClass}`}>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="outline" className={catalogLevelPresentation.badgeClass}>
+                  Nivel {overallCatalogLevel}
+                </Badge>
+                <Badge variant="outline" className="border-white bg-white/70 text-slate-600">
+                  {readinessSummary.strong} fortes • {readinessSummary.good} boas • {readinessSummary.regular} regulares • {readinessSummary.weak} fracas
+                </Badge>
+              </div>
+              <h4 className="mt-3 text-xl font-semibold text-slate-900">{catalogLevelPresentation.title}</h4>
+              <p className="mt-2 text-sm leading-6 text-slate-700">{catalogLevelPresentation.description}</p>
+            </div>
+            <div className="grid min-w-[260px] gap-2 rounded-2xl border border-white/70 bg-white/80 p-4 text-sm text-slate-700">
+              <div className="flex items-center justify-between gap-3">
+                <span>Entradas fortes</span>
+                <span className="font-semibold text-emerald-700">{readinessSummary.strong}</span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span>Entradas que pedem ajuste</span>
+                <span className="font-semibold text-amber-700">{readinessSummary.regular + readinessSummary.weak}</span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span>Prontas para vender</span>
+                <span className="font-semibold text-slate-900">{readinessSummary.complete}</span>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="grid gap-3 md:grid-cols-4">
@@ -597,6 +860,11 @@ export default function MyPizzasTab() {
                   const allowsExtras = (pizza.pizza_config?.extras?.length || 0) > 0;
                   const readiness = pizzaReadinessById[String(pizza.id)] || buildPizzaEntryReadiness({ pizza, entryCategory, sizes, flavors });
                   const statusPresentation = getEntryStatusPresentation(readiness.status);
+                  const strengthPresentation = getSalesStrengthPresentation(readiness.salesStrength);
+                  const improvementPlan = buildReadyToSellPlan(pizza);
+                  const projectedReadiness = improvementPlan.changes.length > 0
+                    ? buildPizzaEntryReadiness({ pizza: improvementPlan.patch, entryCategory, sizes, flavors })
+                    : readiness;
 
                   return (
                   <div key={pizza.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md dark:border-gray-700 dark:bg-gray-800">
@@ -618,8 +886,14 @@ export default function MyPizzasTab() {
                               <Badge variant="outline" className="text-xs">
                                 {readiness.commercialPotential}
                               </Badge>
+                              <Badge variant="outline" className={`text-xs ${strengthPresentation.badgeClass}`}>
+                                {readiness.salesStrength}
+                              </Badge>
                               <Badge variant="outline" className="text-xs">
                                 {readiness.upsellPotential}
+                              </Badge>
+                              <Badge variant="outline" className="text-xs">
+                                {readiness.confidenceLabel}
                               </Badge>
                               <Badge variant="outline" className="text-xs">
                                 A partir de {formatCurrency(getPizzaEntryStartingPrice(pizza))}
@@ -685,11 +959,11 @@ export default function MyPizzasTab() {
                                 </div>
                               </div>
                             </div>
-                            <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                            <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
                               <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-900/60">
                                 <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Potencial de venda</p>
                                 <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-gray-100">{readiness.commercialPotential}</p>
-                                <p className="mt-1 text-xs text-slate-600 dark:text-gray-400">Leitura comercial da entrada no cardapio.</p>
+                                <p className="mt-1 text-xs text-slate-600 dark:text-gray-400">{readiness.directFeedback}</p>
                               </div>
                               <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-900/60">
                                 <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Estrutura ativa</p>
@@ -717,6 +991,11 @@ export default function MyPizzasTab() {
                                     ? 'Borda e adicionais ajudam a elevar ticket.'
                                     : 'Ativar borda ou extra deixa a oferta mais forte.'}
                                 </p>
+                              </div>
+                              <div className={`rounded-xl border p-3 ${strengthPresentation.cardClass} dark:border-gray-700 dark:bg-gray-900/60`}>
+                                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Confianca do sistema</p>
+                                <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-gray-100">{readiness.confidenceLabel}</p>
+                                <p className="mt-1 text-xs text-slate-600 dark:text-gray-400">Score comercial {readiness.commercialScoreValue}/5.5 para esta entrada.</p>
                               </div>
                             </div>
                             <div className={`mt-4 grid gap-3 xl:grid-cols-[1.15fr_0.85fr]`}>
@@ -774,6 +1053,24 @@ export default function MyPizzasTab() {
                                       Entrada consistente. Agora vale lapidar foto, destaque e posicionamento comercial.
                                     </div>
                                   )}
+                                </div>
+                                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                                  <div className="rounded-xl border border-slate-200 bg-white p-3">
+                                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Antes</p>
+                                    <p className="mt-1 text-sm font-semibold text-slate-900">{readiness.confidenceLabel}</p>
+                                    <p className="mt-1 text-xs text-slate-600">{readiness.directFeedback}</p>
+                                  </div>
+                                  <div className={`rounded-xl border p-3 ${projectedReadiness.salesStrength === readiness.salesStrength && improvementPlan.changes.length === 0 ? 'border-emerald-200 bg-emerald-50/70' : 'border-orange-200 bg-orange-50/70'}`}>
+                                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Depois</p>
+                                    <p className="mt-1 text-sm font-semibold text-slate-900">
+                                      {improvementPlan.changes.length > 0 ? projectedReadiness.confidenceLabel : 'Ja esta no melhor ponto seguro'}
+                                    </p>
+                                    <p className="mt-1 text-xs text-slate-600">
+                                      {improvementPlan.changes.length > 0
+                                        ? `Impacto esperado: ${improvementPlan.changes.slice(0, 2).join(' • ')}`
+                                        : 'A entrada ja entrega uma base forte com a estrutura atual.'}
+                                    </p>
+                                  </div>
                                 </div>
                                 <div className="mt-4 flex flex-wrap gap-2">
                                   <Button
