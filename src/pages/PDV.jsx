@@ -115,6 +115,8 @@ export default function PDV() {
   const [highlightedCartItemId, setHighlightedCartItemId] = useState(null);
   const [pdvCodeFieldStatus, setPdvCodeFieldStatus] = useState('idle');
   const [pdvCodeFieldMessage, setPdvCodeFieldMessage] = useState('Bipe ou digite o código e pressione Enter.');
+  const [showPdvSuggestions, setShowPdvSuggestions] = useState(false);
+  const [activePdvSuggestionIndex, setActivePdvSuggestionIndex] = useState(0);
   
   // Tracking de cancelamentos em tela (para relatÃƒÆ’Ã‚Â³rio de fechamento)
   const [canceledInScreenCount, setCanceledInScreenCount] = useState(0);
@@ -573,6 +575,32 @@ export default function PDV() {
 
     return index;
   }, [safeDishes]);
+  const normalizedPdvCodeInput = normalizePdvCode(pdvCodeInput);
+  const pdvCodeSuggestions = useMemo(() => {
+    if (!normalizedPdvCodeInput) return [];
+
+    return safeDishes
+      .filter((dish) => {
+        const code = normalizePdvCode(dish?.channels?.pdv?.code);
+        return code && code.startsWith(normalizedPdvCodeInput);
+      })
+      .sort((a, b) => {
+        const codeA = normalizePdvCode(a?.channels?.pdv?.code);
+        const codeB = normalizePdvCode(b?.channels?.pdv?.code);
+        const exactBoostA = codeA === normalizedPdvCodeInput ? 0 : 1;
+        const exactBoostB = codeB === normalizedPdvCodeInput ? 0 : 1;
+        if (exactBoostA !== exactBoostB) return exactBoostA - exactBoostB;
+        if (codeA.length !== codeB.length) return codeA.length - codeB.length;
+        return String(a?.name || '').localeCompare(String(b?.name || ''));
+      })
+      .slice(0, 8);
+  }, [normalizedPdvCodeInput, safeDishes]);
+  const exactPdvCodeMatches = pdvCodeIndex.get(normalizedPdvCodeInput) || [];
+  const activePdvSuggestion = pdvCodeSuggestions[activePdvSuggestionIndex] || pdvCodeSuggestions[0] || null;
+  const shouldShowPdvSuggestions = showPdvSuggestions
+    && Boolean(normalizedPdvCodeInput)
+    && exactPdvCodeMatches.length === 0
+    && pdvCodeSuggestions.length > 0;
   const activeDishes = safeDishes.filter(d => d && d.is_active !== false);
   const safeCategories = Array.isArray(categories) ? categories.filter((cat) => cat && cat.name && cat.is_active !== false) : [];
   const safeBeverageCategories = Array.isArray(beverageCategories)
@@ -718,6 +746,41 @@ export default function PDV() {
   }, [allowed, pdvSession, isPdvCodeFocusBlocked, focusPdvCodeInput]);
 
   useEffect(() => {
+    if (!showPdvSuggestions || pdvCodeSuggestions.length === 0) {
+      setActivePdvSuggestionIndex(0);
+      return;
+    }
+    setActivePdvSuggestionIndex((current) => Math.min(current, pdvCodeSuggestions.length - 1));
+  }, [showPdvSuggestions, pdvCodeSuggestions.length]);
+
+  useEffect(() => {
+    if (pdvCodeFieldStatus !== 'idle') return;
+
+    if (!normalizedPdvCodeInput) {
+      setPdvCodeFieldMessage('Bipe ou digite o código e pressione Enter.');
+      return;
+    }
+
+    const exactMatches = pdvCodeIndex.get(normalizedPdvCodeInput) || [];
+    if (exactMatches.length > 0) {
+      setPdvCodeFieldMessage('Código exato encontrado. Pressione Enter para adicionar.');
+      return;
+    }
+
+    if (showPdvSuggestions && pdvCodeSuggestions.length === 1) {
+      setPdvCodeFieldMessage('1 código encontrado por prefixo. Enter adiciona direto.');
+      return;
+    }
+
+    if (showPdvSuggestions && pdvCodeSuggestions.length > 1) {
+      setPdvCodeFieldMessage(`${pdvCodeSuggestions.length} sugestoes por prefixo. Use as setas e Enter.`);
+      return;
+    }
+
+    setPdvCodeFieldMessage('Continue digitando ou pressione Enter para buscar o código.');
+  }, [normalizedPdvCodeInput, pdvCodeFieldStatus, pdvCodeIndex, pdvCodeSuggestions.length, showPdvSuggestions]);
+
+  useEffect(() => {
     if (!highlightedDishId && !highlightedCartItemId) return undefined;
     const timer = window.setTimeout(() => {
       setHighlightedDishId(null);
@@ -741,8 +804,14 @@ export default function PDV() {
 
     if (event.key === 'Escape') {
       resetScannerSequence();
+      if (showPdvSuggestions) {
+        setShowPdvSuggestions(false);
+        setActivePdvSuggestionIndex(0);
+        setPdvCodeFeedback('idle', 'Sugestoes fechadas. Digite mais ou confirme um codigo exato.');
+        return false;
+      }
       setPdvCodeInput('');
-      setPdvCodeFeedback('idle', 'Bipe ou digite o código e pressione Enter.');
+      setPdvCodeFeedback('idle', 'Bipe ou digite o codigo e pressione Enter.');
       return false;
     }
 
@@ -767,13 +836,28 @@ export default function PDV() {
     }
 
     return false;
-  }, [resetScannerSequence, setPdvCodeFeedback]);
+  }, [resetScannerSequence, setPdvCodeFeedback, showPdvSuggestions]);
+
+  const handlePdvSuggestionNavigation = React.useCallback((direction) => {
+    if (pdvCodeSuggestions.length === 0) return;
+    setShowPdvSuggestions(true);
+    setActivePdvSuggestionIndex((current) => {
+      const nextIndex = direction === 'down' ? current + 1 : current - 1;
+      if (nextIndex < 0) return pdvCodeSuggestions.length - 1;
+      if (nextIndex >= pdvCodeSuggestions.length) return 0;
+      return nextIndex;
+    });
+    setPdvCodeFeedback('idle', `${pdvCodeSuggestions.length} sugestoes encontradas. Use as setas e Enter.`);
+  }, [pdvCodeSuggestions.length, setPdvCodeFeedback]);
 
   const handlePdvCodeFieldChange = React.useCallback((value) => {
     setPdvCodeInput(value);
+    setActivePdvSuggestionIndex(0);
+    setShowPdvSuggestions(Boolean(value));
+
     if (!value) {
       resetScannerSequence();
-      setPdvCodeFeedback('idle', 'Bipe ou digite o código e pressione Enter.');
+      setPdvCodeFeedback('idle', 'Bipe ou digite o codigo e pressione Enter.');
       return;
     }
 
@@ -804,26 +888,12 @@ export default function PDV() {
     schedulePdvCodeFocus({ selectText: true, force: true }, 40);
   }, [schedulePdvCodeFocus, setPdvCodeFeedback]);
 
-  const handlePdvCodeSubmit = ({ scannerLike = false } = {}) => {
-    const normalizedCode = normalizePdvCode(pdvCodeInput);
-
-    if (!normalizedCode) {
-      setPdvCodeFeedback('error', 'Digite um codigo para iniciar a leitura.', 1500);
-      schedulePdvCodeFocus({ force: true }, 30);
-      return;
-    }
-
-    const matchedDishes = pdvCodeIndex.get(normalizedCode) || [];
-    if (matchedDishes.length === 0) {
+  function handleResolvedPdvDish(dish, { scannerLike = false, matchedBy = 'exact' } = {}) {
+    if (!dish) {
       handlePdvCodeError('Produto nao encontrado', { scannerLike });
       return;
     }
 
-    if (matchedDishes.length > 1) {
-      toast('Codigo duplicado. Usando o primeiro produto encontrado.', { icon: '!' });
-    }
-
-    const dish = matchedDishes[0];
     if (!isDishEnabledInPdv(dish)) {
       handlePdvCodeError('Produto desativado no PDV', { scannerLike });
       return;
@@ -843,14 +913,61 @@ export default function PDV() {
     const opensSelectionFlow = dishRequiresConfiguration(dish);
     shouldRefocusPdvCodeRef.current = true;
     setPdvCodeInput('');
+    setShowPdvSuggestions(false);
+    setActivePdvSuggestionIndex(0);
     setPdvCodeFeedback(
       'success',
       opensSelectionFlow
         ? `${dish.name} localizado. Continue a selecao para concluir.`
-        : `${dish.name} adicionado. Pronto para a proxima leitura.`,
+        : matchedBy === 'prefix'
+          ? `${dish.name} adicionado por prefixo. Pronto para a proxima leitura.`
+          : `${dish.name} adicionado. Pronto para a proxima leitura.`,
       1400
     );
     handleDishClick(dish);
+  }
+
+  const handlePdvCodeSubmit = ({ scannerLike = false } = {}) => {
+    if (!normalizedPdvCodeInput) {
+      setPdvCodeFeedback('error', 'Digite um codigo para iniciar a leitura.', 1500);
+      schedulePdvCodeFocus({ force: true }, 30);
+      return;
+    }
+
+    const exactMatches = pdvCodeIndex.get(normalizedPdvCodeInput) || [];
+    if (exactMatches.length > 0) {
+      if (exactMatches.length > 1) {
+        toast('Codigo duplicado. Usando o primeiro produto encontrado.', { icon: '!' });
+      }
+      handleResolvedPdvDish(exactMatches[0], { scannerLike, matchedBy: 'exact' });
+      return;
+    }
+
+    if (pdvCodeSuggestions.length === 1) {
+      handleResolvedPdvDish(pdvCodeSuggestions[0], { scannerLike, matchedBy: 'prefix' });
+      return;
+    }
+
+    if (pdvCodeSuggestions.length > 1) {
+      if (!showPdvSuggestions) {
+        setShowPdvSuggestions(true);
+        setActivePdvSuggestionIndex(0);
+        setPdvCodeFeedback('idle', `${pdvCodeSuggestions.length} sugestoes encontradas. Use as setas e Enter.`);
+        schedulePdvCodeFocus({ force: true }, 30);
+        return;
+      }
+
+      const selectedSuggestion = activePdvSuggestion || pdvCodeSuggestions[0];
+      if (!selectedSuggestion) {
+        handlePdvCodeError('Produto nao encontrado', { scannerLike });
+        return;
+      }
+
+      handleResolvedPdvDish(selectedSuggestion, { scannerLike, matchedBy: 'prefix' });
+      return;
+    }
+
+    handlePdvCodeError('Produto nao encontrado', { scannerLike });
   };
 
   const handlePdvSurfacePointerDown = React.useCallback((event) => {
@@ -863,8 +980,12 @@ export default function PDV() {
     if (target.closest('input, textarea, select, [contenteditable="true"], [role="combobox"]')) {
       return;
     }
+    if (showPdvSuggestions) {
+      setShowPdvSuggestions(false);
+      setActivePdvSuggestionIndex(0);
+    }
     schedulePdvCodeFocus({ force: false }, 60);
-  }, [allowed, pdvSession, schedulePdvCodeFocus]);
+  }, [allowed, pdvSession, schedulePdvCodeFocus, showPdvSuggestions]);
 
   const handleDishClick = (dish) => {
     if (!openCaixa) {
@@ -1621,7 +1742,25 @@ export default function PDV() {
                       value={pdvCodeInput}
                       onChange={(e) => handlePdvCodeFieldChange(e.target.value)}
                       onKeyDown={(e) => {
+                        if (e.key === 'ArrowDown') {
+                          e.preventDefault();
+                          handlePdvSuggestionNavigation('down');
+                          return;
+                        }
+
+                        if (e.key === 'ArrowUp') {
+                          e.preventDefault();
+                          handlePdvSuggestionNavigation('up');
+                          return;
+                        }
+
                         const scannerLike = registerScannerKeypress(e);
+
+                        if (e.key === 'Escape') {
+                          e.preventDefault();
+                          return;
+                        }
+
                         if (e.key === 'Enter') {
                           e.preventDefault();
                           handlePdvCodeSubmit({ scannerLike });
@@ -1630,6 +1769,10 @@ export default function PDV() {
                       onFocus={() => {
                         if (!pdvCodeInput) {
                           setPdvCodeFeedback('idle', 'Bipe ou digite o codigo e pressione Enter.');
+                          return;
+                        }
+                        if (pdvCodeSuggestions.length > 0 && exactPdvCodeMatches.length === 0) {
+                          setShowPdvSuggestions(true);
                         }
                       }}
                       placeholder="Bipe ou digite o codigo do produto..."
@@ -1647,6 +1790,57 @@ export default function PDV() {
                       autoCorrect="off"
                       spellCheck={false}
                     />
+                    {shouldShowPdvSuggestions && (
+                      <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-30 overflow-hidden rounded-xl border border-border bg-card shadow-lg">
+                        <div className="border-b border-border/70 bg-muted/30 px-3 py-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                          Sugestoes por codigo
+                        </div>
+                        <div className="max-h-80 overflow-y-auto py-1">
+                          {pdvCodeSuggestions.map((dish, index) => {
+                            const code = String(dish?.channels?.pdv?.code || '').trim();
+                            const isActive = isDishEnabledInPdv(dish);
+                            const isSelected = index === activePdvSuggestionIndex;
+
+                            return (
+                              <button
+                                key={`pdv-code-suggestion-${dish.id}-${code || index}`}
+                                type="button"
+                                className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left transition-colors ${
+                                  isSelected ? 'bg-orange-50 dark:bg-orange-950/20' : 'hover:bg-muted/50'
+                                }`}
+                                onMouseDown={(event) => event.preventDefault()}
+                                onMouseEnter={() => setActivePdvSuggestionIndex(index)}
+                                onClick={() => handleResolvedPdvDish(dish, { matchedBy: 'prefix' })}
+                              >
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <span className="rounded-md bg-muted px-2 py-0.5 text-[11px] font-semibold text-foreground">
+                                      {code || 'Sem codigo'}
+                                    </span>
+                                    {!isActive && (
+                                      <Badge variant="outline" className="border-red-300 text-[10px] text-red-600 dark:text-red-300">
+                                        PDV desativado
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <p className="mt-1 truncate text-sm font-semibold text-foreground">
+                                    {dish?.name || 'Produto sem nome'}
+                                  </p>
+                                </div>
+                                <div className="flex flex-col items-end gap-1">
+                                  <span className="text-sm font-semibold text-foreground">
+                                    {formatCurrency(Number(dish?.price || 0))}
+                                  </span>
+                                  <span className={`text-[11px] font-medium ${isActive ? 'text-emerald-600 dark:text-emerald-300' : 'text-muted-foreground'}`}>
+                                    {isActive ? 'Disponivel' : 'Bloqueado'}
+                                  </span>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
