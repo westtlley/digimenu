@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { apiClient } from '@/api/apiClient';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -9,23 +9,228 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Plus, Trash2, Pencil, Star, Settings, Search, ChevronUp, ChevronDown } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import PizzaVisualizationSettings from './PizzaVisualizationSettings';
 import MyPizzasTab from './MyPizzasTab';
 import { usePermission } from '../permissions/usePermission';
 import { buildTenantEntityOpts, getMenuContextEntityOpts, getMenuContextQueryKeyParts } from '@/utils/tenantScope';
+import { fetchAdminDishes } from '@/services/adminMenuService';
 
 const formatCurrency = (value) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
 };
 
+const formatFlavorAllowance = (value) => {
+  const count = Math.max(Number(value) || 1, 1);
+  return count === 1 ? 'Ate 1 sabor' : `Ate ${count} sabores`;
+};
+
+const formatPricePerSlice = (price, slices) => {
+  const safePrice = Number(price || 0);
+  const safeSlices = Number(slices || 0);
+  if (safePrice <= 0 || safeSlices <= 0) return '—';
+  return formatCurrency(safePrice / safeSlices);
+};
+
+const clonePizzaSize = (size) => ({
+  id: size.id,
+  name: size.name,
+  slices: size.slices,
+  max_flavors: size.max_flavors,
+  price_tradicional: size.price_tradicional,
+  price_premium: size.price_premium,
+});
+
+const clonePizzaEdge = (edge) => ({
+  id: edge.id,
+  name: edge.name,
+  price: edge.price,
+  is_active: edge.is_active,
+  is_popular: edge.is_popular,
+});
+
+const clonePizzaExtra = (extra) => ({
+  id: extra.id,
+  name: extra.name,
+  price: extra.price,
+  is_active: extra.is_active,
+});
+
+const getRecommendedSizeRank = (size) => {
+  const name = String(size?.name || '').toLowerCase();
+  let score = Number(size?.slices || 0);
+  if (name.includes('m')) score += 40;
+  if (name.includes('g')) score += 35;
+  if (name.includes('grande')) score += 30;
+  if (name.includes('media')) score += 25;
+  if ((Number(size?.max_flavors) || 1) >= 2) score += 20;
+  return score;
+};
+
+const buildPizzaPricingInsights = (sizes = []) => {
+  const metrics = (sizes || []).map((size) => {
+    const tradPrice = Number(size?.price_tradicional || 0);
+    const premiumPrice = Number(size?.price_premium || 0);
+    const slices = Number(size?.slices || 0);
+    const premiumDelta = Math.max(premiumPrice - tradPrice, 0);
+    const pricePerSlice = tradPrice > 0 && slices > 0 ? tradPrice / slices : null;
+    const premiumPerSlice = premiumPrice > 0 && slices > 0 ? premiumPrice / slices : null;
+
+    return {
+      id: String(size?.id),
+      name: size?.name || 'Tamanho',
+      isActive: size?.is_active !== false,
+      tradPrice,
+      premiumPrice,
+      premiumDelta,
+      slices,
+      maxFlavors: Math.max(Number(size?.max_flavors) || 1, 1),
+      pricePerSlice,
+      premiumPerSlice,
+      badges: [],
+      classification: null,
+    };
+  });
+
+  const activeMetrics = metrics.filter((metric) => metric.isActive);
+  const validTradMetrics = activeMetrics.filter((metric) => metric.tradPrice > 0);
+  const validSliceMetrics = activeMetrics.filter((metric) => metric.pricePerSlice && metric.pricePerSlice > 0);
+  const validPremiumMetrics = activeMetrics.filter((metric) => metric.premiumDelta > 0);
+
+  const cheapestMetric = validTradMetrics.reduce((selected, metric) => {
+    if (!selected || metric.tradPrice < selected.tradPrice) return metric;
+    return selected;
+  }, null);
+
+  const bestValueMetric = validSliceMetrics.reduce((selected, metric) => {
+    if (!selected || metric.pricePerSlice < selected.pricePerSlice) return metric;
+    if (selected && metric.pricePerSlice === selected.pricePerSlice && metric.slices > selected.slices) return metric;
+    return selected;
+  }, null);
+
+  const highestTicketMetric = activeMetrics.reduce((selected, metric) => {
+    const metricTicket = metric.premiumPrice || metric.tradPrice || 0;
+    const selectedTicket = selected ? (selected.premiumPrice || selected.tradPrice || 0) : 0;
+    if (!selected || metricTicket > selectedTicket) return metric;
+    return selected;
+  }, null);
+
+  const strongestPremiumMetric = validPremiumMetrics.reduce((selected, metric) => {
+    if (!selected || metric.premiumDelta > selected.premiumDelta) return metric;
+    return selected;
+  }, null);
+
+  metrics.forEach((metric) => {
+    if (cheapestMetric?.id === metric.id) {
+      metric.badges.push('Entrada barata');
+    }
+    if (bestValueMetric?.id === metric.id) {
+      metric.badges.push('Melhor custo-beneficio');
+      metric.classification = 'Melhor custo-beneficio';
+    }
+    if (!metric.classification && highestTicketMetric?.id === metric.id) {
+      metric.badges.push('Mais lucrativo');
+      metric.classification = 'Mais lucrativo';
+    }
+    if (!metric.classification && cheapestMetric?.id === metric.id) {
+      metric.classification = 'Mais barato';
+    }
+    if (strongestPremiumMetric?.id === metric.id) {
+      metric.badges.push('Premium forte');
+      if (!metric.classification) {
+        metric.classification = 'Premium';
+      }
+    }
+    if (!metric.classification) {
+      metric.classification = metric.isActive ? 'Equilibrado' : 'Inativo';
+    }
+  });
+
+  const alerts = [];
+  const lowPremiumMetrics = validPremiumMetrics.filter((metric) => metric.tradPrice > 0 && (metric.premiumDelta / metric.tradPrice) < 0.12);
+  if (lowPremiumMetrics.length > 0) {
+    alerts.push({
+      tone: 'amber',
+      title: 'Diferenca entre tradicional e premium esta baixa',
+      description: `Os tamanhos ${lowPremiumMetrics.map((metric) => metric.name).join(', ')} podem nao destacar valor premium com clareza.`
+    });
+  }
+
+  if (validSliceMetrics.length >= 2) {
+    const sliceValues = validSliceMetrics.map((metric) => metric.pricePerSlice);
+    const minSlice = Math.min(...sliceValues);
+    const maxSlice = Math.max(...sliceValues);
+    if ((maxSlice - minSlice) >= 1.2) {
+      alerts.push({
+        tone: 'sky',
+        title: 'Preco por fatia varia bastante entre tamanhos',
+        description: 'Vale revisar a escada de valor para o cliente entender melhor a diferenca entre P, M e G.'
+      });
+    }
+  }
+
+  const largestMetric = activeMetrics.reduce((selected, metric) => {
+    if (!selected || metric.slices > selected.slices) return metric;
+    return selected;
+  }, null);
+  const smallestMetric = activeMetrics.reduce((selected, metric) => {
+    if (!selected || (metric.slices > 0 && metric.slices < selected.slices)) return metric;
+    return selected;
+  }, null);
+  if (
+    largestMetric?.pricePerSlice
+    && smallestMetric?.pricePerSlice
+    && largestMetric.pricePerSlice < (smallestMetric.pricePerSlice * 0.9)
+  ) {
+    alerts.push({
+      tone: 'violet',
+      title: `${largestMetric.name} pode estar subvalorizado`,
+      description: `O maior tamanho esta com preco por fatia bem mais baixo que ${smallestMetric.name}. Isso ajuda conversao, mas pode reduzir margem.`
+    });
+  }
+
+  const highlights = [
+    cheapestMetric ? {
+      tone: 'slate',
+      label: 'Entrada barata',
+      title: cheapestMetric.name,
+      description: `${formatCurrency(cheapestMetric.tradPrice)} tradicional`
+    } : null,
+    bestValueMetric ? {
+      tone: 'emerald',
+      label: 'Melhor custo-beneficio',
+      title: bestValueMetric.name,
+      description: `${formatPricePerSlice(bestValueMetric.tradPrice, bestValueMetric.slices)} por fatia`
+    } : null,
+    highestTicketMetric ? {
+      tone: 'orange',
+      label: 'Mais lucrativo',
+      title: highestTicketMetric.name,
+      description: `${formatCurrency(highestTicketMetric.premiumPrice || highestTicketMetric.tradPrice)} de ticket base`
+    } : null,
+  ].filter(Boolean);
+
+  const metricsById = metrics.reduce((accumulator, metric) => {
+    accumulator[metric.id] = metric;
+    return accumulator;
+  }, {});
+
+  return {
+    metrics,
+    metricsById,
+    alerts: alerts.slice(0, 3),
+    highlights,
+  };
+};
+
 export default function PizzaConfigTab() {
   const [user, setUser] = React.useState(null);
-  const [activeTab, setActiveTab] = useState('pizzas');
+  const [activeTab, setActiveTab] = useState('menu');
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedTemplateId, setSelectedTemplateId] = useState('delivery');
+  const [runningAssistantActionId, setRunningAssistantActionId] = useState('');
   
   // Modals
   const [showSizeModal, setShowSizeModal] = useState(false);
@@ -57,7 +262,7 @@ export default function PizzaConfigTab() {
     loadUser();
   }, []);
 
-  // ✅ Para master (slug): buscar complementos do cardápio público (mesma fonte que MyPizzasTab)
+  // âœ… Para master (slug): buscar complementos do cardÃ¡pio pÃºblico (mesma fonte que MyPizzasTab)
   const { data: publicCardapio } = useQuery({
     queryKey: ['publicCardapio', slug],
     queryFn: async () => {
@@ -82,7 +287,7 @@ export default function PizzaConfigTab() {
     ? menuContext.subscriber_id ?? null
     : tenantSubscriberId;
   const fallbackOwnerEmail = slug ? null : (user?.subscriber_email || user?.email || null);
-  const entityOwnerEmail = scopedSubscriberEmail || fallbackOwnerEmail; // Compatibilidade transitória: o backend legado ainda persiste owner_email.
+  const entityOwnerEmail = scopedSubscriberEmail || fallbackOwnerEmail; // Compatibilidade transitÃ³ria: o backend legado ainda persiste owner_email.
   const entityContextOpts = buildTenantEntityOpts({ subscriberId: scopedSubscriberId, subscriberEmail: scopedSubscriberEmail });
 
   const normalizedSearchTerm = searchTerm.trim().toLowerCase();
@@ -93,7 +298,21 @@ export default function PizzaConfigTab() {
       || String(item?.description || '').toLowerCase().includes(normalizedSearchTerm);
   }, [normalizedSearchTerm]);
 
-  // ✅ Admin API (usada quando não há slug); com slug usamos publicCardapio para exibir
+  const { data: adminDishesRaw = [] } = useQuery({
+    queryKey: ['dishes', ...getMenuContextQueryKeyParts(menuContext)],
+    queryFn: async () => {
+      if (!menuContext) return [];
+      return await fetchAdminDishes(menuContext);
+    },
+    enabled: !!menuContext && !slug,
+    placeholderData: keepPreviousData,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: false,
+    staleTime: 30000,
+    gcTime: 60000,
+  });
+
+  // âœ… Admin API (usada quando nÃ£o hÃ¡ slug); com slug usamos publicCardapio para exibir
   const { data: adminSizes = [] } = useQuery({
     queryKey: ['pizzaSizes', ...getMenuContextQueryKeyParts(menuContext)],
     queryFn: async () => {
@@ -148,6 +367,405 @@ export default function PizzaConfigTab() {
   const filteredFlavors = useMemo(() => flavors.filter((item) => matchesSearch(item)), [flavors, matchesSearch]);
   const filteredEdges = useMemo(() => edges.filter((item) => matchesSearch(item)), [edges, matchesSearch]);
   const filteredExtras = useMemo(() => extras.filter((item) => matchesSearch(item)), [extras, matchesSearch]);
+  const dishesRaw = (slug && Array.isArray(publicCardapio?.dishes)) ? publicCardapio.dishes : (adminDishesRaw || []);
+  const pizzaEntries = useMemo(
+    () => (Array.isArray(dishesRaw) ? dishesRaw.filter((dish) => dish?.product_type === 'pizza') : []),
+    [dishesRaw]
+  );
+  const activePizzaEntries = useMemo(
+    () => pizzaEntries.filter((dish) => dish?.is_active !== false),
+    [pizzaEntries]
+  );
+  const flavorUsageById = useMemo(() => {
+    return pizzaEntries.reduce((accumulator, dish) => {
+      const flavorIds = Array.isArray(dish?.pizza_config?.flavor_ids) ? dish.pizza_config.flavor_ids : [];
+      flavorIds.forEach((flavorId) => {
+        const key = String(flavorId);
+        accumulator[key] = (accumulator[key] || 0) + 1;
+      });
+      return accumulator;
+    }, {});
+  }, [pizzaEntries]);
+  const entryCountByPizzaCategoryId = useMemo(() => {
+    return pizzaEntries.reduce((accumulator, dish) => {
+      const key = String(dish?.pizza_category_id || '_sem_categoria');
+      accumulator[key] = (accumulator[key] || 0) + 1;
+      return accumulator;
+    }, {});
+  }, [pizzaEntries]);
+  const sortedPizzaCategories = useMemo(
+    () => [...pizzaCategories].sort((a, b) => (a?.order ?? 999) - (b?.order ?? 999)),
+    [pizzaCategories]
+  );
+  const previewEntries = useMemo(() => activePizzaEntries.slice(0, 6), [activePizzaEntries]);
+  const flavorEntriesById = useMemo(() => {
+    return pizzaEntries.reduce((accumulator, dish) => {
+      const flavorIds = Array.isArray(dish?.pizza_config?.flavor_ids) ? dish.pizza_config.flavor_ids : [];
+      flavorIds.forEach((flavorId) => {
+        const key = String(flavorId);
+        if (!accumulator[key]) accumulator[key] = [];
+        if (!accumulator[key].includes(dish.name)) accumulator[key].push(dish.name);
+      });
+      return accumulator;
+    }, {});
+  }, [pizzaEntries]);
+
+  const [previewEntryId, setPreviewEntryId] = useState('');
+  const [previewSizeId, setPreviewSizeId] = useState('');
+  const [previewFlavorIds, setPreviewFlavorIds] = useState([]);
+  const [previewEdgeId, setPreviewEdgeId] = useState('none');
+  const [previewExtraIds, setPreviewExtraIds] = useState([]);
+
+  const previewEntry = useMemo(
+    () => previewEntries.find((entry) => String(entry.id) === String(previewEntryId)) || previewEntries[0] || null,
+    [previewEntries, previewEntryId]
+  );
+  const previewCategory = useMemo(
+    () => pizzaCategories.find((category) => category.id === previewEntry?.pizza_category_id) || null,
+    [pizzaCategories, previewEntry]
+  );
+  const previewSizes = useMemo(() => {
+    if (!previewEntry) return [];
+    const configuredSizes = Array.isArray(previewEntry?.pizza_config?.sizes)
+      ? previewEntry.pizza_config.sizes.filter(Boolean)
+      : [];
+    if (configuredSizes.length > 0) return configuredSizes;
+    if (previewCategory?.size_id) {
+      const fallbackSize = sizes.find((size) => size.id === previewCategory.size_id);
+      return fallbackSize ? [fallbackSize] : [];
+    }
+    return [];
+  }, [previewEntry, previewCategory, sizes]);
+  const previewSelectedSize = useMemo(
+    () => previewSizes.find((size) => String(size.id) === String(previewSizeId)) || previewSizes[0] || null,
+    [previewSizes, previewSizeId]
+  );
+  const previewFlavorOptions = useMemo(() => {
+    if (!previewEntry) return [];
+    const allowedIds = new Set(Array.isArray(previewEntry?.pizza_config?.flavor_ids) ? previewEntry.pizza_config.flavor_ids : []);
+    return flavors.filter((flavor) => flavor?.is_active !== false && (allowedIds.size === 0 || allowedIds.has(flavor.id)));
+  }, [previewEntry, flavors]);
+  const previewSelectedFlavors = useMemo(
+    () => previewFlavorOptions.filter((flavor) => previewFlavorIds.includes(flavor.id)),
+    [previewFlavorOptions, previewFlavorIds]
+  );
+  const previewEdges = useMemo(
+    () => Array.isArray(previewEntry?.pizza_config?.edges) ? previewEntry.pizza_config.edges.filter((edge) => edge?.is_active !== false) : [],
+    [previewEntry]
+  );
+  const previewExtras = useMemo(
+    () => Array.isArray(previewEntry?.pizza_config?.extras) ? previewEntry.pizza_config.extras.filter((extra) => extra?.is_active !== false) : [],
+    [previewEntry]
+  );
+  const previewSelectedEdge = useMemo(
+    () => previewEdges.find((edge) => String(edge.id) === String(previewEdgeId)) || null,
+    [previewEdges, previewEdgeId]
+  );
+  const previewSelectedExtras = useMemo(
+    () => previewExtras.filter((extra) => previewExtraIds.includes(extra.id)),
+    [previewExtras, previewExtraIds]
+  );
+  const previewMaxFlavors = previewCategory?.max_flavors ?? previewSelectedSize?.max_flavors ?? 1;
+  const previewHasPremium = previewSelectedFlavors.some((flavor) => flavor.category === 'premium');
+  const previewPrice = useMemo(() => {
+    if (!previewSelectedSize) return 0;
+    const basePrice = Number(previewHasPremium ? previewSelectedSize.price_premium : previewSelectedSize.price_tradicional) || 0;
+    const edgePrice = Number(previewSelectedEdge?.price || 0);
+    const extrasPrice = previewSelectedExtras.reduce((sum, extra) => sum + (Number(extra?.price) || 0), 0);
+    return basePrice + edgePrice + extrasPrice;
+  }, [previewHasPremium, previewSelectedEdge, previewSelectedExtras, previewSelectedSize]);
+  const pizzaGuideSteps = useMemo(() => ([
+    {
+      id: 'menu',
+      step: '1',
+      title: 'O que aparece no cardapio',
+      description: 'Entradas comerciais que o cliente realmente escolhe.',
+      metric: `${pizzaEntries.length} entrada(s)`
+    },
+    {
+      id: 'rules',
+      step: '2',
+      title: 'Como o cliente monta',
+      description: 'Regras que controlam sabores, tamanho base e montagem.',
+      metric: `${pizzaCategories.length} regra(s)`
+    },
+    {
+      id: 'flavors',
+      step: '3',
+      title: 'Quais sabores existem',
+      description: 'Base comercial de tradicionais e premium.',
+      metric: `${flavors.length} sabor(es)`
+    },
+    {
+      id: 'sizes',
+      step: '4',
+      title: 'Quanto cada tamanho custa',
+      description: 'Tabela para comparar preco, fatias e limite de sabores.',
+      metric: `${sizes.length} tamanho(s)`
+    },
+    {
+      id: 'addons',
+      step: '5',
+      title: 'O que e opcional',
+      description: 'Bordas e extras que elevam ticket sem travar o fluxo.',
+      metric: `${edges.length + extras.length} opcional(is)`
+    },
+    {
+      id: 'preview',
+      step: '6',
+      title: 'Como isso fica no builder',
+      description: 'Preview quase real para revisar a experiencia final.',
+      metric: `${previewEntries.length} vitrine(s)`
+    }
+  ]), [pizzaEntries.length, pizzaCategories.length, flavors.length, sizes.length, edges.length, extras.length, previewEntries.length]);
+  const pizzaGuidanceCards = useMemo(() => {
+    const activePremiumFlavors = flavors.filter((flavor) => flavor?.is_active !== false && flavor?.category === 'premium').length;
+    const activeEdges = edges.filter((edge) => edge?.is_active !== false).length;
+    const activeExtras = extras.filter((extra) => extra?.is_active !== false).length;
+    const activeRules = pizzaCategories.filter((category) => category?.is_active !== false).length;
+    const rulesWithoutEntries = pizzaCategories.filter((category) => !entryCountByPizzaCategoryId[String(category.id)]).length;
+    const multiFlavorRules = pizzaCategories.filter((category) => (Number(category?.max_flavors) || 1) >= 2).length;
+    const suggestions = [];
+
+    if (pizzaEntries.length === 0 && activeRules > 0 && sizes.length > 0 && flavors.length > 0) {
+      suggestions.push({
+        tone: 'emerald',
+        title: 'Base pronta para vender',
+        description: 'Voce ja tem regra, tamanhos e sabores suficientes para publicar sua primeira entrada comercial.'
+      });
+    }
+    if (rulesWithoutEntries > 0) {
+      suggestions.push({
+        tone: 'amber',
+        title: 'Existem regras sem entrada publica',
+        description: `${rulesWithoutEntries} regra(s) ainda nao aparecem no cardapio. Vale conectar isso a uma entrada comercial.`
+      });
+    }
+    if (multiFlavorRules > 0 && sizes.length <= 1) {
+      suggestions.push({
+        tone: 'rose',
+        title: 'Entradas de 2 sabores pedem mais de um tamanho',
+        description: 'Se voce vender 2 sabores, considere deixar M e G ativos para o cliente perceber opcao real.'
+      });
+    }
+    if (pizzaEntries.length > 0 && activePremiumFlavors === 0) {
+      suggestions.push({
+        tone: 'sky',
+        title: 'Premium ainda nao entrou no jogo',
+        description: 'Adicionar ao menos um sabor premium aumenta o valor percebido e melhora a leitura comercial.'
+      });
+    }
+    if (pizzaEntries.length > 0 && activeEdges === 0 && activeExtras === 0) {
+      suggestions.push({
+        tone: 'violet',
+        title: 'Sem upgrades de ticket',
+        description: 'Borda ou adicional opcional ajudam a pizzaria a vender mais sem deixar o builder pesado.'
+      });
+    }
+
+    return suggestions.slice(0, 3);
+  }, [pizzaEntries.length, pizzaCategories, entryCountByPizzaCategoryId, sizes.length, flavors, edges, extras]);
+  const previewCommercialChecklist = useMemo(() => {
+    return [
+      { label: 'Entrada comercial ativa', done: Boolean(previewEntry) && previewEntry?.is_active !== false },
+      { label: 'Tamanho pronto para venda', done: Boolean(previewSelectedSize) && ((Number(previewSelectedSize?.price_tradicional || 0) > 0) || (Number(previewSelectedSize?.price_premium || 0) > 0)) },
+      { label: 'Sabores visiveis para o cliente', done: previewSelectedFlavors.length > 0 },
+      { label: 'Preco final coerente', done: previewPrice > 0 },
+      { label: 'Borda opcional configurada', done: previewEdges.length > 0, optional: true },
+      { label: 'Adicionais opcionais configurados', done: previewExtras.length > 0, optional: true }
+    ];
+  }, [previewEntry, previewSelectedSize, previewSelectedFlavors.length, previewPrice, previewEdges.length, previewExtras.length]);
+  const pricingInsights = useMemo(() => buildPizzaPricingInsights(sizes), [sizes]);
+  const previewSizeInsight = useMemo(
+    () => (previewSelectedSize ? pricingInsights.metricsById[String(previewSelectedSize.id)] || null : null),
+    [pricingInsights.metricsById, previewSelectedSize]
+  );
+  const previewCommercialInsights = useMemo(() => {
+    const premiumOptionsCount = previewFlavorOptions.filter((flavor) => flavor.category === 'premium').length;
+    const activeUpgradeCount = (previewEdges.length > 0 ? 1 : 0) + (previewExtras.length > 0 ? 1 : 0) + (premiumOptionsCount > 0 ? 1 : 0);
+    const potentialLabel = activeUpgradeCount >= 3
+      ? 'Bom potencial de ticket'
+      : (activeUpgradeCount >= 2 ? 'Potencial comercial equilibrado' : 'Potencial comercial basico');
+    const insights = [
+      previewSizeInsight?.classification
+        ? `${previewSelectedSize?.name || 'Este tamanho'} aparece como ${previewSizeInsight.classification.toLowerCase()} na matriz comercial.`
+        : 'Compare a matriz de tamanhos para encontrar o ponto ideal entre margem e conversao.',
+      previewHasPremium && previewSizeInsight?.premiumDelta > 0
+        ? `Premium aumenta ${formatCurrency(previewSizeInsight.premiumDelta)} nesta escolha.`
+        : (premiumOptionsCount > 0
+          ? 'Voce ja tem premium liberado para empurrar ticket medio nesta entrada.'
+          : 'Sem sabores premium ativos nesta entrada.'),
+      activeUpgradeCount >= 2
+        ? 'Borda e adicionais deixam esta entrada com boa chance de upsell.'
+        : 'Ativar borda ou adicional pode deixar esta entrada mais forte comercialmente.'
+    ];
+
+    return {
+      potentialLabel,
+      insights,
+    };
+  }, [previewEdges.length, previewExtras.length, previewFlavorOptions, previewHasPremium, previewSelectedSize, previewSizeInsight]);
+  const activeSizes = useMemo(() => sizes.filter((size) => size?.is_active !== false), [sizes]);
+  const inactivePremiumFlavors = useMemo(
+    () => flavors.filter((flavor) => flavor?.category === 'premium' && flavor?.is_active === false),
+    [flavors]
+  );
+  const activePremiumFlavors = useMemo(
+    () => flavors.filter((flavor) => flavor?.category === 'premium' && flavor?.is_active !== false),
+    [flavors]
+  );
+  const inactiveEdges = useMemo(() => edges.filter((edge) => edge?.is_active === false), [edges]);
+  const inactiveExtras = useMemo(() => extras.filter((extra) => extra?.is_active === false), [extras]);
+  const recommendedSizes = useMemo(() => {
+    return [...sizes]
+      .filter(Boolean)
+      .sort((left, right) => getRecommendedSizeRank(right) - getRecommendedSizeRank(left))
+      .slice(0, 2);
+  }, [sizes]);
+  const missingRecommendedSizes = useMemo(() => {
+    const activeIds = new Set(activeSizes.map((size) => String(size.id)));
+    return recommendedSizes.filter((size) => !activeIds.has(String(size.id)));
+  }, [activeSizes, recommendedSizes]);
+  const firstLowPremiumMetric = useMemo(() => {
+    return pricingInsights.metrics.find((metric) => metric.isActive && metric.tradPrice > 0 && metric.premiumDelta > 0 && (metric.premiumDelta / metric.tradPrice) < 0.12)
+      || pricingInsights.metrics.find((metric) => metric.isActive && metric.tradPrice > 0);
+  }, [pricingInsights.metrics]);
+  const canRunAdminActions = Boolean(menuContext) && !slug;
+  const pizzaTemplateCards = useMemo(() => ([
+    {
+      id: 'lean',
+      name: 'Pizzaria enxuta',
+      badge: 'Essencial',
+      audience: 'Boa para operacao simples e cardapio direto.',
+      description: 'Poucos tamanhos, leitura clara e baixa complexidade na montagem.',
+      actionLabel: 'Ver caminho recomendado',
+      actionMode: 'assist',
+      accent: 'border-slate-200 bg-slate-50/80 text-slate-700',
+      impact: [
+        'Foco em 1 sabor e 2 sabores',
+        'Mantem operacao mais simples',
+        'Reduz excesso de opcao no inicio',
+      ],
+    },
+    {
+      id: 'traditional',
+      name: 'Pizzaria tradicional',
+      badge: 'Recomendado',
+      audience: 'Boa para quem quer equilibrio entre clareza e variedade.',
+      description: 'Ativa tamanhos recomendados e deixa a base pronta para vender sem exagero.',
+      actionLabel: 'Aplicar estrutura recomendada',
+      actionMode: 'apply',
+      accent: 'border-orange-200 bg-orange-50/80 text-orange-700',
+      impact: [
+        missingRecommendedSizes.length > 0 ? `Ativa ${missingRecommendedSizes.length} tamanho(s) recomendado(s)` : 'Tamanhos recomendados ja estao ativos',
+        activePremiumFlavors.length > 0 ? 'Premium ja esta disponivel' : 'Mantem foco comercial sem forcar premium',
+        (activeSizes.length >= 2 ? 'Base de escolha equilibrada' : 'Amplia opcoes do cardapio'),
+      ],
+    },
+    {
+      id: 'delivery',
+      name: 'Pizzaria delivery',
+      badge: 'Delivery',
+      audience: 'Boa para fluxo rapido e ticket com upsell leve.',
+      description: 'Combina tamanhos fortes, borda opcional e extra simples para vender mais sem travar o pedido.',
+      actionLabel: 'Aplicar pacote delivery',
+      actionMode: 'apply',
+      accent: 'border-sky-200 bg-sky-50/80 text-sky-700',
+      impact: [
+        missingRecommendedSizes.length > 0 ? 'Ativa tamanhos mais fortes para escolha rapida' : 'Mantem tamanhos fortes ja ativos',
+        inactiveEdges.length > 0 ? 'Liga ao menos uma borda' : 'Borda ja esta pronta',
+        inactiveExtras.length > 0 ? 'Liga ao menos um adicional' : 'Adicionais ja estao prontos',
+      ],
+    },
+    {
+      id: 'premium',
+      name: 'Pizzaria premium',
+      badge: 'Premium',
+      audience: 'Boa para elevar valor percebido e ticket medio.',
+      description: 'Ativa premium disponivel e leva voce direto para ajustar a escada de preco com clareza.',
+      actionLabel: inactivePremiumFlavors.length > 0 ? 'Ativar premium e revisar preco' : 'Revisar escada premium',
+      actionMode: 'hybrid',
+      accent: 'border-amber-200 bg-amber-50/80 text-amber-700',
+      impact: [
+        inactivePremiumFlavors.length > 0 ? `Ativa ${inactivePremiumFlavors.length} sabor(es) premium` : 'Premium ja esta ativo',
+        firstLowPremiumMetric ? `Leva para revisar ${firstLowPremiumMetric.name}` : 'Leva para revisar a matriz premium',
+        'Melhora percepcao de valor no builder',
+      ],
+    },
+    {
+      id: 'upsell',
+      name: 'Upsell forte',
+      badge: 'Ticket',
+      audience: 'Boa para quem quer empurrar borda, adicional e premium.',
+      description: 'Fortalece extras opcionais e deixa a oferta mais preparada para elevar ticket.',
+      actionLabel: 'Ativar upsell sugerido',
+      actionMode: 'apply',
+      accent: 'border-violet-200 bg-violet-50/80 text-violet-700',
+      impact: [
+        inactiveEdges.length > 0 ? 'Liga borda para oferta premium' : 'Borda ja esta ativa',
+        inactiveExtras.length > 0 ? 'Liga adicional para upsell' : 'Adicional ja esta ativo',
+        activePremiumFlavors.length > 0 ? 'Premium ajuda a sustentar ticket' : 'Premium ainda pode ser reforcado',
+      ],
+    },
+  ]), [activePremiumFlavors.length, activeSizes.length, firstLowPremiumMetric, inactiveEdges.length, inactiveExtras.length, inactivePremiumFlavors.length, missingRecommendedSizes.length]);
+  const selectedPizzaTemplate = useMemo(
+    () => pizzaTemplateCards.find((template) => template.id === selectedTemplateId) || pizzaTemplateCards[0] || null,
+    [pizzaTemplateCards, selectedTemplateId]
+  );
+  const assistantActions = useMemo(() => {
+    const actions = [];
+    if (missingRecommendedSizes.length > 0) {
+      actions.push({
+        id: 'recommended-sizes',
+        tone: 'orange',
+        title: 'Organizar tamanhos recomendados',
+        description: `Ativa ${missingRecommendedSizes.map((size) => size.name).join(', ')} para deixar a vitrine mais forte.`,
+        actionLabel: 'Aplicar agora',
+      });
+    }
+    if (inactiveEdges.length > 0 || inactiveExtras.length > 0) {
+      actions.push({
+        id: 'upsell-activation',
+        tone: 'violet',
+        title: 'Ativar upsell sugerido',
+        description: 'Liga ao menos uma borda e um adicional para melhorar ticket sem complicar o builder.',
+        actionLabel: 'Ativar upsell',
+      });
+    }
+    if (inactivePremiumFlavors.length > 0 || firstLowPremiumMetric) {
+      actions.push({
+        id: 'premium-improvement',
+        tone: 'amber',
+        title: 'Melhorar diferenca premium',
+        description: inactivePremiumFlavors.length > 0
+          ? 'Ative sabores premium e revise o tamanho com menor diferenca de valor.'
+          : 'Abra o tamanho mais sensivel para revisar a escada premium.',
+        actionLabel: inactivePremiumFlavors.length > 0 ? 'Preparar premium' : 'Abrir ajuste',
+      });
+    }
+    return actions.slice(0, 3);
+  }, [firstLowPremiumMetric, inactiveEdges.length, inactiveExtras.length, inactivePremiumFlavors.length, missingRecommendedSizes]);
+
+  React.useEffect(() => {
+    if (!previewEntries.length) return;
+    setPreviewEntryId((current) => {
+      if (current && previewEntries.some((entry) => String(entry.id) === String(current))) return current;
+      return previewEntries[0].id;
+    });
+  }, [previewEntries]);
+
+  React.useEffect(() => {
+    if (!previewEntry) return;
+    const firstSize = previewSizes[0]?.id || '';
+    const allowedFlavorIds = Array.isArray(previewEntry?.pizza_config?.flavor_ids)
+      ? previewEntry.pizza_config.flavor_ids
+      : [];
+    const firstFlavorId = previewEntry?.default_flavor_id || allowedFlavorIds[0] || '';
+    setPreviewSizeId(firstSize);
+    setPreviewFlavorIds(firstFlavorId ? [firstFlavorId] : []);
+    setPreviewEdgeId('none');
+    setPreviewExtraIds([]);
+  }, [previewEntry, previewSizes]);
 
   // Mutations - Sizes
   const createSizeMutation = useMutation({
@@ -181,7 +799,7 @@ export default function PizzaConfigTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzaSizes'] });
       if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
-      toast.success('Tamanho excluído!');
+      toast.success('Tamanho excluÃ­do!');
     },
   });
 
@@ -217,7 +835,7 @@ export default function PizzaConfigTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzaFlavors'] });
       if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
-      toast.success('Sabor excluído!');
+      toast.success('Sabor excluÃ­do!');
     },
   });
 
@@ -253,7 +871,7 @@ export default function PizzaConfigTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzaEdges'] });
       if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
-      toast.success('Borda excluída!');
+      toast.success('Borda excluÃ­da!');
     },
   });
 
@@ -289,7 +907,7 @@ export default function PizzaConfigTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzaExtras'] });
       if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
-      toast.success('Extra excluído!');
+      toast.success('Extra excluÃ­do!');
     },
   });
 
@@ -325,174 +943,1128 @@ export default function PizzaConfigTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzaCategories'] });
       if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
-      toast.success('Categoria excluída!');
+      toast.success('Categoria excluÃ­da!');
     },
   });
+  const invalidatePizzaConfigQueries = React.useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['pizzaSizes'] });
+    queryClient.invalidateQueries({ queryKey: ['pizzaFlavors'] });
+    queryClient.invalidateQueries({ queryKey: ['pizzaEdges'] });
+    queryClient.invalidateQueries({ queryKey: ['pizzaExtras'] });
+    queryClient.invalidateQueries({ queryKey: ['pizzaCategories'] });
+    queryClient.invalidateQueries({ queryKey: ['dishes', ...getMenuContextQueryKeyParts(menuContext)] });
+    if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
+  }, [menuContext, queryClient, slug]);
+
+  const applySafeUpdates = React.useCallback(async ({ sizes: nextSizes = [], flavors: nextFlavors = [], edges: nextEdges = [], extras: nextExtras = [] }) => {
+    const requests = [
+      ...nextSizes.map((size) => apiClient.entities.PizzaSize.update(size.id, size.data, entityContextOpts)),
+      ...nextFlavors.map((flavor) => apiClient.entities.PizzaFlavor.update(flavor.id, flavor.data, entityContextOpts)),
+      ...nextEdges.map((edge) => apiClient.entities.PizzaEdge.update(edge.id, edge.data, entityContextOpts)),
+      ...nextExtras.map((extra) => apiClient.entities.PizzaExtra.update(extra.id, extra.data, entityContextOpts)),
+    ];
+
+    if (requests.length === 0) return false;
+
+    await Promise.all(requests);
+    invalidatePizzaConfigQueries();
+    return true;
+  }, [entityContextOpts, invalidatePizzaConfigQueries]);
+
+  const handleAssistantAction = React.useCallback(async (actionId) => {
+    if (!canRunAdminActions) {
+      toast('As acoes automaticas so ficam disponiveis no admin da loja.');
+      return false;
+    }
+
+    try {
+      setRunningAssistantActionId(actionId);
+
+      if (actionId === 'recommended-sizes') {
+        if (missingRecommendedSizes.length === 0) {
+          toast('Os tamanhos recomendados ja estao ativos.');
+          return false;
+        }
+        const accepted = window.confirm(
+          `Vamos ativar ${missingRecommendedSizes.map((size) => size.name).join(', ')} para deixar a vitrine mais forte. Deseja continuar?`
+        );
+        if (!accepted) return false;
+
+        const applied = await applySafeUpdates({
+          sizes: missingRecommendedSizes.map((size) => ({
+            id: size.id,
+            data: { ...size, is_active: true },
+          })),
+        });
+        if (applied) {
+          toast.success('Tamanhos recomendados ativados.');
+          setActiveTab('sizes');
+        }
+        return applied;
+      }
+
+      if (actionId === 'upsell-activation') {
+        const edgeToActivate = inactiveEdges[0] || null;
+        const extraToActivate = inactiveExtras[0] || null;
+        if (!edgeToActivate && !extraToActivate) {
+          toast('A estrutura de upsell ja esta pronta.');
+          return false;
+        }
+        const accepted = window.confirm(
+          `Vamos ligar ${edgeToActivate ? `borda ${edgeToActivate.name}` : 'a borda ja ativa'}${edgeToActivate && extraToActivate ? ' e ' : ''}${extraToActivate ? `adicional ${extraToActivate.name}` : ''}. Deseja continuar?`
+        );
+        if (!accepted) return false;
+
+        const applied = await applySafeUpdates({
+          edges: edgeToActivate ? [{ id: edgeToActivate.id, data: { ...edgeToActivate, is_active: true } }] : [],
+          extras: extraToActivate ? [{ id: extraToActivate.id, data: { ...extraToActivate, is_active: true } }] : [],
+        });
+        if (applied) {
+          toast.success('Upsell basico ativado.');
+          setActiveTab('addons');
+        }
+        return applied;
+      }
+
+      if (actionId === 'premium-improvement') {
+        let applied = false;
+        if (inactivePremiumFlavors.length > 0) {
+          const accepted = window.confirm(
+            `Vamos ativar ${inactivePremiumFlavors.length} sabor(es) premium para reforcar ticket medio e, em seguida, abrir a matriz de precos. Deseja continuar?`
+          );
+          if (!accepted) return false;
+
+          applied = await applySafeUpdates({
+            flavors: inactivePremiumFlavors.map((flavor) => ({
+              id: flavor.id,
+              data: { ...flavor, is_active: true },
+            })),
+          });
+          if (applied) {
+            toast.success('Sabores premium ativados. Revise a escada de precos a seguir.');
+          }
+        }
+        if (firstLowPremiumMetric) {
+          const targetSize = sizes.find((size) => String(size.id) === String(firstLowPremiumMetric.id)) || null;
+          setActiveTab('sizes');
+          if (targetSize) {
+            setEditingSize(targetSize);
+            setShowSizeModal(true);
+            toast('Abrimos o tamanho mais sensivel para voce revisar a diferenca premium.');
+          }
+        } else if (!applied) {
+          setActiveTab('sizes');
+        }
+        return applied || Boolean(firstLowPremiumMetric);
+      }
+    } catch (error) {
+      console.error('Erro ao aplicar assistente da pizzaria:', error);
+      toast.error('Nao foi possivel aplicar a sugestao agora.');
+      return false;
+    } finally {
+      setRunningAssistantActionId('');
+    }
+
+    return false;
+  }, [applySafeUpdates, canRunAdminActions, firstLowPremiumMetric, inactiveEdges, inactiveExtras, inactivePremiumFlavors, missingRecommendedSizes, sizes]);
+
+  const handleTemplateAction = React.useCallback(async (templateId) => {
+    setSelectedTemplateId(templateId);
+
+    if (templateId === 'lean') {
+      setActiveTab('menu');
+      toast('Template enxuto selecionado. Foque em poucas entradas, leitura clara e baixa friccao.');
+      return;
+    }
+
+    if (templateId === 'traditional') {
+      await handleAssistantAction('recommended-sizes');
+      return;
+    }
+
+    if (templateId === 'delivery') {
+      await handleAssistantAction('recommended-sizes');
+      await handleAssistantAction('upsell-activation');
+      setActiveTab('preview');
+      return;
+    }
+
+    if (templateId === 'premium') {
+      await handleAssistantAction('premium-improvement');
+      return;
+    }
+
+    if (templateId === 'upsell') {
+      await handleAssistantAction('upsell-activation');
+      setActiveTab('preview');
+    }
+  }, [handleAssistantAction]);
+
+  const togglePreviewFlavor = (flavorId) => {
+    const normalizedId = String(flavorId);
+    const currentIds = previewFlavorIds.map(String);
+    const alreadySelected = currentIds.includes(normalizedId);
+
+    if (previewMaxFlavors <= 1) {
+      setPreviewFlavorIds(alreadySelected ? [] : [flavorId]);
+      return;
+    }
+
+    if (alreadySelected) {
+      setPreviewFlavorIds(previewFlavorIds.filter((id) => String(id) !== normalizedId));
+      return;
+    }
+
+    if (previewFlavorIds.length >= previewMaxFlavors) return;
+    setPreviewFlavorIds([...previewFlavorIds, flavorId]);
+  };
+
+  const togglePreviewExtra = (extraId) => {
+    const normalizedId = String(extraId);
+    setPreviewExtraIds((current) =>
+      current.map(String).includes(normalizedId)
+        ? current.filter((id) => String(id) !== normalizedId)
+        : [...current, extraId]
+    );
+  };
 
   return (
     <div className="p-6">
       <Toaster position="top-center" />
-      
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Pizzaria</h2>
-        <p className="text-gray-600">Estruture entradas genericas do cardapio, sabores de montagem e personalizacoes do builder premium.</p>
-      </div>
 
-      <div className="mb-6 rounded-2xl border border-orange-200 bg-orange-50/80 p-4 text-sm text-orange-900">
-        <p className="font-semibold">Como o modelo funciona agora</p>
-        <p className="mt-1 text-orange-800">
-          As categorias de pizza representam as entradas comerciais do cardapio. Os sabores funcionam como repertorio interno do builder premium.
+      <div className="mb-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <Badge variant="outline" className="border-orange-200 bg-orange-50 text-orange-700">Pizzaria IA V2</Badge>
+        <h2 className="mt-3 text-3xl font-semibold tracking-tight text-slate-900">Organize a pizzaria de cima para baixo</h2>
+        <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+          Primeiro voce define o que aparece no cardapio. Depois ajusta como o cliente monta cada pizza.
+          Por ultimo organiza sabores, tamanhos, bordas e extras que alimentam o builder publico.
         </p>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid grid-cols-2 w-full max-w-xs">
-          <TabsTrigger value="pizzas">Entradas</TabsTrigger>
-          <TabsTrigger value="visual"><Settings className="w-4 h-4 mr-1" />Visual</TabsTrigger>
-        </TabsList>
+      <div className="mb-6 space-y-4">
+        <Card className="rounded-3xl border-slate-200 p-5 shadow-sm">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600">Guia permanente da pizzaria</Badge>
+              <h3 className="mt-3 text-xl font-semibold text-slate-900">O sistema te conduz pela ordem comercial certa</h3>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Cada etapa abaixo explica em que momento da configuracao voce esta. As abas continuam as mesmas, mas agora a leitura e guiada.</p>
+            </div>
+            <Badge className="w-fit bg-slate-900 text-white">Etapa atual: {pizzaGuideSteps.find((step) => step.id === activeTab)?.title || 'Pizzaria'}</Badge>
+          </div>
 
-        <TabsContent value="pizzas" className="mt-4">
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-4">
-            <MyPizzasTab />
-            <Card className="p-4 h-fit">
-              <h3 className="font-semibold mb-3">Base da montagem</h3>
-              <p className="text-xs text-gray-500 mb-3">Tamanhos, sabores, bordas e extras usados pelas entradas comerciais.</p>
-              
-              {/* Busca */}
-              <div className="mb-3">
-                <div className="relative">
-                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <Input
-                    placeholder="Buscar entradas, sabores, bordas ou extras..."
-                    value={searchTerm}
-                    onChange={(e) => {
-                      setSearchTerm(e.target.value);
-                    }}
-                    className="pl-8 text-sm"
-                  />
-                </div>
+          <div className="mt-5 grid gap-3 xl:grid-cols-6">
+            {pizzaGuideSteps.map((step) => {
+              const active = activeTab === step.id;
+              return (
+                <button
+                  key={step.id}
+                  type="button"
+                  onClick={() => setActiveTab(step.id)}
+                  className={`rounded-2xl border p-4 text-left transition-all duration-200 ${
+                    active
+                      ? 'border-orange-300 bg-orange-50 shadow-sm ring-2 ring-orange-100'
+                      : 'border-slate-200 bg-white hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-sm'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <span className={`inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold ${
+                      active ? 'bg-orange-500 text-white' : 'bg-slate-100 text-slate-600'
+                    }`}>
+                      {step.step}
+                    </span>
+                    <Badge variant={active ? 'default' : 'outline'} className={active ? 'bg-orange-500 hover:bg-orange-500' : ''}>{step.metric}</Badge>
+                  </div>
+                  <p className="mt-3 text-sm font-semibold text-slate-900">{step.title}</p>
+                  <p className="mt-2 text-xs leading-5 text-slate-600">{step.description}</p>
+                </button>
+              );
+            })}
+          </div>
+        </Card>
+
+        {pizzaGuidanceCards.length > 0 ? (
+          <div className="grid gap-4 xl:grid-cols-3">
+            {pizzaGuidanceCards.map((card) => (
+              <Card key={card.title} className={`rounded-2xl border p-5 shadow-sm ${
+                card.tone === 'emerald' ? 'border-emerald-200 bg-emerald-50/70' :
+                card.tone === 'amber' ? 'border-amber-200 bg-amber-50/70' :
+                card.tone === 'rose' ? 'border-rose-200 bg-rose-50/70' :
+                card.tone === 'sky' ? 'border-sky-200 bg-sky-50/70' :
+                'border-violet-200 bg-violet-50/70'
+              }`}>
+                <Badge variant="outline" className="border-white/70 bg-white/70 text-slate-700">Decisao assistida</Badge>
+                <h4 className="mt-3 text-lg font-semibold text-slate-900">{card.title}</h4>
+                <p className="mt-2 text-sm leading-6 text-slate-700">{card.description}</p>
+              </Card>
+            ))}
+          </div>
+        ) : null}
+
+        <Card className="rounded-2xl border-slate-200 p-5 shadow-sm">
+          <div className="grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5">
+              <Badge variant="outline" className="border-slate-200 bg-white text-slate-600">Comece por aqui</Badge>
+              <h3 className="mt-3 text-lg font-semibold text-slate-900">Escolha um caminho e deixe o sistema aplicar o que for seguro</h3>
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                Os templates agora viram acao. O que for sensivel abre em modo assistido; o que for seguro o sistema aplica com confirmacao.
+              </p>
+
+              <div className="mt-4 space-y-3">
+                {[
+                  '1. Escolha um template comercial',
+                  '2. Aplique correcoes rapidas',
+                  '3. Revise impacto no preview',
+                  '4. Publique a entrada com mais seguranca',
+                ].map((step) => (
+                  <div key={step} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-700">
+                    <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-600">
+                      {step.slice(0, 1)}
+                    </span>
+                    <span>{step.slice(3)}</span>
+                  </div>
+                ))}
               </div>
 
-              <Accordion type="multiple" defaultValue={['categories','sizes','flavors']} className="w-full">
-                <AccordionItem value="categories" className="border rounded-lg px-2">
-                  <AccordionTrigger className="py-2 text-sm font-medium hover:no-underline">
-                    Entradas do cardapio ({pizzaCategories.length})
-                  </AccordionTrigger>
-                  <AccordionContent className="pb-2">
-                    <p className="text-[10px] text-gray-500 mb-2">Ex: Tradicional - 2 sabores ou Premium - 1 sabor. Estas entradas aparecem no cardapio publico e abrem o builder premium.</p>
-                    <Button size="sm" onClick={() => { setEditingCategory(null); setShowCategoryModal(true); }} className="mb-2 w-full"><Plus className="w-3 h-3 mr-1" />Nova entrada</Button>
-                    <div className="space-y-1">
-                      {filteredPizzaCategories.map((c) => {
-                        const idx = pizzaCategories.findIndex((category) => category.id === c.id);
-                        const sz = sizes.find(s => s.id === c.size_id);
-                        const moveCategory = (dir) => {
-                          const to = dir === 'up' ? idx - 1 : idx + 1;
-                          if (to < 0 || to >= pizzaCategories.length) return;
-                          const a = pizzaCategories[idx];
-                          const b = pizzaCategories[to];
-                          updateCategoryMutation.mutate({ id: a.id, data: { ...a, order: to } });
-                          updateCategoryMutation.mutate({ id: b.id, data: { ...b, order: idx } });
-                        };
-                        return (
-                          <div key={c.id} className="flex items-center gap-2 p-2 rounded border text-xs group">
-                            <div className="flex flex-col opacity-60 group-hover:opacity-100">
-                              <button type="button" onClick={() => moveCategory('up')} disabled={idx === 0} className="p-0.5 disabled:opacity-30"><ChevronUp className="w-4 h-4" /></button>
-                              <button type="button" onClick={() => moveCategory('down')} disabled={idx === pizzaCategories.length - 1} className="p-0.5 disabled:opacity-30"><ChevronDown className="w-4 h-4" /></button>
-                            </div>
-                            <span className="flex-1 truncate">{c.name || 'Sem nome'} {sz && `(${sz.name} • ${c.max_flavors || 1} sabor${(c.max_flavors || 1) > 1 ? 'es' : ''})`}</span>
-                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={()=>{ setEditingCategory(c); setShowCategoryModal(true); }}><Pencil className="w-3 h-3" /></Button>
-                            <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500" onClick={()=>{ if(confirm('Excluir?')) deleteCategoryMutation.mutate(c.id); }}><Trash2 className="w-3 h-3" /></Button>
+              {selectedPizzaTemplate ? (
+                <div className="mt-4 rounded-2xl border border-orange-200 bg-orange-50/80 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="font-semibold text-slate-900">{selectedPizzaTemplate.name}</p>
+                    <Badge variant="outline" className="border-orange-200 bg-white">{selectedPizzaTemplate.badge}</Badge>
+                  </div>
+                  <p className="mt-2 text-sm text-slate-700">{selectedPizzaTemplate.audience}</p>
+                  <div className="mt-3 space-y-2">
+                    {selectedPizzaTemplate.impact.map((item) => (
+                      <div key={item} className="rounded-xl bg-white/80 px-3 py-2 text-sm text-slate-700">
+                        {item}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <Badge variant="outline" className="border-orange-200 bg-orange-50 text-orange-700">Templates aplicaveis</Badge>
+                  <h3 className="mt-3 text-lg font-semibold text-slate-900">Modelos comerciais com execucao assistida</h3>
+                </div>
+                <Badge variant="outline" className="w-fit">{canRunAdminActions ? 'Pode aplicar agora' : 'Modo leitura'}</Badge>
+              </div>
+
+              <div className="grid gap-3 xl:grid-cols-2">
+                {pizzaTemplateCards.map((template) => {
+                  const selected = selectedTemplateId === template.id;
+                  return (
+                    <div key={template.id} className={`rounded-2xl border p-4 transition-all ${selected ? 'ring-2 ring-orange-100' : ''} ${template.accent}`}>
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="font-semibold">{template.name}</p>
+                        <Badge variant="outline" className="border-current/20 bg-white/70">{template.badge}</Badge>
+                      </div>
+                      <p className="mt-2 text-sm font-medium">{template.audience}</p>
+                      <p className="mt-2 text-sm leading-6">{template.description}</p>
+                      <div className="mt-3 space-y-2">
+                        {template.impact.map((item) => (
+                          <div key={item} className="rounded-xl border border-white/70 bg-white/70 px-3 py-2 text-sm">
+                            {item}
                           </div>
-                        );
-                      })}
+                        ))}
+                      </div>
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          variant={selected ? 'default' : 'outline'}
+                          className={selected ? 'bg-slate-900 hover:bg-slate-800' : ''}
+                          onClick={() => setSelectedTemplateId(template.id)}
+                        >
+                          Ver impacto
+                        </Button>
+                        <Button
+                          type="button"
+                          onClick={() => handleTemplateAction(template.id)}
+                          className="bg-orange-500 hover:bg-orange-600"
+                          disabled={!canRunAdminActions && template.actionMode !== 'assist'}
+                        >
+                          {template.actionLabel}
+                        </Button>
+                      </div>
                     </div>
-                  </AccordionContent>
-                </AccordionItem>
-                <AccordionItem value="sizes" className="border rounded-lg px-2">
-                  <AccordionTrigger className="py-2 text-sm font-medium hover:no-underline">
-                    Tamanhos e preco base ({sizes.length})
-                  </AccordionTrigger>
-                  <AccordionContent className="pb-2">
-                    <p className="text-[10px] text-gray-500 mb-2">Definem fatias, limite de sabores e o valor inicial que aparece como "A partir de".</p>
-                    <Button size="sm" onClick={() => { setEditingSize(null); setShowSizeModal(true); }} className="mb-2 w-full"><Plus className="w-3 h-3 mr-1" />Novo Tamanho</Button>
-                    <div className="space-y-1">
-                      {filteredSizes.map(s => (
-                        <div key={s.id} className="flex items-center gap-2 p-2 rounded border text-xs">
-                          <span className="flex-1 truncate">{s.name} • {s.slices}f • {formatCurrency(s.price_tradicional)}</span>
-                          <Switch checked={s.is_active} onCheckedChange={(c)=>updateSizeMutation.mutate({id:s.id,data:{...s,is_active:c}})} className="scale-75" />
-                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={()=>{ setEditingSize(s); setShowSizeModal(true); }}><Pencil className="w-3 h-3" /></Button>
-                          <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500" onClick={()=>{ if(confirm('Excluir?')) deleteSizeMutation.mutate(s.id); }}><Trash2 className="w-3 h-3" /></Button>
+                  );
+                })}
+              </div>
+
+              {assistantActions.length > 0 ? (
+                <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600">Acoes recomendadas</Badge>
+                      <p className="mt-2 text-sm font-semibold text-slate-900">Transforme insight em ajuste com poucos cliques</p>
+                    </div>
+                    <Badge variant="outline">{assistantActions.length} prioridade(s)</Badge>
+                  </div>
+                  <div className="mt-4 grid gap-3">
+                    {assistantActions.map((action) => (
+                      <div key={action.id} className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-4 lg:flex-row lg:items-center lg:justify-between">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900">{action.title}</p>
+                          <p className="mt-1 text-sm text-slate-600">{action.description}</p>
                         </div>
-                      ))}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => handleAssistantAction(action.id)}
+                          disabled={runningAssistantActionId === action.id || !canRunAdminActions}
+                        >
+                          {runningAssistantActionId === action.id ? 'Aplicando...' : action.actionLabel}
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <TabsList className="flex h-auto w-full flex-wrap justify-start gap-2 rounded-2xl border border-slate-200 bg-white p-2">
+          <TabsTrigger value="menu">Entradas do Cardapio</TabsTrigger>
+          <TabsTrigger value="rules">Regras de Montagem</TabsTrigger>
+          <TabsTrigger value="flavors">Sabores</TabsTrigger>
+          <TabsTrigger value="sizes">Tamanhos e Precos</TabsTrigger>
+          <TabsTrigger value="addons">Bordas e Extras</TabsTrigger>
+          <TabsTrigger value="preview"><Settings className="mr-2 h-4 w-4" />Preview</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="menu" className="space-y-4">
+          <Card className="rounded-2xl border-slate-200 p-5 shadow-sm">
+            <Badge variant="outline" className="border-orange-200 bg-orange-50 text-orange-700">Entrada do cardapio</Badge>
+            <h3 className="mt-3 text-xl font-semibold text-slate-900">O que o cliente realmente enxerga para pedir pizza</h3>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              Esta aba concentra as entradas comerciais do cardapio. E aqui que voce decide nome publico, preco inicial e qual regra de montagem cada entrada usa.
+            </p>
+          </Card>
+          <MyPizzasTab />
+        </TabsContent>
+
+        <TabsContent value="rules" className="space-y-4">
+          <Card className="rounded-2xl border-slate-200 p-5 shadow-sm">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <Badge variant="outline" className="border-sky-200 bg-sky-50 text-sky-700">Regra de montagem</Badge>
+                <h3 className="mt-3 text-xl font-semibold text-slate-900">Como cada entrada e montada no builder</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-600">Aqui voce controla tamanho base e quantos sabores o cliente pode combinar.</p>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <div className="relative min-w-[260px]">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <Input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Buscar regra ou tamanho..." className="pl-9" />
+                </div>
+                <Button onClick={() => { setEditingCategory(null); setShowCategoryModal(true); }} className="bg-orange-500 hover:bg-orange-600">
+                  <Plus className="mr-2 h-4 w-4" />Nova regra
+                </Button>
+              </div>
+            </div>
+          </Card>
+
+          <div className="grid gap-4 xl:grid-cols-2">
+            {sortedPizzaCategories.filter((category) => matchesSearch(category)).map((category) => {
+              const size = sizes.find((item) => item.id === category.size_id);
+              const entryCount = entryCountByPizzaCategoryId[String(category.id)] || 0;
+              const index = sortedPizzaCategories.findIndex((item) => item.id === category.id);
+              const moveCategory = (direction) => {
+                const targetIndex = direction === 'up' ? index - 1 : index + 1;
+                if (targetIndex < 0 || targetIndex >= sortedPizzaCategories.length) return;
+                const current = sortedPizzaCategories[index];
+                const target = sortedPizzaCategories[targetIndex];
+                updateCategoryMutation.mutate({ id: current.id, data: { ...current, order: targetIndex } });
+                updateCategoryMutation.mutate({ id: target.id, data: { ...target, order: index } });
+              };
+
+              return (
+                <Card key={category.id} className="rounded-2xl border-slate-200 p-5 shadow-sm">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600">Regra-base</Badge>
+                      <h4 className="mt-3 text-lg font-semibold text-slate-900">{category.name || 'Regra sem nome'}</h4>
+                      <p className="mt-1 text-sm text-slate-600">
+                        {size ? `${size.name} • ${size.slices} fatias` : 'Sem tamanho'} • {category.max_flavors || 1} sabor(es)
+                      </p>
                     </div>
-                  </AccordionContent>
-                </AccordionItem>
-                <AccordionItem value="flavors" className="border rounded-lg px-2">
-                  <AccordionTrigger className="py-2 text-sm font-medium hover:no-underline">
-                    Sabores de montagem ({flavors.length})
-                  </AccordionTrigger>
-                  <AccordionContent className="pb-2">
-                    <p className="text-[10px] text-gray-500 mb-2">Eles nao precisam ser itens principais do cardapio. Funcionam como opcoes do builder premium.</p>
-                    <Button size="sm" onClick={() => { setEditingFlavor(null); setShowFlavorModal(true); }} className="mb-2 w-full"><Plus className="w-3 h-3 mr-1" />Novo</Button>
-                    <div className="space-y-1">
-                      {filteredFlavors.map(f => (
-                        <div key={f.id} className="flex items-center gap-2 p-2 rounded border text-xs">
-                          {f.image && <img src={f.image} alt="" className="w-8 h-8 rounded object-cover flex-shrink-0" />}
-                          <span className="flex-1 truncate">{f.name}</span>
-                          <Badge variant="outline" className="text-[10px]">{f.category==='premium'?'⭐':'🍕'}</Badge>
-                          <Switch checked={f.is_active} onCheckedChange={(c)=>updateFlavorMutation.mutate({id:f.id,data:{...f,is_active:c}})} className="scale-75" />
-                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={()=>{ setEditingFlavor(f); setShowFlavorModal(true); }}><Pencil className="w-3 h-3" /></Button>
-                          <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500" onClick={()=>{ if(confirm('Excluir?')) deleteFlavorMutation.mutate(f.id); }}><Trash2 className="w-3 h-3" /></Button>
-                        </div>
-                      ))}
+                    <div className="flex items-center gap-1">
+                      <Button variant="ghost" size="icon" onClick={() => moveCategory('up')} disabled={index === 0}><ChevronUp className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" onClick={() => moveCategory('down')} disabled={index === sortedPizzaCategories.length - 1}><ChevronDown className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" onClick={() => { setEditingCategory(category); setShowCategoryModal(true); }}><Pencil className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" className="text-red-500" onClick={() => { if (confirm('Excluir esta regra?')) deleteCategoryMutation.mutate(category.id); }}><Trash2 className="h-4 w-4" /></Button>
                     </div>
-                  </AccordionContent>
-                </AccordionItem>
-                <AccordionItem value="edges" className="border rounded-lg px-2">
-                  <AccordionTrigger className="py-2 text-sm font-medium hover:no-underline">
-                    Bordas ({edges.length})
-                  </AccordionTrigger>
-                  <AccordionContent className="pb-2">
-                    <Button size="sm" onClick={() => { setEditingEdge(null); setShowEdgeModal(true); }} className="mb-2 w-full"><Plus className="w-3 h-3 mr-1" />Nova</Button>
-                    <div className="space-y-1">
-                      {filteredEdges.map(e => (
-                        <div key={e.id} className="flex items-center gap-2 p-2 rounded border text-xs">
-                          {e.image && <img src={e.image} alt="" className="w-8 h-8 rounded object-cover flex-shrink-0" />}
-                          <span className="flex-1 truncate">{e.name} {formatCurrency(e.price)}</span>
-                          <Switch checked={e.is_active} onCheckedChange={(c)=>updateEdgeMutation.mutate({id:e.id,data:{...e,is_active:c}})} className="scale-75" />
-                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={()=>{ setEditingEdge(e); setShowEdgeModal(true); }}><Pencil className="w-3 h-3" /></Button>
-                          <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500" onClick={()=>{ if(confirm('Excluir?')) deleteEdgeMutation.mutate(e.id); }}><Trash2 className="w-3 h-3" /></Button>
-                        </div>
-                      ))}
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-                <AccordionItem value="extras" className="border rounded-lg px-2">
-                  <AccordionTrigger className="py-2 text-sm font-medium hover:no-underline">
-                    Extras ({extras.length})
-                  </AccordionTrigger>
-                  <AccordionContent className="pb-2">
-                    <Button size="sm" onClick={() => { setEditingExtra(null); setShowExtraModal(true); }} className="mb-2 w-full"><Plus className="w-3 h-3 mr-1" />Novo</Button>
-                    <div className="space-y-1 max-h-96 overflow-y-auto">
-                      {filteredExtras.map(x => (
-                        <div key={x.id} className="flex items-center gap-2 p-2 rounded border text-xs">
-                          {x.image && <img src={x.image} alt="" className="w-8 h-8 rounded object-cover flex-shrink-0" />}
-                          <span className="flex-1 truncate">{x.name} {formatCurrency(x.price)}</span>
-                          <Switch checked={x.is_active} onCheckedChange={(c)=>updateExtraMutation.mutate({id:x.id,data:{...x,is_active:c}})} className="scale-75" />
-                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={()=>{ setEditingExtra(x); setShowExtraModal(true); }}><Pencil className="w-3 h-3" /></Button>
-                          <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500" onClick={()=>{ if(confirm('Excluir?')) deleteExtraMutation.mutate(x.id); }}><Trash2 className="w-3 h-3" /></Button>
-                        </div>
-                      ))}
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-              </Accordion>
-            </Card>
+                  </div>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <Badge variant="secondary">{entryCount} entrada(s)</Badge>
+                    <Badge variant="outline">{size ? `A partir de ${formatCurrency(size.price_tradicional || size.price_premium)}` : 'Sem preco'}</Badge>
+                    <Badge variant="outline">{formatFlavorAllowance(category.max_flavors)}</Badge>
+                  </div>
+                </Card>
+              );
+            })}
           </div>
         </TabsContent>
 
-        <TabsContent value="visual" className="mt-4">
-          <PizzaVisualizationSettings />
+        <TabsContent value="flavors" className="space-y-4">
+          <Card className="rounded-2xl border-slate-200 p-5 shadow-sm">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700">Catalogo de sabores</Badge>
+                <h3 className="mt-3 text-xl font-semibold text-slate-900">Banco de sabores da pizzaria</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-600">Sabores sao base tecnica do builder, nao entradas do cardapio.</p>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <div className="relative min-w-[260px]">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <Input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Buscar sabor..." className="pl-9" />
+                </div>
+                <Button onClick={() => { setEditingFlavor(null); setShowFlavorModal(true); }} className="bg-orange-500 hover:bg-orange-600">
+                  <Plus className="mr-2 h-4 w-4" />Novo sabor
+                </Button>
+              </div>
+            </div>
+          </Card>
+
+          <div className="grid gap-4 xl:grid-cols-2">
+            {filteredFlavors.map((flavor) => {
+              const usageCount = flavorUsageById[String(flavor.id)] || 0;
+              return (
+                <Card key={flavor.id} className="rounded-2xl border-slate-200 p-5 shadow-sm">
+                  <div className="flex gap-4">
+                    {flavor.image ? <img src={flavor.image} alt={flavor.name} className="h-20 w-20 rounded-xl object-cover" /> : <div className="flex h-20 w-20 items-center justify-center rounded-xl bg-slate-100 text-xs text-slate-500">Sem foto</div>}
+                    <div className="flex-1">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <h4 className="text-lg font-semibold text-slate-900">{flavor.name}</h4>
+                          <p className="mt-1 text-sm text-slate-600">{flavor.description || 'Sem descricao cadastrada.'}</p>
+                        </div>
+                        <Switch checked={flavor.is_active} onCheckedChange={(checked) => updateFlavorMutation.mutate({ id: flavor.id, data: { ...flavor, is_active: checked } })} />
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <Badge variant={flavor.category === 'premium' ? 'default' : 'secondary'} className={flavor.category === 'premium' ? 'bg-amber-500 hover:bg-amber-500' : ''}>
+                          {flavor.category === 'premium' ? 'Sabor premium' : 'Sabor tradicional'}
+                        </Badge>
+                        <Badge variant="outline">{usageCount} entrada(s)</Badge>
+                        {flavor.prep_time ? <Badge variant="outline">{flavor.prep_time} min</Badge> : null}
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {(flavorEntriesById[String(flavor.id)] || []).slice(0, 3).map((entryName) => (
+                          <Badge key={entryName} variant="outline" className="bg-white text-[11px] text-slate-600">
+                            {entryName}
+                          </Badge>
+                        ))}
+                        {usageCount > 3 ? (
+                          <Badge variant="outline" className="bg-white text-[11px] text-slate-600">
+                            +{usageCount - 3} entrada(s)
+                          </Badge>
+                        ) : null}
+                      </div>
+                      <div className="mt-4 flex gap-2">
+                        <Button variant="outline" size="sm" onClick={() => { setEditingFlavor(flavor); setShowFlavorModal(true); }}><Pencil className="mr-2 h-4 w-4" />Editar</Button>
+                        <Button variant="outline" size="sm" className="text-red-500" onClick={() => { if (confirm('Excluir este sabor?')) deleteFlavorMutation.mutate(flavor.id); }}><Trash2 className="mr-2 h-4 w-4" />Excluir</Button>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="sizes" className="space-y-4">
+          <Card className="rounded-2xl border-slate-200 p-5 shadow-sm">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <Badge variant="outline" className="border-violet-200 bg-violet-50 text-violet-700">Tamanhos e precos</Badge>
+                <h3 className="mt-3 text-xl font-semibold text-slate-900">Tabela base de tamanhos e preco inicial</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-600">Cada linha mostra tamanho, fatias, limite de sabores e valor base.</p>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <div className="relative min-w-[260px]">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <Input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Buscar tamanho..." className="pl-9" />
+                </div>
+                <Button onClick={() => { setEditingSize(null); setShowSizeModal(true); }} className="bg-orange-500 hover:bg-orange-600">
+                  <Plus className="mr-2 h-4 w-4" />Novo tamanho
+                </Button>
+              </div>
+            </div>
+          </Card>
+
+          {pricingInsights.highlights.length > 0 ? (
+            <div className="grid gap-3 md:grid-cols-3">
+              {pricingInsights.highlights.map((highlight) => {
+                const toneClass = highlight.tone === 'emerald'
+                  ? 'border-emerald-200 bg-emerald-50/80 text-emerald-700'
+                  : highlight.tone === 'orange'
+                    ? 'border-orange-200 bg-orange-50/80 text-orange-700'
+                    : 'border-slate-200 bg-slate-50/80 text-slate-700';
+
+                return (
+                  <Card key={highlight.label} className={`rounded-2xl p-4 shadow-sm ${toneClass}`}>
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em]">{highlight.label}</p>
+                    <p className="mt-2 text-lg font-semibold text-slate-900">{highlight.title}</p>
+                    <p className="mt-1 text-sm text-slate-700">{highlight.description}</p>
+                  </Card>
+                );
+              })}
+            </div>
+          ) : null}
+
+          {pricingInsights.alerts.length > 0 ? (
+            <div className="grid gap-3">
+              {pricingInsights.alerts.map((alert) => {
+                const toneClass = alert.tone === 'amber'
+                  ? 'border-amber-200 bg-amber-50/80'
+                  : alert.tone === 'sky'
+                    ? 'border-sky-200 bg-sky-50/80'
+                    : 'border-violet-200 bg-violet-50/80';
+
+                return (
+                  <Card key={alert.title} className={`rounded-2xl p-4 shadow-sm ${toneClass}`}>
+                    <div className="flex items-start gap-3">
+                      <Badge variant="outline" className="bg-white">Insight comercial</Badge>
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">{alert.title}</p>
+                        <p className="mt-1 text-sm text-slate-600">{alert.description}</p>
+                      </div>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          ) : null}
+
+          <Card className="overflow-hidden rounded-2xl border-slate-200 shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-slate-200 text-sm">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-medium text-slate-500">Tamanho</th>
+                    <th className="px-4 py-3 text-left font-medium text-slate-500">Fatias</th>
+                    <th className="px-4 py-3 text-left font-medium text-slate-500">Max. sabores</th>
+                    <th className="px-4 py-3 text-left font-medium text-slate-500">Tradicional</th>
+                    <th className="px-4 py-3 text-left font-medium text-slate-500">Premium</th>
+                    <th className="px-4 py-3 text-left font-medium text-slate-500">Dif. premium</th>
+                    <th className="px-4 py-3 text-left font-medium text-slate-500">Preco/fatia</th>
+                    <th className="px-4 py-3 text-left font-medium text-slate-500">Leitura comercial</th>
+                    <th className="px-4 py-3 text-left font-medium text-slate-500">Status</th>
+                    <th className="px-4 py-3 text-right font-medium text-slate-500">Acoes</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {filteredSizes.map((size, index) => (
+                    <tr key={size.id}>
+                      {(() => {
+                        const sizeInsight = pricingInsights.metricsById[String(size.id)];
+                        return (
+                          <>
+                      <td className="px-4 py-4">
+                        <div>
+                          <p className="font-medium text-slate-900">{size.name}</p>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {index === 0 ? <Badge variant="outline" className="text-[11px]">Essencial</Badge> : null}
+                            {(Number(size.max_flavors) || 1) >= 2 ? <Badge variant="secondary" className="text-[11px]">Recomendado</Badge> : null}
+                            {(Number(size.price_premium) || 0) > (Number(size.price_tradicional) || 0) ? <Badge variant="outline" className="text-[11px]">Premium</Badge> : null}
+                            {(sizeInsight?.badges || []).slice(0, 2).map((badge) => (
+                              <Badge key={badge} variant="outline" className="text-[11px]">
+                                {badge}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-4 text-slate-600">{size.slices || '-'}</td>
+                      <td className="px-4 py-4 text-slate-600">{size.max_flavors || 1}</td>
+                      <td className="px-4 py-4 font-medium text-slate-900">{formatCurrency(size.price_tradicional)}</td>
+                      <td className="px-4 py-4 font-medium text-slate-900">{formatCurrency(size.price_premium)}</td>
+                      <td className="px-4 py-4 text-slate-600">
+                        {sizeInsight?.premiumDelta > 0 ? `+${formatCurrency(sizeInsight.premiumDelta)}` : '-'}
+                      </td>
+                      <td className="px-4 py-4 text-slate-600">
+                        <div>
+                          <p>{formatPricePerSlice(size.price_tradicional, size.slices)}</p>
+                          {(Number(size.price_premium) || 0) > 0 ? (
+                            <p className="mt-1 text-xs text-slate-500">Premium {formatPricePerSlice(size.price_premium, size.slices)}</p>
+                          ) : null}
+                        </div>
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="space-y-2">
+                          <Badge variant="outline" className="text-[11px]">
+                            {sizeInsight?.classification || 'Sem leitura'}
+                          </Badge>
+                          <p className="text-xs text-slate-500">
+                            {(sizeInsight?.maxFlavors || Number(size.max_flavors) || 1) >= 2
+                              ? 'Boa leitura para 2 sabores'
+                              : 'Entrada enxuta para 1 sabor'}
+                          </p>
+                        </div>
+                      </td>
+                      <td className="px-4 py-4"><Badge variant={size.is_active ? 'secondary' : 'outline'}>{size.is_active ? 'Ativo' : 'Inativo'}</Badge></td>
+                      <td className="px-4 py-4">
+                        <div className="flex justify-end gap-2">
+                          <Switch checked={size.is_active} onCheckedChange={(checked) => updateSizeMutation.mutate({ id: size.id, data: { ...size, is_active: checked } })} />
+                          <Button variant="ghost" size="icon" onClick={() => { setEditingSize(size); setShowSizeModal(true); }}><Pencil className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" className="text-red-500" onClick={() => { if (confirm('Excluir este tamanho?')) deleteSizeMutation.mutate(size.id); }}><Trash2 className="h-4 w-4" /></Button>
+                        </div>
+                      </td>
+                          </>
+                        );
+                      })()}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="addons" className="space-y-4">
+          <Card className="rounded-2xl border-slate-200 p-5 shadow-sm">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <Badge variant="outline" className="border-rose-200 bg-rose-50 text-rose-700">Bordas e extras</Badge>
+                <h3 className="mt-3 text-xl font-semibold text-slate-900">Adicionais da pizzaria</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-600">Bordas e extras ficam separados dos sabores para reforcar a leitura comercial.</p>
+              </div>
+              <div className="relative min-w-[260px]">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Buscar borda ou extra..." className="pl-9" />
+              </div>
+            </div>
+          </Card>
+
+          <div className="grid gap-4 xl:grid-cols-2">
+            <Card className="rounded-2xl border-slate-200 p-5 shadow-sm">
+              <div className="mb-4 flex items-center justify-between">
+                <h4 className="text-lg font-semibold text-slate-900">Bordas</h4>
+                <Button size="sm" onClick={() => { setEditingEdge(null); setShowEdgeModal(true); }} className="bg-orange-500 hover:bg-orange-600"><Plus className="mr-2 h-4 w-4" />Nova borda</Button>
+              </div>
+              <div className="space-y-3">
+                {filteredEdges.map((edge) => (
+                  <div key={edge.id} className="flex items-center gap-3 rounded-xl border border-slate-200 p-3">
+                    <div className="flex-1">
+                      <p className="font-medium text-slate-900">{edge.name}</p>
+                      <p className="text-sm text-slate-600">{formatCurrency(edge.price)}</p>
+                    </div>
+                    <Switch checked={edge.is_active} onCheckedChange={(checked) => updateEdgeMutation.mutate({ id: edge.id, data: { ...edge, is_active: checked } })} />
+                    <Button variant="ghost" size="icon" onClick={() => { setEditingEdge(edge); setShowEdgeModal(true); }}><Pencil className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="icon" className="text-red-500" onClick={() => { if (confirm('Excluir esta borda?')) deleteEdgeMutation.mutate(edge.id); }}><Trash2 className="h-4 w-4" /></Button>
+                  </div>
+                ))}
+              </div>
+            </Card>
+
+            <Card className="rounded-2xl border-slate-200 p-5 shadow-sm">
+              <div className="mb-4 flex items-center justify-between">
+                <h4 className="text-lg font-semibold text-slate-900">Extras</h4>
+                <Button size="sm" onClick={() => { setEditingExtra(null); setShowExtraModal(true); }} className="bg-orange-500 hover:bg-orange-600"><Plus className="mr-2 h-4 w-4" />Novo extra</Button>
+              </div>
+              <div className="space-y-3">
+                {filteredExtras.map((extra) => (
+                  <div key={extra.id} className="flex items-center gap-3 rounded-xl border border-slate-200 p-3">
+                    <div className="flex-1">
+                      <p className="font-medium text-slate-900">{extra.name}</p>
+                      <p className="text-sm text-slate-600">{formatCurrency(extra.price)}</p>
+                    </div>
+                    <Switch checked={extra.is_active} onCheckedChange={(checked) => updateExtraMutation.mutate({ id: extra.id, data: { ...extra, is_active: checked } })} />
+                    <Button variant="ghost" size="icon" onClick={() => { setEditingExtra(extra); setShowExtraModal(true); }}><Pencil className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="icon" className="text-red-500" onClick={() => { if (confirm('Excluir este extra?')) deleteExtraMutation.mutate(extra.id); }}><Trash2 className="h-4 w-4" /></Button>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          </div>
+        </TabsContent>
+        <TabsContent value="preview" className="space-y-4">
+          <Card className="rounded-2xl border-slate-200 p-5 shadow-sm">
+            <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-700">Aparicao publica</Badge>
+            <h3 className="mt-3 text-xl font-semibold text-slate-900">Como o cliente percebe a pizzaria</h3>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              Este resumo ajuda a conferir se a parte comercial, a regra de montagem e o catalogo tecnico continuam coerentes no builder publico.
+            </p>
+            <div className="mt-4 grid gap-3 md:grid-cols-3">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">1. O que voce vende</p>
+                <p className="mt-2 text-sm font-semibold text-slate-900">Escolha a entrada comercial e confira como ela conversa com regra, tamanho e preco.</p>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">2. Como o cliente monta</p>
+                <p className="mt-2 text-sm font-semibold text-slate-900">Simule tamanho, sabores, borda e adicionais sem sair do admin.</p>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">3. Qual valor ele percebe</p>
+                <p className="mt-2 text-sm font-semibold text-slate-900">O preco muda em tempo real para mostrar a experiencia comercial do builder.</p>
+              </div>
+            </div>
+          </Card>
+
+          <div className="grid gap-4 xl:grid-cols-[1.25fr_0.95fr]">
+            <div className="space-y-4">
+              <Card className="rounded-2xl border-slate-200 p-5 shadow-sm">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                  <div>
+                    <Badge variant="outline" className="border-orange-200 bg-orange-50 text-orange-700">Preview interativo</Badge>
+                    <h4 className="mt-3 text-lg font-semibold text-slate-900">Simule a montagem como se fosse o cliente</h4>
+                    <p className="mt-1 text-sm text-slate-600">Escolha entrada, tamanho, sabores e adicionais. O valor muda na hora.</p>
+                  </div>
+                  <Badge variant="secondary" className="w-fit">{previewEntries.length} entrada(s) ativa(s)</Badge>
+                </div>
+
+                <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  {previewEntries.map((entry) => {
+                    const category = pizzaCategories.find((item) => item.id === entry.pizza_category_id);
+                    const entrySizes = Array.isArray(entry?.pizza_config?.sizes) ? entry.pizza_config.sizes : [];
+                    const firstSize = sizes.find((item) => item.id === category?.size_id) || entrySizes[0];
+                    const startingPrice = Number(firstSize?.price_tradicional || firstSize?.price_premium || entry.price || 0);
+                    const active = String(previewEntry?.id) === String(entry.id);
+                    return (
+                      <button
+                        key={entry.id}
+                        type="button"
+                        onClick={() => setPreviewEntryId(entry.id)}
+                        className={`rounded-2xl border p-4 text-left transition-all duration-200 ${
+                          active
+                            ? 'border-orange-300 bg-orange-50 shadow-sm ring-2 ring-orange-100'
+                            : 'border-slate-200 bg-white hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-sm'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="font-semibold text-slate-900">{entry.name}</p>
+                            <p className="mt-1 text-xs text-slate-600">{category?.name || 'Sem regra vinculada'}</p>
+                          </div>
+                          <Badge variant={active ? 'default' : 'outline'} className={active ? 'bg-orange-500 hover:bg-orange-500' : ''}>
+                            {formatCurrency(startingPrice)}
+                          </Badge>
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                          <Badge variant="secondary">{formatFlavorAllowance(category?.max_flavors)}</Badge>
+                          <Badge variant="outline">{entrySizes.length || 1} tamanho(s)</Badge>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {previewEntry ? (
+                  <div className="mt-6 space-y-5">
+                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                      <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Regra</p>
+                        <p className="mt-2 text-sm font-semibold text-slate-900">{formatFlavorAllowance(previewMaxFlavors)}</p>
+                        <p className="mt-1 text-xs text-slate-600">{previewCategory?.name || 'Regra comercial nao definida'}</p>
+                      </div>
+                      <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Sabores liberados</p>
+                        <p className="mt-2 text-sm font-semibold text-slate-900">
+                          {previewFlavorOptions.length > 0 ? `${previewFlavorOptions.length} opcao(oes)` : 'Sem sabores'}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-600">
+                          {previewFlavorOptions.some((flavor) => flavor.category === 'premium')
+                            ? 'Tradicional e premium liberados'
+                            : 'Somente tradicionais ativos'}
+                        </p>
+                      </div>
+                      <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Montagem</p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <Badge variant={previewEdges.length > 0 ? 'secondary' : 'outline'}>{previewEdges.length > 0 ? 'Borda liberada' : 'Sem borda'}</Badge>
+                          <Badge variant={previewExtras.length > 0 ? 'secondary' : 'outline'}>{previewExtras.length > 0 ? 'Adicionais liberados' : 'Sem adicionais'}</Badge>
+                        </div>
+                      </div>
+                      <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Preco atual</p>
+                        <p className="mt-2 text-lg font-semibold text-slate-900">{formatCurrency(previewPrice)}</p>
+                        <p className="mt-1 text-xs text-slate-600">
+                          {previewHasPremium ? 'Preco premium aplicado' : 'Preco tradicional aplicado'}
+                        </p>
+                        {previewSizeInsight?.classification ? (
+                          <Badge variant="outline" className="mt-3 text-[11px]">
+                            {previewSizeInsight.classification}
+                          </Badge>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    <div className="space-y-5 rounded-3xl border border-slate-200 bg-slate-50/70 p-5">
+                      <div>
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-semibold text-slate-900">1. Tamanho escolhido</p>
+                            <p className="mt-1 text-xs text-slate-600">Defina qual tamanho o cliente seleciona no builder.</p>
+                          </div>
+                          {previewSelectedSize ? (
+                            <Badge variant="outline">{previewSelectedSize.slices || '-'} fatias</Badge>
+                          ) : null}
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {previewSizes.map((size) => {
+                            const active = String(previewSelectedSize?.id) === String(size.id);
+                            const currentPrice = Number(previewHasPremium ? size.price_premium : size.price_tradicional) || 0;
+                            return (
+                              <button
+                                key={size.id}
+                                type="button"
+                                onClick={() => setPreviewSizeId(size.id)}
+                                className={`rounded-2xl border px-4 py-3 text-left transition-all ${
+                                  active
+                                    ? 'border-orange-300 bg-white shadow-sm ring-2 ring-orange-100'
+                                    : 'border-slate-200 bg-white hover:border-slate-300'
+                                }`}
+                              >
+                                <p className="text-sm font-semibold text-slate-900">{size.name}</p>
+                                <p className="mt-1 text-xs text-slate-600">
+                                  {size.max_flavors || previewMaxFlavors} sabor(es) • {formatCurrency(currentPrice)}
+                                </p>
+                                <p className="mt-1 text-[11px] text-slate-500">
+                                  {formatPricePerSlice(currentPrice, size.slices)} por fatia
+                                </p>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-semibold text-slate-900">2. Sabores da montagem</p>
+                            <p className="mt-1 text-xs text-slate-600">Escolha ate {previewMaxFlavors} sabor(es) para sentir a experiencia do cliente.</p>
+                          </div>
+                          <Badge variant="outline">{previewSelectedFlavors.length}/{previewMaxFlavors}</Badge>
+                        </div>
+                        <div className="mt-3 grid gap-3 md:grid-cols-2">
+                          {previewFlavorOptions.map((flavor) => {
+                            const active = previewFlavorIds.map(String).includes(String(flavor.id));
+                            const usageCount = flavorUsageById[String(flavor.id)] || 0;
+                            return (
+                              <button
+                                key={flavor.id}
+                                type="button"
+                                onClick={() => togglePreviewFlavor(flavor.id)}
+                                className={`rounded-2xl border p-4 text-left transition-all ${
+                                  active
+                                    ? 'border-orange-300 bg-white shadow-sm ring-2 ring-orange-100'
+                                    : 'border-slate-200 bg-white hover:border-slate-300'
+                                }`}
+                              >
+                                <div className="flex items-start justify-between gap-3">
+                                  <div>
+                                    <p className="font-semibold text-slate-900">{flavor.name}</p>
+                                    <p className="mt-1 text-xs text-slate-600">{flavor.description || 'Sem descricao cadastrada.'}</p>
+                                  </div>
+                                  <Badge variant={flavor.category === 'premium' ? 'default' : 'secondary'} className={flavor.category === 'premium' ? 'bg-amber-500 hover:bg-amber-500' : ''}>
+                                    {flavor.category === 'premium' ? 'Premium' : 'Tradicional'}
+                                  </Badge>
+                                </div>
+                                <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                                  <Badge variant="outline">{usageCount} entrada(s)</Badge>
+                                  {active ? <Badge variant="secondary">Selecionado</Badge> : null}
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {previewEdges.length > 0 ? (
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900">3. Borda</p>
+                          <p className="mt-1 text-xs text-slate-600">Confirme como a borda aparece no builder.</p>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setPreviewEdgeId('none')}
+                              className={`rounded-full border px-3 py-2 text-sm transition-all ${
+                                previewEdgeId === 'none'
+                                  ? 'border-orange-300 bg-white shadow-sm ring-2 ring-orange-100'
+                                  : 'border-slate-200 bg-white hover:border-slate-300'
+                              }`}
+                            >
+                              Sem borda
+                            </button>
+                            {previewEdges.map((edge) => (
+                              <button
+                                key={edge.id}
+                                type="button"
+                                onClick={() => setPreviewEdgeId(edge.id)}
+                                className={`rounded-full border px-3 py-2 text-sm transition-all ${
+                                  String(previewSelectedEdge?.id) === String(edge.id)
+                                    ? 'border-orange-300 bg-white shadow-sm ring-2 ring-orange-100'
+                                    : 'border-slate-200 bg-white hover:border-slate-300'
+                                }`}
+                              >
+                                {edge.name} • {formatCurrency(edge.price)}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+
+                      {previewExtras.length > 0 ? (
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900">4. Adicionais</p>
+                          <p className="mt-1 text-xs text-slate-600">Veja como adicionais premium mudam o valor final.</p>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {previewExtras.map((extra) => {
+                              const active = previewExtraIds.map(String).includes(String(extra.id));
+                              return (
+                                <button
+                                  key={extra.id}
+                                  type="button"
+                                  onClick={() => togglePreviewExtra(extra.id)}
+                                  className={`rounded-full border px-3 py-2 text-sm transition-all ${
+                                    active
+                                      ? 'border-orange-300 bg-white shadow-sm ring-2 ring-orange-100'
+                                      : 'border-slate-200 bg-white hover:border-slate-300'
+                                  }`}
+                                >
+                                  {extra.name} • {formatCurrency(extra.price)}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-5 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
+                    <p className="font-medium text-slate-900">Ative pelo menos uma entrada de pizza para usar o preview.</p>
+                    <p className="mt-2 text-sm text-slate-600">O simulador aparece automaticamente quando houver uma entrada publica ativa.</p>
+                  </div>
+                )}
+              </Card>
+            </div>
+
+            <div className="space-y-4">
+              <Card className="rounded-3xl border-slate-200 p-6 shadow-sm">
+                <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600">Cliente montando</Badge>
+                <h4 className="mt-3 text-lg font-semibold text-slate-900">Leitura comercial do builder</h4>
+                <p className="mt-1 text-sm leading-6 text-slate-600">Este quadro traduz a configuracao tecnica para a linguagem que importa no cardapio.</p>
+
+                {previewEntry ? (
+                  <div className="mt-5 rounded-[28px] border border-slate-200 bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 p-5 text-white shadow-inner">
+                    <div className="rounded-[24px] bg-white/8 p-5 backdrop-blur">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-orange-200">Entrada do cardapio</p>
+                          <h5 className="mt-2 text-2xl font-semibold">{previewEntry.name}</h5>
+                          <p className="mt-2 text-sm text-slate-200">
+                            {previewCategory?.name || 'Sem regra'} • {previewSelectedSize?.name || 'Escolha um tamanho'}
+                          </p>
+                        </div>
+                        <Badge className="bg-orange-500 text-white hover:bg-orange-500">{formatCurrency(previewPrice)}</Badge>
+                      </div>
+
+                      <div className="mt-5 space-y-4">
+                        <div className="rounded-2xl bg-white/10 p-4">
+                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-300">Como o cliente entende</p>
+                          <ul className="mt-3 space-y-2 text-sm text-slate-100">
+                            <li>• {formatFlavorAllowance(previewMaxFlavors)}</li>
+                            <li>• {previewSelectedSize ? `${previewSelectedSize.name} com ${previewSelectedSize.slices || '-'} fatias` : 'Escolha um tamanho para ver o resumo'}</li>
+                            <li>• {previewHasPremium ? 'Com sabor premium na composicao' : 'Somente sabores tradicionais selecionados'}</li>
+                            <li>• {previewSelectedEdge ? `Borda ${previewSelectedEdge.name}` : 'Sem borda selecionada'}</li>
+                          </ul>
+                        </div>
+
+                        <div className="rounded-2xl bg-white/10 p-4">
+                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-300">Checklist de prontidao comercial</p>
+                          <div className="mt-3 space-y-2">
+                            {previewCommercialChecklist.map((check) => (
+                              <div key={check.label} className="flex items-center justify-between gap-3 rounded-xl bg-white/8 px-3 py-2 text-sm">
+                                <span className="text-slate-100">{check.label}</span>
+                                <Badge
+                                  variant="outline"
+                                  className={check.done
+                                    ? 'border-emerald-300 bg-emerald-500/10 text-emerald-100'
+                                    : (check.optional ? 'border-slate-400 bg-white/5 text-slate-200' : 'border-rose-300 bg-rose-500/10 text-rose-100')}
+                                >
+                                  {check.done ? 'OK' : (check.optional ? 'Opcional' : 'Ajustar')}
+                                </Badge>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="rounded-2xl bg-white/10 p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-300">Insight comercial</p>
+                              <p className="mt-2 text-sm font-semibold text-white">{previewCommercialInsights.potentialLabel}</p>
+                            </div>
+                            <Badge className="bg-white/15 text-white hover:bg-white/15">
+                              {previewSizeInsight?.classification || 'Leitura viva'}
+                            </Badge>
+                          </div>
+                          <div className="mt-3 space-y-2">
+                            {previewCommercialInsights.insights.map((insight) => (
+                              <div key={insight} className="rounded-xl bg-white/8 px-3 py-2 text-sm text-slate-100">
+                                {insight}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="rounded-2xl bg-white/10 p-4">
+                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-300">Sabores escolhidos</p>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {previewSelectedFlavors.length > 0 ? previewSelectedFlavors.map((flavor) => (
+                              <Badge
+                                key={flavor.id}
+                                className={flavor.category === 'premium' ? 'bg-amber-500 text-white hover:bg-amber-500' : 'bg-white/20 text-white hover:bg-white/20'}
+                              >
+                                {flavor.name}
+                              </Badge>
+                            )) : (
+                              <span className="text-sm text-slate-300">Selecione pelo menos um sabor para completar a simulacao.</span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <div className="rounded-2xl bg-white/10 p-4">
+                            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-300">Borda</p>
+                            <p className="mt-2 text-sm font-medium text-white">
+                              {previewSelectedEdge ? `${previewSelectedEdge.name} • ${formatCurrency(previewSelectedEdge.price)}` : 'Sem borda'}
+                            </p>
+                          </div>
+                          <div className="rounded-2xl bg-white/10 p-4">
+                            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-300">Adicionais</p>
+                            <p className="mt-2 text-sm font-medium text-white">
+                              {previewSelectedExtras.length > 0
+                                ? `${previewSelectedExtras.length} item(ns) • ${formatCurrency(previewSelectedExtras.reduce((sum, extra) => sum + (Number(extra?.price) || 0), 0))}`
+                                : 'Nenhum adicional'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-5 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
+                    <p className="font-medium text-slate-900">Sem entrada ativa para simular.</p>
+                    <p className="mt-2 text-sm text-slate-600">Ative uma entrada do cardapio para ver o preview premium.</p>
+                  </div>
+                )}
+              </Card>
+
+              <Card className="rounded-2xl border-slate-200 p-5 shadow-sm">
+                <h4 className="text-lg font-semibold text-slate-900">Builder publico</h4>
+                <p className="mt-1 text-sm text-slate-600">A logica do builder foi preservada. Aqui voce revisa a apresentacao publica enquanto monta a visao comercial.</p>
+                <div className="mt-4">
+                  <PizzaVisualizationSettings />
+                </div>
+              </Card>
+            </div>
+          </div>
         </TabsContent>
       </Tabs>
 
@@ -638,7 +2210,7 @@ function SizeModal({ isOpen, onClose, onSubmit, size }) {
             <Input
               value={formData.name}
               onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-              placeholder="Ex: Pequena, Média, Grande"
+              placeholder="Ex: Pequena, MÃ©dia, Grande"
               required
             />
           </div>
@@ -654,7 +2226,7 @@ function SizeModal({ isOpen, onClose, onSubmit, size }) {
               />
             </div>
             <div>
-              <Label>Máx. Sabores (1-4) *</Label>
+              <Label>MÃ¡x. Sabores (1-4) *</Label>
               <Input
                 type="number"
                 min={1}
@@ -667,7 +2239,7 @@ function SizeModal({ isOpen, onClose, onSubmit, size }) {
             </div>
           </div>
           <div>
-            <Label>Máx. Extras</Label>
+            <Label>MÃ¡x. Extras</Label>
             <Input
               type="number"
               min={0}
@@ -678,7 +2250,7 @@ function SizeModal({ isOpen, onClose, onSubmit, size }) {
             />
           </div>
           <div>
-            <Label>Diâmetro (cm)</Label>
+            <Label>DiÃ¢metro (cm)</Label>
             <Input
               type="number"
               value={formData.diameter_cm}
@@ -688,7 +2260,7 @@ function SizeModal({ isOpen, onClose, onSubmit, size }) {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label>Preço Tradicional *</Label>
+              <Label>PreÃ§o Tradicional *</Label>
               <Input
                 type="number"
                 step="0.01"
@@ -699,7 +2271,7 @@ function SizeModal({ isOpen, onClose, onSubmit, size }) {
               />
             </div>
             <div>
-              <Label>Preço Premium *</Label>
+              <Label>PreÃ§o Premium *</Label>
               <Input
                 type="number"
                 step="0.01"
@@ -750,7 +2322,7 @@ function FlavorModal({ isOpen, onClose, onSubmit, flavor }) {
   }, [flavor, isOpen]);
 
   const handleImageUpload = async (e) => {
-    console.log('🖼️ [PizzaConfigTab] handleImageUpload chamado:', {
+    console.log('ðŸ–¼ï¸ [PizzaConfigTab] handleImageUpload chamado:', {
       event: e,
       target: e.target,
       files: e.target.files,
@@ -759,7 +2331,7 @@ function FlavorModal({ isOpen, onClose, onSubmit, flavor }) {
 
     const file = e.target.files?.[0];
     
-    console.log('🖼️ [PizzaConfigTab] Arquivo extraído:', {
+    console.log('ðŸ–¼ï¸ [PizzaConfigTab] Arquivo extraÃ­do:', {
       file,
       isFile: file instanceof File,
       fileName: file?.name,
@@ -768,25 +2340,25 @@ function FlavorModal({ isOpen, onClose, onSubmit, flavor }) {
     });
 
     if (!file) {
-      console.error('❌ [PizzaConfigTab] Nenhum arquivo encontrado no evento');
+      console.error('âŒ [PizzaConfigTab] Nenhum arquivo encontrado no evento');
       alert('Nenhum arquivo selecionado');
       return;
     }
 
     if (!(file instanceof File)) {
-      console.error('❌ [PizzaConfigTab] Arquivo não é instância de File:', typeof file);
-      alert('Arquivo inválido');
+      console.error('âŒ [PizzaConfigTab] Arquivo nÃ£o Ã© instÃ¢ncia de File:', typeof file);
+      alert('Arquivo invÃ¡lido');
       return;
     }
 
     try {
-      console.log('📤 [PizzaConfigTab] Iniciando upload...');
+      console.log('ðŸ“¤ [PizzaConfigTab] Iniciando upload...');
       const { uploadToCloudinary } = await import('@/utils/cloudinaryUpload');
       const url = await uploadToCloudinary(file, 'pizza-config');
-      console.log('✅ [PizzaConfigTab] Upload concluído, URL:', url);
+      console.log('âœ… [PizzaConfigTab] Upload concluÃ­do, URL:', url);
       setFormData(prev => ({ ...prev, image: url }));
     } catch (error) {
-      console.error('❌ [PizzaConfigTab] Erro ao fazer upload:', error);
+      console.error('âŒ [PizzaConfigTab] Erro ao fazer upload:', error);
       alert('Erro ao fazer upload da imagem: ' + error.message);
     }
   };
@@ -816,7 +2388,7 @@ function FlavorModal({ isOpen, onClose, onSubmit, flavor }) {
             />
           </div>
           <div>
-            <Label>Descrição</Label>
+            <Label>DescriÃ§Ã£o</Label>
             <Textarea
               value={formData.description}
               onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
@@ -836,7 +2408,7 @@ function FlavorModal({ isOpen, onClose, onSubmit, flavor }) {
                     : 'border-gray-200 hover:border-gray-300'
                 }`}
               >
-                🍕 Tradicional
+                ðŸ• Tradicional
               </button>
               <button
                 type="button"
@@ -847,7 +2419,7 @@ function FlavorModal({ isOpen, onClose, onSubmit, flavor }) {
                     : 'border-gray-200 hover:border-gray-300'
                 }`}
               >
-                ⭐ Premium
+                â­ Premium
               </button>
             </div>
           </div>
@@ -873,7 +2445,7 @@ function FlavorModal({ isOpen, onClose, onSubmit, flavor }) {
                 checked={formData.is_popular}
                 onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_popular: checked }))}
               />
-              <span className="text-sm">⭐ Popular</span>
+              <span className="text-sm">â­ Popular</span>
             </label>
           </div>
           <div className="flex gap-3 pt-4">
@@ -913,7 +2485,7 @@ function EdgeModal({ isOpen, onClose, onSubmit, edge }) {
   }, [edge, isOpen]);
 
   const handleImageUpload = async (e) => {
-    console.log('🖼️ [PizzaConfigTab] handleImageUpload chamado:', {
+    console.log('ðŸ–¼ï¸ [PizzaConfigTab] handleImageUpload chamado:', {
       event: e,
       target: e.target,
       files: e.target.files,
@@ -922,7 +2494,7 @@ function EdgeModal({ isOpen, onClose, onSubmit, edge }) {
 
     const file = e.target.files?.[0];
     
-    console.log('🖼️ [PizzaConfigTab] Arquivo extraído:', {
+    console.log('ðŸ–¼ï¸ [PizzaConfigTab] Arquivo extraÃ­do:', {
       file,
       isFile: file instanceof File,
       fileName: file?.name,
@@ -931,25 +2503,25 @@ function EdgeModal({ isOpen, onClose, onSubmit, edge }) {
     });
 
     if (!file) {
-      console.error('❌ [PizzaConfigTab] Nenhum arquivo encontrado no evento');
+      console.error('âŒ [PizzaConfigTab] Nenhum arquivo encontrado no evento');
       alert('Nenhum arquivo selecionado');
       return;
     }
 
     if (!(file instanceof File)) {
-      console.error('❌ [PizzaConfigTab] Arquivo não é instância de File:', typeof file);
-      alert('Arquivo inválido');
+      console.error('âŒ [PizzaConfigTab] Arquivo nÃ£o Ã© instÃ¢ncia de File:', typeof file);
+      alert('Arquivo invÃ¡lido');
       return;
     }
 
     try {
-      console.log('📤 [PizzaConfigTab] Iniciando upload...');
+      console.log('ðŸ“¤ [PizzaConfigTab] Iniciando upload...');
       const { uploadToCloudinary } = await import('@/utils/cloudinaryUpload');
       const url = await uploadToCloudinary(file, 'pizza-config');
-      console.log('✅ [PizzaConfigTab] Upload concluído, URL:', url);
+      console.log('âœ… [PizzaConfigTab] Upload concluÃ­do, URL:', url);
       setFormData(prev => ({ ...prev, image: url }));
     } catch (error) {
-      console.error('❌ [PizzaConfigTab] Erro ao fazer upload:', error);
+      console.error('âŒ [PizzaConfigTab] Erro ao fazer upload:', error);
       alert('Erro ao fazer upload da imagem: ' + error.message);
     }
   };
@@ -979,16 +2551,16 @@ function EdgeModal({ isOpen, onClose, onSubmit, edge }) {
             />
           </div>
           <div>
-            <Label>Descrição</Label>
+            <Label>DescriÃ§Ã£o</Label>
             <Textarea
               value={formData.description}
               onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-              placeholder="Descrição da borda..."
+              placeholder="DescriÃ§Ã£o da borda..."
               rows={2}
             />
           </div>
           <div>
-            <Label>Preço *</Label>
+            <Label>PreÃ§o *</Label>
             <Input
               type="number"
               step="0.01"
@@ -1041,7 +2613,7 @@ function ExtraModal({ isOpen, onClose, onSubmit, extra }) {
   }, [extra, isOpen]);
 
   const handleImageUpload = async (e) => {
-    console.log('🖼️ [PizzaConfigTab] handleImageUpload chamado:', {
+    console.log('ðŸ–¼ï¸ [PizzaConfigTab] handleImageUpload chamado:', {
       event: e,
       target: e.target,
       files: e.target.files,
@@ -1050,7 +2622,7 @@ function ExtraModal({ isOpen, onClose, onSubmit, extra }) {
 
     const file = e.target.files?.[0];
     
-    console.log('🖼️ [PizzaConfigTab] Arquivo extraído:', {
+    console.log('ðŸ–¼ï¸ [PizzaConfigTab] Arquivo extraÃ­do:', {
       file,
       isFile: file instanceof File,
       fileName: file?.name,
@@ -1059,25 +2631,25 @@ function ExtraModal({ isOpen, onClose, onSubmit, extra }) {
     });
 
     if (!file) {
-      console.error('❌ [PizzaConfigTab] Nenhum arquivo encontrado no evento');
+      console.error('âŒ [PizzaConfigTab] Nenhum arquivo encontrado no evento');
       alert('Nenhum arquivo selecionado');
       return;
     }
 
     if (!(file instanceof File)) {
-      console.error('❌ [PizzaConfigTab] Arquivo não é instância de File:', typeof file);
-      alert('Arquivo inválido');
+      console.error('âŒ [PizzaConfigTab] Arquivo nÃ£o Ã© instÃ¢ncia de File:', typeof file);
+      alert('Arquivo invÃ¡lido');
       return;
     }
 
     try {
-      console.log('📤 [PizzaConfigTab] Iniciando upload...');
+      console.log('ðŸ“¤ [PizzaConfigTab] Iniciando upload...');
       const { uploadToCloudinary } = await import('@/utils/cloudinaryUpload');
       const url = await uploadToCloudinary(file, 'pizza-config');
-      console.log('✅ [PizzaConfigTab] Upload concluído, URL:', url);
+      console.log('âœ… [PizzaConfigTab] Upload concluÃ­do, URL:', url);
       setFormData(prev => ({ ...prev, image: url }));
     } catch (error) {
-      console.error('❌ [PizzaConfigTab] Erro ao fazer upload:', error);
+      console.error('âŒ [PizzaConfigTab] Erro ao fazer upload:', error);
       alert('Erro ao fazer upload da imagem: ' + error.message);
     }
   };
@@ -1107,16 +2679,16 @@ function ExtraModal({ isOpen, onClose, onSubmit, extra }) {
             />
           </div>
           <div>
-            <Label>Descrição</Label>
+            <Label>DescriÃ§Ã£o</Label>
             <Textarea
               value={formData.description}
               onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-              placeholder="Descrição do extra..."
+              placeholder="DescriÃ§Ã£o do extra..."
               rows={2}
             />
           </div>
           <div>
-            <Label>Preço *</Label>
+            <Label>PreÃ§o *</Label>
             <Input
               type="number"
               step="0.01"
@@ -1182,21 +2754,21 @@ function CategoryModal({ isOpen, onClose, onSubmit, category, sizes = [] }) {
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md max-w-[95vw]">
         <DialogHeader>
-          <DialogTitle>{category ? 'Editar' : 'Nova'} entrada comercial</DialogTitle>
+          <DialogTitle>{category ? 'Editar' : 'Nova'} regra de montagem</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <Label>Nome da entrada *</Label>
+            <Label>Nome da regra *</Label>
             <Input
               value={formData.name}
               onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
               placeholder="Ex: Tradicional - 2 sabores"
               required
             />
-            <p className="mt-1 text-xs text-gray-500">Este nome aparece no cardapio publico como entrada generica.</p>
+            <p className="mt-1 text-xs text-gray-500">Use um nome comercial que conecte esta regra com a entrada exibida no cardapio.</p>
           </div>
           <div>
-            <Label>Tamanho *</Label>
+            <Label>Tamanho base *</Label>
             <select
               className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
               value={formData.size_id}
@@ -1210,7 +2782,7 @@ function CategoryModal({ isOpen, onClose, onSubmit, category, sizes = [] }) {
             </select>
           </div>
           <div>
-            <Label>Max. sabores (1-4) *</Label>
+            <Label>Quantos sabores aceita (1-4) *</Label>
             <Input
               type="number"
               min={1}
@@ -1229,5 +2801,8 @@ function CategoryModal({ isOpen, onClose, onSubmit, category, sizes = [] }) {
     </Dialog>
   );
 }
+
+
+
 
 
