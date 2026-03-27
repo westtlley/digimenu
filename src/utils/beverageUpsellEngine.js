@@ -5,6 +5,7 @@ import {
 } from '@/utils/beverageStrategy';
 
 const STRATEGY_PREFIX = 'beverage-ai-v1:';
+const ANALYTICS_SESSION_KEY = 'dm_analytics_session_id';
 
 const normalizeArray = (value) => (Array.isArray(value) ? value.filter(Boolean) : []);
 const normalizeText = (value) =>
@@ -36,6 +37,27 @@ const mapProductTypeToContext = (productType) => {
 
 const formatCurrency = (value) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(toNumber(value, 0));
+
+const readAnalyticsSessionId = () => {
+  if (typeof window === 'undefined' || !window.localStorage) return 'session:fallback';
+  try {
+    const raw = window.localStorage.getItem(ANALYTICS_SESSION_KEY);
+    if (!raw) return 'session:fallback';
+    const parsed = JSON.parse(raw);
+    return String(parsed?.id || 'session:fallback');
+  } catch (_error) {
+    return 'session:fallback';
+  }
+};
+
+const hashSeed = (seedValue) => {
+  const seed = String(seedValue || 'default');
+  let hash = 0;
+  for (let index = 0; index < seed.length; index += 1) {
+    hash = (hash * 33 + seed.charCodeAt(index)) % 2147483647;
+  }
+  return Math.abs(hash);
+};
 
 const buildCandidateStorageKeys = ({ slug, store = null, subscriberEmail = '' }) => {
   const keys = new Set();
@@ -212,18 +234,25 @@ const buildPerformanceBoost = (performanceEntry) => {
   const clickRate = toNumber(performanceEntry.click_rate, 0);
   const upgradeRate = toNumber(performanceEntry.upgrade_rate, 0);
   const recommendationScore = toNumber(performanceEntry.recommendation_score, 0);
+  const finalScore = toNumber(performanceEntry.final_score, 0);
   const confidence = toNumber(performanceEntry.confidence, 0);
-  const marginSignal = toNumber(performanceEntry.margin_signal, 0);
+  const profitabilitySignal = toNumber(
+    performanceEntry.profitability_signal ?? performanceEntry.margin_percentage ?? performanceEntry.margin_signal,
+    0
+  );
   const revenueGenerated = toNumber(performanceEntry.revenue_generated, 0);
+  const autoPriority = toNumber(performanceEntry.auto_priority, 0);
 
   return (
     acceptanceRate * 1.4 +
     clickRate * 0.55 +
     upgradeRate * 0.6 +
     recommendationScore * 0.4 +
+    finalScore * 0.35 +
     (confidence / 10) +
-    (marginSignal / 6) +
-    Math.min(18, revenueGenerated / 4)
+    (profitabilitySignal / 5.5) +
+    Math.min(18, revenueGenerated / 4) +
+    (autoPriority > 0 ? Math.max(0, 16 - autoPriority * 2) : 0)
   );
 };
 
@@ -241,6 +270,7 @@ const buildSessionBehaviorBoost = ({
   const hasBeverageInCart = cart.some((item) => item?.dish?.product_type === 'beverage');
   const premiumTagged = normalizeArray(strategy?.tags).includes('premium');
   const acceptanceRate = toNumber(performanceEntry?.acceptance_rate, 0);
+  const cartTotal = cart.reduce((sum, item) => sum + toNumber(item?.totalPrice, 0) * toNumber(item?.quantity, 1), 0);
 
   let boost = 0;
   if (accepts > 0) boost += accepts * 16;
@@ -253,6 +283,14 @@ const buildSessionBehaviorBoost = ({
   if (scope === 'cart' && hasBeverageInCart) {
     boost += premiumTagged ? 18 : 10;
     boost += acceptanceRate >= 12 ? 8 : 0;
+  }
+
+  if (scope === 'post_add' && cartTotal >= 60) {
+    boost += premiumTagged ? 18 : 6;
+  }
+
+  if (scope === 'post_add' && toNumber(sessionSignals?.accepted_count, 0) > 0) {
+    boost += premiumTagged ? 10 : 4;
   }
 
   return boost;
@@ -277,6 +315,8 @@ const scoreSuggestion = ({
 
   let ranking = profile.score * 12;
   if (beverage?.is_active === false) ranking -= 500;
+  if (performanceEntry?.automation_disabled === true) ranking -= 400;
+  if (performanceEntry?.fixed_as_primary === true) ranking += 380;
   if (anchorProduct?.id && linkedDishIds.has(String(anchorProduct.id))) ranking += 140;
   if (Array.from(categoryIds).some((categoryId) => linkedCategoryIds.has(String(categoryId)))) ranking += 90;
   if (Array.from(contextTypes).some((context) => linkedContexts.has(context))) ranking += 55;
@@ -298,6 +338,35 @@ const scoreSuggestion = ({
   });
 
   return ranking;
+};
+
+const applyAutomaticDecisionOrder = (entries = []) => {
+  const ordered = [...entries].sort((left, right) => right.ranking - left.ranking);
+  const first = ordered[0];
+  const second = ordered[1];
+
+  if (
+    !first ||
+    !second ||
+    first?.performanceEntry?.fixed_as_primary === true ||
+    second?.performanceEntry?.fixed_as_primary === true ||
+    first?.performanceEntry?.ab_test_candidate !== true ||
+    second?.performanceEntry?.ab_test_candidate !== true
+  ) {
+    return ordered;
+  }
+
+  const scoreGap = Math.abs(toNumber(first?.ranking, 0) - toNumber(second?.ranking, 0));
+  if (scoreGap > 12) {
+    return ordered;
+  }
+
+  const seed = `${readAnalyticsSessionId()}:${first?.beverage?.id || 'a'}:${second?.beverage?.id || 'b'}`;
+  if (hashSeed(seed) % 2 === 1) {
+    return [second, first, ...ordered.slice(2)];
+  }
+
+  return ordered;
 };
 
 const buildUpsellSuggestion = ({
@@ -456,8 +525,9 @@ export function getBestBeverageSuggestions({
           scope,
         }),
       };
-    })
-    .sort((left, right) => right.ranking - left.ranking);
+    });
+
+  const orderedSuggestions = applyAutomaticDecisionOrder(baseSuggestions);
 
   if (scope === 'cart' && hasBeverageInCart) {
     const existingBeverageItem = [...cart]
@@ -472,7 +542,7 @@ export function getBestBeverageSuggestions({
       normalizeArray(resolveStrategy(existingBeverageItem?.dish, strategyData, categories)?.tags).map(String)
     );
 
-    return baseSuggestions
+    return orderedSuggestions
       .filter(({ beverage, strategy }) => {
         if (String(beverage?.id || '') === String(existingBeverageItem?.dish?.id || '')) return false;
         const volume = toNumber(beverage?.volume_ml, 0);
@@ -498,7 +568,7 @@ export function getBestBeverageSuggestions({
       .slice(0, Math.max(1, limit));
   }
 
-  return baseSuggestions
+  return orderedSuggestions
     .map((entry) =>
       buildUpsellSuggestion({
         beverage: entry.beverage,

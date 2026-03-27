@@ -42,8 +42,20 @@ const normalizePerformanceMap = (rawValue = {}) => {
       rejection_rate: toNumber(entry.rejection_rate, 0),
       upgrade_rate: toNumber(entry.upgrade_rate, 0),
       margin_signal: toNumber(entry.margin_signal, 0),
+      profitability_signal: toNumber(entry.profitability_signal, 0),
+      margin_value: toNumber(entry.margin_value, 0),
+      margin_percentage: toNumber(entry.margin_percentage, 0),
+      margin_source: entry.margin_source || 'estimated',
       recommendation_score: toNumber(entry.recommendation_score, 0),
+      final_score: toNumber(entry.final_score, 0),
       confidence: toNumber(entry.confidence, 0),
+      auto_priority: toNumber(entry.auto_priority, 0),
+      decision_state: entry.decision_state || 'normal',
+      decision_reasons: normalizeArray(entry.decision_reasons),
+      automation_disabled: entry.automation_disabled === true,
+      fixed_as_primary: entry.fixed_as_primary === true,
+      manual_priority: toNumber(entry.manual_priority, 0),
+      ab_test_candidate: entry.ab_test_candidate === true,
       top_context: entry.top_context || null,
       last_event_at: entry.last_event_at || null,
       source: entry.source || 'heuristic',
@@ -62,13 +74,46 @@ const normalizeSummary = (rawValue = {}) => ({
   top_acceptance: normalizeArray(rawValue?.top_acceptance),
   top_revenue: normalizeArray(rawValue?.top_revenue),
   underexposed_high_margin: normalizeArray(rawValue?.underexposed_high_margin),
+  real_margin_coverage: toNumber(rawValue?.real_margin_coverage, 0),
   learning_state: rawValue?.learning_state || 'fallback_heuristico',
+});
+
+const normalizeMetricsMap = (rawValue = {}) => {
+  if (!rawValue || typeof rawValue !== 'object') return {};
+
+  return Object.entries(rawValue).reduce((accumulator, [beverageId, entry]) => {
+    if (!beverageId || !entry || typeof entry !== 'object') return accumulator;
+    accumulator[String(beverageId)] = {
+      cost: entry.cost == null ? null : toNumber(entry.cost, 0),
+      automation_disabled: entry.automation_disabled === true,
+      fixed_as_primary: entry.fixed_as_primary === true,
+      manual_priority: toNumber(entry.manual_priority, 0),
+    };
+    return accumulator;
+  }, {});
+};
+
+const normalizeDecisionSummary = (rawValue = {}) => ({
+  primary_beverage_id: rawValue?.primary_beverage_id || null,
+  primary_beverage_name: rawValue?.primary_beverage_name || null,
+  primary_reason: rawValue?.primary_reason || null,
+  secondary_beverage_id: rawValue?.secondary_beverage_id || null,
+  secondary_beverage_name: rawValue?.secondary_beverage_name || null,
+  active_ab_test: rawValue?.active_ab_test === true,
+  ab_candidate_ids: normalizeArray(rawValue?.ab_candidate_ids),
+  score_gap: toNumber(rawValue?.score_gap, 0),
+  automated_count: toNumber(rawValue?.automated_count, 0),
+  fixed_count: toNumber(rawValue?.fixed_count, 0),
+  automation_disabled_count: toNumber(rawValue?.automation_disabled_count, 0),
+  decision_log: normalizeArray(rawValue?.decision_log),
 });
 
 const normalizeSnapshot = (payload = {}) => ({
   strategy_data: normalizeBeverageStrategy(payload?.strategy_data || {}),
   performance_by_beverage: normalizePerformanceMap(payload?.performance_by_beverage || {}),
   performance_summary: normalizeSummary(payload?.performance_summary || {}),
+  metrics_by_beverage: normalizeMetricsMap(payload?.metrics_by_beverage || {}),
+  decision_summary: normalizeDecisionSummary(payload?.decision_summary || {}),
   opportunities: normalizeArray(payload?.opportunities),
   generated_at: payload?.generated_at || null,
 });
@@ -155,6 +200,20 @@ export async function saveAdminBeverageStrategy(strategyData = {}, entityContext
 
   const payload = await apiClient.put(endpoint, {
     strategies: normalizeBeverageStrategy(strategyData || {}),
+  });
+
+  return normalizeSnapshot(payload || {});
+}
+
+export async function saveAdminBeverageMetrics(metricsData = {}, entityContextOpts = {}) {
+  const params = new URLSearchParams(buildTenantParams(entityContextOpts));
+  const queryString = params.toString();
+  const endpoint = queryString
+    ? `/beverages/intelligence/metrics?${queryString}`
+    : '/beverages/intelligence/metrics';
+
+  const payload = await apiClient.put(endpoint, {
+    metrics: normalizeMetricsMap(metricsData || {}),
   });
 
   return normalizeSnapshot(payload || {});

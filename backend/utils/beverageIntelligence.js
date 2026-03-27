@@ -1,6 +1,12 @@
 import { query } from '../db/postgres.js';
 import * as repo from '../db/repository.js';
 import { getDb, getSaveDatabaseDebounced, usePostgreSQL } from '../config/appConfig.js';
+import {
+  buildBeverageDecisionReasons,
+  buildBeverageDecisionSnapshot,
+  buildBeverageFinalScore,
+  calculateBeverageMarginMetrics,
+} from './beverageDecisionEngine.js';
 
 export const BEVERAGE_TRACKING_EVENT_NAMES = [
   'beverage_suggested',
@@ -20,6 +26,12 @@ const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const toNumber = (value, fallback = 0) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const normalizeDecimal = (value) => {
+  if (value === null || value === undefined || value === '') return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Number(parsed.toFixed(2)) : null;
 };
 
 const normalizeInteger = (value) => {
@@ -176,6 +188,32 @@ async function ensureStrategyTable() {
     ON beverage_strategy(subscriber_id);
     CREATE INDEX IF NOT EXISTS idx_beverage_strategy_subscriber_email
     ON beverage_strategy(subscriber_email);
+  `);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS beverage_metrics (
+      id SERIAL PRIMARY KEY,
+      tenant_key VARCHAR(300) NOT NULL,
+      subscriber_id INTEGER,
+      subscriber_email VARCHAR(255),
+      beverage_id VARCHAR(120) NOT NULL,
+      cost NUMERIC(10,2),
+      automation_disabled BOOLEAN DEFAULT FALSE,
+      fixed_as_primary BOOLEAN DEFAULT FALSE,
+      manual_priority INTEGER DEFAULT 0,
+      metadata JSONB DEFAULT '{}'::jsonb,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
+  await query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_beverage_metrics_tenant_beverage
+    ON beverage_metrics(tenant_key, beverage_id);
+    CREATE INDEX IF NOT EXISTS idx_beverage_metrics_subscriber_id
+    ON beverage_metrics(subscriber_id);
+    CREATE INDEX IF NOT EXISTS idx_beverage_metrics_subscriber_email
+    ON beverage_metrics(subscriber_email);
   `);
 }
 
@@ -358,6 +396,38 @@ export function normalizeBeverageStrategySnapshot(rawValue = {}) {
   }, {});
 }
 
+function normalizeMetricsEntry(input = {}) {
+  return {
+    cost: normalizeDecimal(input.cost),
+    automation_disabled: input.automation_disabled === true || input.automationDisabled === true,
+    fixed_as_primary: input.fixed_as_primary === true || input.fixedAsPrimary === true,
+    manual_priority: clamp(Math.round(toNumber(input.manual_priority ?? input.manualPriority, 0)), 0, 999),
+  };
+}
+
+function isMeaningfulMetrics(entry = {}) {
+  return (
+    entry.cost != null ||
+    entry.automation_disabled === true ||
+    entry.fixed_as_primary === true ||
+    toNumber(entry.manual_priority, 0) > 0
+  );
+}
+
+export function normalizeBeverageMetricsSnapshot(rawValue = {}) {
+  if (!rawValue || typeof rawValue !== 'object') return {};
+
+  return Object.entries(rawValue).reduce((accumulator, [beverageId, value]) => {
+    const safeId = normalizeText(beverageId, 120);
+    if (!safeId || !value || typeof value !== 'object') {
+      return accumulator;
+    }
+
+    accumulator[safeId] = normalizeMetricsEntry(value);
+    return accumulator;
+  }, {});
+}
+
 async function listStoredStrategies(scope) {
   if (!scope?.tenantKey) return {};
 
@@ -406,6 +476,43 @@ async function listStoredStrategies(scope) {
         packaging: row?.metadata?.packaging || '',
         priority: row.priority,
       });
+      return accumulator;
+    }, {});
+}
+
+async function listStoredMetrics(scope) {
+  if (!scope?.tenantKey) return {};
+
+  if (usePostgreSQL) {
+    await ensureStrategyTable();
+    const result = await query(
+      `
+      SELECT beverage_id, cost, automation_disabled, fixed_as_primary, manual_priority, metadata
+      FROM beverage_metrics
+      WHERE tenant_key = $1
+      ORDER BY fixed_as_primary DESC, manual_priority DESC, updated_at DESC, beverage_id ASC
+      `,
+      [scope.tenantKey]
+    );
+
+    return result.rows.reduce((accumulator, row) => {
+      accumulator[String(row.beverage_id)] = normalizeMetricsEntry({
+        cost: row.cost,
+        automation_disabled: row.automation_disabled,
+        fixed_as_primary: row.fixed_as_primary,
+        manual_priority: row.manual_priority,
+        ...(row.metadata && typeof row.metadata === 'object' ? row.metadata : {}),
+      });
+      return accumulator;
+    }, {});
+  }
+
+  const db = getDb();
+  const rows = Array.isArray(db?.beverage_metrics) ? db.beverage_metrics : [];
+  return rows
+    .filter((row) => String(row?.tenant_key || '') === String(scope.tenantKey))
+    .reduce((accumulator, row) => {
+      accumulator[String(row.beverage_id)] = normalizeMetricsEntry(row);
       return accumulator;
     }, {});
 }
@@ -532,6 +639,117 @@ export async function saveBeverageStrategySnapshot({ scope, strategies = {} } = 
   }
 
   return listStoredStrategies(scope);
+}
+
+export async function saveBeverageMetricsSnapshot({ scope, metrics = {} } = {}) {
+  if (!scope?.tenantKey) {
+    throw new Error('Escopo de tenant nao resolvido para salvar metricas de bebidas.');
+  }
+
+  const normalizedMap = normalizeBeverageMetricsSnapshot(metrics);
+  const meaningfulEntries = Object.entries(normalizedMap)
+    .filter(([, entry]) => isMeaningfulMetrics(entry))
+    .map(([beverageId, entry]) => ({
+      beverage_id: beverageId,
+      cost: normalizeDecimal(entry.cost),
+      automation_disabled: entry.automation_disabled === true,
+      fixed_as_primary: entry.fixed_as_primary === true,
+      manual_priority: toNumber(entry.manual_priority, 0),
+      metadata: {},
+    }));
+
+  if (usePostgreSQL) {
+    await ensureStrategyTable();
+    await query('BEGIN');
+    try {
+      if (meaningfulEntries.length > 0) {
+        await query(
+          `
+          DELETE FROM beverage_metrics
+          WHERE tenant_key = $1
+            AND beverage_id <> ALL($2::text[])
+          `,
+          [scope.tenantKey, meaningfulEntries.map((entry) => String(entry.beverage_id))]
+        );
+      } else {
+        await query('DELETE FROM beverage_metrics WHERE tenant_key = $1', [scope.tenantKey]);
+      }
+
+      for (const entry of meaningfulEntries) {
+        await query(
+          `
+          INSERT INTO beverage_metrics (
+            tenant_key,
+            subscriber_id,
+            subscriber_email,
+            beverage_id,
+            cost,
+            automation_disabled,
+            fixed_as_primary,
+            manual_priority,
+            metadata,
+            updated_at
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, CURRENT_TIMESTAMP)
+          ON CONFLICT (tenant_key, beverage_id)
+          DO UPDATE SET
+            subscriber_id = EXCLUDED.subscriber_id,
+            subscriber_email = EXCLUDED.subscriber_email,
+            cost = EXCLUDED.cost,
+            automation_disabled = EXCLUDED.automation_disabled,
+            fixed_as_primary = EXCLUDED.fixed_as_primary,
+            manual_priority = EXCLUDED.manual_priority,
+            metadata = EXCLUDED.metadata,
+            updated_at = CURRENT_TIMESTAMP
+          `,
+          [
+            scope.tenantKey,
+            scope.subscriberId,
+            scope.subscriberEmail,
+            entry.beverage_id,
+            entry.cost,
+            entry.automation_disabled,
+            entry.fixed_as_primary,
+            entry.manual_priority,
+            JSON.stringify(entry.metadata),
+          ]
+        );
+      }
+
+      await query('COMMIT');
+    } catch (error) {
+      await query('ROLLBACK');
+      throw error;
+    }
+  } else {
+    const db = getDb();
+    if (!Array.isArray(db.beverage_metrics)) {
+      db.beverage_metrics = [];
+    }
+
+    db.beverage_metrics = db.beverage_metrics.filter(
+      (row) => String(row?.tenant_key || '') !== String(scope.tenantKey)
+    );
+
+    meaningfulEntries.forEach((entry, index) => {
+      db.beverage_metrics.push({
+        id: `${scope.tenantKey}:${entry.beverage_id}:${index}`,
+        tenant_key: scope.tenantKey,
+        subscriber_id: scope.subscriberId,
+        subscriber_email: scope.subscriberEmail,
+        ...entry,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+    });
+
+    const saveDatabaseDebounced = getSaveDatabaseDebounced();
+    if (typeof saveDatabaseDebounced === 'function') {
+      saveDatabaseDebounced(db);
+    }
+  }
+
+  return listStoredMetrics(scope);
 }
 
 async function listTenantBeverages(scope) {
@@ -752,7 +970,7 @@ function buildPerformanceMaps(rows = []) {
   return { specificMap, fallbackMap };
 }
 
-function buildPerformanceSnapshot({ beverages = [], strategies = {}, rows = [] }) {
+function buildPerformanceSnapshot({ beverages = [], strategies = {}, metrics = {}, rows = [] }) {
   const beverageMap = new Map(
     (Array.isArray(beverages) ? beverages : [])
       .filter((beverage) => beverage?.id)
@@ -770,6 +988,7 @@ function buildPerformanceSnapshot({ beverages = [], strategies = {}, rows = [] }
   const provisionalList = Array.from(allIds).map((beverageId) => {
     const beverage = beverageMap.get(String(beverageId)) || null;
     const strategy = strategies?.[beverageId] || {};
+    const metricEntry = metrics?.[beverageId] || {};
     const sourceEntry = specificMap.get(String(beverageId)) || fallbackMap.get(String(beverageId)) || {
       ...makeEmptyPerformanceEntry(),
       beverage_id: String(beverageId),
@@ -782,6 +1001,11 @@ function buildPerformanceSnapshot({ beverages = [], strategies = {}, rows = [] }
     const rejected = toNumber(sourceEntry.rejected, 0);
     const revenueGenerated = Number(toNumber(sourceEntry.revenue_generated, 0).toFixed(2));
     const marginSignal = estimateMarginSignal({ beverage, strategy });
+    const marginMetrics = calculateBeverageMarginMetrics({
+      price: beverage?.price,
+      cost: metricEntry?.cost,
+      estimatedMarginSignal: marginSignal,
+    });
 
     return {
       beverage_id: String(beverageId),
@@ -799,11 +1023,17 @@ function buildPerformanceSnapshot({ beverages = [], strategies = {}, rows = [] }
       rejection_rate: safeRate(rejected, suggested),
       upgrade_rate: safeRate(upgraded, added || suggested),
       margin_signal: marginSignal,
+      ...marginMetrics,
       context_counts: sourceEntry.contexts || {},
       top_context:
         Object.entries(sourceEntry.contexts || {}).sort((left, right) => right[1] - left[1])[0]?.[0] || null,
       last_event_at: sourceEntry.last_event_at || null,
       source: sourceEntry.source || 'heuristic',
+      metrics: {
+        ...normalizeMetricsEntry(metricEntry),
+      },
+      strategy,
+      beverage,
     };
   });
 
@@ -823,6 +1053,14 @@ function buildPerformanceSnapshot({ beverages = [], strategies = {}, rows = [] }
         entry.margin_signal * 0.12
       ).toFixed(2)
     );
+    const finalScore = buildBeverageFinalScore({
+      beverage: entry.beverage,
+      strategy: entry.strategy,
+      metrics: entry.metrics,
+      performance: entry,
+      marginMetrics: entry,
+      revenueWeight,
+    });
 
     const confidence = clamp(
       Math.round(
@@ -836,38 +1074,83 @@ function buildPerformanceSnapshot({ beverages = [], strategies = {}, rows = [] }
       0,
       100
     );
+    const decisionReasons = buildBeverageDecisionReasons({
+      beverage: entry.beverage,
+      strategy: entry.strategy,
+      metrics: entry.metrics,
+      performance: entry,
+      marginMetrics: entry,
+      finalScore,
+    });
 
     return {
       ...entry,
       recommendation_score: recommendationScore,
       confidence,
+      final_score: finalScore,
+      decision_reasons: decisionReasons,
     };
   });
 
-  finalizedList.forEach((entry) => {
-    merged[entry.beverage_id] = entry;
+  const decisionSummary = buildBeverageDecisionSnapshot(finalizedList);
+  const abCandidateIds = new Set(decisionSummary.ab_candidate_ids || []);
+  const sortedForPriority = [...finalizedList].sort(
+    (left, right) => toNumber(right.final_score, 0) - toNumber(left.final_score, 0)
+  );
+  const priorityMap = new Map(sortedForPriority.map((entry, index) => [entry.beverage_id, index + 1]));
+
+  const enrichedList = finalizedList.map((entry) => {
+    const decisionState =
+      entry.metrics?.automation_disabled === true
+        ? 'manual_only'
+        : entry.metrics?.fixed_as_primary === true
+          ? 'fixed'
+          : toNumber(entry.acceptance_rate, 0) < 8 && toNumber(entry.suggested, 0) >= 6
+            ? 'cooldown'
+            : priorityMap.get(entry.beverage_id) <= 3
+              ? 'promoted'
+              : 'normal';
+
+    return {
+      ...entry,
+      auto_priority: priorityMap.get(entry.beverage_id) || null,
+      decision_state: decisionState,
+      ab_test_candidate: abCandidateIds.has(entry.beverage_id),
+      automation_disabled: entry.metrics?.automation_disabled === true,
+      fixed_as_primary: entry.metrics?.fixed_as_primary === true,
+      manual_priority: toNumber(entry.metrics?.manual_priority, 0),
+    };
   });
 
-  const totalSuggested = finalizedList.reduce((sum, entry) => sum + toNumber(entry.suggested, 0), 0);
-  const totalAdded = finalizedList.reduce((sum, entry) => sum + toNumber(entry.added, 0), 0);
-  const totalRevenueGenerated = Number(
-    finalizedList.reduce((sum, entry) => sum + toNumber(entry.revenue_generated, 0), 0).toFixed(2)
-  );
+  enrichedList.forEach((entry) => {
+    const { beverage, strategy, metrics: internalMetrics, ...publicEntry } = entry;
+    merged[entry.beverage_id] = publicEntry;
+  });
 
-  const topAcceptance = [...finalizedList]
+  const totalSuggested = enrichedList.reduce((sum, entry) => sum + toNumber(entry.suggested, 0), 0);
+  const totalAdded = enrichedList.reduce((sum, entry) => sum + toNumber(entry.added, 0), 0);
+  const totalRevenueGenerated = Number(
+    enrichedList.reduce((sum, entry) => sum + toNumber(entry.revenue_generated, 0), 0).toFixed(2)
+  );
+  const totalMarginCoverage = enrichedList.filter((entry) => entry.margin_source === 'real').length;
+
+  const topAcceptance = [...enrichedList]
     .filter((entry) => entry.suggested > 0 || entry.added > 0)
     .sort((left, right) => right.acceptance_rate - left.acceptance_rate || right.confidence - left.confidence)
-    .slice(0, 5);
+    .slice(0, 5)
+    .map((entry) => serializePerformanceEntry(entry, false));
 
-  const topRevenue = [...finalizedList]
+  const topRevenue = [...enrichedList]
     .filter((entry) => entry.revenue_generated > 0)
     .sort((left, right) => right.revenue_generated - left.revenue_generated)
-    .slice(0, 5);
+    .slice(0, 5)
+    .map((entry) => serializePerformanceEntry(entry, false));
 
-  const underexposedHighMargin = [...finalizedList]
-    .filter((entry) => entry.margin_signal >= 68 && entry.suggested <= 2)
-    .sort((left, right) => right.margin_signal - left.margin_signal || right.recommendation_score - left.recommendation_score)
-    .slice(0, 5);
+  const underexposedHighMargin = [...enrichedList]
+    .filter((entry) => entry.profitability_signal >= 68 && entry.suggested <= 2)
+    .sort((left, right) => right.profitability_signal - left.profitability_signal || right.recommendation_score - left.recommendation_score)
+    .slice(0, 5)
+    .map((entry) => serializePerformanceEntry(entry, false));
 
   const opportunities = [];
 
@@ -875,16 +1158,16 @@ function buildPerformanceSnapshot({ beverages = [], strategies = {}, rows = [] }
     opportunities.push({
       id: `high-margin:${entry.beverage_id}`,
       severity: 'important',
-      title: `${entry.beverage_name} tem margem estimada forte e pouca exposicao`,
+      title: `${entry.beverage_name} tem boa margem e pouca exposicao`,
       description: 'Vale subir essa bebida nas sugestoes e nos contextos certos para melhorar lucro sem mexer no cardapio inteiro.',
-      impact: `Margem estimada ${entry.margin_signal}/100 com apenas ${entry.suggested} sugestao(oes).`,
+      impact: `${entry.margin_source === 'real' ? 'Margem real' : 'Rentabilidade estimada'} ${entry.profitability_signal}/100 com apenas ${entry.suggested} sugestao(oes).`,
       beverage_id: entry.beverage_id,
       actionId: 'improve-weak-beverages',
       actionLabel: 'Dar mais exposicao',
     });
   });
 
-  finalizedList
+  enrichedList
     .filter((entry) => entry.suggested >= 4 && entry.acceptance_rate < 8)
     .sort((left, right) => left.acceptance_rate - right.acceptance_rate)
     .slice(0, 3)
@@ -901,7 +1184,7 @@ function buildPerformanceSnapshot({ beverages = [], strategies = {}, rows = [] }
       });
     });
 
-  finalizedList
+  enrichedList
     .filter((entry) => entry.acceptance_rate >= 18 && entry.suggested <= 6)
     .sort((left, right) => right.acceptance_rate - left.acceptance_rate)
     .slice(0, 3)
@@ -918,10 +1201,22 @@ function buildPerformanceSnapshot({ beverages = [], strategies = {}, rows = [] }
       });
     });
 
+  if (totalMarginCoverage < enrichedList.filter((entry) => entry.beverage_price > 0).length) {
+    opportunities.push({
+      id: 'margin-coverage',
+      severity: 'important',
+      title: 'Ainda faltam custos para liberar margem real no motor',
+      description: 'Sem custo cadastrado, o sistema continua funcionando, mas depende de estimativa para parte das bebidas.',
+      impact: `${totalMarginCoverage} bebida(s) ja usam margem real e ${Math.max(0, enrichedList.length - totalMarginCoverage)} ainda estao no fallback.`,
+      actionId: 'prepare-beverages',
+      actionLabel: 'Completar custos',
+    });
+  }
+
   return {
     performance_by_beverage: merged,
     performance_summary: {
-      total_beverages_with_data: finalizedList.filter((entry) => entry.suggested > 0 || entry.added > 0).length,
+      total_beverages_with_data: enrichedList.filter((entry) => entry.suggested > 0 || entry.added > 0).length,
       total_suggested: totalSuggested,
       total_added: totalAdded,
       total_revenue_generated: totalRevenueGenerated,
@@ -929,6 +1224,7 @@ function buildPerformanceSnapshot({ beverages = [], strategies = {}, rows = [] }
       top_acceptance: topAcceptance,
       top_revenue: topRevenue,
       underexposed_high_margin: underexposedHighMargin,
+      real_margin_coverage: totalMarginCoverage,
       learning_state:
         totalSuggested >= 10
           ? 'aprendendo_com_dados'
@@ -937,12 +1233,49 @@ function buildPerformanceSnapshot({ beverages = [], strategies = {}, rows = [] }
             : 'fallback_heuristico',
     },
     opportunities: opportunities.slice(0, 8),
+    decision_summary: decisionSummary,
+  };
+}
+
+function sanitizePublicPerformanceMap(rawValue = {}) {
+  return Object.entries(rawValue || {}).reduce((accumulator, [beverageId, entry]) => {
+    if (!entry || typeof entry !== 'object') return accumulator;
+    const {
+      cost,
+      margin_value,
+      margin_percentage,
+      decision_reasons,
+      ...safeEntry
+    } = entry;
+    accumulator[String(beverageId)] = safeEntry;
+    return accumulator;
+  }, {});
+}
+
+function serializePerformanceEntry(entry = {}, includeSensitive = false) {
+  const { beverage, strategy, metrics: internalMetrics, ...nextEntry } = entry || {};
+  if (includeSensitive) {
+    return nextEntry;
+  }
+
+  const { cost, margin_value, margin_percentage, decision_reasons, ...safeEntry } = nextEntry;
+  return safeEntry;
+}
+
+function sanitizePublicDecisionSummary(summary = {}) {
+  return {
+    primary_beverage_id: summary?.primary_beverage_id || null,
+    secondary_beverage_id: summary?.secondary_beverage_id || null,
+    active_ab_test: summary?.active_ab_test === true,
+    ab_candidate_ids: Array.isArray(summary?.ab_candidate_ids) ? summary.ab_candidate_ids : [],
+    score_gap: toNumber(summary?.score_gap, 0),
   };
 }
 
 export async function getBeverageIntelligenceSnapshot({
   scope,
   days = 45,
+  includeSensitive = true,
 } = {}) {
   const safeScope = scope?.tenantKey ? scope : await resolveBeverageTenantScope(scope || {});
   if (!safeScope?.tenantKey) {
@@ -958,15 +1291,32 @@ export async function getBeverageIntelligenceSnapshot({
         top_acceptance: [],
         top_revenue: [],
         underexposed_high_margin: [],
+        real_margin_coverage: 0,
         learning_state: 'fallback_heuristico',
+      },
+      metrics_by_beverage: {},
+      decision_summary: {
+        primary_beverage_id: null,
+        primary_beverage_name: null,
+        primary_reason: null,
+        secondary_beverage_id: null,
+        secondary_beverage_name: null,
+        active_ab_test: false,
+        ab_candidate_ids: [],
+        score_gap: 0,
+        automated_count: 0,
+        fixed_count: 0,
+        automation_disabled_count: 0,
+        decision_log: [],
       },
       opportunities: [],
       generated_at: new Date().toISOString(),
     };
   }
 
-  const [strategyData, beverages, analyticsRows] = await Promise.all([
+  const [strategyData, metricsData, beverages, analyticsRows] = await Promise.all([
     listStoredStrategies(safeScope),
+    listStoredMetrics(safeScope),
     listTenantBeverages(safeScope),
     listAnalyticsRows(safeScope, days),
   ]);
@@ -974,12 +1324,23 @@ export async function getBeverageIntelligenceSnapshot({
   const performance = buildPerformanceSnapshot({
     beverages,
     strategies: strategyData,
+    metrics: metricsData,
     rows: analyticsRows,
   });
 
+  const performanceByBeverage = includeSensitive
+    ? performance.performance_by_beverage
+    : sanitizePublicPerformanceMap(performance.performance_by_beverage);
+
   return {
     strategy_data: strategyData,
-    ...performance,
+    performance_by_beverage: performanceByBeverage,
+    performance_summary: performance.performance_summary,
+    metrics_by_beverage: includeSensitive ? metricsData : {},
+    decision_summary: includeSensitive
+      ? performance.decision_summary
+      : sanitizePublicDecisionSummary(performance.decision_summary),
+    opportunities: performance.opportunities,
     generated_at: new Date().toISOString(),
   };
 }

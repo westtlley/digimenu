@@ -40,6 +40,7 @@ import BeverageInsightsPanel from '@/components/admin/beverages/BeverageInsights
 import {
   getAdminBeverageIntelligence,
   mergeBeverageStrategySources,
+  saveAdminBeverageMetrics,
   saveAdminBeverageStrategy,
 } from '@/services/beverageIntelligenceService';
 import {
@@ -109,6 +110,7 @@ export default function BeveragesTab() {
   const [selectedDishLink, setSelectedDishLink] = useState('');
   const [runningActionId, setRunningActionId] = useState(null);
   const [beverageStrategy, setBeverageStrategy] = useState({});
+  const [beverageMetrics, setBeverageMetrics] = useState({});
   const [upsellDraft, setUpsellDraft] = useState(DEFAULT_BEVERAGE_OFFER);
   const [formData, setFormData] = useState({
     name: '',
@@ -131,7 +133,9 @@ export default function BeveragesTab() {
 
   const queryClient = useQueryClient();
   const remoteHydratedTenantRef = useRef(null);
+  const remoteMetricsHydratedTenantRef = useRef(null);
   const skipStrategySyncRef = useRef(false);
+  const skipMetricsSyncRef = useRef(false);
   const [localStrategyLoaded, setLocalStrategyLoaded] = useState(false);
 
   useEffect(() => {
@@ -210,9 +214,27 @@ export default function BeveragesTab() {
       top_acceptance: [],
       top_revenue: [],
       underexposed_high_margin: [],
+      real_margin_coverage: 0,
       learning_state: 'fallback_heuristico',
     },
     [adminBeverageIntelligence?.performance_summary]
+  );
+  const decisionSummary = useMemo(
+    () => adminBeverageIntelligence?.decision_summary || {
+      primary_beverage_id: null,
+      primary_beverage_name: null,
+      primary_reason: null,
+      secondary_beverage_id: null,
+      secondary_beverage_name: null,
+      active_ab_test: false,
+      ab_candidate_ids: [],
+      score_gap: 0,
+      automated_count: 0,
+      fixed_count: 0,
+      automation_disabled_count: 0,
+      decision_log: [],
+    },
+    [adminBeverageIntelligence?.decision_summary]
   );
   const dataDrivenOpportunities = useMemo(
     () => adminBeverageIntelligence?.opportunities || [],
@@ -259,6 +281,19 @@ export default function BeveragesTab() {
   ]);
 
   useEffect(() => {
+    if (!adminBeverageIntelligenceFetched) return;
+    if (remoteMetricsHydratedTenantRef.current === tenantScopeKey) return;
+
+    remoteMetricsHydratedTenantRef.current = tenantScopeKey;
+    skipMetricsSyncRef.current = true;
+    setBeverageMetrics(adminBeverageIntelligence?.metrics_by_beverage || {});
+  }, [
+    adminBeverageIntelligence?.metrics_by_beverage,
+    adminBeverageIntelligenceFetched,
+    tenantScopeKey,
+  ]);
+
+  useEffect(() => {
     if (!localStrategyLoaded) return;
     if (remoteHydratedTenantRef.current !== tenantScopeKey) return;
 
@@ -268,18 +303,45 @@ export default function BeveragesTab() {
     }
 
     const syncTimer = window.setTimeout(() => {
-      saveAdminBeverageStrategy(beverageStrategy, strategySyncContext).catch((error) => {
-        console.error('Erro ao sincronizar estrategia de bebidas:', error);
-      });
+      saveAdminBeverageStrategy(beverageStrategy, strategySyncContext)
+        .then(() => {
+          queryClient.invalidateQueries({ queryKey: ['admin-beverage-intelligence', ...menuContextQueryKey] });
+        })
+        .catch((error) => {
+          console.error('Erro ao sincronizar estrategia de bebidas:', error);
+        });
     }, 900);
 
     return () => window.clearTimeout(syncTimer);
   }, [
     beverageStrategy,
     localStrategyLoaded,
+    menuContextQueryKey,
+    queryClient,
     strategySyncContext,
     tenantScopeKey,
   ]);
+
+  useEffect(() => {
+    if (remoteMetricsHydratedTenantRef.current !== tenantScopeKey) return;
+
+    if (skipMetricsSyncRef.current) {
+      skipMetricsSyncRef.current = false;
+      return;
+    }
+
+    const syncTimer = window.setTimeout(() => {
+      saveAdminBeverageMetrics(beverageMetrics, strategySyncContext)
+        .then(() => {
+          queryClient.invalidateQueries({ queryKey: ['admin-beverage-intelligence', ...menuContextQueryKey] });
+        })
+        .catch((error) => {
+          console.error('Erro ao sincronizar metricas de bebidas:', error);
+        });
+    }, 900);
+
+    return () => window.clearTimeout(syncTimer);
+  }, [beverageMetrics, menuContextQueryKey, queryClient, strategySyncContext, tenantScopeKey]);
 
   useEffect(() => {
     setUpsellDraft({
@@ -400,6 +462,7 @@ export default function BeveragesTab() {
   const beverageEntries = useMemo(() => {
     return beverages.map((beverage) => {
       const strategy = beverageStrategy?.[beverage.id] || {};
+      const metrics = beverageMetrics?.[beverage.id] || {};
       const profile = getBeverageCommercialProfile({
         beverage,
         strategy,
@@ -409,13 +472,17 @@ export default function BeveragesTab() {
       const performance = performanceByBeverage?.[String(beverage.id)] || null;
       const dataScore = Number(performance?.recommendation_score || 0);
       const confidence = Number(performance?.confidence || 0);
-      const blendedScore = confidence > 0
-        ? Number((profile.score * 8 + dataScore + (confidence / 10)).toFixed(2))
-        : profile.score;
+      const automaticScore = Number(performance?.final_score || 0);
+      const blendedScore = automaticScore > 0
+        ? automaticScore
+        : confidence > 0
+          ? Number((profile.score * 8 + dataScore + (confidence / 10)).toFixed(2))
+          : profile.score;
       const categoryName = beverageCategories.find((category) => String(category?.id) === String(beverage?.category_id))?.name || 'Sem categoria';
       return {
         beverage,
         strategy,
+        metrics,
         profile,
         performance,
         blendedScore,
@@ -425,7 +492,7 @@ export default function BeveragesTab() {
         comboCount: comboUsageMap?.[beverage.id] || 0,
       };
     }).sort((left, right) => right.blendedScore - left.blendedScore || String(left.beverage?.name || '').localeCompare(String(right.beverage?.name || '')));
-  }, [activeUpsellDishId, beverageCategories, beverageStrategy, beverages, categories, comboUsageMap, nonBeverageDishes, performanceByBeverage]);
+  }, [activeUpsellDishId, beverageCategories, beverageMetrics, beverageStrategy, beverages, categories, comboUsageMap, nonBeverageDishes, performanceByBeverage]);
 
   const packagingVariety = useMemo(() => {
     return new Set(beverageEntries.map((entry) => inferBeveragePackaging(entry.beverage, entry.strategy.packaging)).filter(Boolean)).size;
@@ -480,6 +547,7 @@ export default function BeveragesTab() {
   }, [beverageEntries, selectedBeverageId]);
 
   const selectedStrategy = selectedEntry?.strategy || {};
+  const selectedMetrics = selectedEntry?.metrics || {};
   const previewBeverage = selectedEntry?.beverage || currentUpsellBeverage || beverages[0] || null;
 
   const quickActions = useMemo(() => ([
@@ -666,6 +734,47 @@ export default function BeveragesTab() {
     });
   };
 
+  const updateMetricsForBeverage = (beverageId, updater) => {
+    setBeverageMetrics((prev) => {
+      const current = prev?.[beverageId] || {};
+      const nextValue = typeof updater === 'function' ? updater(current, prev) : { ...current, ...updater };
+      return {
+        ...prev,
+        [beverageId]: {
+          cost: nextValue?.cost == null || nextValue?.cost === '' ? null : Number(nextValue.cost),
+          automation_disabled: nextValue?.automation_disabled === true,
+          fixed_as_primary: nextValue?.fixed_as_primary === true,
+          manual_priority: Number(nextValue?.manual_priority || 0) || 0,
+        },
+      };
+    });
+  };
+
+  const toggleFixedPrimaryForBeverage = (beverageId, checked) => {
+    setBeverageMetrics((prev) => {
+      const next = { ...prev };
+      if (checked) {
+        Object.keys(next).forEach((currentId) => {
+          next[currentId] = {
+            ...(next[currentId] || {}),
+            fixed_as_primary: String(currentId) === String(beverageId),
+          };
+        });
+        next[beverageId] = {
+          ...(next[beverageId] || {}),
+          fixed_as_primary: true,
+          automation_disabled: false,
+        };
+      } else {
+        next[beverageId] = {
+          ...(next[beverageId] || {}),
+          fixed_as_primary: false,
+        };
+      }
+      return next;
+    });
+  };
+
   const toggleStrategyTag = (tagId) => {
     if (!selectedEntry) return;
     updateStrategyForBeverage(selectedEntry.beverage.id, (current) => ({
@@ -754,7 +863,12 @@ export default function BeveragesTab() {
   };
 
   const pickBestUpsellCandidate = () => {
-    return beverageEntries.find((entry) => entry.beverage?.is_active !== false && !entry.beverage?.alcoholic)
+    const decisionCandidate = decisionSummary?.primary_beverage_id
+      ? beverageEntries.find((entry) => String(entry?.beverage?.id) === String(decisionSummary.primary_beverage_id))
+      : null;
+
+    return decisionCandidate
+      || beverageEntries.find((entry) => entry.beverage?.is_active !== false && !entry.beverage?.alcoholic)
       || beverageEntries.find((entry) => entry.beverage?.is_active !== false)
       || null;
   };
@@ -967,6 +1081,7 @@ export default function BeveragesTab() {
           <BeverageOverviewPanel
             moduleSummary={moduleSummary}
             performanceSummary={performanceSummary}
+            decisionSummary={decisionSummary}
             currentUpsellBeverage={currentUpsellBeverage}
             topBeverages={topBeverages}
             uncoveredCategories={categoriesWithoutUpsell}
@@ -1235,6 +1350,19 @@ export default function BeveragesTab() {
                         </div>
                         <Badge variant="outline" className={statusToneMap[entry.profile.level]}>{entry.profile.level}</Badge>
                       </div>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {entry.performance?.auto_priority ? (
+                          <Badge variant="outline" className="bg-white text-slate-700">
+                            Auto #{entry.performance.auto_priority}
+                          </Badge>
+                        ) : null}
+                        {entry.metrics?.fixed_as_primary ? (
+                          <Badge className="bg-slate-900 text-white">Fixa</Badge>
+                        ) : null}
+                        {entry.metrics?.automation_disabled ? (
+                          <Badge variant="outline" className="bg-white text-slate-600">Manual</Badge>
+                        ) : null}
+                      </div>
                       <p className="mt-2 text-xs text-slate-600">{entry.profile.readout}</p>
                     </button>
                   ))}
@@ -1255,6 +1383,120 @@ export default function BeveragesTab() {
                       <div className="flex flex-wrap gap-2">
                         <Badge variant="outline" className={statusToneMap[selectedEntry.profile.level]}>{selectedEntry.profile.level}</Badge>
                         {String(activeUpsellDishId || '') === String(selectedEntry.beverage.id) ? <Badge className="bg-cyan-100 text-cyan-700">Upsell real</Badge> : null}
+                      </div>
+                    </div>
+
+                    <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
+                      <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge variant="outline" className="bg-white text-slate-700">Score final {Number(selectedEntry.performance?.final_score || selectedEntry.blendedScore || 0).toFixed(1)}</Badge>
+                          {selectedEntry.performance?.decision_state ? (
+                            <Badge variant="outline" className="bg-white text-slate-700">
+                              {selectedEntry.performance.decision_state === 'fixed'
+                                ? 'Fixada'
+                                : selectedEntry.performance.decision_state === 'promoted'
+                                  ? 'Promovida'
+                                  : selectedEntry.performance.decision_state === 'cooldown'
+                                    ? 'Menos exposta'
+                                    : selectedEntry.performance.decision_state === 'manual_only'
+                                      ? 'Somente manual'
+                                      : 'Normal'}
+                            </Badge>
+                          ) : null}
+                          {decisionSummary?.primary_beverage_id && String(decisionSummary.primary_beverage_id) === String(selectedEntry.beverage.id) ? (
+                            <Badge className="bg-emerald-100 text-emerald-700">Principal automatica</Badge>
+                          ) : null}
+                          {selectedEntry.performance?.ab_test_candidate ? (
+                            <Badge variant="outline" className="bg-white text-slate-700">Teste A/B leve</Badge>
+                          ) : null}
+                        </div>
+                        <p className="mt-3 text-sm font-semibold text-slate-900">
+                          {selectedEntry.performance?.decision_reasons?.[0] || 'O motor ainda esta usando fallback seguro para esta bebida.'}
+                        </p>
+                        <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                          <div className="rounded-xl border border-white/80 bg-white/90 p-3">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Aceitacao</p>
+                            <p className="mt-1 text-lg font-semibold text-slate-900">{Number(selectedEntry.performance?.acceptance_rate || 0).toFixed(0)}%</p>
+                          </div>
+                          <div className="rounded-xl border border-white/80 bg-white/90 p-3">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Receita</p>
+                            <p className="mt-1 text-lg font-semibold text-slate-900">{formatCurrency(selectedEntry.performance?.revenue_generated || 0)}</p>
+                          </div>
+                          <div className="rounded-xl border border-white/80 bg-white/90 p-3">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Margem</p>
+                            <p className="mt-1 text-lg font-semibold text-slate-900">
+                              {selectedEntry.performance?.margin_source === 'real'
+                                ? `${Number(selectedEntry.performance?.margin_percentage || 0).toFixed(0)}%`
+                                : `${Number(selectedEntry.performance?.profitability_signal || selectedEntry.performance?.margin_signal || 0).toFixed(0)}/100`}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <div>
+                            <Label>Custo unitario</Label>
+                            <Input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={selectedMetrics.cost ?? ''}
+                              onChange={(event) =>
+                                updateMetricsForBeverage(selectedEntry.beverage.id, (current) => ({
+                                  ...current,
+                                  cost: event.target.value === '' ? null : Number(event.target.value),
+                                }))
+                              }
+                              placeholder="Ex: 4.50"
+                            />
+                            <p className="mt-2 text-xs text-slate-500">
+                              Sem custo, o sistema usa estimativa. Com custo, ele passa a priorizar margem real.
+                            </p>
+                          </div>
+                          <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Leitura financeira</p>
+                            <p className="mt-2 text-sm font-semibold text-slate-900">
+                              {selectedEntry.performance?.margin_source === 'real'
+                                ? `Lucro estimado ${formatCurrency(selectedEntry.performance?.margin_value || 0)} por venda`
+                                : 'Rentabilidade ainda em estimativa'}
+                            </p>
+                            <p className="mt-1 text-xs text-slate-500">
+                              {selectedEntry.performance?.margin_source === 'real'
+                                ? `Margem calculada com custo real em ${Number(selectedEntry.performance?.margin_percentage || 0).toFixed(1)}%.`
+                                : 'Preencha o custo para liberar margem real e decisao mais agressiva.'}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="mt-4 grid gap-3">
+                          <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/80 p-3">
+                            <div>
+                              <p className="text-sm font-semibold text-slate-900">Fixar como bebida principal</p>
+                              <p className="text-xs text-slate-500">Override manual. O sistema respeita e para de trocar o topo.</p>
+                            </div>
+                            <Switch
+                              checked={selectedMetrics.fixed_as_primary === true}
+                              onCheckedChange={(checked) => toggleFixedPrimaryForBeverage(selectedEntry.beverage.id, checked)}
+                            />
+                          </div>
+                          <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/80 p-3">
+                            <div>
+                              <p className="text-sm font-semibold text-slate-900">Desativar automacao para este item</p>
+                              <p className="text-xs text-slate-500">Ele continua no catalogo, mas sai do ranking automatico.</p>
+                            </div>
+                            <Switch
+                              checked={selectedMetrics.automation_disabled === true}
+                              onCheckedChange={(checked) =>
+                                updateMetricsForBeverage(selectedEntry.beverage.id, (current) => ({
+                                  ...current,
+                                  automation_disabled: checked,
+                                  fixed_as_primary: checked ? false : current.fixed_as_primary,
+                                }))
+                              }
+                            />
+                          </div>
+                        </div>
                       </div>
                     </div>
 
@@ -1525,6 +1767,7 @@ export default function BeveragesTab() {
             uncoveredCategories={categoriesWithoutUpsell}
             currentUpsellBeverage={currentUpsellBeverage}
             performanceSummary={performanceSummary}
+            decisionSummary={decisionSummary}
             onRecommendationAction={runAction}
           />
         </TabsContent>

@@ -31,8 +31,11 @@ const orderBeverageSuggestionsForDisplay = (options = []) =>
     const scoreOption = (option) => {
       const reason = normalizeText(option?.reasonLabel);
       const level = normalizeText(option?.scoreLevel);
-      let score = 0;
+      let score = Number(option?.ranking || 0);
 
+      if (option?.performance?.fixed_as_primary === true) score += 800;
+      if (Number(option?.performance?.auto_priority || 0) === 1) score += 260;
+      if (Number(option?.performance?.final_score || 0) > 0) score += Number(option.performance.final_score) * 0.45;
       if (reason.includes('combina com este item') || reason.includes('combina com')) score += 400;
       if (reason.includes('mais pedido')) score += 220;
       if (level === 'forte') score += 180;

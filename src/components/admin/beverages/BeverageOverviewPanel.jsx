@@ -17,6 +17,7 @@ const formatCurrency = (value) =>
 export default function BeverageOverviewPanel({
   moduleSummary,
   performanceSummary,
+  decisionSummary,
   currentUpsellBeverage,
   topBeverages,
   uncoveredCategories,
@@ -71,6 +72,10 @@ export default function BeverageOverviewPanel({
               <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Receita gerada</p>
               <p className="mt-2 text-2xl font-semibold text-slate-900">{formatCurrency(performanceSummary?.total_revenue_generated || 0)}</p>
             </div>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Margem real</p>
+              <p className="mt-2 text-2xl font-semibold text-slate-900">{performanceSummary?.real_margin_coverage || 0}</p>
+            </div>
           </div>
 
           <div className={`mt-4 rounded-2xl border p-4 ${toneClassByLevel[moduleSummary.level] || toneClassByLevel.BASICO}`}>
@@ -117,6 +122,29 @@ export default function BeverageOverviewPanel({
             <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Leitura dos dados</p>
               <p className="mt-2 text-sm font-semibold text-slate-900">{learningReadout}</p>
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Decisao automatica</p>
+              <p className="mt-2 text-sm font-semibold text-slate-900">
+                {decisionSummary?.primary_beverage_name
+                  ? `${decisionSummary.primary_beverage_name} lidera o upsell automatico`
+                  : 'O sistema ainda esta usando fallback seguro para escolher a principal.'}
+              </p>
+              <p className="mt-2 text-sm text-slate-600">
+                {decisionSummary?.primary_reason || 'Assim que houver dados ou override suficiente, a principal passa a aparecer aqui.'}
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Badge variant="outline" className="bg-white text-slate-700">
+                  {decisionSummary?.fixed_count || 0} fixa(s)
+                </Badge>
+                <Badge variant="outline" className="bg-white text-slate-700">
+                  {decisionSummary?.automation_disabled_count || 0} fora da automacao
+                </Badge>
+                {decisionSummary?.active_ab_test ? (
+                  <Badge variant="outline" className="bg-white text-slate-700">A/B leve ativo</Badge>
+                ) : null}
+              </div>
             </div>
           </Card>
 

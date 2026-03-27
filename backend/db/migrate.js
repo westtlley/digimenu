@@ -509,6 +509,32 @@ export async function migrate() {
         `);
         console.log('✅ Migração de tabela beverage_strategy concluída.');
 
+        await query(`
+          CREATE TABLE IF NOT EXISTS beverage_metrics (
+            id SERIAL PRIMARY KEY,
+            tenant_key VARCHAR(300) NOT NULL,
+            subscriber_id INTEGER,
+            subscriber_email VARCHAR(255),
+            beverage_id VARCHAR(120) NOT NULL,
+            cost NUMERIC(10,2),
+            automation_disabled BOOLEAN DEFAULT FALSE,
+            fixed_as_primary BOOLEAN DEFAULT FALSE,
+            manual_priority INTEGER DEFAULT 0,
+            metadata JSONB DEFAULT '{}'::jsonb,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          );
+        `);
+
+        await query(`
+          CREATE UNIQUE INDEX IF NOT EXISTS idx_beverage_metrics_tenant_beverage
+          ON beverage_metrics(tenant_key, beverage_id);
+          CREATE INDEX IF NOT EXISTS idx_beverage_metrics_subscriber_id
+          ON beverage_metrics(subscriber_id);
+          CREATE INDEX IF NOT EXISTS idx_beverage_metrics_subscriber_email
+          ON beverage_metrics(subscriber_email);
+        `);
+        console.log('✅ Migração de tabela beverage_metrics concluída.');
         // Índice para Comanda (entity_type + subscriber já cobertos por idx_entities_type_subscriber)
         try {
           await query(`
@@ -757,3 +783,4 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       process.exit(1);
     });
 }
+

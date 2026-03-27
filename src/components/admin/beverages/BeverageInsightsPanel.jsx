@@ -14,6 +14,7 @@ export default function BeverageInsightsPanel({
   uncoveredCategories,
   currentUpsellBeverage,
   performanceSummary,
+  decisionSummary,
   onRecommendationAction,
 }) {
   return (
@@ -66,12 +67,16 @@ export default function BeverageInsightsPanel({
           </div>
 
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Alta margem pouco exposta</p>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Maior lucro pouco exposto</p>
             <div className="mt-3 space-y-2">
               {(performanceSummary?.underexposed_high_margin || []).slice(0, 3).map((entry) => (
                 <div key={`margin:${entry.beverage_id}`} className="rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2">
                   <p className="text-sm font-semibold text-slate-900">{entry.beverage_name}</p>
-                  <p className="mt-1 text-xs text-slate-600">Margem estimada {Number(entry.margin_signal || 0).toFixed(0)}/100</p>
+                  <p className="mt-1 text-xs text-slate-600">
+                    {entry.margin_source === 'real'
+                      ? `Margem real forte (${Number(entry.profitability_signal || 0).toFixed(0)}/100)`
+                      : `Rentabilidade ${Number(entry.profitability_signal || entry.margin_signal || 0).toFixed(0)}/100`}
+                  </p>
                 </div>
               ))}
               {(performanceSummary?.underexposed_high_margin || []).length === 0 ? (
@@ -139,6 +144,53 @@ export default function BeverageInsightsPanel({
             </p>
           </div>
         )}
+      </Card>
+
+      <Card className="rounded-3xl border-slate-200 p-4 shadow-sm sm:p-5">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600">Painel de decisao</Badge>
+            <h3 className="mt-3 text-lg font-semibold text-slate-900 sm:text-xl">Por que o sistema subiu ou derrubou cada bebida</h3>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              A automacao continua reversivel. Aqui ficam os motivos das mudancas para voce confiar no motor.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {decisionSummary?.primary_beverage_name ? (
+              <Badge variant="outline" className="bg-white text-slate-700">Principal: {decisionSummary.primary_beverage_name}</Badge>
+            ) : null}
+            {decisionSummary?.active_ab_test ? (
+              <Badge variant="outline" className="bg-white text-slate-700">A/B leve ativo</Badge>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-3 lg:grid-cols-2">
+          {(decisionSummary?.decision_log || []).slice(0, 4).map((item) => {
+            const toneClass = item.tone === 'success'
+              ? 'border-emerald-200 bg-emerald-50/80'
+              : item.tone === 'warning'
+                ? 'border-amber-200 bg-amber-50/80'
+                : item.tone === 'manual'
+                  ? 'border-slate-200 bg-slate-50/80'
+                  : 'border-sky-200 bg-sky-50/80';
+
+            return (
+              <div key={item.id} className={`rounded-2xl border p-4 ${toneClass}`}>
+                <p className="text-sm font-semibold text-slate-900">{item.title}</p>
+                <p className="mt-2 text-sm leading-6 text-slate-700">{item.description}</p>
+              </div>
+            );
+          })}
+          {(decisionSummary?.decision_log || []).length === 0 ? (
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+              <p className="text-sm font-semibold text-slate-900">Sem log relevante ainda</p>
+              <p className="mt-2 text-sm text-slate-600">
+                O motor continua em fallback seguro enquanto junta mais sinal real.
+              </p>
+            </div>
+          ) : null}
+        </div>
       </Card>
 
       <Card className="overflow-hidden rounded-3xl border-slate-200 shadow-sm">
