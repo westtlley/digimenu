@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
@@ -37,6 +37,11 @@ import { cn } from '@/lib/utils';
 import BeverageCard from '@/components/menu/BeverageCard';
 import BeverageOverviewPanel from '@/components/admin/beverages/BeverageOverviewPanel';
 import BeverageInsightsPanel from '@/components/admin/beverages/BeverageInsightsPanel';
+import {
+  getAdminBeverageIntelligence,
+  mergeBeverageStrategySources,
+  saveAdminBeverageStrategy,
+} from '@/services/beverageIntelligenceService';
 import {
   BEVERAGE_CONTEXT_OPTIONS,
   BEVERAGE_PACKAGING_OPTIONS,
@@ -125,6 +130,9 @@ export default function BeveragesTab() {
   });
 
   const queryClient = useQueryClient();
+  const remoteHydratedTenantRef = useRef(null);
+  const skipStrategySyncRef = useRef(false);
+  const [localStrategyLoaded, setLocalStrategyLoaded] = useState(false);
 
   useEffect(() => {
     base44.auth.me().then(setUser).catch(() => {});
@@ -134,6 +142,10 @@ export default function BeveragesTab() {
   const menuContextQueryKey = getMenuContextQueryKeyParts(menuContext);
   const subscriberContextEmail = getMenuContextSubscriberEmail(menuContext);
   const entityContextOpts = getMenuContextEntityOpts(menuContext);
+  const strategySyncContext = useMemo(() => ({
+    ...(entityContextOpts?.as_subscriber ? { as_subscriber: entityContextOpts.as_subscriber } : {}),
+    ...(entityContextOpts?.as_subscriber_id != null ? { as_subscriber_id: entityContextOpts.as_subscriber_id } : {}),
+  }), [entityContextOpts?.as_subscriber, entityContextOpts?.as_subscriber_id]);
   const tenantScopeKey = useMemo(() => (menuContextQueryKey.length > 0 ? menuContextQueryKey.join(':') : 'default'), [menuContextQueryKey]);
   const strategyStorageKey = useMemo(() => `beverage-ai-v1:${tenantScopeKey}`, [tenantScopeKey]);
 
@@ -169,10 +181,43 @@ export default function BeveragesTab() {
     enabled: !!menuContext,
   });
 
+  const {
+    data: adminBeverageIntelligence = null,
+    isFetched: adminBeverageIntelligenceFetched,
+  } = useQuery({
+    queryKey: ['admin-beverage-intelligence', ...menuContextQueryKey],
+    queryFn: () => getAdminBeverageIntelligence(strategySyncContext, { days: 45 }),
+    enabled: !!menuContext,
+    staleTime: 1000 * 60 * 3,
+    retry: 1,
+  });
+
   const store = stores?.[0] || null;
   const crossSellConfig = store?.cross_sell_config || {};
   const realBeverageOffer = crossSellConfig?.beverage_offer || DEFAULT_BEVERAGE_OFFER;
   const activeUpsellDishId = realBeverageOffer?.dish_id || null;
+  const performanceByBeverage = useMemo(
+    () => adminBeverageIntelligence?.performance_by_beverage || {},
+    [adminBeverageIntelligence?.performance_by_beverage]
+  );
+  const performanceSummary = useMemo(
+    () => adminBeverageIntelligence?.performance_summary || {
+      total_beverages_with_data: 0,
+      total_suggested: 0,
+      total_added: 0,
+      total_revenue_generated: 0,
+      module_acceptance_rate: 0,
+      top_acceptance: [],
+      top_revenue: [],
+      underexposed_high_margin: [],
+      learning_state: 'fallback_heuristico',
+    },
+    [adminBeverageIntelligence?.performance_summary]
+  );
+  const dataDrivenOpportunities = useMemo(
+    () => adminBeverageIntelligence?.opportunities || [],
+    [adminBeverageIntelligence?.opportunities]
+  );
 
   useEffect(() => {
     try {
@@ -182,6 +227,8 @@ export default function BeveragesTab() {
       console.error('Erro ao carregar estrategia de bebidas:', error);
       setBeverageStrategy({});
     }
+    remoteHydratedTenantRef.current = null;
+    setLocalStrategyLoaded(true);
   }, [strategyStorageKey]);
 
   useEffect(() => {
@@ -191,6 +238,48 @@ export default function BeveragesTab() {
       console.error('Erro ao salvar estrategia de bebidas:', error);
     }
   }, [beverageStrategy, strategyStorageKey]);
+
+  useEffect(() => {
+    if (!localStrategyLoaded || !adminBeverageIntelligenceFetched) return;
+    if (remoteHydratedTenantRef.current === tenantScopeKey) return;
+
+    remoteHydratedTenantRef.current = tenantScopeKey;
+    skipStrategySyncRef.current = true;
+    setBeverageStrategy((current) =>
+      mergeBeverageStrategySources(
+        adminBeverageIntelligence?.strategy_data || {},
+        current
+      )
+    );
+  }, [
+    adminBeverageIntelligence?.strategy_data,
+    adminBeverageIntelligenceFetched,
+    localStrategyLoaded,
+    tenantScopeKey,
+  ]);
+
+  useEffect(() => {
+    if (!localStrategyLoaded) return;
+    if (remoteHydratedTenantRef.current !== tenantScopeKey) return;
+
+    if (skipStrategySyncRef.current) {
+      skipStrategySyncRef.current = false;
+      return;
+    }
+
+    const syncTimer = window.setTimeout(() => {
+      saveAdminBeverageStrategy(beverageStrategy, strategySyncContext).catch((error) => {
+        console.error('Erro ao sincronizar estrategia de bebidas:', error);
+      });
+    }, 900);
+
+    return () => window.clearTimeout(syncTimer);
+  }, [
+    beverageStrategy,
+    localStrategyLoaded,
+    strategySyncContext,
+    tenantScopeKey,
+  ]);
 
   useEffect(() => {
     setUpsellDraft({
@@ -317,18 +406,26 @@ export default function BeveragesTab() {
         activeUpsellDishId,
         comboCount: comboUsageMap?.[beverage.id] || 0,
       });
+      const performance = performanceByBeverage?.[String(beverage.id)] || null;
+      const dataScore = Number(performance?.recommendation_score || 0);
+      const confidence = Number(performance?.confidence || 0);
+      const blendedScore = confidence > 0
+        ? Number((profile.score * 8 + dataScore + (confidence / 10)).toFixed(2))
+        : profile.score;
       const categoryName = beverageCategories.find((category) => String(category?.id) === String(beverage?.category_id))?.name || 'Sem categoria';
       return {
         beverage,
         strategy,
         profile,
+        performance,
+        blendedScore,
         categoryName,
         linkedCategoryNames: (strategy.linkedCategoryIds || []).map((categoryId) => categories.find((category) => String(category?.id) === String(categoryId))?.name).filter(Boolean),
         linkedDishNames: (strategy.linkedDishIds || []).map((dishId) => nonBeverageDishes.find((dish) => String(dish?.id) === String(dishId))?.name).filter(Boolean),
         comboCount: comboUsageMap?.[beverage.id] || 0,
       };
-    }).sort((left, right) => right.profile.score - left.profile.score || String(left.beverage?.name || '').localeCompare(String(right.beverage?.name || '')));
-  }, [activeUpsellDishId, beverageCategories, beverageStrategy, beverages, categories, comboUsageMap, nonBeverageDishes]);
+    }).sort((left, right) => right.blendedScore - left.blendedScore || String(left.beverage?.name || '').localeCompare(String(right.beverage?.name || '')));
+  }, [activeUpsellDishId, beverageCategories, beverageStrategy, beverages, categories, comboUsageMap, nonBeverageDishes, performanceByBeverage]);
 
   const packagingVariety = useMemo(() => {
     return new Set(beverageEntries.map((entry) => inferBeveragePackaging(entry.beverage, entry.strategy.packaging)).filter(Boolean)).size;
@@ -350,6 +447,11 @@ export default function BeveragesTab() {
     comboUsageMap,
   }), [activeUpsellDishId, beverageStrategy, beverages, categoriesWithoutUpsell, comboUsageMap]);
 
+  const combinedRecommendations = useMemo(() => {
+    const combined = [...dataDrivenOpportunities, ...recommendations];
+    return combined.slice(0, 8);
+  }, [dataDrivenOpportunities, recommendations]);
+
   const autoPlan = useMemo(() => buildBeverageAutoPlan({
     summary: moduleSummary,
     activeUpsellDishId,
@@ -365,6 +467,7 @@ export default function BeveragesTab() {
       readout: entry.profile.readout,
       packaging: entry.profile.packaging,
       tags: entry.strategy.tags || [],
+      performance: entry.performance,
     }));
   }, [beverageEntries]);
 
@@ -863,6 +966,7 @@ export default function BeveragesTab() {
         <TabsContent value="overview" className="mt-0">
           <BeverageOverviewPanel
             moduleSummary={moduleSummary}
+            performanceSummary={performanceSummary}
             currentUpsellBeverage={currentUpsellBeverage}
             topBeverages={topBeverages}
             uncoveredCategories={categoriesWithoutUpsell}
@@ -938,11 +1042,21 @@ export default function BeveragesTab() {
                             {isRealUpsell ? <Badge className="bg-cyan-100 text-cyan-700">Upsell real</Badge> : null}
                             {entry.strategy.moreOrdered ? <Badge className="bg-amber-100 text-amber-700">Mais pedido junto</Badge> : null}
                           </div>
-                          <p className="mt-2 text-sm text-slate-600">{entry.categoryName} · {formatCurrency(beverage.price)} · {entry.profile.readout}</p>
+                          <p className="mt-2 text-sm text-slate-600">{entry.categoryName} - {formatCurrency(beverage.price)} - {entry.profile.readout}</p>
                           <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-500">
                             <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1"><Link2 className="h-3.5 w-3.5" /> {entry.profile.usage.totalLinks} vinculo(s)</span>
                             <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1"><Layers3 className="h-3.5 w-3.5" /> {entry.comboCount} combo(s)</span>
                             <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1"><TrendingUp className="h-3.5 w-3.5" /> score {entry.profile.score}</span>
+                            {entry.performance ? (
+                              <>
+                                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-emerald-700">
+                                  <Sparkles className="h-3.5 w-3.5" /> {Number(entry.performance.acceptance_rate || 0).toFixed(0)}% aceita
+                                </span>
+                                <span className="inline-flex items-center gap-1 rounded-full border border-cyan-200 bg-cyan-50 px-2.5 py-1 text-cyan-700">
+                                  <ShoppingCart className="h-3.5 w-3.5" /> {formatCurrency(entry.performance.revenue_generated || 0)} receita
+                                </span>
+                              </>
+                            ) : null}
                           </div>
                           {(entry.strategy.tags || []).length > 0 ? (
                             <div className="mt-3 flex flex-wrap gap-2">
@@ -1030,7 +1144,7 @@ export default function BeveragesTab() {
                           <SelectTrigger><SelectValue placeholder="Escolha uma bebida" /></SelectTrigger>
                           <SelectContent>
                             {beverageEntries.filter((entry) => entry.beverage?.is_active !== false).map((entry) => (
-                              <SelectItem key={entry.beverage.id} value={String(entry.beverage.id)}>{entry.beverage.name} · {formatCurrency(entry.beverage.price)}</SelectItem>
+                              <SelectItem key={entry.beverage.id} value={String(entry.beverage.id)}>{entry.beverage.name} - {formatCurrency(entry.beverage.price)}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
@@ -1117,7 +1231,7 @@ export default function BeveragesTab() {
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <p className="truncate text-sm font-semibold text-slate-900">{entry.beverage.name}</p>
-                          <p className="mt-1 truncate text-xs text-slate-500">{entry.categoryName} · {formatCurrency(entry.beverage.price)}</p>
+                          <p className="mt-1 truncate text-xs text-slate-500">{entry.categoryName} - {formatCurrency(entry.beverage.price)}</p>
                         </div>
                         <Badge variant="outline" className={statusToneMap[entry.profile.level]}>{entry.profile.level}</Badge>
                       </div>
@@ -1136,7 +1250,7 @@ export default function BeveragesTab() {
                       <div>
                         <Badge variant="outline" className="border-cyan-200 bg-cyan-50 text-cyan-700">Bebida selecionada</Badge>
                         <h4 className="mt-3 text-xl font-semibold text-slate-900">{selectedEntry.beverage.name}</h4>
-                        <p className="mt-2 text-sm text-slate-600">{selectedEntry.profile.readout} · {formatCurrency(selectedEntry.beverage.price)} · {selectedEntry.categoryName}</p>
+                        <p className="mt-2 text-sm text-slate-600">{selectedEntry.profile.readout} - {formatCurrency(selectedEntry.beverage.price)} - {selectedEntry.categoryName}</p>
                       </div>
                       <div className="flex flex-wrap gap-2">
                         <Badge variant="outline" className={statusToneMap[selectedEntry.profile.level]}>{selectedEntry.profile.level}</Badge>
@@ -1406,10 +1520,11 @@ export default function BeveragesTab() {
 
         <TabsContent value="insights" className="mt-0">
           <BeverageInsightsPanel
-            recommendations={recommendations}
+            recommendations={combinedRecommendations}
             autoPlan={autoPlan}
             uncoveredCategories={categoriesWithoutUpsell}
             currentUpsellBeverage={currentUpsellBeverage}
+            performanceSummary={performanceSummary}
             onRecommendationAction={runAction}
           />
         </TabsContent>
@@ -1484,7 +1599,7 @@ export default function BeveragesTab() {
                   {formData.image ? (
                     <div className="relative">
                       <img src={formData.image} alt="Preview" className="h-16 w-16 rounded border-2 border-gray-200 object-cover" />
-                      <button type="button" onClick={() => setFormData((prev) => ({ ...prev, image: '' }))} className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs text-white hover:bg-red-600">×</button>
+                      <button type="button" onClick={() => setFormData((prev) => ({ ...prev, image: '' }))} className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs text-white hover:bg-red-600">x</button>
                     </div>
                   ) : null}
                 </div>
@@ -1542,5 +1657,6 @@ export default function BeveragesTab() {
     </div>
   );
 }
+
 
 

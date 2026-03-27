@@ -10,7 +10,12 @@ export const COMMERCIAL_EVENTS = {
   UPSELL_REJECTED: 'upsell_rejected',
   UPSELL_SKIPPED: 'upsell_skipped',
   COMBO_CLICKED: 'combo_clicked',
-  COMBO_ADDED: 'combo_added'
+  COMBO_ADDED: 'combo_added',
+  BEVERAGE_SUGGESTED: 'beverage_suggested',
+  BEVERAGE_CLICKED: 'beverage_clicked',
+  BEVERAGE_ADDED: 'beverage_added',
+  BEVERAGE_REJECTED: 'beverage_rejected',
+  BEVERAGE_UPGRADED: 'beverage_upgraded'
 };
 
 const SESSION_KEY = 'dm_analytics_session_id';
@@ -23,6 +28,7 @@ const SIGNALS_KEY = 'dm_commercial_signals_v1';
 const SIGNALS_TTL_MS = 1000 * 60 * 60 * 24 * 30; // 30 dias
 const SIGNALS_MAX_SLUGS = 24;
 const SIGNALS_MAX_ITEMS = 96;
+const BEVERAGE_SESSION_KEY = 'dm_beverage_session_signals_v1';
 
 const normalizeSlug = (value) =>
   String(value || '')
@@ -216,6 +222,106 @@ const getComboIdFromProperties = (properties = {}) => {
   return comboId.replace(/^combo_/, '');
 };
 
+const makeEmptyBeverageSessionBucket = () => ({
+  updated_at: Date.now(),
+  accepted_count: 0,
+  rejected_count: 0,
+  clicked_count: 0,
+  added_count: 0,
+  upgraded_count: 0,
+  beverage_accepts: {},
+  beverage_rejections: {},
+  beverage_clicks: {},
+});
+
+const readBeverageSessionStore = () => {
+  if (typeof window === 'undefined' || !window.sessionStorage) {
+    return { slugs: {}, updated_at: Date.now() };
+  }
+
+  try {
+    const raw = window.sessionStorage.getItem(BEVERAGE_SESSION_KEY);
+    if (!raw) return { slugs: {}, updated_at: Date.now() };
+    const parsed = JSON.parse(raw);
+    return {
+      slugs: isPlainObject(parsed?.slugs) ? parsed.slugs : {},
+      updated_at: toPositiveNumber(parsed?.updated_at, Date.now()),
+    };
+  } catch {
+    return { slugs: {}, updated_at: Date.now() };
+  }
+};
+
+const saveBeverageSessionStore = (store) => {
+  if (typeof window === 'undefined' || !window.sessionStorage) return;
+  try {
+    window.sessionStorage.setItem(BEVERAGE_SESSION_KEY, JSON.stringify(store));
+  } catch {
+    // ignore storage errors
+  }
+};
+
+const getBeverageIdFromProperties = (properties = {}) =>
+  normalizeId(properties?.beverage_id ?? properties?.dish_id ?? properties?.product_id ?? properties?.id);
+
+const updateBeverageSessionSignals = (eventName, properties = {}, slugFromPayload = null) => {
+  if (typeof window === 'undefined') return;
+
+  const slug = normalizeSlug(slugFromPayload || getSlugFromPathname());
+  if (!slug) return;
+
+  const store = readBeverageSessionStore();
+  const nextStore = {
+    ...store,
+    updated_at: Date.now(),
+    slugs: { ...(store?.slugs || {}) },
+  };
+
+  const bucket = {
+    ...makeEmptyBeverageSessionBucket(),
+    ...(nextStore.slugs[slug] || {}),
+  };
+  bucket.updated_at = Date.now();
+
+  const beverageId = getBeverageIdFromProperties(properties);
+
+  if (eventName === COMMERCIAL_EVENTS.BEVERAGE_SUGGESTED) {
+    incrementCounter(bucket.beverage_clicks, beverageId, 0);
+  }
+
+  if (eventName === COMMERCIAL_EVENTS.BEVERAGE_CLICKED) {
+    bucket.clicked_count += 1;
+    incrementCounter(bucket.beverage_clicks, beverageId, 1);
+  }
+
+  if (eventName === COMMERCIAL_EVENTS.BEVERAGE_ADDED) {
+    bucket.accepted_count += 1;
+    bucket.added_count += 1;
+    incrementCounter(bucket.beverage_accepts, beverageId, 1);
+  }
+
+  if (eventName === COMMERCIAL_EVENTS.BEVERAGE_UPGRADED) {
+    bucket.accepted_count += 1;
+    bucket.added_count += 1;
+    bucket.upgraded_count += 1;
+    incrementCounter(bucket.beverage_accepts, beverageId, 1);
+  }
+
+  if (eventName === COMMERCIAL_EVENTS.BEVERAGE_REJECTED) {
+    bucket.rejected_count += 1;
+    incrementCounter(bucket.beverage_rejections, beverageId, 1);
+  }
+
+  nextStore.slugs[slug] = {
+    ...bucket,
+    beverage_accepts: trimTopEntries(bucket.beverage_accepts),
+    beverage_rejections: trimTopEntries(bucket.beverage_rejections),
+    beverage_clicks: trimTopEntries(bucket.beverage_clicks),
+  };
+
+  saveBeverageSessionStore(nextStore);
+};
+
 const updateLocalCommercialSignals = (eventName, properties = {}, slugFromPayload = null) => {
   if (typeof window === 'undefined') return;
 
@@ -277,6 +383,7 @@ export async function trackCommercialEvent(eventName, properties = {}) {
     if (!payload.event_name) return;
 
     updateLocalCommercialSignals(payload.event_name, payload.properties, payload.slug);
+    updateBeverageSessionSignals(payload.event_name, payload.properties, payload.slug);
     await apiClient.post('/analytics/events', payload);
   } catch (error) {
     // Analytics nao pode quebrar fluxo de compra.
@@ -316,5 +423,25 @@ export function getCommercialSignalsForSlug(slugInput = null) {
     add_units: trimTopEntries(bucket.add_units),
     upsell_accepted: trimTopEntries(bucket.upsell_accepted),
     combo_added: trimTopEntries(bucket.combo_added)
+  };
+}
+
+export function getBeverageSessionSignals(slugInput = null) {
+  if (typeof window === 'undefined') {
+    return makeEmptyBeverageSessionBucket();
+  }
+
+  const slug = normalizeSlug(slugInput || getSlugFromPathname());
+  if (!slug) return makeEmptyBeverageSessionBucket();
+
+  const bucket = readBeverageSessionStore()?.slugs?.[slug];
+  if (!bucket) return makeEmptyBeverageSessionBucket();
+
+  return {
+    ...makeEmptyBeverageSessionBucket(),
+    ...bucket,
+    beverage_accepts: trimTopEntries(bucket.beverage_accepts),
+    beverage_rejections: trimTopEntries(bucket.beverage_rejections),
+    beverage_clicks: trimTopEntries(bucket.beverage_clicks),
   };
 }

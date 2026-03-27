@@ -11,8 +11,12 @@ const toneClassByLevel = {
   BASICO: 'border-rose-200 bg-rose-50/80',
 };
 
+const formatCurrency = (value) =>
+  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value || 0));
+
 export default function BeverageOverviewPanel({
   moduleSummary,
+  performanceSummary,
   currentUpsellBeverage,
   topBeverages,
   uncoveredCategories,
@@ -20,6 +24,13 @@ export default function BeverageOverviewPanel({
   onQuickAction,
   onOpenSection,
 }) {
+  const learningReadout =
+    performanceSummary?.learning_state === 'aprendendo_com_dados'
+      ? 'O modulo ja esta aprendendo com comportamento real.'
+      : performanceSummary?.learning_state === 'dados_iniciais'
+        ? 'Ja existem sinais reais, mas ainda estamos no inicio da leitura.'
+        : 'Sem massa critica de dados ainda. O fallback heuristico continua protegendo o upsell.';
+
   return (
     <div className="space-y-4">
       <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
@@ -35,7 +46,7 @@ export default function BeverageOverviewPanel({
             <Badge className="w-fit bg-slate-900 text-white">{moduleSummary.level}</Badge>
           </div>
 
-          <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Ativas</p>
               <p className="mt-2 text-2xl font-semibold text-slate-900">{moduleSummary.activeCount}</p>
@@ -51,6 +62,14 @@ export default function BeverageOverviewPanel({
             <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Categorias sem upsell</p>
               <p className="mt-2 text-2xl font-semibold text-slate-900">{moduleSummary.categoriesWithoutUpsell}</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Aceitacao do modulo</p>
+              <p className="mt-2 text-2xl font-semibold text-slate-900">{Number(performanceSummary?.module_acceptance_rate || 0).toFixed(0)}%</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Receita gerada</p>
+              <p className="mt-2 text-2xl font-semibold text-slate-900">{formatCurrency(performanceSummary?.total_revenue_generated || 0)}</p>
             </div>
           </div>
 
@@ -93,6 +112,11 @@ export default function BeverageOverviewPanel({
                   </p>
                 </>
               )}
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Leitura dos dados</p>
+              <p className="mt-2 text-sm font-semibold text-slate-900">{learningReadout}</p>
             </div>
           </Card>
 
@@ -146,6 +170,11 @@ export default function BeverageOverviewPanel({
                   {item.tags.slice(0, 2).map((tag) => (
                     <Badge key={tag} variant="outline" className="bg-slate-50">{tag.replace('_', ' ')}</Badge>
                   ))}
+                  {item.performance?.acceptance_rate > 0 ? (
+                    <Badge variant="outline" className="bg-emerald-50 text-emerald-700">
+                      {Number(item.performance.acceptance_rate || 0).toFixed(0)}% aceita
+                    </Badge>
+                  ) : null}
                 </div>
               </div>
             ))}

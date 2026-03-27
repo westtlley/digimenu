@@ -56,6 +56,7 @@ import { createCaixaShiftHandlers } from './modules/caixa/caixaShiftHandlers.js'
 import { createManagerialAuthHandlers } from './modules/managerialAuth/managerialAuthHandlers.js';
 import analyticsRoutes from './routes/analytics.routes.js';
 import backupRoutes from './routes/backup.routes.js';
+import { beverageIntelligenceRouter, publicBeverageIntelligenceRouter } from './routes/beverageIntelligence.routes.js';
 import subscriberBackupRoutes from './routes/subscriberBackup.routes.js';
 import mercadopagoRoutes from './routes/mercadopago.routes.js';
 import metricsRoutes from './routes/metrics.routes.js';
@@ -754,6 +755,8 @@ app.post(
   createLimiter,
   asyncHandler(finalizeSaleHandler)
 );
+app.use('/api/public/beverages', publicBeverageIntelligenceRouter);
+app.use('/api/beverages', authenticate, beverageIntelligenceRouter);
 app.patch(
   '/api/dishes/:id/pdv',
   authenticate,

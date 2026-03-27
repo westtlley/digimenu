@@ -27,6 +27,7 @@ import ordersRoutes from '../modules/orders/orders.routes.js';
 // Importar outras rotas existentes
 import analyticsRoutes from '../routes/analytics.routes.js';
 import backupRoutes from '../routes/backup.routes.js';
+import { beverageIntelligenceRouter, publicBeverageIntelligenceRouter } from '../routes/beverageIntelligence.routes.js';
 import subscriberBackupRoutes from '../routes/subscriberBackup.routes.js';
 import mercadopagoRoutes from '../routes/mercadopago.routes.js';
 import metricsRoutes from '../routes/metrics.routes.js';
@@ -97,6 +98,7 @@ export async function createApp() {
   app.use('/api/auth', loginLimiter, authRoutes);
   app.use('/api/public', menusRoutes); // Cardápio público
   app.use('/api/public', ordersRoutes); // Pedido público
+  app.use('/api/public/beverages', publicBeverageIntelligenceRouter);
 
   // Autenticação (aplicar em todas as rotas protegidas)
   app.use('/api', authenticate);
@@ -107,6 +109,7 @@ export async function createApp() {
   app.use('/api/establishments', establishmentsRoutes);
   app.use('/api/menus', menusRoutes);
   app.use('/api/orders', ordersRoutes);
+  app.use('/api/beverages', beverageIntelligenceRouter);
 
   // Outras rotas
   app.use('/api/analytics', analyticsRoutes);

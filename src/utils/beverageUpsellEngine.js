@@ -198,14 +198,78 @@ const buildSuggestionReason = ({ beverage, strategy, profile, anchorProduct, cat
   return profile.readout || 'Boa para aumentar ticket';
 };
 
+const resolvePerformanceEntry = (beverage, performanceData = {}) => {
+  const safeId = String(beverage?.id || '');
+  return performanceData?.[safeId] && typeof performanceData[safeId] === 'object'
+    ? performanceData[safeId]
+    : null;
+};
+
+const buildPerformanceBoost = (performanceEntry) => {
+  if (!performanceEntry) return 0;
+
+  const acceptanceRate = toNumber(performanceEntry.acceptance_rate, 0);
+  const clickRate = toNumber(performanceEntry.click_rate, 0);
+  const upgradeRate = toNumber(performanceEntry.upgrade_rate, 0);
+  const recommendationScore = toNumber(performanceEntry.recommendation_score, 0);
+  const confidence = toNumber(performanceEntry.confidence, 0);
+  const marginSignal = toNumber(performanceEntry.margin_signal, 0);
+  const revenueGenerated = toNumber(performanceEntry.revenue_generated, 0);
+
+  return (
+    acceptanceRate * 1.4 +
+    clickRate * 0.55 +
+    upgradeRate * 0.6 +
+    recommendationScore * 0.4 +
+    (confidence / 10) +
+    (marginSignal / 6) +
+    Math.min(18, revenueGenerated / 4)
+  );
+};
+
+const buildSessionBehaviorBoost = ({
+  beverage,
+  strategy,
+  performanceEntry,
+  sessionSignals = {},
+  scope,
+  cart = [],
+}) => {
+  const beverageId = String(beverage?.id || '');
+  const accepts = toNumber(sessionSignals?.beverage_accepts?.[beverageId], 0);
+  const rejections = toNumber(sessionSignals?.beverage_rejections?.[beverageId], 0);
+  const hasBeverageInCart = cart.some((item) => item?.dish?.product_type === 'beverage');
+  const premiumTagged = normalizeArray(strategy?.tags).includes('premium');
+  const acceptanceRate = toNumber(performanceEntry?.acceptance_rate, 0);
+
+  let boost = 0;
+  if (accepts > 0) boost += accepts * 16;
+  if (rejections > 0) boost -= rejections * 24;
+
+  if (scope === 'post_add' && toNumber(sessionSignals?.rejected_count, 0) >= 2) {
+    boost -= premiumTagged ? 12 : 6;
+  }
+
+  if (scope === 'cart' && hasBeverageInCart) {
+    boost += premiumTagged ? 18 : 10;
+    boost += acceptanceRate >= 12 ? 8 : 0;
+  }
+
+  return boost;
+};
+
 const scoreSuggestion = ({
   beverage,
   strategy,
   profile,
+  performanceEntry,
+  sessionSignals,
   anchorProduct,
   categoryIds,
   contextTypes,
   configDishId,
+  cart,
+  scope,
 }) => {
   const linkedDishIds = new Set(normalizeArray(strategy.linkedDishIds).map(String));
   const linkedCategoryIds = new Set(normalizeArray(strategy.linkedCategoryIds).map(String));
@@ -223,6 +287,15 @@ const scoreSuggestion = ({
   if (normalizeArray(strategy.tags).includes('premium')) ranking += 10;
   if (normalizeArray(strategy.tags).includes('delivery')) ranking += 8;
   if (beverage?.is_highlight) ranking += 6;
+  ranking += buildPerformanceBoost(performanceEntry);
+  ranking += buildSessionBehaviorBoost({
+    beverage,
+    strategy,
+    performanceEntry,
+    sessionSignals,
+    scope,
+    cart,
+  });
 
   return ranking;
 };
@@ -231,6 +304,7 @@ const buildUpsellSuggestion = ({
   beverage,
   strategy,
   profile,
+  performanceEntry,
   ranking,
   anchorProduct,
   categoryMap,
@@ -263,8 +337,11 @@ const buildUpsellSuggestion = ({
     ranking,
     readout: profile.readout,
     scoreLevel: profile.level,
+    performance: performanceEntry,
     badgeLabel:
-      discountPercent > 0
+      performanceEntry?.acceptance_rate >= 18 && toNumber(performanceEntry?.confidence, 0) >= 18
+        ? 'Mais aceita'
+        : discountPercent > 0
         ? `Oferta ${discountPercent}%`
         : profile.level === 'Forte'
           ? 'Mais indicada'
@@ -278,6 +355,7 @@ const buildUpgradeSuggestion = ({
   beverage,
   strategy,
   profile,
+  performanceEntry,
   ranking,
   existingBeverageItem,
   anchorProduct,
@@ -309,6 +387,7 @@ const buildUpgradeSuggestion = ({
     ranking,
     readout: profile.readout,
     scoreLevel: profile.level,
+    performance: performanceEntry,
     badgeLabel: 'Upgrade',
     ctaLabel: deltaPrice > 0 ? `Trocar por +${formatCurrency(deltaPrice)}` : 'Trocar bebida',
     priceHint: deltaPrice > 0 ? `Upgrade por +${formatCurrency(deltaPrice)}` : 'Upgrade sem custo extra',
@@ -320,6 +399,8 @@ export function getBestBeverageSuggestions({
   currentProduct = null,
   beverages = [],
   strategyData = {},
+  performanceData = {},
+  sessionSignals = {},
   store = null,
   categories = [],
   scope = 'post_add',
@@ -360,14 +441,19 @@ export function getBestBeverageSuggestions({
         beverage,
         strategy,
         profile,
+        performanceEntry: resolvePerformanceEntry(beverage, performanceData),
         ranking: scoreSuggestion({
           beverage,
           strategy,
           profile,
+          performanceEntry: resolvePerformanceEntry(beverage, performanceData),
+          sessionSignals,
           anchorProduct,
           categoryIds,
           contextTypes,
           configDishId,
+          cart,
+          scope,
         }),
       };
     })
@@ -402,6 +488,7 @@ export function getBestBeverageSuggestions({
           beverage: entry.beverage,
           strategy: entry.strategy,
           profile: entry.profile,
+          performanceEntry: entry.performanceEntry,
           ranking: entry.ranking,
           existingBeverageItem,
           anchorProduct,
@@ -417,6 +504,7 @@ export function getBestBeverageSuggestions({
         beverage: entry.beverage,
         strategy: entry.strategy,
         profile: entry.profile,
+        performanceEntry: entry.performanceEntry,
         ranking: entry.ranking,
         anchorProduct,
         categoryMap,

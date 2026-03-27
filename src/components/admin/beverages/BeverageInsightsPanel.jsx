@@ -5,15 +5,83 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
+const formatCurrency = (value) =>
+  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value || 0));
+
 export default function BeverageInsightsPanel({
   recommendations,
   autoPlan,
   uncoveredCategories,
   currentUpsellBeverage,
+  performanceSummary,
   onRecommendationAction,
 }) {
   return (
     <div className="space-y-4">
+      <Card className="rounded-3xl border-slate-200 p-4 shadow-sm sm:p-5">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600">Performance de bebidas</Badge>
+            <h3 className="mt-3 text-lg font-semibold text-slate-900 sm:text-xl">O modulo agora separa exposicao, aceitacao e receita</h3>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              Aqui entram os sinais reais do cardapio para priorizar bebidas que vendem melhor e expor menos o que nao responde.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Badge variant="outline" className="bg-white text-slate-700">{performanceSummary?.total_suggested || 0} sugestoes</Badge>
+            <Badge variant="outline" className="bg-white text-slate-700">{performanceSummary?.total_added || 0} aceites</Badge>
+            <Badge variant="outline" className="bg-white text-slate-700">{formatCurrency(performanceSummary?.total_revenue_generated || 0)} receita</Badge>
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-3 lg:grid-cols-3">
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Mais aceitas</p>
+            <div className="mt-3 space-y-2">
+              {(performanceSummary?.top_acceptance || []).slice(0, 3).map((entry) => (
+                <div key={`acceptance:${entry.beverage_id}`} className="rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2">
+                  <p className="text-sm font-semibold text-slate-900">{entry.beverage_name}</p>
+                  <p className="mt-1 text-xs text-slate-600">{Number(entry.acceptance_rate || 0).toFixed(0)}% de aceitacao</p>
+                </div>
+              ))}
+              {(performanceSummary?.top_acceptance || []).length === 0 ? (
+                <p className="text-sm text-slate-500">Ainda nao ha massa critica de aceite real.</p>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Mais receita</p>
+            <div className="mt-3 space-y-2">
+              {(performanceSummary?.top_revenue || []).slice(0, 3).map((entry) => (
+                <div key={`revenue:${entry.beverage_id}`} className="rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2">
+                  <p className="text-sm font-semibold text-slate-900">{entry.beverage_name}</p>
+                  <p className="mt-1 text-xs text-slate-600">{formatCurrency(entry.revenue_generated || 0)} gerados</p>
+                </div>
+              ))}
+              {(performanceSummary?.top_revenue || []).length === 0 ? (
+                <p className="text-sm text-slate-500">Ainda nao ha receita atribuida suficiente para ranquear.</p>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Alta margem pouco exposta</p>
+            <div className="mt-3 space-y-2">
+              {(performanceSummary?.underexposed_high_margin || []).slice(0, 3).map((entry) => (
+                <div key={`margin:${entry.beverage_id}`} className="rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2">
+                  <p className="text-sm font-semibold text-slate-900">{entry.beverage_name}</p>
+                  <p className="mt-1 text-xs text-slate-600">Margem estimada {Number(entry.margin_signal || 0).toFixed(0)}/100</p>
+                </div>
+              ))}
+              {(performanceSummary?.underexposed_high_margin || []).length === 0 ? (
+                <p className="text-sm text-slate-500">Nada gritante aqui agora. O motor esta mais equilibrado.</p>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      </Card>
+
       <Card className="rounded-3xl border-slate-200 p-4 shadow-sm sm:p-5">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>

@@ -479,6 +479,36 @@ export async function migrate() {
         `);
         console.log('✅ Migração de tabela analytics_events concluída.');
 
+        // Tabela de estratégia de bebidas (motor de receita incremental)
+        await query(`
+          CREATE TABLE IF NOT EXISTS beverage_strategy (
+            id SERIAL PRIMARY KEY,
+            tenant_key VARCHAR(300) NOT NULL,
+            subscriber_id INTEGER,
+            subscriber_email VARCHAR(255),
+            beverage_id VARCHAR(120) NOT NULL,
+            tags JSONB DEFAULT '[]'::jsonb,
+            contexts JSONB DEFAULT '[]'::jsonb,
+            linked_categories JSONB DEFAULT '[]'::jsonb,
+            linked_products JSONB DEFAULT '[]'::jsonb,
+            upsell_enabled BOOLEAN DEFAULT FALSE,
+            priority INTEGER DEFAULT 0,
+            metadata JSONB DEFAULT '{}'::jsonb,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          );
+        `);
+
+        await query(`
+          CREATE UNIQUE INDEX IF NOT EXISTS idx_beverage_strategy_tenant_beverage
+          ON beverage_strategy(tenant_key, beverage_id);
+          CREATE INDEX IF NOT EXISTS idx_beverage_strategy_subscriber_id
+          ON beverage_strategy(subscriber_id);
+          CREATE INDEX IF NOT EXISTS idx_beverage_strategy_subscriber_email
+          ON beverage_strategy(subscriber_email);
+        `);
+        console.log('✅ Migração de tabela beverage_strategy concluída.');
+
         // Índice para Comanda (entity_type + subscriber já cobertos por idx_entities_type_subscriber)
         try {
           await query(`

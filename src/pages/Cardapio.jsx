@@ -57,9 +57,10 @@ import { useStorefrontTheme } from '@/hooks/useStorefrontTheme';
 // Services & Utils
 import { orderService } from '@/components/services/orderService';
 import { whatsappService } from '@/components/services/whatsappService';
+import { getPublicBeverageIntelligence, mergeBeverageStrategySources } from '@/services/beverageIntelligenceService';
 import { stockUtils } from '@/components/utils/stockUtils';
 import { formatCurrency } from '@/utils/formatters';
-import { COMMERCIAL_EVENTS, getCommercialSignalsForSlug, trackCommercialEvent, trackCommercialEventOnce } from '@/utils/commercialAnalytics';
+import { COMMERCIAL_EVENTS, getBeverageSessionSignals, getCommercialSignalsForSlug, trackCommercialEvent, trackCommercialEventOnce } from '@/utils/commercialAnalytics';
 import { getBestBeverageSuggestions, loadPublicBeverageStrategy } from '@/utils/beverageUpsellEngine';
 import { withAlpha } from '@/utils/storefrontTheme';
 
@@ -195,6 +196,8 @@ export default function Cardapio() {
   const [recentUpsellProduct, setRecentUpsellProduct] = useState(null);
   const bodyScrollLockRef = React.useRef(null);
   const cartSuggestionAcceptedRef = React.useRef(false);
+  const cartBeverageSuggestionAcceptedRef = React.useRef(false);
+  const postAddBeverageSuggestionAcceptedRef = React.useRef(false);
   const checkoutSuggestionAcceptedRef = React.useRef(false);
 
   useEffect(() => {
@@ -1665,7 +1668,14 @@ export default function Cardapio() {
     () => (Array.isArray(dishesResolved) ? dishesResolved.filter((dish) => dish?.product_type === 'beverage' && dish?.is_active !== false) : []),
     [dishesResolved]
   );
-  const beverageStrategyData = useMemo(
+  const { data: publicBeverageIntelligence = null } = useQuery({
+    queryKey: ['public-beverage-intelligence', slug],
+    queryFn: () => getPublicBeverageIntelligence(slug, { days: 45 }),
+    enabled: Boolean(slug),
+    staleTime: 1000 * 60 * 5,
+    retry: 1,
+  });
+  const localBeverageStrategyData = useMemo(
     () =>
       loadPublicBeverageStrategy({
         slug,
@@ -1673,6 +1683,22 @@ export default function Cardapio() {
         subscriberEmail: publicData?.subscriber_email || store?.subscriber_email || store?.owner_email || '',
       }),
     [publicData?.subscriber_email, slug, store]
+  );
+  const beverageStrategyData = useMemo(
+    () =>
+      mergeBeverageStrategySources(
+        localBeverageStrategyData,
+        publicBeverageIntelligence?.strategy_data || {}
+      ),
+    [localBeverageStrategyData, publicBeverageIntelligence?.strategy_data]
+  );
+  const beveragePerformanceData = useMemo(
+    () => publicBeverageIntelligence?.performance_by_beverage || {},
+    [publicBeverageIntelligence?.performance_by_beverage]
+  );
+  const beverageSessionSignals = useMemo(
+    () => getBeverageSessionSignals(slug),
+    [slug, cart.length, cartTotal, recentUpsellProduct?.dishId]
   );
   const recentUpsellAnchorProduct = useMemo(() => {
     if (!recentUpsellProduct?.dishId) return null;
@@ -1687,6 +1713,8 @@ export default function Cardapio() {
       currentProduct: recentUpsellAnchorProduct,
       beverages: beverageCatalog,
       strategyData: beverageStrategyData,
+      performanceData: beveragePerformanceData,
+      sessionSignals: beverageSessionSignals,
       store,
       categories: categoriesResolved,
       scope: 'post_add',
@@ -1694,6 +1722,8 @@ export default function Cardapio() {
     });
   }, [
     beverageCatalog,
+    beveragePerformanceData,
+    beverageSessionSignals,
     beverageStrategyData,
     beverageUpsellEnabled,
     cart,
@@ -1709,6 +1739,8 @@ export default function Cardapio() {
       currentProduct: recentUpsellAnchorProduct,
       beverages: beverageCatalog,
       strategyData: beverageStrategyData,
+      performanceData: beveragePerformanceData,
+      sessionSignals: beverageSessionSignals,
       store,
       categories: categoriesResolved,
       scope: 'cart',
@@ -1716,6 +1748,8 @@ export default function Cardapio() {
     });
   }, [
     beverageCatalog,
+    beveragePerformanceData,
+    beverageSessionSignals,
     beverageStrategyData,
     beverageUpsellEnabled,
     cart,
@@ -1737,6 +1771,8 @@ export default function Cardapio() {
         currentProduct: dish,
         beverages: beverageCatalog,
         strategyData: beverageStrategyData,
+        performanceData: beveragePerformanceData,
+        sessionSignals: beverageSessionSignals,
         store,
         categories: categoriesResolved,
         scope: 'post_add',
@@ -1751,6 +1787,8 @@ export default function Cardapio() {
     }, {});
   }, [
     beverageCatalog,
+    beveragePerformanceData,
+    beverageSessionSignals,
     beverageStrategyData,
     beverageUpsellEnabled,
     categoriesResolved,
@@ -1773,6 +1811,112 @@ export default function Cardapio() {
 
   const showCommercialSections = selectedCategory === 'all' && !searchTerm?.trim();
   const showLegacyPromotionSurface = !showCommercialSections || commercialSections.length === 0;
+
+  const buildBeverageTrackingPayload = React.useCallback((suggestion, source, extra = {}) => {
+    const beverage = suggestion?.dish || suggestion?.product || suggestion || null;
+    const anchorProduct = extra.currentProduct || recentUpsellAnchorProduct || null;
+    const performanceEntry = suggestion?.performance || beveragePerformanceData?.[String(beverage?.id || '')] || null;
+
+    return {
+      beverage_id: beverage?.id || null,
+      beverage_name: beverage?.name || null,
+      beverage_price: Number(suggestion?.finalPrice ?? beverage?.price ?? 0),
+      delta_price: Number(suggestion?.deltaPrice ?? 0),
+      added_value: Number(
+        suggestion?.type === 'upgrade'
+          ? suggestion?.deltaPrice ?? suggestion?.finalPrice ?? beverage?.price ?? 0
+          : suggestion?.finalPrice ?? beverage?.price ?? 0
+      ),
+      cart_value: Number(cartTotal || 0),
+      source,
+      suggestion_type: suggestion?.type || 'upsell',
+      reason_label: suggestion?.reasonLabel || null,
+      badge_label: suggestion?.badgeLabel || null,
+      score_level: suggestion?.scoreLevel || null,
+      recommendation_score: Number(performanceEntry?.recommendation_score ?? 0),
+      acceptance_rate: Number(performanceEntry?.acceptance_rate ?? 0),
+      margin_signal: Number(performanceEntry?.margin_signal ?? 0),
+      confidence: Number(performanceEntry?.confidence ?? 0),
+      current_product_id: anchorProduct?.id || null,
+      current_product_name: anchorProduct?.name || null,
+      current_product_type: anchorProduct?.product_type || null,
+      product_context: anchorProduct?.product_type || extra.productContext || null,
+      replace_item_id: suggestion?.replaceItemId || null,
+      ...extra,
+    };
+  }, [beveragePerformanceData, cartTotal, recentUpsellAnchorProduct]);
+
+  const trackBeverageSuggestionsShown = React.useCallback((suggestions, source, options = {}) => {
+    const safeSuggestions = Array.isArray(suggestions) ? suggestions.filter((item) => item?.dish?.id || item?.product?.id || item?.id) : [];
+    if (safeSuggestions.length === 0) return;
+
+    safeSuggestions.forEach((suggestion, index) => {
+      const beverage = suggestion?.dish || suggestion?.product || suggestion;
+      const currentProduct = options.currentProduct || null;
+      const key = [
+        'beverage_suggested',
+        source,
+        String(currentProduct?.id || options.contextKey || 'no-anchor'),
+        String(beverage?.id || ''),
+        String(options.sequenceKey || Math.round(Number(cartTotal || 0) * 100)),
+        String(index),
+      ].join(':');
+
+      void trackCommercialEventOnce(
+        COMMERCIAL_EVENTS.BEVERAGE_SUGGESTED,
+        key,
+        buildBeverageTrackingPayload(suggestion, source, {
+          currentProduct,
+          position: index + 1,
+          suggestion_count: safeSuggestions.length,
+          product_context: currentProduct?.product_type || options.productContext || null,
+        })
+      );
+    });
+  }, [buildBeverageTrackingPayload, cartTotal]);
+
+  const trackPrimaryBeverageRejection = React.useCallback((suggestions, source, options = {}) => {
+    const primarySuggestion = Array.isArray(suggestions) ? suggestions[0] : null;
+    if (!primarySuggestion) return;
+
+    const beverage = primarySuggestion?.dish || primarySuggestion?.product || primarySuggestion;
+    const key = [
+      'beverage_rejected',
+      source,
+      String(options.reason || 'dismiss'),
+      String(options.currentProduct?.id || options.contextKey || 'no-anchor'),
+      String(beverage?.id || ''),
+      String(options.sequenceKey || Math.round(Number(cartTotal || 0) * 100)),
+    ].join(':');
+
+    void trackCommercialEventOnce(
+      COMMERCIAL_EVENTS.BEVERAGE_REJECTED,
+      key,
+      buildBeverageTrackingPayload(primarySuggestion, source, {
+        currentProduct: options.currentProduct || null,
+        reason: options.reason || 'dismiss',
+        product_context: options.currentProduct?.product_type || options.productContext || null,
+      })
+    );
+  }, [buildBeverageTrackingPayload, cartTotal]);
+
+  useEffect(() => {
+    if (!recentUpsellAnchorProduct || !Array.isArray(postAddBeverageSuggestions) || postAddBeverageSuggestions.length === 0) {
+      return;
+    }
+
+    postAddBeverageSuggestionAcceptedRef.current = false;
+    trackBeverageSuggestionsShown(postAddBeverageSuggestions, 'post_add_beverage_upsell', {
+      currentProduct: recentUpsellAnchorProduct,
+      sequenceKey: recentUpsellProduct?.addedAt || recentUpsellAnchorProduct?.id,
+      productContext: recentUpsellAnchorProduct?.product_type || null,
+    });
+  }, [
+    postAddBeverageSuggestions,
+    recentUpsellAnchorProduct,
+    recentUpsellProduct?.addedAt,
+    trackBeverageSuggestionsShown,
+  ]);
 
   useEffect(() => {
     if (showUpsellModal && Array.isArray(upsellPromotions) && upsellPromotions.length > 0) {
@@ -1800,6 +1944,26 @@ export default function Cardapio() {
       cart_total: Number(cartTotal || 0)
     });
   }, [cartTotal, cartUpsellSuggestions, showCartModal]);
+
+  useEffect(() => {
+    if (!showCartModal || !Array.isArray(cartBeverageSuggestions) || cartBeverageSuggestions.length === 0) {
+      return;
+    }
+
+    cartBeverageSuggestionAcceptedRef.current = false;
+    trackBeverageSuggestionsShown(cartBeverageSuggestions, 'cart_beverage_upsell', {
+      currentProduct: recentUpsellAnchorProduct,
+      sequenceKey: `${Math.round(Number(cartTotal || 0) * 100)}:${cartItemsCount}`,
+      productContext: recentUpsellAnchorProduct?.product_type || null,
+    });
+  }, [
+    cartBeverageSuggestions,
+    cartItemsCount,
+    cartTotal,
+    recentUpsellAnchorProduct,
+    showCartModal,
+    trackBeverageSuggestionsShown,
+  ]);
 
   useEffect(() => {
     if (currentView !== 'checkout' || !checkoutMerchandisingSuggestion) return;
@@ -2215,6 +2379,15 @@ export default function Cardapio() {
     const beverage = suggestion?.dish || suggestion?.product || suggestion;
     if (!beverage?.id) return;
 
+    const currentProduct =
+      source === 'post_add_beverage_upsell'
+        ? recentUpsellAnchorProduct
+        : recentUpsellAnchorProduct || null;
+
+    void trackCommercialEvent(COMMERCIAL_EVENTS.BEVERAGE_CLICKED, buildBeverageTrackingPayload(suggestion, source, {
+      currentProduct,
+    }));
+
     const pricingValue =
       suggestion?.type === 'upgrade'
         ? Number(suggestion?.finalPrice || beverage?.price || 0)
@@ -2236,7 +2409,21 @@ export default function Cardapio() {
       quantity: 1,
       totalPrice: pricingValue,
     });
-  }, [handleAddToCart, removeItem]);
+
+    if (source === 'cart_beverage_upsell') {
+      cartBeverageSuggestionAcceptedRef.current = true;
+    }
+    if (source === 'post_add_beverage_upsell') {
+      postAddBeverageSuggestionAcceptedRef.current = true;
+    }
+
+    void trackCommercialEvent(
+      suggestion?.type === 'upgrade' ? COMMERCIAL_EVENTS.BEVERAGE_UPGRADED : COMMERCIAL_EVENTS.BEVERAGE_ADDED,
+      buildBeverageTrackingPayload(suggestion, source, {
+        currentProduct,
+      })
+    );
+  }, [buildBeverageTrackingPayload, handleAddToCart, recentUpsellAnchorProduct, removeItem]);
 
   const handleCommercialSuggestion = React.useCallback((suggestedDish, context = 'cart') => {
     if (!suggestedDish) return;
@@ -2285,8 +2472,24 @@ export default function Cardapio() {
         cart_total: Number(cartTotal || 0)
       });
     }
+
+    if (Array.isArray(cartBeverageSuggestions) && cartBeverageSuggestions.length > 0 && !cartBeverageSuggestionAcceptedRef.current) {
+      trackPrimaryBeverageRejection(cartBeverageSuggestions, 'cart_beverage_upsell', {
+        reason,
+        currentProduct: recentUpsellAnchorProduct,
+        sequenceKey: `${Math.round(Number(cartTotal || 0) * 100)}:${cartItemsCount}`,
+      });
+    }
     closeCartModal();
-  }, [cartTotal, cartUpsellSuggestions, closeCartModal]);
+  }, [
+    cartBeverageSuggestions,
+    cartItemsCount,
+    cartTotal,
+    cartUpsellSuggestions,
+    closeCartModal,
+    recentUpsellAnchorProduct,
+    trackPrimaryBeverageRejection,
+  ]);
 
   const handleRemoveFromCart = (itemId) => {
     removeItem(itemId);
@@ -4064,6 +4267,13 @@ export default function Cardapio() {
               cart_total: Number(cartTotal || 0)
             });
           }
+          if (Array.isArray(cartBeverageSuggestions) && cartBeverageSuggestions.length > 0 && !cartBeverageSuggestionAcceptedRef.current) {
+            trackPrimaryBeverageRejection(cartBeverageSuggestions, 'cart_beverage_upsell', {
+              reason: 'continue_checkout',
+              currentProduct: recentUpsellAnchorProduct,
+              sequenceKey: `${Math.round(Number(cartTotal || 0) * 100)}:${cartItemsCount}`,
+            });
+          }
           void trackCommercialEvent(COMMERCIAL_EVENTS.CHECKOUT_STARTED, {
             cart_items_count: Number(cartItemsCount || 0),
             cart_total: Number(cartTotal || 0),
@@ -4192,6 +4402,19 @@ export default function Cardapio() {
           currentProduct={recentUpsellAnchorProduct}
           onSelectBeverageSuggestion={(suggestion) => {
             handleBeverageSuggestionAction(suggestion, 'post_add_beverage_upsell');
+          }}
+          onDismissSuggestion={(suggestionState) => {
+            if (postAddBeverageSuggestionAcceptedRef.current) return;
+            const suggestions = Array.isArray(suggestionState?.options)
+              ? suggestionState.options
+              : suggestionState?.product
+                ? [suggestionState.product]
+                : [];
+            trackPrimaryBeverageRejection(suggestions, 'post_add_beverage_upsell', {
+              reason: 'dismiss',
+              currentProduct: recentUpsellAnchorProduct,
+              contextKey: suggestionState?.contextKey || recentUpsellProduct?.addedAt || recentUpsellAnchorProduct?.id,
+            });
           }}
           primaryColor={primaryColor}
           store={store}

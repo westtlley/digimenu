@@ -142,6 +142,7 @@ export default function SmartUpsell({
   dishes = [],
   onAddToCart,
   onSelectBeverageSuggestion,
+  onDismissSuggestion,
   beverageSuggestions = [],
   currentProduct = null,
   primaryColor = '#f97316',
@@ -336,6 +337,7 @@ export default function SmartUpsell({
   };
 
   const handleDismiss = () => {
+    const dismissedSuggestion = suggestion;
     if (suggestion?.type === 'beverage_bundle' && suggestion?.contextKey) {
       setRuntimeState((current) => ({
         ...current,
@@ -345,6 +347,7 @@ export default function SmartUpsell({
         },
       }));
       setSuggestion(null);
+      onDismissSuggestion?.(dismissedSuggestion);
       onClose?.();
       return;
     }
@@ -353,6 +356,7 @@ export default function SmartUpsell({
       setDismissedSuggestions((current) => new Set([...current, suggestion.type]));
       setSuggestion(null);
     }
+    onDismissSuggestion?.(dismissedSuggestion);
     onClose?.();
   };
 
