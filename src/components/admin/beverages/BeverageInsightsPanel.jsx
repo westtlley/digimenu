@@ -16,6 +16,8 @@ export default function BeverageInsightsPanel({
   performanceSummary,
   combinationPerformance,
   combinationSummary,
+  orderActionPerformance,
+  orderOptimizationSummary,
   decisionSummary,
   onRecommendationAction,
 }) {
@@ -87,6 +89,68 @@ export default function BeverageInsightsPanel({
             </div>
           </div>
         </div>
+      </Card>
+
+      <Card className="rounded-3xl border-slate-200 p-4 shadow-sm sm:p-5">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600">Pedido inteiro</Badge>
+            <h3 className="mt-3 text-lg font-semibold text-slate-900 sm:text-xl">Qual acao o sistema prefere para aumentar faturamento</h3>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              Aqui o motor deixa de escolher item isolado e passa a disputar bebida, upgrade, sobremesa e combo na mesma mesa.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {orderOptimizationSummary?.top_action_label ? (
+              <Badge variant="outline" className="bg-white text-slate-700">Top: {orderOptimizationSummary.top_action_label}</Badge>
+            ) : null}
+            <Badge variant="outline" className="bg-white text-slate-700">
+              {orderOptimizationSummary?.total_actions_with_data || 0} acao(oes) com leitura
+            </Badge>
+            <Badge variant="outline" className="bg-white text-slate-700">
+              {Object.keys(orderActionPerformance || {}).length} tipo(s) em disputa
+            </Badge>
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-3 lg:grid-cols-2">
+          {(orderOptimizationSummary?.top_actions || []).slice(0, 4).map((entry) => (
+            <div key={`action:${entry.action_type}:${entry.product_context}`} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-semibold text-slate-900">{entry.action_label}</p>
+                <Badge variant="outline" className="bg-slate-50">{entry.product_context || 'geral'}</Badge>
+              </div>
+              <p className="mt-2 text-xs text-slate-600">
+                {Number(entry.acceptance_rate || 0).toFixed(0)}% aceita - {formatCurrency(entry.revenue_generated || 0)} em receita
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                Score {Number(entry.action_score || 0).toFixed(0)} com {entry.suggested || 0} exibicao(oes)
+              </p>
+            </div>
+          ))}
+          {(orderOptimizationSummary?.top_actions || []).length === 0 ? (
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+              <p className="text-sm font-semibold text-slate-900">Sem leitura global forte ainda</p>
+              <p className="mt-2 text-sm text-slate-600">
+                O motor do pedido inteiro continua em fallback seguro enquanto junta massa critica por acao.
+              </p>
+            </div>
+          ) : null}
+        </div>
+
+        {(orderOptimizationSummary?.lost_opportunities || []).length > 0 ? (
+          <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50/80 p-4">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-700">Oportunidades perdidas</p>
+            <div className="mt-3 space-y-2">
+              {orderOptimizationSummary.lost_opportunities.slice(0, 3).map((item) => (
+                <div key={item.id} className="rounded-xl border border-amber-200 bg-white/80 px-3 py-2">
+                  <p className="text-sm font-semibold text-slate-900">{item.title}</p>
+                  <p className="mt-1 text-xs text-slate-600">{item.impact}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </Card>
 
       <Card className="rounded-3xl border-slate-200 p-4 shadow-sm sm:p-5">
@@ -224,6 +288,20 @@ export default function BeverageInsightsPanel({
         </div>
 
         <div className="mt-5 grid gap-3 lg:grid-cols-2">
+          {(orderOptimizationSummary?.decision_log || []).slice(0, 2).map((item) => {
+            const toneClass = item.tone === 'success'
+              ? 'border-emerald-200 bg-emerald-50/80'
+              : item.tone === 'warning'
+                ? 'border-amber-200 bg-amber-50/80'
+                : 'border-sky-200 bg-sky-50/80';
+
+            return (
+              <div key={item.id} className={`rounded-2xl border p-4 ${toneClass}`}>
+                <p className="text-sm font-semibold text-slate-900">{item.title}</p>
+                <p className="mt-2 text-sm leading-6 text-slate-700">{item.description}</p>
+              </div>
+            );
+          })}
           {(decisionSummary?.decision_log || []).slice(0, 4).map((item) => {
             const toneClass = item.tone === 'success'
               ? 'border-emerald-200 bg-emerald-50/80'

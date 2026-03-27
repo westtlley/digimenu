@@ -18,6 +18,7 @@ export default function BeverageOverviewPanel({
   moduleSummary,
   performanceSummary,
   combinationSummary,
+  orderOptimizationSummary,
   decisionSummary,
   currentUpsellBeverage,
   topBeverages,
@@ -76,6 +77,10 @@ export default function BeverageOverviewPanel({
             <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Margem real</p>
               <p className="mt-2 text-2xl font-semibold text-slate-900">{performanceSummary?.real_margin_coverage || 0}</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Proxima acao forte</p>
+              <p className="mt-2 text-lg font-semibold text-slate-900">{orderOptimizationSummary?.top_action_label || 'Fallback seguro'}</p>
             </div>
           </div>
 
@@ -210,11 +215,21 @@ export default function BeverageOverviewPanel({
               <Badge variant="outline" className="bg-white text-slate-700">
                 {combinationSummary?.total_combinations_with_data || 0} combinacao(oes)
               </Badge>
+              <Badge variant="outline" className="bg-white text-slate-700">
+                {orderOptimizationSummary?.total_actions_with_data || 0} acoes com dados
+              </Badge>
               {(combinationSummary?.top_combinations || []).slice(0, 2).map((entry) => (
                 <Badge key={`combo:${entry.combination_id || entry.combo_label}`} variant="outline" className="bg-white text-slate-700">
                   {entry.combo_label}
                 </Badge>
               ))}
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Decisao global do pedido</p>
+              <p className="mt-2 text-sm font-semibold text-slate-900">
+                {orderOptimizationSummary?.top_action_reason || 'O sistema ainda esta juntando sinais para escolher a melhor proxima acao do pedido.'}
+              </p>
             </div>
           </Card>
         </div>

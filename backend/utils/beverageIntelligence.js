@@ -8,6 +8,7 @@ import {
   calculateBeverageMarginMetrics,
 } from './beverageDecisionEngine.js';
 import { buildCrossSellCombinationSnapshot } from './crossSellOptimizationEngine.js';
+import { buildOrderOptimizationSnapshot } from './orderOptimizationEngine.js';
 
 export const BEVERAGE_TRACKING_EVENT_NAMES = [
   'beverage_suggested',
@@ -15,6 +16,8 @@ export const BEVERAGE_TRACKING_EVENT_NAMES = [
   'beverage_added',
   'beverage_rejected',
   'beverage_upgraded',
+  'combo_clicked',
+  'combo_added',
   'add_to_cart',
   'upsell_shown',
   'upsell_accepted',
@@ -1218,6 +1221,10 @@ function buildPerformanceSnapshot({ beverages = [], strategies = {}, metrics = {
     rows,
     performanceByBeverage: merged,
   });
+  const orderOptimizationSnapshot = buildOrderOptimizationSnapshot({
+    rows,
+    performanceByBeverage: merged,
+  });
 
   const topCombination = combinationSnapshot?.combination_summary?.top_combinations?.[0] || null;
   if (topCombination) {
@@ -1269,6 +1276,8 @@ function buildPerformanceSnapshot({ beverages = [], strategies = {}, metrics = {
     decision_summary: decisionSummary,
     combination_performance: combinationSnapshot.combination_performance,
     combination_summary: combinationSnapshot.combination_summary,
+    order_optimization_summary: orderOptimizationSnapshot.action_summary,
+    order_action_performance: orderOptimizationSnapshot.action_performance,
   };
 }
 
@@ -1306,6 +1315,40 @@ function sanitizePublicCombinationSummary(summary = {}) {
         : {},
     main_combination_id: summary?.main_combination_id || null,
     main_combination_label: summary?.main_combination_label || null,
+  };
+}
+
+function sanitizeOrderActionEntry(entry = {}) {
+  if (!entry || typeof entry !== 'object') return null;
+  const { estimated_profit_generated, ...safeEntry } = entry;
+  return safeEntry;
+}
+
+function sanitizePublicOrderOptimizationSummary(summary = {}) {
+  const sanitizeMap = (value) =>
+    value && typeof value === 'object'
+      ? Object.entries(value).reduce((accumulator, [key, entry]) => {
+          const safeEntry = sanitizeOrderActionEntry(entry);
+          if (safeEntry) accumulator[key] = safeEntry;
+          return accumulator;
+        }, {})
+      : {};
+
+  return {
+    top_action_type: summary?.top_action_type || null,
+    top_action_label: summary?.top_action_label || null,
+    top_action_reason: summary?.top_action_reason || null,
+    top_action_score: toNumber(summary?.top_action_score, 0),
+    total_actions_with_data: toNumber(summary?.total_actions_with_data, 0),
+    context_winners: sanitizeMap(summary?.context_winners),
+    top_actions: Array.isArray(summary?.top_actions)
+      ? summary.top_actions.map(sanitizeOrderActionEntry).filter(Boolean)
+      : [],
+    underused_actions: Array.isArray(summary?.underused_actions)
+      ? summary.underused_actions.map(sanitizeOrderActionEntry).filter(Boolean)
+      : [],
+    lost_opportunities: Array.isArray(summary?.lost_opportunities) ? summary.lost_opportunities : [],
+    decision_log: Array.isArray(summary?.decision_log) ? summary.decision_log : [],
   };
 }
 
@@ -1390,7 +1433,20 @@ export async function getBeverageIntelligenceSnapshot({
         automation_disabled_count: 0,
         decision_log: [],
       },
-      opportunities: [],
+    opportunities: [],
+      order_action_performance: {},
+      order_optimization_summary: {
+        top_action_type: null,
+        top_action_label: null,
+        top_action_reason: null,
+        top_action_score: 0,
+        total_actions_with_data: 0,
+        context_winners: {},
+        top_actions: [],
+        underused_actions: [],
+        lost_opportunities: [],
+        decision_log: [],
+      },
       generated_at: new Date().toISOString(),
     };
   }
@@ -1418,6 +1474,12 @@ export async function getBeverageIntelligenceSnapshot({
   const combinationSummary = includeSensitive
     ? performance.combination_summary
     : sanitizePublicCombinationSummary(performance.combination_summary);
+  const orderActionPerformance = includeSensitive
+    ? performance.order_action_performance
+    : {};
+  const orderOptimizationSummary = includeSensitive
+    ? performance.order_optimization_summary
+    : sanitizePublicOrderOptimizationSummary(performance.order_optimization_summary);
 
   return {
     strategy_data: strategyData,
@@ -1425,6 +1487,8 @@ export async function getBeverageIntelligenceSnapshot({
     performance_summary: performance.performance_summary,
     combination_performance: combinationPerformance,
     combination_summary: combinationSummary,
+    order_action_performance: orderActionPerformance,
+    order_optimization_summary: orderOptimizationSummary,
     metrics_by_beverage: includeSensitive ? metricsData : {},
     decision_summary: includeSensitive
       ? performance.decision_summary

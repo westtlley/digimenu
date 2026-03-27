@@ -62,6 +62,7 @@ import { stockUtils } from '@/components/utils/stockUtils';
 import { formatCurrency } from '@/utils/formatters';
 import { COMMERCIAL_EVENTS, getBeverageSessionSignals, getCommercialSignalsForSlug, trackCommercialEvent, trackCommercialEventOnce } from '@/utils/commercialAnalytics';
 import { getBestBeverageSuggestions, loadPublicBeverageStrategy } from '@/utils/beverageUpsellEngine';
+import { getNextBestOrderAction, NEXT_BEST_ACTION_TYPES } from '@/utils/orderOptimizationEngine';
 import { withAlpha } from '@/utils/storefrontTheme';
 
 /** Landing quando não há slug: / ou /cardapio — não exibe cardápio de nenhum estabelecimento. */
@@ -1715,6 +1716,25 @@ export default function Cardapio() {
     },
     [publicBeverageIntelligence?.combination_summary]
   );
+  const orderOptimizationSummary = useMemo(
+    () => publicBeverageIntelligence?.order_optimization_summary || {
+      top_action_type: null,
+      top_action_label: null,
+      top_action_reason: null,
+      top_action_score: 0,
+      total_actions_with_data: 0,
+      context_winners: {},
+      top_actions: [],
+      underused_actions: [],
+      lost_opportunities: [],
+      decision_log: [],
+    },
+    [publicBeverageIntelligence?.order_optimization_summary]
+  );
+  const commercialSignals = useMemo(
+    () => getCommercialSignalsForSlug(slug),
+    [slug, cart.length, cartTotal, recentUpsellProduct?.addedAt, currentView]
+  );
   const beverageSessionSignals = useMemo(
     () => getBeverageSessionSignals(slug),
     [slug, cart.length, cartTotal, recentUpsellProduct?.dishId]
@@ -1826,6 +1846,54 @@ export default function Cardapio() {
     dishesResolved,
     store,
   ]);
+  const postAddNextBestAction = useMemo(() => {
+    if (!recentUpsellAnchorProduct) return null;
+
+    return getNextBestOrderAction({
+      cart,
+      currentProduct: recentUpsellAnchorProduct,
+      beverageSuggestions: postAddBeverageSuggestions,
+      merchandisingSuggestions: cartUpsellSuggestions,
+      optimizationSummary: orderOptimizationSummary,
+      sessionSignals: beverageSessionSignals,
+      commercialSignals,
+      categories: categoriesResolved,
+      scope: 'post_add',
+    });
+  }, [
+    cart,
+    cartUpsellSuggestions,
+    categoriesResolved,
+    commercialSignals,
+    orderOptimizationSummary,
+    postAddBeverageSuggestions,
+    recentUpsellAnchorProduct,
+    beverageSessionSignals,
+  ]);
+  const cartNextBestAction = useMemo(() => {
+    if (!Array.isArray(cart) || cart.length === 0) return null;
+
+    return getNextBestOrderAction({
+      cart,
+      currentProduct: recentUpsellAnchorProduct,
+      beverageSuggestions: cartBeverageSuggestions,
+      merchandisingSuggestions: cartUpsellSuggestions,
+      optimizationSummary: orderOptimizationSummary,
+      sessionSignals: beverageSessionSignals,
+      commercialSignals,
+      categories: categoriesResolved,
+      scope: 'cart',
+    });
+  }, [
+    cart,
+    cartBeverageSuggestions,
+    cartUpsellSuggestions,
+    categoriesResolved,
+    commercialSignals,
+    orderOptimizationSummary,
+    recentUpsellAnchorProduct,
+    beverageSessionSignals,
+  ]);
 
   const cartSuggestionsEnabled = useMemo(() => {
     const crossSellConfig = store?.cross_sell_config || {};
@@ -1851,6 +1919,26 @@ export default function Cardapio() {
       (category) => String(category?.id || '') === String(anchorProduct?.category_id || '')
     );
     const orderContext = suggestion?.orderContext || {};
+    const nextBestActionType =
+      extra.nextBestActionType ||
+      suggestion?.nextBestActionType ||
+      suggestion?.actionType ||
+      null;
+    const nextBestDecisionSource =
+      extra.nextBestDecisionSource ||
+      suggestion?.nextBestDecisionSource ||
+      (nextBestActionType ? 'order_optimization' : null);
+    const nextBestDecisionExplanation =
+      extra.nextBestDecisionExplanation ||
+      suggestion?.nextBestDecisionExplanation ||
+      suggestion?.explanation ||
+      null;
+    const nextBestActionScore = Number(
+      extra.nextBestActionScore ??
+      suggestion?.nextBestActionScore ??
+      suggestion?.actionScore ??
+      0
+    );
 
     return {
       beverage_id: beverage?.id || null,
@@ -1890,6 +1978,10 @@ export default function Cardapio() {
       combination_context: suggestion?.combinationContext || null,
       combination_label: suggestion?.combinationLabel || null,
       replace_item_id: suggestion?.replaceItemId || null,
+      next_best_action_type: nextBestActionType,
+      decision_source: nextBestDecisionSource,
+      decision_explanation: nextBestDecisionExplanation,
+      action_score: nextBestActionScore,
       ...extra,
     };
   }, [beveragePerformanceData, cartItemsCount, cartTotal, categoriesResolved, recentUpsellAnchorProduct]);
@@ -1944,11 +2036,149 @@ export default function Cardapio() {
         currentProduct: options.currentProduct || null,
         reason: options.reason || 'dismiss',
         product_context: options.currentProduct?.product_type || options.productContext || null,
+        nextBestActionType: options.nextBestActionType || null,
+        nextBestDecisionExplanation: options.nextBestDecisionExplanation || null,
+        nextBestActionScore: options.nextBestActionScore || null,
       })
     );
   }, [buildBeverageTrackingPayload, cartTotal]);
 
+  const buildNextBestActionPayload = React.useCallback((action, source, extra = {}) => {
+    if (!action || action?.actionType === NEXT_BEST_ACTION_TYPES.DO_NOTHING) return null;
+
+    if (action?.kind === 'beverage') {
+      return buildBeverageTrackingPayload(
+        {
+          ...(action?.suggestion || {}),
+          nextBestActionType: action?.actionType,
+          nextBestDecisionSource: 'order_optimization',
+          nextBestDecisionExplanation: action?.explanation || null,
+          nextBestActionScore: action?.actionScore || 0,
+        },
+        source,
+        {
+          currentProduct: extra.currentProduct || recentUpsellAnchorProduct || null,
+          nextBestActionType: action?.actionType,
+          nextBestDecisionSource: 'order_optimization',
+          nextBestDecisionExplanation: action?.explanation || null,
+          nextBestActionScore: action?.actionScore || 0,
+          ...extra,
+        }
+      );
+    }
+
+    const product = action?.product || action?.suggestion || null;
+    const currentProduct = extra.currentProduct || recentUpsellAnchorProduct || null;
+    const anchorCategory = categoriesResolved.find(
+      (category) => String(category?.id || '') === String(currentProduct?.category_id || '')
+    );
+    const orderContext = action?.orderContext || {};
+
+    return {
+      source,
+      dish_id: product?.id || null,
+      dish_name: product?.name || null,
+      product_type: product?.product_type || null,
+      merchandising_source: product?._merchandising?.source || null,
+      merchandising_label: product?._merchandising?.label || null,
+      offer_price: Number(product?.price || 0),
+      original_price: Number(product?.original_price || product?.price || 0),
+      cart_total: Number(cartTotal || 0),
+      current_product_id: currentProduct?.id || null,
+      current_product_name: currentProduct?.name || null,
+      current_product_type: currentProduct?.product_type || null,
+      current_product_category_id: currentProduct?.category_id || null,
+      current_product_category_name: anchorCategory?.name || null,
+      product_context: orderContext?.productContext || currentProduct?.product_type || null,
+      dominant_category: orderContext?.dominantCategoryName || anchorCategory?.name || null,
+      dominant_category_id: orderContext?.dominantCategoryId || currentProduct?.category_id || null,
+      order_band: orderContext?.orderBand || null,
+      order_item_count: Number(orderContext?.itemCount ?? cartItemsCount ?? 0),
+      serving_mode: orderContext?.servingMode || null,
+      hour_bucket: orderContext?.hourBucket || null,
+      ticket_partial: Number(orderContext?.ticketPartial ?? cartTotal ?? 0),
+      next_best_action_type: action?.actionType || null,
+      decision_source: 'order_optimization',
+      decision_explanation: action?.explanation || null,
+      action_score: Number(action?.actionScore || 0),
+      benefit_label: action?.benefitLabel || null,
+      badge_label: action?.badgeLabel || null,
+      price_hint: action?.priceHint || null,
+      ...extra,
+    };
+  }, [buildBeverageTrackingPayload, cartItemsCount, cartTotal, categoriesResolved, recentUpsellAnchorProduct]);
+
+  const trackNextBestActionShown = React.useCallback((action, source, options = {}) => {
+    if (!action || action?.actionType === NEXT_BEST_ACTION_TYPES.DO_NOTHING) return;
+    const actionTargetId = action?.product?.id || action?.suggestion?.id || action?.id || 'unknown';
+    const key = [
+      'next_best_action_shown',
+      source,
+      String(options.currentProduct?.id || options.contextKey || 'no-anchor'),
+      String(action?.actionType || 'unknown'),
+      String(actionTargetId),
+      String(options.sequenceKey || Math.round(Number(cartTotal || 0) * 100)),
+    ].join(':');
+
+    const payload = buildNextBestActionPayload(action, source, options);
+    if (!payload) return;
+
+    const eventName = action?.kind === 'beverage'
+      ? COMMERCIAL_EVENTS.BEVERAGE_SUGGESTED
+      : COMMERCIAL_EVENTS.UPSELL_SHOWN;
+
+    void trackCommercialEventOnce(eventName, key, payload);
+  }, [buildNextBestActionPayload, cartTotal]);
+
+  const trackNextBestActionSkipped = React.useCallback((action, source, options = {}) => {
+    if (!action || action?.actionType === NEXT_BEST_ACTION_TYPES.DO_NOTHING) return;
+    const actionTargetId = action?.product?.id || action?.suggestion?.id || action?.id || 'unknown';
+    const key = [
+      'next_best_action_skipped',
+      source,
+      String(options.reason || 'dismiss'),
+      String(options.currentProduct?.id || options.contextKey || 'no-anchor'),
+      String(action?.actionType || 'unknown'),
+      String(actionTargetId),
+      String(options.sequenceKey || Math.round(Number(cartTotal || 0) * 100)),
+    ].join(':');
+
+    if (action?.kind === 'beverage') {
+      trackPrimaryBeverageRejection(
+        [action?.suggestion],
+        source,
+        {
+          ...options,
+          nextBestActionType: action?.actionType,
+          nextBestDecisionExplanation: action?.explanation || null,
+          nextBestActionScore: action?.actionScore || 0,
+        }
+      );
+      return;
+    }
+
+    const payload = buildNextBestActionPayload(action, source, {
+      ...options,
+      reason: options.reason || 'dismiss',
+    });
+    if (!payload) return;
+
+    void trackCommercialEventOnce(COMMERCIAL_EVENTS.UPSELL_SKIPPED, key, payload);
+  }, [buildNextBestActionPayload, cartTotal, trackPrimaryBeverageRejection]);
+
   useEffect(() => {
+    if (postAddNextBestAction) {
+      if (postAddNextBestAction.actionType !== NEXT_BEST_ACTION_TYPES.DO_NOTHING) {
+        postAddBeverageSuggestionAcceptedRef.current = false;
+        trackNextBestActionShown(postAddNextBestAction, 'post_add_next_best_action', {
+          currentProduct: recentUpsellAnchorProduct,
+          sequenceKey: recentUpsellProduct?.addedAt || recentUpsellAnchorProduct?.id,
+          productContext: recentUpsellAnchorProduct?.product_type || null,
+        });
+      }
+      return;
+    }
+
     if (!recentUpsellAnchorProduct || !Array.isArray(postAddBeverageSuggestions) || postAddBeverageSuggestions.length === 0) {
       return;
     }
@@ -1960,9 +2190,11 @@ export default function Cardapio() {
       productContext: recentUpsellAnchorProduct?.product_type || null,
     });
   }, [
+    postAddNextBestAction,
     postAddBeverageSuggestions,
     recentUpsellAnchorProduct,
     recentUpsellProduct?.addedAt,
+    trackNextBestActionShown,
     trackBeverageSuggestionsShown,
   ]);
 
@@ -1979,6 +2211,19 @@ export default function Cardapio() {
   }, [cartTotal, showUpsellModal, upsellPromotions]);
 
   useEffect(() => {
+    if (showCartModal && cartNextBestAction) {
+      cartSuggestionAcceptedRef.current = false;
+      cartBeverageSuggestionAcceptedRef.current = false;
+      if (cartNextBestAction.actionType !== NEXT_BEST_ACTION_TYPES.DO_NOTHING) {
+        trackNextBestActionShown(cartNextBestAction, 'cart_next_best_action', {
+          currentProduct: recentUpsellAnchorProduct,
+          sequenceKey: `${Math.round(Number(cartTotal || 0) * 100)}:${cartItemsCount}`,
+          productContext: recentUpsellAnchorProduct?.product_type || null,
+        });
+      }
+      return;
+    }
+
     if (!showCartModal || !Array.isArray(cartUpsellSuggestions) || cartUpsellSuggestions.length === 0) {
       return;
     }
@@ -1991,9 +2236,13 @@ export default function Cardapio() {
       dish_ids: ids,
       cart_total: Number(cartTotal || 0)
     });
-  }, [cartTotal, cartUpsellSuggestions, showCartModal]);
+  }, [cartItemsCount, cartNextBestAction, cartTotal, cartUpsellSuggestions, recentUpsellAnchorProduct, showCartModal, trackNextBestActionShown]);
 
   useEffect(() => {
+    if (cartNextBestAction) {
+      return;
+    }
+
     if (!showCartModal || !Array.isArray(cartBeverageSuggestions) || cartBeverageSuggestions.length === 0) {
       return;
     }
@@ -2006,6 +2255,7 @@ export default function Cardapio() {
     });
   }, [
     cartBeverageSuggestions,
+    cartNextBestAction,
     cartItemsCount,
     cartTotal,
     recentUpsellAnchorProduct,
@@ -2473,25 +2723,33 @@ export default function Cardapio() {
     );
   }, [buildBeverageTrackingPayload, handleAddToCart, recentUpsellAnchorProduct, removeItem]);
 
-  const handleCommercialSuggestion = React.useCallback((suggestedDish, context = 'cart') => {
+  const handleCommercialSuggestion = React.useCallback((suggestedDish, context = 'cart', options = {}) => {
     if (!suggestedDish) return;
     const suggestionAction = resolveCommercialSuggestionAction(suggestedDish);
     const isReplace = suggestionAction === 'replace';
     if (context === 'checkout') {
       checkoutSuggestionAcceptedRef.current = true;
-    } else {
+    } else if (context === 'cart') {
       cartSuggestionAcceptedRef.current = true;
     }
 
-    void trackCommercialEvent(COMMERCIAL_EVENTS.UPSELL_ACCEPTED, {
-      source: context === 'checkout' ? 'checkout_suggestion' : 'cart_suggestion',
-      dish_id: suggestedDish?.id || null,
-      dish_name: suggestedDish?.name || null,
-      product_type: suggestedDish?.product_type || null,
-      merchandising_source: suggestedDish?._merchandising?.source || null,
-      merchandising_label: suggestedDish?._merchandising?.label || null,
-      promotion_type: suggestionAction
-    });
+    if (!options?.skipTracking) {
+      void trackCommercialEvent(COMMERCIAL_EVENTS.UPSELL_ACCEPTED, {
+        source:
+          options?.source ||
+          (context === 'checkout'
+            ? 'checkout_suggestion'
+            : context === 'post_add'
+              ? 'post_add_suggestion'
+              : 'cart_suggestion'),
+        dish_id: suggestedDish?.id || null,
+        dish_name: suggestedDish?.name || null,
+        product_type: suggestedDish?.product_type || null,
+        merchandising_source: suggestedDish?._merchandising?.source || null,
+        merchandising_label: suggestedDish?._merchandising?.label || null,
+        promotion_type: suggestionAction
+      });
+    }
 
     if (isReplace) {
       clearCart();
@@ -2503,25 +2761,76 @@ export default function Cardapio() {
       return;
     }
 
-    closeCartModal();
+    if (context === 'cart') {
+      closeCartModal();
+    }
     handleDishClick(suggestedDish);
   }, [clearCart, closeCartModal, handleDishClick, resolveCommercialSuggestionAction]);
 
-  const handleCartModalDismiss = React.useCallback((reason = 'dismiss') => {
-    const suggestions = Array.isArray(cartUpsellSuggestions) ? cartUpsellSuggestions : [];
-    if (suggestions.length > 0 && !cartSuggestionAcceptedRef.current) {
-      const ids = suggestions.map((dish) => String(dish?.id || '')).filter(Boolean);
-      const key = `cart_skip:${reason}:${ids.join(',')}:${Math.round(Number(cartTotal || 0) * 100)}`;
-      void trackCommercialEventOnce(COMMERCIAL_EVENTS.UPSELL_SKIPPED, key, {
-        source: 'cart_suggestions',
-        reason,
-        dish_ids: ids,
-        suggestion_count: ids.length,
-        cart_total: Number(cartTotal || 0)
-      });
+  const handleNextBestAction = React.useCallback(async (action, source = 'next_best_action') => {
+    if (!action || action?.actionType === NEXT_BEST_ACTION_TYPES.DO_NOTHING) return;
+
+    if (action?.kind === 'beverage') {
+      await handleBeverageSuggestionAction(
+        {
+          ...(action?.suggestion || {}),
+          nextBestActionType: action?.actionType,
+          nextBestDecisionSource: 'order_optimization',
+          nextBestDecisionExplanation: action?.explanation || null,
+          nextBestActionScore: action?.actionScore || 0,
+        },
+        source
+      );
+      return;
     }
 
-    if (Array.isArray(cartBeverageSuggestions) && cartBeverageSuggestions.length > 0 && !cartBeverageSuggestionAcceptedRef.current) {
+    const context =
+      source === 'cart_next_best_action'
+        ? 'cart'
+        : source === 'checkout_next_best_action'
+          ? 'checkout'
+          : 'post_add';
+
+    const payload = buildNextBestActionPayload(action, source, {
+      currentProduct: source === 'post_add_next_best_action' ? recentUpsellAnchorProduct : recentUpsellAnchorProduct || null,
+    });
+
+    void trackCommercialEvent(COMMERCIAL_EVENTS.UPSELL_ACCEPTED, payload || {
+      source,
+      next_best_action_type: action?.actionType || null,
+      decision_source: 'order_optimization',
+      decision_explanation: action?.explanation || null,
+      action_score: Number(action?.actionScore || 0),
+    });
+
+    handleCommercialSuggestion(action?.product || action?.suggestion, context, { skipTracking: true, source });
+  }, [buildNextBestActionPayload, handleBeverageSuggestionAction, handleCommercialSuggestion, recentUpsellAnchorProduct]);
+
+  const handleCartModalDismiss = React.useCallback((reason = 'dismiss') => {
+    if (cartNextBestAction) {
+      if (cartNextBestAction.actionType !== NEXT_BEST_ACTION_TYPES.DO_NOTHING && !cartSuggestionAcceptedRef.current && !cartBeverageSuggestionAcceptedRef.current) {
+        trackNextBestActionSkipped(cartNextBestAction, 'cart_next_best_action', {
+          reason,
+          currentProduct: recentUpsellAnchorProduct,
+          sequenceKey: `${Math.round(Number(cartTotal || 0) * 100)}:${cartItemsCount}`,
+        });
+      }
+    } else {
+      const suggestions = Array.isArray(cartUpsellSuggestions) ? cartUpsellSuggestions : [];
+      if (suggestions.length > 0 && !cartSuggestionAcceptedRef.current) {
+        const ids = suggestions.map((dish) => String(dish?.id || '')).filter(Boolean);
+        const key = `cart_skip:${reason}:${ids.join(',')}:${Math.round(Number(cartTotal || 0) * 100)}`;
+        void trackCommercialEventOnce(COMMERCIAL_EVENTS.UPSELL_SKIPPED, key, {
+          source: 'cart_suggestions',
+          reason,
+          dish_ids: ids,
+          suggestion_count: ids.length,
+          cart_total: Number(cartTotal || 0)
+        });
+      }
+    }
+
+    if (!cartNextBestAction && Array.isArray(cartBeverageSuggestions) && cartBeverageSuggestions.length > 0 && !cartBeverageSuggestionAcceptedRef.current) {
       trackPrimaryBeverageRejection(cartBeverageSuggestions, 'cart_beverage_upsell', {
         reason,
         currentProduct: recentUpsellAnchorProduct,
@@ -2532,10 +2841,12 @@ export default function Cardapio() {
   }, [
     cartBeverageSuggestions,
     cartItemsCount,
+    cartNextBestAction,
     cartTotal,
     cartUpsellSuggestions,
     closeCartModal,
     recentUpsellAnchorProduct,
+    trackNextBestActionSkipped,
     trackPrimaryBeverageRejection,
   ]);
 
@@ -4304,7 +4615,15 @@ export default function Cardapio() {
         onEditItem={handleEditCartItem}
         onEditPizza={handleEditPizza}
         onCheckout={() => {
-          if (Array.isArray(cartUpsellSuggestions) && cartUpsellSuggestions.length > 0 && !cartSuggestionAcceptedRef.current) {
+          if (cartNextBestAction) {
+            if (cartNextBestAction.actionType !== NEXT_BEST_ACTION_TYPES.DO_NOTHING && !cartSuggestionAcceptedRef.current && !cartBeverageSuggestionAcceptedRef.current) {
+              trackNextBestActionSkipped(cartNextBestAction, 'cart_next_best_action', {
+                reason: 'continue_checkout',
+                currentProduct: recentUpsellAnchorProduct,
+                sequenceKey: `${Math.round(Number(cartTotal || 0) * 100)}:${cartItemsCount}`,
+              });
+            }
+          } else if (Array.isArray(cartUpsellSuggestions) && cartUpsellSuggestions.length > 0 && !cartSuggestionAcceptedRef.current) {
             const ids = cartUpsellSuggestions.map((dish) => String(dish?.id || '')).filter(Boolean);
             const key = `cart_skip:continue_checkout:${ids.join(',')}:${Math.round(Number(cartTotal || 0) * 100)}`;
             void trackCommercialEventOnce(COMMERCIAL_EVENTS.UPSELL_SKIPPED, key, {
@@ -4315,7 +4634,7 @@ export default function Cardapio() {
               cart_total: Number(cartTotal || 0)
             });
           }
-          if (Array.isArray(cartBeverageSuggestions) && cartBeverageSuggestions.length > 0 && !cartBeverageSuggestionAcceptedRef.current) {
+          if (!cartNextBestAction && Array.isArray(cartBeverageSuggestions) && cartBeverageSuggestions.length > 0 && !cartBeverageSuggestionAcceptedRef.current) {
             trackPrimaryBeverageRejection(cartBeverageSuggestions, 'cart_beverage_upsell', {
               reason: 'continue_checkout',
               currentProduct: recentUpsellAnchorProduct,
@@ -4340,6 +4659,10 @@ export default function Cardapio() {
         beverageSuggestions={cartBeverageSuggestions}
         onSelectBeverageSuggestion={(suggestion) => {
           handleBeverageSuggestionAction(suggestion, 'cart_beverage_upsell');
+        }}
+        nextBestAction={cartNextBestAction}
+        onSelectNextBestAction={(action) => {
+          handleNextBestAction(action, 'cart_next_best_action');
         }}
         primaryColor={primaryColor}
         store={store}
@@ -4447,12 +4770,24 @@ export default function Cardapio() {
           dishes={dishesResolved}
           onAddToCart={handleAddToCart}
           beverageSuggestions={postAddBeverageSuggestions}
+          nextBestAction={postAddNextBestAction}
           currentProduct={recentUpsellAnchorProduct}
           onSelectBeverageSuggestion={(suggestion) => {
             handleBeverageSuggestionAction(suggestion, 'post_add_beverage_upsell');
           }}
+          onSelectNextBestAction={(action) => {
+            handleNextBestAction(action, 'post_add_next_best_action');
+          }}
           onDismissSuggestion={(suggestionState) => {
             if (postAddBeverageSuggestionAcceptedRef.current) return;
+            if (suggestionState?.type === 'next_best_action' && suggestionState?.action) {
+              trackNextBestActionSkipped(suggestionState.action, 'post_add_next_best_action', {
+                reason: 'dismiss',
+                currentProduct: recentUpsellAnchorProduct,
+                contextKey: suggestionState?.contextKey || recentUpsellProduct?.addedAt || recentUpsellAnchorProduct?.id,
+              });
+              return;
+            }
             const suggestions = Array.isArray(suggestionState?.options)
               ? suggestionState.options
               : suggestionState?.product

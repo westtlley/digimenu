@@ -234,6 +234,25 @@ export default function BeveragesTab() {
     },
     [adminBeverageIntelligence?.combination_summary]
   );
+  const orderActionPerformance = useMemo(
+    () => adminBeverageIntelligence?.order_action_performance || {},
+    [adminBeverageIntelligence?.order_action_performance]
+  );
+  const orderOptimizationSummary = useMemo(
+    () => adminBeverageIntelligence?.order_optimization_summary || {
+      top_action_type: null,
+      top_action_label: null,
+      top_action_reason: null,
+      top_action_score: 0,
+      total_actions_with_data: 0,
+      context_winners: {},
+      top_actions: [],
+      underused_actions: [],
+      lost_opportunities: [],
+      decision_log: [],
+    },
+    [adminBeverageIntelligence?.order_optimization_summary]
+  );
   const decisionSummary = useMemo(
     () => adminBeverageIntelligence?.decision_summary || {
       primary_beverage_id: null,
@@ -1097,6 +1116,7 @@ export default function BeveragesTab() {
             moduleSummary={moduleSummary}
             performanceSummary={performanceSummary}
             combinationSummary={combinationSummary}
+            orderOptimizationSummary={orderOptimizationSummary}
             decisionSummary={decisionSummary}
             currentUpsellBeverage={currentUpsellBeverage}
             topBeverages={topBeverages}
@@ -1785,6 +1805,8 @@ export default function BeveragesTab() {
             performanceSummary={performanceSummary}
             combinationPerformance={combinationPerformance}
             combinationSummary={combinationSummary}
+            orderActionPerformance={orderActionPerformance}
+            orderOptimizationSummary={orderOptimizationSummary}
             decisionSummary={decisionSummary}
             onRecommendationAction={runAction}
           />

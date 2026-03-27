@@ -164,12 +164,70 @@ const normalizeCombinationSummary = (rawValue = {}) => ({
   main_combination_label: rawValue?.main_combination_label || null,
 });
 
+const normalizeOrderActionEntry = (entry = {}) => ({
+  action_type: entry?.action_type || null,
+  action_label: entry?.action_label || null,
+  product_context: entry?.product_context || 'all',
+  suggested: toNumber(entry?.suggested, 0),
+  clicked: toNumber(entry?.clicked, 0),
+  accepted: toNumber(entry?.accepted, 0),
+  rejected: toNumber(entry?.rejected, 0),
+  skipped: toNumber(entry?.skipped, 0),
+  upgraded: toNumber(entry?.upgraded, 0),
+  revenue_generated: toNumber(entry?.revenue_generated, 0),
+  average_added_value: toNumber(entry?.average_added_value, 0),
+  acceptance_rate: toNumber(entry?.acceptance_rate, 0),
+  click_rate: toNumber(entry?.click_rate, 0),
+  rejection_rate: toNumber(entry?.rejection_rate, 0),
+  profitability_signal: toNumber(entry?.profitability_signal, 0),
+  confidence: toNumber(entry?.confidence, 0),
+  action_score: toNumber(entry?.action_score, 0),
+  top_context: entry?.top_context || null,
+});
+
+const normalizeOrderActionPerformance = (rawValue = {}) => {
+  if (!rawValue || typeof rawValue !== 'object') return {};
+
+  return Object.entries(rawValue).reduce((accumulator, [actionType, entry]) => {
+    if (!actionType || !entry || typeof entry !== 'object') return accumulator;
+    accumulator[String(actionType)] = normalizeOrderActionEntry({
+      ...entry,
+      action_type: entry?.action_type || actionType,
+    });
+    return accumulator;
+  }, {});
+};
+
+const normalizeOrderOptimizationSummary = (rawValue = {}) => ({
+  top_action_type: rawValue?.top_action_type || null,
+  top_action_label: rawValue?.top_action_label || null,
+  top_action_reason: rawValue?.top_action_reason || null,
+  top_action_score: toNumber(rawValue?.top_action_score, 0),
+  total_actions_with_data: toNumber(rawValue?.total_actions_with_data, 0),
+  context_winners:
+    rawValue?.context_winners && typeof rawValue.context_winners === 'object'
+      ? Object.entries(rawValue.context_winners).reduce((accumulator, [contextKey, entry]) => {
+          accumulator[contextKey] = normalizeOrderActionEntry({
+            ...entry,
+            product_context: entry?.product_context || contextKey,
+          });
+          return accumulator;
+        }, {})
+      : {},
+  top_actions: normalizeArray(rawValue?.top_actions).map(normalizeOrderActionEntry),
+  underused_actions: normalizeArray(rawValue?.underused_actions).map(normalizeOrderActionEntry),
+  lost_opportunities: normalizeArray(rawValue?.lost_opportunities),
+  decision_log: normalizeArray(rawValue?.decision_log),
+});
+
 const normalizeSnapshot = (payload = {}) => ({
   strategy_data: normalizeBeverageStrategy(payload?.strategy_data || {}),
   performance_by_beverage: normalizePerformanceMap(payload?.performance_by_beverage || {}),
   performance_summary: normalizeSummary(payload?.performance_summary || {}),
   combination_performance: normalizeCombinationPerformance(payload?.combination_performance || {}),
   combination_summary: normalizeCombinationSummary(payload?.combination_summary || {}),
+  order_action_performance: normalizeOrderActionPerformance(payload?.order_action_performance || {}),
+  order_optimization_summary: normalizeOrderOptimizationSummary(payload?.order_optimization_summary || {}),
   metrics_by_beverage: normalizeMetricsMap(payload?.metrics_by_beverage || {}),
   decision_summary: normalizeDecisionSummary(payload?.decision_summary || {}),
   opportunities: normalizeArray(payload?.opportunities),

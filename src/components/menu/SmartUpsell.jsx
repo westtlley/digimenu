@@ -151,8 +151,10 @@ export default function SmartUpsell({
   dishes = [],
   onAddToCart,
   onSelectBeverageSuggestion,
+  onSelectNextBestAction,
   onDismissSuggestion,
   beverageSuggestions = [],
+  nextBestAction = null,
   currentProduct = null,
   primaryColor = '#f97316',
   onClose,
@@ -185,6 +187,27 @@ export default function SmartUpsell({
 
     if (!crossSellEnabled || cart.length === 0) {
       setSuggestion(null);
+      return;
+    }
+
+    if (nextBestAction?.actionType === 'DO_NOTHING') {
+      setSuggestion(null);
+      return;
+    }
+
+    if (
+      nextBestAction &&
+      nextBestAction?.actionType !== 'DO_NOTHING' &&
+      currentProduct?.id &&
+      !isCoolingDown
+    ) {
+      setSuggestion({
+        type: 'next_best_action',
+        title: nextBestAction.title,
+        message: nextBestAction.message,
+        action: nextBestAction,
+        contextKey: currentContextKey,
+      });
       return;
     }
 
@@ -295,7 +318,7 @@ export default function SmartUpsell({
     }
 
     setSuggestion(null);
-  }, [beverageSuggestions, cart, currentProduct, dishes, dismissedSuggestions, runtimeState, store]);
+  }, [beverageSuggestions, cart, currentProduct, dishes, dismissedSuggestions, nextBestAction, runtimeState, store]);
 
   const handleLegacyAdd = () => {
     if (!suggestion?.product || !onAddToCart) return;
@@ -345,9 +368,31 @@ export default function SmartUpsell({
       });
   };
 
+  const handleNextBestActionClick = () => {
+    if (!suggestion?.action || !onSelectNextBestAction) return;
+    setAddingOptionId(suggestion.action.id || 'next-best-action');
+    Promise.resolve(onSelectNextBestAction(suggestion.action))
+      .then(() => {
+        setRuntimeState((current) => ({
+          ...current,
+          lastAcceptedAt: Date.now(),
+          dismissedContexts: suggestion?.contextKey
+            ? Object.fromEntries(
+                Object.entries(current?.dismissedContexts || {}).filter(([key]) => key !== suggestion.contextKey)
+              )
+            : current?.dismissedContexts || {},
+        }));
+        setSuggestion(null);
+        onClose?.();
+      })
+      .finally(() => {
+        setAddingOptionId(null);
+      });
+  };
+
   const handleDismiss = () => {
     const dismissedSuggestion = suggestion;
-    if (suggestion?.type === 'beverage_bundle' && suggestion?.contextKey) {
+    if ((suggestion?.type === 'beverage_bundle' || suggestion?.type === 'next_best_action') && suggestion?.contextKey) {
       setRuntimeState((current) => ({
         ...current,
         dismissedContexts: {
@@ -402,6 +447,11 @@ export default function SmartUpsell({
                     A maioria leva junto
                   </span>
                 )}
+                {suggestion.type === 'next_best_action' && suggestion?.action?.badgeLabel ? (
+                  <span className="inline-flex mb-1 text-[10px] font-semibold px-2 py-1 rounded-full bg-orange-50 text-orange-700 border border-orange-200/70">
+                    {suggestion.action.badgeLabel}
+                  </span>
+                ) : null}
                 <h3 className="font-bold text-gray-900 dark:text-white mb-1">{suggestion.title}</h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400">{suggestion.message}</p>
               </div>
@@ -488,6 +538,58 @@ export default function SmartUpsell({
                   Agora nao
                 </Button>
               </div>
+            ) : suggestion.type === 'next_best_action' ? (
+              <>
+                {suggestion.action?.product?.image && (
+                  <div className="mb-3 rounded-lg overflow-hidden">
+                    <img src={suggestion.action.product.image} alt={suggestion.action.product.name} className="w-full h-28 object-cover" />
+                  </div>
+                )}
+
+                <div className="mb-3 rounded-xl border border-orange-200/70 bg-orange-50/80 px-3 py-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-semibold" style={{ color: primaryColor }}>
+                        {suggestion.action?.priceHint || 'Complete seu pedido agora'}
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-gray-900 dark:text-white">
+                        {suggestion.action?.product?.name || suggestion.action?.title}
+                      </p>
+                      {suggestion.action?.benefitLabel ? (
+                        <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
+                          {suggestion.action.benefitLabel}
+                        </p>
+                      ) : null}
+                    </div>
+                    <span className="inline-flex text-[10px] font-semibold px-2 py-1 rounded-full bg-white/90 border border-orange-200 text-gray-700">
+                      {suggestion.action?.badgeLabel || 'Melhor proximo passo'}
+                    </span>
+                  </div>
+                  {suggestion.action?.urgencyLabel ? (
+                    <p className="mt-2 text-[10px] font-medium" style={{ color: primaryColor }}>
+                      {suggestion.action.urgencyLabel}
+                    </p>
+                  ) : null}
+                </div>
+
+                <div className="flex gap-2">
+                  <Button onClick={handleDismiss} variant="outline" size="sm" className="flex-1">
+                    Agora nao
+                  </Button>
+                  <Button
+                    onClick={handleNextBestActionClick}
+                    size="sm"
+                    className="flex-1 text-white shadow-sm"
+                    style={{ backgroundColor: primaryColor, boxShadow: `0 10px 24px ${primaryColor}26` }}
+                    disabled={addingOptionId === (suggestion.action?.id || 'next-best-action')}
+                  >
+                    <ShoppingCart className="w-4 h-4 mr-1" />
+                    {addingOptionId === (suggestion.action?.id || 'next-best-action')
+                      ? 'Entrando...'
+                      : suggestion.action?.ctaLabel || 'Continuar'}
+                  </Button>
+                </div>
+              </>
             ) : (
               <>
                 {suggestion.product?.image && (

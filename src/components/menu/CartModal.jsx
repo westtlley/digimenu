@@ -88,7 +88,9 @@ export default function CartModal({
   onSelectSuggestion = null,
   enableSmartSuggestions = true,
   beverageSuggestions = [],
-  onSelectBeverageSuggestion = null
+  onSelectBeverageSuggestion = null,
+  nextBestAction = null,
+  onSelectNextBestAction = null,
 }) {
   const [activeTab, setActiveTab] = useState('cart'); // 'cart' ou 'orders'
   const [showRatingModal, setShowRatingModal] = useState(null);
@@ -194,17 +196,19 @@ export default function CartModal({
     return 'Seu carrinho está pronto para checkout.';
   })();
   const cartSecondaryMessage = !hasFreeDeliveryProgress && smartNudgeSecondary ? smartNudgeSecondary : null;
+  const hasOrderOptimizationDecision = Boolean(nextBestAction);
+  const shouldRenderNextBestAction = Boolean(nextBestAction && nextBestAction?.actionType !== 'DO_NOTHING');
   const visibleSmartSuggestions = enableSmartSuggestions && Array.isArray(smartSuggestions)
     ? (mobileFullScreen ? smartSuggestions.slice(0, 1) : smartSuggestions.slice(0, 2))
     : [];
-  const shouldRenderSmartSuggestions = visibleSmartSuggestions.length > 0;
+  const shouldRenderSmartSuggestions = !hasOrderOptimizationDecision && visibleSmartSuggestions.length > 0;
   const orderedBeverageSuggestions = Array.isArray(beverageSuggestions)
     ? orderBeverageSuggestionsForDisplay(beverageSuggestions)
     : [];
   const visibleBeverageSuggestions = mobileFullScreen
     ? orderedBeverageSuggestions.slice(0, 1)
     : orderedBeverageSuggestions.slice(0, 2);
-  const shouldRenderBeverageSuggestions = visibleBeverageSuggestions.length > 0;
+  const shouldRenderBeverageSuggestions = !hasOrderOptimizationDecision && visibleBeverageSuggestions.length > 0;
   const [addingBeverageId, setAddingBeverageId] = useState(null);
   const [acceptedBeverageId, setAcceptedBeverageId] = useState(null);
   const getBeveragePanelTitle = () => {
@@ -260,6 +264,12 @@ export default function CartModal({
     return suggestion?.ctaLabel || (suggestion?.type === 'upgrade' ? 'Trocar agora' : 'Levar junto');
   };
   const getCheckoutPrompt = () => {
+    if (hasOrderOptimizationDecision && !shouldRenderNextBestAction) {
+      return 'O sistema segurou novas sugestoes para manter o fechamento do pedido leve.';
+    }
+    if (shouldRenderNextBestAction) {
+      return nextBestAction?.message || 'O sistema encontrou uma ultima acao que pode valorizar melhor este pedido.';
+    }
     const seed = `${cartTotal}:${cartHasBeverage ? 'upgrade' : 'upsell'}`;
     if (cartHasBeverage && shouldRenderBeverageSuggestions) {
       return pickVariant(seed, [
@@ -275,6 +285,11 @@ export default function CartModal({
     }
     return 'Revise o pedido e finalize quando estiver tudo certo.';
   };
+  const getNextBestActionLabel = () => {
+    if (acceptedBeverageId === nextBestAction?.id) return 'Entrou no pedido';
+    if (addingBeverageId === nextBestAction?.id) return 'Aplicando...';
+    return nextBestAction?.ctaLabel || 'Continuar';
+  };
   const handleBeverageQuickAdd = async (suggestion) => {
     if (!suggestion || !onSelectBeverageSuggestion) return;
     setAddingBeverageId(suggestion.id);
@@ -283,6 +298,19 @@ export default function CartModal({
       setAcceptedBeverageId(suggestion.id);
       window.setTimeout(() => {
         setAcceptedBeverageId((current) => (current === suggestion.id ? null : current));
+      }, 1400);
+    } finally {
+      setAddingBeverageId(null);
+    }
+  };
+  const handleNextBestQuickAdd = async () => {
+    if (!nextBestAction || !onSelectNextBestAction) return;
+    setAddingBeverageId(nextBestAction.id);
+    try {
+      await Promise.resolve(onSelectNextBestAction(nextBestAction));
+      setAcceptedBeverageId(nextBestAction.id);
+      window.setTimeout(() => {
+        setAcceptedBeverageId((current) => (current === nextBestAction.id ? null : current));
       }, 1400);
     } finally {
       setAddingBeverageId(null);
@@ -699,6 +727,74 @@ export default function CartModal({
                     </div>
                     </div>
                   ))}
+
+                  {shouldRenderNextBestAction && (
+                    <div className="mt-1 space-y-2">
+                      <div className="space-y-1">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Proxima melhor acao
+                        </p>
+                        <p className="text-[11px] text-muted-foreground">
+                          {nextBestAction?.title || 'O sistema decidiu o melhor proximo passo para valorizar este pedido'}
+                        </p>
+                      </div>
+                      <motion.div
+                        whileHover={{ y: -1 }}
+                        whileTap={{ scale: 0.985 }}
+                        className={`rounded-2xl border p-3 shadow-sm transition-all ${
+                          acceptedBeverageId === nextBestAction?.id
+                            ? 'border-emerald-300 bg-emerald-50/80'
+                            : 'border-orange-300 bg-gradient-to-br from-orange-50 via-white to-amber-50/70'
+                        }`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="w-20 h-20 rounded-xl overflow-hidden bg-muted flex-shrink-0">
+                            {nextBestAction?.product?.image ? (
+                              <img src={nextBestAction.product.image} alt={nextBestAction.product.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-xl">✨</div>
+                            )}
+                          </div>
+
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="text-sm font-semibold text-card-foreground line-clamp-2">
+                                {nextBestAction?.product?.name || nextBestAction?.title}
+                              </p>
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 bg-white">
+                                {nextBestAction?.badgeLabel || 'Melhor opcao'}
+                              </Badge>
+                            </div>
+                            <p className="mt-1 text-[11px] text-muted-foreground line-clamp-2">
+                              {nextBestAction?.benefitLabel || nextBestAction?.message}
+                            </p>
+                            <div className="mt-2 rounded-lg bg-white/70 px-2.5 py-2 border border-border/60">
+                              <span className="text-xs font-bold tracking-tight" style={{ color: primaryColor }}>
+                                {nextBestAction?.priceHint || `Leve por +${formatCurrency(nextBestAction?.product?.price)}`}
+                              </span>
+                              {nextBestAction?.urgencyLabel ? (
+                                <p className="text-[10px] text-muted-foreground mt-1">
+                                  {nextBestAction.urgencyLabel}
+                                </p>
+                              ) : null}
+                            </div>
+                            <Button
+                              size="sm"
+                              disabled={addingBeverageId === nextBestAction?.id}
+                              className="mt-3 h-8 w-full px-2 text-xs text-white shadow-sm ring-2 ring-orange-200 ring-offset-1"
+                              style={{
+                                backgroundColor: primaryColor,
+                                boxShadow: `0 14px 30px ${primaryColor}38`
+                              }}
+                              onClick={handleNextBestQuickAdd}
+                            >
+                              {getNextBestActionLabel()}
+                            </Button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    </div>
+                  )}
 
                   {shouldRenderBeverageSuggestions && (
                     <div className="mt-1 space-y-2">
