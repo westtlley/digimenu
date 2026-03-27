@@ -241,10 +241,11 @@ export default function AdminImagePickerDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         size="large"
+        mobileFullscreen
         className={cn(
-          'max-w-4xl p-0',
+          'max-w-5xl p-0',
           needsConstrainedLayout
-            ? 'flex h-[min(92dvh,820px)] max-h-[92dvh] flex-col overflow-hidden'
+            ? 'flex h-[min(96dvh,900px)] w-[min(96vw,84rem)] max-h-[96dvh] flex-col overflow-hidden'
             : 'max-h-[92dvh]'
         )}
       >
@@ -287,7 +288,10 @@ export default function AdminImagePickerDialog({
 
             <TabsContent
               value="upload"
-              className={cn('mt-6', showPreviewEditor ? 'flex-1 overflow-y-auto' : 'overflow-visible')}
+              className={cn(
+                'mt-6',
+                showPreviewEditor ? 'flex min-h-0 flex-1 flex-col overflow-hidden' : 'overflow-visible'
+              )}
             >
               {!showPreviewEditor ? (
                 <div className="space-y-4">
@@ -341,53 +345,71 @@ export default function AdminImagePickerDialog({
                   </div>
                 </div>
               ) : (
-                <div className="space-y-6">
-                  <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-                    <div className="rounded-2xl border border-border bg-muted/20 p-4">
-                      <div className="mx-auto flex aspect-square max-w-[420px] items-center justify-center overflow-hidden rounded-2xl border border-border bg-background shadow-inner">
-                        <img
-                          src={previewUrl}
-                          alt="Prévia da imagem"
-                          className="h-full w-full object-cover transition-transform duration-200"
-                          style={{ transform: `scale(${zoom[0]})` }}
-                        />
+                <div className="flex min-h-0 flex-1 flex-col">
+                  <div className="grid min-h-0 flex-1 gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(340px,0.85fr)] lg:items-stretch">
+                    <div className="flex min-h-0 flex-col rounded-2xl border border-border bg-muted/20 p-4 sm:p-5">
+                      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-medium text-foreground">Previa do recorte</p>
+                          <p className="mt-1 text-sm text-muted-foreground">
+                            Ajuste o enquadramento sem perder area util. A imagem final sera quadrada.
+                          </p>
+                        </div>
+                        {imageMeta ? (
+                          <Badge variant="outline" className="shrink-0">
+                            {imageMeta.width}x{imageMeta.height}
+                          </Badge>
+                        ) : null}
+                      </div>
+
+                      <div className="flex min-h-[320px] flex-1 items-center justify-center overflow-hidden rounded-2xl border border-border bg-background shadow-inner sm:min-h-[420px]">
+                        <div className="mx-auto aspect-square h-full w-full max-w-[min(100%,560px)] overflow-hidden">
+                          <img
+                            src={previewUrl}
+                            alt="Previa da imagem"
+                            className="h-full w-full object-cover transition-transform duration-200"
+                            style={{ transform: `scale(${zoom[0]})` }}
+                          />
+                        </div>
                       </div>
                     </div>
 
-                    <div className="space-y-5 rounded-2xl border border-border bg-background p-5">
-                      <div>
-                        <p className="text-sm font-medium text-foreground">Ajuste fino</p>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                          Use o zoom para aproximar o produto. O recorte será central e quadrado.
-                        </p>
+                    <div className="flex min-h-0 flex-col rounded-2xl border border-border bg-background p-5">
+                      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto pr-1">
+                        <div>
+                          <p className="text-sm font-medium text-foreground">Ajuste fino</p>
+                          <p className="mt-1 text-sm text-muted-foreground">
+                            Use o zoom para aproximar o produto. O recorte sera central e quadrado.
+                          </p>
+                        </div>
+
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="flex items-center gap-2 font-medium text-foreground">
+                              <ZoomIn className="h-4 w-4" />
+                              Zoom
+                            </span>
+                            <span className="text-muted-foreground">{zoom[0].toFixed(1)}x</span>
+                          </div>
+                          <Slider
+                            min={1}
+                            max={2.6}
+                            step={0.1}
+                            value={zoom}
+                            onValueChange={setZoom}
+                          />
+                        </div>
+
+                        {imageMeta && (
+                          <div className="rounded-2xl border border-border bg-muted/20 p-4 text-sm text-muted-foreground">
+                            <p><span className="font-medium text-foreground">Arquivo:</span> {selectedFile?.name}</p>
+                            <p><span className="font-medium text-foreground">Resolucao original:</span> {imageMeta.width}x{imageMeta.height}</p>
+                            <p><span className="font-medium text-foreground">Saida:</span> 1200x1200</p>
+                          </div>
+                        )}
                       </div>
 
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="flex items-center gap-2 font-medium text-foreground">
-                            <ZoomIn className="h-4 w-4" />
-                            Zoom
-                          </span>
-                          <span className="text-muted-foreground">{zoom[0].toFixed(1)}x</span>
-                        </div>
-                        <Slider
-                          min={1}
-                          max={2.6}
-                          step={0.1}
-                          value={zoom}
-                          onValueChange={setZoom}
-                        />
-                      </div>
-
-                      {imageMeta && (
-                        <div className="rounded-2xl border border-border bg-muted/20 p-4 text-sm text-muted-foreground">
-                          <p><span className="font-medium text-foreground">Arquivo:</span> {selectedFile?.name}</p>
-                          <p><span className="font-medium text-foreground">Resolução original:</span> {imageMeta.width}x{imageMeta.height}</p>
-                          <p><span className="font-medium text-foreground">Saída:</span> 1200x1200</p>
-                        </div>
-                      )}
-
-                      <div className="flex flex-col gap-3 sm:flex-row">
+                      <div className="mt-5 flex flex-col gap-3 border-t border-border/80 pt-4 sm:flex-row">
                         <Button type="button" variant="outline" className="flex-1" onClick={() => setSelectedFile(null)}>
                           Escolher outra
                         </Button>
