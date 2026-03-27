@@ -143,9 +143,13 @@ function buildBeveragePreSuggestion(suggestion) {
   const shortName = shortenBeverageName(suggestion.name);
   const reason = String(suggestion?.reasonLabel || '').toLowerCase();
   const volume = Number(suggestion?.dish?.volume_ml || 0);
+  const offerType = String(suggestion?.offerType || '').toLowerCase();
 
   if (reason.includes('combina')) {
     return { text: `Combina com ${shortName}` };
+  }
+  if (offerType === 'combo') {
+    return { text: `Complete com ${shortName}` };
   }
   if (reason.includes('mais pedido')) {
     return { text: `A maioria leva ${shortName}` };
@@ -1696,6 +1700,21 @@ export default function Cardapio() {
     () => publicBeverageIntelligence?.performance_by_beverage || {},
     [publicBeverageIntelligence?.performance_by_beverage]
   );
+  const beverageCombinationData = useMemo(
+    () => publicBeverageIntelligence?.combination_performance || {},
+    [publicBeverageIntelligence?.combination_performance]
+  );
+  const beverageCombinationSummary = useMemo(
+    () => publicBeverageIntelligence?.combination_summary || {
+      total_combinations_with_data: 0,
+      top_combinations: [],
+      underused_combinations: [],
+      context_winners: {},
+      main_combination_id: null,
+      main_combination_label: null,
+    },
+    [publicBeverageIntelligence?.combination_summary]
+  );
   const beverageSessionSignals = useMemo(
     () => getBeverageSessionSignals(slug),
     [slug, cart.length, cartTotal, recentUpsellProduct?.dishId]
@@ -1714,6 +1733,8 @@ export default function Cardapio() {
       beverages: beverageCatalog,
       strategyData: beverageStrategyData,
       performanceData: beveragePerformanceData,
+      combinationData: beverageCombinationData,
+      combinationSummary: beverageCombinationSummary,
       sessionSignals: beverageSessionSignals,
       store,
       categories: categoriesResolved,
@@ -1722,6 +1743,8 @@ export default function Cardapio() {
     });
   }, [
     beverageCatalog,
+    beverageCombinationData,
+    beverageCombinationSummary,
     beveragePerformanceData,
     beverageSessionSignals,
     beverageStrategyData,
@@ -1740,6 +1763,8 @@ export default function Cardapio() {
       beverages: beverageCatalog,
       strategyData: beverageStrategyData,
       performanceData: beveragePerformanceData,
+      combinationData: beverageCombinationData,
+      combinationSummary: beverageCombinationSummary,
       sessionSignals: beverageSessionSignals,
       store,
       categories: categoriesResolved,
@@ -1748,6 +1773,8 @@ export default function Cardapio() {
     });
   }, [
     beverageCatalog,
+    beverageCombinationData,
+    beverageCombinationSummary,
     beveragePerformanceData,
     beverageSessionSignals,
     beverageStrategyData,
@@ -1772,6 +1799,8 @@ export default function Cardapio() {
         beverages: beverageCatalog,
         strategyData: beverageStrategyData,
         performanceData: beveragePerformanceData,
+        combinationData: beverageCombinationData,
+        combinationSummary: beverageCombinationSummary,
         sessionSignals: beverageSessionSignals,
         store,
         categories: categoriesResolved,
@@ -1787,6 +1816,8 @@ export default function Cardapio() {
     }, {});
   }, [
     beverageCatalog,
+    beverageCombinationData,
+    beverageCombinationSummary,
     beveragePerformanceData,
     beverageSessionSignals,
     beverageStrategyData,
@@ -1816,6 +1847,10 @@ export default function Cardapio() {
     const beverage = suggestion?.dish || suggestion?.product || suggestion || null;
     const anchorProduct = extra.currentProduct || recentUpsellAnchorProduct || null;
     const performanceEntry = suggestion?.performance || beveragePerformanceData?.[String(beverage?.id || '')] || null;
+    const anchorCategory = categoriesResolved.find(
+      (category) => String(category?.id || '') === String(anchorProduct?.category_id || '')
+    );
+    const orderContext = suggestion?.orderContext || {};
 
     return {
       beverage_id: beverage?.id || null,
@@ -1837,14 +1872,27 @@ export default function Cardapio() {
       acceptance_rate: Number(performanceEntry?.acceptance_rate ?? 0),
       margin_signal: Number(performanceEntry?.margin_signal ?? 0),
       confidence: Number(performanceEntry?.confidence ?? 0),
+      combination_score: Number(suggestion?.combinationScore ?? 0),
       current_product_id: anchorProduct?.id || null,
       current_product_name: anchorProduct?.name || null,
       current_product_type: anchorProduct?.product_type || null,
-      product_context: anchorProduct?.product_type || extra.productContext || null,
+      current_product_category_id: anchorProduct?.category_id || null,
+      current_product_category_name: anchorCategory?.name || null,
+      product_context: orderContext?.productContext || anchorProduct?.product_type || extra.productContext || null,
+      dominant_category: orderContext?.dominantCategoryName || anchorCategory?.name || null,
+      dominant_category_id: orderContext?.dominantCategoryId || anchorProduct?.category_id || null,
+      order_band: orderContext?.orderBand || null,
+      order_item_count: Number(orderContext?.itemCount ?? cartItemsCount ?? 0),
+      serving_mode: orderContext?.servingMode || null,
+      hour_bucket: orderContext?.hourBucket || null,
+      ticket_partial: Number(orderContext?.ticketPartial ?? cartTotal ?? 0),
+      offer_type: suggestion?.offerType || suggestion?.type || 'upsell',
+      combination_context: suggestion?.combinationContext || null,
+      combination_label: suggestion?.combinationLabel || null,
       replace_item_id: suggestion?.replaceItemId || null,
       ...extra,
     };
-  }, [beveragePerformanceData, cartTotal, recentUpsellAnchorProduct]);
+  }, [beveragePerformanceData, cartItemsCount, cartTotal, categoriesResolved, recentUpsellAnchorProduct]);
 
   const trackBeverageSuggestionsShown = React.useCallback((suggestions, source, options = {}) => {
     const safeSuggestions = Array.isArray(suggestions) ? suggestions.filter((item) => item?.dish?.id || item?.product?.id || item?.id) : [];

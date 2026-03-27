@@ -51,6 +51,8 @@ const orderBeverageSuggestionsForDisplay = (options = []) =>
       if (option?.performance?.fixed_as_primary === true) score += 800;
       if (Number(option?.performance?.auto_priority || 0) === 1) score += 260;
       if (Number(option?.performance?.final_score || 0) > 0) score += Number(option.performance.final_score) * 0.45;
+      if (normalizeText(option?.offerType).includes('combo')) score += 180;
+      if (Number(option?.combinationScore || 0) > 0) score += Number(option.combinationScore) * 0.55;
       if (reason.includes('combina com este item') || reason.includes('combina com')) score += 400;
       if (reason.includes('mais pedido')) score += 220;
       if (level === 'forte') score += 180;
@@ -217,6 +219,7 @@ export default function CartModal({
       ? 'Uma troca pequena pode deixar a bebida mais interessante ou mais economica.'
       : 'A maioria leva junto para acompanhar e fechar o pedido sem pensar muito.';
   const getBeverageBadge = (suggestion) => {
+    if (suggestion?.badgeLabel) return suggestion.badgeLabel;
     const reason = String(suggestion?.reasonLabel || '').toLowerCase();
     if (reason.includes('mais pedido')) return 'Mais pedido';
     if (reason.includes('combina')) return 'Combina com esse prato';
@@ -225,6 +228,8 @@ export default function CartModal({
     return 'Perfeito para acompanhar';
   };
   const getBeverageBenefit = (suggestion) => {
+    if (suggestion?.benefitLabel) return suggestion.benefitLabel;
+    if (suggestion?.contextSummary) return suggestion.contextSummary;
     const reason = String(suggestion?.reasonLabel || '').toLowerCase();
     const volume = Number(suggestion?.dish?.volume_ml || 0);
     const premiumHint = String(suggestion?.readout || '').toLowerCase();
@@ -241,6 +246,7 @@ export default function CartModal({
     return 'Ajuda a deixar o pedido mais redondo';
   };
   const getBeveragePriceCopy = (suggestion) => {
+    if (suggestion?.priceHint) return suggestion.priceHint;
     if (suggestion?.type === 'upgrade') {
       return suggestion?.deltaPrice > 0
         ? `Troque por +${formatCurrency(suggestion.deltaPrice)}`
@@ -251,7 +257,7 @@ export default function CartModal({
   const getBeverageActionLabel = (suggestion) => {
     if (acceptedBeverageId === suggestion?.id) return 'Entrou no pedido';
     if (addingBeverageId === suggestion?.id) return 'Adicionando...';
-    return suggestion?.type === 'upgrade' ? 'Trocar agora' : 'Levar junto';
+    return suggestion?.ctaLabel || (suggestion?.type === 'upgrade' ? 'Trocar agora' : 'Levar junto');
   };
   const getCheckoutPrompt = () => {
     const seed = `${cartTotal}:${cartHasBeverage ? 'upgrade' : 'upsell'}`;
@@ -745,6 +751,11 @@ export default function CartModal({
                               <p className="text-[11px] text-muted-foreground mt-0.5">
                                 {suggestion?.reasonLabel}
                               </p>
+                              {suggestion?.combinationLabel ? (
+                                <p className="text-[10px] text-muted-foreground mt-1">
+                                  {suggestion.combinationLabel}
+                                </p>
+                              ) : null}
                             </div>
                             <Button
                               size="sm"

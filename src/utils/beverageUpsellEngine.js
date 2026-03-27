@@ -3,6 +3,7 @@ import {
   normalizeBeverageStrategy,
   suggestBeverageLinks,
 } from '@/utils/beverageStrategy';
+import { buildOrderContext, optimizeBeverageSuggestionsForOrder } from '@/utils/crossSellOptimizationEngine';
 
 const STRATEGY_PREFIX = 'beverage-ai-v1:';
 const ANALYTICS_SESSION_KEY = 'dm_analytics_session_id';
@@ -469,6 +470,8 @@ export function getBestBeverageSuggestions({
   beverages = [],
   strategyData = {},
   performanceData = {},
+  combinationData = {},
+  combinationSummary = {},
   sessionSignals = {},
   store = null,
   categories = [],
@@ -484,6 +487,7 @@ export function getBestBeverageSuggestions({
       .filter((category) => category?.id)
       .map((category) => [String(category.id), category?.name || 'categoria'])
   );
+  const orderContext = buildOrderContext({ cart, currentProduct, categories });
 
   const { anchorProduct, contextTypes, categoryIds } = resolvePrimaryContext({ cart, currentProduct });
   const hasBeverageInCart = cart.some((item) => item?.dish?.product_type === 'beverage');
@@ -542,7 +546,7 @@ export function getBestBeverageSuggestions({
       normalizeArray(resolveStrategy(existingBeverageItem?.dish, strategyData, categories)?.tags).map(String)
     );
 
-    return orderedSuggestions
+    const upgradeSuggestions = orderedSuggestions
       .filter(({ beverage, strategy }) => {
         if (String(beverage?.id || '') === String(existingBeverageItem?.dish?.id || '')) return false;
         const volume = toNumber(beverage?.volume_ml, 0);
@@ -564,12 +568,19 @@ export function getBestBeverageSuggestions({
           anchorProduct,
           categoryMap,
         })
-      )
-      .slice(0, Math.max(1, limit));
+      );
+
+    return optimizeBeverageSuggestionsForOrder({
+      suggestions: upgradeSuggestions,
+      combinationData,
+      combinationSummary,
+      orderContext,
+      scope,
+    }).slice(0, Math.max(1, limit));
   }
 
-  return orderedSuggestions
-    .map((entry) =>
+  return optimizeBeverageSuggestionsForOrder({
+    suggestions: orderedSuggestions.map((entry) =>
       buildUpsellSuggestion({
         beverage: entry.beverage,
         strategy: entry.strategy,
@@ -581,6 +592,10 @@ export function getBestBeverageSuggestions({
         store,
         cart,
       })
-    )
-    .slice(0, Math.max(1, limit));
+    ),
+    combinationData,
+    combinationSummary,
+    orderContext,
+    scope,
+  }).slice(0, Math.max(1, limit));
 }

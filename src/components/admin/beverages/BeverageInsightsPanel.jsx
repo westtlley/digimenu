@@ -14,6 +14,8 @@ export default function BeverageInsightsPanel({
   uncoveredCategories,
   currentUpsellBeverage,
   performanceSummary,
+  combinationPerformance,
+  combinationSummary,
   decisionSummary,
   onRecommendationAction,
 }) {
@@ -81,6 +83,62 @@ export default function BeverageInsightsPanel({
               ))}
               {(performanceSummary?.underexposed_high_margin || []).length === 0 ? (
                 <p className="text-sm text-slate-500">Nada gritante aqui agora. O motor esta mais equilibrado.</p>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      <Card className="rounded-3xl border-slate-200 p-4 shadow-sm sm:p-5">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600">Combinacoes que mais geram dinheiro</Badge>
+            <h3 className="mt-3 text-lg font-semibold text-slate-900 sm:text-xl">O sistema ja le prato + bebida como um unico lance</h3>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              Aqui aparece o que realmente responde melhor quando o pedido inteiro entra na conta.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Badge variant="outline" className="bg-white text-slate-700">
+              {combinationSummary?.total_combinations_with_data || 0} combinacao(oes)
+            </Badge>
+            <Badge variant="outline" className="bg-white text-slate-700">
+              {Object.keys(combinationPerformance || {}).length} sinais cruzados
+            </Badge>
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-3 lg:grid-cols-2">
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Top combinacoes</p>
+            <div className="mt-3 space-y-2">
+              {(combinationSummary?.top_combinations || []).slice(0, 3).map((entry) => (
+                <div key={`top-combo:${entry.combination_id || entry.combo_label}`} className="rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2">
+                  <p className="text-sm font-semibold text-slate-900">{entry.combo_label}</p>
+                  <p className="mt-1 text-xs text-slate-600">
+                    {Number(entry.acceptance_rate || 0).toFixed(0)}% aceita - {formatCurrency(entry.revenue_generated || 0)} em receita
+                  </p>
+                </div>
+              ))}
+              {(combinationSummary?.top_combinations || []).length === 0 ? (
+                <p className="text-sm text-slate-500">Ainda nao ha combinacoes suficientes para ranquear.</p>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Subaproveitadas</p>
+            <div className="mt-3 space-y-2">
+              {(combinationSummary?.underused_combinations || []).slice(0, 3).map((entry) => (
+                <div key={`underused-combo:${entry.combination_id || entry.combo_label}`} className="rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2">
+                  <p className="text-sm font-semibold text-slate-900">{entry.combo_label}</p>
+                  <p className="mt-1 text-xs text-slate-600">
+                    Score {Number(entry.combination_score || 0).toFixed(0)} com apenas {entry.suggested || 0} exibicao(oes)
+                  </p>
+                </div>
+              ))}
+              {(combinationSummary?.underused_combinations || []).length === 0 ? (
+                <p className="text-sm text-slate-500">Nada subaproveitado de forma gritante agora.</p>
               ) : null}
             </div>
           </div>

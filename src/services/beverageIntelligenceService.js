@@ -108,10 +108,68 @@ const normalizeDecisionSummary = (rawValue = {}) => ({
   decision_log: normalizeArray(rawValue?.decision_log),
 });
 
+const normalizeCombinationEntry = (entry = {}) => ({
+  combination_id: entry?.combination_id || null,
+  beverage_id: entry?.beverage_id || null,
+  beverage_name: entry?.beverage_name || 'Bebida',
+  beverage_price: toNumber(entry?.beverage_price, 0),
+  product_context: entry?.product_context || null,
+  dominant_category: entry?.dominant_category || null,
+  order_band: entry?.order_band || null,
+  hour_bucket: entry?.hour_bucket || null,
+  serving_mode: entry?.serving_mode || null,
+  context_label: entry?.context_label || null,
+  combo_label: entry?.combo_label || null,
+  suggested: toNumber(entry?.suggested, 0),
+  clicked: toNumber(entry?.clicked, 0),
+  added: toNumber(entry?.added, 0),
+  rejected: toNumber(entry?.rejected, 0),
+  upgraded: toNumber(entry?.upgraded, 0),
+  revenue_generated: toNumber(entry?.revenue_generated, 0),
+  acceptance_rate: toNumber(entry?.acceptance_rate, 0),
+  click_rate: toNumber(entry?.click_rate, 0),
+  upgrade_rate: toNumber(entry?.upgrade_rate, 0),
+  average_added_value: toNumber(entry?.average_added_value, 0),
+  profitability_signal: toNumber(entry?.profitability_signal, 0),
+  confidence: toNumber(entry?.confidence, 0),
+  combination_score: toNumber(entry?.combination_score, 0),
+  dominant_action: entry?.dominant_action || 'upsell',
+});
+
+const normalizeCombinationPerformance = (rawValue = {}) => {
+  if (!rawValue || typeof rawValue !== 'object') return {};
+
+  return Object.entries(rawValue).reduce((accumulator, [combinationId, entry]) => {
+    if (!combinationId || !entry || typeof entry !== 'object') return accumulator;
+    accumulator[String(combinationId)] = normalizeCombinationEntry({
+      ...entry,
+      combination_id: entry?.combination_id || combinationId,
+    });
+    return accumulator;
+  }, {});
+};
+
+const normalizeCombinationSummary = (rawValue = {}) => ({
+  total_combinations_with_data: toNumber(rawValue?.total_combinations_with_data, 0),
+  top_combinations: normalizeArray(rawValue?.top_combinations).map(normalizeCombinationEntry),
+  underused_combinations: normalizeArray(rawValue?.underused_combinations).map(normalizeCombinationEntry),
+  context_winners:
+    rawValue?.context_winners && typeof rawValue.context_winners === 'object'
+      ? Object.entries(rawValue.context_winners).reduce((accumulator, [contextKey, entry]) => {
+          accumulator[contextKey] = normalizeCombinationEntry(entry);
+          return accumulator;
+        }, {})
+      : {},
+  main_combination_id: rawValue?.main_combination_id || null,
+  main_combination_label: rawValue?.main_combination_label || null,
+});
+
 const normalizeSnapshot = (payload = {}) => ({
   strategy_data: normalizeBeverageStrategy(payload?.strategy_data || {}),
   performance_by_beverage: normalizePerformanceMap(payload?.performance_by_beverage || {}),
   performance_summary: normalizeSummary(payload?.performance_summary || {}),
+  combination_performance: normalizeCombinationPerformance(payload?.combination_performance || {}),
+  combination_summary: normalizeCombinationSummary(payload?.combination_summary || {}),
   metrics_by_beverage: normalizeMetricsMap(payload?.metrics_by_beverage || {}),
   decision_summary: normalizeDecisionSummary(payload?.decision_summary || {}),
   opportunities: normalizeArray(payload?.opportunities),

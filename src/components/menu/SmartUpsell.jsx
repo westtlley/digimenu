@@ -36,6 +36,8 @@ const orderBeverageSuggestionsForDisplay = (options = []) =>
       if (option?.performance?.fixed_as_primary === true) score += 800;
       if (Number(option?.performance?.auto_priority || 0) === 1) score += 260;
       if (Number(option?.performance?.final_score || 0) > 0) score += Number(option.performance.final_score) * 0.45;
+      if (normalizeText(option?.offerType).includes('combo')) score += 180;
+      if (Number(option?.combinationScore || 0) > 0) score += Number(option.combinationScore) * 0.55;
       if (reason.includes('combina com este item') || reason.includes('combina com')) score += 400;
       if (reason.includes('mais pedido')) score += 220;
       if (level === 'forte') score += 180;
@@ -98,6 +100,7 @@ const getBundleTitle = (product) => {
 };
 
 const getPersuasiveBadge = (option) => {
+  if (option?.badgeLabel) return option.badgeLabel;
   const reason = String(option?.reasonLabel || '').toLowerCase();
   if (reason.includes('mais pedido')) return 'Mais pedido';
   if (reason.includes('combina')) return 'Combina com seu pedido';
@@ -107,6 +110,8 @@ const getPersuasiveBadge = (option) => {
 };
 
 const getSuggestionBenefit = (option) => {
+  if (option?.benefitLabel) return option.benefitLabel;
+  if (option?.contextSummary) return option.contextSummary;
   const reason = String(option?.reasonLabel || '').toLowerCase();
   const volume = Number(option?.dish?.volume_ml || 0);
   const tags = Array.isArray(option?.dish?.dietary_tags) ? option.dish.dietary_tags : [];
@@ -125,6 +130,7 @@ const getSuggestionBenefit = (option) => {
 };
 
 const getSuggestionPriceCopy = (option) => {
+  if (option?.priceHint) return option.priceHint;
   const price = formatCurrency(option?.finalPrice);
   if (option?.type === 'upgrade') {
     return option?.deltaPrice > 0 ? `Troque por só +${formatCurrency(option.deltaPrice)}` : 'Troca sem custo extra';
@@ -443,6 +449,11 @@ export default function SmartUpsell({
                               {getSuggestionPriceCopy(option)}
                             </p>
                             <p className="text-[11px] text-gray-500 dark:text-gray-400">{option.reasonLabel}</p>
+                            {option?.combinationLabel ? (
+                              <p className="text-[10px] mt-1 font-medium text-gray-500 dark:text-gray-400">
+                                {option.combinationLabel}
+                              </p>
+                            ) : null}
                             <p className="text-[10px] font-medium mt-1" style={{ color: primaryColor }}>
                               {getBundleUrgency(option, index)}
                             </p>
@@ -460,7 +471,7 @@ export default function SmartUpsell({
                             }}
                           >
                             <ShoppingCart className="w-4 h-4 mr-1" />
-                            {addingOptionId === option.id ? 'Entrando...' : 'Levar junto'}
+                            {addingOptionId === option.id ? 'Entrando...' : option?.ctaLabel || 'Levar junto'}
                           </Button>
                         </div>
                       </div>

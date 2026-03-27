@@ -219,6 +219,21 @@ export default function BeveragesTab() {
     },
     [adminBeverageIntelligence?.performance_summary]
   );
+  const combinationPerformance = useMemo(
+    () => adminBeverageIntelligence?.combination_performance || {},
+    [adminBeverageIntelligence?.combination_performance]
+  );
+  const combinationSummary = useMemo(
+    () => adminBeverageIntelligence?.combination_summary || {
+      total_combinations_with_data: 0,
+      top_combinations: [],
+      underused_combinations: [],
+      context_winners: {},
+      main_combination_id: null,
+      main_combination_label: null,
+    },
+    [adminBeverageIntelligence?.combination_summary]
+  );
   const decisionSummary = useMemo(
     () => adminBeverageIntelligence?.decision_summary || {
       primary_beverage_id: null,
@@ -1081,6 +1096,7 @@ export default function BeveragesTab() {
           <BeverageOverviewPanel
             moduleSummary={moduleSummary}
             performanceSummary={performanceSummary}
+            combinationSummary={combinationSummary}
             decisionSummary={decisionSummary}
             currentUpsellBeverage={currentUpsellBeverage}
             topBeverages={topBeverages}
@@ -1767,6 +1783,8 @@ export default function BeveragesTab() {
             uncoveredCategories={categoriesWithoutUpsell}
             currentUpsellBeverage={currentUpsellBeverage}
             performanceSummary={performanceSummary}
+            combinationPerformance={combinationPerformance}
+            combinationSummary={combinationSummary}
             decisionSummary={decisionSummary}
             onRecommendationAction={runAction}
           />

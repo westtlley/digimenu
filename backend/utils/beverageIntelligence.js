@@ -7,6 +7,7 @@ import {
   buildBeverageFinalScore,
   calculateBeverageMarginMetrics,
 } from './beverageDecisionEngine.js';
+import { buildCrossSellCombinationSnapshot } from './crossSellOptimizationEngine.js';
 
 export const BEVERAGE_TRACKING_EVENT_NAMES = [
   'beverage_suggested',
@@ -1213,6 +1214,38 @@ function buildPerformanceSnapshot({ beverages = [], strategies = {}, metrics = {
     });
   }
 
+  const combinationSnapshot = buildCrossSellCombinationSnapshot({
+    rows,
+    performanceByBeverage: merged,
+  });
+
+  const topCombination = combinationSnapshot?.combination_summary?.top_combinations?.[0] || null;
+  if (topCombination) {
+    opportunities.push({
+      id: `combo-main:${topCombination.beverage_id}:${topCombination.product_context}`,
+      severity: 'opportunity',
+      title: `${topCombination.combo_label} ja mostrou boa resposta`,
+      description: 'O pedido inteiro fica mais forte quando essa combinacao ganha mais presenca no contexto certo.',
+      impact: `${topCombination.acceptance_rate}% de aceitacao com score combinado ${Number(topCombination.combination_score || 0).toFixed(0)}.`,
+      beverage_id: topCombination.beverage_id,
+      actionId: 'activate-basic-upsell',
+      actionLabel: 'Subir combinacao',
+    });
+  }
+
+  (combinationSnapshot?.combination_summary?.underused_combinations || []).slice(0, 2).forEach((entry) => {
+    opportunities.push({
+      id: `combo-underused:${entry.beverage_id}:${entry.product_context}`,
+      severity: 'important',
+      title: `${entry.combo_label} pode gerar mais dinheiro`,
+      description: 'A leitura cruzada encontrou uma combinacao com bom potencial, mas ela ainda aparece pouco no fluxo.',
+      impact: `Score ${Number(entry.combination_score || 0).toFixed(0)} com apenas ${entry.suggested} exibicao(oes).`,
+      beverage_id: entry.beverage_id,
+      actionId: 'link-suggested-beverages',
+      actionLabel: 'Promover combinacao',
+    });
+  });
+
   return {
     performance_by_beverage: merged,
     performance_summary: {
@@ -1234,6 +1267,45 @@ function buildPerformanceSnapshot({ beverages = [], strategies = {}, metrics = {
     },
     opportunities: opportunities.slice(0, 8),
     decision_summary: decisionSummary,
+    combination_performance: combinationSnapshot.combination_performance,
+    combination_summary: combinationSnapshot.combination_summary,
+  };
+}
+
+function sanitizePublicCombinationPerformance(rawValue = {}) {
+  return Object.entries(rawValue || {}).reduce((accumulator, [combinationId, entry]) => {
+    if (!entry || typeof entry !== 'object') return accumulator;
+    const { estimated_profit_generated, ...safeEntry } = entry;
+    accumulator[String(combinationId)] = safeEntry;
+    return accumulator;
+  }, {});
+}
+
+function sanitizePublicCombinationSummary(summary = {}) {
+  const sanitizeEntry = (entry) => {
+    if (!entry || typeof entry !== 'object') return null;
+    const { estimated_profit_generated, ...safeEntry } = entry;
+    return safeEntry;
+  };
+
+  return {
+    total_combinations_with_data: toNumber(summary?.total_combinations_with_data, 0),
+    top_combinations: Array.isArray(summary?.top_combinations)
+      ? summary.top_combinations.map(sanitizeEntry).filter(Boolean)
+      : [],
+    underused_combinations: Array.isArray(summary?.underused_combinations)
+      ? summary.underused_combinations.map(sanitizeEntry).filter(Boolean)
+      : [],
+    context_winners:
+      summary?.context_winners && typeof summary.context_winners === 'object'
+        ? Object.entries(summary.context_winners).reduce((accumulator, [contextKey, entry]) => {
+            const safeEntry = sanitizeEntry(entry);
+            if (safeEntry) accumulator[contextKey] = safeEntry;
+            return accumulator;
+          }, {})
+        : {},
+    main_combination_id: summary?.main_combination_id || null,
+    main_combination_label: summary?.main_combination_label || null,
   };
 }
 
@@ -1294,6 +1366,15 @@ export async function getBeverageIntelligenceSnapshot({
         real_margin_coverage: 0,
         learning_state: 'fallback_heuristico',
       },
+      combination_performance: {},
+      combination_summary: {
+        total_combinations_with_data: 0,
+        top_combinations: [],
+        underused_combinations: [],
+        context_winners: {},
+        main_combination_id: null,
+        main_combination_label: null,
+      },
       metrics_by_beverage: {},
       decision_summary: {
         primary_beverage_id: null,
@@ -1331,11 +1412,19 @@ export async function getBeverageIntelligenceSnapshot({
   const performanceByBeverage = includeSensitive
     ? performance.performance_by_beverage
     : sanitizePublicPerformanceMap(performance.performance_by_beverage);
+  const combinationPerformance = includeSensitive
+    ? performance.combination_performance
+    : sanitizePublicCombinationPerformance(performance.combination_performance);
+  const combinationSummary = includeSensitive
+    ? performance.combination_summary
+    : sanitizePublicCombinationSummary(performance.combination_summary);
 
   return {
     strategy_data: strategyData,
     performance_by_beverage: performanceByBeverage,
     performance_summary: performance.performance_summary,
+    combination_performance: combinationPerformance,
+    combination_summary: combinationSummary,
     metrics_by_beverage: includeSensitive ? metricsData : {},
     decision_summary: includeSensitive
       ? performance.decision_summary

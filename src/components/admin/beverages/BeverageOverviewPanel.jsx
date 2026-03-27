@@ -17,6 +17,7 @@ const formatCurrency = (value) =>
 export default function BeverageOverviewPanel({
   moduleSummary,
   performanceSummary,
+  combinationSummary,
   decisionSummary,
   currentUpsellBeverage,
   topBeverages,
@@ -167,6 +168,52 @@ export default function BeverageOverviewPanel({
                 >
                   {action.label}
                 </Button>
+              ))}
+            </div>
+          </Card>
+
+          <Card className="rounded-3xl border-slate-200 p-4 shadow-sm sm:p-5">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700">Pedido inteiro</Badge>
+                <h3 className="mt-3 text-base font-semibold text-slate-900 sm:text-lg">Combinacao que mais gera dinheiro agora</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-600">
+                  O motor cruzado ja esta lendo prato + bebida para decidir o que sobe junto no pedido.
+                </p>
+              </div>
+              <Button type="button" variant="outline" onClick={() => onOpenSection('insights')}>
+                Ver combinacoes
+              </Button>
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+              {combinationSummary?.main_combination_label ? (
+                <>
+                  <p className="text-sm font-semibold text-slate-900">{combinationSummary.main_combination_label}</p>
+                  <p className="mt-1 text-sm text-slate-600">
+                    {combinationSummary?.top_combinations?.[0]
+                      ? `${Number(combinationSummary.top_combinations[0].acceptance_rate || 0).toFixed(0)}% de aceitacao com score ${Number(combinationSummary.top_combinations[0].combination_score || 0).toFixed(0)}.`
+                      : 'Essa combinacao lidera a leitura cruzada do pedido.'}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-semibold text-slate-900">Ainda juntando massa critica de combinacoes</p>
+                  <p className="mt-1 text-sm text-slate-600">
+                    O fallback atual segue protegendo o upsell enquanto os dados cruzados amadurecem.
+                  </p>
+                </>
+              )}
+            </div>
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Badge variant="outline" className="bg-white text-slate-700">
+                {combinationSummary?.total_combinations_with_data || 0} combinacao(oes)
+              </Badge>
+              {(combinationSummary?.top_combinations || []).slice(0, 2).map((entry) => (
+                <Badge key={`combo:${entry.combination_id || entry.combo_label}`} variant="outline" className="bg-white text-slate-700">
+                  {entry.combo_label}
+                </Badge>
               ))}
             </div>
           </Card>
