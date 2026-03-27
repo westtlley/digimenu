@@ -60,6 +60,7 @@ import { whatsappService } from '@/components/services/whatsappService';
 import { stockUtils } from '@/components/utils/stockUtils';
 import { formatCurrency } from '@/utils/formatters';
 import { COMMERCIAL_EVENTS, getCommercialSignalsForSlug, trackCommercialEvent, trackCommercialEventOnce } from '@/utils/commercialAnalytics';
+import { getBestBeverageSuggestions, loadPublicBeverageStrategy } from '@/utils/beverageUpsellEngine';
 import { withAlpha } from '@/utils/storefrontTheme';
 
 /** Landing quando não há slug: / ou /cardapio — não exibe cardápio de nenhum estabelecimento. */
@@ -167,6 +168,7 @@ export default function Cardapio() {
   const [showRecentOrdersPanel, setShowRecentOrdersPanel] = useState(true);
   const [isDesktopViewport, setIsDesktopViewport] = useState(false);
   const [isMobileViewport, setIsMobileViewport] = useState(false);
+  const [recentUpsellProduct, setRecentUpsellProduct] = useState(null);
   const bodyScrollLockRef = React.useRef(null);
   const cartSuggestionAcceptedRef = React.useRef(false);
   const checkoutSuggestionAcceptedRef = React.useRef(false);
@@ -1634,6 +1636,70 @@ export default function Cardapio() {
   const cartSmartNudgeMain = merchandisingEngine.cartNudgeMain;
   const cartSmartNudgeSecondary = merchandisingEngine.cartNudgeSecondary;
   const checkoutSmartNudge = merchandisingEngine.checkoutNudge;
+  const beverageUpsellEnabled = store?.cross_sell_config?.enabled !== false;
+  const beverageCatalog = useMemo(
+    () => (Array.isArray(dishesResolved) ? dishesResolved.filter((dish) => dish?.product_type === 'beverage' && dish?.is_active !== false) : []),
+    [dishesResolved]
+  );
+  const beverageStrategyData = useMemo(
+    () =>
+      loadPublicBeverageStrategy({
+        slug,
+        store,
+        subscriberEmail: publicData?.subscriber_email || store?.subscriber_email || store?.owner_email || '',
+      }),
+    [publicData?.subscriber_email, slug, store]
+  );
+  const recentUpsellAnchorProduct = useMemo(() => {
+    if (!recentUpsellProduct?.dishId) return null;
+    return (
+      dishesResolved.find((dish) => String(dish?.id || '') === String(recentUpsellProduct.dishId || '')) || recentUpsellProduct
+    );
+  }, [dishesResolved, recentUpsellProduct]);
+  const postAddBeverageSuggestions = useMemo(() => {
+    if (!beverageUpsellEnabled || !recentUpsellAnchorProduct) return [];
+    return getBestBeverageSuggestions({
+      cart,
+      currentProduct: recentUpsellAnchorProduct,
+      beverages: beverageCatalog,
+      strategyData: beverageStrategyData,
+      store,
+      categories: categoriesResolved,
+      scope: 'post_add',
+      limit: isMobileViewport ? 2 : 3,
+    });
+  }, [
+    beverageCatalog,
+    beverageStrategyData,
+    beverageUpsellEnabled,
+    cart,
+    categoriesResolved,
+    isMobileViewport,
+    recentUpsellAnchorProduct,
+    store,
+  ]);
+  const cartBeverageSuggestions = useMemo(() => {
+    if (!beverageUpsellEnabled) return [];
+    return getBestBeverageSuggestions({
+      cart,
+      currentProduct: recentUpsellAnchorProduct,
+      beverages: beverageCatalog,
+      strategyData: beverageStrategyData,
+      store,
+      categories: categoriesResolved,
+      scope: 'cart',
+      limit: isMobileViewport ? 1 : 2,
+    });
+  }, [
+    beverageCatalog,
+    beverageStrategyData,
+    beverageUpsellEnabled,
+    cart,
+    categoriesResolved,
+    isMobileViewport,
+    recentUpsellAnchorProduct,
+    store,
+  ]);
 
   const cartSuggestionsEnabled = useMemo(() => {
     const crossSellConfig = store?.cross_sell_config || {};
@@ -1689,6 +1755,24 @@ export default function Cardapio() {
       cart_total: Number(cartTotal || 0)
     });
   }, [cartTotal, checkoutMerchandisingSuggestion, currentView]);
+
+  useEffect(() => {
+    if (!recentUpsellProduct?.dishId) return undefined;
+    const timer = window.setTimeout(() => {
+      setRecentUpsellProduct((current) =>
+        String(current?.dishId || '') === String(recentUpsellProduct?.dishId || '') ? null : current
+      );
+    }, 12000);
+    return () => window.clearTimeout(timer);
+  }, [recentUpsellProduct]);
+
+  useEffect(() => {
+    if (!recentUpsellProduct) return;
+    const hasBeverageInCart = cart.some((item) => item?.dish?.product_type === 'beverage');
+    if (hasBeverageInCart) {
+      setRecentUpsellProduct(null);
+    }
+  }, [cart, recentUpsellProduct]);
 
   const layoutForSelectedCategoryDesktop = useMemo(() => {
     if (desktopCarouselMode) return 'carousel';
@@ -1943,6 +2027,18 @@ export default function Cardapio() {
     }
     
     addItem(item);
+    if (dish?.product_type === 'beverage') {
+      setRecentUpsellProduct(null);
+    } else if (dish?.id) {
+      setRecentUpsellProduct({
+        id: dish.id,
+        dishId: dish.id,
+        name: dish.name,
+        product_type: dish.product_type,
+        category_id: dish.category_id || null,
+        addedAt: Date.now(),
+      });
+    }
     void trackCommercialEvent(COMMERCIAL_EVENTS.ADD_TO_CART, {
       dish_id: dish?.id || null,
       dish_name: dish?.name || null,
@@ -2057,6 +2153,33 @@ export default function Cardapio() {
 
     return 'add';
   }, [activePromotions, activeCombos]);
+
+  const handleBeverageSuggestionAction = React.useCallback(async (suggestion, source = 'beverage_upsell') => {
+    const beverage = suggestion?.dish || suggestion?.product || suggestion;
+    if (!beverage?.id) return;
+
+    const pricingValue =
+      suggestion?.type === 'upgrade'
+        ? Number(suggestion?.finalPrice || beverage?.price || 0)
+        : Number(suggestion?.finalPrice || beverage?.price || 0);
+
+    if (suggestion?.type === 'upgrade' && suggestion?.replaceItemId) {
+      removeItem(suggestion.replaceItemId);
+    }
+
+    await handleAddToCart({
+      dish: {
+        ...beverage,
+        _merchandising: {
+          ...(beverage?._merchandising || {}),
+          source,
+          label: suggestion?.reasonLabel || 'Upsell de bebida',
+        },
+      },
+      quantity: 1,
+      totalPrice: pricingValue,
+    });
+  }, [handleAddToCart, removeItem]);
 
   const handleCommercialSuggestion = React.useCallback((suggestedDish, context = 'cart') => {
     if (!suggestedDish) return;
@@ -3892,6 +4015,10 @@ export default function Cardapio() {
         onSelectSuggestion={(suggestedDish) => {
           handleCommercialSuggestion(suggestedDish, 'cart');
         }}
+        beverageSuggestions={cartBeverageSuggestions}
+        onSelectBeverageSuggestion={(suggestion) => {
+          handleBeverageSuggestionAction(suggestion, 'cart_beverage_upsell');
+        }}
         primaryColor={primaryColor}
         store={store}
         onReviewBonus={applyReviewBonus}
@@ -3992,13 +4119,19 @@ export default function Cardapio() {
       />
 
       {/* 🎯 Cross-sell Inteligente */}
-      {currentView === 'menu' && !showUpsellModal && cartUpsellSuggestions.length === 0 && (
+      {currentView === 'menu' && !showUpsellModal && (
         <SmartUpsell
           cart={cart}
           dishes={dishesResolved}
           onAddToCart={handleAddToCart}
+          beverageSuggestions={postAddBeverageSuggestions}
+          currentProduct={recentUpsellAnchorProduct}
+          onSelectBeverageSuggestion={(suggestion) => {
+            handleBeverageSuggestionAction(suggestion, 'post_add_beverage_upsell');
+          }}
           primaryColor={primaryColor}
           store={store}
+          slug={slug}
         />
       )}
 

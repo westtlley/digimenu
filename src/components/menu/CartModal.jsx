@@ -43,7 +43,9 @@ export default function CartModal({
   smartNudgeMain = null,
   smartNudgeSecondary = null,
   onSelectSuggestion = null,
-  enableSmartSuggestions = true
+  enableSmartSuggestions = true,
+  beverageSuggestions = [],
+  onSelectBeverageSuggestion = null
 }) {
   const [activeTab, setActiveTab] = useState('cart'); // 'cart' ou 'orders'
   const [showRatingModal, setShowRatingModal] = useState(null);
@@ -153,6 +155,10 @@ export default function CartModal({
     ? (mobileFullScreen ? smartSuggestions.slice(0, 1) : smartSuggestions.slice(0, 2))
     : [];
   const shouldRenderSmartSuggestions = visibleSmartSuggestions.length > 0;
+  const visibleBeverageSuggestions = Array.isArray(beverageSuggestions)
+    ? (mobileFullScreen ? beverageSuggestions.slice(0, 1) : beverageSuggestions.slice(0, 2))
+    : [];
+  const shouldRenderBeverageSuggestions = visibleBeverageSuggestions.length > 0;
 
   // Buscar pedidos do cliente autenticado (incluindo entregues recentemente)
   const { data: orders = [], isLoading: ordersLoading } = useQuery({
@@ -564,6 +570,57 @@ export default function CartModal({
                     </div>
                     </div>
                   ))}
+
+                  {shouldRenderBeverageSuggestions && (
+                    <div className="mt-1 space-y-2">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        {cartHasBeverage ? 'Quer melhorar sua bebida?' : 'Complete seu pedido com uma bebida'}
+                      </p>
+                      <div className="flex gap-2 overflow-x-auto mobile-scroll-x pb-1">
+                        {visibleBeverageSuggestions.map((suggestion) => (
+                          <div
+                            key={suggestion.id}
+                            className="min-w-[182px] max-w-[210px] rounded-xl border border-border bg-card p-2.5"
+                          >
+                            <div className="mb-1 flex items-center justify-between gap-2">
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0.5">
+                                {suggestion?.badgeLabel || (suggestion?.type === 'upgrade' ? 'Upgrade' : 'Mais indicada')}
+                              </Badge>
+                            </div>
+                            <div className="w-full h-20 rounded-md overflow-hidden bg-muted mb-2">
+                              {suggestion?.image ? (
+                                <img src={suggestion.image} alt={suggestion.name} className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-xl">🥤</div>
+                              )}
+                            </div>
+                            <p className="text-xs font-semibold line-clamp-2 min-h-[2rem] text-card-foreground">
+                              {suggestion?.name}
+                            </p>
+                            <p className="mt-1 text-[11px] text-muted-foreground line-clamp-2 min-h-[2rem]">
+                              {suggestion?.reasonLabel}
+                            </p>
+                            <div className="mt-2">
+                              <span className="text-xs font-bold" style={{ color: primaryColor }}>
+                                {formatCurrency(suggestion?.finalPrice)}
+                              </span>
+                              <p className="text-[11px] text-muted-foreground mt-0.5">
+                                {suggestion?.priceHint || `Leve por +${formatCurrency(suggestion?.finalPrice)}`}
+                              </p>
+                            </div>
+                            <Button
+                              size="sm"
+                              className="mt-2 h-8 w-full px-2 text-xs text-white"
+                              style={{ backgroundColor: primaryColor }}
+                              onClick={() => onSelectBeverageSuggestion?.(suggestion)}
+                            >
+                              {suggestion?.ctaLabel || 'Adicionar'}
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {shouldRenderSmartSuggestions && (
                     <div className="mt-1 space-y-2">
