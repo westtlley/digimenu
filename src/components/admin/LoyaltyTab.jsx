@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { usePermission } from '@/components/permissions/usePermission';
 import { getMenuContextEntityOpts, getMenuContextQueryKeyParts } from '@/utils/tenantScope';
+import AdminMediaField from './media/AdminMediaField';
 
 export default function LoyaltyTab() {
   const [showRewardForm, setShowRewardForm] = useState(false);
@@ -347,16 +348,15 @@ export default function LoyaltyTab() {
                 </div>
 
                 <div>
-                  <Label>Imagem</Label>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    className="w-full"
+                  <AdminMediaField
+                    label="Imagem"
+                    value={rewardForm.image}
+                    onChange={(url) => setRewardForm(prev => ({ ...prev, image: url || '' }))}
+                    imageType="promotion"
+                    folder="loyalty"
+                    title="Adicionar imagem da recompensa"
+                    description="Use o mesmo padrao visual de promocoes e recompensas em todo o sistema."
                   />
-                  {rewardForm.image && (
-                    <img src={rewardForm.image} alt="" className="mt-2 w-20 h-20 object-cover rounded" />
-                  )}
                 </div>
 
                 <div className="flex gap-3">
