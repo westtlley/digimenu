@@ -16,10 +16,13 @@ import {
   filterAdminMediaItems,
   getMediaFilterLabel,
   getMediaModuleLabel,
+  loadAdminMediaLibrary,
+  mergeAdminMediaItems,
   MEDIA_LIBRARY_FILTERS,
   MEDIA_LIBRARY_MODULE_FILTERS,
   MEDIA_LIBRARY_SCOPE_FILTERS,
   registerAdminMediaItems,
+  syncAdminMediaItems,
 } from './adminMediaLibrary';
 
 const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
@@ -166,6 +169,18 @@ export default function AdminImagePickerDialog({
   const [libraryTypeFilter, setLibraryTypeFilter] = useState(imageType || 'product');
   const [libraryModuleFilter, setLibraryModuleFilter] = useState('all');
   const [libraryScopeFilter, setLibraryScopeFilter] = useState('all');
+  const [librarySnapshot, setLibrarySnapshot] = useState({
+    items: [],
+    mostUsed: [],
+    recent: [],
+    insights: buildAdminMediaLibraryInsights([]),
+    pagination: { total: 0, limit: 24, offset: 0, has_more: false },
+    source: 'local',
+    allItems: [],
+    error: null,
+  });
+  const [isLibraryLoading, setIsLibraryLoading] = useState(false);
+  const [isLibraryLoadingMore, setIsLibraryLoadingMore] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -177,14 +192,24 @@ export default function AdminImagePickerDialog({
       setSelectedLibraryUrl(null);
       setLibrarySearch('');
       setLibraryTypeFilter(imageType || 'product');
-      setLibraryModuleFilter('all');
+      setLibraryModuleFilter(mediaModule && mediaModule !== 'general' ? mediaModule : 'all');
       setLibraryScopeFilter('all');
+      setLibrarySnapshot({
+        items: [],
+        mostUsed: [],
+        recent: [],
+        insights: buildAdminMediaLibraryInsights([]),
+        pagination: { total: 0, limit: 24, offset: 0, has_more: false },
+        source: 'local',
+        allItems: [],
+        error: null,
+      });
       if (previewUrl) {
         URL.revokeObjectURL(previewUrl);
         setPreviewUrl(null);
       }
     }
-  }, [imageType, open]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [imageType, mediaModule, open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     return () => {
@@ -204,23 +229,102 @@ export default function AdminImagePickerDialog({
     });
   }, [existingImages]);
 
+  useEffect(() => {
+    if (!open || !libraryItems.length) return;
+
+    registerAdminMediaItems(libraryItems, {
+      fallbackType: imageType,
+      fallbackModule: mediaModule,
+      fallbackReference: dialogTitle,
+      fallbackSource: dialogTitle,
+    });
+
+    syncAdminMediaItems(libraryItems, {
+      fallbackType: imageType,
+      fallbackModule: mediaModule,
+      fallbackReference: dialogTitle,
+      fallbackSource: dialogTitle,
+      fallbackContext: folder,
+    }).catch(() => {});
+  }, [dialogTitle, folder, imageType, libraryItems, mediaModule, open]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    let cancelled = false;
+    setIsLibraryLoading(true);
+
+    loadAdminMediaLibrary({
+      type: libraryTypeFilter,
+      module: libraryModuleFilter,
+      searchTerm: librarySearch,
+      scope: libraryScopeFilter,
+      limit: 24,
+      offset: 0,
+      fallbackItems: libraryItems,
+      fallbackType: imageType,
+      fallbackModule: mediaModule,
+      fallbackReference: dialogTitle,
+      fallbackSource: dialogTitle,
+      fallbackContext: folder,
+    })
+      .then((snapshot) => {
+        if (cancelled) return;
+        setLibrarySnapshot(snapshot);
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setIsLibraryLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    dialogTitle,
+    folder,
+    imageType,
+    libraryItems,
+    libraryModuleFilter,
+    libraryScopeFilter,
+    librarySearch,
+    libraryTypeFilter,
+    mediaModule,
+    open,
+  ]);
+
   const libraryInsights = useMemo(() => {
+    if (librarySnapshot?.insights) {
+      return librarySnapshot.insights;
+    }
+
     return buildAdminMediaLibraryInsights(libraryItems, {
       type: libraryTypeFilter,
       module: libraryModuleFilter,
       searchTerm: librarySearch,
     });
-  }, [libraryItems, libraryModuleFilter, librarySearch, libraryTypeFilter]);
+  }, [libraryItems, libraryModuleFilter, librarySearch, librarySnapshot, libraryTypeFilter]);
 
   const filteredLibraryItems = useMemo(() => {
-    return filterAdminMediaItems(libraryInsights.filtered, {
-      scope: libraryScopeFilter,
-    });
-  }, [libraryInsights.filtered, libraryScopeFilter]);
+    const currentPageItems = Array.isArray(librarySnapshot?.items) && librarySnapshot.items.length > 0
+      ? librarySnapshot.items
+      : filterAdminMediaItems(libraryInsights.filtered, {
+          scope: libraryScopeFilter,
+        });
+
+    return currentPageItems;
+  }, [libraryInsights.filtered, libraryScopeFilter, librarySnapshot]);
 
   const selectedLibraryItem = useMemo(() => {
-    return libraryItems.find((item) => item.url === selectedLibraryUrl) || null;
-  }, [libraryItems, selectedLibraryUrl]);
+    const selectionPool = [
+      ...(Array.isArray(librarySnapshot?.items) ? librarySnapshot.items : []),
+      ...(Array.isArray(librarySnapshot?.mostUsed) ? librarySnapshot.mostUsed : []),
+      ...(Array.isArray(librarySnapshot?.recent) ? librarySnapshot.recent : []),
+      ...libraryItems,
+    ];
+    return selectionPool.find((item) => item.url === selectedLibraryUrl) || null;
+  }, [libraryItems, librarySnapshot, selectedLibraryUrl]);
 
   const sameTypeLibraryCount = useMemo(() => {
     return libraryItems.filter((item) => item.type === imageType).length;
@@ -230,6 +334,13 @@ export default function AdminImagePickerDialog({
   const showHighlightedSections = libraryScopeFilter === 'all' && !librarySearch;
   const leadingModule = libraryInsights.byModule[0] || null;
   const leadingType = libraryInsights.byType[0] || null;
+  const libraryHasItems =
+    filteredLibraryItems.length > 0 ||
+    (Array.isArray(librarySnapshot?.mostUsed) && librarySnapshot.mostUsed.length > 0) ||
+    (Array.isArray(librarySnapshot?.recent) && librarySnapshot.recent.length > 0) ||
+    libraryItems.length > 0;
+  const totalLibraryAssets =
+    Number(librarySnapshot?.pagination?.total || 0) || libraryItems.length;
 
   const openFilePicker = () => {
     fileInputRef.current?.click();
@@ -298,6 +409,27 @@ export default function AdminImagePickerDialog({
           fallbackSource: dialogTitle,
         }
       );
+      await syncAdminMediaItems(
+        [
+          {
+            url,
+            type: imageType,
+            module: mediaModule,
+            reference: selectedFile?.name || dialogTitle,
+            source: dialogTitle,
+            context: folder,
+            meta: `${preset.previewLabel} - ${preset.recommendedSize}`,
+            updatedAt: Date.now(),
+          },
+        ],
+        {
+          fallbackType: imageType,
+          fallbackModule: mediaModule,
+          fallbackReference: dialogTitle,
+          fallbackSource: dialogTitle,
+          fallbackContext: folder,
+        }
+      );
       await onSelectImage?.(url);
       toast.success('Foto adicionada com sucesso.');
       onOpenChange(false);
@@ -334,6 +466,26 @@ export default function AdminImagePickerDialog({
           fallbackSource: dialogTitle,
         }
       );
+      await syncAdminMediaItems(
+        [
+          selectedLibraryItem || {
+            url: selectedLibraryUrl,
+            type: imageType,
+            module: mediaModule,
+            reference: dialogTitle,
+            source: dialogTitle,
+            context: folder,
+            updatedAt: Date.now(),
+          },
+        ],
+        {
+          fallbackType: imageType,
+          fallbackModule: mediaModule,
+          fallbackReference: dialogTitle,
+          fallbackSource: dialogTitle,
+          fallbackContext: folder,
+        }
+      );
       await onSelectImage?.(selectedLibraryUrl);
       toast.success('Imagem aplicada com sucesso.');
       onOpenChange(false);
@@ -341,6 +493,84 @@ export default function AdminImagePickerDialog({
       toast.error(error.message || 'Não foi possível aplicar a imagem.');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleLoadMoreLibrary = async () => {
+    if (isLibraryLoadingMore || !librarySnapshot?.pagination?.has_more) return;
+
+    setIsLibraryLoadingMore(true);
+    try {
+      const nextOffset =
+        Number(librarySnapshot?.pagination?.offset || 0) + Number(librarySnapshot?.pagination?.limit || 24);
+
+      const snapshot = await loadAdminMediaLibrary({
+        type: libraryTypeFilter,
+        module: libraryModuleFilter,
+        searchTerm: librarySearch,
+        scope: libraryScopeFilter,
+        limit: Number(librarySnapshot?.pagination?.limit || 24),
+        offset: nextOffset,
+        fallbackItems: libraryItems,
+        fallbackType: imageType,
+        fallbackModule: mediaModule,
+        fallbackReference: dialogTitle,
+        fallbackSource: dialogTitle,
+        fallbackContext: folder,
+      });
+
+      const combinedItems = filterAdminMediaItems(
+        mergeAdminMediaItems(
+          [
+            ...(Array.isArray(librarySnapshot?.items) ? librarySnapshot.items : []),
+            ...(Array.isArray(snapshot?.items) ? snapshot.items : []),
+          ],
+          {
+            fallbackType: imageType,
+            fallbackModule: mediaModule,
+            fallbackReference: dialogTitle,
+            fallbackSource: dialogTitle,
+          }
+        ),
+        { scope: libraryScopeFilter }
+      );
+
+      const combinedAllItems = mergeAdminMediaItems(
+        [
+          ...(Array.isArray(librarySnapshot?.allItems) ? librarySnapshot.allItems : []),
+          ...(Array.isArray(snapshot?.allItems) ? snapshot.allItems : []),
+        ],
+        {
+          fallbackType: imageType,
+          fallbackModule: mediaModule,
+          fallbackReference: dialogTitle,
+          fallbackSource: dialogTitle,
+        }
+      );
+
+      registerAdminMediaItems(combinedAllItems, {
+        fallbackType: imageType,
+        fallbackModule: mediaModule,
+        fallbackReference: dialogTitle,
+        fallbackSource: dialogTitle,
+      });
+
+      setLibrarySnapshot({
+        ...snapshot,
+        items: combinedItems,
+        mostUsed:
+          Array.isArray(librarySnapshot?.mostUsed) && librarySnapshot.mostUsed.length > 0
+            ? librarySnapshot.mostUsed
+            : snapshot.mostUsed,
+        recent:
+          Array.isArray(librarySnapshot?.recent) && librarySnapshot.recent.length > 0
+            ? librarySnapshot.recent
+            : snapshot.recent,
+        insights: snapshot?.insights || librarySnapshot?.insights,
+        allItems: combinedAllItems,
+      });
+    } finally {
+      setIsLibraryLoadingMore(false);
     }
   };
 
@@ -565,7 +795,14 @@ export default function AdminImagePickerDialog({
               )}
             </TabsContent>
             <TabsContent value="library" className="mt-6 flex min-h-0 flex-1 flex-col overflow-hidden">
-              {libraryItems.length === 0 ? (
+              {isLibraryLoading && !libraryHasItems ? (
+                <div className="flex min-h-[280px] items-center justify-center rounded-2xl border border-border bg-muted/20">
+                  <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Carregando biblioteca de midia...
+                  </div>
+                </div>
+              ) : !libraryHasItems ? (
                 <div className="rounded-2xl border border-border bg-muted/20 px-6 py-16 text-center">
                   <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">
                     <Images className="h-6 w-6" />
@@ -585,13 +822,18 @@ export default function AdminImagePickerDialog({
                           Encontre rapido o que voce mais usa, o que acabou de usar e o que cada modulo reaproveita melhor.
                         </p>
                       </div>
-                      <Badge variant="outline">{filteredLibraryItems.length} / {libraryItems.length} ativos</Badge>
+                      <div className="flex flex-wrap gap-2">
+                        <Badge variant="outline">{filteredLibraryItems.length} / {totalLibraryAssets} ativos</Badge>
+                        <Badge variant={librarySnapshot?.source === 'backend' ? 'default' : 'outline'}>
+                          {librarySnapshot?.source === 'backend' ? 'Backend ativo' : 'Fallback local'}
+                        </Badge>
+                      </div>
                     </div>
 
                     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                       <div className="rounded-2xl border border-border bg-muted/20 p-4">
                         <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Ativos unicos</p>
-                        <p className="mt-2 text-2xl font-semibold text-foreground">{libraryItems.length}</p>
+                        <p className="mt-2 text-2xl font-semibold text-foreground">{totalLibraryAssets}</p>
                         <p className="mt-1 text-xs text-muted-foreground">URLs agrupadas automaticamente por uso.</p>
                       </div>
                       <div className="rounded-2xl border border-border bg-muted/20 p-4">
@@ -673,34 +915,34 @@ export default function AdminImagePickerDialog({
 
                   <div className="min-h-0 flex-1 overflow-y-auto pr-1">
                     <div className="space-y-4">
-                      {showHighlightedSections && libraryInsights.mostUsed.length > 0 ? (
+                      {showHighlightedSections && librarySnapshot.mostUsed.length > 0 ? (
                         <div className="rounded-2xl border border-border bg-muted/10 p-4">
                           <div className="mb-4 flex items-center justify-between gap-3">
                             <div>
                               <h4 className="text-sm font-semibold text-foreground">Mais usadas</h4>
                               <p className="text-xs text-muted-foreground">Ativos com maior reaproveitamento no recorte atual.</p>
                             </div>
-                            <Badge variant="outline">{libraryInsights.mostUsed.length} destaques</Badge>
+                            <Badge variant="outline">{librarySnapshot.mostUsed.length} destaques</Badge>
                           </div>
                           <AdminMediaGallery
-                            items={libraryInsights.mostUsed}
+                            items={librarySnapshot.mostUsed}
                             selectedUrl={selectedLibraryUrl}
                             onSelect={setSelectedLibraryUrl}
                           />
                         </div>
                       ) : null}
 
-                      {showHighlightedSections && libraryInsights.recent.length > 0 ? (
+                      {showHighlightedSections && librarySnapshot.recent.length > 0 ? (
                         <div className="rounded-2xl border border-border bg-muted/10 p-4">
                           <div className="mb-4 flex items-center justify-between gap-3">
                             <div>
                               <h4 className="text-sm font-semibold text-foreground">Usadas recentemente</h4>
                               <p className="text-xs text-muted-foreground">O que voce acabou de selecionar ou reaproveitar.</p>
                             </div>
-                            <Badge variant="outline">{libraryInsights.recent.length} recentes</Badge>
+                            <Badge variant="outline">{librarySnapshot.recent.length} recentes</Badge>
                           </div>
                           <AdminMediaGallery
-                            items={libraryInsights.recent}
+                            items={librarySnapshot.recent}
                             selectedUrl={selectedLibraryUrl}
                             onSelect={setSelectedLibraryUrl}
                           />
@@ -734,6 +976,19 @@ export default function AdminImagePickerDialog({
                           emptyTitle="Nenhuma imagem encontrada"
                           emptyDescription="Ajuste a busca, troque os filtros ou envie uma nova imagem."
                         />
+                        {librarySnapshot?.pagination?.has_more ? (
+                          <div className="mt-4 flex justify-center">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={handleLoadMoreLibrary}
+                              disabled={isLibraryLoadingMore}
+                            >
+                              {isLibraryLoadingMore ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                              Carregar mais
+                            </Button>
+                          </div>
+                        ) : null}
                       </div>
                     </div>
                   </div>
@@ -798,6 +1053,7 @@ export default function AdminImagePickerDialog({
     </Dialog>
   );
 }
+
 
 
 

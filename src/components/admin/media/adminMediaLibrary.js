@@ -1,8 +1,11 @@
+import { apiClient } from '@/api/apiClient';
 import { getMediaUploadPreset } from './mediaUploadPresets';
 
 const MEDIA_LIBRARY_STORAGE_KEY = 'digimenu.admin.media.library.v1';
 const MAX_MEDIA_LIBRARY_ITEMS = 400;
 const MAX_METADATA_PREVIEW = 4;
+const DEFAULT_MEDIA_LIBRARY_PAGE_SIZE = 24;
+const DEFAULT_MEDIA_LIBRARY_SECTION_SIZE = 6;
 
 const MEDIA_LIBRARY_FILTERS = [
   { value: 'all', label: 'Todos' },
@@ -94,6 +97,134 @@ function sortAdminMediaItems(items = [], mode = 'recent') {
   });
 }
 
+function buildLibraryPagination(total, limit = DEFAULT_MEDIA_LIBRARY_PAGE_SIZE, offset = 0) {
+  const safeLimit = Math.max(1, Number(limit || DEFAULT_MEDIA_LIBRARY_PAGE_SIZE));
+  const safeOffset = Math.max(0, Number(offset || 0));
+  const safeTotal = Math.max(0, Number(total || 0));
+
+  return {
+    total: safeTotal,
+    limit: safeLimit,
+    offset: safeOffset,
+    has_more: safeOffset + safeLimit < safeTotal,
+  };
+}
+
+function normalizeBackendMediaItem(item, options = {}) {
+  if (!item || typeof item !== 'object') return null;
+
+  return normalizeAdminMediaItem(
+    {
+      url: item.url,
+      type: item.type,
+      module: item.module,
+      modules: item.modules,
+      reference: item.reference_name || item.label,
+      references: item.references,
+      source: item.source,
+      sources: item.sources,
+      meta: item.meta,
+      context: Array.isArray(item.contexts) ? item.contexts[0] : null,
+      updatedAt: item.last_used_at || item.updated_at || item.created_at,
+      usageCount: item.usage_count,
+      usageSummary: item.usage_summary,
+      usageKeys:
+        item?.metadata && Array.isArray(item.metadata.usage_keys) ? item.metadata.usage_keys : undefined,
+    },
+    options
+  );
+}
+
+function normalizeBackendMediaItems(items = [], options = {}) {
+  const orderedItems = [];
+  const itemIndexByUrl = new Map();
+
+  (Array.isArray(items) ? items : []).forEach((item) => {
+    const normalized = normalizeBackendMediaItem(item, options);
+    if (!normalized) return;
+
+    if (!itemIndexByUrl.has(normalized.url)) {
+      itemIndexByUrl.set(normalized.url, orderedItems.length);
+      orderedItems.push(normalized);
+      return;
+    }
+
+    const existingIndex = itemIndexByUrl.get(normalized.url);
+    const merged = mergeAdminMediaItems([orderedItems[existingIndex], normalized], options);
+    orderedItems[existingIndex] = merged[0] || orderedItems[existingIndex];
+  });
+
+  return orderedItems;
+}
+
+function buildRegisterPayload(items = [], options = {}) {
+  return (Array.isArray(items) ? items : [])
+    .map((item) => normalizeAdminMediaItem(item, options))
+    .filter(Boolean)
+    .map((item) => ({
+      url: item.url,
+      type: item.type,
+      module: item.module || options.fallbackModule || 'general',
+      reference_name: item.reference || item.label || options.fallbackReference || 'Imagem salva',
+      source: item.source || options.fallbackSource || 'Biblioteca',
+      context: item.context || options.fallbackContext || null,
+      usage_key:
+        Array.isArray(item.usageKeys) && item.usageKeys.length > 0
+          ? item.usageKeys[0]
+          : [item.module, item.type, item.reference, item.source].filter(Boolean).join('::'),
+      meta: item.meta || null,
+      updated_at: new Date(item.updatedAt || Date.now()).toISOString(),
+    }));
+}
+
+function buildLocalLibrarySnapshot({
+  type = 'all',
+  module = 'all',
+  searchTerm = '',
+  scope = 'all',
+  limit = DEFAULT_MEDIA_LIBRARY_PAGE_SIZE,
+  offset = 0,
+  sectionLimit = DEFAULT_MEDIA_LIBRARY_SECTION_SIZE,
+  fallbackItems = [],
+  options = {},
+} = {}) {
+  const libraryPool = mergeAdminMediaItems([readAdminMediaLibrary(), fallbackItems], options);
+  const filteredRecent = filterAdminMediaItems(libraryPool, {
+    type,
+    module,
+    searchTerm,
+    scope: 'recent',
+  });
+  const filteredPopular = filterAdminMediaItems(libraryPool, {
+    type,
+    module,
+    searchTerm,
+    scope: 'mostUsed',
+  });
+  const safeLimit = Math.max(1, Number(limit || DEFAULT_MEDIA_LIBRARY_PAGE_SIZE));
+  const safeOffset = Math.max(0, Number(offset || 0));
+  const baseItems = scope === 'mostUsed' ? filteredPopular : filteredRecent;
+  const pagedItems = baseItems.slice(safeOffset, safeOffset + safeLimit);
+  const insights = buildAdminMediaLibraryInsights(libraryPool, { type, module, searchTerm });
+
+  return {
+    items: pagedItems,
+    mostUsed: filteredPopular.slice(0, sectionLimit),
+    recent: filteredRecent.slice(0, sectionLimit),
+    insights,
+    pagination: buildLibraryPagination(baseItems.length, safeLimit, safeOffset),
+    source: 'local',
+    allItems: libraryPool,
+    error: null,
+  };
+}
+
+function getLibraryEndpoint(scope = 'all') {
+  if (scope === 'mostUsed') return '/media/popular';
+  if (scope === 'recent') return '/media/recent';
+  return '/media';
+}
+
 export function inferAdminMediaModule(item = {}, options = {}) {
   const explicitValue = item?.module || item?.moduleKey || options?.fallbackModule;
   if (explicitValue) {
@@ -156,10 +287,11 @@ export function normalizeAdminMediaItem(item, options = {}) {
       'Biblioteca'
   ).trim();
   const meta = String(sourceValue?.meta || sourceValue?.description || '').trim();
+  const context = String(sourceValue?.context || sourceValue?.folder || '').trim();
   const updatedAt = toTimestamp(sourceValue?.updatedAt || sourceValue?.lastUsedAt);
   const usageFingerprint = uniqueStrings([
     sourceValue?.usageKey,
-    [module, type, reference, source, sourceValue?.context].filter(Boolean).join('::'),
+    [module, type, reference, source, context].filter(Boolean).join('::'),
   ], undefined);
   const usageKeys = uniqueStrings([sourceValue?.usageKeys, usageFingerprint], undefined);
   const usageCount = Math.max(1, Number(sourceValue?.usageCount || sourceValue?.uses || 1), usageKeys.length);
@@ -192,6 +324,7 @@ export function normalizeAdminMediaItem(item, options = {}) {
     source,
     sources,
     meta,
+    context,
     updatedAt,
     usageKeys,
     usageCount,
@@ -235,6 +368,7 @@ export function mergeAdminMediaItems(sources = [], options = {}) {
       source: normalized.source || previous.source,
       sources: sourcesList,
       meta: normalized.meta || previous.meta,
+      context: normalized.context || previous.context,
       usageKeys,
       keywords: normalizeSearchValue([
         previous.keywords,
@@ -281,6 +415,141 @@ export function registerAdminMediaItems(items = [], options = {}) {
   const merged = mergeAdminMediaItems([readAdminMediaLibrary(), items], options);
   writeAdminMediaLibrary(merged);
   return merged;
+}
+
+export async function syncAdminMediaItems(items = [], options = {}) {
+  const payload = buildRegisterPayload(items, options);
+  if (!payload.length) return [];
+
+  try {
+    const response = await apiClient.post('/media/register', {
+      items: payload,
+    });
+
+    const normalized = normalizeBackendMediaItems(response?.items || [], options);
+    if (normalized.length) {
+      registerAdminMediaItems(normalized, options);
+    }
+    return normalized;
+  } catch (error) {
+    console.warn('[admin-media-library] backend register fallback', error);
+    return [];
+  }
+}
+
+export async function loadAdminMediaLibrary({
+  type = 'all',
+  module = 'all',
+  searchTerm = '',
+  scope = 'all',
+  limit = DEFAULT_MEDIA_LIBRARY_PAGE_SIZE,
+  offset = 0,
+  sectionLimit = DEFAULT_MEDIA_LIBRARY_SECTION_SIZE,
+  fallbackItems = [],
+  ...options
+} = {}) {
+  const localSnapshot = buildLocalLibrarySnapshot({
+    type,
+    module,
+    searchTerm,
+    scope,
+    limit,
+    offset,
+    sectionLimit,
+    fallbackItems,
+    options,
+  });
+
+  try {
+    const endpoint = getLibraryEndpoint(scope);
+    const baseParams = {
+      type,
+      module,
+      search: searchTerm,
+      limit,
+      offset,
+    };
+
+    const requests = [apiClient.get(endpoint, baseParams)];
+    if (offset === 0) {
+      requests.push(
+        apiClient.get('/media/popular', {
+          type,
+          module,
+          search: searchTerm,
+          limit: sectionLimit,
+          offset: 0,
+        }),
+        apiClient.get('/media/recent', {
+          type,
+          module,
+          search: searchTerm,
+          limit: sectionLimit,
+          offset: 0,
+        })
+      );
+    }
+
+    const [mainResponse, popularResponse, recentResponse] = await Promise.all(requests);
+    const remoteMainItems = normalizeBackendMediaItems(mainResponse?.items || [], options);
+    const remotePopularItems =
+      offset === 0 ? normalizeBackendMediaItems(popularResponse?.items || [], options) : [];
+    const remoteRecentItems =
+      offset === 0 ? normalizeBackendMediaItems(recentResponse?.items || [], options) : [];
+
+    const combinedPool = mergeAdminMediaItems(
+      [
+        localSnapshot.allItems,
+        remoteMainItems,
+        remotePopularItems,
+        remoteRecentItems,
+      ],
+      options
+    );
+
+    registerAdminMediaItems(combinedPool, options);
+
+    const mergedPageItems = filterAdminMediaItems(
+      mergeAdminMediaItems([remoteMainItems, localSnapshot.items], options),
+      { scope }
+    );
+    const mergedPopular = offset === 0
+      ? filterAdminMediaItems(
+          mergeAdminMediaItems([remotePopularItems, localSnapshot.mostUsed], options),
+          { scope: 'mostUsed' }
+        ).slice(0, sectionLimit)
+      : localSnapshot.mostUsed;
+    const mergedRecent = offset === 0
+      ? filterAdminMediaItems(
+          mergeAdminMediaItems([remoteRecentItems, localSnapshot.recent], options),
+          { scope: 'recent' }
+        ).slice(0, sectionLimit)
+      : localSnapshot.recent;
+    const insights = buildAdminMediaLibraryInsights(combinedPool, { type, module, searchTerm });
+    const pagination = mainResponse?.pagination || localSnapshot.pagination;
+
+    return {
+      items: mergedPageItems,
+      mostUsed: mergedPopular,
+      recent: mergedRecent,
+      insights,
+      pagination: {
+        total: Number(pagination?.total || pagination?.count || 0),
+        limit: Number(pagination?.limit || limit || DEFAULT_MEDIA_LIBRARY_PAGE_SIZE),
+        offset: Number(pagination?.offset || offset || 0),
+        has_more: Boolean(pagination?.has_more),
+      },
+      source: 'backend',
+      allItems: combinedPool,
+      error: null,
+    };
+  } catch (error) {
+    console.warn('[admin-media-library] backend load fallback', error);
+    return {
+      ...localSnapshot,
+      error,
+    };
+  }
 }
 
 export function filterAdminMediaItems(items = [], { type = 'all', module = 'all', searchTerm = '', scope = 'all' } = {}) {

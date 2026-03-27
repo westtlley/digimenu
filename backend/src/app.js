@@ -28,6 +28,7 @@ import ordersRoutes from '../modules/orders/orders.routes.js';
 import analyticsRoutes from '../routes/analytics.routes.js';
 import backupRoutes from '../routes/backup.routes.js';
 import { beverageIntelligenceRouter, publicBeverageIntelligenceRouter } from '../routes/beverageIntelligence.routes.js';
+import mediaRouter from '../routes/media.routes.js';
 import subscriberBackupRoutes from '../routes/subscriberBackup.routes.js';
 import mercadopagoRoutes from '../routes/mercadopago.routes.js';
 import metricsRoutes from '../routes/metrics.routes.js';
@@ -110,6 +111,7 @@ export async function createApp() {
   app.use('/api/menus', menusRoutes);
   app.use('/api/orders', ordersRoutes);
   app.use('/api/beverages', beverageIntelligenceRouter);
+  app.use('/api/media', mediaRouter);
 
   // Outras rotas
   app.use('/api/analytics', analyticsRoutes);

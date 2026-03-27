@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ImagePlus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -11,6 +11,7 @@ import {
   mergeAdminMediaItems,
   readAdminMediaLibrary,
   registerAdminMediaItems,
+  syncAdminMediaItems,
 } from './adminMediaLibrary';
 
 export default function AdminMediaField({
@@ -31,6 +32,7 @@ export default function AdminMediaField({
   removeLabel = 'Remover',
 }) {
   const [open, setOpen] = useState(false);
+  const lastSyncedSignatureRef = useRef('');
   const preset = useMemo(() => getMediaUploadPreset(imageType), [imageType]);
   const isLandscape = preset.aspectRatio > 1.2;
   const referenceLabel = title || label || preset.title || preset.label;
@@ -46,10 +48,7 @@ export default function AdminMediaField({
     { fallbackModule: mediaModule }
   ), [folder, imageType, mediaModule, referenceLabel, sourceLabel]);
 
-  useEffect(() => {
-    if (!open) return;
-
-    const itemsToRegister = [
+  const itemsToRegister = useMemo(() => ([
       ...existingImages,
       value
         ? {
@@ -62,8 +61,9 @@ export default function AdminMediaField({
             context: folder,
           }
         : null,
-    ].filter(Boolean);
+    ].filter(Boolean)), [existingImages, folder, imageType, preset.previewLabel, referenceLabel, resolvedMediaModule, sourceLabel, value]);
 
+  useEffect(() => {
     if (!itemsToRegister.length) return;
 
     registerAdminMediaItems(itemsToRegister, {
@@ -72,7 +72,22 @@ export default function AdminMediaField({
       fallbackReference: referenceLabel,
       fallbackSource: sourceLabel,
     });
-  }, [existingImages, folder, imageType, open, preset.previewLabel, referenceLabel, resolvedMediaModule, sourceLabel, value]);
+
+    const signature = JSON.stringify(
+      itemsToRegister.map((item) => `${item.url || ''}::${item.reference || ''}::${item.source || ''}`)
+    );
+
+    if (lastSyncedSignatureRef.current === signature) return;
+    lastSyncedSignatureRef.current = signature;
+
+    syncAdminMediaItems(itemsToRegister, {
+      fallbackType: imageType,
+      fallbackModule: resolvedMediaModule,
+      fallbackReference: referenceLabel,
+      fallbackSource: sourceLabel,
+      fallbackContext: folder,
+    }).catch(() => {});
+  }, [folder, imageType, itemsToRegister, referenceLabel, resolvedMediaModule, sourceLabel]);
 
   const libraryItems = useMemo(() => {
     return mergeAdminMediaItems(

@@ -762,7 +762,45 @@ export async function migrate() {
             console.warn('⚠️ Aviso ao adicionar coluna active em users (pode já existir):', error.message);
           }
         }
-    
+
+        // Migracao: media manager com persistencia real de ativos
+        try {
+          await query(`
+            CREATE TABLE IF NOT EXISTS media_assets (
+              id SERIAL PRIMARY KEY,
+              tenant_id INTEGER,
+              tenant_key VARCHAR(300) NOT NULL,
+              subscriber_email VARCHAR(255),
+              url TEXT NOT NULL,
+              type VARCHAR(50) NOT NULL DEFAULT 'product',
+              module VARCHAR(60) NOT NULL DEFAULT 'general',
+              reference_name VARCHAR(255),
+              usage_count INTEGER NOT NULL DEFAULT 1,
+              last_used_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              metadata JSONB DEFAULT '{}'::jsonb
+            );
+          `);
+
+          await query(`
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_media_assets_tenant_url
+            ON media_assets(tenant_key, url);
+            CREATE INDEX IF NOT EXISTS idx_media_assets_tenant_recent
+            ON media_assets(tenant_key, last_used_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_media_assets_tenant_popular
+            ON media_assets(tenant_key, usage_count DESC, last_used_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_media_assets_tenant_type
+            ON media_assets(tenant_key, type);
+            CREATE INDEX IF NOT EXISTS idx_media_assets_tenant_module
+            ON media_assets(tenant_key, module);
+          `);
+
+          console.log('✅ Migracao de media_assets concluida.');
+        } catch (error) {
+          console.warn('⚠️ Aviso ao criar media_assets (pode ja existir):', error.message);
+        }
+
     console.log('✅ Migração concluída com sucesso!');
     return true;
   } catch (error) {
@@ -783,4 +821,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       process.exit(1);
     });
 }
+
+
+
+
 

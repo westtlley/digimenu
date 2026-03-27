@@ -57,6 +57,7 @@ import { createManagerialAuthHandlers } from './modules/managerialAuth/manageria
 import analyticsRoutes from './routes/analytics.routes.js';
 import backupRoutes from './routes/backup.routes.js';
 import { beverageIntelligenceRouter, publicBeverageIntelligenceRouter } from './routes/beverageIntelligence.routes.js';
+import mediaRouter from './routes/media.routes.js';
 import subscriberBackupRoutes from './routes/subscriberBackup.routes.js';
 import mercadopagoRoutes from './routes/mercadopago.routes.js';
 import metricsRoutes from './routes/metrics.routes.js';
@@ -757,6 +758,7 @@ app.post(
 );
 app.use('/api/public/beverages', publicBeverageIntelligenceRouter);
 app.use('/api/beverages', authenticate, beverageIntelligenceRouter);
+app.use('/api/media', authenticate, mediaRouter);
 app.patch(
   '/api/dishes/:id/pdv',
   authenticate,
