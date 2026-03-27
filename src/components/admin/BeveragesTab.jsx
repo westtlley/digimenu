@@ -95,9 +95,16 @@ const normalizeTriggerTypes = (value) => {
   return Array.from(new Set(value.filter(Boolean)));
 };
 
+const BEVERAGE_SUBSECTION_NAV = {
+  intelligence: [
+    { id: 'overview', label: 'Resumo guiado', shortLabel: 'Resumo' },
+    { id: 'insights', label: 'Oportunidades', shortLabel: 'Oportun.' },
+  ],
+};
+
 export default function BeveragesTab() {
   const [user, setUser] = useState(null);
-  const [activeSection, setActiveSection] = useState('overview');
+  const [activeSection, setActiveSection] = useState('catalog');
   const [showBeverageModal, setShowBeverageModal] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [editingBeverage, setEditingBeverage] = useState(null);
@@ -625,6 +632,38 @@ export default function BeveragesTab() {
     };
   }, [beverageEntries, previewBeverage, previewContext, realBeverageOffer]);
 
+  const openBeverageWorkspace = React.useCallback((target) => {
+    switch (target) {
+      case 'catalog':
+      case 'products':
+        setActiveSection('catalog');
+        return;
+      case 'links':
+      case 'organization':
+        setActiveSection('links');
+        return;
+      case 'overview':
+        setActiveSection('overview');
+        return;
+      case 'insights':
+      case 'intelligence':
+        setActiveSection('insights');
+        return;
+      case 'preview':
+      case 'settings':
+        setActiveSection('preview');
+        return;
+      default:
+        setActiveSection('catalog');
+    }
+  }, []);
+
+  const activeMainSection = useMemo(
+    () => BEVERAGE_SECTIONS.find((section) => section.sections.includes(activeSection))?.id || 'products',
+    [activeSection]
+  );
+  const activeSubsections = BEVERAGE_SUBSECTION_NAV[activeMainSection] || [];
+
   const closeBeverageModal = () => {
     setShowBeverageModal(false);
     setEditingBeverage(null);
@@ -1081,10 +1120,11 @@ export default function BeveragesTab() {
           <Badge variant="outline" className="border-cyan-200 bg-cyan-50 text-cyan-700">Bebidas IA V1</Badge>
           <h2 className="mt-3 flex items-center gap-2 text-2xl font-bold text-slate-900">
             <Wine className="h-6 w-6 text-cyan-500" />
-            Bebidas como motor de ticket
+            Produtos primeiro, ticket por tras
           </h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-            O modulo agora conecta cadastro, upsell, combos, cardapio e leitura comercial para que bebida deixe de ser item solto e vire alavanca de venda.
+            A operacao agora entra direto no catalogo. Upsell, preview e inteligencia continuam no modulo,
+            mas organizados como apoio para vender mais, nao como barreira para editar bebida.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -1102,7 +1142,17 @@ export default function BeveragesTab() {
           <div className="overflow-x-auto">
             <TabsList className="h-auto w-full justify-start gap-1 bg-transparent p-0">
               {BEVERAGE_SECTIONS.map((section) => (
-                <TabsTrigger key={section.id} value={section.id} className="min-h-10 rounded-2xl border border-transparent px-4 data-[state=active]:border-slate-200 data-[state=active]:bg-slate-50 data-[state=active]:shadow-sm">
+                <TabsTrigger
+                  key={section.id}
+                  value={section.defaultSection}
+                  onClick={() => openBeverageWorkspace(section.defaultSection)}
+                  className={cn(
+                    'min-h-10 rounded-2xl border border-transparent px-4',
+                    activeMainSection === section.id
+                      ? 'border-slate-200 bg-slate-50 shadow-sm text-slate-900'
+                      : 'text-slate-600'
+                  )}
+                >
                   <span className="hidden sm:inline">{section.label}</span>
                   <span className="sm:hidden">{section.shortLabel}</span>
                 </TabsTrigger>
@@ -1110,6 +1160,27 @@ export default function BeveragesTab() {
             </TabsList>
           </div>
         </div>
+
+        {activeSubsections.length > 0 ? (
+          <div className="-mt-2 flex flex-wrap gap-2">
+            {activeSubsections.map((section) => (
+              <button
+                key={section.id}
+                type="button"
+                onClick={() => setActiveSection(section.id)}
+                className={cn(
+                  'rounded-xl border px-3 py-2 text-sm font-medium transition-colors',
+                  activeSection === section.id
+                    ? 'border-cyan-300 bg-cyan-50 text-cyan-700'
+                    : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                )}
+              >
+                <span className="hidden sm:inline">{section.label}</span>
+                <span className="sm:hidden">{section.shortLabel}</span>
+              </button>
+            ))}
+          </div>
+        ) : null}
 
         <TabsContent value="overview" className="mt-0">
           <BeverageOverviewPanel
@@ -1123,7 +1194,7 @@ export default function BeveragesTab() {
             uncoveredCategories={categoriesWithoutUpsell}
             quickActions={quickActions}
             onQuickAction={runAction}
-            onOpenSection={setActiveSection}
+            onOpenSection={openBeverageWorkspace}
           />
         </TabsContent>
 
@@ -1138,7 +1209,7 @@ export default function BeveragesTab() {
                     Aqui o cadastro deixa de ser so nome e preco. Voce consegue entender posicionamento, uso em upsell e forca comercial de cada item.
                   </p>
                 </div>
-                <Button type="button" variant="outline" onClick={() => setActiveSection('links')}>
+                <Button type="button" variant="outline" onClick={() => openBeverageWorkspace('links')}>
                   Abrir vinculos & upsell
                 </Button>
               </div>
@@ -1229,13 +1300,13 @@ export default function BeveragesTab() {
                         </div>
 
                         <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
-                          <Button type="button" variant="outline" className="justify-start" onClick={() => { setSelectedBeverageId(beverage.id); setActiveSection('links'); }}>
+                          <Button type="button" variant="outline" className="justify-start" onClick={() => { setSelectedBeverageId(beverage.id); openBeverageWorkspace('links'); }}>
                             <ArrowUpRight className="mr-2 h-4 w-4" /> Editar posicionamento
                           </Button>
                           <Button type="button" variant="outline" className="justify-start" onClick={() => openBeverageModal(beverage)}>
                             <Pencil className="mr-2 h-4 w-4" /> Editar bebida
                           </Button>
-                          <Button type="button" variant="outline" className="justify-start" onClick={() => { setSelectedBeverageId(beverage.id); setActiveSection('preview'); }}>
+                          <Button type="button" variant="outline" className="justify-start" onClick={() => { setSelectedBeverageId(beverage.id); openBeverageWorkspace('preview'); }}>
                             <Eye className="mr-2 h-4 w-4" /> Ver preview
                           </Button>
                           <Button type="button" variant="outline" className="justify-start text-rose-600 hover:text-rose-700" onClick={() => window.confirm('Excluir essa bebida?') && deleteBeverageMutation.mutate(beverage.id)}>
@@ -1272,7 +1343,7 @@ export default function BeveragesTab() {
                   <p className="mt-2 text-sm leading-6 text-slate-600">Aqui fica a ponte entre bebida, prato, pizza, categoria e cross-sell real do cardapio. E o ponto mais importante do lote.</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <Button type="button" variant="outline" onClick={() => setActiveSection('preview')}>Abrir preview</Button>
+                  <Button type="button" variant="outline" onClick={() => openBeverageWorkspace('preview')}>Abrir preview</Button>
                   <Button type="button" className="bg-cyan-600 hover:bg-cyan-700" onClick={() => runAction('activate-basic-upsell')} disabled={runningActionId !== null}>Ativar upsell basico</Button>
                 </div>
               </div>

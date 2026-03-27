@@ -242,19 +242,28 @@ const buildPizzaPricingInsights = (sizes = []) => {
 };
 
 const PIZZA_SECTION_NAV_ITEMS = [
-  { id: 'overview', label: 'Visao Geral', mobileLabel: 'Geral' },
-  { id: 'menu', label: 'Entradas do Cardapio', mobileLabel: 'Entradas' },
-  { id: 'rules', label: 'Regras de Montagem', mobileLabel: 'Regras' },
-  { id: 'flavors', label: 'Sabores', mobileLabel: 'Sabores' },
-  { id: 'sizes', label: 'Tamanhos e Precos', mobileLabel: 'Precos' },
-  { id: 'addons', label: 'Bordas e Extras', mobileLabel: 'Extras' },
-  { id: 'preview', label: 'Preview', mobileLabel: 'Preview' },
-  { id: 'intelligence', label: 'Inteligencia & Oportunidades', mobileLabel: 'Insights' },
+  { id: 'products', label: 'Produtos', mobileLabel: 'Produtos', defaultSection: 'menu', sections: ['menu'] },
+  { id: 'organization', label: 'Organizacao', mobileLabel: 'Organiza', defaultSection: 'rules', sections: ['rules', 'flavors', 'sizes', 'addons'] },
+  { id: 'intelligence', label: 'Inteligencia', mobileLabel: 'Insights', defaultSection: 'overview', sections: ['overview', 'intelligence'] },
+  { id: 'settings', label: 'Configuracoes', mobileLabel: 'Config', defaultSection: 'preview', sections: ['preview'] },
 ];
+
+const PIZZA_SUBSECTION_NAV = {
+  organization: [
+    { id: 'rules', label: 'Regras', mobileLabel: 'Regras' },
+    { id: 'flavors', label: 'Sabores', mobileLabel: 'Sabores' },
+    { id: 'sizes', label: 'Tamanhos', mobileLabel: 'Precos' },
+    { id: 'addons', label: 'Extras', mobileLabel: 'Extras' },
+  ],
+  intelligence: [
+    { id: 'overview', label: 'Resumo guiado', mobileLabel: 'Resumo' },
+    { id: 'intelligence', label: 'Oportunidades', mobileLabel: 'Oportun.' },
+  ],
+};
 
 export default function PizzaConfigTab() {
   const [user, setUser] = React.useState(null);
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState('menu');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTemplateId, setSelectedTemplateId] = useState(() => getRecommendedPizzaTemplateId('other'));
   const [runningAssistantActionId, setRunningAssistantActionId] = useState('');
@@ -1330,6 +1339,35 @@ export default function PizzaConfigTab() {
     return true;
   }, [entityContextOpts, invalidatePizzaConfigQueries]);
 
+  const openPizzaWorkspace = React.useCallback((target) => {
+    switch (target) {
+      case 'menu':
+      case 'products':
+        setActiveTab('menu');
+        return;
+      case 'rules':
+      case 'flavors':
+      case 'sizes':
+      case 'addons':
+      case 'organization':
+        setActiveTab(['rules', 'flavors', 'sizes', 'addons'].includes(target) ? target : 'rules');
+        return;
+      case 'overview':
+        setActiveTab('overview');
+        return;
+      case 'intelligence':
+      case 'insights':
+        setActiveTab('intelligence');
+        return;
+      case 'preview':
+      case 'settings':
+        setActiveTab('preview');
+        return;
+      default:
+        setActiveTab('menu');
+    }
+  }, []);
+
   const handleAssistantAction = React.useCallback(async (actionId, options = {}) => {
     const { skipConfirm = false, silent = false, openPremiumEditor = true } = options;
     if (!canRunAdminActions) {
@@ -1358,7 +1396,7 @@ export default function PizzaConfigTab() {
         });
         if (applied) {
           if (!silent) toast.success('Tamanhos recomendados ativados.');
-          setActiveTab('sizes');
+          openPizzaWorkspace('sizes');
         }
         return applied;
       }
@@ -1381,7 +1419,7 @@ export default function PizzaConfigTab() {
         });
         if (applied) {
           if (!silent) toast.success('Upsell basico ativado.');
-          setActiveTab('addons');
+          openPizzaWorkspace('addons');
         }
         return applied;
       }
@@ -1406,7 +1444,7 @@ export default function PizzaConfigTab() {
         }
         if (firstLowPremiumMetric) {
           const targetSize = sizes.find((size) => String(size.id) === String(firstLowPremiumMetric.id)) || null;
-          setActiveTab('sizes');
+          openPizzaWorkspace('sizes');
           if (targetSize && openPremiumEditor) {
             setEditingSize(targetSize);
             setShowSizeModal(true);
@@ -1415,7 +1453,7 @@ export default function PizzaConfigTab() {
             toast('A matriz de precos foi destacada para voce revisar a diferenca premium.');
           }
         } else if (!applied) {
-          setActiveTab('sizes');
+          openPizzaWorkspace('sizes');
         }
         return applied || Boolean(firstLowPremiumMetric);
       }
@@ -1449,7 +1487,7 @@ export default function PizzaConfigTab() {
       await handleAssistantAction('recommended-sizes', { skipConfirm: true, silent: true });
       await handleAssistantAction('upsell-activation', { skipConfirm: true, silent: true });
       await handleAssistantAction('premium-improvement', { skipConfirm: true, silent: true, openPremiumEditor: false });
-      setActiveTab('preview');
+      openPizzaWorkspace('preview');
       toast.success('Estrutura automatica aplicada. Revise o impacto no preview.');
     } catch (error) {
       console.error('Erro ao melhorar estrutura da pizzaria:', error);
@@ -1460,12 +1498,12 @@ export default function PizzaConfigTab() {
     if (!recommendation) return;
 
     if (recommendation.action === 'menu') {
-      setActiveTab('menu');
+      openPizzaWorkspace('menu');
       toast('Levamos voce para as entradas do cardapio para agir no ponto certo.');
       return;
     }
     if (recommendation.action === 'sizes') {
-      setActiveTab('sizes');
+      openPizzaWorkspace('sizes');
       toast('Abrimos a matriz de tamanhos para voce ajustar a decisao comercial.');
       return;
     }
@@ -1487,7 +1525,7 @@ export default function PizzaConfigTab() {
     setSelectedTemplateId(templateId);
 
     if (templateId === 'lean') {
-      setActiveTab('menu');
+      openPizzaWorkspace('menu');
       toast('Template enxuto selecionado. Foque em poucas entradas, leitura clara e baixa friccao.');
       return;
     }
@@ -1500,7 +1538,7 @@ export default function PizzaConfigTab() {
     if (templateId === 'delivery') {
       await handleAssistantAction('recommended-sizes');
       await handleAssistantAction('upsell-activation');
-      setActiveTab('preview');
+      openPizzaWorkspace('preview');
       return;
     }
 
@@ -1511,9 +1549,9 @@ export default function PizzaConfigTab() {
 
     if (templateId === 'upsell') {
       await handleAssistantAction('upsell-activation');
-      setActiveTab('preview');
+      openPizzaWorkspace('preview');
     }
-  }, [handleAssistantAction]);
+  }, [handleAssistantAction, openPizzaWorkspace]);
   const handleBusinessProfileChange = React.useCallback((profileId) => {
     setBusinessProfileId(profileId);
     setSelectedTemplateId(getRecommendedPizzaTemplateId(profileId));
@@ -1547,16 +1585,22 @@ export default function PizzaConfigTab() {
     );
   };
 
+  const activeMainSection = useMemo(
+    () => PIZZA_SECTION_NAV_ITEMS.find((section) => section.sections.includes(activeTab))?.id || 'products',
+    [activeTab]
+  );
+  const activeSubsections = PIZZA_SUBSECTION_NAV[activeMainSection] || [];
+
   return (
     <div className="p-4 sm:p-5 lg:p-6">
       <Toaster position="top-center" />
 
       <div className="mb-5 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:mb-6 sm:p-6">
         <Badge variant="outline" className="border-orange-200 bg-orange-50 text-orange-700">Pizzaria IA V2</Badge>
-        <h2 className="mt-3 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">Organize a pizzaria de cima para baixo</h2>
+        <h2 className="mt-3 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">Produtos primeiro, inteligencia por tras</h2>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-          Primeiro voce define o que aparece no cardapio. Depois ajusta como o cliente monta cada pizza.
-          Por ultimo organiza sabores, tamanhos, bordas e extras que alimentam o builder publico.
+          A entrada agora comeca pelas pizzas que voce vende. Organizacao, regras, preview e inteligencia continuam aqui,
+          mas sem bloquear a operacao de quem entrou para editar produto rapido.
         </p>
       </div>
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
@@ -1565,12 +1609,12 @@ export default function PizzaConfigTab() {
             <div className="-mx-2 overflow-x-auto px-2 md:hidden">
               <div className="flex w-max gap-2 pb-1">
                 {PIZZA_SECTION_NAV_ITEMS.map((section) => {
-                  const active = activeTab === section.id;
+                  const active = activeMainSection === section.id;
                   return (
                     <button
                       key={section.id}
                       type="button"
-                      onClick={() => setActiveTab(section.id)}
+                      onClick={() => openPizzaWorkspace(section.defaultSection)}
                       className={`rounded-xl px-3 py-2 text-sm font-medium transition-all ${
                         active
                           ? 'bg-slate-900 text-white shadow-sm'
@@ -1586,12 +1630,12 @@ export default function PizzaConfigTab() {
 
             <div className="hidden flex-wrap gap-2 md:flex">
               {PIZZA_SECTION_NAV_ITEMS.map((section) => {
-                const active = activeTab === section.id;
+                const active = activeMainSection === section.id;
                 return (
                   <button
                     key={section.id}
                     type="button"
-                    onClick={() => setActiveTab(section.id)}
+                    onClick={() => openPizzaWorkspace(section.defaultSection)}
                     className={`rounded-xl px-4 py-2 text-sm font-medium transition-all ${
                       active
                         ? 'bg-slate-900 text-white shadow-sm'
@@ -1605,6 +1649,29 @@ export default function PizzaConfigTab() {
             </div>
           </div>
         </div>
+
+        {activeSubsections.length > 0 ? (
+          <div className="-mt-3 flex flex-wrap gap-2">
+            {activeSubsections.map((section) => {
+              const active = activeTab === section.id;
+              return (
+                <button
+                  key={section.id}
+                  type="button"
+                  onClick={() => setActiveTab(section.id)}
+                  className={`rounded-xl border px-3 py-2 text-sm font-medium transition-all ${
+                    active
+                      ? 'border-orange-300 bg-orange-50 text-orange-700 shadow-sm'
+                      : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                  }`}
+                >
+                  <span className="hidden sm:inline">{section.label}</span>
+                  <span className="sm:hidden">{section.mobileLabel || section.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
 
         <TabsContent value="overview" className="space-y-4">
           <PizzaOverviewPanel
@@ -1622,9 +1689,9 @@ export default function PizzaConfigTab() {
             canRunAdminActions={canRunAdminActions}
             autoImprovePlan={autoImprovePlan}
             onAutoImproveStructure={handleAutoImproveStructure}
-            onOpenInsights={() => setActiveTab('intelligence')}
-            onOpenPreview={() => setActiveTab('preview')}
-            onOpenMenu={() => setActiveTab('menu')}
+            onOpenInsights={() => openPizzaWorkspace('intelligence')}
+            onOpenPreview={() => openPizzaWorkspace('preview')}
+            onOpenMenu={() => openPizzaWorkspace('menu')}
             pizzaGuideSteps={pizzaGuideStepCards}
           />
         </TabsContent>

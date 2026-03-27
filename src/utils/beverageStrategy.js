@@ -1,11 +1,10 @@
 const normalizeArray = (value) => (Array.isArray(value) ? value.filter(Boolean) : []);
 
 export const BEVERAGE_SECTIONS = [
-  { id: 'overview', label: 'Visao Geral', shortLabel: 'Geral' },
-  { id: 'catalog', label: 'Catalogo de Bebidas', shortLabel: 'Catalogo' },
-  { id: 'links', label: 'Vinculos & Upsell', shortLabel: 'Vinculos' },
-  { id: 'preview', label: 'Preview', shortLabel: 'Preview' },
-  { id: 'insights', label: 'Inteligencia & Oportunidades', shortLabel: 'Insights' },
+  { id: 'products', label: 'Produtos', shortLabel: 'Produtos', defaultSection: 'catalog', sections: ['catalog'] },
+  { id: 'organization', label: 'Organizacao', shortLabel: 'Organiza', defaultSection: 'links', sections: ['links'] },
+  { id: 'intelligence', label: 'Inteligencia', shortLabel: 'Insights', defaultSection: 'overview', sections: ['overview', 'insights'] },
+  { id: 'settings', label: 'Configuracoes', shortLabel: 'Config', defaultSection: 'preview', sections: ['preview'] },
 ];
 
 export const BEVERAGE_TAG_OPTIONS = [
