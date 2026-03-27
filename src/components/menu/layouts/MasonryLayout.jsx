@@ -12,7 +12,8 @@ export default function MasonryLayout({
   loading = false,
   stockUtils,
   formatCurrency,
-  menuCardStyle = 'solid'
+  menuCardStyle = 'solid',
+  beverageHintMap = {}
 }) {
   const isAeroCard = menuCardStyle === 'aero';
   const cardSurface = theme?.surface || 'hsl(var(--card))';
@@ -35,6 +36,7 @@ export default function MasonryLayout({
       {dishes.map((dish, index) => {
         const isOutOfStock = stockUtils?.isOutOfStock?.(dish.stock);
         const priceLabel = dish?.price_label || '';
+        const beverageHint = beverageHintMap?.[dish.id] || null;
         
         return (
           <motion.div
@@ -117,6 +119,11 @@ export default function MasonryLayout({
                   style={{ color: textSecondaryColor || 'inherit' }}
                 >
                   {dish.description}
+                </p>
+              )}
+              {beverageHint?.text && !isOutOfStock && (
+                <p className="text-[11px] font-medium mb-3" style={{ color: primaryColor }}>
+                  {beverageHint.text}
                 </p>
               )}
               <div className="flex items-baseline gap-2 flex-wrap">

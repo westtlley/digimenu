@@ -19,7 +19,8 @@ export default function MenuLayoutWrapper({
   slug = null,
   gridColsDesktop = null,
   autoplayIntervalMs = null,
-  menuCardStyle = 'solid'
+  menuCardStyle = 'solid',
+  beverageHintMap = {}
 }) {
   const commonProps = {
     dishes,
@@ -34,7 +35,8 @@ export default function MenuLayoutWrapper({
     slug,
     gridColsDesktop,
     autoplayIntervalMs,
-    menuCardStyle
+    menuCardStyle,
+    beverageHintMap
   };
 
   switch (layout) {

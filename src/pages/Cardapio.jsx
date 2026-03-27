@@ -131,6 +131,30 @@ function MiniDishCard({ item, onClick, formatCurrency: formatPrice }) {
   );
 }
 
+function shortenBeverageName(name) {
+  const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length <= 2) return parts.join(' ');
+  return parts.slice(0, 2).join(' ');
+}
+
+function buildBeveragePreSuggestion(suggestion) {
+  if (!suggestion?.name) return null;
+  const shortName = shortenBeverageName(suggestion.name);
+  const reason = String(suggestion?.reasonLabel || '').toLowerCase();
+  const volume = Number(suggestion?.dish?.volume_ml || 0);
+
+  if (reason.includes('combina')) {
+    return { text: `Combina com ${shortName}` };
+  }
+  if (reason.includes('mais pedido')) {
+    return { text: `A maioria leva ${shortName}` };
+  }
+  if (volume >= 1500) {
+    return { text: `Perfeito com ${shortName}` };
+  }
+  return { text: `Complete com ${shortName}` };
+}
+
 export default function Cardapio() {
   const { slug } = useParams(); // link do assinante: /s/meu-restaurante
   const navigate = useNavigate();
@@ -1698,6 +1722,39 @@ export default function Cardapio() {
     categoriesResolved,
     isMobileViewport,
     recentUpsellAnchorProduct,
+    store,
+  ]);
+  const beveragePreSuggestionMap = useMemo(() => {
+    if (!beverageUpsellEnabled || !Array.isArray(dishesResolved) || beverageCatalog.length === 0) return {};
+
+    return dishesResolved.reduce((accumulator, dish) => {
+      if (!dish?.id || dish?.is_active === false || dish?.product_type === 'beverage') {
+        return accumulator;
+      }
+
+      const topSuggestion = getBestBeverageSuggestions({
+        cart: [],
+        currentProduct: dish,
+        beverages: beverageCatalog,
+        strategyData: beverageStrategyData,
+        store,
+        categories: categoriesResolved,
+        scope: 'post_add',
+        limit: 1,
+      })[0];
+
+      const preSuggestion = buildBeveragePreSuggestion(topSuggestion);
+      if (preSuggestion) {
+        accumulator[dish.id] = preSuggestion;
+      }
+      return accumulator;
+    }, {});
+  }, [
+    beverageCatalog,
+    beverageStrategyData,
+    beverageUpsellEnabled,
+    categoriesResolved,
+    dishesResolved,
     store,
   ]);
 
@@ -3339,6 +3396,7 @@ export default function Cardapio() {
                       slug={slug}
                       gridColsDesktop={gridColsDesktop}
                       menuCardStyle={menuCardStyle}
+                      beverageHintMap={beveragePreSuggestionMap}
                     />
                     </div>
                   </section>
@@ -3538,6 +3596,7 @@ export default function Cardapio() {
                           gridColsDesktop={gridColsDesktop}
                           autoplayIntervalMs={autoplayIntervalMs}
                           menuCardStyle={menuCardStyle}
+                          beverageHintMap={beveragePreSuggestionMap}
                         />
                       </div>
                     );
@@ -3566,6 +3625,7 @@ export default function Cardapio() {
                           slug={slug}
                           gridColsDesktop={gridColsDesktop}
                           menuCardStyle={menuCardStyle}
+                          beverageHint={beveragePreSuggestionMap[dish.id]}
                         />
                       );
                     })}
@@ -3623,6 +3683,7 @@ export default function Cardapio() {
                               gridColsDesktop={gridColsDesktop}
                               autoplayIntervalMs={autoplayIntervalMs}
                               menuCardStyle={menuCardStyle}
+                              beverageHintMap={beveragePreSuggestionMap}
                             />
                           </div>
                         );
@@ -3652,6 +3713,7 @@ export default function Cardapio() {
                           gridColsDesktop={gridColsDesktop}
                           autoplayIntervalMs={autoplayIntervalMs}
                           menuCardStyle={menuCardStyle}
+                          beverageHintMap={beveragePreSuggestionMap}
                         />
                       </div>
                     )}
@@ -3688,6 +3750,7 @@ export default function Cardapio() {
                               gridColsDesktop={gridColsDesktop}
                               autoplayIntervalMs={autoplayIntervalMs}
                               menuCardStyle={menuCardStyle}
+                              beverageHintMap={beveragePreSuggestionMap}
                             />
                           </div>
                         );
@@ -3731,6 +3794,7 @@ export default function Cardapio() {
                     gridColsDesktop={gridColsDesktop}
                     autoplayIntervalMs={autoplayIntervalMs}
                     menuCardStyle={menuCardStyle}
+                    beverageHintMap={beveragePreSuggestionMap}
                   />
                 </section>
               )}

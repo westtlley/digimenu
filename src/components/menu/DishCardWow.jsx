@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Heart } from 'lucide-react';
+import { Sparkles, Heart, Droplets } from 'lucide-react';
 import { useFavorites } from '@/hooks/useFavorites';
 import { withAlpha } from '@/utils/storefrontTheme';
 
@@ -24,7 +24,8 @@ export default function DishCardWow({
   textPrimaryColor,
   theme,
   slug = null,
-  menuCardStyle = 'solid'
+  menuCardStyle = 'solid',
+  beverageHint = null
 }) {
   const { toggleFavorite, isFavorite } = useFavorites(slug);
   const isAeroCard = menuCardStyle === 'aero';
@@ -230,6 +231,22 @@ export default function DishCardWow({
           <p className="text-xs line-clamp-1 md:hidden" style={{ color: descriptionColor }}>
             {dish.description}
           </p>
+        )}
+
+        {beverageHint?.text && !isOutOfStock && (
+          <div
+            className="inline-flex items-center gap-1.5 rounded-full border px-2 py-1 max-w-full"
+            style={{
+              borderColor: withAlpha(ctaBg, 0.18),
+              backgroundColor: withAlpha(ctaBg, 0.08),
+              color: descriptionColor,
+            }}
+          >
+            <Droplets className="w-3 h-3 flex-shrink-0" style={{ color: ctaBg }} />
+            <p className="text-[11px] md:text-[10px] font-medium truncate">
+              {beverageHint.text}
+            </p>
+          </div>
         )}
         
         <div className="flex items-end justify-between mt-auto">

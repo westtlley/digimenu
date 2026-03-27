@@ -24,6 +24,44 @@ const statusConfig = {
   cancelled: { label: 'Cancelado', color: 'bg-red-500', icon: Ban }
 };
 
+const normalizeText = (value) =>
+  String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase();
+
+const pickVariant = (seedValue, options = []) => {
+  if (!Array.isArray(options) || options.length === 0) return '';
+  const seed = String(seedValue || 'default');
+  let hash = 0;
+  for (let index = 0; index < seed.length; index += 1) {
+    hash = (hash * 31 + seed.charCodeAt(index)) % 2147483647;
+  }
+  return options[Math.abs(hash) % options.length];
+};
+
+const orderBeverageSuggestionsForDisplay = (options = []) =>
+  [...options].sort((left, right) => {
+    const scoreOption = (option) => {
+      const reason = normalizeText(option?.reasonLabel);
+      const level = normalizeText(option?.scoreLevel);
+      let score = 0;
+
+      if (reason.includes('combina com este item') || reason.includes('combina com')) score += 400;
+      if (reason.includes('mais pedido')) score += 220;
+      if (level === 'forte') score += 180;
+      else if (level === 'boa') score += 120;
+      else if (level === 'regular') score += 60;
+      if (Number(option?.discountPercent || 0) > 0) score += 90;
+      if (normalizeText(option?.badgeLabel).includes('mais indicada')) score += 70;
+      if (normalizeText(option?.badgeLabel).includes('upgrade')) score += 40;
+      return score;
+    };
+
+    return scoreOption(right) - scoreOption(left);
+  });
+
 export default function CartModal({
   isOpen,
   onClose,
@@ -155,17 +193,25 @@ export default function CartModal({
     ? (mobileFullScreen ? smartSuggestions.slice(0, 1) : smartSuggestions.slice(0, 2))
     : [];
   const shouldRenderSmartSuggestions = visibleSmartSuggestions.length > 0;
-  const visibleBeverageSuggestions = Array.isArray(beverageSuggestions)
-    ? (mobileFullScreen ? beverageSuggestions.slice(0, 1) : beverageSuggestions.slice(0, 2))
+  const orderedBeverageSuggestions = Array.isArray(beverageSuggestions)
+    ? orderBeverageSuggestionsForDisplay(beverageSuggestions)
     : [];
+  const visibleBeverageSuggestions = mobileFullScreen
+    ? orderedBeverageSuggestions.slice(0, 1)
+    : orderedBeverageSuggestions.slice(0, 2);
   const shouldRenderBeverageSuggestions = visibleBeverageSuggestions.length > 0;
   const [addingBeverageId, setAddingBeverageId] = useState(null);
   const [acceptedBeverageId, setAcceptedBeverageId] = useState(null);
-  const getBeveragePanelTitle = () =>
-    cartHasBeverage ? 'Seu pedido pode ficar ainda melhor' : 'Complete seu pedido com uma bebida';
+  const getBeveragePanelTitle = () => {
+    const seed = `${cartItemsCount}:${cartHasBeverage ? 'upgrade' : 'upsell'}`;
+    if (cartHasBeverage) {
+      return pickVariant(seed, ['Seu pedido pode ficar ainda melhor', 'Deixe seu pedido mais completo']);
+    }
+    return pickVariant(seed, ['Complete seu pedido com uma bebida', 'Monte seu combo antes de finalizar']);
+  };
   const getBeveragePanelSubtitle = () =>
     cartHasBeverage
-      ? 'Uma troca pequena pode deixar a bebida mais interessante ou mais econômica.'
+      ? 'Uma troca pequena pode deixar a bebida mais interessante ou mais economica.'
       : 'A maioria leva junto para acompanhar e fechar o pedido sem pensar muito.';
   const getBeverageBadge = (suggestion) => {
     const reason = String(suggestion?.reasonLabel || '').toLowerCase();
@@ -203,6 +249,22 @@ export default function CartModal({
     if (acceptedBeverageId === suggestion?.id) return 'Entrou no pedido';
     if (addingBeverageId === suggestion?.id) return 'Adicionando...';
     return suggestion?.type === 'upgrade' ? 'Trocar agora' : 'Levar junto';
+  };
+  const getCheckoutPrompt = () => {
+    const seed = `${cartTotal}:${cartHasBeverage ? 'upgrade' : 'upsell'}`;
+    if (cartHasBeverage && shouldRenderBeverageSuggestions) {
+      return pickVariant(seed, [
+        'Antes de finalizar, veja se vale trocar por uma bebida melhor.',
+        'Seu pedido ja tem bebida. Uma troca pequena pode valorizar mais.',
+      ]);
+    }
+    if (shouldRenderBeverageSuggestions) {
+      return pickVariant(seed, [
+        'Quer completar com uma bebida antes de finalizar?',
+        'Seu pedido pode ficar ainda melhor com uma bebida.',
+      ]);
+    }
+    return 'Revise o pedido e finalize quando estiver tudo certo.';
   };
   const handleBeverageQuickAdd = async (suggestion) => {
     if (!suggestion || !onSelectBeverageSuggestion) return;
@@ -640,7 +702,9 @@ export default function CartModal({
                         </p>
                       </div>
                       <div className="flex gap-2 overflow-x-auto mobile-scroll-x pb-1">
-                        {visibleBeverageSuggestions.map((suggestion) => (
+                        {visibleBeverageSuggestions.map((suggestion, index) => {
+                          const isLeadSuggestion = index === 0;
+                          return (
                           <motion.div
                             key={suggestion.id}
                             whileHover={{ y: -1 }}
@@ -648,12 +712,14 @@ export default function CartModal({
                             className={`min-w-[182px] max-w-[210px] rounded-xl border p-2.5 shadow-sm transition-all ${
                               acceptedBeverageId === suggestion?.id
                                 ? 'border-emerald-300 bg-emerald-50/80'
-                                : 'border-border bg-gradient-to-br from-card via-card to-orange-50/40'
+                                : isLeadSuggestion
+                                  ? 'border-orange-300 bg-gradient-to-br from-orange-50 via-white to-amber-50/70'
+                                  : 'border-border bg-gradient-to-br from-card via-card to-orange-50/40'
                             }`}
                           >
                             <div className="mb-1 flex items-center justify-between gap-2">
                               <Badge variant="outline" className="text-[10px] px-1.5 py-0.5">
-                                {getBeverageBadge(suggestion)}
+                                {isLeadSuggestion ? 'Melhor opcao' : getBeverageBadge(suggestion)}
                               </Badge>
                             </div>
                             <div className="w-full h-20 rounded-md overflow-hidden bg-muted mb-2">
@@ -680,14 +746,19 @@ export default function CartModal({
                             <Button
                               size="sm"
                               disabled={addingBeverageId === suggestion?.id}
-                              className="mt-2 h-8 w-full px-2 text-xs text-white shadow-sm"
-                              style={{ backgroundColor: primaryColor, boxShadow: `0 10px 24px ${primaryColor}26` }}
+                              className={`mt-2 h-8 w-full px-2 text-xs text-white shadow-sm ${isLeadSuggestion ? 'ring-2 ring-orange-200 ring-offset-1' : ''}`}
+                              style={{
+                                backgroundColor: primaryColor,
+                                boxShadow: isLeadSuggestion
+                                  ? `0 14px 30px ${primaryColor}38`
+                                  : `0 10px 24px ${primaryColor}26`
+                              }}
                               onClick={() => handleBeverageQuickAdd(suggestion)}
                             >
                               {getBeverageActionLabel(suggestion)}
                             </Button>
                           </motion.div>
-                        ))}
+                        )})}
                       </div>
                     </div>
                   )}
@@ -992,6 +1063,12 @@ export default function CartModal({
                   </div>
                 </div>
               )}
+
+              <div className={`rounded-lg px-3 py-2 text-[11px] font-medium ${
+                darkMode ? 'bg-orange-900/20 text-orange-200 border border-orange-800/70' : 'bg-orange-50 text-orange-700 border border-orange-200'
+              }`}>
+                {getCheckoutPrompt()}
+              </div>
 
               <div className="flex gap-2">
                 <Button

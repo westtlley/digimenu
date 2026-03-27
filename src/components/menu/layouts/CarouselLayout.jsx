@@ -15,7 +15,8 @@ export default function CarouselLayout({
   stockUtils,
   formatCurrency,
   slug = null,
-  menuCardStyle = 'solid'
+  menuCardStyle = 'solid',
+  beverageHintMap = {}
 }) {
   const scrollRef = useRef(null);
   const [scrollLeft, setScrollLeft] = useState(0);
@@ -177,6 +178,7 @@ export default function CarouselLayout({
           const isOutOfStock = stockUtils?.isOutOfStock?.(dish.stock);
           const isLowStock = stockUtils?.isLowStock?.(dish.stock);
           const priceLabel = dish?.price_label || '';
+          const beverageHint = beverageHintMap?.[dish.id] || null;
           return (
             <div
               key={dish.id}
@@ -262,6 +264,11 @@ export default function CarouselLayout({
                       style={{ color: textSecondaryColor || 'inherit' }}
                     >
                       {dish.description}
+                    </p>
+                  )}
+                  {beverageHint?.text && !isOutOfStock && (
+                    <p className="text-[11px] font-medium mb-2" style={{ color: primaryColor }}>
+                      {beverageHint.text}
                     </p>
                   )}
                   <div className="mt-auto flex items-baseline gap-2">

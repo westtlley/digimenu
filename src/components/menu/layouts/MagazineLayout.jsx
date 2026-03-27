@@ -13,7 +13,8 @@ export default function MagazineLayout({
   loading = false,
   stockUtils,
   formatCurrency,
-  menuCardStyle = 'solid'
+  menuCardStyle = 'solid',
+  beverageHintMap = {}
 }) {
   const [currentPage, setCurrentPage] = useState(0);
   const totalPages = dishes.length;
@@ -47,6 +48,7 @@ export default function MagazineLayout({
   const currentDish = dishes[currentPage];
   const isOutOfStock = stockUtils?.isOutOfStock?.(currentDish?.stock);
   const priceLabel = currentDish?.price_label || '';
+  const beverageHint = beverageHintMap?.[currentDish?.id] || null;
 
   const nextPage = () => {
     if (currentPage < totalPages - 1) {
@@ -161,6 +163,11 @@ export default function MagazineLayout({
                         style={{ color: textSecondaryColor || 'inherit' }}
                       >
                         {currentDish.description}
+                      </p>
+                    )}
+                    {beverageHint?.text && !isOutOfStock && (
+                      <p className="text-xs font-semibold mb-4" style={{ color: primaryColor }}>
+                        {beverageHint.text}
                       </p>
                     )}
                     <div className="flex items-center gap-2 mb-4">
@@ -279,6 +286,11 @@ export default function MagazineLayout({
                         style={{ color: textSecondaryColor || 'inherit' }}
                       >
                         {currentDish.description}
+                      </p>
+                    )}
+                    {beverageHint?.text && !isOutOfStock && (
+                      <p className="text-xs font-semibold mb-3" style={{ color: primaryColor }}>
+                        {beverageHint.text}
                       </p>
                     )}
                     <div className="flex items-center gap-2 mb-4 flex-wrap">

@@ -16,7 +16,8 @@ export default function ListLayout({
   formatCurrency,
   slug = null,
   autoplayIntervalMs = 4500,
-  menuCardStyle = 'solid'
+  menuCardStyle = 'solid',
+  beverageHintMap = {}
 }) {
   if (loading) {
     return (
@@ -66,6 +67,7 @@ export default function ListLayout({
     const isOutOfStock = stockUtils?.isOutOfStock?.(dish.stock);
     const { toggleFavorite, isFavorite } = useFavorites(slug);
     const priceLabel = dish?.price_label || '';
+    const beverageHint = beverageHintMap?.[dish.id] || null;
     return (
       <motion.div
         key={dish.id}
@@ -113,6 +115,11 @@ export default function ListLayout({
               style={{ color: textSecondaryColor || 'inherit' }}
             >
               {dish.description}
+            </p>
+          )}
+          {beverageHint?.text && !isOutOfStock && (
+            <p className="text-[11px] font-medium mb-2" style={{ color: primaryColor }}>
+              {beverageHint.text}
             </p>
           )}
           <div className="flex items-center justify-between">

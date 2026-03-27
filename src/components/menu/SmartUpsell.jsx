@@ -9,6 +9,44 @@ const RUNTIME_COOLDOWN_MS = 6 * 60 * 1000;
 const formatCurrency = (value) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value || 0));
 
+const normalizeText = (value) =>
+  String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase();
+
+const pickVariant = (seedValue, options = []) => {
+  if (!Array.isArray(options) || options.length === 0) return '';
+  const seed = String(seedValue || 'default');
+  let hash = 0;
+  for (let index = 0; index < seed.length; index += 1) {
+    hash = (hash * 31 + seed.charCodeAt(index)) % 2147483647;
+  }
+  return options[Math.abs(hash) % options.length];
+};
+
+const orderBeverageSuggestionsForDisplay = (options = []) =>
+  [...options].sort((left, right) => {
+    const scoreOption = (option) => {
+      const reason = normalizeText(option?.reasonLabel);
+      const level = normalizeText(option?.scoreLevel);
+      let score = 0;
+
+      if (reason.includes('combina com este item') || reason.includes('combina com')) score += 400;
+      if (reason.includes('mais pedido')) score += 220;
+      if (level === 'forte') score += 180;
+      else if (level === 'boa') score += 120;
+      else if (level === 'regular') score += 60;
+      if (Number(option?.discountPercent || 0) > 0) score += 90;
+      if (normalizeText(option?.badgeLabel).includes('mais indicada')) score += 70;
+      if (normalizeText(option?.badgeLabel).includes('upgrade')) score += 40;
+      return score;
+    };
+
+    return scoreOption(right) - scoreOption(left);
+  });
+
 const loadRuntimeState = (storageKey) => {
   if (typeof window === 'undefined' || !window.localStorage || !storageKey) {
     return { dismissedContexts: {}, lastAcceptedAt: 0 };
@@ -39,16 +77,21 @@ const persistRuntimeState = (storageKey, state) => {
 
 const buildBeverageMessage = (product) => {
   const productType = String(product?.product_type || '').toLowerCase();
-  if (productType === 'pizza') return 'A maioria leva uma bebida para acompanhar e completar o pedido.';
-  if (productType === 'hamburger') return 'Perfeito para acompanhar seu lanche sem precisar pensar muito.';
-  return 'Aproveite e leve junto uma bebida que combina com este momento.';
+  if (productType === 'pizza') return 'Monte o combo da sua pizza com uma bebida que a maioria leva junto.';
+  if (productType === 'hamburger') return 'Deixe seu lanche mais completo com uma bebida para acompanhar.';
+  return 'Complete seu pedido agora com uma bebida que combina com esse momento.';
 };
 
 const getBundleTitle = (product) => {
   const productType = String(product?.product_type || '').toLowerCase();
-  if (productType === 'pizza') return 'Complete sua pizza';
-  if (productType === 'hamburger') return 'Complete seu lanche';
-  return 'Complete seu pedido';
+  const seed = `${product?.id || product?.name || 'bundle'}:${productType}`;
+  if (productType === 'pizza') {
+    return pickVariant(seed, ['Complete sua pizza', 'Monte seu combo da pizza']);
+  }
+  if (productType === 'hamburger') {
+    return pickVariant(seed, ['Complete seu lanche', 'Monte seu combo do lanche']);
+  }
+  return pickVariant(seed, ['Complete seu pedido', 'Monte seu combo']);
 };
 
 const getPersuasiveBadge = (option) => {
@@ -84,6 +127,14 @@ const getSuggestionPriceCopy = (option) => {
     return option?.deltaPrice > 0 ? `Troque por só +${formatCurrency(option.deltaPrice)}` : 'Troca sem custo extra';
   }
   return `Leve por só +${price}`;
+};
+
+const getBundleUrgency = (option, index = 0) => {
+  const seed = `${option?.id || option?.name || 'urgency'}:${index}`;
+  if (option?.type === 'upgrade') {
+    return pickVariant(seed, ['Aproveite agora', 'Antes de finalizar', 'Troca rapida']);
+  }
+  return pickVariant(seed, ['Aproveite agora', 'Leve antes de finalizar', 'Nao esquece sua bebida']);
 };
 
 export default function SmartUpsell({
@@ -138,7 +189,7 @@ export default function SmartUpsell({
         type: 'beverage_bundle',
         title: getBundleTitle(currentProduct),
         message: buildBeverageMessage(currentProduct),
-        options: beverageSuggestions.slice(0, 3),
+        options: orderBeverageSuggestionsForDisplay(beverageSuggestions).slice(0, 3),
         contextKey: currentContextKey,
       });
       return;
@@ -345,12 +396,18 @@ export default function SmartUpsell({
 
             {suggestion.type === 'beverage_bundle' ? (
               <div className="space-y-2">
-                {suggestion.options.map((option) => (
+                {suggestion.options.map((option, index) => {
+                  const isLeadOption = index === 0;
+                  return (
                   <motion.div
                     key={option.id}
                     whileHover={{ y: -1 }}
                     whileTap={{ scale: 0.985 }}
-                    className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gradient-to-br from-gray-50 via-white to-orange-50/40 dark:from-gray-900/60 dark:via-gray-900/40 dark:to-gray-800/70 p-3 shadow-sm"
+                    className={`rounded-xl border p-3 shadow-sm ${
+                      isLeadOption
+                        ? 'border-orange-300 bg-gradient-to-br from-orange-50 via-white to-amber-50/70 dark:border-orange-500/60 dark:from-gray-900/70 dark:via-gray-900/50 dark:to-orange-950/20'
+                        : 'border-gray-200 dark:border-gray-700 bg-gradient-to-br from-gray-50 via-white to-orange-50/40 dark:from-gray-900/60 dark:via-gray-900/40 dark:to-gray-800/70'
+                    }`}
                   >
                     <div className="flex items-start gap-3">
                       <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 flex-shrink-0">
@@ -364,8 +421,12 @@ export default function SmartUpsell({
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-2">
                           <p className="text-sm font-semibold text-gray-900 dark:text-white line-clamp-2">{option.name}</p>
-                          <span className="text-[10px] font-semibold px-2 py-1 rounded-full bg-white/90 dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-orange-200/70 dark:border-gray-600 shadow-sm">
-                            {getPersuasiveBadge(option)}
+                          <span className={`text-[10px] font-semibold px-2 py-1 rounded-full text-gray-700 dark:text-gray-200 shadow-sm ${
+                            isLeadOption
+                              ? 'bg-orange-100 border border-orange-300 dark:bg-orange-500/10 dark:border-orange-500/50'
+                              : 'bg-white/90 dark:bg-gray-800 border border-orange-200/70 dark:border-gray-600'
+                          }`}>
+                            {isLeadOption ? 'Melhor opcao agora' : getPersuasiveBadge(option)}
                           </span>
                         </div>
                         <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{getSuggestionBenefit(option)}</p>
@@ -375,13 +436,21 @@ export default function SmartUpsell({
                               {getSuggestionPriceCopy(option)}
                             </p>
                             <p className="text-[11px] text-gray-500 dark:text-gray-400">{option.reasonLabel}</p>
+                            <p className="text-[10px] font-medium mt-1" style={{ color: primaryColor }}>
+                              {getBundleUrgency(option, index)}
+                            </p>
                           </div>
                           <Button
                             onClick={() => handleBundleAdd(option)}
                             size="sm"
                             disabled={addingOptionId === option.id}
-                            className="h-8 px-3 text-white shadow-sm"
-                            style={{ backgroundColor: primaryColor, boxShadow: `0 10px 24px ${primaryColor}26` }}
+                            className={`h-8 px-3 text-white shadow-sm ${isLeadOption ? 'ring-2 ring-orange-200 ring-offset-1 dark:ring-orange-500/40 dark:ring-offset-gray-900' : ''}`}
+                            style={{
+                              backgroundColor: primaryColor,
+                              boxShadow: isLeadOption
+                                ? `0 14px 30px ${primaryColor}38`
+                                : `0 10px 24px ${primaryColor}26`
+                            }}
                           >
                             <ShoppingCart className="w-4 h-4 mr-1" />
                             {addingOptionId === option.id ? 'Entrando...' : 'Levar junto'}
@@ -390,7 +459,7 @@ export default function SmartUpsell({
                       </div>
                     </div>
                   </motion.div>
-                ))}
+                )})}
 
                 <Button
                   onClick={handleDismiss}

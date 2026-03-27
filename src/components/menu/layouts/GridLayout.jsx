@@ -148,7 +148,8 @@ export default function GridLayout({
   stockUtils,
   slug = null,
   gridColsDesktop = null,
-  menuCardStyle = 'solid'
+  menuCardStyle = 'solid',
+  beverageHintMap = {}
 }) {
   const itemsCount = Array.isArray(dishes) ? dishes.length : 0;
   const gridDesktopColsClass =
@@ -212,6 +213,7 @@ export default function GridLayout({
             theme={theme}
             slug={slug}
             menuCardStyle={menuCardStyle}
+            beverageHint={beverageHintMap?.[dish.id] || null}
           />
         );
       })}
