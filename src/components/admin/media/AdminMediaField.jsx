@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ImagePlus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import AdminImagePickerDialog from './AdminImagePickerDialog';
 import { getMediaUploadPreset } from './mediaUploadPresets';
+import { mergeAdminMediaItems, readAdminMediaLibrary, registerAdminMediaItems } from './adminMediaLibrary';
 
 export default function AdminMediaField({
   label,
@@ -26,6 +27,56 @@ export default function AdminMediaField({
   const [open, setOpen] = useState(false);
   const preset = useMemo(() => getMediaUploadPreset(imageType), [imageType]);
   const isLandscape = preset.aspectRatio > 1.2;
+  const referenceLabel = title || label || preset.title || preset.label;
+  const sourceLabel = label || preset.label;
+
+  useEffect(() => {
+    if (!open) return;
+
+    const itemsToRegister = [
+      ...existingImages,
+      value
+        ? {
+            url: value,
+            type: imageType,
+            reference: referenceLabel,
+            source: sourceLabel,
+            meta: preset.previewLabel,
+          }
+        : null,
+    ].filter(Boolean);
+
+    if (!itemsToRegister.length) return;
+
+    registerAdminMediaItems(itemsToRegister, {
+      fallbackType: imageType,
+      fallbackReference: referenceLabel,
+      fallbackSource: sourceLabel,
+    });
+  }, [existingImages, imageType, open, preset.previewLabel, referenceLabel, sourceLabel, value]);
+
+  const libraryItems = useMemo(() => {
+    return mergeAdminMediaItems(
+      [
+        readAdminMediaLibrary(),
+        existingImages,
+        value
+          ? {
+              url: value,
+              type: imageType,
+              reference: referenceLabel,
+              source: sourceLabel,
+              meta: preset.previewLabel,
+            }
+          : null,
+      ],
+      {
+        fallbackType: imageType,
+        fallbackReference: referenceLabel,
+        fallbackSource: sourceLabel,
+      }
+    );
+  }, [existingImages, imageType, preset.previewLabel, referenceLabel, sourceLabel, value]);
 
   return (
     <div className={cn('space-y-3', className)}>
@@ -90,7 +141,7 @@ export default function AdminMediaField({
         title={title}
         description={description}
         folder={folder || preset.folder}
-        existingImages={existingImages}
+        existingImages={libraryItems}
         onSelectImage={onChange}
       />
     </div>

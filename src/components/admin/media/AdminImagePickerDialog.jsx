@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ImagePlus, Images, Loader2, Sparkles, Upload, Check, ZoomIn } from 'lucide-react';
+import { ImagePlus, Images, Loader2, Sparkles, Upload, ZoomIn } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
@@ -9,6 +10,13 @@ import { cn } from '@/lib/utils';
 import { uploadToCloudinary } from '@/utils/cloudinaryUpload';
 import toast from 'react-hot-toast';
 import { getMediaUploadPreset } from './mediaUploadPresets';
+import AdminMediaGallery from './AdminMediaGallery';
+import {
+  filterAdminMediaItems,
+  getMediaFilterLabel,
+  MEDIA_LIBRARY_FILTERS,
+  registerAdminMediaItems,
+} from './adminMediaLibrary';
 
 const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
 const MIN_IMAGE_SIDE = 300;
@@ -149,6 +157,8 @@ export default function AdminImagePickerDialog({
   const [imageMeta, setImageMeta] = useState(null);
   const [zoom, setZoom] = useState([DEFAULT_ZOOM]);
   const [selectedLibraryUrl, setSelectedLibraryUrl] = useState(null);
+  const [librarySearch, setLibrarySearch] = useState('');
+  const [libraryTypeFilter, setLibraryTypeFilter] = useState(imageType || 'product');
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -158,12 +168,14 @@ export default function AdminImagePickerDialog({
       setImageMeta(null);
       setZoom([DEFAULT_ZOOM]);
       setSelectedLibraryUrl(null);
+      setLibrarySearch('');
+      setLibraryTypeFilter(imageType || 'product');
       if (previewUrl) {
         URL.revokeObjectURL(previewUrl);
         setPreviewUrl(null);
       }
     }
-  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [imageType, open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     return () => {
@@ -182,6 +194,21 @@ export default function AdminImagePickerDialog({
       return true;
     });
   }, [existingImages]);
+
+  const filteredLibraryItems = useMemo(() => {
+    return filterAdminMediaItems(libraryItems, {
+      type: libraryTypeFilter,
+      searchTerm: librarySearch,
+    });
+  }, [libraryItems, librarySearch, libraryTypeFilter]);
+
+  const selectedLibraryItem = useMemo(() => {
+    return libraryItems.find((item) => item.url === selectedLibraryUrl) || null;
+  }, [libraryItems, selectedLibraryUrl]);
+
+  const sameTypeLibraryCount = useMemo(() => {
+    return libraryItems.filter((item) => item.type === imageType).length;
+  }, [imageType, libraryItems]);
 
   const openFilePicker = () => {
     fileInputRef.current?.click();
@@ -230,6 +257,23 @@ export default function AdminImagePickerDialog({
     try {
       const preparedFile = await createCenteredCroppedBlob(selectedFile, preset, zoom[0]);
       const url = await uploadToCloudinary(preparedFile, uploadFolder);
+      registerAdminMediaItems(
+        [
+          {
+            url,
+            type: imageType,
+            reference: selectedFile?.name || dialogTitle,
+            source: dialogTitle,
+            meta: `${preset.previewLabel} • ${preset.recommendedSize}`,
+            updatedAt: Date.now(),
+          },
+        ],
+        {
+          fallbackType: imageType,
+          fallbackReference: dialogTitle,
+          fallbackSource: dialogTitle,
+        }
+      );
       await onSelectImage?.(url);
       toast.success('Foto adicionada com sucesso.');
       onOpenChange(false);
@@ -247,6 +291,22 @@ export default function AdminImagePickerDialog({
     }
     setIsSaving(true);
     try {
+      registerAdminMediaItems(
+        [
+          selectedLibraryItem || {
+            url: selectedLibraryUrl,
+            type: imageType,
+            reference: dialogTitle,
+            source: dialogTitle,
+            updatedAt: Date.now(),
+          },
+        ],
+        {
+          fallbackType: imageType,
+          fallbackReference: dialogTitle,
+          fallbackSource: dialogTitle,
+        }
+      );
       await onSelectImage?.(selectedLibraryUrl);
       toast.success('Imagem aplicada com sucesso.');
       onOpenChange(false);
@@ -366,6 +426,22 @@ export default function AdminImagePickerDialog({
                       <p>Foque em {preset.focusLabel} e evite cortar textos ou elementos importantes.</p>
                     </div>
                   </div>
+
+                  {sameTypeLibraryCount > 0 ? (
+                    <div className="flex flex-col gap-3 rounded-2xl border border-primary/20 bg-primary/5 p-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium text-foreground">
+                          Você já tem {sameTypeLibraryCount} {getMediaFilterLabel(imageType).toLowerCase()} na biblioteca
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          Reutilize imagens existentes para evitar upload duplicado e manter a identidade visual.
+                        </p>
+                      </div>
+                      <Button type="button" variant="outline" onClick={() => setActiveTab('library')}>
+                        Abrir biblioteca
+                      </Button>
+                    </div>
+                  ) : null}
                 </div>
               ) : (
                 <div className="flex min-h-0 flex-1 flex-col">
@@ -475,66 +551,48 @@ export default function AdminImagePickerDialog({
                 </div>
               ) : (
                 <div className="flex min-h-0 flex-1 flex-col">
-                  <div className="flex items-center justify-between pb-4">
-                    <div>
-                      <h3 className="text-base font-semibold text-foreground">Arquivos salvos</h3>
-                      <p className="text-sm text-muted-foreground">
-                        Reaproveite imagens já usadas na operação para manter consistência visual.
-                      </p>
+                  <div className="space-y-4 pb-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <h3 className="text-base font-semibold text-foreground">Arquivos salvos</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Reaproveite imagens já usadas na operação para manter consistência visual.
+                        </p>
+                      </div>
+                      <Badge variant="outline">{filteredLibraryItems.length} / {libraryItems.length} imagens</Badge>
                     </div>
-                    <Badge variant="outline">{libraryItems.length} imagens</Badge>
+
+                    <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
+                      <Input
+                        value={librarySearch}
+                        onChange={(event) => setLibrarySearch(event.target.value)}
+                        placeholder="Buscar por nome, origem ou tipo"
+                      />
+                      <div className="flex flex-wrap gap-2">
+                        {MEDIA_LIBRARY_FILTERS.map((filter) => (
+                          <Button
+                            key={filter.value}
+                            type="button"
+                            variant={libraryTypeFilter === filter.value ? 'default' : 'outline'}
+                            className="h-9 rounded-full px-4"
+                            onClick={() => setLibraryTypeFilter(filter.value)}
+                          >
+                            {filter.label}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
                   </div>
 
                   <div className="min-h-0 flex-1 rounded-2xl border border-border bg-muted/10">
                     <div className="h-full overflow-y-auto p-4 pr-3">
-                      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                      {libraryItems.map((image) => {
-                        const isSelected = selectedLibraryUrl === image.url;
-                        return (
-                          <button
-                            key={image.url}
-                            type="button"
-                            onClick={() => setSelectedLibraryUrl(image.url)}
-                            aria-pressed={isSelected}
-                            className={cn(
-                              'group relative overflow-hidden rounded-2xl border bg-background text-left transition-all focus:outline-none focus:ring-2 focus:ring-primary/30',
-                              isSelected
-                                ? 'border-primary shadow-md ring-2 ring-primary/20'
-                                : 'border-border hover:border-primary/40 hover:shadow-sm'
-                            )}
-                          >
-                            <div className="pointer-events-none absolute right-3 top-3 z-10">
-                              <Badge
-                                variant={isSelected ? 'default' : 'secondary'}
-                                className={cn(
-                                  'transition-colors',
-                                  isSelected ? 'bg-primary text-primary-foreground' : 'bg-background/90 text-foreground'
-                                )}
-                              >
-                                {isSelected ? 'Selecionada' : 'Selecionar'}
-                              </Badge>
-                            </div>
-                            <div className="aspect-[4/3] overflow-hidden bg-muted">
-                              <img
-                                src={image.url}
-                                alt={image.label || 'Imagem da biblioteca'}
-                                className={cn(
-                                  'h-full w-full object-cover transition-transform duration-200',
-                                  isSelected ? 'scale-[1.02]' : 'group-hover:scale-[1.02]'
-                                )}
-                              />
-                            </div>
-                            <div className="space-y-1 p-3">
-                              <div className="flex items-center justify-between gap-2">
-                                <p className="line-clamp-1 text-sm font-medium text-foreground">{image.label || 'Imagem salva'}</p>
-                                {isSelected ? <Check className="h-4 w-4 text-primary" /> : null}
-                              </div>
-                              {image.meta ? <p className="line-clamp-2 text-xs text-muted-foreground">{image.meta}</p> : null}
-                            </div>
-                          </button>
-                        );
-                      })}
-                      </div>
+                      <AdminMediaGallery
+                        items={filteredLibraryItems}
+                        selectedUrl={selectedLibraryUrl}
+                        onSelect={setSelectedLibraryUrl}
+                        emptyTitle="Nenhuma imagem encontrada"
+                        emptyDescription="Ajuste a busca, troque o filtro ou envie uma nova imagem."
+                      />
                     </div>
                   </div>
 
