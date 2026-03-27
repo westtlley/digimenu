@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Badge } from '@/components/ui/badge';
+import { getCartItemLineTotal } from '@/utils/cartPricing';
 
 export default function OrderConfirmationModal({
   isOpen,
@@ -19,7 +20,8 @@ export default function OrderConfirmationModal({
   appliedCoupon = null,
   scheduledDate = null,
   scheduledTime = null,
-  primaryColor = '#f97316'
+  primaryColor = '#f97316',
+  isSubmitting = false,
 }) {
   const formatCurrency = (value) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
@@ -168,7 +170,7 @@ export default function OrderConfirmationModal({
     const parts = [
       customer.address_street,
       customer.address_number,
-      customer.complement && `(${customer.complement})`,
+      customer.address_complement && `(${customer.address_complement})`,
       customer.neighborhood
     ].filter(Boolean);
     return parts.join(', ') || 'Endereço não informado';
@@ -220,7 +222,7 @@ export default function OrderConfirmationModal({
                         )}
                       </div>
                       <p className="font-medium text-gray-900 ml-2 flex-shrink-0">
-                        {formatCurrency((item.totalPrice || item.price || 0) * (item.quantity || 1))}
+                        {formatCurrency(getCartItemLineTotal(item))}
                       </p>
                     </div>
                   );
@@ -236,8 +238,8 @@ export default function OrderConfirmationModal({
                   <span className="text-xs font-medium text-gray-600">Entrega</span>
                 </div>
                 <p className="text-sm text-gray-900">{formatAddress()}</p>
-                {customer.deliveryMethod === 'delivery' && customer.customer_phone && (
-                  <p className="text-xs text-gray-500 mt-1">📞 {customer.customer_phone}</p>
+                {customer.deliveryMethod === 'delivery' && customer.phone && (
+                  <p className="text-xs text-gray-500 mt-1">📞 {customer.phone}</p>
                 )}
               </div>
 
@@ -304,13 +306,18 @@ export default function OrderConfirmationModal({
           </div>
 
           <div className="flex gap-2 px-6 py-4 border-t bg-white">
-            <Button variant="outline" onClick={onEdit} className="flex-1">
+            <Button variant="outline" onClick={onEdit} className="flex-1" disabled={isSubmitting}>
               <Edit className="w-4 h-4 mr-2" />
               Editar
             </Button>
-            <Button onClick={onConfirm} className="flex-1 text-white font-bold" style={{ backgroundColor: primaryColor }}>
+            <Button
+              onClick={onConfirm}
+              className="flex-1 text-white font-bold"
+              style={{ backgroundColor: primaryColor }}
+              disabled={isSubmitting}
+            >
               <Check className="w-4 h-4 mr-2" />
-              Confirmar Pedido
+              {isSubmitting ? 'Enviando pedido...' : 'Confirmar Pedido'}
             </Button>
           </div>
         </div>

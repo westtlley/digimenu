@@ -43,7 +43,8 @@ export default function BeverageModal({
       dish: beverage,
       quantity,
       observations,
-      totalPrice: beverage.price * quantity
+      unitPrice: beverage.price,
+      totalPrice: beverage.price
     });
     onClose();
     setQuantity(1);

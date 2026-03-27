@@ -64,6 +64,7 @@ import { COMMERCIAL_EVENTS, getBeverageSessionSignals, getCommercialSignalsForSl
 import { getBestBeverageSuggestions, loadPublicBeverageStrategy } from '@/utils/beverageUpsellEngine';
 import { getNextBestOrderAction, NEXT_BEST_ACTION_TYPES } from '@/utils/orderOptimizationEngine';
 import { withAlpha } from '@/utils/storefrontTheme';
+import { calculateCartSubtotal, getCartItemLineTotal, getCartItemQuantity, normalizeCartItems } from '@/utils/cartPricing';
 
 /** Landing quando não há slug: / ou /cardapio — não exibe cardápio de nenhum estabelecimento. */
 function CardapioSemLink() {
@@ -199,11 +200,13 @@ export default function Cardapio() {
   const [isDesktopViewport, setIsDesktopViewport] = useState(false);
   const [isMobileViewport, setIsMobileViewport] = useState(false);
   const [recentUpsellProduct, setRecentUpsellProduct] = useState(null);
+  const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
   const bodyScrollLockRef = React.useRef(null);
   const cartSuggestionAcceptedRef = React.useRef(false);
   const cartBeverageSuggestionAcceptedRef = React.useRef(false);
   const postAddBeverageSuggestionAcceptedRef = React.useRef(false);
   const checkoutSuggestionAcceptedRef = React.useRef(false);
+  const orderSubmissionLockRef = React.useRef(false);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -514,8 +517,6 @@ export default function Cardapio() {
       try {
         const result = await base44.get(`/public/cardapio/${slug}`, {}, { signal: controller.signal });
         clearTimeout(timeoutId);
-        console.log('✅ [Cardapio] Dados recebidos:', result);
-        
         setLoadingTimeout(false);
         return result;
       } catch (error) {
@@ -535,7 +536,7 @@ export default function Cardapio() {
     retryDelay: 1500,
     staleTime: 90 * 1000,
     refetchOnMount: true,
-    refetchOnWindowFocus: true,
+    refetchOnWindowFocus: false,
   });
 
   // Timeout de carregamento (3s) — mostra "Tentar novamente" cedo se a rede/backend estiver lento
@@ -726,15 +727,7 @@ export default function Cardapio() {
         // owner_email já está sendo setado na linha 798 do handleSubmitOrder
       }
 
-      console.log('📦 Criando pedido com dados:', {
-        owner_email: orderData.owner_email,
-        as_subscriber: orderData.as_subscriber,
-        customer_email: orderData.customer_email
-      });
       return base44.entities.Order.create(orderData);
-    },
-    onSuccess: (order) => {
-      console.log('✅ Pedido criado com sucesso:', order);
     },
     onError: (error) => {
       console.error('❌ Erro ao criar pedido:', error);
@@ -1133,7 +1126,7 @@ export default function Cardapio() {
     const comboSuggestionEnabled = crossSellEnabled && Boolean(crossSellConfig?.combo_offer?.enabled);
 
     const cartDishIds = new Set(safeCart.map((item) => String(item?.dish?.id || '')));
-    const currentCartTotal = safeCart.reduce((sum, item) => sum + Number(item?.totalPrice || 0) * Number(item?.quantity || 1), 0);
+    const currentCartTotal = calculateCartSubtotal(safeCart);
     const findDishById = (id) => safeDishes.find((dish) => String(dish?.id || '') === String(id || ''));
     const analyticsSignals = getCommercialSignalsForSlug(slug);
     const normalizeNeighborhood = (value) =>
@@ -2521,6 +2514,7 @@ export default function Cardapio() {
 
   const handleAddToCart = async (item, isEditing = false) => {
     const dish = item.dish || item;
+    const itemLineTotal = getCartItemLineTotal(item);
     
     if (dish?.product_type !== 'combo' && !stockUtils.canAddToCart(dish)) {
       toast.error('Este produto está esgotado');
@@ -2562,9 +2556,9 @@ export default function Cardapio() {
       dish_id: dish?.id || null,
       dish_name: dish?.name || null,
       product_type: dish?.product_type || null,
-      quantity: Number(item?.quantity || 1),
-      item_total: Number(item?.totalPrice || dish?.price || 0),
-      cart_total_estimate: Number(cartTotal || 0) + Number(item?.totalPrice || dish?.price || 0),
+      quantity: getCartItemQuantity(item),
+      item_total: Number(itemLineTotal || 0),
+      cart_total_estimate: Number(cartTotal || 0) + Number(itemLineTotal || 0),
       merchandising_source: dish?._merchandising?.source || null,
       merchandising_label: dish?._merchandising?.label || null
     });
@@ -2572,7 +2566,7 @@ export default function Cardapio() {
       void trackCommercialEvent(COMMERCIAL_EVENTS.COMBO_ADDED, {
         combo_id: dish?.id || null,
         combo_name: dish?.name || null,
-        combo_price: Number(item?.totalPrice || dish?.price || 0)
+        combo_price: Number(itemLineTotal || 0)
       });
     }
     if (dish?.product_type === 'pizza') {
@@ -2607,7 +2601,7 @@ export default function Cardapio() {
     );
     
     // Verificar upsell
-    const newCartTotal = cartTotal + item.totalPrice;
+    const newCartTotal = cartTotal + itemLineTotal;
     checkUpsell(newCartTotal);
   };
 
@@ -2962,219 +2956,228 @@ export default function Cardapio() {
   }, [cartTotal, checkoutMerchandisingSuggestion]);
 
   const handleSendWhatsApp = async () => {
+    if (orderSubmissionLockRef.current || createOrderMutation.isPending) {
+      return;
+    }
+
+    orderSubmissionLockRef.current = true;
+    setIsSubmittingOrder(true);
+
     const orderCode = orderService.generateOrderCode();
     const fullAddress = orderService.formatFullAddress(customer);
+    const normalizedCart = normalizeCartItems(cart);
+    const normalizedCartTotal = calculateCartSubtotal(normalizedCart);
+    const clientRequestId = typeof window !== 'undefined' && window.crypto?.randomUUID
+      ? window.crypto.randomUUID()
+      : `menu_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
     const normalizeNeighborhood = (value) =>
       String(value || '')
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '')
         .trim()
         .toLowerCase();
-    
-    if (customer.deliveryMethod === 'delivery' && !customer.neighborhood) {
-      toast.error('Por favor, informe o bairro para calcular a taxa de entrega');
-      return;
-    }
-    
-    const calculatedDeliveryFee = orderService.calculateDeliveryFee(
-      customer.deliveryMethod, 
-      customer.neighborhood, 
-      deliveryZonesResolved,
-      store,
-      customer.latitude,
-      customer.longitude
-    );
-
-    const storeMinOrder = Number(
-      store?.min_order_value ??
-      store?.min_order ??
-      store?.min_order_price ??
-      store?.delivery_min_order ??
-      0
-    ) || 0;
-    const matchedZone = customer.deliveryMethod === 'delivery'
-      ? (deliveryZonesResolved || []).find(
-          (z) =>
-            z?.is_active &&
-            normalizeNeighborhood(z?.neighborhood) === normalizeNeighborhood(customer.neighborhood)
-        )
-      : null;
-    const zoneMinOrder = Number(matchedZone?.min_order ?? matchedZone?.min_order_value ?? 0) || 0;
-    const minimumOrderValue = Math.max(storeMinOrder, zoneMinOrder);
-    if (customer.deliveryMethod === 'delivery' && minimumOrderValue > 0 && cartTotal < minimumOrderValue) {
-      toast.error(`Pedido mínimo para entrega: ${formatCurrency(minimumOrderValue)}`);
-      return;
-    }
-    
-    const loyaltyConfig = (Array.isArray(loyaltyConfigsResolved) && loyaltyConfigsResolved[0])
-      ? loyaltyConfigsResolved[0]
-      : null;
-    const isLoyaltyActive = loyaltyConfig?.is_active === true;
-
-    // Calcular descontos
-    const couponDiscount = calculateDiscount();
-    const loyaltyDiscountPercent = isLoyaltyActive ? getLoyaltyDiscount() : 0;
-    const loyaltyDiscountAmount = cartTotal * (loyaltyDiscountPercent / 100);
-    const totalDiscount = couponDiscount + loyaltyDiscountAmount;
-    
-    const { total } = orderService.calculateTotals(cartTotal, totalDiscount, calculatedDeliveryFee);
-
-    if (checkoutMerchandisingSuggestion && !checkoutSuggestionAcceptedRef.current) {
-      const dishId = String(checkoutMerchandisingSuggestion?.id || '');
-      const key = `checkout_skip:order:${dishId}:${Math.round(Number(cartTotal || 0) * 100)}`;
-      void trackCommercialEventOnce(COMMERCIAL_EVENTS.UPSELL_SKIPPED, key, {
-        source: 'checkout_suggestion',
-        reason: 'order_completed_without_suggestion',
-        dish_id: checkoutMerchandisingSuggestion?.id || null,
-        dish_name: checkoutMerchandisingSuggestion?.name || null,
-        cart_total: Number(cartTotal || 0)
-      });
-    }
-
-    // Buscar email do usuário autenticado
-    let userEmail = undefined;
-    if (isAuthenticated) {
-      try {
-        const user = await base44.auth.me();
-        userEmail = user?.email;
-      } catch (e) {
-        console.error('Erro ao buscar usuário:', e);
-      }
-    }
-
-    const orderData = {
-      order_code: orderCode,
-      customer_name: customer.name,
-      customer_phone: customer.phone,
-      customer_email: userEmail, // Email do usuário autenticado
-      created_by: userEmail, // Quem criou o pedido (para rastreamento)
-      customer_latitude: customer.latitude || null,
-      customer_longitude: customer.longitude || null,
-      delivery_method: customer.deliveryMethod,
-      address_street: customer.address_street,
-      address_number: customer.address_number,
-      address_complement: customer.address_complement,
-      address: fullAddress,
-      neighborhood: customer.neighborhood,
-      payment_method: customer.paymentMethod,
-      needs_change: customer.needs_change || false,
-      change_amount: customer.change_amount ? parseFloat(customer.change_amount) : null,
-      scheduled_date: customer.scheduled_date || null,
-      scheduled_time: customer.scheduled_time || null,
-      items: cart,
-      subtotal: cartTotal,
-      delivery_fee: calculatedDeliveryFee,
-      discount: totalDiscount,
-      coupon_code: appliedCoupon?.code,
-      loyalty_discount: loyaltyDiscountAmount,
-      loyalty_tier: loyaltyData?.tier || 'bronze',
-      loyalty_points_earned: (() => {
-        if (!isLoyaltyActive) return 0;
-        const minOrderValue = Number(loyaltyConfig?.min_order_value ?? 0);
-        if (Number.isFinite(minOrderValue) && minOrderValue > 0 && total < minOrderValue) return 0;
-        const pointsPerReal = Number(loyaltyConfig?.points_per_real ?? 1);
-        const safePpr = Number.isFinite(pointsPerReal) && pointsPerReal > 0 ? pointsPerReal : 1;
-        return Math.floor(total * safePpr);
-      })(),
-      total: total,
-      status: 'new',
-      ...((customer.customer_change_request || '').trim() && {
-        customer_change_request: (customer.customer_change_request || '').trim(),
-        customer_change_status: 'pending',
-      }),
-      // Cardápio público /s/:slug: pedido deve cair no Gestor do assinante, não no do master
-      ...(slug && publicData?.subscriber_email && { owner_email: publicData.subscriber_email }),
-    };
-
-    const orderResponse = await orderService.createOrder(orderData, createOrderMutation);
-    const order = orderResponse?.data || orderResponse;
-    void trackCommercialEvent(COMMERCIAL_EVENTS.ORDER_COMPLETED, {
-      order_id: order?.id || null,
-      order_code: order?.order_code || orderCode || null,
-      order_total: Number(order?.total ?? total ?? 0),
-      items_count: Array.isArray(cart) ? cart.reduce((sum, item) => sum + Number(item?.quantity || 1), 0) : 0,
-      payment_method: customer?.paymentMethod || null,
-      delivery_method: customer?.deliveryMethod || null
-    });
     try {
-      await orderService.updateCouponUsage(appliedCoupon, updateCouponMutation);
-    } catch (couponError) {
-      console.warn('Falha ao atualizar uso do cupom, sem bloquear conclusão do pedido:', couponError);
-    }
-
-    // Adicionar pontos de fidelidade após pedido criado
-    if (isLoyaltyActive && (customer.phone || userEmail)) {
-      try {
-        const minOrderValue = Number(loyaltyConfig?.min_order_value ?? 0);
-        if (Number.isFinite(minOrderValue) && minOrderValue > 0 && total < minOrderValue) {
-          throw new Error('Pedido abaixo do valor mínimo para acumular pontos');
-        }
-        const pointsPerReal = Number(loyaltyConfig?.points_per_real ?? 1);
-        const safePpr = Number.isFinite(pointsPerReal) && pointsPerReal > 0 ? pointsPerReal : 1;
-        const pointsToAdd = Math.floor(total * safePpr);
-        const result = await addPoints(pointsToAdd, 'compra', { orderTotal: total });
-        
-        // Verificar se é primeira compra (bônus)
-        if (!loyaltyData.lastOrderDate) {
-          await addPoints(50, 'primeira_compra');
-          toast.success('🎉 Bônus de primeira compra: +50 pontos!', { duration: 4000 });
-        }
-        
-        // Verificar bônus de aniversário
-        const birthdayBonus = await checkBirthdayBonus();
-        if (birthdayBonus && birthdayBonus.success) {
-          toast.success(birthdayBonus.message, { duration: 5000 });
-        }
-        
-        // Verificar bônus de compras consecutivas
-        const consecutiveBonus = await checkConsecutiveOrdersBonus();
-        if (consecutiveBonus && consecutiveBonus.success) {
-          toast.success(consecutiveBonus.message, { duration: 5000 });
-        }
-        
-        toast.success(
-          `✨ Você ganhou ${pointsToAdd} pontos! Total: ${result.points} pontos (${result.tier.name})`,
-          { duration: 5000 }
-        );
-      } catch (error) {
-        console.error('Erro ao adicionar pontos:', error);
+      if (customer.deliveryMethod === 'delivery' && !customer.neighborhood) {
+        toast.error('Por favor, informe o bairro para calcular a taxa de entrega');
+        return;
       }
-    }
-
-    const shouldSend = whatsappService.shouldSendWhatsApp(store);
-
-    if (shouldSend && store?.whatsapp) {
-      const message = whatsappService.formatOrderMessage(
-        order, 
-        cart, 
-        complementGroupsResolved, 
-        formatCurrency,
-        store?.name || store?.store_name || 'Restaurante'
+      
+      const calculatedDeliveryFee = orderService.calculateDeliveryFee(
+        customer.deliveryMethod, 
+        customer.neighborhood, 
+        deliveryZonesResolved,
+        store,
+        customer.latitude,
+        customer.longitude
       );
 
-      whatsappService.sendToWhatsApp(store?.whatsapp, message);
-    }
+      const storeMinOrder = Number(
+        store?.min_order_value ??
+        store?.min_order ??
+        store?.min_order_price ??
+        store?.delivery_min_order ??
+        0
+      ) || 0;
+      const matchedZone = customer.deliveryMethod === 'delivery'
+        ? (deliveryZonesResolved || []).find(
+            (z) =>
+              z?.is_active &&
+              normalizeNeighborhood(z?.neighborhood) === normalizeNeighborhood(customer.neighborhood)
+          )
+        : null;
+      const zoneMinOrder = Number(matchedZone?.min_order ?? matchedZone?.min_order_value ?? 0) || 0;
+      const minimumOrderValue = Math.max(storeMinOrder, zoneMinOrder);
+      if (customer.deliveryMethod === 'delivery' && minimumOrderValue > 0 && normalizedCartTotal < minimumOrderValue) {
+        toast.error(`Pedido mínimo para entrega: ${formatCurrency(minimumOrderValue)}`);
+        return;
+      }
+      
+      const loyaltyConfig = (Array.isArray(loyaltyConfigsResolved) && loyaltyConfigsResolved[0])
+        ? loyaltyConfigsResolved[0]
+        : null;
+      const isLoyaltyActive = loyaltyConfig?.is_active === true;
 
-    // Limpar tudo
-    clearCart();
-    removeCoupon();
-    clearCustomer();
-    setCurrentView('menu');
-    resetUpsell();
-    
-    toast.success(
-      <div className="text-center">
-        <p className="font-bold mb-1">✅ Pedido enviado com sucesso!</p>
-        <p className="text-sm">Pedido #{orderCode}</p>
-        <button
-          onClick={() => openOrderHistoryModal()}
-          className="mt-2 text-blue-600 font-medium text-sm underline"
-        >
-          Acompanhar pedido
-        </button>
-      </div>,
-      { duration: 5000 }
-    );
+      const couponDiscount = calculateDiscount();
+      const loyaltyDiscountPercent = isLoyaltyActive ? getLoyaltyDiscount() : 0;
+      const loyaltyDiscountAmount = normalizedCartTotal * (loyaltyDiscountPercent / 100);
+      const totalDiscount = couponDiscount + loyaltyDiscountAmount;
+      
+      const { total } = orderService.calculateTotals(normalizedCartTotal, totalDiscount, calculatedDeliveryFee);
+
+      if (checkoutMerchandisingSuggestion && !checkoutSuggestionAcceptedRef.current) {
+        const dishId = String(checkoutMerchandisingSuggestion?.id || '');
+        const key = `checkout_skip:order:${dishId}:${Math.round(Number(normalizedCartTotal || 0) * 100)}`;
+        void trackCommercialEventOnce(COMMERCIAL_EVENTS.UPSELL_SKIPPED, key, {
+          source: 'checkout_suggestion',
+          reason: 'order_completed_without_suggestion',
+          dish_id: checkoutMerchandisingSuggestion?.id || null,
+          dish_name: checkoutMerchandisingSuggestion?.name || null,
+          cart_total: Number(normalizedCartTotal || 0)
+        });
+      }
+
+      let userEmail = undefined;
+      if (isAuthenticated) {
+        try {
+          const user = await base44.auth.me();
+          userEmail = user?.email;
+        } catch (e) {
+          console.error('Erro ao buscar usuário:', e);
+        }
+      }
+
+      const orderData = {
+        order_code: orderCode,
+        client_request_id: clientRequestId,
+        customer_name: customer.name,
+        customer_phone: customer.phone,
+        customer_email: userEmail,
+        created_by: userEmail,
+        customer_latitude: customer.latitude || null,
+        customer_longitude: customer.longitude || null,
+        delivery_method: customer.deliveryMethod,
+        address_street: customer.address_street,
+        address_number: customer.address_number,
+        address_complement: customer.address_complement,
+        address: fullAddress,
+        neighborhood: customer.neighborhood,
+        payment_method: customer.paymentMethod,
+        needs_change: customer.needs_change || false,
+        change_amount: customer.change_amount ? parseFloat(customer.change_amount) : null,
+        scheduled_date: customer.scheduled_date || null,
+        scheduled_time: customer.scheduled_time || null,
+        items: normalizedCart,
+        subtotal: normalizedCartTotal,
+        delivery_fee: calculatedDeliveryFee,
+        discount: totalDiscount,
+        coupon_code: appliedCoupon?.code,
+        loyalty_discount: loyaltyDiscountAmount,
+        loyalty_tier: loyaltyData?.tier || 'bronze',
+        loyalty_points_earned: (() => {
+          if (!isLoyaltyActive) return 0;
+          const minOrderValue = Number(loyaltyConfig?.min_order_value ?? 0);
+          if (Number.isFinite(minOrderValue) && minOrderValue > 0 && total < minOrderValue) return 0;
+          const pointsPerReal = Number(loyaltyConfig?.points_per_real ?? 1);
+          const safePpr = Number.isFinite(pointsPerReal) && pointsPerReal > 0 ? pointsPerReal : 1;
+          return Math.floor(total * safePpr);
+        })(),
+        total,
+        status: 'new',
+        ...((customer.customer_change_request || '').trim() && {
+          customer_change_request: (customer.customer_change_request || '').trim(),
+          customer_change_status: 'pending',
+        }),
+        ...(slug && publicData?.subscriber_email && { owner_email: publicData.subscriber_email }),
+      };
+
+      const orderResponse = await orderService.createOrder(orderData, createOrderMutation);
+      const order = orderResponse?.data || orderResponse;
+      void trackCommercialEvent(COMMERCIAL_EVENTS.ORDER_COMPLETED, {
+        order_id: order?.id || null,
+        order_code: order?.order_code || orderCode || null,
+        order_total: Number(order?.total ?? total ?? 0),
+        items_count: Array.isArray(normalizedCart) ? normalizedCart.reduce((sum, item) => sum + getCartItemQuantity(item), 0) : 0,
+        payment_method: customer?.paymentMethod || null,
+        delivery_method: customer?.deliveryMethod || null
+      });
+      try {
+        await orderService.updateCouponUsage(appliedCoupon, updateCouponMutation);
+      } catch (couponError) {
+        console.warn('Falha ao atualizar uso do cupom, sem bloquear conclusão do pedido:', couponError);
+      }
+
+      if (isLoyaltyActive && (customer.phone || userEmail)) {
+        try {
+          const minOrderValue = Number(loyaltyConfig?.min_order_value ?? 0);
+          if (Number.isFinite(minOrderValue) && minOrderValue > 0 && total < minOrderValue) {
+            throw new Error('Pedido abaixo do valor mínimo para acumular pontos');
+          }
+          const pointsPerReal = Number(loyaltyConfig?.points_per_real ?? 1);
+          const safePpr = Number.isFinite(pointsPerReal) && pointsPerReal > 0 ? pointsPerReal : 1;
+          const pointsToAdd = Math.floor(total * safePpr);
+          const result = await addPoints(pointsToAdd, 'compra', { orderTotal: total });
+          
+          if (!loyaltyData.lastOrderDate) {
+            await addPoints(50, 'primeira_compra');
+            toast.success('🎉 Bônus de primeira compra: +50 pontos!', { duration: 4000 });
+          }
+          
+          const birthdayBonus = await checkBirthdayBonus();
+          if (birthdayBonus && birthdayBonus.success) {
+            toast.success(birthdayBonus.message, { duration: 5000 });
+          }
+          
+          const consecutiveBonus = await checkConsecutiveOrdersBonus();
+          if (consecutiveBonus && consecutiveBonus.success) {
+            toast.success(consecutiveBonus.message, { duration: 5000 });
+          }
+          
+          toast.success(
+            `✨ Você ganhou ${pointsToAdd} pontos! Total: ${result.points} pontos (${result.tier.name})`,
+            { duration: 5000 }
+          );
+        } catch (error) {
+          console.error('Erro ao adicionar pontos:', error);
+        }
+      }
+
+      const shouldSend = whatsappService.shouldSendWhatsApp(store);
+
+      if (shouldSend && store?.whatsapp) {
+        const message = whatsappService.formatOrderMessage(
+          order, 
+          normalizedCart, 
+          complementGroupsResolved, 
+          formatCurrency,
+          store?.name || store?.store_name || 'Restaurante'
+        );
+
+        whatsappService.sendToWhatsApp(store?.whatsapp, message);
+      }
+
+      clearCart();
+      removeCoupon();
+      clearCustomer();
+      setCurrentView('menu');
+      resetUpsell();
+      
+      toast.success(
+        <div className="text-center">
+          <p className="font-bold mb-1">✅ Pedido enviado com sucesso!</p>
+          <p className="text-sm">Pedido #{orderCode}</p>
+          <button
+            onClick={() => openOrderHistoryModal()}
+            className="mt-2 text-blue-600 font-medium text-sm underline"
+          >
+            Acompanhar pedido
+          </button>
+        </div>,
+        { duration: 5000 }
+      );
+    } finally {
+      orderSubmissionLockRef.current = false;
+      setIsSubmittingOrder(false);
+    }
   };
 
   // Timeout de carregamento: após 5s mostramos "Tentar novamente" (evita ficar travado)
@@ -4856,6 +4859,7 @@ export default function Cardapio() {
           onCheckoutSuggestion={(suggestedDish) => {
             handleCommercialSuggestion(suggestedDish, 'checkout');
           }}
+          isSubmitting={isSubmittingOrder || createOrderMutation.isPending}
         />
       )}
 

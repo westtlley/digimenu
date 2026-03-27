@@ -9,6 +9,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient as base44 } from '@/api/apiClient';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
+import { calculateCartSubtotal, getCartItemLineTotal, getCartItemQuantity, getCartItemUnitPrice } from '@/utils/cartPricing';
 
 const statusConfig = {
   new: { label: 'Novo', color: 'bg-blue-500', icon: Clock },
@@ -178,8 +179,8 @@ export default function CartModal({
     );
   };
 
-  const cartTotal = cart.reduce((sum, item) => sum + item.totalPrice * (item.quantity || 1), 0);
-  const cartItemsCount = cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
+  const cartTotal = calculateCartSubtotal(cart);
+  const cartItemsCount = cart.reduce((sum, item) => sum + getCartItemQuantity(item), 0);
   const cartHasBeverage = cart.some((item) => item?.dish?.product_type === 'beverage');
   const freeDeliveryMin = Number(store?.free_delivery_min_value || 0);
   const hasFreeDeliveryProgress = freeDeliveryMin > 0 && cartTotal > 0 && cartTotal < freeDeliveryMin;
@@ -680,7 +681,7 @@ export default function CartModal({
                       )}
                       <div className="flex items-center justify-between mt-2">
                         <span className="font-bold text-sm" style={{ color: primaryColor }}>
-                          {formatCurrency(item.totalPrice)}
+                          {formatCurrency(getCartItemUnitPrice(item))}
                         </span>
                         <div className="flex items-center gap-2">
                           <button
@@ -690,7 +691,7 @@ export default function CartModal({
                             <Minus className="w-3 h-3" />
                           </button>
                           <span className={`text-sm font-medium w-6 text-center ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                            {item.quantity || 1}
+                            {getCartItemQuantity(item)}
                           </span>
                           <button
                             onClick={() => onUpdateQuantity(item.id, 1)}
@@ -971,13 +972,13 @@ export default function CartModal({
                             <div key={idx} className={`text-xs border-l-2 pl-2 ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>
                               <div className="flex items-center gap-2">
                                 <span className={`font-medium ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                                  {item.quantity || 1}x
+                                  {getCartItemQuantity(item)}x
                                 </span>
                                 <span className={`font-semibold flex-1 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                                   {item.dish?.name}
                                 </span>
                                 <span className={`font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                  {formatCurrency(item.totalPrice * (item.quantity || 1))}
+                                  {formatCurrency(getCartItemLineTotal(item))}
                                 </span>
                               </div>
                               {(item.dish?.product_type === 'combo' || Array.isArray(item?.selections?.combo_groups)) ? (

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { calculateCartSubtotal, normalizeCartItem, normalizeCartItems } from '@/utils/cartPricing';
 
 const CART_STORAGE_KEY = 'cardapio_cart';
 
@@ -11,7 +12,7 @@ function loadCartFromStorage(slug) {
   try {
     const key = getCartStorageKey(slug);
     const saved = localStorage.getItem(key);
-    return saved ? JSON.parse(saved) : [];
+    return saved ? normalizeCartItems(JSON.parse(saved)) : [];
   } catch {
     return [];
   }
@@ -27,7 +28,7 @@ export function useCart(slug = null, options = {}) {
 
   const hydrateCart = useCallback((items) => {
     allowPersistRef.current = true;
-    setCart(Array.isArray(items) ? items : []);
+    setCart(normalizeCartItems(items));
   }, []);
 
   // Ao trocar de estabelecimento (slug), carregar o carrinho correto para não misturar pedidos
@@ -51,19 +52,20 @@ export function useCart(slug = null, options = {}) {
     allowPersistRef.current = true;
     const dish = item?.dish ?? item;
     if (!dish?.id) return;
-    const qty = item?.quantity ?? 1;
-    const totalPrice = item?.totalPrice ?? dish?.price ?? 0;
     const selections = item?.selections ?? {};
-    const cartItem = item?.dish
-      ? { ...item, quantity: qty, id: `${dish.id}_${Date.now()}` }
-      : { dish: { ...dish }, quantity: qty, totalPrice, selections, id: `${dish.id}_${Date.now()}` };
+    const baseItem = item?.dish
+      ? { ...item, id: `${dish.id}_${Date.now()}` }
+      : { dish: { ...dish }, quantity: item?.quantity ?? 1, totalPrice: item?.totalPrice ?? dish?.price ?? 0, selections, id: `${dish.id}_${Date.now()}` };
+    const cartItem = normalizeCartItem(baseItem);
     setCart(prev => [...prev, cartItem]);
   }, []);
 
   const updateItem = useCallback((itemId, updatedItem) => {
     allowPersistRef.current = true;
     setCart(prev => prev.map(item => 
-      item.id === itemId ? { ...updatedItem, id: itemId, quantity: item.quantity } : item
+      item.id === itemId
+        ? normalizeCartItem({ ...item, ...updatedItem, id: itemId, quantity: updatedItem?.quantity ?? item.quantity })
+        : item
     ));
   }, []);
 
@@ -78,7 +80,7 @@ export function useCart(slug = null, options = {}) {
       if (item.id === itemId) {
         const newQty = (item.quantity || 1) + delta;
         if (newQty <= 0) return null;
-        return { ...item, quantity: newQty };
+        return normalizeCartItem({ ...item, quantity: newQty });
       }
       return item;
     }).filter(Boolean));
@@ -89,7 +91,7 @@ export function useCart(slug = null, options = {}) {
     setCart([]);
   }, []);
 
-  const cartTotal = cart.reduce((sum, item) => sum + item.totalPrice * (item.quantity || 1), 0);
+  const cartTotal = calculateCartSubtotal(cart);
   const cartItemsCount = cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
 
   return {

@@ -15,6 +15,7 @@ import { orderService } from '@/components/services/orderService';
 import { buscarCEP } from '@/utils/cepService';
 import { Loader2, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { calculateCartSubtotal } from '@/utils/cartPricing';
 
 const DEFAULT_CUSTOMER = {
   name: '',
@@ -60,7 +61,8 @@ export default function CheckoutView({
   slug = null,
   checkoutSuggestion = null,
   checkoutNudge = null,
-  onCheckoutSuggestion = () => {}
+  onCheckoutSuggestion = () => {},
+  isSubmitting = false,
 }) {
   const customer = customerProp ?? DEFAULT_CUSTOMER;
   const setCustomer = setCustomerProp ?? (() => {});
@@ -88,7 +90,7 @@ export default function CheckoutView({
       .trim()
       .toLowerCase();
 
-  const cartTotal = cart.reduce((sum, item) => sum + item.totalPrice * (item.quantity || 1), 0);
+  const cartTotal = calculateCartSubtotal(cart);
 
   const calculateDiscount = () => {
     if (!appliedCoupon) return 0;
@@ -869,15 +871,17 @@ export default function CheckoutView({
 
             <Button
               onClick={() => {
-                if (isFormValid()) {
+                if (!isSubmitting && isFormValid()) {
                   setShowConfirmationModal(true);
                 }
               }}
-              disabled={!isFormValid() || isBelowMinimumOrder || store?.accepting_orders === false || store?.is_open === false}
+              disabled={isSubmitting || !isFormValid() || isBelowMinimumOrder || store?.accepting_orders === false || store?.is_open === false}
               className="w-full h-12 text-primary-foreground font-bold"
-              style={{ backgroundColor: (isFormValid() && !isBelowMinimumOrder && store?.accepting_orders !== false && store?.is_open !== false) ? primaryColor : '#d1d5db' }}
+              style={{ backgroundColor: (!isSubmitting && isFormValid() && !isBelowMinimumOrder && store?.accepting_orders !== false && store?.is_open !== false) ? primaryColor : '#d1d5db' }}
             >
-              {store?.is_open === false
+              {isSubmitting
+                ? 'Enviando pedido...'
+                : store?.is_open === false
                 ? 'Loja Fechada'
                 : store?.accepting_orders === false
                 ? '⏸️ Pedidos Pausados'
@@ -931,11 +935,14 @@ export default function CheckoutView({
         {/* Order Confirmation Modal */}
         <OrderConfirmationModal
           isOpen={showConfirmationModal}
-          onClose={() => setShowConfirmationModal(false)}
-          onConfirm={() => {
-            setShowConfirmationModal(false);
+          onClose={() => {
+            if (!isSubmitting) {
+              setShowConfirmationModal(false);
+            }
+          }}
+          onConfirm={async () => {
             if (typeof onSubmit === 'function') {
-              onSubmit({
+              await onSubmit({
                 customer_name: customer.name,
                 customer_phone: customer.phone?.replace(/\D/g, '') || '',
                 customer_email: customer.email || userEmail || '',
@@ -948,12 +955,16 @@ export default function CheckoutView({
                 appliedCoupon,
                 customer
               });
+              setShowConfirmationModal(false);
             } else if (typeof onSendWhatsApp === 'function') {
-              onSendWhatsApp();
+              await onSendWhatsApp();
+              setShowConfirmationModal(false);
             }
           }}
           onEdit={() => {
-            setShowConfirmationModal(false);
+            if (!isSubmitting) {
+              setShowConfirmationModal(false);
+            }
           }}
           cart={cart}
           customer={customer}
@@ -965,6 +976,7 @@ export default function CheckoutView({
           scheduledDate={customer.scheduled_date}
           scheduledTime={customer.scheduled_time}
           primaryColor={primaryColor}
+          isSubmitting={isSubmitting}
         />
       </motion.div>
     </AnimatePresence>

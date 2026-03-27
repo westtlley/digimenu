@@ -6,8 +6,9 @@
 import * as repo from '../../db/repository.js';
 import { logger } from '../../utils/logger.js';
 import { generateTableOrderCode, generateOrderCode, validateOrderData, validateCardapioOrderData, getSubscriberOrMasterBySlug } from './orders.utils.js';
+import { getMenuEntities } from '../menus/menus.utils.js';
 import { emitOrderCreated } from '../../services/websocket.js';
-import { usePostgreSQL, getDb, getSaveDatabaseDebounced } from '../../config/appConfig.js';
+import { usePostgreSQL, getDb } from '../../config/appConfig.js';
 import { getClient } from '../../db/postgres.js';
 import { getPlanPermissions } from '../../utils/plans.js';
 import { normalizePlanPresetKey } from '../../utils/planPresetsForContext.js';
@@ -35,6 +36,315 @@ function toNumber(value, fallback = 0) {
 
 function roundMoney(value) {
   return Math.round((toNumber(value, 0) + Number.EPSILON) * 100) / 100;
+}
+
+function normalizeId(value) {
+  return String(value ?? '').trim();
+}
+
+function getPositiveQuantity(value) {
+  const quantity = Number(value);
+  return Number.isFinite(quantity) && quantity > 0 ? Math.max(1, Math.round(quantity)) : 1;
+}
+
+function buildEntityMap(items = []) {
+  return new Map(
+    (Array.isArray(items) ? items : [])
+      .filter(Boolean)
+      .map((item) => [normalizeId(item.id), item])
+      .filter(([id]) => id)
+  );
+}
+
+function buildComplementOptionMap(groups = []) {
+  return new Map(
+    (Array.isArray(groups) ? groups : [])
+      .filter(Boolean)
+      .map((group) => {
+        const options = new Map(
+          (Array.isArray(group.options) ? group.options : [])
+            .filter((option) => option?.is_active !== false)
+            .map((option) => [normalizeId(option.id), option])
+            .filter(([id]) => id)
+        );
+        return [normalizeId(group.id), { ...group, optionsById: options }];
+      })
+      .filter(([id]) => id)
+  );
+}
+
+function findSelectedOption(selection, optionsById) {
+  const optionId = normalizeId(selection?.id ?? selection);
+  if (!optionId) return null;
+  return optionsById.get(optionId) || null;
+}
+
+function calculateComplementSelectionsTotal(dish, selections, complementGroupsById) {
+  const links = Array.isArray(dish?.complement_groups) ? dish.complement_groups : [];
+  let total = 0;
+
+  for (const linkedGroup of links) {
+    const groupId = normalizeId(linkedGroup?.group_id);
+    if (!groupId) continue;
+
+    const group = complementGroupsById.get(groupId);
+    if (!group) continue;
+
+    const maxSelection = Math.max(1, Number(group.max_selection) || 1);
+    const isRequired = linkedGroup?.is_required === true;
+    const rawSelection = selections?.[groupId];
+
+    if (maxSelection === 1) {
+      if (!rawSelection) {
+        if (isRequired) {
+          throw new Error(`Complemento obrigatório ausente em "${dish?.name || 'item'}"`);
+        }
+        continue;
+      }
+
+      const option = findSelectedOption(rawSelection, group.optionsById);
+      if (!option) {
+        throw new Error(`Complemento inválido em "${dish?.name || 'item'}"`);
+      }
+      total += toNumber(option.price, 0);
+      continue;
+    }
+
+    const selectedOptions = Array.isArray(rawSelection)
+      ? rawSelection.filter(Boolean)
+      : rawSelection
+        ? [rawSelection]
+        : [];
+
+    if (isRequired && selectedOptions.length === 0) {
+      throw new Error(`Complemento obrigatório ausente em "${dish?.name || 'item'}"`);
+    }
+
+    if (selectedOptions.length > maxSelection) {
+      throw new Error(`Quantidade de complementos inválida em "${dish?.name || 'item'}"`);
+    }
+
+    selectedOptions.forEach((selection) => {
+      const option = findSelectedOption(selection, group.optionsById);
+      if (!option) {
+        throw new Error(`Complemento inválido em "${dish?.name || 'item'}"`);
+      }
+      total += toNumber(option.price, 0);
+    });
+  }
+
+  return roundMoney(total);
+}
+
+function resolveDishReference(item, dishesById) {
+  const dishId = normalizeId(item?.dish?.id ?? item?.id);
+  return dishesById.get(dishId) || null;
+}
+
+function calculateRegularItemPrice(item, context) {
+  const dish = resolveDishReference(item, context.dishesById);
+  if (!dish) {
+    throw new Error('Item do pedido não encontrado no cardápio');
+  }
+
+  const complementTotal = calculateComplementSelectionsTotal(
+    dish,
+    item?.selections || {},
+    context.complementGroupsById
+  );
+  const unitPrice = roundMoney(toNumber(dish.price, 0) + complementTotal);
+  const quantity = getPositiveQuantity(item?.quantity);
+
+  return {
+    ...item,
+    dish: item?.dish ? { ...item.dish, id: dish.id, name: dish.name, product_type: dish.product_type, price: dish.price } : dish,
+    quantity,
+    unitPrice,
+    totalPrice: unitPrice,
+    lineTotal: roundMoney(unitPrice * quantity),
+  };
+}
+
+function calculatePizzaItemPrice(item, context) {
+  const dish = resolveDishReference(item, context.dishesById);
+  const sizeId = normalizeId(item?.size?.id ?? item?.selections?.size?.id);
+  const size = context.pizzaSizesById.get(sizeId);
+  const rawFlavors = Array.isArray(item?.flavors)
+    ? item.flavors
+    : Array.isArray(item?.selections?.flavors)
+      ? item.selections.flavors
+      : [];
+  const flavors = rawFlavors
+    .map((flavor) => context.pizzaFlavorsById.get(normalizeId(flavor?.id ?? flavor)))
+    .filter(Boolean);
+
+  if (!dish || !size || flavors.length === 0) {
+    throw new Error('Pizza com configuração inválida no pedido');
+  }
+
+  const hasPremium = flavors.some((flavor) => String(flavor?.category || '').toLowerCase() === 'premium');
+  let unitPrice = toNumber(hasPremium ? size.price_premium : size.price_tradicional, 0);
+
+  const edgeId = normalizeId(item?.edge?.id ?? item?.selections?.edge?.id);
+  if (edgeId && edgeId !== 'none') {
+    const edge = context.pizzaEdgesById.get(edgeId);
+    if (!edge) {
+      throw new Error('Borda inválida no pedido');
+    }
+    unitPrice += toNumber(edge.price, 0);
+  }
+
+  const extras = Array.isArray(item?.extras)
+    ? item.extras
+    : Array.isArray(item?.selections?.extras)
+      ? item.selections.extras
+      : [];
+
+  extras.forEach((extra) => {
+    const resolvedExtra = context.pizzaExtrasById.get(normalizeId(extra?.id ?? extra));
+    if (!resolvedExtra) {
+      throw new Error('Extra de pizza inválido no pedido');
+    }
+    unitPrice += toNumber(resolvedExtra.price, 0);
+  });
+
+  const quantity = getPositiveQuantity(item?.quantity);
+  const roundedUnitPrice = roundMoney(unitPrice);
+
+  return {
+    ...item,
+    dish: item?.dish ? { ...item.dish, id: dish.id, name: dish.name, product_type: dish.product_type, price: dish.price } : dish,
+    quantity,
+    unitPrice: roundedUnitPrice,
+    totalPrice: roundedUnitPrice,
+    lineTotal: roundMoney(roundedUnitPrice * quantity),
+  };
+}
+
+function calculateComboComplementTotal(comboGroups, context) {
+  const groups = Array.isArray(comboGroups) ? comboGroups : [];
+  let total = 0;
+
+  groups.forEach((group) => {
+    const items = Array.isArray(group?.items) ? group.items : [];
+    items.forEach((groupItem) => {
+      const dish = context.dishesById.get(normalizeId(groupItem?.dish_id));
+      if (!dish) {
+        throw new Error('Item de combo inválido no pedido');
+      }
+
+      const instances = Array.isArray(groupItem?.instances) && groupItem.instances.length > 0
+        ? groupItem.instances
+        : Array.from({ length: getPositiveQuantity(groupItem?.quantity) }, () => groupItem);
+
+      instances.forEach((instance) => {
+        total += calculateComplementSelectionsTotal(
+          dish,
+          instance?.selections || groupItem?.selections || {},
+          context.complementGroupsById
+        );
+      });
+    });
+  });
+
+  return roundMoney(total);
+}
+
+function calculateComboItemPrice(item, context) {
+  const comboId = normalizeId(
+    item?.selections?.combo_id ||
+    String(item?.dish?.id || '').replace(/^combo_/, '')
+  );
+  const combo = context.combosById.get(comboId);
+
+  if (!combo) {
+    throw new Error('Combo inválido no pedido');
+  }
+
+  const complementsTotal = calculateComboComplementTotal(item?.selections?.combo_groups, context);
+  const quantity = getPositiveQuantity(item?.quantity);
+  const unitPrice = roundMoney(toNumber(combo.combo_price, 0) + complementsTotal);
+
+  return {
+    ...item,
+    quantity,
+    unitPrice,
+    totalPrice: unitPrice,
+    lineTotal: roundMoney(unitPrice * quantity),
+  };
+}
+
+function normalizeOrderItems(items, context) {
+  if (!Array.isArray(items) || items.length === 0) {
+    throw new Error('Itens do pedido são obrigatórios');
+  }
+
+  return items.map((item) => {
+    const productType = String(item?.dish?.product_type || item?.product_type || '').toLowerCase();
+    const isCombo = productType === 'combo' || Array.isArray(item?.selections?.combo_groups);
+    const isPizza = productType === 'pizza' || item?.size || item?.selections?.size || item?.flavors || item?.selections?.flavors;
+
+    if (isCombo) return calculateComboItemPrice(item, context);
+    if (isPizza) return calculatePizzaItemPrice(item, context);
+    return calculateRegularItemPrice(item, context);
+  });
+}
+
+function calculateCouponDiscount({ subtotal, couponCode, coupons = [] }) {
+  const code = String(couponCode || '').trim().toUpperCase();
+  if (!code) return { discount: 0, coupon: null };
+
+  const coupon = (Array.isArray(coupons) ? coupons : []).find((currentCoupon) => {
+    if (!currentCoupon?.code) return false;
+    return String(currentCoupon.code).trim().toUpperCase() === code;
+  });
+
+  if (!coupon || coupon.is_active === false) {
+    return { discount: 0, coupon: null };
+  }
+
+  if (coupon.expires_at && new Date(coupon.expires_at).getTime() < Date.now()) {
+    return { discount: 0, coupon: null };
+  }
+
+  const maxUses = Number(coupon.max_uses || 0);
+  const currentUses = Number(coupon.current_uses || 0);
+  if (maxUses > 0 && currentUses >= maxUses) {
+    return { discount: 0, coupon: null };
+  }
+
+  const minOrderValue = toNumber(coupon.min_order_value, 0);
+  if (minOrderValue > 0 && subtotal < minOrderValue) {
+    return { discount: 0, coupon: null };
+  }
+
+  const discount = String(coupon.discount_type || '').toLowerCase() === 'percentage'
+    ? subtotal * (toNumber(coupon.discount_value, 0) / 100)
+    : Math.min(toNumber(coupon.discount_value, 0), subtotal);
+
+  return {
+    discount: roundMoney(discount),
+    coupon,
+  };
+}
+
+const LOYALTY_TIER_DISCOUNTS = {
+  bronze: 0,
+  silver: 5,
+  gold: 10,
+  platinum: 15,
+};
+
+function calculateValidatedLoyaltyDiscount({ subtotal, requestedDiscount, loyaltyTier, loyaltyConfigs = [] }) {
+  const loyaltyConfig = Array.isArray(loyaltyConfigs) ? loyaltyConfigs[0] : null;
+  if (loyaltyConfig?.is_active !== true) return 0;
+
+  const tierKey = String(loyaltyTier || 'bronze').toLowerCase();
+  const tierDiscount = LOYALTY_TIER_DISCOUNTS[tierKey] ?? 0;
+  if (tierDiscount <= 0) return 0;
+
+  const maxDiscount = roundMoney(subtotal * (tierDiscount / 100));
+  return roundMoney(Math.min(Math.max(0, toNumber(requestedDiscount, 0)), maxDiscount));
 }
 
 function parsePermissions(rawPermissions) {
@@ -304,19 +614,27 @@ export async function createCardapioOrder(orderData, slug) {
   const normalizedSlug = (slug || '').trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
   if (!normalizedSlug) throw new Error('Slug obrigatório');
 
-  const { subscriber, subscriberEmail } = await getSubscriberOrMasterBySlug(normalizedSlug);
+  const { subscriber, isMaster, subscriberEmail } = await getSubscriberOrMasterBySlug(normalizedSlug);
   const subscriberId = subscriber?.id ?? null;
-  if (!subscriber) throw new Error('Link não encontrado');
+  if (!subscriber && !isMaster) throw new Error('Link não encontrado');
 
   const validationErrors = validateCardapioOrderData(orderData);
   if (validationErrors.length > 0) throw new Error(validationErrors.join(', '));
 
-  const [stores, deliveryZones] = await Promise.all([
-    repo.listEntitiesForSubscriber('Store', subscriberEmail, null),
-    repo.listEntitiesForSubscriber('DeliveryZone', subscriberEmail, null)
-  ]);
-  const store = Array.isArray(stores) && stores[0] ? stores[0] : {};
-  const zones = Array.isArray(deliveryZones) ? deliveryZones : [];
+  const menuEntities = await getMenuEntities(subscriberEmail, isMaster);
+  const store = Array.isArray(menuEntities?.storeList) && menuEntities.storeList[0] ? menuEntities.storeList[0] : {};
+  const zones = Array.isArray(menuEntities?.deliveryZones) ? menuEntities.deliveryZones : [];
+  const coupons = Array.isArray(menuEntities?.coupons) ? menuEntities.coupons : [];
+  const loyaltyConfigs = Array.isArray(menuEntities?.loyaltyConfigs) ? menuEntities.loyaltyConfigs : [];
+  const pricingContext = {
+    dishesById: buildEntityMap(menuEntities?.dishes),
+    complementGroupsById: buildComplementOptionMap(menuEntities?.complementGroups),
+    combosById: buildEntityMap(menuEntities?.combos),
+    pizzaSizesById: buildEntityMap(menuEntities?.pizzaSizes),
+    pizzaFlavorsById: buildEntityMap(menuEntities?.pizzaFlavors),
+    pizzaEdgesById: buildEntityMap(menuEntities?.pizzaEdges),
+    pizzaExtrasById: buildEntityMap(menuEntities?.pizzaExtras),
+  };
 
   const deliveryMethod = orderData.delivery_method || 'pickup';
   const neighborhood = orderData.neighborhood || null;
@@ -364,8 +682,20 @@ export async function createCardapioOrder(orderData, slug) {
     }
   }
 
-  const subtotal = roundMoney(toNumber(orderData.subtotal, 0));
-  const discount = roundMoney(toNumber(orderData.discount, 0));
+  const normalizedItems = normalizeOrderItems(orderData.items, pricingContext);
+  const subtotal = roundMoney(normalizedItems.reduce((sum, item) => sum + toNumber(item.lineTotal, 0), 0));
+  const { discount: couponDiscount, coupon: validatedCoupon } = calculateCouponDiscount({
+    subtotal,
+    couponCode: orderData.coupon_code,
+    coupons,
+  });
+  const loyaltyDiscount = calculateValidatedLoyaltyDiscount({
+    subtotal,
+    requestedDiscount: orderData.loyalty_discount,
+    loyaltyTier: orderData.loyalty_tier,
+    loyaltyConfigs,
+  });
+  const discount = roundMoney(Math.min(subtotal, couponDiscount + loyaltyDiscount));
   const storeMinOrder = toNumber(
     store?.min_order_value ?? store?.min_order ?? store?.min_order_price ?? store?.delivery_min_order ?? 0,
     0
@@ -398,8 +728,10 @@ export async function createCardapioOrder(orderData, slug) {
       }, new Date())
     : null;
   const order_code = generateOrderCode();
+  const clientRequestId = String(orderData.client_request_id || '').trim() || null;
   const finalOrderData = normalizeOrderForPersistence({
     order_code,
+    client_request_id: clientRequestId,
     customer_name: (orderData.customer_name || '').trim(),
     customer_phone: String(orderData.customer_phone || '').replace(/\D/g, ''),
     customer_email: orderData.customer_email || null,
@@ -415,10 +747,13 @@ export async function createCardapioOrder(orderData, slug) {
     change_amount: orderData.needs_change && orderData.change_amount ? parseFloat(orderData.change_amount) : null,
     customer_latitude: Number.isFinite(customerLat) ? customerLat : null,
     customer_longitude: Number.isFinite(customerLng) ? customerLng : null,
-    items: Array.isArray(orderData.items) ? orderData.items : [],
+    items: normalizedItems,
     subtotal,
     delivery_fee: calculatedDeliveryFee,
     discount,
+    coupon_code: validatedCoupon?.code || null,
+    loyalty_discount: loyaltyDiscount,
+    loyalty_tier: String(orderData.loyalty_tier || 'bronze').toLowerCase(),
     total,
     status: 'new',
     source: 'public',
@@ -433,10 +768,46 @@ export async function createCardapioOrder(orderData, slug) {
 
   let transactionClient = null;
   try {
-    if (subscriberEmail) {
-      transactionClient = await getClient();
-      await transactionClient.query('BEGIN');
+    transactionClient = await getClient();
+    await transactionClient.query('BEGIN');
 
+    if (clientRequestId) {
+      await transactionClient.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+        `public-order:${normalizedSlug}:${clientRequestId}`,
+      ]);
+
+      const existingResult = await transactionClient.query(
+        `SELECT id, subscriber_id, subscriber_email, data, created_at, updated_at
+         FROM entities
+         WHERE entity_type = 'Order'
+           AND data->>'client_request_id' = $1
+           AND (
+             ($2::int IS NOT NULL AND subscriber_id = $2)
+             OR ($3::text IS NOT NULL AND subscriber_email = $3)
+             OR ($2::int IS NULL AND $3::text IS NULL AND subscriber_id IS NULL AND subscriber_email IS NULL)
+           )
+         ORDER BY created_at DESC
+         LIMIT 1`,
+        [clientRequestId, subscriberId, subscriberEmail]
+      );
+
+      if (existingResult.rows[0]) {
+        const existingOrderRow = existingResult.rows[0];
+        await transactionClient.query('COMMIT');
+        transactionClient.release();
+        transactionClient = null;
+        return decorateOrderEntity({
+          id: existingOrderRow.id.toString(),
+          subscriber_id: existingOrderRow.subscriber_id ?? subscriberId,
+          subscriber_email: existingOrderRow.subscriber_email ?? subscriberEmail,
+          ...(existingOrderRow.data || {}),
+          created_at: existingOrderRow.created_at,
+          updated_at: existingOrderRow.updated_at,
+        });
+      }
+    }
+
+    if (subscriberEmail) {
       const subResult = await transactionClient.query('SELECT plan, permissions FROM subscribers WHERE email = $1', [subscriberEmail]);
       if (subResult.rows.length === 0) {
         await transactionClient.query('ROLLBACK');
@@ -486,35 +857,33 @@ export async function createCardapioOrder(orderData, slug) {
       }
     }
 
-    let newOrder;
-    if (transactionClient) {
-      const insertResult = await transactionClient.query(
-        `INSERT INTO entities (entity_type, data, subscriber_email, subscriber_id) VALUES ($1, $2, $3, $4) RETURNING id, subscriber_id, subscriber_email, data, created_at, updated_at`,
-        ['Order', JSON.stringify(finalOrderData), subscriberEmail, subscriberId]
-      );
-      const row = insertResult.rows[0];
-      newOrder = decorateOrderEntity({
-        id: row.id.toString(),
-        subscriber_id: row.subscriber_id ?? subscriberId,
-        subscriber_email: row.subscriber_email ?? subscriberEmail,
-        ...finalOrderData,
-        created_at: row.created_at,
-      });
-    } else {
-      newOrder = await repo.createEntity('Order', finalOrderData, null, {
-        forSubscriberEmail: subscriberEmail,
-        forSubscriberId: subscriberId,
-      });
-    }
+    const insertResult = await transactionClient.query(
+      `INSERT INTO entities (entity_type, data, subscriber_email, subscriber_id)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id, subscriber_id, subscriber_email, data, created_at, updated_at`,
+      ['Order', JSON.stringify(finalOrderData), subscriberEmail, subscriberId]
+    );
+    const row = insertResult.rows[0];
+    const newOrder = decorateOrderEntity({
+      id: row.id.toString(),
+      subscriber_id: row.subscriber_id ?? subscriberId,
+      subscriber_email: row.subscriber_email ?? subscriberEmail,
+      ...finalOrderData,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+    });
 
-    if (transactionClient) {
-      await transactionClient.query('COMMIT');
-      transactionClient.release();
-      transactionClient = null;
-    }
+    await transactionClient.query('COMMIT');
+    transactionClient.release();
+    transactionClient = null;
 
     if (typeof emitOrderCreated === 'function') emitOrderCreated(newOrder);
-    logger.info(`Pedido cardápio criado: ${order_code}`, { subscriber_email: subscriberEmail });
+    logger.info(`Pedido cardápio criado: ${order_code}`, {
+      subscriber_email: subscriberEmail || 'master',
+      slug: normalizedSlug,
+      subtotal,
+      total,
+    });
     return newOrder;
   } catch (err) {
     if (transactionClient) {
