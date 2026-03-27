@@ -39,9 +39,51 @@ const persistRuntimeState = (storageKey, state) => {
 
 const buildBeverageMessage = (product) => {
   const productType = String(product?.product_type || '').toLowerCase();
-  if (productType === 'pizza') return 'Sua pizza fica ainda melhor com uma bebida bem escolhida.';
-  if (productType === 'hamburger') return 'Seu lanche pode sair mais completo com uma bebida em 1 toque.';
-  return 'Complete seu pedido com uma bebida pensada para este momento.';
+  if (productType === 'pizza') return 'A maioria leva uma bebida para acompanhar e completar o pedido.';
+  if (productType === 'hamburger') return 'Perfeito para acompanhar seu lanche sem precisar pensar muito.';
+  return 'Aproveite e leve junto uma bebida que combina com este momento.';
+};
+
+const getBundleTitle = (product) => {
+  const productType = String(product?.product_type || '').toLowerCase();
+  if (productType === 'pizza') return 'Complete sua pizza';
+  if (productType === 'hamburger') return 'Complete seu lanche';
+  return 'Complete seu pedido';
+};
+
+const getPersuasiveBadge = (option) => {
+  const reason = String(option?.reasonLabel || '').toLowerCase();
+  if (reason.includes('mais pedido')) return 'Mais pedido';
+  if (reason.includes('combina')) return 'Combina com seu pedido';
+  if (option?.type === 'upgrade') return 'Melhor escolha';
+  if (option?.scoreLevel === 'Forte') return 'Escolha popular';
+  return 'Perfeito para acompanhar';
+};
+
+const getSuggestionBenefit = (option) => {
+  const reason = String(option?.reasonLabel || '').toLowerCase();
+  const volume = Number(option?.dish?.volume_ml || 0);
+  const tags = Array.isArray(option?.dish?.dietary_tags) ? option.dish.dietary_tags : [];
+
+  if (option?.type === 'upgrade') {
+    if (volume >= 1500) return 'Melhor para compartilhar';
+    if (reason.includes('premium') || tags.includes('premium')) return 'Mais valorizada no pedido';
+    return 'Mais completa por pouca diferença';
+  }
+
+  if (reason.includes('combina')) return 'Combina com o que você acabou de pedir';
+  if (reason.includes('pizza')) return 'Perfeita para acompanhar a pizza';
+  if (reason.includes('lanche')) return 'Ajuda a deixar o pedido mais completo';
+  if (reason.includes('delivery')) return 'Boa para acompanhar e chegar redonda em casa';
+  return 'Deixa o pedido mais redondo sem pesar na decisão';
+};
+
+const getSuggestionPriceCopy = (option) => {
+  const price = formatCurrency(option?.finalPrice);
+  if (option?.type === 'upgrade') {
+    return option?.deltaPrice > 0 ? `Troque por só +${formatCurrency(option.deltaPrice)}` : 'Troca sem custo extra';
+  }
+  return `Leve por só +${price}`;
 };
 
 export default function SmartUpsell({
@@ -58,6 +100,7 @@ export default function SmartUpsell({
 }) {
   const [suggestion, setSuggestion] = useState(null);
   const [dismissedSuggestions, setDismissedSuggestions] = useState(new Set());
+  const [addingOptionId, setAddingOptionId] = useState(null);
   const runtimeStorageKey = useMemo(
     () => `beverage-upsell-execution-v1:${String(slug || store?.id || 'default')}`,
     [slug, store?.id]
@@ -93,7 +136,7 @@ export default function SmartUpsell({
     ) {
       setSuggestion({
         type: 'beverage_bundle',
-        title: 'Quer adicionar uma bebida?',
+        title: getBundleTitle(currentProduct),
         message: buildBeverageMessage(currentProduct),
         options: beverageSuggestions.slice(0, 3),
         contextKey: currentContextKey,
@@ -130,7 +173,7 @@ export default function SmartUpsell({
 
           setSuggestion({
             type: 'beverage',
-            title: config.beverage_offer.title || 'Que tal uma bebida?',
+            title: config.beverage_offer.title || 'Complete seu pedido',
             message,
             product: suggestedDish,
             discount,
@@ -221,18 +264,24 @@ export default function SmartUpsell({
 
   const handleBundleAdd = (option) => {
     if (!option || !onSelectBeverageSuggestion) return;
-    onSelectBeverageSuggestion(option);
-    setRuntimeState((current) => ({
-      ...current,
-      lastAcceptedAt: Date.now(),
-      dismissedContexts: suggestion?.contextKey
-        ? Object.fromEntries(
-            Object.entries(current?.dismissedContexts || {}).filter(([key]) => key !== suggestion.contextKey)
-          )
-        : current?.dismissedContexts || {},
-    }));
-    setSuggestion(null);
-    onClose?.();
+    setAddingOptionId(option.id);
+    Promise.resolve(onSelectBeverageSuggestion(option))
+      .then(() => {
+        setRuntimeState((current) => ({
+          ...current,
+          lastAcceptedAt: Date.now(),
+          dismissedContexts: suggestion?.contextKey
+            ? Object.fromEntries(
+                Object.entries(current?.dismissedContexts || {}).filter(([key]) => key !== suggestion.contextKey)
+              )
+            : current?.dismissedContexts || {},
+        }));
+        setSuggestion(null);
+        onClose?.();
+      })
+      .finally(() => {
+        setAddingOptionId(null);
+      });
   };
 
   const handleDismiss = () => {
@@ -284,6 +333,11 @@ export default function SmartUpsell({
                 {suggestion.type === 'beverage_bundle' ? <Sparkles className="w-5 h-5" style={{ color: primaryColor }} /> : '🥤'}
               </div>
               <div className="flex-1">
+                {suggestion.type === 'beverage' && (
+                  <span className="inline-flex mb-1 text-[10px] font-semibold px-2 py-1 rounded-full bg-orange-50 text-orange-700 border border-orange-200/70">
+                    A maioria leva junto
+                  </span>
+                )}
                 <h3 className="font-bold text-gray-900 dark:text-white mb-1">{suggestion.title}</h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400">{suggestion.message}</p>
               </div>
@@ -292,9 +346,11 @@ export default function SmartUpsell({
             {suggestion.type === 'beverage_bundle' ? (
               <div className="space-y-2">
                 {suggestion.options.map((option) => (
-                  <div
+                  <motion.div
                     key={option.id}
-                    className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-900/40 p-3"
+                    whileHover={{ y: -1 }}
+                    whileTap={{ scale: 0.985 }}
+                    className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gradient-to-br from-gray-50 via-white to-orange-50/40 dark:from-gray-900/60 dark:via-gray-900/40 dark:to-gray-800/70 p-3 shadow-sm"
                   >
                     <div className="flex items-start gap-3">
                       <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 flex-shrink-0">
@@ -308,31 +364,32 @@ export default function SmartUpsell({
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-2">
                           <p className="text-sm font-semibold text-gray-900 dark:text-white line-clamp-2">{option.name}</p>
-                          <span className="text-[10px] font-semibold px-2 py-1 rounded-full bg-white/80 dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-600">
-                            {option.badgeLabel}
+                          <span className="text-[10px] font-semibold px-2 py-1 rounded-full bg-white/90 dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-orange-200/70 dark:border-gray-600 shadow-sm">
+                            {getPersuasiveBadge(option)}
                           </span>
                         </div>
-                        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{option.reasonLabel}</p>
+                        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{getSuggestionBenefit(option)}</p>
                         <div className="mt-2 flex items-center justify-between gap-2">
                           <div>
-                            <p className="text-sm font-bold" style={{ color: primaryColor }}>
-                              {formatCurrency(option.finalPrice)}
+                            <p className="text-sm font-bold tracking-tight" style={{ color: primaryColor }}>
+                              {getSuggestionPriceCopy(option)}
                             </p>
-                            <p className="text-[11px] text-gray-500 dark:text-gray-400">{option.priceHint}</p>
+                            <p className="text-[11px] text-gray-500 dark:text-gray-400">{option.reasonLabel}</p>
                           </div>
                           <Button
                             onClick={() => handleBundleAdd(option)}
                             size="sm"
-                            className="h-8 px-3 text-white"
-                            style={{ backgroundColor: primaryColor }}
+                            disabled={addingOptionId === option.id}
+                            className="h-8 px-3 text-white shadow-sm"
+                            style={{ backgroundColor: primaryColor, boxShadow: `0 10px 24px ${primaryColor}26` }}
                           >
                             <ShoppingCart className="w-4 h-4 mr-1" />
-                            {option.ctaLabel || 'Adicionar'}
+                            {addingOptionId === option.id ? 'Entrando...' : 'Levar junto'}
                           </Button>
                         </div>
                       </div>
                     </div>
-                  </div>
+                  </motion.div>
                 ))}
 
                 <Button
@@ -352,18 +409,31 @@ export default function SmartUpsell({
                   </div>
                 )}
 
+                {suggestion.type === 'beverage' && (
+                  <div className="mb-3 rounded-lg border border-orange-200/70 bg-orange-50/80 px-3 py-2">
+                    <p className="text-xs font-semibold" style={{ color: primaryColor }}>
+                      {suggestion.discount > 0
+                        ? `Leve por só ${formatCurrency(Number(suggestion.product?.price || 0) * (1 - Number(suggestion.discount || 0) / 100))}`
+                        : `Complete por ${formatCurrency(suggestion.product?.price)}`}
+                    </p>
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                      Perfeito para acompanhar sem pesar no pedido.
+                    </p>
+                  </div>
+                )}
+
                 <div className="flex gap-2">
                   <Button onClick={handleDismiss} variant="outline" size="sm" className="flex-1">
-                    Nao, obrigado
+                    Agora nao
                   </Button>
                   <Button
                     onClick={handleLegacyAdd}
                     size="sm"
-                    className="flex-1 text-white"
-                    style={{ backgroundColor: primaryColor }}
+                    className="flex-1 text-white shadow-sm"
+                    style={{ backgroundColor: primaryColor, boxShadow: `0 10px 24px ${primaryColor}26` }}
                   >
                     <ShoppingCart className="w-4 h-4 mr-1" />
-                    {suggestion.discount === 100 ? 'Adicionar gratis' : 'Adicionar'}
+                    {suggestion.discount === 100 ? 'Levar gratis' : 'Levar junto'}
                   </Button>
                 </div>
 

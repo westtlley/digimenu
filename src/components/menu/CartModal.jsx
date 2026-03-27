@@ -159,6 +159,64 @@ export default function CartModal({
     ? (mobileFullScreen ? beverageSuggestions.slice(0, 1) : beverageSuggestions.slice(0, 2))
     : [];
   const shouldRenderBeverageSuggestions = visibleBeverageSuggestions.length > 0;
+  const [addingBeverageId, setAddingBeverageId] = useState(null);
+  const [acceptedBeverageId, setAcceptedBeverageId] = useState(null);
+  const getBeveragePanelTitle = () =>
+    cartHasBeverage ? 'Seu pedido pode ficar ainda melhor' : 'Complete seu pedido com uma bebida';
+  const getBeveragePanelSubtitle = () =>
+    cartHasBeverage
+      ? 'Uma troca pequena pode deixar a bebida mais interessante ou mais econômica.'
+      : 'A maioria leva junto para acompanhar e fechar o pedido sem pensar muito.';
+  const getBeverageBadge = (suggestion) => {
+    const reason = String(suggestion?.reasonLabel || '').toLowerCase();
+    if (reason.includes('mais pedido')) return 'Mais pedido';
+    if (reason.includes('combina')) return 'Combina com esse prato';
+    if (suggestion?.type === 'upgrade') return 'Melhor opção';
+    if (suggestion?.scoreLevel === 'Forte') return 'Escolha popular';
+    return 'Perfeito para acompanhar';
+  };
+  const getBeverageBenefit = (suggestion) => {
+    const reason = String(suggestion?.reasonLabel || '').toLowerCase();
+    const volume = Number(suggestion?.dish?.volume_ml || 0);
+    const premiumHint = String(suggestion?.readout || '').toLowerCase();
+
+    if (suggestion?.type === 'upgrade') {
+      if (volume >= 1500) return 'Melhor para compartilhar';
+      if (premiumHint.includes('ticket') || premiumHint.includes('premium')) return 'Mais valorizada no pedido';
+      return 'Mais completa por pouca diferença';
+    }
+    if (reason.includes('mais pedido')) return 'A maioria leva junto';
+    if (reason.includes('combina')) return 'Combina com o que voce escolheu';
+    if (reason.includes('pizza')) return 'Perfeita para acompanhar a pizza';
+    if (reason.includes('delivery')) return 'Boa para acompanhar em casa';
+    return 'Ajuda a deixar o pedido mais redondo';
+  };
+  const getBeveragePriceCopy = (suggestion) => {
+    if (suggestion?.type === 'upgrade') {
+      return suggestion?.deltaPrice > 0
+        ? `Troque por +${formatCurrency(suggestion.deltaPrice)}`
+        : 'Troque sem custo extra';
+    }
+    return `Leve por +${formatCurrency(suggestion?.finalPrice)}`;
+  };
+  const getBeverageActionLabel = (suggestion) => {
+    if (acceptedBeverageId === suggestion?.id) return 'Entrou no pedido';
+    if (addingBeverageId === suggestion?.id) return 'Adicionando...';
+    return suggestion?.type === 'upgrade' ? 'Trocar agora' : 'Levar junto';
+  };
+  const handleBeverageQuickAdd = async (suggestion) => {
+    if (!suggestion || !onSelectBeverageSuggestion) return;
+    setAddingBeverageId(suggestion.id);
+    try {
+      await Promise.resolve(onSelectBeverageSuggestion(suggestion));
+      setAcceptedBeverageId(suggestion.id);
+      window.setTimeout(() => {
+        setAcceptedBeverageId((current) => (current === suggestion.id ? null : current));
+      }, 1400);
+    } finally {
+      setAddingBeverageId(null);
+    }
+  };
 
   // Buscar pedidos do cliente autenticado (incluindo entregues recentemente)
   const { data: orders = [], isLoading: ordersLoading } = useQuery({
@@ -573,18 +631,29 @@ export default function CartModal({
 
                   {shouldRenderBeverageSuggestions && (
                     <div className="mt-1 space-y-2">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        {cartHasBeverage ? 'Quer melhorar sua bebida?' : 'Complete seu pedido com uma bebida'}
-                      </p>
+                      <div className="space-y-1">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          {getBeveragePanelTitle()}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground">
+                          {getBeveragePanelSubtitle()}
+                        </p>
+                      </div>
                       <div className="flex gap-2 overflow-x-auto mobile-scroll-x pb-1">
                         {visibleBeverageSuggestions.map((suggestion) => (
-                          <div
+                          <motion.div
                             key={suggestion.id}
-                            className="min-w-[182px] max-w-[210px] rounded-xl border border-border bg-card p-2.5"
+                            whileHover={{ y: -1 }}
+                            whileTap={{ scale: 0.985 }}
+                            className={`min-w-[182px] max-w-[210px] rounded-xl border p-2.5 shadow-sm transition-all ${
+                              acceptedBeverageId === suggestion?.id
+                                ? 'border-emerald-300 bg-emerald-50/80'
+                                : 'border-border bg-gradient-to-br from-card via-card to-orange-50/40'
+                            }`}
                           >
                             <div className="mb-1 flex items-center justify-between gap-2">
                               <Badge variant="outline" className="text-[10px] px-1.5 py-0.5">
-                                {suggestion?.badgeLabel || (suggestion?.type === 'upgrade' ? 'Upgrade' : 'Mais indicada')}
+                                {getBeverageBadge(suggestion)}
                               </Badge>
                             </div>
                             <div className="w-full h-20 rounded-md overflow-hidden bg-muted mb-2">
@@ -598,25 +667,26 @@ export default function CartModal({
                               {suggestion?.name}
                             </p>
                             <p className="mt-1 text-[11px] text-muted-foreground line-clamp-2 min-h-[2rem]">
-                              {suggestion?.reasonLabel}
+                              {getBeverageBenefit(suggestion)}
                             </p>
-                            <div className="mt-2">
-                              <span className="text-xs font-bold" style={{ color: primaryColor }}>
-                                {formatCurrency(suggestion?.finalPrice)}
+                            <div className="mt-2 rounded-lg bg-white/70 px-2 py-1.5 border border-border/60">
+                              <span className="text-xs font-bold tracking-tight" style={{ color: primaryColor }}>
+                                {getBeveragePriceCopy(suggestion)}
                               </span>
                               <p className="text-[11px] text-muted-foreground mt-0.5">
-                                {suggestion?.priceHint || `Leve por +${formatCurrency(suggestion?.finalPrice)}`}
+                                {suggestion?.reasonLabel}
                               </p>
                             </div>
                             <Button
                               size="sm"
-                              className="mt-2 h-8 w-full px-2 text-xs text-white"
-                              style={{ backgroundColor: primaryColor }}
-                              onClick={() => onSelectBeverageSuggestion?.(suggestion)}
+                              disabled={addingBeverageId === suggestion?.id}
+                              className="mt-2 h-8 w-full px-2 text-xs text-white shadow-sm"
+                              style={{ backgroundColor: primaryColor, boxShadow: `0 10px 24px ${primaryColor}26` }}
+                              onClick={() => handleBeverageQuickAdd(suggestion)}
                             >
-                              {suggestion?.ctaLabel || 'Adicionar'}
+                              {getBeverageActionLabel(suggestion)}
                             </Button>
-                          </div>
+                          </motion.div>
                         ))}
                       </div>
                     </div>
