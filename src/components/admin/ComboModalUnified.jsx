@@ -343,6 +343,7 @@ export default function ComboModalUnified({
                     onChange={(url) => setFormData(prev => ({ ...prev, image: url || '' }))}
                     imageType="promotion"
                     folder="combos"
+                    mediaModule="promotion"
                     title="Adicionar arte do combo"
                     description="Use uma imagem com foco na oferta principal para destacar o combo."
                   />

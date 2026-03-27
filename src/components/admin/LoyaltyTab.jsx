@@ -354,6 +354,7 @@ export default function LoyaltyTab() {
                     onChange={(url) => setRewardForm(prev => ({ ...prev, image: url || '' }))}
                     imageType="promotion"
                     folder="loyalty"
+                    mediaModule="loyalty"
                     title="Adicionar imagem da recompensa"
                     description="Use o mesmo padrao visual de promocoes e recompensas em todo o sistema."
                   />

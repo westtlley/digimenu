@@ -1712,6 +1712,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
         description="Use uma foto limpa e bem iluminada para deixar o cardápio mais profissional."
         imageType="product"
         folder={imagePickerState.folder}
+        mediaModule="restaurant"
         existingImages={imageLibrary}
         onSelectImage={handleImagePickerSelect}
       />

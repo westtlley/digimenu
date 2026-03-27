@@ -6,7 +6,12 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import AdminImagePickerDialog from './AdminImagePickerDialog';
 import { getMediaUploadPreset } from './mediaUploadPresets';
-import { mergeAdminMediaItems, readAdminMediaLibrary, registerAdminMediaItems } from './adminMediaLibrary';
+import {
+  inferAdminMediaModule,
+  mergeAdminMediaItems,
+  readAdminMediaLibrary,
+  registerAdminMediaItems,
+} from './adminMediaLibrary';
 
 export default function AdminMediaField({
   label,
@@ -14,6 +19,7 @@ export default function AdminMediaField({
   onChange,
   imageType = 'product',
   folder,
+  mediaModule,
   title,
   description,
   existingImages = [],
@@ -29,6 +35,16 @@ export default function AdminMediaField({
   const isLandscape = preset.aspectRatio > 1.2;
   const referenceLabel = title || label || preset.title || preset.label;
   const sourceLabel = label || preset.label;
+  const resolvedMediaModule = useMemo(() => inferAdminMediaModule(
+    {
+      module: mediaModule,
+      source: sourceLabel,
+      reference: referenceLabel,
+      folder,
+      type: imageType,
+    },
+    { fallbackModule: mediaModule }
+  ), [folder, imageType, mediaModule, referenceLabel, sourceLabel]);
 
   useEffect(() => {
     if (!open) return;
@@ -39,9 +55,11 @@ export default function AdminMediaField({
         ? {
             url: value,
             type: imageType,
+            module: resolvedMediaModule,
             reference: referenceLabel,
             source: sourceLabel,
             meta: preset.previewLabel,
+            context: folder,
           }
         : null,
     ].filter(Boolean);
@@ -50,10 +68,11 @@ export default function AdminMediaField({
 
     registerAdminMediaItems(itemsToRegister, {
       fallbackType: imageType,
+      fallbackModule: resolvedMediaModule,
       fallbackReference: referenceLabel,
       fallbackSource: sourceLabel,
     });
-  }, [existingImages, imageType, open, preset.previewLabel, referenceLabel, sourceLabel, value]);
+  }, [existingImages, folder, imageType, open, preset.previewLabel, referenceLabel, resolvedMediaModule, sourceLabel, value]);
 
   const libraryItems = useMemo(() => {
     return mergeAdminMediaItems(
@@ -64,19 +83,22 @@ export default function AdminMediaField({
           ? {
               url: value,
               type: imageType,
+              module: resolvedMediaModule,
               reference: referenceLabel,
               source: sourceLabel,
               meta: preset.previewLabel,
+              context: folder,
             }
           : null,
       ],
       {
         fallbackType: imageType,
+        fallbackModule: resolvedMediaModule,
         fallbackReference: referenceLabel,
         fallbackSource: sourceLabel,
       }
     );
-  }, [existingImages, imageType, preset.previewLabel, referenceLabel, sourceLabel, value]);
+  }, [existingImages, folder, imageType, preset.previewLabel, referenceLabel, resolvedMediaModule, sourceLabel, value]);
 
   return (
     <div className={cn('space-y-3', className)}>
@@ -141,6 +163,7 @@ export default function AdminMediaField({
         title={title}
         description={description}
         folder={folder || preset.folder}
+        mediaModule={resolvedMediaModule}
         existingImages={libraryItems}
         onSelectImage={onChange}
       />

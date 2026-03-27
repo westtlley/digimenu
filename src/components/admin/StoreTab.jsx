@@ -516,6 +516,7 @@ export default function StoreTab() {
                     onChange={handleLogoImageSelect}
                     imageType="logo"
                     folder="store"
+                    mediaModule="store"
                     title="Adicionar logo"
                     description="A logo aparece em varios pontos do sistema. Priorize contraste e leitura."
                     helperText="As cores do tema continuam sendo extraidas automaticamente a partir da logo."
@@ -873,6 +874,7 @@ export default function StoreTab() {
                     onChange={handleBannerImageSelect}
                     imageType="cover"
                     folder="store"
+                    mediaModule="store"
                     title="Adicionar capa da loja"
                     description="Essa imagem aparece no topo da loja e deve aproveitar bem a largura."
                     existingImages={(storeBanners || [])
@@ -897,6 +899,7 @@ export default function StoreTab() {
                         onChange={(url) => handleBannerImgSelect(url, i)}
                         imageType="banner"
                         folder="store"
+                        mediaModule="store"
                         title={`Adicionar banner ${i + 1}`}
                         description="Use uma arte horizontal para campanhas e destaques do cardapio."
                       />

@@ -372,6 +372,7 @@ export default function PizzaForm({ isOpen, onClose, onSubmit, pizza = null, cat
                     onChange={(url) => setFormData(prev => ({ ...prev, image: url || '' }))}
                     imageType="product"
                     folder="dishes"
+                    mediaModule="pizza"
                     title="Adicionar foto da pizza"
                     description="Use uma imagem bem enquadrada para manter o catalogo padronizado."
                   />

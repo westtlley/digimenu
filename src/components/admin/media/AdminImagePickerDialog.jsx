@@ -12,9 +12,13 @@ import toast from 'react-hot-toast';
 import { getMediaUploadPreset } from './mediaUploadPresets';
 import AdminMediaGallery from './AdminMediaGallery';
 import {
+  buildAdminMediaLibraryInsights,
   filterAdminMediaItems,
   getMediaFilterLabel,
+  getMediaModuleLabel,
   MEDIA_LIBRARY_FILTERS,
+  MEDIA_LIBRARY_MODULE_FILTERS,
+  MEDIA_LIBRARY_SCOPE_FILTERS,
   registerAdminMediaItems,
 } from './adminMediaLibrary';
 
@@ -142,6 +146,7 @@ export default function AdminImagePickerDialog({
   description,
   imageType = 'product',
   folder,
+  mediaModule,
   existingImages = [],
   onSelectImage,
 }) {
@@ -159,6 +164,8 @@ export default function AdminImagePickerDialog({
   const [selectedLibraryUrl, setSelectedLibraryUrl] = useState(null);
   const [librarySearch, setLibrarySearch] = useState('');
   const [libraryTypeFilter, setLibraryTypeFilter] = useState(imageType || 'product');
+  const [libraryModuleFilter, setLibraryModuleFilter] = useState('all');
+  const [libraryScopeFilter, setLibraryScopeFilter] = useState('all');
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -170,6 +177,8 @@ export default function AdminImagePickerDialog({
       setSelectedLibraryUrl(null);
       setLibrarySearch('');
       setLibraryTypeFilter(imageType || 'product');
+      setLibraryModuleFilter('all');
+      setLibraryScopeFilter('all');
       if (previewUrl) {
         URL.revokeObjectURL(previewUrl);
         setPreviewUrl(null);
@@ -195,12 +204,19 @@ export default function AdminImagePickerDialog({
     });
   }, [existingImages]);
 
-  const filteredLibraryItems = useMemo(() => {
-    return filterAdminMediaItems(libraryItems, {
+  const libraryInsights = useMemo(() => {
+    return buildAdminMediaLibraryInsights(libraryItems, {
       type: libraryTypeFilter,
+      module: libraryModuleFilter,
       searchTerm: librarySearch,
     });
-  }, [libraryItems, librarySearch, libraryTypeFilter]);
+  }, [libraryItems, libraryModuleFilter, librarySearch, libraryTypeFilter]);
+
+  const filteredLibraryItems = useMemo(() => {
+    return filterAdminMediaItems(libraryInsights.filtered, {
+      scope: libraryScopeFilter,
+    });
+  }, [libraryInsights.filtered, libraryScopeFilter]);
 
   const selectedLibraryItem = useMemo(() => {
     return libraryItems.find((item) => item.url === selectedLibraryUrl) || null;
@@ -209,6 +225,11 @@ export default function AdminImagePickerDialog({
   const sameTypeLibraryCount = useMemo(() => {
     return libraryItems.filter((item) => item.type === imageType).length;
   }, [imageType, libraryItems]);
+
+  const selectedLibraryModuleLabel = selectedLibraryItem ? getMediaModuleLabel(selectedLibraryItem.module) : null;
+  const showHighlightedSections = libraryScopeFilter === 'all' && !librarySearch;
+  const leadingModule = libraryInsights.byModule[0] || null;
+  const leadingType = libraryInsights.byType[0] || null;
 
   const openFilePicker = () => {
     fileInputRef.current?.click();
@@ -262,14 +283,17 @@ export default function AdminImagePickerDialog({
           {
             url,
             type: imageType,
+            module: mediaModule,
             reference: selectedFile?.name || dialogTitle,
             source: dialogTitle,
+            context: folder,
             meta: `${preset.previewLabel} • ${preset.recommendedSize}`,
             updatedAt: Date.now(),
           },
         ],
         {
           fallbackType: imageType,
+          fallbackModule: mediaModule,
           fallbackReference: dialogTitle,
           fallbackSource: dialogTitle,
         }
@@ -296,13 +320,16 @@ export default function AdminImagePickerDialog({
           selectedLibraryItem || {
             url: selectedLibraryUrl,
             type: imageType,
+            module: mediaModule,
             reference: dialogTitle,
             source: dialogTitle,
+            context: folder,
             updatedAt: Date.now(),
           },
         ],
         {
           fallbackType: imageType,
+          fallbackModule: mediaModule,
           fallbackReference: dialogTitle,
           fallbackSource: dialogTitle,
         }
@@ -537,16 +564,15 @@ export default function AdminImagePickerDialog({
                 </div>
               )}
             </TabsContent>
-
             <TabsContent value="library" className="mt-6 flex min-h-0 flex-1 flex-col overflow-hidden">
               {libraryItems.length === 0 ? (
                 <div className="rounded-2xl border border-border bg-muted/20 px-6 py-16 text-center">
                   <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">
                     <Images className="h-6 w-6" />
                   </div>
-                  <h3 className="mt-4 text-xl font-semibold text-foreground">Sua biblioteca ainda está vazia</h3>
+                  <h3 className="mt-4 text-xl font-semibold text-foreground">Sua biblioteca ainda esta vazia</h3>
                   <p className="mt-2 text-sm text-muted-foreground">
-                    As imagens já usadas em produtos, categorias e campanhas vão aparecer aqui para você reaproveitar.
+                    As imagens usadas em produtos, categorias e campanhas vao aparecer aqui para voce reaproveitar.
                   </p>
                 </div>
               ) : (
@@ -554,27 +580,88 @@ export default function AdminImagePickerDialog({
                   <div className="space-y-4 pb-4">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div>
-                        <h3 className="text-base font-semibold text-foreground">Arquivos salvos</h3>
+                        <h3 className="text-base font-semibold text-foreground">Central de ativos</h3>
                         <p className="text-sm text-muted-foreground">
-                          Reaproveite imagens já usadas na operação para manter consistência visual.
+                          Encontre rapido o que voce mais usa, o que acabou de usar e o que cada modulo reaproveita melhor.
                         </p>
                       </div>
-                      <Badge variant="outline">{filteredLibraryItems.length} / {libraryItems.length} imagens</Badge>
+                      <Badge variant="outline">{filteredLibraryItems.length} / {libraryItems.length} ativos</Badge>
+                    </div>
+
+                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                      <div className="rounded-2xl border border-border bg-muted/20 p-4">
+                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Ativos unicos</p>
+                        <p className="mt-2 text-2xl font-semibold text-foreground">{libraryItems.length}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">URLs agrupadas automaticamente por uso.</p>
+                      </div>
+                      <div className="rounded-2xl border border-border bg-muted/20 p-4">
+                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Usos mapeados</p>
+                        <p className="mt-2 text-2xl font-semibold text-foreground">{libraryInsights.totalUsageCount}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">Quanto mais uma imagem aparece, mais alto ela sobe.</p>
+                      </div>
+                      <div className="rounded-2xl border border-border bg-muted/20 p-4">
+                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Modulo lider</p>
+                        <p className="mt-2 text-lg font-semibold text-foreground">{leadingModule?.label || 'Sem destaque'}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {leadingModule ? `${leadingModule.count} ativos visiveis agora.` : 'Abra mais campos para enriquecer a biblioteca.'}
+                        </p>
+                      </div>
+                      <div className="rounded-2xl border border-border bg-muted/20 p-4">
+                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Tipo lider</p>
+                        <p className="mt-2 text-lg font-semibold text-foreground">{leadingType?.label || getMediaFilterLabel(imageType)}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {leadingType ? `${leadingType.count} itens no recorte atual.` : 'O filtro atual ainda nao tem ativos suficientes.'}
+                        </p>
+                      </div>
                     </div>
 
                     <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
                       <Input
                         value={librarySearch}
                         onChange={(event) => setLibrarySearch(event.target.value)}
-                        placeholder="Buscar por nome, origem ou tipo"
+                        placeholder="Buscar por nome, contexto, modulo ou tipo"
                       />
+                      <div className="flex flex-wrap gap-2">
+                        {MEDIA_LIBRARY_SCOPE_FILTERS.map((filter) => (
+                          <Button
+                            key={filter.value}
+                            type="button"
+                            variant={libraryScopeFilter === filter.value ? 'default' : 'outline'}
+                            className="h-9 rounded-full px-4"
+                            onClick={() => setLibraryScopeFilter(filter.value)}
+                          >
+                            {filter.label}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Filtrar por modulo</p>
+                      <div className="flex flex-wrap gap-2">
+                        {MEDIA_LIBRARY_MODULE_FILTERS.map((filter) => (
+                          <Button
+                            key={filter.value}
+                            type="button"
+                            variant={libraryModuleFilter === filter.value ? 'default' : 'outline'}
+                            className="h-8 rounded-full px-3"
+                            onClick={() => setLibraryModuleFilter(filter.value)}
+                          >
+                            {filter.label}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Filtrar por tipo</p>
                       <div className="flex flex-wrap gap-2">
                         {MEDIA_LIBRARY_FILTERS.map((filter) => (
                           <Button
                             key={filter.value}
                             type="button"
                             variant={libraryTypeFilter === filter.value ? 'default' : 'outline'}
-                            className="h-9 rounded-full px-4"
+                            className="h-8 rounded-full px-3"
                             onClick={() => setLibraryTypeFilter(filter.value)}
                           >
                             {filter.label}
@@ -584,17 +671,98 @@ export default function AdminImagePickerDialog({
                     </div>
                   </div>
 
-                  <div className="min-h-0 flex-1 rounded-2xl border border-border bg-muted/10">
-                    <div className="h-full overflow-y-auto p-4 pr-3">
-                      <AdminMediaGallery
-                        items={filteredLibraryItems}
-                        selectedUrl={selectedLibraryUrl}
-                        onSelect={setSelectedLibraryUrl}
-                        emptyTitle="Nenhuma imagem encontrada"
-                        emptyDescription="Ajuste a busca, troque o filtro ou envie uma nova imagem."
-                      />
+                  <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+                    <div className="space-y-4">
+                      {showHighlightedSections && libraryInsights.mostUsed.length > 0 ? (
+                        <div className="rounded-2xl border border-border bg-muted/10 p-4">
+                          <div className="mb-4 flex items-center justify-between gap-3">
+                            <div>
+                              <h4 className="text-sm font-semibold text-foreground">Mais usadas</h4>
+                              <p className="text-xs text-muted-foreground">Ativos com maior reaproveitamento no recorte atual.</p>
+                            </div>
+                            <Badge variant="outline">{libraryInsights.mostUsed.length} destaques</Badge>
+                          </div>
+                          <AdminMediaGallery
+                            items={libraryInsights.mostUsed}
+                            selectedUrl={selectedLibraryUrl}
+                            onSelect={setSelectedLibraryUrl}
+                          />
+                        </div>
+                      ) : null}
+
+                      {showHighlightedSections && libraryInsights.recent.length > 0 ? (
+                        <div className="rounded-2xl border border-border bg-muted/10 p-4">
+                          <div className="mb-4 flex items-center justify-between gap-3">
+                            <div>
+                              <h4 className="text-sm font-semibold text-foreground">Usadas recentemente</h4>
+                              <p className="text-xs text-muted-foreground">O que voce acabou de selecionar ou reaproveitar.</p>
+                            </div>
+                            <Badge variant="outline">{libraryInsights.recent.length} recentes</Badge>
+                          </div>
+                          <AdminMediaGallery
+                            items={libraryInsights.recent}
+                            selectedUrl={selectedLibraryUrl}
+                            onSelect={setSelectedLibraryUrl}
+                          />
+                        </div>
+                      ) : null}
+
+                      <div className="rounded-2xl border border-border bg-muted/10 p-4">
+                        <div className="mb-4 flex items-center justify-between gap-3">
+                          <div>
+                            <h4 className="text-sm font-semibold text-foreground">
+                              {libraryScopeFilter === 'mostUsed'
+                                ? 'Biblioteca por relevancia'
+                                : libraryScopeFilter === 'recent'
+                                  ? 'Biblioteca recente'
+                                  : 'Todas as imagens'}
+                            </h4>
+                            <p className="text-xs text-muted-foreground">
+                              {libraryScopeFilter === 'mostUsed'
+                                ? 'Ordenacao pela frequencia de uso.'
+                                : libraryScopeFilter === 'recent'
+                                  ? 'Ordenacao pelo uso mais recente.'
+                                  : 'Acervo completo do filtro atual.'}
+                            </p>
+                          </div>
+                          <Badge variant="outline">{filteredLibraryItems.length} resultados</Badge>
+                        </div>
+                        <AdminMediaGallery
+                          items={filteredLibraryItems}
+                          selectedUrl={selectedLibraryUrl}
+                          onSelect={setSelectedLibraryUrl}
+                          emptyTitle="Nenhuma imagem encontrada"
+                          emptyDescription="Ajuste a busca, troque os filtros ou envie uma nova imagem."
+                        />
+                      </div>
                     </div>
                   </div>
+
+                  {selectedLibraryItem ? (
+                    <div className="mt-4 rounded-2xl border border-primary/20 bg-primary/5 p-4">
+                      <div className="flex flex-col gap-4 sm:flex-row">
+                        <div className="h-20 w-20 overflow-hidden rounded-2xl border border-border bg-background">
+                          <img src={selectedLibraryItem.url} alt={selectedLibraryItem.label} className="h-full w-full object-cover" />
+                        </div>
+                        <div className="min-w-0 flex-1 space-y-2">
+                          <div className="flex flex-wrap gap-2">
+                            <Badge variant="outline">{getMediaFilterLabel(selectedLibraryItem.type)}</Badge>
+                            {selectedLibraryModuleLabel ? <Badge variant="outline">{selectedLibraryModuleLabel}</Badge> : null}
+                            <Badge variant="secondary">{selectedLibraryItem.usageSummary}</Badge>
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold text-foreground">{selectedLibraryItem.label}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {selectedLibraryItem.source ? `Origem principal: ${selectedLibraryItem.source}. ` : ''}
+                              {Array.isArray(selectedLibraryItem.references) && selectedLibraryItem.references.length > 0
+                                ? `Exemplos de uso: ${selectedLibraryItem.references.slice(0, 3).join(' • ')}.`
+                                : 'A biblioteca ainda esta consolidando referencias deste ativo.'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
 
                   <div className="sticky bottom-0 mt-4 flex flex-col gap-3 border-t border-border/80 bg-background/95 pt-4 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-sm text-muted-foreground">
@@ -605,7 +773,7 @@ export default function AdminImagePickerDialog({
                         Cancelar
                       </Button>
                       <Button type="button" variant="outline" onClick={() => setSelectedLibraryUrl(null)} disabled={!selectedLibraryUrl || isSaving}>
-                        Limpar seleção
+                        Limpar selecao
                       </Button>
                       <Button type="button" onClick={handleSelectLibraryImage} disabled={!selectedLibraryUrl || isSaving}>
                         {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
@@ -630,4 +798,10 @@ export default function AdminImagePickerDialog({
     </Dialog>
   );
 }
+
+
+
+
+
+
 

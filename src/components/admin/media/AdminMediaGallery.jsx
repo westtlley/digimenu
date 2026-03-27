@@ -3,6 +3,7 @@ import { Check, Images } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { getMediaUploadPreset } from './mediaUploadPresets';
+import { getMediaModuleLabel } from './adminMediaLibrary';
 
 const dateFormatter = new Intl.DateTimeFormat('pt-BR', {
   day: '2-digit',
@@ -34,6 +35,7 @@ export default function AdminMediaGallery({
         const isSelected = selectedUrl === image.url;
         const preset = getMediaUploadPreset(image.type);
         const updatedAtLabel = image.updatedAt ? dateFormatter.format(new Date(image.updatedAt)) : null;
+        const moduleLabel = getMediaModuleLabel(image.module);
 
         return (
           <button
@@ -74,7 +76,8 @@ export default function AdminMediaGallery({
             <div className="space-y-3 p-3">
               <div className="flex flex-wrap gap-2">
                 <Badge variant="outline">{preset.label}</Badge>
-                {image.source ? <Badge variant="outline">{image.source}</Badge> : null}
+                {moduleLabel ? <Badge variant="outline">{moduleLabel}</Badge> : null}
+                {image.usageCount > 1 ? <Badge variant="secondary">{image.usageSummary}</Badge> : null}
               </div>
 
               <div className="space-y-1">
@@ -85,6 +88,12 @@ export default function AdminMediaGallery({
                   {isSelected ? <Check className="h-4 w-4 text-primary" /> : null}
                 </div>
                 {image.meta ? <p className="line-clamp-2 text-xs text-muted-foreground">{image.meta}</p> : null}
+                {image.source ? <p className="line-clamp-1 text-[11px] text-muted-foreground">Origem: {image.source}</p> : null}
+                {Array.isArray(image.references) && image.references.length > 0 ? (
+                  <p className="line-clamp-2 text-[11px] text-muted-foreground">
+                    Referencias: {image.references.slice(0, 2).join(' • ')}
+                  </p>
+                ) : null}
                 {updatedAtLabel ? (
                   <p className="text-[11px] text-muted-foreground">Ultimo uso: {updatedAtLabel}</p>
                 ) : null}

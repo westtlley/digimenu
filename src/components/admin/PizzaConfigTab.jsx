@@ -2848,6 +2848,7 @@ function FlavorModal({ isOpen, onClose, onSubmit, flavor }) {
               onChange={(url) => setFormData(prev => ({ ...prev, image: url || '' }))}
               imageType="product"
               folder="pizza-config"
+              mediaModule="pizza"
               title="Adicionar imagem do sabor"
               description="Use o mesmo padrao de upload para sabores, bordas e extras."
             />
@@ -2990,6 +2991,7 @@ function EdgeModal({ isOpen, onClose, onSubmit, edge }) {
               onChange={(url) => setFormData(prev => ({ ...prev, image: url || '' }))}
               imageType="product"
               folder="pizza-config"
+              mediaModule="pizza"
               title="Adicionar imagem da borda"
               description="Padronize a apresentacao das bordas com o mesmo editor global."
             />
@@ -3122,6 +3124,7 @@ function ExtraModal({ isOpen, onClose, onSubmit, extra }) {
               onChange={(url) => setFormData(prev => ({ ...prev, image: url || '' }))}
               imageType="product"
               folder="pizza-config"
+              mediaModule="pizza"
               title="Adicionar imagem do adicional"
               description="Use o mesmo recorte e preview para extras e complementos da pizzaria."
             />

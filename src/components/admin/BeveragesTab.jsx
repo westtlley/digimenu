@@ -1925,6 +1925,7 @@ export default function BeveragesTab() {
                   onChange={(url) => setFormData((prev) => ({ ...prev, image: url || '' }))}
                   imageType="product"
                   folder="dishes"
+                  mediaModule="beverages"
                   title="Adicionar foto da bebida"
                   description="Use uma imagem limpa para manter bebidas e produtos com o mesmo padrao visual."
                   existingImages={beverages

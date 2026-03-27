@@ -209,6 +209,7 @@ export default function FlavorForm({ isOpen, onClose, onSubmit, flavor = null, c
                   onChange={(url) => setFormData(prev => ({ ...prev, image: url || '' }))}
                   imageType="product"
                   folder="flavors"
+                  mediaModule="pizza"
                   title="Adicionar foto do sabor"
                   description="Use o mesmo padrao visual para sabores, produtos e bebidas."
                 />

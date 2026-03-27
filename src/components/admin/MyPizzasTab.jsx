@@ -1516,6 +1516,7 @@ function PizzaModal({ isOpen, onClose, onSubmit, pizza, sizes, flavors, edges, e
                     onChange={(url) => setFormData(prev => ({ ...prev, image: url || '' }))}
                     imageType="product"
                     folder="dishes"
+                    mediaModule="pizza"
                     title="Adicionar imagem da entrada comercial"
                     description="A mesma experiencia de upload agora vale para pizza, bebida e produto."
                     helperText="Se nao enviar, sera usada a imagem do sabor de referencia."

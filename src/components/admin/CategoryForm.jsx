@@ -55,6 +55,7 @@ export default function CategoryForm({ isOpen, onClose, onSubmit, category = nul
               onChange={(url) => setFormData(prev => ({ ...prev, image: url || '' }))}
               imageType="category"
               folder="categories"
+              mediaModule="category"
               title="Adicionar imagem da categoria"
               description="Use uma imagem simples e clara para reforcar a leitura da categoria."
             />
