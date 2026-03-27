@@ -11,6 +11,7 @@ import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { base44 } from '@/api/base44Client';
 import toast from 'react-hot-toast';
+import AdminMediaField from './media/AdminMediaField';
 
 export default function PizzaForm({ isOpen, onClose, onSubmit, pizza = null, categoryId }) {
   const [activeTab, setActiveTab] = useState('info');
@@ -121,20 +122,6 @@ export default function PizzaForm({ isOpen, onClose, onSubmit, pizza = null, cat
         popular_combinations: formData.pizza_config.popular_combinations || []
       }
     });
-  };
-
-  const handleImageUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      try {
-        const { uploadToCloudinary } = await import('@/utils/cloudinaryUpload');
-        const url = await uploadToCloudinary(file, 'dishes');
-        setFormData(prev => ({ ...prev, image: url }));
-      } catch (error) {
-        console.error('Erro ao fazer upload:', error);
-        toast.error('Erro ao fazer upload da imagem');
-      }
-    }
   };
 
   // Sizes
@@ -379,9 +366,15 @@ export default function PizzaForm({ isOpen, onClose, onSubmit, pizza = null, cat
                 </div>
 
                 <div>
-                  <Label>Imagem da Pizza</Label>
-                  <Input type="file" accept="image/*" onChange={handleImageUpload} />
-                  {formData.image && <img src={formData.image} alt="" className="mt-2 w-32 h-32 object-cover rounded" />}
+                  <AdminMediaField
+                    label="Imagem da Pizza"
+                    value={formData.image}
+                    onChange={(url) => setFormData(prev => ({ ...prev, image: url || '' }))}
+                    imageType="product"
+                    folder="dishes"
+                    title="Adicionar foto da pizza"
+                    description="Use uma imagem bem enquadrada para manter o catalogo padronizado."
+                  />
                 </div>
 
                 <div className="flex gap-4">

@@ -16,6 +16,7 @@ import { fetchAdminDishes } from '@/services/adminMenuService';
 import { keepPreviousData } from '@tanstack/react-query';
 import { buildTenantEntityOpts, getMenuContextEntityOpts, getMenuContextQueryKeyParts } from '@/utils/tenantScope';
 import { buildPizzaEntryCommercialModel, summarizePizzaCommercialReadiness } from '@/utils/pizzaBusinessIntelligence';
+import AdminMediaField from './media/AdminMediaField';
 
 const formatCurrency = (value) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
@@ -1183,27 +1184,6 @@ function PizzaModal({ isOpen, onClose, onSubmit, pizza, sizes, flavors, edges, e
     }));
   };
 
-  const handleImageUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    
-    try {
-      const { uploadToCloudinary } = await import('@/utils/cloudinaryUpload');
-      const url = await uploadToCloudinary(file, 'dishes');
-
-    if (!url) {
-      toast.error('Erro ao obter URL da imagem');
-      return;
-    }
-
-    setFormData(prev => ({ ...prev, image: url }));
-  } catch (err) {
-    console.error(err);
-    toast.error('Falha ao enviar imagem');
-  }
-};
-
-
   const handleSubmit = (e) => {
     e.preventDefault();
     
@@ -1530,14 +1510,20 @@ function PizzaModal({ isOpen, onClose, onSubmit, pizza, sizes, flavors, edges, e
                 </div>
 
                 <div>
-                  <Label>Imagem da entrada (opcional)</Label>
-                  <Input type="file" accept="image/*" onChange={handleImageUpload} />
-                  {formData.image && (
-                    <img src={formData.image} alt="" className="mt-2 w-20 h-20 object-cover rounded" />
-                  )}
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Se nao enviar, sera usada a imagem do sabor de referencia.
-                  </p>
+                  <AdminMediaField
+                    label="Imagem da entrada (opcional)"
+                    value={formData.image}
+                    onChange={(url) => setFormData(prev => ({ ...prev, image: url || '' }))}
+                    imageType="product"
+                    folder="dishes"
+                    title="Adicionar imagem da entrada comercial"
+                    description="A mesma experiencia de upload agora vale para pizza, bebida e produto."
+                    helperText="Se nao enviar, sera usada a imagem do sabor de referencia."
+                    existingImages={[
+                      ...pizzas.filter((item) => item?.image).map((item) => ({ url: item.image, label: item.name })),
+                      ...flavors.filter((item) => item?.image).map((item) => ({ url: item.image, label: item.name })),
+                    ]}
+                  />
                 </div>
 
                 <div className="grid grid-cols-3 gap-4">

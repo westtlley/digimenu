@@ -16,6 +16,7 @@ import PizzaVisualizationSettings from './PizzaVisualizationSettings';
 import MyPizzasTab from './MyPizzasTab';
 import PizzaOverviewPanel from './pizza/PizzaOverviewPanel';
 import PizzaInsightsPanel from './pizza/PizzaInsightsPanel';
+import AdminMediaField from './media/AdminMediaField';
 import { usePermission } from '../permissions/usePermission';
 import { buildTenantEntityOpts, getMenuContextEntityOpts, getMenuContextQueryKeyParts } from '@/utils/tenantScope';
 import { fetchAdminDishes } from '@/services/adminMenuService';
@@ -2841,11 +2842,15 @@ function FlavorModal({ isOpen, onClose, onSubmit, flavor }) {
             />
           </div>
           <div>
-            <Label>Imagem</Label>
-            <Input type="file" accept="image/*" onChange={handleImageUpload} />
-            {formData.image && (
-              <img src={formData.image} alt="" className="mt-2 w-20 h-20 object-cover rounded" />
-            )}
+            <AdminMediaField
+              label="Imagem"
+              value={formData.image}
+              onChange={(url) => setFormData(prev => ({ ...prev, image: url || '' }))}
+              imageType="product"
+              folder="pizza-config"
+              title="Adicionar imagem do sabor"
+              description="Use o mesmo padrao de upload para sabores, bordas e extras."
+            />
           </div>
           <div className="flex items-center gap-4">
             <label className="flex items-center gap-2">
@@ -2979,11 +2984,15 @@ function EdgeModal({ isOpen, onClose, onSubmit, edge }) {
             />
           </div>
           <div>
-            <Label>Imagem</Label>
-            <Input type="file" accept="image/*" onChange={handleImageUpload} />
-            {formData.image && (
-              <img src={formData.image} alt="" className="mt-2 w-20 h-20 object-cover rounded" />
-            )}
+            <AdminMediaField
+              label="Imagem"
+              value={formData.image}
+              onChange={(url) => setFormData(prev => ({ ...prev, image: url || '' }))}
+              imageType="product"
+              folder="pizza-config"
+              title="Adicionar imagem da borda"
+              description="Padronize a apresentacao das bordas com o mesmo editor global."
+            />
           </div>
           <div className="flex gap-3 pt-4">
             <Button type="button" variant="outline" onClick={onClose} className="flex-1">
@@ -3107,11 +3116,15 @@ function ExtraModal({ isOpen, onClose, onSubmit, extra }) {
             />
           </div>
           <div>
-            <Label>Imagem</Label>
-            <Input type="file" accept="image/*" onChange={handleImageUpload} />
-            {formData.image && (
-              <img src={formData.image} alt="" className="mt-2 w-20 h-20 object-cover rounded" />
-            )}
+            <AdminMediaField
+              label="Imagem"
+              value={formData.image}
+              onChange={(url) => setFormData(prev => ({ ...prev, image: url || '' }))}
+              imageType="product"
+              folder="pizza-config"
+              title="Adicionar imagem do adicional"
+              description="Use o mesmo recorte e preview para extras e complementos da pizzaria."
+            />
           </div>
           <div className="flex gap-3 pt-4">
             <Button type="button" variant="outline" onClick={onClose} className="flex-1">

@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Trash2, AlertCircle, Sparkles } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import toast from 'react-hot-toast';
+import AdminMediaField from './media/AdminMediaField';
 
 export default function FlavorForm({ isOpen, onClose, onSubmit, flavor = null, categories = [] }) {
   const [activeStep, setActiveStep] = useState(0);
@@ -86,20 +87,6 @@ export default function FlavorForm({ isOpen, onClose, onSubmit, flavor = null, c
 
   const handleSubmit = () => {
     onSubmit(formData);
-  };
-
-  const handleImageUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      try {
-        const { uploadToCloudinary } = await import('@/utils/cloudinaryUpload');
-        const url = await uploadToCloudinary(file, 'flavors');
-        setFormData(prev => ({ ...prev, image: url }));
-      } catch (error) {
-        console.error('Erro ao fazer upload:', error);
-        toast.error('Erro ao fazer upload da imagem');
-      }
-    }
   };
 
   const addIngredient = () => {
@@ -216,11 +203,15 @@ export default function FlavorForm({ isOpen, onClose, onSubmit, flavor = null, c
               </div>
 
               <div>
-                <Label>Foto do Sabor</Label>
-                <Input type="file" accept="image/*" onChange={handleImageUpload} />
-                {formData.image && (
-                  <img src={formData.image} alt="" className="mt-2 w-32 h-32 object-cover rounded" />
-                )}
+                <AdminMediaField
+                  label="Foto do Sabor"
+                  value={formData.image}
+                  onChange={(url) => setFormData(prev => ({ ...prev, image: url || '' }))}
+                  imageType="product"
+                  folder="flavors"
+                  title="Adicionar foto do sabor"
+                  description="Use o mesmo padrao visual para sabores, produtos e bebidas."
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-4">

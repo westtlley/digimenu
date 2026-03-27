@@ -29,7 +29,7 @@ import {
   UtensilsCrossed,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { uploadToCloudinary } from '@/utils/cloudinaryUpload';
+import AdminMediaField from './media/AdminMediaField';
 import { usePermission } from '@/components/permissions/usePermission';
 import { useMenuCategories, useMenuDishes } from '@/hooks/useMenuData';
 import { getMenuContextEntityOpts, getMenuContextQueryKeyParts, getMenuContextSubscriberEmail } from '@/utils/tenantScope';
@@ -751,31 +751,6 @@ export default function BeveragesTab() {
     }
 
     createBeverageMutation.mutate(payload);
-  };
-
-  const handleImageUpload = async (event) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const localUrl = URL.createObjectURL(file);
-    setFormData((prev) => ({ ...prev, image: localUrl }));
-    toast.loading('Enviando imagem...', { id: 'beverage-image-upload' });
-
-    try {
-      const url = await uploadToCloudinary(file, 'dishes');
-      toast.dismiss('beverage-image-upload');
-      if (url) {
-        setFormData((prev) => ({ ...prev, image: url }));
-        toast.success('Imagem enviada!');
-      } else {
-        setFormData((prev) => ({ ...prev, image: '' }));
-        toast.error('Erro no upload');
-      }
-    } catch (error) {
-      toast.dismiss('beverage-image-upload');
-      setFormData((prev) => ({ ...prev, image: '' }));
-      toast.error('Falha ao enviar imagem');
-    }
   };
 
   const toggleDietaryTag = (tag) => {
@@ -1944,19 +1919,18 @@ export default function BeveragesTab() {
                 <Input type="number" step="0.01" value={formData.price} onChange={(event) => setFormData((prev) => ({ ...prev, price: event.target.value }))} placeholder="5.00" required />
               </div>
               <div>
-                <Label>Imagem da bebida</Label>
-                <div className="flex items-center gap-2">
-                  <input type="file" accept="image/*" className="hidden" id="beverage-image-upload" onChange={handleImageUpload} />
-                  <label htmlFor="beverage-image-upload" className="cursor-pointer rounded-md bg-cyan-600 px-4 py-2 text-sm text-white transition-colors hover:bg-cyan-700">
-                    {formData.image ? 'Alterar foto' : 'Adicionar foto'}
-                  </label>
-                  {formData.image ? (
-                    <div className="relative">
-                      <img src={formData.image} alt="Preview" className="h-16 w-16 rounded border-2 border-gray-200 object-cover" />
-                      <button type="button" onClick={() => setFormData((prev) => ({ ...prev, image: '' }))} className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs text-white hover:bg-red-600">x</button>
-                    </div>
-                  ) : null}
-                </div>
+                <AdminMediaField
+                  label="Imagem da bebida"
+                  value={formData.image}
+                  onChange={(url) => setFormData((prev) => ({ ...prev, image: url || '' }))}
+                  imageType="product"
+                  folder="dishes"
+                  title="Adicionar foto da bebida"
+                  description="Use uma imagem limpa para manter bebidas e produtos com o mesmo padrao visual."
+                  existingImages={beverages
+                    .filter((item) => item?.image)
+                    .map((item) => ({ url: item.image, label: item.name, meta: formatCurrency(item.price) }))}
+                />
               </div>
             </div>
 

@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Plus, Trash2, UtensilsCrossed, Pizza, Wine } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
+import AdminMediaField from './media/AdminMediaField';
 
 const formatCurrency = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
 
@@ -86,7 +87,6 @@ export default function ComboModalUnified({
   };
 
   const [groupSpecificSelectValue, setGroupSpecificSelectValue] = useState({});
-  const [uploadingImage, setUploadingImage] = useState(false);
 
   const [formData, setFormData] = useState(combo || {
     name: '',
@@ -316,20 +316,6 @@ export default function ComboModalUnified({
     setGroupSpecificSelectValue((prev) => ({ ...prev, [groupId]: '' }));
   };
 
-  const handleComboImageUpload = async (file) => {
-    if (!file) return;
-    setUploadingImage(true);
-    try {
-      const { uploadToCloudinary } = await import('@/utils/cloudinaryUpload');
-      const url = await uploadToCloudinary(file, 'combos');
-      setFormData(prev => ({ ...prev, image: url }));
-    } catch (err) {
-      alert(err?.message || 'Erro ao enviar imagem');
-    } finally {
-      setUploadingImage(false);
-    }
-  };
-
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-3xl max-w-[95vw] max-h-[90vh] overflow-hidden p-0">
@@ -352,15 +338,14 @@ export default function ComboModalUnified({
               <Label>Imagem</Label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <Input
-                    type="file"
-                    accept="image/*"
-                    disabled={uploadingImage}
-                    onChange={(e) => handleComboImageUpload(e.target.files?.[0])}
+                  <AdminMediaField
+                    value={formData.image}
+                    onChange={(url) => setFormData(prev => ({ ...prev, image: url || '' }))}
+                    imageType="promotion"
+                    folder="combos"
+                    title="Adicionar arte do combo"
+                    description="Use uma imagem com foco na oferta principal para destacar o combo."
                   />
-                  <p className="text-xs text-gray-500 mt-1">
-                    {uploadingImage ? 'Enviando imagem...' : 'Envie uma imagem (upload)'}
-                  </p>
                 </div>
                 <div>
                   <Input
@@ -371,11 +356,6 @@ export default function ComboModalUnified({
                   <p className="text-xs text-gray-500 mt-1">Ou cole uma URL</p>
                 </div>
               </div>
-              {!!formData.image && (
-                <div className="mt-2">
-                  <img src={formData.image} alt="" className="h-20 w-20 rounded object-cover border" />
-                </div>
-              )}
             </div>
 
             <div className="col-span-2 flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded">

@@ -8,7 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { MobileInput, MobileTextarea } from "@/components/ui/MobileFormField";
-import { Store, Save, Clock, Image as ImageIcon, MapPin, Instagram, Facebook, MessageSquare, AlertCircle, HelpCircle, Link2, Copy, CheckCircle2, XCircle, TrendingUp, Music2, ShoppingCart } from 'lucide-react';
+import { Store, Save, Clock, MapPin, Instagram, Facebook, MessageSquare, AlertCircle, HelpCircle, Link2, Copy, CheckCircle2, XCircle, TrendingUp, Music2, ShoppingCart } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { usePermission } from '../permissions/usePermission';
@@ -19,6 +19,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import MasterSlugSettings from './MasterSlugSettings';
 import { extractColorsFromImage } from '@/utils/extractColorsFromImage';
 import { getMenuContextEntityOpts, getMenuContextQueryKeyParts } from '@/utils/tenantScope';
+import AdminMediaField from './media/AdminMediaField';
 
 const DAYS_OF_WEEK = [
   { value: 0, label: 'Dom' },
@@ -126,16 +127,8 @@ export default function StoreTab() {
     onError: (e) => toast.error(e?.message || 'Erro ao salvar banners'),
   });
 
-  const handleBannerImageUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    try {
-      const { uploadToCloudinary } = await import('@/utils/cloudinaryUpload');
-      const url = await uploadToCloudinary(file, 'store');
-      updateStoreBannersMutation.mutate({ banner_image: url });
-    } catch (err) {
-      toast.error('Erro no upload');
-    }
+  const handleBannerImageSelect = async (url) => {
+    updateStoreBannersMutation.mutate({ banner_image: url || '' });
   };
 
   const addBanner = () => {
@@ -153,16 +146,8 @@ export default function StoreTab() {
     updateStoreBannersMutation.mutate({ banners: next });
   };
 
-  const handleBannerImgUpload = async (e, i) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    try {
-      const { uploadToCloudinary } = await import('@/utils/cloudinaryUpload');
-      const url = await uploadToCloudinary(file, 'store');
-      updateBanner(i, 'image', url);
-    } catch (err) {
-      toast.error('Erro no upload');
-    }
+  const handleBannerImgSelect = async (url, i) => {
+    updateBanner(i, 'image', url || '');
   };
 
   const formatCurrency = (value) => {
@@ -343,12 +328,12 @@ export default function StoreTab() {
     }
   };
 
-  const handleLogoUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleLogoImageSelect = async (url) => {
+    if (!url) {
+      setFormData(prev => ({ ...prev, logo: '' }));
+      return;
+    }
     try {
-      const { uploadToCloudinary } = await import('@/utils/cloudinaryUpload');
-      const url = await uploadToCloudinary(file, 'store');
       setFormData(prev => ({ ...prev, logo: url }));
 
       // Extrair cores da logo e aplicar ao tema (Admin master e Painel assinante)
@@ -524,25 +509,18 @@ export default function StoreTab() {
             <CardContent className="space-y-6">
               {/* Logo */}
               <div className="flex flex-col items-center">
-                <div className="w-32 h-32 bg-gray-100 rounded-xl flex items-center justify-center mb-3 overflow-hidden border-2 border-dashed border-gray-300 hover:border-orange-400 transition-colors">
-                  {formData.logo ? (
-                    <img src={formData.logo} alt="Logo" className="w-full h-full object-cover" />
-                  ) : (
-                    <Store className="w-12 h-12 text-gray-400" />
-                  )}
-                </div>
-                <label className="text-sm text-orange-600 cursor-pointer hover:text-orange-700 font-medium flex items-center gap-2">
-                  <ImageIcon className="w-4 h-4" />
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleLogoUpload}
-                    className="hidden"
+                <div className="w-full max-w-md">
+                  <AdminMediaField
+                    label="Logotipo"
+                    value={formData.logo}
+                    onChange={handleLogoImageSelect}
+                    imageType="logo"
+                    folder="store"
+                    title="Adicionar logo"
+                    description="A logo aparece em varios pontos do sistema. Priorize contraste e leitura."
+                    helperText="As cores do tema continuam sendo extraidas automaticamente a partir da logo."
                   />
-                  Alterar Logotipo
-                </label>
-                <span className="text-xs text-gray-500 mt-1">Recomendado: 500x500px</span>
-                <p className="text-xs text-gray-500 mt-1">Esta logo será exibida no cardápio digital</p>
+                </div>
               </div>
 
               <Separator />
@@ -889,17 +867,18 @@ export default function StoreTab() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <Label>Foto de capa (banner superior)</Label>
-                  <div className="mt-1 w-full h-32 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden border-2 border-dashed">
-                    {store.banner_image ? (
-                      <img src={store.banner_image} alt="Capa" className="w-full h-full object-cover" />
-                    ) : (
-                      <span className="text-gray-400 text-sm">Nenhuma</span>
-                    )}
-                  </div>
-                  <label className="mt-2 inline-block text-sm text-orange-600 cursor-pointer">
-                    Alterar <input type="file" accept="image/*" className="hidden" onChange={handleBannerImageUpload} />
-                  </label>
+                  <AdminMediaField
+                    label="Foto de capa (banner superior)"
+                    value={store.banner_image}
+                    onChange={handleBannerImageSelect}
+                    imageType="cover"
+                    folder="store"
+                    title="Adicionar capa da loja"
+                    description="Essa imagem aparece no topo da loja e deve aproveitar bem a largura."
+                    existingImages={(storeBanners || [])
+                      .filter((item) => item?.image)
+                      .map((item, index) => ({ url: item.image, label: item.title || `Banner ${index + 1}` }))}
+                  />
                 </div>
                 <div>
                   <div className="flex justify-between items-center mb-2">
@@ -912,12 +891,15 @@ export default function StoreTab() {
                         <span className="text-sm font-medium">Banner {i + 1}</span>
                         <Button type="button" variant="ghost" size="sm" className="text-red-600" onClick={() => removeBanner(i)}>Remover</Button>
                       </div>
-                      <div className="h-20 bg-gray-100 rounded flex items-center justify-center overflow-hidden">
-                        {b.image ? <img src={b.image} alt="" className="max-h-full object-contain" /> : <span className="text-gray-400 text-xs">Sem imagem</span>}
-                      </div>
-                      <label className="text-xs text-orange-600 cursor-pointer">
-                        Upload <input type="file" accept="image/*" className="hidden" onChange={(e) => handleBannerImgUpload(e, i)} />
-                      </label>
+                      <AdminMediaField
+                        label="Imagem do banner"
+                        value={b.image}
+                        onChange={(url) => handleBannerImgSelect(url, i)}
+                        imageType="banner"
+                        folder="store"
+                        title={`Adicionar banner ${i + 1}`}
+                        description="Use uma arte horizontal para campanhas e destaques do cardapio."
+                      />
                       <Input placeholder="Título" value={b.title || ''} onChange={(e) => updateBanner(i, 'title', e.target.value)} />
                       <Input placeholder="Subtítulo" value={b.subtitle || ''} onChange={(e) => updateBanner(i, 'subtitle', e.target.value)} />
                       <Input placeholder="Link" value={b.link || ''} onChange={(e) => updateBanner(i, 'link', e.target.value)} />

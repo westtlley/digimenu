@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { uploadToCloudinary } from '@/utils/cloudinaryUpload';
 import toast from 'react-hot-toast';
+import { getMediaUploadPreset } from './mediaUploadPresets';
 
 const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
 const MIN_IMAGE_SIDE = 300;
@@ -51,7 +52,7 @@ async function readImageMetadata(file) {
   }
 }
 
-async function validateImageFile(file) {
+async function validateImageFile(file, preset) {
   if (!file) {
     throw new Error('Nenhum arquivo selecionado.');
   }
@@ -59,42 +60,60 @@ async function validateImageFile(file) {
     throw new Error('Use JPG, JPEG, PNG ou HEIC.');
   }
   if (file.size > MAX_IMAGE_SIZE_BYTES) {
-    throw new Error('A imagem deve ter no máximo 10 MB.');
+    throw new Error('A imagem deve ter no maximo 10 MB.');
   }
   const metadata = await readImageMetadata(file);
-  if (metadata.width < MIN_IMAGE_SIDE || metadata.height < MIN_IMAGE_SIDE) {
+  const minSide = Math.max(
+    MIN_IMAGE_SIDE,
+    Math.min(preset?.outputWidth || MIN_IMAGE_SIDE, preset?.outputHeight || MIN_IMAGE_SIDE) / 4
+  );
+  if (metadata.width < minSide || metadata.height < minSide) {
     URL.revokeObjectURL(metadata.objectUrl);
-    throw new Error('A imagem precisa ter pelo menos 300x300 pixels.');
+    throw new Error(`A imagem precisa ter pelo menos ${Math.round(minSide)}x${Math.round(minSide)} pixels.`);
   }
   return metadata;
 }
 
-async function createCenteredSquareBlob(file, zoom = DEFAULT_ZOOM) {
+async function createCenteredCroppedBlob(file, preset, zoom = DEFAULT_ZOOM) {
   const metadata = await readImageMetadata(file);
   try {
     const image = await loadImageFromUrl(metadata.objectUrl);
-    const minSide = Math.min(metadata.width, metadata.height);
-    const cropSide = minSide / Math.max(zoom, 1);
-    const cropX = (metadata.width - cropSide) / 2;
-    const cropY = (metadata.height - cropSide) / 2;
+    const targetAspect = (preset?.outputWidth || 1200) / (preset?.outputHeight || 1200);
+    const imageAspect = metadata.width / metadata.height;
+
+    let baseCropWidth = metadata.width;
+    let baseCropHeight = metadata.height;
+
+    if (imageAspect > targetAspect) {
+      baseCropHeight = metadata.height;
+      baseCropWidth = metadata.height * targetAspect;
+    } else {
+      baseCropWidth = metadata.width;
+      baseCropHeight = metadata.width / targetAspect;
+    }
+
+    const cropWidth = baseCropWidth / Math.max(zoom, 1);
+    const cropHeight = baseCropHeight / Math.max(zoom, 1);
+    const cropX = (metadata.width - cropWidth) / 2;
+    const cropY = (metadata.height - cropHeight) / 2;
 
     const canvas = document.createElement('canvas');
-    canvas.width = 1200;
-    canvas.height = 1200;
+    canvas.width = preset?.outputWidth || 1200;
+    canvas.height = preset?.outputHeight || 1200;
     const ctx = canvas.getContext('2d');
 
     if (!ctx) {
-      throw new Error('Não foi possível preparar a imagem.');
+      throw new Error('Nao foi possivel preparar a imagem.');
     }
 
-    ctx.drawImage(image, cropX, cropY, cropSide, cropSide, 0, 0, canvas.width, canvas.height);
+    ctx.drawImage(image, cropX, cropY, cropWidth, cropHeight, 0, 0, canvas.width, canvas.height);
 
     const mimeType = String(file.type || '').toLowerCase() === 'image/png' ? 'image/png' : 'image/jpeg';
 
     const blob = await new Promise((resolve, reject) => {
       canvas.toBlob((result) => {
         if (result) resolve(result);
-        else reject(new Error('Não foi possível gerar a imagem final.'));
+        else reject(new Error('Nao foi possivel gerar a imagem final.'));
       }, mimeType, 0.92);
     });
 
@@ -108,16 +127,20 @@ async function createCenteredSquareBlob(file, zoom = DEFAULT_ZOOM) {
     URL.revokeObjectURL(metadata.objectUrl);
   }
 }
-
 export default function AdminImagePickerDialog({
   open,
   onOpenChange,
-  title = 'Adicionar foto',
-  description = 'Use uma imagem nítida para valorizar a vitrine.',
-  folder = 'dishes',
+  title,
+  description,
+  imageType = 'product',
+  folder,
   existingImages = [],
   onSelectImage,
 }) {
+  const preset = useMemo(() => getMediaUploadPreset(imageType), [imageType]);
+  const dialogTitle = title || preset.title || 'Adicionar imagem';
+  const dialogDescription = description || preset.description || 'Use uma imagem nitida para valorizar a vitrine.';
+  const uploadFolder = folder || preset.folder || 'dishes';
   const fileInputRef = useRef(null);
   const [activeTab, setActiveTab] = useState('upload');
   const [isDragging, setIsDragging] = useState(false);
@@ -166,7 +189,7 @@ export default function AdminImagePickerDialog({
 
   const handleResolvedFile = async (file) => {
     try {
-      const metadata = await validateImageFile(file);
+      const metadata = await validateImageFile(file, preset);
       if (previewUrl) {
         URL.revokeObjectURL(previewUrl);
       }
@@ -205,8 +228,8 @@ export default function AdminImagePickerDialog({
 
     setIsSaving(true);
     try {
-      const preparedFile = await createCenteredSquareBlob(selectedFile, zoom[0]);
-      const url = await uploadToCloudinary(preparedFile, folder);
+      const preparedFile = await createCenteredCroppedBlob(selectedFile, preset, zoom[0]);
+      const url = await uploadToCloudinary(preparedFile, uploadFolder);
       await onSelectImage?.(url);
       toast.success('Foto adicionada com sucesso.');
       onOpenChange(false);
@@ -251,9 +274,9 @@ export default function AdminImagePickerDialog({
       >
         <div className="border-b border-border px-6 py-5">
           <DialogHeader className="space-y-2 text-left">
-            <DialogTitle className="text-3xl font-semibold tracking-tight">{title}</DialogTitle>
+            <DialogTitle className="text-3xl font-semibold tracking-tight">{dialogTitle}</DialogTitle>
             <DialogDescription className="text-sm text-muted-foreground">
-              {description}
+              {dialogDescription}
             </DialogDescription>
           </DialogHeader>
         </div>
@@ -319,7 +342,7 @@ export default function AdminImagePickerDialog({
                           <p>Formatos: JPG, JPEG, PNG e HEIC</p>
                           <p>Peso máximo: 10 MB</p>
                           <p>Resolução mínima: 300x300</p>
-                          <p>Recomendamos usar uma foto quadrada</p>
+                          <p>Recomendado: {preset.recommendedSize} ({preset.ratioLabel})</p>
                         </div>
                       </div>
                       <Button type="button" onClick={openFilePicker} className="h-11 rounded-xl px-6">
@@ -331,16 +354,16 @@ export default function AdminImagePickerDialog({
 
                   <div className="grid gap-3 rounded-2xl border border-border bg-muted/20 p-4 text-sm text-muted-foreground sm:grid-cols-3">
                     <div>
-                      <p className="font-medium text-foreground">Corte central automático</p>
-                      <p>Vamos preparar a imagem em formato quadrado para o cardápio.</p>
+                      <p className="font-medium text-foreground">Corte guiado</p>
+                      <p>O recorte já abre no formato ideal para {preset.previewLabel.toLowerCase()}.</p>
                     </div>
                     <div>
                       <p className="font-medium text-foreground">Preview antes de salvar</p>
-                      <p>Você ajusta o zoom antes do upload para ganhar consistência.</p>
+                      <p>Você ajusta o zoom antes do upload e já visualiza a área principal.</p>
                     </div>
                     <div>
-                      <p className="font-medium text-foreground">Biblioteca reutilizável</p>
-                      <p>Fotos já usadas em pratos e complementos ficam disponíveis para reaproveitar.</p>
+                      <p className="font-medium text-foreground">Orientação clara</p>
+                      <p>Foque em {preset.focusLabel} e evite cortar textos ou elementos importantes.</p>
                     </div>
                   </div>
                 </div>
@@ -350,9 +373,9 @@ export default function AdminImagePickerDialog({
                     <div className="flex min-h-0 flex-col rounded-2xl border border-border bg-muted/20 p-4 sm:p-5">
                       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
                         <div>
-                          <p className="text-sm font-medium text-foreground">Previa do recorte</p>
+                          <p className="text-sm font-medium text-foreground">Preview do recorte</p>
                           <p className="mt-1 text-sm text-muted-foreground">
-                            Ajuste o enquadramento sem perder area util. A imagem final sera quadrada.
+                            Ajuste o enquadramento sem perder área útil. A imagem final segue o formato {preset.ratioLabel}.
                           </p>
                         </div>
                         {imageMeta ? (
@@ -363,10 +386,13 @@ export default function AdminImagePickerDialog({
                       </div>
 
                       <div className="flex min-h-[320px] flex-1 items-center justify-center overflow-hidden rounded-2xl border border-border bg-background shadow-inner sm:min-h-[420px]">
-                        <div className="mx-auto aspect-square h-full w-full max-w-[min(100%,560px)] overflow-hidden">
+                        <div
+                          className="mx-auto h-full w-full max-w-[min(100%,560px)] overflow-hidden"
+                          style={{ aspectRatio: String(preset.aspectRatio) }}
+                        >
                           <img
                             src={previewUrl}
-                            alt="Previa da imagem"
+                            alt="Preview da imagem"
                             className="h-full w-full object-cover transition-transform duration-200"
                             style={{ transform: `scale(${zoom[0]})` }}
                           />
@@ -379,7 +405,19 @@ export default function AdminImagePickerDialog({
                         <div>
                           <p className="text-sm font-medium text-foreground">Ajuste fino</p>
                           <p className="mt-1 text-sm text-muted-foreground">
-                            Use o zoom para aproximar o produto. O recorte sera central e quadrado.
+                            Use o zoom para aproximar a imagem. A área principal deve manter {preset.focusLabel}.
+                          </p>
+                        </div>
+
+                        <div className="grid gap-3 rounded-2xl border border-border bg-muted/20 p-4 text-sm text-muted-foreground">
+                          <p>
+                            <span className="font-medium text-foreground">Recomendado:</span> {preset.recommendedSize} ({preset.ratioLabel})
+                          </p>
+                          <p>
+                            <span className="font-medium text-foreground">Preview:</span> {preset.previewLabel}
+                          </p>
+                          <p>
+                            <span className="font-medium text-foreground">Área visível:</span> {preset.focusLabel}
                           </p>
                         </div>
 
@@ -404,7 +442,7 @@ export default function AdminImagePickerDialog({
                           <div className="rounded-2xl border border-border bg-muted/20 p-4 text-sm text-muted-foreground">
                             <p><span className="font-medium text-foreground">Arquivo:</span> {selectedFile?.name}</p>
                             <p><span className="font-medium text-foreground">Resolucao original:</span> {imageMeta.width}x{imageMeta.height}</p>
-                            <p><span className="font-medium text-foreground">Saida:</span> 1200x1200</p>
+                            <p><span className="font-medium text-foreground">Saída:</span> {preset.outputWidth}x{preset.outputHeight}</p>
                           </div>
                         )}
                       </div>
@@ -432,7 +470,7 @@ export default function AdminImagePickerDialog({
                   </div>
                   <h3 className="mt-4 text-xl font-semibold text-foreground">Sua biblioteca ainda está vazia</h3>
                   <p className="mt-2 text-sm text-muted-foreground">
-                    As fotos já usadas em pratos e complementos vão aparecer aqui para você reaproveitar.
+                    As imagens já usadas em produtos, categorias e campanhas vão aparecer aqui para você reaproveitar.
                   </p>
                 </div>
               ) : (
@@ -534,3 +572,4 @@ export default function AdminImagePickerDialog({
     </Dialog>
   );
 }
+
