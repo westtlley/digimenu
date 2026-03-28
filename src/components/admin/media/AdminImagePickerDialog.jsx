@@ -614,7 +614,7 @@ export default function AdminImagePickerDialog({
         className={cn(
           'p-0',
           showPreviewEditor
-            ? 'flex w-[min(92vw,52rem)] max-h-[calc(100dvh-2rem)] max-w-[52rem] flex-col overflow-hidden rounded-[1.35rem] border border-black/10 bg-white text-slate-900 shadow-[0_28px_80px_rgba(0,0,0,0.24)] [&>button]:right-6 [&>button]:top-6 [&>button]:text-[#ea0033] [&>button]:opacity-100'
+            ? 'flex w-[min(92vw,52rem)] max-h-[calc(100dvh-2rem)] max-w-[52rem] flex-col overflow-hidden rounded-[1.35rem] border border-black/10 bg-white text-slate-900 shadow-[0_28px_80px_rgba(0,0,0,0.24)] [&>button]:right-6 [&>button]:top-6 [&>button]:text-orange-500 [&>button]:opacity-100'
             : 'max-w-5xl',
           !showPreviewEditor && needsConstrainedLayout
             ? 'flex w-[min(96vw,84rem)] max-h-[96dvh] flex-col overflow-hidden'
@@ -821,14 +821,14 @@ export default function AdminImagePickerDialog({
                           <Button
                             type="button"
                             variant="outline"
-                            className="h-12 min-w-[128px] rounded-xl border border-[#ea0033]/30 bg-white px-6 text-base font-semibold text-[#ea0033] hover:bg-[#fff5f7] hover:text-[#ea0033]"
+                            className="h-12 min-w-[128px] rounded-xl border border-orange-200 bg-white px-6 text-base font-semibold text-orange-600 hover:bg-orange-50 hover:text-orange-700"
                             onClick={() => setSelectedFile(null)}
                           >
                             Cancelar
                           </Button>
                           <Button
                             type="button"
-                            className="h-12 min-w-[128px] rounded-xl border border-[#ea0033] bg-[#ea0033] px-6 text-base font-semibold text-white hover:bg-[#d4002f]"
+                            className="h-12 min-w-[128px] rounded-xl border border-orange-500 bg-orange-500 px-6 text-base font-semibold text-white hover:bg-orange-600"
                             onClick={handleSaveUpload}
                             disabled={isSaving}
                           >
