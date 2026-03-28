@@ -31,10 +31,11 @@ import {
   createCaixaShiftMovement,
   openCaixaShift,
 } from '@/services/caixaShiftService';
-import { uiText } from '@/i18n/pt-BR/uiText';
+import { useLanguage } from '@/i18n/LanguageContext';
 
 export default function CaixaTab() {
-  const caixaText = uiText.caixa;
+  const { t } = useLanguage();
+  const caixaText = t('caixa');
   const [showOpenModal, setShowOpenModal] = useState(false);
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [showWithdrawalModal, setShowWithdrawalModal] = useState(false);

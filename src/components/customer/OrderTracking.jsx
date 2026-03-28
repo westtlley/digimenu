@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient as base44 } from '@/api/apiClient';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,13 +24,11 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { uiText } from '@/i18n/pt-BR/uiText';
+import { useLanguage } from '@/i18n/LanguageContext';
 
-const orderTrackingText = uiText.orderTracking;
-
-const STATUS_CONFIG = {
+const buildStatusConfig = (orderTrackingText) => ({
   pending: {
-    label: 'Pendente',
+    label: orderTrackingText.statusLabels.pending,
     icon: Clock,
     color: 'bg-yellow-500',
     textColor: 'text-yellow-600 dark:text-yellow-400',
@@ -39,7 +37,7 @@ const STATUS_CONFIG = {
     description: orderTrackingText.statusDescriptions.pending
   },
   confirmed: {
-    label: 'Confirmado',
+    label: orderTrackingText.statusLabels.confirmed,
     icon: CheckCircle2,
     color: 'bg-blue-500',
     textColor: 'text-blue-600 dark:text-blue-400',
@@ -48,7 +46,7 @@ const STATUS_CONFIG = {
     description: orderTrackingText.statusDescriptions.confirmed
   },
   preparing: {
-    label: 'Em preparo',
+    label: orderTrackingText.statusLabels.preparing,
     icon: ChefHat,
     color: 'bg-purple-500',
     textColor: 'text-purple-600 dark:text-purple-400',
@@ -57,7 +55,7 @@ const STATUS_CONFIG = {
     description: orderTrackingText.statusDescriptions.preparing
   },
   ready: {
-    label: 'Pronto',
+    label: orderTrackingText.statusLabels.ready,
     icon: Package,
     color: 'bg-green-500',
     textColor: 'text-green-600 dark:text-green-400',
@@ -66,7 +64,7 @@ const STATUS_CONFIG = {
     description: orderTrackingText.statusDescriptions.ready
   },
   completed: {
-    label: 'Concluído',
+    label: orderTrackingText.statusLabels.completed,
     icon: CheckCircle2,
     color: 'bg-emerald-500',
     textColor: 'text-emerald-600 dark:text-emerald-400',
@@ -75,7 +73,7 @@ const STATUS_CONFIG = {
     description: orderTrackingText.statusDescriptions.completed
   },
   cancelled: {
-    label: 'Cancelado',
+    label: orderTrackingText.statusLabels.cancelled,
     icon: XCircle,
     color: 'bg-red-500',
     textColor: 'text-red-600 dark:text-red-400',
@@ -83,7 +81,7 @@ const STATUS_CONFIG = {
     borderColor: 'border-red-200 dark:border-red-800',
     description: orderTrackingText.statusDescriptions.cancelled
   }
-};
+});
 
 const formatCurrency = (value) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
@@ -101,6 +99,9 @@ const formatDate = (date) => {
 };
 
 export default function OrderTracking({ userEmail, showInput = true }) {
+  const { t } = useLanguage();
+  const orderTrackingText = t('orderTracking');
+  const statusConfig = useMemo(() => buildStatusConfig(orderTrackingText), [orderTrackingText]);
   const [searchPhone, setSearchPhone] = useState('');
   const [searchEmail, setSearchEmail] = useState(userEmail || '');
   const [activeSearch, setActiveSearch] = useState(!!userEmail);
@@ -173,7 +174,7 @@ export default function OrderTracking({ userEmail, showInput = true }) {
   };
 
   const StatusIcon = ({ status }) => {
-    const config = STATUS_CONFIG[status] || STATUS_CONFIG.pending;
+    const config = statusConfig[status] || statusConfig.pending;
     const Icon = config.icon;
     return (
       <div className={`w-12 h-12 rounded-full ${config.color} flex items-center justify-center`}>
@@ -190,9 +191,9 @@ export default function OrderTracking({ userEmail, showInput = true }) {
     if (isCancelled) {
       return (
         <div className="flex items-center justify-center py-4">
-          <div className={`flex items-center gap-2 px-4 py-2 rounded-full ${STATUS_CONFIG.cancelled.bgColor} ${STATUS_CONFIG.cancelled.borderColor} border-2`}>
+          <div className={`flex items-center gap-2 px-4 py-2 rounded-full ${statusConfig.cancelled.bgColor} ${statusConfig.cancelled.borderColor} border-2`}>
             <XCircle className="w-5 h-5 text-red-500" />
-            <span className="font-semibold text-red-600 dark:text-red-400">Pedido cancelado</span>
+            <span className="font-semibold text-red-600 dark:text-red-400">{orderTrackingText.statusDescriptions.cancelled}</span>
           </div>
         </div>
       );
@@ -201,7 +202,7 @@ export default function OrderTracking({ userEmail, showInput = true }) {
     return (
       <div className="flex items-center justify-between px-4 py-6">
         {statusOrder.map((s, index) => {
-          const config = STATUS_CONFIG[s];
+          const config = statusConfig[s];
           const Icon = config.icon;
           const isActive = index <= currentIndex;
           const isCurrent = index === currentIndex;
@@ -327,7 +328,7 @@ export default function OrderTracking({ userEmail, showInput = true }) {
 
       <AnimatePresence>
         {orders.map((order, index) => {
-          const config = STATUS_CONFIG[order.status] || STATUS_CONFIG.pending;
+          const config = statusConfig[order.status] || statusConfig.pending;
           const isComanda = order.type === 'comanda';
 
           return (

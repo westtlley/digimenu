@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { motion, AnimatePresence } from 'framer-motion';
 import { Badge } from '@/components/ui/badge';
 import { getCartItemLineTotal } from '@/utils/cartPricing';
-import { uiText } from '@/i18n/pt-BR/uiText';
+import { useLanguage } from '@/i18n/LanguageContext';
 
 export default function OrderConfirmationModal({
   isOpen,
@@ -24,7 +24,8 @@ export default function OrderConfirmationModal({
   primaryColor = '#f97316',
   isSubmitting = false,
 }) {
-  const orderConfirmationText = uiText.menu.orderConfirmation;
+  const { t } = useLanguage();
+  const orderConfirmationText = t('menu.orderConfirmation');
   const formatCurrency = (value) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
   };
@@ -167,7 +168,7 @@ export default function OrderConfirmationModal({
 
   const formatAddress = () => {
     if (customer.deliveryMethod === 'pickup') {
-      return 'Retirada na loja';
+      return orderConfirmationText.pickupLabel;
     }
     const parts = [
       customer.address_street,
@@ -195,14 +196,14 @@ export default function OrderConfirmationModal({
           <DialogHeader className="px-6 pt-6 pb-3 border-b">
             <DialogTitle className="flex items-center gap-2 text-xl">
               <Package className="w-5 h-5" style={{ color: primaryColor }} />
-              Confirmar Pedido
+              {orderConfirmationText.title}
             </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 px-6 py-4 overflow-y-auto">
             {/* Resumo dos Itens */}
             <div>
-              <h3 className="font-semibold text-sm text-gray-700 mb-2">Itens do Pedido</h3>
+              <h3 className="font-semibold text-sm text-gray-700 mb-2">{orderConfirmationText.itemsTitle}</h3>
               <div className="space-y-2">
                 {cart.map((item, index) => {
                   const comboNode = (item?.dish?.product_type === 'combo' || Array.isArray(item?.selections?.combo_groups))
@@ -237,7 +238,7 @@ export default function OrderConfirmationModal({
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <MapPin className="w-4 h-4 text-gray-400" />
-                  <span className="text-xs font-medium text-gray-600">Entrega</span>
+                  <span className="text-xs font-medium text-gray-600">{orderConfirmationText.deliveryTitle}</span>
                 </div>
                 <p className="text-sm text-gray-900">{formatAddress()}</p>
                 {customer.deliveryMethod === 'delivery' && customer.phone && (
@@ -248,12 +249,12 @@ export default function OrderConfirmationModal({
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <DollarSign className="w-4 h-4 text-gray-400" />
-                  <span className="text-xs font-medium text-gray-600">Pagamento</span>
+                  <span className="text-xs font-medium text-gray-600">{orderConfirmationText.paymentTitle}</span>
                 </div>
                 <p className="text-sm text-gray-900">{formatPaymentMethod()}</p>
                 {customer.paymentMethod === 'dinheiro' && customer.needs_change && customer.change_amount && (
                   <p className="text-xs text-gray-500 mt-1">
-                    Troco para: {formatCurrency(customer.change_amount)}
+                    {orderConfirmationText.changeForLabel} {formatCurrency(customer.change_amount)}
                   </p>
                 )}
               </div>
@@ -262,7 +263,7 @@ export default function OrderConfirmationModal({
                 <div>
                   <div className="flex items-center gap-2 mb-1">
                     <Calendar className="w-4 h-4 text-gray-400" />
-                    <span className="text-xs font-medium text-gray-600">Agendamento</span>
+                    <span className="text-xs font-medium text-gray-600">{orderConfirmationText.scheduleTitle}</span>
                   </div>
                   <p className="text-sm text-gray-900">
                     {new Date(scheduledDate).toLocaleDateString('pt-BR')} às {scheduledTime}
@@ -273,7 +274,7 @@ export default function OrderConfirmationModal({
               {appliedCoupon && (
                 <div>
                   <Badge className="bg-green-100 text-green-700 text-xs">
-                    Cupom: {appliedCoupon.code} (-{appliedCoupon.discount_type === 'percentage' ? `${appliedCoupon.discount_value}%` : formatCurrency(appliedCoupon.discount_value)})
+                    {orderConfirmationText.couponLabel}: {appliedCoupon.code} (-{appliedCoupon.discount_type === 'percentage' ? `${appliedCoupon.discount_value}%` : formatCurrency(appliedCoupon.discount_value)})
                   </Badge>
                 </div>
               )}
@@ -282,26 +283,26 @@ export default function OrderConfirmationModal({
             {/* Totais */}
             <div className="pt-3 border-t space-y-2">
               <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Subtotal</span>
+                <span className="text-gray-600">{orderConfirmationText.subtotalLabel}</span>
                 <span className="font-medium">{formatCurrency(cartTotal)}</span>
               </div>
 
               {discount > 0 && (
                 <div className="flex justify-between text-sm text-green-600">
-                  <span>Desconto</span>
+                  <span>{orderConfirmationText.discountLabel}</span>
                   <span className="font-medium">-{formatCurrency(discount)}</span>
                 </div>
               )}
 
               {deliveryFee > 0 && (
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Taxa de entrega</span>
+                  <span className="text-gray-600">{orderConfirmationText.deliveryFeeLabel}</span>
                   <span className="font-medium">{formatCurrency(deliveryFee)}</span>
                 </div>
               )}
 
               <div className="flex justify-between text-lg font-bold pt-2 border-t">
-                <span>Total</span>
+                <span>{orderConfirmationText.totalLabel}</span>
                 <span style={{ color: primaryColor }}>{formatCurrency(total)}</span>
               </div>
             </div>
@@ -310,7 +311,7 @@ export default function OrderConfirmationModal({
           <div className="flex gap-2 px-6 py-4 border-t bg-white">
             <Button variant="outline" onClick={onEdit} className="flex-1" disabled={isSubmitting}>
               <Edit className="w-4 h-4 mr-2" />
-              Editar
+              {orderConfirmationText.editButton}
             </Button>
             <Button
               onClick={onConfirm}
@@ -319,7 +320,7 @@ export default function OrderConfirmationModal({
               disabled={isSubmitting}
             >
               <Check className="w-4 h-4 mr-2" />
-              {isSubmitting ? 'Enviando pedido...' : 'Confirmar Pedido'}
+              {isSubmitting ? orderConfirmationText.submittingButton : orderConfirmationText.confirmButton}
             </Button>
           </div>
         </div>

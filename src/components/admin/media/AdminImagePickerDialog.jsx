@@ -10,12 +10,13 @@ import { uploadToCloudinary } from '@/utils/cloudinaryUpload';
 import toast from 'react-hot-toast';
 import { getMediaUploadPreset } from './mediaUploadPresets';
 import AdminMediaGallery from './AdminMediaGallery';
-import { uiText } from '@/i18n/pt-BR/uiText';
+import { useLanguage } from '@/i18n/LanguageContext';
 import {
   buildAdminMediaLibraryInsights,
   filterAdminMediaItems,
   getMediaFilterLabel,
   loadAdminMediaLibrary,
+  mergeAdminMediaItems,
   registerAdminMediaItems,
   syncAdminMediaItems,
 } from './adminMediaLibrary';
@@ -148,7 +149,8 @@ export default function AdminImagePickerDialog({
   existingImages = [],
   onSelectImage,
 }) {
-  const mediaText = uiText.media;
+  const { t } = useLanguage();
+  const mediaText = t('media');
   const preset = useMemo(() => getMediaUploadPreset(imageType), [imageType]);
   const dialogTitle = title || preset.title || 'Adicionar imagem';
   const dialogDescription = description || preset.description || 'Use uma imagem nítida para valorizar a vitrine.';
@@ -668,7 +670,7 @@ export default function AdminImagePickerDialog({
                       : 'pb-2 data-[state=active]:border-primary'
                   )}
                 >
-                  Novo arquivo
+                  {mediaText.newFile}
                 </TabsTrigger>
                 <TabsTrigger
                   value="library"
@@ -679,7 +681,7 @@ export default function AdminImagePickerDialog({
                       : 'pb-2 data-[state=active]:border-primary'
                   )}
                 >
-                  Biblioteca
+                  {mediaText.library}
                 </TabsTrigger>
               </TabsList>
 
@@ -693,7 +695,7 @@ export default function AdminImagePickerDialog({
               ) : activeTab === 'upload' && !showPreviewEditor ? (
                 <Badge variant="outline" className="inline-flex w-fit gap-1 self-start text-primary">
                   <Sparkles className="w-3.5 h-3.5" />
-                  Dicas de imagem
+                  {mediaText.imageTips}
                 </Badge>
               ) : null}
             </div>
@@ -826,7 +828,7 @@ export default function AdminImagePickerDialog({
                             className="h-12 min-w-[128px] rounded-xl border border-orange-200 bg-white px-6 text-base font-semibold text-orange-600 hover:bg-orange-50 hover:text-orange-700"
                             onClick={() => setSelectedFile(null)}
                           >
-                            Cancelar
+                            {mediaText.cancel}
                           </Button>
                           <Button
                             type="button"
@@ -835,7 +837,7 @@ export default function AdminImagePickerDialog({
                             disabled={isSaving}
                           >
                             {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                            Salvar
+                            {mediaText.save}
                           </Button>
                         </div>
                       </div>
@@ -871,7 +873,7 @@ export default function AdminImagePickerDialog({
                         selectedUrl={selectedLibraryUrl}
                         onSelect={setSelectedLibraryUrl}
                         variant="picker"
-                        emptyTitle="Nenhuma imagem encontrada"
+                        emptyTitle={mediaText.noResultsTitle}
                         emptyDescription={mediaText.noSavedItemsForType(getMediaFilterLabel(imageType))}
                       />
 
@@ -885,7 +887,7 @@ export default function AdminImagePickerDialog({
                             disabled={isLibraryLoadingMore}
                           >
                             {isLibraryLoadingMore ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                            Carregar mais
+                            {mediaText.loadMore}
                           </Button>
                         </div>
                       ) : null}
@@ -898,14 +900,14 @@ export default function AdminImagePickerDialog({
                     </p>
                     <div className="flex flex-wrap gap-3 sm:shrink-0 sm:justify-end">
                       <Button type="button" variant="outline" className="h-11 min-w-[132px] sm:h-10" onClick={() => onOpenChange(false)}>
-                        Cancelar
+                        {mediaText.cancel}
                       </Button>
                       <Button type="button" variant="outline" className="h-11 min-w-[132px] sm:h-10" onClick={() => setSelectedLibraryUrl(null)} disabled={!selectedLibraryUrl || isSaving}>
-                        Limpar seleção
+                        {mediaText.clearSelection}
                       </Button>
                       <Button type="button" className="h-11 min-w-[132px] sm:h-10" onClick={handleSelectLibraryImage} disabled={!selectedLibraryUrl || isSaving}>
                         {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                        Usar imagem
+                        {mediaText.useImage}
                       </Button>
                     </div>
                   </div>

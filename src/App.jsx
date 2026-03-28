@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster"
 import { Toaster as HotToaster } from "react-hot-toast"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import ErrorBoundary from '@/components/ErrorBoundary'
+import { LanguageProvider } from '@/i18n/LanguageContext'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -26,23 +27,25 @@ function App() {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <Pages />
-        <Toaster />
-        <HotToaster
-          position="top-center"
-          gutter={8}
-          containerStyle={{ top: 12, zIndex: 2147483646 }}
-          toastOptions={{
-            duration: 4500,
-            style: {
-              maxWidth: 'min(92vw, 420px)',
-              fontSize: '14px',
-              lineHeight: '1.35',
-            },
-            success: { duration: 3500 },
-            error: { duration: 5000 },
-          }}
-        />
+        <LanguageProvider>
+          <Pages />
+          <Toaster />
+          <HotToaster
+            position="top-center"
+            gutter={8}
+            containerStyle={{ top: 12, zIndex: 2147483646 }}
+            toastOptions={{
+              duration: 4500,
+              style: {
+                maxWidth: 'min(92vw, 420px)',
+                fontSize: '14px',
+                lineHeight: '1.35',
+              },
+              success: { duration: 3500 },
+              error: { duration: 5000 },
+            }}
+          />
+        </LanguageProvider>
       </QueryClientProvider>
     </ErrorBoundary>
   )

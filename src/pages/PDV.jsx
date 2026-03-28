@@ -45,7 +45,7 @@ import {
   createCaixaShiftMovement,
   openCaixaShift,
 } from '@/services/caixaShiftService';
-import { uiText } from '@/i18n/pt-BR/uiText';
+import { useLanguage } from '@/i18n/LanguageContext';
 
 const PDV_FAVORITE_SLOTS = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
 
@@ -62,7 +62,8 @@ function normalizePdvFavorites(rawValue) {
 }
 
 export default function PDV() {
-  const pdvText = uiText.pdv;
+  const { t } = useLanguage();
+  const pdvText = t('pdv');
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [allowed, setAllowed] = useState(false);

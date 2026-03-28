@@ -5,10 +5,11 @@ import { Button } from '@/components/ui/button';
 import OrderTracking from '@/components/customer/OrderTracking';
 import ThemeToggle from '@/components/ui/ThemeToggle';
 import { SYSTEM_NAME } from '@/config/branding';
-import { uiText } from '@/i18n/pt-BR/uiText';
+import { useLanguage } from '@/i18n/LanguageContext';
 
 export default function TrackOrder() {
-  const trackOrderText = uiText.trackOrder;
+  const { t } = useLanguage();
+  const trackOrderText = t('trackOrder');
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
@@ -18,7 +19,7 @@ export default function TrackOrder() {
           <div className="flex items-center justify-between">
             <Link to="/" className="flex items-center gap-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors">
               <ArrowLeft className="w-5 h-5" />
-              <span className="font-medium">Voltar</span>
+              <span className="font-medium">{trackOrderText.back}</span>
             </Link>
             <div className="flex items-center gap-2">
               <Package className="w-6 h-6 text-orange-500" />

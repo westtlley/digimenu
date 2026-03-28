@@ -10,7 +10,7 @@ import { apiClient as base44 } from '@/api/apiClient';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 import { calculateCartSubtotal, getCartItemLineTotal, getCartItemQuantity, getCartItemUnitPrice } from '@/utils/cartPricing';
-import { uiText } from '@/i18n/pt-BR/uiText';
+import { useLanguage } from '@/i18n/LanguageContext';
 
 const statusConfig = {
   new: { label: 'Novo', color: 'bg-blue-500', icon: Clock },
@@ -94,7 +94,8 @@ export default function CartModal({
   nextBestAction = null,
   onSelectNextBestAction = null,
 }) {
-  const cartText = uiText.menu.cart;
+  const { t } = useLanguage();
+  const cartText = t('menu.cart');
   const [activeTab, setActiveTab] = useState('cart'); // 'cart' ou 'orders'
   const [showRatingModal, setShowRatingModal] = useState(null);
   const [restaurantRating, setRestaurantRating] = useState(0);

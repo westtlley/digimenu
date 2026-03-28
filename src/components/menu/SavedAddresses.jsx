@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { apiClient as base44 } from '@/api/apiClient';
-import { uiText } from '@/i18n/pt-BR/uiText';
+import { useLanguage } from '@/i18n/LanguageContext';
 
 const STORAGE_KEY = 'saved_addresses';
 const LEGACY_KEYS = ['saved_addresses', 'savedAddresses', 'cardapio_saved_addresses'];
@@ -113,7 +113,8 @@ export default function SavedAddresses({
   userEmail = null,
   deliveryMode = 'zone'
 }) {
-  const savedAddressesText = uiText.menu.savedAddresses;
+  const { t } = useLanguage();
+  const savedAddressesText = t('menu.savedAddresses');
   const [savedAddresses, setSavedAddresses] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingAddress, setEditingAddress] = useState(null);

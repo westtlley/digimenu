@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, ShoppingCart, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import toast from 'react-hot-toast';
-import { uiText } from '@/i18n/pt-BR/uiText';
+import { useLanguage } from '@/i18n/LanguageContext';
 
 const RUNTIME_COOLDOWN_MS = 6 * 60 * 1000;
 
@@ -162,7 +162,8 @@ export default function SmartUpsell({
   store = null,
   slug = '',
 }) {
-  const smartUpsellText = uiText.menu.smartUpsell;
+  const { t } = useLanguage();
+  const smartUpsellText = t('menu.smartUpsell');
   const [suggestion, setSuggestion] = useState(null);
   const [dismissedSuggestions, setDismissedSuggestions] = useState(new Set());
   const [addingOptionId, setAddingOptionId] = useState(null);
