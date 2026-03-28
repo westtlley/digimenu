@@ -334,6 +334,7 @@ export default function AdminImagePickerDialog({
   const showHighlightedSections = libraryScopeFilter === 'all' && !librarySearch;
   const leadingModule = libraryInsights.byModule[0] || null;
   const leadingType = libraryInsights.byType[0] || null;
+  const isPortraitPreset = Number(preset?.aspectRatio || 1) < 1;
   const libraryHasItems =
     filteredLibraryItems.length > 0 ||
     (Array.isArray(librarySnapshot?.mostUsed) && librarySnapshot.mostUsed.length > 0) ||
@@ -589,38 +590,38 @@ export default function AdminImagePickerDialog({
             : 'max-h-[92dvh]'
         )}
       >
-        <div className="border-b border-border px-6 py-5">
+        <div className="border-b border-border px-4 py-4 sm:px-6 sm:py-5">
           <DialogHeader className="space-y-2 text-left">
-            <DialogTitle className="text-3xl font-semibold tracking-tight">{dialogTitle}</DialogTitle>
-            <DialogDescription className="text-sm text-muted-foreground">
+            <DialogTitle className="text-2xl font-semibold tracking-tight sm:text-3xl">{dialogTitle}</DialogTitle>
+            <DialogDescription className="max-w-3xl text-sm leading-6 text-muted-foreground">
               {dialogDescription}
             </DialogDescription>
           </DialogHeader>
         </div>
 
-        <div className={cn('px-6 pb-6', needsConstrainedLayout ? 'flex min-h-0 flex-1 flex-col' : 'flex flex-col')}>
+        <div className={cn('px-4 pb-4 sm:px-6 sm:pb-6', needsConstrainedLayout ? 'flex min-h-0 flex-1 flex-col' : 'flex flex-col')}>
           <Tabs
             value={activeTab}
             onValueChange={setActiveTab}
             className={cn('flex flex-col', needsConstrainedLayout ? 'min-h-0 flex-1' : '')}
           >
-            <div className="flex items-center justify-between pt-4">
-              <TabsList className="bg-transparent p-0 h-auto gap-4">
+            <div className="flex flex-col gap-3 pt-4 sm:flex-row sm:items-center sm:justify-between">
+              <TabsList className="h-auto gap-4 overflow-x-auto bg-transparent p-0">
                 <TabsTrigger
                   value="upload"
-                  className="rounded-none border-b-2 border-transparent px-0 pb-2 pt-0 text-base data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+                  className="shrink-0 rounded-none border-b-2 border-transparent px-0 pb-2 pt-0 text-base data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
                 >
                   Novo arquivo
                 </TabsTrigger>
                 <TabsTrigger
                   value="library"
-                  className="rounded-none border-b-2 border-transparent px-0 pb-2 pt-0 text-base data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+                  className="shrink-0 rounded-none border-b-2 border-transparent px-0 pb-2 pt-0 text-base data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
                 >
                   Biblioteca
                 </TabsTrigger>
               </TabsList>
 
-              <Badge variant="outline" className="hidden sm:inline-flex gap-1 text-primary">
+              <Badge variant="outline" className="inline-flex w-fit gap-1 self-start text-primary">
                 <Sparkles className="w-3.5 h-3.5" />
                 Dicas de imagem
               </Badge>
@@ -643,7 +644,7 @@ export default function AdminImagePickerDialog({
                     onDragLeave={() => setIsDragging(false)}
                     onDrop={handleDrop}
                     className={cn(
-                      'rounded-2xl border border-dashed px-6 py-16 text-center transition-colors',
+                      'rounded-2xl border border-dashed px-4 py-12 text-center transition-colors sm:px-6 sm:py-16',
                       isDragging ? 'border-primary bg-primary/5' : 'border-border bg-muted/20'
                     )}
                   >
@@ -652,7 +653,7 @@ export default function AdminImagePickerDialog({
                         <ImagePlus className="h-7 w-7" />
                       </div>
                       <div className="space-y-2">
-                        <h3 className="text-2xl font-semibold text-foreground">
+                        <h3 className="text-xl font-semibold text-foreground sm:text-2xl">
                           Adicione ou arraste uma foto pra cá
                         </h3>
                         <div className="space-y-1 text-sm text-muted-foreground">
@@ -702,94 +703,87 @@ export default function AdminImagePickerDialog({
                 </div>
               ) : (
                 <div className="flex min-h-0 flex-1 flex-col">
-                  <div className="grid min-h-0 flex-1 gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(340px,0.85fr)] lg:items-stretch">
-                    <div className="flex min-h-0 flex-col rounded-2xl border border-border bg-muted/20 p-4 sm:p-5">
-                      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-                        <div>
-                          <p className="text-sm font-medium text-foreground">Preview do recorte</p>
-                          <p className="mt-1 text-sm text-muted-foreground">
-                            Ajuste o enquadramento sem perder área útil. A imagem final segue o formato {preset.ratioLabel}.
+                  <div className="min-h-0 flex-1 overflow-y-auto">
+                    <div className="mx-auto flex h-full w-full max-w-4xl flex-col gap-4">
+                      <div className="flex flex-wrap items-start justify-between gap-3 rounded-2xl border border-border bg-muted/20 px-4 py-3">
+                        <div className="space-y-1">
+                          <p className="text-sm font-medium text-foreground">Enquadre a imagem</p>
+                          <p className="text-sm text-muted-foreground">
+                            O recorte final segue o formato {preset.ratioLabel} e prioriza {preset.focusLabel}.
                           </p>
                         </div>
+                        <div className="flex flex-wrap gap-2">
+                          {imageMeta ? <Badge variant="outline">{imageMeta.width}x{imageMeta.height}</Badge> : null}
+                          <Badge variant="outline">{preset.recommendedSize}</Badge>
+                        </div>
+                      </div>
+
+                      <div className="flex min-h-[360px] flex-1 items-center justify-center rounded-[1.75rem] border border-border bg-muted/20 p-3 sm:min-h-[520px] sm:p-6">
+                        <div className="flex h-full w-full items-center justify-center overflow-auto rounded-[1.5rem] border border-border bg-background p-3 shadow-inner sm:p-4">
+                          <div
+                            className={cn(
+                              'mx-auto overflow-hidden rounded-[1.25rem] border border-border bg-muted shadow-sm',
+                              isPortraitPreset ? 'h-full w-auto max-w-full' : 'w-full'
+                            )}
+                            style={
+                              isPortraitPreset
+                                ? {
+                                    aspectRatio: String(preset.aspectRatio),
+                                    maxHeight: '100%',
+                                    maxWidth: '100%',
+                                  }
+                                : {
+                                    aspectRatio: String(preset.aspectRatio),
+                                    maxWidth: 'min(100%, 48rem)',
+                                    maxHeight: '100%',
+                                  }
+                            }
+                          >
+                            <img
+                              src={previewUrl}
+                              alt="Preview da imagem"
+                              className="h-full w-full object-cover transition-transform duration-200"
+                              style={{ transform: `scale(${zoom[0]})` }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="rounded-2xl border border-border bg-background p-4">
+                        <div className="mb-3 flex items-center justify-between text-sm">
+                          <span className="flex items-center gap-2 font-medium text-foreground">
+                            <ZoomIn className="h-4 w-4" />
+                            Zoom
+                          </span>
+                          <span className="text-muted-foreground">{zoom[0].toFixed(1)}x</span>
+                        </div>
+                        <Slider
+                          min={1}
+                          max={2.6}
+                          step={0.1}
+                          value={zoom}
+                          onValueChange={setZoom}
+                        />
+
                         {imageMeta ? (
-                          <Badge variant="outline" className="shrink-0">
-                            {imageMeta.width}x{imageMeta.height}
-                          </Badge>
+                          <div className="mt-4 grid gap-2 text-sm text-muted-foreground sm:grid-cols-3">
+                            <p><span className="font-medium text-foreground">Arquivo:</span> {selectedFile?.name}</p>
+                            <p><span className="font-medium text-foreground">Original:</span> {imageMeta.width}x{imageMeta.height}</p>
+                            <p><span className="font-medium text-foreground">Saida:</span> {preset.outputWidth}x{preset.outputHeight}</p>
+                          </div>
                         ) : null}
                       </div>
-
-                      <div className="flex min-h-[320px] flex-1 items-center justify-center overflow-hidden rounded-2xl border border-border bg-background shadow-inner sm:min-h-[420px]">
-                        <div
-                          className="mx-auto h-full w-full max-w-[min(100%,560px)] overflow-hidden"
-                          style={{ aspectRatio: String(preset.aspectRatio) }}
-                        >
-                          <img
-                            src={previewUrl}
-                            alt="Preview da imagem"
-                            className="h-full w-full object-cover transition-transform duration-200"
-                            style={{ transform: `scale(${zoom[0]})` }}
-                          />
-                        </div>
-                      </div>
                     </div>
+                  </div>
 
-                    <div className="flex min-h-0 flex-col rounded-2xl border border-border bg-background p-5">
-                      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto pr-1">
-                        <div>
-                          <p className="text-sm font-medium text-foreground">Ajuste fino</p>
-                          <p className="mt-1 text-sm text-muted-foreground">
-                            Use o zoom para aproximar a imagem. A área principal deve manter {preset.focusLabel}.
-                          </p>
-                        </div>
-
-                        <div className="grid gap-3 rounded-2xl border border-border bg-muted/20 p-4 text-sm text-muted-foreground">
-                          <p>
-                            <span className="font-medium text-foreground">Recomendado:</span> {preset.recommendedSize} ({preset.ratioLabel})
-                          </p>
-                          <p>
-                            <span className="font-medium text-foreground">Preview:</span> {preset.previewLabel}
-                          </p>
-                          <p>
-                            <span className="font-medium text-foreground">Área visível:</span> {preset.focusLabel}
-                          </p>
-                        </div>
-
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="flex items-center gap-2 font-medium text-foreground">
-                              <ZoomIn className="h-4 w-4" />
-                              Zoom
-                            </span>
-                            <span className="text-muted-foreground">{zoom[0].toFixed(1)}x</span>
-                          </div>
-                          <Slider
-                            min={1}
-                            max={2.6}
-                            step={0.1}
-                            value={zoom}
-                            onValueChange={setZoom}
-                          />
-                        </div>
-
-                        {imageMeta && (
-                          <div className="rounded-2xl border border-border bg-muted/20 p-4 text-sm text-muted-foreground">
-                            <p><span className="font-medium text-foreground">Arquivo:</span> {selectedFile?.name}</p>
-                            <p><span className="font-medium text-foreground">Resolucao original:</span> {imageMeta.width}x{imageMeta.height}</p>
-                            <p><span className="font-medium text-foreground">Saída:</span> {preset.outputWidth}x{preset.outputHeight}</p>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="mt-5 flex flex-col gap-3 border-t border-border/80 pt-4 sm:flex-row">
-                        <Button type="button" variant="outline" className="flex-1" onClick={() => setSelectedFile(null)}>
-                          Escolher outra
-                        </Button>
-                        <Button type="button" className="flex-1" onClick={handleSaveUpload} disabled={isSaving}>
-                          {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                          Salvar
-                        </Button>
-                      </div>
-                    </div>
+                  <div className="mt-4 flex flex-col gap-3 border-t border-border/80 pt-4 sm:flex-row sm:justify-end">
+                    <Button type="button" variant="outline" className="h-11 sm:min-w-[180px]" onClick={() => setSelectedFile(null)}>
+                      Escolher outra
+                    </Button>
+                    <Button type="button" className="h-11 sm:min-w-[180px]" onClick={handleSaveUpload} disabled={isSaving}>
+                      {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                      Salvar
+                    </Button>
                   </div>
                 </div>
               )}
@@ -814,161 +808,89 @@ export default function AdminImagePickerDialog({
                 </div>
               ) : (
                 <div className="flex min-h-0 flex-1 flex-col">
-                  <div className="space-y-4 pb-4">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <div>
-                        <h3 className="text-base font-semibold text-foreground">Central de ativos</h3>
-                        <p className="text-sm text-muted-foreground">
-                          Encontre rapido o que voce mais usa, o que acabou de usar e o que cada modulo reaproveita melhor.
-                        </p>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        <Badge variant="outline">{filteredLibraryItems.length} / {totalLibraryAssets} ativos</Badge>
+                  <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+                    <div className="space-y-4 pb-4">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant="outline">{totalLibraryAssets} ativos</Badge>
+                        <Badge variant="outline">{filteredLibraryItems.length} visiveis</Badge>
                         <Badge variant={librarySnapshot?.source === 'backend' ? 'default' : 'outline'}>
                           {librarySnapshot?.source === 'backend' ? 'Backend ativo' : 'Fallback local'}
                         </Badge>
+                        {leadingModule ? <Badge variant="secondary">{leadingModule.label}</Badge> : null}
+                        {leadingType ? <Badge variant="secondary">{leadingType.label}</Badge> : null}
                       </div>
-                    </div>
 
-                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                      <div className="rounded-2xl border border-border bg-muted/20 p-4">
-                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Ativos unicos</p>
-                        <p className="mt-2 text-2xl font-semibold text-foreground">{totalLibraryAssets}</p>
-                        <p className="mt-1 text-xs text-muted-foreground">URLs agrupadas automaticamente por uso.</p>
-                      </div>
-                      <div className="rounded-2xl border border-border bg-muted/20 p-4">
-                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Usos mapeados</p>
-                        <p className="mt-2 text-2xl font-semibold text-foreground">{libraryInsights.totalUsageCount}</p>
-                        <p className="mt-1 text-xs text-muted-foreground">Quanto mais uma imagem aparece, mais alto ela sobe.</p>
-                      </div>
-                      <div className="rounded-2xl border border-border bg-muted/20 p-4">
-                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Modulo lider</p>
-                        <p className="mt-2 text-lg font-semibold text-foreground">{leadingModule?.label || 'Sem destaque'}</p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {leadingModule ? `${leadingModule.count} ativos visiveis agora.` : 'Abra mais campos para enriquecer a biblioteca.'}
-                        </p>
-                      </div>
-                      <div className="rounded-2xl border border-border bg-muted/20 p-4">
-                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Tipo lider</p>
-                        <p className="mt-2 text-lg font-semibold text-foreground">{leadingType?.label || getMediaFilterLabel(imageType)}</p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {leadingType ? `${leadingType.count} itens no recorte atual.` : 'O filtro atual ainda nao tem ativos suficientes.'}
-                        </p>
-                      </div>
-                    </div>
+                      <div className="space-y-3 rounded-2xl border border-border bg-muted/20 p-4">
+                        <Input
+                          value={librarySearch}
+                          onChange={(event) => setLibrarySearch(event.target.value)}
+                          placeholder="Buscar por nome, contexto, modulo ou tipo"
+                          className="h-11 bg-background"
+                        />
 
-                    <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
-                      <Input
-                        value={librarySearch}
-                        onChange={(event) => setLibrarySearch(event.target.value)}
-                        placeholder="Buscar por nome, contexto, modulo ou tipo"
-                      />
-                      <div className="flex flex-wrap gap-2">
-                        {MEDIA_LIBRARY_SCOPE_FILTERS.map((filter) => (
-                          <Button
-                            key={filter.value}
-                            type="button"
-                            variant={libraryScopeFilter === filter.value ? 'default' : 'outline'}
-                            className="h-9 rounded-full px-4"
-                            onClick={() => setLibraryScopeFilter(filter.value)}
-                          >
-                            {filter.label}
-                          </Button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Filtrar por modulo</p>
-                      <div className="flex flex-wrap gap-2">
-                        {MEDIA_LIBRARY_MODULE_FILTERS.map((filter) => (
-                          <Button
-                            key={filter.value}
-                            type="button"
-                            variant={libraryModuleFilter === filter.value ? 'default' : 'outline'}
-                            className="h-8 rounded-full px-3"
-                            onClick={() => setLibraryModuleFilter(filter.value)}
-                          >
-                            {filter.label}
-                          </Button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Filtrar por tipo</p>
-                      <div className="flex flex-wrap gap-2">
-                        {MEDIA_LIBRARY_FILTERS.map((filter) => (
-                          <Button
-                            key={filter.value}
-                            type="button"
-                            variant={libraryTypeFilter === filter.value ? 'default' : 'outline'}
-                            className="h-8 rounded-full px-3"
-                            onClick={() => setLibraryTypeFilter(filter.value)}
-                          >
-                            {filter.label}
-                          </Button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-                    <div className="space-y-4">
-                      {showHighlightedSections && librarySnapshot.mostUsed.length > 0 ? (
-                        <div className="rounded-2xl border border-border bg-muted/10 p-4">
-                          <div className="mb-4 flex items-center justify-between gap-3">
-                            <div>
-                              <h4 className="text-sm font-semibold text-foreground">Mais usadas</h4>
-                              <p className="text-xs text-muted-foreground">Ativos com maior reaproveitamento no recorte atual.</p>
-                            </div>
-                            <Badge variant="outline">{librarySnapshot.mostUsed.length} destaques</Badge>
+                        <div className="space-y-2">
+                          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Modulo</p>
+                          <div className="flex flex-wrap gap-2">
+                            {MEDIA_LIBRARY_MODULE_FILTERS.map((filter) => (
+                              <Button
+                                key={filter.value}
+                                type="button"
+                                variant={libraryModuleFilter === filter.value ? 'default' : 'outline'}
+                                className="h-8 rounded-full px-3"
+                                onClick={() => setLibraryModuleFilter(filter.value)}
+                              >
+                                {filter.label}
+                              </Button>
+                            ))}
                           </div>
-                          <AdminMediaGallery
-                            items={librarySnapshot.mostUsed}
-                            selectedUrl={selectedLibraryUrl}
-                            onSelect={setSelectedLibraryUrl}
-                          />
                         </div>
-                      ) : null}
 
-                      {showHighlightedSections && librarySnapshot.recent.length > 0 ? (
-                        <div className="rounded-2xl border border-border bg-muted/10 p-4">
-                          <div className="mb-4 flex items-center justify-between gap-3">
-                            <div>
-                              <h4 className="text-sm font-semibold text-foreground">Usadas recentemente</h4>
-                              <p className="text-xs text-muted-foreground">O que voce acabou de selecionar ou reaproveitar.</p>
-                            </div>
-                            <Badge variant="outline">{librarySnapshot.recent.length} recentes</Badge>
+                        <div className="space-y-2">
+                          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Tipo</p>
+                          <div className="flex flex-wrap gap-2">
+                            {MEDIA_LIBRARY_FILTERS.map((filter) => (
+                              <Button
+                                key={filter.value}
+                                type="button"
+                                variant={libraryTypeFilter === filter.value ? 'default' : 'outline'}
+                                className="h-8 rounded-full px-3"
+                                onClick={() => setLibraryTypeFilter(filter.value)}
+                              >
+                                {filter.label}
+                              </Button>
+                            ))}
                           </div>
-                          <AdminMediaGallery
-                            items={librarySnapshot.recent}
-                            selectedUrl={selectedLibraryUrl}
-                            onSelect={setSelectedLibraryUrl}
-                          />
                         </div>
-                      ) : null}
 
-                      <div className="rounded-2xl border border-border bg-muted/10 p-4">
-                        <div className="mb-4 flex items-center justify-between gap-3">
+                        <div className="space-y-2">
+                          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Ordenar por</p>
+                          <div className="flex flex-wrap gap-2">
+                            {MEDIA_LIBRARY_SCOPE_FILTERS.map((filter) => (
+                              <Button
+                                key={filter.value}
+                                type="button"
+                                variant={libraryScopeFilter === filter.value ? 'default' : 'outline'}
+                                className="h-8 rounded-full px-3"
+                                onClick={() => setLibraryScopeFilter(filter.value)}
+                              >
+                                {filter.label}
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="rounded-2xl border border-border bg-background p-4">
+                        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                           <div>
-                            <h4 className="text-sm font-semibold text-foreground">
-                              {libraryScopeFilter === 'mostUsed'
-                                ? 'Biblioteca por relevancia'
-                                : libraryScopeFilter === 'recent'
-                                  ? 'Biblioteca recente'
-                                  : 'Todas as imagens'}
-                            </h4>
-                            <p className="text-xs text-muted-foreground">
-                              {libraryScopeFilter === 'mostUsed'
-                                ? 'Ordenacao pela frequencia de uso.'
-                                : libraryScopeFilter === 'recent'
-                                  ? 'Ordenacao pelo uso mais recente.'
-                                  : 'Acervo completo do filtro atual.'}
+                            <h3 className="text-base font-semibold text-foreground">Biblioteca</h3>
+                            <p className="text-sm text-muted-foreground">
+                              As imagens aparecem logo abaixo dos filtros para voce escolher sem perder tempo.
                             </p>
                           </div>
                           <Badge variant="outline">{filteredLibraryItems.length} resultados</Badge>
                         </div>
+
                         <AdminMediaGallery
                           items={filteredLibraryItems}
                           selectedUrl={selectedLibraryUrl}
@@ -976,6 +898,7 @@ export default function AdminImagePickerDialog({
                           emptyTitle="Nenhuma imagem encontrada"
                           emptyDescription="Ajuste a busca, troque os filtros ou envie uma nova imagem."
                         />
+
                         {librarySnapshot?.pagination?.has_more ? (
                           <div className="mt-4 flex justify-center">
                             <Button
@@ -990,47 +913,85 @@ export default function AdminImagePickerDialog({
                           </div>
                         ) : null}
                       </div>
+
+                      {showHighlightedSections && (librarySnapshot.mostUsed.length > 0 || librarySnapshot.recent.length > 0) ? (
+                        <div className="grid gap-4 xl:grid-cols-2">
+                          {librarySnapshot.mostUsed.length > 0 ? (
+                            <div className="rounded-2xl border border-border bg-muted/10 p-4">
+                              <div className="mb-4 flex items-center justify-between gap-3">
+                                <div>
+                                  <h4 className="text-sm font-semibold text-foreground">Mais usadas</h4>
+                                  <p className="text-xs text-muted-foreground">Ativos com maior reaproveitamento no recorte atual.</p>
+                                </div>
+                                <Badge variant="outline">{librarySnapshot.mostUsed.length}</Badge>
+                              </div>
+                              <AdminMediaGallery
+                                items={librarySnapshot.mostUsed}
+                                selectedUrl={selectedLibraryUrl}
+                                onSelect={setSelectedLibraryUrl}
+                              />
+                            </div>
+                          ) : null}
+
+                          {librarySnapshot.recent.length > 0 ? (
+                            <div className="rounded-2xl border border-border bg-muted/10 p-4">
+                              <div className="mb-4 flex items-center justify-between gap-3">
+                                <div>
+                                  <h4 className="text-sm font-semibold text-foreground">Recentes</h4>
+                                  <p className="text-xs text-muted-foreground">O que voce acabou de usar ou selecionar.</p>
+                                </div>
+                                <Badge variant="outline">{librarySnapshot.recent.length}</Badge>
+                              </div>
+                              <AdminMediaGallery
+                                items={librarySnapshot.recent}
+                                selectedUrl={selectedLibraryUrl}
+                                onSelect={setSelectedLibraryUrl}
+                              />
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : null}
+
+                      {selectedLibraryItem ? (
+                        <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4">
+                          <div className="flex flex-col gap-4 sm:flex-row">
+                            <div className="h-20 w-20 overflow-hidden rounded-2xl border border-border bg-background">
+                              <img src={selectedLibraryItem.url} alt={selectedLibraryItem.label} className="h-full w-full object-cover" />
+                            </div>
+                            <div className="min-w-0 flex-1 space-y-2">
+                              <div className="flex flex-wrap gap-2">
+                                <Badge variant="outline">{getMediaFilterLabel(selectedLibraryItem.type)}</Badge>
+                                {selectedLibraryModuleLabel ? <Badge variant="outline">{selectedLibraryModuleLabel}</Badge> : null}
+                                <Badge variant="secondary">{selectedLibraryItem.usageSummary}</Badge>
+                              </div>
+                              <div>
+                                <p className="text-sm font-semibold text-foreground">{selectedLibraryItem.label}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {selectedLibraryItem.source ? `Origem principal: ${selectedLibraryItem.source}. ` : ''}
+                                  {Array.isArray(selectedLibraryItem.references) && selectedLibraryItem.references.length > 0
+                                    ? `Exemplos de uso: ${selectedLibraryItem.references.slice(0, 3).join(' • ')}.`
+                                    : 'A biblioteca ainda esta consolidando referencias deste ativo.'}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ) : null}
                     </div>
                   </div>
 
-                  {selectedLibraryItem ? (
-                    <div className="mt-4 rounded-2xl border border-primary/20 bg-primary/5 p-4">
-                      <div className="flex flex-col gap-4 sm:flex-row">
-                        <div className="h-20 w-20 overflow-hidden rounded-2xl border border-border bg-background">
-                          <img src={selectedLibraryItem.url} alt={selectedLibraryItem.label} className="h-full w-full object-cover" />
-                        </div>
-                        <div className="min-w-0 flex-1 space-y-2">
-                          <div className="flex flex-wrap gap-2">
-                            <Badge variant="outline">{getMediaFilterLabel(selectedLibraryItem.type)}</Badge>
-                            {selectedLibraryModuleLabel ? <Badge variant="outline">{selectedLibraryModuleLabel}</Badge> : null}
-                            <Badge variant="secondary">{selectedLibraryItem.usageSummary}</Badge>
-                          </div>
-                          <div>
-                            <p className="text-sm font-semibold text-foreground">{selectedLibraryItem.label}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {selectedLibraryItem.source ? `Origem principal: ${selectedLibraryItem.source}. ` : ''}
-                              {Array.isArray(selectedLibraryItem.references) && selectedLibraryItem.references.length > 0
-                                ? `Exemplos de uso: ${selectedLibraryItem.references.slice(0, 3).join(' • ')}.`
-                                : 'A biblioteca ainda esta consolidando referencias deste ativo.'}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ) : null}
-
-                  <div className="sticky bottom-0 mt-4 flex flex-col gap-3 border-t border-border/80 bg-background/95 pt-4 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="mt-4 flex flex-col gap-3 border-t border-border/80 bg-background pt-4 sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-sm text-muted-foreground">
                       {selectedLibraryUrl ? 'Imagem selecionada. Clique em usar imagem para aplicar no item.' : 'Escolha uma imagem da biblioteca para aplicar no item.'}
                     </p>
                     <div className="flex flex-col gap-3 sm:flex-row">
-                      <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                      <Button type="button" variant="outline" className="h-11 sm:h-10" onClick={() => onOpenChange(false)}>
                         Cancelar
                       </Button>
-                      <Button type="button" variant="outline" onClick={() => setSelectedLibraryUrl(null)} disabled={!selectedLibraryUrl || isSaving}>
+                      <Button type="button" variant="outline" className="h-11 sm:h-10" onClick={() => setSelectedLibraryUrl(null)} disabled={!selectedLibraryUrl || isSaving}>
                         Limpar selecao
                       </Button>
-                      <Button type="button" onClick={handleSelectLibraryImage} disabled={!selectedLibraryUrl || isSaving}>
+                      <Button type="button" className="h-11 sm:h-10" onClick={handleSelectLibraryImage} disabled={!selectedLibraryUrl || isSaving}>
                         {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                         Usar imagem
                       </Button>
@@ -1053,6 +1014,7 @@ export default function AdminImagePickerDialog({
     </Dialog>
   );
 }
+
 
 
 

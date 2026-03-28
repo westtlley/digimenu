@@ -30,7 +30,7 @@ export default function AdminMediaGallery({
   }
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
       {items.map((image) => {
         const isSelected = selectedUrl === image.url;
         const preset = getMediaUploadPreset(image.type);
@@ -62,7 +62,7 @@ export default function AdminMediaGallery({
               </Badge>
             </div>
 
-            <div className="aspect-[4/3] overflow-hidden bg-muted">
+            <div className="aspect-square overflow-hidden bg-muted xl:aspect-[4/3]">
               <img
                 src={image.url}
                 alt={image.label || 'Imagem da biblioteca'}
@@ -73,8 +73,8 @@ export default function AdminMediaGallery({
               />
             </div>
 
-            <div className="space-y-3 p-3">
-              <div className="flex flex-wrap gap-2">
+            <div className="space-y-2.5 p-3">
+              <div className="flex flex-wrap gap-1.5">
                 <Badge variant="outline">{preset.label}</Badge>
                 {moduleLabel ? <Badge variant="outline">{moduleLabel}</Badge> : null}
                 {image.usageCount > 1 ? <Badge variant="secondary">{image.usageSummary}</Badge> : null}
@@ -87,7 +87,7 @@ export default function AdminMediaGallery({
                   </p>
                   {isSelected ? <Check className="h-4 w-4 text-primary" /> : null}
                 </div>
-                {image.meta ? <p className="line-clamp-2 text-xs text-muted-foreground">{image.meta}</p> : null}
+                {image.meta ? <p className="line-clamp-1 text-xs text-muted-foreground">{image.meta}</p> : null}
                 {image.source ? <p className="line-clamp-1 text-[11px] text-muted-foreground">Origem: {image.source}</p> : null}
                 {Array.isArray(image.references) && image.references.length > 0 ? (
                   <p className="line-clamp-2 text-[11px] text-muted-foreground">
