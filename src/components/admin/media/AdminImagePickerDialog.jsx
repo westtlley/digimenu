@@ -348,25 +348,25 @@ export default function AdminImagePickerDialog({
   const showPreviewEditor = Boolean(selectedFile && previewUrl);
   const needsConstrainedLayout = activeTab === 'library' || showPreviewEditor;
   const previewStageMinHeight = isSquarePreset
-    ? 'clamp(16rem, 36vw, 21rem)'
+    ? 'clamp(10rem, 20vw, 12rem)'
     : isPortraitPreset
-      ? 'clamp(18rem, 42vw, 26rem)'
-      : 'clamp(14rem, 28vw, 19rem)';
+      ? 'clamp(12rem, 24vw, 15rem)'
+      : 'clamp(9rem, 18vw, 11rem)';
   const previewFrameStyle = isPortraitPreset
     ? {
         aspectRatio: String(preset.aspectRatio),
-        width: 'min(100%, clamp(13rem, 24vw, 18rem))',
+        width: 'min(100%, clamp(8.5rem, 16vw, 11rem))',
         maxHeight: '100%',
       }
     : isSquarePreset
       ? {
           aspectRatio: String(preset.aspectRatio),
-          width: 'min(100%, clamp(14rem, 32vw, 20rem))',
+          width: 'min(100%, clamp(9rem, 17vw, 11.5rem))',
           maxHeight: '100%',
         }
       : {
           aspectRatio: String(preset.aspectRatio),
-          width: 'min(100%, clamp(18rem, 62vw, 42rem))',
+          width: 'min(100%, clamp(15rem, 36vw, 24rem))',
           maxHeight: '100%',
         };
 
@@ -624,54 +624,87 @@ export default function AdminImagePickerDialog({
         size="large"
         mobileFullscreen
         className={cn(
-          'max-w-5xl p-0',
-          needsConstrainedLayout
+          'p-0',
+          showPreviewEditor
+            ? 'flex w-[min(92vw,52rem)] max-h-[calc(100dvh-2rem)] max-w-[52rem] flex-col overflow-hidden rounded-[1.35rem] border border-black/10 bg-white text-slate-900 shadow-[0_28px_80px_rgba(0,0,0,0.24)] [&>button]:right-6 [&>button]:top-6 [&>button]:text-[#ea0033] [&>button]:opacity-100'
+            : 'max-w-5xl',
+          !showPreviewEditor && needsConstrainedLayout
             ? 'flex w-[min(96vw,84rem)] max-h-[96dvh] flex-col overflow-hidden'
-            : 'max-h-[92dvh]'
+            : !showPreviewEditor
+              ? 'max-h-[92dvh]'
+              : null
         )}
       >
-        <div className="border-b border-border px-4 py-4 sm:px-6 sm:py-5">
+        <div
+          className={cn(
+            showPreviewEditor
+              ? 'px-6 pt-8 sm:px-8 sm:pt-9'
+              : 'border-b border-border px-4 py-4 sm:px-6 sm:py-5'
+          )}
+        >
           <DialogHeader className="space-y-2 text-left">
-            <DialogTitle className="text-2xl font-semibold tracking-tight sm:text-3xl">{dialogTitle}</DialogTitle>
-            <DialogDescription className="max-w-3xl text-sm leading-6 text-muted-foreground">
-              {dialogDescription}
-            </DialogDescription>
+            <DialogTitle className={cn('font-semibold tracking-tight', showPreviewEditor ? 'text-[2.2rem] text-slate-900' : 'text-2xl sm:text-3xl')}>
+              {dialogTitle}
+            </DialogTitle>
+            {!showPreviewEditor ? (
+              <DialogDescription className="max-w-3xl text-sm leading-6 text-muted-foreground">
+                {dialogDescription}
+              </DialogDescription>
+            ) : null}
           </DialogHeader>
         </div>
 
-        <div className={cn('px-4 pb-4 sm:px-6 sm:pb-6', needsConstrainedLayout ? 'flex min-h-0 flex-col' : 'flex flex-col')}>
+        <div
+          className={cn(
+            showPreviewEditor
+              ? 'px-6 pb-8 sm:px-8 sm:pb-8'
+              : 'px-4 pb-4 sm:px-6 sm:pb-6',
+            needsConstrainedLayout ? 'flex min-h-0 flex-col' : 'flex flex-col'
+          )}
+        >
           <Tabs
             value={activeTab}
             onValueChange={setActiveTab}
             className="flex flex-col"
           >
-            <div className="flex flex-col gap-3 pt-4 sm:flex-row sm:items-center sm:justify-between">
-              <TabsList className="h-auto gap-4 overflow-x-auto bg-transparent p-0">
+            <div className={cn('flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between', showPreviewEditor ? 'pt-2' : 'pt-4')}>
+              <TabsList className={cn('h-auto overflow-x-auto bg-transparent p-0', showPreviewEditor ? 'gap-6' : 'gap-4')}>
                 <TabsTrigger
                   value="upload"
-                  className="shrink-0 rounded-none border-b-2 border-transparent px-0 pb-2 pt-0 text-base data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+                  className={cn(
+                    'shrink-0 rounded-none border-b-2 border-transparent px-0 pt-0 text-base data-[state=active]:bg-transparent data-[state=active]:shadow-none',
+                    showPreviewEditor
+                      ? 'pb-3 text-[1.05rem] font-medium text-slate-400 data-[state=active]:border-slate-300 data-[state=active]:text-slate-900'
+                      : 'pb-2 data-[state=active]:border-primary'
+                  )}
                 >
                   Novo arquivo
                 </TabsTrigger>
                 <TabsTrigger
                   value="library"
-                  className="shrink-0 rounded-none border-b-2 border-transparent px-0 pb-2 pt-0 text-base data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+                  className={cn(
+                    'shrink-0 rounded-none border-b-2 border-transparent px-0 pt-0 text-base data-[state=active]:bg-transparent data-[state=active]:shadow-none',
+                    showPreviewEditor
+                      ? 'pb-3 text-[1.05rem] font-medium text-slate-400 data-[state=active]:border-slate-300 data-[state=active]:text-slate-900'
+                      : 'pb-2 data-[state=active]:border-primary'
+                  )}
                 >
                   Biblioteca
                 </TabsTrigger>
               </TabsList>
 
-              <Badge variant="outline" className="inline-flex w-fit gap-1 self-start text-primary">
-                <Sparkles className="w-3.5 h-3.5" />
-                Dicas de imagem
-              </Badge>
+              {!showPreviewEditor ? (
+                <Badge variant="outline" className="inline-flex w-fit gap-1 self-start text-primary">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Dicas de imagem
+                </Badge>
+              ) : null}
             </div>
 
             <TabsContent
               value="upload"
               className={cn(
-                'mt-6',
-                showPreviewEditor ? 'space-y-4 overflow-visible' : 'overflow-visible'
+                showPreviewEditor ? 'mt-4 overflow-visible' : 'mt-6 overflow-visible'
               )}
             >
               {!showPreviewEditor ? (
@@ -742,84 +775,74 @@ export default function AdminImagePickerDialog({
                   ) : null}
                 </div>
               ) : (
-                <div className="space-y-4">
-                  <div ref={uploadViewportRef} className="max-h-[min(58dvh,38rem)] overflow-y-auto pr-1">
-                    <div className="mx-auto w-full max-w-4xl space-y-4">
-                      <div className="flex flex-wrap items-start justify-between gap-3 rounded-2xl border border-border bg-muted/20 px-4 py-3">
-                        <div className="space-y-1">
-                          <p className="text-sm font-medium text-foreground">Enquadre a imagem</p>
-                          <p className="text-sm text-muted-foreground">
-                            O recorte final segue o formato {preset.ratioLabel} e prioriza {preset.focusLabel}.
-                          </p>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          {imageMeta ? <Badge variant="outline">{imageMeta.width}x{imageMeta.height}</Badge> : null}
-                          <Badge variant="outline">{preset.recommendedSize}</Badge>
+                <div className="mx-auto w-full max-w-4xl">
+                  <div ref={uploadViewportRef} className="overflow-visible">
+                    <div className="space-y-7">
+                      <div
+                        className="flex w-full items-center justify-center overflow-hidden bg-[#222222] px-10 py-5"
+                        style={{ height: previewStageMinHeight }}
+                      >
+                        <div
+                          className={cn(
+                            'mx-auto overflow-hidden bg-muted shadow-[0_8px_22px_rgba(0,0,0,0.16)]',
+                            isPortraitPreset ? 'w-auto max-w-full' : ''
+                          )}
+                          style={previewFrameStyle}
+                        >
+                          <div className="relative h-full w-full overflow-hidden bg-muted">
+                            <img
+                              src={previewUrl}
+                              alt="Preview da imagem"
+                              className="h-full w-full object-cover transition-transform duration-200"
+                              style={{ transform: `scale(${zoom[0]})` }}
+                            />
+                            <div className="pointer-events-none absolute inset-y-0 left-1/3 w-px bg-white/25" />
+                            <div className="pointer-events-none absolute inset-y-0 left-2/3 w-px bg-white/25" />
+                          </div>
                         </div>
                       </div>
 
-                      <div className="rounded-[1.75rem] border border-border bg-muted/20 p-3 sm:p-4 lg:p-5">
-                        <div
-                          className="flex w-full items-center justify-center overflow-hidden rounded-[1.5rem] border border-border bg-neutral-950/95 px-4 py-5 shadow-inner sm:px-6"
-                          style={{ minHeight: previewStageMinHeight }}
-                        >
-                          <div
-                            className={cn(
-                              'mx-auto overflow-hidden rounded-[1.25rem] border border-white/10 bg-muted shadow-[0_18px_45px_rgba(0,0,0,0.35)]',
-                              isPortraitPreset ? 'w-auto max-w-full' : ''
-                            )}
-                            style={previewFrameStyle}
-                          >
-                            <div className="relative h-full w-full overflow-hidden bg-muted">
-                              <img
-                                src={previewUrl}
-                                alt="Preview da imagem"
-                                className="h-full w-full object-cover transition-transform duration-200"
-                                style={{ transform: `scale(${zoom[0]})` }}
+                      <div className="flex flex-col gap-5 pt-1 sm:flex-row sm:items-end sm:justify-between">
+                        <div className="w-full max-w-[15rem] space-y-3">
+                          <div className="flex items-center gap-2 text-[1.05rem] font-semibold text-slate-900">
+                            <ZoomIn className="h-4 w-4 text-slate-700" />
+                            Zoom
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="min-w-[2.4rem] text-sm text-slate-500">{zoom[0].toFixed(1)}x</span>
+                            <div className="flex-1">
+                              <Slider
+                                min={1}
+                                max={2.6}
+                                step={0.1}
+                                value={zoom}
+                                onValueChange={setZoom}
                               />
-                              <div className="pointer-events-none absolute inset-0 border border-white/15" />
-                              <div className="pointer-events-none absolute inset-y-0 left-1/3 w-px bg-white/20" />
-                              <div className="pointer-events-none absolute inset-y-0 left-2/3 w-px bg-white/20" />
                             </div>
                           </div>
                         </div>
-                      </div>
 
-                      <div className="rounded-2xl border border-border bg-background p-4">
-                        <div className="mb-3 flex items-center justify-between text-sm">
-                          <span className="flex items-center gap-2 font-medium text-foreground">
-                            <ZoomIn className="h-4 w-4" />
-                            Zoom
-                          </span>
-                          <span className="text-muted-foreground">{zoom[0].toFixed(1)}x</span>
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="h-12 min-w-[128px] rounded-xl border border-[#ea0033]/30 bg-white px-6 text-base font-semibold text-[#ea0033] hover:bg-[#fff5f7] hover:text-[#ea0033]"
+                            onClick={() => setSelectedFile(null)}
+                          >
+                            Cancelar
+                          </Button>
+                          <Button
+                            type="button"
+                            className="h-12 min-w-[128px] rounded-xl border border-[#ea0033] bg-[#ea0033] px-6 text-base font-semibold text-white hover:bg-[#d4002f]"
+                            onClick={handleSaveUpload}
+                            disabled={isSaving}
+                          >
+                            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                            Salvar
+                          </Button>
                         </div>
-                        <Slider
-                          min={1}
-                          max={2.6}
-                          step={0.1}
-                          value={zoom}
-                          onValueChange={setZoom}
-                        />
-
-                        {imageMeta ? (
-                          <div className="mt-4 grid gap-2 text-sm text-muted-foreground sm:grid-cols-3">
-                            <p><span className="font-medium text-foreground">Arquivo:</span> {selectedFile?.name}</p>
-                            <p><span className="font-medium text-foreground">Original:</span> {imageMeta.width}x{imageMeta.height}</p>
-                            <p><span className="font-medium text-foreground">Saida:</span> {preset.outputWidth}x{preset.outputHeight}</p>
-                          </div>
-                        ) : null}
                       </div>
                     </div>
-                  </div>
-
-                  <div className="flex flex-col gap-3 border-t border-border/80 pt-4 sm:flex-row sm:justify-end">
-                    <Button type="button" variant="outline" className="h-11 sm:min-w-[180px]" onClick={() => setSelectedFile(null)}>
-                      Escolher outra
-                    </Button>
-                    <Button type="button" className="h-11 sm:min-w-[180px]" onClick={handleSaveUpload} disabled={isSaving}>
-                      {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                      Salvar
-                    </Button>
                   </div>
                 </div>
               )}
