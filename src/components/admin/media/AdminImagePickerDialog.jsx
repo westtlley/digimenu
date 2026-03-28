@@ -158,6 +158,8 @@ export default function AdminImagePickerDialog({
   const dialogDescription = description || preset.description || 'Use uma imagem nitida para valorizar a vitrine.';
   const uploadFolder = folder || preset.folder || 'dishes';
   const fileInputRef = useRef(null);
+  const uploadViewportRef = useRef(null);
+  const libraryViewportRef = useRef(null);
   const [activeTab, setActiveTab] = useState('upload');
   const [isDragging, setIsDragging] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
@@ -342,6 +344,23 @@ export default function AdminImagePickerDialog({
     libraryItems.length > 0;
   const totalLibraryAssets =
     Number(librarySnapshot?.pagination?.total || 0) || libraryItems.length;
+
+  useEffect(() => {
+    if (!open) return;
+
+    const activeViewport = activeTab === 'library' ? libraryViewportRef.current : uploadViewportRef.current;
+    if (!activeViewport) return;
+
+    const frame = window.requestAnimationFrame(() => {
+      if (typeof activeViewport.scrollTo === 'function') {
+        activeViewport.scrollTo({ top: 0, behavior: 'auto' });
+      } else {
+        activeViewport.scrollTop = 0;
+      }
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [activeTab, filteredLibraryItems.length, open, showPreviewEditor]);
 
   const openFilePicker = () => {
     fileInputRef.current?.click();
@@ -586,7 +605,7 @@ export default function AdminImagePickerDialog({
         className={cn(
           'max-w-5xl p-0',
           needsConstrainedLayout
-            ? 'flex h-[min(96dvh,900px)] w-[min(96vw,84rem)] max-h-[96dvh] flex-col overflow-hidden'
+            ? 'flex w-[min(96vw,84rem)] max-h-[96dvh] flex-col overflow-hidden'
             : 'max-h-[92dvh]'
         )}
       >
@@ -599,11 +618,11 @@ export default function AdminImagePickerDialog({
           </DialogHeader>
         </div>
 
-        <div className={cn('px-4 pb-4 sm:px-6 sm:pb-6', needsConstrainedLayout ? 'flex min-h-0 flex-1 flex-col' : 'flex flex-col')}>
+        <div className={cn('px-4 pb-4 sm:px-6 sm:pb-6', needsConstrainedLayout ? 'flex min-h-0 flex-col' : 'flex flex-col')}>
           <Tabs
             value={activeTab}
             onValueChange={setActiveTab}
-            className={cn('flex flex-col', needsConstrainedLayout ? 'min-h-0 flex-1' : '')}
+            className="flex flex-col"
           >
             <div className="flex flex-col gap-3 pt-4 sm:flex-row sm:items-center sm:justify-between">
               <TabsList className="h-auto gap-4 overflow-x-auto bg-transparent p-0">
@@ -631,7 +650,7 @@ export default function AdminImagePickerDialog({
               value="upload"
               className={cn(
                 'mt-6',
-                showPreviewEditor ? 'flex min-h-0 flex-1 flex-col overflow-hidden' : 'overflow-visible'
+                showPreviewEditor ? 'space-y-4 overflow-visible' : 'overflow-visible'
               )}
             >
               {!showPreviewEditor ? (
@@ -702,9 +721,9 @@ export default function AdminImagePickerDialog({
                   ) : null}
                 </div>
               ) : (
-                <div className="flex min-h-0 flex-1 flex-col">
-                  <div className="min-h-0 flex-1 overflow-y-auto">
-                    <div className="mx-auto flex h-full w-full max-w-4xl flex-col gap-4">
+                <div className="space-y-4">
+                  <div ref={uploadViewportRef} className="max-h-[min(58dvh,38rem)] overflow-y-auto pr-1">
+                    <div className="mx-auto w-full max-w-4xl space-y-4">
                       <div className="flex flex-wrap items-start justify-between gap-3 rounded-2xl border border-border bg-muted/20 px-4 py-3">
                         <div className="space-y-1">
                           <p className="text-sm font-medium text-foreground">Enquadre a imagem</p>
@@ -718,7 +737,7 @@ export default function AdminImagePickerDialog({
                         </div>
                       </div>
 
-                      <div className="flex min-h-[360px] flex-1 items-center justify-center rounded-[1.75rem] border border-border bg-muted/20 p-3 sm:min-h-[520px] sm:p-6">
+                      <div className="flex min-h-[280px] items-center justify-center rounded-[1.75rem] border border-border bg-muted/20 p-3 sm:min-h-[360px] sm:p-4 lg:min-h-[440px] lg:p-6">
                         <div className="flex h-full w-full items-center justify-center overflow-auto rounded-[1.5rem] border border-border bg-background p-3 shadow-inner sm:p-4">
                           <div
                             className={cn(
@@ -776,7 +795,7 @@ export default function AdminImagePickerDialog({
                     </div>
                   </div>
 
-                  <div className="mt-4 flex flex-col gap-3 border-t border-border/80 pt-4 sm:flex-row sm:justify-end">
+                  <div className="flex flex-col gap-3 border-t border-border/80 pt-4 sm:flex-row sm:justify-end">
                     <Button type="button" variant="outline" className="h-11 sm:min-w-[180px]" onClick={() => setSelectedFile(null)}>
                       Escolher outra
                     </Button>
@@ -788,7 +807,7 @@ export default function AdminImagePickerDialog({
                 </div>
               )}
             </TabsContent>
-            <TabsContent value="library" className="mt-6 flex min-h-0 flex-1 flex-col overflow-hidden">
+            <TabsContent value="library" className="mt-6 space-y-4 overflow-visible">
               {isLibraryLoading && !libraryHasItems ? (
                 <div className="flex min-h-[280px] items-center justify-center rounded-2xl border border-border bg-muted/20">
                   <div className="flex items-center gap-3 text-sm text-muted-foreground">
@@ -807,10 +826,9 @@ export default function AdminImagePickerDialog({
                   </p>
                 </div>
               ) : (
-                <div className="flex min-h-0 flex-1 flex-col">
-                  <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-                    <div className="space-y-4 pb-4">
-                      <div className="flex flex-wrap items-center gap-2">
+                <div className="space-y-4">
+                  <div className="space-y-4">
+                    <div className="flex flex-wrap items-center gap-2">
                         <Badge variant="outline">{totalLibraryAssets} ativos</Badge>
                         <Badge variant="outline">{filteredLibraryItems.length} visiveis</Badge>
                         <Badge variant={librarySnapshot?.source === 'backend' ? 'default' : 'outline'}>
@@ -818,15 +836,15 @@ export default function AdminImagePickerDialog({
                         </Badge>
                         {leadingModule ? <Badge variant="secondary">{leadingModule.label}</Badge> : null}
                         {leadingType ? <Badge variant="secondary">{leadingType.label}</Badge> : null}
-                      </div>
+                    </div>
 
-                      <div className="space-y-3 rounded-2xl border border-border bg-muted/20 p-4">
-                        <Input
-                          value={librarySearch}
-                          onChange={(event) => setLibrarySearch(event.target.value)}
-                          placeholder="Buscar por nome, contexto, modulo ou tipo"
-                          className="h-11 bg-background"
-                        />
+                    <div className="space-y-3 rounded-2xl border border-border bg-muted/20 p-4">
+                      <Input
+                        value={librarySearch}
+                        onChange={(event) => setLibrarySearch(event.target.value)}
+                        placeholder="Buscar por nome, contexto, modulo ou tipo"
+                        className="h-11 bg-background"
+                      />
 
                         <div className="space-y-2">
                           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Modulo</p>
@@ -878,8 +896,11 @@ export default function AdminImagePickerDialog({
                             ))}
                           </div>
                         </div>
-                      </div>
+                    </div>
+                  </div>
 
+                  <div ref={libraryViewportRef} className="max-h-[min(52dvh,34rem)] overflow-y-auto pr-1">
+                    <div className="space-y-4">
                       <div className="rounded-2xl border border-border bg-background p-4">
                         <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                           <div>
@@ -980,7 +1001,7 @@ export default function AdminImagePickerDialog({
                     </div>
                   </div>
 
-                  <div className="mt-4 flex flex-col gap-3 border-t border-border/80 bg-background pt-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex flex-col gap-3 border-t border-border/80 bg-background pt-4 sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-sm text-muted-foreground">
                       {selectedLibraryUrl ? 'Imagem selecionada. Clique em usar imagem para aplicar no item.' : 'Escolha uma imagem da biblioteca para aplicar no item.'}
                     </p>
