@@ -16,7 +16,10 @@ export default function AdminMediaGallery({
   onSelect,
   emptyTitle = 'Nenhuma imagem encontrada',
   emptyDescription = 'Tente outro filtro ou envie uma nova imagem.',
+  variant = 'default',
 }) {
+  const isPickerVariant = variant === 'picker';
+
   if (!items.length) {
     return (
       <div className="rounded-2xl border border-border bg-muted/20 px-6 py-16 text-center">
@@ -30,7 +33,7 @@ export default function AdminMediaGallery({
   }
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+    <div className={cn(isPickerVariant ? 'grid grid-cols-2 gap-3 sm:grid-cols-3' : 'grid gap-3 sm:grid-cols-2 xl:grid-cols-4')}>
       {items.map((image) => {
         const isSelected = selectedUrl === image.url;
         const preset = getMediaUploadPreset(image.type);
@@ -44,25 +47,34 @@ export default function AdminMediaGallery({
             onClick={() => onSelect?.(image.url)}
             aria-pressed={isSelected}
             className={cn(
-              'group relative overflow-hidden rounded-2xl border bg-background text-left transition-all focus:outline-none focus:ring-2 focus:ring-primary/30',
+              'group relative overflow-hidden border bg-background text-left transition-all focus:outline-none focus:ring-2 focus:ring-primary/30',
+              isPickerVariant ? 'rounded-xl' : 'rounded-2xl',
               isSelected
                 ? 'border-primary shadow-md ring-2 ring-primary/20'
                 : 'border-border hover:border-primary/40 hover:shadow-sm'
             )}
           >
-            <div className="pointer-events-none absolute right-3 top-3 z-10 flex gap-2">
-              <Badge
-                variant={isSelected ? 'default' : 'secondary'}
-                className={cn(
-                  'transition-colors',
-                  isSelected ? 'bg-primary text-primary-foreground' : 'bg-background/90 text-foreground'
-                )}
-              >
-                {isSelected ? 'Selecionada' : 'Selecionar'}
-              </Badge>
-            </div>
+            {isPickerVariant ? (
+              isSelected ? (
+                <div className="pointer-events-none absolute right-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md">
+                  <Check className="h-4 w-4" />
+                </div>
+              ) : null
+            ) : (
+              <div className="pointer-events-none absolute right-3 top-3 z-10 flex gap-2">
+                <Badge
+                  variant={isSelected ? 'default' : 'secondary'}
+                  className={cn(
+                    'transition-colors',
+                    isSelected ? 'bg-primary text-primary-foreground' : 'bg-background/90 text-foreground'
+                  )}
+                >
+                  {isSelected ? 'Selecionada' : 'Selecionar'}
+                </Badge>
+              </div>
+            )}
 
-            <div className="aspect-square overflow-hidden bg-muted xl:aspect-[4/3]">
+            <div className={cn('overflow-hidden bg-muted', isPickerVariant ? 'aspect-[4/3]' : 'aspect-square xl:aspect-[4/3]')}>
               <img
                 src={image.url}
                 alt={image.label || 'Imagem da biblioteca'}
@@ -73,32 +85,34 @@ export default function AdminMediaGallery({
               />
             </div>
 
-            <div className="space-y-2.5 p-3">
-              <div className="flex flex-wrap gap-1.5">
-                <Badge variant="outline">{preset.label}</Badge>
-                {moduleLabel ? <Badge variant="outline">{moduleLabel}</Badge> : null}
-                {image.usageCount > 1 ? <Badge variant="secondary">{image.usageSummary}</Badge> : null}
-              </div>
-
-              <div className="space-y-1">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="line-clamp-1 text-sm font-medium text-foreground">
-                    {image.label || 'Imagem salva'}
-                  </p>
-                  {isSelected ? <Check className="h-4 w-4 text-primary" /> : null}
+            {isPickerVariant ? null : (
+              <div className="space-y-2.5 p-3">
+                <div className="flex flex-wrap gap-1.5">
+                  <Badge variant="outline">{preset.label}</Badge>
+                  {moduleLabel ? <Badge variant="outline">{moduleLabel}</Badge> : null}
+                  {image.usageCount > 1 ? <Badge variant="secondary">{image.usageSummary}</Badge> : null}
                 </div>
-                {image.meta ? <p className="line-clamp-1 text-xs text-muted-foreground">{image.meta}</p> : null}
-                {image.source ? <p className="line-clamp-1 text-[11px] text-muted-foreground">Origem: {image.source}</p> : null}
-                {Array.isArray(image.references) && image.references.length > 0 ? (
-                  <p className="line-clamp-2 text-[11px] text-muted-foreground">
-                    Referencias: {image.references.slice(0, 2).join(' • ')}
-                  </p>
-                ) : null}
-                {updatedAtLabel ? (
-                  <p className="text-[11px] text-muted-foreground">Ultimo uso: {updatedAtLabel}</p>
-                ) : null}
+
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="line-clamp-1 text-sm font-medium text-foreground">
+                      {image.label || 'Imagem salva'}
+                    </p>
+                    {isSelected ? <Check className="h-4 w-4 text-primary" /> : null}
+                  </div>
+                  {image.meta ? <p className="line-clamp-1 text-xs text-muted-foreground">{image.meta}</p> : null}
+                  {image.source ? <p className="line-clamp-1 text-[11px] text-muted-foreground">Origem: {image.source}</p> : null}
+                  {Array.isArray(image.references) && image.references.length > 0 ? (
+                    <p className="line-clamp-2 text-[11px] text-muted-foreground">
+                      Referencias: {image.references.slice(0, 2).join(' • ')}
+                    </p>
+                  ) : null}
+                  {updatedAtLabel ? (
+                    <p className="text-[11px] text-muted-foreground">Ultimo uso: {updatedAtLabel}</p>
+                  ) : null}
+                </div>
               </div>
-            </div>
+            )}
           </button>
         );
       })}
