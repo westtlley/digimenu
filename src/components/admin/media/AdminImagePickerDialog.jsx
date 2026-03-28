@@ -337,6 +337,7 @@ export default function AdminImagePickerDialog({
   const leadingModule = libraryInsights.byModule[0] || null;
   const leadingType = libraryInsights.byType[0] || null;
   const isPortraitPreset = Number(preset?.aspectRatio || 1) < 1;
+  const isSquarePreset = Math.abs(Number(preset?.aspectRatio || 1) - 1) < 0.05;
   const libraryHasItems =
     filteredLibraryItems.length > 0 ||
     (Array.isArray(librarySnapshot?.mostUsed) && librarySnapshot.mostUsed.length > 0) ||
@@ -346,6 +347,28 @@ export default function AdminImagePickerDialog({
     Number(librarySnapshot?.pagination?.total || 0) || libraryItems.length;
   const showPreviewEditor = Boolean(selectedFile && previewUrl);
   const needsConstrainedLayout = activeTab === 'library' || showPreviewEditor;
+  const previewStageMinHeight = isSquarePreset
+    ? 'clamp(16rem, 36vw, 21rem)'
+    : isPortraitPreset
+      ? 'clamp(18rem, 42vw, 26rem)'
+      : 'clamp(14rem, 28vw, 19rem)';
+  const previewFrameStyle = isPortraitPreset
+    ? {
+        aspectRatio: String(preset.aspectRatio),
+        width: 'min(100%, clamp(13rem, 24vw, 18rem))',
+        maxHeight: '100%',
+      }
+    : isSquarePreset
+      ? {
+          aspectRatio: String(preset.aspectRatio),
+          width: 'min(100%, clamp(14rem, 32vw, 20rem))',
+          maxHeight: '100%',
+        }
+      : {
+          aspectRatio: String(preset.aspectRatio),
+          width: 'min(100%, clamp(18rem, 62vw, 42rem))',
+          maxHeight: '100%',
+        };
 
   useEffect(() => {
     if (!open) return;
@@ -735,33 +758,29 @@ export default function AdminImagePickerDialog({
                         </div>
                       </div>
 
-                      <div className="flex min-h-[280px] items-center justify-center rounded-[1.75rem] border border-border bg-muted/20 p-3 sm:min-h-[360px] sm:p-4 lg:min-h-[440px] lg:p-6">
-                        <div className="flex h-full w-full items-center justify-center overflow-auto rounded-[1.5rem] border border-border bg-background p-3 shadow-inner sm:p-4">
+                      <div className="rounded-[1.75rem] border border-border bg-muted/20 p-3 sm:p-4 lg:p-5">
+                        <div
+                          className="flex w-full items-center justify-center overflow-hidden rounded-[1.5rem] border border-border bg-neutral-950/95 px-4 py-5 shadow-inner sm:px-6"
+                          style={{ minHeight: previewStageMinHeight }}
+                        >
                           <div
                             className={cn(
-                              'mx-auto overflow-hidden rounded-[1.25rem] border border-border bg-muted shadow-sm',
-                              isPortraitPreset ? 'h-full w-auto max-w-full' : 'w-full'
+                              'mx-auto overflow-hidden rounded-[1.25rem] border border-white/10 bg-muted shadow-[0_18px_45px_rgba(0,0,0,0.35)]',
+                              isPortraitPreset ? 'w-auto max-w-full' : ''
                             )}
-                            style={
-                              isPortraitPreset
-                                ? {
-                                    aspectRatio: String(preset.aspectRatio),
-                                    maxHeight: '100%',
-                                    maxWidth: '100%',
-                                  }
-                                : {
-                                    aspectRatio: String(preset.aspectRatio),
-                                    maxWidth: 'min(100%, 48rem)',
-                                    maxHeight: '100%',
-                                  }
-                            }
+                            style={previewFrameStyle}
                           >
-                            <img
-                              src={previewUrl}
-                              alt="Preview da imagem"
-                              className="h-full w-full object-cover transition-transform duration-200"
-                              style={{ transform: `scale(${zoom[0]})` }}
-                            />
+                            <div className="relative h-full w-full overflow-hidden bg-muted">
+                              <img
+                                src={previewUrl}
+                                alt="Preview da imagem"
+                                className="h-full w-full object-cover transition-transform duration-200"
+                                style={{ transform: `scale(${zoom[0]})` }}
+                              />
+                              <div className="pointer-events-none absolute inset-0 border border-white/15" />
+                              <div className="pointer-events-none absolute inset-y-0 left-1/3 w-px bg-white/20" />
+                              <div className="pointer-events-none absolute inset-y-0 left-2/3 w-px bg-white/20" />
+                            </div>
                           </div>
                         </div>
                       </div>
