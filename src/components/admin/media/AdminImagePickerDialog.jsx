@@ -344,6 +344,8 @@ export default function AdminImagePickerDialog({
     libraryItems.length > 0;
   const totalLibraryAssets =
     Number(librarySnapshot?.pagination?.total || 0) || libraryItems.length;
+  const showPreviewEditor = Boolean(selectedFile && previewUrl);
+  const needsConstrainedLayout = activeTab === 'library' || showPreviewEditor;
 
   useEffect(() => {
     if (!open) return;
@@ -593,10 +595,6 @@ export default function AdminImagePickerDialog({
       setIsLibraryLoadingMore(false);
     }
   };
-
-  const showPreviewEditor = Boolean(selectedFile && previewUrl);
-  const needsConstrainedLayout = activeTab === 'library' || showPreviewEditor;
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
