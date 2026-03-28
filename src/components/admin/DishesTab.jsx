@@ -1,4 +1,4 @@
-// ========= IMPORTS =========
+﻿// ========= IMPORTS =========
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { apiClient } from '@/api/apiClient';
@@ -48,6 +48,7 @@ import DishesSkeleton from '../skeletons/DishesSkeleton';
 import { uploadToCloudinary } from '@/utils/cloudinaryUpload';
 import { formatCurrency } from '@/utils/formatters';
 import AdminImagePickerDialog from './media/AdminImagePickerDialog';
+import { uiText } from '@/i18n/pt-BR/uiText';
 
 function normalizeCategoryId(value) {
   if (value === null || value === undefined || value === '') return '';
@@ -69,7 +70,8 @@ function normalizeInternalTab(value) {
 
 // ========= COMPONENT =========
 export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, initialTab = 'menu' }) {
-  log.admin.debug('ðŸ½ï¸ [DishesTab] Componente montado, initialTab:', initialTab);
+  const restaurantText = uiText.restaurant;
+  log.admin.debug('Ã°Å¸ÂÂ½Ã¯Â¸Â [DishesTab] Componente montado, initialTab:', initialTab);
   
   const [user, setUser] = React.useState(null);
   const [showDishModal, setShowDishModal] = useState(false);
@@ -116,21 +118,21 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
     folder: 'dishes',
   });
   
-  // âœ… Atualizar aba quando initialTab mudar
+  // Ã¢Å“â€¦ Atualizar aba quando initialTab mudar
   useEffect(() => {
     if (initialTab) {
       setInternalTab(normalizeInternalTab(initialTab));
     }
   }, [initialTab]);
 
-  // âœ… NOVO: Usar menuContext do usePermission (loading: aguardar contexto antes de buscar pratos)
+  // Ã¢Å“â€¦ NOVO: Usar menuContext do usePermission (loading: aguardar contexto antes de buscar pratos)
   const { canCreate, canUpdate, canDelete, hasModuleAccess, subscriberData, menuContext, user: permissionUser, loading: permissionLoading } = usePermission();
   const { canAddProduct, plan, effectiveLimits, usage, limitReached } = useEntitlements();
   const [limitBlockOpen, setLimitBlockOpen] = useState(false);
   const hasPizzaService = hasModuleAccess('pizza_config');
   const canEdit = canUpdate('dishes');
   
-  log.admin.debug('ðŸ½ï¸ [DishesTab] PermissÃµes:', {
+  log.admin.debug('Ã°Å¸ÂÂ½Ã¯Â¸Â [DishesTab] PermissÃƒÂµes:', {
     canCreate: canCreate('dishes'),
     canUpdate: canUpdate('dishes'),
     canDelete: canDelete('dishes'),
@@ -139,20 +141,20 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
     menuContext
   });
   
-  // âœ… Usar user do usePermission se disponÃ­vel, senÃ£o carregar
+  // Ã¢Å“â€¦ Usar user do usePermission se disponÃƒÂ­vel, senÃƒÂ£o carregar
   React.useEffect(() => {
     if (permissionUser) {
       setUser(permissionUser);
-      log.admin.debug('ðŸ½ï¸ [DishesTab] UsuÃ¡rio do usePermission:', permissionUser?.email);
+      log.admin.debug('Ã°Å¸ÂÂ½Ã¯Â¸Â [DishesTab] UsuÃƒÂ¡rio do usePermission:', permissionUser?.email);
     } else {
       const loadUser = async () => {
         try {
-          log.admin.debug('ðŸ½ï¸ [DishesTab] Carregando usuÃ¡rio...');
+          log.admin.debug('Ã°Å¸ÂÂ½Ã¯Â¸Â [DishesTab] Carregando usuÃƒÂ¡rio...');
           const userData = await base44.auth.me();
-          log.admin.debug('ðŸ½ï¸ [DishesTab] UsuÃ¡rio carregado:', userData?.email);
+          log.admin.debug('Ã°Å¸ÂÂ½Ã¯Â¸Â [DishesTab] UsuÃƒÂ¡rio carregado:', userData?.email);
           setUser(userData);
         } catch (e) {
-          log.admin.error('ðŸ½ï¸ [DishesTab] Error loading user:', e);
+          log.admin.error('Ã°Å¸ÂÂ½Ã¯Â¸Â [DishesTab] Error loading user:', e);
         }
       };
       loadUser();
@@ -162,7 +164,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
   const queryClient = useQueryClient();
   const slug = menuContext?.type === 'slug' ? menuContext?.value : null;
 
-  // âœ… Para master (slug): buscar cardÃ¡pio pÃºblico e usar para pratos, categorias e grupos
+  // Ã¢Å“â€¦ Para master (slug): buscar cardÃƒÂ¡pio pÃƒÂºblico e usar para pratos, categorias e grupos
   const { data: publicCardapio, isLoading: publicCardapioLoading } = useQuery({
     queryKey: ['publicCardapio', slug],
     queryFn: async () => {
@@ -174,13 +176,13 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
     gcTime: 60000,
   });
 
-  // âœ… Helper para obter subscriber_email correto baseado no contexto
+  // Ã¢Å“â€¦ Helper para obter subscriber_email correto baseado no contexto
   const getSubscriberEmail = () => getMenuContextSubscriberEmail(menuContext, user?.email);
   const menuQueryKeyParts = getMenuContextQueryKeyParts(menuContext);
   const menuEntityOpts = getMenuContextEntityOpts(menuContext);
 
   // ========= BUSCAR DADOS COM CONTEXTO =========
-  // âœ… Admin API; quando slug (master) usamos publicCardapio para exibir
+  // Ã¢Å“â€¦ Admin API; quando slug (master) usamos publicCardapio para exibir
   const { data: adminDishes = [], isLoading: dishesLoading, error: dishesError, refetch: refetchDishes } = useQuery({
     queryKey: ['dishes', ...menuQueryKeyParts],
     queryFn: async () => {
@@ -224,7 +226,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
     gcTime: 120000,
   });
 
-  // âœ… Fonte Ãºnica: cardÃ¡pio pÃºblico (slug) ou admin
+  // Ã¢Å“â€¦ Fonte ÃƒÂºnica: cardÃƒÂ¡pio pÃƒÂºblico (slug) ou admin
   const dishes = (slug && Array.isArray(publicCardapio?.dishes)) ? publicCardapio.dishes : (adminDishes || []);
   const categories = (slug && Array.isArray(publicCardapio?.categories)) ? publicCardapio.categories : (adminCategories || []);
   const complementGroups = (slug && Array.isArray(publicCardapio?.complementGroups)) ? publicCardapio.complementGroups : (adminComplementGroups || []);
@@ -239,7 +241,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
     }
   }, [menuContext?.type, menuContext?.value, slug]);
 
-  // Corrige bug: categorias vazias mas pratos tÃªm category_id â†’ refetch categorias
+  // Corrige bug: categorias vazias mas pratos tÃƒÂªm category_id Ã¢â€ â€™ refetch categorias
   useEffect(() => {
     const dishesWithCategory = (dishes || []).filter(d => d.category_id && d.product_type !== 'pizza' && d.product_type !== 'beverage');
     const cats = Array.isArray(categories) ? categories : [];
@@ -306,7 +308,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['dishes', ...menuQueryKeyParts] });
       if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
-      toast.success('Prato excluÃ­do');
+      toast.success(restaurantText.deletedDish);
     },
     onError: () => toast.error('Erro ao excluir prato')
   });
@@ -354,7 +356,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
       queryClient.invalidateQueries({ queryKey: ['categories', ...menuQueryKeyParts] });
       queryClient.invalidateQueries({ queryKey: ['dishes', ...menuQueryKeyParts] });
       if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
-      toast.success('Categoria excluÃ­da');
+      toast.success(restaurantText.deletedCategory);
     },
     onError: () => toast.error('Erro ao excluir categoria')
   });
@@ -408,8 +410,8 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
     },
   });
 
-  // ValidaÃ§Ãµes de seguranÃ§a - DECLARADAS AQUI PARA ESTAREM DISPONÃVEIS EM TODAS AS FUNÃ‡Ã•ES
-  // âœ… Filtrar pizzas E bebidas (bebidas vÃ£o para BeveragesTab)
+  // ValidaÃƒÂ§ÃƒÂµes de seguranÃƒÂ§a - DECLARADAS AQUI PARA ESTAREM DISPONÃƒÂVEIS EM TODAS AS FUNÃƒâ€¡Ãƒâ€¢ES
+  // Ã¢Å“â€¦ Filtrar pizzas E bebidas (bebidas vÃƒÂ£o para BeveragesTab)
   const safeDishes = (Array.isArray(dishes) ? dishes : []).filter(d => d.product_type !== 'pizza' && d.product_type !== 'beverage');
   const safeCategories = Array.isArray(categories) ? categories : [];
   const safeComplementGroups = Array.isArray(complementGroups) ? complementGroups : [];
@@ -429,14 +431,14 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
     };
 
     if (dishFormData.image) {
-      addImage(dishFormData.image, dishFormData.name || 'Imagem atual', 'Imagem jÃ¡ aplicada neste prato');
+      addImage(dishFormData.image, dishFormData.name || restaurantText.currentImage, restaurantText.currentDishImage);
     }
 
     safeDishes.forEach((dish) => {
       addImage(
         dish?.image,
         dish?.name || 'Prato',
-        dish?.category_id ? `Categoria ${dish.category_id}` : 'Imagem de prato jÃ¡ cadastrada'
+        dish?.category_id ? `Categoria ${dish.category_id}` : restaurantText.registeredDishImage
       );
     });
 
@@ -453,7 +455,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
     return entries;
   }, [dishFormData.image, dishFormData.name, safeDishes, safeComplementGroups]);
 
- // ========= FUNÃ‡Ã•ES PRINCIPAIS =========
+ // ========= FUNÃƒâ€¡Ãƒâ€¢ES PRINCIPAIS =========
   const openDishModal = (dish = null, categoryId = '', productType = 'preparado') => {
     if (dish) {
       setEditingDish(dish);
@@ -512,7 +514,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
       onNavigateToPromotions();
       return;
     }
-    toast('Gerencie combos na aba PromoÃ§Ãµes.');
+    toast(restaurantText.comboTabHint);
   };
 
   const closeDishModal = () => {
@@ -535,17 +537,17 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
     e.preventDefault();
     
     if (!dishFormData.name.trim()) {
-      toast.error('O nome do prato Ã© obrigatÃ³rio');
+      toast.error(restaurantText.dishNameRequired);
       return;
     }
     
     if (!dishFormData.price || parseFloat(dishFormData.price) < 0) {
-      toast.error('Informe um preÃ§o vÃ¡lido');
+      toast.error(restaurantText.validPrice);
       return;
     }
     
     if (dishFormData.original_price && parseFloat(dishFormData.original_price) < parseFloat(dishFormData.price)) {
-      toast.error('O preÃ§o original nÃ£o pode ser menor que o preÃ§o atual');
+      toast.error(restaurantText.originalPriceGuard);
       return;
     }
     
@@ -684,9 +686,9 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
   };
 
   const addNewComplementOption = (groupId) => {
-    const name = prompt('Nome da opÃ§Ã£o:');
+    const name = prompt(restaurantText.optionNamePrompt);
     if (!name) return;
-    const priceStr = prompt('PreÃ§o adicional (deixe em branco para R$ 0,00):', '0');
+    const priceStr = prompt(restaurantText.extraPricePrompt, '0');
     const price = parseFloat(priceStr) || 0;
     
     const group = safeComplementGroups.find(g => g.id === groupId);
@@ -819,7 +821,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
     
     const alreadyLinked = dish.complement_groups?.some(cg => cg.group_id === groupId);
     if (alreadyLinked) {
-      alert('Este grupo jÃ¡ estÃ¡ vinculado a este prato');
+      alert(restaurantText.groupAlreadyLinked);
       return;
     }
 
@@ -843,7 +845,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
     const existingIds = new Set((dish.complement_groups || []).map(cg => cg.group_id));
     const newIds = ids.filter(groupId => !existingIds.has(groupId));
     if (newIds.length === 0) {
-      toast('Todos os grupos selecionados jÃ¡ estÃ£o vinculados a este prato.');
+      toast(restaurantText.allGroupsAlreadyLinked);
       return;
     }
 
@@ -857,7 +859,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
       {
         onSuccess: () => {
           if (newIds.length < ids.length) {
-            toast.success(`${newIds.length} grupo(s) adicionado(s). ${ids.length - newIds.length} jÃ¡ estavam vinculados.`);
+            toast.success(restaurantText.addedGroups(newIds.length, ids.length - newIds.length));
           } else {
             toast.success(`${newIds.length} grupo(s) adicionado(s) ao prato.`);
           }
@@ -993,7 +995,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
       sameCategoryId(d.category_id, cat.id)
     );
   });
-  // Pratos sem categoria (ou com category_id inexistente) â€” exibir mesmo quando categories=[] para corrigir bug de "nÃ£o mostra nada atÃ© criar categoria"
+  // Pratos sem categoria (ou com category_id inexistente) Ã¢â‚¬â€ exibir mesmo quando categories=[] para corrigir bug de "nÃƒÂ£o mostra nada atÃƒÂ© criar categoria"
   const dishesWithoutCategory = filteredDishes.filter(
     (d) =>
       !normalizeCategoryId(d.category_id) ||
@@ -1130,11 +1132,11 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
 
   const availableTags = ['vegetariano', 'vegano', 'sem_gluten', 'picante', 'fit'];
   const tagLabels = {
-    vegetariano: 'ðŸ¥— Vegetariano',
-    vegano: 'ðŸŒ± Vegano',
-    sem_gluten: 'ðŸŒ¾ Sem GlÃºten',
-    picante: 'ðŸŒ¶ï¸ Picante',
-    fit: 'ðŸ’ª Fit'
+    vegetariano: '🥗 Vegetariano',
+    vegano: '🌱 Vegano',
+    sem_gluten: '🌾 Sem Glúten',
+    picante: '🌶️ Picante',
+    fit: '💪 Fit'
   };
 
   const moveCategoryUp = (index) => {
@@ -1340,7 +1342,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
     );
   };
 
-  // Mostrar skeleton enquanto contexto nÃ£o carregou OU enquanto dados estÃ£o sendo buscados (evita tela vazia ao abrir)
+  // Mostrar skeleton enquanto contexto nÃƒÂ£o carregou OU enquanto dados estÃƒÂ£o sendo buscados (evita tela vazia ao abrir)
   const isLoading = permissionLoading || !menuContext || isLoadingDishes || isLoadingCategories || isLoadingGroups;
   const hasError = dishesError || categoriesError || groupsError;
 
@@ -1353,7 +1355,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
   }
 
   if (hasError) {
-    log.admin.error('ðŸ½ï¸ [DishesTab] Erro ao carregar:', { dishesError, categoriesError, groupsError });
+    log.admin.error('Ã°Å¸ÂÂ½Ã¯Â¸Â [DishesTab] Erro ao carregar:', { dishesError, categoriesError, groupsError });
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-8">
         <div className="text-center">
@@ -1423,7 +1425,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
         )}
       </div>
 
-      {/* Cardápio IA V2: Cardápio / Produtos / Complementos */}
+      {/* CardÃ¡pio IA V2: CardÃ¡pio / Produtos / Complementos */}
       <div className="hidden border-b border-border bg-card lg:block">
         <div className="flex gap-1 px-6">
           <button
@@ -1518,7 +1520,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
         </div>
       </div>
 
-      {/* ConteÃºdo das Abas */}
+      {/* ConteÃƒÂºdo das Abas */}
       {internalTab === 'complements' ? (
         <ComplementsView
           onBackToMenu={() => setInternalTab('menu')}
@@ -1614,7 +1616,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
         />
       )}
 
-      {/* Modal SeleÃ§Ã£o de Tipo de Produto */}
+      {/* Modal SeleÃƒÂ§ÃƒÂ£o de Tipo de Produto */}
       <ProductTypeModal
         isOpen={showProductTypeModal}
         onClose={() => setShowProductTypeModal(false)}
@@ -1633,7 +1635,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
         plan={plan}
         limit={effectiveLimits?.products ?? 0}
         used={usage?.productsCount ?? 0}
-        suggestion="Pro libera atÃ© 800 produtos."
+        suggestion={restaurantText.limitSuggestion}
       />
 
       {/* Mobile Complements Sheet */}
@@ -1709,7 +1711,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
           if (!open) closeImagePicker();
         }}
         title={imagePickerState.title}
-        description="Use uma foto limpa e bem iluminada para deixar o cardápio mais profissional."
+        description={restaurantText.mediaDescription}
         imageType="product"
         folder={imagePickerState.folder}
         mediaModule="restaurant"
@@ -1772,9 +1774,9 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
             <div className="grid grid-cols-2 gap-2">
               {[
                 { value: 'all', label: 'Todos' },
-                { value: 'highlight', label: 'â­ Destaques' },
-                { value: 'new', label: 'âœ¨ Novos' },
-                { value: 'popular', label: 'ðŸ”¥ Populares' }
+                { value: 'highlight', label: '⭐ Destaques' },
+                { value: 'new', label: restaurantText.highlightNew },
+                { value: 'popular', label: restaurantText.highlightPopular }
               ].map(type => (
                 <button
                   key={type.value}
@@ -1933,7 +1935,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
         }}
       />
 
-      {/* Modal EdiÃ§Ã£o em Massa */}
+      {/* Modal EdiÃƒÂ§ÃƒÂ£o em Massa */}
       {bulkEditGroup && (
         <BulkEditOptions
           isOpen={showBulkEditModal}
@@ -1955,5 +1957,6 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
     </>
   );
 }
+
 
 

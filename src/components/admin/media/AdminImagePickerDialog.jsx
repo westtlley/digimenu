@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ImagePlus, Images, Loader2, Sparkles, Upload, ZoomIn } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,7 @@ import { uploadToCloudinary } from '@/utils/cloudinaryUpload';
 import toast from 'react-hot-toast';
 import { getMediaUploadPreset } from './mediaUploadPresets';
 import AdminMediaGallery from './AdminMediaGallery';
+import { uiText } from '@/i18n/pt-BR/uiText';
 import {
   buildAdminMediaLibraryInsights,
   filterAdminMediaItems,
@@ -112,7 +113,7 @@ async function createCenteredCroppedBlob(file, preset, zoom = DEFAULT_ZOOM) {
     const ctx = canvas.getContext('2d');
 
     if (!ctx) {
-      throw new Error('Nao foi possivel preparar a imagem.');
+      throw new Error('Não foi possível preparar a imagem.');
     }
 
     ctx.drawImage(image, cropX, cropY, cropWidth, cropHeight, 0, 0, canvas.width, canvas.height);
@@ -122,7 +123,7 @@ async function createCenteredCroppedBlob(file, preset, zoom = DEFAULT_ZOOM) {
     const blob = await new Promise((resolve, reject) => {
       canvas.toBlob((result) => {
         if (result) resolve(result);
-        else reject(new Error('Nao foi possivel gerar a imagem final.'));
+        else reject(new Error('Não foi possível gerar a imagem final.'));
       }, mimeType, 0.92);
     });
 
@@ -147,9 +148,10 @@ export default function AdminImagePickerDialog({
   existingImages = [],
   onSelectImage,
 }) {
+  const mediaText = uiText.media;
   const preset = useMemo(() => getMediaUploadPreset(imageType), [imageType]);
   const dialogTitle = title || preset.title || 'Adicionar imagem';
-  const dialogDescription = description || preset.description || 'Use uma imagem nitida para valorizar a vitrine.';
+  const dialogDescription = description || preset.description || 'Use uma imagem nítida para valorizar a vitrine.';
   const uploadFolder = folder || preset.folder || 'dishes';
   const fileInputRef = useRef(null);
   const uploadViewportRef = useRef(null);
@@ -431,7 +433,7 @@ export default function AdminImagePickerDialog({
             reference: selectedFile?.name || dialogTitle,
             source: dialogTitle,
             context: folder,
-            meta: `${preset.previewLabel} • ${preset.recommendedSize}`,
+            meta: `${preset.previewLabel} â€¢ ${preset.recommendedSize}`,
             updatedAt: Date.now(),
           },
         ],
@@ -475,7 +477,7 @@ export default function AdminImagePickerDialog({
 
   const handleSelectLibraryImage = async () => {
     if (!selectedLibraryUrl) {
-      toast.error('Escolha uma imagem da biblioteca.');
+      toast.error(mediaText.chooseLibraryImage);
       return;
     }
     setIsSaving(true);
@@ -683,9 +685,9 @@ export default function AdminImagePickerDialog({
 
               {activeTab === 'library' ? (
                 <div className="space-y-1 sm:ml-auto sm:max-w-[26rem] sm:text-right">
-                  <p className="text-lg font-semibold text-foreground">Arquivos salvos</p>
+                  <p className="text-lg font-semibold text-foreground">{mediaText.libraryTitle}</p>
                   <p className="text-sm text-muted-foreground">
-                    Escolha uma imagem ja usada no DigiMenu para aplicar no item.
+                    {mediaText.libraryDescription}
                   </p>
                 </div>
               ) : activeTab === 'upload' && !showPreviewEditor ? (
@@ -764,7 +766,7 @@ export default function AdminImagePickerDialog({
                         </p>
                       </div>
                       <Button type="button" variant="outline" onClick={() => setActiveTab('library')}>
-                        Abrir biblioteca
+                        {mediaText.openLibrary}
                       </Button>
                     </div>
                   ) : null}
@@ -847,7 +849,7 @@ export default function AdminImagePickerDialog({
                 <div className="flex min-h-[280px] items-center justify-center rounded-2xl border border-border bg-muted/20">
                   <div className="flex items-center gap-3 text-sm text-muted-foreground">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Carregando biblioteca de midia...
+                    {mediaText.loadingLibrary}
                   </div>
                 </div>
               ) : !libraryHasItems ? (
@@ -855,9 +857,9 @@ export default function AdminImagePickerDialog({
                   <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">
                     <Images className="h-6 w-6" />
                   </div>
-                  <h3 className="mt-4 text-xl font-semibold text-foreground">Sua biblioteca ainda esta vazia</h3>
+                  <h3 className="mt-4 text-xl font-semibold text-foreground">{mediaText.emptyLibraryTitle}</h3>
                   <p className="mt-2 text-sm text-muted-foreground">
-                    As imagens usadas em produtos, categorias e campanhas vao aparecer aqui para voce reaproveitar.
+                    {mediaText.emptyLibraryDescription}
                   </p>
                 </div>
               ) : (
@@ -870,7 +872,7 @@ export default function AdminImagePickerDialog({
                         onSelect={setSelectedLibraryUrl}
                         variant="picker"
                         emptyTitle="Nenhuma imagem encontrada"
-                        emptyDescription={`Ainda nao existem ${getMediaFilterLabel(imageType).toLowerCase()} salvos para reaproveitar.`}
+                        emptyDescription={mediaText.noSavedItemsForType(getMediaFilterLabel(imageType))}
                       />
 
                       {librarySnapshot?.pagination?.has_more ? (
@@ -892,14 +894,14 @@ export default function AdminImagePickerDialog({
 
                   <div className="flex flex-col gap-3 border-t border-border/80 bg-background pt-4 sm:flex-row sm:items-center sm:justify-between">
                     <p className="min-w-0 flex-1 text-sm text-muted-foreground">
-                      {selectedLibraryItem ? `Selecionada: ${selectedLibraryItem.label || 'Imagem salva'}` : 'Escolha uma imagem da biblioteca para aplicar no item.'}
+                      {selectedLibraryItem ? `${mediaText.selectedLabel}: ${selectedLibraryItem.label || mediaText.selectedImageFallback}` : mediaText.chooseLibraryItem}
                     </p>
                     <div className="flex flex-wrap gap-3 sm:shrink-0 sm:justify-end">
                       <Button type="button" variant="outline" className="h-11 min-w-[132px] sm:h-10" onClick={() => onOpenChange(false)}>
                         Cancelar
                       </Button>
                       <Button type="button" variant="outline" className="h-11 min-w-[132px] sm:h-10" onClick={() => setSelectedLibraryUrl(null)} disabled={!selectedLibraryUrl || isSaving}>
-                        Limpar selecao
+                        Limpar seleção
                       </Button>
                       <Button type="button" className="h-11 min-w-[132px] sm:h-10" onClick={handleSelectLibraryImage} disabled={!selectedLibraryUrl || isSaving}>
                         {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
@@ -924,6 +926,8 @@ export default function AdminImagePickerDialog({
     </Dialog>
   );
 }
+
+
 
 
 

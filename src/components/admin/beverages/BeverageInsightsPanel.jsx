@@ -1,9 +1,10 @@
-import React from 'react';
+﻿import React from 'react';
 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { uiText } from '@/i18n/pt-BR/uiText';
 
 const formatCurrency = (value) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value || 0));
@@ -21,19 +22,20 @@ export default function BeverageInsightsPanel({
   decisionSummary,
   onRecommendationAction,
 }) {
+  const beverageInsightsText = uiText.beverages.insights;
   return (
     <div className="space-y-4">
       <Card className="rounded-3xl border-slate-200 p-4 shadow-sm sm:p-5">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600">Performance de bebidas</Badge>
-            <h3 className="mt-3 text-lg font-semibold text-slate-900 sm:text-xl">O modulo agora separa exposicao, aceitacao e receita</h3>
+            <h3 className="mt-3 text-lg font-semibold text-slate-900 sm:text-xl">{beverageInsightsText.performanceTitle}</h3>
             <p className="mt-2 text-sm leading-6 text-slate-600">
-              Aqui entram os sinais reais do cardapio para priorizar bebidas que vendem melhor e expor menos o que nao responde.
+              {beverageInsightsText.performanceDescription}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Badge variant="outline" className="bg-white text-slate-700">{performanceSummary?.total_suggested || 0} sugestoes</Badge>
+            <Badge variant="outline" className="bg-white text-slate-700">{performanceSummary?.total_suggested || 0} sugestões</Badge>
             <Badge variant="outline" className="bg-white text-slate-700">{performanceSummary?.total_added || 0} aceites</Badge>
             <Badge variant="outline" className="bg-white text-slate-700">{formatCurrency(performanceSummary?.total_revenue_generated || 0)} receita</Badge>
           </div>
@@ -46,11 +48,11 @@ export default function BeverageInsightsPanel({
               {(performanceSummary?.top_acceptance || []).slice(0, 3).map((entry) => (
                 <div key={`acceptance:${entry.beverage_id}`} className="rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2">
                   <p className="text-sm font-semibold text-slate-900">{entry.beverage_name}</p>
-                  <p className="mt-1 text-xs text-slate-600">{Number(entry.acceptance_rate || 0).toFixed(0)}% de aceitacao</p>
+                  <p className="mt-1 text-xs text-slate-600">{Number(entry.acceptance_rate || 0).toFixed(0)}% de {beverageInsightsText.acceptanceRate}</p>
                 </div>
               ))}
               {(performanceSummary?.top_acceptance || []).length === 0 ? (
-                <p className="text-sm text-slate-500">Ainda nao ha massa critica de aceite real.</p>
+                <p className="text-sm text-slate-500">{beverageInsightsText.insufficientAcceptanceData}</p>
               ) : null}
             </div>
           </div>
@@ -65,7 +67,7 @@ export default function BeverageInsightsPanel({
                 </div>
               ))}
               {(performanceSummary?.top_revenue || []).length === 0 ? (
-                <p className="text-sm text-slate-500">Ainda nao ha receita atribuida suficiente para ranquear.</p>
+                <p className="text-sm text-slate-500">{beverageInsightsText.insufficientRevenueData}</p>
               ) : null}
             </div>
           </div>
@@ -95,7 +97,7 @@ export default function BeverageInsightsPanel({
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600">Pedido inteiro</Badge>
-            <h3 className="mt-3 text-lg font-semibold text-slate-900 sm:text-xl">Qual acao o sistema prefere para aumentar faturamento</h3>
+            <h3 className="mt-3 text-lg font-semibold text-slate-900 sm:text-xl">{beverageInsightsText.preferredActionTitle}</h3>
             <p className="mt-2 text-sm leading-6 text-slate-600">
               Aqui o motor deixa de escolher item isolado e passa a disputar bebida, upgrade, sobremesa e combo na mesma mesa.
             </p>
@@ -105,7 +107,7 @@ export default function BeverageInsightsPanel({
               <Badge variant="outline" className="bg-white text-slate-700">Top: {orderOptimizationSummary.top_action_label}</Badge>
             ) : null}
             <Badge variant="outline" className="bg-white text-slate-700">
-              {orderOptimizationSummary?.total_actions_with_data || 0} acao(oes) com leitura
+              {orderOptimizationSummary?.total_actions_with_data || 0} {beverageInsightsText.actionsWithData}
             </Badge>
             <Badge variant="outline" className="bg-white text-slate-700">
               {Object.keys(orderActionPerformance || {}).length} tipo(s) em disputa
@@ -132,7 +134,7 @@ export default function BeverageInsightsPanel({
             <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
               <p className="text-sm font-semibold text-slate-900">Sem leitura global forte ainda</p>
               <p className="mt-2 text-sm text-slate-600">
-                O motor do pedido inteiro continua em fallback seguro enquanto junta massa critica por acao.
+                {beverageInsightsText.orderFallback}
               </p>
             </div>
           ) : null}
@@ -156,15 +158,15 @@ export default function BeverageInsightsPanel({
       <Card className="rounded-3xl border-slate-200 p-4 shadow-sm sm:p-5">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600">Combinacoes que mais geram dinheiro</Badge>
-            <h3 className="mt-3 text-lg font-semibold text-slate-900 sm:text-xl">O sistema ja le prato + bebida como um unico lance</h3>
+            <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600">Combinações que mais geram dinheiro</Badge>
+            <h3 className="mt-3 text-lg font-semibold text-slate-900 sm:text-xl">O sistema já lê prato + bebida como um único lance</h3>
             <p className="mt-2 text-sm leading-6 text-slate-600">
               Aqui aparece o que realmente responde melhor quando o pedido inteiro entra na conta.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Badge variant="outline" className="bg-white text-slate-700">
-              {combinationSummary?.total_combinations_with_data || 0} combinacao(oes)
+              {combinationSummary?.total_combinations_with_data || 0} {beverageInsightsText.combinationCount}
             </Badge>
             <Badge variant="outline" className="bg-white text-slate-700">
               {Object.keys(combinationPerformance || {}).length} sinais cruzados
@@ -174,7 +176,7 @@ export default function BeverageInsightsPanel({
 
         <div className="mt-5 grid gap-3 lg:grid-cols-2">
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Top combinacoes</p>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{beverageInsightsText.topCombinations}</p>
             <div className="mt-3 space-y-2">
               {(combinationSummary?.top_combinations || []).slice(0, 3).map((entry) => (
                 <div key={`top-combo:${entry.combination_id || entry.combo_label}`} className="rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2">
@@ -185,7 +187,7 @@ export default function BeverageInsightsPanel({
                 </div>
               ))}
               {(combinationSummary?.top_combinations || []).length === 0 ? (
-                <p className="text-sm text-slate-500">Ainda nao ha combinacoes suficientes para ranquear.</p>
+                <p className="text-sm text-slate-500">{beverageInsightsText.insufficientCombinationData}</p>
               ) : null}
             </div>
           </div>
@@ -215,7 +217,7 @@ export default function BeverageInsightsPanel({
             <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600">Oportunidades para aumentar ticket</Badge>
             <h3 className="mt-3 text-lg font-semibold text-slate-900 sm:text-xl">O sistema esta lendo onde bebidas ainda vendem pouco</h3>
             <p className="mt-2 text-sm leading-6 text-slate-600">
-              As oportunidades somem quando voce resolve o ponto certo. Nada aqui e alerta vazio.
+              {beverageInsightsText.opportunitiesDescription}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -262,7 +264,7 @@ export default function BeverageInsightsPanel({
           <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50/80 p-5">
             <p className="text-sm font-semibold text-emerald-800">Nenhuma oportunidade urgente agora.</p>
             <p className="mt-2 text-sm text-emerald-700">
-              O modulo de bebidas ja esta cobrindo os pontos mais importantes de upsell e ticket.
+              {beverageInsightsText.stableTicketReadout}
             </p>
           </div>
         )}
@@ -271,10 +273,10 @@ export default function BeverageInsightsPanel({
       <Card className="rounded-3xl border-slate-200 p-4 shadow-sm sm:p-5">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600">Painel de decisao</Badge>
+            <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600">{beverageInsightsText.decisionPanel}</Badge>
             <h3 className="mt-3 text-lg font-semibold text-slate-900 sm:text-xl">Por que o sistema subiu ou derrubou cada bebida</h3>
             <p className="mt-2 text-sm leading-6 text-slate-600">
-              A automacao continua reversivel. Aqui ficam os motivos das mudancas para voce confiar no motor.
+              {beverageInsightsText.decisionPanelDescription}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -334,7 +336,7 @@ export default function BeverageInsightsPanel({
           <Badge variant="outline" className="border-orange-200 bg-orange-50 text-orange-700">Antes vs depois</Badge>
           <h3 className="mt-3 text-lg font-semibold text-slate-900">Veja o impacto antes de agir</h3>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            O sistema mostra o que muda no modulo de bebidas antes de aplicar qualquer melhoria.
+            {beverageInsightsText.beforeAfterDescription}
           </p>
         </div>
 
@@ -342,18 +344,18 @@ export default function BeverageInsightsPanel({
           <AccordionItem value="plan" className="border-none">
             <AccordionTrigger className="px-4 py-4 text-left hover:no-underline sm:px-5">
               <div>
-                <p className="text-sm font-semibold text-slate-900">Plano de melhoria automatica</p>
-                <p className="mt-1 text-xs text-slate-500">Acao principal para organizar catalogo, upsell e preview.</p>
+                <p className="text-sm font-semibold text-slate-900">{beverageInsightsText.automatedPlan}</p>
+                <p className="mt-1 text-xs text-slate-500">Ação principal para organizar catálogo, upsell e preview.</p>
               </div>
             </AccordionTrigger>
             <AccordionContent className="px-4 pt-0 sm:px-5">
               <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div>
-                    <Badge variant="outline" className="bg-white text-slate-700">Plano do modulo</Badge>
+                    <Badge variant="outline" className="bg-white text-slate-700">{beverageInsightsText.modulePlan}</Badge>
                     <h4 className="mt-3 text-lg font-semibold text-slate-900">{autoPlan.summary}</h4>
                     <p className="mt-2 text-sm text-slate-600">
-                      O foco aqui e fazer bebida participar do ticket sem criar backend novo nem quebrar o que ja existe.
+                      O foco aqui é fazer bebida participar do ticket sem criar backend novo nem quebrar o que já existe.
                     </p>
                   </div>
                   <Button
@@ -406,7 +408,7 @@ export default function BeverageInsightsPanel({
             <AccordionTrigger className="px-4 py-4 text-left hover:no-underline sm:px-5">
               <div>
                 <p className="text-sm font-semibold text-slate-900">Leitura direta</p>
-                <p className="mt-1 text-xs text-slate-500">Sem jargao tecnico. O sistema fala o que realmente importa.</p>
+                <p className="mt-1 text-xs text-slate-500">Sem jargão técnico. O sistema fala o que realmente importa.</p>
               </div>
             </AccordionTrigger>
             <AccordionContent className="px-4 pt-0 sm:px-5">
@@ -420,19 +422,19 @@ export default function BeverageInsightsPanel({
                 <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                   <p className="text-sm font-semibold text-slate-900">Se falta variedade de volume</p>
                   <p className="mt-2 text-sm leading-6 text-slate-600">
-                    O cliente percebe menos diferenca de valor entre uma lata, uma 600ml e uma bebida familia.
+                    O cliente percebe menos diferença de valor entre uma lata, uma 600ml e uma bebida família.
                   </p>
                 </div>
                 <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                   <p className="text-sm font-semibold text-slate-900">Se bebidas premium estao soltas</p>
                   <p className="mt-2 text-sm leading-6 text-slate-600">
-                    O ticket pode crescer mais, mas o sistema ainda nao esta puxando essa bebida para perto do prato certo.
+                    {beverageInsightsText.premiumLooseReadout}
                   </p>
                 </div>
                 <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                  <p className="text-sm font-semibold text-slate-900">Se as categorias nao tem apoio</p>
+                  <p className="text-sm font-semibold text-slate-900">{beverageInsightsText.missingCategorySupportTitle}</p>
                   <p className="mt-2 text-sm leading-6 text-slate-600">
-                    O cardapio vira lista de produtos. Com bebida vinculada, ele vira motor de decisao e ticket.
+                    {beverageInsightsText.missingCategorySupportDescription}
                   </p>
                 </div>
               </div>
@@ -443,3 +445,6 @@ export default function BeverageInsightsPanel({
     </div>
   );
 }
+
+
+

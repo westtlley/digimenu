@@ -1,8 +1,9 @@
-import React from 'react';
+﻿import React from 'react';
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { uiText } from '@/i18n/pt-BR/uiText';
 
 const toneClassByLevel = {
   FORTE: 'border-emerald-200 bg-emerald-50/80',
@@ -27,12 +28,13 @@ export default function BeverageOverviewPanel({
   onQuickAction,
   onOpenSection,
 }) {
+  const beverageOverviewText = uiText.beverages.overview;
   const learningReadout =
     performanceSummary?.learning_state === 'aprendendo_com_dados'
-      ? 'O modulo ja esta aprendendo com comportamento real.'
+      ? beverageOverviewText.learning.live
       : performanceSummary?.learning_state === 'dados_iniciais'
-        ? 'Ja existem sinais reais, mas ainda estamos no inicio da leitura.'
-        : 'Sem massa critica de dados ainda. O fallback heuristico continua protegendo o upsell.';
+        ? beverageOverviewText.learning.early
+        : beverageOverviewText.learning.fallback;
 
   return (
     <div className="space-y-4">
@@ -41,9 +43,9 @@ export default function BeverageOverviewPanel({
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <Badge variant="outline" className="border-cyan-200 bg-cyan-50 text-cyan-700">Visao comercial</Badge>
-              <h3 className="mt-3 text-lg font-semibold text-slate-900 sm:text-xl">Bebidas deixaram de ser categoria secundaria</h3>
+              <h3 className="mt-3 text-lg font-semibold text-slate-900 sm:text-xl">{beverageOverviewText.title}</h3>
               <p className="mt-2 text-sm leading-6 text-slate-600">
-                Aqui voce enxerga o potencial de ticket, o que ja esta ajudando no upsell e o que ainda fica escondido no cardapio.
+                {beverageOverviewText.description}
               </p>
             </div>
             <Badge className="w-fit bg-slate-900 text-white">{moduleSummary.level}</Badge>
@@ -67,7 +69,7 @@ export default function BeverageOverviewPanel({
               <p className="mt-2 text-2xl font-semibold text-slate-900">{moduleSummary.categoriesWithoutUpsell}</p>
             </div>
             <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Aceitacao do modulo</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{beverageOverviewText.moduleAcceptance}</p>
               <p className="mt-2 text-2xl font-semibold text-slate-900">{Number(performanceSummary?.module_acceptance_rate || 0).toFixed(0)}%</p>
             </div>
             <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
@@ -79,7 +81,7 @@ export default function BeverageOverviewPanel({
               <p className="mt-2 text-2xl font-semibold text-slate-900">{performanceSummary?.real_margin_coverage || 0}</p>
             </div>
             <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Proxima acao forte</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{beverageOverviewText.nextStrongAction}</p>
               <p className="mt-2 text-lg font-semibold text-slate-900">{orderOptimizationSummary?.top_action_label || 'Fallback seguro'}</p>
             </div>
           </div>
@@ -87,7 +89,7 @@ export default function BeverageOverviewPanel({
           <div className={`mt-4 rounded-2xl border p-4 ${toneClassByLevel[moduleSummary.level] || toneClassByLevel.BASICO}`}>
             <p className="text-sm font-semibold text-slate-900">{moduleSummary.title}</p>
             <p className="mt-2 text-sm text-slate-700">
-              O modulo de bebidas agora le o papel comercial do cardapio e destaca onde o ticket ainda pode crescer.
+              {beverageOverviewText.commercialReadout}
             </p>
           </div>
         </Card>
@@ -99,11 +101,11 @@ export default function BeverageOverviewPanel({
                 <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600">Upsell real</Badge>
                 <h3 className="mt-3 text-base font-semibold text-slate-900 sm:text-lg">Bebida usada hoje no cross-sell</h3>
                 <p className="mt-2 text-sm leading-6 text-slate-600">
-                  Esse e o ponto que conversa direto com o motor atual do cardapio e do SmartUpsell.
+                  {beverageOverviewText.currentUpsellDescription}
                 </p>
               </div>
               <Button type="button" variant="outline" onClick={() => onOpenSection('links')}>
-                Revisar vinculos
+                {beverageOverviewText.reviewLinks}
               </Button>
             </div>
 
@@ -112,14 +114,14 @@ export default function BeverageOverviewPanel({
                 <>
                   <p className="text-sm font-semibold text-slate-900">{currentUpsellBeverage.name}</p>
                   <p className="mt-1 text-sm text-slate-600">
-                    Hoje ela esta preparada para aparecer como bebida sugerida no fluxo real do cardapio.
+                    {beverageOverviewText.activeUpsellDescription}
                   </p>
                 </>
               ) : (
                 <>
                   <p className="text-sm font-semibold text-slate-900">Nenhuma bebida ativada ainda</p>
                   <p className="mt-1 text-sm text-slate-600">
-                    O motor de cross-sell existe, mas ainda nao esta sendo usado por nenhuma bebida.
+                    {beverageOverviewText.inactiveUpsellDescription}
                   </p>
                 </>
               )}
@@ -131,11 +133,11 @@ export default function BeverageOverviewPanel({
             </div>
 
             <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Decisao automatica</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{beverageOverviewText.automaticDecision}</p>
               <p className="mt-2 text-sm font-semibold text-slate-900">
                 {decisionSummary?.primary_beverage_name
-                  ? `${decisionSummary.primary_beverage_name} lidera o upsell automatico`
-                  : 'O sistema ainda esta usando fallback seguro para escolher a principal.'}
+                  ? `${decisionSummary.primary_beverage_name} lidera o upsell automático`
+                  : 'O sistema ainda está usando fallback seguro para escolher a principal.'}
               </p>
               <p className="mt-2 text-sm text-slate-600">
                 {decisionSummary?.primary_reason || 'Assim que houver dados ou override suficiente, a principal passa a aparecer aqui.'}
@@ -145,7 +147,7 @@ export default function BeverageOverviewPanel({
                   {decisionSummary?.fixed_count || 0} fixa(s)
                 </Badge>
                 <Badge variant="outline" className="bg-white text-slate-700">
-                  {decisionSummary?.automation_disabled_count || 0} fora da automacao
+                  {decisionSummary?.automation_disabled_count || 0} {beverageOverviewText.outOfAutomation}
                 </Badge>
                 {decisionSummary?.active_ab_test ? (
                   <Badge variant="outline" className="bg-white text-slate-700">A/B leve ativo</Badge>
@@ -155,10 +157,10 @@ export default function BeverageOverviewPanel({
           </Card>
 
           <Card className="rounded-3xl border-slate-200 p-4 shadow-sm sm:p-5">
-            <Badge variant="outline" className="border-orange-200 bg-orange-50 text-orange-700">Acoes rapidas</Badge>
+            <Badge variant="outline" className="border-orange-200 bg-orange-50 text-orange-700">Ações rápidas</Badge>
             <h3 className="mt-3 text-lg font-semibold text-slate-900">Resolva o principal sem abrir tudo</h3>
             <p className="mt-2 text-sm leading-6 text-slate-600">
-              As configuracoes detalhadas seguem nas secoes tecnicas. Aqui ficam os atalhos que mais aumentam ticket.
+              As configurações detalhadas seguem nas seções técnicas. Aqui ficam os atalhos que mais aumentam ticket.
             </p>
 
             <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
@@ -181,13 +183,13 @@ export default function BeverageOverviewPanel({
             <div className="flex items-start justify-between gap-3">
               <div>
                 <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700">Pedido inteiro</Badge>
-                <h3 className="mt-3 text-base font-semibold text-slate-900 sm:text-lg">Combinacao que mais gera dinheiro agora</h3>
+                <h3 className="mt-3 text-base font-semibold text-slate-900 sm:text-lg">{beverageOverviewText.topCombination}</h3>
                 <p className="mt-2 text-sm leading-6 text-slate-600">
-                  O motor cruzado ja esta lendo prato + bebida para decidir o que sobe junto no pedido.
+                  O motor cruzado já está lendo prato + bebida para decidir o que sobe junto no pedido.
                 </p>
               </div>
               <Button type="button" variant="outline" onClick={() => onOpenSection('insights')}>
-                Ver combinacoes
+                {beverageOverviewText.seeCombinations}
               </Button>
             </div>
 
@@ -197,13 +199,16 @@ export default function BeverageOverviewPanel({
                   <p className="text-sm font-semibold text-slate-900">{combinationSummary.main_combination_label}</p>
                   <p className="mt-1 text-sm text-slate-600">
                     {combinationSummary?.top_combinations?.[0]
-                      ? `${Number(combinationSummary.top_combinations[0].acceptance_rate || 0).toFixed(0)}% de aceitacao com score ${Number(combinationSummary.top_combinations[0].combination_score || 0).toFixed(0)}.`
-                      : 'Essa combinacao lidera a leitura cruzada do pedido.'}
+                      ? beverageOverviewText.topCombinationAcceptance(
+                          Number(combinationSummary.top_combinations[0].acceptance_rate || 0).toFixed(0),
+                          Number(combinationSummary.top_combinations[0].combination_score || 0).toFixed(0)
+                        )
+                      : beverageOverviewText.topCombinationFallback}
                   </p>
                 </>
               ) : (
                 <>
-                  <p className="text-sm font-semibold text-slate-900">Ainda juntando massa critica de combinacoes</p>
+                  <p className="text-sm font-semibold text-slate-900">{beverageOverviewText.buildingCombinationData}</p>
                   <p className="mt-1 text-sm text-slate-600">
                     O fallback atual segue protegendo o upsell enquanto os dados cruzados amadurecem.
                   </p>
@@ -213,10 +218,10 @@ export default function BeverageOverviewPanel({
 
             <div className="mt-4 flex flex-wrap gap-2">
               <Badge variant="outline" className="bg-white text-slate-700">
-                {combinationSummary?.total_combinations_with_data || 0} combinacao(oes)
+                {combinationSummary?.total_combinations_with_data || 0} combinação(ões)
               </Badge>
               <Badge variant="outline" className="bg-white text-slate-700">
-                {orderOptimizationSummary?.total_actions_with_data || 0} acoes com dados
+                {orderOptimizationSummary?.total_actions_with_data || 0} ações com dados
               </Badge>
               {(combinationSummary?.top_combinations || []).slice(0, 2).map((entry) => (
                 <Badge key={`combo:${entry.combination_id || entry.combo_label}`} variant="outline" className="bg-white text-slate-700">
@@ -228,7 +233,7 @@ export default function BeverageOverviewPanel({
             <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Decisao global do pedido</p>
               <p className="mt-2 text-sm font-semibold text-slate-900">
-                {orderOptimizationSummary?.top_action_reason || 'O sistema ainda esta juntando sinais para escolher a melhor proxima acao do pedido.'}
+                {orderOptimizationSummary?.top_action_reason || beverageOverviewText.nextOrderActionFallback}
               </p>
             </div>
           </Card>
@@ -243,7 +248,7 @@ export default function BeverageOverviewPanel({
               <h3 className="mt-3 text-lg font-semibold text-slate-900">Bebidas com melhor leitura comercial</h3>
             </div>
             <Button type="button" variant="outline" onClick={() => onOpenSection('catalog')}>
-              Abrir catalogo
+              Abrir catálogo
             </Button>
           </div>
 
@@ -278,7 +283,7 @@ export default function BeverageOverviewPanel({
               <h3 className="mt-3 text-lg font-semibold text-slate-900">Categorias ainda sem apoio de upsell</h3>
             </div>
             <Button type="button" variant="outline" onClick={() => onOpenSection('links')}>
-              Corrigir vinculos
+              {beverageOverviewText.fixLinks}
             </Button>
           </div>
 
@@ -292,9 +297,9 @@ export default function BeverageOverviewPanel({
             </div>
           ) : (
             <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4">
-              <p className="text-sm font-semibold text-emerald-800">As principais categorias ja contam com uma leitura de bebida.</p>
+              <p className="text-sm font-semibold text-emerald-800">As principais categorias já contam com uma leitura de bebida.</p>
               <p className="mt-2 text-sm text-emerald-700">
-                O modulo ja esta cobrindo os pontos mais sensiveis para upsell de ticket.
+                {beverageOverviewText.stableCoverage}
               </p>
             </div>
           )}
@@ -303,3 +308,6 @@ export default function BeverageOverviewPanel({
     </div>
   );
 }
+
+
+

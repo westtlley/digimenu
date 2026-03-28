@@ -50,17 +50,17 @@ const COLOR_GROUPS = [
     description: 'A base da identidade visual da loja.',
     fields: [
       { key: 'theme_primary_color', label: 'Cor principal', hint: 'Preco, destaque e decisao.' },
-      { key: 'theme_secondary_color', label: 'Cor secundaria', hint: 'Topo, profundidade e clima.' },
+      { key: 'theme_secondary_color', label: 'Cor secundária', hint: 'Topo, profundidade e clima.' },
       { key: 'theme_accent_color', label: 'Cor de destaque', hint: 'Badges e pontos de apoio.' },
     ],
   },
   {
     id: 'actions',
-    title: 'Botoes e acoes',
-    description: 'Os pontos que puxam clique e conversao.',
+    title: 'Botões e ações',
+    description: 'Os pontos que puxam clique e conversão.',
     fields: [
-      { key: 'theme_cta_bg', label: 'Cor dos botoes', hint: 'CTA principal e chamadas fortes.' },
-      { key: 'theme_cta_text', label: 'Texto do botao', hint: 'Legibilidade do CTA.' },
+      { key: 'theme_cta_bg', label: 'Cor dos botões', hint: 'CTA principal e chamadas fortes.' },
+      { key: 'theme_cta_text', label: 'Texto do botão', hint: 'Legibilidade do CTA.' },
     ],
   },
   {
@@ -68,10 +68,10 @@ const COLOR_GROUPS = [
     title: 'Fundo e leitura',
     description: 'Conforto visual e qualidade percebida.',
     fields: [
-      { key: 'theme_surface_color', label: 'Fundo do cardapio', hint: 'Superficie principal da vitrine.' },
-      { key: 'theme_surface_alt_color', label: 'Blocos de apoio', hint: 'Pills, faixas e secoes auxiliares.' },
-      { key: 'theme_text_primary', label: 'Texto principal', hint: 'Titulos e informacoes centrais.' },
-      { key: 'theme_text_secondary', label: 'Texto secundario', hint: 'Descricoes e apoio.' },
+      { key: 'theme_surface_color', label: 'Fundo do cardápio', hint: 'Superfície principal da vitrine.' },
+      { key: 'theme_surface_alt_color', label: 'Blocos de apoio', hint: 'Pills, faixas e seções auxiliares.' },
+      { key: 'theme_text_primary', label: 'Texto principal', hint: 'Títulos e informações centrais.' },
+      { key: 'theme_text_secondary', label: 'Texto secundário', hint: 'Descrições e apoio.' },
     ],
   },
   {
@@ -344,7 +344,7 @@ export default function ThemeTab() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ payload }) => {
-      if (!store?.id) throw new Error('Loja nao encontrada');
+      if (!store?.id) throw new Error('Loja não encontrada');
       return base44.entities.Store.update(store.id, payload, scopedEntityOpts);
     },
     onSuccess: async (_, variables) => {
@@ -354,7 +354,7 @@ export default function ThemeTab() {
       }
     },
     onError: (error) => {
-      toast.error(error?.message || 'Nao foi possivel salvar o tema da loja.');
+      toast.error(error?.message || 'Não foi possível salvar o tema da loja.');
     },
   });
 
@@ -397,7 +397,7 @@ export default function ThemeTab() {
       setIsExtractingColors(true);
       const extracted = await extractColorsFromImage(store.logo);
       if (!extracted?.primary) {
-        toast.error('Nao foi possivel extrair cores suficientes da logo.');
+        toast.error('Não foi possível extrair cores suficientes da logo.');
         return;
       }
 
@@ -414,7 +414,7 @@ export default function ThemeTab() {
       }));
       toast.success('Paleta aplicada com base na logo.');
     } catch (error) {
-      toast.error(error?.message || 'Nao foi possivel extrair as cores da logo.');
+      toast.error(error?.message || 'Não foi possível extrair as cores da logo.');
     } finally {
       setIsExtractingColors(false);
     }
@@ -422,7 +422,7 @@ export default function ThemeTab() {
 
   const handleReset = () => {
     setDraft(persistedTheme);
-    toast.success('Alteracoes visuais descartadas.');
+    toast.success('Alterações visuais descartadas.');
   };
 
   const handleSave = () => {
@@ -433,8 +433,8 @@ export default function ThemeTab() {
     ? 'Salvando...'
     : hasChanges
       ? autoApply
-        ? 'Aplicacao automatica ligada'
-        : 'Alteracoes prontas para salvar'
+        ? 'Aplicação automática ligada'
+        : 'Alterações prontas para salvar'
       : 'Tudo sincronizado';
 
   const currentLayoutValue = layoutTarget === 'mobile'
@@ -448,7 +448,7 @@ export default function ThemeTab() {
   const inactiveControls = [
     'Gradientes e sombras globais',
     'Estilos de botao extras',
-    'Variantes decorativas que nao chegam na vitrine real',
+    'Variantes decorativas que não chegam à vitrine real',
   ];
 
   if (!store) {
@@ -458,7 +458,7 @@ export default function ThemeTab() {
           <CardHeader>
             <CardTitle>Nenhuma loja encontrada</CardTitle>
             <CardDescription>
-              O studio de vitrine precisa de uma loja carregada para editar o tema publico.
+              O studio de vitrine precisa de uma loja carregada para editar o tema público.
             </CardDescription>
           </CardHeader>
         </Card>
@@ -576,8 +576,8 @@ export default function ThemeTab() {
               <Card className="rounded-[28px] border">
                 <CardHeader className="pb-4">
                   <CompactHeader
-                    title="Personalizacao principal"
-                    description="As cores abaixo realmente aparecem no storefront. Voce ajusta marca, leitura e conversao sem afundar a pagina em campos tecnicos."
+                    title="Personalização principal"
+                    description="As cores abaixo realmente aparecem no storefront. Você ajusta marca, leitura e conversão sem afundar a página em campos técnicos."
                     action={(
                       <Button
                         variant="outline"
@@ -738,7 +738,7 @@ export default function ThemeTab() {
                   <CardHeader className="pb-4">
                     <CompactHeader
                       title="Ajustes extras"
-                      description="Hero, badge e rodape ficam aqui para nao competir com o basico. So abra quando precisar lapidar o acabamento."
+                      description="Hero, badge e rodapé ficam aqui para não competir com o básico. Só abra quando precisar lapidar o acabamento."
                     />
                   </CardHeader>
                   <CardContent className="pt-0">
@@ -772,8 +772,8 @@ export default function ThemeTab() {
                 <div className="grid gap-4 xl:grid-cols-2">
                   <Card className="rounded-[24px] border">
                     <CardHeader className="pb-3">
-                      <CardTitle className="text-base">Saude visual</CardTitle>
-                      <CardDescription>Cheque rapido de contraste nos pontos que mais afetam leitura.</CardDescription>
+                      <CardTitle className="text-base">Saúde visual</CardTitle>
+                      <CardDescription>Cheque rápido de contraste nos pontos que mais afetam leitura.</CardDescription>
                     </CardHeader>
                     <CardContent className="grid gap-3 md:grid-cols-2">
                       {contrastChecks.map((check) => (
@@ -799,7 +799,7 @@ export default function ThemeTab() {
                     <CardHeader className="pb-3">
                       <CardTitle className="text-base">O que fica para depois</CardTitle>
                       <CardDescription>
-                        Limpamos a tela e deixamos visivel so o que hoje chega de verdade na vitrine.
+                        Limpamos a tela e deixamos visível só o que hoje chega de verdade na vitrine.
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-3">
@@ -814,7 +814,7 @@ export default function ThemeTab() {
                         </div>
                       </div>
                       <div className="rounded-2xl border p-3 bg-card/70 text-sm text-muted-foreground leading-relaxed">
-                        O studio agora prioriza identidade, leitura e CTA. Itens decorativos ou inconsistentes sairam da rota principal para evitar promessa falsa.
+                        O studio agora prioriza identidade, leitura e CTA. Itens decorativos ou inconsistentes saíram da rota principal para evitar promessa falsa.
                       </div>
                     </CardContent>
                   </Card>
@@ -829,7 +829,7 @@ export default function ThemeTab() {
             <CardHeader className="pb-4">
               <CompactHeader
                 title="Preview da vitrine"
-                description="O preview fica em destaque o tempo todo para o usuario decidir olhando o resultado, nao uma lista de campos."
+                description="O preview fica em destaque o tempo todo para o usuário decidir olhando o resultado, não uma lista de campos."
               />
             </CardHeader>
             <CardContent className="pt-0">
@@ -846,3 +846,6 @@ export default function ThemeTab() {
     </div>
   );
 }
+
+
+

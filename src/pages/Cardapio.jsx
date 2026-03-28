@@ -3250,7 +3250,7 @@ export default function Cardapio() {
               </p>
               {loadingTimeout && publicError && (
                 <div className="mt-4 text-center max-w-sm">
-                  <p className="text-sm mb-3" style={{ color: withAlpha(ctaText, 0.92) }}>Erro ao carregar cardapio</p>
+                  <p className="text-sm mb-3" style={{ color: withAlpha(ctaText, 0.92) }}>Erro ao carregar cardápio</p>
                   <Button
                     onClick={() => {
                       setLoadingTimeout(false);
@@ -4967,3 +4967,4 @@ export default function Cardapio() {
     </div>
   );
 }
+

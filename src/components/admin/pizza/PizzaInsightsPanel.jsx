@@ -4,6 +4,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { uiText } from '@/i18n/pt-BR/uiText';
 
 export default function PizzaInsightsPanel({
   businessProfile,
@@ -21,15 +22,16 @@ export default function PizzaInsightsPanel({
   runningAssistantActionId,
   onAssistantAction,
 }) {
+  const pizzaInsightsText = uiText.pizza.insights;
   return (
     <div className="space-y-4">
       <Card className="rounded-3xl border-slate-200 p-4 shadow-sm sm:p-5">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600">Oportunidades para melhorar vendas</Badge>
-            <h3 className="mt-3 text-lg font-semibold text-slate-900 sm:text-xl">O sistema continua te mostrando o proximo passo</h3>
+            <h3 className="mt-3 text-lg font-semibold text-slate-900 sm:text-xl">{pizzaInsightsText.nextStepTitle}</h3>
             <p className="mt-2 text-sm leading-6 text-slate-600">
-              As recomendacoes se adaptam ao perfil da sua operacao e desaparecem quando voce resolve o ponto certo.
+              {pizzaInsightsText.nextStepDescription}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -73,9 +75,9 @@ export default function PizzaInsightsPanel({
           </div>
         ) : (
           <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50/80 p-5">
-            <p className="text-sm font-semibold text-emerald-800">Nenhum alerta relevante agora.</p>
+            <p className="text-sm font-semibold text-emerald-800">{pizzaInsightsText.noRelevantAlerts}</p>
             <p className="mt-2 text-sm text-emerald-700">
-              A estrutura esta acompanhada e, se surgir uma nova oportunidade, ela vai aparecer aqui com acao rapida.
+              {pizzaInsightsText.noRelevantAlertsDescription}
             </p>
           </div>
         )}
@@ -83,10 +85,10 @@ export default function PizzaInsightsPanel({
 
       <Card className="overflow-hidden rounded-3xl border-slate-200 shadow-sm">
         <div className="border-b border-slate-200 p-4 sm:p-5">
-          <Badge variant="outline" className="border-orange-200 bg-orange-50 text-orange-700">Inteligencia acionavel</Badge>
+          <Badge variant="outline" className="border-orange-200 bg-orange-50 text-orange-700">{pizzaInsightsText.actionableIntelligence}</Badge>
           <h3 className="mt-3 text-lg font-semibold text-slate-900">Leia menos, aja mais</h3>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            Os detalhes secundarios ficam colapsados para o mobile respirar melhor. Abra so o que voce precisa.
+            {pizzaInsightsText.actionableIntelligenceDescription}
           </p>
         </div>
 
@@ -95,7 +97,7 @@ export default function PizzaInsightsPanel({
             <AccordionTrigger className="px-4 py-4 text-left hover:no-underline sm:px-5">
               <div>
                 <p className="text-sm font-semibold text-slate-900">Leitura assistida</p>
-                <p className="mt-1 text-xs text-slate-500">Feedback direto para entender onde o cardapio ainda trava.</p>
+                <p className="mt-1 text-xs text-slate-500">{pizzaInsightsText.guidanceDescription}</p>
               </div>
             </AccordionTrigger>
             <AccordionContent className="px-4 pt-0 sm:px-5">
@@ -120,7 +122,7 @@ export default function PizzaInsightsPanel({
                 </div>
               ) : (
                 <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 text-sm text-slate-600">
-                  Nenhum destaque adicional agora. A base comercial ja esta bem encaminhada.
+                  Nenhum destaque adicional agora. A base comercial já está bem encaminhada.
                 </div>
               )}
             </AccordionContent>
@@ -130,7 +132,7 @@ export default function PizzaInsightsPanel({
             <AccordionTrigger className="px-4 py-4 text-left hover:no-underline sm:px-5">
               <div>
                 <p className="text-sm font-semibold text-slate-900">Antes vs depois</p>
-                <p className="mt-1 text-xs text-slate-500">Veja o impacto e aplique a melhoria automatica com seguranca.</p>
+                <p className="mt-1 text-xs text-slate-500">{pizzaInsightsText.beforeAfterDescription}</p>
               </div>
             </AccordionTrigger>
             <AccordionContent className="px-4 pt-0 sm:px-5">
@@ -145,10 +147,10 @@ export default function PizzaInsightsPanel({
               }`}>
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div>
-                    <Badge variant="outline" className="border-white/80 bg-white/80 text-slate-700">Melhoria automatica</Badge>
+                    <Badge variant="outline" className="border-white/80 bg-white/80 text-slate-700">{pizzaInsightsText.automatedImprovement}</Badge>
                     <h3 className="mt-3 text-lg font-semibold text-slate-900">{autoImprovePlan.summary}</h3>
                     <p className="mt-2 text-sm leading-6 text-slate-700">
-                      O sistema mostra o impacto antes e depois para voce agir com confianca, sem mexer no calculo real automaticamente.
+                      {pizzaInsightsText.automatedImprovementDescription}
                     </p>
                   </div>
                   <Button
@@ -200,7 +202,7 @@ export default function PizzaInsightsPanel({
           <AccordionItem value="templates" className="border-none">
             <AccordionTrigger className="px-4 py-4 text-left hover:no-underline sm:px-5">
               <div>
-                <p className="text-sm font-semibold text-slate-900">Templates aplicaveis</p>
+                <p className="text-sm font-semibold text-slate-900">{pizzaInsightsText.applicableTemplates}</p>
                 <p className="mt-1 text-xs text-slate-500">Escolha um caminho comercial e aplique o que for seguro.</p>
               </div>
             </AccordionTrigger>
@@ -284,7 +286,7 @@ export default function PizzaInsightsPanel({
                 </div>
               ) : (
                 <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 text-sm text-slate-600">
-                  Nenhuma acao pontual pendente agora. O sistema volta a sugerir algo quando detectar nova oportunidade.
+                  {pizzaInsightsText.noPendingAction}
                 </div>
               )}
             </AccordionContent>

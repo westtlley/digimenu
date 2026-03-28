@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
@@ -77,7 +77,7 @@ const statusToneMap = {
 };
 
 const previewContextMap = {
-  menu: { label: 'Cardapio publico', title: 'Como a bebida aparece no catalogo', icon: GlassWater },
+  menu: { label: 'Cardápio público', title: 'Como a bebida aparece no catálogo', icon: GlassWater },
   pizza: { label: 'Sugestao para pizza', title: 'Upsell depois da pizza', icon: Pizza },
   dish: { label: 'Sugestao para prato', title: 'Upsell para restaurante', icon: UtensilsCrossed },
   combo: { label: 'Combo / promocao', title: 'Como ela entra numa oferta', icon: Layers3 },
@@ -456,12 +456,12 @@ export default function BeveragesTab() {
 
   const updateStoreMutation = useMutation({
     mutationFn: async (data) => {
-      if (!store?.id) throw new Error('Loja nao encontrada');
+      if (!store?.id) throw new Error('Loja não encontrada');
       return base44.entities.Store.update(store.id, data, entityContextOpts);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['store', ...menuContextQueryKey] });
-      toast.success('Configuracao de upsell atualizada!');
+      toast.success('Configuração de upsell atualizada!');
     },
   });
 
@@ -621,8 +621,8 @@ export default function BeveragesTab() {
         : previewContext === 'pizza'
           ? `${previewBeverage?.name} aparece como sugestao para acompanhar pizzas e pedidos de delivery.`
           : previewContext === 'dish'
-            ? `${previewBeverage?.name} reforca restaurante e prato do dia com ticket adicional.`
-            : `${previewBeverage?.name} aparece como bebida com leitura comercial clara no cardapio.`;
+            ? `${previewBeverage?.name} reforça restaurante e prato do dia com ticket adicional.`
+            : `${previewBeverage?.name} aparece como bebida com leitura comercial clara no cardápio.`;
 
     return {
       title,
@@ -974,7 +974,7 @@ export default function BeveragesTab() {
 
       if (actionId === 'improve-weak-beverages') {
         if (weakEntries.length === 0) {
-          toast.success('Nao ha bebidas fracas para ajustar agora.');
+          toast.success('Não há bebidas fracas para ajustar agora.');
           return;
         }
 
@@ -990,7 +990,7 @@ export default function BeveragesTab() {
       }
 
       if (actionId === 'apply-recommended-structure' || actionId === 'prepare-beverages') {
-        const shouldProceed = window.confirm('Aplicar uma estrutura recomendada para destacar bebidas, preencher vinculos e ativar o upsell principal?');
+        const shouldProceed = window.confirm('Aplicar uma estrutura recomendada para destacar bebidas, preencher vínculos e ativar o upsell principal?');
         if (!shouldProceed) return;
 
         setBeverageStrategy((prev) => {
@@ -1052,8 +1052,8 @@ export default function BeveragesTab() {
         toast.success('Bebidas preparadas para vender melhor.');
       }
     } catch (error) {
-      console.error('Erro ao executar acao de bebidas:', error);
-      toast.error(error?.message || 'Nao foi possivel aplicar a acao.');
+      console.error('Erro ao executar ação de bebidas:', error);
+      toast.error(error?.message || 'Não foi possível aplicar a ação.');
     } finally {
       setRunningActionId(null);
     }
@@ -1067,7 +1067,7 @@ export default function BeveragesTab() {
             <Wine className="h-6 w-6 text-cyan-500" />
             Bebidas IA
           </h2>
-          <p className="mt-1 text-sm text-gray-500">Carregando modulo estrategico de bebidas...</p>
+          <p className="mt-1 text-sm text-gray-500">Carregando módulo estratégico de bebidas...</p>
         </div>
         <Card>
           <CardContent className="p-4">
@@ -1098,8 +1098,8 @@ export default function BeveragesTab() {
             Produtos primeiro, ticket por tras
           </h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-            A operacao agora entra direto no catalogo. Upsell, preview e inteligencia continuam no modulo,
-            mas organizados como apoio para vender mais, nao como barreira para editar bebida.
+            A operação agora entra direto no catálogo. Upsell, preview e inteligência continuam no módulo,
+            mas organizados como apoio para vender mais, não como barreira para editar bebida.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -1181,11 +1181,11 @@ export default function BeveragesTab() {
                   <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600">Catalogo de bebidas</Badge>
                   <h3 className="mt-3 text-lg font-semibold text-slate-900">Cada bebida com leitura comercial, embalagem e papel no sistema</h3>
                   <p className="mt-2 text-sm leading-6 text-slate-600">
-                    Aqui o cadastro deixa de ser so nome e preco. Voce consegue entender posicionamento, uso em upsell e forca comercial de cada item.
+                    Aqui o cadastro deixa de ser só nome e preço. Você consegue entender posicionamento, uso em upsell e força comercial de cada item.
                   </p>
                 </div>
                 <Button type="button" variant="outline" onClick={() => openBeverageWorkspace('links')}>
-                  Abrir vinculos & upsell
+                  Abrir vínculos e upsell
                 </Button>
               </div>
 
@@ -1301,7 +1301,7 @@ export default function BeveragesTab() {
               <CardContent className="py-12 text-center">
                 <Wine className="mx-auto mb-3 h-12 w-12 text-slate-300" />
                 <p className="text-sm font-medium text-slate-700">Nenhuma bebida encontrada</p>
-                <p className="mt-2 text-sm text-slate-500">Ajuste o filtro ou cadastre a primeira bebida estrategica do modulo.</p>
+                <p className="mt-2 text-sm text-slate-500">Ajuste o filtro ou cadastre a primeira bebida estratégica do módulo.</p>
                 <Button variant="outline" className="mt-4" onClick={() => openBeverageModal()}>Cadastrar bebida</Button>
               </CardContent>
             </Card>
@@ -1315,7 +1315,7 @@ export default function BeveragesTab() {
                 <div>
                   <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600">Vinculos & upsell</Badge>
                   <h3 className="mt-3 text-lg font-semibold text-slate-900">Onde a bebida aparece e como ela ajuda a vender</h3>
-                  <p className="mt-2 text-sm leading-6 text-slate-600">Aqui fica a ponte entre bebida, prato, pizza, categoria e cross-sell real do cardapio. E o ponto mais importante do lote.</p>
+                  <p className="mt-2 text-sm leading-6 text-slate-600">Aqui fica a ponte entre bebida, prato, pizza, categoria e cross-sell real do cardápio. E o ponto mais importante do lote.</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Button type="button" variant="outline" onClick={() => openBeverageWorkspace('preview')}>Abrir preview</Button>
@@ -1397,7 +1397,7 @@ export default function BeveragesTab() {
                         <Badge key={category.id} variant="outline" className="bg-white text-slate-700">{category.name}</Badge>
                       )) : <Badge className="bg-emerald-100 text-emerald-700">Cobertura boa</Badge>}
                     </div>
-                    <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-4 text-sm text-slate-600">O foco aqui e decidir onde a bebida aparece de forma estrategica: prato, categoria, pizza, delivery e combo.</div>
+                    <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-4 text-sm text-slate-600">O foco aqui é decidir onde a bebida aparece de forma estratégica: prato, categoria, pizza, delivery e combo.</div>
                   </CardContent>
                 </Card>
               </div>
@@ -1486,7 +1486,7 @@ export default function BeveragesTab() {
                             </Badge>
                           ) : null}
                           {decisionSummary?.primary_beverage_id && String(decisionSummary.primary_beverage_id) === String(selectedEntry.beverage.id) ? (
-                            <Badge className="bg-emerald-100 text-emerald-700">Principal automatica</Badge>
+                            <Badge className="bg-emerald-100 text-emerald-700">Principal automática</Badge>
                           ) : null}
                           {selectedEntry.performance?.ab_test_candidate ? (
                             <Badge variant="outline" className="bg-white text-slate-700">Teste A/B leve</Badge>
@@ -1497,7 +1497,7 @@ export default function BeveragesTab() {
                         </p>
                         <div className="mt-3 grid gap-3 sm:grid-cols-3">
                           <div className="rounded-xl border border-white/80 bg-white/90 p-3">
-                            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Aceitacao</p>
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Aceitação</p>
                             <p className="mt-1 text-lg font-semibold text-slate-900">{Number(selectedEntry.performance?.acceptance_rate || 0).toFixed(0)}%</p>
                           </div>
                           <div className="rounded-xl border border-white/80 bg-white/90 p-3">
@@ -1546,7 +1546,7 @@ export default function BeveragesTab() {
                             <p className="mt-1 text-xs text-slate-500">
                               {selectedEntry.performance?.margin_source === 'real'
                                 ? `Margem calculada com custo real em ${Number(selectedEntry.performance?.margin_percentage || 0).toFixed(1)}%.`
-                                : 'Preencha o custo para liberar margem real e decisao mais agressiva.'}
+                                : 'Preencha o custo para liberar margem real e decisão mais agressiva.'}
                             </p>
                           </div>
                         </div>
@@ -1564,8 +1564,8 @@ export default function BeveragesTab() {
                           </div>
                           <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/80 p-3">
                             <div>
-                              <p className="text-sm font-semibold text-slate-900">Desativar automacao para este item</p>
-                              <p className="text-xs text-slate-500">Ele continua no catalogo, mas sai do ranking automatico.</p>
+                              <p className="text-sm font-semibold text-slate-900">Desativar automação para este item</p>
+                              <p className="text-xs text-slate-500">Ele continua no catálogo, mas sai do ranking automático.</p>
                             </div>
                             <Switch
                               checked={selectedMetrics.automation_disabled === true}
@@ -1706,14 +1706,14 @@ export default function BeveragesTab() {
                       <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/80 p-3">
                         <div>
                           <p className="text-sm font-semibold text-slate-900">Preparada para upsell</p>
-                          <p className="text-xs text-slate-500">Mesmo que ainda nao seja a bebida real do cross-sell.</p>
+                          <p className="text-xs text-slate-500">Mesmo que ainda não seja a bebida real do cross-sell.</p>
                         </div>
                         <Switch checked={selectedStrategy.preparedForUpsell === true} onCheckedChange={(checked) => updateStrategyForBeverage(selectedEntry.beverage.id, (current) => ({ ...current, preparedForUpsell: checked }))} />
                       </div>
                       <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/80 p-3">
                         <div>
                           <p className="text-sm font-semibold text-slate-900">Mais pedido junto</p>
-                          <p className="text-xs text-slate-500">Leitura comercial para cross-sell e cardapio.</p>
+                          <p className="text-xs text-slate-500">Leitura comercial para cross-sell e cardápio.</p>
                         </div>
                         <Switch checked={selectedStrategy.moreOrdered === true} onCheckedChange={(checked) => updateStrategyForBeverage(selectedEntry.beverage.id, (current) => ({ ...current, moreOrdered: checked }))} />
                       </div>
@@ -1728,7 +1728,7 @@ export default function BeveragesTab() {
 
                     <div className="flex flex-wrap gap-2">
                       <Button type="button" className="bg-cyan-600 hover:bg-cyan-700" onClick={applySuggestionToSelectedBeverage}>
-                        <Sparkles className="mr-2 h-4 w-4" /> Aplicar sugestao automatica
+                        <Sparkles className="mr-2 h-4 w-4" /> Aplicar sugestão automática
                       </Button>
                       <Button type="button" variant="outline" onClick={() => setUpsellDraft((prev) => ({ ...prev, enabled: true, dish_id: selectedEntry.beverage.id, trigger_product_types: buildTriggerTypesFromStrategy(selectedEntry.beverage.id) }))}>
                         <ShoppingCart className="mr-2 h-4 w-4" /> Usar como bebida do upsell
@@ -1737,7 +1737,7 @@ export default function BeveragesTab() {
                   </div>
                 ) : (
                   <div className="rounded-2xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">
-                    Selecione uma bebida para editar seus vinculos e o posicionamento comercial.
+                    Selecione uma bebida para editar seus vínculos e o posicionamento comercial.
                   </div>
                 )}
               </CardContent>
@@ -1751,8 +1751,8 @@ export default function BeveragesTab() {
               <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                 <div>
                   <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600">Preview</Badge>
-                  <h3 className="mt-3 text-lg font-semibold text-slate-900">Como a bebida vende no cardapio, no upsell e no combo</h3>
-                  <p className="mt-2 text-sm leading-6 text-slate-600">O objetivo aqui nao e reproduzir o fluxo inteiro. E deixar claro como essa bebida aparece e por que ela aumenta ticket.</p>
+                  <h3 className="mt-3 text-lg font-semibold text-slate-900">Como a bebida vende no cardápio, no upsell e no combo</h3>
+                  <p className="mt-2 text-sm leading-6 text-slate-600">O objetivo aqui não é reproduzir o fluxo inteiro. É deixar claro como essa bebida aparece e por que ela aumenta ticket.</p>
                 </div>
                 <Select value={String(previewBeverage?.id || '')} onValueChange={setSelectedBeverageId}>
                   <SelectTrigger className="w-full sm:w-[260px]"><SelectValue placeholder="Escolha a bebida" /></SelectTrigger>
@@ -1783,7 +1783,7 @@ export default function BeveragesTab() {
             <div className="grid gap-4 xl:grid-cols-[0.92fr_1.08fr]">
               <Card className="rounded-3xl border-slate-200 shadow-sm">
                 <CardContent className="p-4 sm:p-5">
-                  <Badge variant="outline" className="border-cyan-200 bg-cyan-50 text-cyan-700">Cartao publico</Badge>
+                  <Badge variant="outline" className="border-cyan-200 bg-cyan-50 text-cyan-700">Cartão público</Badge>
                   <h4 className="mt-3 text-base font-semibold text-slate-900">{previewContextMap[previewContext]?.title}</h4>
                   <div className="mx-auto mt-4 max-w-[280px]">
                     <BeverageCard beverage={previewBeverage} onClick={() => {}} compact primaryColor="#0891b2" />
@@ -1817,7 +1817,7 @@ export default function BeveragesTab() {
                     <div className="mt-4 grid gap-3 md:grid-cols-3">
                       <div className="rounded-2xl border border-slate-200 bg-white p-4">
                         <p className="text-sm font-semibold text-slate-900">Cardapio</p>
-                        <p className="mt-2 text-sm text-slate-600">A bebida aparece com volume, tipo, temperatura e preco claro.</p>
+                        <p className="mt-2 text-sm text-slate-600">A bebida aparece com volume, tipo, temperatura e preço claro.</p>
                       </div>
                       <div className="rounded-2xl border border-slate-200 bg-white p-4">
                         <p className="text-sm font-semibold text-slate-900">Upsell</p>
@@ -1825,7 +1825,7 @@ export default function BeveragesTab() {
                       </div>
                       <div className="rounded-2xl border border-slate-200 bg-white p-4">
                         <p className="text-sm font-semibold text-slate-900">PDV e combo</p>
-                        <p className="mt-2 text-sm text-slate-600">A leitura comercial ja deixa a bebida pronta para venda rapida e oferta conjunta.</p>
+                        <p className="mt-2 text-sm text-slate-600">A leitura comercial já deixa a bebida pronta para venda rápida e oferta conjunta.</p>
                       </div>
                     </div>
                   </CardContent>
@@ -1959,7 +1959,7 @@ export default function BeveragesTab() {
               <Switch checked={formData.is_active} onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, is_active: checked }))} />
             </div>
             <div className="flex items-center justify-between rounded-lg border p-3">
-              <Label>Destacar no cardapio</Label>
+              <Label>Destacar no cardápio</Label>
               <Switch checked={formData.is_highlight} onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, is_highlight: checked }))} />
             </div>
 
@@ -1986,6 +1986,9 @@ export default function BeveragesTab() {
     </div>
   );
 }
+
+
+
 
 
 

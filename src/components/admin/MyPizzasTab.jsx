@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { apiClient } from '@/api/apiClient';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
@@ -39,7 +39,7 @@ const getPizzaEntryStartingPrice = (pizza) => {
 
 const formatFlavorAllowance = (value) => {
   const count = Math.max(Number(value) || 1, 1);
-  return count === 1 ? 'Ate 1 sabor' : `Ate ${count} sabores`;
+  return count === 1 ? 'Até 1 sabor' : `Até ${count} sabores`;
 };
 
 const summarizeFlavorMix = (flavors = []) => {
@@ -104,31 +104,31 @@ const getSalesStrengthPresentation = (strength) => {
 const getCatalogLevelPresentation = (level) => {
   if (level === 'FORTE') {
     return {
-      title: 'Seu cardapio esta em nivel FORTE',
-      description: 'A base comercial esta consistente e o sistema entende que voce ja tem boas chances de venda.',
+      title: 'Seu cardápio está em nível FORTE',
+      description: 'A base comercial está consistente e o sistema entende que você já tem boas chances de venda.',
       cardClass: 'border-emerald-200 bg-emerald-50/80',
       badgeClass: 'border-emerald-200 bg-white text-emerald-700',
     };
   }
   if (level === 'BOM') {
     return {
-      title: 'Seu cardapio esta em nivel BOM',
-      description: 'A estrutura ja convence, mas ainda existe espaco claro para subir ticket e reduzir atrito.',
+      title: 'Seu cardápio está em nível BOM',
+      description: 'A estrutura já convence, mas ainda existe espaço claro para subir ticket e reduzir atrito.',
       cardClass: 'border-sky-200 bg-sky-50/80',
       badgeClass: 'border-sky-200 bg-white text-sky-700',
     };
   }
   if (level === 'REGULAR') {
     return {
-      title: 'Seu cardapio esta em nivel REGULAR',
-      description: 'A pizzaria ja funciona, mas algumas entradas ainda deixam dinheiro na mesa.',
+      title: 'Seu cardápio está em nível REGULAR',
+      description: 'A pizzaria já funciona, mas algumas entradas ainda deixam dinheiro na mesa.',
       cardClass: 'border-amber-200 bg-amber-50/80',
       badgeClass: 'border-amber-200 bg-white text-amber-700',
     };
   }
   return {
-    title: 'Seu cardapio esta em nivel FRACO',
-    description: 'Ainda vale corrigir a base comercial para o cliente perceber mais valor e encontrar opcao real.',
+    title: 'Seu cardápio está em nível FRACO',
+    description: 'Ainda vale corrigir a base comercial para o cliente perceber mais valor e encontrar opção real.',
     cardClass: 'border-rose-200 bg-rose-50/80',
     badgeClass: 'border-rose-200 bg-white text-rose-700',
   };
@@ -192,7 +192,7 @@ export default function MyPizzasTab({ businessProfileId = 'other' }) {
   const subscriberContextEmail = menuContext?.type === 'subscriber' && menuContext?.value
     ? menuContext.value
     : null;
-  // âœ… Para master (slug): buscar TUDO do cardÃ¡pio pÃºblico de uma vez (pizzas + complementos)
+  // Ã¢Å“â€¦ Para master (slug): buscar TUDO do cardÃƒÂ¡pio pÃƒÂºblico de uma vez (pizzas + complementos)
   const { data: publicCardapio } = useQuery({
     queryKey: ['publicCardapio', slug],
     queryFn: async () => {
@@ -215,10 +215,10 @@ export default function MyPizzasTab({ businessProfileId = 'other' }) {
     ? menuContext.subscriber_id ?? null
     : tenantSubscriberId;
   const fallbackOwnerEmail = slug ? null : (user?.subscriber_email || user?.email || null);
-  const entityOwnerEmail = scopedSubscriberEmail || fallbackOwnerEmail; // Compatibilidade transitÃ³ria: o backend legado ainda persiste owner_email.
+  const entityOwnerEmail = scopedSubscriberEmail || fallbackOwnerEmail; // Compatibilidade transitÃƒÂ³ria: o backend legado ainda persiste owner_email.
   const entityContextOpts = buildTenantEntityOpts({ subscriberId: scopedSubscriberId, subscriberEmail: scopedSubscriberEmail });
 
-  // âœ… Admin API para pratos (com fallback interno); quando temos publicCardapio, usamos ele para exibir
+  // Ã¢Å“â€¦ Admin API para pratos (com fallback interno); quando temos publicCardapio, usamos ele para exibir
   const { data: adminDishesRaw = [], refetch: refetchDishes, isLoading: dishesLoading } = useQuery({
     queryKey: ['dishes', ...getMenuContextQueryKeyParts(menuContext)],
     queryFn: async () => {
@@ -239,11 +239,11 @@ export default function MyPizzasTab({ businessProfileId = 'other' }) {
     }
   }, [menuContext?.type, menuContext?.value, menuContext?.subscriber_id]);
   
-  // Fonte de pratos: pÃºblico (slug) ou admin
+  // Fonte de pratos: pÃƒÂºblico (slug) ou admin
   const dishesRaw = (slug && publicCardapio?.dishes) ? publicCardapio.dishes : (adminDishesRaw || []);
   const pizzas = (dishesRaw || []).filter(d => d.product_type === 'pizza');
 
-  // âœ… Tamanhos: pÃºblico (slug) ou admin
+  // Ã¢Å“â€¦ Tamanhos: pÃƒÂºblico (slug) ou admin
   const { data: adminSizes = [] } = useQuery({
     queryKey: ['pizzaSizes', ...getMenuContextQueryKeyParts(menuContext)],
     queryFn: async () => {
@@ -254,7 +254,7 @@ export default function MyPizzasTab({ businessProfileId = 'other' }) {
   });
   const sizes = (slug && publicCardapio?.pizzaSizes?.length) ? publicCardapio.pizzaSizes : (adminSizes || []);
 
-  // âœ… Sabores: pÃºblico (slug) ou admin
+  // Ã¢Å“â€¦ Sabores: pÃƒÂºblico (slug) ou admin
   const { data: adminFlavors = [] } = useQuery({
     queryKey: ['pizzaFlavors', ...getMenuContextQueryKeyParts(menuContext)],
     queryFn: async () => {
@@ -265,7 +265,7 @@ export default function MyPizzasTab({ businessProfileId = 'other' }) {
   });
   const flavors = (slug && publicCardapio?.pizzaFlavors?.length) ? publicCardapio.pizzaFlavors : (adminFlavors || []);
 
-  // âœ… Bordas: pÃºblico (slug) ou admin
+  // Ã¢Å“â€¦ Bordas: pÃƒÂºblico (slug) ou admin
   const { data: adminEdges = [] } = useQuery({
     queryKey: ['pizzaEdges', ...getMenuContextQueryKeyParts(menuContext)],
     queryFn: async () => {
@@ -289,7 +289,7 @@ export default function MyPizzasTab({ businessProfileId = 'other' }) {
     enabled: !!menuContext && !slug,
   });
 
-  // âœ… Categorias de pizza: pÃºblico (slug) ou admin
+  // Ã¢Å“â€¦ Categorias de pizza: pÃƒÂºblico (slug) ou admin
   const { data: adminPizzaCategories = [] } = useQuery({
     queryKey: ['pizzaCategories', ...getMenuContextQueryKeyParts(menuContext)],
     queryFn: async () => {
@@ -361,11 +361,11 @@ export default function MyPizzasTab({ businessProfileId = 'other' }) {
       queryClient.invalidateQueries({ queryKey: ['pizzas'] });
       queryClient.invalidateQueries({ queryKey: ['dishes', ...getMenuContextQueryKeyParts(menuContext)] });
       if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
-      toast.success('Pizza excluÃ­da!');
+      toast.success('Pizza excluída!');
     },
   });
 
-  // Verificar se tem os prÃ©-requisitos
+  // Verificar se tem os prÃƒÂ©-requisitos
   const canCreatePizza = sizes.length > 0 && flavors.length > 0;
   const canApplyAssistantActions = Boolean(menuContext) && !slug;
 
@@ -429,13 +429,13 @@ export default function MyPizzasTab({ businessProfileId = 'other' }) {
 
   const handlePreparePizzaForSale = React.useCallback((pizza) => {
     if (!canApplyAssistantActions) {
-      toast('As acoes automaticas ficam disponiveis no painel da loja.');
+      toast('As ações automáticas ficam disponíveis no painel da loja.');
       return;
     }
 
     const plan = buildReadyToSellPlan(pizza);
     if (plan.changes.length === 0) {
-      toast('Esta entrada ja esta pronta para vender.');
+      toast('Esta entrada já está pronta para vender.');
       return;
     }
 
@@ -447,7 +447,7 @@ export default function MyPizzasTab({ businessProfileId = 'other' }) {
 
   const handleActivateEntryUpsell = React.useCallback((pizza) => {
     if (!canApplyAssistantActions) {
-      toast('As acoes automaticas ficam disponiveis no painel da loja.');
+      toast('As ações automáticas ficam disponíveis no painel da loja.');
       return;
     }
 
@@ -466,7 +466,7 @@ export default function MyPizzasTab({ businessProfileId = 'other' }) {
     if (!(Array.isArray(currentConfig.extras) && currentConfig.extras.length > 0) && nextExtras.length > 0) changes.push('ligar um adicional');
 
     if (changes.length === 0) {
-      toast('Esta entrada ja tem estrutura de upsell.');
+      toast('Esta entrada já tem estrutura de upsell.');
       return;
     }
 
@@ -493,7 +493,7 @@ export default function MyPizzasTab({ businessProfileId = 'other' }) {
 
   const handleImproveWeakEntries = React.useCallback(async () => {
     if (!canApplyAssistantActions) {
-      toast('As automacoes ficam disponiveis no painel da loja.');
+      toast('As automações ficam disponíveis no painel da loja.');
       return;
     }
 
@@ -504,7 +504,7 @@ export default function MyPizzasTab({ businessProfileId = 'other' }) {
     });
 
     if (targetEntries.length === 0) {
-      toast('As entradas principais ja estao com boa estrutura comercial.');
+      toast('As entradas principais já estão com boa estrutura comercial.');
       return;
     }
 
@@ -513,12 +513,12 @@ export default function MyPizzasTab({ businessProfileId = 'other' }) {
       .filter(({ plan }) => plan.changes.length > 0);
 
     if (plans.length === 0) {
-      toast('As entradas fracas ja estao no limite seguro de automacao.');
+      toast('As entradas fracas já estão no limite seguro de automação.');
       return;
     }
 
     const accepted = window.confirm(
-      `Vamos melhorar ${plans.length} entrada(s) com estrutura segura para venda. Isso pode ativar tamanhos, sabores, borda ou adicional quando a base ja existir. Deseja continuar?`
+      `Vamos melhorar ${plans.length} entrada(s) com estrutura segura para venda. Isso pode ativar tamanhos, sabores, borda ou adicional quando a base já existir. Deseja continuar?`
     );
     if (!accepted) return;
 
@@ -527,16 +527,16 @@ export default function MyPizzasTab({ businessProfileId = 'other' }) {
         plans.map(({ pizza, plan }) => apiClient.entities.Dish.update(pizza.id, plan.patch, entityContextOpts))
       );
       invalidatePizzaEntryQueries();
-      toast.success(`${plans.length} entrada(s) receberam melhoria automatica.`);
+      toast.success(`${plans.length} entrada(s) receberam melhoria automática.`);
     } catch (error) {
       console.error('Erro ao melhorar entradas fracas:', error);
-      toast.error('Nao foi possivel melhorar as entradas agora.');
+      toast.error('Não foi possível melhorar as entradas agora.');
     }
   }, [buildReadyToSellPlan, canApplyAssistantActions, entityContextOpts, invalidatePizzaEntryQueries, pizzaReadinessById, pizzas]);
 
   const handleQuickStartPizza = React.useCallback(async () => {
     if (!canApplyAssistantActions) {
-      toast('A criacao rapida fica disponivel no painel da loja.');
+      toast('A criação rápida fica disponível no painel da loja.');
       return;
     }
 
@@ -551,7 +551,7 @@ export default function MyPizzasTab({ businessProfileId = 'other' }) {
       || null;
 
     if (!suggestedPizzaCategory || activeCatalogSizes.length === 0 || activeCatalogFlavors.length === 0) {
-      toast('Ative ao menos uma regra, um tamanho e um sabor para criar a pizzaria rapida.');
+      toast('Ative ao menos uma regra, um tamanho e um sabor para criar a pizzaria rápida.');
       return;
     }
 
@@ -595,10 +595,10 @@ export default function MyPizzasTab({ businessProfileId = 'other' }) {
         ...entityContextOpts,
       });
       invalidatePizzaEntryQueries();
-      toast.success('Entrada rapida criada. Agora voce ja tem uma base pronta para vender.');
+      toast.success('Entrada rápida criada. Agora você já tem uma base pronta para vender.');
     } catch (error) {
       console.error('Erro ao criar pizzaria rapida:', error);
-      toast.error('Nao foi possivel criar a pizzaria rapida agora.');
+      toast.error('Não foi possível criar a pizzaria rápida agora.');
     }
   }, [canApplyAssistantActions, categories, edges, entityContextOpts, entityOwnerEmail, extras, flavors, invalidatePizzaEntryQueries, pizzaCategories, pizzas, sizes]);
 
@@ -617,13 +617,13 @@ export default function MyPizzasTab({ businessProfileId = 'other' }) {
         <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 flex items-start gap-3">
           <AlertCircle className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
           <div>
-            <p className="font-medium text-orange-900">Configure os itens necessÃ¡rios primeiro</p>
+            <p className="font-medium text-orange-900">Configure os itens necessários primeiro</p>
             <p className="text-sm text-orange-700 mt-1">
-              Para criar pizzas, vocÃª precisa cadastrar pelo menos:
+              Para criar pizzas, você precisa cadastrar pelo menos:
             </p>
             <ul className="text-sm text-orange-700 mt-2 space-y-1">
-              {sizes.length === 0 && <li>• 1 Tamanho na aba Tamanhos e Precos</li>}
-              {flavors.length === 0 && <li>• 1 Sabor na aba Sabores</li>}
+              {sizes.length === 0 && <li>• 1 tamanho na aba Tamanhos e Preços</li>}
+              {flavors.length === 0 && <li>• 1 sabor na aba Sabores</li>}
             </ul>
           </div>
         </div>
@@ -632,8 +632,8 @@ export default function MyPizzasTab({ businessProfileId = 'other' }) {
       <div className="space-y-4">
         <div className="flex justify-between items-center">
           <div>
-            <h3 className="text-lg font-semibold">Entradas do cardapio</h3>
-            <p className="text-sm text-gray-600">Aqui voce gerencia o que o cliente enxerga no cardapio. A regra de montagem vem da aba Regras de Montagem.</p>
+            <h3 className="text-lg font-semibold">Entradas do cardápio</h3>
+            <p className="text-sm text-gray-600">Aqui você gerencia o que o cliente enxerga no cardápio. A regra de montagem vem da aba Regras de Montagem.</p>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
             <Button
@@ -668,7 +668,7 @@ export default function MyPizzasTab({ businessProfileId = 'other' }) {
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="outline" className={catalogLevelPresentation.badgeClass}>
-                  Nivel {overallCatalogLevel}
+                  Nível {overallCatalogLevel}
                 </Badge>
                 <Badge variant="outline" className="border-white bg-white/70 text-slate-600">
                   {readinessSummary.strong} fortes • {readinessSummary.good} boas • {readinessSummary.regular} regulares • {readinessSummary.weak} fracas
@@ -713,7 +713,7 @@ export default function MyPizzasTab({ businessProfileId = 'other' }) {
           <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Inativas</p>
             <p className="mt-2 text-2xl font-semibold text-slate-900">{readinessSummary.inactive}</p>
-            <p className="mt-1 text-xs text-slate-600">Continuam no cadastro, mas fora do cardapio.</p>
+            <p className="mt-1 text-xs text-slate-600">Continuam no cadastro, mas fora do cardápio.</p>
           </div>
         </div>
       </div>
@@ -743,8 +743,8 @@ export default function MyPizzasTab({ businessProfileId = 'other' }) {
                 <div className="mb-3 rounded-xl border border-orange-200 bg-orange-50/70 px-3 py-2 text-xs text-orange-900">
                   <p className="font-medium">Entrada publica: {category.name}</p>
                   <p className="mt-1 text-orange-800">
-                    Esta categoria representa a entrada comercial que aparece no cardapio e abre o builder premium.
-                    {list.length > 1 ? ' O modelo recomendado e manter uma entrada principal por categoria.' : ''}
+                    Esta categoria representa a entrada comercial que aparece no cardápio e abre o builder premium.
+                    {list.length > 1 ? ' O modelo recomendado é manter uma entrada principal por categoria.' : ''}
                   </p>
                 </div>
               )}
@@ -783,7 +783,7 @@ export default function MyPizzasTab({ businessProfileId = 'other' }) {
                               <Badge variant="outline" className={`text-xs ${statusPresentation.badgeClass}`}>{readiness.status}</Badge>
                               <Badge variant="outline" className="text-xs">{readiness.completedEssentials}/{readiness.totalEssentials} essenciais</Badge>
                               <Badge variant="outline" className="text-xs">
-                                {readiness.status === 'Completa' ? 'Pronta para vender' : 'Acao recomendada'}
+                                {readiness.status === 'Completa' ? 'Pronta para vender' : 'Ação recomendada'}
                               </Badge>
                               <Badge variant="outline" className="text-xs">
                                 {readiness.commercialPotential}
@@ -856,7 +856,7 @@ export default function MyPizzasTab({ businessProfileId = 'other' }) {
                                     {allowsExtras ? 'Adicionais liberados' : 'Sem adicionais'}
                                   </Badge>
                                   <Badge variant="outline" className="text-[11px]">
-                                    Observacao livre
+                                    Observação livre
                                   </Badge>
                                 </div>
                               </div>
@@ -882,7 +882,7 @@ export default function MyPizzasTab({ businessProfileId = 'other' }) {
                                 <p className="mt-1 text-xs text-slate-600 dark:text-gray-400">
                                   {readiness.premiumDelta > 0
                                     ? `Premium agrega +${formatCurrency(readiness.premiumDelta)} no melhor tamanho.`
-                                    : 'Ainda nao existe diferencial claro entre tradicional e premium.'}
+                                    : 'Ainda não existe diferencial claro entre tradicional e premium.'}
                                 </p>
                               </div>
                               <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-900/60">
@@ -895,7 +895,7 @@ export default function MyPizzasTab({ businessProfileId = 'other' }) {
                                 </p>
                               </div>
                               <div className={`rounded-xl border p-3 ${strengthPresentation.cardClass} dark:border-gray-700 dark:bg-gray-900/60`}>
-                                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Confianca do sistema</p>
+                                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Confiança do sistema</p>
                                 <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-gray-100">{readiness.confidenceLabel}</p>
                                 <p className="mt-1 text-xs text-slate-600 dark:text-gray-400">Score comercial {readiness.commercialScoreValue}/5.5 para esta entrada.</p>
                               </div>
@@ -932,8 +932,8 @@ export default function MyPizzasTab({ businessProfileId = 'other' }) {
                               </div>
 
                               <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 dark:border-gray-700 dark:bg-gray-900/60">
-                                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Decisao assistida</p>
-                                <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-gray-100">O sistema sugere o proximo ajuste</p>
+                                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Decisão assistida</p>
+                                <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-gray-100">O sistema sugere o próximo ajuste</p>
                                 <div className="mt-3 flex flex-wrap gap-2">
                                   <Badge variant="secondary" className="text-[11px]">
                                     {readiness.activeSizeCount >= 2 ? 'Boa variedade de tamanhos' : 'Faixa de tamanho enxuta'}
@@ -965,12 +965,12 @@ export default function MyPizzasTab({ businessProfileId = 'other' }) {
                                   <div className={`rounded-xl border p-3 ${projectedReadiness.salesStrength === readiness.salesStrength && improvementPlan.changes.length === 0 ? 'border-emerald-200 bg-emerald-50/70' : 'border-orange-200 bg-orange-50/70'}`}>
                                     <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Depois</p>
                                     <p className="mt-1 text-sm font-semibold text-slate-900">
-                                      {improvementPlan.changes.length > 0 ? projectedReadiness.confidenceLabel : 'Ja esta no melhor ponto seguro'}
+                                      {improvementPlan.changes.length > 0 ? projectedReadiness.confidenceLabel : 'Já está no melhor ponto seguro'}
                                     </p>
                                     <p className="mt-1 text-xs text-slate-600">
                                       {improvementPlan.changes.length > 0
                                         ? `Impacto esperado: ${improvementPlan.changes.slice(0, 2).join(' • ')}`
-                                        : 'A entrada ja entrega uma base forte com a estrutura atual.'}
+                                        : 'A entrada já entrega uma base forte com a estrutura atual.'}
                                     </p>
                                   </div>
                                 </div>
@@ -998,7 +998,7 @@ export default function MyPizzasTab({ businessProfileId = 'other' }) {
                             </div>
                             {pizza.default_flavor_id && (
                               <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                                Sabor de referencia: {flavors.find((flavor) => flavor.id === pizza.default_flavor_id)?.name || 'Nao encontrado'}
+                                Sabor de referência: {flavors.find((flavor) => flavor.id === pizza.default_flavor_id)?.name || 'Não encontrado'}
                               </p>
                             )}
                             {pizza.pizza_config?.sizes && (
@@ -1043,8 +1043,8 @@ export default function MyPizzasTab({ businessProfileId = 'other' }) {
 
       {pizzas.length === 0 && canCreatePizza && (
           <div className="text-center py-12 text-gray-400">
-            <p>Nenhuma entrada do cardapio cadastrada ainda</p>
-            <p className="text-sm mt-1">Crie a primeira entrada comercial para abrir o builder premium no cardapio.</p>
+            <p>Nenhuma entrada do cardápio cadastrada ainda</p>
+            <p className="text-sm mt-1">Crie a primeira entrada comercial para abrir o builder premium no cardápio.</p>
           </div>
         )}
       </div>
@@ -1105,7 +1105,7 @@ function PizzaModal({ isOpen, onClose, onSubmit, pizza, sizes, flavors, edges, e
     ? Number(selectedCommercialSize?.price_tradicional || selectedCommercialSize?.price_premium || 0)
     : Number(formData.pizza_config?.sizes?.[0]?.price_tradicional || formData.pizza_config?.sizes?.[0]?.price_premium || 0);
   const referenceFlavor = selectedDefaultFlavor || flavors.find((flavor) => flavor.id === formData.default_flavor_id) || null;
-  const referenceFlavorName = referenceFlavor?.name || 'Nao definido';
+  const referenceFlavorName = referenceFlavor?.name || 'Não definido';
 
   React.useEffect(() => {
     if (pizza) {
@@ -1323,7 +1323,7 @@ function PizzaModal({ isOpen, onClose, onSubmit, pizza, sizes, flavors, edges, e
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-3xl max-w-[95vw] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{pizza ? 'Editar' : 'Nova'} entrada do cardapio</DialogTitle>
+          <DialogTitle>{pizza ? 'Editar' : 'Nova'} entrada do cardápio</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -1332,7 +1332,7 @@ function PizzaModal({ isOpen, onClose, onSubmit, pizza, sizes, flavors, edges, e
               <div className="space-y-4">
                 <div>
                   <h4 className="font-semibold mb-1 text-gray-900 dark:text-gray-100">1. Sabor de referencia *</h4>
-                  <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">Escolha um sabor inicial para representar a entrada do cardapio.</p>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">Escolha um sabor inicial para representar a entrada do cardápio.</p>
                 </div>
                 
                 <div className="space-y-3">
@@ -1403,7 +1403,7 @@ function PizzaModal({ isOpen, onClose, onSubmit, pizza, sizes, flavors, edges, e
                 <h4 className="font-semibold text-gray-900 dark:text-gray-100">2. Base comercial da entrada</h4>
                 <div className="bg-orange-50 dark:bg-orange-900/30 border border-orange-200 dark:border-orange-800 rounded-lg p-3">
                   <p className="text-sm text-orange-800 dark:text-orange-200">
-                    Sabor de referencia: <strong>{referenceFlavorName}</strong>
+                    Sabor de referência: <strong>{referenceFlavorName}</strong>
                   </p>
                 </div>
 
@@ -1437,7 +1437,7 @@ function PizzaModal({ isOpen, onClose, onSubmit, pizza, sizes, flavors, edges, e
                     required
                   />
                   <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                    Este nome representa a entrada generica exibida no cardapio publico.
+                    Este nome representa a entrada genérica exibida no cardápio público.
                   </p>
                 </div>
 
@@ -1459,7 +1459,7 @@ function PizzaModal({ isOpen, onClose, onSubmit, pizza, sizes, flavors, edges, e
                         {pizzaCategories.length > 0 ? (
                           pizzaCategories.map(cat => {
                             const sz = sizes.find(s => s.id === cat.size_id);
-                            const label = cat.name || (sz ? `${sz.name} â€¢ ${cat.max_flavors || 1} sabor(es)` : cat.id);
+                            const label = cat.name || (sz ? `${sz.name} • ${cat.max_flavors || 1} sabor(es)` : cat.id);
                             return (
                               <SelectItem key={cat.id} value={cat.id}>{label}</SelectItem>
                             );
@@ -1477,7 +1477,7 @@ function PizzaModal({ isOpen, onClose, onSubmit, pizza, sizes, flavors, edges, e
                   </div>
 
                   <div>
-                    <Label>Modo de divisao *</Label>
+                    <Label>Modo de divisão *</Label>
                     <Select 
                       value={formData.division_mode} 
                       onValueChange={(value) => setFormData(prev => ({ ...prev, division_mode: value }))}
@@ -1487,12 +1487,12 @@ function PizzaModal({ isOpen, onClose, onSubmit, pizza, sizes, flavors, edges, e
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="slices">Por fatias (livre)</SelectItem>
-                        <SelectItem value="exact">Divisao exata (automatica)</SelectItem>
+                        <SelectItem value="exact">Divisão exata (automática)</SelectItem>
                       </SelectContent>
                     </Select>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                       {formData.division_mode === 'slices' 
-                        ? 'O cliente escolhe a composicao dos sabores livremente.'
+                        ? 'O cliente escolhe a composição dos sabores livremente.'
                         : 'A montagem divide os sabores automaticamente de forma equilibrada.'
                       }
                     </p>
@@ -1519,7 +1519,7 @@ function PizzaModal({ isOpen, onClose, onSubmit, pizza, sizes, flavors, edges, e
                     mediaModule="pizza"
                     title="Adicionar imagem da entrada comercial"
                     description="A mesma experiencia de upload agora vale para pizza, bebida e produto."
-                    helperText="Se nao enviar, sera usada a imagem do sabor de referencia."
+                    helperText="Se não enviar, será usada a imagem do sabor de referência."
                     existingImages={[
                       ...pizzas.filter((item) => item?.image).map((item) => ({ url: item.image, label: item.name })),
                       ...flavors.filter((item) => item?.image).map((item) => ({ url: item.image, label: item.name })),
@@ -1572,7 +1572,7 @@ function PizzaModal({ isOpen, onClose, onSubmit, pizza, sizes, flavors, edges, e
                       <div>
                         <p className="font-medium text-gray-900 dark:text-gray-100">{size.name}</p>
                         <p className="text-xs text-gray-600 dark:text-gray-400">
-                          {size.slices} fatias â€¢ Ate {size.max_flavors} sabores
+                          {size.slices} fatias • Até {size.max_flavors} sabores
                         </p>
                       </div>
                       <div className="text-sm">
@@ -1686,6 +1686,9 @@ function PizzaModal({ isOpen, onClose, onSubmit, pizza, sizes, flavors, edges, e
       </Dialog>
   );
 }
+
+
+
 
 
 

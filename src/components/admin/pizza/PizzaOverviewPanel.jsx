@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
@@ -74,7 +74,7 @@ export default function PizzaOverviewPanel({
           <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <p className="text-sm font-semibold text-slate-900">Recomendacao principal para {businessProfile.label}</p>
+                <p className="text-sm font-semibold text-slate-900">Recomendação principal para {businessProfile.label}</p>
                 <p className="mt-1 text-sm text-slate-600">{businessProfile.description}</p>
               </div>
               <Badge variant="outline" className="border-orange-200 bg-white text-orange-700">
@@ -110,7 +110,7 @@ export default function PizzaOverviewPanel({
           <Card className="rounded-3xl border-slate-200 p-4 shadow-sm sm:p-5">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600">Evolucao automatica</Badge>
+                <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600">Evolução automática</Badge>
                 <h3 className="mt-3 text-base font-semibold text-slate-900 sm:text-lg">Continuar melhorando automaticamente</h3>
                 <p className="mt-2 text-sm leading-6 text-slate-600">
                   O sistema segue observando novas oportunidades e oculta alertas resolvidos sem mexer nos seus dados sozinho.
@@ -129,10 +129,10 @@ export default function PizzaOverviewPanel({
 
       <div className="grid gap-4 xl:grid-cols-[0.92fr_1.08fr]">
         <Card className="rounded-3xl border-slate-200 p-4 shadow-sm sm:p-5">
-          <Badge variant="outline" className="border-orange-200 bg-orange-50 text-orange-700">Acoes rapidas</Badge>
+          <Badge variant="outline" className="border-orange-200 bg-orange-50 text-orange-700">Ações rápidas</Badge>
           <h3 className="mt-3 text-lg font-semibold text-slate-900">Resolva os pontos principais em poucos toques</h3>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            As configuracoes detalhadas continuam nas secoes tecnicas. Aqui ficam os atalhos que mais destravam a operacao.
+            As configurações detalhadas continuam nas seções técnicas. Aqui ficam os atalhos que mais destravam a operação.
           </p>
 
           <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
@@ -225,3 +225,4 @@ export default function PizzaOverviewPanel({
     </div>
   );
 }
+

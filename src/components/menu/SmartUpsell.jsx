@@ -1,8 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+﻿import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ShoppingCart, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import toast from 'react-hot-toast';
+import { uiText } from '@/i18n/pt-BR/uiText';
 
 const RUNTIME_COOLDOWN_MS = 6 * 60 * 1000;
 
@@ -141,9 +142,9 @@ const getSuggestionPriceCopy = (option) => {
 const getBundleUrgency = (option, index = 0) => {
   const seed = `${option?.id || option?.name || 'urgency'}:${index}`;
   if (option?.type === 'upgrade') {
-    return pickVariant(seed, ['Aproveite agora', 'Antes de finalizar', 'Troca rapida']);
+    return pickVariant(seed, ['Aproveite agora', 'Antes de finalizar', 'Troca rápida']);
   }
-  return pickVariant(seed, ['Aproveite agora', 'Leve antes de finalizar', 'Nao esquece sua bebida']);
+  return pickVariant(seed, ['Aproveite agora', 'Leve antes de finalizar', 'Não esqueça sua bebida']);
 };
 
 export default function SmartUpsell({
@@ -161,6 +162,7 @@ export default function SmartUpsell({
   store = null,
   slug = '',
 }) {
+  const smartUpsellText = uiText.menu.smartUpsell;
   const [suggestion, setSuggestion] = useState(null);
   const [dismissedSuggestions, setDismissedSuggestions] = useState(new Set());
   const [addingOptionId, setAddingOptionId] = useState(null);
@@ -489,7 +491,7 @@ export default function SmartUpsell({
                               ? 'bg-orange-100 border border-orange-300 dark:bg-orange-500/10 dark:border-orange-500/50'
                               : 'bg-white/90 dark:bg-gray-800 border border-orange-200/70 dark:border-gray-600'
                           }`}>
-                            {isLeadOption ? 'Melhor opcao agora' : getPersuasiveBadge(option)}
+                            {isLeadOption ? smartUpsellText.bestOptionNow : getPersuasiveBadge(option)}
                           </span>
                         </div>
                         <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{getSuggestionBenefit(option)}</p>
@@ -535,7 +537,7 @@ export default function SmartUpsell({
                   size="sm"
                   className="w-full"
                 >
-                  Agora nao
+                  {smartUpsellText.notNow}
                 </Button>
               </div>
             ) : suggestion.type === 'next_best_action' ? (
@@ -550,7 +552,7 @@ export default function SmartUpsell({
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-xs font-semibold" style={{ color: primaryColor }}>
-                        {suggestion.action?.priceHint || 'Complete seu pedido agora'}
+                        {suggestion.action?.priceHint || smartUpsellText.completeOrderNow}
                       </p>
                       <p className="mt-1 text-sm font-semibold text-gray-900 dark:text-white">
                         {suggestion.action?.product?.name || suggestion.action?.title}
@@ -562,7 +564,7 @@ export default function SmartUpsell({
                       ) : null}
                     </div>
                     <span className="inline-flex text-[10px] font-semibold px-2 py-1 rounded-full bg-white/90 border border-orange-200 text-gray-700">
-                      {suggestion.action?.badgeLabel || 'Melhor proximo passo'}
+                      {suggestion.action?.badgeLabel || smartUpsellText.nextBestAction}
                     </span>
                   </div>
                   {suggestion.action?.urgencyLabel ? (
@@ -574,7 +576,7 @@ export default function SmartUpsell({
 
                 <div className="flex gap-2">
                   <Button onClick={handleDismiss} variant="outline" size="sm" className="flex-1">
-                    Agora nao
+                    {smartUpsellText.notNow}
                   </Button>
                   <Button
                     onClick={handleNextBestActionClick}
@@ -606,14 +608,14 @@ export default function SmartUpsell({
                         : `Complete por ${formatCurrency(suggestion.product?.price)}`}
                     </p>
                     <p className="text-[11px] text-gray-500 dark:text-gray-400">
-                      Perfeito para acompanhar sem pesar no pedido.
+                      {smartUpsellText.lightCompanion}
                     </p>
                   </div>
                 )}
 
                 <div className="flex gap-2">
                   <Button onClick={handleDismiss} variant="outline" size="sm" className="flex-1">
-                    Agora nao
+                    {smartUpsellText.notNow}
                   </Button>
                   <Button
                     onClick={handleLegacyAdd}
@@ -642,3 +644,6 @@ export default function SmartUpsell({
     </AnimatePresence>
   );
 }
+
+
+

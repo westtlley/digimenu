@@ -1,10 +1,11 @@
-import React from 'react';
+﻿import React from 'react';
 import { X, Edit, Check, Package, MapPin, DollarSign, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Badge } from '@/components/ui/badge';
 import { getCartItemLineTotal } from '@/utils/cartPricing';
+import { uiText } from '@/i18n/pt-BR/uiText';
 
 export default function OrderConfirmationModal({
   isOpen,
@@ -23,6 +24,7 @@ export default function OrderConfirmationModal({
   primaryColor = '#f97316',
   isSubmitting = false,
 }) {
+  const orderConfirmationText = uiText.menu.orderConfirmation;
   const formatCurrency = (value) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
   };
@@ -34,10 +36,10 @@ export default function OrderConfirmationModal({
     const lines = [];
     groups.forEach((g) => {
       if (!g) return;
-      const title = g.title || 'Itens do combo';
+      const title = g.title || orderConfirmationText.comboItems;
       const isDrinkGroup = /bebid/i.test(title);
       const groupEmoji = isDrinkGroup ? '🥤' : '🍽️';
-      const groupLabel = isDrinkGroup ? 'BEBIDAS' : 'PRATOS';
+      const groupLabel = isDrinkGroup ? orderConfirmationText.drinks : orderConfirmationText.dishes;
       const items = Array.isArray(g.items) ? g.items : [];
       if (items.length === 0) return;
 
@@ -157,8 +159,8 @@ export default function OrderConfirmationModal({
     }
 
     // Observações/especificações
-    if (item.specifications) parts.push(`📝 ${item.specifications}`);
-    if (item.observations) parts.push(`📝 ${item.observations}`);
+    if (item.specifications) parts.push(`${orderConfirmationText.noteIcon} ${item.specifications}`);
+    if (item.observations) parts.push(`${orderConfirmationText.noteIcon} ${item.observations}`);
 
     return parts.length > 0 ? parts.join(' • ') : null;
   };
@@ -173,17 +175,17 @@ export default function OrderConfirmationModal({
       customer.address_complement && `(${customer.address_complement})`,
       customer.neighborhood
     ].filter(Boolean);
-    return parts.join(', ') || 'Endereço não informado';
+    return parts.join(', ') || orderConfirmationText.addressNotInformed;
   };
 
   const formatPaymentMethod = () => {
     const methods = {
-      'dinheiro': '💵 Dinheiro',
-      'pix': '💳 PIX',
-      'cartao_credito': '💳 Cartão de Crédito',
-      'cartao_debito': '💳 Cartão de Débito',
+      dinheiro: orderConfirmationText.paymentMethods.dinheiro,
+      pix: orderConfirmationText.paymentMethods.pix,
+      cartao_credito: orderConfirmationText.paymentMethods.cartao_credito,
+      cartao_debito: orderConfirmationText.paymentMethods.cartao_debito,
     };
-    return methods[customer.paymentMethod] || customer.paymentMethod || 'Não informado';
+    return methods[customer.paymentMethod] || customer.paymentMethod || orderConfirmationText.notInformed;
   };
 
   return (
@@ -239,7 +241,7 @@ export default function OrderConfirmationModal({
                 </div>
                 <p className="text-sm text-gray-900">{formatAddress()}</p>
                 {customer.deliveryMethod === 'delivery' && customer.phone && (
-                  <p className="text-xs text-gray-500 mt-1">📞 {customer.phone}</p>
+                  <p className="text-xs text-gray-500 mt-1">{orderConfirmationText.phoneIcon} {customer.phone}</p>
                 )}
               </div>
 
@@ -325,3 +327,4 @@ export default function OrderConfirmationModal({
     </Dialog>
   );
 }
+

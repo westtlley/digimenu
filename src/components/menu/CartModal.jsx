@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Trash2, Plus, Minus, ShoppingCart, Edit, Package, Clock, ChefHat, CheckCircle, Truck, MapPin, Ban, Star, ChevronLeft } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { apiClient as base44 } from '@/api/apiClient';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 import { calculateCartSubtotal, getCartItemLineTotal, getCartItemQuantity, getCartItemUnitPrice } from '@/utils/cartPricing';
+import { uiText } from '@/i18n/pt-BR/uiText';
 
 const statusConfig = {
   new: { label: 'Novo', color: 'bg-blue-500', icon: Clock },
@@ -93,6 +94,7 @@ export default function CartModal({
   nextBestAction = null,
   onSelectNextBestAction = null,
 }) {
+  const cartText = uiText.menu.cart;
   const [activeTab, setActiveTab] = useState('cart'); // 'cart' ou 'orders'
   const [showRatingModal, setShowRatingModal] = useState(null);
   const [restaurantRating, setRestaurantRating] = useState(0);
@@ -221,7 +223,7 @@ export default function CartModal({
   };
   const getBeveragePanelSubtitle = () =>
     cartHasBeverage
-      ? 'Uma troca pequena pode deixar a bebida mais interessante ou mais economica.'
+      ? 'Uma troca pequena pode deixar a bebida mais interessante ou mais econômica.'
       : 'A maioria leva junto para acompanhar e fechar o pedido sem pensar muito.';
   const getBeverageBadge = (suggestion) => {
     if (suggestion?.badgeLabel) return suggestion.badgeLabel;
@@ -245,7 +247,7 @@ export default function CartModal({
       return 'Mais completa por pouca diferença';
     }
     if (reason.includes('mais pedido')) return 'A maioria leva junto';
-    if (reason.includes('combina')) return 'Combina com o que voce escolheu';
+    if (reason.includes('combina')) return cartText.pairsWithChoice;
     if (reason.includes('pizza')) return 'Perfeita para acompanhar a pizza';
     if (reason.includes('delivery')) return 'Boa para acompanhar em casa';
     return 'Ajuda a deixar o pedido mais redondo';
@@ -255,7 +257,7 @@ export default function CartModal({
     if (suggestion?.type === 'upgrade') {
       return suggestion?.deltaPrice > 0
         ? `Troque por +${formatCurrency(suggestion.deltaPrice)}`
-        : 'Troque sem custo extra';
+        : cartText.noExtraCostSwap;
     }
     return `Leve por +${formatCurrency(suggestion?.finalPrice)}`;
   };
@@ -266,16 +268,16 @@ export default function CartModal({
   };
   const getCheckoutPrompt = () => {
     if (hasOrderOptimizationDecision && !shouldRenderNextBestAction) {
-      return 'O sistema segurou novas sugestoes para manter o fechamento do pedido leve.';
+      return cartText.heldSuggestions;
     }
     if (shouldRenderNextBestAction) {
-      return nextBestAction?.message || 'O sistema encontrou uma ultima acao que pode valorizar melhor este pedido.';
+      return nextBestAction?.message || cartText.lastAction;
     }
     const seed = `${cartTotal}:${cartHasBeverage ? 'upgrade' : 'upsell'}`;
     if (cartHasBeverage && shouldRenderBeverageSuggestions) {
       return pickVariant(seed, [
         'Antes de finalizar, veja se vale trocar por uma bebida melhor.',
-        'Seu pedido ja tem bebida. Uma troca pequena pode valorizar mais.',
+        cartText.orderAlreadyHasDrink,
       ]);
     }
     if (shouldRenderBeverageSuggestions) {
@@ -325,34 +327,34 @@ export default function CartModal({
       try {
         const user = await base44.auth.me();
         if (!user || !user.email) {
-          console.log('❌ Usuário não autenticado ou sem email');
+          console.log('âŒ UsuÃ¡rio nÃ£o autenticado ou sem email');
           return [];
         }
 
-        console.log('🔍 Buscando pedidos para:', user.email);
+        console.log('ðŸ” Buscando pedidos para:', user.email);
         const allOrders = await base44.entities.Order.list('-created_date');
-        console.log('📦 Total de pedidos no sistema:', allOrders.length);
+        console.log('ðŸ“¦ Total de pedidos no sistema:', allOrders.length);
         
-        // Filtrar apenas pedidos do cliente que não estão finalizados ou cancelados
-        // Mas também incluir entregues recentemente (últimas 5 horas) para avaliação
+        // Filtrar apenas pedidos do cliente que nÃ£o estÃ£o finalizados ou cancelados
+        // Mas tambÃ©m incluir entregues recentemente (Ãºltimas 5 horas) para avaliaÃ§Ã£o
         const fiveHoursAgo = new Date();
         fiveHoursAgo.setHours(fiveHoursAgo.getHours() - 5);
         
         const customerOrders = allOrders.filter(o => {
-          // Verificar se é pedido do cliente (por email ou telefone)
+          // Verificar se Ã© pedido do cliente (por email ou telefone)
           const isCustomerByEmail = o.customer_email === user.email || o.created_by === user.email;
           
-          // Caso o cliente não esteja autenticado, também buscar por telefone
-          // (se o telefone do usuário estiver disponível no perfil)
+          // Caso o cliente nÃ£o esteja autenticado, tambÃ©m buscar por telefone
+          // (se o telefone do usuÃ¡rio estiver disponÃ­vel no perfil)
           const isCustomerByPhone = user.phone && o.customer_phone && 
             o.customer_phone.replace(/\D/g, '') === user.phone.replace(/\D/g, '');
           
           const isCustomerOrder = isCustomerByEmail || isCustomerByPhone;
           
-          // Incluir pedidos ativos (não entregues nem cancelados)
+          // Incluir pedidos ativos (nÃ£o entregues nem cancelados)
           const isActive = o.status !== 'delivered' && o.status !== 'cancelled';
           
-          // Incluir pedidos entregues recentemente (para avaliação)
+          // Incluir pedidos entregues recentemente (para avaliaÃ§Ã£o)
           const isDeliveredRecently = o.status === 'delivered' && 
             o.delivered_at && 
             new Date(o.delivered_at) > fiveHoursAgo && 
@@ -361,30 +363,30 @@ export default function CartModal({
           return isCustomerOrder && (isActive || isDeliveredRecently);
         });
 
-        console.log('✅ Pedidos do cliente encontrados:', customerOrders.length);
+        console.log('âœ… Pedidos do cliente encontrados:', customerOrders.length);
         if (customerOrders.length > 0) {
-          console.log('📋 IDs dos pedidos:', customerOrders.map(o => `#${o.order_code} (${o.status})`).join(', '));
+          console.log('ðŸ“‹ IDs dos pedidos:', customerOrders.map(o => `#${o.order_code} (${o.status})`).join(', '));
         }
         
         return customerOrders;
       } catch (error) {
-        console.error('❌ Erro ao buscar pedidos:', error);
+        console.error('âŒ Erro ao buscar pedidos:', error);
         return [];
       }
     },
     enabled: isOpen,
-    refetchInterval: 2000, // ⚡ Atualizar a cada 2 segundos (tempo real)
+    refetchInterval: 2000, // âš¡ Atualizar a cada 2 segundos (tempo real)
     refetchOnWindowFocus: true, // Atualizar quando voltar para a aba
     refetchOnMount: true // Atualizar ao abrir o modal
   });
 
-  // Detectar mudanças de status em tempo real e notificar o cliente
+  // Detectar mudanÃ§as de status em tempo real e notificar o cliente
   useEffect(() => {
     if (!isOpen || ordersLoading || orders.length === 0) return;
 
     const prevOrders = prevOrdersRef.current;
 
-    // Detectar pedidos entregues (para modal de avaliação)
+    // Detectar pedidos entregues (para modal de avaliaÃ§Ã£o)
     const currentDelivered = orders.filter(o => o.status === 'delivered' && !o.restaurant_rating);
     const prevDelivered = prevOrders.filter(o => o.status === 'delivered' && !o.restaurant_rating);
 
@@ -398,7 +400,7 @@ export default function CartModal({
       }, 1000);
     }
 
-    // Detectar mudanças de status (para notificação)
+    // Detectar mudanÃ§as de status (para notificaÃ§Ã£o)
     if (prevOrders.length > 0) {
       orders.forEach(order => {
         const prevOrder = prevOrders.find(p => p.id === order.id);
@@ -408,9 +410,9 @@ export default function CartModal({
           const config = statusConfig[order.status];
           const Icon = config?.icon || Clock;
           
-          console.log(`🔔 Status atualizado: Pedido #${order.order_code} → ${config?.label || order.status}`);
+          console.log(`ðŸ”” Status atualizado: Pedido #${order.order_code} â†’ ${config?.label || order.status}`);
           
-          // Notificação visual
+          // NotificaÃ§Ã£o visual
           toast.success(
             <div className="flex items-center gap-2">
               <Icon className="w-5 h-5" />
@@ -429,14 +431,14 @@ export default function CartModal({
             }
           );
 
-          // Som de notificação (apenas para status importantes)
+          // Som de notificaÃ§Ã£o (apenas para status importantes)
           if (['ready', 'out_for_delivery', 'arrived_at_customer', 'delivered'].includes(order.status)) {
             try {
-              const audio = new Audio('/notification.mp3'); // Você pode adicionar um arquivo de áudio
+              const audio = new Audio('/notification.mp3'); // VocÃª pode adicionar um arquivo de Ã¡udio
               audio.volume = 0.5;
-              audio.play().catch(() => {}); // Ignorar erro se não tiver permissão
+              audio.play().catch(() => {}); // Ignorar erro se nÃ£o tiver permissÃ£o
             } catch (e) {
-              // Silenciosamente ignorar se não conseguir tocar o som
+              // Silenciosamente ignorar se nÃ£o conseguir tocar o som
             }
           }
         }
@@ -446,12 +448,12 @@ export default function CartModal({
     prevOrdersRef.current = orders;
   }, [orders, ordersLoading, isOpen, showRatingModal]);
 
-  // Mutation para salvar avaliação
+  // Mutation para salvar avaliaÃ§Ã£o
   const submitRatingMutation = useMutation({
     mutationFn: async ({ orderId, ratings }) => {
       const order = orders.find(o => o.id === orderId);
       
-      // Criar avaliação do entregador se houver
+      // Criar avaliaÃ§Ã£o do entregador se houver
       if (order.entregador_id && ratings.deliveryRating > 0) {
         try {
           await base44.entities.DeliveryRating.create({
@@ -462,11 +464,11 @@ export default function CartModal({
             rated_by: 'customer'
           });
         } catch (e) {
-          console.log('Erro ao criar avaliação do entregador:', e);
+          console.log('Erro ao criar avaliaÃ§Ã£o do entregador:', e);
         }
       }
       
-      // Salvar avaliação do restaurante no pedido
+      // Salvar avaliaÃ§Ã£o do restaurante no pedido
       await base44.entities.Order.update(orderId, {
         ...order,
         restaurant_rating: ratings.restaurantRating,
@@ -482,7 +484,7 @@ export default function CartModal({
       setDeliveryRating(0);
       setComment('');
       
-      // Aplicar bônus de avaliação
+      // Aplicar bÃ´nus de avaliaÃ§Ã£o
       if (onReviewBonus) {
         try {
           const result = await onReviewBonus();
@@ -655,7 +657,7 @@ export default function CartModal({
                         <img src={item.dish.image} alt={item.dish.name} className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
-                          Sem foto
+                          {cartText.noPhoto}
                         </div>
                       )}
                     </div>
@@ -733,10 +735,10 @@ export default function CartModal({
                     <div className="mt-1 space-y-2">
                       <div className="space-y-1">
                         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                          Proxima melhor acao
+                          {cartText.nextBestAction}
                         </p>
                         <p className="text-[11px] text-muted-foreground">
-                          {nextBestAction?.title || 'O sistema decidiu o melhor proximo passo para valorizar este pedido'}
+                          {nextBestAction?.title || 'O sistema decidiu o melhor próximo passo para valorizar este pedido'}
                         </p>
                       </div>
                       <motion.div
@@ -763,7 +765,7 @@ export default function CartModal({
                                 {nextBestAction?.product?.name || nextBestAction?.title}
                               </p>
                               <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 bg-white">
-                                {nextBestAction?.badgeLabel || 'Melhor opcao'}
+                                {nextBestAction?.badgeLabel || cartText.bestOption}
                               </Badge>
                             </div>
                             <p className="mt-1 text-[11px] text-muted-foreground line-clamp-2">
@@ -825,7 +827,7 @@ export default function CartModal({
                           >
                             <div className="mb-1 flex items-center justify-between gap-2">
                               <Badge variant="outline" className="text-[10px] px-1.5 py-0.5">
-                                {isLeadSuggestion ? 'Melhor opcao' : getBeverageBadge(suggestion)}
+                                {isLeadSuggestion ? cartText.bestOption : getBeverageBadge(suggestion)}
                               </Badge>
                             </div>
                             <div className="w-full h-20 rounded-md overflow-hidden bg-muted mb-2">
@@ -894,7 +896,7 @@ export default function CartModal({
                               {suggestion?.image ? (
                                 <img src={suggestion.image} alt={suggestion.name} className="w-full h-full object-cover" />
                               ) : (
-                                <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">Sem foto</div>
+                                <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">{cartText.noPhoto}</div>
                               )}
                             </div>
                             <p className="text-xs font-semibold line-clamp-2 min-h-[2rem] text-card-foreground">
@@ -1002,7 +1004,7 @@ export default function CartModal({
                         </div>
                       )}
 
-                      {/* Total e Endereço */}
+                      {/* Total e EndereÃ§o */}
                       <div className={`flex items-center justify-between pt-3 border-t ${darkMode ? 'border-gray-600' : 'border-gray-200'}`}>
                         <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Total</span>
                         <span className="font-bold text-base" style={{ color: primaryColor }}>
@@ -1031,7 +1033,7 @@ export default function CartModal({
                         </div>
                       )}
 
-                      {/* Botão de Avaliação para pedidos entregues */}
+                      {/* BotÃ£o de AvaliaÃ§Ã£o para pedidos entregues */}
                       {order.status === 'delivered' && !order.restaurant_rating && (
                         <div className="mt-3 pt-3 border-t" style={{ borderColor: darkMode ? '#4b5563' : '#e5e7eb' }}>
                           <button
@@ -1048,7 +1050,7 @@ export default function CartModal({
                         </div>
                       )}
 
-                      {/* Mostrar avaliação já feita */}
+                      {/* Mostrar avaliaÃ§Ã£o jÃ¡ feita */}
                       {order.status === 'delivered' && order.restaurant_rating && (
                         <div className={`mt-3 pt-3 border-t flex items-center justify-center gap-1 ${darkMode ? 'border-gray-600' : 'border-gray-200'}`}>
                           <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
@@ -1142,7 +1144,7 @@ export default function CartModal({
                             {suggestion?.image ? (
                               <img src={suggestion.image} alt={suggestion.name} className="w-full h-full object-cover" />
                             ) : (
-                              <div className="w-full h-full flex items-center justify-center text-xs text-gray-500">Sem foto</div>
+                              <div className="w-full h-full flex items-center justify-center text-xs text-gray-500">{cartText.noPhoto}</div>
                             )}
                           </div>
                           <div className={mobileFullScreen ? 'flex-1 min-w-0' : ''}>
@@ -1202,7 +1204,7 @@ export default function CartModal({
         </motion.div>
       </motion.div>
 
-      {/* Modal de Avaliação */}
+      {/* Modal de AvaliaÃ§Ã£o */}
       {showRatingModal && (
         <motion.div
           initial={{ opacity: 0 }}
@@ -1237,7 +1239,7 @@ export default function CartModal({
                     onClick={() => setRestaurantRating(star)}
                     className="text-3xl transition-transform hover:scale-110"
                   >
-                    {star <= restaurantRating ? '⭐' : '☆'}
+                      {star <= restaurantRating ? '⭐' : '☆'}
                   </button>
                 ))}
               </div>
@@ -1308,3 +1310,4 @@ export default function CartModal({
 
   return createPortal(modalContent, document.body);
 }
+

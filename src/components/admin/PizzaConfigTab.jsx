@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+﻿import React, { useState, useMemo } from 'react';
 import { apiClient } from '@/api/apiClient';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
@@ -40,7 +40,7 @@ const formatFlavorAllowance = (value) => {
 const formatPricePerSlice = (price, slices) => {
   const safePrice = Number(price || 0);
   const safeSlices = Number(slices || 0);
-  if (safePrice <= 0 || safeSlices <= 0) return '—';
+  if (safePrice <= 0 || safeSlices <= 0) return 'â€”';
   return formatCurrency(safePrice / safeSlices);
 };
 
@@ -171,7 +171,7 @@ const buildPizzaPricingInsights = (sizes = []) => {
     alerts.push({
       tone: 'amber',
       title: 'Diferenca entre tradicional e premium esta baixa',
-      description: `Os tamanhos ${lowPremiumMetrics.map((metric) => metric.name).join(', ')} podem nao destacar valor premium com clareza.`
+      description: `Os tamanhos ${lowPremiumMetrics.map((metric) => metric.name).join(', ')} podem não destacar valor premium com clareza.`
     });
   }
 
@@ -182,8 +182,8 @@ const buildPizzaPricingInsights = (sizes = []) => {
     if ((maxSlice - minSlice) >= 1.2) {
       alerts.push({
         tone: 'sky',
-        title: 'Preco por fatia varia bastante entre tamanhos',
-        description: 'Vale revisar a escada de valor para o cliente entender melhor a diferenca entre P, M e G.'
+        title: 'Preço por fatia varia bastante entre tamanhos',
+        description: 'Vale revisar a escada de valor para o cliente entender melhor a diferença entre P, M e G.'
       });
     }
   }
@@ -244,9 +244,9 @@ const buildPizzaPricingInsights = (sizes = []) => {
 
 const PIZZA_SECTION_NAV_ITEMS = [
   { id: 'products', label: 'Produtos', mobileLabel: 'Produtos', defaultSection: 'menu', sections: ['menu'] },
-  { id: 'organization', label: 'Organizacao', mobileLabel: 'Organiza', defaultSection: 'rules', sections: ['rules', 'flavors', 'sizes', 'addons'] },
+  { id: 'organization', label: 'Organização', mobileLabel: 'Organiza', defaultSection: 'rules', sections: ['rules', 'flavors', 'sizes', 'addons'] },
   { id: 'intelligence', label: 'Inteligencia', mobileLabel: 'Insights', defaultSection: 'overview', sections: ['overview', 'intelligence'] },
-  { id: 'settings', label: 'Configuracoes', mobileLabel: 'Config', defaultSection: 'preview', sections: ['preview'] },
+  { id: 'settings', label: 'Configurações', mobileLabel: 'Config', defaultSection: 'preview', sections: ['preview'] },
 ];
 
 const PIZZA_SUBSECTION_NAV = {
@@ -299,7 +299,7 @@ export default function PizzaConfigTab() {
     loadUser();
   }, []);
 
-  // âœ… Para master (slug): buscar complementos do cardÃ¡pio pÃºblico (mesma fonte que MyPizzasTab)
+  // Ã¢Å“â€¦ Para master (slug): buscar complementos do cardÃƒÂ¡pio pÃƒÂºblico (mesma fonte que MyPizzasTab)
   const { data: publicCardapio } = useQuery({
     queryKey: ['publicCardapio', slug],
     queryFn: async () => {
@@ -324,7 +324,7 @@ export default function PizzaConfigTab() {
     ? menuContext.subscriber_id ?? null
     : tenantSubscriberId;
   const fallbackOwnerEmail = slug ? null : (user?.subscriber_email || user?.email || null);
-  const entityOwnerEmail = scopedSubscriberEmail || fallbackOwnerEmail; // Compatibilidade transitÃ³ria: o backend legado ainda persiste owner_email.
+  const entityOwnerEmail = scopedSubscriberEmail || fallbackOwnerEmail; // Compatibilidade transitÃƒÂ³ria: o backend legado ainda persiste owner_email.
   const entityContextOpts = buildTenantEntityOpts({ subscriberId: scopedSubscriberId, subscriberEmail: scopedSubscriberEmail });
   const profileStorageKey = useMemo(
     () => buildPizzaStorageScopeKey({
@@ -382,7 +382,7 @@ export default function PizzaConfigTab() {
     gcTime: 60000,
   });
 
-  // âœ… Admin API (usada quando nÃ£o hÃ¡ slug); com slug usamos publicCardapio para exibir
+  // Ã¢Å“â€¦ Admin API (usada quando nÃƒÂ£o hÃƒÂ¡ slug); com slug usamos publicCardapio para exibir
   const { data: adminSizes = [] } = useQuery({
     queryKey: ['pizzaSizes', ...getMenuContextQueryKeyParts(menuContext)],
     queryFn: async () => {
@@ -570,7 +570,7 @@ export default function PizzaConfigTab() {
     {
       id: 'menu',
       step: '1',
-      title: 'O que aparece no cardapio',
+      title: 'O que aparece no cardápio',
       description: 'Entradas comerciais que o cliente realmente escolhe.',
       metric: `${pizzaEntries.length} entrada(s)`
     },
@@ -592,13 +592,13 @@ export default function PizzaConfigTab() {
       id: 'sizes',
       step: '4',
       title: 'Quanto cada tamanho custa',
-      description: 'Tabela para comparar preco, fatias e limite de sabores.',
+      description: 'Tabela para comparar preço, fatias e limite de sabores.',
       metric: `${sizes.length} tamanho(s)`
     },
     {
       id: 'addons',
       step: '5',
-      title: 'O que e opcional',
+      title: 'O que é opcional',
       description: 'Bordas e extras que elevam ticket sem travar o fluxo.',
       metric: `${edges.length + extras.length} opcional(is)`
     },
@@ -606,7 +606,7 @@ export default function PizzaConfigTab() {
       id: 'preview',
       step: '6',
       title: 'Como isso fica no builder',
-      description: 'Preview quase real para revisar a experiencia final.',
+      description: 'Preview quase real para revisar a experiência final.',
       metric: `${previewEntries.length} vitrine(s)`
     }
   ]), [pizzaEntries.length, pizzaCategories.length, flavors.length, sizes.length, edges.length, extras.length, previewEntries.length]);
@@ -634,20 +634,20 @@ export default function PizzaConfigTab() {
       suggestions.push({
         tone: 'amber',
         title: 'Existem regras sem entrada publica',
-        description: `${rulesWithoutEntries} regra(s) ainda nao aparecem no cardapio. Vale conectar isso a uma entrada comercial.`
+        description: `${rulesWithoutEntries} regra(s) ainda não aparecem no cardápio. Vale conectar isso a uma entrada comercial.`
       });
     }
     if (multiFlavorRules > 0 && sizes.length <= 1) {
       suggestions.push({
         tone: 'rose',
         title: 'Entradas de 2 sabores pedem mais de um tamanho',
-        description: 'Se voce vender 2 sabores, considere deixar M e G ativos para o cliente perceber opcao real.'
+        description: 'Se você vender 2 sabores, considere deixar M e G ativos para o cliente perceber opção real.'
       });
     }
     if (pizzaEntries.length > 0 && activePremiumFlavors === 0) {
       suggestions.push({
         tone: 'sky',
-        title: 'Premium ainda nao entrou no jogo',
+        title: 'Premium ainda não entrou no jogo',
         description: 'Adicionar ao menos um sabor premium aumenta o valor percebido e melhora a leitura comercial.'
       });
     }
@@ -689,7 +689,7 @@ export default function PizzaConfigTab() {
       previewHasPremium && previewSizeInsight?.premiumDelta > 0
         ? `Premium aumenta ${formatCurrency(previewSizeInsight.premiumDelta)} nesta escolha.`
         : (premiumOptionsCount > 0
-          ? 'Voce ja tem premium liberado para empurrar ticket medio nesta entrada.'
+          ? 'Você já tem premium liberado para empurrar ticket médio nesta entrada.'
           : 'Sem sabores premium ativos nesta entrada.'),
       activeUpgradeCount >= 2
         ? 'Borda e adicionais deixam esta entrada com boa chance de upsell.'
@@ -734,7 +734,7 @@ export default function PizzaConfigTab() {
   const commercialSummaryPresentation = useMemo(() => {
     if (commercialSummary.level === 'FORTE') {
       return {
-        title: 'Seu cardapio esta forte para vender',
+        title: 'Seu cardápio está forte para vender',
         description: 'A base comercial esta consistente e o sistema entende que sua pizzaria ja transmite seguranca.',
         className: 'border-emerald-200 bg-emerald-50/80',
         badgeClass: 'border-emerald-200 bg-white text-emerald-700',
@@ -742,7 +742,7 @@ export default function PizzaConfigTab() {
     }
     if (commercialSummary.level === 'BOM') {
       return {
-        title: 'Seu cardapio esta em bom nivel',
+        title: 'Seu cardápio está em bom nível',
         description: 'A estrutura ja convence, mas ainda existem oportunidades claras para subir ticket e melhorar escolha.',
         className: 'border-sky-200 bg-sky-50/80',
         badgeClass: 'border-sky-200 bg-white text-sky-700',
@@ -750,14 +750,14 @@ export default function PizzaConfigTab() {
     }
     if (commercialSummary.level === 'FRACO') {
       return {
-        title: 'Seu cardapio ainda esta fragil',
-        description: 'Hoje o sistema ve entradas fracas demais. Vale agir nas recomendacoes para ganhar confianca de venda.',
+        title: 'Seu cardápio ainda está frágil',
+        description: 'Hoje o sistema vê entradas fracas demais. Vale agir nas recomendações para ganhar confiança de venda.',
         className: 'border-rose-200 bg-rose-50/80',
         badgeClass: 'border-rose-200 bg-white text-rose-700',
       };
     }
     return {
-      title: 'Seu cardapio esta em evolucao',
+      title: 'Seu cardápio está em evolução',
       description: 'A base ja funciona, mas ainda existem ajustes importantes para deixar a pizzaria mais forte e vendavel.',
       className: 'border-amber-200 bg-amber-50/80',
       badgeClass: 'border-amber-200 bg-white text-amber-700',
@@ -768,15 +768,15 @@ export default function PizzaConfigTab() {
       id: 'lean',
       name: 'Pizzaria enxuta',
       badge: 'Essencial',
-      audience: 'Boa para operacao simples e cardapio direto.',
+      audience: 'Boa para operação simples e cardápio direto.',
       description: 'Poucos tamanhos, leitura clara e baixa complexidade na montagem.',
       actionLabel: 'Ver caminho recomendado',
       actionMode: 'assist',
       accent: 'border-slate-200 bg-slate-50/80 text-slate-700',
       impact: [
         'Foco em 1 sabor e 2 sabores',
-        'Mantem operacao mais simples',
-        'Reduz excesso de opcao no inicio',
+        'Mantém operação mais simples',
+        'Reduz excesso de opção no início',
       ],
     },
     {
@@ -791,7 +791,7 @@ export default function PizzaConfigTab() {
       impact: [
         missingRecommendedSizes.length > 0 ? `Ativa ${missingRecommendedSizes.length} tamanho(s) recomendado(s)` : 'Tamanhos recomendados ja estao ativos',
         activePremiumFlavors.length > 0 ? 'Premium ja esta disponivel' : 'Mantem foco comercial sem forcar premium',
-        (activeSizes.length >= 2 ? 'Base de escolha equilibrada' : 'Amplia opcoes do cardapio'),
+        (activeSizes.length >= 2 ? 'Base de escolha equilibrada' : 'Amplia opções do cardápio'),
       ],
     },
     {
@@ -804,24 +804,24 @@ export default function PizzaConfigTab() {
       actionMode: 'apply',
       accent: 'border-sky-200 bg-sky-50/80 text-sky-700',
       impact: [
-        missingRecommendedSizes.length > 0 ? 'Ativa tamanhos mais fortes para escolha rapida' : 'Mantem tamanhos fortes ja ativos',
-        inactiveEdges.length > 0 ? 'Liga ao menos uma borda' : 'Borda ja esta pronta',
-        inactiveExtras.length > 0 ? 'Liga ao menos um adicional' : 'Adicionais ja estao prontos',
+        missingRecommendedSizes.length > 0 ? 'Ativa tamanhos mais fortes para escolha rápida' : 'Mantém tamanhos fortes já ativos',
+        inactiveEdges.length > 0 ? 'Liga ao menos uma borda' : 'Borda já está pronta',
+        inactiveExtras.length > 0 ? 'Liga ao menos um adicional' : 'Adicionais já estão prontos',
       ],
     },
     {
       id: 'premium',
       name: 'Pizzaria premium',
       badge: 'Premium',
-      audience: 'Boa para elevar valor percebido e ticket medio.',
-      description: 'Ativa premium disponivel e leva voce direto para ajustar a escada de preco com clareza.',
-      actionLabel: inactivePremiumFlavors.length > 0 ? 'Ativar premium e revisar preco' : 'Revisar escada premium',
+      audience: 'Boa para elevar valor percebido e ticket médio.',
+      description: 'Ativa premium disponível e leva você direto para ajustar a escada de preço com clareza.',
+      actionLabel: inactivePremiumFlavors.length > 0 ? 'Ativar premium e revisar preço' : 'Revisar escada premium',
       actionMode: 'hybrid',
       accent: 'border-amber-200 bg-amber-50/80 text-amber-700',
       impact: [
-        inactivePremiumFlavors.length > 0 ? `Ativa ${inactivePremiumFlavors.length} sabor(es) premium` : 'Premium ja esta ativo',
+        inactivePremiumFlavors.length > 0 ? `Ativa ${inactivePremiumFlavors.length} sabor(es) premium` : 'Premium já está ativo',
         firstLowPremiumMetric ? `Leva para revisar ${firstLowPremiumMetric.name}` : 'Leva para revisar a matriz premium',
-        'Melhora percepcao de valor no builder',
+        'Melhora percepção de valor no builder',
       ],
     },
     {
@@ -836,7 +836,7 @@ export default function PizzaConfigTab() {
       impact: [
         inactiveEdges.length > 0 ? 'Liga borda para oferta premium' : 'Borda ja esta ativa',
         inactiveExtras.length > 0 ? 'Liga adicional para upsell' : 'Adicional ja esta ativo',
-        activePremiumFlavors.length > 0 ? 'Premium ajuda a sustentar ticket' : 'Premium ainda pode ser reforcado',
+        activePremiumFlavors.length > 0 ? 'Premium ajuda a sustentar ticket' : 'Premium ainda pode ser reforçado',
       ],
     },
   ]), [activePremiumFlavors.length, activeSizes.length, firstLowPremiumMetric, inactiveEdges.length, inactiveExtras.length, inactivePremiumFlavors.length, missingRecommendedSizes.length]);
@@ -864,10 +864,10 @@ export default function PizzaConfigTab() {
       actions.push({
         id: 'premium-improvement',
         tone: 'amber',
-        title: 'Melhorar diferenca premium',
+        title: 'Melhorar diferença premium',
         description: inactivePremiumFlavors.length > 0
-          ? 'Ative sabores premium e revise o tamanho com menor diferenca de valor.'
-          : 'Abra o tamanho mais sensivel para revisar a escada premium.',
+          ? 'Ative sabores premium e revise o tamanho com menor diferença de valor.'
+          : 'Abra o tamanho mais sensível para revisar a escada premium.',
         actionLabel: inactivePremiumFlavors.length > 0 ? 'Preparar premium' : 'Abrir ajuste',
       });
     }
@@ -883,36 +883,36 @@ export default function PizzaConfigTab() {
 
     if (missingRecommendedSizes.length > 0) {
       actions.push(`Ativar ${missingRecommendedSizes.map((size) => size.name).join(', ')} para ampliar a vitrine.`);
-      impact.push('Mais clareza de escolha entre tamanhos no cardapio.');
+      impact.push('Mais clareza de escolha entre tamanhos no cardápio.');
     }
     if (inactivePremiumFlavors.length > 0) {
-      actions.push(`Ligar ${inactivePremiumFlavors.length} sabor(es) premium para reforcar ticket medio.`);
-      impact.push('Premium passa a aparecer como decisao de valor, nao so opcao tecnica.');
+      actions.push(`Ligar ${inactivePremiumFlavors.length} sabor(es) premium para reforçar ticket médio.`);
+      impact.push('Premium passa a aparecer como decisão de valor, não só opção técnica.');
     }
     if (inactiveEdges.length > 0 || inactiveExtras.length > 0) {
-      actions.push('Abrir caminho de upsell com borda e adicional basicos.');
-      impact.push('Upsell deixa de ser invisivel e passa a empurrar ticket final.');
+      actions.push('Abrir caminho de upsell com borda e adicional básicos.');
+      impact.push('Upsell deixa de ser invisível e passa a empurrar ticket final.');
     }
     if (firstLowPremiumMetric) {
-      actions.push(`Levar voce para revisar a escada premium do tamanho ${firstLowPremiumMetric.name}.`);
-      impact.push('A diferenca premium fica mais confiavel para vender sem parecer cara demais.');
+      actions.push(`Levar você para revisar a escada premium do tamanho ${firstLowPremiumMetric.name}.`);
+      impact.push('A diferença premium fica mais confiável para vender sem parecer cara demais.');
     }
 
     const level = actions.length === 0 ? 'FORTE' : (actions.length === 1 ? 'BOM' : (actions.length === 2 ? 'REGULAR' : 'ATENCAO'));
     const summary = level === 'FORTE'
-      ? 'Sua estrutura global ja esta forte para venda.'
+      ? 'Sua estrutura global já está forte para venda.'
       : level === 'BOM'
-        ? 'A base esta boa, mas um ajuste automatico pode deixá-la mais confiavel.'
+        ? 'A base está boa, mas um ajuste automático pode deixá-la mais confiável.'
         : level === 'REGULAR'
-          ? 'Ainda existe espaco real para melhorar venda e ticket com pouco esforco.'
-          : 'A estrutura pede correcao guiada para ficar convincente no cardapio.';
+          ? 'Ainda existe espaço real para melhorar venda e ticket com pouco esforço.'
+          : 'A estrutura pede correção guiada para ficar convincente no cardápio.';
 
     return {
       actions,
       before: [
         `${activeSizes.length} tamanho(s) ativo(s) hoje`,
         activePremiumFlavors.length > 0 ? `${activePremiumFlavors.length} sabor(es) premium ativo(s)` : 'Premium ainda fraco ou ausente',
-        activeUpsellReady ? 'Upsell ja aparece para o cliente' : 'Upsell ainda nao aparece com clareza',
+        activeUpsellReady ? 'Upsell já aparece para o cliente' : 'Upsell ainda não aparece com clareza',
       ],
       after: [
         `${projectedSizeCount} tamanho(s) fortes depois da melhoria`,
@@ -953,9 +953,9 @@ export default function PizzaConfigTab() {
       recommendations.push({
         id: 'weak-entries',
         severity: 'critical',
-        title: 'Entradas fracas ainda travam seu cardapio',
+        title: 'Entradas fracas ainda travam seu cardápio',
         description: `${commercialSummary.weak} entrada(s) ainda tem baixo potencial de venda.`,
-        impact: 'Resolver isso tende a melhorar conversao e confianca no cardapio.',
+        impact: 'Resolver isso tende a melhorar conversão e confiança no cardápio.',
         actionLabel: 'Revisar entradas',
         action: 'menu',
       });
@@ -965,11 +965,11 @@ export default function PizzaConfigTab() {
       recommendations.push({
         id: 'premium-missing',
         severity: businessProfileId === 'premium' ? 'critical' : 'important',
-        title: 'Premium ainda nao entrou no jogo',
+        title: 'Premium ainda não entrou no jogo',
         description: businessProfileId === 'premium'
           ? 'Seu perfil pede premium ativo para sustentar ticket.'
           : 'Delivery forte costuma vender melhor quando premium aparece com clareza.',
-        impact: 'Ativar premium cria um passo extra de ticket medio sem mexer no fluxo base.',
+        impact: 'Ativar premium cria um passo extra de ticket médio sem mexer no fluxo base.',
         actionLabel: 'Ativar premium',
         action: 'premium-improvement',
       });
@@ -979,8 +979,8 @@ export default function PizzaConfigTab() {
       recommendations.push({
         id: 'upsell-off',
         severity: 'important',
-        title: 'Voce nao esta aproveitando upsell',
-        description: 'Borda e adicionais ainda nao aparecem com forca para o cliente.',
+        title: 'Você não está aproveitando upsell',
+        description: 'Borda e adicionais ainda não aparecem com força para o cliente.',
         impact: 'Ativar upsell deixa a entrada mais forte sem mudar o builder real.',
         actionLabel: 'Ativar upsell',
         action: 'upsell-activation',
@@ -991,9 +991,9 @@ export default function PizzaConfigTab() {
       recommendations.push({
         id: 'too-many-sizes',
         severity: 'opportunity',
-        title: 'Sua estrutura esta ampla demais para delivery',
+        title: 'Sua estrutura está ampla demais para delivery',
         description: 'Muitos tamanhos podem deixar a escolha mais lenta e cansativa.',
-        impact: 'Revisar a matriz ajuda a deixar o pedido mais rapido.',
+        impact: 'Revisar a matriz ajuda a deixar o pedido mais rápido.',
         actionLabel: 'Revisar tamanhos',
         action: 'sizes',
       });
@@ -1004,8 +1004,8 @@ export default function PizzaConfigTab() {
         id: 'premium-gap',
         severity: 'important',
         title: 'Premium pouco valorizado no maior argumento de venda',
-        description: `${firstLowPremiumMetric.name} ainda nao comunica bem a diferenca premium.`,
-        impact: 'Ajustar essa escada deixa o premium mais confiavel para vender.',
+        description: `${firstLowPremiumMetric.name} ainda não comunica bem a diferença premium.`,
+        impact: 'Ajustar essa escada deixa o premium mais confiável para vender.',
         actionLabel: 'Abrir matriz',
         action: 'sizes',
       });
@@ -1015,8 +1015,8 @@ export default function PizzaConfigTab() {
       recommendations.push({
         id: 'first-entry',
         severity: 'opportunity',
-        title: 'Voce ja pode montar sua primeira entrada',
-        description: 'A base tecnica ja existe. Agora vale transformar isso em oferta vendavel.',
+        title: 'Você já pode montar sua primeira entrada',
+        description: 'A base técnica já existe. Agora vale transformar isso em oferta vendável.',
         impact: 'Uma primeira entrada pronta acelera o onboarding e o teste do builder.',
         actionLabel: 'Ir para entradas',
         action: 'menu',
@@ -1045,9 +1045,9 @@ export default function PizzaConfigTab() {
     if (evolutionDelta.deltaWeak < 0) improvements.push(`${Math.abs(evolutionDelta.deltaWeak)} fraca(s) a menos`);
 
     return {
-      title: 'Seu cardapio melhorou',
+      title: 'Seu cardápio melhorou',
       description: improvements.length > 0
-        ? `${improvements.join(' • ')} desde a ultima leitura.`
+        ? `${improvements.join(' â€¢ ')} desde a ultima leitura.`
         : `O nivel mudou de ${evolutionDelta.previousLevel} para ${evolutionDelta.currentLevel}.`,
     };
   }, [evolutionDelta]);
@@ -1168,7 +1168,7 @@ export default function PizzaConfigTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzaSizes'] });
       if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
-      toast.success('Tamanho excluÃ­do!');
+      toast.success('Tamanho excluÃƒÂ­do!');
     },
   });
 
@@ -1204,7 +1204,7 @@ export default function PizzaConfigTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzaFlavors'] });
       if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
-      toast.success('Sabor excluÃ­do!');
+      toast.success('Sabor excluÃƒÂ­do!');
     },
   });
 
@@ -1240,7 +1240,7 @@ export default function PizzaConfigTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzaEdges'] });
       if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
-      toast.success('Borda excluÃ­da!');
+      toast.success('Borda excluÃƒÂ­da!');
     },
   });
 
@@ -1276,7 +1276,7 @@ export default function PizzaConfigTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzaExtras'] });
       if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
-      toast.success('Extra excluÃ­do!');
+      toast.success('Extra excluÃƒÂ­do!');
     },
   });
 
@@ -1312,7 +1312,7 @@ export default function PizzaConfigTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzaCategories'] });
       if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
-      toast.success('Categoria excluÃ­da!');
+      toast.success('Categoria excluÃƒÂ­da!');
     },
   });
   const invalidatePizzaConfigQueries = React.useCallback(() => {
@@ -1372,7 +1372,7 @@ export default function PizzaConfigTab() {
   const handleAssistantAction = React.useCallback(async (actionId, options = {}) => {
     const { skipConfirm = false, silent = false, openPremiumEditor = true } = options;
     if (!canRunAdminActions) {
-      toast('As acoes automaticas so ficam disponiveis no admin da loja.');
+      toast('As ações automáticas só ficam disponíveis no admin da loja.');
       return false;
     }
 
@@ -1429,7 +1429,7 @@ export default function PizzaConfigTab() {
         let applied = false;
         if (inactivePremiumFlavors.length > 0) {
           const accepted = skipConfirm ? true : window.confirm(
-            `Vamos ativar ${inactivePremiumFlavors.length} sabor(es) premium para reforcar ticket medio e, em seguida, abrir a matriz de precos. Deseja continuar?`
+            `Vamos ativar ${inactivePremiumFlavors.length} sabor(es) premium para reforçar ticket médio e, em seguida, abrir a matriz de preços. Deseja continuar?`
           );
           if (!accepted) return false;
 
@@ -1449,9 +1449,9 @@ export default function PizzaConfigTab() {
           if (targetSize && openPremiumEditor) {
             setEditingSize(targetSize);
             setShowSizeModal(true);
-            if (!silent) toast('Abrimos o tamanho mais sensivel para voce revisar a diferenca premium.');
+            if (!silent) toast('Abrimos o tamanho mais sensível para você revisar a diferença premium.');
           } else if (!silent) {
-            toast('A matriz de precos foi destacada para voce revisar a diferenca premium.');
+            toast('A matriz de preços foi destacada para você revisar a diferença premium.');
           }
         } else if (!applied) {
           openPizzaWorkspace('sizes');
@@ -1460,7 +1460,7 @@ export default function PizzaConfigTab() {
       }
     } catch (error) {
       console.error('Erro ao aplicar assistente da pizzaria:', error);
-      toast.error('Nao foi possivel aplicar a sugestao agora.');
+      toast.error('Não foi possível aplicar a sugestão agora.');
       return false;
     } finally {
       setRunningAssistantActionId('');
@@ -1471,11 +1471,11 @@ export default function PizzaConfigTab() {
 
   const handleAutoImproveStructure = React.useCallback(async () => {
     if (!canRunAdminActions) {
-      toast('A melhoria automatica so fica disponivel no admin da loja.');
+      toast('A melhoria automática só fica disponível no admin da loja.');
       return;
     }
     if (!autoImprovePlan.canImprove) {
-      toast('A estrutura global ja esta forte. Vale apenas revisar o preview final.');
+      toast('A estrutura global já está forte. Vale apenas revisar o preview final.');
       return;
     }
 
@@ -1489,10 +1489,10 @@ export default function PizzaConfigTab() {
       await handleAssistantAction('upsell-activation', { skipConfirm: true, silent: true });
       await handleAssistantAction('premium-improvement', { skipConfirm: true, silent: true, openPremiumEditor: false });
       openPizzaWorkspace('preview');
-      toast.success('Estrutura automatica aplicada. Revise o impacto no preview.');
+      toast.success('Estrutura automática aplicada. Revise o impacto no preview.');
     } catch (error) {
       console.error('Erro ao melhorar estrutura da pizzaria:', error);
-      toast.error('Nao foi possivel aplicar a melhoria automatica agora.');
+      toast.error('Não foi possível aplicar a melhoria automática agora.');
     }
   }, [autoImprovePlan, canRunAdminActions, handleAssistantAction]);
   const handleAdaptiveRecommendation = React.useCallback(async (recommendation) => {
@@ -1500,12 +1500,12 @@ export default function PizzaConfigTab() {
 
     if (recommendation.action === 'menu') {
       openPizzaWorkspace('menu');
-      toast('Levamos voce para as entradas do cardapio para agir no ponto certo.');
+      toast('Levamos você para as entradas do cardápio para agir no ponto certo.');
       return;
     }
     if (recommendation.action === 'sizes') {
       openPizzaWorkspace('sizes');
-      toast('Abrimos a matriz de tamanhos para voce ajustar a decisao comercial.');
+      toast('Abrimos a matriz de tamanhos para você ajustar a decisão comercial.');
       return;
     }
     if (recommendation.action === 'premium-improvement') {
@@ -1527,7 +1527,7 @@ export default function PizzaConfigTab() {
 
     if (templateId === 'lean') {
       openPizzaWorkspace('menu');
-      toast('Template enxuto selecionado. Foque em poucas entradas, leitura clara e baixa friccao.');
+      toast('Template enxuto selecionado. Foque em poucas entradas, leitura clara e baixa fricção.');
       return;
     }
 
@@ -1598,10 +1598,10 @@ export default function PizzaConfigTab() {
 
       <div className="mb-5 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:mb-6 sm:p-6">
         <Badge variant="outline" className="border-orange-200 bg-orange-50 text-orange-700">Pizzaria IA V2</Badge>
-        <h2 className="mt-3 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">Produtos primeiro, inteligencia por tras</h2>
+        <h2 className="mt-3 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">Produtos primeiro, inteligência por trás</h2>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-          A entrada agora comeca pelas pizzas que voce vende. Organizacao, regras, preview e inteligencia continuam aqui,
-          mas sem bloquear a operacao de quem entrou para editar produto rapido.
+          A entrada agora começa pelas pizzas que você vende. Organização, regras, preview e inteligência continuam aqui,
+          mas sem bloquear a operação de quem entrou para editar produto rápido.
         </p>
       </div>
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
@@ -1721,10 +1721,10 @@ export default function PizzaConfigTab() {
 
         <TabsContent value="menu" className="space-y-4">
           <Card className="rounded-2xl border-slate-200 p-5 shadow-sm">
-            <Badge variant="outline" className="border-orange-200 bg-orange-50 text-orange-700">Entrada do cardapio</Badge>
+            <Badge variant="outline" className="border-orange-200 bg-orange-50 text-orange-700">Entrada do cardápio</Badge>
             <h3 className="mt-3 text-xl font-semibold text-slate-900">O que o cliente realmente enxerga para pedir pizza</h3>
             <p className="mt-2 text-sm leading-6 text-slate-600">
-              Esta aba concentra as entradas comerciais do cardapio. E aqui que voce decide nome publico, preco inicial e qual regra de montagem cada entrada usa.
+              Esta aba concentra as entradas comerciais do cardápio. É aqui que você decide nome público, preço inicial e qual regra de montagem cada entrada usa.
             </p>
           </Card>
           <MyPizzasTab businessProfileId={businessProfileId} />
@@ -1735,8 +1735,8 @@ export default function PizzaConfigTab() {
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <Badge variant="outline" className="border-sky-200 bg-sky-50 text-sky-700">Regra de montagem</Badge>
-                <h3 className="mt-3 text-xl font-semibold text-slate-900">Como cada entrada e montada no builder</h3>
-                <p className="mt-2 text-sm leading-6 text-slate-600">Aqui voce controla tamanho base e quantos sabores o cliente pode combinar.</p>
+                <h3 className="mt-3 text-xl font-semibold text-slate-900">Como cada entrada é montada no builder</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-600">Aqui você controla tamanho base e quantos sabores o cliente pode combinar.</p>
               </div>
               <div className="flex flex-wrap gap-3">
                 <div className="relative min-w-[260px]">
@@ -1771,7 +1771,7 @@ export default function PizzaConfigTab() {
                       <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600">Regra-base</Badge>
                       <h4 className="mt-3 text-lg font-semibold text-slate-900">{category.name || 'Regra sem nome'}</h4>
                       <p className="mt-1 text-sm text-slate-600">
-                        {size ? `${size.name} • ${size.slices} fatias` : 'Sem tamanho'} • {category.max_flavors || 1} sabor(es)
+                        {size ? `${size.name} â€¢ ${size.slices} fatias` : 'Sem tamanho'} â€¢ {category.max_flavors || 1} sabor(es)
                       </p>
                     </div>
                     <div className="flex items-center gap-1">
@@ -1798,7 +1798,7 @@ export default function PizzaConfigTab() {
               <div>
                 <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700">Catalogo de sabores</Badge>
                 <h3 className="mt-3 text-xl font-semibold text-slate-900">Banco de sabores da pizzaria</h3>
-                <p className="mt-2 text-sm leading-6 text-slate-600">Sabores sao base tecnica do builder, nao entradas do cardapio.</p>
+                <p className="mt-2 text-sm leading-6 text-slate-600">Sabores são base técnica do builder, não entradas do cardápio.</p>
               </div>
               <div className="flex flex-wrap gap-3">
                 <div className="relative min-w-[260px]">
@@ -2013,7 +2013,7 @@ export default function PizzaConfigTab() {
               <div>
                 <Badge variant="outline" className="border-rose-200 bg-rose-50 text-rose-700">Bordas e extras</Badge>
                 <h3 className="mt-3 text-xl font-semibold text-slate-900">Adicionais da pizzaria</h3>
-                <p className="mt-2 text-sm leading-6 text-slate-600">Bordas e extras ficam separados dos sabores para reforcar a leitura comercial.</p>
+                <p className="mt-2 text-sm leading-6 text-slate-600">Bordas e extras ficam separados dos sabores para reforçar a leitura comercial.</p>
               </div>
               <div className="relative min-w-[260px]">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -2069,7 +2069,7 @@ export default function PizzaConfigTab() {
             <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-700">Aparicao publica</Badge>
             <h3 className="mt-3 text-xl font-semibold text-slate-900">Como o cliente percebe a pizzaria</h3>
             <p className="mt-2 text-sm leading-6 text-slate-600">
-              Este resumo ajuda a conferir se a parte comercial, a regra de montagem e o catalogo tecnico continuam coerentes no builder publico.
+              Este resumo ajuda a conferir se a parte comercial, a regra de montagem e o catálogo técnico continuam coerentes no builder público.
             </p>
             <div className="mt-4 grid gap-3 md:grid-cols-3">
               <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
@@ -2141,12 +2141,12 @@ export default function PizzaConfigTab() {
                       <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
                         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Regra</p>
                         <p className="mt-2 text-sm font-semibold text-slate-900">{formatFlavorAllowance(previewMaxFlavors)}</p>
-                        <p className="mt-1 text-xs text-slate-600">{previewCategory?.name || 'Regra comercial nao definida'}</p>
+                        <p className="mt-1 text-xs text-slate-600">{previewCategory?.name || 'Regra comercial não definida'}</p>
                       </div>
                       <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
                         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Sabores liberados</p>
                         <p className="mt-2 text-sm font-semibold text-slate-900">
-                          {previewFlavorOptions.length > 0 ? `${previewFlavorOptions.length} opcao(oes)` : 'Sem sabores'}
+                          {previewFlavorOptions.length > 0 ? `${previewFlavorOptions.length} opção(ões)` : 'Sem sabores'}
                         </p>
                         <p className="mt-1 text-xs text-slate-600">
                           {previewFlavorOptions.some((flavor) => flavor.category === 'premium')
@@ -2183,7 +2183,7 @@ export default function PizzaConfigTab() {
                             <p className="mt-1 text-xs text-slate-600">
                               {previewTicketSimulation.premiumLift > 0
                                 ? `Premium eleva ${formatCurrency(previewTicketSimulation.premiumLift)}`
-                                : 'Sem ganho premium nesta combinacao'}
+                                : 'Sem ganho premium nesta combinação'}
                             </p>
                           </div>
                           <div className="rounded-xl border border-violet-200 bg-violet-50/70 px-3 py-3">
@@ -2192,7 +2192,7 @@ export default function PizzaConfigTab() {
                             <p className="mt-1 text-xs text-slate-600">
                               {previewTicketSimulation.upsellLift > 0
                                 ? `Borda e adicionais somam ${formatCurrency(previewTicketSimulation.upsellLift)}`
-                                : 'Sem impacto de upsell nesta simulacao'}
+                                : 'Sem impacto de upsell nesta simulação'}
                             </p>
                           </div>
                         </div>
@@ -2227,7 +2227,7 @@ export default function PizzaConfigTab() {
                               >
                                 <p className="text-sm font-semibold text-slate-900">{size.name}</p>
                                 <p className="mt-1 text-xs text-slate-600">
-                                  {size.max_flavors || previewMaxFlavors} sabor(es) • {formatCurrency(currentPrice)}
+                                  {size.max_flavors || previewMaxFlavors} sabor(es) â€¢ {formatCurrency(currentPrice)}
                                 </p>
                                 <p className="mt-1 text-[11px] text-slate-500">
                                   {formatPricePerSlice(currentPrice, size.slices)} por fatia
@@ -2307,7 +2307,7 @@ export default function PizzaConfigTab() {
                                     : 'border-slate-200 bg-white hover:border-slate-300'
                                 }`}
                               >
-                                {edge.name} • {formatCurrency(edge.price)}
+                                {edge.name} â€¢ {formatCurrency(edge.price)}
                               </button>
                             ))}
                           </div>
@@ -2332,7 +2332,7 @@ export default function PizzaConfigTab() {
                                       : 'border-slate-200 bg-white hover:border-slate-300'
                                   }`}
                                 >
-                                  {extra.name} • {formatCurrency(extra.price)}
+                                  {extra.name} â€¢ {formatCurrency(extra.price)}
                                 </button>
                               );
                             })}
@@ -2344,7 +2344,7 @@ export default function PizzaConfigTab() {
                 ) : (
                   <div className="mt-5 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
                     <p className="font-medium text-slate-900">Ative pelo menos uma entrada de pizza para usar o preview.</p>
-                    <p className="mt-2 text-sm text-slate-600">O simulador aparece automaticamente quando houver uma entrada publica ativa.</p>
+                    <p className="mt-2 text-sm text-slate-600">O simulador aparece automaticamente quando houver uma entrada pública ativa.</p>
                   </div>
                 )}
               </Card>
@@ -2354,17 +2354,17 @@ export default function PizzaConfigTab() {
               <Card className="rounded-3xl border-slate-200 p-6 shadow-sm">
                 <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600">Cliente montando</Badge>
                 <h4 className="mt-3 text-lg font-semibold text-slate-900">Leitura comercial do builder</h4>
-                <p className="mt-1 text-sm leading-6 text-slate-600">Este quadro traduz a configuracao tecnica para a linguagem que importa no cardapio.</p>
+                <p className="mt-1 text-sm leading-6 text-slate-600">Este quadro traduz a configuração técnica para a linguagem que importa no cardápio.</p>
 
                 {previewEntry ? (
                   <div className="mt-5 rounded-[28px] border border-slate-200 bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 p-5 text-white shadow-inner">
                     <div className="rounded-[24px] bg-white/8 p-5 backdrop-blur">
                       <div className="flex items-start justify-between gap-3">
                         <div>
-                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-orange-200">Entrada do cardapio</p>
+                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-orange-200">Entrada do cardápio</p>
                           <h5 className="mt-2 text-2xl font-semibold">{previewEntry.name}</h5>
                           <p className="mt-2 text-sm text-slate-200">
-                            {previewCategory?.name || 'Sem regra'} • {previewSelectedSize?.name || 'Escolha um tamanho'}
+                            {previewCategory?.name || 'Sem regra'} â€¢ {previewSelectedSize?.name || 'Escolha um tamanho'}
                           </p>
                         </div>
                         <Badge className="bg-orange-500 text-white hover:bg-orange-500">{formatCurrency(previewPrice)}</Badge>
@@ -2374,10 +2374,10 @@ export default function PizzaConfigTab() {
                         <div className="rounded-2xl bg-white/10 p-4">
                           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-300">Como o cliente entende</p>
                           <ul className="mt-3 space-y-2 text-sm text-slate-100">
-                            <li>• {formatFlavorAllowance(previewMaxFlavors)}</li>
-                            <li>• {previewSelectedSize ? `${previewSelectedSize.name} com ${previewSelectedSize.slices || '-'} fatias` : 'Escolha um tamanho para ver o resumo'}</li>
-                            <li>• {previewHasPremium ? 'Com sabor premium na composicao' : 'Somente sabores tradicionais selecionados'}</li>
-                            <li>• {previewSelectedEdge ? `Borda ${previewSelectedEdge.name}` : 'Sem borda selecionada'}</li>
+                            <li>â€¢ {formatFlavorAllowance(previewMaxFlavors)}</li>
+                            <li>â€¢ {previewSelectedSize ? `${previewSelectedSize.name} com ${previewSelectedSize.slices || '-'} fatias` : 'Escolha um tamanho para ver o resumo'}</li>
+                            <li>â€¢ {previewHasPremium ? 'Com sabor premium na composicao' : 'Somente sabores tradicionais selecionados'}</li>
+                            <li>â€¢ {previewSelectedEdge ? `Borda ${previewSelectedEdge.name}` : 'Sem borda selecionada'}</li>
                           </ul>
                         </div>
 
@@ -2417,7 +2417,7 @@ export default function PizzaConfigTab() {
                               </div>
                             ))}
                             <div className="rounded-xl bg-emerald-500/10 px-3 py-2 text-sm text-emerald-100">
-                              Ticket base {formatCurrency(previewTicketSimulation.baseTicket)} • premium {formatCurrency(previewTicketSimulation.premiumTicket)} • com upsell {formatCurrency(previewTicketSimulation.upsellTicket)}
+                              Ticket base {formatCurrency(previewTicketSimulation.baseTicket)} â€¢ premium {formatCurrency(previewTicketSimulation.premiumTicket)} â€¢ com upsell {formatCurrency(previewTicketSimulation.upsellTicket)}
                             </div>
                           </div>
                         </div>
@@ -2433,7 +2433,7 @@ export default function PizzaConfigTab() {
                                 {flavor.name}
                               </Badge>
                             )) : (
-                              <span className="text-sm text-slate-300">Selecione pelo menos um sabor para completar a simulacao.</span>
+                              <span className="text-sm text-slate-300">Selecione pelo menos um sabor para completar a simulação.</span>
                             )}
                           </div>
                         </div>
@@ -2442,14 +2442,14 @@ export default function PizzaConfigTab() {
                           <div className="rounded-2xl bg-white/10 p-4">
                             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-300">Borda</p>
                             <p className="mt-2 text-sm font-medium text-white">
-                              {previewSelectedEdge ? `${previewSelectedEdge.name} • ${formatCurrency(previewSelectedEdge.price)}` : 'Sem borda'}
+                              {previewSelectedEdge ? `${previewSelectedEdge.name} â€¢ ${formatCurrency(previewSelectedEdge.price)}` : 'Sem borda'}
                             </p>
                           </div>
                           <div className="rounded-2xl bg-white/10 p-4">
                             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-300">Adicionais</p>
                             <p className="mt-2 text-sm font-medium text-white">
                               {previewSelectedExtras.length > 0
-                                ? `${previewSelectedExtras.length} item(ns) • ${formatCurrency(previewSelectedExtras.reduce((sum, extra) => sum + (Number(extra?.price) || 0), 0))}`
+                                ? `${previewSelectedExtras.length} item(ns) â€¢ ${formatCurrency(previewSelectedExtras.reduce((sum, extra) => sum + (Number(extra?.price) || 0), 0))}`
                                 : 'Nenhum adicional'}
                             </p>
                           </div>
@@ -2460,14 +2460,14 @@ export default function PizzaConfigTab() {
                 ) : (
                   <div className="mt-5 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
                     <p className="font-medium text-slate-900">Sem entrada ativa para simular.</p>
-                    <p className="mt-2 text-sm text-slate-600">Ative uma entrada do cardapio para ver o preview premium.</p>
+                    <p className="mt-2 text-sm text-slate-600">Ative uma entrada do cardápio para ver o preview premium.</p>
                   </div>
                 )}
               </Card>
 
               <Card className="rounded-2xl border-slate-200 p-5 shadow-sm">
-                <h4 className="text-lg font-semibold text-slate-900">Builder publico</h4>
-                <p className="mt-1 text-sm text-slate-600">A logica do builder foi preservada. Aqui voce revisa a apresentacao publica enquanto monta a visao comercial.</p>
+                <h4 className="text-lg font-semibold text-slate-900">Builder público</h4>
+                <p className="mt-1 text-sm text-slate-600">A lógica do builder foi preservada. Aqui você revisa a apresentação pública enquanto monta a visão comercial.</p>
                 <div className="mt-4">
                   <PizzaVisualizationSettings />
                 </div>
@@ -2619,7 +2619,7 @@ function SizeModal({ isOpen, onClose, onSubmit, size }) {
             <Input
               value={formData.name}
               onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-              placeholder="Ex: Pequena, MÃ©dia, Grande"
+              placeholder="Ex: Pequena, MÃƒÂ©dia, Grande"
               required
             />
           </div>
@@ -2635,7 +2635,7 @@ function SizeModal({ isOpen, onClose, onSubmit, size }) {
               />
             </div>
             <div>
-              <Label>MÃ¡x. Sabores (1-4) *</Label>
+              <Label>MÃƒÂ¡x. Sabores (1-4) *</Label>
               <Input
                 type="number"
                 min={1}
@@ -2648,7 +2648,7 @@ function SizeModal({ isOpen, onClose, onSubmit, size }) {
             </div>
           </div>
           <div>
-            <Label>MÃ¡x. Extras</Label>
+            <Label>MÃƒÂ¡x. Extras</Label>
             <Input
               type="number"
               min={0}
@@ -2659,7 +2659,7 @@ function SizeModal({ isOpen, onClose, onSubmit, size }) {
             />
           </div>
           <div>
-            <Label>DiÃ¢metro (cm)</Label>
+            <Label>DiÃƒÂ¢metro (cm)</Label>
             <Input
               type="number"
               value={formData.diameter_cm}
@@ -2669,7 +2669,7 @@ function SizeModal({ isOpen, onClose, onSubmit, size }) {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label>PreÃ§o Tradicional *</Label>
+              <Label>PreÃƒÂ§o Tradicional *</Label>
               <Input
                 type="number"
                 step="0.01"
@@ -2680,7 +2680,7 @@ function SizeModal({ isOpen, onClose, onSubmit, size }) {
               />
             </div>
             <div>
-              <Label>PreÃ§o Premium *</Label>
+              <Label>PreÃƒÂ§o Premium *</Label>
               <Input
                 type="number"
                 step="0.01"
@@ -2731,7 +2731,7 @@ function FlavorModal({ isOpen, onClose, onSubmit, flavor }) {
   }, [flavor, isOpen]);
 
   const handleImageUpload = async (e) => {
-    console.log('ðŸ–¼ï¸ [PizzaConfigTab] handleImageUpload chamado:', {
+    console.log('Ã°Å¸â€“Â¼Ã¯Â¸Â [PizzaConfigTab] handleImageUpload chamado:', {
       event: e,
       target: e.target,
       files: e.target.files,
@@ -2740,7 +2740,7 @@ function FlavorModal({ isOpen, onClose, onSubmit, flavor }) {
 
     const file = e.target.files?.[0];
     
-    console.log('ðŸ–¼ï¸ [PizzaConfigTab] Arquivo extraÃ­do:', {
+    console.log('Ã°Å¸â€“Â¼Ã¯Â¸Â [PizzaConfigTab] Arquivo extraÃƒÂ­do:', {
       file,
       isFile: file instanceof File,
       fileName: file?.name,
@@ -2749,25 +2749,25 @@ function FlavorModal({ isOpen, onClose, onSubmit, flavor }) {
     });
 
     if (!file) {
-      console.error('âŒ [PizzaConfigTab] Nenhum arquivo encontrado no evento');
+      console.error('Ã¢ÂÅ’ [PizzaConfigTab] Nenhum arquivo encontrado no evento');
       alert('Nenhum arquivo selecionado');
       return;
     }
 
     if (!(file instanceof File)) {
-      console.error('âŒ [PizzaConfigTab] Arquivo nÃ£o Ã© instÃ¢ncia de File:', typeof file);
-      alert('Arquivo invÃ¡lido');
+      console.error('Ã¢ÂÅ’ [PizzaConfigTab] Arquivo nÃƒÂ£o ÃƒÂ© instÃƒÂ¢ncia de File:', typeof file);
+      alert('Arquivo invÃƒÂ¡lido');
       return;
     }
 
     try {
-      console.log('ðŸ“¤ [PizzaConfigTab] Iniciando upload...');
+      console.log('Ã°Å¸â€œÂ¤ [PizzaConfigTab] Iniciando upload...');
       const { uploadToCloudinary } = await import('@/utils/cloudinaryUpload');
       const url = await uploadToCloudinary(file, 'pizza-config');
-      console.log('âœ… [PizzaConfigTab] Upload concluÃ­do, URL:', url);
+      console.log('Ã¢Å“â€¦ [PizzaConfigTab] Upload concluÃƒÂ­do, URL:', url);
       setFormData(prev => ({ ...prev, image: url }));
     } catch (error) {
-      console.error('âŒ [PizzaConfigTab] Erro ao fazer upload:', error);
+      console.error('Ã¢ÂÅ’ [PizzaConfigTab] Erro ao fazer upload:', error);
       alert('Erro ao fazer upload da imagem: ' + error.message);
     }
   };
@@ -2797,7 +2797,7 @@ function FlavorModal({ isOpen, onClose, onSubmit, flavor }) {
             />
           </div>
           <div>
-            <Label>DescriÃ§Ã£o</Label>
+            <Label>DescriÃƒÂ§ÃƒÂ£o</Label>
             <Textarea
               value={formData.description}
               onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
@@ -2817,7 +2817,7 @@ function FlavorModal({ isOpen, onClose, onSubmit, flavor }) {
                     : 'border-gray-200 hover:border-gray-300'
                 }`}
               >
-                ðŸ• Tradicional
+                Ã°Å¸Ââ€¢ Tradicional
               </button>
               <button
                 type="button"
@@ -2828,7 +2828,7 @@ function FlavorModal({ isOpen, onClose, onSubmit, flavor }) {
                     : 'border-gray-200 hover:border-gray-300'
                 }`}
               >
-                â­ Premium
+                Ã¢Â­Â Premium
               </button>
             </div>
           </div>
@@ -2859,7 +2859,7 @@ function FlavorModal({ isOpen, onClose, onSubmit, flavor }) {
                 checked={formData.is_popular}
                 onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_popular: checked }))}
               />
-              <span className="text-sm">â­ Popular</span>
+              <span className="text-sm">Ã¢Â­Â Popular</span>
             </label>
           </div>
           <div className="flex gap-3 pt-4">
@@ -2899,7 +2899,7 @@ function EdgeModal({ isOpen, onClose, onSubmit, edge }) {
   }, [edge, isOpen]);
 
   const handleImageUpload = async (e) => {
-    console.log('ðŸ–¼ï¸ [PizzaConfigTab] handleImageUpload chamado:', {
+    console.log('Ã°Å¸â€“Â¼Ã¯Â¸Â [PizzaConfigTab] handleImageUpload chamado:', {
       event: e,
       target: e.target,
       files: e.target.files,
@@ -2908,7 +2908,7 @@ function EdgeModal({ isOpen, onClose, onSubmit, edge }) {
 
     const file = e.target.files?.[0];
     
-    console.log('ðŸ–¼ï¸ [PizzaConfigTab] Arquivo extraÃ­do:', {
+    console.log('Ã°Å¸â€“Â¼Ã¯Â¸Â [PizzaConfigTab] Arquivo extraÃƒÂ­do:', {
       file,
       isFile: file instanceof File,
       fileName: file?.name,
@@ -2917,25 +2917,25 @@ function EdgeModal({ isOpen, onClose, onSubmit, edge }) {
     });
 
     if (!file) {
-      console.error('âŒ [PizzaConfigTab] Nenhum arquivo encontrado no evento');
+      console.error('Ã¢ÂÅ’ [PizzaConfigTab] Nenhum arquivo encontrado no evento');
       alert('Nenhum arquivo selecionado');
       return;
     }
 
     if (!(file instanceof File)) {
-      console.error('âŒ [PizzaConfigTab] Arquivo nÃ£o Ã© instÃ¢ncia de File:', typeof file);
-      alert('Arquivo invÃ¡lido');
+      console.error('Ã¢ÂÅ’ [PizzaConfigTab] Arquivo nÃƒÂ£o ÃƒÂ© instÃƒÂ¢ncia de File:', typeof file);
+      alert('Arquivo invÃƒÂ¡lido');
       return;
     }
 
     try {
-      console.log('ðŸ“¤ [PizzaConfigTab] Iniciando upload...');
+      console.log('Ã°Å¸â€œÂ¤ [PizzaConfigTab] Iniciando upload...');
       const { uploadToCloudinary } = await import('@/utils/cloudinaryUpload');
       const url = await uploadToCloudinary(file, 'pizza-config');
-      console.log('âœ… [PizzaConfigTab] Upload concluÃ­do, URL:', url);
+      console.log('Ã¢Å“â€¦ [PizzaConfigTab] Upload concluÃƒÂ­do, URL:', url);
       setFormData(prev => ({ ...prev, image: url }));
     } catch (error) {
-      console.error('âŒ [PizzaConfigTab] Erro ao fazer upload:', error);
+      console.error('Ã¢ÂÅ’ [PizzaConfigTab] Erro ao fazer upload:', error);
       alert('Erro ao fazer upload da imagem: ' + error.message);
     }
   };
@@ -2965,16 +2965,16 @@ function EdgeModal({ isOpen, onClose, onSubmit, edge }) {
             />
           </div>
           <div>
-            <Label>DescriÃ§Ã£o</Label>
+            <Label>DescriÃƒÂ§ÃƒÂ£o</Label>
             <Textarea
               value={formData.description}
               onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-              placeholder="DescriÃ§Ã£o da borda..."
+              placeholder="DescriÃƒÂ§ÃƒÂ£o da borda..."
               rows={2}
             />
           </div>
           <div>
-            <Label>PreÃ§o *</Label>
+            <Label>PreÃƒÂ§o *</Label>
             <Input
               type="number"
               step="0.01"
@@ -2993,7 +2993,7 @@ function EdgeModal({ isOpen, onClose, onSubmit, edge }) {
               folder="pizza-config"
               mediaModule="pizza"
               title="Adicionar imagem da borda"
-              description="Padronize a apresentacao das bordas com o mesmo editor global."
+              description="Padronize a apresentação das bordas com o mesmo editor global."
             />
           </div>
           <div className="flex gap-3 pt-4">
@@ -3032,7 +3032,7 @@ function ExtraModal({ isOpen, onClose, onSubmit, extra }) {
   }, [extra, isOpen]);
 
   const handleImageUpload = async (e) => {
-    console.log('ðŸ–¼ï¸ [PizzaConfigTab] handleImageUpload chamado:', {
+    console.log('Ã°Å¸â€“Â¼Ã¯Â¸Â [PizzaConfigTab] handleImageUpload chamado:', {
       event: e,
       target: e.target,
       files: e.target.files,
@@ -3041,7 +3041,7 @@ function ExtraModal({ isOpen, onClose, onSubmit, extra }) {
 
     const file = e.target.files?.[0];
     
-    console.log('ðŸ–¼ï¸ [PizzaConfigTab] Arquivo extraÃ­do:', {
+    console.log('Ã°Å¸â€“Â¼Ã¯Â¸Â [PizzaConfigTab] Arquivo extraÃƒÂ­do:', {
       file,
       isFile: file instanceof File,
       fileName: file?.name,
@@ -3050,25 +3050,25 @@ function ExtraModal({ isOpen, onClose, onSubmit, extra }) {
     });
 
     if (!file) {
-      console.error('âŒ [PizzaConfigTab] Nenhum arquivo encontrado no evento');
+      console.error('Ã¢ÂÅ’ [PizzaConfigTab] Nenhum arquivo encontrado no evento');
       alert('Nenhum arquivo selecionado');
       return;
     }
 
     if (!(file instanceof File)) {
-      console.error('âŒ [PizzaConfigTab] Arquivo nÃ£o Ã© instÃ¢ncia de File:', typeof file);
-      alert('Arquivo invÃ¡lido');
+      console.error('Ã¢ÂÅ’ [PizzaConfigTab] Arquivo nÃƒÂ£o ÃƒÂ© instÃƒÂ¢ncia de File:', typeof file);
+      alert('Arquivo invÃƒÂ¡lido');
       return;
     }
 
     try {
-      console.log('ðŸ“¤ [PizzaConfigTab] Iniciando upload...');
+      console.log('Ã°Å¸â€œÂ¤ [PizzaConfigTab] Iniciando upload...');
       const { uploadToCloudinary } = await import('@/utils/cloudinaryUpload');
       const url = await uploadToCloudinary(file, 'pizza-config');
-      console.log('âœ… [PizzaConfigTab] Upload concluÃ­do, URL:', url);
+      console.log('Ã¢Å“â€¦ [PizzaConfigTab] Upload concluÃƒÂ­do, URL:', url);
       setFormData(prev => ({ ...prev, image: url }));
     } catch (error) {
-      console.error('âŒ [PizzaConfigTab] Erro ao fazer upload:', error);
+      console.error('Ã¢ÂÅ’ [PizzaConfigTab] Erro ao fazer upload:', error);
       alert('Erro ao fazer upload da imagem: ' + error.message);
     }
   };
@@ -3098,16 +3098,16 @@ function ExtraModal({ isOpen, onClose, onSubmit, extra }) {
             />
           </div>
           <div>
-            <Label>DescriÃ§Ã£o</Label>
+            <Label>DescriÃƒÂ§ÃƒÂ£o</Label>
             <Textarea
               value={formData.description}
               onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-              placeholder="DescriÃ§Ã£o do extra..."
+              placeholder="DescriÃƒÂ§ÃƒÂ£o do extra..."
               rows={2}
             />
           </div>
           <div>
-            <Label>PreÃ§o *</Label>
+            <Label>PreÃƒÂ§o *</Label>
             <Input
               type="number"
               step="0.01"
@@ -3189,7 +3189,7 @@ function CategoryModal({ isOpen, onClose, onSubmit, category, sizes = [] }) {
               placeholder="Ex: Tradicional - 2 sabores"
               required
             />
-            <p className="mt-1 text-xs text-gray-500">Use um nome comercial que conecte esta regra com a entrada exibida no cardapio.</p>
+            <p className="mt-1 text-xs text-gray-500">Use um nome comercial que conecte esta regra com a entrada exibida no cardápio.</p>
           </div>
           <div>
             <Label>Tamanho base *</Label>
@@ -3225,6 +3225,11 @@ function CategoryModal({ isOpen, onClose, onSubmit, category, sizes = [] }) {
     </Dialog>
   );
 }
+
+
+
+
+
 
 
 

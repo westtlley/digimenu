@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { apiClient as base44 } from '@/api/apiClient';
+import { uiText } from '@/i18n/pt-BR/uiText';
 
 const STORAGE_KEY = 'saved_addresses';
 const LEGACY_KEYS = ['saved_addresses', 'savedAddresses', 'cardapio_saved_addresses'];
@@ -112,6 +113,7 @@ export default function SavedAddresses({
   userEmail = null,
   deliveryMode = 'zone'
 }) {
+  const savedAddressesText = uiText.menu.savedAddresses;
   const [savedAddresses, setSavedAddresses] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingAddress, setEditingAddress] = useState(null);
@@ -461,7 +463,7 @@ export default function SavedAddresses({
     return (
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <Label className="text-sm font-medium">Enderecos Salvos</Label>
+          <Label className="text-sm font-medium">{savedAddressesText.title}</Label>
           <Button
             variant="outline"
             size="sm"
@@ -469,12 +471,12 @@ export default function SavedAddresses({
             className="h-7 text-xs"
           >
             <Plus className="w-3 h-3 mr-1" />
-            Salvar Atual
+            {savedAddressesText.saveCurrent}
           </Button>
         </div>
         {customer.address_street && customer.neighborhood && (
           <p className="text-xs text-gray-500">
-            Voce pode salvar este endereco para usar novamente
+            {savedAddressesText.saveCurrentHint}
           </p>
         )}
       </div>
@@ -484,7 +486,7 @@ export default function SavedAddresses({
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <Label className="text-sm font-medium">Enderecos Salvos</Label>
+        <Label className="text-sm font-medium">{savedAddressesText.title}</Label>
         <Button
           variant="outline"
           size="sm"
@@ -492,7 +494,7 @@ export default function SavedAddresses({
           className="h-7 text-xs"
         >
           <Plus className="w-3 h-3 mr-1" />
-          Novo
+          {savedAddressesText.newAddress}
         </Button>
       </div>
 
@@ -526,15 +528,15 @@ export default function SavedAddresses({
                     )}
                   </div>
                   <p className="text-xs text-gray-600 dark:text-gray-300">
-                    {address.street || 'Rua nao informada'}
+                    {address.street || savedAddressesText.streetNotInformed}
                     {address.number && `, ${address.number}`}
                     {address.complement && ` - ${address.complement}`}
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {address.neighborhood || 'Bairro nao informado'}
+                    {address.neighborhood || savedAddressesText.neighborhoodNotInformed}
                   </p>
                   {address.latitude && address.longitude && (
-                    <p className="text-[10px] text-green-600 mt-1">GPS salvo para taxa por km</p>
+                    <p className="text-[10px] text-green-600 mt-1">{savedAddressesText.gpsSaved}</p>
                   )}
                 </div>
                 <div className="flex gap-1 ml-2" onClick={(e) => e.stopPropagation()}>
