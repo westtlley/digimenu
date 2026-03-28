@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+﻿import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { apiClient as base44 } from '@/api/apiClient';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
@@ -45,6 +45,7 @@ import {
   createCaixaShiftMovement,
   openCaixaShift,
 } from '@/services/caixaShiftService';
+import { uiText } from '@/i18n/pt-BR/uiText';
 
 const PDV_FAVORITE_SLOTS = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
 
@@ -61,6 +62,7 @@ function normalizePdvFavorites(rawValue) {
 }
 
 export default function PDV() {
+  const pdvText = uiText.pdv;
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [allowed, setAllowed] = useState(false);
@@ -74,7 +76,7 @@ export default function PDV() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [lastSale, setLastSale] = useState(null);
   const [selectedDish, setSelectedDish] = useState(null);
-  const [customerName, setCustomerName] = useState('Cliente BalcÃ£o');
+  const [customerName, setCustomerName] = useState(pdvText.customerCounter);
   const [customerPhone, setCustomerPhone] = useState('');
   const [openCaixa, setOpenCaixa] = useState(null);
   const [showMobileCart, setShowMobileCart] = useState(false);
@@ -172,7 +174,7 @@ export default function PDV() {
   const [pdvFavorites, setPdvFavorites] = useState({});
   const [highlightedFavoriteSlot, setHighlightedFavoriteSlot] = useState(null);
   
-  // Tracking de cancelamentos em tela (para relatÃƒÆ’Ã‚Â³rio de fechamento)
+  // Tracking de cancelamentos em tela (para relatÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³rio de fechamento)
   const [canceledInScreenCount, setCanceledInScreenCount] = useState(0);
   const [canceledInScreenTotal, setCanceledInScreenTotal] = useState(0);
   const saleClientRequestIdRef = useRef(null);
@@ -201,7 +203,7 @@ export default function PDV() {
     window.localStorage.setItem(pdvFavoritesStorageKey, JSON.stringify(normalizedFavorites));
   }, [pdvFavorites, pdvFavoritesStorageKey]);
 
-  // Verificar autenticaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o e permissÃƒÆ’Ã‚Â£o
+  // Verificar autenticaÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o e permissÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o
   useEffect(() => {
     if (slugLoading) return;
     let cancelled = false;
@@ -216,7 +218,7 @@ export default function PDV() {
           return;
         }
         
-        console.log('[PDV] Verificando acesso para usuÃƒÆ’Ã‚Â¡rio:', {
+        console.log('[PDV] Verificando acesso para usuÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡rio:', {
           email: me.email,
           subscriber_email: me.subscriber_email,
           profile_role: me.profile_role,
@@ -256,7 +258,7 @@ export default function PDV() {
         
         setAllowed(hasAccess);
       } catch (e) {
-        console.error('[PDV] Erro ao verificar permissÃƒÆ’Ã‚Âµes:', e);
+        console.error('[PDV] Erro ao verificar permissÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âµes:', e);
         if (!cancelled) {
           base44.auth.redirectToLogin(canonicalPdvPath);
         }
@@ -271,14 +273,14 @@ export default function PDV() {
     };
   }, [canonicalPdvPath, canAccessOperationalRoute, hasRole, inSlugContext, slugLoading, subscriberEmail, subscriberId]);
   
-  // Define pÃƒÆ’Ã‚Â¡gina de volta baseado no tipo de usuÃƒÆ’Ã‚Â¡rio
+  // Define pÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡gina de volta baseado no tipo de usuÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡rio
   const isPdvOperatorOnly = hasRole('pdv', user) && !hasRole('gerente', user) && !isMaster;
   const backPage = isMaster ? 'Admin' : (isPdvOperatorOnly ? 'ColaboradorHome' : 'PainelAssinante');
   const backUrl = backPage === 'ColaboradorHome'
     ? createPageUrl('ColaboradorHome')
     : createPageUrl(backPage, isMaster ? undefined : slug || undefined);
 
-  // master em contexto slug usa as_subscriber; demais usuÃƒÂ¡rios usam escopo do prÃƒÂ³prio token.
+  // master em contexto slug usa as_subscriber; demais usuÃƒÆ’Ã‚Â¡rios usam escopo do prÃƒÆ’Ã‚Â³prio token.
   const subscriberIdentifier = tenantSubscriberId ?? tenantIdentifier;
   const opts = {};
   if (asSubId != null) opts.as_subscriber_id = asSubId;
@@ -350,7 +352,7 @@ export default function PDV() {
     queryFn: () => base44.entities.PDVSession.list('-created_at', opts).catch(() => []),
     enabled: !!user && allowed,
   });
-  // Filtrar sessÃƒÆ’Ã‚Âµes ativas no frontend (ended_at null/undefined)
+  // Filtrar sessÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âµes ativas no frontend (ended_at null/undefined)
   const safePdvSessions = Array.isArray(pdvSessionsRaw) ? pdvSessionsRaw.filter(Boolean) : [];
   const activePdvSessions = safePdvSessions.filter((session) => !session?.ended_at);
   const currentCaixaSummary = useMemo(
@@ -407,7 +409,7 @@ export default function PDV() {
   );
 
   useEffect(() => {
-    // NÃƒÆ’Ã‚Â£o executar se jÃƒÆ’Ã‚Â¡ hÃƒÆ’Ã‚Â¡ um caixa no estado e nÃƒÆ’Ã‚Â£o estÃƒÆ’Ã‚Â¡ carregando
+    // NÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o executar se jÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡ hÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡ um caixa no estado e nÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o estÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡ carregando
     if (caixasLoading) return;
     
     const activeCaixa = (caixas || []).find(c => c && c.status === 'open');
@@ -417,23 +419,23 @@ export default function PDV() {
       setOpenCaixa(activeCaixa);
       setShowOpenCaixaModal(false);
     } 
-    // Se nÃƒÆ’Ã‚Â£o hÃƒÆ’Ã‚Â¡ caixa aberto mas hÃƒÆ’Ã‚Â¡ caixas fechados, limpar estado e mostrar modal
+    // Se nÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o hÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡ caixa aberto mas hÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡ caixas fechados, limpar estado e mostrar modal
     else if (Array.isArray(caixas) && caixas.length > 0 && !activeCaixa) {
-      // SÃƒÆ’Ã‚Â³ limpar se realmente nÃƒÆ’Ã‚Â£o houver caixa aberto
+      // SÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³ limpar se realmente nÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o houver caixa aberto
       if (openCaixa && openCaixa.status === 'open') {
         setOpenCaixa(null);
       }
     }
-    // Se nÃƒÆ’Ã‚Â£o hÃƒÆ’Ã‚Â¡ caixas na lista, mostrar modal
+    // Se nÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o hÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡ caixas na lista, mostrar modal
     else if (caixas.length === 0 && !openCaixa) {
       setShowOpenCaixaModal(true);
     }
-  }, [caixas, caixasLoading]); // NÃƒÆ’Ã‚Â£o incluir openCaixa aqui para evitar loop
+  }, [caixas, caixasLoading]); // NÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o incluir openCaixa aqui para evitar loop
 
   const createPdvSessionMutation = useMutation({
     mutationFn: async (payload) => {
       if (!tenantIdentifier) {
-        throw new Error('Assinante nÃ£o identificado para este PDV.');
+        throw new Error('Assinante não identificado para este PDV.');
       }
       return base44.entities.PDVSession.create({
         ...payload,
@@ -488,7 +490,7 @@ export default function PDV() {
   const createOperationMutation = useMutation({
     mutationFn: async (data) => {
       if (!tenantIdentifier) {
-        throw new Error('Assinante nao identificado para registrar operacao de caixa.');
+        throw new Error('Assinante não identificado para registrar operação de caixa.');
       }
       return createCaixaShiftMovement({
         ...data,
@@ -506,7 +508,7 @@ export default function PDV() {
   const openCaixaMutation = useMutation({
     mutationFn: async (data) => {
       if (!tenantIdentifier) {
-        throw new Error('Assinante nao identificado para abrir caixa.');
+        throw new Error('Assinante não identificado para abrir o caixa.');
       }
       return openCaixaShift({
         ...data,
@@ -900,7 +902,7 @@ export default function PDV() {
     }
 
     if (showPdvSuggestions && pdvCodeSuggestions.length > 1) {
-      setPdvCodeFieldMessage(`${pdvCodeSuggestions.length} sugestoes por prefixo. Use as setas e Enter.`);
+      setPdvCodeFieldMessage(`${pdvCodeSuggestions.length} sugestões por prefixo. Use as setas e Enter.`);
       return;
     }
 
@@ -935,11 +937,11 @@ export default function PDV() {
       if (showPdvSuggestions) {
         setShowPdvSuggestions(false);
         setActivePdvSuggestionIndex(0);
-        setPdvCodeFeedback('idle', 'Sugestoes fechadas. Digite mais ou confirme um codigo exato.');
+        setPdvCodeFeedback('idle', 'Sugestões fechadas. Digite mais ou confirme um código exato.');
         return false;
       }
       setPdvCodeInput('');
-      setPdvCodeFeedback('idle', 'Bipe ou digite o codigo e pressione Enter.');
+      setPdvCodeFeedback('idle', 'Bipe ou digite o código e pressione Enter.');
       return false;
     }
 
@@ -960,7 +962,7 @@ export default function PDV() {
       && (now - nextSequence.startedAt) <= 250;
 
     if (isScannerLikeBurst) {
-      setPdvCodeFeedback('scanning', 'Leitura rapida detectada. Aguardando Enter...');
+      setPdvCodeFeedback('scanning', 'Leitura rápida detectada. Aguardando Enter...');
     }
 
     return false;
@@ -975,7 +977,7 @@ export default function PDV() {
       if (nextIndex >= pdvCodeSuggestions.length) return 0;
       return nextIndex;
     });
-    setPdvCodeFeedback('idle', `${pdvCodeSuggestions.length} sugestoes encontradas. Use as setas e Enter.`);
+    setPdvCodeFeedback('idle', `${pdvCodeSuggestions.length} sugestões encontradas. Use as setas e Enter.`);
   }, [pdvCodeSuggestions.length, setPdvCodeFeedback]);
 
   const handlePdvCodeFieldChange = React.useCallback((value) => {
@@ -985,17 +987,17 @@ export default function PDV() {
 
     if (!value) {
       resetScannerSequence();
-      setPdvCodeFeedback('idle', 'Bipe ou digite o codigo e pressione Enter.');
+      setPdvCodeFeedback('idle', 'Bipe ou digite o código e pressione Enter.');
       return;
     }
 
     if (pdvCodeFieldStatus === 'error') {
-      setPdvCodeFeedback('idle', 'Codigo ajustado. Pressione Enter para tentar novamente.');
+      setPdvCodeFeedback('idle', 'Código ajustado. Pressione Enter para tentar novamente.');
       return;
     }
 
     if (pdvCodeFieldStatus === 'success') {
-      setPdvCodeFeedback('idle', 'Pronto para a proxima leitura.');
+      setPdvCodeFeedback('idle', 'Pronto para a próxima leitura.');
     }
   }, [pdvCodeFieldStatus, resetScannerSequence, setPdvCodeFeedback]);
 
@@ -1003,7 +1005,7 @@ export default function PDV() {
     toast.error(message);
     setPdvCodeFeedback(
       'error',
-      scannerLike ? `${message}. Pronto para uma nova leitura.` : `${message}. Revise o codigo e tente novamente.`,
+      scannerLike ? `${message}. Pronto para uma nova leitura.` : `${message}. Revise o código e tente novamente.`,
       1800
     );
 
@@ -1018,7 +1020,7 @@ export default function PDV() {
 
   function handleResolvedPdvDish(dish, { scannerLike = false, matchedBy = 'exact' } = {}) {
     if (!dish) {
-      handlePdvCodeError('Produto nao encontrado', { scannerLike });
+      handlePdvCodeError('Produto não encontrado', { scannerLike });
       return;
     }
 
@@ -1057,7 +1059,7 @@ export default function PDV() {
 
   const handlePdvCodeSubmit = ({ scannerLike = false } = {}) => {
     if (!normalizedPdvCodeInput) {
-      setPdvCodeFeedback('error', 'Digite um codigo para iniciar a leitura.', 1500);
+      setPdvCodeFeedback('error', 'Digite um código para iniciar a leitura.', 1500);
       schedulePdvCodeFocus({ force: true }, 30);
       return;
     }
@@ -1080,14 +1082,14 @@ export default function PDV() {
       if (!showPdvSuggestions) {
         setShowPdvSuggestions(true);
         setActivePdvSuggestionIndex(0);
-        setPdvCodeFeedback('idle', `${pdvCodeSuggestions.length} sugestoes encontradas. Use as setas e Enter.`);
+        setPdvCodeFeedback('idle', `${pdvCodeSuggestions.length} sugestões encontradas. Use as setas e Enter.`);
         schedulePdvCodeFocus({ force: true }, 30);
         return;
       }
 
       const selectedSuggestion = activePdvSuggestion || pdvCodeSuggestions[0];
       if (!selectedSuggestion) {
-        handlePdvCodeError('Produto nao encontrado', { scannerLike });
+        handlePdvCodeError('Produto não encontrado', { scannerLike });
         return;
       }
 
@@ -1095,7 +1097,7 @@ export default function PDV() {
       return;
     }
 
-    handlePdvCodeError('Produto nao encontrado', { scannerLike });
+    handlePdvCodeError('Produto não encontrado', { scannerLike });
   };
 
   const handlePdvSurfacePointerDown = React.useCallback((event) => {
@@ -1122,7 +1124,7 @@ export default function PDV() {
       return;
     }
     if (isCaixaLocked) {
-      toast.error('Caixa travado. FaÃ§a uma retirada em Caixa para continuar.');
+      toast.error('Caixa travado. Fa?a uma retirada em Caixa para continuar.');
       return;
     }
 
@@ -1147,7 +1149,7 @@ export default function PDV() {
       return;
     }
     if (isCaixaLocked) {
-      toast.error('Caixa travado. FaÃ§a uma retirada em Caixa para continuar.');
+      toast.error('Caixa travado. Fa?a uma retirada em Caixa para continuar.');
       return;
     }
     const explicitQuantity = Number(item?.quantity);
@@ -1240,7 +1242,7 @@ export default function PDV() {
     }
 
     if (cart.length > 0) {
-      // Tracking de cancelamento em tela para relatÃƒÆ’Ã‚Â³rio
+      // Tracking de cancelamento em tela para relatÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³rio
       const cartTotal = calculateTotal();
       setCanceledInScreenCount(prev => prev + 1);
       setCanceledInScreenTotal(prev => prev + cartTotal);
@@ -1249,7 +1251,7 @@ export default function PDV() {
     setCart([]);
     setDiscountReais('');
     setDiscountPercent('');
-    setCustomerName('Cliente BalcÃ£o');
+    setCustomerName(pdvText.customerCounter);
     setCustomerPhone('');
     setSelectedDish(null);
     setSelectedPizza(null);
@@ -1325,7 +1327,7 @@ export default function PDV() {
 
     const dish = dishById.get(String(mappedDishId));
     if (!dish) {
-      toast.error('Produto favorito nao encontrado.');
+      toast.error('Produto favorito não encontrado.');
       schedulePdvCodeFocus({ force: false }, 60);
       return;
     }
@@ -1353,7 +1355,7 @@ export default function PDV() {
     if (clearInput) {
       setPdvCodeInput('');
     }
-    setPdvCodeFeedback('idle', 'Bipe ou digite o codigo e pressione Enter.');
+    setPdvCodeFeedback('idle', 'Bipe ou digite o código e pressione Enter.');
   }, [resetScannerSequence, setPdvCodeFeedback]);
 
   const focusPdvCodeFromShortcut = React.useCallback(() => {
@@ -1371,7 +1373,7 @@ export default function PDV() {
       return;
     }
     if (isCaixaLocked) {
-      toast.error('Caixa travado. Faca uma retirada em Caixa para continuar.');
+      toast.error('Caixa travado. Fa?a uma retirada em Caixa para continuar.');
       return;
     }
     if (cart.length === 0) {
@@ -1481,7 +1483,7 @@ export default function PDV() {
         <div className="bg-card rounded-2xl shadow-lg p-8 max-w-md text-center">
           <CreditCard className="w-16 h-16 text-orange-500 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-foreground mb-2">Acesso restrito</h2>
-          <p className="text-muted-foreground mb-6">Esta tela Ã© apenas para o perfil PDV.</p>
+          <p className="text-muted-foreground mb-6">{pdvText.restrictedMessage}</p>
           <Button onClick={() => base44.auth.logout()} className="bg-orange-600 hover:bg-orange-700 text-primary-foreground">
             <LogOut className="w-4 h-4 mr-2" />
             Sair
@@ -1503,7 +1505,7 @@ export default function PDV() {
 
     const amount = parseFloat(openingAmount);
     if (isNaN(amount) || amount < 0) {
-      toast.error('Informe um valor vÃ¡lido de abertura');
+      toast.error(pdvText.invalidOpeningAmount);
       return;
     }
     const lock = lockThreshold ? parseFloat(lockThreshold) : null;
@@ -1656,7 +1658,7 @@ export default function PDV() {
       setCart([]);
       setDiscountReais('');
       setDiscountPercent('');
-      setCustomerName('Cliente BalcÃ£o');
+      setCustomerName(pdvText.customerCounter);
       setCustomerPhone('');
       setShowPaymentModal(false);
       setShowMobileCart(false);
@@ -1671,12 +1673,12 @@ export default function PDV() {
           dedupeWindowMs: 20000,
         });
         if (!printed) {
-          toast.error('Popup bloqueado. Permita popups para impressÃ£o automÃ¡tica.');
+          toast.error(pdvText.autoPrintBlocked);
         }
       }
 
       if (result?.idempotent) {
-        toast.success('Venda jÃ¡ registrada anteriormente.');
+        toast.success(pdvText.saleAlreadyRecorded);
       }
     } catch (error) {
       toast.error(error?.message || 'Erro ao finalizar venda');
@@ -1687,14 +1689,14 @@ export default function PDV() {
     const isClickEvent = !!(saleData && typeof saleData === 'object' && (saleData.nativeEvent || saleData.currentTarget));
     const sale = isClickEvent ? lastSale : (saleData || lastSale);
     if (!sale) {
-      toast.error('Nenhuma venda disponÃ­vel para impressÃ£o');
+      toast.error(pdvText.noSaleToPrint);
       return;
     }
 
-    // Usar funÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o de impressÃƒÆ’Ã‚Â£o tÃƒÆ’Ã‚Â©rmica
+    // Usar funÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o de impressÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o tÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©rmica
     const printed = printReceipt(sale, store, 'css');
     if (!printed) {
-      toast.error('Popup bloqueado. Permita popups para imprimir.');
+      toast.error('Popup bloqueado. Permita popups para impressão.');
     }
   };
 
@@ -1752,7 +1754,7 @@ export default function PDV() {
               className="text-primary-foreground hover:bg-card h-10 hidden sm:flex"
             >
               <History className="w-4 h-4 mr-2" />
-              HistÃ³rico
+              {pdvText.historyLabel}
             </Button>
             {pdvSession && (
               <Button
@@ -1761,7 +1763,7 @@ export default function PDV() {
                 onClick={() => endPdvSessionMutation.mutate(pdvSession.id)}
                 disabled={endPdvSessionMutation.isPending}
                 className="text-primary-foreground hover:bg-card h-10 hidden sm:flex"
-                title="Sair deste PDV (encerra sua sessÃ£o)"
+                title={pdvText.leaveSessionTitle}
               >
                 {endPdvSessionMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogOut className="w-4 h-4 mr-2" />}
                 Sair do PDV
@@ -1782,7 +1784,7 @@ export default function PDV() {
           <DialogHeader>
             <DialogTitle>Selecionar terminal PDV</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">Em qual PDV vocÃª estÃ¡ operando?</p>
+          <p className="text-sm text-muted-foreground">{pdvText.terminalQuestion}</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 py-2">
             {pdvTerminals.map((name, i) => (
               <Button
@@ -1808,7 +1810,7 @@ export default function PDV() {
           <DialogFooter />
         </DialogContent>
       </Dialog>
-      {/* Modal Fechamento de Caixa (relatÃƒÆ’Ã‚Â³rio igual aos prints) */}
+      {/* Modal Fechamento de Caixa (relatÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³rio igual aos prints) */}
       <FechamentoCaixaModal
         open={showFechamentoModal}
         onOpenChange={setShowFechamentoModal}
@@ -1858,7 +1860,7 @@ export default function PDV() {
         onOpenChange={setShowAtalhosHelp}
       />
 
-      {/* Modal de ReimpressÃƒÆ’Ã‚Â£o de Venda */}
+      {/* Modal de ReimpressÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o de Venda */}
       <ReimpressaoVendaModal
         open={showReimpressaoModal}
         onOpenChange={setShowReimpressaoModal}
@@ -1866,7 +1868,7 @@ export default function PDV() {
         asSubscriber={asSub}
       />
 
-      {/* Dialog valor ao fechar caixa (apÃƒÆ’Ã‚Â³s autorizaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o) */}
+      {/* Dialog valor ao fechar caixa (apÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³s autorizaÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o) */}
       <Dialog open={showCloseCaixaDialog} onOpenChange={setShowCloseCaixaDialog}>
         <DialogContent>
           <DialogHeader>
@@ -1883,7 +1885,7 @@ export default function PDV() {
                 <p><strong>Saldo esperado:</strong> {formatCurrency(currentCaixaSummary.expectedBalance)}</p>
                 {closingCashAmount && !Number.isNaN(Number(closingCashAmount)) && (
                   <p>
-                    <strong>Diferença projetada:</strong>{' '}
+                    <strong>{pdvText.projectedDifferenceLabel}:</strong>{' '}
                     {formatCurrency(Number(closingCashAmount) - currentCaixaSummary.expectedBalance)}
                   </p>
                 )}
@@ -1897,11 +1899,11 @@ export default function PDV() {
               onChange={(e) => setClosingCashAmount(e.target.value)}
               placeholder="0,00"
             />
-            <Label>ObservaÃ§Ãµes (opcional)</Label>
+            <Label>{pdvText.notesOptionalLabel}</Label>
             <Input
               value={closingNotes}
               onChange={(e) => setClosingNotes(e.target.value)}
-              placeholder="ObservaÃ§Ãµes do fechamento"
+              placeholder={pdvText.closingNotesPlaceholder}
             />
           </div>
           <DialogFooter>
@@ -1938,7 +1940,7 @@ export default function PDV() {
               <Input
                 value={sangriaData.reason}
                 onChange={(e) => setSangriaData((s) => ({ ...s, reason: e.target.value }))}
-                placeholder="Ex: DepÃ³sito bancÃ¡rio"
+                placeholder="Ex: Depósito bancário"
               />
             </div>
           </div>
@@ -1971,7 +1973,7 @@ export default function PDV() {
               <Input
                 value={suprimentoData.reason}
                 onChange={(e) => setSuprimentoData((s) => ({ ...s, reason: e.target.value }))}
-                placeholder="Ex: ReforÃ§o de caixa"
+                placeholder="Ex: Reforço de caixa"
               />
             </div>
           </div>
@@ -1982,7 +1984,7 @@ export default function PDV() {
         </DialogContent>
       </Dialog>
 
-      {/* Layout Principal - Grid Fixo (sÃƒÆ’Ã‚Â³ apÃƒÆ’Ã‚Â³s selecionar terminal em multi-PDV) */}
+      {/* Layout Principal - Grid Fixo (sÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³ apÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³s selecionar terminal em multi-PDV) */}
       <div className="flex-1 overflow-hidden">
         {!pdvSession && allowed ? (
           <div className="flex items-center justify-center h-full p-8">
@@ -2009,7 +2011,7 @@ export default function PDV() {
                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <p className="text-sm font-semibold text-foreground">Leitura por codigo</p>
+                      <p className="text-sm font-semibold text-foreground">Leitura por código</p>
                       <Badge
                         variant="outline"
                         className={`h-6 px-2 text-[11px] font-semibold ${
@@ -2068,14 +2070,14 @@ export default function PDV() {
                       }}
                       onFocus={() => {
                         if (!pdvCodeInput) {
-                          setPdvCodeFeedback('idle', 'Bipe ou digite o codigo e pressione Enter.');
+                          setPdvCodeFeedback('idle', 'Bipe ou digite o código e pressione Enter.');
                           return;
                         }
                         if (pdvCodeSuggestions.length > 0 && exactPdvCodeMatches.length === 0) {
                           setShowPdvSuggestions(true);
                         }
                       }}
-                      placeholder="Bipe ou digite o codigo do produto..."
+                      placeholder="Bipe ou digite o código do produto..."
                       className={`h-11 bg-card pl-10 text-sm transition-all ${
                         pdvCodeFieldStatus === 'success'
                           ? 'border-emerald-300 ring-2 ring-emerald-200 dark:border-emerald-800 dark:ring-emerald-900/40'
@@ -2093,7 +2095,7 @@ export default function PDV() {
                     {shouldShowPdvSuggestions && (
                       <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-30 overflow-hidden rounded-xl border border-border bg-card shadow-lg">
                         <div className="border-b border-border/70 bg-muted/30 px-3 py-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                          Sugestoes por codigo
+                          Sugestões por código
                         </div>
                         <div className="max-h-80 overflow-y-auto py-1">
                           {pdvCodeSuggestions.map((dish, index) => {
@@ -2115,7 +2117,7 @@ export default function PDV() {
                                 <div className="min-w-0">
                                   <div className="flex items-center gap-2">
                                     <span className="rounded-md bg-muted px-2 py-0.5 text-[11px] font-semibold text-foreground">
-                                      {code || 'Sem codigo'}
+                                      {code || 'Sem código'}
                                     </span>
                                     {!isActive && (
                                       <Badge variant="outline" className="border-red-300 text-[10px] text-red-600 dark:text-red-300">
@@ -2281,8 +2283,8 @@ export default function PDV() {
                               className="w-full h-full object-cover transition-transform group-hover:scale-105"
                             />
                           ) : (
-                            <div className="w-full h-full flex items-center justify-center text-5xl">
-                              ðŸ½ï¸
+                            <div className="flex h-full w-full items-center justify-center text-sm font-medium text-muted-foreground">
+                              Foto
                             </div>
                           )}
                         </div>
@@ -2415,12 +2417,12 @@ export default function PDV() {
                         </h4>
                         {(item.flavors?.length > 0 || (item.selections && Object.keys(item.selections).length > 0)) && (
                           <div className="mb-1">
-                            {item.size && <p className="text-xs text-muted-foreground">â€¢ {item.size.name}</p>}
-                            {item.flavors?.map((f, i) => <p key={i} className="text-xs text-muted-foreground">â€¢ {f.name}</p>)}
-                            {item.edge && item.edge.id !== 'none' && <p className="text-xs text-muted-foreground">â€¢ Borda: {item.edge.name}</p>}
+                            {item.size && <p className="text-xs text-muted-foreground">• {item.size.name}</p>}
+                            {item.flavors?.map((f, i) => <p key={i} className="text-xs text-muted-foreground">• {f.name}</p>)}
+                            {item.edge && item.edge.id !== 'none' && <p className="text-xs text-muted-foreground">• Borda: {item.edge.name}</p>}
                             {!item.flavors?.length && Object.entries(item.selections || {}).map(([gId, sel]) => {
-                              if (Array.isArray(sel)) return sel.map((s, i) => <p key={`${gId}-${i}`} className="text-xs text-muted-foreground">â€¢ {s?.name}</p>);
-                              return sel ? <p key={gId} className="text-xs text-muted-foreground">â€¢ {sel?.name}</p> : null;
+                              if (Array.isArray(sel)) return sel.map((s, i) => <p key={`${gId}-${i}`} className="text-xs text-muted-foreground">• {s?.name}</p>);
+                              return sel ? <p key={gId} className="text-xs text-muted-foreground">• {sel?.name}</p> : null;
                             })}
                           </div>
                         )}
@@ -2504,7 +2506,7 @@ export default function PDV() {
                 </div>
               </div>
 
-              {/* BotÃƒÆ’Ã‚Âµes */}
+              {/* BotÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âµes */}
               <div className="grid grid-cols-2 gap-2">
                 <Button
                   onClick={clearCart}
@@ -2544,7 +2546,7 @@ export default function PDV() {
         </div>
       )}
 
-      {/* BotÃƒÆ’Ã‚Â£o Flutuante Mobile (sÃƒÆ’Ã‚Â³ com sessÃƒÆ’Ã‚Â£o PDV) */}
+      {/* BotÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o Flutuante Mobile (sÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³ com sessÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o PDV) */}
       {pdvSession && (
       <div className="lg:hidden fixed bottom-0 left-0 right-0 p-4 pb-[max(1rem,env(safe-area-inset-bottom,0px))] bg-card border-t border-border">
         <Button
@@ -2554,7 +2556,7 @@ export default function PDV() {
         >
           <ShoppingCart className="w-5 h-5 mr-2" />
           Ver Comanda ({cart.length})
-          {cart.length > 0 && <span className="ml-2">â€¢ {formatCurrency(total)}</span>}
+          {cart.length > 0 && <span className="ml-2">• {formatCurrency(total)}</span>}
         </Button>
       </div>
       )}
@@ -2694,13 +2696,13 @@ export default function PDV() {
         onPrint={handlePrintReceipt}
       />
 
-      {/* Modal HistÃƒÆ’Ã‚Â³rico de Vendas */}
+      {/* Modal HistÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³rico de Vendas */}
       <Dialog open={showHistoryModal} onOpenChange={setShowHistoryModal}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-xl">
               <History className="w-6 h-6 text-orange-500" />
-              HistÃ³rico de Vendas PDV
+              Histórico de Vendas PDV
             </DialogTitle>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto space-y-3 py-4">
@@ -2717,7 +2719,7 @@ export default function PDV() {
                   const dateStr = sale.created_date || sale.created_at;
                   if (dateStr && typeof dateStr === 'string' && dateStr.trim() !== '') {
                     saleDate = new Date(dateStr);
-                    // Verificar se a data ÃƒÆ’Ã‚Â© vÃƒÆ’Ã‚Â¡lida
+                    // Verificar se a data ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â© vÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡lida
                     if (isNaN(saleDate.getTime())) {
                       saleDate = null;
                     }
@@ -2743,7 +2745,7 @@ export default function PDV() {
                           </div>
                           <p className="font-semibold text-lg">{sale.customer_name}</p>
                           {sale.customer_phone && (
-                            <p className="text-sm text-muted-foreground">ðŸ“ž {sale.customer_phone}</p>
+                            <p className="text-sm text-muted-foreground">{sale.customer_phone}</p>
                           )}
                         </div>
                         <div className="text-right">
@@ -2793,10 +2795,10 @@ export default function PDV() {
         </DialogContent>
       </Dialog>
 
-      {/* Modal Abertura de Caixa - OBRIGATÃƒÆ’Ã¢â‚¬Å“RIO */}
+      {/* Modal Abertura de Caixa - OBRIGATÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œRIO */}
       <Dialog open={showOpenCaixaModal} onOpenChange={(open) => {
         if (!open && !openCaixa) {
-          toast.error('Ã‰ obrigatÃ³rio abrir o caixa para usar o PDV.');
+          toast.error('É obrigatório abrir o caixa para usar o PDV.');
           return;
         }
         setShowOpenCaixaModal(open);
@@ -2819,10 +2821,10 @@ export default function PDV() {
             {!openCaixa && (
               <div className="bg-red-50 border-2 border-red-500 rounded-lg p-4">
                 <p className="text-sm text-red-800 font-bold mb-2">
-                  O PDV estÃ¡ bloqueado!
+                  O PDV está bloqueado!
                 </p>
                 <p className="text-xs text-red-700">
-                  Para realizar vendas no PDV, vocÃª deve abrir um caixa primeiro. Esta Ã© uma operaÃ§Ã£o obrigatÃ³ria para controle financeiro.
+                  Para realizar vendas no PDV, você deve abrir um caixa primeiro. Esta é uma operação obrigatória para o controle financeiro.
                 </p>
               </div>
             )}
@@ -2830,7 +2832,7 @@ export default function PDV() {
             {openCaixa && (
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <p className="text-sm text-blue-800 font-medium">
-                  JÃ¡ existe um caixa aberto. Deseja abrir um novo?
+                  Já existe um caixa aberto. Deseja abrir um novo?
                 </p>
               </div>
             )}
@@ -2847,7 +2849,7 @@ export default function PDV() {
                 className="text-2xl font-bold h-16 text-center border-2"
                 autoFocus
               />
-              <p className="text-xs text-muted-foreground">Valor em dinheiro fÃ­sico disponÃ­vel no caixa ao abrir.</p>
+              <p className="text-xs text-muted-foreground">Valor em dinheiro físico disponível no caixa ao abrir.</p>
             </div>
 
             <div className="space-y-3 p-3 rounded-lg border border-amber-200 bg-amber-50/50">
@@ -2861,12 +2863,12 @@ export default function PDV() {
                 placeholder="Ex: 500"
                 className="h-12 border-2 bg-card"
               />
-              <p className="text-xs text-muted-foreground">Quando as vendas em dinheiro atingirem este valor, o PDV trava atÃ© ser feita uma retirada em Caixa.</p>
+              <p className="text-xs text-muted-foreground">Quando as vendas em dinheiro atingirem este valor, o PDV trava até ser feita uma retirada em Caixa.</p>
             </div>
 
             <div className="bg-green-50 border border-green-200 rounded-lg p-3">
               <p className="text-xs text-green-800 font-medium">
-                ApÃ³s abrir o caixa, vocÃª poderÃ¡ realizar vendas normalmente.
+                Após abrir o caixa, você poderá realizar vendas normalmente.
               </p>
             </div>
           </div>
@@ -2903,3 +2905,5 @@ export default function PDV() {
     </div>
   );
 }
+
+

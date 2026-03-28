@@ -14,10 +14,12 @@ import toast from 'react-hot-toast';
 import { useLoginInfo } from '@/hooks/useLoginInfo';
 import { preloadProtectedRoute } from '@/utils/preloadProtectedRoute';
 import { resolveStorefrontTheme } from '@/utils/storefrontTheme';
+import { uiText } from '@/i18n/pt-BR/uiText';
 
 const isDev = typeof import.meta !== 'undefined' && import.meta.env?.DEV;
 
 export default function LoginBySlug({ type: propType }) {
+  const loginText = uiText.loginBySlug;
   const { slug, type: urlType } = useParams();
   const [searchParams] = useSearchParams();
   const returnUrl = searchParams.get('returnUrl') || '';
@@ -183,8 +185,8 @@ export default function LoginBySlug({ type: propType }) {
       <div className="min-h-screen flex items-center justify-center p-4 bg-gray-100 dark:bg-gray-900">
         <div className="max-w-sm w-full text-center p-8 bg-white dark:bg-gray-800 rounded-2xl shadow-lg">
           <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-          <h1 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">NÃ£o foi possÃ­vel carregar o estabelecimento</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">Houve uma falha tÃ©cnica ao carregar esse acesso. Tente novamente.</p>
+          <h1 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">{loginText.loadErrorTitle}</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">{loginText.loadErrorDescription}</p>
           {loginInfoError && (
             <p className="text-xs text-gray-400 dark:text-gray-500 mb-6 break-words">
               {loginInfoError}
@@ -199,7 +201,7 @@ export default function LoginBySlug({ type: propType }) {
               <RefreshCw className="w-4 h-4 mr-2" />
               Tentar novamente
             </Button>
-            <Link to="/" className="text-orange-600 hover:text-orange-700 font-medium">Voltar ao inÃ­cio</Link>
+            <Link to="/" className="text-orange-600 hover:text-orange-700 font-medium">{loginText.backToStart}</Link>
           </div>
         </div>
       </div>

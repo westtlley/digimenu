@@ -31,8 +31,10 @@ import {
   createCaixaShiftMovement,
   openCaixaShift,
 } from '@/services/caixaShiftService';
+import { uiText } from '@/i18n/pt-BR/uiText';
 
 export default function CaixaTab() {
+  const caixaText = uiText.caixa;
   const [showOpenModal, setShowOpenModal] = useState(false);
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [showWithdrawalModal, setShowWithdrawalModal] = useState(false);
@@ -283,7 +285,7 @@ export default function CaixaTab() {
 
   const handleCloseCaixa = async () => {
     if (!selectedCaixa || !closingCashAmount) {
-      toast.error('Informe o valor em dinheiro fisico para fechamento');
+      toast.error('Informe o valor em dinheiro físico para o fechamento.');
       return;
     }
 
@@ -307,7 +309,7 @@ export default function CaixaTab() {
     const source = String(caixa?.closing_source || '').toLowerCase().trim();
     if (source === 'pdv') return 'Fechado pelo PDV';
     if (source === 'painel_assinante') return 'Fechado no painel do assinante';
-    return 'Origem do fechamento nao informada';
+    return 'Origem do fechamento não informada';
   };
 
   const openCaixas = caixas.filter(c => c.status === 'open');
@@ -372,18 +374,18 @@ export default function CaixaTab() {
                 </p>
                 <p className="text-sm text-muted-foreground">
                   Dia operacional: {formatOperationalDateLabel(caixaSummary.operationalDate)}
-                  {caixaSummary.turnLabel ? <> Â· {caixaSummary.turnLabel}</> : null}
+                  {caixaSummary.turnLabel ? <> · {caixaSummary.turnLabel}</> : null}
                 </p>
                 {isClosed && selectedCaixa.closed_by && (
                   <p className="text-sm text-muted-foreground">
                     Fechado por: {selectedCaixa.closed_by}
-                    {getCaixaClosedAt(selectedCaixa) ? <> Â· {moment(getCaixaClosedAt(selectedCaixa)).format('DD/MM/YYYY HH:mm')}</> : null}
+                    {getCaixaClosedAt(selectedCaixa) ? <> · {moment(getCaixaClosedAt(selectedCaixa)).format('DD/MM/YYYY HH:mm')}</> : null}
                   </p>
                 )}
               </div>
             </div>
             <Badge className={isClosed ? 'bg-muted text-muted-foreground' : 'bg-green-500'}>
-              {isClosed ? 'ðŸ”’ Fechado' : 'âœ… Aberto'}
+              {isClosed ? caixaText.closed : caixaText.open}
             </Badge>
           </div>
 
@@ -391,7 +393,7 @@ export default function CaixaTab() {
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm text-muted-foreground">ðŸ’µ Dinheiro</CardTitle>
+                <CardTitle className="text-sm text-muted-foreground">{caixaText.cash}</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-2xl font-bold">{formatCurrency(cashVendas)}</p>
@@ -400,7 +402,7 @@ export default function CaixaTab() {
 
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm text-muted-foreground">ðŸ“² PIX</CardTitle>
+                <CardTitle className="text-sm text-muted-foreground">{caixaText.pix}</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-2xl font-bold">
@@ -411,7 +413,7 @@ export default function CaixaTab() {
 
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm text-muted-foreground">ðŸ’³ DÃ©bito</CardTitle>
+                <CardTitle className="text-sm text-muted-foreground">{caixaText.debit}</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-2xl font-bold">
@@ -422,7 +424,7 @@ export default function CaixaTab() {
 
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm text-muted-foreground">ðŸ’³ CrÃ©dito</CardTitle>
+                <CardTitle className="text-sm text-muted-foreground">{caixaText.credit}</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-2xl font-bold">
@@ -433,7 +435,7 @@ export default function CaixaTab() {
 
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm text-muted-foreground">ðŸ§¾ Outros</CardTitle>
+                <CardTitle className="text-sm text-muted-foreground">{caixaText.others}</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-2xl font-bold">
@@ -447,7 +449,7 @@ export default function CaixaTab() {
           <div className="grid lg:grid-cols-3 gap-6">
             <Card className="lg:col-span-2">
               <CardHeader>
-                <CardTitle>Controle de Dinheiro FÃ­sico</CardTitle>
+                <CardTitle>{caixaText.physicalCashControl}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
@@ -478,7 +480,7 @@ export default function CaixaTab() {
                 </div>
 
                 <div className="bg-gradient-to-r from-green-500 to-green-600 p-6 rounded-xl text-primary-foreground">
-                  <p className="text-sm opacity-90 mb-2">ðŸ’µ Saldo Esperado em Dinheiro</p>
+                  <p className="text-sm opacity-90 mb-2">{caixaText.expectedCashBalance}</p>
                   <p className="text-4xl font-bold">{formatCurrency(saldoAtual)}</p>
                   {isClosed && caixaSummary.closingBalance != null && (
                     <p className="text-sm mt-2 opacity-90">
@@ -524,7 +526,7 @@ export default function CaixaTab() {
                     onClick={() => requireAuthorization('fechar_caixa', () => setShowCloseModal(true))}
                     className="w-full bg-primary hover:bg-primary/90 h-14 text-lg"
                   >
-                    ðŸ”’ Fechar Caixa
+                    {caixaText.closeCashRegister}
                   </Button>
                 )}
               </CardContent>
@@ -534,11 +536,11 @@ export default function CaixaTab() {
           {/* MovimentaÃ§Ãµes */}
           <Card>
             <CardHeader>
-              <CardTitle>HistÃ³rico de MovimentaÃ§Ãµes</CardTitle>
+              <CardTitle>{caixaText.movementHistory}</CardTitle>
             </CardHeader>
             <CardContent>
               {caixaOps.length === 0 ? (
-                <p className="text-center text-muted-foreground py-8">Nenhuma movimentaÃ§Ã£o registrada</p>
+                <p className="text-center text-muted-foreground py-8">{caixaText.noMovements}</p>
               ) : (
                 <div className="space-y-2 max-h-96 overflow-y-auto">
                   {caixaOps.map(op => (
@@ -551,16 +553,16 @@ export default function CaixaTab() {
                           <p className="font-medium text-sm">{op.description}</p>
                           <p className="text-xs text-muted-foreground">
                             {moment(op.date).format('DD/MM HH:mm')}
-                            {op.operator && <> Â· Operador: {op.operator}</>}
+                            {op.operator && <> · {caixaText.operatorLabel}: {op.operator}</>}
                           </p>
                           {op.type === 'venda_pdv' && (
                             <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
-                              <div>ðŸ’³ {op.payment_method}</div>
+                              <div>{op.payment_method}</div>
                               {op.payment_amount && (
-                                <div>ðŸ’µ Recebido: {formatCurrency(op.payment_amount)}</div>
+                                <div>{caixaText.receivedLabel}: {formatCurrency(op.payment_amount)}</div>
                               )}
                               {op.change > 0 && (
-                                <div>ðŸ’¸ Troco: {formatCurrency(op.change)}</div>
+                                <div>{caixaText.changeLabel}: {formatCurrency(op.change)}</div>
                               )}
                             </div>
                           )}
@@ -592,7 +594,7 @@ export default function CaixaTab() {
             <div className="space-y-4 py-4">
               <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg">
                 <p className="text-sm text-yellow-800">
-                  âš ï¸ ApÃ³s o fechamento, o caixa nÃ£o poderÃ¡ ser editado
+                  {caixaText.postCloseWarning}
                 </p>
               </div>
 
@@ -608,7 +610,7 @@ export default function CaixaTab() {
               </div>
 
               <div>
-                <Label className="font-semibold">Valor Real em Dinheiro FÃ­sico (R$) *</Label>
+                <Label className="font-semibold">{caixaText.physicalCashAmountLabel}</Label>
                 <Input
                   type="number"
                   step="0.01"
@@ -618,7 +620,7 @@ export default function CaixaTab() {
                   className="text-xl font-bold h-14 text-center border-2"
                   autoFocus
                 />
-                <p className="text-xs text-muted-foreground mt-1">Informe o valor fÃ­sico contado no caixa</p>
+                <p className="text-xs text-muted-foreground mt-1">{caixaText.physicalCashAmountHelp}</p>
                 {closingCashAmount && parseFloat(closingCashAmount) !== saldoAtual && (
                   <div className={`mt-2 p-3 rounded-lg ${
                     parseFloat(closingCashAmount) > saldoAtual 
@@ -628,7 +630,7 @@ export default function CaixaTab() {
                     <p className={`text-sm font-semibold ${
                       parseFloat(closingCashAmount) > saldoAtual ? 'text-green-800' : 'text-red-800'
                     }`}>
-                      {parseFloat(closingCashAmount) > saldoAtual ? 'âœ…' : 'âš ï¸'} DiferenÃ§a: {formatCurrency(Math.abs(parseFloat(closingCashAmount) - saldoAtual))}
+                      {parseFloat(closingCashAmount) > saldoAtual ? 'OK' : 'Atenção'} · {caixaText.differenceLabel}: {formatCurrency(Math.abs(parseFloat(closingCashAmount) - saldoAtual))}
                       {parseFloat(closingCashAmount) > saldoAtual ? ' (Sobra)' : ' (Falta)'}
                     </p>
                   </div>
@@ -636,11 +638,11 @@ export default function CaixaTab() {
               </div>
 
               <div>
-                <Label>ObservaÃ§Ãµes (opcional)</Label>
+                <Label>{caixaText.notesOptionalLabel}</Label>
                 <Textarea
                   value={closingNotes}
                   onChange={(e) => setClosingNotes(e.target.value)}
-                  placeholder="Adicione observaÃ§Ãµes sobre o fechamento..."
+                  placeholder={caixaText.closingNotesPlaceholder}
                   rows={3}
                 />
               </div>
@@ -692,8 +694,8 @@ export default function CaixaTab() {
                   const isValid = withdrawalAmount <= saldoAtual;
                   return (
                     <div className={`mt-2 p-2 rounded text-xs ${isValid ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
-                      Saldo disponÃ­vel: {formatCurrency(saldoAtual)}
-                      {!isValid && <span className="block font-semibold mt-1">âš ï¸ Valor excede o saldo disponÃ­vel!</span>}
+                      {caixaText.availableBalance}: {formatCurrency(saldoAtual)}
+                      {!isValid && <span className="block font-semibold mt-1">{caixaText.availableBalanceExceeded}</span>}
                     </div>
                   );
                 })()}
@@ -703,7 +705,7 @@ export default function CaixaTab() {
                 <Input
                   value={withdrawalData.reason}
                   onChange={(e) => setWithdrawalData({...withdrawalData, reason: e.target.value})}
-                  placeholder="Ex: DepÃ³sito bancÃ¡rio, pagamento fornecedor..."
+                  placeholder={caixaText.withdrawalPlaceholder}
                 />
               </div>
             </div>
@@ -739,7 +741,7 @@ export default function CaixaTab() {
                 <Input
                   value={supplyData.reason}
                   onChange={(e) => setSupplyData({...supplyData, reason: e.target.value})}
-                  placeholder="Ex: Fundo adicional, reforÃ§o de caixa..."
+                  placeholder={caixaText.supplyPlaceholder}
                 />
               </div>
             </div>
@@ -765,8 +767,8 @@ export default function CaixaTab() {
       <div className="space-y-6 p-6">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-3xl font-bold">ðŸ’° Controle de Caixa</h2>
-            <p className="text-muted-foreground">Gerencie abertura, fechamento e movimentaÃ§Ãµes diÃ¡rias</p>
+            <h2 className="text-3xl font-bold">{caixaText.title}</h2>
+            <p className="text-muted-foreground">{caixaText.subtitle}</p>
           </div>
           <Button
             onClick={() => requireAuthorization('abrir_caixa', () => setShowOpenModal(true))}
@@ -783,13 +785,13 @@ export default function CaixaTab() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Calculator className="w-5 h-5" />
-              SessÃµes PDV ativas
+              {caixaText.sessionsTitle}
             </CardTitle>
-            <p className="text-sm text-muted-foreground">Colaboradores logados em cada terminal PDV</p>
+            <p className="text-sm text-muted-foreground">{caixaText.sessionsDescription}</p>
           </CardHeader>
           <CardContent>
             {latestSessionsByTerminal.length === 0 ? (
-              <p className="text-muted-foreground text-sm">Nenhuma sessao PDV ativa no momento.</p>
+              <p className="text-muted-foreground text-sm">{caixaText.noActiveSessions}</p>
             ) : (
               <>
                 <ul className="space-y-2">
@@ -809,7 +811,7 @@ export default function CaixaTab() {
                 </ul>
                 {hiddenActiveSessionsCount > 0 && (
                   <p className="text-xs text-muted-foreground mt-3">
-                    Mostrando os 5 terminais mais recentes. {hiddenActiveSessionsCount} sessoes ocultas.
+                    {caixaText.hiddenSessions(hiddenActiveSessionsCount)}
                   </p>
                 )}
               </>
@@ -826,7 +828,7 @@ export default function CaixaTab() {
                     <DollarSign className="w-8 h-8 text-primary-foreground" />
                   </div>
                   <div>
-                    <Badge className="bg-green-500 mb-2">âœ… Caixa Aberto</Badge>
+                    <Badge className="bg-green-500 mb-2">{caixaText.openCashBadge}</Badge>
                     <p className="text-sm text-muted-foreground">
                       Aberto em {moment(getCaixaOpenedAt(activeCaixa)).format('DD/MM/YYYY HH:mm')}
                       {activeCaixa.opened_by && <> por {activeCaixa.opened_by}</>}
@@ -856,7 +858,7 @@ export default function CaixaTab() {
             <CardContent className="p-12 text-center">
               <AlertTriangle className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-xl font-bold text-muted-foreground mb-2">Nenhum caixa aberto</h3>
-              <p className="text-muted-foreground mb-6">Abra um caixa para comeÃ§ar a registrar vendas</p>
+              <p className="text-muted-foreground mb-6">{caixaText.noOpenCashDescription}</p>
             </CardContent>
           </Card>
         )}
@@ -886,7 +888,7 @@ export default function CaixaTab() {
         </div>
 
         <div>
-          <h3 className="text-xl font-bold mb-4">ðŸ“‹ HistÃ³rico de Caixas</h3>
+          <h3 className="text-xl font-bold mb-4">{caixaText.historyTitle}</h3>
           {closedCaixas.length === 0 ? (
             <Card>
               <CardContent className="p-8 text-center text-muted-foreground">
@@ -910,7 +912,7 @@ export default function CaixaTab() {
                     onClick={() => setSelectedCaixa(caixa)}
                   >
                     <CardContent className="p-4">
-                      <Badge className="bg-muted/500 mb-3">ðŸ”’ Fechado</Badge>
+                      <Badge className="bg-muted/500 mb-3">{caixaText.closedBadge}</Badge>
                       <p className="text-sm text-muted-foreground mb-1">
                         {formatOperationalDateLabel(caixaSummary.operationalDate)}
                       </p>
@@ -920,7 +922,7 @@ export default function CaixaTab() {
                       {(caixa.opened_by || caixa.closed_by) && (
                         <p className="text-xs text-muted-foreground mb-2">
                           {caixa.opened_by && <>Aberto por: {caixa.opened_by}</>}
-                          {caixa.opened_by && caixa.closed_by && ' Â· '}
+                          {caixa.opened_by && caixa.closed_by && ' · '}
                           {caixa.closed_by && <>Fechado por: {caixa.closed_by}</>}
                         </p>
                       )}
@@ -957,7 +959,7 @@ export default function CaixaTab() {
             <div className="space-y-4 py-4">
               <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
                 <p className="text-sm text-blue-800">
-                  ðŸ’¡ Informe o valor em dinheiro fÃ­sico que vocÃª estÃ¡ colocando no caixa para comeÃ§ar o dia
+                  {caixaText.openingHint}
                 </p>
               </div>
               <div>
