@@ -64,7 +64,7 @@ function normalizeModuleValue(value) {
 
 function toTimestamp(value) {
   const timestamp = Number(value || 0);
-  return Number.isFinite(timestamp) && timestamp > 0 ? timestamp : Date.now();
+  return Number.isFinite(timestamp) && timestamp > 0 ? timestamp : 0;
 }
 
 function uniqueStrings(values = [], limit = MAX_METADATA_PREVIEW) {

@@ -655,7 +655,7 @@ export default function AdminImagePickerDialog({
             onValueChange={setActiveTab}
             className="flex flex-col"
           >
-            <div className={cn('flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between', showPreviewEditor ? 'pt-2' : 'pt-4')}>
+            <div className={cn('flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between', showPreviewEditor ? 'pt-2' : 'pt-4')}>
               <TabsList className={cn('h-auto overflow-x-auto bg-transparent p-0', showPreviewEditor ? 'gap-6' : 'gap-4')}>
                 <TabsTrigger
                   value="upload"
@@ -681,7 +681,14 @@ export default function AdminImagePickerDialog({
                 </TabsTrigger>
               </TabsList>
 
-              {activeTab === 'upload' && !showPreviewEditor ? (
+              {activeTab === 'library' ? (
+                <div className="space-y-1 sm:ml-auto sm:max-w-[26rem] sm:text-right">
+                  <p className="text-lg font-semibold text-foreground">Arquivos salvos</p>
+                  <p className="text-sm text-muted-foreground">
+                    Escolha uma imagem ja usada no DigiMenu para aplicar no item.
+                  </p>
+                </div>
+              ) : activeTab === 'upload' && !showPreviewEditor ? (
                 <Badge variant="outline" className="inline-flex w-fit gap-1 self-start text-primary">
                   <Sparkles className="w-3.5 h-3.5" />
                   Dicas de imagem
@@ -855,14 +862,7 @@ export default function AdminImagePickerDialog({
                 </div>
               ) : (
                 <div className="mx-auto w-full max-w-4xl space-y-4">
-                  <div className="space-y-1">
-                    <h3 className="text-lg font-semibold text-foreground">Arquivos salvos</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Escolha uma imagem ja usada no DigiMenu para aplicar no item.
-                    </p>
-                  </div>
-
-                  <div ref={libraryViewportRef} className="max-h-[min(44dvh,23rem)] overflow-y-auto pr-2">
+                  <div ref={libraryViewportRef} className="max-h-[min(52dvh,27rem)] overflow-y-auto pr-2">
                     <div className="space-y-4">
                       <AdminMediaGallery
                         items={filteredLibraryItems}
@@ -891,17 +891,17 @@ export default function AdminImagePickerDialog({
                   </div>
 
                   <div className="flex flex-col gap-3 border-t border-border/80 bg-background pt-4 sm:flex-row sm:items-center sm:justify-between">
-                    <p className="text-sm text-muted-foreground">
+                    <p className="min-w-0 flex-1 text-sm text-muted-foreground">
                       {selectedLibraryItem ? `Selecionada: ${selectedLibraryItem.label || 'Imagem salva'}` : 'Escolha uma imagem da biblioteca para aplicar no item.'}
                     </p>
-                    <div className="flex flex-col gap-3 sm:flex-row">
-                      <Button type="button" variant="outline" className="h-11 sm:h-10" onClick={() => onOpenChange(false)}>
+                    <div className="flex flex-wrap gap-3 sm:shrink-0 sm:justify-end">
+                      <Button type="button" variant="outline" className="h-11 min-w-[132px] sm:h-10" onClick={() => onOpenChange(false)}>
                         Cancelar
                       </Button>
-                      <Button type="button" variant="outline" className="h-11 sm:h-10" onClick={() => setSelectedLibraryUrl(null)} disabled={!selectedLibraryUrl || isSaving}>
+                      <Button type="button" variant="outline" className="h-11 min-w-[132px] sm:h-10" onClick={() => setSelectedLibraryUrl(null)} disabled={!selectedLibraryUrl || isSaving}>
                         Limpar selecao
                       </Button>
-                      <Button type="button" className="h-11 sm:h-10" onClick={handleSelectLibraryImage} disabled={!selectedLibraryUrl || isSaving}>
+                      <Button type="button" className="h-11 min-w-[132px] sm:h-10" onClick={handleSelectLibraryImage} disabled={!selectedLibraryUrl || isSaving}>
                         {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                         Usar imagem
                       </Button>
