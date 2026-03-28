@@ -2,40 +2,43 @@ import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Keyboard } from 'lucide-react';
+import { uiText } from '@/i18n/pt-BR/uiText';
+
+const pdvShortcutsText = uiText.pdvShortcuts;
 
 const shortcutSections = [
   {
-    title: 'Leitura e foco',
+    title: pdvShortcutsText.readAndFocusTitle,
     tone: 'text-orange-600 dark:text-orange-300',
     items: [
       { key: '? / F1', label: 'Ajuda', description: 'Abre este painel de atalhos.' },
-      { key: 'F2', label: 'Focar codigo', description: 'Limpa o campo de codigo e prepara o PDV para digitacao ou scanner.' },
-      { key: 'Esc', label: 'Estado pronto', description: 'Com o campo vazio e sem modal aberto, fecha sugestoes residuais e volta ao estado pronto.' },
+      { key: 'F2', label: pdvShortcutsText.focusCode, description: pdvShortcutsText.focusCodeDescription },
+      { key: 'Esc', label: 'Estado pronto', description: pdvShortcutsText.readyStateDescription },
     ],
   },
   {
-    title: 'Operacao rapida',
+    title: pdvShortcutsText.fastOperationTitle,
     tone: 'text-emerald-600 dark:text-emerald-300',
     items: [
       { key: 'F3', label: 'Alternar comanda', description: 'Abre ou fecha a comanda em telas compactas.' },
-      { key: 'F4', label: 'Pagamento', description: 'Abre o fluxo de pagamento quando a venda esta pronta.' },
-      { key: 'Enter', label: 'Finalizar rapido', description: 'Fora de inputs, inicia o pagamento usando o mesmo fluxo normal do PDV.' },
+      { key: 'F4', label: 'Pagamento', description: pdvShortcutsText.paymentDescription },
+      { key: 'Enter', label: 'Finalizar rápido', description: pdvShortcutsText.fastFinishDescription },
     ],
   },
   {
     title: 'Carrinho',
     tone: 'text-sky-600 dark:text-sky-300',
     items: [
-      { key: 'Ctrl + Backspace', label: 'Remover ultimo item', description: 'Remove o item mais recente da comanda.' },
-      { key: '+', label: 'Aumentar quantidade', description: 'Soma 1 unidade ao ultimo item da comanda.' },
-      { key: '-', label: 'Diminuir quantidade', description: 'Subtrai 1 unidade do ultimo item da comanda.' },
+      { key: 'Ctrl + Backspace', label: pdvShortcutsText.removeLastItem, description: 'Remove o item mais recente da comanda.' },
+      { key: '+', label: 'Aumentar quantidade', description: 'Soma 1 unidade ao último item da comanda.' },
+      { key: '-', label: 'Diminuir quantidade', description: 'Subtrai 1 unidade do último item da comanda.' },
     ],
   },
   {
-    title: 'Favoritos rapidos',
+    title: pdvShortcutsText.fastFavoritesTitle,
     tone: 'text-amber-600 dark:text-amber-300',
     items: [
-      { key: '1-9', label: 'Adicionar favorito', description: 'Dispara o produto salvo em cada tecla rapida sem navegar pelo cardapio.' },
+      { key: '1-9', label: 'Adicionar favorito', description: pdvShortcutsText.favoriteDescription },
     ],
   },
 ];
@@ -53,7 +56,7 @@ export default function AtalhosHelpModal({ open, onOpenChange }) {
 
         <div className="space-y-6">
           <div className="rounded-xl border border-border bg-muted/30 p-4 text-sm text-muted-foreground">
-            Atalhos pensados para operacao rapida de caixa. O scanner continua com prioridade no campo de codigo e os atalhos nao disparam enquanto voce estiver digitando em formularios ou usando modais do PDV.
+            {pdvShortcutsText.intro}
           </div>
 
           <div className="grid gap-4">

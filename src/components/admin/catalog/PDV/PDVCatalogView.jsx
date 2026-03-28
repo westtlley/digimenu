@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+﻿import React, { useEffect, useMemo, useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import DishRow from '../components/DishRow';
 import ChannelToggle from '../components/ChannelToggle';
 import { CheckCircle, Layers, Package, Plus, Power, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { uiText } from '@/i18n/pt-BR/uiText';
 
 function safeParseJson(raw) {
   if (!raw) return {};
@@ -71,6 +72,7 @@ export default function PDVCatalogView({
   normalizeCategoryId,
   formatCurrency,
 }) {
+  const pdvCatalogText = uiText.pdvCatalog;
   const codeStorageKey = `${storageKey}:codes`;
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
@@ -249,7 +251,7 @@ export default function PDVCatalogView({
         try {
           await onRefreshCatalog();
         } catch (_refreshError) {
-          // A persistência já foi concluída; o cache local mantém o estado consistente.
+          // A persistÃªncia jÃ¡ foi concluÃ­da; o cache local mantÃ©m o estado consistente.
         }
       }
     } catch (_error) {
@@ -272,7 +274,7 @@ export default function PDVCatalogView({
         }
         return next;
       });
-      toast.error('Nao foi possivel atualizar a disponibilidade no PDV.');
+      toast.error(pdvCatalogText.availabilityError);
     }
   };
 
@@ -303,14 +305,14 @@ export default function PDVCatalogView({
       setPdvCodeCache((prev) => ({ ...prev, [dishId]: normalizedNextCode }));
 
       if (response?.warning?.message) {
-        toast(response.warning.message, { icon: '⚠️' });
+        toast(response.warning.message, { icon: 'âš ï¸' });
       }
 
       if (typeof onRefreshCatalog === 'function') {
         try {
           await onRefreshCatalog();
         } catch (_refreshError) {
-          // O cache local preserva o estado visual atÃ© a prÃ³xima sincronizaÃ§Ã£o.
+          // O cache local preserva o estado visual atÃƒÂ© a prÃƒÂ³xima sincronizaÃƒÂ§ÃƒÂ£o.
         }
       }
     } catch (_error) {
@@ -333,12 +335,12 @@ export default function PDVCatalogView({
         }
         return next;
       });
-      toast.error('Nao foi possivel atualizar o codigo PDV.');
+      toast.error(pdvCatalogText.codeError);
       return;
     }
 
     if (!areCodesEqual(previousResolvedCode, normalizedNextCode)) {
-      toast.success(normalizedNextCode ? 'Codigo PDV atualizado.' : 'Codigo PDV removido.');
+      toast.success(normalizedNextCode ? pdvCatalogText.codeUpdated : pdvCatalogText.codeRemoved);
     }
   };
 
@@ -488,13 +490,11 @@ export default function PDVCatalogView({
     }
 
     if (successCount === 0) {
-      toast.error('Nao foi possivel atualizar os produtos selecionados no PDV.');
+      toast.error(pdvCatalogText.bulkError);
       return;
     }
 
-    toast.error(
-      `${failedIds.length} produto${failedIds.length !== 1 ? 's' : ''} nao puderam ser atualizados no PDV.`
-    );
+    toast.error(pdvCatalogText.bulkPartial(failedIds.length));
   };
 
   const clearFilters = () => {
@@ -552,16 +552,16 @@ export default function PDVCatalogView({
               </div>
               <p className="mt-1 text-xs text-muted-foreground">{categoryName}</p>
               <p className="mt-1 text-xs text-muted-foreground">
-                Codigo PDV:{' '}
+                {pdvCatalogText.codeLabel}:{' '}
                 <span className={pdvCode ? 'font-medium text-foreground' : 'font-medium'}>
-                  {pdvCode || 'Sem codigo'}
+                  {pdvCode || pdvCatalogText.noCode}
                 </span>
               </p>
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <p className="text-xs text-muted-foreground">Preço</p>
+                <p className="text-xs text-muted-foreground">{pdvCatalogText.priceLabel}</p>
                 <p className="text-sm font-semibold text-foreground">{formatCurrency(dish.price || 0)}</p>
               </div>
 
@@ -589,14 +589,14 @@ export default function PDVCatalogView({
         <div className="space-y-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <h2 className="text-2xl font-bold text-foreground">PDV</h2>
+              <h2 className="text-2xl font-bold text-foreground">{pdvCatalogText.title}</h2>
               <p className="text-sm text-muted-foreground">
-                Controle visual do que vai aparecer no caixa, preparando o catálogo para operação multicanal.
+                {pdvCatalogText.description}
               </p>
             </div>
             <div className="flex flex-wrap gap-3">
               <Button variant={selectionMode ? 'default' : 'outline'} onClick={() => setSelectionMode((prev) => !prev)} disabled={bulkUpdating}>
-                Selecionar múltiplos
+                {pdvCatalogText.selectMultiple}
               </Button>
               {canCreateProducts && (
                 <Button onClick={onOpenNewProduct}>
@@ -612,7 +612,7 @@ export default function PDVCatalogView({
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground">Itens no catálogo</p>
+                    <p className="text-sm text-muted-foreground">{pdvCatalogText.catalogItems}</p>
                     <p className="text-2xl font-bold">{safeDishes.length}</p>
                   </div>
                   <Package className="h-8 w-8 text-blue-500" />
@@ -623,7 +623,7 @@ export default function PDVCatalogView({
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground">PDV ativos</p>
+                    <p className="text-sm text-muted-foreground">{pdvCatalogText.activeInPdv}</p>
                     <p className="text-2xl font-bold text-green-600">{pdvActiveCount}</p>
                   </div>
                   <CheckCircle className="h-8 w-8 text-green-500" />
@@ -634,7 +634,7 @@ export default function PDVCatalogView({
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground">PDV desativados</p>
+                    <p className="text-sm text-muted-foreground">{pdvCatalogText.inactiveInPdv}</p>
                     <p className="text-2xl font-bold text-slate-600">{pdvInactiveCount}</p>
                   </div>
                   <Power className="h-8 w-8 text-slate-500" />
@@ -660,7 +660,7 @@ export default function PDVCatalogView({
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   className="pl-10"
-                  placeholder="Buscar por nome ou codigo PDV..."
+                  placeholder={pdvCatalogText.searchPlaceholder}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -697,8 +697,8 @@ export default function PDVCatalogView({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos no PDV</SelectItem>
-                  <SelectItem value="pdv_active">Disponíveis no PDV</SelectItem>
-                  <SelectItem value="pdv_inactive">Ocultos no PDV</SelectItem>
+                  <SelectItem value="pdv_active">{pdvCatalogText.availableInPdv}</SelectItem>
+                  <SelectItem value="pdv_inactive">{pdvCatalogText.hiddenInPdv}</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -710,7 +710,7 @@ export default function PDVCatalogView({
             {(searchTerm || filterCategory !== 'all' || filterStatus !== 'all' || filterPdvStatus !== 'all') && (
               <div className="flex items-center justify-between border-t pt-3">
                 <p className="text-sm text-muted-foreground">
-                  {filteredPDVDishes.length} produto{filteredPDVDishes.length !== 1 ? 's' : ''} visível{filteredPDVDishes.length !== 1 ? 'eis' : ''}
+                  {pdvCatalogText.visibleProducts(filteredPDVDishes.length)}
                 </p>
                 <Badge variant="secondary">Canal PDV</Badge>
               </div>
@@ -723,7 +723,7 @@ export default function PDVCatalogView({
         <div className="mx-4 mb-4 rounded-xl border border-blue-200 bg-blue-50 p-4 lg:mx-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <span className="text-sm font-medium text-blue-900">
-              {selectedCount} produto{selectedCount !== 1 ? 's' : ''} selecionado{selectedCount !== 1 ? 's' : ''}
+              {pdvCatalogText.selectedProducts(selectedCount)}
             </span>
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" size="sm" onClick={() => handleBulkPdvStatus(true)} disabled={bulkUpdating}>
@@ -743,7 +743,7 @@ export default function PDVCatalogView({
       <div className="space-y-3 px-4 pb-24 lg:hidden">
         <div className="flex items-center gap-2">
           <Button variant={selectionMode ? 'default' : 'outline'} size="sm" onClick={() => setSelectionMode((prev) => !prev)} disabled={bulkUpdating}>
-            Selecionar múltiplos
+            {pdvCatalogText.selectMultiple}
           </Button>
           {canCreateProducts && (
             <Button size="sm" onClick={onOpenNewProduct}>
@@ -755,7 +755,7 @@ export default function PDVCatalogView({
 
         <div className="space-y-3 rounded-xl border border-border bg-card p-4 shadow-sm">
           <Input
-            placeholder="Buscar por nome ou codigo PDV..."
+            placeholder={pdvCatalogText.searchPlaceholder}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -802,8 +802,8 @@ export default function PDVCatalogView({
         {filteredPDVDishes.length === 0 ? (
           <EmptyState
             icon={Package}
-            title={safeDishes.length === 0 ? 'Você ainda não cadastrou nenhum produto' : 'Nenhum produto encontrado para o PDV'}
-            description={safeDishes.length === 0 ? 'Adicione produtos para preparar o catálogo do caixa.' : 'Ajuste os filtros para encontrar os itens exibidos no PDV.'}
+            title={safeDishes.length === 0 ? pdvCatalogText.emptyNoProducts : pdvCatalogText.emptyNoResults}
+            description={safeDishes.length === 0 ? pdvCatalogText.emptyNoProductsDescription : pdvCatalogText.emptyNoResultsDescription}
             actionLabel={canCreateProducts ? 'Novo produto' : undefined}
             onAction={canCreateProducts ? onOpenNewProduct : undefined}
           />
@@ -816,7 +816,7 @@ export default function PDVCatalogView({
         {filteredPDVDishes.length === 0 ? (
           <EmptyState
             icon={Package}
-            title={safeDishes.length === 0 ? 'Você ainda não cadastrou nenhum produto' : 'Nenhum produto encontrado para o PDV'}
+            title={safeDishes.length === 0 ? pdvCatalogText.emptyNoProducts : pdvCatalogText.emptyNoResults}
             description={safeDishes.length === 0 ? 'Cadastre produtos para controlar o que vai aparecer no caixa.' : 'Tente ajustar os filtros para visualizar os itens do canal PDV.'}
             actionLabel={canCreateProducts ? 'Novo produto' : undefined}
             onAction={canCreateProducts ? onOpenNewProduct : undefined}
@@ -828,11 +828,11 @@ export default function PDVCatalogView({
               <span>Imagem</span>
               <span>Produto</span>
               <span>Categoria</span>
-              <span>Preço</span>
+              <span>{pdvCatalogText.priceLabel}</span>
               <span>Status geral</span>
-              <span>Codigo PDV</span>
-              <span>Disponível no PDV</span>
-              <span className="text-right">Ações</span>
+              <span>{pdvCatalogText.codeLabel}</span>
+              <span>{pdvCatalogText.availableInPdv}</span>
+              <span className="text-right">{pdvCatalogText.actionsLabel}</span>
             </div>
 
             {filteredPDVDishes.map((dish) => {
@@ -874,3 +874,4 @@ export default function PDVCatalogView({
     </>
   );
 }
+

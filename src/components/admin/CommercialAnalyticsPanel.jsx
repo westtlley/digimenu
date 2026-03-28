@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Eye, ShoppingCart, CheckCircle2, TrendingUp, Sparkles, Package } from 'lucide-react';
 import { getMenuContextEntityOpts, getMenuContextQueryKeyParts } from '@/utils/tenantScope';
+import { uiText } from '@/i18n/pt-BR/uiText';
 
 const toNumber = (value) => Number(value || 0);
 const formatPercent = (value) => `${Number(value || 0).toFixed(1)}%`;
@@ -57,6 +58,7 @@ function ProductList({ title, items, valueKey, emptyText }) {
 }
 
 export default function CommercialAnalyticsPanel({ menuContext }) {
+  const analyticsText = uiText.commercialAnalytics;
   const [days, setDays] = React.useState(30);
 
   const { data, isLoading, isError, refetch } = useQuery({
@@ -90,10 +92,10 @@ export default function CommercialAnalyticsPanel({ menuContext }) {
           <div>
             <CardTitle className="text-base text-foreground flex items-center gap-2">
               <TrendingUp className="w-4 h-4" />
-              Analytics Comercial ({days} dias)
+              {analyticsText.title(days)}
             </CardTitle>
             <p className="text-xs text-muted-foreground mt-1">
-              Conversao de cardapio, carrinho, checkout, upsell e combos.
+              {analyticsText.description}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -122,25 +124,25 @@ export default function CommercialAnalyticsPanel({ menuContext }) {
       <CardContent className="pt-0 px-4 pb-4 space-y-4">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
           <MetricCard
-            title="Visualizacoes"
+            title={analyticsText.views}
             value={views}
             helper="Abertura de produtos"
             icon={Eye}
           />
           <MetricCard
-            title="Add no carrinho"
+            title={analyticsText.addToCart}
             value={addEvents}
             helper={`Unidades: ${addUnits} | View -> Add: ${formatPercent(rates.view_to_cart)}`}
             icon={ShoppingCart}
           />
           <MetricCard
-            title="Checkout iniciado"
+            title={analyticsText.checkoutStarted}
             value={checkouts}
             helper={`Checkout -> Pedido: ${formatPercent(rates.checkout_to_order)}`}
             icon={CheckCircle2}
           />
           <MetricCard
-            title="Pedidos concluidos"
+            title={analyticsText.completedOrders}
             value={orders}
             helper="Pedidos finalizados"
             icon={Package}
@@ -181,20 +183,20 @@ export default function CommercialAnalyticsPanel({ menuContext }) {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
           <ProductList
-            title="Mais visualizados"
+            title={analyticsText.topViewed}
             items={data?.top_viewed_products}
             valueKey="views"
-            emptyText={isLoading ? 'Carregando metricas...' : 'Sem visualizacoes no periodo.'}
+            emptyText={isLoading ? analyticsText.loadingMetrics : analyticsText.noViewsInPeriod}
           />
           <ProductList
-            title="Mais adicionados"
+            title={analyticsText.topAdded}
             items={data?.top_added_products}
             valueKey="add_units"
-            emptyText={isLoading ? 'Carregando metricas...' : 'Sem adicoes no periodo.'}
+            emptyText={isLoading ? analyticsText.loadingMetrics : analyticsText.noAddsInPeriod}
           />
           <Card className="bg-card border-border">
             <CardHeader className="py-3 px-4">
-              <CardTitle className="text-sm font-semibold text-foreground">Combos mais acionados</CardTitle>
+              <CardTitle className="text-sm font-semibold text-foreground">{analyticsText.topCombos}</CardTitle>
             </CardHeader>
             <CardContent className="pt-0 px-4 pb-3">
               {Array.isArray(data?.top_combos) && data.top_combos.length > 0 ? (
@@ -215,7 +217,7 @@ export default function CommercialAnalyticsPanel({ menuContext }) {
                 </div>
               ) : (
                 <p className="text-xs text-muted-foreground">
-                  {isLoading ? 'Carregando metricas...' : 'Sem acoes de combo no periodo.'}
+                  {isLoading ? analyticsText.loadingMetrics : analyticsText.noCombosInPeriod}
                 </p>
               )}
             </CardContent>

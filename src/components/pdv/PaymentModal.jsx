@@ -3,17 +3,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import { DollarSign, Plus, Trash2, CheckCircle, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
+import { uiText } from '@/i18n/pt-BR/uiText';
 
 const PAYMENT_METHODS = [
-  { id: 'dinheiro', label: 'Dinheiro', icon: '💵' },
-  { id: 'pix', label: 'PIX', icon: '📱' },
-  { id: 'debito', label: 'Débito', icon: '💳' },
-  { id: 'credito', label: 'Crédito', icon: '💳' },
-  { id: 'outro', label: 'Outro', icon: '🧾' },
+  { id: 'dinheiro', label: 'Dinheiro', icon: 'R$' },
+  { id: 'pix', label: 'PIX', icon: 'PIX' },
+  { id: 'debito', label: 'D\u00E9bito', icon: 'DB' },
+  { id: 'credito', label: 'Cr\u00E9dito', icon: 'CR' },
+  { id: 'outro', label: 'Outro', icon: 'OUT' },
 ];
 
 const roundMoney = (value) => Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
@@ -36,13 +36,14 @@ const parseMoneyInput = (value) => {
   return Number.isFinite(parsed) ? parsed : Number.NaN;
 };
 
-export default function PaymentModal({ 
-  isOpen, 
-  onClose, 
-  total, 
+export default function PaymentModal({
+  isOpen,
+  onClose,
+  total,
   formatCurrency,
-  onConfirm 
+  onConfirm
 }) {
+  const paymentText = uiText.paymentModal;
   const [payments, setPayments] = useState([]);
   const [showAddPayment, setShowAddPayment] = useState(false);
   const [selectedMethod, setSelectedMethod] = useState(null);
@@ -75,7 +76,7 @@ export default function PaymentModal({
     if (enteredAmount <= 0) return;
 
     if (selectedMethod.id !== 'dinheiro' && enteredAmount > (remaining + 0.001)) {
-      toast.error(`Valor nao pode exceder o restante (${formatCurrency(remaining)})`);
+      toast.error(paymentText.remainingExceeded(formatCurrency(remaining)));
       return;
     }
 
@@ -85,7 +86,7 @@ export default function PaymentModal({
     if (amount <= 0) return;
 
     const tenderedAmount = selectedMethod.id === 'dinheiro' ? enteredAmount : amount;
-    
+
     setPayments([...payments, {
       id: Date.now(),
       method: selectedMethod.id,
@@ -100,7 +101,7 @@ export default function PaymentModal({
   };
 
   const removePayment = (id) => {
-    setPayments(payments.filter(p => p.id !== id));
+    setPayments(payments.filter((p) => p.id !== id));
   };
 
   const handleConfirm = () => {
@@ -140,16 +141,15 @@ export default function PaymentModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl">
             <DollarSign className="w-6 h-6 text-green-600" />
-            Formas de Pagamento
+            Formas de pagamento
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          {/* Total */}
           <div className="bg-gradient-to-r from-orange-50 to-red-50 border-2 border-orange-200 rounded-xl p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Total a Pagar</p>
+                <p className="text-sm text-gray-600">Total a pagar</p>
                 <p className="text-3xl font-bold text-orange-600">{formatCurrency(total)}</p>
               </div>
               <div className="text-right">
@@ -161,10 +161,9 @@ export default function PaymentModal({
             </div>
           </div>
 
-          {/* Pagamentos Adicionados */}
           {payments.length > 0 && (
             <div className="space-y-2">
-              <Label className="font-semibold">Pagamentos Registrados</Label>
+              <Label className="font-semibold">Pagamentos registrados</Label>
               <AnimatePresence>
                 {payments.map((payment) => (
                   <motion.div
@@ -203,7 +202,6 @@ export default function PaymentModal({
             </div>
           )}
 
-          {/* Adicionar Pagamento */}
           {!isComplete && (
             <>
               {!showAddPayment ? (
@@ -213,7 +211,7 @@ export default function PaymentModal({
                   className="w-full border-dashed border-2"
                 >
                   <Plus className="w-4 h-4 mr-2" />
-                  Adicionar Forma de Pagamento
+                  Adicionar forma de pagamento
                 </Button>
               ) : (
                 <motion.div
@@ -221,7 +219,7 @@ export default function PaymentModal({
                   animate={{ opacity: 1, y: 0 }}
                   className="space-y-4 p-4 bg-gray-50 rounded-lg border-2 border-gray-200"
                 >
-                  <Label className="font-semibold">Selecione a Forma de Pagamento</Label>
+                  <Label className="font-semibold">Selecione a forma de pagamento</Label>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     {PAYMENT_METHODS.map((method) => (
                       <button
@@ -262,7 +260,7 @@ export default function PaymentModal({
                           placeholder={
                             selectedMethod?.id === 'dinheiro'
                               ? 'Valor recebido'
-                              : `Máx: ${formatCurrency(remaining)}`
+                              : paymentText.maxPlaceholder(formatCurrency(remaining))
                           }
                           className="h-12 text-lg font-semibold"
                           autoFocus
@@ -296,7 +294,6 @@ export default function PaymentModal({
             </>
           )}
 
-          {/* Status */}
           {isComplete && (
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
@@ -305,7 +302,7 @@ export default function PaymentModal({
             >
               <CheckCircle className="w-6 h-6 text-green-600" />
               <div>
-                <p className="font-bold text-green-800">Pagamento Completo!</p>
+                <p className="font-bold text-green-800">Pagamento completo!</p>
                 <p className="text-sm text-green-600">
                   Total pago: {formatCurrency(normalizedTotal)}
                 </p>
@@ -322,7 +319,6 @@ export default function PaymentModal({
             </div>
           )}
 
-          {/* Documento */}
           {payments.length > 0 && (
             <div>
               <Label className="mb-2 block text-xs text-gray-600">
@@ -340,7 +336,7 @@ export default function PaymentModal({
           {payments.length > 0 && (
             <div className="space-y-2">
               <Label className="mb-1 block text-xs text-gray-600">
-                Tipo da operação
+                {paymentText.operationTypeLabel}
               </Label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <button
@@ -353,7 +349,7 @@ export default function PaymentModal({
                   }`}
                 >
                   <p className="text-sm font-semibold">Venda financeira</p>
-                  <p className="text-xs opacity-80">Nao envia para Cozinha</p>
+                  <p className="text-xs opacity-80">{paymentText.financialSaleDescription}</p>
                 </button>
                 <button
                   type="button"
@@ -365,14 +361,13 @@ export default function PaymentModal({
                   }`}
                 >
                   <p className="text-sm font-semibold">Pedido com preparo</p>
-                  <p className="text-xs opacity-80">Envia para Cozinha</p>
+                  <p className="text-xs opacity-80">{paymentText.productiveSaleDescription}</p>
                 </button>
               </div>
             </div>
           )}
         </div>
 
-        {/* Actions */}
         <div className="grid grid-cols-2 gap-3 pt-2 border-t">
           <Button
             variant="outline"

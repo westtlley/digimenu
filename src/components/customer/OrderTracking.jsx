@@ -7,12 +7,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { 
-  Clock, 
-  ChefHat, 
-  Package, 
-  CheckCircle2, 
-  XCircle, 
+import {
+  Clock,
+  ChefHat,
+  Package,
+  CheckCircle2,
+  XCircle,
   AlertCircle,
   Receipt,
   Phone,
@@ -24,6 +24,9 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { uiText } from '@/i18n/pt-BR/uiText';
+
+const orderTrackingText = uiText.orderTracking;
 
 const STATUS_CONFIG = {
   pending: {
@@ -33,7 +36,7 @@ const STATUS_CONFIG = {
     textColor: 'text-yellow-600 dark:text-yellow-400',
     bgColor: 'bg-yellow-50 dark:bg-yellow-900/20',
     borderColor: 'border-yellow-200 dark:border-yellow-800',
-    description: 'Aguardando confirmação'
+    description: orderTrackingText.statusDescriptions.pending
   },
   confirmed: {
     label: 'Confirmado',
@@ -42,16 +45,16 @@ const STATUS_CONFIG = {
     textColor: 'text-blue-600 dark:text-blue-400',
     bgColor: 'bg-blue-50 dark:bg-blue-900/20',
     borderColor: 'border-blue-200 dark:border-blue-800',
-    description: 'Pedido confirmado'
+    description: orderTrackingText.statusDescriptions.confirmed
   },
   preparing: {
-    label: 'Em Preparo',
+    label: 'Em preparo',
     icon: ChefHat,
     color: 'bg-purple-500',
     textColor: 'text-purple-600 dark:text-purple-400',
     bgColor: 'bg-purple-50 dark:bg-purple-900/20',
     borderColor: 'border-purple-200 dark:border-purple-800',
-    description: 'Sendo preparado'
+    description: orderTrackingText.statusDescriptions.preparing
   },
   ready: {
     label: 'Pronto',
@@ -60,7 +63,7 @@ const STATUS_CONFIG = {
     textColor: 'text-green-600 dark:text-green-400',
     bgColor: 'bg-green-50 dark:bg-green-900/20',
     borderColor: 'border-green-200 dark:border-green-800',
-    description: 'Pronto para retirada/entrega'
+    description: orderTrackingText.statusDescriptions.ready
   },
   completed: {
     label: 'Concluído',
@@ -69,7 +72,7 @@ const STATUS_CONFIG = {
     textColor: 'text-emerald-600 dark:text-emerald-400',
     bgColor: 'bg-emerald-50 dark:bg-emerald-900/20',
     borderColor: 'border-emerald-200 dark:border-emerald-800',
-    description: 'Pedido concluído'
+    description: orderTrackingText.statusDescriptions.completed
   },
   cancelled: {
     label: 'Cancelado',
@@ -78,7 +81,7 @@ const STATUS_CONFIG = {
     textColor: 'text-red-600 dark:text-red-400',
     bgColor: 'bg-red-50 dark:bg-red-900/20',
     borderColor: 'border-red-200 dark:border-red-800',
-    description: 'Pedido cancelado'
+    description: orderTrackingText.statusDescriptions.cancelled
   }
 };
 
@@ -102,7 +105,6 @@ export default function OrderTracking({ userEmail, showInput = true }) {
   const [searchEmail, setSearchEmail] = useState(userEmail || '');
   const [activeSearch, setActiveSearch] = useState(!!userEmail);
 
-  // Atualizar searchEmail quando userEmail mudar
   useEffect(() => {
     if (userEmail && userEmail !== searchEmail) {
       setSearchEmail(userEmail);
@@ -110,47 +112,43 @@ export default function OrderTracking({ userEmail, showInput = true }) {
     }
   }, [userEmail, searchEmail]);
 
-  // Buscar pedidos por email ou telefone
   const { data: orders = [], isLoading, refetch, isFetching } = useQuery({
     queryKey: ['customerOrders', searchEmail, searchPhone],
     queryFn: async () => {
       if (!searchEmail && !searchPhone) return [];
-      
+
       try {
-        console.log('🔍 Buscando pedidos:', { searchEmail, searchPhone });
-        
-        // Buscar todos os pedidos e filtrar
-        const allOrdersPromise = base44.entities.Order.list('-created_date').catch(err => {
+        console.log('Buscando pedidos:', { searchEmail, searchPhone });
+
+        const allOrdersPromise = base44.entities.Order.list('-created_date').catch((err) => {
           console.error('Erro ao buscar Orders:', err);
           return [];
         });
-        
-        const allComandasPromise = base44.entities.Comanda.list('-created_at').catch(err => {
+
+        const allComandasPromise = base44.entities.Comanda.list('-created_at').catch((err) => {
           console.error('Erro ao buscar Comandas:', err);
           return [];
         });
 
         const [allOrders, allComandas] = await Promise.all([allOrdersPromise, allComandasPromise]);
-        
-        console.log('📦 Orders encontrados:', allOrders?.length || 0);
-        console.log('📋 Comandas encontrados:', allComandas?.length || 0);
 
-        // Filtrar por email ou telefone
+        console.log('Orders encontrados:', allOrders?.length || 0);
+        console.log('Comandas encontradas:', allComandas?.length || 0);
+
         const filteredOrders = (Array.isArray(allOrders) ? allOrders : [])
-          .filter(o => 
+          .filter((o) =>
             (searchEmail && (o.customer_email === searchEmail || o.created_by === searchEmail)) ||
             (searchPhone && o.customer_phone && o.customer_phone.replace(/\D/g, '') === searchPhone.replace(/\D/g, ''))
           )
-          .map(o => ({ ...o, type: 'order' }));
+          .map((o) => ({ ...o, type: 'order' }));
 
         const filteredComandas = (Array.isArray(allComandas) ? allComandas : [])
-          .filter(c => 
+          .filter((c) =>
             (searchEmail && c.customer_email === searchEmail) ||
             (searchPhone && c.customer_phone && c.customer_phone.replace(/\D/g, '') === searchPhone.replace(/\D/g, ''))
           )
-          .map(c => ({ ...c, type: 'comanda' }));
+          .map((c) => ({ ...c, type: 'comanda' }));
 
-        // Combinar e ordenar por data
         const allResults = [...filteredOrders, ...filteredComandas]
           .sort((a, b) => {
             const dateA = new Date(a.created_at || a.created_date || 0);
@@ -158,21 +156,19 @@ export default function OrderTracking({ userEmail, showInput = true }) {
             return dateB - dateA;
           });
 
-        console.log('✅ Total de pedidos encontrados:', allResults.length);
+        console.log('Total de pedidos encontrados:', allResults.length);
         return allResults;
       } catch (error) {
-        console.error('❌ Erro ao buscar pedidos:', error);
+        console.error('Erro ao buscar pedidos:', error);
         return [];
       }
     },
     enabled: activeSearch && (!!searchEmail || !!searchPhone),
-    refetchInterval: 30000, // Atualizar a cada 30 segundos
+    refetchInterval: 30000,
   });
 
   const handleSearch = () => {
-    if (!searchEmail && !searchPhone) {
-      return;
-    }
+    if (!searchEmail && !searchPhone) return;
     setActiveSearch(true);
   };
 
@@ -196,7 +192,7 @@ export default function OrderTracking({ userEmail, showInput = true }) {
         <div className="flex items-center justify-center py-4">
           <div className={`flex items-center gap-2 px-4 py-2 rounded-full ${STATUS_CONFIG.cancelled.bgColor} ${STATUS_CONFIG.cancelled.borderColor} border-2`}>
             <XCircle className="w-5 h-5 text-red-500" />
-            <span className="font-semibold text-red-600 dark:text-red-400">Pedido Cancelado</span>
+            <span className="font-semibold text-red-600 dark:text-red-400">Pedido cancelado</span>
           </div>
         </div>
       );
@@ -249,16 +245,16 @@ export default function OrderTracking({ userEmail, showInput = true }) {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Receipt className="w-5 h-5 text-orange-500" />
-              Acompanhar Pedido
+              {orderTrackingText.title}
             </CardTitle>
             <CardDescription>
-              Digite seu email ou telefone para acompanhar seus pedidos
+              {orderTrackingText.description}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">{orderTrackingText.emailLabel}</Label>
                 <Input
                   id="email"
                   type="email"
@@ -270,7 +266,7 @@ export default function OrderTracking({ userEmail, showInput = true }) {
                 />
               </div>
               <div>
-                <Label htmlFor="phone">Telefone</Label>
+                <Label htmlFor="phone">{orderTrackingText.phoneLabel}</Label>
                 <Input
                   id="phone"
                   type="tel"
@@ -284,13 +280,13 @@ export default function OrderTracking({ userEmail, showInput = true }) {
               </div>
             </div>
             <div className="flex gap-2">
-              <Button 
-                onClick={handleSearch} 
+              <Button
+                onClick={handleSearch}
                 className="flex-1 bg-orange-500 hover:bg-orange-600"
                 disabled={!searchEmail && !searchPhone}
               >
                 <Receipt className="w-4 h-4 mr-2" />
-                Buscar Pedidos
+                {orderTrackingText.searchButton}
               </Button>
               {activeSearch && (
                 <Button
@@ -306,32 +302,29 @@ export default function OrderTracking({ userEmail, showInput = true }) {
         </Card>
       )}
 
-      {/* Loading */}
       {isLoading && (
         <div className="flex items-center justify-center py-12">
           <div className="text-center">
             <RefreshCw className="w-8 h-8 animate-spin text-orange-500 mx-auto mb-3" />
-            <p className="text-gray-600 dark:text-gray-400">Buscando pedidos...</p>
+            <p className="text-gray-600 dark:text-gray-400">{orderTrackingText.loading}</p>
           </div>
         </div>
       )}
 
-      {/* No Orders */}
       {!isLoading && activeSearch && orders.length === 0 && (
         <Card>
           <CardContent className="py-12 text-center">
             <Receipt className="w-16 h-16 mx-auto mb-4 text-gray-400" />
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-              Nenhum pedido encontrado
+              {orderTrackingText.noOrdersTitle}
             </h3>
             <p className="text-gray-600 dark:text-gray-400">
-              Não encontramos pedidos com os dados fornecidos
+              {orderTrackingText.noOrdersDescription}
             </p>
           </CardContent>
         </Card>
       )}
 
-      {/* Orders List */}
       <AnimatePresence>
         {orders.map((order, index) => {
           const config = STATUS_CONFIG[order.status] || STATUS_CONFIG.pending;
@@ -367,12 +360,10 @@ export default function OrderTracking({ userEmail, showInput = true }) {
                 </CardHeader>
 
                 <CardContent className="pt-6 space-y-6">
-                  {/* Timeline de Status */}
                   <StatusTimeline status={order.status} />
 
                   <Separator />
 
-                  {/* Informações do Pedido */}
                   <div className="grid sm:grid-cols-2 gap-4">
                     {order.customer_name && (
                       <div className="flex items-center gap-2 text-sm">
@@ -408,26 +399,24 @@ export default function OrderTracking({ userEmail, showInput = true }) {
                     </div>
                   </div>
 
-                  {/* Observações */}
                   {order.notes && (
                     <>
                       <Separator />
                       <div className="flex items-start gap-2">
                         <MessageSquare className="w-4 h-4 text-gray-500 mt-1 flex-shrink-0" />
                         <div>
-                          <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Observações:</p>
+                          <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{orderTrackingText.notesLabel}</p>
                           <p className="text-sm text-gray-600 dark:text-gray-400">{order.notes}</p>
                         </div>
                       </div>
                     </>
                   )}
 
-                  {/* Items do Pedido */}
                   {order.items && order.items.length > 0 && (
                     <>
                       <Separator />
                       <div>
-                        <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Itens do Pedido:</h4>
+                        <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">{orderTrackingText.itemsTitle}</h4>
                         <div className="space-y-2">
                           {order.items.map((item, idx) => (
                             <div key={idx} className="flex justify-between items-start text-sm bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
@@ -449,12 +438,11 @@ export default function OrderTracking({ userEmail, showInput = true }) {
                     </>
                   )}
 
-                  {/* Informação sobre atualização */}
                   <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
                     <AlertCircle className="w-4 h-4 flex-shrink-0" />
                     <span>
-                      O status é atualizado em tempo real pelo estabelecimento. 
-                      {!isComanda && ' Você pode acompanhar seu pedido aqui.'}
+                      {orderTrackingText.liveUpdatePrefix}
+                      {!isComanda && ` ${orderTrackingText.liveUpdateSuffix}`}
                     </span>
                   </div>
                 </CardContent>

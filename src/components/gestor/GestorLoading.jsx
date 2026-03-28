@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { uiText } from '@/i18n/pt-BR/uiText';
 
 const TIME_FIRST_MSG = 9000;
 const TIME_SECOND_MSG = 22000;
@@ -23,6 +24,7 @@ function clearCacheAndReload() {
 }
 
 export default function GestorLoading() {
+  const gestorLoadingText = uiText.gestorLoading;
   const [phase, setPhase] = useState(0);
 
   useEffect(() => {
@@ -40,8 +42,8 @@ export default function GestorLoading() {
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950">
       <div className="w-full max-w-xl rounded-3xl border border-slate-800 bg-slate-900/90 p-6 shadow-2xl">
         <p className="text-xs uppercase tracking-[0.18em] text-slate-400 mb-2">DigiMenu Operation</p>
-        <h2 className="text-xl font-bold text-white">Sincronizando operacao do restaurante</h2>
-        <p className="text-sm text-slate-400 mt-1">Fluxo em tempo real: pedido, cozinha e entrega.</p>
+        <h2 className="text-xl font-bold text-white">{gestorLoadingText.title}</h2>
+        <p className="text-sm text-slate-400 mt-1">{gestorLoadingText.description}</p>
 
         <div className="mt-6 rounded-2xl border border-slate-700 bg-slate-950 p-5 relative overflow-hidden">
           <div className="absolute left-10 right-10 top-1/2 h-[2px] -translate-y-1/2 bg-slate-700" />
@@ -64,12 +66,12 @@ export default function GestorLoading() {
         </div>
 
         <div className="mt-5 min-h-[56px]">
-          {phase === 0 && <p className="text-sm text-slate-300">Carregando paineis e atualizando indicadores...</p>}
-          {phase === 1 && <p className="text-sm text-amber-300">Ainda carregando dados. Estamos finalizando a sincronizacao.</p>}
-          {phase === 2 && <p className="text-sm text-orange-300">Reconectando servicos para restaurar a operacao.</p>}
+          {phase === 0 && <p className="text-sm text-slate-300">{gestorLoadingText.phase0}</p>}
+          {phase === 1 && <p className="text-sm text-amber-300">{gestorLoadingText.phase1}</p>}
+          {phase === 2 && <p className="text-sm text-orange-300">{gestorLoadingText.phase2}</p>}
           {phase >= 3 && (
             <div className="flex items-center justify-between gap-3">
-              <p className="text-sm text-red-300">A conexao demorou mais que o esperado.</p>
+              <p className="text-sm text-red-300">{gestorLoadingText.phase3}</p>
               <Button onClick={clearCacheAndReload} className="bg-orange-500 hover:bg-orange-600">
                 Recarregar
               </Button>

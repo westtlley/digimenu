@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Star, X } from 'lucide-react';
 import { formatCurrency } from '@/utils/formatters';
+import { uiText } from '@/i18n/pt-BR/uiText';
 
 export default function PDVFavoritesPanel({
   slots = [],
@@ -11,16 +12,18 @@ export default function PDVFavoritesPanel({
   onRemoveFavorite,
   getDefaultQuantity,
 }) {
+  const pdvFavoritesText = uiText.pdvFavorites;
+
   return (
     <div className="flex-shrink-0 border-b bg-card px-4 py-3">
       <div className="mb-3 flex items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
             <Star className="h-4 w-4 text-amber-500" />
-            <p className="text-sm font-semibold text-foreground">Favoritos rapidos</p>
+            <p className="text-sm font-semibold text-foreground">{pdvFavoritesText.title}</p>
           </div>
           <p className="text-xs text-muted-foreground">
-            Use as teclas 1-9 para adicionar os itens mais usados sem tocar no cardapio.
+            {pdvFavoritesText.description}
           </p>
         </div>
         <Badge variant="outline" className="border-amber-300 text-amber-700 dark:text-amber-300">
@@ -87,7 +90,7 @@ export default function PDVFavoritesPanel({
                 onClick={() => onUseFavorite?.(slot)}
               >
                 <p className="line-clamp-2 min-h-[2.5rem] text-sm font-semibold text-foreground">
-                  {dish?.name || 'Produto indisponivel'}
+                  {dish?.name || pdvFavoritesText.unavailableProduct}
                 </p>
                 <p className="mt-1 text-sm font-bold text-orange-600">
                   {dish ? formatCurrency(Number(dish?.price || 0)) : '—'}
@@ -109,7 +112,7 @@ export default function PDVFavoritesPanel({
                   )}
                   {defaultQuantity > 1 && (
                     <Badge variant="outline" className="border-blue-300 text-blue-700 dark:text-blue-300">
-                      x{defaultQuantity} padrao
+                      {pdvFavoritesText.defaultQuantity(defaultQuantity)}
                     </Badge>
                   )}
                 </div>

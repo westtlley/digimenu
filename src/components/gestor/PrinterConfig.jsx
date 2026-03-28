@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+﻿import React, { useEffect, useMemo, useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import { usePermission } from '../permissions/usePermission';
 import { thermalPrint } from '@/utils/thermalPrint';
 import { isBridgeAvailable, testBridgePrinter } from '@/utils/printBridgeClient';
 import { buildTenantEntityOpts, getMenuContextScopeKey, getScopedStorageKey } from '@/utils/tenantScope';
+import { uiText } from '@/i18n/pt-BR/uiText';
 
 const THERMAL_BRANDS_REGEX = /(epson|tm-|elgin|bematech|daruma|xprinter|thermal|termica|sunmi|tanca|pos-?58|pos-?80)/i;
 const PAPER_58_REGEX = /(58|58mm|pos-?58|rp58|m58)/i;
@@ -63,6 +64,7 @@ const DEFAULT_PRINTER_CONFIG = {
 };
 
 export default function PrinterConfig() {
+  const printerText = uiText.printerConfig;
   const [showPreview, setShowPreview] = useState(false);
   const [isDetecting, setIsDetecting] = useState(false);
   const queryClient = useQueryClient();
@@ -77,7 +79,7 @@ export default function PrinterConfig() {
     });
   }, [menuContext]);
 
-  // ✅ CORREÇÃO: Buscar configurações de impressora com contexto do slug
+  // âœ… CORREÃ‡ÃƒO: Buscar configuraÃ§Ãµes de impressora com contexto do slug
   const { data: configs = [] } = useQuery({
     queryKey: ['printerConfig', menuScopeKey],
     queryFn: async () => {
@@ -116,9 +118,9 @@ export default function PrinterConfig() {
         localStorage.setItem(printerStorageKey, JSON.stringify(payload || formData));
       } catch (_) {}
       queryClient.invalidateQueries({ queryKey: ['printerConfig', menuScopeKey] });
-      toast.success('✅ Configuração salva com sucesso!');
+      toast.success(printerText.saveSuccess);
     },
-    onError: (e) => toast.error('Erro ao salvar: ' + (e?.message || 'Desconhecido'))
+    onError: (e) => toast.error('Erro ao salvar: ' + (e?.message || printerText.unknownError))
   });
 
   const handleSave = () => {
@@ -127,7 +129,7 @@ export default function PrinterConfig() {
 
   const handleAutoDetectPrinter = async () => {
     if (typeof window === 'undefined' || typeof navigator === 'undefined') {
-      toast.error('Deteccao disponivel apenas no navegador');
+      toast.error(printerText.browserOnly);
       return;
     }
 
@@ -197,7 +199,7 @@ export default function PrinterConfig() {
           print_method: 'css',
           ...normalizePrinterDefaults(inferredPaper),
         }));
-        toast('Nao foi possivel detectar impressora conectada. Ajustes basicos foram aplicados.');
+        toast(printerText.detectionFallback);
         return;
       }
 
@@ -210,10 +212,10 @@ export default function PrinterConfig() {
         ...normalizePrinterDefaults(detected.paperWidth),
       }));
 
-      toast.success(`Impressora detectada via ${detected.source}: ${detected.name}`);
+      toast.success(printerText.detectionSuccess(detected.source, detected.name));
     } catch (error) {
       console.error('[PrinterConfig] Erro na deteccao de impressora:', error);
-      toast.error('Nao foi possivel detectar a impressora automaticamente');
+      toast.error(printerText.detectionError);
     } finally {
       setIsDetecting(false);
     }
@@ -221,7 +223,7 @@ export default function PrinterConfig() {
 
   const handleTestPrint = async () => {
     if (!formData.printer_name?.trim()) {
-      toast.error('Configure o nome da impressora antes de testar');
+      toast.error(printerText.nameRequiredBeforeTest);
       return;
     }
 
@@ -246,7 +248,7 @@ export default function PrinterConfig() {
       .replace(/>/g, '&gt;');
 
     const printed = thermalPrint({
-      title: 'Teste de Impressao',
+      title: printerText.testPrintTitle,
       htmlContent: `<pre>${escaped}</pre>`,
       jobType: 'teste-impressao',
       paperWidth: formData.paper_width,
@@ -260,17 +262,17 @@ export default function PrinterConfig() {
     });
 
     if (!printed) {
-      toast.error('Popup bloqueado. Permita popups para imprimir.');
+      toast.error(printerText.popupBlocked);
       return;
     }
 
-    toast.success('Enviando para impressora...', {
+    toast.success(printerText.sendingToPrinter, {
       duration: 3000,
       icon: 'PRINT'
     });
   };
 
-  // Validações
+  // ValidaÃ§Ãµes
   const isValid = useMemo(() => {
     return !!formData.printer_name?.trim();
   }, [formData.printer_name]);
@@ -302,8 +304,8 @@ Espaçamento: ${formData.line_spacing}
       <div className="flex items-center gap-3">
         <Printer className="w-6 h-6" />
         <div>
-          <h2 className="text-2xl font-bold">Configuração de Impressora</h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Configure sua impressora para receitas e comandas</p>
+          <h2 className="text-2xl font-bold">{printerText.title}</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{printerText.subtitle}</p>
         </div>
       </div>
 
@@ -312,8 +314,8 @@ Espaçamento: ${formData.line_spacing}
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Status da Configuração</p>
-              <p className="text-lg font-bold">{isValid ? 'Configurada' : 'Não Configurada'}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">{printerText.statusLabel}</p>
+              <p className="text-lg font-bold">{isValid ? printerText.configured : printerText.notConfigured}</p>
             </div>
             {isValid ? (
               <CheckCircle2 className="w-8 h-8 text-green-500" />
@@ -326,13 +328,13 @@ Espaçamento: ${formData.line_spacing}
 
       <Card>
         <CardHeader>
-          <CardTitle>Configurações Básicas</CardTitle>
-          <CardDescription>Informações principais da impressora</CardDescription>
+          <CardTitle>{printerText.basicSettingsTitle}</CardTitle>
+          <CardDescription>{printerText.basicSettingsDescription}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Nome da Impressora */}
           <div>
-            <Label>Nome da Impressora *</Label>
+            <Label>{printerText.printerNameLabel}</Label>
             <Input
               value={formData.printer_name}
               onChange={(e) => setFormData({ ...formData, printer_name: e.target.value })}
@@ -341,10 +343,10 @@ Espaçamento: ${formData.line_spacing}
               className={!formData.printer_name?.trim() ? 'border-red-300' : ''}
             />
             {!formData.printer_name?.trim() && (
-              <p className="text-xs text-red-500 mt-1">Nome da impressora e obrigatorio</p>
+              <p className="text-xs text-red-500 mt-1">{printerText.printerNameRequired}</p>
             )}
             <p className="text-xs text-gray-500 mt-2">
-              Deteccao automatica usa WebUSB, WebSerial e Bluetooth (com permissao do navegador).
+              {printerText.detectionHelp}
             </p>
             <Button
               type="button"
@@ -353,14 +355,14 @@ Espaçamento: ${formData.line_spacing}
               className="mt-2"
               disabled={isDetecting}
             >
-              {isDetecting ? 'Detectando...' : 'Detectar impressora conectada'}
+              {isDetecting ? 'Detectando...' : printerText.detectButton}
             </Button>
           </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Tipo */}
           <div>
-            <Label>Tipo de Impressora</Label>
+            <Label>{printerText.printerTypeLabel}</Label>
             <Select
               value={formData.printer_type}
               onValueChange={(value) => setFormData({ ...formData, printer_type: value })}
@@ -369,16 +371,16 @@ Espaçamento: ${formData.line_spacing}
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="termica">Térmica</SelectItem>
+                <SelectItem value="termica">{printerText.thermalType}</SelectItem>
                 <SelectItem value="laser">Laser</SelectItem>
-                <SelectItem value="jato_tinta">Jato de Tinta</SelectItem>
+                <SelectItem value="jato_tinta">{printerText.inkjetType}</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          {/* Conexão */}
+          {/* ConexÃ£o */}
           <div>
-            <Label>Tipo de Conexão</Label>
+            <Label>{printerText.connectionTypeLabel}</Label>
             <Select
               value={formData.connection_type}
               onValueChange={(value) => setFormData({ ...formData, connection_type: value })}
@@ -394,9 +396,9 @@ Espaçamento: ${formData.line_spacing}
             </Select>
           </div>
 
-          {/* Método de Impressão */}
+          {/* MÃ©todo de ImpressÃ£o */}
           <div>
-            <Label>Método de Impressão</Label>
+            <Label>{printerText.printMethodLabel}</Label>
             <Select
               value={formData.print_method || 'css'}
               onValueChange={(value) => setFormData({ ...formData, print_method: value })}
@@ -405,22 +407,22 @@ Espaçamento: ${formData.line_spacing}
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="css">CSS (window.print)</SelectItem>
-                <SelectItem value="escpos">ESC/POS (Web Serial)</SelectItem>
-                <SelectItem value="hybrid">Híbrido (tenta ESC/POS)</SelectItem>
+                <SelectItem value="css">{printerText.printMethodCss}</SelectItem>
+                <SelectItem value="escpos">{printerText.printMethodEscpos}</SelectItem>
+                <SelectItem value="hybrid">{printerText.printMethodHybrid}</SelectItem>
               </SelectContent>
             </Select>
             <p className="text-xs text-gray-500 mt-1">
-              {formData.print_method === 'css' && 'Impressão via navegador (padrão)'}
-              {formData.print_method === 'escpos' && 'Comandos diretos via Web Serial API'}
-              {formData.print_method === 'hybrid' && 'Tenta ESC/POS, fallback para CSS'}
+              {formData.print_method === 'css' && printerText.printMethodCss}
+              {formData.print_method === 'escpos' && printerText.printMethodEscpos}
+              {formData.print_method === 'hybrid' && printerText.printMethodHybrid}
             </p>
           </div>
         </div>
 
           {/* Largura */}
           <div>
-            <Label>Largura do Papel</Label>
+            <Label>{printerText.paperWidthLabel}</Label>
             <Select
               value={formData.paper_width}
               onValueChange={(value) => setFormData({
@@ -441,7 +443,7 @@ Espaçamento: ${formData.line_spacing}
 
         {/* Margens */}
         <div>
-          <Label className="mb-2 block">Margens (mm)</Label>
+          <Label className="mb-2 block">{printerText.marginsLabel}</Label>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <div>
               <Label className="text-xs text-gray-500">Superior</Label>
@@ -481,7 +483,7 @@ Espaçamento: ${formData.line_spacing}
         {/* Formatação */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <Label>Espaçamento entre Linhas</Label>
+            <Label>{printerText.lineSpacingLabel}</Label>
             <Input
               type="number"
               step="0.1"
@@ -490,7 +492,7 @@ Espaçamento: ${formData.line_spacing}
             />
           </div>
           <div>
-            <Label>Tamanho da Fonte (pt)</Label>
+            <Label>{printerText.fontSizeLabel}</Label>
             <Input
               type="number"
               value={formData.font_size}
@@ -506,18 +508,18 @@ Espaçamento: ${formData.line_spacing}
               checked={formData.auto_cut}
               onCheckedChange={(checked) => setFormData({ ...formData, auto_cut: checked })}
             />
-            <Label>Corte automático do papel</Label>
+            <Label>{printerText.autoCutLabel}</Label>
           </div>
           <div className="flex items-center gap-2">
             <Checkbox
               checked={formData.open_drawer}
               onCheckedChange={(checked) => setFormData({ ...formData, open_drawer: checked })}
             />
-            <Label>Abrir gaveta de dinheiro (se suportado)</Label>
+            <Label>{printerText.openDrawerLabel}</Label>
           </div>
         </div>
 
-          {/* Botões */}
+          {/* BotÃµes */}
           <div className="flex flex-col sm:flex-row gap-3 pt-4">
             <Button 
               onClick={handleSave} 
@@ -525,7 +527,7 @@ Espaçamento: ${formData.line_spacing}
               disabled={!isValid || saveMutation.isPending}
             >
               <Save className="w-4 h-4 mr-2" />
-              {saveMutation.isPending ? 'Salvando...' : 'Salvar Configuração'}
+              {saveMutation.isPending ? 'Salvando...' : printerText.saveButton}
             </Button>
             <Button onClick={() => setShowPreview(true)} variant="outline" disabled={!isValid}>
               <Eye className="w-4 h-4 mr-2" />
@@ -533,7 +535,7 @@ Espaçamento: ${formData.line_spacing}
             </Button>
             <Button onClick={handleTestPrint} variant="outline" disabled={!isValid}>
               <TestTube className="w-4 h-4 mr-2" />
-              Testar Impressão
+              {printerText.testButton}
             </Button>
           </div>
         </CardContent>
@@ -543,7 +545,7 @@ Espaçamento: ${formData.line_spacing}
       <Dialog open={showPreview} onOpenChange={setShowPreview}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Preview da Comanda</DialogTitle>
+            <DialogTitle>Preview da comanda</DialogTitle>
           </DialogHeader>
           <div 
             className="bg-white border-2 border-dashed p-4 font-mono text-xs overflow-auto max-h-96"
@@ -559,4 +561,5 @@ Espaçamento: ${formData.line_spacing}
     </div>
   );
 }
+
 

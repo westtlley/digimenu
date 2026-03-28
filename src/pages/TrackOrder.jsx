@@ -1,12 +1,15 @@
-import React from 'react';
+﻿import React from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import OrderTracking from '@/components/customer/OrderTracking';
 import ThemeToggle from '@/components/ui/ThemeToggle';
 import { SYSTEM_NAME } from '@/config/branding';
+import { uiText } from '@/i18n/pt-BR/uiText';
 
 export default function TrackOrder() {
+  const trackOrderText = uiText.trackOrder;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       {/* Header */}
@@ -19,7 +22,7 @@ export default function TrackOrder() {
             </Link>
             <div className="flex items-center gap-2">
               <Package className="w-6 h-6 text-orange-500" />
-              <h1 className="text-xl font-bold text-gray-900 dark:text-white">Rastrear Pedido</h1>
+              <h1 className="text-xl font-bold text-gray-900 dark:text-white">{trackOrderText.pageTitle}</h1>
             </div>
             <ThemeToggle />
           </div>
@@ -33,10 +36,10 @@ export default function TrackOrder() {
             <Package className="w-8 h-8 text-white" />
           </div>
           <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            Acompanhe seu Pedido
+            {trackOrderText.heroTitle}
           </h2>
           <p className="text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-            Digite seu email ou telefone para visualizar o status em tempo real dos seus pedidos
+            {trackOrderText.heroDescription}
           </p>
         </div>
 
@@ -47,7 +50,7 @@ export default function TrackOrder() {
           <div className="inline-flex items-center gap-2 px-4 py-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-xl">
             <Package className="w-5 h-5 text-orange-600 dark:text-orange-400" />
             <p className="text-sm text-gray-700 dark:text-gray-300">
-              Funciona para pedidos online, comandas e pedidos via WhatsApp
+              {trackOrderText.helper}
             </p>
           </div>
         </div>
@@ -57,10 +60,11 @@ export default function TrackOrder() {
       <footer className="mt-12 py-6 border-t border-gray-200 dark:border-gray-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 text-center">
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            © {new Date().getFullYear()} {SYSTEM_NAME}. Todos os direitos reservados.
+            {trackOrderText.footerRights(new Date().getFullYear(), SYSTEM_NAME)}
           </p>
         </div>
       </footer>
     </div>
   );
 }
+
