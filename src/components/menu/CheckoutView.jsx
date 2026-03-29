@@ -880,7 +880,7 @@ export default function CheckoutView({
                 }
               }}
               disabled={isSubmitting || !isFormValid() || isBelowMinimumOrder || store?.accepting_orders === false || store?.is_open === false}
-              className="w-full h-12 text-primary-foreground font-bold"
+              className="h-auto min-h-12 w-full whitespace-normal px-4 py-3 text-center leading-snug text-primary-foreground font-bold"
               style={{ backgroundColor: (!isSubmitting && isFormValid() && !isBelowMinimumOrder && store?.accepting_orders !== false && store?.is_open !== false) ? primaryColor : '#d1d5db' }}
             >
               {isSubmitting

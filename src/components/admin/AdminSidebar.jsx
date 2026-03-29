@@ -40,6 +40,8 @@ import {
   ShieldCheck
 } from 'lucide-react';
 import { createPageUrl } from '@/utils';
+import { useLanguage } from '@/i18n/LanguageContext';
+import LanguageSelector from '@/components/i18n/LanguageSelector';
 
 const MENU_STRUCTURE = [
   // GESTÃO
@@ -141,6 +143,7 @@ const MENU_STRUCTURE = [
 ];
 
 export default function AdminSidebar({ activeTab, setActiveTab, isMaster = false, permissions = {}, plan, subscriberData, collapsed, setCollapsed, onClose, slug = null }) {
+  const { t } = useLanguage();
   const [expandedGroups, setExpandedGroups] = useState({
     gestao: true,
     operacao: true,
@@ -150,6 +153,43 @@ export default function AdminSidebar({ activeTab, setActiveTab, isMaster = false
     sistema: true,
     marketing: true // Seção MARKETING (Promoções, Cupons, Afiliados)
   });
+  const menuLabelById = {
+    gestao: t('navigation.sections.management', 'Gestão').toUpperCase(),
+    operacao: t('navigation.sections.operation', 'Operação').toUpperCase(),
+    cardapio: t('navigation.sections.menu', 'Cardápio').toUpperCase(),
+    garcom: t('navigation.sections.waiter', 'Garçom').toUpperCase(),
+    delivery: t('navigation.sections.delivery', 'Delivery').toUpperCase(),
+    sistema: t('navigation.sections.system', 'Sistema').toUpperCase(),
+    marketing: t('navigation.sections.marketing', 'Marketing').toUpperCase(),
+    dashboard: t('navigation.items.dashboard', 'Dashboard'),
+    financial: t('navigation.items.financial', 'Financeiro'),
+    caixa: t('navigation.items.cashRegister', 'Caixa'),
+    orders: t('navigation.items.orderManager', 'Gestor de Pedidos'),
+    history: t('navigation.items.orderHistory', 'Histórico de Pedidos'),
+    clients: t('navigation.items.clients', 'Clientes'),
+    whatsapp: t('navigation.items.whatsapp', 'WhatsApp'),
+    inventory: t('navigation.items.inventory', 'Gestão de Estoque'),
+    dishes: t('navigation.items.restaurant', 'Restaurante'),
+    pizza_config: t('navigation.items.pizza', 'Pizzaria'),
+    beverages: t('navigation.items.beverages', 'Bebidas'),
+    garcom_app: t('navigation.items.waiterApp', 'App do Garçom'),
+    comandas: t('navigation.items.tabs', 'Comandas'),
+    tables: t('navigation.items.tables', 'Mesas e QR Code'),
+    delivery_zones: t('navigation.items.deliveryZones', 'Zonas de Entrega'),
+    payments: t('navigation.items.paymentMethods', 'Métodos de Pagamento'),
+    store: t('navigation.items.store', 'Loja'),
+    theme: t('navigation.items.theme', 'Tema'),
+    printer: t('navigation.items.printer', 'Impressora'),
+    colaboradores: t('navigation.items.team', 'Colaboradores'),
+    '2fa': t('navigation.items.auth2fa', 'Autenticação 2FA'),
+    lgpd: t('navigation.items.lgpd', 'Conformidade LGPD'),
+    service_requests: t('navigation.items.serviceRequests', 'Solicitações'),
+    pagina_assinar: t('navigation.items.salesPage', 'Editar Página de Vendas'),
+    promotions: t('navigation.items.promotions', 'Promoções'),
+    coupons: t('navigation.items.coupons', 'Cupons'),
+    affiliates: t('navigation.items.affiliates', 'Programa de Afiliados'),
+  };
+  const resolveMenuLabel = (item) => menuLabelById[item?.id] || item?.label;
 
   // ✅ Backend é a única fonte de verdade para permissões
   const hasModuleAccess = (module) => {
@@ -217,7 +257,7 @@ export default function AdminSidebar({ activeTab, setActiveTab, isMaster = false
               item.section === 'subsection' ? "text-muted-foreground hover:text-foreground" : "text-muted-foreground hover:text-foreground uppercase tracking-wider"
             )}
           >
-            {!collapsed && <span>{item.label}</span>}
+            {!collapsed && <span>{resolveMenuLabel(item)}</span>}
             {!collapsed && (
               <ChevronDown className={cn("w-3 h-3 transition-transform", isExpanded ? "transform rotate-180" : "")} />
             )}
@@ -240,8 +280,8 @@ export default function AdminSidebar({ activeTab, setActiveTab, isMaster = false
                       "p-2 rounded-lg flex items-center justify-center transition-colors",
                       active ? "bg-accent text-primary" : "text-muted-foreground hover:bg-accent"
                     )}
-                    title={leaf.label}
-                    aria-label={leaf.label}
+                    title={resolveMenuLabel(leaf)}
+                    aria-label={resolveMenuLabel(leaf)}
                   >
                     <LeafIcon className="w-4 h-4" />
                   </button>
@@ -273,7 +313,7 @@ export default function AdminSidebar({ activeTab, setActiveTab, isMaster = false
             "w-4 h-4 flex-shrink-0",
             "text-muted-foreground"
           )} />
-          {!collapsed && <span className="truncate">{item.label}</span>}
+          {!collapsed && <span className="truncate">{resolveMenuLabel(item)}</span>}
         </Link>
       );
     }
@@ -285,8 +325,8 @@ export default function AdminSidebar({ activeTab, setActiveTab, isMaster = false
           setActiveTab(item.id);
           if (onClose) onClose();
         }}
-        title={item.label}
-        aria-label={item.label}
+        title={resolveMenuLabel(item)}
+        aria-label={resolveMenuLabel(item)}
         className={cn(
           "w-full flex items-center gap-3 py-2.5 rounded-r-lg text-sm font-medium transition-all duration-200 border-l-2 pl-2",
           indent,
@@ -299,7 +339,7 @@ export default function AdminSidebar({ activeTab, setActiveTab, isMaster = false
           "w-4 h-4 flex-shrink-0",
           isActive ? "text-primary" : "text-muted-foreground"
         )} />
-        {!collapsed && <span className="truncate">{item.label}</span>}
+        {!collapsed && <span className="truncate">{resolveMenuLabel(item)}</span>}
       </button>
     );
   };
@@ -316,7 +356,7 @@ export default function AdminSidebar({ activeTab, setActiveTab, isMaster = false
             <button
               onClick={onClose}
               className="lg:hidden min-h-touch min-w-touch flex items-center justify-center p-2 -m-1 rounded-lg hover:bg-muted/70 text-muted-foreground"
-              aria-label="Fechar menu"
+              aria-label={t('navigation.closeMenu', 'Fechar menu')}
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
@@ -324,6 +364,7 @@ export default function AdminSidebar({ activeTab, setActiveTab, isMaster = false
           <button
             onClick={() => setCollapsed(!collapsed)}
             className="hidden lg:block p-1.5 rounded-lg hover:bg-muted/70 text-muted-foreground"
+            aria-label={collapsed ? t('navigation.expandMenu', 'Expandir menu') : t('navigation.collapseMenu', 'Recolher menu')}
           >
             {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
           </button>
@@ -333,6 +374,12 @@ export default function AdminSidebar({ activeTab, setActiveTab, isMaster = false
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
         {MENU_STRUCTURE.map(item => renderMenuItem(item))}
       </nav>
+
+      {!collapsed && (
+        <div className="border-t border-border p-3">
+          <LanguageSelector compact />
+        </div>
+      )}
     </aside>
   );
 }

@@ -41,7 +41,7 @@ const formatFlavorAllowance = (value) => {
 const formatPricePerSlice = (price, slices) => {
   const safePrice = Number(price || 0);
   const safeSlices = Number(slices || 0);
-  if (safePrice <= 0 || safeSlices <= 0) return 'â€”';
+  if (safePrice <= 0 || safeSlices <= 0) return '—';
   return formatCurrency(safePrice / safeSlices);
 };
 
@@ -631,7 +631,7 @@ export default function PizzaConfigTab() {
       suggestions.push({
         tone: 'emerald',
         title: 'Base pronta para vender',
-        description: 'Voce ja tem regra, tamanhos e sabores suficientes para publicar sua primeira entrada comercial.'
+        description: 'Você já tem regra, tamanhos e sabores suficientes para publicar sua primeira entrada comercial.'
       });
     }
     if (rulesWithoutEntries > 0) {
@@ -1051,7 +1051,7 @@ export default function PizzaConfigTab() {
     return {
       title: 'Seu cardápio melhorou',
       description: improvements.length > 0
-        ? `${improvements.join(' â€¢ ')} desde a ultima leitura.`
+        ? `${improvements.join(' • ')} desde a última leitura.`
         : `O nivel mudou de ${evolutionDelta.previousLevel} para ${evolutionDelta.currentLevel}.`,
     };
   }, [evolutionDelta]);
@@ -1172,7 +1172,7 @@ export default function PizzaConfigTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzaSizes'] });
       if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
-      toast.success('Tamanho excluÃƒÂ­do!');
+      toast.success('Tamanho excluído!');
     },
   });
 
@@ -1208,7 +1208,7 @@ export default function PizzaConfigTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzaFlavors'] });
       if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
-      toast.success('Sabor excluÃƒÂ­do!');
+      toast.success('Sabor excluído!');
     },
   });
 
@@ -1244,7 +1244,7 @@ export default function PizzaConfigTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzaEdges'] });
       if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
-      toast.success('Borda excluÃƒÂ­da!');
+      toast.success('Borda excluída!');
     },
   });
 
@@ -1280,7 +1280,7 @@ export default function PizzaConfigTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzaExtras'] });
       if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
-      toast.success('Extra excluÃƒÂ­do!');
+      toast.success('Extra excluído!');
     },
   });
 
@@ -1316,7 +1316,7 @@ export default function PizzaConfigTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pizzaCategories'] });
       if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
-      toast.success('Categoria excluÃƒÂ­da!');
+      toast.success('Categoria excluída!');
     },
   });
   const invalidatePizzaConfigQueries = React.useCallback(() => {
@@ -1775,7 +1775,7 @@ export default function PizzaConfigTab() {
                       <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600">Regra-base</Badge>
                       <h4 className="mt-3 text-lg font-semibold text-slate-900">{category.name || 'Regra sem nome'}</h4>
                       <p className="mt-1 text-sm text-slate-600">
-                        {size ? `${size.name} â€¢ ${size.slices} fatias` : 'Sem tamanho'} â€¢ {category.max_flavors || 1} sabor(es)
+                        {size ? `${size.name} • ${size.slices} fatias` : 'Sem tamanho'} • {category.max_flavors || 1} sabor(es)
                       </p>
                     </div>
                     <div className="flex items-center gap-1">
@@ -1827,7 +1827,7 @@ export default function PizzaConfigTab() {
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <h4 className="text-lg font-semibold text-slate-900">{flavor.name}</h4>
-                          <p className="mt-1 text-sm text-slate-600">{flavor.description || 'Sem descricao cadastrada.'}</p>
+                          <p className="mt-1 text-sm text-slate-600">{flavor.description || 'Sem descrição cadastrada.'}</p>
                         </div>
                         <Switch checked={flavor.is_active} onCheckedChange={(checked) => updateFlavorMutation.mutate({ id: flavor.id, data: { ...flavor, is_active: checked } })} />
                       </div>
@@ -2231,7 +2231,7 @@ export default function PizzaConfigTab() {
                               >
                                 <p className="text-sm font-semibold text-slate-900">{size.name}</p>
                                 <p className="mt-1 text-xs text-slate-600">
-                                  {size.max_flavors || previewMaxFlavors} sabor(es) â€¢ {formatCurrency(currentPrice)}
+                                  {size.max_flavors || previewMaxFlavors} sabor(es) • {formatCurrency(currentPrice)}
                                 </p>
                                 <p className="mt-1 text-[11px] text-slate-500">
                                   {formatPricePerSlice(currentPrice, size.slices)} por fatia
@@ -2268,7 +2268,7 @@ export default function PizzaConfigTab() {
                                 <div className="flex items-start justify-between gap-3">
                                   <div>
                                     <p className="font-semibold text-slate-900">{flavor.name}</p>
-                                    <p className="mt-1 text-xs text-slate-600">{flavor.description || 'Sem descricao cadastrada.'}</p>
+                                    <p className="mt-1 text-xs text-slate-600">{flavor.description || 'Sem descrição cadastrada.'}</p>
                                   </div>
                                   <Badge variant={flavor.category === 'premium' ? 'default' : 'secondary'} className={flavor.category === 'premium' ? 'bg-amber-500 hover:bg-amber-500' : ''}>
                                     {flavor.category === 'premium' ? 'Premium' : 'Tradicional'}
@@ -2311,7 +2311,7 @@ export default function PizzaConfigTab() {
                                     : 'border-slate-200 bg-white hover:border-slate-300'
                                 }`}
                               >
-                                {edge.name} â€¢ {formatCurrency(edge.price)}
+                                {edge.name} • {formatCurrency(edge.price)}
                               </button>
                             ))}
                           </div>
@@ -2336,7 +2336,7 @@ export default function PizzaConfigTab() {
                                       : 'border-slate-200 bg-white hover:border-slate-300'
                                   }`}
                                 >
-                                  {extra.name} â€¢ {formatCurrency(extra.price)}
+                                  {extra.name} • {formatCurrency(extra.price)}
                                 </button>
                               );
                             })}
@@ -2368,7 +2368,7 @@ export default function PizzaConfigTab() {
                           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-orange-200">Entrada do cardápio</p>
                           <h5 className="mt-2 text-2xl font-semibold">{previewEntry.name}</h5>
                           <p className="mt-2 text-sm text-slate-200">
-                            {previewCategory?.name || 'Sem regra'} â€¢ {previewSelectedSize?.name || 'Escolha um tamanho'}
+                            {previewCategory?.name || 'Sem regra'} • {previewSelectedSize?.name || 'Escolha um tamanho'}
                           </p>
                         </div>
                         <Badge className="bg-orange-500 text-white hover:bg-orange-500">{formatCurrency(previewPrice)}</Badge>
@@ -2378,10 +2378,10 @@ export default function PizzaConfigTab() {
                         <div className="rounded-2xl bg-white/10 p-4">
                           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-300">Como o cliente entende</p>
                           <ul className="mt-3 space-y-2 text-sm text-slate-100">
-                            <li>â€¢ {formatFlavorAllowance(previewMaxFlavors)}</li>
-                            <li>â€¢ {previewSelectedSize ? `${previewSelectedSize.name} com ${previewSelectedSize.slices || '-'} fatias` : 'Escolha um tamanho para ver o resumo'}</li>
-                            <li>â€¢ {previewHasPremium ? 'Com sabor premium na composicao' : 'Somente sabores tradicionais selecionados'}</li>
-                            <li>â€¢ {previewSelectedEdge ? `Borda ${previewSelectedEdge.name}` : 'Sem borda selecionada'}</li>
+                            <li>• {formatFlavorAllowance(previewMaxFlavors)}</li>
+                            <li>• {previewSelectedSize ? `${previewSelectedSize.name} com ${previewSelectedSize.slices || '-'} fatias` : 'Escolha um tamanho para ver o resumo'}</li>
+                            <li>• {previewHasPremium ? 'Com sabor premium na composição' : 'Somente sabores tradicionais selecionados'}</li>
+                            <li>• {previewSelectedEdge ? `Borda ${previewSelectedEdge.name}` : 'Sem borda selecionada'}</li>
                           </ul>
                         </div>
 
@@ -2421,7 +2421,7 @@ export default function PizzaConfigTab() {
                               </div>
                             ))}
                             <div className="rounded-xl bg-emerald-500/10 px-3 py-2 text-sm text-emerald-100">
-                              Ticket base {formatCurrency(previewTicketSimulation.baseTicket)} â€¢ premium {formatCurrency(previewTicketSimulation.premiumTicket)} â€¢ com upsell {formatCurrency(previewTicketSimulation.upsellTicket)}
+                              Ticket base {formatCurrency(previewTicketSimulation.baseTicket)} • premium {formatCurrency(previewTicketSimulation.premiumTicket)} • com upsell {formatCurrency(previewTicketSimulation.upsellTicket)}
                             </div>
                           </div>
                         </div>
@@ -2446,14 +2446,14 @@ export default function PizzaConfigTab() {
                           <div className="rounded-2xl bg-white/10 p-4">
                             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-300">Borda</p>
                             <p className="mt-2 text-sm font-medium text-white">
-                              {previewSelectedEdge ? `${previewSelectedEdge.name} â€¢ ${formatCurrency(previewSelectedEdge.price)}` : 'Sem borda'}
+                              {previewSelectedEdge ? `${previewSelectedEdge.name} • ${formatCurrency(previewSelectedEdge.price)}` : 'Sem borda'}
                             </p>
                           </div>
                           <div className="rounded-2xl bg-white/10 p-4">
                             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-300">Adicionais</p>
                             <p className="mt-2 text-sm font-medium text-white">
                               {previewSelectedExtras.length > 0
-                                ? `${previewSelectedExtras.length} item(ns) â€¢ ${formatCurrency(previewSelectedExtras.reduce((sum, extra) => sum + (Number(extra?.price) || 0), 0))}`
+                                ? `${previewSelectedExtras.length} item(ns) • ${formatCurrency(previewSelectedExtras.reduce((sum, extra) => sum + (Number(extra?.price) || 0), 0))}`
                                 : 'Nenhum adicional'}
                             </p>
                           </div>
@@ -2623,7 +2623,7 @@ function SizeModal({ isOpen, onClose, onSubmit, size }) {
             <Input
               value={formData.name}
               onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-              placeholder="Ex: Pequena, MÃƒÂ©dia, Grande"
+              placeholder="Ex: Pequena, Média, Grande"
               required
             />
           </div>
@@ -2639,7 +2639,7 @@ function SizeModal({ isOpen, onClose, onSubmit, size }) {
               />
             </div>
             <div>
-              <Label>MÃƒÂ¡x. Sabores (1-4) *</Label>
+              <Label>Máx. Sabores (1-4) *</Label>
               <Input
                 type="number"
                 min={1}
@@ -2652,7 +2652,7 @@ function SizeModal({ isOpen, onClose, onSubmit, size }) {
             </div>
           </div>
           <div>
-            <Label>MÃƒÂ¡x. Extras</Label>
+            <Label>Máx. Extras</Label>
             <Input
               type="number"
               min={0}
@@ -2663,7 +2663,7 @@ function SizeModal({ isOpen, onClose, onSubmit, size }) {
             />
           </div>
           <div>
-            <Label>DiÃƒÂ¢metro (cm)</Label>
+            <Label>Diâmetro (cm)</Label>
             <Input
               type="number"
               value={formData.diameter_cm}
@@ -2673,7 +2673,7 @@ function SizeModal({ isOpen, onClose, onSubmit, size }) {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label>PreÃƒÂ§o Tradicional *</Label>
+              <Label>Preço Tradicional *</Label>
               <Input
                 type="number"
                 step="0.01"
@@ -2684,7 +2684,7 @@ function SizeModal({ isOpen, onClose, onSubmit, size }) {
               />
             </div>
             <div>
-              <Label>PreÃƒÂ§o Premium *</Label>
+              <Label>Preço Premium *</Label>
               <Input
                 type="number"
                 step="0.01"
@@ -2760,7 +2760,7 @@ function FlavorModal({ isOpen, onClose, onSubmit, flavor }) {
 
     if (!(file instanceof File)) {
       console.error('Ã¢ÂÅ’ [PizzaConfigTab] Arquivo nÃƒÂ£o ÃƒÂ© instÃƒÂ¢ncia de File:', typeof file);
-      alert('Arquivo invÃƒÂ¡lido');
+      alert('Arquivo inválido');
       return;
     }
 
@@ -2801,7 +2801,7 @@ function FlavorModal({ isOpen, onClose, onSubmit, flavor }) {
             />
           </div>
           <div>
-            <Label>DescriÃƒÂ§ÃƒÂ£o</Label>
+            <Label>Descrição</Label>
             <Textarea
               value={formData.description}
               onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
@@ -2821,7 +2821,7 @@ function FlavorModal({ isOpen, onClose, onSubmit, flavor }) {
                     : 'border-gray-200 hover:border-gray-300'
                 }`}
               >
-                Ã°Å¸Ââ€¢ Tradicional
+                🍕 Tradicional
               </button>
               <button
                 type="button"
@@ -2832,7 +2832,7 @@ function FlavorModal({ isOpen, onClose, onSubmit, flavor }) {
                     : 'border-gray-200 hover:border-gray-300'
                 }`}
               >
-                Ã¢Â­Â Premium
+                ⭐ Premium
               </button>
             </div>
           </div>
@@ -2863,7 +2863,7 @@ function FlavorModal({ isOpen, onClose, onSubmit, flavor }) {
                 checked={formData.is_popular}
                 onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_popular: checked }))}
               />
-              <span className="text-sm">Ã¢Â­Â Popular</span>
+              <span className="text-sm">⭐ Popular</span>
             </label>
           </div>
           <div className="flex gap-3 pt-4">
@@ -2928,7 +2928,7 @@ function EdgeModal({ isOpen, onClose, onSubmit, edge }) {
 
     if (!(file instanceof File)) {
       console.error('Ã¢ÂÅ’ [PizzaConfigTab] Arquivo nÃƒÂ£o ÃƒÂ© instÃƒÂ¢ncia de File:', typeof file);
-      alert('Arquivo invÃƒÂ¡lido');
+      alert('Arquivo inválido');
       return;
     }
 
@@ -2969,16 +2969,16 @@ function EdgeModal({ isOpen, onClose, onSubmit, edge }) {
             />
           </div>
           <div>
-            <Label>DescriÃƒÂ§ÃƒÂ£o</Label>
+            <Label>Descrição</Label>
             <Textarea
               value={formData.description}
               onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-              placeholder="DescriÃƒÂ§ÃƒÂ£o da borda..."
+              placeholder="Descrição da borda..."
               rows={2}
             />
           </div>
           <div>
-            <Label>PreÃƒÂ§o *</Label>
+            <Label>Preço *</Label>
             <Input
               type="number"
               step="0.01"
@@ -3061,7 +3061,7 @@ function ExtraModal({ isOpen, onClose, onSubmit, extra }) {
 
     if (!(file instanceof File)) {
       console.error('Ã¢ÂÅ’ [PizzaConfigTab] Arquivo nÃƒÂ£o ÃƒÂ© instÃƒÂ¢ncia de File:', typeof file);
-      alert('Arquivo invÃƒÂ¡lido');
+      alert('Arquivo inválido');
       return;
     }
 
@@ -3102,16 +3102,16 @@ function ExtraModal({ isOpen, onClose, onSubmit, extra }) {
             />
           </div>
           <div>
-            <Label>DescriÃƒÂ§ÃƒÂ£o</Label>
+            <Label>Descrição</Label>
             <Textarea
               value={formData.description}
               onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-              placeholder="DescriÃƒÂ§ÃƒÂ£o do extra..."
+              placeholder="Descrição do extra..."
               rows={2}
             />
           </div>
           <div>
-            <Label>PreÃƒÂ§o *</Label>
+            <Label>Preço *</Label>
             <Input
               type="number"
               step="0.01"

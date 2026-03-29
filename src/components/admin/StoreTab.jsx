@@ -29,7 +29,7 @@ const DAYS_OF_WEEK = [
   { value: 3, label: 'Qua' },
   { value: 4, label: 'Qui' },
   { value: 5, label: 'Sex' },
-  { value: 6, label: 'SÃ¡b' },
+  { value: 6, label: 'Sáb' },
 ];
 
 export default function StoreTab() {
@@ -99,7 +99,7 @@ export default function StoreTab() {
     },
     onSuccess: () => {
       refresh();
-      toast.success('Link do cardÃ¡pio atualizado.');
+      toast.success(storeText.linkUpdated);
     },
     onError: (e) => toast.error(e?.message || storeText.linkSaveError),
   });
@@ -119,7 +119,7 @@ export default function StoreTab() {
 
   const updateStoreBannersMutation = useMutation({
     mutationFn: async (data) => {
-      if (!store?.id) throw new Error('Loja nÃ£o encontrada');
+      if (!store?.id) throw new Error('Loja não encontrada');
       return base44.entities.Store.update(store.id, data, getMenuContextEntityOpts(menuContext));
     },
     onSuccess: () => {
@@ -297,7 +297,7 @@ export default function StoreTab() {
       queryClient.invalidateQueries({ queryKey: ['stores'] });
       // ForÃ§ar refetch imediato
       queryClient.refetchQueries({ queryKey: ['store'] });
-      toast.success('âœ… ConfiguraÃ§Ãµes da loja salvas com sucesso!', {
+      toast.success(storeText.saveSuccess, {
         duration: 3000,
         position: 'top-center'
       });
@@ -315,7 +315,7 @@ export default function StoreTab() {
         data: error?.data
       });
       const errorMessage = error?.message || error?.response?.data?.message || error?.toString() || 'Erro desconhecido';
-      toast.error('âŒ Erro ao salvar as configuraÃ§Ãµes da loja. ' + errorMessage, {
+      toast.error(`${storeText.saveError} ${errorMessage}`, {
         duration: 5000,
         position: 'top-center'
       });
@@ -424,8 +424,8 @@ export default function StoreTab() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-6 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">
         <div className="mb-6">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-2">ConfiguraÃ§Ãµes da Loja</h1>
-          <p className="text-gray-600 dark:text-gray-400">Gerencie as informaÃ§Ãµes e funcionamento do seu restaurante</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-2">{storeText.pageTitle}</h1>
+          <p className="text-gray-600 dark:text-gray-400">{storeText.pageDescription}</p>
         </div>
 
         {/* ConfiguraÃ§Ã£o de Slug do Master */}
@@ -442,7 +442,7 @@ export default function StoreTab() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Logo</p>
-                  <p className="text-base sm:text-lg font-bold">{storeStatus.hasLogo ? 'âœ“' : 'âœ—'}</p>
+                  <p className="text-base sm:text-lg font-bold">{storeStatus.hasLogo ? '✓' : '✕'}</p>
                 </div>
                 {storeStatus.hasLogo ? (
                   <CheckCircle2 className="w-5 h-5 sm:w-6 sm:h-6 text-green-500" />
@@ -457,7 +457,7 @@ export default function StoreTab() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Nome</p>
-                  <p className="text-base sm:text-lg font-bold">{storeStatus.hasName ? 'âœ“' : 'âœ—'}</p>
+                  <p className="text-base sm:text-lg font-bold">{storeStatus.hasName ? '✓' : '✕'}</p>
                 </div>
                 {storeStatus.hasName ? (
                   <CheckCircle2 className="w-5 h-5 sm:w-6 sm:h-6 text-green-500" />
@@ -472,7 +472,7 @@ export default function StoreTab() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">WhatsApp</p>
-                  <p className="text-base sm:text-lg font-bold">{storeStatus.hasWhatsApp ? 'âœ“' : 'âœ—'}</p>
+                  <p className="text-base sm:text-lg font-bold">{storeStatus.hasWhatsApp ? '✓' : '✕'}</p>
                 </div>
                 {storeStatus.hasWhatsApp ? (
                   <CheckCircle2 className="w-5 h-5 sm:w-6 sm:h-6 text-green-500" />
@@ -534,14 +534,14 @@ export default function StoreTab() {
                 <div>
                   <Label htmlFor="store-name" className="flex items-center gap-2 mb-2">
                     <Store className="w-4 h-4 text-gray-500" />
-                    Nome da Loja *
+                    {storeText.nameLabel}
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <HelpCircle className="w-4 h-4 text-gray-400 hover:text-gray-600 cursor-help" />
                         </TooltipTrigger>
                         <TooltipContent className="max-w-xs">
-                          <p className="text-xs">Nome que aparecerÃ¡ no cardÃ¡pio digital e nos pedidos dos clientes</p>
+                          <p className="text-xs">{storeText.nameHelp}</p>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
@@ -555,7 +555,7 @@ export default function StoreTab() {
                     className={!formData.name?.trim() ? 'border-red-300' : ''}
                   />
                   {!formData.name?.trim() && (
-                    <p className="text-xs text-red-500 mt-1">Nome da loja Ã© obrigatÃ³rio</p>
+                    <p className="text-xs text-red-500 mt-1">{storeText.nameRequired}</p>
                   )}
                 </div>
 
@@ -569,7 +569,7 @@ export default function StoreTab() {
                           <HelpCircle className="w-4 h-4 text-gray-400 hover:text-gray-600 cursor-help" />
                         </TooltipTrigger>
                         <TooltipContent className="max-w-xs">
-                          <p className="text-xs">NÃºmero usado para receber pedidos via WhatsApp. Formato: DDD + nÃºmero completo</p>
+                          <p className="text-xs">{storeText.whatsappHelp}</p>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
@@ -585,9 +585,9 @@ export default function StoreTab() {
                     maxLength={15}
                   />
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Formato: DDD + nÃºmero (apenas nÃºmeros)
+                    {storeText.whatsappFormat}
                     {formData.whatsapp && formData.whatsapp.length < 10 && (
-                      <span className="text-red-500 ml-2">NÃºmero muito curto</span>
+                      <span className="text-red-500 ml-2">{storeText.whatsappTooShort}</span>
                     )}
                   </p>
                 </div>
@@ -596,26 +596,26 @@ export default function StoreTab() {
               <div>
                 <Label htmlFor="address" className="flex items-center gap-2 mb-2">
                   <MapPin className="w-4 h-4 text-gray-500" />
-                  EndereÃ§o
+                  {storeText.addressLabel}
                 </Label>
                 <MobileInput
                   id="address"
                   value={formData.address}
                   onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
-                  placeholder="Rua, nÃºmero, bairro, cidade"
+                  placeholder={storeText.addressPlaceholder}
                 />
               </div>
 
               <div>
                 <Label htmlFor="slogan" className="mb-2 flex items-center gap-2">
-                  Frase do Restaurante
+                  {storeText.sloganLabel}
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <HelpCircle className="w-4 h-4 text-gray-400 hover:text-gray-600 cursor-help" />
                       </TooltipTrigger>
                       <TooltipContent className="max-w-xs">
-                        <p className="text-xs">Slogan ou frase que aparece no topo do cardÃ¡pio digital para atrair clientes</p>
+                        <p className="text-xs">{storeText.sloganHelp}</p>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
@@ -624,7 +624,7 @@ export default function StoreTab() {
                   id="slogan"
                   value={formData.slogan}
                   onChange={(e) => setFormData(prev => ({ ...prev, slogan: e.target.value }))}
-                  placeholder="Ex: O melhor sabor da regiÃ£o!"
+                  placeholder={storeText.sloganPlaceholder}
                 />
               </div>
 
@@ -651,7 +651,7 @@ export default function StoreTab() {
                     id="facebook"
                     value={formData.facebook}
                     onChange={(e) => setFormData(prev => ({ ...prev, facebook: e.target.value }))}
-                    placeholder="Link da pÃ¡gina"
+                    placeholder={storeText.linkPagePlaceholder}
                   />
                 </div>
 
@@ -678,7 +678,7 @@ export default function StoreTab() {
                 <Clock className="w-5 h-5 text-orange-500" />
                 Funcionamento
               </CardTitle>
-              <CardDescription>Defina quando sua loja estÃ¡ aberta</CardDescription>
+              <CardDescription>{storeText.operationDescription}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               {/* Modo da Loja */}
@@ -696,10 +696,10 @@ export default function StoreTab() {
                   >
                     <div className="flex items-center gap-2 mb-2">
                       <div className={`w-3 h-3 rounded-full ${storeMode === 'auto' ? 'bg-blue-500' : 'bg-gray-300'}`} />
-                      <span className="font-semibold text-sm">ðŸ”µ AutomÃ¡tico</span>
+                      <span className="font-semibold text-sm">{storeText.automaticMode}</span>
                     </div>
                     <p className="text-xs text-gray-600">
-                      Baseado em horÃ¡rios e dias configurados
+                      {storeText.automaticModeDescription}
                     </p>
                   </button>
 
@@ -714,10 +714,10 @@ export default function StoreTab() {
                   >
                     <div className="flex items-center gap-2 mb-2">
                       <div className={`w-3 h-3 rounded-full ${storeMode === 'open' ? 'bg-green-500' : 'bg-gray-300'}`} />
-                      <span className="font-semibold text-sm">ðŸŸ¢ Sempre Aberta</span>
+                      <span className="font-semibold text-sm">{storeText.alwaysOpenMode}</span>
                     </div>
                     <p className="text-xs text-gray-600">
-                      Ignora horÃ¡rios, aberto 24h
+                      {storeText.alwaysOpenModeDescription}
                     </p>
                   </button>
 
@@ -732,10 +732,10 @@ export default function StoreTab() {
                   >
                     <div className="flex items-center gap-2 mb-2">
                       <div className={`w-3 h-3 rounded-full ${storeMode === 'closed' ? 'bg-red-500' : 'bg-gray-300'}`} />
-                      <span className="font-semibold text-sm">ðŸ”´ Fechada</span>
+                      <span className="font-semibold text-sm">{storeText.forceClosedMode}</span>
                     </div>
                     <p className="text-xs text-gray-600">
-                      Loja fechada independente do horÃ¡rio
+                      {storeText.forceClosedModeDescription}
                     </p>
                   </button>
                 </div>
@@ -746,7 +746,7 @@ export default function StoreTab() {
                 <>
                   <Separator />
                   <div>
-                    <Label className="mb-3 block font-semibold">HorÃ¡rio de Funcionamento</Label>
+                    <Label className="mb-3 block font-semibold">{storeText.openingHoursLabel}</Label>
                     <div className="grid sm:grid-cols-2 gap-4">
                       <div>
                         <Label htmlFor="opening-time" className="text-sm text-gray-600 mb-2 block">Abertura</Label>
@@ -824,7 +824,7 @@ export default function StoreTab() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <AlertCircle className="w-5 h-5 text-orange-500" />
-                Pausa TemporÃ¡ria de Pedidos
+                {storeText.pauseTitle}
               </CardTitle>
               <CardDescription>Bloqueie pedidos sem fechar a loja</CardDescription>
             </CardHeader>
@@ -840,7 +840,7 @@ export default function StoreTab() {
                     Pausar Pedidos Temporariamente
                   </Label>
                   <p className="text-xs text-gray-600 mt-1">
-                    A loja continua visÃ­vel, mas os clientes nÃ£o poderÃ£o fazer pedidos
+                    {storeText.pauseDescription}
                   </p>
                 </div>
               </div>
@@ -855,7 +855,7 @@ export default function StoreTab() {
                     placeholder="Ex: Voltamos em 30 minutos"
                   />
                   <p className="text-xs text-gray-500 mt-2 p-3 bg-gray-50 rounded-lg border">
-                    <strong>PrÃ©via:</strong> {formData.pause_message || 'Voltamos em breve.'}
+                    <strong>{storeText.previewLabel}</strong> {formData.pause_message || 'Voltamos em breve.'}
                   </p>
                 </div>
               )}
@@ -906,8 +906,8 @@ export default function StoreTab() {
                         title={`Adicionar banner ${i + 1}`}
                         description="Use uma arte horizontal para campanhas e destaques do cardapio."
                       />
-                      <Input placeholder="TÃ­tulo" value={b.title || ''} onChange={(e) => updateBanner(i, 'title', e.target.value)} />
-                      <Input placeholder="SubtÃ­tulo" value={b.subtitle || ''} onChange={(e) => updateBanner(i, 'subtitle', e.target.value)} />
+                      <Input placeholder={storeText.bannerTitlePlaceholder} value={b.title || ''} onChange={(e) => updateBanner(i, 'title', e.target.value)} />
+                      <Input placeholder={storeText.bannerSubtitlePlaceholder} value={b.subtitle || ''} onChange={(e) => updateBanner(i, 'subtitle', e.target.value)} />
                       <Input placeholder="Link" value={b.link || ''} onChange={(e) => updateBanner(i, 'link', e.target.value)} />
                       <div className="flex items-center gap-2">
                         <Switch checked={b.active !== false} onCheckedChange={(v) => updateBanner(i, 'active', v)} />

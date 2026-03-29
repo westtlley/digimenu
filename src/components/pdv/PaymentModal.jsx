@@ -227,19 +227,19 @@ export default function PaymentModal({
                   className="space-y-4 p-4 bg-gray-50 rounded-lg border-2 border-gray-200"
                 >
                   <Label className="font-semibold">{paymentText.selectPaymentMethod}</Label>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                     {paymentMethods.map((method) => (
                       <button
                         key={method.id}
                         onClick={() => setSelectedMethod(method)}
-                        className={`p-3 rounded-lg border-2 transition-all ${
+                        className={`flex min-h-[5.75rem] flex-col items-center justify-center rounded-lg border-2 p-3 text-center transition-all ${
                           selectedMethod?.id === method.id
                             ? 'border-green-500 bg-green-50'
                             : 'border-gray-200 hover:border-gray-300'
                         }`}
                       >
                         <div className="text-2xl mb-1">{method.icon}</div>
-                        <p className="font-medium text-xs">{method.label}</p>
+                        <p className="text-xs font-medium leading-snug">{method.label}</p>
                       </button>
                     ))}
                   </div>
@@ -273,7 +273,7 @@ export default function PaymentModal({
                           autoFocus
                         />
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex flex-col gap-2 sm:flex-row">
                         <Button
                           onClick={() => {
                             setShowAddPayment(false);
@@ -281,14 +281,14 @@ export default function PaymentModal({
                             setPaymentAmount('');
                           }}
                           variant="outline"
-                          className="flex-1"
+                          className="h-auto min-h-12 flex-1 whitespace-normal py-2"
                         >
                           {paymentText.cancel}
                         </Button>
                         <Button
                           onClick={addPayment}
                           disabled={!canAddPayment}
-                          className="flex-1 bg-green-600 hover:bg-green-700"
+                          className="h-auto min-h-12 flex-1 whitespace-normal bg-green-600 py-2 hover:bg-green-700"
                         >
                           <Plus className="w-4 h-4 mr-2" />
                           {paymentText.add}
@@ -375,18 +375,18 @@ export default function PaymentModal({
           )}
         </div>
 
-        <div className="grid grid-cols-2 gap-3 pt-2 border-t">
+        <div className="grid grid-cols-1 gap-3 border-t pt-2 sm:grid-cols-2">
           <Button
             variant="outline"
             onClick={onClose}
-            className="h-12"
+            className="h-auto min-h-12 whitespace-normal py-2"
           >
             {paymentText.cancel}
           </Button>
           <Button
             onClick={handleConfirm}
             disabled={!isComplete}
-            className="bg-green-600 hover:bg-green-700 h-12 font-semibold"
+            className="h-auto min-h-12 whitespace-normal bg-green-600 py-2 font-semibold hover:bg-green-700"
           >
             <CheckCircle className="w-5 h-5 mr-2" />
             {paymentText.confirm}

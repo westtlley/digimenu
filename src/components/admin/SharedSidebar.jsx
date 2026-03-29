@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { cn } from "@/lib/utils";
 import { 
@@ -40,16 +40,18 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { apiClient as base44 } from '@/api/apiClient';
 import { createPageUrl } from '@/utils';
+import { useLanguage } from '@/i18n/LanguageContext';
+import LanguageSelector from '@/components/i18n/LanguageSelector';
 
 /**
  * Estrutura de menu padronizada e profissional
  * Categorias organizadas logicamente
  */
 const MENU_STRUCTURE = [
-  // GESTÃO
+  // GESTÃƒO
   {
     id: 'gestao',
-    label: 'GESTÃO',
+    label: 'GESTÃƒO',
     icon: BarChart3,
     section: 'section',
     submenu: [
@@ -59,25 +61,25 @@ const MENU_STRUCTURE = [
     ]
   },
 
-  // OPERAÇÃO
+  // OPERAÃ‡ÃƒO
   {
     id: 'operacao',
-    label: 'OPERAÇÃO',
+    label: 'OPERAÃ‡ÃƒO',
     icon: ClipboardList,
     section: 'section',
     submenu: [
       { id: 'orders', label: 'Gestor de Pedidos', icon: ClipboardList, module: 'orders' },
-      { id: 'history', label: 'Histórico de Pedidos', icon: History, module: 'history' },
+      { id: 'history', label: 'HistÃ³rico de Pedidos', icon: History, module: 'history' },
       { id: 'clients', label: 'Clientes', icon: Users, module: 'clients' },
       { id: 'whatsapp', label: 'WhatsApp', icon: MessageCircle, module: 'whatsapp' },
-      { id: 'inventory', label: 'Gestão de Estoque', icon: Package, module: 'inventory' },
+      { id: 'inventory', label: 'GestÃ£o de Estoque', icon: Package, module: 'inventory' },
     ]
   },
 
-  // CARDÁPIO
+  // CARDÃPIO
   {
     id: 'cardapio',
-    label: 'CARDÁPIO',
+    label: 'CARDÃPIO',
     icon: UtensilsCrossed,
     section: 'section',
     submenu: [
@@ -87,14 +89,14 @@ const MENU_STRUCTURE = [
     ]
   },
 
-  // GARÇOM
+  // GARÃ‡OM
   {
     id: 'garcom',
-    label: 'GARÇOM',
+    label: 'GARÃ‡OM',
     icon: Receipt,
     section: 'section',
     submenu: [
-      { id: 'garcom_app', label: 'App do Garçom', icon: UserCog, module: 'garcom', external: true, to: 'Garcom' },
+      { id: 'garcom_app', label: 'App do GarÃ§om', icon: UserCog, module: 'garcom', external: true, to: 'Garcom' },
       { id: 'comandas', label: 'Comandas', icon: Receipt, module: 'comandas' },
       { id: 'tables', label: 'Mesas e QR Code', icon: QrCode, module: 'tables' },
     ]
@@ -108,7 +110,7 @@ const MENU_STRUCTURE = [
     section: 'section',
     submenu: [
       { id: 'delivery_zones', label: 'Zonas de Entrega', icon: MapPin, module: 'delivery_zones' },
-      { id: 'payments', label: 'Métodos de Pagamento', icon: CreditCard, module: 'payments' },
+      { id: 'payments', label: 'MÃ©todos de Pagamento', icon: CreditCard, module: 'payments' },
     ]
   },
 
@@ -123,8 +125,8 @@ const MENU_STRUCTURE = [
       { id: 'theme', label: 'Tema', icon: Palette, module: 'theme' },
       { id: 'printer', label: 'Impressora', icon: Printer, module: 'printer' },
       { id: 'colaboradores', label: 'Colaboradores', icon: UserCog, module: 'colaboradores' },
-      { id: '2fa', label: 'Autenticação 2FA', icon: Key, module: '2fa' },
-      { id: 'managerial_auth', label: 'Autorização Gerencial', icon: ShieldCheck, module: 'managerial_auth' },
+      { id: '2fa', label: 'AutenticaÃ§Ã£o 2FA', icon: Key, module: '2fa' },
+      { id: 'managerial_auth', label: 'AutorizaÃ§Ã£o Gerencial', icon: ShieldCheck, module: 'managerial_auth' },
       { id: 'lgpd', label: 'Conformidade LGPD', icon: Shield, module: 'lgpd' },
     ]
   },
@@ -136,7 +138,7 @@ const MENU_STRUCTURE = [
     icon: TrendingUp,
     section: 'section',
     submenu: [
-      { id: 'promotions', label: 'Promoções', icon: Megaphone, module: 'promotions' },
+      { id: 'promotions', label: 'PromoÃ§Ãµes', icon: Megaphone, module: 'promotions' },
       { id: 'coupons', label: 'Cupons', icon: Ticket, module: 'coupons' },
       { id: 'affiliates', label: 'Programa de Afiliados', icon: Users, module: 'affiliates' },
     ]
@@ -155,19 +157,20 @@ export default function SharedSidebar({
   onClose,
   showStoreLogo = true,
   slug = null,
-  /** Store do estabelecimento (slug) — evita misturar com loja do usuário logado */
+  /** Store do estabelecimento (slug) â€” evita misturar com loja do usuÃ¡rio logado */
   store: storeProp = null,
   /** Item extra no topo do menu (ex.: { id: 'meu_perfil', label: 'Meu perfil', icon: User }) para Painel do Gerente */
   extraTopItem = null
 }) {
+  const { t } = useLanguage();
   const [expandedGroups, setExpandedGroups] = useState({
     gestao: true,
     operacao: true,
     cardapio: true,
-    garcom: true, // Seção GARÇOM (Comandas e Mesas)
+    garcom: true, // SeÃ§Ã£o GARÃ‡OM (Comandas e Mesas)
     delivery: true,
     sistema: true,
-    marketing: true // Seção MARKETING (Promoções, Cupons, Afiliados)
+    marketing: true // SeÃ§Ã£o MARKETING (PromoÃ§Ãµes, Cupons, Afiliados)
   });
 
   // Usar store passado pelo pai (contexto correto) ou buscar
@@ -178,12 +181,52 @@ export default function SharedSidebar({
   });
 
   const store = storeProp ?? stores[0];
-  const sidebarSubtitle = isMaster ? 'Administração Master' : isGerente ? 'Painel do Gerente' : 'Painel do Assinante';
+  const menuLabelById = {
+    gestao: t('navigation.sections.management', 'Gestão').toUpperCase(),
+    operacao: t('navigation.sections.operation', 'Operação').toUpperCase(),
+    cardapio: t('navigation.sections.menu', 'Cardápio').toUpperCase(),
+    garcom: t('navigation.sections.waiter', 'Garçom').toUpperCase(),
+    delivery: t('navigation.sections.delivery', 'Delivery').toUpperCase(),
+    sistema: t('navigation.sections.system', 'Sistema').toUpperCase(),
+    marketing: t('navigation.sections.marketing', 'Marketing').toUpperCase(),
+    dashboard: t('navigation.items.dashboard', 'Dashboard'),
+    financial: t('navigation.items.financial', 'Financeiro'),
+    caixa: t('navigation.items.cashRegister', 'Caixa'),
+    orders: t('navigation.items.orderManager', 'Gestor de Pedidos'),
+    history: t('navigation.items.orderHistory', 'Histórico de Pedidos'),
+    clients: t('navigation.items.clients', 'Clientes'),
+    whatsapp: t('navigation.items.whatsapp', 'WhatsApp'),
+    inventory: t('navigation.items.inventory', 'Gestão de Estoque'),
+    dishes: t('navigation.items.restaurant', 'Restaurante'),
+    pizza_config: t('navigation.items.pizza', 'Pizzaria'),
+    beverages: t('navigation.items.beverages', 'Bebidas'),
+    garcom_app: t('navigation.items.waiterApp', 'App do Garçom'),
+    comandas: t('navigation.items.tabs', 'Comandas'),
+    tables: t('navigation.items.tables', 'Mesas e QR Code'),
+    delivery_zones: t('navigation.items.deliveryZones', 'Zonas de Entrega'),
+    payments: t('navigation.items.paymentMethods', 'Métodos de Pagamento'),
+    store: t('navigation.items.store', 'Loja'),
+    theme: t('navigation.items.theme', 'Tema'),
+    printer: t('navigation.items.printer', 'Impressora'),
+    colaboradores: t('navigation.items.team', 'Colaboradores'),
+    '2fa': t('navigation.items.auth2fa', 'Autenticação 2FA'),
+    managerial_auth: t('navigation.items.managerialAuth', 'Autorização Gerencial'),
+    lgpd: t('navigation.items.lgpd', 'Conformidade LGPD'),
+    promotions: t('navigation.items.promotions', 'Promoções'),
+    coupons: t('navigation.items.coupons', 'Cupons'),
+    affiliates: t('navigation.items.affiliates', 'Programa de Afiliados'),
+  };
+  const resolveMenuLabel = (item) => menuLabelById[item?.id] || item?.label;
+  const sidebarSubtitle = isMaster
+    ? t('navigation.subtitles.master', 'Administração Master')
+    : isGerente
+      ? t('navigation.subtitles.manager', 'Painel do Gerente')
+      : t('navigation.subtitles.subscriber', 'Painel do Assinante');
 
   const hasModuleAccess = (module) => {
     if (isMaster) return true;
 
-    // ✅ Backend é a única fonte de verdade para permissões (já filtradas por plano)
+    // âœ… Backend Ã© a Ãºnica fonte de verdade para permissÃµes (jÃ¡ filtradas por plano)
     if (permissions && typeof permissions === 'object') {
       const modulePerms = permissions[module];
       if (Array.isArray(modulePerms) && modulePerms.length > 0) return true;
@@ -196,7 +239,7 @@ export default function SharedSidebar({
     setExpandedGroups(prev => ({ ...prev, [groupId]: !prev[groupId] }));
   };
 
-  // Plano Básico: mostrar só Restaurante OU Pizzaria (nunca os dois)
+  // Plano BÃ¡sico: mostrar sÃ³ Restaurante OU Pizzaria (nunca os dois)
   const hideDishesBasicPizzas = (sub) =>
     plan === 'basic' && sub.id === 'dishes' && hasModuleAccess('pizza_config');
   const hidePizzaConfigBasicRestaurant = (sub) =>
@@ -241,7 +284,7 @@ export default function SharedSidebar({
               item.section === 'subsection' ? "text-foreground/80 hover:text-foreground" : "text-muted-foreground hover:text-foreground uppercase tracking-wider"
             )}
           >
-            {!collapsed && <span>{item.label}</span>}
+            {!collapsed && <span>{resolveMenuLabel(item)}</span>}
             {!collapsed && <ChevronDown className={cn("w-3 h-3 transition-transform", isExpanded ? "transform rotate-180" : "")} />}
           </button>
           {!collapsed && isExpanded && (
@@ -255,7 +298,7 @@ export default function SharedSidebar({
                 const LeafIcon = leaf.icon;
                 const active = activeTab === leaf.id;
                 return (
-                  <button key={leaf.id} onClick={() => { setActiveTab(leaf.id); onClose?.(); }} className={cn("p-2 rounded-lg flex items-center justify-center transition-colors", active ? "bg-accent text-primary" : "text-muted-foreground hover:bg-accent")} title={leaf.label} aria-label={leaf.label}>
+                  <button key={leaf.id} onClick={() => { setActiveTab(leaf.id); onClose?.(); }} className={cn("p-2 rounded-lg flex items-center justify-center transition-colors", active ? "bg-accent text-primary" : "text-muted-foreground hover:bg-accent")} title={resolveMenuLabel(leaf)} aria-label={resolveMenuLabel(leaf)}>
                     <LeafIcon className="w-4 h-4" />
                   </button>
                 );
@@ -283,7 +326,7 @@ export default function SharedSidebar({
           )}
         >
           <Icon className="w-4 h-4 flex-shrink-0 text-muted-foreground" />
-          {!collapsed && <span className="truncate">{item.label}</span>}
+          {!collapsed && <span className="truncate">{resolveMenuLabel(item)}</span>}
         </Link>
       );
     }
@@ -295,8 +338,8 @@ export default function SharedSidebar({
           setActiveTab(item.id);
           if (onClose) onClose();
         }}
-        title={item.label}
-        aria-label={item.label}
+        title={resolveMenuLabel(item)}
+        aria-label={resolveMenuLabel(item)}
         className={cn(
           "w-full flex items-center gap-3 py-2.5 rounded-r-lg text-sm font-medium transition-all duration-200 border-l-2 pl-2",
           indent,
@@ -309,7 +352,7 @@ export default function SharedSidebar({
           "w-4 h-4 flex-shrink-0",
           isActive ? "text-primary" : "text-muted-foreground"
         )} />
-        {!collapsed && <span className="truncate">{item.label}</span>}
+        {!collapsed && <span className="truncate">{resolveMenuLabel(item)}</span>}
       </button>
     );
   };
@@ -355,7 +398,7 @@ export default function SharedSidebar({
             <button
               onClick={onClose}
               className="lg:hidden min-h-touch min-w-touch flex items-center justify-center p-2 -m-1 rounded-lg hover:bg-accent text-muted-foreground"
-              aria-label="Fechar menu"
+              aria-label={t('navigation.closeMenu', 'Fechar menu')}
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
@@ -363,14 +406,14 @@ export default function SharedSidebar({
           <button
             onClick={() => setCollapsed(!collapsed)}
             className="hidden lg:block p-1.5 rounded-lg hover:bg-accent text-muted-foreground"
-            aria-label={collapsed ? 'Expandir menu' : 'Recolher menu'}
+            aria-label={collapsed ? t('navigation.expandMenu', 'Expandir menu') : t('navigation.collapseMenu', 'Recolher menu')}
           >
             {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
           </button>
         </div>
       </div>
       
-      {/* Menu de Navegação */}
+      {/* Menu de NavegaÃ§Ã£o */}
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
         {extraTopItem && (() => {
           const ItemIcon = extraTopItem.icon;
@@ -403,7 +446,7 @@ export default function SharedSidebar({
           <div className="bg-card rounded-lg p-3 border border-border">
             <div className="flex items-center gap-2 mb-2">
               <Sparkles className="w-4 h-4 text-primary" />
-              <p className="text-xs font-semibold text-foreground">Status da Loja</p>
+              <p className="text-xs font-semibold text-foreground">{t('navigation.storeStatusTitle', 'Status da loja')}</p>
             </div>
             <div className="flex items-center gap-2">
               <div className={cn(
@@ -411,12 +454,14 @@ export default function SharedSidebar({
                 store.is_open ? "bg-green-500" : "bg-destructive"
               )} />
               <p className="text-xs text-muted-foreground">
-                {store.is_open ? 'Aberta' : 'Fechada'}
+                {store.is_open ? t('navigation.storeOpen', 'Aberta') : t('navigation.storeClosed', 'Fechada')}
               </p>
             </div>
           </div>
+          <LanguageSelector className="mt-3" />
         </div>
       )}
     </aside>
   );
 }
+

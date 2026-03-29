@@ -164,11 +164,11 @@ export default function AdminMediaField({
             </div>
 
             <div className="flex flex-wrap gap-2 pt-1">
-              <Button type="button" variant="outline" onClick={() => setOpen(true)}>
+              <Button type="button" variant="outline" onClick={() => setOpen(true)} className="h-auto min-h-10 whitespace-normal py-2">
                 {value ? resolvedReplaceLabel : resolvedAddLabel}
               </Button>
               {value ? (
-                <Button type="button" variant="ghost" className="text-red-600 hover:text-red-700" onClick={() => onChange?.('')}>
+                <Button type="button" variant="ghost" className="h-auto min-h-10 whitespace-normal py-2 text-red-600 hover:text-red-700" onClick={() => onChange?.('')}>
                   <Trash2 className="mr-2 h-4 w-4" />
                   {resolvedRemoveLabel}
                 </Button>

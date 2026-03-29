@@ -283,9 +283,9 @@ export default function PizzaBuilderV2({
         ? 'Sabor escolhido. Toque para trocar quando quiser.'
       : flavorsRemaining > 0
         ? `Faltam ${flavorsRemaining} ${flavorsRemaining === 1 ? 'sabor' : 'sabores'} para completar sua pizza.`
-        : 'Voce ja escolheu todos os sabores. Agora personalize sua pizza.';
+        : 'Você já escolheu todos os sabores. Agora personalize sua pizza.';
   const borderHelperText = !selectedFlavors.length
-    ? 'Depois dos sabores, vocÃª pode escolher uma borda opcional.'
+    ? 'Depois dos sabores, você pode escolher uma borda opcional.'
     : selectedEdge === null
       ? 'Opcional. Escolha uma borda ou siga sem borda.'
       : selectedEdge.id === 'none'
@@ -569,7 +569,7 @@ export default function PizzaBuilderV2({
                     {((selectedCategory || fixedCategory)?.name) || (() => {
                       const c = selectedCategory || fixedCategory;
                       const sz = c ? availableSizes.find(s => s.id === c.size_id) : null;
-                      return (c && sz) ? `${sz.name} â€¢ ${c.max_flavors || 1} sabor(es)` : '';
+                      return (c && sz) ? `${sz.name} • ${c.max_flavors || 1} sabor(es)` : '';
                     })()}
                   </p>
                 </div>
@@ -717,7 +717,7 @@ export default function PizzaBuilderV2({
               >
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-full flex items-center justify-center bg-gray-500/20">
-                    <span className="text-lg">ðŸ“</span>
+                    <span className="text-lg">📝</span>
                   </div>
                   <div className="text-left">
                     <p className="text-[9px] text-gray-400 uppercase tracking-wider font-black">{pizzaBuilderText.kitchenNoteLabel}</p>
