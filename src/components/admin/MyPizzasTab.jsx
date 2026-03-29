@@ -17,6 +17,7 @@ import { keepPreviousData } from '@tanstack/react-query';
 import { buildTenantEntityOpts, getMenuContextEntityOpts, getMenuContextQueryKeyParts } from '@/utils/tenantScope';
 import { buildPizzaEntryCommercialModel, summarizePizzaCommercialReadiness } from '@/utils/pizzaBusinessIntelligence';
 import AdminMediaField from './media/AdminMediaField';
+import { useLanguage } from '@/i18n/LanguageContext';
 
 const formatCurrency = (value) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
@@ -169,6 +170,8 @@ const clonePizzaExtra = (extra) => ({
 });
 
 export default function MyPizzasTab({ businessProfileId = 'other' }) {
+  const { t } = useLanguage();
+  const pizzaCatalogText = t('pizza.catalog');
   const [user, setUser] = useState(null);
   const [showPizzaModal, setShowPizzaModal] = useState(false);
   const [editingPizza, setEditingPizza] = useState(null);
@@ -337,7 +340,7 @@ export default function MyPizzasTab({ businessProfileId = 'other' }) {
       queryClient.invalidateQueries({ queryKey: ['pizzas'] });
       queryClient.invalidateQueries({ queryKey: ['dishes', ...getMenuContextQueryKeyParts(menuContext)] });
       if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
-      toast.success('Pizza criada!');
+      toast.success(pizzaCatalogText.created);
       setShowPizzaModal(false);
       setEditingPizza(null);
     },
@@ -349,7 +352,7 @@ export default function MyPizzasTab({ businessProfileId = 'other' }) {
       queryClient.invalidateQueries({ queryKey: ['pizzas'] });
       queryClient.invalidateQueries({ queryKey: ['dishes', ...getMenuContextQueryKeyParts(menuContext)] });
       if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
-      toast.success('Pizza atualizada!');
+      toast.success(pizzaCatalogText.updated);
       setShowPizzaModal(false);
       setEditingPizza(null);
     },
@@ -361,7 +364,7 @@ export default function MyPizzasTab({ businessProfileId = 'other' }) {
       queryClient.invalidateQueries({ queryKey: ['pizzas'] });
       queryClient.invalidateQueries({ queryKey: ['dishes', ...getMenuContextQueryKeyParts(menuContext)] });
       if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
-      toast.success('Pizza excluída!');
+      toast.success(pizzaCatalogText.deleted);
     },
   });
 
@@ -617,7 +620,7 @@ export default function MyPizzasTab({ businessProfileId = 'other' }) {
         <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 flex items-start gap-3">
           <AlertCircle className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
           <div>
-            <p className="font-medium text-orange-900">Configure os itens necessários primeiro</p>
+            <p className="font-medium text-orange-900">{pizzaCatalogText.setupRequiredTitle}</p>
             <p className="text-sm text-orange-700 mt-1">
               Para criar pizzas, você precisa cadastrar pelo menos:
             </p>
@@ -632,7 +635,7 @@ export default function MyPizzasTab({ businessProfileId = 'other' }) {
       <div className="space-y-4">
         <div className="flex justify-between items-center">
           <div>
-            <h3 className="text-lg font-semibold">Entradas do cardápio</h3>
+            <h3 className="text-lg font-semibold">{pizzaCatalogText.entriesTitle}</h3>
             <p className="text-sm text-gray-600">Aqui você gerencia o que o cliente enxerga no cardápio. A regra de montagem vem da aba Regras de Montagem.</p>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
@@ -650,7 +653,7 @@ export default function MyPizzasTab({ businessProfileId = 'other' }) {
               onClick={handleQuickStartPizza}
               disabled={!canApplyAssistantActions || !canCreatePizza}
             >
-              Criar pizzaria pronta
+              {pizzaCatalogText.createReadyPizzeria}
             </Button>
             <Button 
               onClick={() => openPizzaModal()} 
@@ -658,7 +661,7 @@ export default function MyPizzasTab({ businessProfileId = 'other' }) {
               disabled={!canCreatePizza}
             >
               <Plus className="w-4 h-4 mr-2" />
-              Nova entrada
+              {pizzaCatalogText.newEntry}
             </Button>
           </div>
         </div>
@@ -1043,7 +1046,7 @@ export default function MyPizzasTab({ businessProfileId = 'other' }) {
 
       {pizzas.length === 0 && canCreatePizza && (
           <div className="text-center py-12 text-gray-400">
-            <p>Nenhuma entrada do cardápio cadastrada ainda</p>
+            <p>{pizzaCatalogText.noEntriesYet}</p>
             <p className="text-sm mt-1">Crie a primeira entrada comercial para abrir o builder premium no cardápio.</p>
           </div>
         )}
@@ -1323,7 +1326,7 @@ function PizzaModal({ isOpen, onClose, onSubmit, pizza, sizes, flavors, edges, e
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-3xl max-w-[95vw] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{pizza ? 'Editar' : 'Nova'} entrada do cardápio</DialogTitle>
+          <DialogTitle>{pizza ? pizzaCatalogText.editEntry : pizzaCatalogText.newEntryTitle}</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -1675,10 +1678,10 @@ function PizzaModal({ isOpen, onClose, onSubmit, pizza, sizes, flavors, edges, e
                 onClick={onClose} 
                 className="flex-1 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
               >
-                Cancelar
+                {t('media.cancel')}
               </Button>
               <Button type="submit" className="flex-1 bg-orange-500 hover:bg-orange-600 dark:bg-orange-600 dark:hover:bg-orange-700 text-white">
-                {pizza ? 'Salvar entrada' : 'Criar entrada'}
+                {pizza ? pizzaCatalogText.saveEntry : pizzaCatalogText.createEntry}
               </Button>
             </div>
           </form>

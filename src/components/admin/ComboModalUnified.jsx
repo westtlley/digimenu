@@ -9,6 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Plus, Trash2, UtensilsCrossed, Pizza, Wine } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
 import AdminMediaField from './media/AdminMediaField';
+import { useLanguage } from '@/i18n/LanguageContext';
 
 const formatCurrency = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
 
@@ -40,6 +41,8 @@ export default function ComboModalUnified({
   pizzas = [],
   beverages = [],
 }) {
+  const { t } = useLanguage();
+  const comboModalText = t('promotions.comboModal');
   const safeDishes = (dishes || []).filter(d => d.product_type !== 'pizza' && d.product_type !== 'beverage');
   const safePizzas = (pizzas || []).filter(d => d.product_type === 'pizza');
   const safeBeverages = (beverages || []).filter(d => d.product_type === 'beverage');
@@ -629,7 +632,7 @@ export default function ComboModalUnified({
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label>Preço Original</Label>
+              <Label>{comboModalText.originalPrice}</Label>
               <Input
                 type="number"
                 step="0.01"
@@ -643,7 +646,7 @@ export default function ComboModalUnified({
               />
             </div>
             <div>
-              <Label>Preço do Combo *</Label>
+              <Label>{comboModalText.comboPrice}</Label>
               <Input
                 type="number"
                 step="0.01"
@@ -655,13 +658,13 @@ export default function ComboModalUnified({
           </div>
 
           <div>
-            <Label>Descrição</Label>
-            <Textarea value={formData.description} onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))} rows={2} placeholder="Descreva o combo..." />
+            <Label>{comboModalText.description}</Label>
+            <Textarea value={formData.description} onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))} rows={2} placeholder={comboModalText.descriptionPlaceholder} />
           </div>
 
           <div className="flex gap-3 pt-4">
-            <Button type="button" variant="outline" onClick={onClose} className="flex-1">Cancelar</Button>
-            <Button type="submit" className="flex-1 bg-orange-500">{combo ? 'Salvar' : 'Criar Combo'}</Button>
+            <Button type="button" variant="outline" onClick={onClose} className="flex-1">{comboModalText.cancel}</Button>
+            <Button type="submit" className="flex-1 bg-orange-500">{combo ? comboModalText.save : comboModalText.createCombo}</Button>
           </div>
           </form>
         </div>

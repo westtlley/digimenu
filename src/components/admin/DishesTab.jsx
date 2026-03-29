@@ -48,7 +48,7 @@ import DishesSkeleton from '../skeletons/DishesSkeleton';
 import { uploadToCloudinary } from '@/utils/cloudinaryUpload';
 import { formatCurrency } from '@/utils/formatters';
 import AdminImagePickerDialog from './media/AdminImagePickerDialog';
-import { uiText } from '@/i18n/pt-BR/uiText';
+import { useLanguage } from '@/i18n/LanguageContext';
 
 function normalizeCategoryId(value) {
   if (value === null || value === undefined || value === '') return '';
@@ -70,7 +70,8 @@ function normalizeInternalTab(value) {
 
 // ========= COMPONENT =========
 export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, initialTab = 'menu' }) {
-  const restaurantText = uiText.restaurant;
+  const { t } = useLanguage();
+  const restaurantText = t('restaurant');
   log.admin.debug('Ã°Å¸ÂÂ½Ã¯Â¸Â [DishesTab] Componente montado, initialTab:', initialTab);
   
   const [user, setUser] = React.useState(null);
@@ -114,7 +115,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
     target: null,
     groupId: null,
     optionId: null,
-    title: 'Adicionar foto',
+    title: restaurantText.addPhoto,
     folder: 'dishes',
   });
   
@@ -264,11 +265,11 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['dishes', ...menuQueryKeyParts] });
       if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
-      toast.success('Prato adicionado com sucesso!');
+      toast.success(restaurantText.addDishSuccess);
       closeDishModal();
     },
     onError: () => {
-      toast.error('Erro ao adicionar prato');
+      toast.error(restaurantText.addDishError);
     }
   });
 
@@ -291,9 +292,9 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
       if (ctx?.prev) {
         queryClient.setQueryData(['dishes', ...menuQueryKeyParts], ctx.prev);
       }
-      toast.error('Erro ao atualizar prato');
+      toast.error(restaurantText.updateDishError);
     },
-    onSuccess: () => toast.success('Prato atualizado!'),
+    onSuccess: () => toast.success(restaurantText.updateDishSuccess),
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['dishes', ...menuQueryKeyParts] });
       if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
@@ -310,7 +311,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
       if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
       toast.success(restaurantText.deletedDish);
     },
-    onError: () => toast.error('Erro ao excluir prato')
+    onError: () => toast.error(restaurantText.deleteDishError)
   });
 
   const createCategoryMutation = useMutation({
@@ -325,11 +326,11 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories', ...menuQueryKeyParts] });
       if (slug) queryClient.invalidateQueries({ queryKey: ['publicCardapio', slug] });
-      toast.success('Categoria criada com sucesso!');
+      toast.success(restaurantText.createCategorySuccess);
       setShowCategoryModal(false);
       setEditingCategory(null);
     },
-    onError: () => toast.error('Erro ao criar categoria')
+    onError: () => toast.error(restaurantText.createCategoryError)
   });
 
   const updateCategoryMutation = useMutation({
@@ -599,7 +600,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
       target: 'dish',
       groupId: null,
       optionId: null,
-      title: dishFormData.image ? 'Alterar foto do prato' : 'Adicionar foto',
+      title: dishFormData.image ? restaurantText.changeDishPhoto : restaurantText.addPhoto,
       folder: 'dishes',
     });
   };
@@ -610,7 +611,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
       target: 'option',
       groupId,
       optionId,
-      title: 'Adicionar foto',
+      title: restaurantText.addPhoto,
       folder: 'complements',
     });
   };
@@ -621,7 +622,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
       target: null,
       groupId: null,
       optionId: null,
-      title: 'Adicionar foto',
+      title: restaurantText.addPhoto,
       folder: 'dishes',
     });
   };
@@ -1359,11 +1360,11 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-8">
         <div className="text-center">
-          <p className="text-red-500 mb-4">Erro ao carregar dados</p>
+          <p className="text-red-500 mb-4">{restaurantText.errorLoadingData}</p>
           <p className="text-sm text-muted-foreground mb-4">
-            {dishesError?.message || categoriesError?.message || groupsError?.message || 'Erro desconhecido'}
+            {dishesError?.message || categoriesError?.message || groupsError?.message || restaurantText.unknownError}
           </p>
-          <Button onClick={() => window.location.reload()}>Recarregar página</Button>
+          <Button onClick={() => window.location.reload()}>{restaurantText.reloadPage}</Button>
         </div>
       </div>
     );
@@ -1381,12 +1382,12 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
             <h1 className="text-xl font-bold text-foreground">{currentViewLabel}</h1>
             <p className="text-xs text-muted-foreground">
               {internalTab === 'products'
-                ? 'Banco de produtos com busca, filtros e ações rápidas.'
-                : internalTab === 'complements'
-                  ? 'Grupos reutilizáveis para personalizar o pedido.'
-                  : internalTab === 'pdv'
-                    ? 'Controle visual do que vai aparecer no caixa.'
-                    : 'Organize categorias e produtos como o cliente enxerga.'}
+                    ? restaurantText.mobileProductsDescription
+                    : internalTab === 'complements'
+                      ? restaurantText.mobileComplementsDescription
+                      : internalTab === 'pdv'
+                        ? restaurantText.mobilePdvDescription
+                        : restaurantText.mobileMenuDescription}
             </p>
           </div>
 
@@ -1396,7 +1397,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
               className="flex items-center gap-2 rounded-xl bg-muted px-3 py-2 transition-colors active:bg-muted/80"
             >
               <Search className="h-4 w-4" />
-              <span className="text-sm font-medium">Filtros</span>
+              <span className="text-sm font-medium">{restaurantText.filtersTitle}</span>
               {activeFilters.length > 0 && (
                 <span className="flex h-5 w-5 items-center justify-center rounded-full bg-orange-500 text-xs text-primary-foreground">
                   {activeFilters.length}
@@ -1406,12 +1407,12 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
           ) : internalTab === 'menu' && canCreate('dishes') ? (
             <Button size="sm" onClick={() => handleOpenProductTypeModal(safeCategories[0]?.id || '')}>
               <Plus className="mr-1 h-4 w-4" />
-              Novo produto
+              {restaurantText.newProduct}
             </Button>
           ) : internalTab === 'pdv' && canCreate('dishes') ? (
             <Button size="sm" onClick={() => handleOpenProductTypeModal(safeCategories[0]?.id || '')}>
               <Plus className="mr-1 h-4 w-4" />
-              Novo produto
+              {restaurantText.newProduct}
             </Button>
           ) : null}
         </div>
@@ -1723,7 +1724,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
       <MobileBottomSheet
         isOpen={showMobileFilters}
         onClose={() => setShowMobileFilters(false)}
-        title="Filtros"
+        title={restaurantText.filtersTitle}
       >
         <div className="space-y-4">
           <div>
@@ -1797,7 +1798,7 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
             onClick={() => setShowMobileFilters(false)}
             className="w-full bg-orange-500 hover:bg-orange-600"
           >
-            Aplicar Filtros
+            {restaurantText.applyFilters}
           </Button>
         </div>
       </MobileBottomSheet>
@@ -1865,30 +1866,30 @@ export default function DishesTab({ onNavigateToPizzas, onNavigateToPromotions, 
       <Dialog open={showGroupSettingsModal} onOpenChange={setShowGroupSettingsModal}>
         <DialogContent className="sm:max-w-md max-w-[95vw]">
           <DialogHeader>
-            <DialogTitle>Configurações do grupo</DialogTitle>
-            <DialogDescription className="sr-only">Configurações do grupo de complementos.</DialogDescription>
+            <DialogTitle>{restaurantText.groupSettingsTitle}</DialogTitle>
+            <DialogDescription className="sr-only">{restaurantText.groupSettingsDescription}</DialogDescription>
           </DialogHeader>
           {editingGroup && (
             <div className="space-y-4">
               <div>
-                <Label>Nome do Grupo</Label>
+                <Label>{restaurantText.groupNameLabel}</Label>
                 <Input value={editingGroup.name} onChange={(e) => setEditingGroup(prev => ({ ...prev, name: e.target.value }))} />
               </div>
               <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                 <div>
-                  <Label className="font-medium">Obrigatório</Label>
-                  <p className="text-xs text-muted-foreground mt-0.5">Cliente deve escolher este grupo</p>
+                  <Label className="font-medium">{restaurantText.requiredLabel}</Label>
+                  <p className="text-xs text-muted-foreground mt-0.5">{restaurantText.requiredDescription}</p>
                 </div>
                 <Switch checked={editingGroup.is_required} onCheckedChange={(checked) => setEditingGroup(prev => ({ ...prev, is_required: checked }))} />
               </div>
               <div>
-                <Label>Máximo de seleções</Label>
-                <p className="text-xs text-muted-foreground mb-2">Quantas opções o cliente pode escolher</p>
+                <Label>{restaurantText.maxSelectionsLabel}</Label>
+                <p className="text-xs text-muted-foreground mb-2">{restaurantText.maxSelectionsDescription}</p>
                 <Input type="number" min="1" value={editingGroup.max_selection || 1} onChange={(e) => setEditingGroup(prev => ({ ...prev, max_selection: parseInt(e.target.value) || 1 }))} />
               </div>
               <div className="flex gap-3 pt-4">
-                <Button type="button" variant="outline" onClick={() => setShowGroupSettingsModal(false)} className="flex-1">Cancelar</Button>
-                <Button type="button" onClick={handleGroupSettingsSave} className="flex-1 bg-orange-500">Salvar</Button>
+                <Button type="button" variant="outline" onClick={() => setShowGroupSettingsModal(false)} className="flex-1">{t('media.cancel')}</Button>
+                <Button type="button" onClick={handleGroupSettingsSave} className="flex-1 bg-orange-500">{t('media.save')}</Button>
               </div>
             </div>
           )}

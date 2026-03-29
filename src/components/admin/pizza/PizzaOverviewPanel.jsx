@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
+import { useLanguage } from '@/i18n/LanguageContext';
 
 export default function PizzaOverviewPanel({
   profiles,
@@ -26,6 +27,8 @@ export default function PizzaOverviewPanel({
   onOpenMenu,
   pizzaGuideSteps,
 }) {
+  const { t } = useLanguage();
+  const pizzaOverviewText = t('pizza.overview');
   const recommendedTemplateName = pizzaTemplateCards.find((template) => template.id === recommendedTemplateId)?.name || 'Tradicional';
 
   return (
@@ -34,10 +37,10 @@ export default function PizzaOverviewPanel({
         <Card className="rounded-3xl border-slate-200 p-4 shadow-sm sm:p-5">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600">Perfil adaptativo</Badge>
-              <h3 className="mt-3 text-lg font-semibold text-slate-900 sm:text-xl">Qual o perfil da sua pizzaria?</h3>
+              <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600">{pizzaOverviewText.adaptiveProfile}</Badge>
+              <h3 className="mt-3 text-lg font-semibold text-slate-900 sm:text-xl">{pizzaOverviewText.title}</h3>
               <p className="mt-2 text-sm leading-6 text-slate-600">
-                O sistema ajusta leitura, score, templates e oportunidades para o seu jeito de vender.
+                {pizzaOverviewText.description}
               </p>
             </div>
             <Badge className="w-fit bg-slate-900 text-white">{businessProfile.badge}</Badge>
@@ -74,11 +77,11 @@ export default function PizzaOverviewPanel({
           <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <p className="text-sm font-semibold text-slate-900">Recomendação principal para {businessProfile.label}</p>
+                <p className="text-sm font-semibold text-slate-900">{pizzaOverviewText.mainRecommendation(businessProfile.label)}</p>
                 <p className="mt-1 text-sm text-slate-600">{businessProfile.description}</p>
               </div>
               <Badge variant="outline" className="border-orange-200 bg-white text-orange-700">
-                Template sugerido: {recommendedTemplateName}
+                {pizzaOverviewText.suggestedTemplate(recommendedTemplateName)}
               </Badge>
             </div>
           </div>
@@ -88,7 +91,7 @@ export default function PizzaOverviewPanel({
           <Card className={`rounded-3xl p-4 shadow-sm sm:p-5 ${commercialSummaryPresentation.className}`}>
             <div className="flex items-start justify-between gap-3">
               <div>
-                <Badge variant="outline" className={commercialSummaryPresentation.badgeClass}>Leitura continua</Badge>
+                <Badge variant="outline" className={commercialSummaryPresentation.badgeClass}>{pizzaOverviewText.continuousReadout}</Badge>
                 <h3 className="mt-3 text-base font-semibold text-slate-900 sm:text-lg">{commercialSummaryPresentation.title}</h3>
                 <p className="mt-2 text-sm leading-6 text-slate-700">{commercialSummaryPresentation.description}</p>
               </div>
@@ -97,11 +100,11 @@ export default function PizzaOverviewPanel({
 
             <div className="mt-4 grid grid-cols-2 gap-3">
               <div className="rounded-2xl border border-white/80 bg-white/80 p-3">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Entradas fortes</p>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{pizzaOverviewText.strongEntries}</p>
                 <p className="mt-2 text-2xl font-semibold text-slate-900">{commercialSummary.strong + commercialSummary.good}</p>
               </div>
               <div className="rounded-2xl border border-white/80 bg-white/80 p-3">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Entradas fracas</p>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{pizzaOverviewText.weakEntries}</p>
                 <p className="mt-2 text-2xl font-semibold text-slate-900">{commercialSummary.weak}</p>
               </div>
             </div>
@@ -110,10 +113,10 @@ export default function PizzaOverviewPanel({
           <Card className="rounded-3xl border-slate-200 p-4 shadow-sm sm:p-5">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600">Evolução automática</Badge>
-                <h3 className="mt-3 text-base font-semibold text-slate-900 sm:text-lg">Continuar melhorando automaticamente</h3>
+                <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600">{pizzaOverviewText.automaticEvolution}</Badge>
+                <h3 className="mt-3 text-base font-semibold text-slate-900 sm:text-lg">{pizzaOverviewText.keepImproving}</h3>
                 <p className="mt-2 text-sm leading-6 text-slate-600">
-                  O sistema segue observando novas oportunidades e oculta alertas resolvidos sem mexer nos seus dados sozinho.
+                  {pizzaOverviewText.evolutionDescription}
                 </p>
               </div>
               <Switch checked={evolutionModeEnabled} onCheckedChange={onEvolutionModeChange} />
@@ -129,10 +132,10 @@ export default function PizzaOverviewPanel({
 
       <div className="grid gap-4 xl:grid-cols-[0.92fr_1.08fr]">
         <Card className="rounded-3xl border-slate-200 p-4 shadow-sm sm:p-5">
-          <Badge variant="outline" className="border-orange-200 bg-orange-50 text-orange-700">Ações rápidas</Badge>
-          <h3 className="mt-3 text-lg font-semibold text-slate-900">Resolva os pontos principais em poucos toques</h3>
+          <Badge variant="outline" className="border-orange-200 bg-orange-50 text-orange-700">{pizzaOverviewText.quickActions}</Badge>
+          <h3 className="mt-3 text-lg font-semibold text-slate-900">{pizzaOverviewText.quickActionsTitle}</h3>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            As configurações detalhadas continuam nas seções técnicas. Aqui ficam os atalhos que mais destravam a operação.
+            {pizzaOverviewText.quickActionsDescription}
           </p>
 
           <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
@@ -142,16 +145,16 @@ export default function PizzaOverviewPanel({
               onClick={onAutoImproveStructure}
               disabled={!canRunAdminActions || !autoImprovePlan.canImprove}
             >
-              Melhorar automaticamente
+              {pizzaOverviewText.improveAutomatically}
             </Button>
             <Button type="button" variant="outline" className="min-h-11 justify-start" onClick={onOpenInsights}>
-              Abrir oportunidades
+              {pizzaOverviewText.openOpportunities}
             </Button>
             <Button type="button" variant="outline" className="min-h-11 justify-start" onClick={onOpenPreview}>
-              Ver preview do cliente
+              {pizzaOverviewText.seeCustomerPreview}
             </Button>
             <Button type="button" variant="outline" className="min-h-11 justify-start" onClick={onOpenMenu}>
-              Revisar entradas
+              {pizzaOverviewText.reviewEntries}
             </Button>
           </div>
         </Card>
@@ -162,8 +165,8 @@ export default function PizzaOverviewPanel({
               <AccordionItem value="guide" className="border-none">
                 <AccordionTrigger className="py-0 text-left hover:no-underline">
                   <div>
-                    <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600">Mapa da pizzaria</Badge>
-                    <p className="mt-3 text-base font-semibold text-slate-900">Navegue por etapa, sem se perder na tela</p>
+                    <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600">{pizzaOverviewText.pizzaMap}</Badge>
+                    <p className="mt-3 text-base font-semibold text-slate-900">{pizzaOverviewText.guideTitle}</p>
                   </div>
                 </AccordionTrigger>
                 <AccordionContent className="pt-4">
@@ -195,10 +198,10 @@ export default function PizzaOverviewPanel({
         <Card className="hidden rounded-3xl border-slate-200 p-5 shadow-sm md:block">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600">Mapa da pizzaria</Badge>
-              <h3 className="mt-3 text-lg font-semibold text-slate-900">Tudo organizado por etapa, sem scroll longo</h3>
+              <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600">{pizzaOverviewText.pizzaMap}</Badge>
+              <h3 className="mt-3 text-lg font-semibold text-slate-900">{pizzaOverviewText.organizedByStep}</h3>
             </div>
-            <Badge className="w-fit bg-slate-900 text-white">Secao ativa: Visao Geral</Badge>
+            <Badge className="w-fit bg-slate-900 text-white">{pizzaOverviewText.activeSection('Visão Geral')}</Badge>
           </div>
 
           <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">

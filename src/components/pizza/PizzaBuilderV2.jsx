@@ -20,6 +20,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency } from '@/utils/formatters';
+import { useLanguage } from '@/i18n/LanguageContext';
 
 // Imagem da borda: coloque sua borda realista em public/images/pizza-borda.png
 const LOCAL_EDGE_IMAGE = '/images/pizza-borda.png';
@@ -37,6 +38,8 @@ export default function PizzaBuilderV2({
   editingItem = null,
   store = null
 }) {
+  const { t } = useLanguage();
+  const pizzaBuilderText = t('pizza.builder');
   // Config da visualizaÃ§Ã£o (imagem da borda)
   const { data: savedConfigs = [] } = useQuery({
     queryKey: ['pizzaVisualizationConfig'],
@@ -296,13 +299,13 @@ export default function PizzaBuilderV2({
         ? `${selectedExtras.length} extra${selectedExtras.length !== 1 ? 's' : ''} selecionado${selectedExtras.length !== 1 ? 's' : ''} para sua pizza.`
         : hasExtrasAvailable
           ? 'Você pode seguir sem extras ou adicionar opcionais à sua pizza.'
-          : 'Não há extras disponíveis para esta pizza.';
+          : pizzaBuilderText.noExtrasAvailable;
   const observationsHelperText = !selectedFlavors.length
     ? 'As observações ficam disponíveis depois da escolha dos sabores.'
     : hasBordersAvailable && selectedEdge === null
       ? 'Confirme a borda para liberar o recado da cozinha.'
       : specifications
-        ? 'Recado para a cozinha adicionado.'
+        ? pizzaBuilderText.addKitchenNote
         : 'Se quiser, adicione um recado para a cozinha.';
   const ctaHelperText = !selectedSize
     ? 'Escolha o tamanho para continuar.'
@@ -310,7 +313,7 @@ export default function PizzaBuilderV2({
       ? flavorHelperText
       : hasExtrasAvailable && !extrasConfirmed
         ? 'Revise os extras e toque em Confirmar para continuar.'
-        : 'Sua pizza esta pronta para ir para o pedido.';
+        : pizzaBuilderText.readyForCart;
   const ctaButtonLabel = !selectedSize
     ? 'ESCOLHA O TAMANHO'
     : !selectedFlavors.length
@@ -341,7 +344,7 @@ export default function PizzaBuilderV2({
           <button onClick={onClose} className="text-white">
             <ChevronLeft size={24} />
           </button>
-          <h1 className="text-white font-black text-xl uppercase tracking-tighter">Monte sua pizza</h1>
+          <h1 className="text-white font-black text-xl uppercase tracking-tighter">{pizzaBuilderText.title}</h1>
         </div>
         <button onClick={onClose} className="text-white">
           <X size={24} />
@@ -364,9 +367,9 @@ export default function PizzaBuilderV2({
                   <div className="pointer-events-none absolute inset-x-4 top-8 h-40 rounded-full bg-[radial-gradient(circle_at_center,rgba(249,115,22,0.28),rgba(251,191,36,0.16),transparent_72%)] blur-2xl" />
                 )}
                 <div className="mb-4 w-full max-w-md rounded-2xl border border-white/10 bg-black/45 px-5 py-4 text-center shadow-[0_18px_50px_rgba(0,0,0,0.28)] backdrop-blur-xl">
-                  <p className="text-[11px] text-orange-200/80 font-black uppercase tracking-[0.24em]">Montagem premium</p>
+                  <p className="text-[11px] text-orange-200/80 font-black uppercase tracking-[0.24em]">{pizzaBuilderText.premiumBuild}</p>
                   <h2 className="mt-2 text-xl font-black uppercase tracking-tight text-white md:text-2xl">
-                    {selectedCategory?.name || dish?.name || 'Sua pizza'}
+                    {selectedCategory?.name || dish?.name || pizzaBuilderText.yourPizza}
                   </h2>
                   <p className="mt-2 text-sm text-gray-300 leading-relaxed">
                     {selectedFlavorSummary}
@@ -501,7 +504,7 @@ export default function PizzaBuilderV2({
                   )}
                 </button>
                 <div className="mt-3 w-full max-w-md rounded-2xl border border-white/10 bg-black/45 px-5 py-4 text-center shadow-[0_18px_50px_rgba(0,0,0,0.28)] backdrop-blur-xl">
-                  <p className="text-[11px] text-orange-200/80 font-black uppercase tracking-[0.24em]">Valor final da sua pizza</p>
+                  <p className="text-[11px] text-orange-200/80 font-black uppercase tracking-[0.24em]">{pizzaBuilderText.finalValueTitle}</p>
                   <div className="mt-1 flex items-end justify-center gap-2">
                     <span className="text-3xl md:text-4xl font-black text-white italic leading-none">{formatCurrency(calculatePrice())}</span>
                   </div>
@@ -519,7 +522,7 @@ export default function PizzaBuilderV2({
                     {selectedSize ? selectedSize.name : 'Escolha um tamanho'}
                   </Badge>
                   <Badge className="border border-white/10 bg-white/10 text-white text-[11px] font-bold px-3 py-1 rounded-full">
-                    {selectedSize ? `${selectedFlavorCount}/${maxFlavors} sabores` : 'Sabores pendentes'}
+                    {selectedSize ? `${selectedFlavorCount}/${maxFlavors} sabores` : pizzaBuilderText.pendingFlavors}
                   </Badge>
                   {selectedEdge !== null && (
                     <Badge className="border border-white/10 bg-white/10 text-white text-[11px] font-bold px-3 py-1 rounded-full">
@@ -545,7 +548,7 @@ export default function PizzaBuilderV2({
                 )}
                 {selectedFlavors.length >= maxFlavors && !isSingleFlavorPizza && (
                   <p className="mt-2 text-xs font-bold uppercase tracking-wide text-emerald-300/90">
-                    Sabores completos. Agora vocÃª pode personalizar sua pizza.
+                    {pizzaBuilderText.flavorsComplete}
                   </p>
                 )}
                 {selectedFlavors.length >= maxFlavors && isSingleFlavorPizza && (
@@ -561,7 +564,7 @@ export default function PizzaBuilderV2({
               {/* Categoria fixa (quando pizza jÃ¡ tem categoria) ou seletor de tamanho/categoria */}
               {categoryIsFixed ? (
                 <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/5">
-                  <p className="text-gray-400 text-xs uppercase tracking-widest font-black mb-1">Categoria</p>
+                  <p className="text-gray-400 text-xs uppercase tracking-widest font-black mb-1">{pizzaBuilderText.categoryLabel}</p>
                   <p className="text-white font-bold text-base md:text-lg">
                     {((selectedCategory || fixedCategory)?.name) || (() => {
                       const c = selectedCategory || fixedCategory;
@@ -573,7 +576,7 @@ export default function PizzaBuilderV2({
               ) : (
                 <div className="space-y-2">
                   <label className="text-white text-xs font-black uppercase tracking-widest opacity-80">
-                    {useCategories ? 'Categoria da pizza:' : 'Tamanho da pizza:'}
+                    {useCategories ? pizzaBuilderText.pizzaCategoryLabel : pizzaBuilderText.pizzaSizeLabel}
                   </label>
                   <div className="relative">
                     {useCategories ? (
@@ -589,7 +592,7 @@ export default function PizzaBuilderV2({
                           setSelectedFlavors([]);
                         }}
                       >
-                        <option value="">Selecione a categoria</option>
+                        <option value="">{pizzaBuilderText.selectCategory}</option>
                         {availableCategories.map(c => {
                           const sz = availableSizes.find(s => s.id === c.size_id);
                           return (
@@ -611,7 +614,7 @@ export default function PizzaBuilderV2({
                           setSelectedFlavors([]);
                         }}
                       >
-                        <option value="">Selecione o tamanho</option>
+                        <option value="">{pizzaBuilderText.selectSize}</option>
                         {availableSizes.map(s => (
                           <option key={s.id} value={s.id}>
                             {s.name} - {s.slices} fatias - {s.max_flavors} {s.max_flavors === 1 ? 'sabor' : 'sabores'}
@@ -628,7 +631,7 @@ export default function PizzaBuilderV2({
               <div className={`bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/5 ${!selectedSize ? 'opacity-60' : ''}`}>
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex-1 min-w-0">
-                    <p className="text-gray-400 text-xs uppercase tracking-widest font-black mb-1">Sabores</p>
+                    <p className="text-gray-400 text-xs uppercase tracking-widest font-black mb-1">{pizzaBuilderText.flavorsLabel}</p>
                     <p className="text-white text-sm font-bold leading-tight truncate">
                       {selectedFlavors.length > 0 ? (
                         <span>{selectedFlavors.map(f => f.name).join(' + ')}</span>
@@ -658,7 +661,7 @@ export default function PizzaBuilderV2({
               </div>
 
               {/* TÃ­tulo PersonalizaÃ§Ã£o - sÃ³ apÃ³s sabores */}
-              <h3 className={`text-white text-xs font-black uppercase tracking-widest px-2 pt-2 ${selectedFlavors.length < 1 ? 'opacity-50' : 'opacity-80'}`}>Agora personalize sua pizza:</h3>
+              <h3 className={`text-white text-xs font-black uppercase tracking-widest px-2 pt-2 ${selectedFlavors.length < 1 ? 'opacity-50' : 'opacity-80'}`}>{pizzaBuilderText.customizeTitle}</h3>
               
               {/* Borda - sÃ³ apÃ³s pizza completa (sabores selecionados) */}
               <button 
@@ -671,7 +674,7 @@ export default function PizzaBuilderV2({
                     <Star size={16} style={{ color: primaryColor }} className="fill-current" />
                   </div>
                   <div className="text-left">
-                    <p className="text-[9px] text-gray-400 uppercase tracking-wider font-black">Borda</p>
+                    <p className="text-[9px] text-gray-400 uppercase tracking-wider font-black">{pizzaBuilderText.borderLabel}</p>
                     <p className="text-white font-black text-xs">
                       {selectedEdge && selectedEdge.id !== 'none' ? selectedEdge.name : 'Sem borda'}
                     </p>
@@ -694,9 +697,9 @@ export default function PizzaBuilderV2({
                     <Plus size={16} className="text-blue-400" />
                   </div>
                   <div className="text-left">
-                    <p className="text-[9px] text-gray-400 uppercase tracking-wider font-black">Extras</p>
+                    <p className="text-[9px] text-gray-400 uppercase tracking-wider font-black">{pizzaBuilderText.extrasLabel}</p>
                     <p className="text-white font-black text-xs">
-                      {selectedExtras.length > 0 ? `${selectedExtras.length} selecionados` : 'Sem extras'}
+                      {selectedExtras.length > 0 ? `${selectedExtras.length} selecionados` : pizzaBuilderText.noExtras}
                     </p>
                     <p className="mt-1 text-[11px] leading-relaxed text-gray-400 max-w-[16rem]">
                       {extrasHelperText}
@@ -717,7 +720,7 @@ export default function PizzaBuilderV2({
                     <span className="text-lg">ðŸ“</span>
                   </div>
                   <div className="text-left">
-                    <p className="text-[9px] text-gray-400 uppercase tracking-wider font-black">Recado para a cozinha</p>
+                    <p className="text-[9px] text-gray-400 uppercase tracking-wider font-black">{pizzaBuilderText.kitchenNoteLabel}</p>
                     <p className="text-white font-black text-xs">
                       {specifications ? 'Recado adicionado' : 'Algum recado para a cozinha?'}
                     </p>
@@ -734,7 +737,7 @@ export default function PizzaBuilderV2({
                 <div className="rounded-2xl border border-white/10 bg-black/35 p-4 shadow-[0_18px_50px_rgba(0,0,0,0.28)] backdrop-blur-xl">
                   <div className="mb-3 flex items-center justify-between gap-3">
                     <div>
-                      <p className="text-[11px] font-black uppercase tracking-[0.24em] text-gray-400">Quase pronta</p>
+                      <p className="text-[11px] font-black uppercase tracking-[0.24em] text-gray-400">{pizzaBuilderText.almostReady}</p>
                       <p className="mt-1 text-sm text-gray-300">{ctaHelperText}</p>
                     </div>
                     <div className="text-right">
@@ -769,7 +772,7 @@ export default function PizzaBuilderV2({
               <p className="mt-1 text-sm text-gray-300 leading-relaxed">{ctaHelperText}</p>
             </div>
             <div className="text-right shrink-0">
-              <p className="text-[11px] font-black uppercase tracking-[0.24em] text-gray-500">Sua pizza</p>
+              <p className="text-[11px] font-black uppercase tracking-[0.24em] text-gray-500">{pizzaBuilderText.yourPizza}</p>
               <p className="text-2xl font-black text-white">{formatCurrency(calculatePrice())}</p>
             </div>
           </div>
@@ -802,7 +805,7 @@ export default function PizzaBuilderV2({
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
           <input 
             type="text" 
-            placeholder="Pesquisar sabor..."
+            placeholder={pizzaBuilderText.searchFlavorPlaceholder}
             className="w-full bg-white rounded-xl py-3 pl-10 pr-3 text-gray-900 font-medium text-sm focus:outline-none shadow-inner border border-gray-100"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -871,7 +874,7 @@ export default function PizzaBuilderV2({
       <footer className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-gray-200 p-4 shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-50">
         <div className="mx-auto flex w-full max-w-3xl items-center justify-between gap-4">
           <div className="flex-1">
-            <span className="text-[9px] text-gray-400 font-black uppercase tracking-widest">Progresso</span>
+            <span className="text-[9px] text-gray-400 font-black uppercase tracking-widest">{pizzaBuilderText.progressLabel}</span>
             <span className="mt-1 block text-sm font-black text-gray-900 uppercase">
               {selectedFlavorCount} de {maxFlavors} sabores
             </span>
@@ -1025,7 +1028,7 @@ export default function PizzaBuilderV2({
         )}
         {step === 'observations' && (
           <SelectionOverlay 
-            title="Recado para a cozinha" 
+            title={pizzaBuilderText.kitchenNoteLabel} 
             items={[]} 
             current={specifications} 
             onSelect={setSpecifications} 

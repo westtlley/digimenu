@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+﻿import React, { useState, useEffect, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,7 @@ import MasterSlugSettings from './MasterSlugSettings';
 import { extractColorsFromImage } from '@/utils/extractColorsFromImage';
 import { getMenuContextEntityOpts, getMenuContextQueryKeyParts } from '@/utils/tenantScope';
 import AdminMediaField from './media/AdminMediaField';
+import { useLanguage } from '@/i18n/LanguageContext';
 
 const DAYS_OF_WEEK = [
   { value: 0, label: 'Dom' },
@@ -28,10 +29,12 @@ const DAYS_OF_WEEK = [
   { value: 3, label: 'Qua' },
   { value: 4, label: 'Qui' },
   { value: 5, label: 'Sex' },
-  { value: 6, label: 'Sáb' },
+  { value: 6, label: 'SÃ¡b' },
 ];
 
 export default function StoreTab() {
+  const { t } = useLanguage();
+  const storeText = t('store');
   const { subscriberData, isMaster, refresh, menuContext } = usePermission();
   const [user, setUser] = React.useState(null);
   const [slugEdit, setSlugEdit] = useState('');
@@ -48,24 +51,24 @@ export default function StoreTab() {
         trigger_product_types: ['pizza'],
         min_cart_value: 0,
         dish_id: null,
-        title: '🥤 Que tal uma bebida?',
-        message: 'Pizza sem bebida? Adicione {product_name} por apenas {product_price}',
+        title: storeText.defaultBeverageTitle,
+        message: storeText.defaultPizzaMessage,
         discount_percent: 0
       },
       dessert_offer: {
         enabled: true,
         min_cart_value: 40,
         dish_id: null,
-        title: '🍰 Que tal uma sobremesa?',
-        message: 'Complete seu pedido com {product_name} por apenas {product_price}',
+        title: storeText.defaultDessertTitle,
+        message: storeText.defaultCompleteOrderMessage,
         discount_percent: 0
       },
       combo_offer: {
         enabled: true,
         min_pizzas: 2,
         dish_id: null,
-        title: '🔥 Oferta Especial!',
-        message: 'Compre {min_pizzas} pizzas e ganhe {product_name} GRÁTIS!',
+        title: storeText.defaultComboTitle,
+        message: storeText.defaultComboMessage,
         discount_percent: 100
       }
     }
@@ -96,12 +99,12 @@ export default function StoreTab() {
     },
     onSuccess: () => {
       refresh();
-      toast.success('Link do cardápio atualizado.');
+      toast.success('Link do cardÃ¡pio atualizado.');
     },
-    onError: (e) => toast.error(e?.message || 'Erro ao salvar link'),
+    onError: (e) => toast.error(e?.message || storeText.linkSaveError),
   });
 
-  // ✅ CORREÇÃO: Buscar store com contexto do slug
+  // âœ… CORREÃ‡ÃƒO: Buscar store com contexto do slug
   const { data: stores = [] } = useQuery({
     queryKey: ['store', ...getMenuContextQueryKeyParts(menuContext)],
     queryFn: async () => {
@@ -116,7 +119,7 @@ export default function StoreTab() {
 
   const updateStoreBannersMutation = useMutation({
     mutationFn: async (data) => {
-      if (!store?.id) throw new Error('Loja não encontrada');
+      if (!store?.id) throw new Error('Loja nÃ£o encontrada');
       return base44.entities.Store.update(store.id, data, getMenuContextEntityOpts(menuContext));
     },
     onSuccess: () => {
@@ -217,7 +220,7 @@ export default function StoreTab() {
       queryClient.invalidateQueries({ queryKey: ['store'] });
       queryClient.invalidateQueries({ queryKey: ['stores'] });
       queryClient.refetchQueries({ queryKey: ['store'] });
-      toast.success('✅ Loja criada com sucesso!', {
+      toast.success(storeText.createSuccess, {
         duration: 3000,
         position: 'top-center'
       });
@@ -227,7 +230,7 @@ export default function StoreTab() {
     },
     onError: (error) => {
       console.error('Erro ao criar:', error);
-      toast.error('❌ Erro ao criar: ' + (error?.message || 'Desconhecido'), {
+      toast.error('âŒ Erro ao criar: ' + (error?.message || 'Desconhecido'), {
         duration: 5000,
         position: 'top-center'
       });
@@ -236,14 +239,14 @@ export default function StoreTab() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ data }) => {
-      console.log('💾 [StoreTab] Salvando dados da loja:', data);
+      console.log('ðŸ’¾ [StoreTab] Salvando dados da loja:', data);
       
-      // Limpar dados: remover valores undefined e garantir que arrays sejam válidos
+      // Limpar dados: remover valores undefined e garantir que arrays sejam vÃ¡lidos
       const cleanData = Object.keys(data).reduce((acc, key) => {
         const value = data[key];
         // Ignorar undefined
         if (value === undefined) return acc;
-        // Garantir que arrays sejam arrays válidos
+        // Garantir que arrays sejam arrays vÃ¡lidos
         if (Array.isArray(value)) {
           acc[key] = value.filter(item => item !== undefined && item !== null);
         } else {
@@ -257,28 +260,28 @@ export default function StoreTab() {
         owner_email: user?.subscriber_email || user?.email
       };
       
-      console.log('✅ [StoreTab] Dados limpos a serem salvos:', JSON.stringify(storeData, null, 2));
+      console.log('âœ… [StoreTab] Dados limpos a serem salvos:', JSON.stringify(storeData, null, 2));
       
-      // Sempre usar o método direto de update/create para garantir que funcione
+      // Sempre usar o mÃ©todo direto de update/create para garantir que funcione
       try {
         const stores = await base44.entities.Store.list();
-        console.log('📋 [StoreTab] Lojas encontradas:', stores.length, stores);
+        console.log('ðŸ“‹ [StoreTab] Lojas encontradas:', stores.length, stores);
         
         if (stores.length === 0) {
-          console.log('➕ [StoreTab] Criando nova loja...');
+          console.log('âž• [StoreTab] Criando nova loja...');
           const created = await base44.entities.Store.create(storeData);
-          console.log('✅ [StoreTab] Loja criada com sucesso:', created);
+          console.log('âœ… [StoreTab] Loja criada com sucesso:', created);
           return { success: true, store: created };
         } else {
-          console.log('🔄 [StoreTab] Atualizando loja existente (ID:', stores[0].id, ')...');
-          console.log('📤 [StoreTab] Enviando dados:', JSON.stringify(storeData, null, 2));
+          console.log('ðŸ”„ [StoreTab] Atualizando loja existente (ID:', stores[0].id, ')...');
+          console.log('ðŸ“¤ [StoreTab] Enviando dados:', JSON.stringify(storeData, null, 2));
           const updated = await base44.entities.Store.update(stores[0].id, storeData);
-          console.log('✅ [StoreTab] Loja atualizada com sucesso:', updated);
+          console.log('âœ… [StoreTab] Loja atualizada com sucesso:', updated);
           return { success: true, store: updated };
         }
       } catch (error) {
-        console.error('❌ [StoreTab] Erro ao salvar loja:', error);
-        console.error('❌ [StoreTab] Detalhes do erro:', {
+        console.error('âŒ [StoreTab] Erro ao salvar loja:', error);
+        console.error('âŒ [StoreTab] Detalhes do erro:', {
           message: error.message,
           stack: error.stack,
           response: error.response,
@@ -289,30 +292,30 @@ export default function StoreTab() {
     },
     onSuccess: (result) => {
       console.log('Sucesso ao salvar:', result);
-      // Invalidar todas as queries relacionadas à loja
+      // Invalidar todas as queries relacionadas Ã  loja
       queryClient.invalidateQueries({ queryKey: ['store'] });
       queryClient.invalidateQueries({ queryKey: ['stores'] });
-      // Forçar refetch imediato
+      // ForÃ§ar refetch imediato
       queryClient.refetchQueries({ queryKey: ['store'] });
-      toast.success('✅ Configurações da loja salvas com sucesso!', {
+      toast.success('âœ… ConfiguraÃ§Ãµes da loja salvas com sucesso!', {
         duration: 3000,
         position: 'top-center'
       });
-      // Recarregar página após 1 segundo para garantir que tudo seja atualizado
+      // Recarregar pÃ¡gina apÃ³s 1 segundo para garantir que tudo seja atualizado
       setTimeout(() => {
         window.location.reload();
       }, 1000);
     },
     onError: (error) => {
-      console.error('❌ Erro ao salvar loja:', error);
-      console.error('❌ Erro detalhado:', {
+      console.error('âŒ Erro ao salvar loja:', error);
+      console.error('âŒ Erro detalhado:', {
         message: error?.message,
         stack: error?.stack,
         response: error?.response,
         data: error?.data
       });
       const errorMessage = error?.message || error?.response?.data?.message || error?.toString() || 'Erro desconhecido';
-      toast.error('❌ Erro ao salvar as configurações da loja. ' + errorMessage, {
+      toast.error('âŒ Erro ao salvar as configuraÃ§Ãµes da loja. ' + errorMessage, {
         duration: 5000,
         position: 'top-center'
       });
@@ -354,11 +357,11 @@ export default function StoreTab() {
           queryClient.invalidateQueries({ queryKey: ['store', ...getMenuContextQueryKeyParts(menuContext)] });
           toast.success('Logo e cores do tema atualizados a partir da logo.');
         } else {
-          toast.success('Logo atualizada. Cores do tema serão aplicadas ao salvar.');
+          toast.success(storeText.logoThemeDeferred);
         }
       } catch (extractErr) {
-        console.warn('Extração de cores da logo:', extractErr);
-        toast.success('Logo atualizada! Ela será exibida no cardápio digital.');
+        console.warn('ExtraÃ§Ã£o de cores da logo:', extractErr);
+        toast.success(storeText.logoUpdated);
       }
     } catch (error) {
       console.error('Erro ao fazer upload:', error);
@@ -396,7 +399,7 @@ export default function StoreTab() {
 
   const storeMode = getStoreMode();
 
-  // Estatísticas e validações
+  // EstatÃ­sticas e validaÃ§Ãµes
   const storeStatus = useMemo(() => {
     const hasLogo = !!formData.logo;
     const hasName = !!formData.name?.trim();
@@ -421,25 +424,25 @@ export default function StoreTab() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-6 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">
         <div className="mb-6">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-2">Configurações da Loja</h1>
-          <p className="text-gray-600 dark:text-gray-400">Gerencie as informações e funcionamento do seu restaurante</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-2">ConfiguraÃ§Ãµes da Loja</h1>
+          <p className="text-gray-600 dark:text-gray-400">Gerencie as informaÃ§Ãµes e funcionamento do seu restaurante</p>
         </div>
 
-        {/* Configuração de Slug do Master */}
+        {/* ConfiguraÃ§Ã£o de Slug do Master */}
         {isMaster && user && (
           <div className="mb-6">
             <MasterSlugSettings user={user} />
           </div>
         )}
 
-        {/* Status da Configuração */}
+        {/* Status da ConfiguraÃ§Ã£o */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6">
           <Card className={storeStatus.hasLogo ? 'border-green-200' : 'border-gray-200'}>
             <CardContent className="p-3 sm:p-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Logo</p>
-                  <p className="text-base sm:text-lg font-bold">{storeStatus.hasLogo ? '✓' : '✗'}</p>
+                  <p className="text-base sm:text-lg font-bold">{storeStatus.hasLogo ? 'âœ“' : 'âœ—'}</p>
                 </div>
                 {storeStatus.hasLogo ? (
                   <CheckCircle2 className="w-5 h-5 sm:w-6 sm:h-6 text-green-500" />
@@ -454,7 +457,7 @@ export default function StoreTab() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Nome</p>
-                  <p className="text-base sm:text-lg font-bold">{storeStatus.hasName ? '✓' : '✗'}</p>
+                  <p className="text-base sm:text-lg font-bold">{storeStatus.hasName ? 'âœ“' : 'âœ—'}</p>
                 </div>
                 {storeStatus.hasName ? (
                   <CheckCircle2 className="w-5 h-5 sm:w-6 sm:h-6 text-green-500" />
@@ -469,7 +472,7 @@ export default function StoreTab() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">WhatsApp</p>
-                  <p className="text-base sm:text-lg font-bold">{storeStatus.hasWhatsApp ? '✓' : '✗'}</p>
+                  <p className="text-base sm:text-lg font-bold">{storeStatus.hasWhatsApp ? 'âœ“' : 'âœ—'}</p>
                 </div>
                 {storeStatus.hasWhatsApp ? (
                   <CheckCircle2 className="w-5 h-5 sm:w-6 sm:h-6 text-green-500" />
@@ -497,27 +500,27 @@ export default function StoreTab() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Seção: Identidade da Loja */}
+          {/* SeÃ§Ã£o: Identidade da Loja */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Store className="w-5 h-5 text-orange-500" />
-                Identidade da Loja
+                {storeText.storeIdentityTitle}
               </CardTitle>
-              <CardDescription>Nome, logo e informações de contato</CardDescription>
+              <CardDescription>{storeText.storeIdentityDescription}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               {/* Logo */}
               <div className="flex flex-col items-center">
                 <div className="w-full max-w-md">
                   <AdminMediaField
-                    label="Logotipo"
+                    label={storeText.logoLabel}
                     value={formData.logo}
                     onChange={handleLogoImageSelect}
                     imageType="logo"
                     folder="store"
                     mediaModule="store"
-                    title="Adicionar logo"
+                    title={storeText.addLogoTitle}
                     description="A logo aparece em varios pontos do sistema. Priorize contraste e leitura."
                     helperText="As cores do tema continuam sendo extraidas automaticamente a partir da logo."
                   />
@@ -538,7 +541,7 @@ export default function StoreTab() {
                           <HelpCircle className="w-4 h-4 text-gray-400 hover:text-gray-600 cursor-help" />
                         </TooltipTrigger>
                         <TooltipContent className="max-w-xs">
-                          <p className="text-xs">Nome que aparecerá no cardápio digital e nos pedidos dos clientes</p>
+                          <p className="text-xs">Nome que aparecerÃ¡ no cardÃ¡pio digital e nos pedidos dos clientes</p>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
@@ -552,7 +555,7 @@ export default function StoreTab() {
                     className={!formData.name?.trim() ? 'border-red-300' : ''}
                   />
                   {!formData.name?.trim() && (
-                    <p className="text-xs text-red-500 mt-1">Nome da loja é obrigatório</p>
+                    <p className="text-xs text-red-500 mt-1">Nome da loja Ã© obrigatÃ³rio</p>
                   )}
                 </div>
 
@@ -566,7 +569,7 @@ export default function StoreTab() {
                           <HelpCircle className="w-4 h-4 text-gray-400 hover:text-gray-600 cursor-help" />
                         </TooltipTrigger>
                         <TooltipContent className="max-w-xs">
-                          <p className="text-xs">Número usado para receber pedidos via WhatsApp. Formato: DDD + número completo</p>
+                          <p className="text-xs">NÃºmero usado para receber pedidos via WhatsApp. Formato: DDD + nÃºmero completo</p>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
@@ -582,9 +585,9 @@ export default function StoreTab() {
                     maxLength={15}
                   />
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Formato: DDD + número (apenas números)
+                    Formato: DDD + nÃºmero (apenas nÃºmeros)
                     {formData.whatsapp && formData.whatsapp.length < 10 && (
-                      <span className="text-red-500 ml-2">Número muito curto</span>
+                      <span className="text-red-500 ml-2">NÃºmero muito curto</span>
                     )}
                   </p>
                 </div>
@@ -593,13 +596,13 @@ export default function StoreTab() {
               <div>
                 <Label htmlFor="address" className="flex items-center gap-2 mb-2">
                   <MapPin className="w-4 h-4 text-gray-500" />
-                  Endereço
+                  EndereÃ§o
                 </Label>
                 <MobileInput
                   id="address"
                   value={formData.address}
                   onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
-                  placeholder="Rua, número, bairro, cidade"
+                  placeholder="Rua, nÃºmero, bairro, cidade"
                 />
               </div>
 
@@ -612,7 +615,7 @@ export default function StoreTab() {
                         <HelpCircle className="w-4 h-4 text-gray-400 hover:text-gray-600 cursor-help" />
                       </TooltipTrigger>
                       <TooltipContent className="max-w-xs">
-                        <p className="text-xs">Slogan ou frase que aparece no topo do cardápio digital para atrair clientes</p>
+                        <p className="text-xs">Slogan ou frase que aparece no topo do cardÃ¡pio digital para atrair clientes</p>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
@@ -621,7 +624,7 @@ export default function StoreTab() {
                   id="slogan"
                   value={formData.slogan}
                   onChange={(e) => setFormData(prev => ({ ...prev, slogan: e.target.value }))}
-                  placeholder="Ex: O melhor sabor da região!"
+                  placeholder="Ex: O melhor sabor da regiÃ£o!"
                 />
               </div>
 
@@ -648,7 +651,7 @@ export default function StoreTab() {
                     id="facebook"
                     value={formData.facebook}
                     onChange={(e) => setFormData(prev => ({ ...prev, facebook: e.target.value }))}
-                    placeholder="Link da página"
+                    placeholder="Link da pÃ¡gina"
                   />
                 </div>
 
@@ -668,14 +671,14 @@ export default function StoreTab() {
             </CardContent>
           </Card>
 
-          {/* Seção: Funcionamento */}
+          {/* SeÃ§Ã£o: Funcionamento */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Clock className="w-5 h-5 text-orange-500" />
                 Funcionamento
               </CardTitle>
-              <CardDescription>Defina quando sua loja está aberta</CardDescription>
+              <CardDescription>Defina quando sua loja estÃ¡ aberta</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               {/* Modo da Loja */}
@@ -693,10 +696,10 @@ export default function StoreTab() {
                   >
                     <div className="flex items-center gap-2 mb-2">
                       <div className={`w-3 h-3 rounded-full ${storeMode === 'auto' ? 'bg-blue-500' : 'bg-gray-300'}`} />
-                      <span className="font-semibold text-sm">🔵 Automático</span>
+                      <span className="font-semibold text-sm">ðŸ”µ AutomÃ¡tico</span>
                     </div>
                     <p className="text-xs text-gray-600">
-                      Baseado em horários e dias configurados
+                      Baseado em horÃ¡rios e dias configurados
                     </p>
                   </button>
 
@@ -711,10 +714,10 @@ export default function StoreTab() {
                   >
                     <div className="flex items-center gap-2 mb-2">
                       <div className={`w-3 h-3 rounded-full ${storeMode === 'open' ? 'bg-green-500' : 'bg-gray-300'}`} />
-                      <span className="font-semibold text-sm">🟢 Sempre Aberta</span>
+                      <span className="font-semibold text-sm">ðŸŸ¢ Sempre Aberta</span>
                     </div>
                     <p className="text-xs text-gray-600">
-                      Ignora horários, aberto 24h
+                      Ignora horÃ¡rios, aberto 24h
                     </p>
                   </button>
 
@@ -729,21 +732,21 @@ export default function StoreTab() {
                   >
                     <div className="flex items-center gap-2 mb-2">
                       <div className={`w-3 h-3 rounded-full ${storeMode === 'closed' ? 'bg-red-500' : 'bg-gray-300'}`} />
-                      <span className="font-semibold text-sm">🔴 Fechada</span>
+                      <span className="font-semibold text-sm">ðŸ”´ Fechada</span>
                     </div>
                     <p className="text-xs text-gray-600">
-                      Loja fechada independente do horário
+                      Loja fechada independente do horÃ¡rio
                     </p>
                   </button>
                 </div>
               </div>
 
-              {/* Horários (apenas se AUTO) */}
+              {/* HorÃ¡rios (apenas se AUTO) */}
               {storeMode === 'auto' && (
                 <>
                   <Separator />
                   <div>
-                    <Label className="mb-3 block font-semibold">Horário de Funcionamento</Label>
+                    <Label className="mb-3 block font-semibold">HorÃ¡rio de Funcionamento</Label>
                     <div className="grid sm:grid-cols-2 gap-4">
                       <div>
                         <Label htmlFor="opening-time" className="text-sm text-gray-600 mb-2 block">Abertura</Label>
@@ -816,12 +819,12 @@ export default function StoreTab() {
             </CardContent>
           </Card>
 
-          {/* Seção: Pausa de Pedidos */}
+          {/* SeÃ§Ã£o: Pausa de Pedidos */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <AlertCircle className="w-5 h-5 text-orange-500" />
-                Pausa Temporária de Pedidos
+                Pausa TemporÃ¡ria de Pedidos
               </CardTitle>
               <CardDescription>Bloqueie pedidos sem fechar a loja</CardDescription>
             </CardHeader>
@@ -837,7 +840,7 @@ export default function StoreTab() {
                     Pausar Pedidos Temporariamente
                   </Label>
                   <p className="text-xs text-gray-600 mt-1">
-                    A loja continua visível, mas os clientes não poderão fazer pedidos
+                    A loja continua visÃ­vel, mas os clientes nÃ£o poderÃ£o fazer pedidos
                   </p>
                 </div>
               </div>
@@ -852,30 +855,30 @@ export default function StoreTab() {
                     placeholder="Ex: Voltamos em 30 minutos"
                   />
                   <p className="text-xs text-gray-500 mt-2 p-3 bg-gray-50 rounded-lg border">
-                    <strong>Prévia:</strong> {formData.pause_message || 'Voltamos em breve.'}
+                    <strong>PrÃ©via:</strong> {formData.pause_message || 'Voltamos em breve.'}
                   </p>
                 </div>
               )}
             </CardContent>
           </Card>
 
-          {/* Banners do cardápio */}
+          {/* Banners do cardÃ¡pio */}
           {store && (
             <Card>
               <CardHeader>
-                <CardTitle>Banners do cardápio</CardTitle>
-                <CardDescription>Foto de capa e banners promocionais exibidos no cardápio</CardDescription>
+                <CardTitle>{storeText.coverTitle}</CardTitle>
+                <CardDescription>{storeText.coverDescription}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
                   <AdminMediaField
-                    label="Foto de capa (banner superior)"
+                    label={storeText.coverImageLabel}
                     value={store.banner_image}
                     onChange={handleBannerImageSelect}
                     imageType="cover"
                     folder="store"
                     mediaModule="store"
-                    title="Adicionar capa da loja"
+                    title={storeText.addCoverTitle}
                     description="Essa imagem aparece no topo da loja e deve aproveitar bem a largura."
                     existingImages={(storeBanners || [])
                       .filter((item) => item?.image)
@@ -884,17 +887,17 @@ export default function StoreTab() {
                 </div>
                 <div>
                   <div className="flex justify-between items-center mb-2">
-                    <Label>Banners promocionais</Label>
-                    <Button type="button" size="sm" variant="outline" onClick={addBanner}>+ Adicionar</Button>
+                    <Label>{storeText.promotionalBanners}</Label>
+                    <Button type="button" size="sm" variant="outline" onClick={addBanner}>+ {storeText.addBanner}</Button>
                   </div>
                   {(storeBanners || []).map((b, i) => (
                     <div key={i} className="p-3 border rounded-lg mb-2 space-y-2">
                       <div className="flex justify-between">
-                        <span className="text-sm font-medium">Banner {i + 1}</span>
-                        <Button type="button" variant="ghost" size="sm" className="text-red-600" onClick={() => removeBanner(i)}>Remover</Button>
+                        <span className="text-sm font-medium">{storeText.bannerLabel(i + 1)}</span>
+                        <Button type="button" variant="ghost" size="sm" className="text-red-600" onClick={() => removeBanner(i)}>{storeText.remove}</Button>
                       </div>
                       <AdminMediaField
-                        label="Imagem do banner"
+                        label={storeText.bannerImageLabel}
                         value={b.image}
                         onChange={(url) => handleBannerImgSelect(url, i)}
                         imageType="banner"
@@ -903,8 +906,8 @@ export default function StoreTab() {
                         title={`Adicionar banner ${i + 1}`}
                         description="Use uma arte horizontal para campanhas e destaques do cardapio."
                       />
-                      <Input placeholder="Título" value={b.title || ''} onChange={(e) => updateBanner(i, 'title', e.target.value)} />
-                      <Input placeholder="Subtítulo" value={b.subtitle || ''} onChange={(e) => updateBanner(i, 'subtitle', e.target.value)} />
+                      <Input placeholder="TÃ­tulo" value={b.title || ''} onChange={(e) => updateBanner(i, 'title', e.target.value)} />
+                      <Input placeholder="SubtÃ­tulo" value={b.subtitle || ''} onChange={(e) => updateBanner(i, 'subtitle', e.target.value)} />
                       <Input placeholder="Link" value={b.link || ''} onChange={(e) => updateBanner(i, 'link', e.target.value)} />
                       <div className="flex items-center gap-2">
                         <Switch checked={b.active !== false} onCheckedChange={(v) => updateBanner(i, 'active', v)} />
@@ -917,21 +920,21 @@ export default function StoreTab() {
             </Card>
           )}
 
-          {/* Link do cardápio — cada assinante tem seu link /s/:slug - ÚLTIMA OPÇÃO */}
+          {/* Link do cardÃ¡pio â€” cada assinante tem seu link /s/:slug - ÃšLTIMA OPÃ‡ÃƒO */}
           {!isMaster && subscriberData && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Link2 className="w-5 h-5" />
-                  Link do seu cardápio
+                  {storeText.menuLinkTitle}
                 </CardTitle>
                 <CardDescription>
-                  Este é o link que seus clientes usam para ver o cardápio. Compartilhe no WhatsApp, redes sociais, etc.
+                  {storeText.menuLinkDescription}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <Label>Seu link</Label>
+                  <Label>{storeText.yourLink}</Label>
                   <div className="flex gap-2 mt-1">
                     <Input
                       readOnly
@@ -944,7 +947,7 @@ export default function StoreTab() {
                       size="icon"
                       onClick={() => {
                         const url = `${window.location.origin}/s/${subscriberData?.slug || ''}`;
-                        if (url && navigator.clipboard) navigator.clipboard.writeText(url).then(() => toast.success('Link copiado!'));
+                        if (url && navigator.clipboard) navigator.clipboard.writeText(url).then(() => toast.success(storeText.copiedLink));
                       }}
                       className="min-h-touch min-w-touch"
                     >
@@ -953,11 +956,11 @@ export default function StoreTab() {
                   </div>
                 </div>
                 <div>
-                  <Label>Personalize o final do link (ex: meu-restaurante)</Label>
-                  <p className="text-xs text-gray-500 mb-1">Apenas letras minúsculas, números e hífen. Deixe em branco para remover.</p>
+                  <Label>{storeText.customizeLink}</Label>
+                  <p className="text-xs text-gray-500 mb-1">{storeText.customizeLinkHelp}</p>
                   <div className="flex gap-2">
                     <MobileInput
-                      placeholder="ex: meu-restaurante"
+                      placeholder={storeText.linkPlaceholderShort}
                       value={slugEdit}
                       onChange={(e) => setSlugEdit(e.target.value)}
                       className="font-mono"
@@ -968,7 +971,7 @@ export default function StoreTab() {
                       disabled={slugSaveMutation.isPending}
                       className="min-h-touch"
                     >
-                      {slugSaveMutation.isPending ? 'Salvando…' : 'Salvar'}
+                      {slugSaveMutation.isPending ? storeText.saving : storeText.save}
                     </Button>
                   </div>
                 </div>
@@ -976,7 +979,7 @@ export default function StoreTab() {
             </Card>
           )}
 
-          {/* Botão Salvar */}
+          {/* BotÃ£o Salvar */}
           <div className="sticky bottom-0 pt-4 pb-6 bg-gray-50 z-10">
             <Button
               type="submit"
@@ -986,7 +989,7 @@ export default function StoreTab() {
             >
               <Save className={`w-4 h-4 sm:w-5 sm:h-5 mr-2 ${(updateMutation.isPending || createMutation.isPending) ? 'animate-spin' : ''}`} />
               <span className="text-sm sm:text-base">
-                {(updateMutation.isPending || createMutation.isPending) ? 'Salvando...' : 'Salvar Alterações'}
+                {(updateMutation.isPending || createMutation.isPending) ? storeText.saving : storeText.saveChanges}
               </span>
             </Button>
           </div>
@@ -995,3 +998,5 @@ export default function StoreTab() {
     </div>
   );
 }
+
+

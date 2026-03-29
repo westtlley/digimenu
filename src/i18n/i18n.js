@@ -1,4 +1,4 @@
-import ptBR from './translations/pt-BR';
+﻿import ptBR from './translations/pt-BR';
 import enUS from './translations/en-US';
 
 export const DEFAULT_LANGUAGE = 'pt-BR';
@@ -98,4 +98,5 @@ export function createTranslator(language) {
 export function t(key, fallback = '') {
   return resolveTranslation(currentLanguage, key, fallback);
 }
+
 

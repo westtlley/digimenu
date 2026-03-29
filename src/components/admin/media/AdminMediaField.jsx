@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import AdminImagePickerDialog from './AdminImagePickerDialog';
 import { getMediaUploadPreset } from './mediaUploadPresets';
+import { useLanguage } from '@/i18n/LanguageContext';
 import {
   inferAdminMediaModule,
   mergeAdminMediaItems,
@@ -26,14 +27,20 @@ export default function AdminMediaField({
   existingImages = [],
   helperText,
   className,
-  previewAlt = 'Preview da imagem',
-  addLabel = 'Adicionar imagem',
-  replaceLabel = 'Alterar imagem',
-  removeLabel = 'Remover',
+  previewAlt,
+  addLabel,
+  replaceLabel,
+  removeLabel,
 }) {
+  const { t } = useLanguage();
+  const mediaText = t('media');
   const [open, setOpen] = useState(false);
   const lastSyncedSignatureRef = useRef('');
   const preset = useMemo(() => getMediaUploadPreset(imageType), [imageType]);
+  const resolvedPreviewAlt = previewAlt || mediaText.field.previewAlt;
+  const resolvedAddLabel = addLabel || mediaText.field.addImage;
+  const resolvedReplaceLabel = replaceLabel || mediaText.field.replaceImage;
+  const resolvedRemoveLabel = removeLabel || mediaText.field.removeImage;
   const isLandscape = preset.aspectRatio > 1.2;
   const referenceLabel = title || label || preset.title || preset.label;
   const sourceLabel = label || preset.label;
@@ -129,11 +136,11 @@ export default function AdminMediaField({
             style={isLandscape ? { aspectRatio: String(preset.aspectRatio) } : undefined}
           >
             {value ? (
-              <img src={value} alt={previewAlt} className="h-full w-full object-cover" />
+              <img src={value} alt={resolvedPreviewAlt} className="h-full w-full object-cover" />
             ) : (
               <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-center text-xs text-muted-foreground">
                 <ImagePlus className="h-5 w-5" />
-                <span>Sem imagem</span>
+                <span>{mediaText.field.noImage}</span>
               </div>
             )}
           </div>
@@ -147,23 +154,23 @@ export default function AdminMediaField({
 
             <div className="space-y-1 text-sm text-muted-foreground">
               <p>
-                Recomendado: <span className="font-medium text-foreground">{preset.recommendedSize}</span> ({preset.ratioLabel})
+                {mediaText.field.recommendedPrefix}: <span className="font-medium text-foreground">{preset.recommendedSize}</span> ({preset.ratioLabel})
               </p>
               <p>
-                Area visivel principal: <span className="font-medium text-foreground">{preset.focusLabel}</span>
+                {mediaText.field.visibleArea}: <span className="font-medium text-foreground">{preset.focusLabel}</span>
               </p>
-              <p>Evite cortar elementos importantes e prefira imagens limpas e bem iluminadas.</p>
+              <p>{mediaText.field.avoidCutting}</p>
               {helperText ? <p>{helperText}</p> : null}
             </div>
 
             <div className="flex flex-wrap gap-2 pt-1">
               <Button type="button" variant="outline" onClick={() => setOpen(true)}>
-                {value ? replaceLabel : addLabel}
+                {value ? resolvedReplaceLabel : resolvedAddLabel}
               </Button>
               {value ? (
                 <Button type="button" variant="ghost" className="text-red-600 hover:text-red-700" onClick={() => onChange?.('')}>
                   <Trash2 className="mr-2 h-4 w-4" />
-                  {removeLabel}
+                  {resolvedRemoveLabel}
                 </Button>
               ) : null}
             </div>

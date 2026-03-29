@@ -26,6 +26,7 @@ import { extractColorsFromImage } from '@/utils/extractColorsFromImage';
 import { getMenuContextEntityOpts, getMenuContextQueryKeyParts } from '@/utils/tenantScope';
 import { usePermission } from '../permissions/usePermission';
 import StorefrontThemePreview from './theme/StorefrontThemePreview';
+import { useLanguage } from '@/i18n/LanguageContext';
 import {
   buildStorefrontThemePayload,
   getContrastRatio,
@@ -273,6 +274,7 @@ function CardStyleOption({ option, active, onSelect, accent }) {
 }
 
 export default function ThemeTab() {
+  const { t } = useLanguage();
   const { activeTheme } = useAppTheme();
   const { menuContext } = usePermission();
   const queryClient = useQueryClient();
@@ -350,11 +352,11 @@ export default function ThemeTab() {
     onSuccess: async (_, variables) => {
       await queryClient.invalidateQueries({ queryKey: ['store', ...menuContextQueryKey] });
       if (!variables?.silent) {
-        toast.success('Tema da loja salvo com sucesso.');
+        toast.success(t('theme.saveSuccess', 'Tema da loja salvo com sucesso.'));
       }
     },
     onError: (error) => {
-      toast.error(error?.message || 'Não foi possível salvar o tema da loja.');
+      toast.error(error?.message || t('theme.saveError', 'Não foi possível salvar o tema da loja.'));
     },
   });
 
@@ -389,7 +391,7 @@ export default function ThemeTab() {
 
   const extractColorsFromLogo = async () => {
     if (!store?.logo) {
-      toast.error('A loja precisa ter uma logo para extrair a paleta.');
+      toast.error(t('theme.logoRequired', 'A loja precisa ter uma logo para extrair a paleta.'));
       return;
     }
 
@@ -397,7 +399,7 @@ export default function ThemeTab() {
       setIsExtractingColors(true);
       const extracted = await extractColorsFromImage(store.logo);
       if (!extracted?.primary) {
-        toast.error('Não foi possível extrair cores suficientes da logo.');
+        toast.error(t('theme.insufficientColors', 'Não foi possível extrair cores suficientes da logo.'));
         return;
       }
 
@@ -412,9 +414,9 @@ export default function ThemeTab() {
         theme_badge_bg: extracted.accent || current.theme_badge_bg,
         theme_footer_bg: extracted.secondary || current.theme_footer_bg,
       }));
-      toast.success('Paleta aplicada com base na logo.');
+      toast.success(t('theme.paletteApplied', 'Paleta aplicada com base na logo.'));
     } catch (error) {
-      toast.error(error?.message || 'Não foi possível extrair as cores da logo.');
+      toast.error(error?.message || t('theme.extractError', 'Não foi possível extrair as cores da logo.'));
     } finally {
       setIsExtractingColors(false);
     }
@@ -422,7 +424,7 @@ export default function ThemeTab() {
 
   const handleReset = () => {
     setDraft(persistedTheme);
-    toast.success('Alterações visuais descartadas.');
+    toast.success(t('theme.discarded', 'Alterações visuais descartadas.'));
   };
 
   const handleSave = () => {
@@ -521,11 +523,11 @@ export default function ThemeTab() {
 
               <div className="flex flex-col sm:items-end gap-2">
                 <Button variant="outline" className="w-full sm:w-auto" onClick={handleReset} disabled={!hasChanges || updateMutation.isPending}>
-                  Descartar
+                  {t('theme.discard', 'Descartar')}
                 </Button>
                 <Button className="w-full sm:w-auto gap-2" onClick={handleSave} disabled={!hasChanges || updateMutation.isPending}>
                   <Save className="w-4 h-4" />
-                  Salvar tema
+                  {t('theme.saveTheme', 'Salvar tema')}
                 </Button>
               </div>
             </div>
@@ -560,15 +562,15 @@ export default function ThemeTab() {
             <TabsList className="grid h-auto grid-cols-3 rounded-[20px] p-1.5 bg-muted/70">
               <TabsTrigger value="colors" className="rounded-2xl py-2.5 text-xs sm:text-sm gap-2">
                 <Palette className="w-4 h-4" />
-                Cores
+                {t('theme.colors', 'Cores')}
               </TabsTrigger>
               <TabsTrigger value="layout" className="rounded-2xl py-2.5 text-xs sm:text-sm gap-2">
                 <LayoutGrid className="w-4 h-4" />
-                Layout
+                {t('theme.layout', 'Layout')}
               </TabsTrigger>
               <TabsTrigger value="advanced" className="rounded-2xl py-2.5 text-xs sm:text-sm gap-2">
                 <ShieldCheck className="w-4 h-4" />
-                Extras
+                {t('theme.extras', 'Extras')}
               </TabsTrigger>
             </TabsList>
 
@@ -586,7 +588,7 @@ export default function ThemeTab() {
                         disabled={isExtractingColors || !store?.logo}
                       >
                         <ImageIcon className="w-4 h-4" />
-                        {isExtractingColors ? 'Extraindo...' : 'Usar cores da logo'}
+                        {isExtractingColors ? t('theme.extracting', 'Extraindo...') : t('theme.useLogoColors', 'Usar cores da logo')}
                       </Button>
                     )}
                   />

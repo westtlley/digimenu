@@ -37,6 +37,7 @@ import { cn } from '@/lib/utils';
 import BeverageCard from '@/components/menu/BeverageCard';
 import BeverageOverviewPanel from '@/components/admin/beverages/BeverageOverviewPanel';
 import BeverageInsightsPanel from '@/components/admin/beverages/BeverageInsightsPanel';
+import { useLanguage } from '@/i18n/LanguageContext';
 import {
   getAdminBeverageIntelligence,
   mergeBeverageStrategySources,
@@ -59,15 +60,15 @@ import {
 
 const formatCurrency = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
 
-const DEFAULT_BEVERAGE_OFFER = {
+const buildDefaultBeverageOffer = (workspaceText) => ({
   enabled: true,
   trigger_product_types: ['pizza', 'dish', 'hamburger'],
   min_cart_value: 0,
   dish_id: null,
-  title: '?? Que tal uma bebida?',
+  title: workspaceText.defaultOfferTitle,
   message: 'Complete seu pedido com {product_name} por apenas {product_price}',
   discount_percent: 0,
-};
+});
 
 const statusToneMap = {
   Fraca: 'border-rose-200 bg-rose-50 text-rose-700',
@@ -75,20 +76,6 @@ const statusToneMap = {
   Boa: 'border-sky-200 bg-sky-50 text-sky-700',
   Forte: 'border-emerald-200 bg-emerald-50 text-emerald-700',
 };
-
-const previewContextMap = {
-  menu: { label: 'Cardápio público', title: 'Como a bebida aparece no catálogo', icon: GlassWater },
-  pizza: { label: 'Sugestao para pizza', title: 'Upsell depois da pizza', icon: Pizza },
-  dish: { label: 'Sugestao para prato', title: 'Upsell para restaurante', icon: UtensilsCrossed },
-  combo: { label: 'Combo / promocao', title: 'Como ela entra numa oferta', icon: Layers3 },
-};
-
-const DIETARY_OPTIONS = [
-  { id: 'vegano', label: 'Vegano' },
-  { id: 'sem_lactose', label: 'Sem lactose' },
-  { id: 'sem_gluten', label: 'Sem gluten' },
-  { id: 'zero_acucar', label: 'Zero acucar' },
-];
 
 const normalizeTriggerTypes = (value) => {
   if (!Array.isArray(value) || value.length === 0) return ['pizza', 'dish', 'hamburger'];
@@ -103,6 +90,8 @@ const BEVERAGE_SUBSECTION_NAV = {
 };
 
 export default function BeveragesTab() {
+  const { t } = useLanguage();
+  const beverageWorkspaceText = t('beverages.workspace');
   const [user, setUser] = useState(null);
   const [activeSection, setActiveSection] = useState('catalog');
   const [showBeverageModal, setShowBeverageModal] = useState(false);
@@ -118,7 +107,20 @@ export default function BeveragesTab() {
   const [runningActionId, setRunningActionId] = useState(null);
   const [beverageStrategy, setBeverageStrategy] = useState({});
   const [beverageMetrics, setBeverageMetrics] = useState({});
-  const [upsellDraft, setUpsellDraft] = useState(DEFAULT_BEVERAGE_OFFER);
+  const previewContextMap = useMemo(() => ({
+    menu: { label: beverageWorkspaceText.previewMenuLabel, title: beverageWorkspaceText.previewMenuTitle, icon: GlassWater },
+    pizza: { label: beverageWorkspaceText.previewPizzaLabel, title: beverageWorkspaceText.previewPizzaTitle, icon: Pizza },
+    dish: { label: beverageWorkspaceText.previewDishLabel, title: beverageWorkspaceText.previewDishTitle, icon: UtensilsCrossed },
+    combo: { label: beverageWorkspaceText.previewComboLabel, title: beverageWorkspaceText.previewComboTitle, icon: Layers3 },
+  }), [beverageWorkspaceText]);
+  const dietaryOptions = useMemo(() => ([
+    { id: 'vegano', label: beverageWorkspaceText.vegan },
+    { id: 'sem_lactose', label: beverageWorkspaceText.lactoseFree },
+    { id: 'sem_gluten', label: beverageWorkspaceText.glutenFree },
+    { id: 'zero_acucar', label: beverageWorkspaceText.sugarFree },
+  ]), [beverageWorkspaceText]);
+  const defaultBeverageOffer = useMemo(() => buildDefaultBeverageOffer(beverageWorkspaceText), [beverageWorkspaceText]);
+  const [upsellDraft, setUpsellDraft] = useState(() => buildDefaultBeverageOffer(t('beverages.workspace')));
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -205,7 +207,7 @@ export default function BeveragesTab() {
 
   const store = stores?.[0] || null;
   const crossSellConfig = store?.cross_sell_config || {};
-  const realBeverageOffer = crossSellConfig?.beverage_offer || DEFAULT_BEVERAGE_OFFER;
+  const realBeverageOffer = crossSellConfig?.beverage_offer || defaultBeverageOffer;
   const activeUpsellDishId = realBeverageOffer?.dish_id || null;
   const performanceByBeverage = useMemo(
     () => adminBeverageIntelligence?.performance_by_beverage || {},
@@ -386,7 +388,7 @@ export default function BeveragesTab() {
 
   useEffect(() => {
     setUpsellDraft({
-      ...DEFAULT_BEVERAGE_OFFER,
+      ...defaultBeverageOffer,
       ...realBeverageOffer,
       trigger_product_types: normalizeTriggerTypes(realBeverageOffer?.trigger_product_types),
     });
@@ -613,7 +615,7 @@ export default function BeveragesTab() {
           : 'Como o cliente percebe a bebida';
 
     const message = String(realBeverageOffer?.dish_id || '') === String(previewBeverage?.id || '')
-      ? String(realBeverageOffer?.message || DEFAULT_BEVERAGE_OFFER.message)
+      ? String(realBeverageOffer?.message || defaultBeverageOffer.message)
           .replace('{product_name}', previewBeverage?.name || 'a bebida')
           .replace('{product_price}', formatCurrency(finalPrice))
       : previewContext === 'combo'
@@ -901,7 +903,7 @@ export default function BeveragesTab() {
       ...crossSellConfig,
       enabled: true,
       beverage_offer: {
-        ...DEFAULT_BEVERAGE_OFFER,
+        ...defaultBeverageOffer,
         ...realBeverageOffer,
         ...upsellDraft,
         trigger_product_types: normalizeTriggerTypes(upsellDraft.trigger_product_types),
@@ -937,7 +939,7 @@ export default function BeveragesTab() {
         }
 
         const nextOffer = {
-          ...DEFAULT_BEVERAGE_OFFER,
+          ...defaultBeverageOffer,
           ...realBeverageOffer,
           enabled: true,
           dish_id: bestCandidate.beverage.id,
@@ -1032,7 +1034,7 @@ export default function BeveragesTab() {
 
         if (!activeUpsellDishId && bestCandidate) {
           const nextOffer = {
-            ...DEFAULT_BEVERAGE_OFFER,
+            ...defaultBeverageOffer,
             ...realBeverageOffer,
             enabled: true,
             dish_id: bestCandidate.beverage.id,
@@ -1067,7 +1069,7 @@ export default function BeveragesTab() {
             <Wine className="h-6 w-6 text-cyan-500" />
             Bebidas IA
           </h2>
-          <p className="mt-1 text-sm text-gray-500">Carregando módulo estratégico de bebidas...</p>
+          <p className="mt-1 text-sm text-gray-500">{beverageWorkspaceText.strategicLoading}</p>
         </div>
         <Card>
           <CardContent className="p-4">
@@ -1095,11 +1097,10 @@ export default function BeveragesTab() {
           <Badge variant="outline" className="border-cyan-200 bg-cyan-50 text-cyan-700">Bebidas IA V1</Badge>
           <h2 className="mt-3 flex items-center gap-2 text-2xl font-bold text-slate-900">
             <Wine className="h-6 w-6 text-cyan-500" />
-            Produtos primeiro, ticket por tras
+            {beverageWorkspaceText.title}
           </h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-            A operação agora entra direto no catálogo. Upsell, preview e inteligência continuam no módulo,
-            mas organizados como apoio para vender mais, não como barreira para editar bebida.
+            {beverageWorkspaceText.description}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -1185,7 +1186,7 @@ export default function BeveragesTab() {
                   </p>
                 </div>
                 <Button type="button" variant="outline" onClick={() => openBeverageWorkspace('links')}>
-                  Abrir vínculos e upsell
+                  {beverageWorkspaceText.openLinks}
                 </Button>
               </div>
 
@@ -1301,7 +1302,7 @@ export default function BeveragesTab() {
               <CardContent className="py-12 text-center">
                 <Wine className="mx-auto mb-3 h-12 w-12 text-slate-300" />
                 <p className="text-sm font-medium text-slate-700">Nenhuma bebida encontrada</p>
-                <p className="mt-2 text-sm text-slate-500">Ajuste o filtro ou cadastre a primeira bebida estratégica do módulo.</p>
+                <p className="mt-2 text-sm text-slate-500">{beverageWorkspaceText.firstStrategicDrink}</p>
                 <Button variant="outline" className="mt-4" onClick={() => openBeverageModal()}>Cadastrar bebida</Button>
               </CardContent>
             </Card>
@@ -1315,7 +1316,7 @@ export default function BeveragesTab() {
                 <div>
                   <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600">Vinculos & upsell</Badge>
                   <h3 className="mt-3 text-lg font-semibold text-slate-900">Onde a bebida aparece e como ela ajuda a vender</h3>
-                  <p className="mt-2 text-sm leading-6 text-slate-600">Aqui fica a ponte entre bebida, prato, pizza, categoria e cross-sell real do cardápio. E o ponto mais importante do lote.</p>
+                  <p className="mt-2 text-sm leading-6 text-slate-600">{beverageWorkspaceText.linksDescription}</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Button type="button" variant="outline" onClick={() => openBeverageWorkspace('preview')}>Abrir preview</Button>
@@ -1397,7 +1398,7 @@ export default function BeveragesTab() {
                         <Badge key={category.id} variant="outline" className="bg-white text-slate-700">{category.name}</Badge>
                       )) : <Badge className="bg-emerald-100 text-emerald-700">Cobertura boa</Badge>}
                     </div>
-                    <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-4 text-sm text-slate-600">O foco aqui é decidir onde a bebida aparece de forma estratégica: prato, categoria, pizza, delivery e combo.</div>
+                    <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-4 text-sm text-slate-600">{beverageWorkspaceText.strategyFocus}</div>
                   </CardContent>
                 </Card>
               </div>
@@ -1486,7 +1487,7 @@ export default function BeveragesTab() {
                             </Badge>
                           ) : null}
                           {decisionSummary?.primary_beverage_id && String(decisionSummary.primary_beverage_id) === String(selectedEntry.beverage.id) ? (
-                            <Badge className="bg-emerald-100 text-emerald-700">Principal automática</Badge>
+                            <Badge className="bg-emerald-100 text-emerald-700">{beverageWorkspaceText.automaticPrimary}</Badge>
                           ) : null}
                           {selectedEntry.performance?.ab_test_candidate ? (
                             <Badge variant="outline" className="bg-white text-slate-700">Teste A/B leve</Badge>
@@ -1497,7 +1498,7 @@ export default function BeveragesTab() {
                         </p>
                         <div className="mt-3 grid gap-3 sm:grid-cols-3">
                           <div className="rounded-xl border border-white/80 bg-white/90 p-3">
-                            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Aceitação</p>
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{beverageWorkspaceText.acceptance}</p>
                             <p className="mt-1 text-lg font-semibold text-slate-900">{Number(selectedEntry.performance?.acceptance_rate || 0).toFixed(0)}%</p>
                           </div>
                           <div className="rounded-xl border border-white/80 bg-white/90 p-3">
@@ -1546,7 +1547,7 @@ export default function BeveragesTab() {
                             <p className="mt-1 text-xs text-slate-500">
                               {selectedEntry.performance?.margin_source === 'real'
                                 ? `Margem calculada com custo real em ${Number(selectedEntry.performance?.margin_percentage || 0).toFixed(1)}%.`
-                                : 'Preencha o custo para liberar margem real e decisão mais agressiva.'}
+                                : beverageWorkspaceText.realMarginHint}
                             </p>
                           </div>
                         </div>
@@ -1564,7 +1565,7 @@ export default function BeveragesTab() {
                           </div>
                           <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/80 p-3">
                             <div>
-                              <p className="text-sm font-semibold text-slate-900">Desativar automação para este item</p>
+                              <p className="text-sm font-semibold text-slate-900">{beverageWorkspaceText.disableAutomation}</p>
                               <p className="text-xs text-slate-500">Ele continua no catálogo, mas sai do ranking automático.</p>
                             </div>
                             <Switch
@@ -1706,14 +1707,14 @@ export default function BeveragesTab() {
                       <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/80 p-3">
                         <div>
                           <p className="text-sm font-semibold text-slate-900">Preparada para upsell</p>
-                          <p className="text-xs text-slate-500">Mesmo que ainda não seja a bebida real do cross-sell.</p>
+                          <p className="text-xs text-slate-500">{beverageWorkspaceText.preparedForUpsellHelp}</p>
                         </div>
                         <Switch checked={selectedStrategy.preparedForUpsell === true} onCheckedChange={(checked) => updateStrategyForBeverage(selectedEntry.beverage.id, (current) => ({ ...current, preparedForUpsell: checked }))} />
                       </div>
                       <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/80 p-3">
                         <div>
                           <p className="text-sm font-semibold text-slate-900">Mais pedido junto</p>
-                          <p className="text-xs text-slate-500">Leitura comercial para cross-sell e cardápio.</p>
+                          <p className="text-xs text-slate-500">{beverageWorkspaceText.moreOrderedHelp}</p>
                         </div>
                         <Switch checked={selectedStrategy.moreOrdered === true} onCheckedChange={(checked) => updateStrategyForBeverage(selectedEntry.beverage.id, (current) => ({ ...current, moreOrdered: checked }))} />
                       </div>
@@ -1728,7 +1729,7 @@ export default function BeveragesTab() {
 
                     <div className="flex flex-wrap gap-2">
                       <Button type="button" className="bg-cyan-600 hover:bg-cyan-700" onClick={applySuggestionToSelectedBeverage}>
-                        <Sparkles className="mr-2 h-4 w-4" /> Aplicar sugestão automática
+                        <Sparkles className="mr-2 h-4 w-4" /> {beverageWorkspaceText.applyAutomaticSuggestion}
                       </Button>
                       <Button type="button" variant="outline" onClick={() => setUpsellDraft((prev) => ({ ...prev, enabled: true, dish_id: selectedEntry.beverage.id, trigger_product_types: buildTriggerTypesFromStrategy(selectedEntry.beverage.id) }))}>
                         <ShoppingCart className="mr-2 h-4 w-4" /> Usar como bebida do upsell
@@ -1737,7 +1738,7 @@ export default function BeveragesTab() {
                   </div>
                 ) : (
                   <div className="rounded-2xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">
-                    Selecione uma bebida para editar seus vínculos e o posicionamento comercial.
+                    {beverageWorkspaceText.selectDrinkHint}
                   </div>
                 )}
               </CardContent>
@@ -1751,8 +1752,8 @@ export default function BeveragesTab() {
               <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                 <div>
                   <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600">Preview</Badge>
-                  <h3 className="mt-3 text-lg font-semibold text-slate-900">Como a bebida vende no cardápio, no upsell e no combo</h3>
-                  <p className="mt-2 text-sm leading-6 text-slate-600">O objetivo aqui não é reproduzir o fluxo inteiro. É deixar claro como essa bebida aparece e por que ela aumenta ticket.</p>
+                  <h3 className="mt-3 text-lg font-semibold text-slate-900">{beverageWorkspaceText.previewTitle}</h3>
+                  <p className="mt-2 text-sm leading-6 text-slate-600">{beverageWorkspaceText.previewDescription}</p>
                 </div>
                 <Select value={String(previewBeverage?.id || '')} onValueChange={setSelectedBeverageId}>
                   <SelectTrigger className="w-full sm:w-[260px]"><SelectValue placeholder="Escolha a bebida" /></SelectTrigger>
@@ -1783,7 +1784,7 @@ export default function BeveragesTab() {
             <div className="grid gap-4 xl:grid-cols-[0.92fr_1.08fr]">
               <Card className="rounded-3xl border-slate-200 shadow-sm">
                 <CardContent className="p-4 sm:p-5">
-                  <Badge variant="outline" className="border-cyan-200 bg-cyan-50 text-cyan-700">Cartão público</Badge>
+                  <Badge variant="outline" className="border-cyan-200 bg-cyan-50 text-cyan-700">{beverageWorkspaceText.previewMenuLabel}</Badge>
                   <h4 className="mt-3 text-base font-semibold text-slate-900">{previewContextMap[previewContext]?.title}</h4>
                   <div className="mx-auto mt-4 max-w-[280px]">
                     <BeverageCard beverage={previewBeverage} onClick={() => {}} compact primaryColor="#0891b2" />
@@ -1794,7 +1795,7 @@ export default function BeveragesTab() {
               <div className="space-y-4">
                 <Card className="rounded-3xl border-slate-200 shadow-sm">
                   <CardContent className="p-4 sm:p-5">
-                    <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600">Sugestao contextual</Badge>
+                    <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600">{beverageWorkspaceText.contextualSuggestion}</Badge>
                     <div className="mt-4 rounded-3xl border border-slate-200 bg-slate-50/80 p-4">
                       <div className="flex items-start gap-3">
                         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-100 text-cyan-700"><Sparkles className="h-5 w-5" /></div>
@@ -1943,7 +1944,7 @@ export default function BeveragesTab() {
                 <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={formData.caffeine} onChange={(event) => setFormData((prev) => ({ ...prev, caffeine: event.target.checked }))} /> Cafeina</label>
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
-                {DIETARY_OPTIONS.map((option) => (
+                {dietaryOptions.map((option) => (
                   <Badge key={option.id} variant={formData.dietary_tags.includes(option.id) ? 'default' : 'outline'} className="cursor-pointer" onClick={() => toggleDietaryTag(option.id)}>{option.label}</Badge>
                 ))}
               </div>
@@ -1959,7 +1960,7 @@ export default function BeveragesTab() {
               <Switch checked={formData.is_active} onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, is_active: checked }))} />
             </div>
             <div className="flex items-center justify-between rounded-lg border p-3">
-              <Label>Destacar no cardápio</Label>
+              <Label>{beverageWorkspaceText.highlightInMenu}</Label>
               <Switch checked={formData.is_highlight} onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, is_highlight: checked }))} />
             </div>
 
@@ -1986,6 +1987,7 @@ export default function BeveragesTab() {
     </div>
   );
 }
+
 
 
 

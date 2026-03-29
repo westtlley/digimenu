@@ -3,7 +3,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { uiText } from '@/i18n/pt-BR/uiText';
+import { useLanguage } from '@/i18n/LanguageContext';
 
 const toneClassByLevel = {
   FORTE: 'border-emerald-200 bg-emerald-50/80',
@@ -28,7 +28,8 @@ export default function BeverageOverviewPanel({
   onQuickAction,
   onOpenSection,
 }) {
-  const beverageOverviewText = uiText.beverages.overview;
+  const { t } = useLanguage();
+  const beverageOverviewText = t('beverages.overview');
   const learningReadout =
     performanceSummary?.learning_state === 'aprendendo_com_dados'
       ? beverageOverviewText.learning.live
@@ -42,7 +43,7 @@ export default function BeverageOverviewPanel({
         <Card className="rounded-3xl border-slate-200 p-4 shadow-sm sm:p-5">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <Badge variant="outline" className="border-cyan-200 bg-cyan-50 text-cyan-700">Visao comercial</Badge>
+              <Badge variant="outline" className="border-cyan-200 bg-cyan-50 text-cyan-700">{beverageOverviewText.commercialReadoutBadge}</Badge>
               <h3 className="mt-3 text-lg font-semibold text-slate-900 sm:text-xl">{beverageOverviewText.title}</h3>
               <p className="mt-2 text-sm leading-6 text-slate-600">
                 {beverageOverviewText.description}
@@ -53,19 +54,19 @@ export default function BeverageOverviewPanel({
 
           <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Ativas</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{beverageOverviewText.activeLabel}</p>
               <p className="mt-2 text-2xl font-semibold text-slate-900">{moduleSummary.activeCount}</p>
             </div>
             <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Fortes / boas</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{beverageOverviewText.strongGoodLabel}</p>
               <p className="mt-2 text-2xl font-semibold text-slate-900">{moduleSummary.strong + moduleSummary.good}</p>
             </div>
             <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Fracas</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{beverageOverviewText.weakLabel}</p>
               <p className="mt-2 text-2xl font-semibold text-slate-900">{moduleSummary.weak}</p>
             </div>
             <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Categorias sem upsell</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{beverageOverviewText.categoriesWithoutUpsell}</p>
               <p className="mt-2 text-2xl font-semibold text-slate-900">{moduleSummary.categoriesWithoutUpsell}</p>
             </div>
             <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
@@ -73,11 +74,11 @@ export default function BeverageOverviewPanel({
               <p className="mt-2 text-2xl font-semibold text-slate-900">{Number(performanceSummary?.module_acceptance_rate || 0).toFixed(0)}%</p>
             </div>
             <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Receita gerada</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{beverageOverviewText.generatedRevenue}</p>
               <p className="mt-2 text-2xl font-semibold text-slate-900">{formatCurrency(performanceSummary?.total_revenue_generated || 0)}</p>
             </div>
             <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Margem real</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{beverageOverviewText.realMargin}</p>
               <p className="mt-2 text-2xl font-semibold text-slate-900">{performanceSummary?.real_margin_coverage || 0}</p>
             </div>
             <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
@@ -98,8 +99,8 @@ export default function BeverageOverviewPanel({
           <Card className="rounded-3xl border-slate-200 p-4 shadow-sm sm:p-5">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600">Upsell real</Badge>
-                <h3 className="mt-3 text-base font-semibold text-slate-900 sm:text-lg">Bebida usada hoje no cross-sell</h3>
+                <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600">{beverageOverviewText.realUpsellBadge}</Badge>
+                <h3 className="mt-3 text-base font-semibold text-slate-900 sm:text-lg">{beverageOverviewText.currentUpsellTitle}</h3>
                 <p className="mt-2 text-sm leading-6 text-slate-600">
                   {beverageOverviewText.currentUpsellDescription}
                 </p>
@@ -119,7 +120,7 @@ export default function BeverageOverviewPanel({
                 </>
               ) : (
                 <>
-                  <p className="text-sm font-semibold text-slate-900">Nenhuma bebida ativada ainda</p>
+                  <p className="text-sm font-semibold text-slate-900">{beverageOverviewText.noActiveDrink}</p>
                   <p className="mt-1 text-sm text-slate-600">
                     {beverageOverviewText.inactiveUpsellDescription}
                   </p>
@@ -128,7 +129,7 @@ export default function BeverageOverviewPanel({
             </div>
 
             <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Leitura dos dados</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{beverageOverviewText.dataReadout}</p>
               <p className="mt-2 text-sm font-semibold text-slate-900">{learningReadout}</p>
             </div>
 
@@ -136,31 +137,31 @@ export default function BeverageOverviewPanel({
               <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{beverageOverviewText.automaticDecision}</p>
               <p className="mt-2 text-sm font-semibold text-slate-900">
                 {decisionSummary?.primary_beverage_name
-                  ? `${decisionSummary.primary_beverage_name} lidera o upsell automático`
-                  : 'O sistema ainda está usando fallback seguro para escolher a principal.'}
+                  ? beverageOverviewText.automaticLeader(decisionSummary.primary_beverage_name)
+                  : beverageOverviewText.automaticFallback}
               </p>
               <p className="mt-2 text-sm text-slate-600">
-                {decisionSummary?.primary_reason || 'Assim que houver dados ou override suficiente, a principal passa a aparecer aqui.'}
+                {decisionSummary?.primary_reason || beverageOverviewText.automaticFallbackDescription}
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <Badge variant="outline" className="bg-white text-slate-700">
-                  {decisionSummary?.fixed_count || 0} fixa(s)
+                  {beverageOverviewText.fixedCount(decisionSummary?.fixed_count || 0)}
                 </Badge>
                 <Badge variant="outline" className="bg-white text-slate-700">
                   {decisionSummary?.automation_disabled_count || 0} {beverageOverviewText.outOfAutomation}
                 </Badge>
                 {decisionSummary?.active_ab_test ? (
-                  <Badge variant="outline" className="bg-white text-slate-700">A/B leve ativo</Badge>
+                  <Badge variant="outline" className="bg-white text-slate-700">{beverageOverviewText.abTestActive}</Badge>
                 ) : null}
               </div>
             </div>
           </Card>
 
           <Card className="rounded-3xl border-slate-200 p-4 shadow-sm sm:p-5">
-            <Badge variant="outline" className="border-orange-200 bg-orange-50 text-orange-700">Ações rápidas</Badge>
-            <h3 className="mt-3 text-lg font-semibold text-slate-900">Resolva o principal sem abrir tudo</h3>
+            <Badge variant="outline" className="border-orange-200 bg-orange-50 text-orange-700">{beverageOverviewText.quickActions}</Badge>
+            <h3 className="mt-3 text-lg font-semibold text-slate-900">{beverageOverviewText.quickActionsTitle}</h3>
             <p className="mt-2 text-sm leading-6 text-slate-600">
-              As configurações detalhadas seguem nas seções técnicas. Aqui ficam os atalhos que mais aumentam ticket.
+              {beverageOverviewText.quickActionsDescription}
             </p>
 
             <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
@@ -182,10 +183,10 @@ export default function BeverageOverviewPanel({
           <Card className="rounded-3xl border-slate-200 p-4 shadow-sm sm:p-5">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700">Pedido inteiro</Badge>
+                <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700">{beverageOverviewText.wholeOrderBadge}</Badge>
                 <h3 className="mt-3 text-base font-semibold text-slate-900 sm:text-lg">{beverageOverviewText.topCombination}</h3>
                 <p className="mt-2 text-sm leading-6 text-slate-600">
-                  O motor cruzado já está lendo prato + bebida para decidir o que sobe junto no pedido.
+                  {beverageOverviewText.topCombinationDescription}
                 </p>
               </div>
               <Button type="button" variant="outline" onClick={() => onOpenSection('insights')}>
@@ -210,7 +211,7 @@ export default function BeverageOverviewPanel({
                 <>
                   <p className="text-sm font-semibold text-slate-900">{beverageOverviewText.buildingCombinationData}</p>
                   <p className="mt-1 text-sm text-slate-600">
-                    O fallback atual segue protegendo o upsell enquanto os dados cruzados amadurecem.
+                    {beverageOverviewText.buildingCombinationDescription}
                   </p>
                 </>
               )}
@@ -218,10 +219,10 @@ export default function BeverageOverviewPanel({
 
             <div className="mt-4 flex flex-wrap gap-2">
               <Badge variant="outline" className="bg-white text-slate-700">
-                {combinationSummary?.total_combinations_with_data || 0} combinação(ões)
+                {beverageOverviewText.combinationsWithData(combinationSummary?.total_combinations_with_data || 0)}
               </Badge>
               <Badge variant="outline" className="bg-white text-slate-700">
-                {orderOptimizationSummary?.total_actions_with_data || 0} ações com dados
+                {beverageOverviewText.actionsWithData(orderOptimizationSummary?.total_actions_with_data || 0)}
               </Badge>
               {(combinationSummary?.top_combinations || []).slice(0, 2).map((entry) => (
                 <Badge key={`combo:${entry.combination_id || entry.combo_label}`} variant="outline" className="bg-white text-slate-700">
@@ -231,7 +232,7 @@ export default function BeverageOverviewPanel({
             </div>
 
             <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Decisao global do pedido</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{beverageOverviewText.globalOrderDecision}</p>
               <p className="mt-2 text-sm font-semibold text-slate-900">
                 {orderOptimizationSummary?.top_action_reason || beverageOverviewText.nextOrderActionFallback}
               </p>
@@ -244,11 +245,11 @@ export default function BeverageOverviewPanel({
         <Card className="rounded-3xl border-slate-200 p-4 shadow-sm sm:p-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600">Top potencial</Badge>
-              <h3 className="mt-3 text-lg font-semibold text-slate-900">Bebidas com melhor leitura comercial</h3>
+              <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600">{beverageOverviewText.topPotentialBadge}</Badge>
+              <h3 className="mt-3 text-lg font-semibold text-slate-900">{beverageOverviewText.topPotentialTitle}</h3>
             </div>
             <Button type="button" variant="outline" onClick={() => onOpenSection('catalog')}>
-              Abrir catálogo
+              {beverageOverviewText.openCatalog}
             </Button>
           </div>
 
@@ -279,8 +280,8 @@ export default function BeverageOverviewPanel({
         <Card className="rounded-3xl border-slate-200 p-4 shadow-sm sm:p-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600">Onde falta bebida</Badge>
-              <h3 className="mt-3 text-lg font-semibold text-slate-900">Categorias ainda sem apoio de upsell</h3>
+              <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600">{beverageOverviewText.missingDrinkBadge}</Badge>
+              <h3 className="mt-3 text-lg font-semibold text-slate-900">{beverageOverviewText.missingDrinkTitle}</h3>
             </div>
             <Button type="button" variant="outline" onClick={() => onOpenSection('links')}>
               {beverageOverviewText.fixLinks}
@@ -297,7 +298,7 @@ export default function BeverageOverviewPanel({
             </div>
           ) : (
             <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4">
-              <p className="text-sm font-semibold text-emerald-800">As principais categorias já contam com uma leitura de bebida.</p>
+              <p className="text-sm font-semibold text-emerald-800">{beverageOverviewText.mainCategoriesCovered}</p>
               <p className="mt-2 text-sm text-emerald-700">
                 {beverageOverviewText.stableCoverage}
               </p>

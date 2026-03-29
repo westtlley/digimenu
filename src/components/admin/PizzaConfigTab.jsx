@@ -27,6 +27,7 @@ import {
   getPizzaBusinessProfile,
   summarizePizzaCommercialReadiness,
 } from '@/utils/pizzaBusinessIntelligence';
+import { useLanguage } from '@/i18n/LanguageContext';
 
 const formatCurrency = (value) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
@@ -242,32 +243,35 @@ const buildPizzaPricingInsights = (sizes = []) => {
   };
 };
 
-const PIZZA_SECTION_NAV_ITEMS = [
-  { id: 'products', label: 'Produtos', mobileLabel: 'Produtos', defaultSection: 'menu', sections: ['menu'] },
-  { id: 'organization', label: 'Organização', mobileLabel: 'Organiza', defaultSection: 'rules', sections: ['rules', 'flavors', 'sizes', 'addons'] },
-  { id: 'intelligence', label: 'Inteligencia', mobileLabel: 'Insights', defaultSection: 'overview', sections: ['overview', 'intelligence'] },
-  { id: 'settings', label: 'Configurações', mobileLabel: 'Config', defaultSection: 'preview', sections: ['preview'] },
+const buildPizzaSectionNavItems = (t) => [
+  { id: 'products', label: t('pizza.nav.products', 'Produtos'), mobileLabel: t('pizza.nav.products', 'Produtos'), defaultSection: 'menu', sections: ['menu'] },
+  { id: 'organization', label: t('pizza.nav.organization', 'Organização'), mobileLabel: t('pizza.nav.organizationShort', 'Organiza'), defaultSection: 'rules', sections: ['rules', 'flavors', 'sizes', 'addons'] },
+  { id: 'intelligence', label: t('pizza.nav.intelligence', 'Inteligência'), mobileLabel: t('pizza.nav.insightsShort', 'Insights'), defaultSection: 'overview', sections: ['overview', 'intelligence'] },
+  { id: 'settings', label: t('pizza.nav.settings', 'Configurações'), mobileLabel: t('pizza.nav.settingsShort', 'Config'), defaultSection: 'preview', sections: ['preview'] },
 ];
 
-const PIZZA_SUBSECTION_NAV = {
+const buildPizzaSubsectionNav = (t) => ({
   organization: [
-    { id: 'rules', label: 'Regras', mobileLabel: 'Regras' },
-    { id: 'flavors', label: 'Sabores', mobileLabel: 'Sabores' },
-    { id: 'sizes', label: 'Tamanhos', mobileLabel: 'Precos' },
-    { id: 'addons', label: 'Extras', mobileLabel: 'Extras' },
+    { id: 'rules', label: t('pizza.nav.rules', 'Regras'), mobileLabel: t('pizza.nav.rules', 'Regras') },
+    { id: 'flavors', label: t('pizza.nav.flavors', 'Sabores'), mobileLabel: t('pizza.nav.flavors', 'Sabores') },
+    { id: 'sizes', label: t('pizza.nav.sizes', 'Tamanhos'), mobileLabel: t('pizza.nav.pricesShort', 'Preços') },
+    { id: 'addons', label: t('pizza.nav.addons', 'Extras'), mobileLabel: t('pizza.nav.addons', 'Extras') },
   ],
   intelligence: [
-    { id: 'overview', label: 'Resumo guiado', mobileLabel: 'Resumo' },
-    { id: 'intelligence', label: 'Oportunidades', mobileLabel: 'Oportun.' },
+    { id: 'overview', label: t('pizza.nav.guidedSummary', 'Resumo guiado'), mobileLabel: t('pizza.nav.summaryShort', 'Resumo') },
+    { id: 'intelligence', label: t('pizza.nav.opportunities', 'Oportunidades'), mobileLabel: t('pizza.nav.opportunitiesShort', 'Oportun.') },
   ],
-};
+});
 
 export default function PizzaConfigTab() {
+  const { t } = useLanguage();
   const [user, setUser] = React.useState(null);
   const [activeTab, setActiveTab] = useState('menu');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTemplateId, setSelectedTemplateId] = useState(() => getRecommendedPizzaTemplateId('other'));
   const [runningAssistantActionId, setRunningAssistantActionId] = useState('');
+  const pizzaSectionNavItems = useMemo(() => buildPizzaSectionNavItems(t), [t]);
+  const pizzaSubsectionNav = useMemo(() => buildPizzaSubsectionNav(t), [t]);
   
   // Modals
   const [showSizeModal, setShowSizeModal] = useState(false);
@@ -1587,10 +1591,10 @@ export default function PizzaConfigTab() {
   };
 
   const activeMainSection = useMemo(
-    () => PIZZA_SECTION_NAV_ITEMS.find((section) => section.sections.includes(activeTab))?.id || 'products',
+    () => pizzaSectionNavItems.find((section) => section.sections.includes(activeTab))?.id || 'products',
     [activeTab]
   );
-  const activeSubsections = PIZZA_SUBSECTION_NAV[activeMainSection] || [];
+  const activeSubsections = pizzaSubsectionNav[activeMainSection] || [];
 
   return (
     <div className="p-4 sm:p-5 lg:p-6">
@@ -1609,7 +1613,7 @@ export default function PizzaConfigTab() {
           <div className="rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
             <div className="-mx-2 overflow-x-auto px-2 md:hidden">
               <div className="flex w-max gap-2 pb-1">
-                {PIZZA_SECTION_NAV_ITEMS.map((section) => {
+                {pizzaSectionNavItems.map((section) => {
                   const active = activeMainSection === section.id;
                   return (
                     <button
@@ -1630,7 +1634,7 @@ export default function PizzaConfigTab() {
             </div>
 
             <div className="hidden flex-wrap gap-2 md:flex">
-              {PIZZA_SECTION_NAV_ITEMS.map((section) => {
+              {pizzaSectionNavItems.map((section) => {
                 const active = activeMainSection === section.id;
                 return (
                   <button
