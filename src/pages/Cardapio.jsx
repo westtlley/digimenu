@@ -65,32 +65,35 @@ import { getBestBeverageSuggestions, loadPublicBeverageStrategy } from '@/utils/
 import { getNextBestOrderAction, NEXT_BEST_ACTION_TYPES } from '@/utils/orderOptimizationEngine';
 import { withAlpha } from '@/utils/storefrontTheme';
 import { calculateCartSubtotal, getCartItemLineTotal, getCartItemQuantity, normalizeCartItems } from '@/utils/cartPricing';
+import { useLanguage } from '@/i18n/LanguageContext';
 
 /** Landing quando não há slug: / ou /cardapio — não exibe cardápio de nenhum estabelecimento. */
 function CardapioSemLink() {
+  const { t } = useLanguage();
+  const publicMenuText = t('publicMenu');
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
       <div className="text-center max-w-md p-8 rounded-2xl bg-card text-card-foreground shadow-xl border border-border">
         <img src={SYSTEM_LOGO_URL} alt={SYSTEM_NAME} className="h-16 w-auto mx-auto mb-4 drop-shadow-md" />
         <h1 className="text-xl font-bold text-foreground">{SYSTEM_NAME}</h1>
         <p className="mt-3 text-muted-foreground">
-          O cardápio digital é acessado pelo link do estabelecimento: <strong>/s/nome-do-restaurante</strong>
+          {publicMenuText.noSlugDescription}
         </p>
         <p className="mt-2 text-sm text-muted-foreground">
-          Ex.: /s/raiz-maranhense
+          {publicMenuText.noSlugExample}
         </p>
         <p className="mt-3 text-xs text-muted-foreground border-t border-border pt-3">
-          <strong>Master:</strong> abra o cardápio em <strong>Admin → Assinantes</strong> e use <strong>⋮ → Abrir cardápio</strong> no assinante desejado. <strong>Assinante:</strong> use o link do seu painel ou Loja.
+          {publicMenuText.noSlugHelp}
         </p>
         <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
           <Link to="/assinar" className="px-4 py-2.5 rounded-lg bg-orange-500 text-primary-foreground font-medium hover:bg-orange-600 transition-colors">
-            Assinar {SYSTEM_NAME}
+            {publicMenuText.subscribe(SYSTEM_NAME)}
           </Link>
           <Link to="/" className="px-4 py-2.5 rounded-lg border border-border text-foreground font-medium hover:bg-muted transition-colors">
-            Voltar ao início
+            {publicMenuText.backToHome}
           </Link>
         </div>
-        <a href="/" className="mt-4 inline-block text-sm text-muted-foreground hover:text-orange-500">Voltar ao início</a>
+        <a href="/" className="mt-4 inline-block text-sm text-muted-foreground hover:text-orange-500">{publicMenuText.backToHome}</a>
       </div>
     </div>
   );
@@ -163,6 +166,8 @@ function buildBeveragePreSuggestion(suggestion) {
 }
 
 export default function Cardapio() {
+  const { t } = useLanguage();
+  const publicMenuText = t('publicMenu');
   const { slug } = useParams(); // link do assinante: /s/meu-restaurante
   const navigate = useNavigate();
 
@@ -659,7 +664,7 @@ export default function Cardapio() {
   const _pub = slug && publicData ? publicData : null;
   const _rawStore = _pub?.store || stores?.[0] || null;
   // Garantir nome sempre definido para não travar em "Carregando..." (ex.: loja antiga com logo mas name vazio)
-  const store = _rawStore ? { ..._rawStore, name: _rawStore.name || 'Loja', loyaltyConfigs: _pub?.loyaltyConfigs } : null;
+  const store = _rawStore ? { ..._rawStore, name: _rawStore.name || publicMenuText.restaurantFallback, loyaltyConfigs: _pub?.loyaltyConfigs } : null;
   const loyaltyConfigsResolved = _pub?.loyaltyConfigs ?? [];
 
   const dishesResolved = _pub?.dishes ?? dishes ?? [];
@@ -731,7 +736,7 @@ export default function Cardapio() {
     },
     onError: (error) => {
       console.error('❌ Erro ao criar pedido:', error);
-      toast.error('Erro ao enviar pedido: ' + (error.message || 'Erro desconhecido'));
+      toast.error(publicMenuText.sendOrderError(error.message || t('restaurant.unknownError', 'Erro desconhecido')));
     }
   });
 
@@ -2381,9 +2386,9 @@ export default function Cardapio() {
             toast(
               (t) => (
                 <div className="flex flex-col gap-2">
-                  <p className="font-semibold">Você tinha itens no carrinho!</p>
+                  <p className="font-semibold">{publicMenuText.cartRecoveryTitle}</p>
                   <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Deseja recuperar seu pedido anterior?
+                    {publicMenuText.cartRecoveryDescription}
                   </p>
                   <div className="flex gap-2 mt-2">
                     <button
@@ -2392,11 +2397,11 @@ export default function Cardapio() {
                         safeHydrateCart(parsedCart);
                         toast.dismiss(t.id);
                         toast.dismiss(toastId);
-                        toast.success('Carrinho recuperado!');
+                        toast.success(publicMenuText.cartRecovered);
                       }}
                       className="px-4 py-2 bg-orange-500 text-white font-medium hover:bg-orange-600 transition-colors"
                     >
-                      Sim, recuperar
+                      {publicMenuText.recoverCart}
                     </button>
                     <button
                       onClick={() => {
@@ -2408,7 +2413,7 @@ export default function Cardapio() {
                       }}
                       className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 font-medium hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
                     >
-                      Não, obrigado
+                      {publicMenuText.dismissCartRecovery}
                     </button>
                   </div>
                 </div>
@@ -2517,7 +2522,7 @@ export default function Cardapio() {
     const itemLineTotal = getCartItemLineTotal(item);
     
     if (dish?.product_type !== 'combo' && !stockUtils.canAddToCart(dish)) {
-      toast.error('Este produto está esgotado');
+      toast.error(publicMenuText.outOfStock);
       return;
     }
 
@@ -2530,7 +2535,7 @@ export default function Cardapio() {
         setSelectedDish(null);
         setSelectedPizza(null);
       }
-      toast.success('Item atualizado no carrinho');
+      toast.success(publicMenuText.itemUpdated);
       return;
     }
 
@@ -2595,7 +2600,7 @@ export default function Cardapio() {
     toast.success(
       <div className="flex items-center gap-2">
         <span>✅</span>
-        <span>Adicionado ao carrinho!</span>
+        <span>{publicMenuText.itemAdded}</span>
       </div>,
       { duration: 2000 }
     );
@@ -2846,7 +2851,7 @@ export default function Cardapio() {
 
   const handleRemoveFromCart = (itemId) => {
     removeItem(itemId);
-    toast.success('Item removido do carrinho');
+    toast.success(publicMenuText.itemRemoved);
     
     if (cart.length === 1) {
       resetUpsell();
@@ -2863,8 +2868,8 @@ export default function Cardapio() {
       const discount = result.discount ?? calculateDiscount();
       toast.success(
         <div>
-          <p className="font-bold">🎉 Cupom aplicado!</p>
-          <p className="text-sm">Você economizou {formatCurrency(discount)}</p>
+          <p className="font-bold">🎉 {publicMenuText.couponAppliedTitle}</p>
+          <p className="text-sm">{publicMenuText.couponAppliedDescription(formatCurrency(discount))}</p>
         </div>
       );
     } else if (result.error) {
@@ -2874,7 +2879,7 @@ export default function Cardapio() {
 
   const handleRemoveCoupon = () => {
     removeCoupon();
-    toast.success('Cupom removido');
+    toast.success(publicMenuText.couponRemoved);
   };
 
   const handleEditCartItem = (item) => {
@@ -2978,7 +2983,7 @@ export default function Cardapio() {
         .toLowerCase();
     try {
       if (customer.deliveryMethod === 'delivery' && !customer.neighborhood) {
-        toast.error('Por favor, informe o bairro para calcular a taxa de entrega');
+        toast.error(publicMenuText.neighborhoodRequired);
         return;
       }
       
@@ -3008,7 +3013,7 @@ export default function Cardapio() {
       const zoneMinOrder = Number(matchedZone?.min_order ?? matchedZone?.min_order_value ?? 0) || 0;
       const minimumOrderValue = Math.max(storeMinOrder, zoneMinOrder);
       if (customer.deliveryMethod === 'delivery' && minimumOrderValue > 0 && normalizedCartTotal < minimumOrderValue) {
-        toast.error(`Pedido mínimo para entrega: ${formatCurrency(minimumOrderValue)}`);
+        toast.error(publicMenuText.minimumOrderForDelivery(formatCurrency(minimumOrderValue)));
         return;
       }
       
@@ -3119,7 +3124,7 @@ export default function Cardapio() {
           
           if (!loyaltyData.lastOrderDate) {
             await addPoints(50, 'primeira_compra');
-            toast.success('🎉 Bônus de primeira compra: +50 pontos!', { duration: 4000 });
+            toast.success(`🎉 ${publicMenuText.firstPurchaseBonus}`, { duration: 4000 });
           }
           
           const birthdayBonus = await checkBirthdayBonus();
@@ -3133,7 +3138,7 @@ export default function Cardapio() {
           }
           
           toast.success(
-            `✨ Você ganhou ${pointsToAdd} pontos! Total: ${result.points} pontos (${result.tier.name})`,
+            `✨ ${publicMenuText.loyaltyPointsEarned(pointsToAdd, result.points, result.tier.name)}`,
             { duration: 5000 }
           );
         } catch (error) {
@@ -3163,13 +3168,13 @@ export default function Cardapio() {
       
       toast.success(
         <div className="text-center">
-          <p className="font-bold mb-1">✅ Pedido enviado com sucesso!</p>
-          <p className="text-sm">Pedido #{orderCode}</p>
+          <p className="font-bold mb-1">✅ {publicMenuText.orderSentTitle}</p>
+          <p className="text-sm">{publicMenuText.orderSentCode(orderCode)}</p>
           <button
             onClick={() => openOrderHistoryModal()}
             className="mt-2 text-blue-600 font-medium text-sm underline"
           >
-            Acompanhar pedido
+            {publicMenuText.trackOrder}
           </button>
         </div>,
         { duration: 5000 }
@@ -3190,13 +3195,13 @@ export default function Cardapio() {
         {!(showRetryAfterTimeout || publicError) && (
           <div className="flex flex-col items-center gap-4">
             <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
-            <p className="text-sm text-muted-foreground">Carregando cardápio...</p>
+            <p className="text-sm text-muted-foreground">{publicMenuText.loadingMenu}</p>
           </div>
         )}
         {(showRetryAfterTimeout || publicError) && (
           <div className="text-center max-w-xs px-4">
             <p className="text-foreground text-sm mb-3">
-              {publicError ? (publicErrorDetails?.isTimeout ? 'O servidor demorou para responder.' : 'Não foi possível carregar o cardápio. Verifique o link e a conexão.') : 'Está demorando mais que o normal.'}
+              {publicError ? (publicErrorDetails?.isTimeout ? 'O servidor demorou para responder.' : publicMenuText.menuLoadError) : 'Está demorando mais que o normal.'}
             </p>
             <Button
               onClick={() => {
@@ -3205,7 +3210,7 @@ export default function Cardapio() {
               }}
               className="bg-orange-500 text-primary-foreground hover:bg-orange-600"
             >
-              Tentar novamente
+              {publicMenuText.retry}
             </Button>
           </div>
         )}
@@ -3250,7 +3255,7 @@ export default function Cardapio() {
               </p>
               {loadingTimeout && publicError && (
                 <div className="mt-4 text-center max-w-sm">
-                  <p className="text-sm mb-3" style={{ color: withAlpha(ctaText, 0.92) }}>Erro ao carregar cardápio</p>
+                  <p className="text-sm mb-3" style={{ color: withAlpha(ctaText, 0.92) }}>{publicMenuText.menuLoadError}</p>
                   <Button
                     onClick={() => {
                       setLoadingTimeout(false);
@@ -3259,7 +3264,7 @@ export default function Cardapio() {
                     className="px-4 py-2 rounded-lg font-medium"
                     style={{ backgroundColor: storefrontTheme.surface, color: storefrontTheme.primary }}
                   >
-                    Tentar Novamente
+                    {publicMenuText.retry}
                   </Button>
                 </div>
               )}
@@ -3328,7 +3333,7 @@ export default function Cardapio() {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 md:text-muted-foreground" style={{ color: withAlpha(storefrontTheme.heroText, 0.78) }} />
                 <Input
-                  placeholder="O que você procura hoje?"
+                  placeholder={publicMenuText.searchPlaceholder}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10 h-11 md:h-10 text-base backdrop-blur-sm placeholder:text-muted-foreground"
@@ -3362,7 +3367,7 @@ export default function Cardapio() {
                       navigator.share({ title: store?.name || 'Cardápio', text: `Confira o cardápio de ${store?.name || 'nosso restaurante'}`, url: window.location.href }).catch(() => {});
                     } else {
                       navigator.clipboard.writeText(window.location.href);
-                      toast.success('Link copiado!');
+                      toast.success(publicMenuText.linkCopied);
                     }
                   }}
                   title="Compartilhar"
@@ -3428,7 +3433,7 @@ export default function Cardapio() {
                   <div>
                     <h1 className="font-bold text-xl md:text-lg truncate max-w-[50vw] md:max-w-none" style={{ color: headerText }}>{store?.name || 'Restaurante'}</h1>
                     {store?.min_order_value > 0 && (
-                      <p className="text-xs" style={{ color: withAlpha(headerText, 0.78) }}>Pedido min. {formatCurrency(store?.min_order_value || 0)}</p>
+                      <p className="text-xs" style={{ color: withAlpha(headerText, 0.78) }}>{publicMenuText.minimumOrderShort(formatCurrency(store?.min_order_value || 0))}</p>
                     )}
                   </div>
                 </div>
@@ -3443,7 +3448,7 @@ export default function Cardapio() {
               <div className={`relative flex-1 md:max-w-xl md:mx-4 lg:max-w-[700px] lg:mx-auto lg:flex-1 ${searchOpen ? 'block' : 'hidden'} md:block`}>
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" style={{ color: withAlpha(headerText, 0.72) }} />
                 <Input
-                  placeholder="O que você procura hoje?"
+                  placeholder={publicMenuText.searchPlaceholder}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10 h-10 text-base"
@@ -3453,7 +3458,7 @@ export default function Cardapio() {
               </div>
               {/* Ícones - ocultos no mobile (já estão na linha de cima); lg: destaque leve no carrinho */}
               <div className="hidden md:flex items-center gap-2 flex-shrink-0 lg:gap-1">
-                <button className="p-2 rounded-lg transition-colors" style={{ color: withAlpha(headerText, 0.82), backgroundColor: withAlpha(storefrontTheme.surface, 0.16) }} onClick={() => { if (navigator.share) { navigator.share({ title: store?.name || 'Cardápio', text: `Confira o cardápio de ${store?.name || 'nosso restaurante'}`, url: window.location.href }).catch(() => {}); } else { navigator.clipboard.writeText(window.location.href); toast.success('Link copiado!'); } }} title="Compartilhar"><Share2 className="w-5 h-5" /></button>
+                <button className="p-2 rounded-lg transition-colors" style={{ color: withAlpha(headerText, 0.82), backgroundColor: withAlpha(storefrontTheme.surface, 0.16) }} onClick={() => { if (navigator.share) { navigator.share({ title: publicMenuText.shareTitle(store?.name), text: publicMenuText.shareText(store?.name), url: window.location.href }).catch(() => {}); } else { navigator.clipboard.writeText(window.location.href); toast.success(publicMenuText.linkCopied); } }} title={publicMenuText.shareTitle(store?.name)}><Share2 className="w-5 h-5" /></button>
                 <ThemeToggle className="hover:bg-transparent" style={{ color: withAlpha(headerText, 0.82) }} />
                 <button 
                   className="relative p-0.5 rounded-lg transition-all" 
@@ -3559,7 +3564,7 @@ export default function Cardapio() {
                               )}
                             </div>
                             <div className="flex-1 text-white min-w-0">
-                              <Badge className="bg-yellow-400 text-black mb-1 font-bold h-5 px-2 text-[10px]">Combo</Badge>
+                              <Badge className="bg-yellow-400 text-black mb-1 font-bold h-5 px-2 text-[10px]">{publicMenuText.comboBadge}</Badge>
                               <p className="font-bold text-xs truncate">{comboDish.name}</p>
                               <p className="text-sm font-bold">{formatCurrency(Number(comboDish.price || 0))}</p>
                             </div>
@@ -3677,7 +3682,7 @@ export default function Cardapio() {
                               )}
                             </div>
                             <div className="flex-1 text-white min-w-0">
-                              <Badge className="bg-yellow-400 text-black mb-1 font-bold h-5 px-2 text-[10px]">Combo</Badge>
+                              <Badge className="bg-yellow-400 text-black mb-1 font-bold h-5 px-2 text-[10px]">{publicMenuText.comboBadge}</Badge>
                               <p className="font-bold text-xs truncate">{comboDish.name}</p>
                               <p className="text-sm font-bold">{formatCurrency(Number(comboDish.price || 0))}</p>
                             </div>
@@ -3723,7 +3728,7 @@ export default function Cardapio() {
                 className={`relative px-6 md:px-8 py-2.5 md:py-3 rounded-full text-sm md:text-base font-semibold whitespace-nowrap transition-all duration-200 lg:px-4 lg:py-2 lg:rounded-lg lg:scale-100 lg:shadow-none ${selectedCategory === 'all' ? 'scale-105 lg:rounded-b-none' : ''}`}
                 style={selectedCategory === 'all' ? activeCategoryStyle : inactiveCategoryStyle}
               >
-                Todos
+                {publicMenuText.allCategories}
               </button>
               {categoriesResolvedForAllIslands.map((cat) => (
                 <button
@@ -3800,7 +3805,7 @@ export default function Cardapio() {
                 {selectedCategory === 'all' ? (
                   <section className="h-full flex flex-col min-h-0">
                     <div className="flex items-center justify-between mb-3">
-                      <h2 className="font-bold text-base md:text-lg text-foreground border-l-4 pl-2" style={{ borderColor: primaryColor }}>Cardápio Completo</h2>
+                      <h2 className="font-bold text-base md:text-lg text-foreground border-l-4 pl-2" style={{ borderColor: primaryColor }}>{publicMenuText.fullMenu}</h2>
                     </div>
 
                     <div className="relative">
@@ -3872,7 +3877,7 @@ export default function Cardapio() {
                               style={{ scrollSnapAlign: 'start' }}
                             >
                               <div className="flex items-center justify-between mb-3">
-                                <h3 className="font-bold text-base text-foreground">Pizzas</h3>
+                                <h3 className="font-bold text-base text-foreground">{publicMenuText.pizzas}</h3>
                                 <Button
                                   variant="outline"
                                   size="sm"
@@ -3901,7 +3906,7 @@ export default function Cardapio() {
                               style={{ scrollSnapAlign: 'start' }}
                             >
                               <div className="flex items-center justify-between mb-3">
-                                <h3 className="font-bold text-base text-foreground">Bebidas</h3>
+                                <h3 className="font-bold text-base text-foreground">{publicMenuText.beverages}</h3>
                                 <Button variant="outline" size="sm" className="h-8" onClick={() => setSelectedCategory('beverages')}>
                                   Abrir
                                 </Button>
@@ -3920,7 +3925,7 @@ export default function Cardapio() {
                               style={{ scrollSnapAlign: 'start' }}
                             >
                               <div className="flex items-center justify-between mb-3">
-                                <h3 className="font-bold text-base text-foreground">Combos</h3>
+                                <h3 className="font-bold text-base text-foreground">{publicMenuText.combos}</h3>
                                 <Button
                                   variant="outline"
                                   size="sm"
@@ -4023,7 +4028,7 @@ export default function Cardapio() {
                     <section className="mb-6 md:mb-8">
                       <div className="flex items-center gap-2 mb-4">
                         <Package className="w-5 h-5" style={{ color: primaryColor }} />
-                        <h2 className="font-bold text-base md:text-lg text-foreground">Combos</h2>
+                        <h2 className="font-bold text-base md:text-lg text-foreground">{publicMenuText.combos}</h2>
                       </div>
                       <div className="grid grid-cols-1 gap-4">
                         {visibleCombosSlides.map((combo, slotIdx) => (
@@ -4174,7 +4179,7 @@ export default function Cardapio() {
                 <section className="mb-6 md:mb-8">
                   <div className="flex items-center gap-2 mb-4 md:mb-4">
                     <Star className="w-5 h-5 fill-yellow-400 text-yellow-400" />
-                    <h2 className="font-bold text-base md:text-lg text-foreground">Pratos do Dia</h2>
+                    <h2 className="font-bold text-base md:text-lg text-foreground">{publicMenuText.dailyDishes}</h2>
                   </div>
                   <div className={`grid grid-cols-2 md:grid-cols-3 ${Number(gridColsDesktop) === 2 ? 'lg:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-2' : Number(gridColsDesktop) === 3 ? 'lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-3' : Number(gridColsDesktop) === 4 ? 'lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-4' : Number(gridColsDesktop) === 5 ? 'lg:grid-cols-5 xl:grid-cols-5 2xl:grid-cols-5' : 'lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6'} gap-4 md:gap-3 lg:gap-3 xl:gap-3`}>
                     {highlightDishes.map((dish, index) => {
@@ -4211,7 +4216,7 @@ export default function Cardapio() {
             >
               {selectedCategory === 'all' ? (
                 <section>
-                  <h2 className="font-bold text-base md:text-lg mb-4 text-foreground border-l-4 pl-2" style={{ borderColor: primaryColor }}>Cardápio Completo</h2>
+                  <h2 className="font-bold text-base md:text-lg mb-4 text-foreground border-l-4 pl-2" style={{ borderColor: primaryColor }}>{publicMenuText.fullMenu}</h2>
 
                   <>
                     {categoriesResolvedForAllIslands
@@ -4324,7 +4329,7 @@ export default function Cardapio() {
 
                   {!loadingDishes && (Array.isArray(filteredItemsForDisplay) ? filteredItemsForDisplay : []).length === 0 && (
                     <div className="text-center py-16">
-                      <p className="text-muted-foreground">Nenhum prato encontrado</p>
+                      <p className="text-muted-foreground">{publicMenuText.noDishFound}</p>
                     </div>
                   )}
                 </section>
@@ -4491,7 +4496,7 @@ export default function Cardapio() {
 
             {/* Bloco Direito: Ícones de redes sociais apenas */}
             <div className="flex items-center gap-2 flex-shrink-0">
-              <span className="text-xs mr-1 hidden sm:inline" style={{ color: withAlpha(storefrontTheme.footerText, 0.58) }}>Siga-nos</span>
+              <span className="text-xs mr-1 hidden sm:inline" style={{ color: withAlpha(storefrontTheme.footerText, 0.58) }}>{publicMenuText.followUs}</span>
               <div className="flex gap-2">
                 {store?.whatsapp && (
                   <a 
@@ -4545,8 +4550,8 @@ export default function Cardapio() {
             </div>
           </div>
           <div className="border-t mt-3 pt-2 flex items-center justify-between gap-2" style={{ borderColor: withAlpha(storefrontTheme.footerText, 0.12) }}>
-            <p className="text-xs" style={{ color: withAlpha(storefrontTheme.footerText, 0.58) }}>&copy; {new Date().getFullYear()} {store?.name || 'Restaurante'}</p>
-            <p className="text-xs" style={{ color: withAlpha(storefrontTheme.footerText, 0.58) }}>Powered by <span className="font-semibold" style={{ color: primaryColor }}>{SYSTEM_NAME}</span></p>
+            <p className="text-xs" style={{ color: withAlpha(storefrontTheme.footerText, 0.58) }}>&copy; {new Date().getFullYear()} {store?.name || publicMenuText.restaurantFallback}</p>
+            <p className="text-xs" style={{ color: withAlpha(storefrontTheme.footerText, 0.58) }}>{publicMenuText.poweredBy(SYSTEM_NAME)}</p>
           </div>
         </div>
       </footer>
@@ -4820,7 +4825,7 @@ export default function Cardapio() {
         onSuccess={(user) => {
           setIsAuthenticated(true);
           setUserEmail(user?.email || null);
-          toast.success('Bem-vindo! Agora você pode aproveitar todos os benefícios.');
+          toast.success(publicMenuText.welcomeBenefits);
         }}
         returnUrl={window.location.pathname}
       />
@@ -4870,7 +4875,7 @@ export default function Cardapio() {
             <SheetHeader>
               <SheetTitle className="flex items-center gap-2">
                 <Heart className="w-5 h-5 text-red-500" />
-                Meus Favoritos
+                {publicMenuText.favoritesTitle}
               </SheetTitle>
             </SheetHeader>
             <div className="mt-6">

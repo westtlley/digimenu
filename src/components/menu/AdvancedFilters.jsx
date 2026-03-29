@@ -9,30 +9,33 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { useLanguage } from '@/i18n/LanguageContext';
 
 export default function AdvancedFilters({ filters, onFiltersChange, primaryColor, availableTags, tagLabels: customTagLabels }) {
+  const { t } = useLanguage();
+  const filtersText = t('filters');
   const [open, setOpen] = React.useState(false);
 
   const priceRanges = [
-    { label: 'Até R$ 20', min: 0, max: 20 },
-    { label: 'R$ 20 - R$ 40', min: 20, max: 40 },
-    { label: 'R$ 40 - R$ 60', min: 40, max: 60 },
-    { label: 'Acima de R$ 60', min: 60, max: 999999 },
+    { label: filtersText.priceRanges.upTo20, min: 0, max: 20 },
+    { label: filtersText.priceRanges.from20To40, min: 20, max: 40 },
+    { label: filtersText.priceRanges.from40To60, min: 40, max: 60 },
+    { label: filtersText.priceRanges.above60, min: 60, max: 999999 },
   ];
 
   const tags = availableTags || ['vegetariano', 'vegano', 'sem_gluten', 'picante', 'fit'];
   const tagLabels = customTagLabels || {
-    vegetariano: '🥗 Vegetariano',
-    vegano: '🌱 Vegano',
-    sem_gluten: '🌾 Sem Glúten',
-    picante: '🌶️ Picante',
-    fit: '💪 Fit'
+    vegetariano: filtersText.tags.vegetariano,
+    vegano: filtersText.tags.vegano,
+    sem_gluten: filtersText.tags.sem_gluten,
+    picante: filtersText.tags.picante,
+    fit: filtersText.tags.fit,
   };
 
   const togglePriceRange = (range) => {
     onFiltersChange({
       ...filters,
-      priceRange: filters.priceRange?.min === range.min ? null : range
+      priceRange: filters.priceRange?.min === range.min ? null : range,
     });
   };
 
@@ -41,8 +44,8 @@ export default function AdvancedFilters({ filters, onFiltersChange, primaryColor
     onFiltersChange({
       ...filters,
       tags: currentTags.includes(tag)
-        ? currentTags.filter(t => t !== tag)
-        : [...currentTags, tag]
+        ? currentTags.filter((currentTag) => currentTag !== tag)
+        : [...currentTags, tag],
     });
   };
 
@@ -58,9 +61,9 @@ export default function AdvancedFilters({ filters, onFiltersChange, primaryColor
       <SheetTrigger asChild>
         <Button variant="outline" size="sm" className="relative">
           <SlidersHorizontal className="w-4 h-4 mr-2" />
-          Filtros
+          {filtersText.button}
           {activeFiltersCount > 0 && (
-            <Badge 
+            <Badge
               className="absolute -top-2 -right-2 w-5 h-5 p-0 flex items-center justify-center text-white"
               style={{ backgroundColor: primaryColor }}
             >
@@ -71,12 +74,11 @@ export default function AdvancedFilters({ filters, onFiltersChange, primaryColor
       </SheetTrigger>
       <SheetContent side="right" className="w-full sm:max-w-md">
         <SheetHeader>
-          <SheetTitle>Filtros Avançados</SheetTitle>
+          <SheetTitle>{filtersText.advancedTitle}</SheetTitle>
         </SheetHeader>
         <div className="mt-6 space-y-6">
-          {/* Preço */}
           <div>
-            <h3 className="font-medium mb-3">Faixa de Preço</h3>
+            <h3 className="font-medium mb-3">{filtersText.priceRangeTitle}</h3>
             <div className="space-y-2">
               {priceRanges.map((range) => (
                 <button
@@ -87,10 +89,12 @@ export default function AdvancedFilters({ filters, onFiltersChange, primaryColor
                       ? 'border-2 text-white'
                       : 'border-gray-200 hover:bg-gray-50'
                   }`}
-                  style={filters.priceRange?.min === range.min ? { 
-                    backgroundColor: primaryColor,
-                    borderColor: primaryColor 
-                  } : {}}
+                  style={filters.priceRange?.min === range.min
+                    ? {
+                        backgroundColor: primaryColor,
+                        borderColor: primaryColor,
+                      }
+                    : {}}
                 >
                   {range.label}
                 </button>
@@ -98,9 +102,8 @@ export default function AdvancedFilters({ filters, onFiltersChange, primaryColor
             </div>
           </div>
 
-          {/* Tags */}
           <div>
-            <h3 className="font-medium mb-3">Preferências Alimentares</h3>
+            <h3 className="font-medium mb-3">{filtersText.dietaryPreferencesTitle}</h3>
             <div className="flex flex-wrap gap-2">
               {tags.map((tag) => (
                 <button
@@ -111,10 +114,12 @@ export default function AdvancedFilters({ filters, onFiltersChange, primaryColor
                       ? 'border-2 text-white'
                       : 'border-gray-200 hover:bg-gray-50'
                   }`}
-                  style={filters.tags?.includes(tag) ? { 
-                    backgroundColor: primaryColor,
-                    borderColor: primaryColor 
-                  } : {}}
+                  style={filters.tags?.includes(tag)
+                    ? {
+                        backgroundColor: primaryColor,
+                        borderColor: primaryColor,
+                      }
+                    : {}}
                 >
                   {tagLabels[tag]}
                 </button>
@@ -122,22 +127,21 @@ export default function AdvancedFilters({ filters, onFiltersChange, primaryColor
             </div>
           </div>
 
-          {/* Actions */}
           <div className="flex gap-3 pt-4 border-t">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               className="flex-1"
               onClick={clearFilters}
             >
               <X className="w-4 h-4 mr-2" />
-              Limpar
+              {filtersText.clear}
             </Button>
-            <Button 
+            <Button
               className="flex-1 text-white"
               style={{ backgroundColor: primaryColor }}
               onClick={() => setOpen(false)}
             >
-              Aplicar Filtros
+              {filtersText.apply}
             </Button>
           </div>
         </div>

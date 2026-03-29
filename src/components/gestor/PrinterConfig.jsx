@@ -15,7 +15,7 @@ import { usePermission } from '../permissions/usePermission';
 import { thermalPrint } from '@/utils/thermalPrint';
 import { isBridgeAvailable, testBridgePrinter } from '@/utils/printBridgeClient';
 import { buildTenantEntityOpts, getMenuContextScopeKey, getScopedStorageKey } from '@/utils/tenantScope';
-import { uiText } from '@/i18n/pt-BR/uiText';
+import { useLanguage } from '@/i18n/LanguageContext';
 
 const THERMAL_BRANDS_REGEX = /(epson|tm-|elgin|bematech|daruma|xprinter|thermal|termica|sunmi|tanca|pos-?58|pos-?80)/i;
 const PAPER_58_REGEX = /(58|58mm|pos-?58|rp58|m58)/i;
@@ -64,7 +64,8 @@ const DEFAULT_PRINTER_CONFIG = {
 };
 
 export default function PrinterConfig() {
-  const printerText = uiText.printerConfig;
+  const { t } = useLanguage();
+  const printerText = t('printerConfig');
   const [showPreview, setShowPreview] = useState(false);
   const [isDetecting, setIsDetecting] = useState(false);
   const queryClient = useQueryClient();
@@ -120,7 +121,7 @@ export default function PrinterConfig() {
       queryClient.invalidateQueries({ queryKey: ['printerConfig', menuScopeKey] });
       toast.success(printerText.saveSuccess);
     },
-    onError: (e) => toast.error('Erro ao salvar: ' + (e?.message || printerText.unknownError))
+    onError: (e) => toast.error(`Erro ao salvar: ${e?.message || printerText.unknownError}`)
   });
 
   const handleSave = () => {
@@ -231,7 +232,7 @@ export default function PrinterConfig() {
       const bridgeOnline = await isBridgeAvailable();
       if (bridgeOnline) {
         await testBridgePrinter(formData.printer_name);
-        toast.success('Teste enviado via DigiMenu Print Bridge', {
+        toast.success(printerText.bridgeTestSent, {
           duration: 3000,
           icon: 'PRINT'
         });
@@ -338,7 +339,7 @@ Espaçamento: ${formData.line_spacing}
             <Input
               value={formData.printer_name}
               onChange={(e) => setFormData({ ...formData, printer_name: e.target.value })}
-              placeholder="Ex: Epson TM-T20"
+              placeholder={printerText.printerNamePlaceholder}
               required
               className={!formData.printer_name?.trim() ? 'border-red-300' : ''}
             />
@@ -355,7 +356,7 @@ Espaçamento: ${formData.line_spacing}
               className="mt-2"
               disabled={isDetecting}
             >
-              {isDetecting ? 'Detectando...' : printerText.detectButton}
+              {isDetecting ? printerText.detecting : printerText.detectButton}
             </Button>
           </div>
 
@@ -372,7 +373,7 @@ Espaçamento: ${formData.line_spacing}
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="termica">{printerText.thermalType}</SelectItem>
-                <SelectItem value="laser">Laser</SelectItem>
+                <SelectItem value="laser">{printerText.laserType}</SelectItem>
                 <SelectItem value="jato_tinta">{printerText.inkjetType}</SelectItem>
               </SelectContent>
             </Select>
@@ -389,9 +390,9 @@ Espaçamento: ${formData.line_spacing}
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="usb">USB</SelectItem>
-                <SelectItem value="rede">Rede</SelectItem>
-                <SelectItem value="bluetooth">Bluetooth</SelectItem>
+                <SelectItem value="usb">{printerText.usb}</SelectItem>
+                <SelectItem value="rede">{printerText.network}</SelectItem>
+                <SelectItem value="bluetooth">{printerText.bluetooth}</SelectItem>
               </SelectContent>
             </Select>
           </div>

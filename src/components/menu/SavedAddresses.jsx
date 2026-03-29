@@ -56,7 +56,7 @@ const normalizeAddress = (address, idx = 0, slug = null, userEmail = null) => {
 
   return {
     id: address.id ? String(address.id) : `legacy-${Date.now()}-${idx}`,
-    name: address.name || address.label || address.nickname || (neighborhood ? `Endereco ${neighborhood}` : 'Endereco salvo'),
+    name: address.name || address.label || address.nickname || (neighborhood ? `Endereço ${neighborhood}` : 'Endereço salvo'),
     street: street || '',
     number: address.number || address.address_number || '',
     complement: address.complement || address.address_complement || '',
@@ -154,7 +154,7 @@ export default function SavedAddresses({
   const openCreateModal = () => {
     setEditingAddress(null);
     setAddressForm({
-      name: customer?.address_street ? 'Endereco Principal' : 'Novo Endereco',
+      name: customer?.address_street ? savedAddressesText.currentAddress : savedAddressesText.newAddress,
       street: customer?.address_street || '',
       number: customer?.address_number || '',
       complement: customer?.address_complement || '',
@@ -227,7 +227,7 @@ export default function SavedAddresses({
     const initial = normalizeAddress(
       {
         id: `current-${Date.now()}`,
-        name: 'Endereco Atual',
+        name: savedAddressesText.currentAddress,
         street: customer?.address_street || '',
         number: customer?.address_number || '',
         complement: customer?.address_complement || '',
@@ -281,7 +281,7 @@ export default function SavedAddresses({
         const profileAddress = normalizeAddress(
           {
             id: `profile-${userEmail}`,
-            name: 'Endereco do Perfil',
+            name: savedAddressesText.profileAddress,
             street: customerProfile.address_street || customerProfile.address || '',
             number: customerProfile.address_number || '',
             complement: customerProfile.address_complement || customerProfile.complement || '',
@@ -323,7 +323,7 @@ export default function SavedAddresses({
 
   const handleSaveAddress = () => {
     if (!addressForm.name || !addressForm.street || !addressForm.neighborhood) {
-      toast.error('Preencha pelo menos: nome, rua e bairro');
+      toast.error(savedAddressesText.fillRequired);
       return;
     }
 
@@ -348,10 +348,10 @@ export default function SavedAddresses({
     let updated;
     if (editingAddress) {
       updated = savedAddresses.map((a) => (a.id === editingAddress.id ? newAddress : a));
-      toast.success('Endereco atualizado!');
+      toast.success(savedAddressesText.updated);
     } else {
       updated = [...savedAddresses, newAddress];
-      toast.success('Endereco salvo!');
+      toast.success(savedAddressesText.saved);
     }
 
     saveToStorage(updated);
@@ -361,11 +361,11 @@ export default function SavedAddresses({
   };
 
   const handleDeleteAddress = (id) => {
-    if (!confirm('Deseja realmente excluir este endereco?')) return;
+    if (!confirm('Deseja realmente excluir este endereço?')) return;
 
     const updated = savedAddresses.filter((a) => a.id !== id);
     saveToStorage(updated);
-    toast.success('Endereco excluido!');
+    toast.success(savedAddressesText.deleted);
   };
 
   const geocodeAddress = async (address) => {
@@ -433,12 +433,12 @@ export default function SavedAddresses({
             : item
         );
         saveToStorage(updatedAddresses);
-        toast.success('Endereco geolocalizado para taxa por km com precisao.');
+        toast.success(savedAddressesText.geoLocated);
       } else {
-        toast('Endereco selecionado sem GPS. Confirme no mapa para taxa por km.');
+        toast('Endereço selecionado sem GPS. Confirme no mapa para taxa por km.');
       }
     } else {
-      toast.success(`Endereco "${address.name}" selecionado!`);
+      toast.success(savedAddressesText.selected(address.name));
     }
   };
 
@@ -524,7 +524,7 @@ export default function SavedAddresses({
                     {normalizeText(customer.address_street) === normalizeText(address.street) && normalizeText(customer.neighborhood) === normalizeText(address.neighborhood) && (
                       <Badge className="bg-blue-500 text-white text-xs h-4 px-1">
                         <Check className="w-2 h-2 mr-1" />
-                        Atual
+                        {savedAddressesText.currentAddress}
                       </Badge>
                     )}
                   </div>
@@ -568,22 +568,22 @@ export default function SavedAddresses({
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>
-              {editingAddress ? 'Editar Endereco' : 'Salvar Endereco'}
+              {editingAddress ? savedAddressesText.editAddress : savedAddressesText.saveAddress}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
-              <Label>Nome do Endereco</Label>
+              <Label>{savedAddressesText.addressNameLabel}</Label>
               <Input
-                placeholder="Ex: Casa, Trabalho"
+                placeholder={savedAddressesText.addressNamePlaceholder}
                 value={addressForm.name}
                 onChange={(e) => setAddressForm({ ...addressForm, name: e.target.value })}
               />
             </div>
             <div>
-              <Label>Rua/Avenida *</Label>
+              <Label>{savedAddressesText.streetLabel}</Label>
               <Input
-                placeholder="Rua, Avenida..."
+                placeholder={savedAddressesText.streetPlaceholder}
                 value={addressForm.street}
                 onChange={(e) => setAddressForm({ ...addressForm, street: e.target.value })}
                 required
@@ -591,17 +591,17 @@ export default function SavedAddresses({
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <Label>Numero</Label>
+                <Label>{savedAddressesText.numberLabel}</Label>
                 <Input
-                  placeholder="123"
+                  placeholder={savedAddressesText.numberPlaceholder}
                   value={addressForm.number}
                   onChange={(e) => setAddressForm({ ...addressForm, number: e.target.value })}
                 />
               </div>
               <div>
-                <Label>Bairro *</Label>
+                <Label>{savedAddressesText.neighborhoodLabel}</Label>
                 <Input
-                  placeholder="Bairro"
+                  placeholder={savedAddressesText.neighborhoodPlaceholder}
                   value={addressForm.neighborhood}
                   onChange={(e) => setAddressForm({ ...addressForm, neighborhood: e.target.value })}
                   required
@@ -609,17 +609,17 @@ export default function SavedAddresses({
               </div>
             </div>
             <div>
-              <Label>Complemento</Label>
+              <Label>{savedAddressesText.complementLabel}</Label>
               <Input
-                placeholder="Apto, Bloco..."
+                placeholder={savedAddressesText.complementPlaceholder}
                 value={addressForm.complement}
                 onChange={(e) => setAddressForm({ ...addressForm, complement: e.target.value })}
               />
             </div>
             <div>
-              <Label>Ponto de Referencia</Label>
+              <Label>{savedAddressesText.referenceLabel}</Label>
               <Input
-                placeholder="Proximo a..."
+                placeholder={savedAddressesText.referencePlaceholder}
                 value={addressForm.reference}
                 onChange={(e) => setAddressForm({ ...addressForm, reference: e.target.value })}
               />
@@ -634,10 +634,10 @@ export default function SavedAddresses({
                 resetForm();
               }}
             >
-              Cancelar
+              {t('media.cancel')}
             </Button>
             <Button onClick={handleSaveAddress}>
-              {editingAddress ? 'Atualizar' : 'Salvar'}
+              {editingAddress ? t('productModal.save', 'Salvar') : t('media.save', 'Salvar')}
             </Button>
           </DialogFooter>
         </DialogContent>

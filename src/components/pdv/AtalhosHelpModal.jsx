@@ -2,55 +2,56 @@ import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Keyboard } from 'lucide-react';
-import { uiText } from '@/i18n/pt-BR/uiText';
-
-const pdvShortcutsText = uiText.pdvShortcuts;
-
-const shortcutSections = [
-  {
-    title: pdvShortcutsText.readAndFocusTitle,
-    tone: 'text-orange-600 dark:text-orange-300',
-    items: [
-      { key: '? / F1', label: 'Ajuda', description: 'Abre este painel de atalhos.' },
-      { key: 'F2', label: pdvShortcutsText.focusCode, description: pdvShortcutsText.focusCodeDescription },
-      { key: 'Esc', label: 'Estado pronto', description: pdvShortcutsText.readyStateDescription },
-    ],
-  },
-  {
-    title: pdvShortcutsText.fastOperationTitle,
-    tone: 'text-emerald-600 dark:text-emerald-300',
-    items: [
-      { key: 'F3', label: 'Alternar comanda', description: 'Abre ou fecha a comanda em telas compactas.' },
-      { key: 'F4', label: 'Pagamento', description: pdvShortcutsText.paymentDescription },
-      { key: 'Enter', label: 'Finalizar rápido', description: pdvShortcutsText.fastFinishDescription },
-    ],
-  },
-  {
-    title: 'Carrinho',
-    tone: 'text-sky-600 dark:text-sky-300',
-    items: [
-      { key: 'Ctrl + Backspace', label: pdvShortcutsText.removeLastItem, description: 'Remove o item mais recente da comanda.' },
-      { key: '+', label: 'Aumentar quantidade', description: 'Soma 1 unidade ao último item da comanda.' },
-      { key: '-', label: 'Diminuir quantidade', description: 'Subtrai 1 unidade do último item da comanda.' },
-    ],
-  },
-  {
-    title: pdvShortcutsText.fastFavoritesTitle,
-    tone: 'text-amber-600 dark:text-amber-300',
-    items: [
-      { key: '1-9', label: 'Adicionar favorito', description: pdvShortcutsText.favoriteDescription },
-    ],
-  },
-];
+import { useLanguage } from '@/i18n/LanguageContext';
 
 export default function AtalhosHelpModal({ open, onOpenChange }) {
+  const { t } = useLanguage();
+  const pdvShortcutsText = t('pdvShortcuts');
+
+  const shortcutSections = [
+    {
+      title: pdvShortcutsText.readAndFocusTitle,
+      tone: 'text-orange-600 dark:text-orange-300',
+      items: [
+        { key: '? / F1', label: pdvShortcutsText.help, description: pdvShortcutsText.helpDescription },
+        { key: 'F2', label: pdvShortcutsText.focusCode, description: pdvShortcutsText.focusCodeDescription },
+        { key: 'Esc', label: pdvShortcutsText.readyState, description: pdvShortcutsText.readyStateDescription },
+      ],
+    },
+    {
+      title: pdvShortcutsText.fastOperationTitle,
+      tone: 'text-emerald-600 dark:text-emerald-300',
+      items: [
+        { key: 'F3', label: pdvShortcutsText.toggleTab, description: pdvShortcutsText.toggleTabDescription },
+        { key: 'F4', label: pdvShortcutsText.payment, description: pdvShortcutsText.paymentDescription },
+        { key: 'Enter', label: pdvShortcutsText.fastFinish, description: pdvShortcutsText.fastFinishDescription },
+      ],
+    },
+    {
+      title: pdvShortcutsText.cartTitle,
+      tone: 'text-sky-600 dark:text-sky-300',
+      items: [
+        { key: 'Ctrl + Backspace', label: pdvShortcutsText.removeLastItem, description: pdvShortcutsText.removeLastItemDescription },
+        { key: '+', label: pdvShortcutsText.increaseQuantity, description: pdvShortcutsText.increaseQuantityDescription },
+        { key: '-', label: pdvShortcutsText.decreaseQuantity, description: pdvShortcutsText.decreaseQuantityDescription },
+      ],
+    },
+    {
+      title: pdvShortcutsText.fastFavoritesTitle,
+      tone: 'text-amber-600 dark:text-amber-300',
+      items: [
+        { key: '1-9', label: pdvShortcutsText.addFavorite, description: pdvShortcutsText.favoriteDescription },
+      ],
+    },
+  ];
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-2xl">
             <Keyboard className="w-6 h-6" />
-            Atalhos do PDV
+            {pdvShortcutsText.title}
           </DialogTitle>
         </DialogHeader>
 
@@ -79,7 +80,7 @@ export default function AtalhosHelpModal({ open, onOpenChange }) {
 
         <div className="flex justify-end pt-4">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Fechar
+            {pdvShortcutsText.close}
           </Button>
         </div>
       </DialogContent>

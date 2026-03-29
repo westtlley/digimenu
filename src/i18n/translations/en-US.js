@@ -64,6 +64,457 @@
     notesOptionalLabel: 'Notes (optional)',
     closingNotesPlaceholder: 'Closing notes',
   },
+  pdvCatalog: {
+    title: 'POS',
+    description: 'Visual control of what appears on the register, preparing the catalog for multichannel operation.',
+    selectMultiple: 'Select multiple',
+    newProduct: 'New product',
+    catalogItems: 'Catalog items',
+    categories: 'Categories',
+    activeInPdv: 'Active in POS',
+    inactiveInPdv: 'Disabled in POS',
+    availableInPdv: 'Available in POS',
+    hiddenInPdv: 'Hidden in POS',
+    codeLabel: 'POS code',
+    priceLabel: 'Price',
+    actionsLabel: 'Actions',
+    imageLabel: 'Image',
+    productLabel: 'Product',
+    generalStatusLabel: 'General status',
+    availabilityError: 'Could not update POS availability.',
+    codeError: 'Could not update the POS code.',
+    bulkError: 'Could not update the selected products in POS.',
+    bulkPartial(count) {
+      return `${count} product${count !== 1 ? 's' : ''} could not be updated in POS.`;
+    },
+    selectedProducts(count) {
+      return `${count} selected product${count !== 1 ? 's' : ''}`;
+    },
+    visibleProducts(count) {
+      return `${count} visible product${count !== 1 ? 's' : ''}`;
+    },
+    codeUpdated: 'POS code updated.',
+    codeRemoved: 'POS code removed.',
+    noCode: 'No code',
+    noPhoto: 'No photo',
+    active: 'Active',
+    inactive: 'Inactive',
+    pdvActive: 'POS active',
+    pdvInactive: 'POS disabled',
+    noCategory: 'No category',
+    categoryPlaceholder: 'Category',
+    allCategories: 'All categories',
+    generalStatus: 'General status',
+    allStatuses: 'All statuses',
+    allShort: 'All',
+    allInPdv: 'All in POS',
+    pdvStatus: 'POS status',
+    pdvStatusShort: 'POS status',
+    clear: 'Clear',
+    pdvChannel: 'POS channel',
+    activateInPdv: 'Enable in POS',
+    deactivateInPdv: 'Disable in POS',
+    activatedInPdvSuccess: 'Products enabled in POS successfully.',
+    deactivatedInPdvSuccess: 'Products disabled in POS successfully.',
+    searchPlaceholder: 'Search by name or POS code...',
+    emptyNoProducts: 'You have not created any products yet',
+    emptyNoProductsDescription: 'Add products to prepare the register catalog.',
+    emptyNoResults: 'No products found for POS',
+    emptyNoResultsDescription: 'Adjust the filters to find items shown in POS.',
+    emptyNoProductsDesktopDescription: 'Create products to control what appears on the register.',
+    emptyNoResultsDesktopDescription: 'Try adjusting the filters to see items from the POS channel.',
+  },
+  commercialAnalytics: {
+    retry: 'Try again',
+    productOpenings: 'Product opens',
+    addToCartHelper(units, rate) {
+      return `Units: ${units} | View -> Add: ${rate}`;
+    },
+    checkoutHelper(rate) {
+      return `Checkout -> Order: ${rate}`;
+    },
+    completedOrdersHelper: 'Completed orders',
+    shown: 'Shown',
+    accepted: 'Accepted',
+    skipped: 'Skipped',
+    rejected: 'Rejected',
+    comboClicks: 'Combo clicks',
+    comboAdded: 'Combo added',
+    clicksLabel(value) {
+      return `Clicks: ${value}`;
+    },
+    addsLabel(value) {
+      return `Adds: ${value}`;
+    },
+    rateLabel(value) {
+      return `Rate: ${value}`;
+    },
+  },
+  printerConfig: {
+    bridgeTestSent: 'Test sent through DigiMenu Print Bridge',
+    printerNamePlaceholder: 'Ex: Epson TM-T20',
+    detecting: 'Detecting...',
+    laserType: 'Laser',
+    usb: 'USB',
+    network: 'Network',
+    bluetooth: 'Bluetooth',
+  },
+  gestorLoading: {
+    operationLabel: 'DigiMenu operation',
+    title: 'Synchronizing restaurant operation',
+    description: 'Real-time flow: order, kitchen and delivery.',
+    phase0: 'Loading dashboards and updating indicators...',
+    phase1: 'Still loading data. We are finalizing synchronization.',
+    phase2: 'Reconnecting services to restore operation.',
+    phase3: 'The connection took longer than expected.',
+    order: 'Order',
+    kitchen: 'Kitchen',
+    delivery: 'Delivery',
+    reload: 'Reload',
+  },
+  pdvShortcuts: {
+    title: 'POS shortcuts',
+    readAndFocusTitle: 'Reading and focus',
+    fastOperationTitle: 'Fast operation',
+    fastFavoritesTitle: 'Quick favorites',
+    help: 'Help',
+    helpDescription: 'Opens this shortcuts panel.',
+    focusCode: 'Focus code',
+    focusCodeDescription: 'Clears the code field and prepares POS for typing or scanning.',
+    readyState: 'Ready state',
+    readyStateDescription: 'With the field empty and no modal open, closes leftover suggestions and returns to the ready state.',
+    toggleTab: 'Toggle order tab',
+    toggleTabDescription: 'Opens or closes the order tab on compact screens.',
+    payment: 'Payment',
+    paymentDescription: 'Opens the payment flow when the sale is ready.',
+    fastFinish: 'Quick finish',
+    fastFinishDescription: 'Outside inputs, starts payment using the same normal POS flow.',
+    cartTitle: 'Cart',
+    removeLastItem: 'Remove last item',
+    removeLastItemDescription: 'Removes the most recent item from the order.',
+    increaseQuantity: 'Increase quantity',
+    increaseQuantityDescription: 'Adds 1 unit to the last order item.',
+    decreaseQuantity: 'Decrease quantity',
+    decreaseQuantityDescription: 'Subtracts 1 unit from the last order item.',
+    addFavorite: 'Add favorite',
+    favoriteDescription: 'Triggers the saved product for each quick key without browsing the menu.',
+    intro: 'Shortcuts designed for fast register operation. The scanner keeps priority on the code field and shortcuts do not trigger while you are typing in forms or using POS modals.',
+    close: 'Close',
+  },
+  pdvFavorites: {
+    title: 'Quick favorites',
+    description: 'Use keys 1-9 to add the most used items without touching the menu.',
+    unavailableProduct: 'Unavailable product',
+    emptySlot: 'Empty',
+    emptySlotDescription: 'Click the star on a product to assign this shortcut.',
+    keyLabel(slot) {
+      return `Key ${slot}`;
+    },
+    pdvActive: 'POS active',
+    pdvInactive: 'POS disabled',
+    missingProduct: 'Missing product',
+    defaultQuantity(quantity) {
+      return `x${quantity} default`;
+    },
+  },
+  paymentModal: {
+    title: 'Payment methods',
+    totalToPay: 'Total to pay',
+    remaining: 'Remaining',
+    registeredPayments: 'Registered payments',
+    receivedSuffix: '(received)',
+    addPaymentMethod: 'Add payment method',
+    selectPaymentMethod: 'Select the payment method',
+    amountInMethod(methodLabel) {
+      return `Amount in ${methodLabel} (BRL)`;
+    },
+    receivedAmountPlaceholder: 'Received amount',
+    taxIdPlaceholder: '000.000.000-00',
+    cancel: 'Cancel',
+    add: 'Add',
+    completeTitle: 'Payment complete!',
+    totalPaid(amount) {
+      return `Paid total: ${amount}`;
+    },
+    stillMissing(amount) {
+      return `${amount} still missing to complete payment`;
+    },
+    documentOptionalLabel: 'Tax ID (optional)',
+    financialSale: 'Financial sale',
+    productiveSale: 'Prepared order',
+    confirm: 'Confirm',
+    methods: {
+      dinheiro: 'Cash',
+      pix: 'PIX',
+      debito: 'Debit',
+      credito: 'Credit',
+      outro: 'Other',
+    },
+  },
+  publicMenu: {
+    noSlugDescription: 'The digital menu is accessed through the business link: /s/restaurant-name',
+    noSlugExample: 'Ex.: /s/raiz-maranhense',
+    noSlugHelp: 'Master: open the menu in Admin -> Subscribers and use Open menu on the desired subscriber. Subscriber: use the link from your dashboard or Store.',
+    subscribe(systemName) {
+      return `Subscribe to ${systemName}`;
+    },
+    backToHome: 'Back to home',
+    sendOrderError(message) {
+      return `Error sending order: ${message}`;
+    },
+    cartRecoveryTitle: 'You had items in your cart!',
+    cartRecoveryDescription: 'Do you want to restore your previous order?',
+    recoverCart: 'Yes, restore',
+    dismissCartRecovery: 'No, thanks',
+    cartRecovered: 'Cart restored!',
+    loadingMenu: 'Loading menu...',
+    menuLoadError: 'Error loading menu',
+    retry: 'Try again',
+    subscribeToService(systemName) {
+      return `Subscribe to ${systemName}`;
+    },
+    outOfStock: 'This item is sold out',
+    itemUpdated: 'Item updated in the cart',
+    itemAdded: 'Added to cart!',
+    itemRemoved: 'Item removed from the cart',
+    couponAppliedTitle: 'Coupon applied!',
+    couponAppliedDescription(discount) {
+      return `You saved ${discount}`;
+    },
+    couponRemoved: 'Coupon removed',
+    neighborhoodRequired: 'Please enter the neighborhood to calculate the delivery fee',
+    minimumOrderForDelivery(value) {
+      return `Minimum order for delivery: ${value}`;
+    },
+    firstPurchaseBonus: 'First purchase bonus: +50 points!',
+    loyaltyPointsEarned(points, totalPoints, tierName) {
+      return `You earned ${points} points! Total: ${totalPoints} points (${tierName})`;
+    },
+    orderSentTitle: 'Order sent successfully!',
+    orderSentCode(orderCode) {
+      return `Order #${orderCode}`;
+    },
+    trackOrder: 'Track order',
+    menuNotAvailableTitle(networkIssue) {
+      return networkIssue ? 'Could not load' : 'Link not found';
+    },
+    menuNotAvailableDescription(networkIssue) {
+      return networkIssue
+        ? 'The server may be starting up or the connection failed. Try again in a few seconds.'
+        : 'This menu does not exist or the link is incorrect. Check with the business.';
+    },
+    searchPlaceholder: 'What are you looking for today?',
+    linkCopied: 'Link copied!',
+    shareTitle(storeName) {
+      return storeName || 'Menu';
+    },
+    shareText(storeName) {
+      return `Check out the menu from ${storeName || 'our restaurant'}`;
+    },
+    allCategories: 'All',
+    minimumOrderShort(value) {
+      return `Min. order ${value}`;
+    },
+    comboBadge: 'Combo',
+    fullMenu: 'Full menu',
+    pizzas: 'Pizzas',
+    beverages: 'Drinks',
+    combos: 'Combos',
+    dailyDishes: 'Daily dishes',
+    noDishFound: 'No dishes found',
+    welcomeBenefits: 'Welcome! You can now enjoy all the benefits.',
+    followUs: 'Follow us',
+    restaurantFallback: 'Restaurant',
+    favoritesTitle: 'My favorites',
+    poweredBy(systemName) {
+      return `Powered by ${systemName}`;
+    },
+  },
+  checkout: {
+    title: 'Checkout',
+    flowHint: 'Quick flow: product -> cart -> address -> payment -> confirm.',
+    steps: {
+      cart: 'Cart',
+      customer: 'Customer',
+      address: 'Address',
+      payment: 'Payment',
+      confirm: 'Confirm',
+    },
+    customerSectionTitle: '1. Customer details',
+    customerName: 'Customer name',
+    customerNamePlaceholder: 'Enter your name',
+    customerPhone: 'Phone / WhatsApp',
+    customerPhonePlaceholder: '(00) 00000-0000',
+    deliverySectionTitle: '2. Fulfillment method',
+    pickup: 'Pickup',
+    delivery: 'Delivery',
+    mapSelect: 'Select location on map',
+    mapChange: 'Change location on map',
+    locationSaved: 'Location saved to calculate the fee.',
+    zipLabel: 'ZIP code',
+    autoFillHint: '(Type to auto-fill)',
+    zipPlaceholder: '00000-000',
+    addressAutofillSuccess: 'Address filled automatically!',
+    zipNotFound: 'ZIP code not found. Fill in the address manually.',
+    streetLabel: 'Street/Avenue *',
+    streetPlaceholder: 'Ex: Flower Street',
+    numberLabel: 'Number *',
+    numberPlaceholder: '123',
+    complementLabel: 'Complement',
+    complementPlaceholder: 'Apt 101',
+    neighborhoodLabel: 'Neighborhood *',
+    neighborhoodPlaceholder: 'Enter the neighborhood',
+    distanceFeeCalculated(value) {
+      return `Delivery fee calculated by distance: ${value}`;
+    },
+    zoneFee(value) {
+      return `Delivery fee: ${value}`;
+    },
+    zoneNotRegistered: 'Neighborhood not registered. We will confirm the fee on WhatsApp.',
+    paymentSectionTitle: '3. Payment method',
+    paymentPlaceholder: 'Select the payment method',
+    needsChange: 'I need change',
+    changeAmountLabel: 'Change for how much?',
+    changeAmountPlaceholder: 'Ex: 50.00',
+    changePreview(value) {
+      return `Change: ${value}`;
+    },
+    scheduleTitle: 'Schedule',
+    scheduleDate: 'Date',
+    scheduleTime: 'Time',
+    scheduleActive: '✓ Active',
+    schedule: 'Schedule',
+    businessHours(opening, closing) {
+      return `Opening hours: ${opening} - ${closing}`;
+    },
+    orderNotesTitle: 'Request a change or extra item (optional)',
+    orderNotesHelp: 'Ex.: "Swap rice for potatoes", "Add extra cheese". The restaurant may accept or reject it.',
+    orderNotesPlaceholder: 'Describe the requested change or extra item...',
+    couponApplied(code) {
+      return `${code} applied!`;
+    },
+    remove: 'Remove',
+    couponTitle: 'Discount coupon',
+    couponPlaceholder: 'ENTER THE CODE',
+    apply: 'Apply',
+    tipTitle: 'Tip (optional)',
+    noTip: 'No tip',
+    tipPercent: 'Percentage',
+    fixedValue: 'Fixed amount',
+    tipPercentLabel: 'Percentage (%)',
+    tipOtherPercentPlaceholder: 'Other %',
+    tipFixedLabel: 'Amount (BRL)',
+    tipFixedPlaceholder: 'Ex: 10.00',
+    tipPreview(value) {
+      return `Tip: ${value}`;
+    },
+    checkoutNudgeTitle: 'You are close to improving your purchase',
+    checkoutOfferTitle: 'Final offer to increase your order',
+    checkoutOfferFallback: 'Offer',
+    checkoutOfferLabelFallback: 'Commercial suggestion',
+    enjoyBeforeConfirm: 'enjoy before confirming',
+    view: 'View',
+    subtotal: 'Subtotal',
+    couponDiscount: 'Discount (Coupon)',
+    loyaltyDiscount: 'Discount (Loyalty)',
+    deliveryFee: 'Delivery fee',
+    tip: 'Tip',
+    total: 'Total',
+    submit: 'Place order',
+    submitting: 'Sending order...',
+    storeClosed: 'Store closed',
+    pausedOrders: 'Orders paused',
+    storeClosedNow: 'The store is currently closed',
+    ordersTemporarilyPaused: 'We are temporarily not accepting orders',
+    fillRequiredFields: 'Fill in all required fields',
+    minimumOrderToFinish(value) {
+      return `Minimum order to finish: ${value}`;
+    },
+  },
+  productModal: {
+    detailsTitle: 'Dish details',
+    back: 'Back',
+    close: 'Close',
+    noImage: 'No image',
+    noComplements: 'This dish has no add-ons',
+    required: 'Required',
+    optional: 'Optional',
+    total: 'Total',
+    save: 'Save',
+    add: 'Add',
+  },
+  beverageModal: {
+    dialogTitle(name) {
+      return `Drink details: ${name}`;
+    },
+    dialogDescription: 'Add quantity and notes to include it in the order.',
+    detailsTitle: 'Drink details',
+    back: 'Back',
+    close: 'Close',
+    description: 'Description',
+    volume: 'Volume',
+    temperature: 'Temperature',
+    type: 'Type',
+    code: 'Code',
+    characteristics: 'Characteristics',
+    dietaryInformation: 'Dietary information',
+    observationsOptional: 'Notes (optional)',
+    observationsPlaceholder: 'Ex: No ice, extra cold...',
+    quantity: 'Quantity',
+    total: 'Total',
+    add: 'Add',
+    temperatureLabels: {
+      cold: 'Cold',
+      hot: 'Hot',
+      room: 'Room temperature',
+    },
+    typeLabels: {
+      natural: 'Natural',
+      industrialized: 'Industrialized',
+    },
+    characteristicsLabels: {
+      sugarFree: 'Sugar-free',
+      alcoholic: 'Alcoholic',
+      caffeine: 'Caffeine',
+    },
+    dietaryLabels: {
+      vegano: 'Vegan',
+      sem_lactose: 'Lactose-free',
+      sem_gluten: 'Gluten-free',
+      zero_acucar: 'Zero sugar',
+    },
+  },
+  combo: {
+    buildTitle: 'Build combo',
+    chooseItems: 'Choose your items',
+    emptyNoGroups: 'This combo has no configured groups yet.',
+    chooseQuantity(qty) {
+      return `Choose ${qty}`;
+    },
+    selectPlaceholder: 'Select',
+    addCombo: 'Add combo',
+  },
+  filters: {
+    button: 'Filters',
+    advancedTitle: 'Advanced filters',
+    priceRangeTitle: 'Price range',
+    dietaryPreferencesTitle: 'Dietary preferences',
+    clear: 'Clear',
+    apply: 'Apply filters',
+    priceRanges: {
+      upTo20: 'Up to R$ 20',
+      from20To40: 'R$ 20 - R$ 40',
+      from40To60: 'R$ 40 - R$ 60',
+      above60: 'Above R$ 60',
+    },
+    tags: {
+      vegetariano: 'Vegetarian',
+      vegano: 'Vegan',
+      sem_gluten: 'Gluten-free',
+      picante: 'Spicy',
+      fit: 'Fit',
+    },
+  },
   menu: {
     smartUpsell: {
       bestOptionNow: 'Best option now',
@@ -87,6 +538,30 @@
       saveCurrent: 'Save current',
       saveCurrentHint: 'You can save this address to use it again.',
       newAddress: 'New',
+      fillRequired: 'Fill in at least: name, street and neighborhood',
+      updated: 'Address updated!',
+      saved: 'Address saved!',
+      deleted: 'Address deleted!',
+      geoLocated: 'Address geolocated for km-based fee accurately.',
+      selected(name) {
+        return `Address "${name}" selected!`;
+      },
+      editAddress: 'Edit address',
+      saveAddress: 'Save address',
+      currentAddress: 'Current address',
+      profileAddress: 'Profile address',
+      addressNameLabel: 'Address name',
+      addressNamePlaceholder: 'Ex: Home, Work',
+      streetLabel: 'Street/Avenue *',
+      streetPlaceholder: 'Street, Avenue...',
+      numberLabel: 'Number',
+      numberPlaceholder: '123',
+      neighborhoodLabel: 'Neighborhood *',
+      neighborhoodPlaceholder: 'Neighborhood',
+      complementLabel: 'Complement',
+      complementPlaceholder: 'Apt, Block...',
+      referenceLabel: 'Reference point',
+      referencePlaceholder: 'Near...',
       streetNotInformed: 'Street not informed',
       neighborhoodNotInformed: 'Neighborhood not informed',
       gpsSaved: 'GPS saved for km-based fee',
@@ -260,6 +735,20 @@
       cancel: 'Cancel',
       save: 'Save',
       createCombo: 'Create combo',
+    },
+  },
+  menu: {
+    cart: {
+      back: 'Back',
+      closeCart: 'Close cart',
+      add: 'Add',
+      total: 'Total',
+      empty: 'Cart is empty',
+      beverageTip: 'Tip: adding a drink usually increases the perceived order value.',
+      readyForCheckout: 'Your cart is ready for checkout.',
+      freeDeliveryProgress(value) {
+        return `${value} left to try free delivery.`;
+      },
     },
   },
 };

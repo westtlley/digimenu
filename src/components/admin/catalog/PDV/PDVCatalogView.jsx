@@ -9,7 +9,7 @@ import DishRow from '../components/DishRow';
 import ChannelToggle from '../components/ChannelToggle';
 import { CheckCircle, Layers, Package, Plus, Power, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { uiText } from '@/i18n/pt-BR/uiText';
+import { useLanguage } from '@/i18n/LanguageContext';
 
 function safeParseJson(raw) {
   if (!raw) return {};
@@ -72,7 +72,8 @@ export default function PDVCatalogView({
   normalizeCategoryId,
   formatCurrency,
 }) {
-  const pdvCatalogText = uiText.pdvCatalog;
+  const { t } = useLanguage();
+  const pdvCatalogText = t('pdvCatalog');
   const codeStorageKey = `${storageKey}:codes`;
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
@@ -305,7 +306,7 @@ export default function PDVCatalogView({
       setPdvCodeCache((prev) => ({ ...prev, [dishId]: normalizedNextCode }));
 
       if (response?.warning?.message) {
-        toast(response.warning.message, { icon: 'âš ï¸' });
+        toast(response.warning.message, { icon: '⚠️' });
       }
 
       if (typeof onRefreshCatalog === 'function') {
@@ -483,8 +484,8 @@ export default function PDVCatalogView({
     if (failedIds.length === 0) {
       toast.success(
         enabled
-          ? 'Produtos ativados no PDV com sucesso.'
-          : 'Produtos desativados no PDV com sucesso.'
+          ? pdvCatalogText.activatedInPdvSuccess
+          : pdvCatalogText.deactivatedInPdvSuccess
       );
       return;
     }
@@ -508,7 +509,7 @@ export default function PDVCatalogView({
     const dishId = normalizeDishId(dish?.id);
     const categoryName =
       safeCategories.find((cat) => normalizeCategoryId(cat.id) === normalizeCategoryId(dish.category_id))?.name ||
-      'Sem categoria';
+      pdvCatalogText.noCategory;
     const pdvEnabled = getDishPDVEnabled(dish);
     const pdvLoading = isDishPending(dishId);
     const pdvCode = getDishPDVCode(dish);
@@ -534,7 +535,7 @@ export default function PDVCatalogView({
               <img src={dish.image} alt={dish.name} className="h-full w-full object-cover" />
             ) : (
               <div className="flex h-full w-full items-center justify-center text-[11px] text-muted-foreground">
-                Sem foto
+                {pdvCatalogText.noPhoto}
               </div>
             )}
           </div>
@@ -544,10 +545,10 @@ export default function PDVCatalogView({
               <div className="flex flex-wrap items-center gap-2">
                 <p className="truncate text-sm font-semibold text-foreground">{dish.name}</p>
                 <Badge variant={dish.is_active === false ? 'outline' : 'default'} className={dish.is_active === false ? '' : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100'}>
-                  {dish.is_active === false ? 'Inativo' : 'Ativo'}
+                  {dish.is_active === false ? pdvCatalogText.inactive : pdvCatalogText.active}
                 </Badge>
                 <Badge variant="secondary" className={pdvEnabled ? 'bg-blue-100 text-blue-700 hover:bg-blue-100' : 'bg-slate-100 text-slate-600 hover:bg-slate-100'}>
-                  {pdvEnabled ? 'PDV ativo' : 'PDV desativado'}
+                  {pdvEnabled ? pdvCatalogText.pdvActive : pdvCatalogText.pdvInactive}
                 </Badge>
               </div>
               <p className="mt-1 text-xs text-muted-foreground">{categoryName}</p>
@@ -570,10 +571,10 @@ export default function PDVCatalogView({
                   enabled={pdvEnabled}
                   onToggle={() => syncDishPdvStatus(dish, !pdvEnabled)}
                   loading={pdvLoading}
-                  title={pdvEnabled ? 'Desativar no PDV' : 'Ativar no PDV'}
+                  title={pdvEnabled ? pdvCatalogText.deactivateInPdv : pdvCatalogText.activateInPdv}
                 />
                 <Button variant="outline" size="sm" onClick={() => onEditDish(dish)} disabled={!canEditProducts || pdvLoading || pdvCodeLoading}>
-                  Editar
+                  {t('restaurant.actions.edit', 'Editar')}
                 </Button>
               </div>
             </div>
@@ -601,7 +602,7 @@ export default function PDVCatalogView({
               {canCreateProducts && (
                 <Button onClick={onOpenNewProduct}>
                   <Plus className="mr-2 h-4 w-4" />
-                  Novo produto
+                  {pdvCatalogText.newProduct}
                 </Button>
               )}
             </div>
@@ -645,7 +646,7 @@ export default function PDVCatalogView({
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground">Categorias</p>
+                    <p className="text-sm text-muted-foreground">{pdvCatalogText.categories}</p>
                     <p className="text-2xl font-bold text-orange-600">{safeCategories.length}</p>
                   </div>
                   <Layers className="h-8 w-8 text-orange-500" />
@@ -668,10 +669,10 @@ export default function PDVCatalogView({
 
               <Select value={filterCategory} onValueChange={setFilterCategory}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Categoria" />
+                  <SelectValue placeholder={pdvCatalogText.categoryPlaceholder} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todas categorias</SelectItem>
+                  <SelectItem value="all">{pdvCatalogText.allCategories}</SelectItem>
                   {safeCategories.map((cat) => (
                     <SelectItem key={cat.id} value={normalizeCategoryId(cat.id)}>
                       {cat.name}
@@ -682,28 +683,28 @@ export default function PDVCatalogView({
 
               <Select value={filterStatus} onValueChange={setFilterStatus}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Status geral" />
+                  <SelectValue placeholder={pdvCatalogText.generalStatus} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todos os status</SelectItem>
-                  <SelectItem value="active">Ativos</SelectItem>
-                  <SelectItem value="inactive">Inativos</SelectItem>
+                  <SelectItem value="all">{pdvCatalogText.allStatuses}</SelectItem>
+                  <SelectItem value="active">{pdvCatalogText.active}</SelectItem>
+                  <SelectItem value="inactive">{pdvCatalogText.inactive}</SelectItem>
                 </SelectContent>
               </Select>
 
               <Select value={filterPdvStatus} onValueChange={setFilterPdvStatus}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Status no PDV" />
+                  <SelectValue placeholder={pdvCatalogText.pdvStatus} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todos no PDV</SelectItem>
+                  <SelectItem value="all">{pdvCatalogText.allInPdv}</SelectItem>
                   <SelectItem value="pdv_active">{pdvCatalogText.availableInPdv}</SelectItem>
                   <SelectItem value="pdv_inactive">{pdvCatalogText.hiddenInPdv}</SelectItem>
                 </SelectContent>
               </Select>
 
               <Button variant="ghost" onClick={clearFilters}>
-                Limpar
+                {pdvCatalogText.clear}
               </Button>
             </div>
 
@@ -712,7 +713,7 @@ export default function PDVCatalogView({
                 <p className="text-sm text-muted-foreground">
                   {pdvCatalogText.visibleProducts(filteredPDVDishes.length)}
                 </p>
-                <Badge variant="secondary">Canal PDV</Badge>
+                <Badge variant="secondary">{pdvCatalogText.pdvChannel}</Badge>
               </div>
             )}
           </div>
@@ -727,13 +728,13 @@ export default function PDVCatalogView({
             </span>
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" size="sm" onClick={() => handleBulkPdvStatus(true)} disabled={bulkUpdating}>
-                Ativar no PDV
+                {pdvCatalogText.activateInPdv}
               </Button>
               <Button variant="outline" size="sm" onClick={() => handleBulkPdvStatus(false)} disabled={bulkUpdating}>
-                Desativar no PDV
+                {pdvCatalogText.deactivateInPdv}
               </Button>
               <Button variant="ghost" size="sm" onClick={() => setSelectionMode(false)} disabled={bulkUpdating}>
-                Cancelar
+                {t('media.cancel', 'Cancelar')}
               </Button>
             </div>
           </div>
@@ -748,7 +749,7 @@ export default function PDVCatalogView({
           {canCreateProducts && (
             <Button size="sm" onClick={onOpenNewProduct}>
               <Plus className="mr-1 h-4 w-4" />
-              Novo produto
+              {pdvCatalogText.newProduct}
             </Button>
           )}
         </div>
@@ -762,10 +763,10 @@ export default function PDVCatalogView({
 
           <Select value={filterCategory} onValueChange={setFilterCategory}>
             <SelectTrigger>
-              <SelectValue placeholder="Categoria" />
+              <SelectValue placeholder={pdvCatalogText.categoryPlaceholder} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todas categorias</SelectItem>
+              <SelectItem value="all">{pdvCatalogText.allCategories}</SelectItem>
               {safeCategories.map((cat) => (
                 <SelectItem key={cat.id} value={normalizeCategoryId(cat.id)}>
                   {cat.name}
@@ -777,23 +778,23 @@ export default function PDVCatalogView({
           <div className="grid grid-cols-2 gap-2">
             <Select value={filterStatus} onValueChange={setFilterStatus}>
               <SelectTrigger>
-                <SelectValue placeholder="Status geral" />
+                <SelectValue placeholder={pdvCatalogText.generalStatus} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                <SelectItem value="active">Ativos</SelectItem>
-                <SelectItem value="inactive">Inativos</SelectItem>
+                <SelectItem value="all">{pdvCatalogText.allShort}</SelectItem>
+                <SelectItem value="active">{pdvCatalogText.active}</SelectItem>
+                <SelectItem value="inactive">{pdvCatalogText.inactive}</SelectItem>
               </SelectContent>
             </Select>
 
             <Select value={filterPdvStatus} onValueChange={setFilterPdvStatus}>
               <SelectTrigger>
-                <SelectValue placeholder="Status PDV" />
+                <SelectValue placeholder={pdvCatalogText.pdvStatusShort} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                <SelectItem value="pdv_active">PDV ativo</SelectItem>
-                <SelectItem value="pdv_inactive">PDV off</SelectItem>
+                <SelectItem value="all">{pdvCatalogText.allShort}</SelectItem>
+                <SelectItem value="pdv_active">{pdvCatalogText.pdvActive}</SelectItem>
+                <SelectItem value="pdv_inactive">{pdvCatalogText.pdvInactive}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -804,7 +805,7 @@ export default function PDVCatalogView({
             icon={Package}
             title={safeDishes.length === 0 ? pdvCatalogText.emptyNoProducts : pdvCatalogText.emptyNoResults}
             description={safeDishes.length === 0 ? pdvCatalogText.emptyNoProductsDescription : pdvCatalogText.emptyNoResultsDescription}
-            actionLabel={canCreateProducts ? 'Novo produto' : undefined}
+            actionLabel={canCreateProducts ? pdvCatalogText.newProduct : undefined}
             onAction={canCreateProducts ? onOpenNewProduct : undefined}
           />
         ) : (
@@ -817,19 +818,19 @@ export default function PDVCatalogView({
           <EmptyState
             icon={Package}
             title={safeDishes.length === 0 ? pdvCatalogText.emptyNoProducts : pdvCatalogText.emptyNoResults}
-            description={safeDishes.length === 0 ? 'Cadastre produtos para controlar o que vai aparecer no caixa.' : 'Tente ajustar os filtros para visualizar os itens do canal PDV.'}
-            actionLabel={canCreateProducts ? 'Novo produto' : undefined}
+            description={safeDishes.length === 0 ? pdvCatalogText.emptyNoProductsDesktopDescription : pdvCatalogText.emptyNoResultsDesktopDescription}
+            actionLabel={canCreateProducts ? pdvCatalogText.newProduct : undefined}
             onAction={canCreateProducts ? onOpenNewProduct : undefined}
           />
         ) : (
           <div className="space-y-3">
             <div className={`grid ${selectionMode ? 'grid-cols-[auto_4rem_minmax(0,1.8fr)_minmax(0,1fr)_7rem_8rem_10rem_8rem_auto]' : 'grid-cols-[1.5rem_4rem_minmax(0,1.8fr)_minmax(0,1fr)_7rem_8rem_10rem_8rem_auto]'} gap-3 px-4 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground`}>
               <span />
-              <span>Imagem</span>
-              <span>Produto</span>
-              <span>Categoria</span>
+              <span>{pdvCatalogText.imageLabel}</span>
+              <span>{pdvCatalogText.productLabel}</span>
+              <span>{pdvCatalogText.categoryPlaceholder}</span>
               <span>{pdvCatalogText.priceLabel}</span>
-              <span>Status geral</span>
+              <span>{pdvCatalogText.generalStatusLabel}</span>
               <span>{pdvCatalogText.codeLabel}</span>
               <span>{pdvCatalogText.availableInPdv}</span>
               <span className="text-right">{pdvCatalogText.actionsLabel}</span>
@@ -838,7 +839,7 @@ export default function PDVCatalogView({
             {filteredPDVDishes.map((dish) => {
               const categoryName =
                 safeCategories.find((cat) => normalizeCategoryId(cat.id) === normalizeCategoryId(dish.category_id))?.name ||
-                'Sem categoria';
+                pdvCatalogText.noCategory;
 
               return (
                 <DishRow

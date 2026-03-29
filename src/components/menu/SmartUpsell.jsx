@@ -431,7 +431,7 @@ export default function SmartUpsell({
           <button
             onClick={handleDismiss}
             className="absolute top-2 right-2 p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-            aria-label="Fechar sugestao"
+            aria-label={t('productModal.close', 'Fechar')}
           >
             <X className="w-4 h-4 text-gray-500" />
           </button>

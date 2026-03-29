@@ -1,24 +1,35 @@
-import { useState, useEffect, useRef } from 'react';
-import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { useEffect, useRef, useState } from 'react';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { X, Plus, Minus, Wine, Droplets, Package, ThermometerSnowflake, Thermometer, Leaf, Coffee, GlassWater, ChevronLeft } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import {
+  ChevronLeft,
+  Coffee,
+  GlassWater,
+  Leaf,
+  Minus,
+  Package,
+  Plus,
+  Thermometer,
+  ThermometerSnowflake,
+  Wine,
+  X,
+} from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { useLanguage } from '@/i18n/LanguageContext';
 
-/**
- * Modal customizado para bebidas
- * Exibe informações específicas ao invés de complementos
- */
-export default function BeverageModal({ 
-  beverage, 
-  isOpen, 
-  onClose, 
+export default function BeverageModal({
+  beverage,
+  isOpen,
+  onClose,
   onBack = null,
   onAddToCart,
   primaryColor = '#f97316',
-  mobileFullScreen = false
+  mobileFullScreen = false,
 }) {
+  const { t } = useLanguage();
+  const beverageModalText = t('beverageModal');
   const [quantity, setQuantity] = useState(1);
   const [observations, setObservations] = useState('');
   const dialogRef = useRef(null);
@@ -33,9 +44,8 @@ export default function BeverageModal({
 
   if (!beverage) return null;
 
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
-  };
+  const formatCurrency = (value) =>
+    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
 
   const handleAddToCart = () => {
     onAddToCart({
@@ -44,7 +54,7 @@ export default function BeverageModal({
       quantity,
       observations,
       unitPrice: beverage.price,
-      totalPrice: beverage.price
+      totalPrice: beverage.price,
     });
     onClose();
     setQuantity(1);
@@ -52,9 +62,9 @@ export default function BeverageModal({
   };
 
   const getTempLabel = () => {
-    if (beverage.serving_temp === 'cold') return 'Gelado';
-    if (beverage.serving_temp === 'hot') return 'Quente';
-    if (beverage.serving_temp === 'room') return 'Ambiente';
+    if (beverage.serving_temp === 'cold') return beverageModalText.temperatureLabels.cold;
+    if (beverage.serving_temp === 'hot') return beverageModalText.temperatureLabels.hot;
+    if (beverage.serving_temp === 'room') return beverageModalText.temperatureLabels.room;
     return null;
   };
 
@@ -65,17 +75,30 @@ export default function BeverageModal({
   };
 
   const characteristics = [];
-  if (beverage.sugar_free) characteristics.push({ label: 'Sem açúcar', icon: <Leaf className="w-4 h-4" />, color: 'text-green-600' });
-  if (beverage.alcoholic) characteristics.push({ label: 'Alcoólico', icon: <Wine className="w-4 h-4" />, color: 'text-purple-600' });
-  if (beverage.caffeine) characteristics.push({ label: 'Cafeína', icon: <Coffee className="w-4 h-4" />, color: 'text-amber-600' });
-  
+  if (beverage.sugar_free) {
+    characteristics.push({
+      label: beverageModalText.characteristicsLabels.sugarFree,
+      icon: <Leaf className="w-4 h-4" />,
+      color: 'text-green-600',
+    });
+  }
+  if (beverage.alcoholic) {
+    characteristics.push({
+      label: beverageModalText.characteristicsLabels.alcoholic,
+      icon: <Wine className="w-4 h-4" />,
+      color: 'text-purple-600',
+    });
+  }
+  if (beverage.caffeine) {
+    characteristics.push({
+      label: beverageModalText.characteristicsLabels.caffeine,
+      icon: <Coffee className="w-4 h-4" />,
+      color: 'text-amber-600',
+    });
+  }
+
   const dietaryTags = beverage.dietary_tags || [];
-  const dietaryLabels = {
-    'vegano': 'Vegano',
-    'sem_lactose': 'Sem lactose',
-    'sem_gluten': 'Sem glúten',
-    'zero_acucar': 'Zero açúcar'
-  };
+  const dietaryLabels = beverageModalText.dietaryLabels;
 
   return (
     <Dialog
@@ -84,15 +107,16 @@ export default function BeverageModal({
         if (!nextOpen) onClose?.();
       }}
     >
-        <DialogContent
+      <DialogContent
         className={mobileFullScreen
           ? "z-[70] w-screen max-w-none h-[100dvh] max-h-[100dvh] rounded-none border-none p-0 overflow-hidden flex flex-col pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] [&>:last-child]:hidden"
-          : "z-[70] w-full max-w-5xl lg:max-w-[1100px] h-[85vh] max-h-[85vh] p-0 overflow-hidden border-none rounded-3xl flex flex-col md:flex-row [&>:last-child]:hidden"
-        }
+          : "z-[70] w-full max-w-5xl lg:max-w-[1100px] h-[85vh] max-h-[85vh] p-0 overflow-hidden border-none rounded-3xl flex flex-col md:flex-row [&>:last-child]:hidden"}
         aria-describedby="beverage-modal-desc"
       >
-        <DialogTitle className="sr-only">Detalhes da bebida: {beverage.name}</DialogTitle>
-        <DialogDescription id="beverage-modal-desc" className="sr-only">Adicione quantidade e observações para incluir no pedido.</DialogDescription>
+        <DialogTitle className="sr-only">{beverageModalText.dialogTitle(beverage.name)}</DialogTitle>
+        <DialogDescription id="beverage-modal-desc" className="sr-only">
+          {beverageModalText.dialogDescription}
+        </DialogDescription>
         <AnimatePresence>
           {isOpen && (
             <motion.div
@@ -105,43 +129,41 @@ export default function BeverageModal({
               tabIndex={-1}
               role="dialog"
               aria-modal="true"
-              aria-label={`Detalhes da bebida ${beverage.name || ''}`}
+              aria-label={beverageModalText.dialogTitle(beverage.name || '')}
             >
               {mobileFullScreen && (
                 <div className="flex items-center justify-between border-b border-border px-3 py-3">
                   <button
                     onClick={onBack || onClose}
                     className="p-2 rounded-lg hover:bg-muted transition-colors"
-                    aria-label="Voltar"
+                    aria-label={beverageModalText.back}
                   >
                     <ChevronLeft className="w-5 h-5" />
                   </button>
                   <div className="min-w-0 px-2 text-center">
-                    <p className="text-xs text-muted-foreground">Detalhes da bebida</p>
+                    <p className="text-xs text-muted-foreground">{beverageModalText.detailsTitle}</p>
                     <p className="text-sm font-semibold text-foreground truncate">{beverage?.name}</p>
                   </div>
                   <button
                     onClick={onClose}
                     className="p-2 rounded-lg hover:bg-muted transition-colors"
-                    aria-label="Fechar"
+                    aria-label={beverageModalText.close}
                   >
                     <X className="w-5 h-5" />
                   </button>
                 </div>
               )}
 
-              {/* X no canto superior direito do modal inteiro */}
               {!mobileFullScreen && (
                 <button
                   onClick={onClose}
                   className="absolute top-4 right-4 p-2 rounded-full z-10 hover:bg-muted transition-colors"
-                  aria-label="Fechar"
+                  aria-label={beverageModalText.close}
                 >
                   <X className="w-5 h-5 text-foreground" />
                 </button>
               )}
 
-              {/* Coluna esquerda: imagem — mobile limite menor ~28vh (proporção 9:16) */}
               <div className="relative w-full aspect-[9/16] md:aspect-auto md:h-full md:w-2/5 lg:w-[45%] flex-shrink-0 max-h-[28vh] md:max-h-none bg-card">
                 {beverage.image ? (
                   <img
@@ -162,23 +184,21 @@ export default function BeverageModal({
                 </div>
               </div>
 
-              {/* Coluna direita: informações e ações — padding para campo completo na tela */}
               <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-card overflow-hidden">
                 <div className={`flex-1 overflow-y-auto overflow-x-hidden p-3 md:p-5 pt-3 space-y-4 ${mobileFullScreen ? '' : 'md:pt-12'}`}>
-                  {/* 1. Descrição primeiro (se houver) */}
                   {beverage.description && (
                     <div>
-                      <h3 className="font-semibold mb-2 text-sm">Descrição</h3>
+                      <h3 className="font-semibold mb-2 text-sm">{beverageModalText.description}</h3>
                       <p className="text-sm text-muted-foreground leading-relaxed">{beverage.description}</p>
                     </div>
                   )}
-                  {/* 2. Outras informações */}
+
                   <div className="grid grid-cols-2 gap-2 md:gap-3 w-full max-w-full">
                     {beverage.volume_ml && (
                       <div className="flex items-center gap-2 p-2.5 md:p-3 rounded-lg border border-border bg-muted/80 min-w-0 overflow-hidden">
                         <Package className="w-5 h-5 shrink-0" style={{ color: primaryColor }} />
                         <div className="min-w-0 overflow-hidden">
-                          <p className="text-xs text-muted-foreground">Volume</p>
+                          <p className="text-xs text-muted-foreground">{beverageModalText.volume}</p>
                           <p className="font-semibold text-sm truncate text-foreground">{beverage.volume_ml}ml</p>
                         </div>
                       </div>
@@ -187,7 +207,7 @@ export default function BeverageModal({
                       <div className="flex items-center gap-2 p-2.5 md:p-3 rounded-lg border border-border bg-muted/80 min-w-0 overflow-hidden">
                         <span className="shrink-0">{getTempIcon()}</span>
                         <div className="min-w-0 overflow-hidden">
-                          <p className="text-xs text-muted-foreground">Temperatura</p>
+                          <p className="text-xs text-muted-foreground">{beverageModalText.temperature}</p>
                           <p className="font-semibold text-sm truncate text-foreground">{getTempLabel()}</p>
                         </div>
                       </div>
@@ -195,14 +215,16 @@ export default function BeverageModal({
                     {beverage.beverage_type && (
                       <div className="flex items-center gap-2 p-2.5 md:p-3 rounded-lg border border-border bg-muted/80 min-w-0 overflow-hidden">
                         {beverage.beverage_type === 'natural' ? (
-                          <Droplets className="w-5 h-5 text-green-600 shrink-0" />
+                          <GlassWater className="w-5 h-5 text-green-600 shrink-0" />
                         ) : (
                           <Package className="w-5 h-5 text-muted-foreground shrink-0" />
                         )}
                         <div className="min-w-0 overflow-hidden">
-                          <p className="text-xs text-muted-foreground">Tipo</p>
+                          <p className="text-xs text-muted-foreground">{beverageModalText.type}</p>
                           <p className="font-semibold text-sm truncate text-foreground">
-                            {beverage.beverage_type === 'natural' ? 'Natural' : 'Industrializado'}
+                            {beverage.beverage_type === 'natural'
+                              ? beverageModalText.typeLabels.natural
+                              : beverageModalText.typeLabels.industrialized}
                           </p>
                         </div>
                       </div>
@@ -211,7 +233,7 @@ export default function BeverageModal({
                       <div className="flex items-center gap-2 p-2.5 md:p-3 rounded-lg border border-border bg-muted/80 min-w-0 overflow-hidden">
                         <Package className="w-5 h-5 text-muted-foreground shrink-0" />
                         <div className="min-w-0 overflow-hidden">
-                          <p className="text-xs text-muted-foreground">Código</p>
+                          <p className="text-xs text-muted-foreground">{beverageModalText.code}</p>
                           <p className="font-semibold text-xs font-mono truncate text-foreground">{beverage.ean}</p>
                         </div>
                       </div>
@@ -220,16 +242,16 @@ export default function BeverageModal({
 
                   {characteristics.length > 0 && (
                     <div>
-                      <h3 className="font-semibold mb-2 text-sm">Características</h3>
+                      <h3 className="font-semibold mb-2 text-sm">{beverageModalText.characteristics}</h3>
                       <div className="flex flex-wrap gap-2">
-                        {characteristics.map((char, idx) => (
+                        {characteristics.map((characteristic, index) => (
                           <Badge
-                            key={idx}
+                            key={`${characteristic.label}-${index}`}
                             variant="outline"
-                            className={`${char.color} border-current flex items-center gap-1.5 px-3 py-1.5`}
+                            className={`${characteristic.color} border-current flex items-center gap-1.5 px-3 py-1.5`}
                           >
-                            {char.icon}
-                            {char.label}
+                            {characteristic.icon}
+                            {characteristic.label}
                           </Badge>
                         ))}
                       </div>
@@ -238,7 +260,7 @@ export default function BeverageModal({
 
                   {dietaryTags.length > 0 && (
                     <div>
-                      <h3 className="font-semibold mb-2 text-sm">Informações dietéticas</h3>
+                      <h3 className="font-semibold mb-2 text-sm">{beverageModalText.dietaryInformation}</h3>
                       <div className="flex flex-wrap gap-2">
                         {dietaryTags.map((tag) => (
                           <Badge
@@ -253,21 +275,20 @@ export default function BeverageModal({
                   )}
 
                   <div>
-                    <h3 className="font-semibold mb-2 text-sm">Observações (opcional)</h3>
+                    <h3 className="font-semibold mb-2 text-sm">{beverageModalText.observationsOptional}</h3>
                     <Textarea
-                      placeholder="Ex: Sem gelo, bem gelado..."
+                      placeholder={beverageModalText.observationsPlaceholder}
                       value={observations}
-                      onChange={(e) => setObservations(e.target.value)}
+                      onChange={(event) => setObservations(event.target.value)}
                       rows={2}
                       className="resize-none"
                     />
                   </div>
                 </div>
 
-                {/* Rodapé fixo: Quantidade + Total + botão Adicionar */}
                 <div className="border-t p-3 flex flex-col gap-3 flex-shrink-0 bg-card border-border shadow-lg lg:shadow-[0_-4px_12px_rgba(0,0,0,0.06)]">
                   <div className="flex items-center justify-between">
-                    <span className="font-medium text-sm text-muted-foreground">Quantidade</span>
+                    <span className="font-medium text-sm text-muted-foreground">{beverageModalText.quantity}</span>
                     <div className="flex items-center gap-2">
                       <Button
                         variant="outline"
@@ -291,7 +312,7 @@ export default function BeverageModal({
                   </div>
                   <div className="flex items-center justify-between gap-4">
                     <div>
-                      <p className="text-sm text-muted-foreground">Total</p>
+                      <p className="text-sm text-muted-foreground">{beverageModalText.total}</p>
                       <p className="text-2xl font-bold" style={{ color: primaryColor }}>
                         {formatCurrency(beverage.price * quantity)}
                       </p>
@@ -303,7 +324,7 @@ export default function BeverageModal({
                       style={{ background: `linear-gradient(135deg, ${primaryColor}, #ef4444)` }}
                     >
                       <Wine className="w-5 h-5 mr-2" />
-                      Adicionar
+                      {beverageModalText.add}
                     </Button>
                   </div>
                 </div>

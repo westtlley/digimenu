@@ -115,6 +115,7 @@
     unknownError: 'Desconhecido',
     popupBlocked: 'Popup bloqueado. Permita popups para imprimir.',
     sendingToPrinter: 'Enviando para a impressora...',
+    bridgeTestSent: 'Teste enviado via DigiMenu Print Bridge',
     testPrintTitle: 'Teste de impressão',
     statusLabel: 'Status da configuração',
     configured: 'Configurada',
@@ -123,8 +124,10 @@
     basicSettingsDescription: 'Informações principais da impressora.',
     printerNameLabel: 'Nome da impressora *',
     printerNameRequired: 'Nome da impressora é obrigatório.',
+    printerNamePlaceholder: 'Ex: Epson TM-T20',
     detectionHelp: 'A detecção automática usa WebUSB, WebSerial e Bluetooth com permissão do navegador.',
     detectButton: 'Detectar impressora conectada',
+    detecting: 'Detectando...',
     printerTypeLabel: 'Tipo de impressora',
     connectionTypeLabel: 'Tipo de conexão',
     printMethodLabel: 'Método de impressão',
@@ -142,14 +145,20 @@
     previewButton: 'Visualizar teste',
     testButton: 'Testar impressão',
     thermalType: 'Térmica',
+    laserType: 'Laser',
     inkjetType: 'Jato de tinta',
     hybridMethod: 'Híbrido (tenta ESC/POS)',
+    usb: 'USB',
+    network: 'Rede',
+    bluetooth: 'Bluetooth',
   },
   pdvCatalog: {
     title: 'PDV',
     description: 'Controle visual do que vai aparecer no caixa, preparando o catálogo para operação multicanal.',
     selectMultiple: 'Selecionar múltiplos',
+    newProduct: 'Novo produto',
     catalogItems: 'Itens no catálogo',
+    categories: 'Categorias',
     activeInPdv: 'PDV ativos',
     inactiveInPdv: 'PDV desativados',
     availableInPdv: 'Disponíveis no PDV',
@@ -157,6 +166,9 @@
     codeLabel: 'Código PDV',
     priceLabel: 'Preço',
     actionsLabel: 'Ações',
+    imageLabel: 'Imagem',
+    productLabel: 'Produto',
+    generalStatusLabel: 'Status geral',
     availabilityError: 'Não foi possível atualizar a disponibilidade no PDV.',
     codeError: 'Não foi possível atualizar o código PDV.',
     bulkError: 'Não foi possível atualizar os produtos selecionados no PDV.',
@@ -172,11 +184,33 @@
     codeUpdated: 'Código PDV atualizado.',
     codeRemoved: 'Código PDV removido.',
     noCode: 'Sem código',
+    noPhoto: 'Sem foto',
+    active: 'Ativo',
+    inactive: 'Inativo',
+    pdvActive: 'PDV ativo',
+    pdvInactive: 'PDV desativado',
+    noCategory: 'Sem categoria',
+    categoryPlaceholder: 'Categoria',
+    allCategories: 'Todas as categorias',
+    generalStatus: 'Status geral',
+    allStatuses: 'Todos os status',
+    allShort: 'Todos',
+    allInPdv: 'Todos no PDV',
+    pdvStatus: 'Status no PDV',
+    pdvStatusShort: 'Status PDV',
+    clear: 'Limpar',
+    pdvChannel: 'Canal PDV',
+    activateInPdv: 'Ativar no PDV',
+    deactivateInPdv: 'Desativar no PDV',
+    activatedInPdvSuccess: 'Produtos ativados no PDV com sucesso.',
+    deactivatedInPdvSuccess: 'Produtos desativados no PDV com sucesso.',
     searchPlaceholder: 'Buscar por nome ou código PDV...',
     emptyNoProducts: 'Você ainda não cadastrou nenhum produto',
     emptyNoProductsDescription: 'Adicione produtos para preparar o catálogo do caixa.',
     emptyNoResults: 'Nenhum produto encontrado para o PDV',
     emptyNoResultsDescription: 'Ajuste os filtros para encontrar os itens exibidos no PDV.',
+    emptyNoProductsDesktopDescription: 'Cadastre produtos para controlar o que vai aparecer no caixa.',
+    emptyNoResultsDesktopDescription: 'Tente ajustar os filtros para visualizar os itens do canal PDV.',
   },
   commercialAnalytics: {
     title(days) {
@@ -196,48 +230,395 @@
     noViewsInPeriod: 'Sem visualizações no período.',
     noAddsInPeriod: 'Sem adições no período.',
     noCombosInPeriod: 'Sem ações de combo no período.',
+    retry: 'Tentar novamente',
+    productOpenings: 'Abertura de produtos',
+    addToCartHelper(units, rate) {
+      return `Unidades: ${units} | View -> Add: ${rate}`;
+    },
+    checkoutHelper(rate) {
+      return `Checkout -> Pedido: ${rate}`;
+    },
+    completedOrdersHelper: 'Pedidos finalizados',
+    shown: 'Mostrado',
+    accepted: 'Aceito',
+    skipped: 'Pulado',
+    rejected: 'Rejeitado',
+    comboClicks: 'Clique em combo',
+    comboAdded: 'Combo adicionado',
+    clicksLabel(value) {
+      return `Cliques: ${value}`;
+    },
+    addsLabel(value) {
+      return `Adds: ${value}`;
+    },
+    rateLabel(value) {
+      return `Taxa: ${value}`;
+    },
   },
   gestorLoading: {
+    operationLabel: 'Operação DigiMenu',
     title: 'Sincronizando operação do restaurante',
     description: 'Fluxo em tempo real: pedido, cozinha e entrega.',
     phase0: 'Carregando painéis e atualizando indicadores...',
     phase1: 'Ainda carregando dados. Estamos finalizando a sincronização.',
     phase2: 'Reconectando serviços para restaurar a operação.',
     phase3: 'A conexão demorou mais que o esperado.',
+    order: 'Pedido',
+    kitchen: 'Cozinha',
+    delivery: 'Entrega',
+    reload: 'Recarregar',
   },
   pdvShortcuts: {
+    title: 'Atalhos do PDV',
     readAndFocusTitle: 'Leitura e foco',
     fastOperationTitle: 'Operação rápida',
     fastFavoritesTitle: 'Favoritos rápidos',
+    help: 'Ajuda',
+    helpDescription: 'Abre este painel de atalhos.',
     focusCode: 'Focar código',
     focusCodeDescription: 'Limpa o campo de código e prepara o PDV para digitação ou scanner.',
+    readyState: 'Estado pronto',
     readyStateDescription: 'Com o campo vazio e sem modal aberto, fecha sugestões residuais e volta ao estado pronto.',
+    toggleTab: 'Alternar comanda',
+    toggleTabDescription: 'Abre ou fecha a comanda em telas compactas.',
+    payment: 'Pagamento',
     paymentDescription: 'Abre o fluxo de pagamento quando a venda está pronta.',
+    fastFinish: 'Finalizar rápido',
     fastFinishDescription: 'Fora de inputs, inicia o pagamento usando o mesmo fluxo normal do PDV.',
+    cartTitle: 'Carrinho',
     removeLastItem: 'Remover último item',
+    removeLastItemDescription: 'Remove o item mais recente da comanda.',
     increaseQuantity: 'Aumentar quantidade',
+    increaseQuantityDescription: 'Soma 1 unidade ao último item da comanda.',
     decreaseQuantity: 'Diminuir quantidade',
+    decreaseQuantityDescription: 'Subtrai 1 unidade do último item da comanda.',
+    addFavorite: 'Adicionar favorito',
     favoriteDescription: 'Dispara o produto salvo em cada tecla rápida sem navegar pelo cardápio.',
     intro: 'Atalhos pensados para operação rápida de caixa. O scanner continua com prioridade no campo de código e os atalhos não disparam enquanto você estiver digitando em formulários ou usando modais do PDV.',
+    close: 'Fechar',
   },
   pdvFavorites: {
     title: 'Favoritos rápidos',
     description: 'Use as teclas 1-9 para adicionar os itens mais usados sem tocar no cardápio.',
     unavailableProduct: 'Produto indisponível',
+    emptySlot: 'Vazio',
+    emptySlotDescription: 'Clique na estrela de um produto para ocupar este atalho.',
+    keyLabel(slot) {
+      return `Tecla ${slot}`;
+    },
+    pdvActive: 'PDV ativo',
+    pdvInactive: 'PDV desativado',
+    missingProduct: 'Produto ausente',
     defaultQuantity(quantity) {
       return `x${quantity} padrão`;
     },
   },
   paymentModal: {
+    title: 'Formas de pagamento',
+    totalToPay: 'Total a pagar',
+    remaining: 'Restante',
+    registeredPayments: 'Pagamentos registrados',
+    receivedSuffix: '(recebido)',
+    addPaymentMethod: 'Adicionar forma de pagamento',
+    selectPaymentMethod: 'Selecione a forma de pagamento',
     remainingExceeded(amount) {
       return `O valor não pode exceder o restante (${amount}).`;
     },
     maxPlaceholder(amount) {
       return `Máx.: ${amount}`;
     },
+    amountInMethod(methodLabel) {
+      return `Valor em ${methodLabel} (R$)`;
+    },
+    receivedAmountPlaceholder: 'Valor recebido',
+    taxIdPlaceholder: '000.000.000-00',
+    cancel: 'Cancelar',
+    add: 'Adicionar',
+    completeTitle: 'Pagamento completo!',
+    totalPaid(amount) {
+      return `Total pago: ${amount}`;
+    },
+    stillMissing(amount) {
+      return `Ainda falta ${amount} para completar o pagamento`;
+    },
+    documentOptionalLabel: 'CPF/CNPJ (opcional)',
     operationTypeLabel: 'Tipo da operação',
+    financialSale: 'Venda financeira',
     financialSaleDescription: 'Não envia para a cozinha',
+    productiveSale: 'Pedido com preparo',
     productiveSaleDescription: 'Envia para a cozinha',
+    confirm: 'Confirmar',
+    methods: {
+      dinheiro: 'Dinheiro',
+      pix: 'PIX',
+      debito: 'Débito',
+      credito: 'Crédito',
+      outro: 'Outro',
+    },
+  },
+  publicMenu: {
+    noSlugDescription: 'O cardápio digital é acessado pelo link do estabelecimento: /s/nome-do-restaurante',
+    noSlugExample: 'Ex.: /s/raiz-maranhense',
+    noSlugHelp: 'Master: abra o cardápio em Admin -> Assinantes e use Abrir cardápio no assinante desejado. Assinante: use o link do seu painel ou Loja.',
+    subscribe(systemName) {
+      return `Assinar ${systemName}`;
+    },
+    backToHome: 'Voltar ao início',
+    sendOrderError(message) {
+      return `Erro ao enviar pedido: ${message}`;
+    },
+    cartRecoveryTitle: 'Você tinha itens no carrinho!',
+    cartRecoveryDescription: 'Deseja recuperar seu pedido anterior?',
+    recoverCart: 'Sim, recuperar',
+    dismissCartRecovery: 'Não, obrigado',
+    cartRecovered: 'Carrinho recuperado!',
+    loadingMenu: 'Carregando cardápio...',
+    menuLoadError: 'Erro ao carregar cardápio',
+    retry: 'Tentar novamente',
+    subscribeToService(systemName) {
+      return `Assinar ${systemName}`;
+    },
+    outOfStock: 'Este produto está esgotado',
+    itemUpdated: 'Item atualizado no carrinho',
+    itemAdded: 'Adicionado ao carrinho!',
+    itemRemoved: 'Item removido do carrinho',
+    couponAppliedTitle: 'Cupom aplicado!',
+    couponAppliedDescription(discount) {
+      return `Você economizou ${discount}`;
+    },
+    couponRemoved: 'Cupom removido',
+    neighborhoodRequired: 'Por favor, informe o bairro para calcular a taxa de entrega',
+    minimumOrderForDelivery(value) {
+      return `Pedido mínimo para entrega: ${value}`;
+    },
+    firstPurchaseBonus: 'Bônus de primeira compra: +50 pontos!',
+    loyaltyPointsEarned(points, totalPoints, tierName) {
+      return `Você ganhou ${points} pontos! Total: ${totalPoints} pontos (${tierName})`;
+    },
+    orderSentTitle: 'Pedido enviado com sucesso!',
+    orderSentCode(orderCode) {
+      return `Pedido #${orderCode}`;
+    },
+    trackOrder: 'Acompanhar pedido',
+    menuNotAvailableTitle(networkIssue) {
+      return networkIssue ? 'Não foi possível carregar' : 'Link não encontrado';
+    },
+    menuNotAvailableDescription(networkIssue) {
+      return networkIssue
+        ? 'O servidor pode estar iniciando ou a conexão falhou. Tente novamente em alguns segundos.'
+        : 'Este cardápio não existe ou o link está incorreto. Verifique com o estabelecimento.';
+    },
+    searchPlaceholder: 'O que você procura hoje?',
+    linkCopied: 'Link copiado!',
+    shareTitle(storeName) {
+      return storeName || 'Cardápio';
+    },
+    shareText(storeName) {
+      return `Confira o cardápio de ${storeName || 'nosso restaurante'}`;
+    },
+    allCategories: 'Todos',
+    minimumOrderShort(value) {
+      return `Pedido min. ${value}`;
+    },
+    comboBadge: 'Combo',
+    fullMenu: 'Cardápio completo',
+    pizzas: 'Pizzas',
+    beverages: 'Bebidas',
+    combos: 'Combos',
+    dailyDishes: 'Pratos do dia',
+    noDishFound: 'Nenhum prato encontrado',
+    welcomeBenefits: 'Bem-vindo! Agora você pode aproveitar todos os benefícios.',
+    followUs: 'Siga-nos',
+    restaurantFallback: 'Restaurante',
+    favoritesTitle: 'Meus favoritos',
+    poweredBy(systemName) {
+      return `Powered by ${systemName}`;
+    },
+  },
+  checkout: {
+    title: 'Finalizar pedido',
+    flowHint: 'Fluxo rápido: produto -> carrinho -> endereço -> pagamento -> confirmar.',
+    steps: {
+      cart: 'Carrinho',
+      customer: 'Cliente',
+      address: 'Endereço',
+      payment: 'Pagamento',
+      confirm: 'Confirmar',
+    },
+    customerSectionTitle: '1. Dados do cliente',
+    customerName: 'Nome do cliente',
+    customerNamePlaceholder: 'Digite seu nome',
+    customerPhone: 'Telefone / WhatsApp',
+    customerPhonePlaceholder: '(00) 00000-0000',
+    deliverySectionTitle: '2. Forma de recebimento',
+    pickup: 'Retirada',
+    delivery: 'Entrega',
+    mapSelect: 'Selecionar localização no mapa',
+    mapChange: 'Alterar localização no mapa',
+    locationSaved: 'Localização salva para cálculo da taxa.',
+    zipLabel: 'CEP',
+    autoFillHint: '(Digite para preencher automaticamente)',
+    zipPlaceholder: '00000-000',
+    addressAutofillSuccess: 'Endereço preenchido automaticamente!',
+    zipNotFound: 'CEP não encontrado. Preencha o endereço manualmente.',
+    streetLabel: 'Rua/Avenida *',
+    streetPlaceholder: 'Ex: Rua das Flores',
+    numberLabel: 'Número *',
+    numberPlaceholder: '123',
+    complementLabel: 'Complemento',
+    complementPlaceholder: 'Apto 101',
+    neighborhoodLabel: 'Bairro *',
+    neighborhoodPlaceholder: 'Digite o bairro',
+    distanceFeeCalculated(value) {
+      return `Taxa de entrega calculada por distância: ${value}`;
+    },
+    zoneFee(value) {
+      return `Taxa de entrega: ${value}`;
+    },
+    zoneNotRegistered: 'Bairro não cadastrado. Confirmaremos a taxa via WhatsApp.',
+    paymentSectionTitle: '3. Forma de pagamento',
+    paymentPlaceholder: 'Selecione a forma de pagamento',
+    needsChange: 'Preciso de troco',
+    changeAmountLabel: 'Troco para quanto?',
+    changeAmountPlaceholder: 'Ex: 50.00',
+    changePreview(value) {
+      return `Troco: ${value}`;
+    },
+    scheduleTitle: 'Agendamento',
+    scheduleDate: 'Data',
+    scheduleTime: 'Horário',
+    scheduleActive: '✓ Ativo',
+    schedule: 'Agendar',
+    businessHours(opening, closing) {
+      return `Horário de funcionamento: ${opening} - ${closing}`;
+    },
+    orderNotesTitle: 'Solicitar alteração ou adicional (opcional)',
+    orderNotesHelp: 'Ex.: "Trocar arroz por batata", "Adicionar queijo extra". O restaurante pode aceitar ou reprovar.',
+    orderNotesPlaceholder: 'Descreva a alteração ou o adicional desejado...',
+    couponApplied(code) {
+      return `${code} aplicado!`;
+    },
+    remove: 'Remover',
+    couponTitle: 'Cupom de desconto',
+    couponPlaceholder: 'DIGITE O CÓDIGO',
+    apply: 'Aplicar',
+    tipTitle: 'Gorjeta (opcional)',
+    noTip: 'Sem gorjeta',
+    tipPercent: 'Percentual',
+    fixedValue: 'Valor fixo',
+    tipPercentLabel: 'Percentual (%)',
+    tipOtherPercentPlaceholder: 'Outro %',
+    tipFixedLabel: 'Valor (R$)',
+    tipFixedPlaceholder: 'Ex: 10.00',
+    tipPreview(value) {
+      return `Gorjeta: ${value}`;
+    },
+    checkoutNudgeTitle: 'Falta pouco para melhorar sua compra',
+    checkoutOfferTitle: 'Oferta final para aumentar seu pedido',
+    checkoutOfferFallback: 'Oferta',
+    checkoutOfferLabelFallback: 'Sugestão comercial',
+    enjoyBeforeConfirm: 'aproveite antes de confirmar',
+    view: 'Ver',
+    subtotal: 'Subtotal',
+    couponDiscount: 'Desconto (Cupom)',
+    loyaltyDiscount: 'Desconto (Fidelidade)',
+    deliveryFee: 'Taxa de entrega',
+    tip: 'Gorjeta',
+    total: 'Total',
+    submit: 'Finalizar pedido',
+    submitting: 'Enviando pedido...',
+    storeClosed: 'Loja fechada',
+    pausedOrders: 'Pedidos pausados',
+    storeClosedNow: 'A loja está fechada no momento',
+    ordersTemporarilyPaused: 'Não estamos aceitando pedidos temporariamente',
+    fillRequiredFields: 'Preencha todos os campos obrigatórios',
+    minimumOrderToFinish(value) {
+      return `Pedido mínimo para finalizar: ${value}`;
+    },
+  },
+  productModal: {
+    detailsTitle: 'Detalhes do prato',
+    back: 'Voltar',
+    close: 'Fechar',
+    noImage: 'Sem imagem',
+    noComplements: 'Este prato não possui complementos',
+    required: 'Obrigatório',
+    optional: 'Opcional',
+    total: 'Total',
+    save: 'Salvar',
+    add: 'Adicionar',
+  },
+  beverageModal: {
+    dialogTitle(name) {
+      return `Detalhes da bebida: ${name}`;
+    },
+    dialogDescription: 'Adicione quantidade e observações para incluir no pedido.',
+    detailsTitle: 'Detalhes da bebida',
+    back: 'Voltar',
+    close: 'Fechar',
+    description: 'Descrição',
+    volume: 'Volume',
+    temperature: 'Temperatura',
+    type: 'Tipo',
+    code: 'Código',
+    characteristics: 'Características',
+    dietaryInformation: 'Informações dietéticas',
+    observationsOptional: 'Observações (opcional)',
+    observationsPlaceholder: 'Ex: Sem gelo, bem gelado...',
+    quantity: 'Quantidade',
+    total: 'Total',
+    add: 'Adicionar',
+    temperatureLabels: {
+      cold: 'Gelado',
+      hot: 'Quente',
+      room: 'Ambiente',
+    },
+    typeLabels: {
+      natural: 'Natural',
+      industrialized: 'Industrializado',
+    },
+    characteristicsLabels: {
+      sugarFree: 'Sem açúcar',
+      alcoholic: 'Alcoólico',
+      caffeine: 'Cafeína',
+    },
+    dietaryLabels: {
+      vegano: 'Vegano',
+      sem_lactose: 'Sem lactose',
+      sem_gluten: 'Sem glúten',
+      zero_acucar: 'Zero açúcar',
+    },
+  },
+  combo: {
+    buildTitle: 'Montar combo',
+    chooseItems: 'Escolha seus itens',
+    emptyNoGroups: 'Este combo ainda não possui grupos configurados.',
+    chooseQuantity(qty) {
+      return `Escolha ${qty}`;
+    },
+    selectPlaceholder: 'Selecione',
+    addCombo: 'Adicionar combo',
+  },
+  filters: {
+    button: 'Filtros',
+    advancedTitle: 'Filtros avançados',
+    priceRangeTitle: 'Faixa de preço',
+    dietaryPreferencesTitle: 'Preferências alimentares',
+    clear: 'Limpar',
+    apply: 'Aplicar filtros',
+    priceRanges: {
+      upTo20: 'Até R$ 20',
+      from20To40: 'R$ 20 - R$ 40',
+      from40To60: 'R$ 40 - R$ 60',
+      above60: 'Acima de R$ 60',
+    },
+    tags: {
+      vegetariano: 'Vegetariano',
+      vegano: 'Vegano',
+      sem_gluten: 'Sem glúten',
+      picante: 'Picante',
+      fit: 'Fit',
+    },
   },
   menu: {
     smartUpsell: {
@@ -256,12 +637,46 @@
       orderAlreadyHasDrink: 'Seu pedido já tem bebida. Uma troca pequena pode valorizar mais.',
       noPhoto: 'Sem foto',
       noExtraCostSwap: 'Troque sem custo extra',
+      back: 'Voltar',
+      closeCart: 'Fechar carrinho',
+      add: 'Adicionar',
+      total: 'Total',
+      empty: 'Carrinho vazio',
+      beverageTip: 'Dica: adicionar uma bebida costuma aumentar o valor percebido do pedido.',
+      readyForCheckout: 'Seu carrinho está pronto para checkout.',
+      freeDeliveryProgress(value) {
+        return `Faltam ${value} para tentar frete grátis.`;
+      },
     },
     savedAddresses: {
       title: 'Endereços salvos',
       saveCurrent: 'Salvar atual',
       saveCurrentHint: 'Você pode salvar este endereço para usar novamente.',
       newAddress: 'Novo',
+      fillRequired: 'Preencha pelo menos: nome, rua e bairro',
+      updated: 'Endereço atualizado!',
+      saved: 'Endereço salvo!',
+      deleted: 'Endereço excluído!',
+      geoLocated: 'Endereço geolocalizado para taxa por km com precisão.',
+      selected(name) {
+        return `Endereço "${name}" selecionado!`;
+      },
+      editAddress: 'Editar endereço',
+      saveAddress: 'Salvar endereço',
+      currentAddress: 'Endereço atual',
+      profileAddress: 'Endereço do perfil',
+      addressNameLabel: 'Nome do endereço',
+      addressNamePlaceholder: 'Ex: Casa, Trabalho',
+      streetLabel: 'Rua/Avenida *',
+      streetPlaceholder: 'Rua, Avenida...',
+      numberLabel: 'Número',
+      numberPlaceholder: '123',
+      neighborhoodLabel: 'Bairro *',
+      neighborhoodPlaceholder: 'Bairro',
+      complementLabel: 'Complemento',
+      complementPlaceholder: 'Apto, Bloco...',
+      referenceLabel: 'Ponto de referência',
+      referencePlaceholder: 'Próximo a...',
       streetNotInformed: 'Rua não informada',
       neighborhoodNotInformed: 'Bairro não informado',
       gpsSaved: 'GPS salvo para taxa por km',

@@ -192,12 +192,12 @@ export default function CartModal({
       return smartNudgeMain;
     }
     if (hasFreeDeliveryProgress) {
-      return `Faltam ${formatCurrency(freeDeliveryMin - cartTotal)} para tentar frete grátis.`;
+      return cartText.freeDeliveryProgress(formatCurrency(freeDeliveryMin - cartTotal));
     }
     if (!cartHasBeverage) {
-      return 'Dica: adicionar uma bebida costuma aumentar o valor percebido do pedido.';
+      return cartText.beverageTip;
     }
-    return 'Seu carrinho está pronto para checkout.';
+    return cartText.readyForCheckout;
   })();
   const cartSecondaryMessage = !hasFreeDeliveryProgress && smartNudgeSecondary ? smartNudgeSecondary : null;
   const hasOrderOptimizationDecision = Boolean(nextBestAction);
@@ -587,15 +587,15 @@ export default function CartModal({
                 <button
                   onClick={onBack || onClose}
                   className={`p-2 rounded-lg ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
-                  aria-label="Voltar"
+                  aria-label={cartText.back}
                 >
                   <ChevronLeft className="w-5 h-5" />
                 </button>
               )}
               <ShoppingCart className="w-5 h-5" style={{ color: primaryColor }} />
-              <h2 className={`text-lg font-bold truncate ${darkMode ? 'text-white' : 'text-gray-900'}`}>Carrinho</h2>
+              <h2 className={`text-lg font-bold truncate ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t('checkout.steps.cart', 'Carrinho')}</h2>
             </div>
-            <button onClick={onClose} className={`p-2 rounded-lg ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`} aria-label="Fechar carrinho">
+            <button onClick={onClose} className={`p-2 rounded-lg ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`} aria-label={cartText.closeCart}>
               <X className="w-5 h-5" />
             </button>
           </div>
@@ -646,7 +646,7 @@ export default function CartModal({
               cart.length === 0 ? (
                 <div className="text-center py-12">
                   <ShoppingCart className="w-16 h-16 mx-auto mb-4 opacity-30" style={{ color: darkMode ? '#6b7280' : '#9ca3af' }} />
-                  <p className={darkMode ? 'text-gray-400' : 'text-gray-500'}>Carrinho vazio</p>
+                  <p className={darkMode ? 'text-gray-400' : 'text-gray-500'}>{cartText.empty}</p>
                 </div>
               ) : (
                 <>
@@ -913,7 +913,7 @@ export default function CartModal({
                                 style={{ backgroundColor: primaryColor }}
                                 onClick={() => onSelectSuggestion?.(suggestion)}
                               >
-                                Adicionar
+                                {cartText.add}
                               </Button>
                             </div>
                           </div>
@@ -1007,7 +1007,7 @@ export default function CartModal({
 
                       {/* Total e EndereÃ§o */}
                       <div className={`flex items-center justify-between pt-3 border-t ${darkMode ? 'border-gray-600' : 'border-gray-200'}`}>
-                        <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Total</span>
+                        <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>{cartText.total}</span>
                         <span className="font-bold text-base" style={{ color: primaryColor }}>
                           {formatCurrency(order.total)}
                         </span>
@@ -1078,7 +1078,7 @@ export default function CartModal({
                       Frete grátis acima de {formatCurrency(freeDeliveryMin)}
                     </span>
                     <span className={`font-bold ${darkMode ? 'text-blue-200' : 'text-blue-800'}`}>
-                      Faltam {formatCurrency(freeDeliveryMin - cartTotal)}
+                      {cartText.freeDeliveryProgress(formatCurrency(freeDeliveryMin - cartTotal))}
                     </span>
                   </div>
                   <div className={`h-2 rounded-full overflow-hidden ${darkMode ? 'bg-blue-800' : 'bg-blue-200'}`}>
@@ -1100,7 +1100,7 @@ export default function CartModal({
                   <span className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{formatCurrency(cartTotal)}</span>
                 </div>
                 <div className="flex items-center justify-between pt-1 border-t" style={{ borderColor: darkMode ? '#4b5563' : '#e5e7eb' }}>
-                  <span className={`font-semibold ${darkMode ? 'text-gray-100' : 'text-gray-800'}`}>Total</span>
+                  <span className={`font-semibold ${darkMode ? 'text-gray-100' : 'text-gray-800'}`}>{cartText.total}</span>
                   <span className="text-xl font-bold" style={{ color: primaryColor }}>
                     {formatCurrency(cartTotal)}
                   </span>

@@ -1,10 +1,11 @@
-import React, { useMemo, useState } from 'react';
+﻿import React, { useMemo, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Trash2 } from 'lucide-react';
 import NewDishModal from './NewDishModal';
+import { useLanguage } from '@/i18n/LanguageContext';
 
 const normalizeDishType = (dish) => {
   const t = (dish?.product_type || '').toString().toLowerCase();
@@ -39,6 +40,8 @@ export default function ComboBuilderModal({
   primaryColor,
   onAddToCart,
 }) {
+  const { t } = useLanguage();
+  const comboText = t('combo');
   const safeDishes = Array.isArray(dishes) ? dishes : [];
   const safeCategories = Array.isArray(categories) ? categories : [];
   const safeBeverageCategories = Array.isArray(beverageCategories) ? beverageCategories : [];
@@ -273,7 +276,7 @@ export default function ComboBuilderModal({
       <DialogContent className="sm:max-w-5xl max-w-[95vw] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between gap-2 pr-8">
-            <span>{combo?.name || 'Montar combo'}</span>
+            <span>{combo?.name || comboText.buildTitle}</span>
             <span className="text-sm font-bold" style={{ color: titleColor }}>
               {formatCurrency(fromCents(toCents(combo?.combo_price)))}
             </span>
@@ -327,7 +330,7 @@ export default function ComboBuilderModal({
         />
 
         {groups.length === 0 ? (
-          <div className="text-sm text-muted-foreground">Este combo ainda não possui grupos configurados.</div>
+          <div className="text-sm text-muted-foreground">{comboText.emptyNoGroups}</div>
         ) : (
           <div className="space-y-5">
             {groups.map((g) => {
@@ -339,8 +342,8 @@ export default function ComboBuilderModal({
                 <div key={g.id} className="border rounded-lg p-4 bg-card">
                   <div className="flex items-center justify-between gap-2 mb-3">
                     <div>
-                      <p className="font-semibold">{g.title || 'Escolha seus itens'}</p>
-                      <p className="text-xs text-muted-foreground">Escolha {qty}</p>
+                      <p className="font-semibold">{g.title || comboText.chooseItems}</p>
+                      <p className="text-xs text-muted-foreground">{comboText.chooseQuantity(qty)}</p>
                     </div>
                   </div>
 
@@ -373,7 +376,7 @@ export default function ComboBuilderModal({
                             }}
                           >
                             <SelectTrigger>
-                              <SelectValue placeholder="Selecione" />
+                              <SelectValue placeholder={comboText.selectPlaceholder} />
                             </SelectTrigger>
                             <SelectContent>
                               {options.map((d) => {
@@ -440,10 +443,10 @@ export default function ComboBuilderModal({
 
             <div className="flex gap-3 pt-2">
               <Button type="button" variant="outline" className="flex-1" onClick={() => onOpenChange?.(false)}>
-                Cancelar
+                {t('media.cancel')}
               </Button>
               <Button type="button" className="flex-1" disabled={!canSubmit} onClick={handleAdd}>
-                Adicionar combo
+                {comboText.addCombo}
               </Button>
             </div>
           </div>
@@ -452,4 +455,6 @@ export default function ComboBuilderModal({
     </Dialog>
   );
 }
+
+
 

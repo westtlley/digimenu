@@ -3,7 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Star, X } from 'lucide-react';
 import { formatCurrency } from '@/utils/formatters';
-import { uiText } from '@/i18n/pt-BR/uiText';
+import { useLanguage } from '@/i18n/LanguageContext';
 
 export default function PDVFavoritesPanel({
   slots = [],
@@ -12,7 +12,8 @@ export default function PDVFavoritesPanel({
   onRemoveFavorite,
   getDefaultQuantity,
 }) {
-  const pdvFavoritesText = uiText.pdvFavorites;
+  const { t } = useLanguage();
+  const pdvFavoritesText = t('pdvFavorites');
 
   return (
     <div className="flex-shrink-0 border-b bg-card px-4 py-3">
@@ -51,10 +52,10 @@ export default function PDVFavoritesPanel({
               >
                 <div className="mb-2 flex items-center justify-between">
                   <Badge variant="outline" className="border-border text-foreground">{slot}</Badge>
-                  <span className="text-[11px] font-medium text-muted-foreground">Vazio</span>
+                  <span className="text-[11px] font-medium text-muted-foreground">{pdvFavoritesText.emptySlot}</span>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Clique na estrela de um produto para ocupar este atalho.
+                  {pdvFavoritesText.emptySlotDescription}
                 </p>
               </div>
             );
@@ -71,7 +72,7 @@ export default function PDVFavoritesPanel({
             >
               <div className="mb-2 flex items-center justify-between gap-2">
                 <Badge variant="outline" className="border-amber-300 text-amber-700 dark:text-amber-300">
-                  Tecla {slot}
+                  {pdvFavoritesText.keyLabel(slot)}
                 </Badge>
                 <Button
                   type="button"
@@ -103,11 +104,11 @@ export default function PDVFavoritesPanel({
                         ? 'border-emerald-300 text-emerald-700 dark:text-emerald-300'
                         : 'border-red-300 text-red-700 dark:text-red-300'}
                     >
-                      {isEnabled ? 'PDV ativo' : 'PDV desativado'}
+                      {isEnabled ? pdvFavoritesText.pdvActive : pdvFavoritesText.pdvInactive}
                     </Badge>
                   ) : (
                     <Badge variant="outline" className="border-red-300 text-red-700 dark:text-red-300">
-                      Produto ausente
+                      {pdvFavoritesText.missingProduct}
                     </Badge>
                   )}
                   {defaultQuantity > 1 && (

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Eye, ShoppingCart, CheckCircle2, TrendingUp, Sparkles, Package } from 'lucide-react';
 import { getMenuContextEntityOpts, getMenuContextQueryKeyParts } from '@/utils/tenantScope';
-import { uiText } from '@/i18n/pt-BR/uiText';
+import { useLanguage } from '@/i18n/LanguageContext';
 
 const toNumber = (value) => Number(value || 0);
 const formatPercent = (value) => `${Number(value || 0).toFixed(1)}%`;
@@ -58,7 +58,8 @@ function ProductList({ title, items, valueKey, emptyText }) {
 }
 
 export default function CommercialAnalyticsPanel({ menuContext }) {
-  const analyticsText = uiText.commercialAnalytics;
+  const { t } = useLanguage();
+  const analyticsText = t('commercialAnalytics');
   const [days, setDays] = React.useState(30);
 
   const { data, isLoading, isError, refetch } = useQuery({
@@ -114,7 +115,7 @@ export default function CommercialAnalyticsPanel({ menuContext }) {
             </div>
             {isError ? (
               <Button variant="outline" size="sm" onClick={() => refetch()}>
-                Tentar novamente
+                {analyticsText.retry}
               </Button>
             ) : null}
           </div>
@@ -126,25 +127,25 @@ export default function CommercialAnalyticsPanel({ menuContext }) {
           <MetricCard
             title={analyticsText.views}
             value={views}
-            helper="Abertura de produtos"
+            helper={analyticsText.productOpenings}
             icon={Eye}
           />
           <MetricCard
             title={analyticsText.addToCart}
             value={addEvents}
-            helper={`Unidades: ${addUnits} | View -> Add: ${formatPercent(rates.view_to_cart)}`}
+            helper={analyticsText.addToCartHelper(addUnits, formatPercent(rates.view_to_cart))}
             icon={ShoppingCart}
           />
           <MetricCard
             title={analyticsText.checkoutStarted}
             value={checkouts}
-            helper={`Checkout -> Pedido: ${formatPercent(rates.checkout_to_order)}`}
+            helper={analyticsText.checkoutHelper(formatPercent(rates.checkout_to_order))}
             icon={CheckCircle2}
           />
           <MetricCard
             title={analyticsText.completedOrders}
             value={orders}
-            helper="Pedidos finalizados"
+            helper={analyticsText.completedOrdersHelper}
             icon={Package}
           />
         </div>
@@ -154,15 +155,15 @@ export default function CommercialAnalyticsPanel({ menuContext }) {
             <div className="flex items-center justify-between">
               <p className="text-sm font-semibold text-foreground flex items-center gap-2">
                 <Sparkles className="w-4 h-4" />
-                Upsell
+                {analyticsText.upsell}
               </p>
               <Badge variant="outline">{formatPercent(rates.upsell_acceptance)}</Badge>
             </div>
             <div className="mt-2 text-xs text-muted-foreground space-y-1">
-              <p>Mostrado: <span className="font-medium text-foreground">{upsellShown}</span></p>
-              <p>Aceito: <span className="font-medium text-foreground">{upsellAccepted}</span></p>
-              <p>Pulado: <span className="font-medium text-foreground">{upsellSkipped}</span></p>
-              <p>Rejeitado: <span className="font-medium text-foreground">{toNumber(totals.upsell_rejected)}</span></p>
+              <p>{analyticsText.shown}: <span className="font-medium text-foreground">{upsellShown}</span></p>
+              <p>{analyticsText.accepted}: <span className="font-medium text-foreground">{upsellAccepted}</span></p>
+              <p>{analyticsText.skipped}: <span className="font-medium text-foreground">{upsellSkipped}</span></p>
+              <p>{analyticsText.rejected}: <span className="font-medium text-foreground">{toNumber(totals.upsell_rejected)}</span></p>
             </div>
           </div>
 
@@ -170,13 +171,13 @@ export default function CommercialAnalyticsPanel({ menuContext }) {
             <div className="flex items-center justify-between">
               <p className="text-sm font-semibold text-foreground flex items-center gap-2">
                 <Package className="w-4 h-4" />
-                Combos
+                {analyticsText.combos}
               </p>
               <Badge variant="outline">{formatPercent(rates.combo_add_rate)}</Badge>
             </div>
             <div className="mt-2 text-xs text-muted-foreground space-y-1">
-              <p>Clique em combo: <span className="font-medium text-foreground">{combosClicked}</span></p>
-              <p>Combo adicionado: <span className="font-medium text-foreground">{combosAdded}</span></p>
+              <p>{analyticsText.comboClicks}: <span className="font-medium text-foreground">{combosClicked}</span></p>
+              <p>{analyticsText.comboAdded}: <span className="font-medium text-foreground">{combosAdded}</span></p>
             </div>
           </div>
         </div>
@@ -208,9 +209,9 @@ export default function CommercialAnalyticsPanel({ menuContext }) {
                     >
                       <p className="text-sm font-medium text-foreground truncate">{combo?.combo_name || 'Combo'}</p>
                       <div className="mt-1 text-[11px] text-muted-foreground flex items-center justify-between">
-                        <span>Cliques: {toNumber(combo?.clicks)}</span>
-                        <span>Adds: {toNumber(combo?.adds)}</span>
-                        <span>Taxa: {formatPercent(combo?.add_rate)}</span>
+                        <span>{analyticsText.clicksLabel(toNumber(combo?.clicks))}</span>
+                        <span>{analyticsText.addsLabel(toNumber(combo?.adds))}</span>
+                        <span>{analyticsText.rateLabel(formatPercent(combo?.add_rate))}</span>
                       </div>
                     </div>
                   ))}

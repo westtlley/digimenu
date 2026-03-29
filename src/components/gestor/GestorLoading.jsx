@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { uiText } from '@/i18n/pt-BR/uiText';
+import { useLanguage } from '@/i18n/LanguageContext';
 
 const TIME_FIRST_MSG = 9000;
 const TIME_SECOND_MSG = 22000;
@@ -24,7 +24,8 @@ function clearCacheAndReload() {
 }
 
 export default function GestorLoading() {
-  const gestorLoadingText = uiText.gestorLoading;
+  const { t } = useLanguage();
+  const gestorLoadingText = t('gestorLoading');
   const [phase, setPhase] = useState(0);
 
   useEffect(() => {
@@ -41,7 +42,7 @@ export default function GestorLoading() {
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950">
       <div className="w-full max-w-xl rounded-3xl border border-slate-800 bg-slate-900/90 p-6 shadow-2xl">
-        <p className="text-xs uppercase tracking-[0.18em] text-slate-400 mb-2">DigiMenu Operation</p>
+        <p className="text-xs uppercase tracking-[0.18em] text-slate-400 mb-2">{gestorLoadingText.operationLabel}</p>
         <h2 className="text-xl font-bold text-white">{gestorLoadingText.title}</h2>
         <p className="text-sm text-slate-400 mt-1">{gestorLoadingText.description}</p>
 
@@ -50,15 +51,15 @@ export default function GestorLoading() {
           <div className="relative z-10 grid grid-cols-3 gap-3">
             <div className="text-center">
               <div className="mx-auto h-12 w-12 rounded-xl bg-indigo-500/20 border border-indigo-400/40 flex items-center justify-center text-indigo-300 text-xs font-bold">PED</div>
-              <p className="text-[11px] text-slate-300 mt-2">Pedido</p>
+              <p className="text-[11px] text-slate-300 mt-2">{gestorLoadingText.order}</p>
             </div>
             <div className="text-center">
               <div className="mx-auto h-12 w-12 rounded-xl bg-orange-500/20 border border-orange-400/40 flex items-center justify-center text-orange-300 text-xs font-bold">COZ</div>
-              <p className="text-[11px] text-slate-300 mt-2">Cozinha</p>
+              <p className="text-[11px] text-slate-300 mt-2">{gestorLoadingText.kitchen}</p>
             </div>
             <div className="text-center">
               <div className="mx-auto h-12 w-12 rounded-xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-300 text-xs font-bold">ENT</div>
-              <p className="text-[11px] text-slate-300 mt-2">Entrega</p>
+              <p className="text-[11px] text-slate-300 mt-2">{gestorLoadingText.delivery}</p>
             </div>
           </div>
 
@@ -73,7 +74,7 @@ export default function GestorLoading() {
             <div className="flex items-center justify-between gap-3">
               <p className="text-sm text-red-300">{gestorLoadingText.phase3}</p>
               <Button onClick={clearCacheAndReload} className="bg-orange-500 hover:bg-orange-600">
-                Recarregar
+                {gestorLoadingText.reload}
               </Button>
             </div>
           )}

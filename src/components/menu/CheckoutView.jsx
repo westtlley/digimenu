@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { ArrowLeft, Store, Bike, Ticket, X, Calendar, Clock as ClockIcon, MapPin } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,7 @@ import { buscarCEP } from '@/utils/cepService';
 import { Loader2, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { calculateCartSubtotal } from '@/utils/cartPricing';
+import { useLanguage } from '@/i18n/LanguageContext';
 
 const DEFAULT_CUSTOMER = {
   name: '',
@@ -64,6 +65,9 @@ export default function CheckoutView({
   onCheckoutSuggestion = () => {},
   isSubmitting = false,
 }) {
+  const { t } = useLanguage();
+  const checkoutText = t('checkout');
+  const paymentMethodsText = t('paymentModal.methods');
   const customer = customerProp ?? DEFAULT_CUSTOMER;
   const setCustomer = setCustomerProp ?? (() => {});
   const [showSchedule, setShowSchedule] = useState(false);
@@ -182,15 +186,15 @@ export default function CheckoutView({
   };
 
   const checkoutSteps = [
-    { id: 1, label: 'Carrinho', done: cart.length > 0 },
-    { id: 2, label: 'Cliente', done: Boolean(customer.name && customer.phone) },
+    { id: 1, label: checkoutText.steps.cart, done: cart.length > 0 },
+    { id: 2, label: checkoutText.steps.customer, done: Boolean(customer.name && customer.phone) },
     {
       id: 3,
-      label: 'Endereço',
+      label: checkoutText.steps.address,
       done: customer.deliveryMethod === 'pickup' || Boolean(customer.address_street && customer.address_number && customer.neighborhood)
     },
-    { id: 4, label: 'Pagamento', done: Boolean(customer.paymentMethod) },
-    { id: 5, label: 'Confirmar', done: isFormValid() }
+    { id: 4, label: checkoutText.steps.payment, done: Boolean(customer.paymentMethod) },
+    { id: 5, label: checkoutText.steps.confirm, done: isFormValid() }
   ];
 
   const nextStep = checkoutSteps.find((step) => !step.done)?.id || 5;
@@ -215,7 +219,7 @@ export default function CheckoutView({
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b">
             <div className="flex items-center gap-2">
-              <h2 className="text-lg font-bold text-foreground">Finalizar Pedido</h2>
+              <h2 className="text-lg font-bold text-foreground">{checkoutText.title}</h2>
             </div>
             <button onClick={onBack} className="p-2 rounded-lg hover:bg-muted/50">
               <X className="w-5 h-5" />
@@ -246,20 +250,20 @@ export default function CheckoutView({
                 ))}
               </div>
               <p className="text-[11px] text-muted-foreground mt-2">
-                Fluxo rápido: produto → carrinho → endereço → pagamento → confirmar.
+                {checkoutText.flowHint}
               </p>
             </section>
 
             {/* Dados do Cliente */}
             <section className="bg-muted/40 rounded-xl p-4">
-              <h2 className="font-bold text-sm mb-3">1. Dados do Cliente</h2>
+              <h2 className="font-bold text-sm mb-3">{checkoutText.customerSectionTitle}</h2>
               
               <div className="space-y-3">
                 <div>
-                  <Label htmlFor="name" className="text-xs text-muted-foreground">Nome do Cliente</Label>
+                  <Label htmlFor="name" className="text-xs text-muted-foreground">{checkoutText.customerName}</Label>
                   <Input
                     id="name"
-                    placeholder="Digite seu nome"
+                    placeholder={checkoutText.customerNamePlaceholder}
                     value={customer.name}
                     onChange={(e) => setCustomer({ ...customer, name: e.target.value })}
                     className="mt-1 h-10"
@@ -267,10 +271,10 @@ export default function CheckoutView({
                 </div>
 
                 <div>
-                  <Label htmlFor="phone" className="text-xs text-muted-foreground">Telefone / WhatsApp</Label>
+                  <Label htmlFor="phone" className="text-xs text-muted-foreground">{checkoutText.customerPhone}</Label>
                   <Input
                     id="phone"
-                    placeholder="(00) 00000-0000"
+                    placeholder={checkoutText.customerPhonePlaceholder}
                     value={customer.phone}
                     onChange={(e) => setCustomer({ ...customer, phone: formatPhoneMask(e.target.value) })}
                     className="mt-1 h-10"
@@ -282,7 +286,7 @@ export default function CheckoutView({
 
             {/* Forma de Recebimento */}
             <section className="bg-muted/40 rounded-xl p-4">
-              <h2 className="font-bold text-sm mb-3">2. Forma de Recebimento</h2>
+              <h2 className="font-bold text-sm mb-3">{checkoutText.deliverySectionTitle}</h2>
               
               <div className="grid grid-cols-2 gap-2">
                 <button
@@ -295,7 +299,7 @@ export default function CheckoutView({
                 >
                   <Store className="w-5 h-5" style={{ color: customer.deliveryMethod === 'pickup' ? '#22c55e' : '#9ca3af' }} />
                   <span className={`font-medium text-xs ${customer.deliveryMethod === 'pickup' ? 'text-green-700' : 'text-muted-foreground'}`}>
-                    Retirada
+                    {checkoutText.pickup}
                   </span>
                 </button>
 
@@ -309,7 +313,7 @@ export default function CheckoutView({
                 >
                   <Bike className="w-5 h-5" style={{ color: customer.deliveryMethod === 'delivery' ? '#22c55e' : '#9ca3af' }} />
                   <span className={`font-medium text-xs ${customer.deliveryMethod === 'delivery' ? 'text-green-700' : 'text-muted-foreground'}`}>
-                    Entrega
+                    {checkoutText.delivery}
                   </span>
                 </button>
               </div>
@@ -333,14 +337,14 @@ export default function CheckoutView({
                     className="w-full mb-2 border-2 border-orange-200 hover:border-orange-300 hover:bg-orange-50"
                   >
                     <MapPin className="w-4 h-4 mr-2 text-orange-500" />
-                    {customer.latitude ? 'Alterar Localização no Mapa' : 'Selecionar Localização no Mapa'}
+                    {customer.latitude ? checkoutText.mapChange : checkoutText.mapSelect}
                   </Button>
 
                   {customer.latitude && (
                     <div className="bg-green-50 border border-green-200 rounded-lg p-2 mb-2">
                       <p className="text-xs text-green-700 font-medium flex items-center gap-1">
                         <MapPin className="w-3 h-3" />
-                        ✓ Localização GPS confirmada
+                        ✓ {checkoutText.locationSaved}
                       </p>
                     </div>
                   )}
@@ -349,13 +353,13 @@ export default function CheckoutView({
                   <div>
                     <Label htmlFor="cep" className="text-xs text-muted-foreground flex items-center gap-1">
                       CEP *
-                      <span className="text-[10px] text-muted-foreground">(Digite para preencher automaticamente)</span>
+                      <span className="text-[10px] text-muted-foreground">{checkoutText.autoFillHint}</span>
                     </Label>
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                       <Input
                         id="cep"
-                        placeholder="00000-000"
+                        placeholder={checkoutText.zipPlaceholder}
                         value={customer.cep || ''}
                         onChange={(e) => {
                           const cleanCEP = e.target.value.replace(/\D/g, '');
@@ -379,10 +383,10 @@ export default function CheckoutView({
                                 city: endereco.cidade || customer.city || '',
                                 state: endereco.estado || customer.state || '',
                               });
-                              toast.success('Endereço preenchido automaticamente!');
+                              toast.success(checkoutText.addressAutofillSuccess);
                             } catch (error) {
                               console.error('Erro ao buscar CEP:', error);
-                              toast.error('CEP não encontrado. Preencha o endereço manualmente.');
+                              toast.error(checkoutText.zipNotFound);
                             } finally {
                               setLoadingCEP(false);
                             }
@@ -400,10 +404,10 @@ export default function CheckoutView({
                   </div>
 
                   <div>
-                    <Label htmlFor="address_street" className="text-xs text-muted-foreground">Rua/Avenida *</Label>
+                    <Label htmlFor="address_street" className="text-xs text-muted-foreground">{checkoutText.streetLabel}</Label>
                     <Input
                       id="address_street"
-                      placeholder="Ex: Rua das Flores"
+                      placeholder={checkoutText.streetPlaceholder}
                       value={customer.address_street || ''}
                       onChange={(e) => setCustomer({ ...customer, address_street: e.target.value })}
                       className="mt-1 h-10"
@@ -413,7 +417,7 @@ export default function CheckoutView({
                   
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <Label htmlFor="address_number" className="text-xs text-muted-foreground">Número *</Label>
+                      <Label htmlFor="address_number" className="text-xs text-muted-foreground">{checkoutText.numberLabel}</Label>
                       <Input
                         id="address_number"
                         placeholder="123"
@@ -425,10 +429,10 @@ export default function CheckoutView({
                     </div>
                     
                     <div>
-                      <Label htmlFor="address_complement" className="text-xs text-muted-foreground">Complemento</Label>
+                      <Label htmlFor="address_complement" className="text-xs text-muted-foreground">{checkoutText.complementLabel}</Label>
                       <Input
                         id="address_complement"
-                        placeholder="Apto 101"
+                        placeholder={checkoutText.complementPlaceholder}
                         value={customer.address_complement || ''}
                         onChange={(e) => setCustomer({ ...customer, address_complement: e.target.value })}
                         className="mt-1 h-10"
@@ -438,11 +442,11 @@ export default function CheckoutView({
                   
                   <div>
                     <Label htmlFor="neighborhood" className="text-xs text-muted-foreground">
-                      Bairro *
+                      {checkoutText.neighborhoodLabel}
                     </Label>
                     <Input
                       id="neighborhood"
-                      placeholder="Digite o bairro"
+                      placeholder={checkoutText.neighborhoodPlaceholder}
                       value={customer.neighborhood}
                       onChange={(e) => setCustomer({ ...customer, neighborhood: e.target.value })}
                       className="mt-1 h-10"
@@ -456,7 +460,7 @@ export default function CheckoutView({
                           if (fee > 0) {
                             return (
                               <p className="text-xs text-green-600 mt-1">
-                                ✓ Taxa de entrega calculada por distância: {formatCurrency(fee)}
+                                ✓ {checkoutText.distanceFeeCalculated(formatCurrency(fee))}
                               </p>
                             );
                           }
@@ -468,13 +472,13 @@ export default function CheckoutView({
                           if (zone) {
                             return (
                               <p className="text-xs text-green-600 mt-1">
-                                ✓ Taxa de entrega: {formatCurrency(zone.fee)}
+                                ✓ {checkoutText.zoneFee(formatCurrency(zone.fee))}
                               </p>
                             );
                           } else if (customer.neighborhood.length > 2) {
                             return (
                               <p className="text-xs text-orange-600 mt-1">
-                                ⚠️ Bairro não cadastrado. Confirmaremos a taxa via WhatsApp.
+                                ⚠️ {checkoutText.zoneNotRegistered}
                               </p>
                             );
                           }
@@ -489,20 +493,20 @@ export default function CheckoutView({
 
             {/* Forma de Pagamento */}
             <section className="bg-muted/40 rounded-xl p-4">
-              <h2 className="font-bold text-sm mb-3">3. Forma de Pagamento</h2>
+              <h2 className="font-bold text-sm mb-3">{checkoutText.paymentSectionTitle}</h2>
               
               <Select
                 value={customer.paymentMethod}
                 onValueChange={(value) => setCustomer({ ...customer, paymentMethod: value, needs_change: false, change_amount: '' })}
               >
                 <SelectTrigger className="h-10">
-                  <SelectValue placeholder="Selecione a forma de pagamento" />
+                  <SelectValue placeholder={checkoutText.paymentPlaceholder} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="pix">PIX</SelectItem>
-                  <SelectItem value="dinheiro">Dinheiro</SelectItem>
-                  <SelectItem value="cartao_credito">Cartão de Crédito</SelectItem>
-                  <SelectItem value="cartao_debito">Cartão de Débito</SelectItem>
+                  <SelectItem value="pix">{paymentMethodsText.pix}</SelectItem>
+                  <SelectItem value="dinheiro">{paymentMethodsText.dinheiro}</SelectItem>
+                  <SelectItem value="cartao_credito">{paymentMethodsText.credito}</SelectItem>
+                  <SelectItem value="cartao_debito">{paymentMethodsText.debito}</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -517,25 +521,25 @@ export default function CheckoutView({
                       className="w-4 h-4"
                     />
                     <Label htmlFor="needs_change" className="text-sm cursor-pointer">
-                      Preciso de troco
+                      {checkoutText.needsChange}
                     </Label>
                   </div>
                   
                   {customer.needs_change && (
                     <div>
-                      <Label htmlFor="change_amount" className="text-xs text-muted-foreground">Troco para quanto?</Label>
-                      <Input
-                        id="change_amount"
-                        type="number"
-                        step="0.01"
-                        placeholder="Ex: 50.00"
-                        value={customer.change_amount || ''}
+                    <Label htmlFor="change_amount" className="text-xs text-muted-foreground">{checkoutText.changeAmountLabel}</Label>
+                    <Input
+                      id="change_amount"
+                      type="number"
+                      step="0.01"
+                      placeholder={checkoutText.changeAmountPlaceholder}
+                      value={customer.change_amount || ''}
                         onChange={(e) => setCustomer({ ...customer, change_amount: e.target.value })}
                         className="mt-1 h-10"
                       />
                       {customer.change_amount && parseFloat(customer.change_amount) > total && (
                         <p className="text-xs text-green-600 mt-1">
-                          Troco: {formatCurrency(parseFloat(customer.change_amount) - total)}
+                          {checkoutText.changePreview(formatCurrency(parseFloat(customer.change_amount) - total))}
                         </p>
                       )}
                     </div>
@@ -547,7 +551,7 @@ export default function CheckoutView({
             {/* Agendamento */}
             <section className="bg-muted/40 rounded-xl p-4">
               <div className="flex items-center justify-between mb-3">
-                <h2 className="font-bold text-sm">Agendamento</h2>
+                <h2 className="font-bold text-sm">{checkoutText.scheduleTitle}</h2>
                 <button
                   type="button"
                   onClick={() => setShowSchedule(!showSchedule)}
@@ -557,14 +561,14 @@ export default function CheckoutView({
                       : 'bg-muted text-muted-foreground'
                   }`}
                 >
-                  {showSchedule ? '✓ Ativo' : 'Agendar'}
+                  {showSchedule ? checkoutText.scheduleActive : checkoutText.schedule}
                 </button>
               </div>
 
               {showSchedule && (
                 <div className="space-y-2">
                   <div>
-                    <Label htmlFor="scheduled_date" className="text-xs text-muted-foreground">Data</Label>
+                    <Label htmlFor="scheduled_date" className="text-xs text-muted-foreground">{checkoutText.scheduleDate}</Label>
                     <Input
                       id="scheduled_date"
                       type="date"
@@ -576,7 +580,7 @@ export default function CheckoutView({
                   </div>
                   
                   <div>
-                    <Label htmlFor="scheduled_time" className="text-xs text-muted-foreground">Horário</Label>
+                    <Label htmlFor="scheduled_time" className="text-xs text-muted-foreground">{checkoutText.scheduleTime}</Label>
                     <Input
                       id="scheduled_time"
                       type="time"
@@ -588,7 +592,7 @@ export default function CheckoutView({
                     />
                     {store.opening_time && store.closing_time && (
                       <p className="text-xs text-muted-foreground mt-1">
-                        Horário de funcionamento: {store.opening_time} - {store.closing_time}
+                        {checkoutText.businessHours(store.opening_time, store.closing_time)}
                       </p>
                     )}
                   </div>
@@ -599,14 +603,14 @@ export default function CheckoutView({
             {/* Solicitar alteração ou adicional (opcional) */}
             <section className="bg-amber-50/70 rounded-xl p-4 border border-amber-200/60">
               <Label htmlFor="customer_change_request" className="text-xs font-medium text-amber-800 flex items-center gap-1">
-                ✏️ Solicitar alteração ou adicional (opcional)
+                ✏️ {checkoutText.orderNotesTitle}
               </Label>
               <p className="text-[10px] text-amber-700/90 mb-1.5">
-                Ex.: &quot;Trocar arroz por batata&quot;, &quot;Adicionar queijo extra&quot;. O restaurante pode aceitar ou reprovar.
+                {checkoutText.orderNotesHelp}
               </p>
               <Textarea
                 id="customer_change_request"
-                placeholder="Descreva a alteração ou o adicional desejado..."
+                placeholder={checkoutText.orderNotesPlaceholder}
                 value={customer.customer_change_request || ''}
                 onChange={(e) => setCustomer({ ...customer, customer_change_request: e.target.value })}
                 className="mt-1 min-h-[72px] text-sm resize-none border-amber-200 bg-card"
@@ -620,10 +624,10 @@ export default function CheckoutView({
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-medium text-green-700">
                     <Ticket className="w-3 h-3 inline mr-1" />
-                    {appliedCoupon.code} aplicado!
+                    {checkoutText.couponApplied(appliedCoupon.code)}
                   </span>
                   <button onClick={onRemoveCoupon} className="text-xs text-red-600 hover:text-red-700 font-medium">
-                    Remover
+                    {checkoutText.remove}
                   </button>
                 </div>
               </div>
@@ -633,17 +637,17 @@ export default function CheckoutView({
               <div className="bg-muted/40 rounded-xl p-4">
                 <Label className="text-xs text-muted-foreground flex items-center gap-1 mb-2">
                   <Ticket className="w-3 h-3" />
-                  Cupom de Desconto
+                  {checkoutText.couponTitle}
                 </Label>
                 <div className="flex gap-2">
                   <Input
-                    placeholder="DIGITE O CÓDIGO"
+                    placeholder={checkoutText.couponPlaceholder}
                     value={couponCode}
                     onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
                     className="flex-1 h-10"
                   />
                   <Button onClick={onApplyCoupon} variant="outline" size="sm">
-                    Aplicar
+                    {checkoutText.apply}
                   </Button>
                 </div>
                 {couponError && (
@@ -668,7 +672,7 @@ export default function CheckoutView({
             {/* Gorjeta (apenas para mesas) */}
             {isTableOrder && (
               <section className="bg-purple-50 rounded-xl p-4 border border-purple-200">
-                <h2 className="font-bold text-sm mb-3">Gorjeta (Opcional)</h2>
+                <h2 className="font-bold text-sm mb-3">{checkoutText.tipTitle}</h2>
                 <div className="space-y-3">
                   <div className="flex gap-2">
                     <button
@@ -683,7 +687,7 @@ export default function CheckoutView({
                           : 'bg-card text-muted-foreground hover:bg-muted'
                       }`}
                     >
-                      Sem gorjeta
+                      {checkoutText.noTip}
                     </button>
                     <button
                       type="button"
@@ -697,7 +701,7 @@ export default function CheckoutView({
                           : 'bg-card text-muted-foreground hover:bg-muted'
                       }`}
                     >
-                      Percentual
+                      {checkoutText.tipPercent}
                     </button>
                     <button
                       type="button"
@@ -711,13 +715,13 @@ export default function CheckoutView({
                           : 'bg-card text-muted-foreground hover:bg-muted'
                       }`}
                     >
-                      Valor fixo
+                      {checkoutText.fixedValue}
                     </button>
                   </div>
 
                   {tipType === 'percent' && (
                     <div>
-                      <Label htmlFor="tip_percent" className="text-xs text-muted-foreground">Percentual (%)</Label>
+                      <Label htmlFor="tip_percent" className="text-xs text-muted-foreground">{checkoutText.tipPercentLabel}</Label>
                       <div className="flex gap-2 mt-1">
                         {[5, 10, 15, 20].map(p => (
                           <button
@@ -739,7 +743,7 @@ export default function CheckoutView({
                           min="0"
                           max="100"
                           step="0.1"
-                          placeholder="Outro %"
+                          placeholder={checkoutText.tipOtherPercentPlaceholder}
                           value={tipValue}
                           onChange={(e) => setTipValue(e.target.value)}
                           className="flex-1 h-10"
@@ -750,13 +754,13 @@ export default function CheckoutView({
 
                   {tipType === 'fixed' && (
                     <div>
-                      <Label htmlFor="tip_fixed" className="text-xs text-muted-foreground">Valor (R$)</Label>
+                      <Label htmlFor="tip_fixed" className="text-xs text-muted-foreground">{checkoutText.tipFixedLabel}</Label>
                       <Input
                         id="tip_fixed"
                         type="number"
                         min="0"
                         step="0.01"
-                        placeholder="Ex: 10.00"
+                        placeholder={checkoutText.tipFixedPlaceholder}
                         value={tipValue}
                         onChange={(e) => setTipValue(e.target.value)}
                         className="mt-1 h-10"
@@ -767,7 +771,7 @@ export default function CheckoutView({
                   {tipAmount > 0 && (
                     <div className="p-2 bg-purple-100 rounded-lg">
                       <p className="text-sm font-medium text-purple-700">
-                        Gorjeta: {formatCurrency(tipAmount)}
+                        {checkoutText.tipPreview(formatCurrency(tipAmount))}
                       </p>
                     </div>
                   )}
@@ -777,7 +781,7 @@ export default function CheckoutView({
 
             {checkoutNudge && (
               <section className="bg-emerald-50/80 rounded-xl p-3 border border-emerald-200/70">
-                <p className="text-xs font-semibold text-emerald-900">Falta pouco para melhorar sua compra</p>
+                <p className="text-xs font-semibold text-emerald-900">{checkoutText.checkoutNudgeTitle}</p>
                 <p className="text-xs text-emerald-800 mt-1">{checkoutNudge}</p>
               </section>
             )}
@@ -786,9 +790,9 @@ export default function CheckoutView({
               <section className="bg-amber-50/80 rounded-xl p-4 border border-amber-200/70">
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <h2 className="font-bold text-sm text-amber-900">Oferta final para aumentar seu pedido</h2>
+                    <h2 className="font-bold text-sm text-amber-900">{checkoutText.checkoutOfferTitle}</h2>
                     <p className="text-xs text-amber-700 mt-1">
-                      {checkoutSuggestion?._merchandising?.label || 'Sugestão comercial'} • aproveite antes de confirmar
+                      {checkoutSuggestion?._merchandising?.label || checkoutText.checkoutOfferLabelFallback} • {checkoutText.enjoyBeforeConfirm}
                     </p>
                   </div>
                   {checkoutSuggestion?.original_price > checkoutSuggestion?.price && (
@@ -802,7 +806,7 @@ export default function CheckoutView({
                     {checkoutSuggestion?.image ? (
                       <img src={checkoutSuggestion.image} alt={checkoutSuggestion.name} className="w-full h-full object-cover" />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">Oferta</div>
+                      <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">{checkoutText.checkoutOfferFallback}</div>
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -821,7 +825,7 @@ export default function CheckoutView({
                     style={{ backgroundColor: primaryColor }}
                     onClick={() => onCheckoutSuggestion(checkoutSuggestion)}
                   >
-                    Ver
+                    {checkoutText.view}
                   </Button>
                 </div>
               </section>
@@ -832,39 +836,39 @@ export default function CheckoutView({
           <div className="border-t p-4 bg-card pb-[calc(env(safe-area-inset-bottom)+1rem)] md:pb-4">
             <div className="space-y-2 mb-4">
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Subtotal</span>
+                <span className="text-muted-foreground">{checkoutText.subtotal}</span>
                 <span className="font-medium">{formatCurrency(cartTotal)}</span>
               </div>
               
               {couponDiscount > 0 && (
                 <div className="flex justify-between text-sm text-green-600">
-                  <span>Desconto (Cupom)</span>
+                  <span>{checkoutText.couponDiscount}</span>
                   <span className="font-medium">-{formatCurrency(couponDiscount)}</span>
                 </div>
               )}
               {loyaltyDiscountAmount > 0 && (
                 <div className="flex justify-between text-sm text-green-600">
-                  <span>Desconto (Fidelidade)</span>
+                  <span>{checkoutText.loyaltyDiscount}</span>
                   <span className="font-medium">-{formatCurrency(loyaltyDiscountAmount)}</span>
                 </div>
               )}
               
               {deliveryFee > 0 && (
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Taxa de entrega</span>
+                  <span className="text-muted-foreground">{checkoutText.deliveryFee}</span>
                   <span className="font-medium">{formatCurrency(deliveryFee)}</span>
                 </div>
               )}
               
               {tipAmount > 0 && (
                 <div className="flex justify-between text-sm text-purple-600">
-                  <span>Gorjeta</span>
+                  <span>{checkoutText.tip}</span>
                   <span className="font-medium">{formatCurrency(tipAmount)}</span>
                 </div>
               )}
               
               <div className="flex justify-between text-base font-bold pt-2 border-t">
-                <span>Total</span>
+                <span>{checkoutText.total}</span>
                 <span style={{ color: primaryColor }}>{formatCurrency(total)}</span>
               </div>
             </div>
@@ -880,31 +884,31 @@ export default function CheckoutView({
               style={{ backgroundColor: (!isSubmitting && isFormValid() && !isBelowMinimumOrder && store?.accepting_orders !== false && store?.is_open !== false) ? primaryColor : '#d1d5db' }}
             >
               {isSubmitting
-                ? 'Enviando pedido...'
+                ? checkoutText.submitting
                 : store?.is_open === false
-                ? 'Loja Fechada'
+                ? checkoutText.storeClosed
                 : store?.accepting_orders === false
-                ? '⏸️ Pedidos Pausados'
+                ? `⏸️ ${checkoutText.pausedOrders}`
                 : isBelowMinimumOrder
-                ? `Pedido mínimo ${formatCurrency(minimumOrderValue)}`
-                : 'Finalizar Pedido'}
+                ? checkoutText.minimumOrderToFinish(formatCurrency(minimumOrderValue))
+                : checkoutText.submit}
             </Button>
             
             {store?.is_open === false ? (
               <p className="text-xs text-red-600 text-center mt-2">
-                A loja está fechada no momento
+                {checkoutText.storeClosedNow}
               </p>
             ) : store?.accepting_orders === false ? (
               <p className="text-xs text-orange-600 text-center mt-2">
-                {store.pause_message || 'Não estamos aceitando pedidos temporariamente'}
+                {store.pause_message || checkoutText.ordersTemporarilyPaused}
               </p>
             ) : !isFormValid() ? (
               <p className="text-xs text-red-600 text-center mt-2">
-                Preencha todos os campos obrigatórios
+                {checkoutText.fillRequiredFields}
               </p>
             ) : isBelowMinimumOrder ? (
               <p className="text-xs text-red-600 text-center mt-2">
-                Pedido mínimo para finalizar: {formatCurrency(minimumOrderValue)}
+                {checkoutText.minimumOrderToFinish(formatCurrency(minimumOrderValue))}
               </p>
             ) : null}
           </div>

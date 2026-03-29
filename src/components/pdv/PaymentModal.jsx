@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,17 +6,10 @@ import { Label } from '@/components/ui/label';
 import { DollarSign, Plus, Trash2, CheckCircle, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { uiText } from '@/i18n/pt-BR/uiText';
-
-const PAYMENT_METHODS = [
-  { id: 'dinheiro', label: 'Dinheiro', icon: 'R$' },
-  { id: 'pix', label: 'PIX', icon: 'PIX' },
-  { id: 'debito', label: 'D\u00E9bito', icon: 'DB' },
-  { id: 'credito', label: 'Cr\u00E9dito', icon: 'CR' },
-  { id: 'outro', label: 'Outro', icon: 'OUT' },
-];
+import { useLanguage } from '@/i18n/LanguageContext';
 
 const roundMoney = (value) => Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
+
 const parseMoneyInput = (value) => {
   const raw = String(value ?? '').trim();
   if (!raw) return Number.NaN;
@@ -41,9 +34,18 @@ export default function PaymentModal({
   onClose,
   total,
   formatCurrency,
-  onConfirm
+  onConfirm,
 }) {
-  const paymentText = uiText.paymentModal;
+  const { t } = useLanguage();
+  const paymentText = t('paymentModal');
+  const paymentMethods = useMemo(() => ([
+    { id: 'dinheiro', label: paymentText.methods.dinheiro, icon: 'R$' },
+    { id: 'pix', label: paymentText.methods.pix, icon: 'PIX' },
+    { id: 'debito', label: paymentText.methods.debito, icon: 'DB' },
+    { id: 'credito', label: paymentText.methods.credito, icon: 'CR' },
+    { id: 'outro', label: paymentText.methods.outro, icon: 'OUT' },
+  ]), [paymentText]);
+
   const [payments, setPayments] = useState([]);
   const [showAddPayment, setShowAddPayment] = useState(false);
   const [selectedMethod, setSelectedMethod] = useState(null);
@@ -87,13 +89,16 @@ export default function PaymentModal({
 
     const tenderedAmount = selectedMethod.id === 'dinheiro' ? enteredAmount : amount;
 
-    setPayments([...payments, {
-      id: Date.now(),
-      method: selectedMethod.id,
-      methodLabel: selectedMethod.label,
-      amount,
-      tendered_amount: tenderedAmount,
-    }]);
+    setPayments([
+      ...payments,
+      {
+        id: Date.now(),
+        method: selectedMethod.id,
+        methodLabel: selectedMethod.label,
+        amount,
+        tendered_amount: tenderedAmount,
+      },
+    ]);
 
     setSelectedMethod(null);
     setPaymentAmount('');
@@ -108,7 +113,9 @@ export default function PaymentModal({
     if (!isComplete) return;
 
     const cashPayments = payments.filter((payment) => payment.method === 'dinheiro');
-    const totalCashTendered = roundMoney(cashPayments.reduce((sum, payment) => sum + (payment.tendered_amount ?? payment.amount), 0));
+    const totalCashTendered = roundMoney(
+      cashPayments.reduce((sum, payment) => sum + (payment.tendered_amount ?? payment.amount), 0)
+    );
     const totalCashApplied = roundMoney(cashPayments.reduce((sum, payment) => sum + payment.amount, 0));
     const totalChange = roundMoney(Math.max(0, totalCashTendered - totalCashApplied));
 
@@ -141,7 +148,7 @@ export default function PaymentModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl">
             <DollarSign className="w-6 h-6 text-green-600" />
-            Formas de pagamento
+            {paymentText.title}
           </DialogTitle>
         </DialogHeader>
 
@@ -149,11 +156,11 @@ export default function PaymentModal({
           <div className="bg-gradient-to-r from-orange-50 to-red-50 border-2 border-orange-200 rounded-xl p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Total a pagar</p>
+                <p className="text-sm text-gray-600">{paymentText.totalToPay}</p>
                 <p className="text-3xl font-bold text-orange-600">{formatCurrency(total)}</p>
               </div>
               <div className="text-right">
-                <p className="text-sm text-gray-600">Restante</p>
+                <p className="text-sm text-gray-600">{paymentText.remaining}</p>
                 <p className={`text-2xl font-bold ${remaining > 0 ? 'text-red-600' : 'text-green-600'}`}>
                   {formatCurrency(Math.max(0, remaining))}
                 </p>
@@ -163,7 +170,7 @@ export default function PaymentModal({
 
           {payments.length > 0 && (
             <div className="space-y-2">
-              <Label className="font-semibold">Pagamentos registrados</Label>
+              <Label className="font-semibold">{paymentText.registeredPayments}</Label>
               <AnimatePresence>
                 {payments.map((payment) => (
                   <motion.div
@@ -178,7 +185,7 @@ export default function PaymentModal({
                       <div>
                         <p className="font-medium text-sm">
                           {payment.method === 'dinheiro' && Number(payment.tendered_amount ?? payment.amount) > (Number(payment.amount) + 0.001)
-                            ? `${payment.methodLabel} (recebido)`
+                            ? `${payment.methodLabel} ${paymentText.receivedSuffix}`
                             : payment.methodLabel}
                         </p>
                         <p className="text-lg font-bold text-green-600">
@@ -211,7 +218,7 @@ export default function PaymentModal({
                   className="w-full border-dashed border-2"
                 >
                   <Plus className="w-4 h-4 mr-2" />
-                  Adicionar forma de pagamento
+                  {paymentText.addPaymentMethod}
                 </Button>
               ) : (
                 <motion.div
@@ -219,9 +226,9 @@ export default function PaymentModal({
                   animate={{ opacity: 1, y: 0 }}
                   className="space-y-4 p-4 bg-gray-50 rounded-lg border-2 border-gray-200"
                 >
-                  <Label className="font-semibold">Selecione a forma de pagamento</Label>
+                  <Label className="font-semibold">{paymentText.selectPaymentMethod}</Label>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {PAYMENT_METHODS.map((method) => (
+                    {paymentMethods.map((method) => (
                       <button
                         key={method.id}
                         onClick={() => setSelectedMethod(method)}
@@ -245,7 +252,7 @@ export default function PaymentModal({
                     >
                       <div>
                         <Label className="mb-2 block">
-                          Valor em {selectedMethod.label} (R$)
+                          {paymentText.amountInMethod(selectedMethod.label)}
                         </Label>
                         <Input
                           type="text"
@@ -258,8 +265,8 @@ export default function PaymentModal({
                             }
                           }}
                           placeholder={
-                            selectedMethod?.id === 'dinheiro'
-                              ? 'Valor recebido'
+                            selectedMethod.id === 'dinheiro'
+                              ? paymentText.receivedAmountPlaceholder
                               : paymentText.maxPlaceholder(formatCurrency(remaining))
                           }
                           className="h-12 text-lg font-semibold"
@@ -276,7 +283,7 @@ export default function PaymentModal({
                           variant="outline"
                           className="flex-1"
                         >
-                          Cancelar
+                          {paymentText.cancel}
                         </Button>
                         <Button
                           onClick={addPayment}
@@ -284,7 +291,7 @@ export default function PaymentModal({
                           className="flex-1 bg-green-600 hover:bg-green-700"
                         >
                           <Plus className="w-4 h-4 mr-2" />
-                          Adicionar
+                          {paymentText.add}
                         </Button>
                       </div>
                     </motion.div>
@@ -302,9 +309,9 @@ export default function PaymentModal({
             >
               <CheckCircle className="w-6 h-6 text-green-600" />
               <div>
-                <p className="font-bold text-green-800">Pagamento completo!</p>
+                <p className="font-bold text-green-800">{paymentText.completeTitle}</p>
                 <p className="text-sm text-green-600">
-                  Total pago: {formatCurrency(normalizedTotal)}
+                  {paymentText.totalPaid(formatCurrency(normalizedTotal))}
                 </p>
               </div>
             </motion.div>
@@ -314,7 +321,7 @@ export default function PaymentModal({
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 flex items-center gap-2">
               <AlertCircle className="w-5 h-5 text-yellow-600" />
               <p className="text-sm text-yellow-800">
-                Ainda falta {formatCurrency(remaining)} para completar o pagamento
+                {paymentText.stillMissing(formatCurrency(remaining))}
               </p>
             </div>
           )}
@@ -322,12 +329,12 @@ export default function PaymentModal({
           {payments.length > 0 && (
             <div>
               <Label className="mb-2 block text-xs text-gray-600">
-                CPF/CNPJ (opcional)
+                {paymentText.documentOptionalLabel}
               </Label>
               <Input
                 value={customerDocument}
                 onChange={(e) => setCustomerDocument(e.target.value)}
-                placeholder="000.000.000-00"
+                placeholder={paymentText.taxIdPlaceholder}
                 className="h-10"
               />
             </div>
@@ -348,7 +355,7 @@ export default function PaymentModal({
                       : 'border-gray-200 bg-white text-gray-700'
                   }`}
                 >
-                  <p className="text-sm font-semibold">Venda financeira</p>
+                  <p className="text-sm font-semibold">{paymentText.financialSale}</p>
                   <p className="text-xs opacity-80">{paymentText.financialSaleDescription}</p>
                 </button>
                 <button
@@ -360,7 +367,7 @@ export default function PaymentModal({
                       : 'border-gray-200 bg-white text-gray-700'
                   }`}
                 >
-                  <p className="text-sm font-semibold">Pedido com preparo</p>
+                  <p className="text-sm font-semibold">{paymentText.productiveSale}</p>
                   <p className="text-xs opacity-80">{paymentText.productiveSaleDescription}</p>
                 </button>
               </div>
@@ -374,7 +381,7 @@ export default function PaymentModal({
             onClick={onClose}
             className="h-12"
           >
-            Cancelar
+            {paymentText.cancel}
           </Button>
           <Button
             onClick={handleConfirm}
@@ -382,7 +389,7 @@ export default function PaymentModal({
             className="bg-green-600 hover:bg-green-700 h-12 font-semibold"
           >
             <CheckCircle className="w-5 h-5 mr-2" />
-            Confirmar
+            {paymentText.confirm}
           </Button>
         </div>
       </DialogContent>
