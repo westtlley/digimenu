@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { MapPin, Search, Navigation, X, Loader2 } from 'lucide-react';
 import GoogleMapPicker from '@/components/maps/GoogleMapPicker';
+import LeafletMapPicker from '@/components/maps/LeafletMapPicker';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -17,7 +18,7 @@ import {
   resolveMapCenter,
   toFiniteNumber,
 } from '@/utils/addressSearch';
-import { ensureGoogleMapsLoaded, getGoogleMapsApiKey } from '@/utils/googleMapsLoader';
+import { canUseGoogleMaps, ensureGoogleMapsLoaded, getGoogleMapsApiKey } from '@/utils/googleMapsLoader';
 import toast from 'react-hot-toast';
 
 const GOOGLE_FIELDS = ['formattedAddress', 'location', 'addressComponents'];
@@ -57,7 +58,7 @@ function buildGoogleBounds(center, radiusKm = 35) {
 }
 
 async function ensureGoogleAddressServices(apiKey, servicesRef, servicesPromiseRef) {
-  if (!apiKey) return null;
+  if (!apiKey || !canUseGoogleMaps()) return null;
   if (servicesRef.current) return servicesRef.current;
 
   if (!servicesPromiseRef.current) {
@@ -149,6 +150,7 @@ function mapNominatimSuggestion(item) {
 }
 
 async function fetchGoogleSuggestions(query, biasCenter, apiKey, servicesRef, servicesPromiseRef, sessionTokenRef) {
+  if (!apiKey || !canUseGoogleMaps()) return [];
   const services = await ensureGoogleAddressServices(apiKey, servicesRef, servicesPromiseRef);
   if (!services?.AutocompleteSuggestion) return [];
 
@@ -179,6 +181,7 @@ async function fetchNominatimSuggestions(query, biasCenter) {
 }
 
 async function geocodePlaceIdWithGoogle(placeId, apiKey, servicesRef, servicesPromiseRef) {
+  if (!apiKey || !canUseGoogleMaps()) return null;
   const services = await ensureGoogleAddressServices(apiKey, servicesRef, servicesPromiseRef);
   if (!services?.geocoder || !placeId) return null;
 
@@ -233,6 +236,7 @@ async function resolveNominatimSuggestion(suggestion) {
 }
 
 async function geocodeTextWithGoogle(query, biasCenter, apiKey, servicesRef, servicesPromiseRef) {
+  if (!apiKey || !canUseGoogleMaps()) return null;
   const services = await ensureGoogleAddressServices(apiKey, servicesRef, servicesPromiseRef);
   if (!services?.geocoder) return null;
 
@@ -268,6 +272,7 @@ async function geocodeTextWithNominatim(query, biasCenter) {
 }
 
 async function reverseGeocodeWithGoogle(lat, lng, apiKey, servicesRef, servicesPromiseRef) {
+  if (!apiKey || !canUseGoogleMaps()) return null;
   const services = await ensureGoogleAddressServices(apiKey, servicesRef, servicesPromiseRef);
   if (!services?.geocoder) return null;
 
@@ -310,7 +315,6 @@ export default function AddressMapPicker({
   initialCep = '',
 }) {
   const apiKey = getGoogleMapsApiKey();
-  console.log('[AddressMapPicker] MAPS KEY?', Boolean(apiKey), apiKey ? `${apiKey.slice(0, 8)}...` : 'ausente');
   const initialLat = initialPosition?.lat ?? initialPosition?.latitude;
   const initialLng = initialPosition?.lng ?? initialPosition?.longitude;
   const fallbackLat = fallbackCenter?.lat ?? fallbackCenter?.latitude;
@@ -331,6 +335,7 @@ export default function AddressMapPicker({
   const [cep, setCep] = useState(formatCEP(initialCep));
   const [loadingCEP, setLoadingCEP] = useState(false);
   const [locatingUser, setLocatingUser] = useState(false);
+  const [useLeafletFallbackMap, setUseLeafletFallbackMap] = useState(!apiKey);
 
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const inputRef = useRef(null);
@@ -714,6 +719,7 @@ export default function AddressMapPicker({
     setHighlightedIndex(-1);
     setShowSuggestions(false);
     setCep(formatCEP(initialCep || ''));
+    setUseLeafletFallbackMap(!apiKey);
 
     let cancelled = false;
 
@@ -865,6 +871,10 @@ export default function AddressMapPicker({
         onClick={(event) => event.stopPropagation()}
         onPointerDownOutside={(event) => event.preventDefault()}
         onInteractOutside={(event) => event.preventDefault()}
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          setTimeout(() => inputRef.current?.focus(), 0);
+        }}
       >
         <DialogHeader className="p-2 border-b">
           <DialogTitle className="flex items-center gap-2 text-base">
@@ -874,14 +884,23 @@ export default function AddressMapPicker({
         </DialogHeader>
 
         <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="p-3 border-b space-y-2">
+          <div className="relative z-[1100] p-3 border-b space-y-2 bg-background pointer-events-auto">
             <div ref={searchAreaRef} className="relative">
               <div className="flex gap-2">
                 <div className="flex-1 relative">
                   <Input
                     ref={inputRef}
+                    type="text"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="none"
+                    spellCheck={false}
                     placeholder="Digite seu endereco ou arraste o marcador no mapa"
                     value={searchQuery}
+                    onPointerDown={(event) => event.stopPropagation()}
+                    onMouseDown={(event) => event.stopPropagation()}
+                    onTouchStart={(event) => event.stopPropagation()}
+                    onClick={(event) => event.stopPropagation()}
                     onChange={(event) => {
                       const nextValue = event.target.value;
                       setSearchQuery(nextValue);
@@ -1034,8 +1053,15 @@ export default function AddressMapPicker({
             <div>
               <Input
                 id="map-picker-cep"
+                type="text"
+                inputMode="numeric"
+                autoComplete="postal-code"
                 placeholder="CEP para preencher mais rapido"
                 value={cep}
+                onPointerDown={(event) => event.stopPropagation()}
+                onMouseDown={(event) => event.stopPropagation()}
+                onTouchStart={(event) => event.stopPropagation()}
+                onClick={(event) => event.stopPropagation()}
                 onChange={(event) => setCep(formatCEP(event.target.value))}
                 onBlur={handleCEPBlur}
                 className="h-9"
@@ -1050,15 +1076,30 @@ export default function AddressMapPicker({
           </div>
 
           <div className="flex-1 relative min-h-[400px] max-h-[500px] overflow-hidden">
-            <GoogleMapPicker
-              center={position}
-              onPositionChange={(lat, lng) => {
-                setPosition({ lat, lng });
-                setBiasCenter({ lat, lng });
-              }}
-              className="absolute inset-0"
-              style={{ height: '100%', width: '100%', zIndex: 1 }}
-            />
+            {useLeafletFallbackMap ? (
+              <LeafletMapPicker
+                center={position}
+                onPositionChange={(lat, lng) => {
+                  setPosition({ lat, lng });
+                  setBiasCenter({ lat, lng });
+                }}
+                className="absolute inset-0"
+                style={{ height: '100%', width: '100%', zIndex: 1 }}
+              />
+            ) : (
+              <GoogleMapPicker
+                center={position}
+                onPositionChange={(lat, lng) => {
+                  setPosition({ lat, lng });
+                  setBiasCenter({ lat, lng });
+                }}
+                onLoadError={() => {
+                  setUseLeafletFallbackMap(true);
+                }}
+                className="absolute inset-0"
+                style={{ height: '100%', width: '100%', zIndex: 1 }}
+              />
+            )}
 
             {address && (
               <div className="absolute top-2 left-2 right-2 z-[1000] bg-white/95 backdrop-blur-sm rounded-lg shadow-lg p-2 border-2 border-orange-200">
