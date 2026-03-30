@@ -96,6 +96,25 @@ describe('deliveryZoneAdmin', () => {
     expect(result.minimumOrderValue).toBe(25);
   });
 
+  it('simula bairro coberto com entrega permitida', () => {
+    const result = simulateDeliveryCoverage({
+      neighborhood: 'Centro',
+      subtotal: 40,
+      store: {
+        delivery_fee_mode: 'zone',
+        min_order_value: 10,
+      },
+      deliveryZones: [
+        { id: '1', neighborhood: 'Centro', fee: 6, min_order: 25, is_active: true },
+      ],
+    });
+
+    expect(result.allowed).toBe(true);
+    expect(result.blocked).toBe(false);
+    expect(result.matchedZoneName).toBe('Centro');
+    expect(result.deliveryFee).toBe(6);
+  });
+
   it('simula bairro fora da area respeitando o bloqueio real', () => {
     const result = simulateDeliveryCoverage({
       neighborhood: 'Bairro Inexistente',
