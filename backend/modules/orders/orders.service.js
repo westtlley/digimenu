@@ -20,14 +20,7 @@ import {
   resolveOperationalDate,
   getShiftOperationalContext,
 } from '../caixa/operationalShift.js';
-
-function normalizeNeighborhood(value) {
-  return String(value || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .trim()
-    .toLowerCase();
-}
+import { calculateDeliveryContext } from '../../../src/utils/deliveryRules.js';
 
 function toNumber(value, fallback = 0) {
   const parsed = Number(value);
@@ -375,19 +368,6 @@ function resolveOrderLimits(plan, rawPermissions) {
   };
 }
 
-function calculateDistanceKm(lat1, lon1, lat2, lon2) {
-  const R = 6371;
-  const toRad = (degrees) => degrees * (Math.PI / 180);
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
-    Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-}
-
 /**
  * Cria um pedido de mesa (público)
  */
@@ -641,45 +621,24 @@ export async function createCardapioOrder(orderData, slug) {
   const customerLat = toNumber(orderData.customer_latitude ?? orderData.latitude, null);
   const customerLng = toNumber(orderData.customer_longitude ?? orderData.longitude, null);
   const customerCep = String(orderData.cep || orderData.zipcode || '').trim() || null;
-
-  let matchedZone = null;
-  let calculatedDeliveryFee = 0;
+  const deliveryContext = calculateDeliveryContext({
+    deliveryMethod,
+    neighborhood,
+    deliveryZones: zones,
+    store,
+    customerLat,
+    customerLng,
+  });
+  const matchedZone = deliveryContext.matchedZone;
+  const calculatedDeliveryFee = roundMoney(deliveryContext.deliveryFee);
 
   if (deliveryMethod === 'delivery') {
-    const isDistanceMode = store?.delivery_fee_mode === 'distance';
-    const storeLat = toNumber(store?.latitude, null);
-    const storeLng = toNumber(store?.longitude, null);
+    if (deliveryContext.missingRequiredCoordinates) {
+      throw new Error('Selecione seu endereco no mapa para calcular a entrega.');
+    }
 
-    if (
-      isDistanceMode &&
-      Number.isFinite(customerLat) &&
-      Number.isFinite(customerLng) &&
-      Number.isFinite(storeLat) &&
-      Number.isFinite(storeLng)
-    ) {
-      const distanceKm = calculateDistanceKm(storeLat, storeLng, customerLat, customerLng);
-      const baseFee = toNumber(store?.delivery_base_fee, 0);
-      const pricePerKm = toNumber(store?.delivery_price_per_km, 0);
-      const minFee = toNumber(store?.delivery_min_fee, 0);
-      const maxFee = store?.delivery_max_fee == null ? null : toNumber(store.delivery_max_fee, null);
-      const freeDistance = store?.delivery_free_distance == null ? null : toNumber(store.delivery_free_distance, null);
-
-      if (freeDistance != null && distanceKm <= freeDistance) {
-        calculatedDeliveryFee = 0;
-      } else {
-        let fee = baseFee + (distanceKm * pricePerKm);
-        if (fee < minFee) fee = minFee;
-        if (maxFee != null && fee > maxFee) fee = maxFee;
-        calculatedDeliveryFee = roundMoney(fee);
-      }
-    } else {
-      const neighborhoodKey = normalizeNeighborhood(neighborhood);
-      matchedZone = zones.find(
-        (z) => normalizeNeighborhood(z?.neighborhood) === neighborhoodKey && z?.is_active
-      ) || null;
-      calculatedDeliveryFee = roundMoney(
-        matchedZone ? toNumber(matchedZone.fee, 0) : toNumber(store?.delivery_fee, 0)
-      );
+    if (deliveryContext.blocked) {
+      throw new Error(deliveryContext.message || 'Ainda nao entregamos nesse bairro.');
     }
   }
 
@@ -697,12 +656,7 @@ export async function createCardapioOrder(orderData, slug) {
     loyaltyConfigs,
   });
   const discount = roundMoney(Math.min(subtotal, couponDiscount + loyaltyDiscount));
-  const storeMinOrder = toNumber(
-    store?.min_order_value ?? store?.min_order ?? store?.min_order_price ?? store?.delivery_min_order ?? 0,
-    0
-  );
-  const zoneMinOrder = toNumber(matchedZone?.min_order ?? matchedZone?.min_order_value, 0);
-  const minimumOrderValue = Math.max(storeMinOrder, zoneMinOrder);
+  const minimumOrderValue = toNumber(deliveryContext.minimumOrderValue, 0);
 
   if (deliveryMethod === 'delivery' && minimumOrderValue > 0 && subtotal < minimumOrderValue) {
     throw new Error(`Pedido mínimo para entrega é R$ ${minimumOrderValue.toFixed(2)}`);
@@ -752,6 +706,12 @@ export async function createCardapioOrder(orderData, slug) {
     longitude: Number.isFinite(customerLng) ? customerLng : null,
     customer_latitude: Number.isFinite(customerLat) ? customerLat : null,
     customer_longitude: Number.isFinite(customerLng) ? customerLng : null,
+    delivery_zone_id: deliveryContext.matchedZoneId,
+    delivery_zone_name: deliveryContext.matchedZoneName,
+    delivery_fee_mode_applied: deliveryContext.deliveryFeeModeApplied,
+    delivery_fee_applied: calculatedDeliveryFee,
+    distance_km: Number.isFinite(deliveryContext.distanceKm) ? deliveryContext.distanceKm : null,
+    delivery_rule_source: deliveryContext.deliveryRuleSource,
     items: normalizedItems,
     subtotal,
     delivery_fee: calculatedDeliveryFee,

@@ -87,13 +87,6 @@ export default function CheckoutView({
   const formatCurrency = (value) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
   };
-  const normalizeNeighborhood = (value) =>
-    String(value || '')
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .trim()
-      .toLowerCase();
-
   const cartTotal = calculateCartSubtotal(cart);
 
   const calculateDiscount = () => {
@@ -104,19 +97,18 @@ export default function CheckoutView({
     return Math.min(appliedCoupon.discount_value, cartTotal);
   };
 
-  const getDeliveryFee = () => {
-    if (customer.deliveryMethod !== 'delivery') return 0;
-    
-    // Usar orderService para calcular taxa (suporta zona e distância)
-    return orderService.calculateDeliveryFee(
-      customer.deliveryMethod,
-      customer.neighborhood,
-      deliveryZones,
-      store,
-      customer.latitude,
-      customer.longitude
-    );
-  };
+  const deliveryContext = orderService.calculateDeliveryContext(
+    customer.deliveryMethod,
+    customer.neighborhood,
+    deliveryZones,
+    store,
+    customer.latitude,
+    customer.longitude
+  );
+  const addressMode = orderService.resolveCheckoutAddressMode(store);
+  const canUseMapPicker = addressMode !== 'text_only';
+  const requiresMapSelection = customer.deliveryMethod === 'delivery' && deliveryContext.missingRequiredCoordinates;
+  const isOutsideAreaBlocked = customer.deliveryMethod === 'delivery' && deliveryContext.blocked;
 
   // Hook de fidelidade
   const { getDiscount: getLoyaltyDiscount } = useLoyalty(
@@ -134,27 +126,8 @@ export default function CheckoutView({
   const loyaltyDiscountPercent = isLoyaltyActive ? getLoyaltyDiscount() : 0;
   const loyaltyDiscountAmount = cartTotal * (loyaltyDiscountPercent / 100);
   const totalDiscount = couponDiscount + loyaltyDiscountAmount;
-  const deliveryFee = getDeliveryFee();
-  const getMinimumOrderValue = () => {
-    const storeMin = Number(
-      store?.min_order_value ??
-      store?.min_order ??
-      store?.min_order_price ??
-      store?.delivery_min_order ??
-      0
-    ) || 0;
-
-    if (customer.deliveryMethod !== 'delivery') return storeMin;
-
-    const neighborhoodKey = normalizeNeighborhood(customer.neighborhood);
-    const zone = (deliveryZones || []).find(
-      (z) => normalizeNeighborhood(z?.neighborhood) === neighborhoodKey && z?.is_active
-    );
-    const zoneMin = Number(zone?.min_order ?? zone?.min_order_value ?? 0) || 0;
-
-    return Math.max(storeMin, zoneMin);
-  };
-  const minimumOrderValue = getMinimumOrderValue();
+  const deliveryFee = deliveryContext.deliveryFee;
+  const minimumOrderValue = deliveryContext.minimumOrderValue;
   const isBelowMinimumOrder = minimumOrderValue > 0 && cartTotal < minimumOrderValue;
   
   // Calcular gorjeta (apenas para mesas)
@@ -331,20 +304,22 @@ export default function CheckoutView({
                     darkMode={false}
                     slug={slug}
                     userEmail={userEmail}
-                    deliveryMode={store?.delivery_fee_mode || 'zone'}
+                    deliveryMode={orderService.resolveDeliveryPricingMode(store)}
                   />
-                  
-                  <Button
-                    type="button"
-                    onClick={() => setShowMapPicker(true)}
-                    variant="outline"
-                    className="w-full mb-2 border-2 border-orange-200 hover:border-orange-300 hover:bg-orange-50"
-                  >
-                    <MapPin className="w-4 h-4 mr-2 text-orange-500" />
-                    {customer.latitude ? checkoutText.mapChange : checkoutText.mapSelect}
-                  </Button>
 
-                  {customer.latitude && (
+                  {canUseMapPicker && (
+                    <Button
+                      type="button"
+                      onClick={() => setShowMapPicker(true)}
+                      variant="outline"
+                      className="w-full mb-2 border-2 border-orange-200 hover:border-orange-300 hover:bg-orange-50"
+                    >
+                      <MapPin className="w-4 h-4 mr-2 text-orange-500" />
+                      {customer.latitude ? checkoutText.mapChange : checkoutText.mapSelect}
+                    </Button>
+                  )}
+
+                  {canUseMapPicker && customer.latitude && (
                     <div className="bg-green-50 border border-green-200 rounded-lg p-2 mb-2">
                       <p className="text-xs text-green-700 font-medium flex items-center gap-1">
                         <MapPin className="w-3 h-3" />
@@ -356,7 +331,7 @@ export default function CheckoutView({
                   {/* Campo CEP */}
                   <div>
                     <Label htmlFor="cep" className="text-xs text-muted-foreground flex items-center gap-1">
-                      CEP *
+                      CEP
                       <span className="text-[10px] text-muted-foreground">{checkoutText.autoFillHint}</span>
                     </Label>
                     <div className="relative">
@@ -399,7 +374,6 @@ export default function CheckoutView({
                         maxLength={9}
                         className="mt-1 h-10 pl-9 pr-8"
                         disabled={loadingCEP}
-                        required
                       />
                       {loadingCEP && (
                         <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-orange-500" />
@@ -458,9 +432,25 @@ export default function CheckoutView({
                     />
                     {customer.neighborhood && (
                       (() => {
+                        if (isOutsideAreaBlocked) {
+                          return (
+                            <p className="text-xs text-red-600 mt-1">
+                              ⚠️ {checkoutText.outsideAreaBlocked}
+                            </p>
+                          );
+                        }
+
+                        if (deliveryContext.deliveryRuleSource === 'manual_review') {
+                          return (
+                            <p className="text-xs text-orange-600 mt-1">
+                              ⚠️ {checkoutText.deliveryManualReview}
+                            </p>
+                          );
+                        }
+
                         // Se for cálculo por distância e tem coordenadas
-                        if (store?.delivery_fee_mode === 'distance' && customer.latitude && customer.longitude) {
-                          const fee = getDeliveryFee();
+                        if (orderService.resolveDeliveryPricingMode(store) === 'distance' && customer.latitude && customer.longitude) {
+                          const fee = deliveryFee;
                           if (fee > 0) {
                             return (
                               <p className="text-xs text-green-600 mt-1">
@@ -469,17 +459,13 @@ export default function CheckoutView({
                             );
                           }
                         } else if (deliveryZones.length > 0) {
-                          // Cálculo por zona
-                          const zone = deliveryZones.find((z) =>
-                            normalizeNeighborhood(z?.neighborhood) === normalizeNeighborhood(customer.neighborhood) && z.is_active
-                          );
-                          if (zone) {
+                          if (deliveryContext.matchedZone) {
                             return (
                               <p className="text-xs text-green-600 mt-1">
-                                ✓ {checkoutText.zoneFee(formatCurrency(zone.fee))}
+                                ✓ {checkoutText.zoneFee(formatCurrency(deliveryContext.deliveryFee))}
                               </p>
                             );
-                          } else if (customer.neighborhood.length > 2) {
+                          } else if (deliveryContext.deliveryRuleSource === 'fallback_store_fee' && customer.neighborhood.length > 2) {
                             return (
                               <p className="text-xs text-orange-600 mt-1">
                                 ⚠️ {checkoutText.zoneNotRegistered}
@@ -879,13 +865,13 @@ export default function CheckoutView({
 
             <Button
               onClick={() => {
-                if (!isSubmitting && isFormValid()) {
+                if (!isSubmitting && isFormValid() && !requiresMapSelection && !isOutsideAreaBlocked) {
                   setShowConfirmationModal(true);
                 }
               }}
-              disabled={isSubmitting || !isFormValid() || isBelowMinimumOrder || store?.accepting_orders === false || store?.is_open === false}
+              disabled={isSubmitting || !isFormValid() || isBelowMinimumOrder || store?.accepting_orders === false || store?.is_open === false || requiresMapSelection || isOutsideAreaBlocked}
               className="h-auto min-h-12 w-full whitespace-normal px-4 py-3 text-center leading-snug text-primary-foreground font-bold"
-              style={{ backgroundColor: (!isSubmitting && isFormValid() && !isBelowMinimumOrder && store?.accepting_orders !== false && store?.is_open !== false) ? primaryColor : '#d1d5db' }}
+              style={{ backgroundColor: (!isSubmitting && isFormValid() && !isBelowMinimumOrder && store?.accepting_orders !== false && store?.is_open !== false && !requiresMapSelection && !isOutsideAreaBlocked) ? primaryColor : '#d1d5db' }}
             >
               {isSubmitting
                 ? checkoutText.submitting
@@ -893,6 +879,10 @@ export default function CheckoutView({
                 ? checkoutText.storeClosed
                 : store?.accepting_orders === false
                 ? `⏸️ ${checkoutText.pausedOrders}`
+                : isOutsideAreaBlocked
+                ? checkoutText.outsideAreaBlocked
+                : requiresMapSelection
+                ? checkoutText.mapRequiredForDelivery
                 : isBelowMinimumOrder
                 ? checkoutText.minimumOrderToFinish(formatCurrency(minimumOrderValue))
                 : checkoutText.submit}
@@ -905,6 +895,14 @@ export default function CheckoutView({
             ) : store?.accepting_orders === false ? (
               <p className="text-xs text-orange-600 text-center mt-2">
                 {store.pause_message || checkoutText.ordersTemporarilyPaused}
+              </p>
+            ) : isOutsideAreaBlocked ? (
+              <p className="text-xs text-red-600 text-center mt-2">
+                {checkoutText.outsideAreaBlocked}
+              </p>
+            ) : requiresMapSelection ? (
+              <p className="text-xs text-red-600 text-center mt-2">
+                {checkoutText.mapRequiredForDelivery}
               </p>
             ) : !isFormValid() ? (
               <p className="text-xs text-red-600 text-center mt-2">
@@ -919,30 +917,32 @@ export default function CheckoutView({
         </motion.div>
 
         {/* Address Map Picker */}
-        <AddressMapPicker
-          isOpen={showMapPicker}
-          onClose={() => setShowMapPicker(false)}
-          initialAddress={customer.address_street ? `${customer.address_street}, ${customer.address_number || ''}` : ''}
-          initialPosition={customer.latitude && customer.longitude ? { lat: customer.latitude, lng: customer.longitude } : null}
-          fallbackCenter={store?.latitude && store?.longitude ? { lat: store.latitude, lng: store.longitude } : null}
-          initialCep={customer.cep || ''}
-          onConfirm={({ latitude, longitude, addressData }) => {
-            setCustomer((currentCustomer) => ({
-              ...currentCustomer,
-              latitude,
-              longitude,
-              address_street: addressData?.street || currentCustomer?.address_street || '',
-              address_number: addressData?.number || currentCustomer?.address_number || '',
-              address_complement: addressData?.complement || currentCustomer?.address_complement || '',
-              neighborhood: addressData?.neighborhood || currentCustomer?.neighborhood || '',
-              cep: addressData?.cep || currentCustomer?.cep || '',
-              city: addressData?.city || currentCustomer?.city || '',
-              state: addressData?.state || currentCustomer?.state || '',
-              address: addressData?.fullAddress || currentCustomer?.address || '',
-            }));
-            setShowMapPicker(false);
-          }}
-        />
+        {canUseMapPicker && (
+          <AddressMapPicker
+            isOpen={showMapPicker}
+            onClose={() => setShowMapPicker(false)}
+            initialAddress={customer.address_street ? `${customer.address_street}, ${customer.address_number || ''}` : ''}
+            initialPosition={customer.latitude && customer.longitude ? { lat: customer.latitude, lng: customer.longitude } : null}
+            fallbackCenter={store?.latitude && store?.longitude ? { lat: store.latitude, lng: store.longitude } : null}
+            initialCep={customer.cep || ''}
+            onConfirm={({ latitude, longitude, addressData }) => {
+              setCustomer((currentCustomer) => ({
+                ...currentCustomer,
+                latitude,
+                longitude,
+                address_street: addressData?.street || currentCustomer?.address_street || '',
+                address_number: addressData?.number || currentCustomer?.address_number || '',
+                address_complement: addressData?.complement || currentCustomer?.address_complement || '',
+                neighborhood: addressData?.neighborhood || currentCustomer?.neighborhood || '',
+                cep: addressData?.cep || currentCustomer?.cep || '',
+                city: addressData?.city || currentCustomer?.city || '',
+                state: addressData?.state || currentCustomer?.state || '',
+                address: addressData?.fullAddress || currentCustomer?.address || '',
+              }));
+              setShowMapPicker(false);
+            }}
+          />
+        )}
 
         {/* Order Confirmation Modal */}
         <OrderConfirmationModal

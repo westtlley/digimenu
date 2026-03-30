@@ -431,7 +431,10 @@
     zoneFee(value) {
       return `Delivery fee: ${value}`;
     },
-    zoneNotRegistered: 'Neighborhood not registered. We will confirm the fee on WhatsApp.',
+    zoneNotRegistered: 'Neighborhood is outside the active zones. Applying the store default fee.',
+    outsideAreaBlocked: 'We do not deliver to this neighborhood yet.',
+    deliveryManualReview: 'Delivery to this neighborhood requires manual review.',
+    mapRequiredForDelivery: 'Select the address on the map to continue.',
     paymentSectionTitle: '3. Payment method',
     paymentPlaceholder: 'Select the payment method',
     needsChange: 'I need change',

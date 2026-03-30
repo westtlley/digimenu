@@ -1,12 +1,8 @@
-import { calculateDistance, calculateDeliveryFeeByDistance } from '@/utils/distanceUtils';
-
-function normalizeNeighborhood(value) {
-  return String(value || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .trim()
-    .toLowerCase();
-}
+import {
+  calculateDeliveryContext,
+  resolveCheckoutAddressMode,
+  resolveDeliveryPricingMode,
+} from '@/utils/deliveryRules';
 
 export const orderService = {
   generateOrderCode() {
@@ -28,41 +24,34 @@ export const orderService = {
    * @param {number} customerLng - Longitude do cliente
    * @returns {number} Taxa de entrega calculada
    */
+  calculateDeliveryContext(deliveryMethod, neighborhood, deliveryZones, store = null, customerLat = null, customerLng = null) {
+    return calculateDeliveryContext({
+      deliveryMethod,
+      neighborhood,
+      deliveryZones,
+      store,
+      customerLat,
+      customerLng,
+    });
+  },
+
   calculateDeliveryFee(deliveryMethod, neighborhood, deliveryZones, store = null, customerLat = null, customerLng = null) {
-    if (deliveryMethod !== 'delivery') return 0;
+    return this.calculateDeliveryContext(
+      deliveryMethod,
+      neighborhood,
+      deliveryZones,
+      store,
+      customerLat,
+      customerLng
+    ).deliveryFee;
+  },
 
-    // Modo: Cálculo por Distância (M/KM)
-    if (store?.delivery_fee_mode === 'distance' && customerLat && customerLng) {
-      // Verificar se a loja tem coordenadas
-      if (store.latitude && store.longitude) {
-        const distanceKm = calculateDistance(
-          store.latitude,
-          store.longitude,
-          customerLat,
-          customerLng
-        );
+  resolveCheckoutAddressMode(store = null) {
+    return resolveCheckoutAddressMode(store);
+  },
 
-        const config = {
-          baseFee: store.delivery_base_fee || 0,
-          pricePerKm: store.delivery_price_per_km || 0,
-          minFee: store.delivery_min_fee || 0,
-          maxFee: store.delivery_max_fee || null,
-          freeDeliveryDistance: store.delivery_free_distance || null,
-        };
-
-        return calculateDeliveryFeeByDistance(distanceKm, config);
-      }
-    }
-
-    // Modo: Cálculo por Zona (padrão)
-    if (!neighborhood) return store?.delivery_fee || 0;
-
-    const neighborhoodKey = normalizeNeighborhood(neighborhood);
-    const zone = deliveryZones?.find((z) =>
-      normalizeNeighborhood(z?.neighborhood) === neighborhoodKey && z?.is_active
-    );
-
-    return zone ? zone.fee : (store?.delivery_fee || 0);
+  resolveDeliveryPricingMode(store = null) {
+    return resolveDeliveryPricingMode(store);
   },
 
   formatFullAddress(customer) {

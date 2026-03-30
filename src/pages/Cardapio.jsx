@@ -1134,30 +1134,15 @@ export default function Cardapio() {
     const currentCartTotal = calculateCartSubtotal(safeCart);
     const findDishById = (id) => safeDishes.find((dish) => String(dish?.id || '') === String(id || ''));
     const analyticsSignals = getCommercialSignalsForSlug(slug);
-    const normalizeNeighborhood = (value) =>
-      String(value || '')
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .trim()
-        .toLowerCase();
-
     const getContextualMinimumOrderValue = () => {
-      const storeMin = Number(
-        store?.min_order_value ??
-        store?.min_order ??
-        store?.min_order_price ??
-        store?.delivery_min_order ??
-        0
-      ) || 0;
-
-      if (customer?.deliveryMethod !== 'delivery') return storeMin;
-
-      const neighborhoodKey = normalizeNeighborhood(customer?.neighborhood);
-      const zone = (Array.isArray(deliveryZonesResolved) ? deliveryZonesResolved : []).find(
-        (z) => normalizeNeighborhood(z?.neighborhood) === neighborhoodKey && z?.is_active
-      );
-      const zoneMin = Number(zone?.min_order ?? zone?.min_order_value ?? 0) || 0;
-      return Math.max(storeMin, zoneMin);
+      return orderService.calculateDeliveryContext(
+        customer?.deliveryMethod,
+        customer?.neighborhood,
+        deliveryZonesResolved,
+        store,
+        customer?.latitude,
+        customer?.longitude
+      ).minimumOrderValue;
     };
     const contextualMinimumOrderValue = getContextualMinimumOrderValue();
 
@@ -2975,12 +2960,6 @@ export default function Cardapio() {
     const clientRequestId = typeof window !== 'undefined' && window.crypto?.randomUUID
       ? window.crypto.randomUUID()
       : `menu_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
-    const normalizeNeighborhood = (value) =>
-      String(value || '')
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .trim()
-        .toLowerCase();
     const toNullableNumber = (value) => {
       if (value === null || value === undefined || value === '') return null;
       const parsed = Number(value);
@@ -2991,32 +2970,28 @@ export default function Cardapio() {
         toast.error(publicMenuText.neighborhoodRequired);
         return;
       }
-      
-      const calculatedDeliveryFee = orderService.calculateDeliveryFee(
-        customer.deliveryMethod, 
-        customer.neighborhood, 
+
+      const deliveryContext = orderService.calculateDeliveryContext(
+        customer.deliveryMethod,
+        customer.neighborhood,
         deliveryZonesResolved,
         store,
         customer.latitude,
         customer.longitude
       );
+      const calculatedDeliveryFee = deliveryContext.deliveryFee;
+      const minimumOrderValue = deliveryContext.minimumOrderValue;
 
-      const storeMinOrder = Number(
-        store?.min_order_value ??
-        store?.min_order ??
-        store?.min_order_price ??
-        store?.delivery_min_order ??
-        0
-      ) || 0;
-      const matchedZone = customer.deliveryMethod === 'delivery'
-        ? (deliveryZonesResolved || []).find(
-            (z) =>
-              z?.is_active &&
-              normalizeNeighborhood(z?.neighborhood) === normalizeNeighborhood(customer.neighborhood)
-          )
-        : null;
-      const zoneMinOrder = Number(matchedZone?.min_order ?? matchedZone?.min_order_value ?? 0) || 0;
-      const minimumOrderValue = Math.max(storeMinOrder, zoneMinOrder);
+      if (customer.deliveryMethod === 'delivery' && deliveryContext.blocked) {
+        toast.error(deliveryContext.message || 'Ainda não entregamos nesse bairro.');
+        return;
+      }
+
+      if (customer.deliveryMethod === 'delivery' && deliveryContext.missingRequiredCoordinates) {
+        toast.error('Selecione seu endereço no mapa para calcular a entrega.');
+        return;
+      }
+
       if (customer.deliveryMethod === 'delivery' && minimumOrderValue > 0 && normalizedCartTotal < minimumOrderValue) {
         toast.error(publicMenuText.minimumOrderForDelivery(formatCurrency(minimumOrderValue)));
         return;

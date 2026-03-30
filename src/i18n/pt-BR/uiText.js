@@ -475,7 +475,10 @@
     zoneFee(value) {
       return `Taxa de entrega: ${value}`;
     },
-    zoneNotRegistered: 'Bairro não cadastrado. Confirmaremos a taxa via WhatsApp.',
+    zoneNotRegistered: 'Bairro fora das zonas ativas. Aplicando a taxa padrão da loja.',
+    outsideAreaBlocked: 'Ainda não entregamos nesse bairro.',
+    deliveryManualReview: 'Entrega neste bairro depende de revisão manual.',
+    mapRequiredForDelivery: 'Selecione o endereço no mapa para continuar.',
     paymentSectionTitle: '3. Forma de pagamento',
     paymentPlaceholder: 'Selecione a forma de pagamento',
     needsChange: 'Preciso de troco',

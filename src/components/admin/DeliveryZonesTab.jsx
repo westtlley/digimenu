@@ -13,29 +13,80 @@ import EmptyState from '@/components/ui/EmptyState';
 import toast from 'react-hot-toast';
 import { usePermission } from '../permissions/usePermission';
 import { getMenuContextEntityOpts, getMenuContextQueryKeyParts } from '@/utils/tenantScope';
+import {
+  normalizeDeliveryZone,
+  resolveCheckoutAddressMode,
+  resolveDeliveryPricingMode,
+  resolveOutsideAreaBehavior,
+} from '@/utils/deliveryRules';
 
 export default function DeliveryZonesTab() {
   const [showModal, setShowModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
-  const [formData, setFormData] = useState({ neighborhood: '', fee: '', is_active: true });
+  const [formData, setFormData] = useState({ neighborhood: '', fee: '', min_order: '', is_active: true });
 
   const [deliveryConfig, setDeliveryConfig] = useState({
     delivery_fee_mode: 'zone',
+    delivery_pricing_mode: 'zone',
     delivery_fee: 0,
     min_order_value: 0,
     latitude: null, longitude: null,
     delivery_base_fee: 0, delivery_price_per_km: 0,
     delivery_min_fee: 0, delivery_max_fee: null, delivery_free_distance: null,
+    checkout_address_mode: 'map_optional',
+    delivery_outside_area_behavior: 'block',
   });
 
   const queryClient = useQueryClient();
   const { menuContext } = usePermission();
   const entityOpts = getMenuContextEntityOpts(menuContext);
+  const deliveryZonesQueryKey = ['deliveryZones', ...getMenuContextQueryKeyParts(menuContext)];
+  const storeQueryKey = ['store', ...getMenuContextQueryKeyParts(menuContext)];
+
+  const buildZonePayload = (rawZone) => {
+    const normalizedZone = normalizeDeliveryZone(rawZone) || {};
+    const minOrderValueRaw = rawZone?.min_order ?? rawZone?.min_order_value;
+    const minOrderValue =
+      minOrderValueRaw === null || minOrderValueRaw === undefined || minOrderValueRaw === ''
+        ? null
+        : parseFloat(minOrderValueRaw) || 0;
+
+    return {
+      ...rawZone,
+      ...normalizedZone,
+      neighborhood: normalizedZone.neighborhood,
+      name: normalizedZone.neighborhood || normalizedZone.name || '',
+      fee: parseFloat(rawZone?.fee) || 0,
+      min_order: minOrderValue,
+      min_order_value: minOrderValue,
+      is_active: rawZone?.is_active !== false,
+    };
+  };
+
+  const buildStorePayload = (rawConfig) => {
+    const deliveryMode = resolveDeliveryPricingMode(rawConfig);
+    const checkoutAddressMode =
+      deliveryMode === 'distance'
+        ? 'map_required'
+        : resolveCheckoutAddressMode(rawConfig);
+
+    return {
+      ...rawConfig,
+      delivery_fee_mode: deliveryMode,
+      delivery_pricing_mode: deliveryMode,
+      checkout_address_mode: checkoutAddressMode,
+      delivery_outside_area_behavior: resolveOutsideAreaBehavior({
+        ...rawConfig,
+        delivery_fee_mode: deliveryMode,
+        delivery_pricing_mode: deliveryMode,
+      }),
+    };
+  };
 
   // ✅ CORREÇÃO: Buscar store com contexto do slug
   const { data: stores = [] } = useQuery({ 
-    queryKey: ['store', ...getMenuContextQueryKeyParts(menuContext)], 
+    queryKey: storeQueryKey,
     queryFn: async () => {
       if (!menuContext) return [];
       return base44.entities.Store.list(null, getMenuContextEntityOpts(menuContext));
@@ -46,21 +97,25 @@ export default function DeliveryZonesTab() {
 
   useEffect(() => {
     if (store) {
+      const deliveryMode = resolveDeliveryPricingMode(store);
       setDeliveryConfig({
-        delivery_fee_mode: store.delivery_fee_mode || 'zone',
+        delivery_fee_mode: deliveryMode,
+        delivery_pricing_mode: deliveryMode,
         delivery_fee: store.delivery_fee || 0,
         min_order_value: store.min_order_value || store.min_order_price || 0,
         latitude: store.latitude || null, longitude: store.longitude || null,
         delivery_base_fee: store.delivery_base_fee || 0, delivery_price_per_km: store.delivery_price_per_km || 0,
         delivery_min_fee: store.delivery_min_fee || 0, delivery_max_fee: store.delivery_max_fee ?? null, delivery_free_distance: store.delivery_free_distance ?? null,
+        checkout_address_mode: resolveCheckoutAddressMode(store),
+        delivery_outside_area_behavior: resolveOutsideAreaBehavior(store),
       });
     }
   }, [store]);
 
   const updateStoreMutation = useMutation({
-    mutationFn: ({ data }) => base44.entities.Store.update(store.id, data, entityOpts),
+    mutationFn: ({ data }) => base44.entities.Store.update(store.id, buildStorePayload(data), entityOpts),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['store', ...getMenuContextQueryKeyParts(menuContext)] });
+      queryClient.invalidateQueries({ queryKey: storeQueryKey });
       toast.success('Configuração de entrega salva');
     },
     onError: (e) => toast.error(e?.message || 'Erro ao salvar'),
@@ -84,10 +139,17 @@ export default function DeliveryZonesTab() {
     refetchOnMount: 'always',
   });
 
+  const normalizedZones = useMemo(() => {
+    if (!Array.isArray(zones)) return [];
+    return zones
+      .map((zone) => normalizeDeliveryZone(zone))
+      .filter(Boolean);
+  }, [zones]);
+
   // Filtrar zonas
   const filteredZones = useMemo(() => {
-    if (!Array.isArray(zones)) return [];
-    return zones.filter(zone => {
+    if (!Array.isArray(normalizedZones)) return [];
+    return normalizedZones.filter(zone => {
       const matchesSearch = !searchTerm || 
         zone.neighborhood?.toLowerCase().includes(searchTerm.toLowerCase());
       
@@ -97,11 +159,11 @@ export default function DeliveryZonesTab() {
       
       return matchesSearch && matchesStatus;
     });
-  }, [zones, searchTerm, filterStatus]);
+  }, [normalizedZones, searchTerm, filterStatus]);
 
   // Estatísticas
   const stats = useMemo(() => {
-    const safeZones = Array.isArray(zones) ? zones : [];
+    const safeZones = Array.isArray(normalizedZones) ? normalizedZones : [];
     const active = safeZones.filter(z => z.is_active).length;
     const inactive = safeZones.filter(z => !z.is_active).length;
     const totalFee = safeZones.reduce((sum, z) => {
@@ -116,12 +178,21 @@ export default function DeliveryZonesTab() {
       inactive,
       avgFee
     };
-  }, [zones]);
+  }, [normalizedZones]);
 
   const createMutation = useMutation({
-    mutationFn: (data) => base44.entities.DeliveryZone.create(data),
+    mutationFn: (data) => {
+      const payload = buildZonePayload(data);
+      return base44.entities.DeliveryZone.create(
+        {
+          ...payload,
+          ...(entityOpts?.as_subscriber_id != null ? { as_subscriber_id: entityOpts.as_subscriber_id } : {}),
+          ...(entityOpts?.as_subscriber ? { as_subscriber: entityOpts.as_subscriber } : {}),
+        }
+      );
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['deliveryZones'] });
+      queryClient.invalidateQueries({ queryKey: deliveryZonesQueryKey });
       closeModal();
       const toast = document.createElement('div');
       toast.className = 'fixed top-4 right-4 z-[9999] bg-green-600 text-primary-foreground px-6 py-4 rounded-xl shadow-2xl';
@@ -132,26 +203,26 @@ export default function DeliveryZonesTab() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.DeliveryZone.update(id, data),
+    mutationFn: ({ id, data }) => base44.entities.DeliveryZone.update(id, buildZonePayload(data), entityOpts),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['deliveryZones'] });
+      queryClient.invalidateQueries({ queryKey: deliveryZonesQueryKey });
       toast.success('✅ Salvo!');
     },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.DeliveryZone.delete(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['deliveryZones'] }),
+    mutationFn: (id) => base44.entities.DeliveryZone.delete(id, entityOpts),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: deliveryZonesQueryKey }),
   });
 
   const closeModal = () => {
     setShowModal(false);
-    setFormData({ neighborhood: '', fee: '', is_active: true });
+    setFormData({ neighborhood: '', fee: '', min_order: '', is_active: true });
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    createMutation.mutate({ ...formData, fee: parseFloat(formData.fee) || 0 });
+    createMutation.mutate(buildZonePayload(formData));
   };
 
   const formatCurrency = (value) => {
@@ -171,9 +242,50 @@ export default function DeliveryZonesTab() {
             <div>
               <Label className="mb-2 block">Modo de cálculo</Label>
               <div className="flex gap-2">
-                <Button type="button" variant={deliveryConfig.delivery_fee_mode === 'zone' ? 'default' : 'outline'} size="sm" onClick={() => setDeliveryConfig(c=>({...c, delivery_fee_mode: 'zone'}))}>Por zona/bairro</Button>
-                <Button type="button" variant={deliveryConfig.delivery_fee_mode === 'distance' ? 'default' : 'outline'} size="sm" onClick={() => setDeliveryConfig(c=>({...c, delivery_fee_mode: 'distance'}))}>Por distância (km)</Button>
+                <Button type="button" variant={deliveryConfig.delivery_fee_mode === 'zone' ? 'default' : 'outline'} size="sm" onClick={() => setDeliveryConfig(c=>({...c, delivery_fee_mode: 'zone', delivery_pricing_mode: 'zone'}))}>Por zona/bairro</Button>
+                <Button type="button" variant={deliveryConfig.delivery_fee_mode === 'distance' ? 'default' : 'outline'} size="sm" onClick={() => setDeliveryConfig(c=>({...c, delivery_fee_mode: 'distance', delivery_pricing_mode: 'distance', checkout_address_mode: 'map_required'}))}>Por distância (km)</Button>
               </div>
+            </div>
+            <div>
+              <Label className="mb-2 block">Endereço no checkout</Label>
+              <Select
+                value={deliveryConfig.delivery_fee_mode === 'distance' ? 'map_required' : deliveryConfig.checkout_address_mode}
+                onValueChange={(value) => setDeliveryConfig(c => ({ ...c, checkout_address_mode: value }))}
+                disabled={deliveryConfig.delivery_fee_mode === 'distance'}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="text_only">Só texto</SelectItem>
+                  <SelectItem value="map_optional">Mapa opcional</SelectItem>
+                  <SelectItem value="map_required">Mapa obrigatório</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-2">
+                {deliveryConfig.delivery_fee_mode === 'distance'
+                  ? 'No modo por km, o mapa permanece obrigatório neste lote.'
+                  : 'No modo por bairro, você pode esconder o mapa e usar apenas endereço textual.'}
+              </p>
+            </div>
+            <div>
+              <Label className="mb-2 block">Bairro fora da área</Label>
+              <Select
+                value={deliveryConfig.delivery_outside_area_behavior}
+                onValueChange={(value) => setDeliveryConfig(c => ({ ...c, delivery_outside_area_behavior: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="block">Bloquear pedido</SelectItem>
+                  <SelectItem value="fallback_store_fee">Usar taxa padrão da loja</SelectItem>
+                  <SelectItem value="allow_manual_review">Permitir revisão manual</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-2">
+                Comportamento aplicado quando o bairro não bate com nenhuma zona ativa.
+              </p>
             </div>
             {deliveryConfig.delivery_fee_mode === 'zone' && (
               <div>
@@ -202,7 +314,7 @@ export default function DeliveryZonesTab() {
               <Label>Pedido mínimo (R$)</Label>
               <Input type="number" step="0.01" value={deliveryConfig.min_order_value} onChange={e=>setDeliveryConfig(c=>({...c, min_order_value: parseFloat(e.target.value)||0}))} />
             </div>
-            <Button onClick={()=> updateStoreMutation.mutate({data: deliveryConfig})} disabled={updateStoreMutation.isPending}>Salvar configuração</Button>
+            <Button onClick={()=> updateStoreMutation.mutate({data: buildStorePayload(deliveryConfig)})} disabled={updateStoreMutation.isPending}>Salvar configuração</Button>
           </CardContent>
         </Card>
       )}
@@ -295,7 +407,7 @@ export default function DeliveryZonesTab() {
             />
           </div>
         ) : (
-          zones.map(zone => (
+          filteredZones.map(zone => (
             <div key={zone.id} className="bg-card text-card-foreground rounded-xl p-4 shadow-sm border border-border">
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-3 flex-1">
@@ -308,7 +420,7 @@ export default function DeliveryZonesTab() {
                       value={zone.neighborhood}
                       onChange={(e) => updateMutation.mutate({
                         id: zone.id,
-                        data: { ...zone, neighborhood: e.target.value }
+                        data: { ...zone, neighborhood: e.target.value, name: e.target.value }
                       })}
                       className="font-semibold text-base bg-transparent border-b border-transparent hover:border-border focus:border-orange-500 focus:outline-none w-full"
                     />
@@ -334,6 +446,23 @@ export default function DeliveryZonesTab() {
                     onChange={(e) => updateMutation.mutate({
                       id: zone.id,
                       data: { ...zone, fee: parseFloat(e.target.value) || 0 }
+                    })}
+                    className="flex-1 px-2 py-1 border rounded text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="mb-3">
+                <Label className="text-xs text-muted-foreground">Pedido mínimo</Label>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-sm text-muted-foreground">R$</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={zone.min_order ?? ''}
+                    onChange={(e) => updateMutation.mutate({
+                      id: zone.id,
+                      data: { ...zone, min_order: e.target.value === '' ? null : (parseFloat(e.target.value) || 0) }
                     })}
                     className="flex-1 px-2 py-1 border rounded text-sm"
                   />
@@ -390,6 +519,17 @@ export default function DeliveryZonesTab() {
                 onChange={(e) => setFormData(prev => ({ ...prev, fee: e.target.value }))}
                 placeholder="0.00"
                 required
+              />
+            </div>
+
+            <div>
+              <Label>Pedido mínimo do bairro (R$)</Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={formData.min_order}
+                onChange={(e) => setFormData(prev => ({ ...prev, min_order: e.target.value }))}
+                placeholder="Opcional"
               />
             </div>
 

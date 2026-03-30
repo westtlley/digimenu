@@ -233,6 +233,7 @@ async function seedDemo() {
     if (zones.length === 0) {
       await repo.createEntity('DeliveryZone', subEmail, {
         name: 'Centro',
+        neighborhood: 'Centro',
         fee: 5.00,
         min_order: 30.00,
         delivery_time: '40-50 min',
