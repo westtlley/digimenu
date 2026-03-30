@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { base44 } from '@/api/base44Client';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,32 +8,154 @@ import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, MapPin, Search, Filter, TrendingUp, Package } from 'lucide-react';
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  AlertTriangle,
+  ArrowUpDown,
+  CheckSquare,
+  Filter,
+  Layers3,
+  MapPin,
+  Package,
+  Plus,
+  Search,
+  ShieldAlert,
+  Sparkles,
+  TestTube2,
+  Trash2,
+  TrendingUp,
+  Upload,
+} from 'lucide-react';
 import EmptyState from '@/components/ui/EmptyState';
 import toast from 'react-hot-toast';
 import { usePermission } from '../permissions/usePermission';
 import { getMenuContextEntityOpts, getMenuContextQueryKeyParts } from '@/utils/tenantScope';
 import {
-  normalizeDeliveryZone,
+  normalizeNeighborhood,
   resolveCheckoutAddressMode,
   resolveDeliveryPricingMode,
   resolveOutsideAreaBehavior,
 } from '@/utils/deliveryRules';
+import {
+  buildDeliveryZonePayload,
+  findDuplicateZoneGroups,
+  findEquivalentDeliveryZones,
+  normalizeZoneSource,
+  parseBulkZonesInput,
+  simulateDeliveryCoverage,
+} from '@/utils/deliveryZoneAdmin';
+
+const EMPTY_ZONE_FORM = {
+  neighborhood: '',
+  fee: '',
+  min_order: '',
+  is_active: true,
+  source: 'manual',
+};
+
+const EMPTY_BATCH_EDIT = {
+  fee: '',
+  min_order: '',
+};
+
+const EMPTY_BULK_CREATE = {
+  text: '',
+  fee: '',
+  min_order: '',
+  is_active: true,
+};
+
+const EMPTY_SIMULATOR = {
+  neighborhood: '',
+  subtotal: '',
+  latitude: '',
+  longitude: '',
+};
+
+function formatCurrency(value) {
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
+}
+
+function formatSourceLabel(source) {
+  switch (normalizeZoneSource(source, 'manual')) {
+    case 'bulk':
+      return 'Lote';
+    case 'auto_generated':
+      return 'Auto';
+    default:
+      return 'Manual';
+  }
+}
+
+function formatRuleSource(source) {
+  const map = {
+    zone: 'Zona',
+    distance: 'Distancia',
+    outside_area_blocked: 'Bloqueio fora da area',
+    fallback_store_fee: 'Taxa padrao da loja',
+    manual_review: 'Revisao manual',
+    distance_fallback_zone: 'Zona fallback',
+    distance_fallback_store_fee: 'Loja fallback',
+    pending_zone_match: 'Aguardando bairro',
+  };
+
+  return map[source] || source || 'n/a';
+}
+
+function sortZones(zones, sortBy) {
+  const items = [...zones];
+
+  items.sort((left, right) => {
+    switch (sortBy) {
+      case 'name_desc':
+        return left.neighborhood.localeCompare(right.neighborhood, 'pt-BR') * -1;
+      case 'fee_desc':
+        return Number(right.fee || 0) - Number(left.fee || 0);
+      case 'fee_asc':
+        return Number(left.fee || 0) - Number(right.fee || 0);
+      case 'min_order_desc':
+        return Number(right.min_order || 0) - Number(left.min_order || 0);
+      case 'status':
+        if (left.is_active === right.is_active) {
+          return left.neighborhood.localeCompare(right.neighborhood, 'pt-BR');
+        }
+        return left.is_active ? -1 : 1;
+      case 'source':
+        return formatSourceLabel(left.source).localeCompare(formatSourceLabel(right.source), 'pt-BR');
+      case 'name_asc':
+      default:
+        return left.neighborhood.localeCompare(right.neighborhood, 'pt-BR');
+    }
+  });
+
+  return items;
+}
 
 export default function DeliveryZonesTab() {
   const [showModal, setShowModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
-  const [formData, setFormData] = useState({ neighborhood: '', fee: '', min_order: '', is_active: true });
-
+  const [sourceFilter, setSourceFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('name_asc');
+  const [formData, setFormData] = useState(EMPTY_ZONE_FORM);
+  const [selectedZoneIds, setSelectedZoneIds] = useState([]);
+  const [batchEdit, setBatchEdit] = useState(EMPTY_BATCH_EDIT);
+  const [bulkCreate, setBulkCreate] = useState(EMPTY_BULK_CREATE);
+  const [simulator, setSimulator] = useState(EMPTY_SIMULATOR);
   const [deliveryConfig, setDeliveryConfig] = useState({
     delivery_fee_mode: 'zone',
     delivery_pricing_mode: 'zone',
     delivery_fee: 0,
     min_order_value: 0,
-    latitude: null, longitude: null,
-    delivery_base_fee: 0, delivery_price_per_km: 0,
-    delivery_min_fee: 0, delivery_max_fee: null, delivery_free_distance: null,
+    latitude: null,
+    longitude: null,
+    delivery_base_fee: 0,
+    delivery_price_per_km: 0,
+    delivery_min_fee: 0,
+    delivery_max_fee: null,
+    delivery_free_distance: null,
     checkout_address_mode: 'map_optional',
     delivery_outside_area_behavior: 'block',
   });
@@ -44,25 +166,11 @@ export default function DeliveryZonesTab() {
   const deliveryZonesQueryKey = ['deliveryZones', ...getMenuContextQueryKeyParts(menuContext)];
   const storeQueryKey = ['store', ...getMenuContextQueryKeyParts(menuContext)];
 
-  const buildZonePayload = (rawZone) => {
-    const normalizedZone = normalizeDeliveryZone(rawZone) || {};
-    const minOrderValueRaw = rawZone?.min_order ?? rawZone?.min_order_value;
-    const minOrderValue =
-      minOrderValueRaw === null || minOrderValueRaw === undefined || minOrderValueRaw === ''
-        ? null
-        : parseFloat(minOrderValueRaw) || 0;
-
-    return {
-      ...rawZone,
-      ...normalizedZone,
-      neighborhood: normalizedZone.neighborhood,
-      name: normalizedZone.neighborhood || normalizedZone.name || '',
-      fee: parseFloat(rawZone?.fee) || 0,
-      min_order: minOrderValue,
-      min_order_value: minOrderValue,
-      is_active: rawZone?.is_active !== false,
-    };
-  };
+  const scopedCreatePayload = (payload) => ({
+    ...payload,
+    ...(entityOpts?.as_subscriber_id != null ? { as_subscriber_id: entityOpts.as_subscriber_id } : {}),
+    ...(entityOpts?.as_subscriber ? { as_subscriber: entityOpts.as_subscriber } : {}),
+  });
 
   const buildStorePayload = (rawConfig) => {
     const deliveryMode = resolveDeliveryPricingMode(rawConfig);
@@ -84,8 +192,7 @@ export default function DeliveryZonesTab() {
     };
   };
 
-  // ✅ CORREÇÃO: Buscar store com contexto do slug
-  const { data: stores = [] } = useQuery({ 
+  const { data: stores = [] } = useQuery({
     queryKey: storeQueryKey,
     queryFn: async () => {
       if (!menuContext) return [];
@@ -96,34 +203,36 @@ export default function DeliveryZonesTab() {
   const store = stores[0];
 
   useEffect(() => {
-    if (store) {
-      const deliveryMode = resolveDeliveryPricingMode(store);
-      setDeliveryConfig({
-        delivery_fee_mode: deliveryMode,
-        delivery_pricing_mode: deliveryMode,
-        delivery_fee: store.delivery_fee || 0,
-        min_order_value: store.min_order_value || store.min_order_price || 0,
-        latitude: store.latitude || null, longitude: store.longitude || null,
-        delivery_base_fee: store.delivery_base_fee || 0, delivery_price_per_km: store.delivery_price_per_km || 0,
-        delivery_min_fee: store.delivery_min_fee || 0, delivery_max_fee: store.delivery_max_fee ?? null, delivery_free_distance: store.delivery_free_distance ?? null,
-        checkout_address_mode: resolveCheckoutAddressMode(store),
-        delivery_outside_area_behavior: resolveOutsideAreaBehavior(store),
-      });
-    }
+    if (!store) return;
+    const deliveryMode = resolveDeliveryPricingMode(store);
+    setDeliveryConfig({
+      delivery_fee_mode: deliveryMode,
+      delivery_pricing_mode: deliveryMode,
+      delivery_fee: store.delivery_fee || 0,
+      min_order_value: store.min_order_value || store.min_order_price || 0,
+      latitude: store.latitude || null,
+      longitude: store.longitude || null,
+      delivery_base_fee: store.delivery_base_fee || 0,
+      delivery_price_per_km: store.delivery_price_per_km || 0,
+      delivery_min_fee: store.delivery_min_fee || 0,
+      delivery_max_fee: store.delivery_max_fee ?? null,
+      delivery_free_distance: store.delivery_free_distance ?? null,
+      checkout_address_mode: resolveCheckoutAddressMode(store),
+      delivery_outside_area_behavior: resolveOutsideAreaBehavior(store),
+    });
   }, [store]);
 
   const updateStoreMutation = useMutation({
     mutationFn: ({ data }) => base44.entities.Store.update(store.id, buildStorePayload(data), entityOpts),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: storeQueryKey });
-      toast.success('Configuração de entrega salva');
+      toast.success('Configuracao de entrega salva.');
     },
-    onError: (e) => toast.error(e?.message || 'Erro ao salvar'),
+    onError: (error) => toast.error(error?.message || 'Erro ao salvar configuracao.'),
   });
 
-  // ✅ CORREÇÃO: Buscar zonas com contexto do slug
   const { data: zones = [] } = useQuery({
-    queryKey: ['deliveryZones', ...getMenuContextQueryKeyParts(menuContext)],
+    queryKey: deliveryZonesQueryKey,
     queryFn: async () => {
       if (!menuContext) return [];
       try {
@@ -141,194 +250,623 @@ export default function DeliveryZonesTab() {
 
   const normalizedZones = useMemo(() => {
     if (!Array.isArray(zones)) return [];
+
     return zones
-      .map((zone) => normalizeDeliveryZone(zone))
+      .map((zone) => buildDeliveryZonePayload(zone, {
+        defaultSource: normalizeZoneSource(zone?.source, 'manual'),
+      }))
       .filter(Boolean);
   }, [zones]);
 
-  // Filtrar zonas
-  const filteredZones = useMemo(() => {
-    if (!Array.isArray(normalizedZones)) return [];
-    return normalizedZones.filter(zone => {
-      const matchesSearch = !searchTerm || 
-        zone.neighborhood?.toLowerCase().includes(searchTerm.toLowerCase());
-      
-      const matchesStatus = filterStatus === 'all' ||
-        (filterStatus === 'active' && zone.is_active) ||
-        (filterStatus === 'inactive' && !zone.is_active);
-      
-      return matchesSearch && matchesStatus;
+  const duplicateGroups = useMemo(() => findDuplicateZoneGroups(normalizedZones), [normalizedZones]);
+  const duplicateIdSet = useMemo(() => {
+    const ids = new Set();
+    duplicateGroups.forEach((group) => {
+      group.zones.forEach((zone) => {
+        ids.add(String(zone.id || `${group.normalizedNeighborhood}:${zone.neighborhood}`));
+      });
     });
-  }, [normalizedZones, searchTerm, filterStatus]);
+    return ids;
+  }, [duplicateGroups]);
 
-  // Estatísticas
-  const stats = useMemo(() => {
-    const safeZones = Array.isArray(normalizedZones) ? normalizedZones : [];
-    const active = safeZones.filter(z => z.is_active).length;
-    const inactive = safeZones.filter(z => !z.is_active).length;
-    const totalFee = safeZones.reduce((sum, z) => {
-      const fee = parseFloat(z.fee || 0);
-      return sum + (isNaN(fee) ? 0 : fee);
-    }, 0);
-    const avgFee = active > 0 ? totalFee / active : 0;
+  const filteredZones = useMemo(() => {
+    const normalizedSearch = normalizeNeighborhood(searchTerm);
 
-    return {
-      total: safeZones.length,
-      active,
-      inactive,
-      avgFee
-    };
+    const filtered = normalizedZones.filter((zone) => {
+      const zoneKey = String(zone.id || `${normalizeNeighborhood(zone.neighborhood)}:${zone.neighborhood}`);
+      const matchesSearch =
+        !normalizedSearch ||
+        normalizeNeighborhood(zone.neighborhood).includes(normalizedSearch) ||
+        formatSourceLabel(zone.source).toLowerCase().includes(normalizedSearch);
+
+      const matchesStatus =
+        filterStatus === 'all' ||
+        (filterStatus === 'active' && zone.is_active) ||
+        (filterStatus === 'inactive' && !zone.is_active) ||
+        (filterStatus === 'duplicates' && duplicateIdSet.has(zoneKey));
+
+      const matchesSource =
+        sourceFilter === 'all' ||
+        normalizeZoneSource(zone.source, 'manual') === sourceFilter;
+
+      return matchesSearch && matchesStatus && matchesSource;
+    });
+
+    return sortZones(filtered, sortBy);
+  }, [duplicateIdSet, filterStatus, normalizedZones, searchTerm, sortBy, sourceFilter]);
+
+  const visibleZoneIds = useMemo(() => (
+    filteredZones
+      .map((zone) => zone?.id)
+      .filter((id) => id !== null && id !== undefined)
+      .map((id) => String(id))
+  ), [filteredZones]);
+
+  useEffect(() => {
+    const availableIds = new Set(normalizedZones.map((zone) => String(zone.id)));
+    setSelectedZoneIds((current) => current.filter((id) => availableIds.has(String(id))));
   }, [normalizedZones]);
 
+  const selectedIdSet = useMemo(() => new Set(selectedZoneIds.map((id) => String(id))), [selectedZoneIds]);
+  const selectedZones = useMemo(() => (
+    normalizedZones.filter((zone) => selectedIdSet.has(String(zone.id)))
+  ), [normalizedZones, selectedIdSet]);
+
+  const allVisibleSelected = visibleZoneIds.length > 0 && visibleZoneIds.every((id) => selectedIdSet.has(id));
+  const coveredNeighborhoods = useMemo(() => {
+    const covered = new Set();
+    normalizedZones.forEach((zone) => {
+      if (!zone.is_active) return;
+      const normalizedName = normalizeNeighborhood(zone.neighborhood);
+      if (normalizedName) covered.add(normalizedName);
+    });
+    return covered.size;
+  }, [normalizedZones]);
+
+  const stats = useMemo(() => {
+    const active = normalizedZones.filter((zone) => zone.is_active).length;
+    const inactive = normalizedZones.filter((zone) => !zone.is_active).length;
+
+    return {
+      total: normalizedZones.length,
+      active,
+      inactive,
+      coveredNeighborhoods,
+      duplicateGroups: duplicateGroups.length,
+    };
+  }, [coveredNeighborhoods, duplicateGroups.length, normalizedZones]);
+
+  const bulkPreview = useMemo(() => {
+    const parsed = parseBulkZonesInput(bulkCreate.text, {
+      fee: bulkCreate.fee,
+      minOrder: bulkCreate.min_order,
+      isActive: bulkCreate.is_active,
+      source: 'bulk',
+    });
+
+    const itemsWithConflicts = parsed.items.map((item) => ({
+      ...item,
+      conflicts: findEquivalentDeliveryZones(normalizedZones, item.neighborhood),
+    }));
+
+    return {
+      ...parsed,
+      itemsWithConflicts,
+      validItems: itemsWithConflicts.filter((item) => item.conflicts.length === 0),
+      existingConflicts: itemsWithConflicts.filter((item) => item.conflicts.length > 0),
+    };
+  }, [bulkCreate.fee, bulkCreate.is_active, bulkCreate.min_order, bulkCreate.text, normalizedZones]);
+
+  const simulation = useMemo(() => simulateDeliveryCoverage({
+    neighborhood: simulator.neighborhood,
+    subtotal: simulator.subtotal,
+    deliveryZones: normalizedZones,
+    store,
+    customerLat: simulator.latitude,
+    customerLng: simulator.longitude,
+  }), [normalizedZones, simulator.latitude, simulator.longitude, simulator.neighborhood, simulator.subtotal, store]);
+
+  const closeModal = () => {
+    setShowModal(false);
+    setFormData(EMPTY_ZONE_FORM);
+  };
+
   const createMutation = useMutation({
-    mutationFn: (data) => {
-      const payload = buildZonePayload(data);
-      return base44.entities.DeliveryZone.create(
-        {
-          ...payload,
-          ...(entityOpts?.as_subscriber_id != null ? { as_subscriber_id: entityOpts.as_subscriber_id } : {}),
-          ...(entityOpts?.as_subscriber ? { as_subscriber: entityOpts.as_subscriber } : {}),
-        }
-      );
-    },
+    mutationFn: (data) => base44.entities.DeliveryZone.create(scopedCreatePayload(
+      buildDeliveryZonePayload(data, { defaultSource: 'manual' })
+    )),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: deliveryZonesQueryKey });
       closeModal();
-      const toast = document.createElement('div');
-      toast.className = 'fixed top-4 right-4 z-[9999] bg-green-600 text-primary-foreground px-6 py-4 rounded-xl shadow-2xl';
-      toast.innerHTML = '✅ Zona criada!';
-      document.body.appendChild(toast);
-      setTimeout(() => toast.remove(), 2000);
+      toast.success('Zona criada com sucesso.');
     },
+    onError: (error) => toast.error(error?.message || 'Erro ao criar zona.'),
+  });
+
+  const bulkCreateMutation = useMutation({
+    mutationFn: async ({ items }) => {
+      await Promise.all(items.map((item) => base44.entities.DeliveryZone.create(scopedCreatePayload(
+        buildDeliveryZonePayload(item, { defaultSource: 'bulk' })
+      ))));
+
+      return items.length;
+    },
+    onSuccess: (createdCount) => {
+      queryClient.invalidateQueries({ queryKey: deliveryZonesQueryKey });
+      setBulkCreate(EMPTY_BULK_CREATE);
+      toast.success(`${createdCount} zonas criadas em lote.`);
+    },
+    onError: (error) => toast.error(error?.message || 'Erro no cadastro em lote.'),
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.DeliveryZone.update(id, buildZonePayload(data), entityOpts),
-    onSuccess: () => {
+    mutationFn: ({ id, data }) => base44.entities.DeliveryZone.update(
+      id,
+      buildDeliveryZonePayload(data, {
+        defaultSource: normalizeZoneSource(data?.source, 'manual'),
+      }),
+      entityOpts
+    ),
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: deliveryZonesQueryKey });
-      toast.success('✅ Salvo!');
+      toast.success(variables?.successMessage || 'Zona atualizada.');
     },
+    onError: (error) => toast.error(error?.message || 'Erro ao atualizar zona.'),
+  });
+
+  const batchUpdateMutation = useMutation({
+    mutationFn: async ({ zonesToUpdate, updater, successMessage }) => {
+      await Promise.all(zonesToUpdate.map((zone) => base44.entities.DeliveryZone.update(
+        zone.id,
+        buildDeliveryZonePayload(updater(zone), {
+          defaultSource: normalizeZoneSource(zone?.source, 'manual'),
+        }),
+        entityOpts
+      )));
+
+      return {
+        count: zonesToUpdate.length,
+        successMessage,
+      };
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: deliveryZonesQueryKey });
+      setSelectedZoneIds([]);
+      setBatchEdit(EMPTY_BATCH_EDIT);
+      toast.success(result?.successMessage || `${result?.count || 0} zonas atualizadas.`);
+    },
+    onError: (error) => toast.error(error?.message || 'Erro na acao em lote.'),
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id) => base44.entities.DeliveryZone.delete(id, entityOpts),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: deliveryZonesQueryKey }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: deliveryZonesQueryKey });
+      toast.success('Zona excluida.');
+    },
+    onError: (error) => toast.error(error?.message || 'Erro ao excluir zona.'),
   });
 
-  const closeModal = () => {
-    setShowModal(false);
-    setFormData({ neighborhood: '', fee: '', min_order: '', is_active: true });
+  const batchDeleteMutation = useMutation({
+    mutationFn: async ({ ids }) => {
+      await Promise.all(ids.map((id) => base44.entities.DeliveryZone.delete(id, entityOpts)));
+      return ids.length;
+    },
+    onSuccess: (count) => {
+      queryClient.invalidateQueries({ queryKey: deliveryZonesQueryKey });
+      setSelectedZoneIds([]);
+      toast.success(`${count} zonas excluidas.`);
+    },
+    onError: (error) => toast.error(error?.message || 'Erro ao excluir zonas em lote.'),
+  });
+
+  const handleSingleCreate = (event) => {
+    event.preventDefault();
+    const conflicts = findEquivalentDeliveryZones(normalizedZones, formData.neighborhood);
+
+    if (conflicts.length > 0) {
+      toast.error(`Ja existe uma zona equivalente para "${conflicts[0].neighborhood}".`);
+      return;
+    }
+
+    createMutation.mutate({
+      ...formData,
+      source: 'manual',
+    });
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    createMutation.mutate(buildZonePayload(formData));
+  const handleBulkCreate = () => {
+    if (bulkPreview.validItems.length === 0) {
+      toast.error('Nao ha zonas validas para criar em lote.');
+      return;
+    }
+
+    bulkCreateMutation.mutate({ items: bulkPreview.validItems });
   };
 
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
+  const toggleZoneSelection = (id, checked) => {
+    const normalizedId = String(id);
+    setSelectedZoneIds((current) => {
+      const next = new Set(current.map((value) => String(value)));
+      if (checked === true) {
+        next.add(normalizedId);
+      } else {
+        next.delete(normalizedId);
+      }
+      return Array.from(next);
+    });
+  };
+
+  const toggleAllVisible = (checked) => {
+    setSelectedZoneIds((current) => {
+      const next = new Set(current.map((value) => String(value)));
+      visibleZoneIds.forEach((id) => {
+        if (checked === true) {
+          next.add(String(id));
+        } else {
+          next.delete(String(id));
+        }
+      });
+      return Array.from(next);
+    });
+  };
+
+  const applyBatchStatus = (isActive) => {
+    if (selectedZones.length === 0) {
+      toast.error('Selecione ao menos uma zona.');
+      return;
+    }
+
+    batchUpdateMutation.mutate({
+      zonesToUpdate: selectedZones,
+      updater: (zone) => ({ ...zone, is_active: isActive }),
+      successMessage: isActive
+        ? `${selectedZones.length} zonas ativadas.`
+        : `${selectedZones.length} zonas desativadas.`,
+    });
+  };
+
+  const applyBatchValues = () => {
+    if (selectedZones.length === 0) {
+      toast.error('Selecione ao menos uma zona.');
+      return;
+    }
+
+    const hasFee = batchEdit.fee !== '';
+    const hasMinOrder = batchEdit.min_order !== '';
+
+    if (!hasFee && !hasMinOrder) {
+      toast.error('Informe ao menos uma taxa ou pedido minimo para aplicar.');
+      return;
+    }
+
+    batchUpdateMutation.mutate({
+      zonesToUpdate: selectedZones,
+      updater: (zone) => ({
+        ...zone,
+        ...(hasFee ? { fee: batchEdit.fee } : {}),
+        ...(hasMinOrder ? { min_order: batchEdit.min_order } : {}),
+      }),
+      successMessage: `${selectedZones.length} zonas atualizadas em lote.`,
+    });
+  };
+
+  const deleteSelected = () => {
+    if (selectedZones.length === 0) {
+      toast.error('Selecione ao menos uma zona.');
+      return;
+    }
+
+    if (!window.confirm(`Excluir ${selectedZones.length} zonas selecionadas?`)) {
+      return;
+    }
+
+    batchDeleteMutation.mutate({
+      ids: selectedZones.map((zone) => zone.id),
+    });
+  };
+
+  const handleNeighborhoodBlur = (zone, rawValue, inputElement) => {
+    const nextNeighborhood = String(rawValue || '').replace(/\s+/g, ' ').trim();
+
+    if (!nextNeighborhood) {
+      inputElement.value = zone.neighborhood;
+      toast.error('O bairro nao pode ficar vazio.');
+      return;
+    }
+
+    if (nextNeighborhood === zone.neighborhood) return;
+
+    const conflicts = findEquivalentDeliveryZones(normalizedZones, nextNeighborhood, { ignoreId: zone.id });
+    if (conflicts.length > 0) {
+      inputElement.value = zone.neighborhood;
+      toast.error(`Ja existe uma zona equivalente para "${conflicts[0].neighborhood}".`);
+      return;
+    }
+
+    updateMutation.mutate({
+      id: zone.id,
+      data: { ...zone, neighborhood: nextNeighborhood, name: nextNeighborhood },
+      successMessage: 'Bairro atualizado.',
+    });
+  };
+
+  const handleNumericBlur = (zone, field, rawValue, inputElement, options = {}) => {
+    const nullable = options.nullable === true;
+    const currentValue = nullable ? zone[field] ?? '' : Number(zone[field] || 0);
+    const trimmed = String(rawValue || '').trim();
+
+    if (trimmed === '') {
+      if (!nullable) {
+        inputElement.value = String(zone[field] ?? 0);
+        return;
+      }
+
+      if (zone[field] == null) return;
+      updateMutation.mutate({
+        id: zone.id,
+        data: { ...zone, [field]: null },
+        successMessage: 'Zona atualizada.',
+      });
+      return;
+    }
+
+    const parsed = Number(trimmed.replace(',', '.'));
+    if (!Number.isFinite(parsed)) {
+      inputElement.value = String(currentValue);
+      toast.error('Informe um numero valido.');
+      return;
+    }
+
+    const nextValue = Math.round((parsed + Number.EPSILON) * 100) / 100;
+    if (Number(currentValue || 0) === nextValue) return;
+
+    updateMutation.mutate({
+      id: zone.id,
+      data: { ...zone, [field]: nextValue },
+      successMessage: 'Zona atualizada.',
+    });
   };
 
   return (
     <div className="p-4 sm:p-6 space-y-6">
-      {/* Configuração de entrega (taxa, pedido mínimo, modo zona/distância) */}
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="space-y-1">
+          <h2 className="text-2xl font-bold">Zona de Entrega</h2>
+          <p className="text-sm text-muted-foreground">
+            Operacao por bairro com a mesma regra de frete do checkout e do pedido final.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="outline">{resolveDeliveryPricingMode(store) === 'distance' ? 'Modo distancia' : 'Modo bairro'}</Badge>
+          <Badge variant={duplicateGroups.length > 0 ? 'destructive' : 'secondary'}>
+            {duplicateGroups.length > 0 ? `${duplicateGroups.length} conflitos` : 'Sem conflitos ativos'}
+          </Badge>
+          <Button onClick={() => setShowModal(true)} className="bg-orange-500 hover:bg-orange-600">
+            <Plus className="w-4 h-4 mr-2" />
+            Nova Zona
+          </Button>
+        </div>
+      </div>
+
       {store && (
         <Card>
           <CardHeader>
-            <CardTitle>Configuração de entrega</CardTitle>
-            <CardDescription>Modo de cálculo, taxa padrão e pedido mínimo. Taxas por bairro abaixo.</CardDescription>
+            <CardTitle>Configuracao de entrega</CardTitle>
+            <CardDescription>
+              Ajuste o modo de calculo e o comportamento padrao antes de operar as zonas.
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <Label className="mb-2 block">Modo de cálculo</Label>
+              <Label className="mb-2 block">Modo de calculo</Label>
               <div className="flex gap-2">
-                <Button type="button" variant={deliveryConfig.delivery_fee_mode === 'zone' ? 'default' : 'outline'} size="sm" onClick={() => setDeliveryConfig(c=>({...c, delivery_fee_mode: 'zone', delivery_pricing_mode: 'zone'}))}>Por zona/bairro</Button>
-                <Button type="button" variant={deliveryConfig.delivery_fee_mode === 'distance' ? 'default' : 'outline'} size="sm" onClick={() => setDeliveryConfig(c=>({...c, delivery_fee_mode: 'distance', delivery_pricing_mode: 'distance', checkout_address_mode: 'map_required'}))}>Por distância (km)</Button>
+                <Button
+                  type="button"
+                  variant={deliveryConfig.delivery_fee_mode === 'zone' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setDeliveryConfig((current) => ({
+                    ...current,
+                    delivery_fee_mode: 'zone',
+                    delivery_pricing_mode: 'zone',
+                  }))}
+                >
+                  Por zona/bairro
+                </Button>
+                <Button
+                  type="button"
+                  variant={deliveryConfig.delivery_fee_mode === 'distance' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setDeliveryConfig((current) => ({
+                    ...current,
+                    delivery_fee_mode: 'distance',
+                    delivery_pricing_mode: 'distance',
+                    checkout_address_mode: 'map_required',
+                  }))}
+                >
+                  Por distancia (km)
+                </Button>
               </div>
             </div>
             <div>
-              <Label className="mb-2 block">Endereço no checkout</Label>
+              <Label className="mb-2 block">Endereco no checkout</Label>
               <Select
                 value={deliveryConfig.delivery_fee_mode === 'distance' ? 'map_required' : deliveryConfig.checkout_address_mode}
-                onValueChange={(value) => setDeliveryConfig(c => ({ ...c, checkout_address_mode: value }))}
+                onValueChange={(value) => setDeliveryConfig((current) => ({ ...current, checkout_address_mode: value }))}
                 disabled={deliveryConfig.delivery_fee_mode === 'distance'}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="text_only">Só texto</SelectItem>
+                  <SelectItem value="text_only">So texto</SelectItem>
                   <SelectItem value="map_optional">Mapa opcional</SelectItem>
-                  <SelectItem value="map_required">Mapa obrigatório</SelectItem>
+                  <SelectItem value="map_required">Mapa obrigatorio</SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground mt-2">
                 {deliveryConfig.delivery_fee_mode === 'distance'
-                  ? 'No modo por km, o mapa permanece obrigatório neste lote.'
-                  : 'No modo por bairro, você pode esconder o mapa e usar apenas endereço textual.'}
+                  ? 'No modo por km, o mapa segue obrigatorio neste lote.'
+                  : 'No modo por bairro, o checkout pode operar so com endereco textual.'}
               </p>
             </div>
             <div>
-              <Label className="mb-2 block">Bairro fora da área</Label>
+              <Label className="mb-2 block">Bairro fora da area</Label>
               <Select
                 value={deliveryConfig.delivery_outside_area_behavior}
-                onValueChange={(value) => setDeliveryConfig(c => ({ ...c, delivery_outside_area_behavior: value }))}
+                onValueChange={(value) => setDeliveryConfig((current) => ({ ...current, delivery_outside_area_behavior: value }))}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="block">Bloquear pedido</SelectItem>
-                  <SelectItem value="fallback_store_fee">Usar taxa padrão da loja</SelectItem>
-                  <SelectItem value="allow_manual_review">Permitir revisão manual</SelectItem>
+                  <SelectItem value="fallback_store_fee">Usar taxa padrao da loja</SelectItem>
+                  <SelectItem value="allow_manual_review">Permitir revisao manual</SelectItem>
                 </SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground mt-2">
-                Comportamento aplicado quando o bairro não bate com nenhuma zona ativa.
-              </p>
             </div>
             {deliveryConfig.delivery_fee_mode === 'zone' && (
               <div>
-                <Label>Taxa padrão (R$)</Label>
-                <Input type="number" step="0.01" value={deliveryConfig.delivery_fee} onChange={e=>setDeliveryConfig(c=>({...c, delivery_fee: parseFloat(e.target.value)||0}))} />
+                <Label>Taxa padrao (R$)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={deliveryConfig.delivery_fee}
+                  onChange={(event) => setDeliveryConfig((current) => ({
+                    ...current,
+                    delivery_fee: parseFloat(event.target.value) || 0,
+                  }))}
+                />
               </div>
             )}
             {deliveryConfig.delivery_fee_mode === 'distance' && (
               <>
                 <div className="grid grid-cols-2 gap-2">
-                  <div><Label>Latitude</Label><Input type="number" step="0.000001" value={deliveryConfig.latitude||''} onChange={e=>setDeliveryConfig(c=>({...c, latitude: e.target.value?parseFloat(e.target.value):null}))} placeholder="-5.08" /></div>
-                  <div><Label>Longitude</Label><Input type="number" step="0.000001" value={deliveryConfig.longitude||''} onChange={e=>setDeliveryConfig(c=>({...c, longitude: e.target.value?parseFloat(e.target.value):null}))} placeholder="-42.80" /></div>
+                  <div>
+                    <Label>Latitude</Label>
+                    <Input
+                      type="number"
+                      step="0.000001"
+                      value={deliveryConfig.latitude || ''}
+                      onChange={(event) => setDeliveryConfig((current) => ({
+                        ...current,
+                        latitude: event.target.value ? parseFloat(event.target.value) : null,
+                      }))}
+                      placeholder="-2.53"
+                    />
+                  </div>
+                  <div>
+                    <Label>Longitude</Label>
+                    <Input
+                      type="number"
+                      step="0.000001"
+                      value={deliveryConfig.longitude || ''}
+                      onChange={(event) => setDeliveryConfig((current) => ({
+                        ...current,
+                        longitude: event.target.value ? parseFloat(event.target.value) : null,
+                      }))}
+                      placeholder="-44.29"
+                    />
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <div><Label>Taxa base (R$)</Label><Input type="number" step="0.01" value={deliveryConfig.delivery_base_fee} onChange={e=>setDeliveryConfig(c=>({...c, delivery_base_fee: parseFloat(e.target.value)||0}))} /></div>
-                  <div><Label>R$ por km</Label><Input type="number" step="0.01" value={deliveryConfig.delivery_price_per_km} onChange={e=>setDeliveryConfig(c=>({...c, delivery_price_per_km: parseFloat(e.target.value)||0}))} /></div>
+                  <div>
+                    <Label>Taxa base (R$)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={deliveryConfig.delivery_base_fee}
+                      onChange={(event) => setDeliveryConfig((current) => ({
+                        ...current,
+                        delivery_base_fee: parseFloat(event.target.value) || 0,
+                      }))}
+                    />
+                  </div>
+                  <div>
+                    <Label>R$ por km</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={deliveryConfig.delivery_price_per_km}
+                      onChange={(event) => setDeliveryConfig((current) => ({
+                        ...current,
+                        delivery_price_per_km: parseFloat(event.target.value) || 0,
+                      }))}
+                    />
+                  </div>
                 </div>
                 <div className="grid grid-cols-3 gap-2">
-                  <div><Label>Taxa mín (R$)</Label><Input type="number" step="0.01" value={deliveryConfig.delivery_min_fee} onChange={e=>setDeliveryConfig(c=>({...c, delivery_min_fee: parseFloat(e.target.value)||0}))} /></div>
-                  <div><Label>Taxa máx (R$)</Label><Input type="number" step="0.01" value={deliveryConfig.delivery_max_fee??''} onChange={e=>setDeliveryConfig(c=>({...c, delivery_max_fee: e.target.value?parseFloat(e.target.value):null}))} /></div>
-                  <div><Label>Grátis até (km)</Label><Input type="number" step="0.1" value={deliveryConfig.delivery_free_distance??''} onChange={e=>setDeliveryConfig(c=>({...c, delivery_free_distance: e.target.value?parseFloat(e.target.value):null}))} /></div>
+                  <div>
+                    <Label>Taxa min (R$)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={deliveryConfig.delivery_min_fee}
+                      onChange={(event) => setDeliveryConfig((current) => ({
+                        ...current,
+                        delivery_min_fee: parseFloat(event.target.value) || 0,
+                      }))}
+                    />
+                  </div>
+                  <div>
+                    <Label>Taxa max (R$)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={deliveryConfig.delivery_max_fee ?? ''}
+                      onChange={(event) => setDeliveryConfig((current) => ({
+                        ...current,
+                        delivery_max_fee: event.target.value ? parseFloat(event.target.value) : null,
+                      }))}
+                    />
+                  </div>
+                  <div>
+                    <Label>Gratis ate (km)</Label>
+                    <Input
+                      type="number"
+                      step="0.1"
+                      value={deliveryConfig.delivery_free_distance ?? ''}
+                      onChange={(event) => setDeliveryConfig((current) => ({
+                        ...current,
+                        delivery_free_distance: event.target.value ? parseFloat(event.target.value) : null,
+                      }))}
+                    />
+                  </div>
                 </div>
               </>
             )}
             <div>
-              <Label>Pedido mínimo (R$)</Label>
-              <Input type="number" step="0.01" value={deliveryConfig.min_order_value} onChange={e=>setDeliveryConfig(c=>({...c, min_order_value: parseFloat(e.target.value)||0}))} />
+              <Label>Pedido minimo (R$)</Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={deliveryConfig.min_order_value}
+                onChange={(event) => setDeliveryConfig((current) => ({
+                  ...current,
+                  min_order_value: parseFloat(event.target.value) || 0,
+                }))}
+              />
             </div>
-            <Button onClick={()=> updateStoreMutation.mutate({data: buildStorePayload(deliveryConfig)})} disabled={updateStoreMutation.isPending}>Salvar configuração</Button>
+            <Button
+              onClick={() => updateStoreMutation.mutate({ data: buildStorePayload(deliveryConfig) })}
+              disabled={updateStoreMutation.isPending}
+            >
+              Salvar configuracao
+            </Button>
           </CardContent>
         </Card>
       )}
 
-      {/* Estatísticas */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Total de Zonas</p>
+                <p className="text-sm text-muted-foreground">Total de zonas</p>
                 <p className="text-2xl font-bold">{stats.total}</p>
               </div>
-              <MapPin className="w-8 h-8 text-blue-500" />
+              <Layers3 className="w-8 h-8 text-blue-500" />
             </div>
           </CardContent>
         </Card>
@@ -358,186 +896,563 @@ export default function DeliveryZonesTab() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Taxa Média</p>
-                <p className="text-2xl font-bold text-orange-600">{formatCurrency(stats.avgFee)}</p>
+                <p className="text-sm text-muted-foreground">Bairros cobertos</p>
+                <p className="text-2xl font-bold text-orange-600">{stats.coveredNeighborhoods}</p>
               </div>
-              <TrendingUp className="w-8 h-8 text-orange-500" />
+              <MapPin className="w-8 h-8 text-orange-500" />
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Busca e Filtros */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar zona por bairro..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-        <Select value={filterStatus} onValueChange={setFilterStatus}>
-          <SelectTrigger className="w-[140px]">
-            <Filter className="w-4 h-4 mr-2" />
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas</SelectItem>
-            <SelectItem value="active">Ativas</SelectItem>
-            <SelectItem value="inactive">Inativas</SelectItem>
-          </SelectContent>
-        </Select>
-        <Button onClick={() => setShowModal(true)} className="bg-orange-500 hover:bg-orange-600">
-          <Plus className="w-4 h-4 mr-2" />
-          Nova Zona
-        </Button>
-      </div>
-
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredZones.length === 0 ? (
-          <div className="col-span-full">
-            <EmptyState
-              icon={MapPin}
-              title="Defina as zonas de entrega para calcular taxas corretamente"
-              description="Configure taxas por bairro para cobrar valores justos e transparentes"
-              actionLabel="Criar zona de entrega"
-              onAction={() => setShowModal(true)}
-            />
-          </div>
-        ) : (
-          filteredZones.map(zone => (
-            <div key={zone.id} className="bg-card text-card-foreground rounded-xl p-4 shadow-sm border border-border">
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-3 flex-1">
-                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <MapPin className="w-5 h-5 text-blue-600" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <input
-                      type="text"
-                      value={zone.neighborhood}
-                      onChange={(e) => updateMutation.mutate({
-                        id: zone.id,
-                        data: { ...zone, neighborhood: e.target.value, name: e.target.value }
-                      })}
-                      className="font-semibold text-base bg-transparent border-b border-transparent hover:border-border focus:border-orange-500 focus:outline-none w-full"
-                    />
-                  </div>
-                </div>
-                <Switch
-                  checked={zone.is_active}
-                  onCheckedChange={(checked) => updateMutation.mutate({
-                    id: zone.id,
-                    data: { ...zone, is_active: checked }
-                  })}
-                />
-              </div>
-
-              <div className="mb-3">
-                <Label className="text-xs text-muted-foreground">Taxa de Entrega</Label>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-sm text-muted-foreground">R$</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={zone.fee}
-                    onChange={(e) => updateMutation.mutate({
-                      id: zone.id,
-                      data: { ...zone, fee: parseFloat(e.target.value) || 0 }
-                    })}
-                    className="flex-1 px-2 py-1 border rounded text-sm"
-                  />
-                </div>
-              </div>
-
-              <div className="mb-3">
-                <Label className="text-xs text-muted-foreground">Pedido mínimo</Label>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-sm text-muted-foreground">R$</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={zone.min_order ?? ''}
-                    onChange={(e) => updateMutation.mutate({
-                      id: zone.id,
-                      data: { ...zone, min_order: e.target.value === '' ? null : (parseFloat(e.target.value) || 0) }
-                    })}
-                    className="flex-1 px-2 py-1 border rounded text-sm"
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-between items-center pt-3 border-t">
-                <span className="text-lg font-bold text-green-600">{formatCurrency(zone.fee)}</span>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-8 w-8 text-red-500 hover:text-red-700"
-                  onClick={() => {
-                    if (confirm(`Excluir a zona "${zone.neighborhood}"?`)) {
-                      deleteMutation.mutate(zone.id);
-                    }
-                  }}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
+      {duplicateGroups.length > 0 && (
+        <Card className="border-amber-300 bg-amber-50/60">
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-start gap-3">
+              <ShieldAlert className="w-5 h-5 text-amber-600 mt-0.5" />
+              <div>
+                <p className="font-semibold text-amber-900">Conflitos de cobertura detectados</p>
+                <p className="text-sm text-amber-800">
+                  Existem {duplicateGroups.length} grupos de bairros equivalentes que podem gerar operacao confusa no admin.
+                </p>
               </div>
             </div>
-          ))
-        )}
+            <div className="flex flex-wrap gap-2">
+              {duplicateGroups.slice(0, 4).map((group) => (
+                <Badge key={group.normalizedNeighborhood} variant="outline" className="border-amber-400 text-amber-900">
+                  {group.labels.join(' / ')}
+                </Badge>
+              ))}
+              {duplicateGroups.length > 4 && (
+                <Badge variant="outline" className="border-amber-400 text-amber-900">
+                  +{duplicateGroups.length - 4} conflitos
+                </Badge>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="grid gap-6 xl:grid-cols-[1.15fr_1fr]">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Upload className="w-5 h-5" />
+              Cadastro em lote
+            </CardTitle>
+            <CardDescription>
+              Cole uma lista de bairros. Formato opcional por linha: Bairro; taxa; pedido minimo; ativo/inativo.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-3 md:grid-cols-3">
+              <div>
+                <Label>Taxa padrao do lote (R$)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={bulkCreate.fee}
+                  onChange={(event) => setBulkCreate((current) => ({ ...current, fee: event.target.value }))}
+                  placeholder="0.00"
+                />
+              </div>
+              <div>
+                <Label>Pedido minimo padrao (R$)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={bulkCreate.min_order}
+                  onChange={(event) => setBulkCreate((current) => ({ ...current, min_order: event.target.value }))}
+                  placeholder="Opcional"
+                />
+              </div>
+              <div className="rounded-lg border px-3 py-2 flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium">Novas zonas ativas</p>
+                  <p className="text-xs text-muted-foreground">Padrao para linhas sem status</p>
+                </div>
+                <Switch
+                  checked={bulkCreate.is_active}
+                  onCheckedChange={(checked) => setBulkCreate((current) => ({ ...current, is_active: checked === true }))}
+                />
+              </div>
+            </div>
+            <Textarea
+              value={bulkCreate.text}
+              onChange={(event) => setBulkCreate((current) => ({ ...current, text: event.target.value }))}
+              placeholder={'Centro\nRenascenca\nAngelim; 9.50; 30; ativo'}
+              className="min-h-[220px]"
+            />
+            <div className="flex flex-wrap gap-2">
+              <Badge variant="secondary">{bulkPreview.validItems.length} validas</Badge>
+              <Badge variant="outline">{bulkPreview.duplicatesInInput.length} duplicadas na lista</Badge>
+              <Badge variant="outline">{bulkPreview.existingConflicts.length} em conflito com existentes</Badge>
+              <Badge variant="outline">{bulkPreview.invalidLines.length} invalidas</Badge>
+            </div>
+            {bulkPreview.existingConflicts.length > 0 && (
+              <div className="rounded-lg border border-amber-300 bg-amber-50 p-3">
+                <p className="text-sm font-medium text-amber-900">Linhas em conflito com zonas ja existentes</p>
+                <p className="text-xs text-amber-800 mt-1">
+                  Essas linhas serao ignoradas para evitar duplicata silenciosa.
+                </p>
+                <div className="flex flex-wrap gap-2 mt-3">
+                  {bulkPreview.existingConflicts.slice(0, 6).map((item) => (
+                    <Badge key={`${item.lineNumber}:${item.neighborhood}`} variant="outline" className="border-amber-400 text-amber-900">
+                      Linha {item.lineNumber}: {item.neighborhood}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+            <Button
+              onClick={handleBulkCreate}
+              disabled={bulkCreateMutation.isPending || bulkPreview.validItems.length === 0}
+            >
+              Criar zonas validas
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TestTube2 className="w-5 h-5" />
+              Simular entrega
+            </CardTitle>
+            <CardDescription>
+              Usa a mesma regra central do runtime para explicar cobertura, taxa e motivo da decisao.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label>Bairro</Label>
+              <Input
+                value={simulator.neighborhood}
+                onChange={(event) => setSimulator((current) => ({ ...current, neighborhood: event.target.value }))}
+                placeholder="Ex: Renascenca"
+              />
+            </div>
+            <div className="grid gap-3 md:grid-cols-3">
+              <div>
+                <Label>Subtotal (opcional)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={simulator.subtotal}
+                  onChange={(event) => setSimulator((current) => ({ ...current, subtotal: event.target.value }))}
+                  placeholder="0.00"
+                />
+              </div>
+              <div>
+                <Label>Latitude (opcional)</Label>
+                <Input
+                  type="number"
+                  step="0.000001"
+                  value={simulator.latitude}
+                  onChange={(event) => setSimulator((current) => ({ ...current, latitude: event.target.value }))}
+                  placeholder="-2.53"
+                />
+              </div>
+              <div>
+                <Label>Longitude (opcional)</Label>
+                <Input
+                  type="number"
+                  step="0.000001"
+                  value={simulator.longitude}
+                  onChange={(event) => setSimulator((current) => ({ ...current, longitude: event.target.value }))}
+                  placeholder="-44.29"
+                />
+              </div>
+            </div>
+            <div className={`rounded-xl border p-4 ${
+              !simulation.ready
+                ? 'border-border bg-muted/30'
+                : simulation.allowed
+                  ? 'border-green-300 bg-green-50/70'
+                  : 'border-red-300 bg-red-50/70'
+            }`}>
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant={
+                  !simulation.ready
+                    ? 'outline'
+                    : simulation.allowed
+                      ? 'secondary'
+                      : 'destructive'
+                }>
+                  {!simulation.ready ? 'Aguardando bairro' : simulation.allowed ? 'Entrega permitida' : 'Entrega bloqueada'}
+                </Badge>
+                <Badge variant="outline">{formatRuleSource(simulation.deliveryRuleSource)}</Badge>
+                {simulation.belowMinimumOrder && (
+                  <Badge variant="outline" className="border-amber-400 text-amber-900">
+                    Subtotal abaixo do minimo
+                  </Badge>
+                )}
+              </div>
+              <p className="text-sm mt-3">{simulation.decisionMessage}</p>
+              <div className="grid gap-3 sm:grid-cols-2 mt-4 text-sm">
+                <div className="rounded-lg border bg-background/80 p-3">
+                  <p className="text-xs text-muted-foreground">Modo aplicado</p>
+                  <p className="font-medium">{simulation.deliveryFeeModeApplied || 'n/a'}</p>
+                </div>
+                <div className="rounded-lg border bg-background/80 p-3">
+                  <p className="text-xs text-muted-foreground">Zona encontrada</p>
+                  <p className="font-medium">{simulation.matchedZoneName || 'Nenhuma'}</p>
+                </div>
+                <div className="rounded-lg border bg-background/80 p-3">
+                  <p className="text-xs text-muted-foreground">Taxa aplicada</p>
+                  <p className="font-medium">{formatCurrency(simulation.deliveryFee)}</p>
+                </div>
+                <div className="rounded-lg border bg-background/80 p-3">
+                  <p className="text-xs text-muted-foreground">Pedido minimo considerado</p>
+                  <p className="font-medium">{formatCurrency(simulation.minimumOrderValue)}</p>
+                </div>
+                <div className="rounded-lg border bg-background/80 p-3">
+                  <p className="text-xs text-muted-foreground">Distancia</p>
+                  <p className="font-medium">
+                    {simulation.distanceKm == null ? 'n/a' : `${simulation.distanceKm.toFixed(3)} km`}
+                  </p>
+                </div>
+                <div className="rounded-lg border bg-background/80 p-3">
+                  <p className="text-xs text-muted-foreground">Motivo</p>
+                  <p className="font-medium">{simulation.blockReason || 'ok'}</p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Modal */}
-      <Dialog open={showModal} onOpenChange={setShowModal}>
+      <Card className="border-dashed">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Sparkles className="w-5 h-5" />
+            Preparacao para automacao
+          </CardTitle>
+          <CardDescription>
+            As zonas agora carregam origem (`manual`, `bulk`, `auto_generated`) e o modulo fica pronto para ganhar sugestao de bairros da regiao no proximo lote.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap gap-2">
+            <Badge variant="outline">Manual</Badge>
+            <Badge variant="outline">Bulk</Badge>
+            <Badge variant="outline">Auto generated</Badge>
+          </div>
+          <Button type="button" variant="outline" disabled>
+            Em breve: sugerir bairros da regiao
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="space-y-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <CheckSquare className="w-5 h-5" />
+                Operacao em lote
+              </CardTitle>
+              <CardDescription>
+                Selecione zonas filtradas para ativar, desativar, aplicar taxa/pedido minimo ou excluir em conjunto.
+              </CardDescription>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Badge variant="secondary">{selectedZoneIds.length} selecionadas</Badge>
+              <Button type="button" variant="outline" onClick={() => toggleAllVisible(true)} disabled={visibleZoneIds.length === 0 || allVisibleSelected}>
+                Selecionar visiveis
+              </Button>
+              <Button type="button" variant="outline" onClick={() => setSelectedZoneIds([])} disabled={selectedZoneIds.length === 0}>
+                Limpar selecao
+              </Button>
+            </div>
+          </div>
+          <div className="grid gap-3 lg:grid-cols-[1.2fr_1fr_1fr_1fr_1fr]">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar bairro..."
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <Select value={filterStatus} onValueChange={setFilterStatus}>
+              <SelectTrigger>
+                <Filter className="w-4 h-4 mr-2" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas</SelectItem>
+                <SelectItem value="active">Ativas</SelectItem>
+                <SelectItem value="inactive">Inativas</SelectItem>
+                <SelectItem value="duplicates">Conflitos</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={sourceFilter} onValueChange={setSourceFilter}>
+              <SelectTrigger>
+                <Layers3 className="w-4 h-4 mr-2" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as origens</SelectItem>
+                <SelectItem value="manual">Manual</SelectItem>
+                <SelectItem value="bulk">Lote</SelectItem>
+                <SelectItem value="auto_generated">Auto generated</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={sortBy} onValueChange={setSortBy}>
+              <SelectTrigger>
+                <ArrowUpDown className="w-4 h-4 mr-2" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="name_asc">Bairro A-Z</SelectItem>
+                <SelectItem value="name_desc">Bairro Z-A</SelectItem>
+                <SelectItem value="fee_desc">Maior taxa</SelectItem>
+                <SelectItem value="fee_asc">Menor taxa</SelectItem>
+                <SelectItem value="min_order_desc">Maior minimo</SelectItem>
+                <SelectItem value="status">Status</SelectItem>
+                <SelectItem value="source">Origem</SelectItem>
+              </SelectContent>
+            </Select>
+            <div className="grid grid-cols-2 gap-2">
+              <Input
+                type="number"
+                step="0.01"
+                value={batchEdit.fee}
+                onChange={(event) => setBatchEdit((current) => ({ ...current, fee: event.target.value }))}
+                placeholder="Taxa lote"
+              />
+              <Input
+                type="number"
+                step="0.01"
+                value={batchEdit.min_order}
+                onChange={(event) => setBatchEdit((current) => ({ ...current, min_order: event.target.value }))}
+                placeholder="Minimo lote"
+              />
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="outline" onClick={() => applyBatchStatus(true)} disabled={selectedZoneIds.length === 0 || batchUpdateMutation.isPending}>
+              Ativar selecionadas
+            </Button>
+            <Button type="button" variant="outline" onClick={() => applyBatchStatus(false)} disabled={selectedZoneIds.length === 0 || batchUpdateMutation.isPending}>
+              Desativar selecionadas
+            </Button>
+            <Button type="button" onClick={applyBatchValues} disabled={selectedZoneIds.length === 0 || batchUpdateMutation.isPending}>
+              Aplicar valores
+            </Button>
+            <Button type="button" variant="destructive" onClick={deleteSelected} disabled={selectedZoneIds.length === 0 || batchDeleteMutation.isPending}>
+              Excluir em lote
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
+            {filteredZones.length === 0 ? (
+              <div className="col-span-full">
+                <EmptyState
+                  icon={MapPin}
+                  title="Nenhuma zona encontrada"
+                  description={
+                    normalizedZones.length === 0
+                      ? 'Comece criando bairros manualmente ou via cadastro em lote.'
+                      : 'Ajuste busca, filtros ou ordenacao para encontrar as zonas desejadas.'
+                  }
+                  actionLabel={normalizedZones.length === 0 ? 'Criar zona manual' : 'Nova zona'}
+                  onAction={() => setShowModal(true)}
+                />
+              </div>
+            ) : (
+              filteredZones.map((zone) => {
+                const zoneKey = String(zone.id || `${normalizeNeighborhood(zone.neighborhood)}:${zone.neighborhood}`);
+                const hasConflict = duplicateIdSet.has(zoneKey);
+                const equivalentZones = hasConflict
+                  ? findEquivalentDeliveryZones(normalizedZones, zone.neighborhood, { ignoreId: zone.id })
+                  : [];
+
+                return (
+                  <div
+                    key={zone.id}
+                    className={`rounded-xl p-4 shadow-sm border ${
+                      hasConflict
+                        ? 'border-amber-300 bg-amber-50/50'
+                        : zone.is_active
+                          ? 'border-green-200 bg-card'
+                          : 'border-border bg-card'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3 mb-4">
+                      <div className="flex items-start gap-3 flex-1 min-w-0">
+                        <Checkbox
+                          checked={selectedIdSet.has(String(zone.id))}
+                          onCheckedChange={(checked) => toggleZoneSelection(zone.id, checked)}
+                          className="mt-1"
+                        />
+                        <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                          <MapPin className="w-5 h-5 text-blue-600" />
+                        </div>
+                        <div className="flex-1 min-w-0 space-y-2">
+                          <input
+                            key={`${zone.id}:neighborhood:${zone.neighborhood}`}
+                            type="text"
+                            defaultValue={zone.neighborhood}
+                            onBlur={(event) => handleNeighborhoodBlur(zone, event.target.value, event.target)}
+                            className="font-semibold text-base bg-transparent border-b border-transparent hover:border-border focus:border-orange-500 focus:outline-none w-full"
+                          />
+                          <div className="flex flex-wrap gap-2">
+                            <Badge variant={zone.is_active ? 'secondary' : 'outline'}>
+                              {zone.is_active ? 'Ativa' : 'Inativa'}
+                            </Badge>
+                            <Badge variant="outline">{formatSourceLabel(zone.source)}</Badge>
+                            {hasConflict && (
+                              <Badge variant="destructive">Conflito equivalente</Badge>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <Switch
+                        checked={zone.is_active}
+                        onCheckedChange={(checked) => updateMutation.mutate({
+                          id: zone.id,
+                          data: { ...zone, is_active: checked === true },
+                          successMessage: checked === true ? 'Zona ativada.' : 'Zona desativada.',
+                        })}
+                      />
+                    </div>
+
+                    {hasConflict && (
+                      <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-3">
+                        <p className="text-xs font-medium text-amber-900">Cobertura equivalente ja cadastrada</p>
+                        <p className="text-xs text-amber-800 mt-1">
+                          Equivale a: {equivalentZones.map((item) => item.neighborhood).join(', ')}
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Taxa de entrega</Label>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-sm text-muted-foreground">R$</span>
+                          <input
+                            key={`${zone.id}:fee:${zone.fee}`}
+                            type="number"
+                            step="0.01"
+                            defaultValue={zone.fee}
+                            onBlur={(event) => handleNumericBlur(zone, 'fee', event.target.value, event.target)}
+                            className="flex-1 px-2 py-1 border rounded text-sm"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Pedido minimo</Label>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-sm text-muted-foreground">R$</span>
+                          <input
+                            key={`${zone.id}:min_order:${zone.min_order ?? ''}`}
+                            type="number"
+                            step="0.01"
+                            defaultValue={zone.min_order ?? ''}
+                            onBlur={(event) => handleNumericBlur(zone, 'min_order', event.target.value, event.target, { nullable: true })}
+                            className="flex-1 px-2 py-1 border rounded text-sm"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-4 mt-4 border-t">
+                      <div>
+                        <p className="text-xs text-muted-foreground">Resumo</p>
+                        <p className="text-lg font-bold text-green-600">{formatCurrency(zone.fee)}</p>
+                      </div>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8 text-red-500 hover:text-red-700"
+                        onClick={() => {
+                          if (window.confirm(`Excluir a zona "${zone.neighborhood}"?`)) {
+                            deleteMutation.mutate(zone.id);
+                          }
+                        }}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Dialog
+        open={showModal}
+        onOpenChange={(open) => {
+          if (open) {
+            setShowModal(true);
+            return;
+          }
+          closeModal();
+        }}
+      >
         <DialogContent className="sm:max-w-sm max-w-[95vw]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <MapPin className="w-5 h-5" />
-              Nova Zona de Entrega
+              Nova zona manual
             </DialogTitle>
           </DialogHeader>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSingleCreate} className="space-y-4">
             <div>
-              <Label>Nome do Bairro</Label>
+              <Label>Nome do bairro</Label>
               <Input
                 value={formData.neighborhood}
-                onChange={(e) => setFormData(prev => ({ ...prev, neighborhood: e.target.value }))}
+                onChange={(event) => setFormData((current) => ({ ...current, neighborhood: event.target.value }))}
                 placeholder="Ex: Centro, Jardins..."
                 required
               />
+              {formData.neighborhood && findEquivalentDeliveryZones(normalizedZones, formData.neighborhood).length > 0 && (
+                <p className="text-xs text-amber-700 mt-2 flex items-center gap-1">
+                  <AlertTriangle className="w-3 h-3" />
+                  Ja existe uma zona equivalente para esse bairro.
+                </p>
+              )}
             </div>
 
             <div>
-              <Label>Taxa de Entrega (R$)</Label>
+              <Label>Taxa de entrega (R$)</Label>
               <Input
                 type="number"
                 step="0.01"
                 value={formData.fee}
-                onChange={(e) => setFormData(prev => ({ ...prev, fee: e.target.value }))}
+                onChange={(event) => setFormData((current) => ({ ...current, fee: event.target.value }))}
                 placeholder="0.00"
                 required
               />
             </div>
 
             <div>
-              <Label>Pedido mínimo do bairro (R$)</Label>
+              <Label>Pedido minimo do bairro (R$)</Label>
               <Input
                 type="number"
                 step="0.01"
                 value={formData.min_order}
-                onChange={(e) => setFormData(prev => ({ ...prev, min_order: e.target.value }))}
+                onChange={(event) => setFormData((current) => ({ ...current, min_order: event.target.value }))}
                 placeholder="Opcional"
               />
             </div>
 
             <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-              <Label>Zona ativa</Label>
+              <div>
+                <Label>Zona ativa</Label>
+                <p className="text-xs text-muted-foreground">Origem: manual</p>
+              </div>
               <Switch
                 checked={formData.is_active}
-                onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_active: checked }))}
+                onCheckedChange={(checked) => setFormData((current) => ({ ...current, is_active: checked === true }))}
               />
             </div>
 
@@ -545,7 +1460,7 @@ export default function DeliveryZonesTab() {
               <Button type="button" variant="outline" onClick={closeModal} className="flex-1">
                 Cancelar
               </Button>
-              <Button type="submit" className="flex-1 bg-orange-500 hover:bg-orange-600">
+              <Button type="submit" className="flex-1 bg-orange-500 hover:bg-orange-600" disabled={createMutation.isPending}>
                 Criar
               </Button>
             </div>
