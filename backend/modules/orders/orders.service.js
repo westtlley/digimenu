@@ -638,8 +638,9 @@ export async function createCardapioOrder(orderData, slug) {
 
   const deliveryMethod = orderData.delivery_method || 'pickup';
   const neighborhood = orderData.neighborhood || null;
-  const customerLat = toNumber(orderData.customer_latitude, null);
-  const customerLng = toNumber(orderData.customer_longitude, null);
+  const customerLat = toNumber(orderData.customer_latitude ?? orderData.latitude, null);
+  const customerLng = toNumber(orderData.customer_longitude ?? orderData.longitude, null);
+  const customerCep = String(orderData.cep || orderData.zipcode || '').trim() || null;
 
   let matchedZone = null;
   let calculatedDeliveryFee = 0;
@@ -742,9 +743,13 @@ export async function createCardapioOrder(orderData, slug) {
     address_number: orderData.address_number || null,
     address_complement: orderData.address_complement || null,
     neighborhood: orderData.neighborhood || null,
+    cep: customerCep,
+    zipcode: customerCep,
     payment_method: orderData.payment_method || 'pix',
     needs_change: !!orderData.needs_change,
     change_amount: orderData.needs_change && orderData.change_amount ? parseFloat(orderData.change_amount) : null,
+    latitude: Number.isFinite(customerLat) ? customerLat : null,
+    longitude: Number.isFinite(customerLng) ? customerLng : null,
     customer_latitude: Number.isFinite(customerLat) ? customerLat : null,
     customer_longitude: Number.isFinite(customerLng) ? customerLng : null,
     items: normalizedItems,

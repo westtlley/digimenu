@@ -2981,6 +2981,11 @@ export default function Cardapio() {
         .replace(/[\u0300-\u036f]/g, '')
         .trim()
         .toLowerCase();
+    const toNullableNumber = (value) => {
+      if (value === null || value === undefined || value === '') return null;
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : null;
+    };
     try {
       if (customer.deliveryMethod === 'delivery' && !customer.neighborhood) {
         toast.error(publicMenuText.neighborhoodRequired);
@@ -3051,6 +3056,10 @@ export default function Cardapio() {
         }
       }
 
+      const customerLatitude = toNullableNumber(customer.latitude);
+      const customerLongitude = toNullableNumber(customer.longitude);
+      const customerCep = String(customer.cep || '').trim() || null;
+
       const orderData = {
         order_code: orderCode,
         client_request_id: clientRequestId,
@@ -3058,14 +3067,18 @@ export default function Cardapio() {
         customer_phone: customer.phone,
         customer_email: userEmail,
         created_by: userEmail,
-        customer_latitude: customer.latitude || null,
-        customer_longitude: customer.longitude || null,
+        customer_latitude: customerLatitude,
+        customer_longitude: customerLongitude,
+        latitude: customerLatitude,
+        longitude: customerLongitude,
         delivery_method: customer.deliveryMethod,
         address_street: customer.address_street,
         address_number: customer.address_number,
         address_complement: customer.address_complement,
         address: fullAddress,
         neighborhood: customer.neighborhood,
+        cep: customerCep,
+        zipcode: customerCep,
         payment_method: customer.paymentMethod,
         needs_change: customer.needs_change || false,
         change_amount: customer.change_amount ? parseFloat(customer.change_amount) : null,

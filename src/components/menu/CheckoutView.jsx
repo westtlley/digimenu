@@ -198,6 +198,10 @@ export default function CheckoutView({
   ];
 
   const nextStep = checkoutSteps.find((step) => !step.done)?.id || 5;
+  const handleBackdropClick = () => {
+    if (showMapPicker) return;
+    onBack?.();
+  };
 
   return (
     <AnimatePresence>
@@ -206,7 +210,7 @@ export default function CheckoutView({
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[70] flex items-stretch md:justify-end justify-center p-0"
-        onClick={onBack}
+        onClick={handleBackdropClick}
       >
         <motion.div
           initial={{ x: '100%' }}
@@ -919,19 +923,23 @@ export default function CheckoutView({
           isOpen={showMapPicker}
           onClose={() => setShowMapPicker(false)}
           initialAddress={customer.address_street ? `${customer.address_street}, ${customer.address_number || ''}` : ''}
+          initialPosition={customer.latitude && customer.longitude ? { lat: customer.latitude, lng: customer.longitude } : null}
+          fallbackCenter={store?.latitude && store?.longitude ? { lat: store.latitude, lng: store.longitude } : null}
+          initialCep={customer.cep || ''}
           onConfirm={({ latitude, longitude, addressData }) => {
-            setCustomer({
-              ...customer,
+            setCustomer((currentCustomer) => ({
+              ...currentCustomer,
               latitude,
               longitude,
-              address_street: addressData?.street || customer.address_street || '',
-              address_number: addressData?.number || customer.address_number || '',
-              address_complement: addressData?.complement || customer.address_complement || '',
-              neighborhood: addressData?.neighborhood || customer.neighborhood || '',
-              city: addressData?.city || customer.city || '',
-              state: addressData?.state || customer.state || '',
-              address: addressData?.fullAddress || customer.address || '',
-            });
+              address_street: addressData?.street || currentCustomer?.address_street || '',
+              address_number: addressData?.number || currentCustomer?.address_number || '',
+              address_complement: addressData?.complement || currentCustomer?.address_complement || '',
+              neighborhood: addressData?.neighborhood || currentCustomer?.neighborhood || '',
+              cep: addressData?.cep || currentCustomer?.cep || '',
+              city: addressData?.city || currentCustomer?.city || '',
+              state: addressData?.state || currentCustomer?.state || '',
+              address: addressData?.fullAddress || currentCustomer?.address || '',
+            }));
             setShowMapPicker(false);
           }}
         />

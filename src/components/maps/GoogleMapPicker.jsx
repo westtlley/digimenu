@@ -5,8 +5,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { setOptions, importLibrary } from '@googlemaps/js-api-loader';
 import { MapPin } from 'lucide-react';
+import { SAO_LUIS_MA_CENTER, resolveMapCenter } from '@/utils/addressSearch';
 
-const DEFAULT_CENTER = { lat: -15.7942, lng: -47.8822 };
+const DEFAULT_CENTER = SAO_LUIS_MA_CENTER;
 
 export default function GoogleMapPicker({ center, onPositionChange, className = '', style = {} }) {
   const mapRef = useRef(null);
@@ -18,7 +19,7 @@ export default function GoogleMapPicker({ center, onPositionChange, className = 
   useEffect(() => {
     if (!apiKey || !mapRef.current) return;
     setLoadError(null);
-    const c = center || DEFAULT_CENTER;
+    const c = resolveMapCenter(center, DEFAULT_CENTER);
     setOptions({ apiKey, version: 'weekly' });
 
     (async () => {
@@ -73,7 +74,7 @@ export default function GoogleMapPicker({ center, onPositionChange, className = 
   // Atualizar centro e marcador quando center mudar (ex.: busca, CEP)
   useEffect(() => {
     if (!mapInstanceRef.current || !markerRef.current || !center) return;
-    const pos = { lat: center.lat, lng: center.lng };
+    const pos = resolveMapCenter(center, DEFAULT_CENTER);
     mapInstanceRef.current.panTo(pos);
     markerRef.current.setPosition(pos);
   }, [center?.lat, center?.lng]);
