@@ -1,7 +1,6 @@
 /* eslint-disable react/prop-types */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { MapPin, Search, Navigation, X, Loader2 } from 'lucide-react';
-import { importLibrary, setOptions } from '@googlemaps/js-api-loader';
 import GoogleMapPicker from '@/components/maps/GoogleMapPicker';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,6 +17,7 @@ import {
   resolveMapCenter,
   toFiniteNumber,
 } from '@/utils/addressSearch';
+import { ensureGoogleMapsLoaded, getGoogleMapsApiKey } from '@/utils/googleMapsLoader';
 import toast from 'react-hot-toast';
 
 const GOOGLE_FIELDS = ['formattedAddress', 'location', 'addressComponents'];
@@ -62,14 +62,9 @@ async function ensureGoogleAddressServices(apiKey, servicesRef, servicesPromiseR
 
   if (!servicesPromiseRef.current) {
     servicesPromiseRef.current = (async () => {
-      if (!window.google?.maps?.importLibrary) {
-        setOptions({ apiKey, version: 'weekly' });
-      }
-
-      const [{ AutocompleteSuggestion, AutocompleteSessionToken }, { Geocoder }] = await Promise.all([
-        importLibrary('places'),
-        importLibrary('geocoding'),
-      ]);
+      const { placesLib, geocodingLib } = await ensureGoogleMapsLoaded();
+      const { AutocompleteSuggestion, AutocompleteSessionToken } = placesLib;
+      const { Geocoder } = geocodingLib;
 
       const services = {
         AutocompleteSuggestion,
@@ -314,7 +309,8 @@ export default function AddressMapPicker({
   fallbackCenter = null,
   initialCep = '',
 }) {
-  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+  const apiKey = getGoogleMapsApiKey();
+  console.log('[AddressMapPicker] MAPS KEY?', Boolean(apiKey), apiKey ? `${apiKey.slice(0, 8)}...` : 'ausente');
   const initialLat = initialPosition?.lat ?? initialPosition?.latitude;
   const initialLng = initialPosition?.lng ?? initialPosition?.longitude;
   const fallbackLat = fallbackCenter?.lat ?? fallbackCenter?.latitude;

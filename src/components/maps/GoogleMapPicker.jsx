@@ -3,9 +3,9 @@
  * Requer VITE_GOOGLE_MAPS_API_KEY.
  */
 import React, { useEffect, useRef, useState } from 'react';
-import { setOptions, importLibrary } from '@googlemaps/js-api-loader';
 import { MapPin } from 'lucide-react';
 import { SAO_LUIS_MA_CENTER, resolveMapCenter } from '@/utils/addressSearch';
+import { ensureGoogleMapsLoaded, getGoogleMapsApiKey } from '@/utils/googleMapsLoader';
 
 const DEFAULT_CENTER = SAO_LUIS_MA_CENTER;
 
@@ -14,17 +14,22 @@ export default function GoogleMapPicker({ center, onPositionChange, className = 
   const mapInstanceRef = useRef(null);
   const markerRef = useRef(null);
   const [loadError, setLoadError] = useState(null);
-  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+  const apiKey = getGoogleMapsApiKey();
 
   useEffect(() => {
+    console.log('[GoogleMapPicker] MAPS KEY?', Boolean(apiKey), apiKey ? `${apiKey.slice(0, 8)}...` : 'ausente');
     if (!apiKey || !mapRef.current) return;
+
+    let cancelled = false;
+
     setLoadError(null);
     const c = resolveMapCenter(center, DEFAULT_CENTER);
-    setOptions({ apiKey, version: 'weekly' });
 
     (async () => {
       try {
-        await importLibrary('maps');
+        await ensureGoogleMapsLoaded();
+        if (cancelled || !mapRef.current) return;
+
         const map = new google.maps.Map(mapRef.current, {
           center: { lat: c.lat ?? DEFAULT_CENTER.lat, lng: c.lng ?? DEFAULT_CENTER.lng },
           zoom: 16,
@@ -66,7 +71,13 @@ export default function GoogleMapPicker({ center, onPositionChange, className = 
     })();
 
     return () => {
-      if (markerRef.current) markerRef.current.setMap(null);
+      cancelled = true;
+
+      if (markerRef.current) {
+        markerRef.current.setMap(null);
+        markerRef.current = null;
+      }
+
       mapInstanceRef.current = null;
     };
   }, [apiKey]);
