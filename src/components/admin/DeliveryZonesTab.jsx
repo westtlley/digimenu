@@ -36,7 +36,9 @@ import {
   normalizeNeighborhood,
   resolveCheckoutAddressMode,
   resolveDeliveryHybridStrategy,
+  resolveDeliveryMaxRadiusKm,
   resolveDeliveryPricingMode,
+  resolveDeliveryRadiusBehavior,
   resolveOutsideAreaBehavior,
 } from '@/utils/deliveryRules';
 import {
@@ -118,6 +120,10 @@ function formatRuleSource(source) {
     distance: 'Distancia',
     hybrid_zone: 'Hibrido pela zona',
     hybrid_distance: 'Hibrido pela distancia',
+    outside_radius_blocked: 'Bloqueio por raio',
+    hybrid_outside_radius_blocked: 'Hibrido bloqueado por raio',
+    outside_radius_manual_review: 'Revisao por raio',
+    hybrid_outside_radius_manual_review: 'Hibrido em revisao por raio',
     outside_area_blocked: 'Bloqueio fora da area',
     hybrid_outside_area_blocked: 'Hibrido bloqueado',
     fallback_store_fee: 'Taxa padrao da loja',
@@ -160,11 +166,82 @@ function formatHybridStrategyLabel(strategy) {
   }
 }
 
+function formatRadiusBehaviorLabel(behavior) {
+  if (!behavior) {
+    return 'Raio desativado';
+  }
+
+  switch (behavior) {
+    case 'allow_with_distance':
+      return 'Permitir por distancia';
+    case 'allow_manual_review':
+      return 'Revisao manual';
+    case 'block':
+    default:
+      return 'Bloquear fora do raio';
+  }
+}
+
+function formatRadiusResultLabel(result) {
+  switch (result) {
+    case 'inside_radius':
+      return 'Dentro do raio';
+    case 'outside_radius':
+      return 'Fora do raio';
+    case 'radius_validation_unavailable':
+      return 'Raio nao validado';
+    default:
+      return 'Raio desativado';
+  }
+}
+
+function formatRadiusImpactLabel(simulation) {
+  if (!simulation?.deliveryRadiusKmLimit) {
+    return 'Sem raio maximo configurado';
+  }
+
+  if (simulation.deliveryRadiusResult === 'radius_validation_unavailable') {
+    return 'Nao foi possivel validar o raio com as coordenadas atuais';
+  }
+
+  if (simulation.deliveryRadiusResult === 'inside_radius') {
+    return simulation.deliveryRadiusEnforced
+      ? 'Dentro do raio e liberado pela regra final'
+      : 'Dentro do raio, sem impacto direto na regra final';
+  }
+
+  if (simulation.deliveryRadiusResult === 'outside_radius') {
+    if (simulation.blocked && simulation.blockReason === 'outside_radius') {
+      return 'Fora do raio e bloqueado';
+    }
+
+    if (['outside_radius_manual_review', 'hybrid_outside_radius_manual_review'].includes(simulation.deliveryRuleSource)) {
+      return 'Fora do raio e enviado para revisao manual';
+    }
+
+    if (simulation.deliveryRadiusEnforced && ['distance', 'hybrid_distance'].includes(simulation.deliveryFeeModeApplied)) {
+      return 'Fora do raio, mas permitido pela regra por distancia';
+    }
+
+    if (['zone', 'hybrid_zone'].includes(simulation.deliveryFeeModeApplied)) {
+      return 'Fora do raio, mas a zona prevaleceu';
+    }
+
+    return 'Fora do raio sem bloqueio automatico';
+  }
+
+  return 'n/a';
+}
+
 function formatDecisionPathStep(step) {
   const map = {
     'zone:matched': 'Zona encontrada',
     'zone:no_active_zone': 'Zona nao encontrada',
     'zone:missing_neighborhood': 'Bairro ausente',
+    'radius:inside': 'Dentro do raio',
+    'radius:outside': 'Fora do raio',
+    'radius:validation_unavailable': 'Raio nao validado',
+    'radius:allow_with_distance': 'Raio liberou por distancia',
     'distance:calculated': 'Distancia calculada',
     'distance:missing_customer_coordinates': 'Sem coordenadas do cliente',
     'distance:missing_store_coordinates': 'Sem coordenadas da loja',
@@ -284,6 +361,8 @@ export default function DeliveryZonesTab() {
     delivery_min_fee: 0,
     delivery_max_fee: null,
     delivery_free_distance: null,
+    delivery_max_radius_km: null,
+    delivery_radius_behavior: 'block',
     delivery_hybrid_strategy: 'zone_then_distance',
     checkout_address_mode: 'map_optional',
     delivery_outside_area_behavior: 'block',
@@ -308,6 +387,11 @@ export default function DeliveryZonesTab() {
       delivery_fee_mode: deliveryMode,
       delivery_pricing_mode: deliveryMode,
     });
+    const radiusLimitRaw = Number(rawConfig?.delivery_max_radius_km);
+    const normalizedRadiusLimit =
+      Number.isFinite(radiusLimitRaw) && radiusLimitRaw > 0
+        ? Math.round((radiusLimitRaw + Number.EPSILON) * 1000) / 1000
+        : null;
     const checkoutAddressMode =
       deliveryMode === 'distance'
         ? 'map_required'
@@ -320,6 +404,8 @@ export default function DeliveryZonesTab() {
       delivery_hybrid_strategy: deliveryMode === 'hybrid'
         ? hybridStrategy
         : rawConfig?.delivery_hybrid_strategy || null,
+      delivery_max_radius_km: normalizedRadiusLimit,
+      delivery_radius_behavior: resolveDeliveryRadiusBehavior(rawConfig),
       checkout_address_mode: checkoutAddressMode,
       delivery_outside_area_behavior: resolveOutsideAreaBehavior({
         ...rawConfig,
@@ -354,6 +440,8 @@ export default function DeliveryZonesTab() {
       delivery_min_fee: store.delivery_min_fee || 0,
       delivery_max_fee: store.delivery_max_fee ?? null,
       delivery_free_distance: store.delivery_free_distance ?? null,
+      delivery_max_radius_km: resolveDeliveryMaxRadiusKm(store),
+      delivery_radius_behavior: resolveDeliveryRadiusBehavior(store),
       delivery_hybrid_strategy: resolveDeliveryHybridStrategy(store),
       checkout_address_mode: resolveCheckoutAddressMode(store),
       delivery_outside_area_behavior: resolveOutsideAreaBehavior(store),
@@ -939,7 +1027,7 @@ export default function DeliveryZonesTab() {
           <CardHeader>
             <CardTitle>Configuracao de entrega</CardTitle>
             <CardDescription>
-              Ajuste o modo de calculo e o comportamento padrao antes de operar as zonas.
+              Ajuste o modo de calculo, os fallbacks e a trava leve por raio antes de operar as zonas.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -1047,6 +1135,63 @@ export default function DeliveryZonesTab() {
                   <SelectItem value="allow_manual_review">Permitir revisao manual</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div className="rounded-lg border p-4 space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <Label className="mb-1 block">Raio maximo de entrega</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Cria uma trava espacial leve para entregas por distancia e para o fallback do modo hibrido.
+                  </p>
+                </div>
+                <Switch
+                  checked={Boolean(deliveryConfig.delivery_max_radius_km)}
+                  onCheckedChange={(checked) => setDeliveryConfig((current) => ({
+                    ...current,
+                    delivery_max_radius_km: checked === true
+                      ? current.delivery_max_radius_km || 8
+                      : null,
+                  }))}
+                />
+              </div>
+              {deliveryConfig.delivery_max_radius_km ? (
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div>
+                    <Label>Raio maximo (km)</Label>
+                    <Input
+                      type="number"
+                      min="0.1"
+                      step="0.1"
+                      value={deliveryConfig.delivery_max_radius_km ?? ''}
+                      onChange={(event) => setDeliveryConfig((current) => ({
+                        ...current,
+                        delivery_max_radius_km: event.target.value ? parseFloat(event.target.value) : null,
+                      }))}
+                      placeholder="8"
+                    />
+                  </div>
+                  <div>
+                    <Label>Pedidos fora do raio</Label>
+                    <Select
+                      value={deliveryConfig.delivery_radius_behavior}
+                      onValueChange={(value) => setDeliveryConfig((current) => ({ ...current, delivery_radius_behavior: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="block">Bloquear pedido</SelectItem>
+                        <SelectItem value="allow_with_distance">Permitir pela distancia</SelectItem>
+                        <SelectItem value="allow_manual_review">Permitir revisao manual</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Sem limite espacial ativo. O motor continua usando apenas zona, distancia e fallbacks ja configurados.
+                </p>
+              )}
             </div>
             {(deliveryConfig.delivery_fee_mode === 'zone' || deliveryConfig.delivery_fee_mode === 'hybrid') && (
               <div>
@@ -1436,8 +1581,26 @@ export default function DeliveryZonesTab() {
                 <div className="rounded-lg border bg-background/80 p-3">
                   <p className="text-xs text-muted-foreground">Distancia</p>
                   <p className="font-medium">
-                    {simulation.distanceKm == null ? 'n/a' : `${simulation.distanceKm.toFixed(3)} km`}
+                    {simulation.evaluatedDistanceKm == null ? 'n/a' : `${simulation.evaluatedDistanceKm.toFixed(3)} km`}
                   </p>
+                </div>
+                <div className="rounded-lg border bg-background/80 p-3">
+                  <p className="text-xs text-muted-foreground">Raio maximo</p>
+                  <p className="font-medium">
+                    {simulation.deliveryRadiusKmLimit == null ? 'Desativado' : `${simulation.deliveryRadiusKmLimit.toFixed(3)} km`}
+                  </p>
+                </div>
+                <div className="rounded-lg border bg-background/80 p-3">
+                  <p className="text-xs text-muted-foreground">Resultado do raio</p>
+                  <p className="font-medium">{formatRadiusResultLabel(simulation.deliveryRadiusResult)}</p>
+                </div>
+                <div className="rounded-lg border bg-background/80 p-3">
+                  <p className="text-xs text-muted-foreground">Comportamento do raio</p>
+                  <p className="font-medium">{formatRadiusBehaviorLabel(simulation.deliveryRadiusBehaviorApplied)}</p>
+                </div>
+                <div className="rounded-lg border bg-background/80 p-3">
+                  <p className="text-xs text-muted-foreground">Impacto do raio</p>
+                  <p className="font-medium">{formatRadiusImpactLabel(simulation)}</p>
                 </div>
                 <div className="rounded-lg border bg-background/80 p-3">
                   <p className="text-xs text-muted-foreground">Motivo</p>

@@ -112,6 +112,7 @@ export default function CheckoutView({
     'hybrid_fallback_store_fee',
     'distance_fallback_store_fee',
   ].includes(deliveryContext.deliveryRuleSource);
+  const blockedDeliveryMessage = deliveryContext.message || checkoutText.outsideAreaBlocked;
   const addressMode = orderService.resolveCheckoutAddressMode(store);
   const canUseMapPicker = addressMode !== 'text_only';
   const requiresMapSelection = customer.deliveryMethod === 'delivery' && deliveryContext.missingRequiredCoordinates;
@@ -442,23 +443,20 @@ export default function CheckoutView({
                         if (isOutsideAreaBlocked) {
                           return (
                             <p className="text-xs text-red-600 mt-1">
-                              ⚠️ {checkoutText.outsideAreaBlocked}
+                              ⚠️ {blockedDeliveryMessage}
                             </p>
                           );
                         }
 
-                        if (deliveryContext.deliveryRuleSource === 'manual_review') {
+                        if ([
+                          'manual_review',
+                          'hybrid_manual_review',
+                          'outside_radius_manual_review',
+                          'hybrid_outside_radius_manual_review',
+                        ].includes(deliveryContext.deliveryRuleSource)) {
                           return (
                             <p className="text-xs text-orange-600 mt-1">
-                              ⚠️ {checkoutText.deliveryManualReview}
-                            </p>
-                          );
-                        }
-
-                        if (deliveryContext.deliveryRuleSource === 'hybrid_manual_review') {
-                          return (
-                            <p className="text-xs text-orange-600 mt-1">
-                              ⚠️ {checkoutText.deliveryManualReview}
+                              ⚠️ {deliveryContext.message || checkoutText.deliveryManualReview}
                             </p>
                           );
                         }
@@ -894,7 +892,7 @@ export default function CheckoutView({
                 : store?.accepting_orders === false
                 ? `⏸️ ${checkoutText.pausedOrders}`
                 : isOutsideAreaBlocked
-                ? checkoutText.outsideAreaBlocked
+                ? blockedDeliveryMessage
                 : requiresMapSelection
                 ? checkoutText.mapRequiredForDelivery
                 : isBelowMinimumOrder
@@ -912,7 +910,7 @@ export default function CheckoutView({
               </p>
             ) : isOutsideAreaBlocked ? (
               <p className="text-xs text-red-600 text-center mt-2">
-                {checkoutText.outsideAreaBlocked}
+                {blockedDeliveryMessage}
               </p>
             ) : requiresMapSelection ? (
               <p className="text-xs text-red-600 text-center mt-2">

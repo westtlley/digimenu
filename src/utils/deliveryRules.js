@@ -3,6 +3,7 @@ import { calculateDistance, calculateDeliveryFeeByDistance } from './distanceUti
 const VALID_PRICING_MODES = new Set(['zone', 'distance', 'hybrid']);
 const VALID_CHECKOUT_ADDRESS_MODES = new Set(['text_only', 'map_optional', 'map_required']);
 const VALID_OUTSIDE_AREA_BEHAVIORS = new Set(['block', 'fallback_store_fee', 'allow_manual_review']);
+const VALID_RADIUS_BEHAVIORS = new Set(['block', 'allow_with_distance', 'allow_manual_review']);
 const VALID_HYBRID_STRATEGIES = new Set([
   'zone_only',
   'zone_then_distance',
@@ -74,6 +75,28 @@ export function resolveDeliveryHybridStrategy(store = null) {
     .toLowerCase();
 
   return VALID_HYBRID_STRATEGIES.has(rawStrategy) ? rawStrategy : 'zone_then_distance';
+}
+
+export function resolveDeliveryMaxRadiusKm(store = null) {
+  const rawRadius =
+    store?.delivery_max_radius_km ??
+    store?.max_delivery_radius_km ??
+    null;
+  const radius = toNullableNumber(rawRadius);
+
+  if (!Number.isFinite(radius) || radius <= 0) {
+    return null;
+  }
+
+  return Math.round((radius + Number.EPSILON) * 1000) / 1000;
+}
+
+export function resolveDeliveryRadiusBehavior(store = null) {
+  const rawBehavior = String(store?.delivery_radius_behavior || '')
+    .trim()
+    .toLowerCase();
+
+  return VALID_RADIUS_BEHAVIORS.has(rawBehavior) ? rawBehavior : 'block';
 }
 
 export function getDeliveryZoneNeighborhood(zone = null) {
@@ -154,6 +177,8 @@ export function calculateDeliveryContext({
   const checkoutAddressMode = resolveCheckoutAddressMode(store);
   const outsideAreaBehavior = resolveOutsideAreaBehavior(store);
   const hybridStrategy = resolveDeliveryHybridStrategy(store);
+  const maxRadiusKm = resolveDeliveryMaxRadiusKm(store);
+  const radiusBehavior = resolveDeliveryRadiusBehavior(store);
   const matchedZone = findMatchingDeliveryZone(deliveryZones, neighborhood);
   const storeDefaultFee = roundMoney(toNumber(store?.delivery_fee, 0));
   const storeMinimumOrder = getStoreMinimumOrder(store);
@@ -174,6 +199,25 @@ export function calculateDeliveryContext({
     deliveryMethod === 'delivery' &&
     checkoutAddressMode === 'map_required';
   const canCalculateDistance = hasCustomerCoordinates && hasStoreCoordinates;
+  const measuredDistanceRaw = canCalculateDistance
+    ? calculateDistance(
+      storeLatitude,
+      storeLongitude,
+      customerLatitude,
+      customerLongitude
+    )
+    : null;
+  const measuredDistanceKm = Number.isFinite(measuredDistanceRaw)
+    ? Number(measuredDistanceRaw.toFixed(3))
+    : null;
+  const hasRadiusLimit = Number.isFinite(maxRadiusKm) && maxRadiusKm > 0;
+  const radiusResult = !hasRadiusLimit
+    ? null
+    : measuredDistanceKm == null
+      ? 'radius_validation_unavailable'
+      : measuredDistanceRaw <= maxRadiusKm
+        ? 'inside_radius'
+        : 'outside_radius';
   const hasZoneInput = hasNeighborhood;
   const pendingZoneReason = hasZoneInput ? 'no_active_zone' : 'missing_neighborhood';
   const distanceFailureReason = !hasCustomerCoordinates
@@ -183,6 +227,9 @@ export function calculateDeliveryContext({
       : null;
 
   const buildDecisionPath = (...steps) => steps.filter(Boolean);
+  const radiusUnavailableStep = hasRadiusLimit && radiusResult === 'radius_validation_unavailable'
+    ? 'radius:validation_unavailable'
+    : null;
 
   const buildResult = (overrides = {}) => ({
     deliveryMethod,
@@ -197,6 +244,7 @@ export function calculateDeliveryContext({
     deliveryFee: 0,
     deliveryFeeApplied: 0,
     distanceKm: null,
+    evaluatedDistanceKm: measuredDistanceKm,
     minimumOrderValue: storeMinimumOrder,
     hasCustomerCoordinates,
     hasStoreCoordinates,
@@ -214,6 +262,10 @@ export function calculateDeliveryContext({
     distanceFailureReason: null,
     fallbackAttempted: false,
     fallbackReason: null,
+    deliveryRadiusKmLimit: maxRadiusKm,
+    deliveryRadiusBehaviorApplied: hasRadiusLimit ? radiusBehavior : null,
+    deliveryRadiusResult: radiusResult,
+    deliveryRadiusEnforced: false,
     decisionPath: [],
     decisionSummary: deliveryMethod === 'delivery'
       ? 'Aguardando dados para calcular a entrega.'
@@ -227,15 +279,14 @@ export function calculateDeliveryContext({
     return baseResult;
   }
 
-  const applyDistance = ({ deliveryFeeModeApplied, deliveryRuleSource, decisionPath, decisionSummary }) => {
-    const distanceKm = calculateDistance(
-      storeLatitude,
-      storeLongitude,
-      customerLatitude,
-      customerLongitude
-    );
-
-    const deliveryFee = roundMoney(calculateDeliveryFeeByDistance(distanceKm, {
+  const applyDistance = ({
+    deliveryFeeModeApplied,
+    deliveryRuleSource,
+    decisionPath,
+    decisionSummary,
+    radiusEnforced = false,
+  }) => {
+    const deliveryFee = roundMoney(calculateDeliveryFeeByDistance(measuredDistanceRaw, {
       baseFee: toNumber(store?.delivery_base_fee, 0),
       pricePerKm: toNumber(store?.delivery_price_per_km, 0),
       minFee: toNumber(store?.delivery_min_fee, 0),
@@ -247,10 +298,11 @@ export function calculateDeliveryContext({
       deliveryFeeModeApplied,
       deliveryFee,
       deliveryFeeApplied: deliveryFee,
-      distanceKm: Number(distanceKm.toFixed(3)),
+      distanceKm: measuredDistanceKm,
       deliveryRuleSource,
       distanceAttempted: true,
       distanceCalculated: true,
+      deliveryRadiusEnforced: radiusEnforced,
       decisionPath,
       decisionSummary,
       zoneAttempted: pricingModeConfigured === 'hybrid',
@@ -286,6 +338,7 @@ export function calculateDeliveryContext({
     zoneFailureReason = zoneAttempted && !matchedZone ? pendingZoneReason : null,
     distanceAttempted = pricingModeConfigured === 'distance' || pricingModeConfigured === 'hybrid',
     distanceFailure = distanceAttempted ? distanceFailureReason : null,
+    radiusEnforced = false,
   }) => {
     if (behavior === 'block') {
       return buildResult({
@@ -301,6 +354,7 @@ export function calculateDeliveryContext({
         distanceFailureReason: distanceFailure,
         fallbackAttempted: true,
         fallbackReason: 'block',
+        deliveryRadiusEnforced: radiusEnforced,
         decisionPath,
         decisionSummary,
       });
@@ -320,6 +374,7 @@ export function calculateDeliveryContext({
         distanceFailureReason: distanceFailure,
         fallbackAttempted: true,
         fallbackReason: 'manual_review',
+        deliveryRadiusEnforced: radiusEnforced,
         decisionPath,
         decisionSummary,
       });
@@ -338,27 +393,97 @@ export function calculateDeliveryContext({
       distanceFailureReason: distanceFailure,
       fallbackAttempted: true,
       fallbackReason: 'fallback_store_fee',
+      deliveryRadiusEnforced: radiusEnforced,
       decisionPath,
       decisionSummary,
     });
   };
 
+  const resolveDistanceDecision = ({
+    deliveryFeeModeApplied,
+    deliveryRuleSource,
+    baseDecisionPath = [],
+    successSummary,
+    outsideRadiusBlockSource,
+    outsideRadiusManualReviewSource,
+  }) => {
+    if (!canCalculateDistance) {
+      return null;
+    }
+
+    if (hasRadiusLimit && radiusResult === 'outside_radius') {
+      if (radiusBehavior === 'allow_with_distance') {
+        return applyDistance({
+          deliveryFeeModeApplied,
+          deliveryRuleSource,
+          radiusEnforced: true,
+          decisionPath: buildDecisionPath(...baseDecisionPath, 'radius:outside', 'radius:allow_with_distance', 'distance:calculated'),
+          decisionSummary: 'Frete por distancia liberado mesmo fora do raio maximo, conforme configuracao da loja.',
+        });
+      }
+
+      if (radiusBehavior === 'allow_manual_review') {
+        return applyFallback({
+          behavior: 'allow_manual_review',
+          deliveryRuleSource: outsideRadiusManualReviewSource,
+          message: 'Endereco fora do raio maximo configurado. Entrega depende de revisao manual.',
+          blockReason: 'outside_radius',
+          decisionPath: buildDecisionPath(...baseDecisionPath, 'radius:outside', 'fallback:manual_review'),
+          decisionSummary: 'Entrega fora do raio maximo. Pedido enviado para revisao manual.',
+          distanceAttempted: true,
+          distanceFailure: null,
+          radiusEnforced: true,
+        });
+      }
+
+      return applyFallback({
+        behavior: 'block',
+        deliveryRuleSource: outsideRadiusBlockSource,
+        message: 'Endereco fora do raio maximo de entrega.',
+        blockReason: 'outside_radius',
+        decisionPath: buildDecisionPath(...baseDecisionPath, 'radius:outside', 'fallback:block'),
+        decisionSummary: 'Entrega bloqueada por estar fora do raio maximo configurado.',
+        distanceAttempted: true,
+        distanceFailure: null,
+        radiusEnforced: true,
+      });
+    }
+
+    return applyDistance({
+      deliveryFeeModeApplied,
+      deliveryRuleSource,
+      radiusEnforced: hasRadiusLimit,
+      decisionPath: buildDecisionPath(
+        ...baseDecisionPath,
+        hasRadiusLimit && radiusResult === 'inside_radius' ? 'radius:inside' : null,
+        'distance:calculated'
+      ),
+      decisionSummary: hasRadiusLimit && radiusResult === 'inside_radius'
+        ? 'Frete por distancia validado dentro do raio maximo configurado.'
+        : successSummary,
+    });
+  };
+
   if (!hasNeighborhood) {
     if (pricingModeConfigured === 'distance' && canCalculateDistance) {
-      return applyDistance({
+      return resolveDistanceDecision({
         deliveryFeeModeApplied: 'distance',
         deliveryRuleSource: 'distance',
-        decisionPath: buildDecisionPath('distance:calculated'),
-        decisionSummary: 'Frete calculado pela distancia.',
+        outsideRadiusBlockSource: 'outside_radius_blocked',
+        outsideRadiusManualReviewSource: 'outside_radius_manual_review',
+        baseDecisionPath: [],
+        successSummary: 'Frete calculado pela distancia.',
       });
     }
 
     if (pricingModeConfigured === 'hybrid' && hybridStrategy === 'zone_then_distance' && canCalculateDistance) {
-      return applyDistance({
+      return resolveDistanceDecision({
         deliveryFeeModeApplied: 'hybrid_distance',
         deliveryRuleSource: 'hybrid_distance',
-        decisionPath: buildDecisionPath('zone:missing_neighborhood', 'distance:calculated'),
-        decisionSummary: 'Frete calculado pela distancia apos falta de bairro no modo hibrido.',
+        outsideRadiusBlockSource: 'hybrid_outside_radius_blocked',
+        outsideRadiusManualReviewSource: 'hybrid_outside_radius_manual_review',
+        baseDecisionPath: ['zone:missing_neighborhood'],
+        successSummary: 'Frete calculado pela distancia apos falta de bairro no modo hibrido.',
       });
     }
 
@@ -367,7 +492,7 @@ export function calculateDeliveryContext({
         behavior: 'fallback_store_fee',
         deliveryRuleSource: 'distance_fallback_store_fee',
         message: 'Aguardando coordenadas para calcular por distancia. Aplicando a taxa padrao da loja.',
-        decisionPath: buildDecisionPath('distance:missing_coordinates', 'fallback:store_fee'),
+        decisionPath: buildDecisionPath(radiusUnavailableStep, 'distance:missing_coordinates', 'fallback:store_fee'),
         decisionSummary: 'Modo distancia sem coordenadas. Aplicando taxa padrao da loja.',
         zoneAttempted: false,
         distanceAttempted: true,
@@ -385,7 +510,7 @@ export function calculateDeliveryContext({
       distanceAttempted: pricingModeConfigured === 'hybrid',
       distanceFailureReason: pricingModeConfigured === 'hybrid' ? distanceFailureReason : null,
       decisionPath: pricingModeConfigured === 'hybrid'
-        ? buildDecisionPath('zone:missing_neighborhood', 'distance:missing_coordinates')
+        ? buildDecisionPath('zone:missing_neighborhood', radiusUnavailableStep, 'distance:missing_coordinates')
         : buildDecisionPath('zone:missing_neighborhood'),
       decisionSummary: pricingModeConfigured === 'hybrid'
         ? 'Aguardando bairro ou coordenadas para o modo hibrido.'
@@ -444,11 +569,13 @@ export function calculateDeliveryContext({
     }
 
     if (hybridStrategy === 'zone_then_distance' && canCalculateDistance) {
-      return applyDistance({
+      return resolveDistanceDecision({
         deliveryFeeModeApplied: 'hybrid_distance',
         deliveryRuleSource: 'hybrid_distance',
-        decisionPath: buildDecisionPath('zone:no_active_zone', 'distance:calculated'),
-        decisionSummary: 'Modo hibrido resolveu o frete pela distancia apos falha da zona.',
+        outsideRadiusBlockSource: 'hybrid_outside_radius_blocked',
+        outsideRadiusManualReviewSource: 'hybrid_outside_radius_manual_review',
+        baseDecisionPath: ['zone:no_active_zone'],
+        successSummary: 'Modo hibrido resolveu o frete pela distancia apos falha da zona.',
       });
     }
 
@@ -459,11 +586,16 @@ export function calculateDeliveryContext({
           ? 'fallback_store_fee'
           : outsideAreaBehavior;
 
-    const hybridFallbackPath = buildDecisionPath(
+    const hybridDistanceFallbackSteps = hybridStrategy === 'zone_then_distance'
+      ? buildDecisionPath(
+          radiusUnavailableStep,
+          distanceFailureReason ? `distance:${distanceFailureReason}` : 'distance:unavailable'
+        )
+      : [];
+    const hybridResolvedFallbackPath = buildDecisionPath(
       'zone:no_active_zone',
-      hybridStrategy === 'zone_then_distance'
-        ? (distanceFailureReason ? `distance:${distanceFailureReason}` : 'distance:unavailable')
-        : `strategy:${hybridStrategy}`,
+      ...hybridDistanceFallbackSteps,
+      hybridStrategy === 'zone_then_distance' ? null : `strategy:${hybridStrategy}`,
       hybridFallbackBehavior === 'block'
         ? 'fallback:block'
         : hybridFallbackBehavior === 'allow_manual_review'
@@ -477,7 +609,7 @@ export function calculateDeliveryContext({
         deliveryRuleSource: 'hybrid_outside_area_blocked',
         message: 'Nao foi possivel resolver a entrega por bairro ou distancia.',
         blockReason: 'hybrid_unresolved',
-        decisionPath: hybridFallbackPath,
+        decisionPath: hybridResolvedFallbackPath,
         decisionSummary: 'Modo hibrido nao encontrou zona nem distancia valida. Pedido bloqueado.',
       });
     }
@@ -487,7 +619,7 @@ export function calculateDeliveryContext({
         behavior: 'allow_manual_review',
         deliveryRuleSource: 'hybrid_manual_review',
         message: 'Entrega precisa de revisao manual apos falha de zona e distancia.',
-        decisionPath: hybridFallbackPath,
+        decisionPath: hybridResolvedFallbackPath,
         decisionSummary: 'Modo hibrido caiu para revisao manual.',
       });
     }
@@ -496,17 +628,19 @@ export function calculateDeliveryContext({
       behavior: 'fallback_store_fee',
       deliveryRuleSource: 'hybrid_fallback_store_fee',
       message: 'Modo hibrido sem zona nem distancia valida. Aplicando a taxa padrao da loja.',
-      decisionPath: hybridFallbackPath,
+      decisionPath: hybridResolvedFallbackPath,
       decisionSummary: 'Modo hibrido aplicou a taxa padrao da loja como fallback.',
     });
   }
 
   if (canCalculateDistance) {
-    return applyDistance({
+    return resolveDistanceDecision({
       deliveryFeeModeApplied: 'distance',
       deliveryRuleSource: 'distance',
-      decisionPath: buildDecisionPath('distance:calculated'),
-      decisionSummary: 'Frete calculado pela distancia.',
+      outsideRadiusBlockSource: 'outside_radius_blocked',
+      outsideRadiusManualReviewSource: 'outside_radius_manual_review',
+      baseDecisionPath: [],
+      successSummary: 'Frete calculado pela distancia.',
     });
   }
 
@@ -514,7 +648,7 @@ export function calculateDeliveryContext({
     return applyZone({
       deliveryFeeModeApplied: 'zone',
       deliveryRuleSource: 'distance_fallback_zone',
-      decisionPath: buildDecisionPath('distance:missing_coordinates', 'zone:matched'),
+      decisionPath: buildDecisionPath(radiusUnavailableStep, 'distance:missing_coordinates', 'zone:matched'),
       decisionSummary: 'Modo distancia sem coordenadas validas. Aplicando a zona como fallback.',
     });
   }
@@ -523,7 +657,7 @@ export function calculateDeliveryContext({
     behavior: 'fallback_store_fee',
     deliveryRuleSource: 'distance_fallback_store_fee',
     message: 'Modo distancia sem coordenadas validas. Aplicando a taxa padrao da loja.',
-    decisionPath: buildDecisionPath('distance:missing_coordinates', 'fallback:store_fee'),
+    decisionPath: buildDecisionPath(radiusUnavailableStep, 'distance:missing_coordinates', 'fallback:store_fee'),
     decisionSummary: 'Modo distancia sem coordenadas validas. Aplicando a taxa padrao da loja.',
     zoneAttempted: false,
     distanceAttempted: true,

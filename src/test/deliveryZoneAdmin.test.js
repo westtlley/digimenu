@@ -155,4 +155,29 @@ describe('deliveryZoneAdmin', () => {
     expect(result.deliveryRuleSource).toBe('hybrid_distance');
     expect(result.decisionPath).toEqual(['zone:no_active_zone', 'distance:calculated']);
   });
+
+  it('explica no simulador quando o raio bloqueia a entrega por distancia', () => {
+    const result = simulateDeliveryCoverage({
+      neighborhood: 'Bairro Novo',
+      store: {
+        delivery_fee_mode: 'distance',
+        delivery_max_radius_km: 0.5,
+        delivery_radius_behavior: 'block',
+        latitude: -2.53,
+        longitude: -44.29,
+        delivery_base_fee: 4,
+        delivery_price_per_km: 2,
+      },
+      customerLat: -2.54,
+      customerLng: -44.3,
+      deliveryZones: [],
+    });
+
+    expect(result.allowed).toBe(false);
+    expect(result.blocked).toBe(true);
+    expect(result.blockReason).toBe('outside_radius');
+    expect(result.deliveryRuleSource).toBe('outside_radius_blocked');
+    expect(result.deliveryRadiusResult).toBe('outside_radius');
+    expect(result.decisionMessage).toContain('raio maximo');
+  });
 });
