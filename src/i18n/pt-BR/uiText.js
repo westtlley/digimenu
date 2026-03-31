@@ -473,7 +473,7 @@
       return `Taxa de entrega calculada por distância: ${value}`;
     },
     zoneFee(value) {
-      return `Taxa de entrega: ${value}`;
+      return `Frete calculado pelo bairro: ${value}`;
     },
     zoneNotRegistered: 'Bairro fora das zonas ativas. Aplicando a taxa padrão da loja.',
     outsideAreaBlocked: 'Ainda não entregamos nesse bairro.',

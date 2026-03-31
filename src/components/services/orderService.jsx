@@ -2,6 +2,7 @@ import {
   calculateDeliveryContext,
   resolveCheckoutAddressMode,
   resolveDeliveryPricingMode,
+  resolveDeliveryHybridStrategy,
 } from '@/utils/deliveryRules';
 
 export const orderService = {
@@ -52,6 +53,10 @@ export const orderService = {
 
   resolveDeliveryPricingMode(store = null) {
     return resolveDeliveryPricingMode(store);
+  },
+
+  resolveDeliveryHybridStrategy(store = null) {
+    return resolveDeliveryHybridStrategy(store);
   },
 
   formatFullAddress(customer) {

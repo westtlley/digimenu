@@ -429,7 +429,7 @@
       return `Delivery fee calculated by distance: ${value}`;
     },
     zoneFee(value) {
-      return `Delivery fee: ${value}`;
+      return `Delivery fee calculated by neighborhood: ${value}`;
     },
     zoneNotRegistered: 'Neighborhood is outside the active zones. Applying the store default fee.',
     outsideAreaBlocked: 'We do not deliver to this neighborhood yet.',

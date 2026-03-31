@@ -131,4 +131,28 @@ describe('deliveryZoneAdmin', () => {
     expect(result.blocked).toBe(true);
     expect(result.deliveryRuleSource).toBe('outside_area_blocked');
   });
+
+  it('revela o caminho hibrido no simulador quando cai para distancia', () => {
+    const result = simulateDeliveryCoverage({
+      neighborhood: 'Bairro Novo',
+      store: {
+        delivery_fee_mode: 'hybrid',
+        delivery_hybrid_strategy: 'zone_then_distance',
+        latitude: -2.53,
+        longitude: -44.29,
+        delivery_base_fee: 4,
+        delivery_price_per_km: 2,
+      },
+      customerLat: -2.54,
+      customerLng: -44.3,
+      deliveryZones: [
+        { id: '1', neighborhood: 'Centro', fee: 6, is_active: true },
+      ],
+    });
+
+    expect(result.allowed).toBe(true);
+    expect(result.deliveryFeeModeApplied).toBe('hybrid_distance');
+    expect(result.deliveryRuleSource).toBe('hybrid_distance');
+    expect(result.decisionPath).toEqual(['zone:no_active_zone', 'distance:calculated']);
+  });
 });

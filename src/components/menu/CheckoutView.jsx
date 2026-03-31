@@ -105,6 +105,13 @@ export default function CheckoutView({
     customer.latitude,
     customer.longitude
   );
+  const isDistanceApplied = ['distance', 'hybrid_distance'].includes(deliveryContext.deliveryFeeModeApplied);
+  const isZoneApplied = ['zone', 'hybrid_zone'].includes(deliveryContext.deliveryFeeModeApplied) && Boolean(deliveryContext.matchedZone);
+  const isStoreFeeFallback = [
+    'fallback_store_fee',
+    'hybrid_fallback_store_fee',
+    'distance_fallback_store_fee',
+  ].includes(deliveryContext.deliveryRuleSource);
   const addressMode = orderService.resolveCheckoutAddressMode(store);
   const canUseMapPicker = addressMode !== 'text_only';
   const requiresMapSelection = customer.deliveryMethod === 'delivery' && deliveryContext.missingRequiredCoordinates;
@@ -448,30 +455,37 @@ export default function CheckoutView({
                           );
                         }
 
-                        // Se for cálculo por distância e tem coordenadas
-                        if (orderService.resolveDeliveryPricingMode(store) === 'distance' && customer.latitude && customer.longitude) {
+                        if (deliveryContext.deliveryRuleSource === 'hybrid_manual_review') {
+                          return (
+                            <p className="text-xs text-orange-600 mt-1">
+                              ⚠️ {checkoutText.deliveryManualReview}
+                            </p>
+                          );
+                        }
+
+                        if (isDistanceApplied && customer.latitude && customer.longitude) {
                           const fee = deliveryFee;
-                          if (fee > 0) {
-                            return (
-                              <p className="text-xs text-green-600 mt-1">
-                                ✓ {checkoutText.distanceFeeCalculated(formatCurrency(fee))}
-                              </p>
-                            );
-                          }
-                        } else if (deliveryZones.length > 0) {
-                          if (deliveryContext.matchedZone) {
-                            return (
-                              <p className="text-xs text-green-600 mt-1">
-                                ✓ {checkoutText.zoneFee(formatCurrency(deliveryContext.deliveryFee))}
-                              </p>
-                            );
-                          } else if (deliveryContext.deliveryRuleSource === 'fallback_store_fee' && customer.neighborhood.length > 2) {
-                            return (
-                              <p className="text-xs text-orange-600 mt-1">
-                                ⚠️ {checkoutText.zoneNotRegistered}
-                              </p>
-                            );
-                          }
+                          return (
+                            <p className="text-xs text-green-600 mt-1">
+                              ✓ {checkoutText.distanceFeeCalculated(formatCurrency(fee))}
+                            </p>
+                          );
+                        }
+
+                        if (deliveryZones.length > 0 && isZoneApplied) {
+                          return (
+                            <p className="text-xs text-green-600 mt-1">
+                              ✓ {checkoutText.zoneFee(formatCurrency(deliveryContext.deliveryFee))}
+                            </p>
+                          );
+                        }
+
+                        if (isStoreFeeFallback && customer.neighborhood.length > 2) {
+                          return (
+                            <p className="text-xs text-orange-600 mt-1">
+                              ⚠️ {checkoutText.zoneNotRegistered}
+                            </p>
+                          );
                         }
                         return null;
                       })()

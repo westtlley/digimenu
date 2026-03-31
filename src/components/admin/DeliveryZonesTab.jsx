@@ -35,6 +35,7 @@ import { getMenuContextEntityOpts, getMenuContextQueryKeyParts } from '@/utils/t
 import {
   normalizeNeighborhood,
   resolveCheckoutAddressMode,
+  resolveDeliveryHybridStrategy,
   resolveDeliveryPricingMode,
   resolveOutsideAreaBehavior,
 } from '@/utils/deliveryRules';
@@ -115,15 +116,69 @@ function formatRuleSource(source) {
   const map = {
     zone: 'Zona',
     distance: 'Distancia',
+    hybrid_zone: 'Hibrido pela zona',
+    hybrid_distance: 'Hibrido pela distancia',
     outside_area_blocked: 'Bloqueio fora da area',
+    hybrid_outside_area_blocked: 'Hibrido bloqueado',
     fallback_store_fee: 'Taxa padrao da loja',
+    hybrid_fallback_store_fee: 'Hibrido com taxa da loja',
     manual_review: 'Revisao manual',
+    hybrid_manual_review: 'Hibrido em revisao',
     distance_fallback_zone: 'Zona fallback',
     distance_fallback_store_fee: 'Loja fallback',
     pending_zone_match: 'Aguardando bairro',
+    pending_hybrid_resolution: 'Aguardando resolucao hibrida',
   };
 
   return map[source] || source || 'n/a';
+}
+
+function formatPricingModeLabel(mode) {
+  switch (mode) {
+    case 'distance':
+      return 'Modo distancia';
+    case 'hybrid':
+      return 'Modo hibrido';
+    case 'zone':
+    default:
+      return 'Modo bairro';
+  }
+}
+
+function formatHybridStrategyLabel(strategy) {
+  if (!strategy) return 'n/a';
+  switch (strategy) {
+    case 'zone_only':
+      return 'Zona apenas';
+    case 'zone_then_block':
+      return 'Zona e bloqueio';
+    case 'zone_then_store_fee':
+      return 'Zona e taxa da loja';
+    case 'zone_then_distance':
+    default:
+      return 'Zona e depois distancia';
+  }
+}
+
+function formatDecisionPathStep(step) {
+  const map = {
+    'zone:matched': 'Zona encontrada',
+    'zone:no_active_zone': 'Zona nao encontrada',
+    'zone:missing_neighborhood': 'Bairro ausente',
+    'distance:calculated': 'Distancia calculada',
+    'distance:missing_customer_coordinates': 'Sem coordenadas do cliente',
+    'distance:missing_store_coordinates': 'Sem coordenadas da loja',
+    'distance:missing_coordinates': 'Sem coordenadas para distancia',
+    'distance:unavailable': 'Distancia indisponivel',
+    'fallback:block': 'Fallback com bloqueio',
+    'fallback:manual_review': 'Fallback com revisao manual',
+    'fallback:store_fee': 'Fallback com taxa da loja',
+    'strategy:zone_only': 'Estrategia zona apenas',
+    'strategy:zone_then_block': 'Estrategia zona e bloqueio',
+    'strategy:zone_then_store_fee': 'Estrategia zona e taxa da loja',
+  };
+
+  return map[step] || step || 'n/a';
 }
 
 function formatSuggestionStatusLabel(status) {
@@ -229,6 +284,7 @@ export default function DeliveryZonesTab() {
     delivery_min_fee: 0,
     delivery_max_fee: null,
     delivery_free_distance: null,
+    delivery_hybrid_strategy: 'zone_then_distance',
     checkout_address_mode: 'map_optional',
     delivery_outside_area_behavior: 'block',
   });
@@ -247,6 +303,11 @@ export default function DeliveryZonesTab() {
 
   const buildStorePayload = (rawConfig) => {
     const deliveryMode = resolveDeliveryPricingMode(rawConfig);
+    const hybridStrategy = resolveDeliveryHybridStrategy({
+      ...rawConfig,
+      delivery_fee_mode: deliveryMode,
+      delivery_pricing_mode: deliveryMode,
+    });
     const checkoutAddressMode =
       deliveryMode === 'distance'
         ? 'map_required'
@@ -256,6 +317,9 @@ export default function DeliveryZonesTab() {
       ...rawConfig,
       delivery_fee_mode: deliveryMode,
       delivery_pricing_mode: deliveryMode,
+      delivery_hybrid_strategy: deliveryMode === 'hybrid'
+        ? hybridStrategy
+        : rawConfig?.delivery_hybrid_strategy || null,
       checkout_address_mode: checkoutAddressMode,
       delivery_outside_area_behavior: resolveOutsideAreaBehavior({
         ...rawConfig,
@@ -290,6 +354,7 @@ export default function DeliveryZonesTab() {
       delivery_min_fee: store.delivery_min_fee || 0,
       delivery_max_fee: store.delivery_max_fee ?? null,
       delivery_free_distance: store.delivery_free_distance ?? null,
+      delivery_hybrid_strategy: resolveDeliveryHybridStrategy(store),
       checkout_address_mode: resolveCheckoutAddressMode(store),
       delivery_outside_area_behavior: resolveOutsideAreaBehavior(store),
     });
@@ -854,11 +919,11 @@ export default function DeliveryZonesTab() {
         <div className="space-y-1">
           <h2 className="text-2xl font-bold">Zona de Entrega</h2>
           <p className="text-sm text-muted-foreground">
-            Operacao por bairro com a mesma regra de frete do checkout e do pedido final.
+            Operacao por bairro, distancia e modo hibrido com a mesma regra de frete do checkout e do pedido final.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="outline">{resolveDeliveryPricingMode(store) === 'distance' ? 'Modo distancia' : 'Modo bairro'}</Badge>
+          <Badge variant="outline">{formatPricingModeLabel(resolveDeliveryPricingMode(store))}</Badge>
           <Badge variant={duplicateGroups.length > 0 ? 'destructive' : 'secondary'}>
             {duplicateGroups.length > 0 ? `${duplicateGroups.length} conflitos` : 'Sem conflitos ativos'}
           </Badge>
@@ -895,6 +960,19 @@ export default function DeliveryZonesTab() {
                 </Button>
                 <Button
                   type="button"
+                  variant={deliveryConfig.delivery_fee_mode === 'hybrid' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setDeliveryConfig((current) => ({
+                    ...current,
+                    delivery_fee_mode: 'hybrid',
+                    delivery_pricing_mode: 'hybrid',
+                    delivery_hybrid_strategy: current.delivery_hybrid_strategy || 'zone_then_distance',
+                  }))}
+                >
+                  Hibrido forte
+                </Button>
+                <Button
+                  type="button"
                   variant={deliveryConfig.delivery_fee_mode === 'distance' ? 'default' : 'outline'}
                   size="sm"
                   onClick={() => setDeliveryConfig((current) => ({
@@ -908,6 +986,28 @@ export default function DeliveryZonesTab() {
                 </Button>
               </div>
             </div>
+            {deliveryConfig.delivery_fee_mode === 'hybrid' && (
+              <div>
+                <Label className="mb-2 block">Estrategia hibrida</Label>
+                <Select
+                  value={deliveryConfig.delivery_hybrid_strategy}
+                  onValueChange={(value) => setDeliveryConfig((current) => ({ ...current, delivery_hybrid_strategy: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="zone_then_distance">Zona e depois distancia</SelectItem>
+                    <SelectItem value="zone_only">Zona apenas</SelectItem>
+                    <SelectItem value="zone_then_block">Zona e depois bloquear</SelectItem>
+                    <SelectItem value="zone_then_store_fee">Zona e depois taxa da loja</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-2">
+                  No hibrido, o sistema sempre tenta bairro primeiro e so depois segue para a estrategia configurada.
+                </p>
+              </div>
+            )}
             <div>
               <Label className="mb-2 block">Endereco no checkout</Label>
               <Select
@@ -927,6 +1027,8 @@ export default function DeliveryZonesTab() {
               <p className="text-xs text-muted-foreground mt-2">
                 {deliveryConfig.delivery_fee_mode === 'distance'
                   ? 'No modo por km, o mapa segue obrigatorio neste lote.'
+                  : deliveryConfig.delivery_fee_mode === 'hybrid'
+                  ? 'No modo hibrido, o checkout pode resolver pelo bairro e usar distancia quando houver coordenadas.'
                   : 'No modo por bairro, o checkout pode operar so com endereco textual.'}
               </p>
             </div>
@@ -946,7 +1048,7 @@ export default function DeliveryZonesTab() {
                 </SelectContent>
               </Select>
             </div>
-            {deliveryConfig.delivery_fee_mode === 'zone' && (
+            {(deliveryConfig.delivery_fee_mode === 'zone' || deliveryConfig.delivery_fee_mode === 'hybrid') && (
               <div>
                 <Label>Taxa padrao (R$)</Label>
                 <Input
@@ -960,7 +1062,7 @@ export default function DeliveryZonesTab() {
                 />
               </div>
             )}
-            {deliveryConfig.delivery_fee_mode === 'distance' && (
+            {(deliveryConfig.delivery_fee_mode === 'distance' || deliveryConfig.delivery_fee_mode === 'hybrid') && (
               <>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
@@ -1302,6 +1404,7 @@ export default function DeliveryZonesTab() {
                   {!simulation.ready ? 'Aguardando bairro' : simulation.allowed ? 'Entrega permitida' : 'Entrega bloqueada'}
                 </Badge>
                 <Badge variant="outline">{formatRuleSource(simulation.deliveryRuleSource)}</Badge>
+                <Badge variant="outline">{simulation.deliveryFeeModeApplied || 'n/a'}</Badge>
                 {simulation.belowMinimumOrder && (
                   <Badge variant="outline" className="border-amber-400 text-amber-900">
                     Subtotal abaixo do minimo
@@ -1313,6 +1416,10 @@ export default function DeliveryZonesTab() {
                 <div className="rounded-lg border bg-background/80 p-3">
                   <p className="text-xs text-muted-foreground">Modo aplicado</p>
                   <p className="font-medium">{simulation.deliveryFeeModeApplied || 'n/a'}</p>
+                </div>
+                <div className="rounded-lg border bg-background/80 p-3">
+                  <p className="text-xs text-muted-foreground">Estrategia hibrida</p>
+                  <p className="font-medium">{formatHybridStrategyLabel(simulation.hybridStrategy)}</p>
                 </div>
                 <div className="rounded-lg border bg-background/80 p-3">
                   <p className="text-xs text-muted-foreground">Zona encontrada</p>
@@ -1336,6 +1443,21 @@ export default function DeliveryZonesTab() {
                   <p className="text-xs text-muted-foreground">Motivo</p>
                   <p className="font-medium">{simulation.blockReason || 'ok'}</p>
                 </div>
+              </div>
+              <div className="rounded-lg border bg-background/80 p-3 mt-4">
+                <p className="text-xs text-muted-foreground">Caminho da decisao</p>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {(simulation.decisionPath || []).length > 0 ? (
+                    simulation.decisionPath.map((step) => (
+                      <Badge key={step} variant="outline">
+                        {formatDecisionPathStep(step)}
+                      </Badge>
+                    ))
+                  ) : (
+                    <span className="text-sm text-muted-foreground">n/a</span>
+                  )}
+                </div>
+                <p className="text-sm mt-3">{simulation.decisionSummary || 'n/a'}</p>
               </div>
             </div>
           </CardContent>

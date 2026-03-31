@@ -4,6 +4,7 @@ import {
   findMatchingDeliveryZone,
   normalizeDeliveryZone,
   resolveCheckoutAddressMode,
+  resolveDeliveryHybridStrategy,
 } from '../utils/deliveryRules';
 
 describe('deliveryRules', () => {
@@ -102,6 +103,27 @@ describe('deliveryRules', () => {
     expect(context.deliveryFee).toBeGreaterThan(4);
   });
 
+  it('nao herda pedido minimo da zona quando a decisao final e por distancia', () => {
+    const context = calculateDeliveryContext({
+      deliveryMethod: 'delivery',
+      neighborhood: 'Centro',
+      deliveryZones: [{ id: 'zone-1', neighborhood: 'Centro', fee: 9, min_order: 50, is_active: true }],
+      store: {
+        delivery_fee_mode: 'distance',
+        min_order_value: 20,
+        latitude: -2.53,
+        longitude: -44.29,
+        delivery_base_fee: 4,
+        delivery_price_per_km: 2,
+      },
+      customerLat: -2.54,
+      customerLng: -44.3,
+    });
+
+    expect(context.deliveryFeeModeApplied).toBe('distance');
+    expect(context.minimumOrderValue).toBe(20);
+  });
+
   it('sinaliza coordenadas obrigatorias quando mapa e requerido', () => {
     const context = calculateDeliveryContext({
       deliveryMethod: 'delivery',
@@ -116,5 +138,99 @@ describe('deliveryRules', () => {
 
     expect(context.requiresCoordinates).toBe(true);
     expect(context.missingRequiredCoordinates).toBe(true);
+  });
+
+  it('resolve modo hibrido pela zona quando encontra bairro ativo', () => {
+    const context = calculateDeliveryContext({
+      deliveryMethod: 'delivery',
+      neighborhood: 'Centro',
+      deliveryZones: [{ id: 'zone-1', neighborhood: 'Centro', fee: 7.5, min_order: 30, is_active: true }],
+      store: {
+        delivery_fee_mode: 'hybrid',
+        delivery_hybrid_strategy: 'zone_then_distance',
+        checkout_address_mode: 'map_optional',
+        min_order_value: 20,
+      },
+      customerLat: -2.54,
+      customerLng: -44.3,
+    });
+
+    expect(resolveDeliveryHybridStrategy({ delivery_fee_mode: 'hybrid' })).toBe('zone_then_distance');
+    expect(context.deliveryFeeModeApplied).toBe('hybrid_zone');
+    expect(context.deliveryRuleSource).toBe('hybrid_zone');
+    expect(context.deliveryFee).toBe(7.5);
+    expect(context.minimumOrderValue).toBe(30);
+    expect(context.decisionPath).toEqual(['zone:matched']);
+  });
+
+  it('resolve modo hibrido pela distancia quando nao encontra zona', () => {
+    const context = calculateDeliveryContext({
+      deliveryMethod: 'delivery',
+      neighborhood: 'Bairro Novo',
+      deliveryZones: [{ id: 'zone-1', neighborhood: 'Centro', fee: 7.5, is_active: true }],
+      store: {
+        delivery_fee_mode: 'hybrid',
+        delivery_hybrid_strategy: 'zone_then_distance',
+        checkout_address_mode: 'map_optional',
+        latitude: -2.53,
+        longitude: -44.29,
+        delivery_base_fee: 4,
+        delivery_price_per_km: 2,
+      },
+      customerLat: -2.54,
+      customerLng: -44.3,
+    });
+
+    expect(context.deliveryFeeModeApplied).toBe('hybrid_distance');
+    expect(context.deliveryRuleSource).toBe('hybrid_distance');
+    expect(context.distanceKm).toBeGreaterThan(0);
+    expect(context.decisionPath).toEqual(['zone:no_active_zone', 'distance:calculated']);
+  });
+
+  it('cai no fallback configurado quando hibrido nao resolve zona nem distancia', () => {
+    const context = calculateDeliveryContext({
+      deliveryMethod: 'delivery',
+      neighborhood: 'Bairro Novo',
+      deliveryZones: [{ id: 'zone-1', neighborhood: 'Centro', fee: 7.5, is_active: true }],
+      store: {
+        delivery_fee_mode: 'hybrid',
+        delivery_hybrid_strategy: 'zone_then_distance',
+        delivery_outside_area_behavior: 'block',
+      },
+    });
+
+    expect(context.blocked).toBe(true);
+    expect(context.deliveryFeeModeApplied).toBe('fallback');
+    expect(context.deliveryRuleSource).toBe('hybrid_outside_area_blocked');
+    expect(context.decisionPath).toEqual([
+      'zone:no_active_zone',
+      'distance:missing_customer_coordinates',
+      'fallback:block',
+    ]);
+  });
+
+  it('permite estrategia hibrida explicita sem distancia', () => {
+    const context = calculateDeliveryContext({
+      deliveryMethod: 'delivery',
+      neighborhood: 'Bairro Novo',
+      deliveryZones: [{ id: 'zone-1', neighborhood: 'Centro', fee: 7.5, is_active: true }],
+      store: {
+        delivery_fee_mode: 'hybrid',
+        delivery_hybrid_strategy: 'zone_then_store_fee',
+        delivery_fee: 11,
+      },
+      customerLat: -2.54,
+      customerLng: -44.3,
+    });
+
+    expect(context.blocked).toBe(false);
+    expect(context.deliveryFeeModeApplied).toBe('fallback');
+    expect(context.deliveryFee).toBe(11);
+    expect(context.deliveryRuleSource).toBe('hybrid_fallback_store_fee');
+    expect(context.decisionPath).toEqual([
+      'zone:no_active_zone',
+      'strategy:zone_then_store_fee',
+      'fallback:store_fee',
+    ]);
   });
 });

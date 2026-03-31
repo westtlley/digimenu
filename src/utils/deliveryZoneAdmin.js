@@ -211,7 +211,7 @@ export function simulateDeliveryCoverage({
     Number(deliveryContext.minimumOrderValue || 0) > 0 &&
     numericSubtotal < Number(deliveryContext.minimumOrderValue || 0);
 
-  let decisionMessage = 'Entrega permitida com a configuracao atual.';
+  let decisionMessage = deliveryContext.decisionSummary || 'Entrega permitida com a configuracao atual.';
 
   if (deliveryContext.blocked) {
     decisionMessage = deliveryContext.message || 'Ainda nao entregamos nesse bairro.';
@@ -219,7 +219,7 @@ export function simulateDeliveryCoverage({
     decisionMessage = 'Informe coordenadas para simular a entrega no modo por distancia.';
   } else if (belowMinimumOrder) {
     decisionMessage = 'Subtotal abaixo do pedido minimo configurado para essa entrega.';
-  } else if (deliveryContext.deliveryRuleSource === 'manual_review') {
+  } else if (['manual_review', 'hybrid_manual_review'].includes(deliveryContext.deliveryRuleSource)) {
     decisionMessage = deliveryContext.message || 'Entrega depende de revisao manual.';
   }
 
