@@ -104,6 +104,31 @@ describe('deliveryRules', () => {
     expect(context.deliveryFee).toBeGreaterThan(4);
   });
 
+  it('mantem a entrega por distancia quando o pedido esta dentro do raio configurado', () => {
+    const context = calculateDeliveryContext({
+      deliveryMethod: 'delivery',
+      neighborhood: 'Centro',
+      deliveryZones: [],
+      store: {
+        delivery_fee_mode: 'distance',
+        delivery_max_radius_km: 5,
+        delivery_radius_behavior: 'block',
+        latitude: -2.53,
+        longitude: -44.29,
+        delivery_base_fee: 4,
+        delivery_price_per_km: 2,
+      },
+      customerLat: -2.531,
+      customerLng: -44.291,
+    });
+
+    expect(context.blocked).toBe(false);
+    expect(context.deliveryFeeModeApplied).toBe('distance');
+    expect(context.deliveryRadiusResult).toBe('inside_radius');
+    expect(context.deliveryRadiusEnforced).toBe(true);
+    expect(context.decisionPath).toEqual(['radius:inside', 'distance:calculated']);
+  });
+
   it('resolve o raio configurado e bloqueia distancia fora do limite', () => {
     const context = calculateDeliveryContext({
       deliveryMethod: 'delivery',
